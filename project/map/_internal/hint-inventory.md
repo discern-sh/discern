@@ -965,6 +965,17 @@ Rendered example:
 
 > Use each finding's next step to investigate or improve the practice.
 
+## `patterns-archive-selection`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `patterns-archive`
+- Emitting context: `patterns --logbook-file` cannot resolve a regular sealed archive basename.
+
+Rendered example:
+
+> `discern patterns archives` lists the sealed archive filenames that can be read.
+
 ## `patterns-findings-capped`
 
 - Category: `notice`
@@ -986,6 +997,17 @@ Rendered example:
 Rendered example:
 
 > 4 of 10 detectors do not yet have their minimum evidence. Each reports insufficient evidence and makes no finding.
+
+## `patterns-lifecycle-confirmation`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `patterns-lifecycle`
+- Emitting context: A Logbook reset or archive apply is requested outside an eligible terminal.
+
+Rendered example:
+
+> Use --dry-run to inspect the plan without interaction, or re-run apply from terminal stdin and stdout outside CI and --plain, then explicitly answer Yes.
 
 ## `patterns-logbook-empty`
 

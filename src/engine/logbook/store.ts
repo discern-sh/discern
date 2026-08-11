@@ -30,7 +30,7 @@
  * long-horizon trends outlive the raw lines they came from.
  */
 
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { KIT_VERSION } from "../../lib/version.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
@@ -47,6 +47,21 @@ export function logbookDir(commonGitDir: string): string {
   return join(commonGitDir, GIT_ADMIN_STATE.logbook.path);
 }
 
+/** The common directory holding sealed, read-only Logbook archives. */
+export function logbookArchiveDir(commonGitDir: string): string {
+  return join(commonGitDir, GIT_ADMIN_STATE.logbookArchives.path);
+}
+
+/** The common directory holding recoverable detached lifecycle snapshots. */
+export function logbookRecoveryDir(commonGitDir: string): string {
+  return join(commonGitDir, GIT_ADMIN_STATE.logbookRecovery.path);
+}
+
+/** The common advisory-lock path serializing Logbook lifecycle actions. */
+export function logbookLifecycleLockPath(commonGitDir: string): string {
+  return join(commonGitDir, GIT_ADMIN_STATE.logbookLifecycleLock.path);
+}
+
 /** The month files kept after rotation (about two years of history — a month
  * of heavy use is a few hundred kilobytes, so retention is bounded by
  * usefulness, not disk; the prune digest preserves coarser trends beyond it). */
@@ -60,6 +75,44 @@ export function monthFileName(atIso: string): string {
 /** The shape of a month-file name — what rotation may count and remove, and
  * what the stream reader (`read.ts`) recognizes as event storage. */
 export const MONTH_FILE_RE = /^\d{4}-\d{2}\.jsonl$/;
+
+/** A sealed archive basename; selectors accept exactly this portable shape. */
+export const LOGBOOK_ARCHIVE_FILE_RE = /^logbook-\d{8}T\d{6}Z(?:-\d+)?\.jsonl$/;
+
+/** Whether `name` has the canonical sealed-archive basename shape. */
+export function isLogbookArchiveFileName(name: string): boolean {
+  return LOGBOOK_ARCHIVE_FILE_RE.test(name);
+}
+
+/** Format one collision ordinal into a portable UTC archive basename. */
+export function logbookArchiveFileName(
+  now: Date,
+  ordinal = 1,
+): string {
+  const timestamp = now.toISOString().replaceAll(/[-:]/g, "").slice(0, 15) +
+    "Z";
+  return `logbook-${timestamp}${ordinal === 1 ? "" : `-${ordinal}`}.jsonl`;
+}
+
+/** Choose the first unused archive basename for one UTC second. */
+export async function nextLogbookArchiveFileName(
+  commonGitDir: string,
+  now: Date = new Date(),
+): Promise<string> {
+  const dir = logbookArchiveDir(commonGitDir);
+  for (let ordinal = 1; ordinal < Number.MAX_SAFE_INTEGER; ordinal += 1) {
+    const name = logbookArchiveFileName(now, ordinal);
+    try {
+      await Deno.lstat(join(dir, name));
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        return name;
+      }
+      throw error;
+    }
+  }
+  throw new Error("could not allocate a collision-safe Logbook archive name");
+}
 
 /** Set once this process intentionally removed the store (uninstall taking
  * the whole Git-admin namespace with it): the removing verb's own trailing
@@ -292,27 +345,261 @@ export async function listLogbookFiles(
       const info = await Deno.stat(join(dir, entry.name));
       files.push({ file: entry.name, bytes: info.size });
     }
-  } catch {
-    return [];
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return [];
+    }
+    throw error;
   }
   return files.sort((a, b) => a.file.localeCompare(b.file));
 }
 
-/** Delete the whole logbook directory — the reset action's executor, kept in
- * the store because this module is the subsystem's only sanctioned write site.
- * Detach the live path atomically before recursive cleanup: a recorder already
- * in flight may recreate the canonical directory, but it cannot repopulate the
- * snapshot being removed. Removing an already-absent logbook is a no-op. */
-export async function removeLogbook(commonGitDir: string): Promise<void> {
+/** A lifecycle apply failure that may leave a recoverable detached snapshot. */
+export class LogbookLifecycleError extends Error {
+  readonly detachedPath: string | undefined;
+  readonly archivePath: string | undefined;
+
+  /** Build an error carrying every durable artifact the failed apply left. */
+  constructor(
+    message: string,
+    detachedPath?: string,
+    archivePath?: string,
+  ) {
+    super(message);
+    this.name = "LogbookLifecycleError";
+    this.detachedPath = detachedPath;
+    this.archivePath = archivePath;
+  }
+}
+
+/** A concurrent reset or archive already owns the lifecycle boundary. */
+export class LogbookLifecycleBusyError extends Error {
+  /** Build the stable busy-lock refusal. */
+  constructor() {
+    super(
+      "Another Logbook lifecycle action is already running. Wait for it to finish, then retry this command.",
+    );
+    this.name = "LogbookLifecycleBusyError";
+  }
+}
+
+/** Run one apply while holding the repository-common lifecycle lock. */
+export async function withLogbookLifecycleLock<T>(
+  commonGitDir: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const path = logbookLifecycleLockPath(commonGitDir);
+  await ensureDir(dirname(path));
+  const lock = await Deno.open(path, {
+    create: true,
+    read: true,
+    write: true,
+    mode: 0o600,
+  });
+  let acquired = false;
+  try {
+    acquired = await lock.tryLock(true);
+    if (!acquired) {
+      throw new LogbookLifecycleBusyError();
+    }
+    return await operation();
+  } finally {
+    lock.close();
+  }
+}
+
+/** Atomically detach the active directory into the registered recovery area. */
+async function detachLogbook(
+  commonGitDir: string,
+  action: "reset" | "archive",
+): Promise<string | undefined> {
   const source = logbookDir(commonGitDir);
-  const detached = `${source}.reset-${crypto.randomUUID()}`;
+  const recovery = logbookRecoveryDir(commonGitDir);
+  await ensureDir(recovery);
+  const detached = join(recovery, `${action}-${crypto.randomUUID()}`);
   try {
     await Deno.rename(source, detached);
-  } catch (e) {
-    if (e instanceof Deno.errors.NotFound) {
-      return;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
     }
-    throw e;
+    throw error;
   }
-  await Deno.remove(detached, { recursive: true });
+  return detached;
+}
+
+/** Delete only the active Logbook after atomically detaching it for cleanup. */
+export async function removeLogbook(commonGitDir: string): Promise<void> {
+  const detached = await detachLogbook(commonGitDir, "reset");
+  if (detached === undefined) {
+    return;
+  }
+  try {
+    await Deno.remove(detached, { recursive: true });
+  } catch (error) {
+    throw new LogbookLifecycleError(
+      `could not remove the detached Logbook; the source remains recoverable at ${detached}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      detached,
+    );
+  }
+}
+
+const NEWLINE = new Uint8Array([0x0a]);
+
+/** Write every byte even when an operating-system write is partial. */
+async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
+  let offset = 0;
+  while (offset < bytes.length) {
+    offset += await file.write(bytes.subarray(offset));
+  }
+}
+
+/** Seal raw month bytes from one detached snapshot into a synced temp file. */
+async function sealDetachedLogbook(
+  detached: string,
+  tempPath: string,
+): Promise<number> {
+  const months: string[] = [];
+  for await (const entry of Deno.readDir(detached)) {
+    if (entry.isFile && MONTH_FILE_RE.test(entry.name)) {
+      months.push(entry.name);
+    }
+  }
+  months.sort();
+  const output = await Deno.open(tempPath, {
+    createNew: true,
+    write: true,
+    mode: 0o600,
+  });
+  let bytesWritten = 0;
+  let wroteContent = false;
+  let previousEndedWithNewline = true;
+  try {
+    for (const month of months) {
+      const bytes = await Deno.readFile(join(detached, month));
+      if (bytes.length === 0) {
+        continue;
+      }
+      if (wroteContent && !previousEndedWithNewline) {
+        await writeAll(output, NEWLINE);
+        bytesWritten += NEWLINE.length;
+      }
+      await writeAll(output, bytes);
+      bytesWritten += bytes.length;
+      wroteContent = true;
+      previousEndedWithNewline = bytes[bytes.length - 1] === 0x0a;
+    }
+    await output.sync();
+  } finally {
+    output.close();
+  }
+  return bytesWritten;
+}
+
+/** Injectable sealing seam used to prove recovery after a post-detach failure. */
+export interface ArchiveLogbookOptions {
+  readonly seal?: (
+    detachedPath: string,
+    tempPath: string,
+  ) => Promise<number>;
+}
+
+/** The durable artifact created by one successful archive transaction. */
+export interface ArchivedLogbook {
+  readonly file: string;
+  readonly path: string;
+  readonly bytes: number;
+}
+
+/**
+ * Detach the active Logbook, seal its raw month lines, atomically publish the
+ * chosen archive, then remove the recovery snapshot. A post-detach failure
+ * reports and retains that snapshot.
+ */
+export async function archiveLogbook(
+  commonGitDir: string,
+  filename: string,
+  options: ArchiveLogbookOptions = {},
+): Promise<ArchivedLogbook> {
+  if (!isLogbookArchiveFileName(filename)) {
+    throw new Error(`invalid Logbook archive filename: ${filename}`);
+  }
+  const archives = logbookArchiveDir(commonGitDir);
+  await ensureDir(archives);
+  await ensureDir(logbookRecoveryDir(commonGitDir));
+  const finalPath = join(archives, filename);
+  try {
+    await Deno.lstat(finalPath);
+    throw new Error(`Logbook archive already exists: ${filename}`);
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      throw error;
+    }
+  }
+
+  const detached = await detachLogbook(commonGitDir, "archive");
+  if (detached === undefined) {
+    throw new Error(
+      "the active Logbook disappeared before it could be archived",
+    );
+  }
+  const tempPath = join(
+    archives,
+    `.${filename}.${crypto.randomUUID()}.tmp`,
+  );
+  let published = false;
+  try {
+    const bytes = await (options.seal ?? sealDetachedLogbook)(
+      detached,
+      tempPath,
+    );
+    try {
+      await Deno.lstat(finalPath);
+      throw new Error(`Logbook archive appeared during apply: ${filename}`);
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) {
+        throw error;
+      }
+    }
+    // Same-directory hard-link publication is atomic and, unlike rename on
+    // POSIX, can never overwrite an archive that appeared after planning.
+    await Deno.link(tempPath, finalPath);
+    published = true;
+    await Deno.remove(tempPath);
+    try {
+      await Deno.remove(detached, { recursive: true });
+    } catch (error) {
+      throw new LogbookLifecycleError(
+        `the archive is durable at ${finalPath}, but its detached recovery snapshot remains at ${detached}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        detached,
+        finalPath,
+      );
+    }
+    return { file: filename, path: finalPath, bytes };
+  } catch (error) {
+    if (!published) {
+      try {
+        await Deno.remove(tempPath);
+      } catch (cleanupError) {
+        if (!(cleanupError instanceof Deno.errors.NotFound)) {
+          // The detached snapshot remains the recovery authority even when a
+          // best-effort partial-temp cleanup also fails.
+        }
+      }
+    }
+    if (error instanceof LogbookLifecycleError) {
+      throw error;
+    }
+    throw new LogbookLifecycleError(
+      `could not seal the active Logbook; its source remains recoverable at ${detached}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      detached,
+      published ? finalPath : undefined,
+    );
+  }
 }

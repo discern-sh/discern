@@ -25,6 +25,8 @@ import {
   ImprovementOutputSchema,
   LicensesOutputSchema,
   MapOutputSchema,
+  PatternsArchiveOutputSchema,
+  PatternsArchivesOutputSchema,
   PatternsOutputSchema,
   PatternsResetOutputSchema,
   PrepareOutputSchema,
@@ -315,6 +317,18 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["patterns reset"],
     verb: "patterns reset",
     schema: PatternsResetOutputSchema,
+  },
+  {
+    id: "patternsArchive",
+    commands: ["patterns archive"],
+    verb: "patterns archive",
+    schema: PatternsArchiveOutputSchema,
+  },
+  {
+    id: "patternsArchives",
+    commands: ["patterns archives"],
+    verb: "patterns archives",
+    schema: PatternsArchivesOutputSchema,
   },
   {
     id: "desk",

@@ -80,9 +80,65 @@ export interface LogbookStream {
   months: string[];
 }
 
+/** Counts and date bounds shared by lifecycle plans and archive listings. */
+export interface LogbookStreamSummary {
+  events: number;
+  unparsed: number;
+  firstAt?: string;
+  lastAt?: string;
+}
+
+/** One fresh unmatched invocation that can still be doing repository work. */
+export interface FreshInFlightInvocation {
+  invocation: string;
+  verb: string;
+  branch: string | null;
+  started: string;
+}
+
 /** An empty stream — the absent-logbook state. */
 function emptyStream(): LogbookStream {
   return { events: [], unparsed: 0, months: [] };
+}
+
+/** Summarize a tolerant stream without changing its population. */
+export function summarizeLogbookStream(
+  stream: LogbookStream,
+): LogbookStreamSummary {
+  const first = stream.events[0];
+  const last = stream.events[stream.events.length - 1];
+  return {
+    events: stream.events.length,
+    unparsed: stream.unparsed,
+    ...(first !== undefined ? { firstAt: first.at } : {}),
+    ...(last !== undefined ? { lastAt: last.at } : {}),
+  };
+}
+
+/** Parse raw JSONL text with the Logbook's torn/foreign-line tolerance. */
+function parseLogbookText(text: string): {
+  events: LogbookEvent[];
+  unparsed: number;
+} {
+  const events: LogbookEvent[] = [];
+  let unparsed = 0;
+  for (const line of text.split("\n")) {
+    if (line.trim() === "") {
+      continue;
+    }
+    const parsed = parseLogbookLine(line);
+    if (parsed.kind === "event") {
+      events.push(parsed.event);
+    } else {
+      unparsed += 1;
+    }
+  }
+  return { events, unparsed };
+}
+
+/** Order events chronologically while preserving file order for equal times. */
+function sortEvents(events: LogbookEvent[]): void {
+  events.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
 }
 
 /** Group branch-attributed values, dropping unresolvable branch names. */
@@ -139,6 +195,61 @@ function runningStaleAfter(prior: DurationPrior | undefined): number {
     RUNNING_STALE_MIN_MS,
     prior.medianMs * RUNNING_STALE_MULTIPLIER,
   );
+}
+
+/**
+ * Find every fresh begin whose completion is absent. This is the shared
+ * liveness predicate behind fleet activity and lifecycle safety checks.
+ */
+export function freshInFlightInvocations(
+  events: readonly LogbookEvent[],
+  currentEpoch: string,
+  nowMs: number = Date.now(),
+): FreshInFlightInvocation[] {
+  const completions = events.filter((event): event is VerbEvent =>
+    event.kind === "verb"
+  );
+  const completionsByVerb = new Map<string, VerbEvent[]>();
+  for (const event of completions) {
+    const group = completionsByVerb.get(event.verb);
+    if (group === undefined) {
+      completionsByVerb.set(event.verb, [event]);
+    } else {
+      group.push(event);
+    }
+  }
+  const priors = new Map<string, DurationPrior>();
+  for (const [verb, samples] of completionsByVerb) {
+    const current = samples.filter((event) => event.epoch === currentEpoch);
+    const prior = durationPrior(current.length > 0 ? current : samples);
+    if (prior !== undefined) {
+      priors.set(verb, prior);
+    }
+  }
+  const finished = new Set(
+    completions.flatMap((event) =>
+      event.invocation === undefined ? [] : [event.invocation]
+    ),
+  );
+  return events
+    .filter((event): event is BeginEvent =>
+      event.kind === "begin" && !finished.has(event.invocation)
+    )
+    .filter((event) => {
+      const started = Date.parse(event.at);
+      if (Number.isNaN(started)) {
+        return false;
+      }
+      return Math.max(0, nowMs - started) <=
+        runningStaleAfter(priors.get(event.verb));
+    })
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .map((event) => ({
+      invocation: event.invocation,
+      verb: event.verb,
+      branch: event.branch,
+      started: event.at,
+    }));
 }
 
 type BranchEvent = Exclude<LogbookEvent, { kind: "prune" }>;
@@ -285,21 +396,30 @@ export async function readLogbookStream(
       unparsed += 1; // an unreadable month counts as one skipped unit
       continue;
     }
-    for (const line of text.split("\n")) {
-      if (line.trim() === "") {
-        continue;
-      }
-      const parsed = parseLogbookLine(line);
-      if (parsed.kind === "event") {
-        events.push(parsed.event);
-      } else {
-        unparsed += 1;
-      }
-    }
+    const parsed = parseLogbookText(text);
+    events.push(...parsed.events);
+    unparsed += parsed.unparsed;
   }
   // Stable sort: same-`at` events keep their file order.
-  events.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  sortEvents(events);
   return { events, unparsed, months };
+}
+
+/**
+ * Read one sealed archive file tolerantly. Unlike the active reader, a missing
+ * or unreadable selected archive is an error for its caller to report.
+ */
+export async function readLogbookFile(
+  path: string,
+  filename: string,
+): Promise<LogbookStream> {
+  const parsed = parseLogbookText(await Deno.readTextFile(path));
+  sortEvents(parsed.events);
+  return {
+    events: parsed.events,
+    unparsed: parsed.unparsed,
+    months: [filename],
+  };
 }
 
 /**
@@ -340,22 +460,14 @@ export async function readRecentLogbookStream(
       unparsed += 1;
       continue;
     }
-    for (const line of text.split("\n")) {
-      if (line.trim() === "") {
-        continue;
-      }
-      const parsed = parseLogbookLine(line);
-      if (parsed.kind === "event") {
-        events.push(parsed.event);
-      } else {
-        unparsed += 1;
-      }
-    }
+    const parsed = parseLogbookText(text);
+    events.push(...parsed.events);
+    unparsed += parsed.unparsed;
     if (events.length >= maxEvents) {
       break;
     }
   }
-  events.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  sortEvents(events);
   months.sort();
   return { events: events.slice(-maxEvents), unparsed, months };
 }

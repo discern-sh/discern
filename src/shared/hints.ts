@@ -1643,6 +1643,32 @@ export const HINTS = {
       "recorded. This report reads the history that already exists.",
   }),
 
+  "patterns-archive-selection": defineHint({
+    id: "patterns-archive-selection",
+    category: "next-step",
+    audience: "all",
+    when:
+      "`patterns --logbook-file` cannot resolve a regular sealed archive basename.",
+    family: "patterns-archive",
+    example: undefined,
+    template: (): string =>
+      `${
+        discernCommand("patterns archives")
+      } lists the sealed archive filenames that can be read.`,
+  }),
+
+  "patterns-lifecycle-confirmation": defineHint({
+    id: "patterns-lifecycle-confirmation",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A Logbook reset or archive apply is requested outside an eligible terminal.",
+    family: "patterns-lifecycle",
+    example: undefined,
+    template: (): string =>
+      "Use --dry-run to inspect the plan without interaction, or re-run apply from terminal stdin and stdout outside CI and --plain, then explicitly answer Yes.",
+  }),
+
   "patterns-reset-empty": defineHint({
     id: "patterns-reset-empty",
     category: "notice",

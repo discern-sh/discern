@@ -207,3 +207,22 @@ Deno.test("every module reading the logbook is claimed by a registry member, and
       `src/shared/logbook_powered.ts so the opt-out wording names what they power`,
   );
 });
+
+Deno.test("historical archive selection stays confined to the advisory Patterns reader", async () => {
+  const callers: string[] = [];
+  for (
+    const rel of AUTHORED_TS_FILES.filter((path) =>
+      path.startsWith("src/") && path !== "src/engine/logbook/read.ts"
+    )
+  ) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+    if (/\breadLogbookFile\(/.test(text)) {
+      callers.push(rel);
+    }
+  }
+  assertEquals(
+    callers,
+    ["src/engine/logbook/patterns.ts"],
+    "only advisory Patterns may select sealed history; status, Gate hints, queue estimates, and work-in-flight readers must stay on active entry points",
+  );
+});

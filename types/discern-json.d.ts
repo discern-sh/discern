@@ -3097,6 +3097,12 @@ export type DiscernPatternsResult = {
   verb: "patterns";
   data?: {
     logbook: {
+      source: {
+        kind: "active";
+      } | {
+        kind: "archive";
+        filename: string;
+      };
       events: number;
       unparsed: number;
       setup_era: number;
@@ -3327,6 +3333,224 @@ export type DiscernPatternsResetResult = {
       bytes: number;
     }>;
     bytes: number;
+    events: number;
+    unparsed: number;
+    first_at?: string;
+    last_at?: string;
+    impacts: Array<{
+      key: string;
+      phrase: string;
+      surface: string;
+    }>;
+    recovery_path?: string;
+  } | {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernPatternsArchiveResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "tracked-refresh-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "patterns archive";
+  data?: {
+    source_dir: string;
+    destination_dir: string;
+    archive_file: string;
+    archive_path: string;
+    files: Array<{
+      file: string;
+      bytes: number;
+    }>;
+    source_bytes: number;
+    archive_bytes: number;
+    events: number;
+    unparsed: number;
+    first_at?: string;
+    last_at?: string;
+    recovery_path?: string;
+  } | {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernPatternsArchivesResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "tracked-refresh-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "patterns archives";
+  data?: {
+    dir: string;
+    archives: Array<{
+      filename: string;
+      events: number;
+      unparsed: number;
+      bytes: number;
+      first_at?: string;
+      last_at?: string;
+    }>;
   } | {
     issues: Array<{
       path: string;
@@ -5047,6 +5271,8 @@ export type DiscernCliJsonResult =
   | DiscernAwaitResult
   | DiscernPatternsResult
   | DiscernPatternsResetResult
+  | DiscernPatternsArchiveResult
+  | DiscernPatternsArchivesResult
   | DiscernDeskResult
   | DiscernStatusResult
   | DiscernStartResult
@@ -5091,6 +5317,8 @@ export interface DiscernResultByVerb {
   await: DiscernAwaitResult;
   patterns: DiscernPatternsResult;
   "patterns reset": DiscernPatternsResetResult;
+  "patterns archive": DiscernPatternsArchiveResult;
+  "patterns archives": DiscernPatternsArchivesResult;
   desk: DiscernDeskResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
@@ -5146,6 +5374,8 @@ export interface DiscernResultByCommand {
   await: DiscernAwaitResult;
   patterns: DiscernPatternsResult;
   "patterns reset": DiscernPatternsResetResult;
+  "patterns archive": DiscernPatternsArchiveResult;
+  "patterns archives": DiscernPatternsArchivesResult;
   desk: DiscernDeskResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;

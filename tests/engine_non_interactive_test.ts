@@ -65,6 +65,18 @@ const INTERACTIVE_CASES: readonly {
     code: 1,
     output: "Confirmation required",
   },
+  {
+    name: "Logbook reset confirmation",
+    args: ["patterns", "reset"],
+    code: 1,
+    output: "requires terminal stdin and stdout",
+  },
+  {
+    name: "Logbook archive confirmation",
+    args: ["patterns", "archive"],
+    code: 1,
+    output: "requires terminal stdin and stdout",
+  },
 ];
 
 /** Add the global flag without inventing a verb for the bare invocation. */

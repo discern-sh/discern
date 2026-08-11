@@ -1303,6 +1303,9 @@ export {
   DETECTOR_SCOPES,
   DETECTOR_STATUSES,
   DETECTOR_TIERS,
+  PatternsArchiveDataSchema,
+  PatternsArchiveEntrySchema,
+  PatternsArchivesDataSchema,
   PatternsDataSchema,
   PatternsFindingSchema,
   PatternsResetDataSchema,
@@ -1313,6 +1316,9 @@ export type {
   DetectorScope,
   DetectorStatus,
   DetectorTier,
+  PatternsArchiveData,
+  PatternsArchiveEntry,
+  PatternsArchivesData,
   PatternsData,
   PatternsDetector,
   PatternsFinding,
@@ -1320,6 +1326,8 @@ export type {
   PatternsStats,
 } from "./patterns_vocabulary.ts";
 import {
+  PatternsArchiveDataSchema,
+  PatternsArchivesDataSchema,
   PatternsDataSchema,
   PatternsFindingSchema,
   PatternsResetDataSchema,
@@ -1974,11 +1982,23 @@ export const PatternsOutputSchema = resultOutputSchema(
   PatternsDataSchema,
 );
 
-/** `patterns reset` output: envelope + the deletion `data`. CLI-only (the one
- * destructive member of the patterns family stays off the MCP surface). */
+/** `patterns reset` output: envelope + the deletion `data`. CLI-only; the
+ * owner-confirmed lifecycle action stays off the MCP surface. */
 export const PatternsResetOutputSchema = resultOutputSchema(
   "patterns reset",
   PatternsResetDataSchema,
+);
+
+/** `patterns archive` output: envelope + the sealed destination and source. */
+export const PatternsArchiveOutputSchema = resultOutputSchema(
+  "patterns archive",
+  PatternsArchiveDataSchema,
+);
+
+/** `patterns archives` output: envelope + the discoverable sealed files. */
+export const PatternsArchivesOutputSchema = resultOutputSchema(
+  "patterns archives",
+  PatternsArchivesDataSchema,
 );
 
 /** `start` output: envelope + the new-worktree `data`. */

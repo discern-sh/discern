@@ -49,14 +49,23 @@ import {
   readRecentLogbookStream,
   RUNNING_STALE_MIN_MS,
 } from "../src/engine/logbook/read.ts";
-import { logbookVerbIsEffectful } from "../src/shared/verbs.ts";
+import {
+  logbookInvocationIsRecorded,
+  logbookVerbIsEffectful,
+} from "../src/shared/verbs.ts";
+import { LOGBOOK_LIFECYCLE_ACTION_NAMES } from "../src/shared/logbook_lifecycle.ts";
 
 // ── the event schema ────────────────────────────────────────────────────────
 
 Deno.test("logbook begin policy: effectful and mixed verb forms are classified at invocation", () => {
   assertEquals(logbookVerbIsEffectful("status"), false);
   assertEquals(logbookVerbIsEffectful("patterns"), false);
-  assertEquals(logbookVerbIsEffectful("patterns reset"), true);
+  assertEquals(logbookVerbIsEffectful("patterns archives"), false);
+  for (const action of LOGBOOK_LIFECYCLE_ACTION_NAMES) {
+    const invocation = `patterns ${action}`;
+    assertEquals(logbookInvocationIsRecorded(invocation), false);
+    assertEquals(logbookVerbIsEffectful(invocation), false);
+  }
   assertEquals(logbookVerbIsEffectful("config get"), false);
   assertEquals(logbookVerbIsEffectful("config set"), true);
   assertEquals(logbookVerbIsEffectful("setup"), false);

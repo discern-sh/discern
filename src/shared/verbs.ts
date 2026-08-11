@@ -1,3 +1,5 @@
+import { LOGBOOK_SELF_MUTATING_INVOCATIONS } from "./logbook_lifecycle.ts";
+
 /**
  * The built-in CLI verb vocabulary and its logbook execution classification.
  *
@@ -95,6 +97,7 @@ const LOGBOOK_READ_INVOCATIONS: ReadonlySet<string> = new Set([
   "config keys",
   "config subsections",
   "patterns",
+  "patterns archives",
   "setup",
   "setup step",
   "setup verify",
@@ -102,6 +105,11 @@ const LOGBOOK_READ_INVOCATIONS: ReadonlySet<string> = new Set([
   "skills list",
   "worktree",
 ]);
+
+/** Whether an invocation belongs in the Logbook it may read or mutate. */
+export function logbookInvocationIsRecorded(verb: string): boolean {
+  return !LOGBOOK_SELF_MUTATING_INVOCATIONS.has(verb);
+}
 
 const SETUP_EFFECT_FLAGS: ReadonlySet<string> = new Set([
   "agents",
@@ -124,6 +132,9 @@ export function logbookVerbIsEffectful(
   verb: string,
   flags: readonly string[] = [],
 ): boolean {
+  if (!logbookInvocationIsRecorded(verb)) {
+    return false;
+  }
   const topLevel = verb.split(" ")[0];
   if (
     topLevel === undefined || !LOGBOOK_EFFECTFUL_VERBS.has(topLevel)

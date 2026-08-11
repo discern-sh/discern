@@ -43,7 +43,11 @@ import type {
   SkillsEjectData,
 } from "../shared/result_schemas.ts";
 import { Logger } from "../lib/log.ts";
-import { plainModeEnabled } from "../lib/prompts.ts";
+import {
+  canPrompt,
+  confirmationPrompt,
+  plainModeEnabled,
+} from "../lib/prompts.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
 import type { LifecycleContext } from "./worktree/lifecycle.ts";
 import { colorEnabled } from "./output.ts";
@@ -58,6 +62,7 @@ import {
   MCP_LONG_TOOL_CALLS_FLAG,
   MCP_STRICT_TOOL_CALLS_FLAG,
 } from "../shared/mcp_timeout_policy.ts";
+import { LOGBOOK_LIFECYCLE_ACTIONS } from "../shared/logbook_lifecycle.ts";
 
 export { reportUnknownCommand } from "./unknown_command.ts";
 export {
@@ -583,6 +588,10 @@ export function attachEngineCommands(
       "--all",
       "Report every finding from every detector.",
     )
+    .option(
+      "--logbook-file <filename:string>",
+      "Read one sealed archive basename listed by `discern patterns archives` instead of the active Logbook.",
+    )
     .action(
       recordedExit("patterns", async (o) => {
         const { runPatterns } = await import("./logbook/patterns.ts");
@@ -592,37 +601,68 @@ export function attachEngineCommands(
             json: o.json ?? false,
             stats: o.stats ?? false,
             all: o.all ?? false,
+            ...(o.logbookFile !== undefined
+              ? { logbookFile: o.logbookFile }
+              : {}),
           },
         );
       }),
     )
     .command(
-      "reset",
+      "archives",
       new Command()
         .description(
-          "Delete the recorded history: every logbook month file and the epoch " +
-            "sidecar. Local data only; nothing else is touched.",
+          "List sealed Logbook archives with their event counts, date spans, and byte sizes.",
         )
         .option(
           "--json",
           "Emit the result as a JSON DiscernResult object on stdout.",
         )
-        .option("--dry-run", "List what would be removed; touch nothing.")
         .action(
-          recordedExit("patterns reset", async (o) => {
-            const { runPatternsReset } = await import(
+          recordedExit("patterns archives", async (o) => {
+            const { runPatternsArchives } = await import(
               "./logbook/patterns.ts"
             );
-            return await runPatternsReset(
+            return await runPatternsArchives(
               await requireRoot("patterns", o.json ?? false),
+              { json: o.json ?? false },
+            );
+          }),
+        ),
+    );
+  for (const action of LOGBOOK_LIFECYCLE_ACTIONS) {
+    const invocation = `patterns ${action.name}`;
+    patterns.command(
+      action.name,
+      new Command()
+        .description(action.description)
+        .option(
+          "--json",
+          "Preview as one JSON DiscernResult; apply is refused in JSON mode.",
+        )
+        .option(
+          "--dry-run",
+          "Render the complete plan without prompting or changing files.",
+        )
+        .action(
+          recordedExit(invocation, async (o) => {
+            const { runPatternsLifecycle } = await import(
+              "./logbook/patterns.ts"
+            );
+            return await runPatternsLifecycle(
+              await requireRoot("patterns", o.json ?? false),
+              action.name,
               {
                 json: o.json ?? false,
                 dryRun: o.dryRun ?? false,
+                interactive: canPrompt(false),
+                confirm: (message) => confirmationPrompt(message, false),
               },
             );
           }),
         ),
     );
+  }
   root.command("patterns", patterns);
 
   // `status` — read-only situation/orientation: what's true right now and what to

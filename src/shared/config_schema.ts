@@ -366,7 +366,7 @@ const projectSection = z.strictObject({
   logbook: z.boolean().default(true).describe(
     "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names. The log contains no code or output. Its files stay under `.git`, outside commits and network transmission. The history feeds " +
       logbookPoweredPhraseList() +
-      ". false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until you delete them (`discern patterns reset`).",
+      ". false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until an owner confirms `discern patterns reset` or seals them with `discern patterns archive`.",
   ),
   agents: z.array(z.enum(AGENT_NAMES)).optional().describe(
     "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",

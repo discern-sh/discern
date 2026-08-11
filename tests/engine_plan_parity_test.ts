@@ -441,6 +441,19 @@ const PROBES: Record<string, DryRunProbe> = {
       return { cwd: dir, dry: ["patterns", "reset", "--dry-run", "--json"] };
     },
   },
+  "patterns archive": {
+    envelope: "data-preview",
+    arrange: async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      // Seed active history so the archive preview carries a real source plan.
+      assertEquals((await runAgent(dir, ["status", "--json"])).code, 0);
+      return {
+        cwd: dir,
+        dry: ["patterns", "archive", "--dry-run", "--json"],
+      };
+    },
+  },
   "setup": {
     envelope: "data-preview",
     arrange: async (dir) => {
