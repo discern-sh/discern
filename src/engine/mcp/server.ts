@@ -749,8 +749,9 @@ export const TOOLS: McpTool[] = orderTools([
       "discern_patterns whether the practice is actually healthy. Named " +
       "detectors cover agent behaviour (red-gate thrash, refusal loops, " +
       "skipped prepare, work landing on the trunk), gate fit (a dominant " +
-      "stage, duration creep, same-tree flakes, recurring diagnostic " +
-      "classes), the task funnel (loops to green, cycle time, update " +
+      "stage, duration creep, per-job validation verdict divergence under " +
+      "matched or controlled execution contexts, recurring diagnostic classes), " +
+      "the task funnel (loops to green, cycle time, update " +
       "friction), and each quality standard's measured trajectory against " +
       "its limit's own history. data.findings is ranked by evidence " +
       "strength — each carries plain counts, a scope, and a recommended " +

@@ -1299,10 +1299,15 @@ export type ImprovementData = z.infer<typeof ImprovementDataSchema>;
  * can share them from inside its no-network wall; re-exported here so wire
  * consumers keep one import site. */
 export {
+  boundedPatternEvidenceCondition,
   DETECTOR_FAMILIES,
   DETECTOR_SCOPES,
   DETECTOR_STATUSES,
   DETECTOR_TIERS,
+  PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
+  PATTERN_EVIDENCE_VALUE_KINDS,
+  PatternEvidenceBasisSchema,
+  PatternEvidenceConditionSchema,
   PatternsArchiveDataSchema,
   PatternsArchiveEntrySchema,
   PatternsArchivesDataSchema,
@@ -1316,6 +1321,9 @@ export type {
   DetectorScope,
   DetectorStatus,
   DetectorTier,
+  PatternEvidenceBasis,
+  PatternEvidenceCondition,
+  PatternEvidenceValueKind,
   PatternsArchiveData,
   PatternsArchiveEntry,
   PatternsArchivesData,

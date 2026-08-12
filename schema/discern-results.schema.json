@@ -7474,6 +7474,191 @@
                               "type": "number"
                             }
                           },
+                          "basis": {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "coverage": {
+                                "type": "object",
+                                "properties": {
+                                  "comparable": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "denominator": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "unit": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "comparable",
+                                  "denominator",
+                                  "unit"
+                                ]
+                              },
+                              "validation_state": {
+                                "type": "object",
+                                "properties": {
+                                  "version": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "complete": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "version",
+                                  "complete"
+                                ]
+                              },
+                              "matched_conditions": {
+                                "maxItems": 16,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "dimension": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "values": {
+                                      "minItems": 1,
+                                      "maxItems": 16,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "distinct": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "omitted": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "dimension",
+                                    "values",
+                                    "distinct",
+                                    "omitted"
+                                  ]
+                                }
+                              },
+                              "differing_conditions": {
+                                "maxItems": 16,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "dimension": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "values": {
+                                      "minItems": 1,
+                                      "maxItems": 16,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "distinct": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "omitted": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "dimension",
+                                    "values",
+                                    "distinct",
+                                    "omitted"
+                                  ]
+                                }
+                              },
+                              "legacy_events": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "excluded_events": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "limitations": {
+                                "maxItems": 16,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "values": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {
+                                  "type": "object",
+                                  "properties": {
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "observed",
+                                        "estimated"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "value",
+                                    "kind"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "coverage",
+                              "validation_state",
+                              "matched_conditions",
+                              "differing_conditions",
+                              "legacy_events",
+                              "excluded_events",
+                              "limitations",
+                              "values"
+                            ]
+                          },
                           "strength": {
                             "type": "number"
                           },
@@ -10025,6 +10210,191 @@
                         "additionalProperties": {
                           "type": "number"
                         }
+                      },
+                      "basis": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "coverage": {
+                            "type": "object",
+                            "properties": {
+                              "comparable": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "denominator": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "unit": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "comparable",
+                              "denominator",
+                              "unit"
+                            ]
+                          },
+                          "validation_state": {
+                            "type": "object",
+                            "properties": {
+                              "version": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "complete": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "version",
+                              "complete"
+                            ]
+                          },
+                          "matched_conditions": {
+                            "maxItems": 16,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "dimension": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "values": {
+                                  "minItems": 1,
+                                  "maxItems": 16,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "distinct": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "omitted": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "dimension",
+                                "values",
+                                "distinct",
+                                "omitted"
+                              ]
+                            }
+                          },
+                          "differing_conditions": {
+                            "maxItems": 16,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "dimension": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "values": {
+                                  "minItems": 1,
+                                  "maxItems": 16,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "distinct": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "omitted": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "dimension",
+                                "values",
+                                "distinct",
+                                "omitted"
+                              ]
+                            }
+                          },
+                          "legacy_events": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "excluded_events": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "limitations": {
+                            "maxItems": 16,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "values": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "value": {
+                                  "type": "number"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "observed",
+                                    "estimated"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "value",
+                                "kind"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "coverage",
+                          "validation_state",
+                          "matched_conditions",
+                          "differing_conditions",
+                          "legacy_events",
+                          "excluded_events",
+                          "limitations",
+                          "values"
+                        ]
                       },
                       "strength": {
                         "type": "number"

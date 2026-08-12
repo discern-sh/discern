@@ -70,6 +70,99 @@ export const PATTERNS_SERIES_MAX_POINTS = 24;
  * of growing with recorded history. */
 export const PATTERNS_FINDINGS_PER_DETECTOR = 3;
 
+/** Whether one numerical finding value was read directly from recorded events
+ * or derived by a declared estimator. A confidence score is deliberately not
+ * part of the vocabulary: uncertainty belongs in the denominator and
+ * limitations. */
+export const PATTERN_EVIDENCE_VALUE_KINDS = ["observed", "estimated"] as const;
+export type PatternEvidenceValueKind =
+  (typeof PATTERN_EVIDENCE_VALUE_KINDS)[number];
+
+/** Maximum displayed readings for one condition. The full cardinality remains
+ * explicit through `distinct` and `omitted`, so the wire stays bounded without
+ * turning a sample into the complete set. */
+export const PATTERN_EVIDENCE_CONDITION_VALUES_MAX = 16;
+
+/** One controlled condition and a bounded sample of its recorded values. */
+export const PatternEvidenceConditionSchema = z.strictObject({
+  dimension: z.string().min(1),
+  values: z.array(z.string()).min(1).max(
+    PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
+  ),
+  distinct: z.number().int().positive(),
+  omitted: z.number().int().nonnegative(),
+}).superRefine((condition, context) => {
+  if (condition.distinct !== condition.values.length + condition.omitted) {
+    context.addIssue({
+      code: "custom",
+      path: ["distinct"],
+      message:
+        "condition distinct count must equal displayed values plus omitted values",
+    });
+  }
+});
+export type PatternEvidenceCondition = z.infer<
+  typeof PatternEvidenceConditionSchema
+>;
+
+/** Project distinct keyed readings into the bounded public condition shape.
+ * Ordering and truncation affect display only; callers retain the complete
+ * readings for comparison and signatures. */
+export function boundedPatternEvidenceCondition(
+  dimension: string,
+  readings: readonly { key: string; label: string }[],
+): PatternEvidenceCondition | undefined {
+  const distinct = new Map(readings.map((reading) => [
+    reading.key,
+    reading.label,
+  ]));
+  const ordered = [...distinct.entries()].sort(([left], [right]) =>
+    left.localeCompare(right)
+  );
+  if (ordered.length === 0) return undefined;
+  const values = ordered.slice(0, PATTERN_EVIDENCE_CONDITION_VALUES_MAX)
+    .map(([, label]) => label);
+  return {
+    dimension,
+    values,
+    distinct: ordered.length,
+    omitted: ordered.length - values.length,
+  };
+}
+
+/** The additive evidence contract shared by current and future findings. It
+ * keeps coverage, validation provenance, controlled-condition boundaries,
+ * exclusions, limitations, and observed/estimated value provenance separate
+ * from the compatible flat numerical `evidence` map. */
+export const PatternEvidenceBasisSchema = z.strictObject({
+  kind: z.string().min(1),
+  coverage: z.strictObject({
+    comparable: z.number().int().nonnegative(),
+    denominator: z.number().int().nonnegative(),
+    unit: z.string().min(1),
+  }).refine(
+    (coverage) => coverage.comparable <= coverage.denominator,
+    { message: "comparable evidence cannot exceed its denominator" },
+  ),
+  validation_state: z.strictObject({
+    version: z.number().int().nonnegative().nullable(),
+    complete: z.boolean(),
+  }),
+  matched_conditions: z.array(PatternEvidenceConditionSchema).max(16),
+  differing_conditions: z.array(PatternEvidenceConditionSchema).max(16),
+  legacy_events: z.number().int().nonnegative(),
+  excluded_events: z.number().int().nonnegative(),
+  limitations: z.array(z.string().min(1)).max(16),
+  values: z.record(
+    z.string(),
+    z.strictObject({
+      value: z.number(),
+      kind: z.enum(PATTERN_EVIDENCE_VALUE_KINDS),
+    }),
+  ),
+});
+export type PatternEvidenceBasis = z.infer<typeof PatternEvidenceBasisSchema>;
+
 /** One `patterns` finding: which detector spoke, its presentation tone and
  * one-line brief, an optional bounded trajectory series, what it observed (one
  * plain-count sentence), the named counts behind it, and the recommended next
@@ -84,8 +177,33 @@ export const PatternsFindingSchema = z.strictObject({
   series: z.array(z.number()).max(PATTERNS_SERIES_MAX_POINTS).optional(),
   observed: z.string(),
   evidence: z.record(z.string(), z.number()),
+  basis: PatternEvidenceBasisSchema.optional(),
   strength: z.number(),
   next_step: z.string(),
+}).superRefine((finding, context) => {
+  if (finding.basis === undefined) {
+    return;
+  }
+  const evidenceKeys = Object.keys(finding.evidence).sort();
+  const valueKeys = Object.keys(finding.basis.values).sort();
+  if (evidenceKeys.join("\0") !== valueKeys.join("\0")) {
+    context.addIssue({
+      code: "custom",
+      path: ["basis", "values"],
+      message:
+        "structured evidence values must classify every flat evidence value exactly once",
+    });
+    return;
+  }
+  for (const key of evidenceKeys) {
+    if (finding.basis.values[key]?.value !== finding.evidence[key]) {
+      context.addIssue({
+        code: "custom",
+        path: ["basis", "values", key, "value"],
+        message: `structured evidence value ${key} must equal flat evidence`,
+      });
+    }
+  }
 });
 /** One patterns finding. */
 export type PatternsFinding = z.infer<typeof PatternsFindingSchema>;

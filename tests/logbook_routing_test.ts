@@ -113,6 +113,43 @@ Deno.test("logbook routing: the optional trajectory series reaches the wire unch
   assertEquals(finding.series, series);
 });
 
+Deno.test("logbook routing: the additive evidence basis reaches wire and inline projections unchanged", () => {
+  const detector = DETECTORS.find((entry) => entry.id === "same-tree-flake");
+  assertEquals(detector?.id, "same-tree-flake");
+  if (detector === undefined) return;
+  const basis = {
+    kind: "complete-validation-state",
+    coverage: { comparable: 2, denominator: 2, unit: "job-runs" },
+    validation_state: { version: 1, complete: true },
+    matched_conditions: [{
+      dimension: "execution-mode",
+      values: ["standalone-test"],
+      distinct: 1,
+      omitted: 0,
+    }],
+    differing_conditions: [],
+    legacy_events: 0,
+    excluded_events: 0,
+    limitations: ["External context was not recorded."],
+    values: {
+      runs: { value: 2, kind: "observed" as const },
+    },
+  };
+  const finding = routedFindingData({
+    detector,
+    considered: 2,
+    finding: {
+      subject: "test",
+      brief: "1 red · 1 green",
+      observed: "The recorded job changed verdict.",
+      evidence: { runs: 2 },
+      basis,
+      strength: 20,
+    },
+  });
+  assertEquals(finding.basis, basis);
+});
+
 Deno.test("logbook routing: advisory attachment can change only hints on an envelope", () => {
   const result: DiscernResult<{
     failed_stage: "check/test" | null;

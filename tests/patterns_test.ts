@@ -56,11 +56,23 @@ import {
   type VerbEvent,
   verbEventSchema,
 } from "../src/engine/logbook/schema.ts";
+import { VALIDATION_EVIDENCE_SCHEMA_FIELDS } from "../src/engine/logbook/validation.ts";
 import {
+  VALIDATION_COMPARISON_FIELD_ACCOUNTING,
+  VALIDATION_COMPARISON_IDENTITY_SOURCES,
+  VALIDATION_COMPATIBILITY_DETECTOR_ID,
+  VALIDATION_CONTROLLED_CONDITIONS,
+  VALIDATION_FINDING_RELATIONSHIPS,
+} from "../src/engine/logbook/validation_findings.ts";
+import {
+  boundedPatternEvidenceCondition,
   DETECTOR_FAMILIES,
   type DetectorFamily,
+  PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
   PATTERN_FINDING_TONES,
+  PatternEvidenceConditionSchema,
   PATTERNS_SERIES_MAX_POINTS,
+  PatternsFindingSchema,
 } from "../src/shared/patterns_vocabulary.ts";
 import { type HintFollowThroughRule, HINTS } from "../src/shared/hints.ts";
 import {
@@ -331,21 +343,41 @@ function step(
   };
 }
 
-/** One complete v1 validation record for same-input detector fixtures. */
+interface ValidationFixtureJob {
+  id: string;
+  outcome: "passed" | "failed" | "skipped" | "cancelled" | "unavailable";
+  stage?: string;
+  kind?: string;
+  definition?: string;
+  concurrent?: boolean;
+}
+
+interface ValidationFixtureOptions {
+  digest?: string;
+  complete?: boolean;
+  executionComplete?: boolean;
+  mode?: "full-gate" | "standalone-test";
+  config?: string;
+  setup?: string;
+  writer?: string;
+  job?: string;
+  definition?: string;
+  concurrent?: boolean;
+  siblings?: ValidationFixtureJob[];
+  version?: number;
+}
+
+/** One validation record whose job list is the detector fixture's enrollment source. */
 function validation(
   outcome: "passed" | "failed" | "skipped" | "cancelled" | "unavailable",
-  over: {
-    digest?: string;
-    complete?: boolean;
-    mode?: "full-gate" | "standalone-test";
-    config?: string;
-  } = {},
+  over: ValidationFixtureOptions = {},
 ): NonNullable<VerbEvent["validation"]> {
   const complete = over.complete ?? true;
+  const version = over.version ?? 1;
   return {
-    version: 1,
+    version,
     state: {
-      version: 1,
+      version,
       complete,
       capture: over.mode === "full-gate"
         ? "after-fix-build"
@@ -370,22 +402,32 @@ function validation(
       exclusions: [],
     },
     execution: {
-      version: 1,
-      complete: true,
+      version,
+      complete: over.executionComplete ?? true,
       mode: over.mode ?? "standalone-test",
-      writer: "9.9.9",
+      writer: over.writer ?? "9.9.9",
       config_digest: over.config ?? "config-a",
-      setup_digest: "setup-a",
-      jobs: [{
-        id: "test",
-        stage: "test",
-        kind: "known",
-        definition_digest: "job-a",
-        outcome,
-        concurrent_siblings: false,
-      }],
+      setup_digest: over.setup ?? "setup-a",
+      jobs: [
+        {
+          id: over.job ?? "test",
+          stage: "test",
+          kind: "known",
+          definition_digest: over.definition ?? "job-a",
+          outcome,
+          concurrent_siblings: over.concurrent ?? false,
+        },
+        ...(over.siblings ?? []).map((job) => ({
+          id: job.id,
+          stage: job.stage ?? "test",
+          kind: job.kind ?? "known",
+          definition_digest: job.definition ?? `definition-${job.id}`,
+          outcome: job.outcome,
+          concurrent_siblings: job.concurrent ?? false,
+        })),
+      ],
     },
-  };
+  } as NonNullable<VerbEvent["validation"]>;
 }
 
 /** A `standards` reading carried on a verb event. */
@@ -1250,19 +1292,49 @@ const FIXTURES: Record<string, DetectorFixtures> = {
   },
   "same-tree-flake": {
     firing: run([
-      redDone({
-        head: "cafe123",
-        steps: [{ ...step("test", 1), outcome: "failed" }],
-      }),
-      { verb: "done", head: "cafe123", steps: [step("test", 1)] },
+      {
+        verb: "test",
+        outcome: "failed",
+        validation: validation("failed", { job: "future-verifier" }),
+      },
+      {
+        verb: "test",
+        validation: validation("passed", { job: "future-verifier" }),
+      },
     ]),
     quiet: run([
-      { verb: "done", head: "cafe123", steps: [step("test", 1)] },
-      { verb: "done", head: "cafe123", steps: [step("test", 1)] },
+      { verb: "test", validation: validation("passed") },
+      { verb: "test", validation: validation("passed") },
     ]),
     sparse: run([
-      { verb: "done", head: "cafe123" },
-      { verb: "done", head: "beef456" },
+      { verb: "test", validation: validation("passed") },
+    ]),
+  },
+  "execution-context-divergence": {
+    firing: run([
+      {
+        verb: "test",
+        outcome: "failed",
+        validation: validation("failed"),
+      },
+      {
+        verb: "done",
+        validation: validation("passed", {
+          mode: "full-gate",
+          concurrent: true,
+          siblings: [{ id: "lint", outcome: "passed", stage: "check" }],
+        }),
+      },
+    ]),
+    quiet: run([
+      { verb: "test", validation: validation("passed") },
+      {
+        verb: "done",
+        validation: validation("passed", { mode: "full-gate" }),
+      },
+    ]),
+    sparse: run([
+      { verb: "test", validation: validation("failed") },
     ]),
   },
   "loops-to-green": {
@@ -1463,6 +1535,104 @@ Deno.test("patterns registry: dormant-verb exemptions name known verbs with reco
   assert(watched.size > 0, "the dormancy universe must not be empty");
 });
 
+Deno.test("validation finding registry: relationships have unique detector ids and one retained compatibility id", () => {
+  const relationshipIds = VALIDATION_FINDING_RELATIONSHIPS.map((relationship) =>
+    relationship.detectorId
+  );
+  assertEquals(
+    relationshipIds.length,
+    new Set(relationshipIds).size,
+    "one relationship cannot publish a duplicate finding under another registry row",
+  );
+  const enrolled = DETECTORS.filter((entry) =>
+    entry.validationRelationship !== undefined
+  );
+  assertEquals(
+    enrolled.map((entry) => entry.id).sort(),
+    [...relationshipIds].sort(),
+    "every validation relationship and detector must enroll each other",
+  );
+  assertEquals(
+    VALIDATION_FINDING_RELATIONSHIPS.filter((relationship) =>
+      "compatibility" in relationship
+    ).map((relationship) => relationship.detectorId),
+    [VALIDATION_COMPATIBILITY_DETECTOR_ID],
+  );
+  assertEquals(
+    VALIDATION_COMPATIBILITY_DETECTOR_ID,
+    "same-tree-flake",
+    "the published compatibility id remains the sole retained id",
+  );
+});
+
+Deno.test("validation finding registry: every relationship fixture carries the common evidence basis", () => {
+  for (const relationship of VALIDATION_FINDING_RELATIONSHIPS) {
+    const entry = detector(relationship.detectorId);
+    const outcome = report(entry, fixturesOf(entry).firing);
+    assertEquals(outcome.status, "fired", relationship.kind);
+    for (const finding of outcome.findings) {
+      const basis = findingBasis(finding);
+      assertEquals(
+        Object.keys(basis.values).sort(),
+        Object.keys(finding.evidence).sort(),
+        relationship.kind,
+      );
+      for (const [key, value] of Object.entries(finding.evidence)) {
+        assertEquals(
+          basis.values[key]?.value,
+          value,
+          `${relationship.kind}:${key}`,
+        );
+      }
+    }
+  }
+});
+
+Deno.test("validation comparison accounting: every live schema field has one declared role", () => {
+  for (const layer of ["evidence", "state", "execution", "job"] as const) {
+    assertEquals(
+      Object.keys(VALIDATION_COMPARISON_FIELD_ACCOUNTING[layer]).sort(),
+      [...VALIDATION_EVIDENCE_SCHEMA_FIELDS[layer]].sort(),
+      `${layer}: a new evidence field must declare how comparison handles it`,
+    );
+  }
+});
+
+Deno.test("validation comparison accounting: every identity and controlled field enters the pure projection", () => {
+  const projected = new Set<string>([
+    ...VALIDATION_COMPARISON_IDENTITY_SOURCES,
+    ...VALIDATION_CONTROLLED_CONDITIONS.flatMap((condition) =>
+      condition.sources
+    ),
+  ]);
+  const required: string[] = [];
+  for (
+    const [layer, fields] of Object.entries(
+      VALIDATION_COMPARISON_FIELD_ACCOUNTING,
+    )
+  ) {
+    for (const [field, role] of Object.entries(fields)) {
+      if (
+        role === "comparison-identity" || role === "controlled-condition" ||
+        role === "recorded-job-enrollment" || role === "job-identity"
+      ) {
+        required.push(`${layer}.${field}`);
+      }
+    }
+  }
+  assertEquals(
+    [...projected].sort(),
+    required.sort(),
+    "comparison identity and controlled conditions must derive from every classified v1 field",
+  );
+  assertEquals(
+    VALIDATION_CONTROLLED_CONDITIONS.map((condition) => condition.id).length,
+    new Set(VALIDATION_CONTROLLED_CONDITIONS.map((condition) => condition.id))
+      .size,
+    "controlled-condition ids are unique",
+  );
+});
+
 // ── the three behaviours, parameterized ─────────────────────────────────────
 
 /** Require the firing, quiet, and evidence-limited fixtures enrolled for one detector. */
@@ -1487,105 +1657,615 @@ function detector(id: string): Detector {
   return found;
 }
 
-Deno.test("same-tree flake reads a failed standalone test from its explicit job step", () => {
-  const events = run([
-    {
-      verb: "test",
-      head: "cafe123",
-      outcome: "failed",
-      steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
-    },
-    {
-      verb: "test",
-      head: "cafe123",
-      outcome: "ok",
-      steps: [step("test", 1, "Test")],
-    },
-  ]);
-  const outcome = runDetector(
-    detector("same-tree-flake"),
-    buildStreamFacts(events, "main"),
-  );
-  assertEquals(
-    outcome.status,
-    "fired",
-    "an explicit failed test step is red even though standalone test has no top-level failed_stage",
-  );
-});
+interface FindingBasisView {
+  kind: string;
+  coverage: { comparable: number; denominator: number; unit: string };
+  validation_state: { version: number | null; complete: boolean };
+  matched_conditions: Array<{
+    dimension: string;
+    values: string[];
+    distinct: number;
+    omitted: number;
+  }>;
+  differing_conditions: Array<{
+    dimension: string;
+    values: string[];
+    distinct: number;
+    omitted: number;
+  }>;
+  legacy_events: number;
+  excluded_events: number;
+  limitations: string[];
+  values: Record<string, { value: number; kind: string }>;
+}
 
-Deno.test("same-tree flake uses complete versioned state and normalized job verdicts", () => {
-  const detectorUnderTest = detector("same-tree-flake");
-  const fired = runDetector(
-    detectorUnderTest,
-    buildStreamFacts(
-      run([
-        { verb: "test", validation: validation("failed"), outcome: "failed" },
-        { verb: "test", validation: validation("passed"), outcome: "ok" },
-      ]),
-      "main",
-    ),
-  );
-  assertEquals(fired.status, "fired");
+/** Read the additive evidence contract before its inferred type exists. */
+function findingBasis(
+  finding: DetectorReport["findings"][number] | undefined,
+): FindingBasisView {
+  assert(finding !== undefined, "expected a finding");
+  const basis = (finding as unknown as { basis?: FindingBasisView }).basis;
+  assert(basis !== undefined, "expected structured finding basis");
+  return basis;
+}
 
-  for (const unavailable of ["skipped", "cancelled", "unavailable"] as const) {
-    const neutral = runDetector(
-      detectorUnderTest,
+/** Every controlled-condition dimension named by a finding, in stable order. */
+function differingDimensions(basis: FindingBasisView): string[] {
+  return basis.differing_conditions.map((condition) => condition.dimension);
+}
+
+Deno.test("validation findings: each recorded job auto-enrols in strict same-envelope divergence", () => {
+  for (const mode of ["standalone-test", "full-gate"] as const) {
+    const fired = runDetector(
+      detector("same-tree-flake"),
       buildStreamFacts(
         run([
-          { verb: "test", validation: validation(unavailable) },
-          { verb: "test", validation: validation("passed") },
+          {
+            verb: mode === "full-gate" ? "done" : "test",
+            outcome: "failed",
+            validation: validation("failed", {
+              mode,
+              job: "future-verifier",
+              siblings: [{ id: "unrelated-check", outcome: "passed" }],
+            }),
+          },
+          {
+            verb: mode === "full-gate" ? "done" : "test",
+            validation: validation("passed", {
+              mode,
+              job: "future-verifier",
+              siblings: [{ id: "unrelated-check", outcome: "passed" }],
+            }),
+          },
         ]),
         "main",
       ),
     );
-    assertEquals(neutral.status, "quiet", unavailable);
+    assertEquals(fired.status, "fired", mode);
+    assertEquals(fired.findings.length, 1, mode);
+    const finding = fired.findings[0];
+    assertEquals(finding?.subject, "future-verifier", mode);
+    assertEquals(finding?.evidence, {
+      runs: 2,
+      denominator: 2,
+      red: 1,
+      green: 1,
+      excluded_outcomes: 0,
+    });
+    const basis = findingBasis(finding);
+    assertEquals(basis.kind, "complete-validation-state");
+    assertEquals(basis.coverage, {
+      comparable: 2,
+      denominator: 2,
+      unit: "job-runs",
+    });
+    assertEquals(basis.validation_state, { version: 1, complete: true });
+    assertEquals(basis.differing_conditions, []);
+    assert(
+      basis.matched_conditions.some((condition) =>
+        condition.dimension === "sibling-context"
+      ),
+      "the same-envelope basis must cover the whole planned sibling set",
+    );
+    assert(
+      basis.limitations.some((limitation) =>
+        limitation.includes("external context")
+      ),
+      "the finding must disclose the material unrecorded-context boundary",
+    );
   }
 });
 
-Deno.test("same-tree flake cannot compare incomplete, different-state, or different-envelope evidence", () => {
-  const detectorUnderTest = detector("same-tree-flake");
-  const pairs: Array<[string, Partial<VerbEvent>, Partial<VerbEvent>]> = [
-    [
-      "incomplete",
-      { verb: "test", validation: validation("failed", { complete: false }) },
-      { verb: "test", validation: validation("passed", { complete: false }) },
-    ],
-    [
-      "state",
-      { verb: "test", validation: validation("failed", { digest: "state-a" }) },
-      { verb: "test", validation: validation("passed", { digest: "state-b" }) },
-    ],
-    [
-      "mode",
+Deno.test("validation findings: strict comparison is per job, not one event-level suite verdict", () => {
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          validation: validation("failed", {
+            job: "unit",
+            siblings: [{ id: "smoke", outcome: "passed" }],
+          }),
+        },
+        {
+          verb: "test",
+          validation: validation("passed", {
+            job: "unit",
+            siblings: [{ id: "smoke", outcome: "passed" }],
+          }),
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(outcome.findings.map((finding) => finding.subject), ["unit"]);
+});
+
+Deno.test("validation findings regression: two event-level reds still expose each job's opposite verdict", () => {
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          outcome: "failed",
+          validation: validation("failed", {
+            job: "unit",
+            siblings: [{ id: "smoke", outcome: "passed" }],
+          }),
+        },
+        {
+          verb: "test",
+          outcome: "failed",
+          validation: validation("passed", {
+            job: "unit",
+            siblings: [{ id: "smoke", outcome: "failed" }],
+          }),
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(
+    outcome.findings.map((finding) => finding.subject).sort(),
+    ["smoke", "unit"],
+    "suite-level red/red must not hide two per-job red/green changes",
+  );
+});
+
+Deno.test("validation findings regression: legacy runs of different jobs never form one divergence", () => {
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          head: "shared-head",
+          clean: true,
+          outcome: "failed",
+          steps: [{ ...step("unit", 1, "Test"), outcome: "failed" }],
+        },
+        {
+          verb: "test",
+          head: "shared-head",
+          clean: true,
+          steps: [step("smoke", 1, "Test")],
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(
+    outcome.findings,
+    [],
+    "event-level tree grouping must not compare unrelated validation jobs",
+  );
+});
+
+Deno.test("validation findings: cross-context divergence names every changed controlled condition", () => {
+  const strict = detector("same-tree-flake");
+  const contextual = detector("execution-context-divergence");
+  const facts = buildStreamFacts(
+    run([
+      {
+        verb: "test",
+        outcome: "failed",
+        validation: validation("failed", { mode: "standalone-test" }),
+      },
+      {
+        verb: "test",
+        outcome: "failed",
+        validation: validation("failed", { mode: "standalone-test" }),
+      },
+      {
+        verb: "done",
+        validation: validation("passed", {
+          mode: "full-gate",
+          concurrent: true,
+          siblings: [{
+            id: "lint",
+            outcome: "passed",
+            stage: "check",
+            concurrent: true,
+          }],
+        }),
+      },
+      {
+        verb: "done",
+        validation: validation("passed", {
+          mode: "full-gate",
+          concurrent: true,
+          siblings: [{
+            id: "lint",
+            outcome: "passed",
+            stage: "check",
+            concurrent: true,
+          }],
+        }),
+      },
+    ]),
+    "main",
+  );
+  assertEquals(runDetector(strict, facts).status, "quiet");
+  const outcome = runDetector(contextual, facts);
+  assertEquals(outcome.status, "fired");
+  const finding = outcome.findings[0];
+  assertEquals(finding?.subject, "test");
+  assertEquals(finding?.evidence, {
+    runs: 4,
+    denominator: 4,
+    red: 2,
+    green: 2,
+    contexts: 2,
+    full_gate_runs: 2,
+    standalone_test_runs: 2,
+    excluded_outcomes: 0,
+  });
+  assertStringIncludes(finding?.observed ?? "", "standalone test 2 red");
+  assertStringIncludes(finding?.observed ?? "", "full Gate 2 green");
+  assertEquals(differingDimensions(findingBasis(finding)), [
+    "capture-boundary",
+    "execution-mode",
+    "concurrency",
+    "sibling-context",
+  ]);
+});
+
+Deno.test("validation findings: sibling and concurrency context can diverge within one mode", () => {
+  const outcome = runDetector(
+    detector("execution-context-divergence"),
+    buildStreamFacts(
+      run([
+        { verb: "test", validation: validation("failed") },
+        {
+          verb: "test",
+          validation: validation("passed", {
+            concurrent: true,
+            siblings: [{ id: "smoke", outcome: "passed", concurrent: true }],
+          }),
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(outcome.status, "fired");
+  assertEquals(differingDimensions(findingBasis(outcome.findings[0])), [
+    "concurrency",
+    "sibling-context",
+  ]);
+});
+
+Deno.test("validation findings: unclassified context differences prevent every current comparison", () => {
+  const cases: Array<[
+    string,
+    ValidationFixtureOptions,
+    ValidationFixtureOptions,
+  ]> = [
+    ["state", { digest: "state-a" }, { digest: "state-b" }],
+    ["definition", { definition: "job-a" }, { definition: "job-b" }],
+    ["writer", { writer: "9.8.7" }, { writer: "9.8.8" }],
+    ["config", { config: "config-a" }, { config: "config-b" }],
+    ["setup", { setup: "setup-a" }, { setup: "setup-b" }],
+  ];
+  for (const [label, red, green] of cases) {
+    const facts = buildStreamFacts(
+      run([
+        { verb: "test", validation: validation("failed", red) },
+        {
+          verb: "done",
+          validation: validation("passed", { ...green, mode: "full-gate" }),
+        },
+      ]),
+      "main",
+    );
+    for (const id of ["same-tree-flake", "execution-context-divergence"]) {
+      assertEquals(
+        runDetector(detector(id), facts).findings,
+        [],
+        `${label}:${id}`,
+      );
+    }
+  }
+});
+
+Deno.test("validation findings: mixed outcomes inside one context never masquerade as cross-context divergence", () => {
+  const facts = buildStreamFacts(
+    run([
       { verb: "test", validation: validation("failed") },
+      { verb: "test", validation: validation("passed") },
       {
         verb: "done",
         validation: validation("passed", { mode: "full-gate" }),
       },
-    ],
-    [
-      "config",
-      { verb: "test", validation: validation("failed", { config: "a" }) },
-      { verb: "test", validation: validation("passed", { config: "b" }) },
-    ],
-    [
-      "legacy-versus-v1",
+    ]),
+    "main",
+  );
+  assertEquals(runDetector(detector("same-tree-flake"), facts).status, "fired");
+  assertEquals(
+    runDetector(detector("execution-context-divergence"), facts).findings,
+    [],
+  );
+});
+
+Deno.test("validation findings: incomplete and non-verdict evidence cannot establish divergence", () => {
+  const incomplete: Array<[string, ValidationFixtureOptions]> = [
+    ["state", { complete: false }],
+    ["execution", { executionComplete: false }],
+  ];
+  for (const [label, options] of incomplete) {
+    const facts = buildStreamFacts(
+      run([
+        { verb: "test", validation: validation("failed", options) },
+        { verb: "test", validation: validation("passed", options) },
+      ]),
+      "main",
+    );
+    for (const id of ["same-tree-flake", "execution-context-divergence"]) {
+      assertEquals(
+        runDetector(detector(id), facts).findings,
+        [],
+        `${label}:${id}`,
+      );
+    }
+  }
+
+  for (const excluded of ["skipped", "cancelled", "unavailable"] as const) {
+    const facts = buildStreamFacts(
+      run([
+        { verb: "test", validation: validation("failed") },
+        { verb: "test", validation: validation(excluded) },
+      ]),
+      "main",
+    );
+    assertEquals(
+      runDetector(detector("same-tree-flake"), facts).findings,
+      [],
+      excluded,
+    );
+  }
+});
+
+Deno.test("validation findings: skipped and cancelled outcomes stay visible only in the denominator", () => {
+  for (const excluded of ["skipped", "cancelled", "unavailable"] as const) {
+    const outcome = runDetector(
+      detector("same-tree-flake"),
+      buildStreamFacts(
+        run([
+          { verb: "test", validation: validation("failed") },
+          { verb: "test", validation: validation("passed") },
+          { verb: "test", validation: validation(excluded) },
+        ]),
+        "main",
+      ),
+    );
+    assertEquals(outcome.status, "fired", excluded);
+    assertEquals(outcome.findings[0]?.evidence, {
+      runs: 2,
+      denominator: 3,
+      red: 1,
+      green: 1,
+      excluded_outcomes: 1,
+    });
+    assertEquals(findingBasis(outcome.findings[0]).excluded_events, 1);
+  }
+});
+
+Deno.test("validation findings: staged, worktree, untracked, and mixed state identities never collapse", () => {
+  const states: Array<[string, string, string]> = [
+    ["staged-versus-worktree", "state-index", "state-worktree"],
+    ["tracked-versus-untracked", "state-tracked", "state-untracked"],
+    ["untracked-versus-mixed", "state-untracked", "state-mixed"],
+  ];
+  for (const [label, redState, greenState] of states) {
+    const facts = buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          validation: validation("failed", { digest: redState }),
+        },
+        {
+          verb: "test",
+          validation: validation("passed", { digest: greenState }),
+        },
+      ]),
+      "main",
+    );
+    for (const id of ["same-tree-flake", "execution-context-divergence"]) {
+      assertEquals(
+        runDetector(detector(id), facts).findings,
+        [],
+        `${label}:${id}`,
+      );
+    }
+  }
+});
+
+Deno.test("validation findings: evidence versions and legacy bases never blend", () => {
+  const versionedFacts = buildStreamFacts(
+    run([
+      { verb: "test", validation: validation("failed", { version: 1 }) },
+      { verb: "test", validation: validation("passed", { version: 2 }) },
+    ]),
+    "main",
+  );
+  assertEquals(
+    runDetector(detector("same-tree-flake"), versionedFacts).findings,
+    [],
+  );
+
+  const legacyAndCurrent = buildStreamFacts(
+    run([
       {
         verb: "test",
         outcome: "failed",
         steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
       },
       { verb: "test", validation: validation("passed") },
-    ],
-  ];
-  for (const [label, first, second] of pairs) {
-    const outcome = runDetector(
-      detectorUnderTest,
-      buildStreamFacts(run([first, second]), "main"),
-    );
-    assertEquals(outcome.status, "insufficient-evidence", label);
-    assertEquals(outcome.considered, 0, label);
+    ]),
+    "main",
+  );
+  assertEquals(
+    runDetector(detector("same-tree-flake"), legacyAndCurrent).findings,
+    [],
+  );
+});
+
+Deno.test("validation findings: legacy clean and dirty evidence stay separate and weak", () => {
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          head: "clean-head",
+          clean: true,
+          outcome: "failed",
+          steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
+        },
+        {
+          verb: "test",
+          head: "clean-head",
+          clean: true,
+          steps: [step("test", 1, "Test")],
+        },
+        {
+          verb: "test",
+          head: "dirty-head",
+          clean: false,
+          tree: "tracked-fingerprint",
+          outcome: "failed",
+          steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
+        },
+        {
+          verb: "test",
+          head: "dirty-head",
+          clean: false,
+          tree: "tracked-fingerprint",
+          steps: [step("test", 1, "Test")],
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(outcome.status, "fired");
+  assertEquals(outcome.findings.length, 2);
+  const bases = outcome.findings.map(findingBasis);
+  assertEquals(
+    bases.map((basis) => basis.kind).sort(),
+    ["legacy-clean-start", "legacy-dirty-tracked-start"],
+  );
+  for (const basis of bases) {
+    assertEquals(basis.validation_state, { version: null, complete: false });
+    assertEquals(basis.coverage, {
+      comparable: 2,
+      denominator: 2,
+      unit: "job-runs",
+    });
+    assertEquals(basis.legacy_events, 2);
   }
+  const observed = outcome.findings.map((finding) => finding.observed).join(
+    "\n",
+  );
+  assertStringIncludes(observed, "recorded clean start");
+  assertStringIncludes(observed, "tracked start fingerprint");
+  assert(!observed.includes("exact same tree"));
+  assert(!observed.includes("identical tree"));
+});
+
+Deno.test("validation findings: legacy staged/index and untracked distinctions remain disclosed limitations", () => {
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          clean: false,
+          tree: "same-tracked-diff",
+          outcome: "failed",
+          steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
+        },
+        {
+          verb: "test",
+          clean: false,
+          tree: "same-tracked-diff",
+          steps: [step("test", 1, "Test")],
+        },
+      ]),
+      "main",
+    ),
+  );
+  const basis = findingBasis(outcome.findings[0]);
+  assertEquals(basis.kind, "legacy-dirty-tracked-start");
+  assert(
+    basis.limitations.some((limitation) =>
+      limitation.includes("index/worktree") && limitation.includes("untracked")
+    ),
+    "legacy dirty evidence must disclose both staged/index and mixed-untracked ambiguity",
+  );
+});
+
+Deno.test("patterns finding schema enforces additive evidence agreement without confidence", () => {
+  const finding = {
+    detector: "same-tree-flake",
+    family: "gate-fit" as const,
+    scope: "project" as const,
+    tone: "attention" as const,
+    subject: "test",
+    brief: "1 red · 1 green",
+    observed: "A recorded job passed and failed under matched conditions.",
+    evidence: { runs: 2 },
+    strength: 20,
+    next_step: "Investigate the job.",
+    basis: {
+      kind: "complete-validation-state",
+      coverage: { comparable: 2, denominator: 2, unit: "job-runs" },
+      validation_state: { version: 1, complete: true },
+      matched_conditions: [],
+      differing_conditions: [],
+      legacy_events: 0,
+      excluded_events: 0,
+      limitations: ["External context was not recorded."],
+      values: { runs: { value: 2, kind: "observed" } },
+    },
+  };
+  assert(PatternsFindingSchema.safeParse(finding).success);
+  assert(
+    !PatternsFindingSchema.safeParse({
+      ...finding,
+      basis: {
+        ...finding.basis,
+        values: { runs: { value: 3, kind: "observed" } },
+      },
+    }).success,
+    "the structured value must equal ordinary numerical evidence",
+  );
+  assert(
+    !PatternsFindingSchema.safeParse({ ...finding, confidence: 0.9 }).success,
+    "the strict wire contract must reject a confidence score",
+  );
+});
+
+Deno.test("patterns evidence conditions bound displayed values and disclose full cardinality", () => {
+  const condition = boundedPatternEvidenceCondition(
+    "sibling-context",
+    Array.from(
+      { length: PATTERN_EVIDENCE_CONDITION_VALUES_MAX + 1 },
+      (_, index) => ({ key: `key-${index}`, label: `context-${index}` }),
+    ),
+  );
+  assert(condition !== undefined);
+  assertEquals(condition.values.length, PATTERN_EVIDENCE_CONDITION_VALUES_MAX);
+  assertEquals(condition.distinct, PATTERN_EVIDENCE_CONDITION_VALUES_MAX + 1);
+  assertEquals(condition.omitted, 1);
+  assert(PatternEvidenceConditionSchema.safeParse(condition).success);
+  assert(
+    !PatternEvidenceConditionSchema.safeParse({
+      ...condition,
+      omitted: 0,
+    }).success,
+    "the schema must reject a bounded sample that hides its omitted value",
+  );
 });
 
 Deno.test("generator gate share attributes generated groups heaviest first", () => {

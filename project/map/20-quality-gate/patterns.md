@@ -33,7 +33,7 @@ The header gives the day span, event and branch counts, driver split, detector s
 
 Standard trajectories render a `▁▂▃▄▅▆▇█` sparkline with exact endpoints and equal-duration interior means; the wire series caps at 24 points.
 
-The closing account names clear and young detectors. `--json` keeps findings ranked with their observation, scope, counts, next step, and optional `series`; `data.findings_total` joins when the bound elided findings. `data.detectors` accounts for the registry; `data.population` carries the driver split.
+The closing account names clear and young detectors. `--json` keeps findings ranked with their observation, scope, counts, next step, optional `series`, and optional structured `basis`; `data.findings_total` joins when the bound elided findings. `data.detectors` accounts for the registry; `data.population` carries the driver split.
 
 `patterns` runs every detector, including batch detectors that need longitudinal history. Inline detectors also appear on the working command named by their scope: branch findings appear after a qualifying green Proof, session findings join `status` hints, and project findings form the advisory history group in `improvement`. The Proof waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
@@ -50,7 +50,7 @@ Registry detectors run over the event stream, grouped by family:
 | Family     | Watches for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Trajectory | Each Standard's measured value over time beside its limit's own history (read from pin events), and the monthly red rate, extended past rotation by prune digests.                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Gate fit   | One job or the generated family dominating gate time, material test-run slot contention, duration creep on an unchanged setup, an idle fix stage, one diagnostic class across branches, divergent verdicts on an identical tree, and failures discovered a run late after an early stop.                                                                                                                                                                                                                                                                                   |
+| Gate fit   | One job or the generated family dominating gate time, material test-run slot contention, duration creep on an unchanged setup, an idle fix stage, one diagnostic class across branches, per-job verdict divergence under matched recorded conditions, verdict divergence between controlled execution contexts, and failures discovered a run late after an early stop.                                                                                                                                                                                                    |
 | Behavior   | Red `done` streaks, repeated refusals with one slug, `done`-only iteration with no `prepare`, hint follow-through by declared family, tip adoption by registry entry, dirty-tree churn, edits on the trunk, recurring `--force`, recurring `done --confirmed` reruns, missed doc lookups, worktrees started but never green, out-of-protocol orderings, recurring drivers the identity catalogue can't name, a returning agent whose native integration isn't configured, red streaks split by driver cohort, and a guidance-parity read of gaps one cohort keeps hitting. |
 | Funnel     | Red runs before the first green per branch and per driver cohort, start-to-accept cycle time, single giant-commit landings, update friction trending up.                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
@@ -58,11 +58,9 @@ Registry detectors run over the event stream, grouped by family:
 
 After 6 capped runs, `slot-contention` reads the latest 20. It reports when median wait reaches 30 seconds and 25% of median execution. Raise the cap when the machine has spare capacity. Lower concurrent test demand when the machine is saturated.
 
-### Same-input test verdicts
+### Validation verdict comparisons
 
-`same-tree-flake` compares only complete, same-version repository and execution evidence. Its key covers HEAD, index, tracked and untracked state, clean submodules, config/setup, test definitions, mode, and concurrency. Incomplete records never match; older HEAD-plus-diff records form a separate legacy population.
-
-Explicit job steps decide test verdicts. A failed standalone `discern test` is red; skipped, cancelled, missing, and ambiguous evidence is neither. A top-level `check/test` failure cannot identify the failed job ([ADR 0273](../_adr/0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)).
+Validation findings compare explicit per-job verdicts. `same-tree-flake` retains its published id for divergence under matched recorded conditions; `execution-context-divergence` names differences between controlled contexts. [Validation findings](validation-findings.md) defines their comparison keys, legacy boundary, denominators, and structured evidence.
 
 Hint follow-through derives three families from the hint registry: branch update, red-gate remedy, and main-session worktree start. It reports `fired`, `followed`, `not_followed`, and `censored` after 3 resolved episodes; missing correlation stays censored. `skipped-prepare` uses done-heavy iteration without a hint ([ADR 0207](../_adr/0207-hint-follow-through-is-declared-and-episode-based.md)).
 
@@ -77,6 +75,8 @@ After 8 consent-recorded landings, 3 granted, `pre-authorized-landings` reports 
 ## How the evidence is handled
 
 Every detector declares an evidence threshold; below it the report says "insufficient evidence" rather than extrapolating: a young logbook produces a short report.
+
+Validation findings add a structured `basis` beside compatible numerical evidence. Its full contract and bounds are in [Validation findings](validation-findings.md).
 
 The recorder stores raw driver signals; readers score them fresh on every read, so improved scoring covers accumulated history without a migration. CI runs and `--dry-run` previews reach no detector. Agent-practice behavior detectors exclude runs that look interactively driven, so exploratory human runs do not enter agent-driven workflow evidence. Tip adoption keeps human-driven runs because the detector measures what a person did after seeing the tip ([ADR 0162](../_adr/0162-logbook-day-one-vocabulary.md), [ADR 0236](../_adr/0236-tip-adoption-clears-evidence-per-tip-across-setups.md)). Setup-branch events describe a project being configured and stay outside analysis ([ADR 0224](../_adr/0224-trend-comparability-is-setup-equality.md)).
 
@@ -109,21 +109,22 @@ Result fields and Model Context Protocol arguments are in [MCP tools & results](
 
 ## Where it lives in code
 
-| Concern                                  | Source                                                                 |
-| ---------------------------------------- | ---------------------------------------------------------------------- |
-| The detector registry and every detector | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)             |
-| Driver scoring and the cohort seam       | [`cohorts.ts`](../../../src/engine/logbook/cohorts.ts)                 |
-| The verb core, reports, and lifecycle    | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)               |
-| Active/archive storage transactions      | [`store.ts`](../../../src/engine/logbook/store.ts)                     |
-| Shared terminal wrapping and alignment   | [`text.ts`](../../../src/lib/text.ts)                                  |
-| The tolerant stream reader               | [`read.ts`](../../../src/engine/logbook/read.ts)                       |
-| Scope and tier routing                   | [`routing.ts`](../../../src/engine/logbook/routing.ts)                 |
-| Bounded working-command reader           | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)               |
-| Wire vocabulary and data schemas         | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts) |
-| Registry-driven fixtures and behavior    | [`patterns_test.ts`](../../../tests/patterns_test.ts)                  |
-| Cohort-seam rules at their home          | [`cohorts_test.ts`](../../../tests/cohorts_test.ts)                    |
-| Routing and outcome guards               | [`logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)    |
-| Black-box CLI coverage                   | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)    |
+| Concern                                  | Source                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| The detector registry and every detector | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)                     |
+| Validation comparison projections        | [`validation_findings.ts`](../../../src/engine/logbook/validation_findings.ts) |
+| Driver scoring and the cohort seam       | [`cohorts.ts`](../../../src/engine/logbook/cohorts.ts)                         |
+| The verb core, reports, and lifecycle    | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)                       |
+| Active/archive storage transactions      | [`store.ts`](../../../src/engine/logbook/store.ts)                             |
+| Shared terminal wrapping and alignment   | [`text.ts`](../../../src/lib/text.ts)                                          |
+| The tolerant stream reader               | [`read.ts`](../../../src/engine/logbook/read.ts)                               |
+| Scope and tier routing                   | [`routing.ts`](../../../src/engine/logbook/routing.ts)                         |
+| Bounded working-command reader           | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                       |
+| Wire vocabulary and data schemas         | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts)         |
+| Registry-driven fixtures and behavior    | [`patterns_test.ts`](../../../tests/patterns_test.ts)                          |
+| Cohort-seam rules at their home          | [`cohorts_test.ts`](../../../tests/cohorts_test.ts)                            |
+| Routing and outcome guards               | [`logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)            |
+| Black-box CLI coverage                   | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)            |
 
 ## Current state & gotchas
 

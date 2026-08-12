@@ -279,9 +279,10 @@ export const verbEventSchema = z.looseObject({
   head: z.string().nullable(),
   /** Whether the working tree was clean at invocation (null when unknown). */
   clean: z.boolean().nullable(),
-  /** Fingerprint of the uncommitted diff, present only on a dirty tree: `head`
-   * plus this identifies "the same exact tree" across runs, which is what a
-   * flake reader needs (`clean` runs are identified by `head` alone). */
+  /** Legacy fingerprint of `git diff HEAD`, present only on a dirty tree.
+   * It identifies one tracked start fingerprint beside `head`; it does not
+   * distinguish index/worktree form or untracked inputs. Current validation
+   * comparisons use the versioned `validation` evidence below. */
   tree: z.string().optional(),
   /** How the invocation ended ({@link LOGBOOK_OUTCOMES}). */
   outcome: z.enum(LOGBOOK_OUTCOMES),

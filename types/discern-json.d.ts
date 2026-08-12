@@ -2351,6 +2351,39 @@ export type DiscernImprovementResult = {
         evidence: {
           [key: string]: number;
         };
+        basis?: {
+          kind: string;
+          coverage: {
+            comparable: number;
+            denominator: number;
+            unit: string;
+          };
+          validation_state: {
+            version: number | null;
+            complete: boolean;
+          };
+          matched_conditions: Array<{
+            dimension: string;
+            values: Array<string>;
+            distinct: number;
+            omitted: number;
+          }>;
+          differing_conditions: Array<{
+            dimension: string;
+            values: Array<string>;
+            distinct: number;
+            omitted: number;
+          }>;
+          legacy_events: number;
+          excluded_events: number;
+          limitations: Array<string>;
+          values: {
+            [key: string]: {
+              value: number;
+              kind: "observed" | "estimated";
+            };
+          };
+        };
         strength: number;
         next_step: string;
       }>;
@@ -3134,6 +3167,39 @@ export type DiscernPatternsResult = {
       observed: string;
       evidence: {
         [key: string]: number;
+      };
+      basis?: {
+        kind: string;
+        coverage: {
+          comparable: number;
+          denominator: number;
+          unit: string;
+        };
+        validation_state: {
+          version: number | null;
+          complete: boolean;
+        };
+        matched_conditions: Array<{
+          dimension: string;
+          values: Array<string>;
+          distinct: number;
+          omitted: number;
+        }>;
+        differing_conditions: Array<{
+          dimension: string;
+          values: Array<string>;
+          distinct: number;
+          omitted: number;
+        }>;
+        legacy_events: number;
+        excluded_events: number;
+        limitations: Array<string>;
+        values: {
+          [key: string]: {
+            value: number;
+            kind: "observed" | "estimated";
+          };
+        };
       };
       strength: number;
       next_step: string;

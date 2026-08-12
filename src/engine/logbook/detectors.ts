@@ -52,6 +52,7 @@ import {
   type DetectorScope,
   type DetectorStatus,
   type DetectorTier,
+  type PatternEvidenceBasis,
   type PatternFindingTone,
   PATTERNS_SERIES_MAX_POINTS,
 } from "../../shared/patterns_vocabulary.ts";
@@ -77,9 +78,15 @@ import {
 } from "./schema.ts";
 import { byBranch } from "./read.ts";
 import {
-  type ValidationJobOutcome,
-  validationJobOutcome,
-} from "./validation.ts";
+  crossContextValidationGroups,
+  observedEvidenceValues,
+  sameEnvelopeValidationGroups,
+  VALIDATION_FINDING_RELATIONSHIPS,
+  type ValidationContextBucket,
+  validationContextLabel,
+  type ValidationFindingRelationship,
+  type ValidationRepeatGroup,
+} from "./validation_findings.ts";
 
 /** Stable marker carried in standard observations when their series crosses
  * a configuration or release boundary. The human report recognizes the same
@@ -171,6 +178,8 @@ export interface DetectorFinding {
   observed: string;
   /** The counts behind the sentence, named. */
   evidence: Record<string, number>;
+  /** Optional structured provenance and comparison boundary for the counts. */
+  basis?: PatternEvidenceBasis;
   /** Unitless ranking key for report ordering — never evidence. */
   strength: number;
   /** Overrides the detector's default next step when a finding shape needs its own. */
@@ -206,6 +215,10 @@ export interface Detector {
    * exactly this set: a windowed detector's findings must be identical
    * whether or not foreign-setup runs interleave its comparable series. */
   windowed?: true;
+  /** Present on the validation relationships derived from the canonical
+   * relationship registry. Guards then auto-enrol every such detector into
+   * the common evidence-contract assertions. */
+  validationRelationship?: ValidationFindingRelationship;
   /** Minimum `considered` before the detector may speak. */
   threshold: number;
   /** The recommended structural next step (findings may override per shape). */
@@ -298,82 +311,6 @@ export function inclusiveSpanDays(
     endDate.getUTCDate(),
   );
   return Math.floor(Math.abs(endDay - startDay) / 86_400_000) + 1;
-}
-
-type TestVerdict = "red" | "green" | "unavailable";
-
-/** Reduce explicit configured-test outcomes without treating absence as green. */
-function testVerdictFrom(
-  outcomes: readonly ValidationJobOutcome[],
-): TestVerdict {
-  if (outcomes.some((outcome) => outcome === "failed")) return "red";
-  if (
-    outcomes.length > 0 &&
-    outcomes.every((outcome) => outcome === "passed")
-  ) {
-    return "green";
-  }
-  return "unavailable";
-}
-
-/**
- * The test verdict from the one job-outcome authority. New evidence names job
- * stages explicitly. Legacy standalone events can identify all their job
- * steps; legacy `done` is deliberately narrower because a combined Check &
- * test group cannot reveal an unknown custom job's original stage.
- */
-function testVerdict(e: VerbEvent): TestVerdict {
-  if (e.validation !== undefined) {
-    return testVerdictFrom(
-      e.validation.execution.jobs
-        .filter((job) => job.stage === "test" && job.kind !== "standard")
-        .map((job) => validationJobOutcome(job)),
-    );
-  }
-  const steps = (e.steps ?? []).filter((step) => {
-    if (step.kind !== "job") return false;
-    if (e.verb === "test") return true;
-    return step.group === "Test" ||
-      /^(?:test|smoke)(?:#\d+)?$/.test(step.label);
-  });
-  return testVerdictFrom(steps.map((step) => validationJobOutcome(step)));
-}
-
-/** Comparable identity, version-separated and complete in both dimensions. */
-function validationComparisonKey(e: VerbEvent): string | undefined {
-  const validation = e.validation;
-  if (validation !== undefined) {
-    const state = validation.state;
-    const execution = validation.execution;
-    if (
-      !state.complete || state.digest === undefined || !execution.complete ||
-      execution.config_digest === undefined ||
-      execution.setup_digest === undefined
-    ) {
-      return undefined;
-    }
-    const testJobs = execution.jobs
-      .filter((job) => job.stage === "test" && job.kind !== "standard");
-    if (
-      testJobs.length === 0 ||
-      testJobs.some((job) => job.definition_digest === undefined)
-    ) {
-      return undefined;
-    }
-    const tests = testJobs
-      .map((job) =>
-        `${job.id}:${job.definition_digest ?? ""}:${job.concurrent_siblings}`
-      )
-      .sort()
-      .join("|");
-    return `validation-v${validation.version}:${state.digest}:` +
-      `${execution.mode}:${execution.writer}:${execution.config_digest}:` +
-      `${execution.setup_digest}:${tests}`;
-  }
-  if (e.head === null || (e.clean === false && e.tree === undefined)) {
-    return undefined;
-  }
-  return `legacy-v1:${e.head}:${e.tree ?? ""}`;
 }
 
 /** What a trend's candidate events resolved to: the comparable series and,
@@ -1342,7 +1279,7 @@ const confirmedRerun: Detector = {
   // deliberate probe; three is a habit worth naming.
   threshold: 3,
   next_step:
-    "A confirmed rerun asks an unchanged tree for a changed verdict. When that becomes routine, the gate's verdicts aren't trusted — diagnose the unstable check (`discern-cure-a-bug`, diagnose procedure) instead of paying the gate to re-ask; the same-tree-flake findings name which trees flipped.",
+    "A confirmed rerun asks an unchanged tree for a changed verdict. When that becomes routine, the gate's verdicts aren't trusted — diagnose the unstable check (`discern-cure-a-bug`, diagnose procedure) instead of paying the gate to re-ask; the validation findings name job-level verdict changes and their recorded conditions.",
   detect(facts): DetectorOutcome {
     const confirmed = facts.agentish.filter((e) =>
       e.verb === "done" && (e.flags ?? []).includes("confirmed")
@@ -2841,59 +2778,323 @@ const recurringDiagnostic: Detector = {
   },
 };
 
+interface ValidationVerdictCounts {
+  red: number;
+  green: number;
+  excluded: number;
+  denominator: number;
+  comparable: number;
+}
+
+/** Exact per-job counts; absence, cancellation, and skips stay in the
+ * denominator but never become either verdict. */
+function validationVerdictCounts(
+  observations: readonly { verdict: "red" | "green" | "excluded" }[],
+): ValidationVerdictCounts {
+  const red =
+    observations.filter((observation) => observation.verdict === "red").length;
+  const green =
+    observations.filter((observation) => observation.verdict === "green")
+      .length;
+  const excluded = observations.length - red - green;
+  return {
+    red,
+    green,
+    excluded,
+    denominator: observations.length,
+    comparable: red + green,
+  };
+}
+
+/** Distinct recorded events represented by a per-job observation group. */
+function distinctValidationEvents(
+  observations: readonly { event: VerbEvent }[],
+): number {
+  return new Set(observations.map((observation) => observation.event)).size;
+}
+
+/** Complete common basis for one strict validation finding. */
+function strictValidationBasis(
+  group: ValidationRepeatGroup,
+  counts: ValidationVerdictCounts,
+  evidence: Record<string, number>,
+): PatternEvidenceBasis {
+  const current = group.basisKind === "complete-validation-state";
+  const limitations = current
+    ? [
+      "Recorded repository and execution conditions matched; unrecorded external context remains outside the comparison.",
+    ]
+    : group.basisKind === "legacy-clean-start"
+    ? [
+      "Legacy evidence records one clean start at a HEAD, but not job definitions or a complete execution envelope.",
+      "Unrecorded external context and ignored inputs remain outside the comparison.",
+    ]
+    : [
+      "Legacy dirty evidence matches only the tracked start fingerprint; index/worktree form and untracked or mixed inputs were not distinguished.",
+      "Job definitions, a complete execution envelope, and external context were not recorded.",
+    ];
+  return {
+    kind: group.basisKind,
+    coverage: {
+      comparable: counts.comparable,
+      denominator: counts.denominator,
+      unit: "job-runs",
+    },
+    validation_state: {
+      version: group.stateVersion,
+      complete: current,
+    },
+    matched_conditions: group.matchedConditions,
+    differing_conditions: [],
+    legacy_events: current ? 0 : distinctValidationEvents(group.observations),
+    excluded_events: distinctValidationEvents(
+      group.observations.filter((observation) =>
+        observation.verdict === "excluded"
+      ),
+    ),
+    limitations,
+    values: observedEvidenceValues(evidence),
+  };
+}
+
+/** The deliberately weaker sentence attached to one legacy basis. */
+function legacyValidationObservation(
+  group: Exclude<
+    ValidationRepeatGroup,
+    { basisKind: "complete-validation-state" }
+  >,
+  counts: ValidationVerdictCounts,
+): string {
+  const state = group.basisKind === "legacy-clean-start"
+    ? `a recorded clean start at \`${group.head}\``
+    : `one tracked start fingerprint at \`${group.head}\``;
+  return `\`${group.jobId}\` recorded ${
+    formatHumanNumber(counts.red)
+  } red and ${formatHumanNumber(counts.green)} green across ${
+    formatHumanNumber(counts.comparable)
+  } of ${
+    formatHumanNumber(counts.denominator)
+  } job runs sharing ${state}; legacy evidence did not record the job definition or complete execution conditions.`;
+}
+
+const sameEnvelopeRelationship = VALIDATION_FINDING_RELATIONSHIPS[0];
+
 const sameTreeFlake: Detector = {
-  id: "same-tree-flake",
-  title: "Divergent outcomes on one tree",
+  id: sameEnvelopeRelationship.detectorId,
+  title: "Divergent outcomes under matched recorded conditions",
   family: "gate-fit",
   scope: "project",
   tier: "batch",
   tone: "attention",
-  // 2 repeat runs of some exact tree — the smallest set that can diverge.
+  validationRelationship: sameEnvelopeRelationship.kind,
+  // 2 eligible observations in a repeated per-job comparison group are the
+  // smallest population capable of carrying both verdicts.
   threshold: 2,
   next_step:
-    "A test that flips verdict on an identical tree is flaky. Diagnose the test itself (`discern-cure-a-bug`, diagnose procedure); quarantining it beats retrying until green, which teaches agents that red is negotiable.",
+    "A validation job changed verdict under matching recorded conditions. Reproduce the job and use the `discern-cure-a-bug` diagnosis procedure; check unrecorded environment and service inputs before naming a cause.",
   detect(facts): DetectorOutcome {
-    const gateRuns = facts.verbs.filter((e) =>
-      e.verb === "done" || e.verb === "test"
-    );
-    const byTree = new Map<string, VerbEvent[]>();
-    for (const e of gateRuns) {
-      const key = validationComparisonKey(e);
-      if (key === undefined) continue;
-      const group = byTree.get(key);
-      if (group === undefined) {
-        byTree.set(key, [e]);
-      } else {
-        group.push(e);
-      }
-    }
-    const repeats = [...byTree.values()].filter((g) => g.length >= 2);
+    const groups = sameEnvelopeValidationGroups(facts.verbs);
     const findings: DetectorFinding[] = [];
-    for (const group of repeats) {
-      const red = group.filter((event) => testVerdict(event) === "red").length;
-      const green = group.filter((event) =>
-        testVerdict(event) === "green"
-      ).length;
-      const head = group[0]?.head ?? "?";
-      if (red > 0 && green > 0) {
-        findings.push({
-          subject: head,
-          brief: `${formatHumanNumber(red)} red · ${
-            formatHumanNumber(green)
-          } green on one tree`,
-          observed: `the exact same tree at \`${head}\` ran ${
-            formatHumanNumber(red)
-          } test-red and ${formatHumanNumber(green)} green across ${
-            formatHumanNumber(group.length)
-          } runs with no change in between.`,
-          evidence: { runs: group.length, red, green },
-          strength: (red + green) * 10,
-        });
-      }
+    for (const group of groups) {
+      const counts = validationVerdictCounts(group.observations);
+      if (counts.red === 0 || counts.green === 0) continue;
+      const evidence = {
+        runs: counts.comparable,
+        denominator: counts.denominator,
+        red: counts.red,
+        green: counts.green,
+        excluded_outcomes: counts.excluded,
+      };
+      const observed = group.basisKind === "complete-validation-state"
+        ? `\`${group.jobId}\` recorded ${
+          formatHumanNumber(counts.red)
+        } red and ${formatHumanNumber(counts.green)} green across ${
+          formatHumanNumber(counts.comparable)
+        } of ${
+          formatHumanNumber(counts.denominator)
+        } job runs under one complete v${
+          formatHumanNumber(group.stateVersion)
+        } validation state and matching recorded execution conditions; external context was not recorded.`
+        : legacyValidationObservation(group, counts);
+      findings.push({
+        subject: group.jobId,
+        brief: `${formatHumanNumber(counts.red)} red · ${
+          formatHumanNumber(counts.green)
+        } green · ${formatHumanNumber(counts.comparable)} of ${
+          formatHumanNumber(counts.denominator)
+        } comparable job runs`,
+        observed,
+        evidence,
+        basis: strictValidationBasis(group, counts, evidence),
+        strength: counts.comparable * 10,
+      });
     }
-    findings.sort((a, b) => b.strength - a.strength);
+    findings.sort((a, b) =>
+      b.strength - a.strength ||
+      (a.subject ?? "").localeCompare(b.subject ?? "")
+    );
     return {
-      considered: repeats.reduce((sum, g) => sum + g.length, 0),
+      considered: groups.reduce(
+        (sum, group) => sum + group.observations.length,
+        0,
+      ),
+      findings: findings.slice(0, 3),
+    };
+  },
+};
+
+type ContextVerdict = "red" | "green" | "mixed" | "excluded";
+
+/** One controlled context must be internally stable before it can support a
+ * cross-context relationship. Mixed contexts belong to the strict detector. */
+function validationContextVerdict(
+  context: ValidationContextBucket,
+): ContextVerdict {
+  const counts = validationVerdictCounts(context.observations);
+  if (counts.red > 0 && counts.green > 0) return "mixed";
+  if (counts.red > 0) return "red";
+  if (counts.green > 0) return "green";
+  return "excluded";
+}
+
+/** Compact count suffixes remain compatible while naming controlled modes. */
+function validationModeEvidence(
+  observations: readonly { event: VerbEvent; verdict: string }[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const observation of observations) {
+    if (observation.verdict !== "red" && observation.verdict !== "green") {
+      continue;
+    }
+    const mode = observation.event.validation?.execution.mode;
+    const key = mode === "full-gate"
+      ? "full_gate_runs"
+      : mode === "standalone-test"
+      ? "standalone_test_runs"
+      : undefined;
+    if (key !== undefined) counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+const crossContextRelationship = VALIDATION_FINDING_RELATIONSHIPS[1];
+/** Human context clauses are a sample; the evidence map and basis retain the
+ * full context count and bounded condition cardinalities. */
+const VALIDATION_CONTEXT_SUMMARY_MAX = 4;
+
+const executionContextDivergence: Detector = {
+  id: crossContextRelationship.detectorId,
+  title: "Divergent outcomes between recorded execution contexts",
+  family: "gate-fit",
+  scope: "project",
+  tier: "batch",
+  tone: "attention",
+  validationRelationship: crossContextRelationship.kind,
+  // Two per-job observations across distinct controlled contexts are the
+  // smallest cross-context population.
+  threshold: 2,
+  next_step:
+    "Compare the named execution contexts in a controlled reproduction. Resource contention, ordering, and environment sensitivity are investigation paths, not established causes.",
+  detect(facts): DetectorOutcome {
+    const groups = crossContextValidationGroups(facts.verbs);
+    const findings: DetectorFinding[] = [];
+    for (const group of groups) {
+      const classified = group.contexts.map((context) => ({
+        context,
+        verdict: validationContextVerdict(context),
+      }));
+      if (classified.some(({ verdict }) => verdict === "mixed")) {
+        continue;
+      }
+      const redContexts = classified.filter(({ verdict }) => verdict === "red");
+      const greenContexts = classified.filter(({ verdict }) =>
+        verdict === "green"
+      );
+      if (redContexts.length === 0 || greenContexts.length === 0) continue;
+      const counts = validationVerdictCounts(group.observations);
+      const evidence = {
+        runs: counts.comparable,
+        denominator: counts.denominator,
+        red: counts.red,
+        green: counts.green,
+        contexts: redContexts.length + greenContexts.length,
+        ...validationModeEvidence(group.observations),
+        excluded_outcomes: counts.excluded,
+      };
+      const clauses = [...redContexts, ...greenContexts].map(
+        ({ context, verdict }) => {
+          const contextCounts = validationVerdictCounts(context.observations);
+          const count = verdict === "red"
+            ? contextCounts.red
+            : contextCounts.green;
+          const [mode, ...detail] = validationContextLabel(context).split(
+            ", ",
+          );
+          return `${mode ?? "recorded context"} ${
+            formatHumanNumber(count)
+          } ${verdict}${detail.length > 0 ? ` (${detail.join(", ")})` : ""}`;
+        },
+      );
+      const displayedClauses = clauses.slice(0, VALIDATION_CONTEXT_SUMMARY_MAX);
+      const omittedClauses = clauses.length - displayedClauses.length;
+      const contextSummary = [
+        ...displayedClauses,
+        ...(omittedClauses > 0
+          ? [
+            `${
+              formatHumanNumber(omittedClauses)
+            } additional contexts omitted from this summary`,
+          ]
+          : []),
+      ].join("; ");
+      const basis: PatternEvidenceBasis = {
+        kind: group.basisKind,
+        coverage: {
+          comparable: counts.comparable,
+          denominator: counts.denominator,
+          unit: "job-runs",
+        },
+        validation_state: { version: group.stateVersion, complete: true },
+        matched_conditions: group.matchedConditions,
+        differing_conditions: group.differingConditions,
+        legacy_events: 0,
+        excluded_events: distinctValidationEvents(
+          group.observations.filter((observation) =>
+            observation.verdict === "excluded"
+          ),
+        ),
+        limitations: [
+          "The contexts differ only in the named recorded conditions; resource contention, ordering, environment sensitivity, and other external context remain possible investigation paths, not established causes.",
+        ],
+        values: observedEvidenceValues(evidence),
+      };
+      findings.push({
+        subject: group.jobId,
+        brief: `${formatHumanNumber(counts.red)} red · ${
+          formatHumanNumber(counts.green)
+        } green · ${
+          formatHumanNumber(redContexts.length + greenContexts.length)
+        } contexts`,
+        observed:
+          `\`${group.jobId}\` differed between recorded contexts: ${contextSummary} across ${
+            formatHumanNumber(counts.comparable)
+          } of ${
+            formatHumanNumber(counts.denominator)
+          } job runs on one complete validation state.`,
+        evidence,
+        basis,
+        strength: counts.comparable * 10,
+      });
+    }
+    findings.sort((a, b) =>
+      b.strength - a.strength ||
+      (a.subject ?? "").localeCompare(b.subject ?? "")
+    );
+    return {
+      considered: groups.reduce(
+        (sum, group) => sum + group.observations.length,
+        0,
+      ),
       findings: findings.slice(0, 3),
     };
   },
@@ -3563,6 +3764,7 @@ export const DETECTORS: readonly Detector[] = [
   fixStageIdle,
   recurringDiagnostic,
   sameTreeFlake,
+  executionContextDivergence,
   loopsToGreen,
   cohortLoopsToGreen,
   cycleTime,

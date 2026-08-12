@@ -107,6 +107,7 @@ export function routedFindingData(routed: RoutedFinding): PatternsFinding {
     ...(finding.series !== undefined ? { series: finding.series } : {}),
     observed: finding.observed,
     evidence: finding.evidence,
+    ...(finding.basis !== undefined ? { basis: finding.basis } : {}),
     strength: finding.strength,
     next_step: finding.next_step ?? routed.detector.next_step,
   };

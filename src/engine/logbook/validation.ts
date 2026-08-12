@@ -164,6 +164,16 @@ export const validationEvidenceSchema = z.looseObject({
   state: stateSchema,
   execution: executionSchema,
 });
+
+/** Canonical field inventory for readers that must account for every recorded
+ * validation dimension. A schema addition widens this inventory immediately;
+ * the comparison-accounting guard then requires an explicit classification. */
+export const VALIDATION_EVIDENCE_SCHEMA_FIELDS = {
+  evidence: Object.keys(validationEvidenceSchema.shape),
+  state: Object.keys(stateSchema.shape),
+  execution: Object.keys(executionSchema.shape),
+  job: Object.keys(executionJobSchema.shape),
+} as const;
 export type ValidationEvidence = z.infer<typeof validationEvidenceSchema>;
 export type ValidationState = ValidationEvidence["state"];
 export type ValidationExecution = ValidationEvidence["execution"];

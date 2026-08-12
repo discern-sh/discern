@@ -1,12 +1,11 @@
 /**
- * How discern fingerprints "the same exact tree" across runs. A committed tree
- * is named by its HEAD sha alone; an uncommitted tree adds a fingerprint of
- * what is uncommitted. Two graders share the approach at two precisions:
+ * How two legacy/current consumers fingerprint recorded working state at two
+ * precisions:
  *
  * - {@link treeDiffFingerprint} — the POSIX cksum of `git diff HEAD` (tracked
- *   files only). The logbook stamps it into each event's `tree` field: cheap,
- *   stable, and precise enough for an ADVISORY reader comparing runs (a flake
- *   detector), where an occasional collision only softens a finding.
+ *   files only). The logbook stamps it into each legacy event's `tree` field.
+ *   It supports a deliberately weak tracked-start comparison; it is not a
+ *   complete validation-input identity.
  * - {@link workingStateFingerprint} — the tracked diff PLUS every path
  *   `git status` reports (untracked included, `-uall`) with its size and
  *   mtime. The gate's last-run marker uses it because a REFUSAL rides on the

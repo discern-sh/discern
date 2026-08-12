@@ -555,7 +555,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         why:
           "An unchanged tree expects an unchanged verdict. A green rerun pays full gate time for Proof that `discern status` already shows; retrying an unchanged red tree would make the recorded verdict look negotiable.",
         agent:
-          "The refusal names the verdict that already stands and both recoveries: change the tree, or attest the probe. A confirmed rerun lands in the logbook as a flag the patterns reader watches, so a flaky suite surfaces as evidence — the flake detector names the tree whose verdict flipped, and routine `--confirmed` is itself a finding.",
+          "The refusal names the verdict that already stands and both recoveries: change the tree, or attest the probe. A confirmed rerun lands in the logbook as a flag the patterns reader watches, so repeated verdict changes surface as evidence — validation findings name the job and recorded conditions, and routine `--confirmed` is itself a finding.",
         hints: ["done-unchanged-tree-red", "done-unchanged-tree-green"],
         plain: {
           title: "A repeat check on unchanged work is a recorded choice",

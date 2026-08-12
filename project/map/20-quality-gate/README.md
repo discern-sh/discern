@@ -35,3 +35,4 @@ For the JSON fields and agent-facing tool contract, use [MCP tools & results](..
 | [`discern tidy`](tidy.md)                         | Format discern-owned Markdown and TOML directly or through the format job.  |
 | [The fleet test-run cap](concurrent-test-runs.md) | Queue concurrent test-stage runs so parallel agents share one machine.      |
 | [Practice stats](practice-stats.md)               | Share what went well as one card of plain counts from the local logbook.    |
+| [Validation findings](validation-findings.md)     | Compare per-job verdicts within and across recorded execution conditions.   |

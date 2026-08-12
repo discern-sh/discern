@@ -33,6 +33,7 @@ import type {
 } from "../src/shared/result_schemas.ts";
 import {
   DETECTOR_FAMILIES,
+  PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
   PATTERNS_FINDINGS_PER_DETECTOR,
   PATTERNS_SERIES_MAX_POINTS,
 } from "../src/shared/patterns_vocabulary.ts";
@@ -132,6 +133,144 @@ function seededGeneratorGateEvent(at: string): string {
       },
     ],
   });
+}
+
+/** One complete v1 validation event for strict and cross-context findings. */
+function seededValidationEvent(
+  at: string,
+  job: string,
+  outcome: "passed" | "failed",
+  mode: "full-gate" | "standalone-test",
+  sibling = "lint",
+  additionalSiblings: readonly string[] = [],
+): string {
+  const fullGate = mode === "full-gate";
+  return JSON.stringify({
+    schema: 1,
+    at,
+    kind: "verb",
+    verb: fullGate ? "done" : "test",
+    surface: "cli",
+    writer: "9.9.9",
+    driver: { session: "cli:validation", json: true, tty: false, ci: false },
+    branch: "agent/validation",
+    head: "abc1234",
+    clean: true,
+    outcome: outcome === "failed" ? "failed" : "ok",
+    duration_ms: 1_200,
+    epoch: "validation-epoch",
+    validation: {
+      version: 1,
+      state: {
+        version: 1,
+        complete: true,
+        capture: fullGate ? "after-fix-build" : "before-test-group",
+        elapsed_ms: 1,
+        digest: "state-a",
+        components: {},
+        counts: {
+          index_entries: 1,
+          tracked_paths: 0,
+          untracked_paths: 0,
+          submodules: 0,
+        },
+        bytes: {
+          index_manifest: 40,
+          tracked_content: 0,
+          untracked_content: 0,
+        },
+        exclusions: [],
+      },
+      execution: {
+        version: 1,
+        complete: true,
+        mode,
+        writer: "9.9.9",
+        config_digest: "config-a",
+        setup_digest: "setup-a",
+        jobs: [
+          {
+            id: job,
+            stage: "test",
+            kind: "known",
+            definition_digest: `definition-${job}`,
+            outcome,
+            concurrent_siblings: fullGate,
+          },
+          ...(fullGate
+            ? [sibling, ...additionalSiblings].map((siblingId) => ({
+              id: siblingId,
+              stage: "check",
+              kind: "known",
+              definition_digest: `definition-${siblingId}`,
+              outcome: "passed" as const,
+              concurrent_siblings: true,
+            }))
+            : []),
+        ],
+      },
+    },
+  });
+}
+
+/** Seed one strict relationship and one mode/context relationship. */
+async function seedValidationFindings(dir: string): Promise<void> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    [
+      seededValidationEvent(
+        "2026-07-01T10:00:00.000Z",
+        "strict-test",
+        "failed",
+        "standalone-test",
+      ),
+      seededValidationEvent(
+        "2026-07-01T11:00:00.000Z",
+        "strict-test",
+        "passed",
+        "standalone-test",
+      ),
+      seededValidationEvent(
+        "2026-07-01T12:00:00.000Z",
+        "context-test",
+        "failed",
+        "standalone-test",
+      ),
+      seededValidationEvent(
+        "2026-07-01T13:00:00.000Z",
+        "context-test",
+        "passed",
+        "full-gate",
+      ),
+    ].join("\n") + "\n",
+  );
+}
+
+/** Seed more controlled sibling contexts than one condition may display. */
+async function seedHighCardinalityValidationFinding(
+  dir: string,
+): Promise<void> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  const contexts = PATTERN_EVIDENCE_CONDITION_VALUES_MAX + 1;
+  const largeRoster = Array.from(
+    { length: 200 },
+    (_, index) => `roster-${String(index + 1).padStart(3, "0")}`,
+  );
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    Array.from({ length: contexts }, (_, index) =>
+      seededValidationEvent(
+        `2026-07-${String(index + 1).padStart(2, "0")}T10:00:00.000Z`,
+        "bounded-context-test",
+        index === 0 ? "failed" : "passed",
+        "full-gate",
+        `sibling-${String(index + 1).padStart(2, "0")}`,
+        index === 0 ? largeRoster : [],
+      )).join("\n") + "\n",
+  );
 }
 
 Deno.test("patterns calendar span counts inclusive UTC dates, not elapsed 24-hour blocks", () => {
@@ -1404,6 +1543,138 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
       `    !  ${thrash.subject ?? ""}  ${thrash.brief}`,
       "a row without series must keep the 2A spacing",
     );
+  });
+});
+
+Deno.test("patterns: validation relationships preserve structured evidence and compact terminal parity", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await seedValidationFindings(dir);
+
+    const json = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    assert(parsed.ok && parsed.data !== undefined);
+    const data = parsed.data as PatternsData;
+    const strict = data.findings.find((finding) =>
+      finding.detector === "same-tree-flake"
+    );
+    const contextual = data.findings.find((finding) =>
+      finding.detector === "execution-context-divergence"
+    );
+    assertEquals(strict?.subject, "strict-test");
+    assertEquals(strict?.basis?.kind, "complete-validation-state");
+    assertEquals(strict?.basis?.coverage, {
+      comparable: 2,
+      denominator: 2,
+      unit: "job-runs",
+    });
+    assertEquals(contextual?.subject, "context-test");
+    assertEquals(
+      contextual?.basis?.differing_conditions.map((condition) =>
+        condition.dimension
+      ),
+      [
+        "capture-boundary",
+        "execution-mode",
+        "concurrency",
+        "sibling-context",
+      ],
+    );
+
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "80", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(
+      human.output,
+      "Divergent outcomes under matched recorded conditions",
+    );
+    assertStringIncludes(
+      human.output,
+      "Divergent outcomes between recorded execution contexts",
+    );
+    assertStringIncludes(human.output, "strict-test");
+    assertStringIncludes(human.output, "context-test");
+    assert(!human.output.includes("exact same tree"));
+    for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
+      assert(
+        displayWidth(line) <= 80,
+        `80-column line ${index + 1} is ${displayWidth(line)} columns: ${line}`,
+      );
+    }
+  });
+});
+
+Deno.test("patterns: high-cardinality validation contexts stay bounded and disclose omissions", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await seedHighCardinalityValidationFinding(dir);
+
+    const json = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    assert(parsed.ok && parsed.data !== undefined);
+    const data = parsed.data as PatternsData;
+    const finding = data.findings.find((candidate) =>
+      candidate.detector === "execution-context-divergence"
+    );
+    assertEquals(finding?.subject, "bounded-context-test");
+    assertEquals(
+      finding?.evidence.contexts,
+      PATTERN_EVIDENCE_CONDITION_VALUES_MAX + 1,
+    );
+    const siblings = finding?.basis?.differing_conditions.find((condition) =>
+      condition.dimension === "sibling-context"
+    );
+    assertEquals(
+      siblings?.values.length,
+      PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
+    );
+    assertEquals(
+      siblings?.distinct,
+      PATTERN_EVIDENCE_CONDITION_VALUES_MAX + 1,
+    );
+    assertEquals(siblings?.omitted, 1);
+    assert(
+      (finding?.observed.length ?? Number.POSITIVE_INFINITY) <= 1_000,
+      `bounded observed prose grew to ${finding?.observed.length} characters`,
+    );
+    assertStringIncludes(
+      finding?.observed ?? "",
+      "additional contexts omitted from this summary",
+    );
+    assertStringIncludes(
+      finding?.observed ?? "",
+      "additional siblings omitted",
+    );
+
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "80", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.output, "bounded-context-test");
+    assertStringIncludes(
+      human.output,
+      "Divergent outcomes between recorded execution contexts",
+    );
+    const lines = human.output.trimEnd().split("\n");
+    assert(
+      lines.length <= 80,
+      `bounded terminal result grew to ${lines.length} lines`,
+    );
+    assert(
+      human.output.length <= 5_000,
+      `bounded terminal result grew to ${human.output.length} characters`,
+    );
+    for (const [index, line] of lines.entries()) {
+      assert(
+        displayWidth(line) <= 80,
+        `80-column line ${index + 1} is ${displayWidth(line)} columns: ${line}`,
+      );
+    }
   });
 });
 
