@@ -1,12 +1,217 @@
 @layer discern.page {
-  .fig-circuit__placeholder {
+  .fig-circuit__construction {
+    animation: fig-circuit-breath 36s var(--fig-ease-drift) infinite;
+    fill: none;
+    opacity: var(--fig-faint);
+    stroke: var(--fig-guide);
+    stroke-width: var(--fig-hairline);
+  }
+
+  .fig-circuit__edges {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-circuit__disc {
+    animation: fig-circuit-disc-ack 36s var(--fig-ease-settle) infinite;
+    fill: currentColor;
+    transform: scale(1);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .fig-circuit__ring {
+    animation: fig-circuit-ring-ack 36s var(--fig-ease-settle) infinite;
     fill: none;
     stroke: currentColor;
     stroke-width: var(--fig-hairline);
-    vector-effect: non-scaling-stroke;
+    transform: scale(1);
+    transform-box: fill-box;
+    transform-origin: center;
   }
 
-  .fig-circuit__placeholder-fill {
+  .fig-circuit__apex-outline {
+    fill: none;
+    stroke: currentColor;
+    stroke-linejoin: miter;
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-circuit__apex-fill {
     fill: currentColor;
+  }
+
+  .fig-circuit__apex-echo {
+    animation: fig-circuit-apex-ack 36s var(--fig-ease-settle) infinite;
+    fill: currentColor;
+    opacity: 0;
+  }
+
+  .fig-circuit__pulse {
+    offset-distance: 0%;
+    offset-path: var(--fig-circuit-leg-path);
+    offset-rotate: auto;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .fig-circuit__pulse--base {
+    animation: fig-circuit-pulse-base 36s linear infinite;
+  }
+
+  .fig-circuit__pulse--right {
+    animation: fig-circuit-pulse-right 36s linear infinite;
+  }
+
+  .fig-circuit__pulse--left {
+    animation: fig-circuit-pulse-left 36s linear infinite;
+  }
+
+  .fig-circuit__dash {
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: butt;
+    stroke-width: var(--fig-heavy);
+  }
+
+  .fig-circuit__dash--fine {
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-circuit__dash--accent {
+    stroke: var(--fig-accent);
+  }
+
+  @keyframes fig-circuit-breath {
+    0%,
+    100% {
+      opacity: var(--fig-faint);
+    }
+
+    50% {
+      opacity: calc(var(--fig-faint) * 0.66);
+    }
+  }
+
+  @keyframes fig-circuit-pulse-base {
+    0%,
+    15% {
+      offset-distance: 0%;
+      opacity: 0;
+    }
+
+    16% {
+      opacity: 1;
+    }
+
+    24% {
+      opacity: 1;
+    }
+
+    25% {
+      offset-distance: 100%;
+      opacity: 0;
+    }
+
+    26%,
+    100% {
+      offset-distance: 0%;
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-circuit-pulse-right {
+    0%,
+    31% {
+      offset-distance: 0%;
+      opacity: 0;
+    }
+
+    32% {
+      opacity: 1;
+    }
+
+    40% {
+      opacity: 1;
+    }
+
+    41% {
+      offset-distance: 100%;
+      opacity: 0;
+    }
+
+    42%,
+    100% {
+      offset-distance: 0%;
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-circuit-pulse-left {
+    0%,
+    51% {
+      offset-distance: 0%;
+      opacity: 0;
+    }
+
+    52% {
+      opacity: 1;
+    }
+
+    60% {
+      opacity: 1;
+    }
+
+    61% {
+      offset-distance: 100%;
+      opacity: 0;
+    }
+
+    62%,
+    100% {
+      offset-distance: 0%;
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-circuit-ring-ack {
+    0%,
+    25%,
+    30%,
+    100% {
+      transform: scale(1);
+    }
+
+    26.5% {
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes fig-circuit-apex-ack {
+    0%,
+    41.5%,
+    48%,
+    100% {
+      opacity: 0;
+    }
+
+    43.5% {
+      opacity: var(--fig-faint);
+    }
+  }
+
+  @keyframes fig-circuit-disc-ack {
+    0%,
+    61%,
+    66%,
+    100% {
+      transform: scale(1);
+    }
+
+    62.5% {
+      transform: scale(1.06);
+    }
   }
 }
