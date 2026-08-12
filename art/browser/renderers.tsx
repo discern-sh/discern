@@ -3,9 +3,14 @@
 import type { ReactNode } from "react";
 import { AlignmentArtwork } from "./alignment.tsx";
 import { BifurcationArtwork } from "./bifurcation.tsx";
+import { CircuitArtwork } from "./circuit.tsx";
 import { ContourArtwork } from "./contour.tsx";
+import { DeltaArtwork } from "./delta.tsx";
 import { InvariantCoreArtwork } from "./invariant-core.tsx";
 import { PersistentTraceArtwork } from "./persistent-trace.tsx";
+import { RatchetArtwork } from "./ratchet.tsx";
+import { RuleArtwork } from "./rule.tsx";
+import { SealArtwork } from "./seal.tsx";
 import {
   BROWSER_ARTWORKS,
   type BrowserArtworkMetadata,
@@ -27,6 +32,11 @@ export const BROWSER_ARTWORK_RENDERERS: Readonly<
       <InvariantCoreArtwork idPrefix={idPrefix} />
     </div>
   ),
+  circuit: (idPrefix) => <CircuitArtwork id={idPrefix} />,
+  seal: (idPrefix) => <SealArtwork id={idPrefix} />,
+  delta: (idPrefix) => <DeltaArtwork id={idPrefix} />,
+  ratchet: (idPrefix) => <RatchetArtwork id={idPrefix} />,
+  rule: (idPrefix) => <RuleArtwork id={idPrefix} />,
 };
 
 /** Render-ready projection used by the development gallery. */

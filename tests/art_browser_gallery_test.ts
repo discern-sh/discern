@@ -24,12 +24,19 @@ import {
 import { handler, PAGES } from "../site/serve.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
+const PENDING_SOURCE_HEAD = "0000000000000000000000000000000000000000";
+
 const EXPECTED_BROWSER_ART = [
   ["alignment", "3006e8622db947c4417b4df2055e28820646ad2e"],
   ["bifurcation", "36084a9cf3cdabd04e9734468b07bdde6f73107b"],
   ["contour", "f7599b7669bfd3c4842c430adeb96330fbfa75d5"],
   ["persistent-trace", "ae15a479e7f169cbebcbf6c598d8c8b5d2ccbede"],
   ["invariant-core", "9b7b3eac0f1ffd1addeb970e1167866c855a37b1"],
+  ["circuit", PENDING_SOURCE_HEAD],
+  ["seal", PENDING_SOURCE_HEAD],
+  ["delta", PENDING_SOURCE_HEAD],
+  ["ratchet", PENDING_SOURCE_HEAD],
+  ["rule", PENDING_SOURCE_HEAD],
 ] as const;
 
 /** Collapse prose whitespace without changing punctuation. */
@@ -92,7 +99,7 @@ Deno.test("browser art uses only neutral study vocabulary", async () => {
   );
 });
 
-Deno.test("the browser-art registry preserves the five approved source heads", async () => {
+Deno.test("the browser-art registry preserves the recorded source heads", async () => {
   assertEquals(
     BROWSER_ARTWORKS.map(({ slug, sourceCommit }) => [slug, sourceCommit]),
     EXPECTED_BROWSER_ART.map(([slug, sourceCommit]) => [slug, sourceCommit]),
@@ -244,7 +251,7 @@ Deno.test("the loopback server owns /art/ while the public handler does not", as
   const html = await page.text();
   assertStringIncludes(html, "Art studies.");
 
-  assertEquals(ART_STYLESHEET_PATHS.length, BROWSER_ARTWORKS.length + 1);
+  assertEquals(ART_STYLESHEET_PATHS.length, BROWSER_ARTWORKS.length + 2);
   for (const path of ART_STYLESHEET_PATHS) {
     assertStringIncludes(html, path);
     const stylesheet = await specimenHandler(

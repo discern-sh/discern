@@ -48,7 +48,45 @@ export const BROWSER_ARTWORKS = [
       "Cartesian, oblique, and radial frames change around a split triangular core that never leaves its centre.",
     sourceCommit: "9b7b3eac0f1ffd1addeb970e1167866c855a37b1",
   },
+  {
+    slug: "circuit",
+    title: "The circuit",
+    description:
+      "An emblem unfolds into three stationed vertices and one pulse completes their triangular exchange before the form recollects itself.",
+    sourceCommit: "0000000000000000000000000000000000000000",
+  },
+  {
+    slug: "seal",
+    title: "The seal",
+    description:
+      "Scattered fragments register into one exact triangle whose right half takes ink under a confirming sweep, until a single fragment drifts.",
+    sourceCommit: "0000000000000000000000000000000000000000",
+  },
+  {
+    slug: "delta",
+    title: "The delta",
+    description:
+      "One line opens into parallel channels whose travelling marks work apart, wait for one another, and reconverge through a single settling point.",
+    sourceCommit: "0000000000000000000000000000000000000000",
+  },
+  {
+    slug: "ratchet",
+    title: "The ratchet",
+    description:
+      "A trembling measure tightens two converging limits notch by notch until their corridor closes into an apex and begins again, finer.",
+    sourceCommit: "0000000000000000000000000000000000000000",
+  },
+  {
+    slug: "rule",
+    title: "The rule",
+    description:
+      "Compass arcs subdivide one triangle through three quiet generations and one small pulse retraces the figure before the construction unwinds.",
+    sourceCommit: "0000000000000000000000000000000000000000",
+  },
 ] as const satisfies readonly BrowserArtworkMetadata[];
+
+/** The shared foundation stylesheet every figure-series member consumes. */
+export const BROWSER_ART_FOUNDATION_STYLESHEET = "art-figures.css";
 
 export type BrowserArtworkSlug = typeof BROWSER_ARTWORKS[number]["slug"];
 
