@@ -17,7 +17,7 @@ export interface RatchetStep {
   readonly to: number;
 }
 
-/** A permanent tick recording where a limit used to stand. */
+/** A permanent tick marking a stand the limit abandoned. */
 export interface RatchetNotch {
   readonly index: number;
   readonly x: number;

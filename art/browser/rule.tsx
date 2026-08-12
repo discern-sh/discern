@@ -35,7 +35,7 @@ const SIDE = 360;
 const APEX_X = 380;
 const APEX_Y = 112;
 const TRIANGLE_HEIGHT = (SIDE * Math.sqrt(3)) / 2;
-/** Compass radius used to bisect the outer sides, as a share of the side. */
+/** Compass radius for bisecting the outer sides, as a share of the side. */
 const BISECTION_RADIUS = SIDE * 0.56;
 /** Half the angular window of each short bisection arc, in radians. */
 const ARC_HALF_ANGLE = 0.09;
