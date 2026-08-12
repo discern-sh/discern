@@ -512,6 +512,36 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
   });
 });
 
+Deno.test("logbook: unavailable pre-boundary evidence cannot replace the gate's original red", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, `[jobs]\nformat = "false"\ntest = "true"\n`);
+    await gitInit(dir);
+    await Deno.mkdir(
+      join(dir, ".git", "discern", "validation-hmac-key"),
+      { recursive: true },
+    );
+
+    const result = await runAgent(dir, ["done", "--json"]);
+    assertEquals(result.code, 1, result.output);
+    const event = verbEvents(await readEvents(dir))[0];
+    assert(event !== undefined);
+    assertEquals(event.outcome, "failed");
+    assertEquals(event.failed_stage, "fix");
+    assertEquals(event.validation?.state.complete, false);
+    assert(
+      event.validation?.state.incomplete?.some((entry) =>
+        entry.category === "boundary" && entry.reason === "not-reached"
+      ),
+    );
+    assert(
+      event.validation?.state.incomplete?.some((entry) =>
+        entry.category === "key" && entry.reason === "invalid"
+      ),
+    );
+  });
+});
+
 Deno.test("logbook: an unchanged-tree rerun refusal records its slug, and a confirmed rerun records the flag", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

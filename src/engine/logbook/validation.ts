@@ -77,6 +77,7 @@ export const VALIDATION_INCOMPLETE_CATEGORIES = [
   "tracked",
   "untracked",
   "submodules",
+  "execution",
   "budget",
   "internal",
 ] as const;
@@ -87,6 +88,7 @@ export const VALIDATION_INCOMPLETE_REASONS = [
   "unreadable",
   "invalid",
   "path-limit",
+  "entry-limit",
   "byte-limit",
   "time-limit",
   "dirty",
@@ -130,6 +132,7 @@ const stateSchema = z.looseObject({
     index_manifest: z.number().int().nonnegative(),
     tracked_content: z.number().int().nonnegative(),
     untracked_content: z.number().int().nonnegative(),
+    git_output: z.number().int().nonnegative().optional(),
   }),
   incomplete: z.array(incompleteSchema).optional(),
   exclusions: z.array(z.enum(VALIDATION_EXCLUSIONS)),
@@ -256,31 +259,30 @@ export function canonicalJson(value: unknown): string {
 }
 
 /** Setup-affecting config projection; values are HMACed and never recorded. */
-export function setupIdentityInput(cfg: DiscernConfig): string {
-  return canonicalJson({
+export function setupIdentityProjection(cfg: DiscernConfig): unknown {
+  return {
     repositoryEnsure: cfg.repository.ensure,
     worktreeSetup: cfg.worktree.setup,
     resources: cfg.worktree.resources,
     inheritEnv: cfg.worktree.inherit_env,
     envFiles: cfg.worktree.env_files,
-  });
+  };
 }
 
-/** Jobs at this validation boundary, selected from the run registry. */
-export function validationJobs(
+/** Lazily select jobs so bounded evidence consumers can stop before allocating. */
+export function* validationJobEntries(
   run: ValidationRun,
   groups: readonly ValidationJobGroup[],
-): Array<{ job: ValidationPlannedJob; concurrentSiblings: boolean }> {
-  const selected = groups.flatMap((group) => {
-    const jobs = group.jobs.filter((job) =>
-      run.stages.some((stage) => stage === job.reportStage)
-    );
-    return jobs.map((job) => ({
-      job,
-      concurrentSiblings: group.mode === "parallel" && group.jobs.length > 1,
-    }));
-  });
-  return selected;
+): Generator<{ job: ValidationPlannedJob; concurrentSiblings: boolean }> {
+  for (const group of groups) {
+    for (const job of group.jobs) {
+      if (!run.stages.some((stage) => stage === job.reportStage)) continue;
+      yield {
+        job,
+        concurrentSiblings: group.mode === "parallel" && group.jobs.length > 1,
+      };
+    }
+  }
 }
 
 /** Complete a boundary capture with the explicit step outcomes it produced. */

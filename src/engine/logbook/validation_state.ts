@@ -9,27 +9,35 @@
 
 import { isAbsolute, resolve } from "@std/path";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
-import { runGit } from "../../shared/subprocess.ts";
+import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import {
   canonicalJson,
-  setupIdentityInput,
+  setupIdentityProjection,
   VALIDATION_EVIDENCE_VERSION,
   VALIDATION_EXCLUSIONS,
   VALIDATION_WRITER,
   type ValidationIncomplete,
+  validationJobEntries,
   type ValidationJobGroup,
-  validationJobs,
+  type ValidationPlannedJob,
   type ValidationRun,
   type ValidationStart,
   type ValidationState,
 } from "./validation.ts";
-import { validationKey } from "./validation_key.ts";
+import { validationKey, type ValidationKeyResult } from "./validation_key.ts";
 
 /** Benchmarked against the repository fixture and held as explicit hard caps. */
 export const VALIDATION_CAPTURE_LIMITS = {
   paths: 20_000,
   bytes: 64 * 1024 * 1024,
   timeMs: 5_000,
+} as const;
+
+/** Execution metadata has a separate small ceiling from repository capture. */
+export const VALIDATION_EXECUTION_LIMITS = {
+  entries: 1_000,
+  bytes: 1024 * 1024,
 } as const;
 
 interface CaptureLimits {
@@ -43,20 +51,27 @@ export interface ValidationCaptureOptions {
   readonly limits?: Partial<CaptureLimits> | undefined;
   readonly now?: (() => number) | undefined;
   readonly readFile?: ((path: string) => Promise<Uint8Array>) | undefined;
+  readonly gitBin?: string | undefined;
+  readonly keyProvider?:
+    | ((root: string) => Promise<ValidationKeyResult>)
+    | undefined;
 }
 
 interface CaptureRuntime {
   readonly limits: CaptureLimits;
   readonly now: () => number;
   readonly readFile: (path: string) => Promise<Uint8Array>;
+  readonly gitBin?: string | undefined;
   readonly started: number;
   paths: number;
   bytes: number;
   timedOut: boolean;
   byteLimited: boolean;
+  gitBytes: number;
 }
 
 interface IndexEntry {
+  readonly tag: string;
   readonly mode: string;
   readonly object: string;
   readonly stage: string;
@@ -119,6 +134,72 @@ async function hmac(
   return hex(await crypto.subtle.sign("HMAC", key, Uint8Array.from(material)));
 }
 
+/** Conservative upper bound for canonical JSON before allocating its string. */
+function canonicalJsonUpperBound(
+  value: unknown,
+  ceiling: number,
+  seen: WeakSet<object> = new WeakSet(),
+): number | undefined {
+  if (value === null) return 4;
+  switch (typeof value) {
+    case "string":
+      return value.length > Math.floor((ceiling - 2) / 6)
+        ? undefined
+        : value.length * 6 + 2;
+    case "number":
+      return 32 <= ceiling ? 32 : undefined;
+    case "boolean":
+      return 5 <= ceiling ? 5 : undefined;
+    case "object":
+      break;
+    default:
+      return undefined;
+  }
+  if (seen.has(value)) return undefined;
+  seen.add(value);
+  let total = 2;
+  const addMember = (key: string | undefined, member: unknown): boolean => {
+    if (total > 2) total += 1;
+    if (key !== undefined) {
+      const keyBound = key.length * 6 + 3;
+      if (keyBound > ceiling - total) return false;
+      total += keyBound;
+    }
+    const memberBound = canonicalJsonUpperBound(
+      member,
+      ceiling - total,
+      seen,
+    );
+    if (memberBound === undefined) return false;
+    total += memberBound;
+    return total <= ceiling;
+  };
+  if (Array.isArray(value)) {
+    for (const member of value) {
+      if (!addMember(undefined, member)) return undefined;
+    }
+  } else {
+    const object = value as Record<string, unknown>;
+    for (const key of Object.keys(object).sort()) {
+      if (!addMember(key, object[key])) return undefined;
+    }
+  }
+  seen.delete(value);
+  return total;
+}
+
+/** Canonical JSON bytes only when both preflight and exact encoding fit. */
+function boundedCanonicalJson(
+  value: unknown,
+  ceiling: number,
+): Uint8Array | undefined {
+  if (ceiling < 0 || canonicalJsonUpperBound(value, ceiling) === undefined) {
+    return undefined;
+  }
+  const encoded = encoder.encode(canonicalJson(value));
+  return encoded.length <= ceiling ? encoded : undefined;
+}
+
 /** Merge optional test limits over the production capture limits. */
 function limits(options: ValidationCaptureOptions): CaptureLimits {
   return {
@@ -135,17 +216,29 @@ function runtime(options: ValidationCaptureOptions): CaptureRuntime {
     limits: limits(options),
     now,
     readFile: options.readFile ?? Deno.readFile,
+    ...(options.gitBin !== undefined ? { gitBin: options.gitBin } : {}),
     started: now(),
     paths: 0,
     bytes: 0,
     timedOut: false,
     byteLimited: false,
+    gitBytes: 0,
   };
 }
 
 /** Rounded nonnegative elapsed milliseconds. */
 function elapsed(rt: CaptureRuntime): number {
   return Math.max(0, Math.round(rt.now() - rt.started));
+}
+
+/** Elapsed time for a fail-open catch whose clock may itself have failed. */
+function safeElapsed(rt: CaptureRuntime | undefined): number {
+  if (rt === undefined) return 0;
+  try {
+    return elapsed(rt);
+  } catch {
+    return 0;
+  }
 }
 
 /** Check the wall-clock cap before and after every effectful probe. */
@@ -187,20 +280,86 @@ function addIncomplete(
   }
 }
 
-/** Run one Git probe while accounting for the capture deadline. */
+interface CapturedGitProbe {
+  readonly result?: Awaited<ReturnType<typeof runGit>>;
+  readonly limit?: "time-limit" | "byte-limit";
+}
+
+/** Run one Git probe while accounting for the shared time and output ceilings. */
 async function captureGit(
   root: string,
   args: string[],
   rt: CaptureRuntime,
-): Promise<Awaited<ReturnType<typeof runGit>> | undefined> {
-  if (!withinTime(rt)) return undefined;
+): Promise<CapturedGitProbe> {
+  if (!withinTime(rt)) return { limit: "time-limit" };
+  if (rt.byteLimited) return { limit: "byte-limit" };
   const remaining = Math.max(
     1,
     Math.floor(rt.limits.timeMs - (rt.now() - rt.started)),
   );
-  const result = await runGit(args, { cwd: root, timeoutMs: remaining });
-  if (result.timedOut === true) rt.timedOut = true;
-  return withinTime(rt) && !rt.timedOut ? result : undefined;
+  const remainingBytes = Math.max(0, rt.limits.bytes - rt.bytes);
+  const result = await runGit(args, {
+    cwd: root,
+    timeoutMs: remaining,
+    maxOutputBytes: remainingBytes,
+    ...(rt.gitBin !== undefined ? { bin: rt.gitBin } : {}),
+  });
+  const outputBytes = (result.stdoutBytes?.length ?? 0) +
+    (result.stderrBytes?.length ?? 0);
+  if (outputBytes > 0 && budgetBytes(rt, outputBytes)) {
+    rt.gitBytes += outputBytes;
+  }
+  if (result.outputLimitExceeded === true || rt.byteLimited) {
+    rt.byteLimited = true;
+    return { limit: "byte-limit" };
+  }
+  if (result.timedOut === true || !withinTime(rt)) {
+    rt.timedOut = true;
+    return { limit: "time-limit" };
+  }
+  return { result };
+}
+
+/** Add one Git-probe ceiling to the common incompleteness vocabulary. */
+function probeLimited(
+  probe: CapturedGitProbe,
+  incomplete: ValidationIncomplete[],
+): probe is { limit: "time-limit" | "byte-limit" } {
+  if (probe.limit === undefined) return false;
+  addIncomplete(incomplete, { category: "budget", reason: probe.limit });
+  return true;
+}
+
+/** Resolve and validate the key through the same bounded Git authority. */
+async function captureKey(
+  root: string,
+  rt: CaptureRuntime,
+  options: ValidationCaptureOptions,
+): Promise<ValidationKeyResult> {
+  if (options.keyProvider !== undefined) {
+    return await options.keyProvider(root);
+  }
+  let limit: CapturedGitProbe["limit"];
+  const failed: GitResult = {
+    success: false,
+    code: 1,
+    stdout: "",
+    stderr: "validation key path unavailable",
+  };
+  const result = await validationKey(root, {
+    resolvePath: async (candidate) =>
+      await gitAdminStatePath(candidate, "validationHmacKey", async (
+        cwd,
+        args,
+      ) => {
+        const probe = await captureGit(cwd, args, rt);
+        if (probe.limit !== undefined) limit = probe.limit;
+        return probe.result ?? failed;
+      }),
+  });
+  return limit === undefined
+    ? result
+    : { incomplete: { category: "budget", reason: limit } };
 }
 
 /** Resolve one Git-returned repository-relative path without permitting escape. */
@@ -211,24 +370,32 @@ function safeProjectPath(root: string, path: string): string | undefined {
   return absolute.startsWith(rootPrefix) ? absolute : undefined;
 }
 
-/** Split exact Git `-z` bytes while removing only their terminal empty field. */
-function nulByteFields(raw: Uint8Array): Uint8Array[] {
-  const fields: Uint8Array[] = [];
+/** Yield exact Git `-z` fields without allocating an unbounded field array. */
+function* nulByteFields(raw: Uint8Array): Generator<Uint8Array> {
   let start = 0;
   for (let index = 0; index < raw.length; index += 1) {
     if (raw[index] !== 0) continue;
-    fields.push(raw.slice(start, index));
+    if (index > start) yield raw.slice(start, index);
     start = index + 1;
   }
-  if (start < raw.length) fields.push(raw.slice(start));
-  if (fields.at(-1)?.length === 0) fields.pop();
-  return fields;
+  if (start < raw.length) yield raw.slice(start);
 }
 
-/** Parse `ls-files --stage -z` into its semantic fields. */
-function parseIndex(raw: Uint8Array): IndexEntry[] | undefined {
+/** Tags Git currently emits for cached, hidden, sparse, or unmerged entries. */
+const INDEX_TAGS = new Set(["H", "S", "M"]);
+
+/** Parse `ls-files --stage -v -z`, charging every entry before retaining it. */
+function parseIndex(
+  raw: Uint8Array,
+  rt: CaptureRuntime,
+  incomplete: ValidationIncomplete[],
+): IndexEntry[] | undefined {
   const entries: IndexEntry[] = [];
   for (const record of nulByteFields(raw)) {
+    if (!budgetPath(rt)) {
+      addIncomplete(incomplete, { category: "budget", reason: "path-limit" });
+      return entries;
+    }
     const tab = record.indexOf(9);
     if (tab < 0) return undefined;
     let header: string;
@@ -237,11 +404,12 @@ function parseIndex(raw: Uint8Array): IndexEntry[] | undefined {
     } catch {
       return undefined;
     }
-    const match = /^(\d{6}) ([0-9a-fA-F]+) ([0-3])$/.exec(header);
+    const match = /^([^ ]+) (\d{6}) ([0-9a-fA-F]+) ([0-3])$/.exec(header);
     if (match === null) return undefined;
-    const mode = match[1];
-    const object = match[2];
-    const stage = match[3];
+    const tag = match[1];
+    const mode = match[2];
+    const object = match[3];
+    const stage = match[4];
     const pathBytes = record.slice(tab + 1);
     let path: string | undefined;
     try {
@@ -250,10 +418,14 @@ function parseIndex(raw: Uint8Array): IndexEntry[] | undefined {
       // The semantic index remains hashable byte-for-byte. Filesystem coverage
       // will fail closed if this entry later needs a JS-addressable path.
     }
-    if (mode === undefined || object === undefined || stage === undefined) {
+    if (
+      tag === undefined || !INDEX_TAGS.has(tag.toUpperCase()) ||
+      mode === undefined || object === undefined || stage === undefined
+    ) {
       return undefined;
     }
     entries.push({
+      tag,
       mode,
       object: object.toLowerCase(),
       stage,
@@ -268,10 +440,17 @@ function parseIndex(raw: Uint8Array): IndexEntry[] | undefined {
 function decodedPathFields(
   stdout: string,
   stdoutBytes: Uint8Array | undefined,
+  rt: CaptureRuntime,
+  incomplete: ValidationIncomplete[],
 ): Array<{ path: string; pathBytes: Uint8Array }> | undefined {
-  const fields = nulByteFields(stdoutBytes ?? encoder.encode(stdout));
   const paths: Array<{ path: string; pathBytes: Uint8Array }> = [];
-  for (const pathBytes of fields) {
+  for (
+    const pathBytes of nulByteFields(stdoutBytes ?? encoder.encode(stdout))
+  ) {
+    if (!budgetPath(rt)) {
+      addIncomplete(incomplete, { category: "budget", reason: "path-limit" });
+      return paths;
+    }
     try {
       paths.push({ path: strictDecoder.decode(pathBytes), pathBytes });
     } catch {
@@ -292,9 +471,17 @@ async function indexManifest(
   bytes: number;
   entries: IndexEntry[];
 }> {
-  const run = await captureGit(root, ["ls-files", "--stage", "-z"], rt);
+  const probe = await captureGit(
+    root,
+    ["ls-files", "--stage", "-v", "-z"],
+    rt,
+  );
+  if (probeLimited(probe, incomplete)) {
+    return { bytes: 0, entries: [] };
+  }
+  const run = probe.result;
   if (run === undefined) {
-    addIncomplete(incomplete, { category: "budget", reason: "time-limit" });
+    addIncomplete(incomplete, { category: "index", reason: "unavailable" });
     return { bytes: 0, entries: [] };
   }
   if (!run.success) {
@@ -302,22 +489,15 @@ async function indexManifest(
     return { bytes: 0, entries: [] };
   }
   const rawBytes = run.stdoutBytes ?? encoder.encode(run.stdout);
-  if (!budgetBytes(rt, rawBytes.length)) {
-    addIncomplete(incomplete, { category: "budget", reason: "byte-limit" });
-    return { bytes: rawBytes.length, entries: [] };
-  }
-  const entries = parseIndex(rawBytes);
+  const entries = parseIndex(rawBytes, rt, incomplete);
   if (entries === undefined) {
     addIncomplete(incomplete, { category: "index", reason: "invalid" });
     return { bytes: rawBytes.length, entries: [] };
   }
   const chunks: Uint8Array[] = [];
   for (const entry of entries) {
-    if (!budgetPath(rt)) {
-      addIncomplete(incomplete, { category: "budget", reason: "path-limit" });
-      return { bytes: rawBytes.length, entries };
-    }
     chunks.push(
+      frame("tag", encoder.encode(entry.tag)),
       frame("mode", encoder.encode(entry.mode)),
       frame("object", encoder.encode(entry.object)),
       frame("stage", encoder.encode(entry.stage)),
@@ -407,11 +587,11 @@ async function addFilesystemEntry(
 async function changedTrackedManifest(
   root: string,
   key: Uint8Array,
-  gitlinks: ReadonlySet<string>,
+  indexEntries: readonly IndexEntry[],
   rt: CaptureRuntime,
   incomplete: ValidationIncomplete[],
 ): Promise<FileManifestResult> {
-  const run = await captureGit(root, [
+  const probe = await captureGit(root, [
     "diff",
     "--name-only",
     "-z",
@@ -421,29 +601,60 @@ async function changedTrackedManifest(
     "--ignore-submodules=none",
     "--",
   ], rt);
+  if (probeLimited(probe, incomplete)) {
+    return { paths: 0, contentBytes: 0 };
+  }
+  const run = probe.result;
   if (run === undefined) {
-    addIncomplete(incomplete, { category: "budget", reason: "time-limit" });
+    addIncomplete(incomplete, { category: "tracked", reason: "unavailable" });
     return { paths: 0, contentBytes: 0 };
   }
   if (!run.success) {
     addIncomplete(incomplete, { category: "tracked", reason: "unavailable" });
     return { paths: 0, contentBytes: 0 };
   }
-  const decoded = decodedPathFields(run.stdout, run.stdoutBytes);
+  const decoded = decodedPathFields(
+    run.stdout,
+    run.stdoutBytes,
+    rt,
+    incomplete,
+  );
   if (decoded === undefined) {
     addIncomplete(incomplete, { category: "tracked", reason: "invalid" });
     return { paths: 0, contentBytes: 0 };
   }
-  const paths = decoded.filter(({ path }) => !gitlinks.has(path));
+  const gitlinks = new Set(
+    indexEntries.filter((entry) => entry.mode === "160000")
+      .flatMap((entry) => entry.path === undefined ? [] : [entry.path]),
+  );
+  const pathsByName = new Map(
+    decoded.filter(({ path }) => !gitlinks.has(path)).map((entry) => [
+      entry.path,
+      entry,
+    ]),
+  );
+  // Lower-case `h`, `S`/`s`, and unmerged `M` entries can be hidden from an
+  // ordinary diff. Their actual checkout state is therefore always observed.
+  for (const entry of indexEntries) {
+    if (entry.tag === "H" && entry.stage === "0") continue;
+    if (entry.mode === "160000") continue;
+    if (entry.path === undefined) {
+      addIncomplete(incomplete, { category: "tracked", reason: "invalid" });
+      return { paths: pathsByName.size, contentBytes: 0 };
+    }
+    pathsByName.set(entry.path, {
+      path: entry.path,
+      pathBytes: entry.pathBytes,
+    });
+  }
+  const paths = [...pathsByName.values()].sort((left, right) =>
+    left.path.localeCompare(right.path)
+  );
   const chunks: Uint8Array[] = [];
   let contentBytes = 0;
   for (const { path, pathBytes } of paths) {
     if (!withinTime(rt)) {
       addIncomplete(incomplete, { category: "budget", reason: "time-limit" });
-      return { paths: paths.length, contentBytes };
-    }
-    if (!budgetPath(rt)) {
-      addIncomplete(incomplete, { category: "budget", reason: "path-limit" });
       return { paths: paths.length, contentBytes };
     }
     const entry = await addFilesystemEntry(
@@ -480,20 +691,29 @@ async function untrackedManifest(
   rt: CaptureRuntime,
   incomplete: ValidationIncomplete[],
 ): Promise<FileManifestResult> {
-  const run = await captureGit(
+  const probe = await captureGit(
     root,
     ["ls-files", "--others", "--exclude-standard", "-z"],
     rt,
   );
+  if (probeLimited(probe, incomplete)) {
+    return { paths: 0, contentBytes: 0 };
+  }
+  const run = probe.result;
   if (run === undefined) {
-    addIncomplete(incomplete, { category: "budget", reason: "time-limit" });
+    addIncomplete(incomplete, { category: "untracked", reason: "unavailable" });
     return { paths: 0, contentBytes: 0 };
   }
   if (!run.success) {
     addIncomplete(incomplete, { category: "untracked", reason: "unavailable" });
     return { paths: 0, contentBytes: 0 };
   }
-  const paths = decodedPathFields(run.stdout, run.stdoutBytes);
+  const paths = decodedPathFields(
+    run.stdout,
+    run.stdoutBytes,
+    rt,
+    incomplete,
+  );
   if (paths === undefined) {
     addIncomplete(incomplete, { category: "untracked", reason: "invalid" });
     return { paths: 0, contentBytes: 0 };
@@ -503,10 +723,6 @@ async function untrackedManifest(
   for (const { path, pathBytes } of paths) {
     if (!withinTime(rt)) {
       addIncomplete(incomplete, { category: "budget", reason: "time-limit" });
-      return { paths: paths.length, contentBytes };
-    }
-    if (!budgetPath(rt)) {
-      addIncomplete(incomplete, { category: "budget", reason: "path-limit" });
       return { paths: paths.length, contentBytes };
     }
     const entry = await addFilesystemEntry(
@@ -536,7 +752,161 @@ async function untrackedManifest(
   };
 }
 
-/** HMAC clean submodule commits; any dirty submodule makes evidence incomplete. */
+/** Resolve one required submodule Git probe, preserving budget diagnostics. */
+async function requiredSubmoduleGit(
+  cwd: string,
+  args: string[],
+  rt: CaptureRuntime,
+  incomplete: ValidationIncomplete[],
+): Promise<Awaited<ReturnType<typeof runGit>> | undefined> {
+  const probe = await captureGit(cwd, args, rt);
+  if (probeLimited(probe, incomplete)) return undefined;
+  const result = probe.result;
+  if (result === undefined || !result.success) {
+    addIncomplete(incomplete, {
+      category: "submodules",
+      reason: "unavailable",
+    });
+    return undefined;
+  }
+  return result;
+}
+
+interface SubmoduleWalk {
+  readonly chunks: Uint8Array[];
+  count: number;
+  readonly seen: Set<string>;
+}
+
+/** Recursively prove one gitlink is its intended initialized, clean repository. */
+async function inspectSubmodule(
+  superRoot: string,
+  entry: IndexEntry,
+  depth: number,
+  walk: SubmoduleWalk,
+  rt: CaptureRuntime,
+  incomplete: ValidationIncomplete[],
+): Promise<boolean> {
+  if (entry.path === undefined) {
+    addIncomplete(incomplete, { category: "submodules", reason: "invalid" });
+    return false;
+  }
+  const cwd = safeProjectPath(superRoot, entry.path);
+  if (cwd === undefined || walk.seen.has(cwd)) {
+    addIncomplete(incomplete, { category: "submodules", reason: "invalid" });
+    return false;
+  }
+  walk.seen.add(cwd);
+  const identity = await requiredSubmoduleGit(
+    cwd,
+    ["rev-parse", "--show-toplevel"],
+    rt,
+    incomplete,
+  );
+  let intendedRepository = false;
+  if (identity !== undefined) {
+    try {
+      intendedRepository = await Deno.realPath(identity.stdout.trim()) ===
+        await Deno.realPath(cwd);
+    } catch {
+      // Missing/deinitialized directories cannot establish their own identity.
+    }
+  }
+  if (!intendedRepository) {
+    addIncomplete(incomplete, {
+      category: "submodules",
+      reason: "unavailable",
+    });
+    return false;
+  }
+  const head = await requiredSubmoduleGit(
+    cwd,
+    ["rev-parse", "--verify", "HEAD^{commit}"],
+    rt,
+    incomplete,
+  );
+  const status = await requiredSubmoduleGit(
+    cwd,
+    [
+      "status",
+      "--porcelain=v1",
+      "-z",
+      "--untracked-files=normal",
+      "--ignore-submodules=none",
+    ],
+    rt,
+    incomplete,
+  );
+  if (head === undefined || status === undefined) return false;
+  if (head.stdout.trim().toLowerCase() !== entry.object) {
+    addIncomplete(incomplete, { category: "submodules", reason: "dirty" });
+    return false;
+  }
+  if (
+    (status.stdoutBytes?.length ?? encoder.encode(status.stdout).length) > 0
+  ) {
+    addIncomplete(incomplete, { category: "submodules", reason: "dirty" });
+    return false;
+  }
+  const indexProbe = await requiredSubmoduleGit(
+    cwd,
+    ["ls-files", "--stage", "-v", "-z"],
+    rt,
+    incomplete,
+  );
+  if (indexProbe === undefined) return false;
+  const nestedEntries = parseIndex(
+    indexProbe.stdoutBytes ?? encoder.encode(indexProbe.stdout),
+    rt,
+    incomplete,
+  );
+  if (nestedEntries === undefined) {
+    addIncomplete(incomplete, { category: "submodules", reason: "invalid" });
+    return false;
+  }
+  // A clean status cannot prove checkout bytes hidden by flags or merge stages.
+  if (
+    nestedEntries.some((nested) =>
+      nested.mode !== "160000" &&
+      (nested.tag !== "H" || nested.stage !== "0")
+    )
+  ) {
+    addIncomplete(incomplete, { category: "submodules", reason: "dirty" });
+    return false;
+  }
+  const nestedGitlinks = nestedEntries.filter((nested) =>
+    nested.mode === "160000"
+  );
+  if (
+    nestedGitlinks.some((nested) => nested.stage !== "0" || nested.tag !== "H")
+  ) {
+    addIncomplete(incomplete, { category: "submodules", reason: "invalid" });
+    return false;
+  }
+  walk.count += 1;
+  walk.chunks.push(
+    frame("depth", encoder.encode(String(depth))),
+    frame("path", entry.pathBytes),
+    frame("head", encoder.encode(head.stdout.trim())),
+  );
+  for (const nested of nestedGitlinks) {
+    if (
+      !await inspectSubmodule(
+        cwd,
+        nested,
+        depth + 1,
+        walk,
+        rt,
+        incomplete,
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** HMAC recursively verified clean submodule commits. */
 async function submoduleManifest(
   root: string,
   key: Uint8Array,
@@ -544,59 +914,20 @@ async function submoduleManifest(
   rt: CaptureRuntime,
   incomplete: ValidationIncomplete[],
 ): Promise<{ digest?: string; count: number }> {
-  const gitlinks = entries.filter((entry) =>
-    entry.mode === "160000" && entry.stage === "0"
-  );
-  const chunks: Uint8Array[] = [];
-  for (const entry of gitlinks) {
-    if (!withinTime(rt)) {
-      addIncomplete(incomplete, { category: "budget", reason: "time-limit" });
-      return { count: gitlinks.length };
+  const allGitlinks = entries.filter((entry) => entry.mode === "160000");
+  if (allGitlinks.some((entry) => entry.stage !== "0")) {
+    addIncomplete(incomplete, { category: "submodules", reason: "invalid" });
+    return { count: new Set(allGitlinks.map((entry) => entry.path)).size };
+  }
+  const walk: SubmoduleWalk = { chunks: [], count: 0, seen: new Set() };
+  for (const entry of allGitlinks) {
+    if (!await inspectSubmodule(root, entry, 0, walk, rt, incomplete)) {
+      return { count: walk.count };
     }
-    if (entry.path === undefined) {
-      addIncomplete(incomplete, { category: "submodules", reason: "invalid" });
-      return { count: gitlinks.length };
-    }
-    const cwd = safeProjectPath(root, entry.path);
-    if (cwd === undefined) {
-      addIncomplete(incomplete, { category: "submodules", reason: "invalid" });
-      return { count: gitlinks.length };
-    }
-    const head = await captureGit(cwd, [
-      "rev-parse",
-      "--verify",
-      "HEAD^{commit}",
-    ], rt);
-    const status = await captureGit(cwd, [
-      "status",
-      "--porcelain=v1",
-      "-z",
-      "--untracked-files=normal",
-      "--ignore-submodules=none",
-    ], rt);
-    if (head === undefined || status === undefined) {
-      addIncomplete(incomplete, { category: "budget", reason: "time-limit" });
-      return { count: gitlinks.length };
-    }
-    if (!head.success || !status.success) {
-      addIncomplete(incomplete, {
-        category: "submodules",
-        reason: "unavailable",
-      });
-      return { count: gitlinks.length };
-    }
-    if (status.stdout !== "") {
-      addIncomplete(incomplete, { category: "submodules", reason: "dirty" });
-      return { count: gitlinks.length };
-    }
-    chunks.push(
-      frame("path", entry.pathBytes),
-      frame("head", encoder.encode(head.stdout.trim())),
-    );
   }
   return {
-    digest: await hmac(key, "validation-submodules-v1", chunks),
-    count: gitlinks.length,
+    digest: await hmac(key, "validation-submodules-v1", walk.chunks),
+    count: walk.count,
   };
 }
 
@@ -609,46 +940,107 @@ async function executionEnvelope(
   keyFailure?: ValidationIncomplete,
 ): Promise<ValidationStart["execution"]> {
   const incomplete = keyFailure === undefined ? [] : [keyFailure];
-  const jobs = validationJobs(run, groups);
-  return {
-    version: VALIDATION_EVIDENCE_VERSION,
-    complete: key !== undefined,
-    mode: run.mode,
-    writer: VALIDATION_WRITER,
-    ...(key !== undefined
-      ? {
-        config_digest: await hmac(key, "validation-config-v1", [
-          frame("config", encoder.encode(canonicalJson(cfg))),
-        ]),
-        setup_digest: await hmac(key, "validation-setup-v1", [
-          frame("setup", encoder.encode(setupIdentityInput(cfg))),
-        ]),
-      }
-      : {}),
-    jobs: await Promise.all(jobs.map(async ({ job, concurrentSiblings }) => ({
+  const selected: Array<{
+    job: ValidationPlannedJob;
+    concurrentSiblings: boolean;
+  }> = [];
+  for (const entry of validationJobEntries(run, groups)) {
+    if (selected.length >= VALIDATION_EXECUTION_LIMITS.entries) {
+      addIncomplete(incomplete, {
+        category: "execution",
+        reason: "entry-limit",
+      });
+      return minimalExecution(run, incomplete);
+    }
+    selected.push(entry);
+  }
+
+  let remaining = VALIDATION_EXECUTION_LIMITS.bytes;
+  const take = (name: string, value: unknown): Uint8Array | undefined => {
+    const overhead = 8 + encoder.encode(name).length;
+    if (overhead > remaining) return undefined;
+    const bytes = boundedCanonicalJson(value, remaining - overhead);
+    if (bytes === undefined) return undefined;
+    const chunk = frame(name, bytes);
+    remaining -= chunk.length;
+    return chunk;
+  };
+  const config = take("config", cfg);
+  const setup = take("setup", setupIdentityProjection(cfg));
+  if (config === undefined || setup === undefined) {
+    addIncomplete(incomplete, {
+      category: "execution",
+      reason: "byte-limit",
+    });
+    return minimalExecution(run, incomplete);
+  }
+
+  const jobs: ValidationStart["execution"]["jobs"][number][] = [];
+  for (const { job, concurrentSiblings } of selected) {
+    const definition = take("job", {
+      label: job.label,
+      command: job.command,
+      kind: job.kind,
+      stage: job.reportStage,
+      willRun: job.willRun,
+      timeoutS: job.timeoutS ?? null,
+    });
+    if (definition === undefined) {
+      addIncomplete(incomplete, {
+        category: "execution",
+        reason: "byte-limit",
+      });
+      return minimalExecution(run, incomplete);
+    }
+    jobs.push({
       id: job.label,
       stage: job.reportStage,
       kind: job.kind,
       ...(key !== undefined
         ? {
-          definition_digest: await hmac(key, "validation-job-v1", [
-            frame(
-              "job",
-              encoder.encode(canonicalJson({
-                label: job.label,
-                command: job.command,
-                kind: job.kind,
-                stage: job.reportStage,
-                willRun: job.willRun,
-                timeoutS: job.timeoutS ?? null,
-              })),
-            ),
-          ]),
+          definition_digest: await hmac(
+            key,
+            "validation-job-v1",
+            [definition],
+          ),
         }
         : {}),
       concurrent_siblings: concurrentSiblings,
-    }))),
+    });
+  }
+
+  return {
+    version: VALIDATION_EVIDENCE_VERSION,
+    complete: key !== undefined && incomplete.length === 0,
+    mode: run.mode,
+    writer: VALIDATION_WRITER,
+    ...(key !== undefined
+      ? {
+        config_digest: await hmac(key, "validation-config-v1", [
+          config,
+        ]),
+        setup_digest: await hmac(key, "validation-setup-v1", [
+          setup,
+        ]),
+      }
+      : {}),
+    jobs,
     ...(incomplete.length > 0 ? { incomplete } : {}),
+  };
+}
+
+/** Minimal total execution shape for any capture or enumeration failure. */
+function minimalExecution(
+  run: ValidationRun,
+  incomplete: readonly ValidationIncomplete[],
+): ValidationStart["execution"] {
+  return {
+    version: VALIDATION_EVIDENCE_VERSION,
+    complete: false,
+    mode: run.mode,
+    writer: VALIDATION_WRITER,
+    jobs: [],
+    incomplete: [...incomplete],
   };
 }
 
@@ -686,27 +1078,43 @@ export async function validationBoundaryNotReached(
   cfg: DiscernConfig,
   run: ValidationRun,
   groups: readonly ValidationJobGroup[],
+  options: ValidationCaptureOptions = {},
 ): Promise<ValidationStart> {
-  const keyResult = await validationKey(root);
-  const key = "key" in keyResult ? keyResult.key : undefined;
-  const keyFailure = "incomplete" in keyResult
-    ? keyResult.incomplete
-    : undefined;
-  const incomplete: ValidationIncomplete[] = [
-    { category: "boundary", reason: "not-reached" },
-  ];
-  if (keyFailure !== undefined) incomplete.push(keyFailure);
-  return {
-    version: VALIDATION_EVIDENCE_VERSION,
-    state: incompleteState(run, incomplete, 0),
-    execution: await executionEnvelope(
-      key,
-      cfg,
-      run,
-      groups,
-      keyFailure,
-    ),
+  const boundary: ValidationIncomplete = {
+    category: "boundary",
+    reason: "not-reached",
   };
+  try {
+    const rt = runtime(options);
+    const keyResult = await captureKey(root, rt, options);
+    const key = "key" in keyResult ? keyResult.key : undefined;
+    const keyFailure = "incomplete" in keyResult
+      ? keyResult.incomplete
+      : undefined;
+    const incomplete: ValidationIncomplete[] = [boundary];
+    if (keyFailure !== undefined) incomplete.push(keyFailure);
+    return {
+      version: VALIDATION_EVIDENCE_VERSION,
+      state: incompleteState(run, incomplete, 0),
+      execution: await executionEnvelope(
+        key,
+        cfg,
+        run,
+        groups,
+        keyFailure,
+      ),
+    };
+  } catch {
+    const internal: ValidationIncomplete = {
+      category: "internal",
+      reason: "unavailable",
+    };
+    return {
+      version: VALIDATION_EVIDENCE_VERSION,
+      state: incompleteState(run, [boundary, internal], 0),
+      execution: minimalExecution(run, [internal]),
+    };
+  }
 }
 
 /**
@@ -721,9 +1129,10 @@ export async function captureValidationStart(
   groups: readonly ValidationJobGroup[],
   options: ValidationCaptureOptions = {},
 ): Promise<ValidationStart> {
-  const rt = runtime(options);
+  let rt: CaptureRuntime | undefined;
   try {
-    const keyResult = await validationKey(root);
+    rt = runtime(options);
+    const keyResult = await captureKey(root, rt, options);
     if (!("key" in keyResult)) {
       return {
         version: VALIDATION_EVIDENCE_VERSION,
@@ -747,31 +1156,31 @@ export async function captureValidationStart(
       submodules?: string;
     } = {};
 
-    const head = await captureGit(root, [
+    const headProbe = await captureGit(root, [
       "rev-parse",
       "--verify",
       "HEAD^{commit}",
     ], rt);
-    if (head === undefined) {
-      addIncomplete(incomplete, { category: "budget", reason: "time-limit" });
-    } else if (!head.success || head.stdout.trim() === "") {
+    if (probeLimited(headProbe, incomplete)) {
+      // The shared limit diagnostic is enough.
+    } else if (headProbe.result === undefined) {
+      addIncomplete(incomplete, { category: "head", reason: "unavailable" });
+    } else if (
+      !headProbe.result.success || headProbe.result.stdout.trim() === ""
+    ) {
       addIncomplete(incomplete, { category: "head", reason: "unavailable" });
     } else {
       components.head = await hmac(key, "validation-head-v1", [
-        frame("head", encoder.encode(head.stdout.trim())),
+        frame("head", encoder.encode(headProbe.result.stdout.trim())),
       ]);
     }
 
     const index = await indexManifest(root, key, rt, incomplete);
     if (index.digest !== undefined) components.index = index.digest;
-    const gitlinks = new Set(
-      index.entries.filter((entry) => entry.mode === "160000")
-        .flatMap((entry) => entry.path === undefined ? [] : [entry.path]),
-    );
     const tracked = await changedTrackedManifest(
       root,
       key,
-      gitlinks,
+      index.entries,
       rt,
       incomplete,
     );
@@ -824,6 +1233,7 @@ export async function captureValidationStart(
           index_manifest: index.bytes,
           tracked_content: tracked.contentBytes,
           untracked_content: untracked.contentBytes,
+          git_output: rt.gitBytes,
         },
         ...(incomplete.length > 0 ? { incomplete } : {}),
         exclusions: [...VALIDATION_EXCLUSIONS],
@@ -837,15 +1247,12 @@ export async function captureValidationStart(
     };
     return {
       version: VALIDATION_EVIDENCE_VERSION,
-      state: incompleteState(run, [incomplete], elapsed(rt)),
-      execution: {
-        version: VALIDATION_EVIDENCE_VERSION,
-        complete: false,
-        mode: run.mode,
-        writer: VALIDATION_WRITER,
-        jobs: [],
-        incomplete: [incomplete],
-      },
+      state: incompleteState(
+        run,
+        [incomplete],
+        safeElapsed(rt),
+      ),
+      execution: minimalExecution(run, [incomplete]),
     };
   }
 }

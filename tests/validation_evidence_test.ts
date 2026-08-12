@@ -1,7 +1,7 @@
 /** Class guard for validation-start identity and configured-job verdicts. */
 
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { configSchema } from "../src/shared/config_schema.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import {
@@ -18,10 +18,15 @@ import {
 import {
   captureValidationStart,
   VALIDATION_CAPTURE_LIMITS,
+  VALIDATION_EXECUTION_LIMITS,
+  validationBoundaryNotReached,
 } from "../src/engine/logbook/validation_state.ts";
-import { git, gitInit } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { git, gitInit, gitOut } from "./engine_helpers.ts";
+import { modeOf, withTempDir } from "./helpers.ts";
 import { parseLogbookLine } from "../src/engine/logbook/schema.ts";
+import { runGit } from "../src/shared/subprocess.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { validationKey } from "../src/engine/logbook/validation_key.ts";
 
 const cfg = configSchema.parse({});
 
@@ -161,7 +166,7 @@ Deno.test("semantic index identity survives refresh but separates staged and uns
   await withTempDir(async (dir) => {
     await seedRepo(dir);
     const clean = await capture(dir);
-    assert(clean.state.complete);
+    assert(clean.state.complete, JSON.stringify(clean.state));
     await git(dir, "status", "--short");
     const refreshed = await capture(dir);
     assertEquals(refreshed.state.digest, clean.state.digest);
@@ -187,6 +192,77 @@ Deno.test("semantic index identity survives refresh but separates staged and uns
     assertEquals(staged.state.counts.tracked_paths, 0);
     assertEquals(unstaged.state.counts.tracked_paths, 1);
   });
+});
+
+Deno.test("index visibility flags cannot hide job-visible checkout bytes", async () => {
+  await withTempDir(async (dir) => {
+    await seedRepo(dir);
+
+    const ordinary = await capture(dir);
+    await git(dir, "update-index", "--assume-unchanged", "alpha.txt");
+    await Deno.writeTextFile(join(dir, "alpha.txt"), "hidden change\n");
+    const assumed = await capture(dir);
+    assert(assumed.state.complete);
+    assertNotEquals(assumed.state.digest, ordinary.state.digest);
+
+    await git(dir, "update-index", "--no-assume-unchanged", "alpha.txt");
+    await git(dir, "checkout", "--", "alpha.txt");
+    await git(dir, "sparse-checkout", "init", "--no-cone");
+    await git(dir, "sparse-checkout", "set", "--no-cone", "/alpha.txt");
+    assertEquals(await exists(join(dir, "delete.txt")), false);
+    const sparse = await capture(dir);
+    assert(sparse.state.complete);
+    await git(dir, "sparse-checkout", "disable");
+    const materialized = await capture(dir);
+    assert(materialized.state.complete);
+    assertNotEquals(sparse.state.digest, materialized.state.digest);
+  });
+});
+
+Deno.test("an unknown index visibility class cannot silently become complete", async () => {
+  await withTempDir(async (dir) => {
+    await seedRepo(dir);
+    const object = await gitOut(dir, "rev-parse", "HEAD:alpha.txt");
+    const fakeGit = join(dir, "future-index-tag-git");
+    await Deno.writeTextFile(
+      fakeGit,
+      `#!/bin/sh
+case " $* " in
+  *" ls-files --stage -v -z "*) printf 'Q 100644 ${object} 0\\talpha.txt\\000' ;;
+  *) exec git "$@" ;;
+esac
+`,
+    );
+    await Deno.chmod(fakeGit, 0o755);
+    const evidence = await captureValidationStart(
+      dir,
+      cfg,
+      VALIDATION_RUNS.test,
+      group(VALIDATION_RUNS.test),
+      { gitBin: fakeGit },
+    );
+    assertEquals(evidence.state.complete, false);
+    assert(
+      evidence.state.incomplete?.some((entry) =>
+        entry.category === "index" && entry.reason === "invalid"
+      ),
+    );
+  });
+});
+
+Deno.test("validation capture has one bounded Git-output authority", async () => {
+  const source = await Deno.readTextFile(
+    new URL("../src/engine/logbook/validation_state.ts", import.meta.url),
+  );
+  assertEquals(
+    source.match(/await runGit\(/g)?.length,
+    1,
+    "every validation Git probe must funnel through captureGit",
+  );
+  assert(
+    source.includes("maxOutputBytes: remainingBytes"),
+    "the sole Git authority must pass its remaining hard byte ceiling",
+  );
 });
 
 Deno.test("tracked, untracked, ignored, rename, delete, mode, symlink, and binary states are distinct", async () => {
@@ -252,7 +328,7 @@ Deno.test("dirty submodules make validation identity incomplete", async () => {
     await git(project, "commit", "-q", "-am", "add submodule");
 
     const clean = await capture(project);
-    assert(clean.state.complete);
+    assert(clean.state.complete, JSON.stringify(clean.state));
     assertEquals(clean.state.counts.submodules, 1);
     await Deno.writeTextFile(join(project, "module", "payload.txt"), "dirty\n");
     const dirty = await capture(project);
@@ -261,6 +337,170 @@ Deno.test("dirty submodules make validation identity incomplete", async () => {
     assert(
       dirty.state.incomplete?.some((entry) =>
         entry.category === "submodules" && entry.reason === "dirty"
+      ),
+    );
+  });
+});
+
+/** Whether one fixture path exists without following a missing target. */
+async function exists(path: string): Promise<boolean> {
+  try {
+    await Deno.lstat(path);
+    return true;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return false;
+    throw error;
+  }
+}
+
+/** Commit one new payload and return the source repository's HEAD. */
+async function commitPayload(source: string, payload: string): Promise<string> {
+  await Deno.writeTextFile(join(source, "payload.txt"), `${payload}\n`);
+  await git(source, "add", "payload.txt");
+  await git(source, "commit", "-q", "-m", payload);
+  return await gitOut(source, "rev-parse", "HEAD");
+}
+
+Deno.test("unmerged gitlinks make validation identity incomplete", async () => {
+  await withTempDir(async (outer) => {
+    const source = join(outer, "source");
+    const project = join(outer, "project");
+    await Deno.mkdir(source);
+    await Deno.mkdir(project);
+    await Deno.writeTextFile(join(source, "payload.txt"), "base\n");
+    await gitInit(source);
+    const base = await gitOut(source, "rev-parse", "HEAD");
+    const ours = await commitPayload(source, "ours");
+    const theirs = await commitPayload(source, "theirs");
+    await Deno.writeTextFile(join(project, "root.txt"), "root\n");
+    await gitInit(project);
+    await git(
+      project,
+      "-c",
+      "protocol.file.allow=always",
+      "submodule",
+      "add",
+      "-q",
+      source,
+      "module",
+    );
+    await git(project, "commit", "-q", "-am", "add submodule");
+    const indexInfo = [
+      `160000 ${base} 1\tmodule`,
+      `160000 ${ours} 2\tmodule`,
+      `160000 ${theirs} 3\tmodule`,
+      "",
+    ].join("\n");
+    const update = await runGit(["update-index", "--index-info"], {
+      cwd: project,
+      stdin: indexInfo,
+    });
+    assert(update.success, update.stderr);
+
+    const evidence = await capture(project);
+    assertEquals(evidence.state.complete, false);
+    assertEquals(evidence.state.digest, undefined);
+    assert(
+      evidence.state.incomplete?.some((entry) =>
+        entry.category === "submodules"
+      ),
+    );
+  });
+});
+
+Deno.test("deinitialized and recursively incomplete submodules never borrow a parent repository identity", async () => {
+  await withTempDir(async (outer) => {
+    const nested = join(outer, "nested");
+    const parent = join(outer, "parent");
+    const project = join(outer, "project");
+    for (const dir of [nested, parent, project]) await Deno.mkdir(dir);
+    await Deno.writeTextFile(join(nested, "payload.txt"), "nested\n");
+    await gitInit(nested);
+    await Deno.writeTextFile(join(parent, "payload.txt"), "parent\n");
+    await gitInit(parent);
+    await git(
+      parent,
+      "-c",
+      "protocol.file.allow=always",
+      "submodule",
+      "add",
+      "-q",
+      nested,
+      "nested",
+    );
+    await git(parent, "commit", "-q", "-am", "add nested");
+    await Deno.writeTextFile(join(project, "root.txt"), "root\n");
+    await gitInit(project);
+    await git(
+      project,
+      "-c",
+      "protocol.file.allow=always",
+      "submodule",
+      "add",
+      "-q",
+      parent,
+      "module",
+    );
+    await git(project, "commit", "-q", "-am", "add parent");
+
+    const nestedUninitialized = await capture(project);
+    assertEquals(nestedUninitialized.state.complete, false);
+    assert(
+      nestedUninitialized.state.incomplete?.some((entry) =>
+        entry.category === "submodules"
+      ),
+    );
+
+    await git(
+      project,
+      "-c",
+      "protocol.file.allow=always",
+      "submodule",
+      "update",
+      "--init",
+      "--recursive",
+    );
+    const initialized = await capture(project);
+    assert(initialized.state.complete, JSON.stringify(initialized.state));
+
+    await git(
+      join(project, "module"),
+      "update-index",
+      "--assume-unchanged",
+      "nested",
+    );
+    const hiddenNestedGitlink = await capture(project);
+    assertEquals(hiddenNestedGitlink.state.complete, false);
+    assert(
+      hiddenNestedGitlink.state.incomplete?.some((entry) =>
+        entry.category === "submodules"
+      ),
+    );
+    await git(
+      join(project, "module"),
+      "update-index",
+      "--no-assume-unchanged",
+      "nested",
+    );
+
+    await Deno.writeTextFile(
+      join(project, "module", "nested", "payload.txt"),
+      "dirty nested\n",
+    );
+    const nestedDirty = await capture(project);
+    assertEquals(nestedDirty.state.complete, false);
+    assert(
+      nestedDirty.state.incomplete?.some((entry) =>
+        entry.category === "submodules" && entry.reason === "dirty"
+      ),
+    );
+
+    await git(project, "submodule", "deinit", "-f", "module");
+    const deinitialized = await capture(project);
+    assertEquals(deinitialized.state.complete, false);
+    assert(
+      deinitialized.state.incomplete?.some((entry) =>
+        entry.category === "submodules"
       ),
     );
   });
@@ -319,6 +559,188 @@ Deno.test("path, byte, time, and unreadable budgets fail open without a comparab
     }
   });
 });
+
+Deno.test("a real Git producer is killed at the validation byte boundary", async () => {
+  await withTempDir(async (dir) => {
+    await seedRepo(dir);
+    const fakeGit = join(dir, "oversize-git");
+    await Deno.writeTextFile(
+      fakeGit,
+      "#!/bin/sh\ni=0\nwhile [ $i -lt 10000 ]; do printf 0123456789abcdef; i=$((i+1)); done\n",
+    );
+    await Deno.chmod(fakeGit, 0o755);
+    const evidence = await captureValidationStart(
+      dir,
+      cfg,
+      VALIDATION_RUNS.test,
+      group(VALIDATION_RUNS.test),
+      { limits: { bytes: 1024 }, gitBin: fakeGit },
+    );
+    assertEquals(evidence.state.complete, false);
+    assertEquals(evidence.state.digest, undefined);
+    assert(
+      evidence.state.incomplete?.some((entry) =>
+        entry.category === "budget" && entry.reason === "byte-limit"
+      ),
+    );
+  });
+});
+
+Deno.test("validation execution identity has independent entry and byte ceilings", async () => {
+  await withTempDir(async (dir) => {
+    await seedRepo(dir);
+    const byteLimited = await captureValidationStart(
+      dir,
+      cfg,
+      VALIDATION_RUNS.test,
+      group(VALIDATION_RUNS.test, "x".repeat(2 * 1024 * 1024)),
+    );
+    assertEquals(byteLimited.execution.complete, false);
+    assert(
+      byteLimited.execution.incomplete?.some((entry) =>
+        entry.category === "execution" && entry.reason === "byte-limit"
+      ),
+    );
+
+    const jobs = Array.from(
+      { length: VALIDATION_EXECUTION_LIMITS.entries + 1 },
+      (_, index) => ({
+        label: `test-${index}`,
+        command: "true",
+        kind: "known",
+        reportStage: "test",
+        willRun: true,
+      }),
+    );
+    const entryLimited = await validationBoundaryNotReached(
+      dir,
+      cfg,
+      VALIDATION_RUNS.test,
+      [{ mode: "parallel", jobs }],
+    );
+    assertEquals(entryLimited.execution.complete, false);
+    assertEquals(entryLimited.execution.jobs, []);
+    assert(
+      entryLimited.execution.incomplete?.some((entry) =>
+        entry.category === "execution" && entry.reason === "entry-limit"
+      ),
+    );
+  });
+});
+
+Deno.test("validation keys require a regular 0600 file and creation establishes it", async () => {
+  const variants = [
+    "group-readable",
+    "world-readable",
+    "symlink",
+    "directory",
+  ] as const;
+  for (const variant of variants) {
+    await withTempDir(async (dir) => {
+      await seedRepo(dir);
+      const path = await gitAdminStatePath(dir, "validationHmacKey");
+      assert(path !== undefined);
+      await Deno.mkdir(dirname(path), { recursive: true });
+      if (variant === "group-readable" || variant === "world-readable") {
+        await Deno.writeFile(path, new Uint8Array(32), {
+          mode: variant === "group-readable" ? 0o640 : 0o604,
+        });
+      } else if (variant === "symlink") {
+        const target = join(dir, "key-target");
+        await Deno.writeFile(target, new Uint8Array(32), { mode: 0o600 });
+        await Deno.symlink(target, path);
+      } else {
+        await Deno.mkdir(path);
+      }
+      const evidence = await capture(dir);
+      assertEquals(evidence.state.complete, false, variant);
+      assert(
+        evidence.state.incomplete?.some((entry) =>
+          entry.category === "key" && entry.reason === "invalid"
+        ),
+        variant,
+      );
+    });
+  }
+
+  await withTempDir(async (dir) => {
+    await seedRepo(dir);
+    const result = await validationKey(dir);
+    assert("key" in result);
+    assertEquals(
+      await modeOf(dirname(resultPath(dir)), "validation-hmac-key"),
+      0o600,
+    );
+  });
+});
+
+Deno.test("every validation capture path is total when its dependencies throw", async () => {
+  const rejectedKey = (): Promise<never> =>
+    Promise.reject(new Error("forced key failure"));
+  const preBoundary = await validationBoundaryNotReached(
+    "/unreachable",
+    cfg,
+    VALIDATION_RUNS.done,
+    group(VALIDATION_RUNS.done),
+    { keyProvider: rejectedKey },
+  );
+  assertEquals(preBoundary.state.complete, false);
+  assert(
+    preBoundary.state.incomplete?.some((entry) =>
+      entry.category === "boundary" && entry.reason === "not-reached"
+    ),
+    "the original already-red verdict boundary must survive capture failure",
+  );
+  assert(
+    preBoundary.state.incomplete?.some((entry) =>
+      entry.category === "internal" && entry.reason === "unavailable"
+    ),
+  );
+
+  const boundary = await captureValidationStart(
+    "/unreachable",
+    cfg,
+    VALIDATION_RUNS.test,
+    group(VALIDATION_RUNS.test),
+    { keyProvider: rejectedKey },
+  );
+  assertEquals(boundary.state.complete, false);
+  assert(
+    boundary.state.incomplete?.some((entry) =>
+      entry.category === "internal" && entry.reason === "unavailable"
+    ),
+  );
+
+  const failedClock = await captureValidationStart(
+    "/unreachable",
+    cfg,
+    VALIDATION_RUNS.test,
+    group(VALIDATION_RUNS.test),
+    {
+      now: () => {
+        throw new Error("forced clock failure");
+      },
+    },
+  );
+  assertEquals(failedClock.state.complete, false);
+  assertEquals(failedClock.state.elapsed_ms, 0);
+  assert(
+    failedClock.state.incomplete?.some((entry) =>
+      entry.category === "internal" && entry.reason === "unavailable"
+    ),
+  );
+
+  const key = await validationKey("/unreachable", {
+    resolvePath: () => Promise.reject(new Error("forced Git-admin failure")),
+  });
+  assert("incomplete" in key);
+  assertEquals(key.incomplete, { category: "key", reason: "unavailable" });
+});
+
+/** Registered key path asserted present for an initialized fixture. */
+function resultPath(dir: string): string {
+  return join(dir, ".git", "discern", "validation-hmac-key");
+}
 
 Deno.test("validation evidence is bounded metadata and remains outside public result JSON", async () => {
   await withTempDir(async (dir) => {
