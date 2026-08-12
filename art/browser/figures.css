@@ -23,7 +23,7 @@
     --fig-heavy: 2.25;
 
     /* The opacity steps between construction and ink. */
-    --fig-faint: 0.16;
+    --fig-faint: 0.26;
     --fig-quiet: 0.42;
 
     /* The palette: ink for form, guide for construction, one accent. */
