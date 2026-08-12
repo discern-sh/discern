@@ -1275,6 +1275,61 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       current_green_streak: 2,
       check_hours: 3,
     });
+    assertEquals(stats.validation_workflows.cycles, {
+      total: 2,
+      branches: 2,
+      routes: [
+        {
+          route: "test-first",
+          cycles: 0,
+          branches: 0,
+          runs: 0,
+          successful_cycles: 0,
+          successful_runs: 0,
+          failed_cycles: 0,
+          failed_runs: 0,
+          retried_cycles: 0,
+          retry_runs: 0,
+        },
+        {
+          route: "commit-first",
+          cycles: 2,
+          branches: 2,
+          runs: 3,
+          successful_cycles: 2,
+          successful_runs: 2,
+          failed_cycles: 1,
+          failed_runs: 1,
+          retried_cycles: 1,
+          retry_runs: 1,
+        },
+        {
+          route: "unattributed",
+          cycles: 0,
+          branches: 0,
+          runs: 0,
+          successful_cycles: 0,
+          successful_runs: 0,
+          failed_cycles: 0,
+          failed_runs: 0,
+          retried_cycles: 0,
+          retry_runs: 0,
+        },
+      ],
+      precommit_to_clean_gate: {
+        cycles: 0,
+        branches: 0,
+        runs: 0,
+        retry_runs: 0,
+      },
+    });
+    assertEquals(stats.validation_workflows.runs.evidence, {
+      denominator: 3,
+      complete: 0,
+      incomplete: 0,
+      legacy: 3,
+      unattributed: 0,
+    });
     assertEquals(stats.cycles, {
       started: 2,
       completed: 2,
@@ -1320,7 +1375,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
 
     const human = await runAgent(dir, ["patterns", "--stats"], {
-      env: { COLUMNS: "100", NO_COLOR: "1" },
+      env: { COLUMNS: "80", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
     const card = normalized(human.output);
@@ -1345,6 +1400,18 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     assertStringIncludes(card, "2 of 3 `done` runs green (67%)");
     assertStringIncludes(card, "1 of 2 branches green first try (50%)");
     assertStringIncludes(card, "1 red run stopped at the gate");
+    assertStringIncludes(
+      card,
+      "`done`: 3 runs across 2 branches · 3 clean · 0 dirty · 0 unknown · 2 ok · 1 failed · 1 retry",
+    );
+    assertStringIncludes(
+      card,
+      "commit-first: 2 cycles / 3 runs across 2 branches · 2 ok / 1 failed runs · 2 reached a clean Gate / 1 had a failure · 1 retried cycle / 1 retry run",
+    );
+    assertStringIncludes(
+      card,
+      "evidence across 3 runs: complete 0 (0%) · incomplete 0 (0%) · legacy 3 (100%) · unattributed 0 (0%)",
+    );
     assert(
       !card.includes("never shipped") && !card.includes("shipped"),
       "the card speaks in accepted, not shipped",
@@ -1382,6 +1449,14 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       !card.includes(PATTERNS_ATTENTION_HEADING),
       "the card replaces the detector report, never interleaves it",
     );
+    for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
+      assert(
+        displayWidth(line) <= 80,
+        `80-column stats line ${index + 1} is ${
+          displayWidth(line)
+        } columns: ${line}`,
+      );
+    }
   });
 });
 

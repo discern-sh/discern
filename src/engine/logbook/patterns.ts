@@ -820,6 +820,7 @@ export const STATS_PROVENANCE =
 export const STATS_SECTIONS = {
   accepted: "Accepted",
   gate: "The gate",
+  workflows: "Validation workflows",
   pace: "Pace",
   standards: "Standards",
   agents: "Agents",
@@ -1019,6 +1020,130 @@ function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
   }
   if (tail.length > 0) {
     rows.push(tail.join(" · "));
+  }
+  return rows;
+}
+
+/** One evidence count with its share of an explicit denominator. */
+function evidenceShare(part: number, whole: number): string {
+  return `${formatHumanNumber(part)} (${percent(part, whole)})`;
+}
+
+/** The validation-workflow section: verb entry state, conservative change
+ * cycles and their routes, evidence coverage, privacy-safe dirty-state shape,
+ * then eligible identity cohorts with every denominator and remainder. */
+function statsValidationWorkflowRows(
+  workflows: PatternsStats["validation_workflows"],
+  c: Palette,
+): string[] {
+  if (workflows.runs.total === 0) {
+    return ["No `prepare`, `test`, or `done` runs yet."];
+  }
+  const rows: string[] = [];
+  for (const verb of workflows.runs.by_verb) {
+    rows.push(
+      `${c.bold}\`${verb.verb}\`${c.reset}: ${
+        plural(verb.runs, "run")
+      } across ${plural(verb.branches, "branch", "branches")} · ${
+        formatHumanNumber(verb.clean)
+      } clean · ${formatHumanNumber(verb.dirty)} dirty · ${
+        formatHumanNumber(verb.unknown)
+      } unknown · ${formatHumanNumber(verb.successes)} ok · ${
+        formatHumanNumber(verb.failures)
+      } failed · ${plural(verb.retries, "retry", "retries")}`,
+    );
+  }
+  rows.push(
+    `${c.bold}${
+      plural(workflows.cycles.total, "change cycle")
+    }${c.reset} across ${
+      plural(workflows.cycles.branches, "branch", "branches")
+    }`,
+  );
+  for (const route of workflows.cycles.routes) {
+    rows.push(
+      `${route.route}: ${plural(route.cycles, "cycle")} / ${
+        plural(route.runs, "run")
+      } across ${plural(route.branches, "branch", "branches")} · ${
+        formatHumanNumber(route.successful_runs)
+      } ok / ${formatHumanNumber(route.failed_runs)} failed runs · ${
+        formatHumanNumber(route.successful_cycles)
+      } reached a clean Gate / ${
+        formatHumanNumber(route.failed_cycles)
+      } had a failure · ${plural(route.retried_cycles, "retried cycle")} / ${
+        plural(route.retry_runs, "retry run")
+      }`,
+    );
+  }
+  const precommit = workflows.cycles.precommit_to_clean_gate;
+  const testFirst = workflows.cycles.routes.find((route) =>
+    route.route === "test-first"
+  );
+  rows.push(
+    `pre-commit validation → clean Gate: ${
+      formatHumanNumber(precommit.cycles)
+    } of ${plural(testFirst?.cycles ?? 0, "test-first cycle")} across ${
+      plural(precommit.branches, "branch", "branches")
+    } · ${plural(precommit.runs, "run")} · ${
+      plural(precommit.retry_runs, "retry run")
+    }`,
+  );
+  const evidence = workflows.runs.evidence;
+  rows.push(
+    `evidence across ${plural(evidence.denominator, "run")}: complete ${
+      evidenceShare(evidence.complete, evidence.denominator)
+    } · incomplete ${
+      evidenceShare(evidence.incomplete, evidence.denominator)
+    } · legacy ${
+      evidenceShare(evidence.legacy, evidence.denominator)
+    } · unattributed ${
+      evidenceShare(evidence.unattributed, evidence.denominator)
+    }`,
+  );
+  const dirty = workflows.runs.dirty_state;
+  if (dirty.denominator > 0) {
+    rows.push(
+      `complete dirty states across ${
+        plural(dirty.denominator, "run")
+      }: tracked-only ${
+        formatHumanNumber(dirty.tracked_only)
+      } · untracked-only ${formatHumanNumber(dirty.untracked_only)} · mixed ${
+        formatHumanNumber(dirty.mixed)
+      } · unclassified ${formatHumanNumber(dirty.unclassified)}`,
+    );
+  }
+  const cohorts = workflows.cohorts;
+  if (cohorts !== undefined) {
+    rows.push(
+      `identity cohorts: ${plural(cohorts.denominator_cycles, "cycle")} / ${
+        plural(cohorts.denominator_runs, "run")
+      }`,
+    );
+    for (const identity of cohorts.identities) {
+      rows.push(
+        `${c.bold}${identity.label}${c.reset}: ${
+          plural(identity.cycles, "cycle")
+        } / ${plural(identity.runs, "run")} · test-first ${
+          formatHumanNumber(identity.test_first_cycles)
+        } · commit-first ${
+          formatHumanNumber(identity.commit_first_cycles)
+        } · clean Gate ${
+          formatHumanNumber(identity.successful_cycles)
+        } · failed ${formatHumanNumber(identity.failed_cycles)} · retried ${
+          formatHumanNumber(identity.retried_cycles)
+        }`,
+      );
+    }
+    rows.push(
+      `below reporting minimums: ${
+        plural(cohorts.below_minimum.cohorts, "cohort")
+      } · ${plural(cohorts.below_minimum.cycles, "cycle")} / ${
+        plural(cohorts.below_minimum.runs, "run")
+      }`,
+      `unattributed: ${plural(cohorts.unattributed.cycles, "cycle")} / ${
+        plural(cohorts.unattributed.runs, "run")
+      }`,
+    );
   }
   return rows;
 }
@@ -1247,6 +1372,12 @@ function renderStatsReport(
       stats.gate.greens_per_day,
       cadenceLabel("green runs", daysPerPoint),
     ),
+  );
+  statsSection(
+    out,
+    width,
+    STATS_SECTIONS.workflows,
+    statsValidationWorkflowRows(stats.validation_workflows, c),
   );
   const pace = statsPaceRows(stats, c);
   if (pace.length > 0) {

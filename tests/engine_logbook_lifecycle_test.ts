@@ -446,6 +446,70 @@ Deno.test({
         kind: "archive",
         filename,
       });
+      assertEquals(statsData.stats.validation_workflows.runs, {
+        total: 2,
+        branches: 1,
+        by_verb: [
+          {
+            verb: "prepare",
+            runs: 1,
+            branches: 1,
+            clean: 1,
+            dirty: 0,
+            unknown: 0,
+            successes: 1,
+            failures: 0,
+            retries: 0,
+          },
+          {
+            verb: "test",
+            runs: 0,
+            branches: 0,
+            clean: 0,
+            dirty: 0,
+            unknown: 0,
+            successes: 0,
+            failures: 0,
+            retries: 0,
+          },
+          {
+            verb: "done",
+            runs: 1,
+            branches: 1,
+            clean: 1,
+            dirty: 0,
+            unknown: 0,
+            successes: 1,
+            failures: 0,
+            retries: 0,
+          },
+        ],
+        evidence: {
+          denominator: 2,
+          complete: 0,
+          incomplete: 0,
+          legacy: 1,
+          unattributed: 1,
+        },
+        dirty_state: {
+          denominator: 0,
+          tracked_only: 0,
+          untracked_only: 0,
+          mixed: 0,
+          unclassified: 0,
+        },
+      });
+      assertEquals(statsData.stats.validation_workflows.cycles.total, 2);
+
+      const historicalStats = await runAgent(dir, [
+        "patterns",
+        "--stats",
+        "--logbook-file",
+        filename,
+      ], { env: { COLUMNS: "80", NO_COLOR: "1" } });
+      assertEquals(historicalStats.code, 0, historicalStats.output);
+      assertStringIncludes(historicalStats.output, `archive ${filename}`);
+      assertStringIncludes(historicalStats.output, "Validation workflows");
 
       const terminal = await runAgent(dir, [
         "patterns",
