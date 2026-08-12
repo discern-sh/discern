@@ -89,9 +89,9 @@ Readers skip unknown schema versions, and fields are append-only. `begin` carrie
 
 ### Validation evidence
 
-Completed `done` and standalone `test` events add `validation` when recording is enabled. Its `state` names the evidence version, capture moment, completeness, opaque HMAC digests, aggregate path and byte counts, elapsed milliseconds, and any categorical failure reason. Its `execution` names standalone or full-Gate mode, writer version, opaque config/setup/job-definition digests, job ids and stages, concurrent siblings, and explicit outcomes: `passed`, `failed`, `skipped`, `cancelled`, or `unavailable`.
+Completed `done` and standalone `test` events add `validation`. Its `state` carries version, capture moment, completeness, opaque keyed digests, aggregate counts/bytes, elapsed milliseconds, and failure categories. Its `execution` carries mode, writer, opaque config/setup/job-definition digests, job metadata, concurrency, and explicit `passed`, `failed`, `skipped`, `cancelled`, or `unavailable` outcomes.
 
-`done` captures after fix/build and before check/test. `test` captures before its test group. A run blocked earlier records `boundary/not-reached`. Complete state covers HEAD, semantic index entries, tracked worktree differences, untracked entries that Git does not ignore, and clean submodule commits. Dirty submodules and unreadable, over-budget, or timed-out input are incomplete and carry no combined digest.
+`done` captures after fix/build and before check/test; `test` captures before its group. An earlier block records `boundary/not-reached`. Complete state covers HEAD, semantic index entries, tracked differences, untracked entries that Git does not ignore, and clean submodule commits. Dirty, unreadable, or over-budget state has no combined digest.
 
 The HMAC key stays at `.git/discern/validation-hmac-key`; the Logbook stores no path manifest, content, command, config value, environment value, or plain content hash. Ignored files, external services, clocks, random seeds, runtime environment, and concurrent external processes are outside the snapshot. Older events omit `validation` and remain readable ([ADR 0273](../_adr/0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)).
 

@@ -24,11 +24,11 @@ The substrate's constraints:
 
 ## Validation evidence
 
-`done` samples project state after its mutating fix/build groups and before its check/test scheduler. Standalone `test` samples immediately before its test group. The shared validation-run registry selects each relevant planned job, so a new configured job in a registered stage enters the execution envelope without another label list.
+`done` samples after fix/build and before check/test; standalone `test` samples before its test group. A shared registry selects planned jobs by stage, automatically enrolling future jobs.
 
-The state digest is an HMAC over a canonical semantic manifest: full HEAD; index mode, object, stage, and raw path bytes; tracked worktree differences; untracked entries that Git does not ignore; and clean submodule working commits. The physical index file is not hashed, so stat-cache refresh and split or sparse storage do not create false differences. Dirty submodules, unreadable state, or a path, byte, or time ceiling make the record incomplete and remove its comparable digest. The fixed ceilings are 20,000 path observations, 64 MiB, and 5 seconds. Git probes receive the remaining deadline.
+The state digest is an HMAC over full HEAD; index mode, object, stage, and raw path bytes; tracked differences; untracked entries that Git does not ignore; and clean submodule commits. Semantic index entries avoid physical stat-cache, split-index, and sparse-storage noise. Dirty or uncertain state and breached limits remove comparability. The ceilings are 20,000 paths, 64 MiB, and 5 seconds; Git probes receive the remaining deadline.
 
-The repository-common HMAC key lives at `discern/validation-hmac-key`. A Logbook line stores only opaque component and combined digests, counts, byte totals, capture timing, and categorical incompleteness. Execution evidence adds keyed digests for config, worktree setup, and job definitions plus job ids, stages, normalized outcomes, standalone/full-Gate mode, concurrency, and writer version. It stores no paths, contents, commands, config values, or environment values.
+The common key lives at `discern/validation-hmac-key`. Events store only opaque digests, counts, bytes, timing, and failure categories. Execution evidence adds keyed config/setup/job definitions, job metadata and outcomes, mode, concurrency, and writer version—never paths, contents, commands, config values, or environment values.
 
 Patterns compares only complete state and execution envelopes of the same evidence version. Legacy identity is a separate group. Ignored files, external services, clocks, random seeds, runtime environment, and concurrent external processes remain disclosed exclusions ([ADR 0273](../_adr/0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)).
 
