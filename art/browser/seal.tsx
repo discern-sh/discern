@@ -162,23 +162,6 @@ export const SEAL_FRAGMENTS: readonly SealFragment[] = Object.freeze(
   SEAL_EDGES.flatMap((definition) => edgeFragments(definition)),
 );
 
-/** The fragments whose displaced past rests on the plate as faint ghosts. */
-export const SEAL_GHOST_IDS: readonly string[] = Object.freeze([
-  "left-2",
-  "base-2",
-  "right-4",
-]);
-
-const GHOST_FRAGMENTS: readonly SealFragment[] = SEAL_GHOST_IDS.map(
-  (ghostId) => {
-    const fragment = SEAL_FRAGMENTS.find(({ id }) => id === ghostId);
-    if (fragment === undefined) {
-      throw new Error("A ghost must duplicate an authored fragment.");
-    }
-    return fragment;
-  },
-);
-
 const TICK_CLEARANCE = 6;
 const TICK_LENGTH = 12;
 
@@ -211,23 +194,6 @@ export const SEAL_CORNER_TICKS: readonly SealSegment[] = Object.freeze([
   cornerTick(SEAL_TRIANGLE.baseRight, SEAL_TRIANGLE.baseLeft),
 ]);
 
-const HALLMARK_STROKES: readonly SealSegment[] = Object.freeze([
-  Object.freeze({
-    from: Object.freeze({ x: 561, y: 392 }),
-    to: Object.freeze({ x: 585, y: 392 }),
-  }),
-  Object.freeze({
-    from: Object.freeze({ x: 573, y: 380 }),
-    to: Object.freeze({ x: 573, y: 404 }),
-  }),
-]);
-
-/** The two crossing punch strokes and the dash budget that inscribes them. */
-export const SEAL_HALLMARK = Object.freeze({
-  dash: 26,
-  strokes: HALLMARK_STROKES,
-});
-
 interface SealFragmentStyle extends CSSProperties {
   readonly "--fig-seal-scatter": string;
 }
@@ -240,20 +206,11 @@ function scatterStyle(scatter: SealScatter): SealFragmentStyle {
   };
 }
 
-/** The static SVG transform resting a ghost at its remembered displacement. */
-function ghostTransform(fragment: SealFragment): string {
-  const midX = round1((fragment.from.x + fragment.to.x) / 2);
-  const midY = round1((fragment.from.y + fragment.to.y) / 2);
-  const { dx, dy, rotation } = fragment.scatter;
-  return `translate(${dx} ${dy}) rotate(${rotation} ${midX} ${midY})`;
-}
-
 /**
  * Fig. II — the seal, at its sealed instant. Fourteen hairline fragments
- * hold one registered triangle; its right half carries ink and a crossed
- * accent mark sits punched beside the lower-right edge. The stylesheet
- * alone supplies the release, scatter, re-registration, confirming sweep,
- * and re-inscription that surround this authored state.
+ * hold one registered triangle whose right half carries ink. The
+ * stylesheet alone supplies the release, scatter, re-registration, and
+ * confirming accent sweep that surround this authored state.
  */
 export function SealArtwork(
   { id }: SealArtworkProps,
@@ -276,10 +233,10 @@ export function SealArtwork(
         <title id={titleId}>Fragments registering into a sealed triangle</title>
         <desc id={descriptionId}>
           Hairline fragments hold the outline of one centred, apex-up triangle
-          whose right half carries solid ink, while a small crossed mark rests
-          beside the lower-right edge. One fragment drifts, the ink releases,
-          the fragments loosen and re-register, and a passing line restores the
-          sealed form. The complete sealed form remains visible without motion.
+          whose right half carries solid ink. One fragment drifts, the ink
+          releases, the fragments loosen and re-register, and a passing tinted
+          line restores the sealed form. The complete sealed form remains
+          visible without motion.
         </desc>
         <g aria-hidden="true">
           <defs>
@@ -314,20 +271,6 @@ export function SealArtwork(
               />
             ))}
           </g>
-
-          {GHOST_FRAGMENTS.map((fragment) => (
-            <line
-              key={`ghost-${fragment.id}`}
-              className="fig-seal__ghost"
-              data-seal-ghost={fragment.id}
-              transform={ghostTransform(fragment)}
-              x1={fragment.from.x}
-              y1={fragment.from.y}
-              x2={fragment.to.x}
-              y2={fragment.to.y}
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
 
           {
             /* The clip stays on a static wrapper: a clip named on the moving
@@ -367,22 +310,6 @@ export function SealArtwork(
               y2={apex.y}
               vectorEffect="non-scaling-stroke"
             />
-          </g>
-
-          <g className="fig-seal__hallmark">
-            {SEAL_HALLMARK.strokes.map((stroke, index) => (
-              <line
-                key={`punch-${index}`}
-                className={`fig-seal__punch fig-seal__punch--${
-                  index === 0 ? "first" : "second"
-                }`}
-                x1={stroke.from.x}
-                y1={stroke.from.y}
-                x2={stroke.to.x}
-                y2={stroke.to.y}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
           </g>
         </g>
       </svg>

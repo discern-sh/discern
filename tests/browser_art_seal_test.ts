@@ -6,8 +6,6 @@ import { JSDOM } from "jsdom";
 import {
   SEAL_CORNER_TICKS,
   SEAL_FRAGMENTS,
-  SEAL_GHOST_IDS,
-  SEAL_HALLMARK,
   SEAL_SCATTER_LIMITS,
   SEAL_TRIANGLE,
 } from "../art/browser/seal.tsx";
@@ -119,44 +117,7 @@ Deno.test("seal fragments tile one exact triangle inside the scatter envelope", 
     }
   }
 
-  const identifiers = new Set(SEAL_FRAGMENTS.map(({ id }) => id));
-  assertEquals(SEAL_GHOST_IDS.length, 3);
-  for (const ghost of SEAL_GHOST_IDS) {
-    assert(identifiers.has(ghost), `${ghost} must duplicate a fragment`);
-  }
-
   assertEquals(SEAL_CORNER_TICKS.length, 6);
-
-  const [firstStroke, secondStroke] = SEAL_HALLMARK.strokes;
-  assert(firstStroke !== undefined && secondStroke !== undefined);
-  assertEquals(SEAL_HALLMARK.strokes.length, 2);
-  for (const stroke of SEAL_HALLMARK.strokes) {
-    const length = Math.hypot(
-      stroke.to.x - stroke.from.x,
-      stroke.to.y - stroke.from.y,
-    );
-    assert(length < SEAL_HALLMARK.dash, "the dash budget must cover a stroke");
-  }
-  const firstRun = {
-    x: firstStroke.to.x - firstStroke.from.x,
-    y: firstStroke.to.y - firstStroke.from.y,
-  };
-  const secondRun = {
-    x: secondStroke.to.x - secondStroke.from.x,
-    y: secondStroke.to.y - secondStroke.from.y,
-  };
-  const determinant = firstRun.x * secondRun.y - firstRun.y * secondRun.x;
-  assert(determinant !== 0, "the punch strokes must not run parallel");
-  const gap = {
-    x: secondStroke.from.x - firstStroke.from.x,
-    y: secondStroke.from.y - firstStroke.from.y,
-  };
-  const along = (gap.x * secondRun.y - gap.y * secondRun.x) / determinant;
-  const across = (gap.x * firstRun.y - gap.y * firstRun.x) / determinant;
-  assert(
-    along > 0 && along < 1 && across > 0 && across < 1,
-    "the punch strokes must cross within both runs",
-  );
 });
 
 Deno.test("the gallery renders the sealed composition twice with derived clips", () => {
@@ -190,11 +151,6 @@ Deno.test("the gallery renders the sealed composition twice with derived clips",
       svg.querySelectorAll(".fig-seal__fragment--traitor").length,
       1,
     );
-    assertEquals(
-      svg.querySelectorAll(".fig-seal__ghost").length,
-      SEAL_GHOST_IDS.length,
-    );
-    assertEquals(svg.querySelectorAll(".fig-seal__punch").length, 2);
     assertEquals(svg.querySelectorAll(".fig-seal__sweep-line").length, 1);
 
     const labelled = (svg.getAttribute("aria-labelledby") ?? "").split(/\s+/);
@@ -259,6 +215,17 @@ Deno.test("the seal stylesheet closes every keyframe loop at the sealed rest", a
     );
   }
 
-  assertStringIncludes(css, `stroke-dasharray: ${SEAL_HALLMARK.dash}`);
-  assertStringIncludes(css, `stroke-dashoffset: ${SEAL_HALLMARK.dash}`);
+  const sweepStart = css.indexOf(".fig-seal__sweep-line");
+  assert(sweepStart >= 0, "the sweep line must keep its styling rule");
+  const sweepRule = css.slice(sweepStart, css.indexOf("}", sweepStart));
+  assertStringIncludes(
+    sweepRule,
+    "var(--fig-accent)",
+    "the confirming sweep carries the piece's one accent",
+  );
+  assertEquals(
+    css.split("var(--fig-accent)").length,
+    2,
+    "the accent token must appear exactly once in the stylesheet",
+  );
 });

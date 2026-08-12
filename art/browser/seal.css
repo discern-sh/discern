@@ -14,14 +14,6 @@
     opacity: var(--fig-faint);
   }
 
-  /* Displaced histories of three fragments, resting as faint hints. */
-  .fig-seal__ghost {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: var(--fig-hairline);
-    opacity: var(--fig-faint);
-  }
-
   .fig-seal__fragment {
     fill: none;
     stroke: currentColor;
@@ -65,33 +57,15 @@
       var(--fig-ease-drift) infinite;
   }
 
+  /* The confirming pass is the piece's one accent event. */
   .fig-seal__sweep-line {
     fill: none;
-    stroke: currentColor;
-    stroke-width: var(--fig-hairline);
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
     transform-box: fill-box;
     transform-origin: center;
     animation: fig-seal-sweep-travel calc(var(--fig-beat) * 35)
       var(--fig-ease-draw) infinite;
-  }
-
-  /* The hallmark: the one accent, inscribed stroke by stroke. */
-  .fig-seal__punch {
-    fill: none;
-    stroke: var(--fig-accent);
-    stroke-width: var(--fig-hairline);
-    stroke-dasharray: 26;
-    animation-duration: calc(var(--fig-beat) * 35);
-    animation-iteration-count: infinite;
-    animation-timing-function: var(--fig-ease-drift);
-  }
-
-  .fig-seal__punch--first {
-    animation-name: fig-seal-punch-first;
-  }
-
-  .fig-seal__punch--second {
-    animation-name: fig-seal-punch-second;
   }
 
   /* The departed fragment: out first, home last, the click that earns
@@ -237,70 +211,6 @@
     70%,
     100% {
       transform: none;
-    }
-  }
-
-  @keyframes fig-seal-punch-first {
-    0%,
-    12% {
-      opacity: 1;
-      stroke-dashoffset: 0;
-      animation-timing-function: var(--fig-ease-settle);
-    }
-
-    15% {
-      opacity: 0;
-      stroke-dashoffset: 0;
-    }
-
-    16% {
-      opacity: 0;
-      stroke-dashoffset: 26;
-    }
-
-    17%,
-    73% {
-      opacity: 1;
-      stroke-dashoffset: 26;
-      animation-timing-function: var(--fig-ease-draw);
-    }
-
-    75.5%,
-    100% {
-      opacity: 1;
-      stroke-dashoffset: 0;
-    }
-  }
-
-  @keyframes fig-seal-punch-second {
-    0%,
-    12% {
-      opacity: 1;
-      stroke-dashoffset: 0;
-      animation-timing-function: var(--fig-ease-settle);
-    }
-
-    15% {
-      opacity: 0;
-      stroke-dashoffset: 0;
-    }
-
-    16% {
-      opacity: 0;
-      stroke-dashoffset: 26;
-    }
-
-    17%,
-    75% {
-      opacity: 1;
-      stroke-dashoffset: 26;
-      animation-timing-function: var(--fig-ease-draw);
-    }
-
-    77.5%,
-    100% {
-      opacity: 1;
-      stroke-dashoffset: 0;
     }
   }
 }
