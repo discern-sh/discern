@@ -8,7 +8,7 @@
  */
 
 import { isAbsolute, join } from "@std/path";
-import { runGit } from "./subprocess.ts";
+import { type GitResult, runGit } from "./subprocess.ts";
 
 export const GIT_ADMIN_STATE_NAMESPACE = "discern";
 
@@ -191,8 +191,9 @@ export const VALIDATION_ADMIN_STATE_KEYS = GIT_ADMIN_STATE_KEYS.filter(
 async function gitPath(
   cwd: string,
   args: string[],
+  runner: GitAdminPathRunner,
 ): Promise<string | undefined> {
-  const result = await runGit(args, { cwd });
+  const result = await runner(cwd, args);
   if (!result.success) {
     return undefined;
   }
@@ -203,16 +204,35 @@ async function gitPath(
   return isAbsolute(raw) ? raw : join(cwd, raw);
 }
 
+/** Injectable Git boundary lets bounded callers retain this path authority. */
+export type GitAdminPathRunner = (
+  cwd: string,
+  args: string[],
+) => Promise<GitResult>;
+
+/** Ordinary unbounded admin-path resolution for non-capture callers. */
+const defaultGitAdminPathRunner: GitAdminPathRunner = async (cwd, args) =>
+  await runGit(args, { cwd });
+
 /** Resolve one registered admin-state entry for the repository at `cwd`. */
 export async function gitAdminStatePath(
   cwd: string,
   key: GitAdminStateKey,
+  runner: GitAdminPathRunner = defaultGitAdminPathRunner,
 ): Promise<string | undefined> {
   const entry = GIT_ADMIN_STATE[key];
   if (entry.scope === "worktree") {
-    return await gitPath(cwd, ["rev-parse", "--git-path", entry.path]);
+    return await gitPath(
+      cwd,
+      ["rev-parse", "--git-path", entry.path],
+      runner,
+    );
   }
-  const commonDir = await gitPath(cwd, ["rev-parse", "--git-common-dir"]);
+  const commonDir = await gitPath(
+    cwd,
+    ["rev-parse", "--git-common-dir"],
+    runner,
+  );
   return commonDir === undefined ? undefined : join(commonDir, entry.path);
 }
 
@@ -230,7 +250,7 @@ export async function gitAdminNamespaceDirs(cwd: string): Promise<string[]> {
   ];
   const dirs: string[] = [];
   for (const probe of probes) {
-    const resolved = await gitPath(cwd, probe);
+    const resolved = await gitPath(cwd, probe, defaultGitAdminPathRunner);
     if (resolved === undefined) {
       continue;
     }
