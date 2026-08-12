@@ -299,6 +299,8 @@ export async function runGit(
   opts: {
     cwd: string;
     env?: Record<string, string>;
+    /** Explicit binary seam for parallel-safe tests; ordinary callers omit it. */
+    bin?: string;
     /** Bytes supplied to commands whose protocol is defined on stdin. */
     stdin?: string;
     /** Optional caller-owned wall-clock bound. Omitted for ordinary Git calls. */
@@ -328,10 +330,11 @@ export async function runGit(
   // A configured alias is another spelling for an arbitrary command. The same
   // normalization pins machine-read status visibility at this shared funnel.
   const safeArgs = configInvariantGitArgs(args);
+  const binary = opts.bin ?? gitBin();
   let output: Deno.CommandOutput;
   let timedOut = false;
   try {
-    const command = new Deno.Command(gitBin(), {
+    const command = new Deno.Command(binary, {
       args: safeArgs,
       cwd: opts.cwd,
       ...(opts.env !== undefined ? { env: opts.env } : {}),
@@ -397,7 +400,7 @@ export async function runGit(
       success: false,
       code: SPAWN_FAILED,
       stdout: "",
-      stderr: describeSpawnError(error, gitBin()),
+      stderr: describeSpawnError(error, binary),
     };
   }
   const dec = new TextDecoder();

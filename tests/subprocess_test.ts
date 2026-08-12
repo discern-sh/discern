@@ -176,25 +176,19 @@ Deno.test("runGit enforces an explicit caller-owned timeout", async () => {
     const fakeGit = join(dir, "slow-git");
     await Deno.writeTextFile(fakeGit, "#!/bin/sh\nexec sleep 5\n");
     await Deno.chmod(fakeGit, 0o755);
-    const previous = Deno.env.get("GIT_BIN");
-    Deno.env.set("GIT_BIN", fakeGit);
-    try {
-      const started = performance.now();
-      const result = await runGit(["status"], { cwd: dir, timeoutMs: 50 });
-      assertEquals(result.success, false);
-      assertEquals(result.code, 124);
-      assertEquals(result.timedOut, true);
-      assert(
-        performance.now() - started < 2_000,
-        "runGit waited for the child after its explicit deadline",
-      );
-    } finally {
-      if (previous === undefined) {
-        Deno.env.delete("GIT_BIN");
-      } else {
-        Deno.env.set("GIT_BIN", previous);
-      }
-    }
+    const started = performance.now();
+    const result = await runGit(["status"], {
+      cwd: dir,
+      bin: fakeGit,
+      timeoutMs: 50,
+    });
+    assertEquals(result.success, false);
+    assertEquals(result.code, 124);
+    assertEquals(result.timedOut, true);
+    assert(
+      performance.now() - started < 2_000,
+      "runGit waited for the child after its explicit deadline",
+    );
   });
 });
 
