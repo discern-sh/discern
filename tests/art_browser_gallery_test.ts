@@ -33,8 +33,8 @@ const EXPECTED_BROWSER_ART = [
   ["circuit", "d2792e90795f5201d10cd3f276b19b909a39aeb1"],
   ["seal", "8bc6327fa346340e770bdd6ca439724a28b21200"],
   ["delta", "7e6e5787a7d0b492f0c500b2c50ac08faf8280fb"],
-  ["ratchet", "f958175315b0f89fa3cf6d0c9f76eb8bbd0543f5"],
-  ["rule", "76be48e4a5f39b1e27ed218de4667a883272d50a"],
+  ["ratchet", "c238e1237cea38fed67ee2f67fae88551b88ff75"],
+  ["rule", "c238e1237cea38fed67ee2f67fae88551b88ff75"],
 ] as const;
 
 /** Collapse prose whitespace without changing punctuation. */

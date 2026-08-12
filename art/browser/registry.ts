@@ -74,14 +74,14 @@ export const BROWSER_ARTWORKS = [
     title: "The ratchet",
     description:
       "A trembling measure tightens two converging limits notch by notch until their corridor closes into an apex and begins again, finer.",
-    sourceCommit: "f958175315b0f89fa3cf6d0c9f76eb8bbd0543f5",
+    sourceCommit: "c238e1237cea38fed67ee2f67fae88551b88ff75",
   },
   {
     slug: "rule",
     title: "The rule",
     description:
       "Compass arcs subdivide one triangle through three quiet generations and one small pulse retraces the figure before the construction unwinds.",
-    sourceCommit: "76be48e4a5f39b1e27ed218de4667a883272d50a",
+    sourceCommit: "c238e1237cea38fed67ee2f67fae88551b88ff75",
   },
 ] as const satisfies readonly BrowserArtworkMetadata[];
 
