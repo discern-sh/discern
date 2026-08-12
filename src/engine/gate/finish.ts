@@ -131,6 +131,7 @@ import {
 import {
   captureValidationStart,
   validationBoundaryNotReached,
+  type ValidationCaptureOptions,
 } from "../logbook/validation_state.ts";
 import {
   inspectLandingAuthority,
@@ -448,7 +449,10 @@ async function runGate(
   root: string,
   json: boolean,
   signal?: AbortSignal,
-  presentation: { liveWidth?: number } = {},
+  presentation: {
+    liveWidth?: number;
+    validationCaptureOptions?: ValidationCaptureOptions;
+  } = {},
 ): Promise<
   {
     result: DiscernResult<GateData>;
@@ -871,12 +875,14 @@ async function runGate(
         cfg,
         VALIDATION_RUNS.done,
         ctGroups,
+        presentation.validationCaptureOptions ?? {},
       )
       : await validationBoundaryNotReached(
         root,
         cfg,
         VALIDATION_RUNS.done,
         ctGroups,
+        presentation.validationCaptureOptions ?? {},
       );
   }
 
@@ -1530,6 +1536,8 @@ export interface FinishResultOptions {
   dryRun?: boolean;
   confirmed?: boolean;
   signal?: AbortSignal;
+  /** Injectable state-capture effects for in-process fault tests. */
+  validationCaptureOptions?: ValidationCaptureOptions;
 }
 
 /**
@@ -1565,7 +1573,11 @@ export async function finishResult(
     return refusal;
   }
   if (opts.surface.kind === "quiet") {
-    return (await runGate(root, true, opts.signal)).result;
+    return (await runGate(root, true, opts.signal, {
+      ...(opts.validationCaptureOptions !== undefined
+        ? { validationCaptureOptions: opts.validationCaptureOptions }
+        : {}),
+    })).result;
   }
   const { ttyWidth, liveWidth } = gateTtyPresentation(
     false,
@@ -1573,6 +1585,9 @@ export async function finishResult(
   );
   const gate = await runGate(root, false, opts.signal, {
     ...(liveWidth !== undefined ? { liveWidth } : {}),
+    ...(opts.validationCaptureOptions !== undefined
+      ? { validationCaptureOptions: opts.validationCaptureOptions }
+      : {}),
   });
   if (
     ttyWidth !== undefined && !gate.liveTable && !gate.cfg.gate.stream

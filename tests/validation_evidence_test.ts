@@ -26,7 +26,10 @@ import { modeOf, withTempDir } from "./helpers.ts";
 import { parseLogbookLine } from "../src/engine/logbook/schema.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
-import { validationKey } from "../src/engine/logbook/validation_key.ts";
+import {
+  validationKey,
+  type ValidationKeyResult,
+} from "../src/engine/logbook/validation_key.ts";
 
 const cfg = configSchema.parse({});
 
@@ -262,6 +265,11 @@ Deno.test("validation capture has one bounded Git-output authority", async () =>
   assert(
     source.includes("maxOutputBytes: remainingBytes"),
     "the sole Git authority must pass its remaining hard byte ceiling",
+  );
+  assertEquals(
+    source.match(/return await boundedValidationCapture\(/g)?.length,
+    source.match(/export async function \w+\(/g)?.length,
+    "every present and future exported capture API must enter the one deadline authority",
   );
 });
 
@@ -558,6 +566,143 @@ Deno.test("path, byte, time, and unreadable budgets fail open without a comparab
       );
     }
   });
+});
+
+/** Require a capture to return its categorical deadline result promptly. */
+async function assertCaptureDeadline(
+  capturePromise: Promise<ValidationStart>,
+  timeMs: number,
+  label: string,
+): Promise<ValidationStart> {
+  const toleranceMs = 250;
+  const started = performance.now();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const winner = await Promise.race([
+    capturePromise.then((value) => ({ kind: "capture" as const, value })),
+    new Promise<{ kind: "hung" }>((resolve) =>
+      timeout = setTimeout(
+        () => resolve({ kind: "hung" }),
+        timeMs + toleranceMs,
+      )
+    ),
+  ]);
+  if (timeout !== undefined) clearTimeout(timeout);
+  assert(
+    winner.kind === "capture",
+    `${label} exceeded its ${timeMs}ms capture deadline plus ${toleranceMs}ms tolerance`,
+  );
+  assert(
+    performance.now() - started <= timeMs + toleranceMs,
+    `${label} returned outside the deadline tolerance`,
+  );
+  assertEquals(winner.value.state.complete, false, label);
+  assert(
+    winner.value.state.incomplete?.some((entry) =>
+      entry.category === "budget" && entry.reason === "time-limit"
+    ),
+    `${label} must report the shared time-limit category`,
+  );
+  return winner.value;
+}
+
+Deno.test("a stalled tracked-file read cannot hold validation capture past its deadline", async () => {
+  await withTempDir(async (dir) => {
+    await seedRepo(dir);
+    await Deno.writeTextFile(join(dir, "alpha.txt"), "changed\n");
+    let readStartedResolve: (() => void) | undefined;
+    const readStarted = new Promise<void>((resolve) => {
+      readStartedResolve = resolve;
+    });
+    const capturePromise = captureValidationStart(
+      dir,
+      cfg,
+      VALIDATION_RUNS.test,
+      group(VALIDATION_RUNS.test),
+      {
+        limits: { timeMs: 500 },
+        keyProvider: () => Promise.resolve({ key: new Uint8Array(32).fill(7) }),
+        readFile: () => {
+          readStartedResolve?.();
+          return new Promise<Uint8Array>(() => {});
+        },
+      },
+    );
+    await Promise.race([
+      readStarted,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("tracked read was never reached")),
+          2_000,
+        )
+      ),
+    ]);
+    await assertCaptureDeadline(capturePromise, 500, "tracked read");
+  });
+});
+
+Deno.test("every validation capture API bounds a stalled key provider", async () => {
+  const timeMs = 20;
+  const keyProvider = (): Promise<ValidationKeyResult> =>
+    new Promise<ValidationKeyResult>(() => {});
+  const cases = [
+    {
+      label: "validation start",
+      capture: captureValidationStart(
+        "/unreachable",
+        cfg,
+        VALIDATION_RUNS.test,
+        group(VALIDATION_RUNS.test),
+        { limits: { timeMs }, keyProvider },
+      ),
+      boundary: false,
+    },
+    {
+      label: "boundary not reached",
+      capture: validationBoundaryNotReached(
+        "/unreachable",
+        cfg,
+        VALIDATION_RUNS.done,
+        group(VALIDATION_RUNS.done),
+        { limits: { timeMs }, keyProvider },
+      ),
+      boundary: true,
+    },
+  ];
+  for (const testCase of cases) {
+    const evidence = await assertCaptureDeadline(
+      testCase.capture,
+      timeMs,
+      testCase.label,
+    );
+    assertEquals(
+      evidence.state.incomplete?.some((entry) =>
+        entry.category === "boundary" && entry.reason === "not-reached"
+      ) ?? false,
+      testCase.boundary,
+      `${testCase.label} must preserve its real boundary verdict`,
+    );
+  }
+});
+
+Deno.test("a rejection arriving after the capture deadline is still observed", async () => {
+  let rejectKey: ((reason: Error) => void) | undefined;
+  const keyProvider = (): Promise<ValidationKeyResult> =>
+    new Promise<ValidationKeyResult>((_, reject) => {
+      rejectKey = reject;
+    });
+  await assertCaptureDeadline(
+    captureValidationStart(
+      "/unreachable",
+      cfg,
+      VALIDATION_RUNS.test,
+      group(VALIDATION_RUNS.test),
+      { limits: { timeMs: 20 }, keyProvider },
+    ),
+    20,
+    "late key rejection",
+  );
+  rejectKey?.(new Error("late forced failure"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 });
 
 Deno.test("a real Git producer is killed at the validation byte boundary", async () => {

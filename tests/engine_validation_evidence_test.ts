@@ -8,8 +8,12 @@ import {
   parseLogbookLine,
   type VerbEvent,
 } from "../src/engine/logbook/schema.ts";
-import { VALIDATION_RUNS } from "../src/engine/logbook/validation.ts";
+import {
+  VALIDATION_RUNS,
+  validationEvidence,
+} from "../src/engine/logbook/validation.ts";
 import { captureValidationStart } from "../src/engine/logbook/validation_state.ts";
+import { finishResult } from "../src/engine/gate/finish.ts";
 import { checkTestGroups } from "../src/engine/gate/plan.ts";
 import {
   runTool,
@@ -181,6 +185,41 @@ Deno.test("validation-key failure records incompleteness and cannot change a pas
       event?.validation?.state.incomplete?.some((entry) =>
         entry.category === "key" && entry.reason === "invalid"
       ),
+    );
+  });
+});
+
+Deno.test("a stalled validation dependency cannot delay or replace the Gate verdict", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, `[jobs]\ntest = "false"\n`);
+    await gitInit(dir);
+    const started = performance.now();
+    const result = await finishResult(dir, {
+      surface: { kind: "quiet" },
+      confirmed: true,
+      validationCaptureOptions: {
+        limits: { timeMs: 20 },
+        keyProvider: () => new Promise(() => {}),
+      },
+    });
+    assertEquals(result.ok, false);
+    assertEquals(result.data?.failed_stage, "check/test");
+    assert(
+      performance.now() - started < 3_000,
+      "validation recording must not impose its own five-second host stall",
+    );
+    const validation = validationEvidence(result);
+    assert(validation !== undefined);
+    assertEquals(validation.state.complete, false);
+    assert(
+      validation.state.incomplete?.some((entry) =>
+        entry.category === "budget" && entry.reason === "time-limit"
+      ),
+    );
+    assert(
+      result.steps?.some((step) => step.outcome === "failed"),
+      "the real failed job must remain in the Gate result",
     );
   });
 });

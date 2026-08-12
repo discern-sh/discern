@@ -46,6 +46,63 @@ interface CaptureLimits {
   readonly timeMs: number;
 }
 
+type DeadlineObservation<T> =
+  | { readonly kind: "value"; readonly value: T }
+  | { readonly kind: "error"; readonly error: unknown }
+  | { readonly kind: "expired" };
+
+type DeadlineResult<T> = Exclude<DeadlineObservation<T>, { kind: "error" }>;
+
+/**
+ * One wall-clock deadline shared by an entire validation capture. The observed
+ * wrapper turns late rejection into data, so an uncancellable host promise can
+ * settle after expiry without becoming an unhandled rejection.
+ */
+class CaptureDeadline {
+  readonly #expiration: Promise<{ readonly kind: "expired" }>;
+  #resolveExpiration:
+    | ((value: { readonly kind: "expired" }) => void)
+    | undefined;
+  #timer: ReturnType<typeof setTimeout> | undefined;
+  #expired = false;
+
+  constructor(timeMs: number) {
+    this.#expiration = new Promise((resolve) => {
+      this.#resolveExpiration = resolve;
+    });
+    this.#timer = setTimeout(() => this.expire(), Math.max(0, timeMs));
+  }
+
+  get expired(): boolean {
+    return this.#expired;
+  }
+
+  expire(): void {
+    if (this.#expired) return;
+    this.#expired = true;
+    if (this.#timer !== undefined) clearTimeout(this.#timer);
+    this.#timer = undefined;
+    const resolveExpiration = this.#resolveExpiration;
+    this.#resolveExpiration = undefined;
+    resolveExpiration?.({ kind: "expired" });
+  }
+
+  async wait<T>(operation: Promise<T>): Promise<DeadlineResult<T>> {
+    const observed: Promise<DeadlineObservation<T>> = operation.then(
+      (value) => ({ kind: "value", value }),
+      (error: unknown) => ({ kind: "error", error }),
+    );
+    const result = await Promise.race([observed, this.#expiration]);
+    if (result.kind === "error") throw result.error;
+    return result;
+  }
+
+  close(): void {
+    if (this.#timer !== undefined) clearTimeout(this.#timer);
+    this.#timer = undefined;
+  }
+}
+
 /** Test seams for forcing every fail-open path without relying on host modes. */
 export interface ValidationCaptureOptions {
   readonly limits?: Partial<CaptureLimits> | undefined;
@@ -59,6 +116,7 @@ export interface ValidationCaptureOptions {
 
 interface CaptureRuntime {
   readonly limits: CaptureLimits;
+  readonly deadline: CaptureDeadline;
   readonly now: () => number;
   readonly readFile: (path: string) => Promise<Uint8Array>;
   readonly gitBin?: string | undefined;
@@ -212,12 +270,15 @@ function limits(options: ValidationCaptureOptions): CaptureLimits {
 /** Build one capture's shared budget accounting. */
 function runtime(options: ValidationCaptureOptions): CaptureRuntime {
   const now = options.now ?? (() => performance.now());
+  const captureLimits = limits(options);
+  const started = now();
   return {
-    limits: limits(options),
+    limits: captureLimits,
+    deadline: new CaptureDeadline(captureLimits.timeMs),
     now,
     readFile: options.readFile ?? Deno.readFile,
     ...(options.gitBin !== undefined ? { gitBin: options.gitBin } : {}),
-    started: now(),
+    started,
     paths: 0,
     bytes: 0,
     timedOut: false,
@@ -241,12 +302,16 @@ function safeElapsed(rt: CaptureRuntime | undefined): number {
   }
 }
 
-/** Check the wall-clock cap before and after every effectful probe. */
+/** Consult the shared wall-clock deadline at incremental probe boundaries. */
 function withinTime(rt: CaptureRuntime): boolean {
-  if (rt.now() - rt.started <= rt.limits.timeMs) {
+  if (
+    !rt.deadline.expired &&
+    rt.now() - rt.started <= rt.limits.timeMs
+  ) {
     return true;
   }
   rt.timedOut = true;
+  rt.deadline.expire();
   return false;
 }
 
@@ -1072,6 +1137,75 @@ function incompleteState(
   };
 }
 
+/** Return categorical deadline evidence without exposing any partial capture. */
+function deadlineLimitedCapture(
+  run: ValidationRun,
+  rt: CaptureRuntime,
+  boundary?: ValidationIncomplete,
+): ValidationStart {
+  const limit: ValidationIncomplete = {
+    category: "budget",
+    reason: "time-limit",
+  };
+  return {
+    version: VALIDATION_EVIDENCE_VERSION,
+    state: incompleteState(
+      run,
+      [...(boundary === undefined ? [] : [boundary]), limit],
+      safeElapsed(rt),
+    ),
+    execution: minimalExecution(run, [limit]),
+  };
+}
+
+/** Return a total internal-failure shape while preserving a prior boundary. */
+function internallyUnavailableCapture(
+  run: ValidationRun,
+  rt?: CaptureRuntime,
+  boundary?: ValidationIncomplete,
+): ValidationStart {
+  const internal: ValidationIncomplete = {
+    category: "internal",
+    reason: "unavailable",
+  };
+  return {
+    version: VALIDATION_EVIDENCE_VERSION,
+    state: incompleteState(
+      run,
+      [...(boundary === undefined ? [] : [boundary]), internal],
+      safeElapsed(rt),
+    ),
+    execution: minimalExecution(run, [internal]),
+  };
+}
+
+/**
+ * The single deadline and totality boundary for every exported state capture.
+ * Keeping the race outside the whole operation automatically enrolls every
+ * current and future awaited filesystem, identity, key, and crypto effect.
+ */
+async function boundedValidationCapture(
+  run: ValidationRun,
+  options: ValidationCaptureOptions,
+  capture: (rt: CaptureRuntime) => Promise<ValidationStart>,
+  boundary?: ValidationIncomplete,
+): Promise<ValidationStart> {
+  let rt: CaptureRuntime | undefined;
+  try {
+    rt = runtime(options);
+    const result = await rt.deadline.wait(capture(rt));
+    if (result.kind === "expired") {
+      rt.timedOut = true;
+      return deadlineLimitedCapture(run, rt, boundary);
+    }
+    return result.value;
+  } catch {
+    return internallyUnavailableCapture(run, rt, boundary);
+  } finally {
+    rt?.deadline.close();
+  }
+}
+
 /** Evidence for a validation event whose job boundary was never reached. */
 export async function validationBoundaryNotReached(
   root: string,
@@ -1084,37 +1218,31 @@ export async function validationBoundaryNotReached(
     category: "boundary",
     reason: "not-reached",
   };
-  try {
-    const rt = runtime(options);
-    const keyResult = await captureKey(root, rt, options);
-    const key = "key" in keyResult ? keyResult.key : undefined;
-    const keyFailure = "incomplete" in keyResult
-      ? keyResult.incomplete
-      : undefined;
-    const incomplete: ValidationIncomplete[] = [boundary];
-    if (keyFailure !== undefined) incomplete.push(keyFailure);
-    return {
-      version: VALIDATION_EVIDENCE_VERSION,
-      state: incompleteState(run, incomplete, 0),
-      execution: await executionEnvelope(
-        key,
-        cfg,
-        run,
-        groups,
-        keyFailure,
-      ),
-    };
-  } catch {
-    const internal: ValidationIncomplete = {
-      category: "internal",
-      reason: "unavailable",
-    };
-    return {
-      version: VALIDATION_EVIDENCE_VERSION,
-      state: incompleteState(run, [boundary, internal], 0),
-      execution: minimalExecution(run, [internal]),
-    };
-  }
+  return await boundedValidationCapture(
+    run,
+    options,
+    async (rt) => {
+      const keyResult = await captureKey(root, rt, options);
+      const key = "key" in keyResult ? keyResult.key : undefined;
+      const keyFailure = "incomplete" in keyResult
+        ? keyResult.incomplete
+        : undefined;
+      const incomplete: ValidationIncomplete[] = [boundary];
+      if (keyFailure !== undefined) incomplete.push(keyFailure);
+      return {
+        version: VALIDATION_EVIDENCE_VERSION,
+        state: incompleteState(run, incomplete, 0),
+        execution: await executionEnvelope(
+          key,
+          cfg,
+          run,
+          groups,
+          keyFailure,
+        ),
+      };
+    },
+    boundary,
+  );
 }
 
 /**
@@ -1129,9 +1257,7 @@ export async function captureValidationStart(
   groups: readonly ValidationJobGroup[],
   options: ValidationCaptureOptions = {},
 ): Promise<ValidationStart> {
-  let rt: CaptureRuntime | undefined;
-  try {
-    rt = runtime(options);
+  return await boundedValidationCapture(run, options, async (rt) => {
     const keyResult = await captureKey(root, rt, options);
     if (!("key" in keyResult)) {
       return {
@@ -1240,19 +1366,5 @@ export async function captureValidationStart(
       },
       execution: await executionEnvelope(key, cfg, run, groups),
     };
-  } catch {
-    const incomplete: ValidationIncomplete = {
-      category: "internal",
-      reason: "unavailable",
-    };
-    return {
-      version: VALIDATION_EVIDENCE_VERSION,
-      state: incompleteState(
-        run,
-        [incomplete],
-        safeElapsed(rt),
-      ),
-      execution: minimalExecution(run, [incomplete]),
-    };
-  }
+  });
 }

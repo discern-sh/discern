@@ -89,11 +89,11 @@ Readers skip unknown schema versions, and fields are append-only. `begin` carrie
 
 ### Validation evidence
 
-Completed `done` and standalone `test` events add `validation`. Its `state` carries version, capture moment, completeness, opaque keyed digests, aggregate counts/bytes, elapsed milliseconds, and failure categories. Its `execution` carries mode, writer, opaque config/setup/job-definition digests, job metadata, concurrency, and explicit `passed`, `failed`, `skipped`, `cancelled`, or `unavailable` outcomes.
+`done` and standalone `test` completion events add `validation`. `state` carries version, capture point, completeness, opaque keyed digests, counts/bytes, elapsed time, and failure categories. `execution` carries mode, writer, opaque config/setup/job-definition digests, job metadata, concurrency, and `passed`, `failed`, `skipped`, `cancelled`, or `unavailable` outcomes.
 
-`done` captures after fix/build; `test` before its group. Blocks record `boundary/not-reached`. Complete state covers HEAD, index/checkout bytes, untracked files Git does not ignore, and recursively clean submodules. Sparse/assume-unchanged state remains visible. Dirty, uninitialized, unreadable, unknown, or over-budget state removes the digest.
+`done` captures after fix/build; `test` before its group. Blocks record `boundary/not-reached`. Complete state covers HEAD, index/checkout bytes, untracked files, and recursively clean submodules. Sparse/assume-unchanged state stays visible. Dirt, missing initialization, unreadability, unknown state, or a breached budget removes the digest.
 
-The regular `0600` key is at `.git/discern/validation-hmac-key`; unsafe targets make evidence incomplete. Repository caps: 20,000 paths, 64 MiB, and 5 seconds; execution: 1,000 jobs and 1 MiB. No manifest, content, command, config/environment value, or plain hash is stored. Ignored files, external services, clocks, random seeds, runtime environment, and concurrent external processes are outside the snapshot. Older events omit `validation` and remain readable ([ADR 0273](../_adr/0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)).
+`.git/discern/validation-hmac-key` is the regular `0600` key; unsafe targets make evidence incomplete. One 5-second deadline covers key, Git, files, submodules, cryptography, and execution; expiry records `budget/time-limit` without changing the verdict. Caps are 20,000 paths, 64 MiB, 1,000 jobs, and 1 MiB. Events exclude manifests, contents, commands, config/environment values, plain hashes, ignored files, services, clocks, randomness, runtime state, and concurrent processes. Older events without `validation` remain readable ([ADR 0273](../_adr/0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)).
 
 ### Possible agent identity signals
 
