@@ -263,6 +263,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0271 — Destructive drops retain bounded recovery refs](0271-destructive-drops-retain-bounded-recovery-refs.md)
 - [0272 — Logbook lifecycle actions require terminal confirmation, and archives remain readable](0272-logbook-lifecycle-actions-require-terminal-confirmation.md)
 - [0273 — Validation comparisons require complete keyed semantic evidence](0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)
+- [0274 — Validation findings separate matched and cross-context divergence](0274-validation-findings-separate-matched-and-cross-context-divergence.md)
 
 <!-- END GENERATED: current ADR records -->
 
