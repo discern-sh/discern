@@ -41,6 +41,7 @@ import {
   STEP_DISPOSITIONS,
   STEP_KINDS,
   STEP_OUTCOMES,
+  verbatimStepLabel,
 } from "../src/shared/result.ts";
 import { serializeResult } from "../src/shared/result_serialization.ts";
 import {
@@ -170,7 +171,7 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
       details: ["detail"],
       steps: [{
         kind: "job",
-        label: "l",
+        label: verbatimStepLabel("l"),
         disposition: "run",
         note: "n",
         group: "g",
@@ -179,7 +180,7 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
     steps: [{
       step: {
         kind: "job",
-        label: "l",
+        label: verbatimStepLabel("l"),
         disposition: "run",
         note: "n",
         group: "g",

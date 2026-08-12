@@ -435,7 +435,7 @@
     # A harmless temp-dir probe so this repo dogfoods the full resource lifecycle
     # without depending on an external service. It exercises token expansion, the
     # resource ledger, ensure, teardown, and orphan-prune reclamation.
-    [worktree.resources.lifecycle_probe]
+    [worktree.resources.lifecycle-probe]
       create = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
       ensure = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
       destroy = "rm -rf /tmp/discern-worktree-resources/@resource@"

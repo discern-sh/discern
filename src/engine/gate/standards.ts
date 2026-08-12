@@ -41,6 +41,7 @@ import {
 } from "./standard_plan.ts";
 import {
   appliedResult,
+  BUILT_IN_STEP_LABELS,
   type Diagnostic,
   type DiscernResult,
   type PlanStep,
@@ -48,6 +49,7 @@ import {
   renderPlan,
   renderStepResults,
   type StepResult,
+  verbatimStepLabel,
 } from "../../shared/result.ts";
 import { emitResult } from "../../shared/emit.ts";
 import {
@@ -549,7 +551,7 @@ function standardPlanIntegrityResult(
   return {
     step: {
       kind: "standard",
-      label: "plan-integrity",
+      label: BUILT_IN_STEP_LABELS.planIntegrity,
       disposition: "gate",
       note:
         `internal error: planned ${plan.standards.length} standard(s) but projected ${steps.length} step(s).`,
@@ -601,7 +603,7 @@ function standaloneVerificationSteps(
     steps.push({
       step: {
         kind: "standards-limits-check",
-        label: "trunk-limits",
+        label: BUILT_IN_STEP_LABELS.trunkLimits,
         disposition: "gate",
         note: globalFailure.message,
       },
@@ -615,7 +617,7 @@ function standaloneVerificationSteps(
     steps.push({
       step: {
         kind: "standard",
-        label: name,
+        label: verbatimStepLabel(name),
         disposition: "gate",
         note: "deleted on this branch; restore its trunk limit",
       },
@@ -692,7 +694,9 @@ async function executeStandardPlan(
     })),
     { jobLabel: (name) => name },
   );
-  const plannedByName = new Map(steps.map((step) => [step.label, step]));
+  const plannedByName = new Map<string, PlanStep>(
+    steps.map((step) => [step.label, step]),
+  );
   for (const job of jobs.jobs) {
     const note = plannedByName.get(job.label)?.note;
     if (note !== undefined) {
@@ -725,7 +729,7 @@ async function executeStandardPlan(
     jobs.evaluators,
   );
   const serialized = await serializeJobSteps([group], jobResults);
-  const executedByName = new Map(
+  const executedByName = new Map<string, StepResult>(
     serialized.steps.map((result) => [result.step.label, result]),
   );
 
@@ -904,7 +908,11 @@ function replayExecutionFromProof(
       const reason =
         `standard '${standard.name}': the measurement proof carries no value for it. Re-run \`discern standards\` to measure.`;
       results.push({
-        step: { kind: "standard", label: standard.name, disposition: "run" },
+        step: {
+          kind: "standard",
+          label: verbatimStepLabel(standard.name),
+          disposition: "run",
+        },
         outcome: "failed",
       });
       outcomes.push({ standard, held: false });
@@ -926,7 +934,7 @@ function replayExecutionFromProof(
     results.push({
       step: {
         kind: "standard",
-        label: standard.name,
+        label: verbatimStepLabel(standard.name),
         disposition: "run",
         note: `${standard.direction}, limit ${standard.limit}${
           perNote(standard.per, standard.scale)
@@ -963,7 +971,12 @@ interface PinnedStandard {
  * before any pin step is built), noting what was pinned or that there was nothing to. */
 function pinStep(name: string, note: string): StepResult {
   return {
-    step: { kind: "standard", label: name, disposition: "run", note },
+    step: {
+      kind: "standard",
+      label: verbatimStepLabel(name),
+      disposition: "run",
+      note,
+    },
     outcome: "ok",
   };
 }
@@ -1273,7 +1286,7 @@ async function pinStandardsResult(
       .filter((r) => filter === undefined || filter.has(r.name))
       .map((r) => ({
         kind: "standard",
-        label: r.name,
+        label: verbatimStepLabel(r.name),
         disposition: "run",
         note: `would measure ${r.metric}, then tighten the ${
           r.direction === "up" ? "floor" : "ceiling"

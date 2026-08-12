@@ -25,6 +25,14 @@ Boundaries mark changes in meaning; a homogeneous list stays one group. Machine 
 
 The Git-derived [`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing, direct prompt separators, and Cliffy prompt calls that bypass the shared boundary across authored TypeScript. Imported Cliffy classes enroll by structure, including aliases and new prompt kinds. Renderer tests cover recurring plan and result groups. Behavior tests cover plan stages, status regions, desk buckets, and every improvement category.
 
+## Step-label ownership
+
+[`BUILT_IN_STEP_LABELS`](../../../src/shared/result.ts) owns the stable labels for operations discern performs. Its values use kebab-case. Human output, JSON, MCP results, the Logbook, and the execution model consume those same values.
+
+Configured job, scope, standard, resource, command, and path identifiers stay outside the registry. `verbatimStepLabel` marks that boundary in TypeScript and preserves the configured spelling on every output surface.
+
+[`built_in_step_labels_test.ts`](../../../tests/built_in_step_labels_test.ts) checks the registry's spelling and scans the Git-derived authored-TypeScript universe for inline static labels at `PlanStep` construction sites. The `StepLabel` type also rejects a static string routed through a file-local constant. Test modules are outside the structural scan because they construct forbidden fixtures and cannot emit product results. A new built-in operation must enroll in the registry; a project-owned identifier must enter through `verbatimStepLabel`.
+
 ## The serialized envelope
 
 `serializeResult` emits the wire keys that are present on a result:

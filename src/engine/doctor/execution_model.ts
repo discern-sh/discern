@@ -28,7 +28,14 @@
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { Stage } from "../../shared/capabilities.ts";
-import type { Actor, PlanStep, StepKind } from "../../shared/result.ts";
+import {
+  type Actor,
+  BUILT_IN_STEP_LABELS,
+  type PlanStep,
+  type StepKind,
+  type StepLabel,
+  verbatimStepLabel,
+} from "../../shared/result.ts";
 import type { ExecutionStep, VerbPlan } from "../../shared/result_schemas.ts";
 import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 import {
@@ -38,15 +45,11 @@ import {
   planStageJobs,
   preparePlanGroups,
   stageGroup,
-  TRACKED_REFRESH_CHECK_LABEL,
-  TRACKED_REFRESH_PROOF_CHECK_LABEL,
 } from "../gate/plan.ts";
 import { buildStandardPlan, perNote } from "../gate/standard_plan.ts";
 import { planStandardJobsFromConfig } from "../gate/standards_gate.ts";
 import {
-  ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
   acceptPlanToEngine,
-  FULL_REFRESH_STEP_LABEL,
   FULL_REFRESH_STEP_NOTE,
   updatePlanToEngine,
 } from "../worktree/plan.ts";
@@ -199,7 +202,7 @@ interface StepOverrides {
  * (exactOptionalPropertyTypes). */
 function step(
   kind: StepKind,
-  label: string,
+  label: StepLabel,
   o: StepOverrides = {},
 ): ExecutionStep {
   const ann = STEP_KIND_ANNOTATIONS[kind];
@@ -219,13 +222,13 @@ function step(
 function annotateJob(job: PlannedJob): ExecutionStep {
   if (job.kind === "scope-gate") {
     const scope = job.label.replace(/^scope:/, "");
-    return step("scope-gate", job.label, {
+    return step("scope-gate", verbatimStepLabel(job.label), {
       note: job.command,
       condition: `when scope '${scope}' changed`,
     });
   }
   if (job.kind === "standard") {
-    return step("standard", job.label, {
+    return step("standard", verbatimStepLabel(job.label), {
       note: job.willRun ? job.command : job.note ?? job.command,
       ...(job.willRun
         ? { condition: "unless its declared `inputs` are untouched (replayed)" }
@@ -233,7 +236,7 @@ function annotateJob(job: PlannedJob): ExecutionStep {
     });
   }
   // A declared job's reportStage is always a real Stage (never "scope_gates").
-  return step("job", job.label, {
+  return step("job", verbatimStepLabel(job.label), {
     note: job.command,
     hint: STAGE_HINTS[job.reportStage as Stage],
   });
@@ -283,13 +286,13 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
         return annotateJob(job);
       }
     }
-    if (planned.label === TRACKED_REFRESH_CHECK_LABEL) {
+    if (planned.label === BUILT_IN_STEP_LABELS.trackedRefreshCheck) {
       return annotatePlanStep(planned, {
         hint:
           "Built-in initial read-only precondition: the current refresh plan must have no pending tracked-file effect. Run `discern refresh`, review and commit the named paths, then rerun the gate.",
       });
     }
-    if (planned.label === TRACKED_REFRESH_PROOF_CHECK_LABEL) {
+    if (planned.label === BUILT_IN_STEP_LABELS.trackedRefreshProofBoundary) {
       return annotatePlanStep(planned, {
         hint:
           "Built-in final read-only check: repeat the current tracked refresh plan after every gate job, immediately before the result and Proof. A pending or unprovable effect prevents a green result.",
@@ -329,7 +332,7 @@ function testVerb(cfg: DiscernConfig): VerbPlan {
 /** `standards` — each configured standard, from the real {@link buildStandardPlan}. */
 function standardsVerb(cfg: DiscernConfig): VerbPlan {
   const steps = buildStandardPlan(cfg).standards.map((r) =>
-    step("standard", r.name, {
+    step("standard", verbatimStepLabel(r.name), {
       note: r.command !== "" ? r.command : "(no command configured)",
       condition: `${r.direction}, limit ${r.limit}${perNote(r.per, r.scale)}`,
     })
@@ -349,10 +352,10 @@ function tidyVerb(): VerbPlan {
     when:
       "Directly, or when the project's format job invokes it during the gate.",
     steps: [
-      step("tidy", "configured Markdown", {
+      step("tidy", BUILT_IN_STEP_LABELS.configuredMarkdown, {
         condition: "when Markdown is selected and a target would change",
       }),
-      step("tidy", "root discern.toml", {
+      step("tidy", BUILT_IN_STEP_LABELS.rootDiscernToml, {
         condition: "when TOML is selected and the root config would change",
       }),
     ],
@@ -373,41 +376,45 @@ function resourceEntries(
  * resource / setup commands live from the config. */
 function startVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [
-    step("git", "add-worktree", {
+    step("git", BUILT_IN_STEP_LABELS.addWorktree, {
       note: "create the linked worktree on its agent/ branch",
     }),
-    step("git", "ensure-branch", {
+    step("git", BUILT_IN_STEP_LABELS.ensureBranch, {
       note: "put the worktree on a named branch",
     }),
   ];
   for (const [name, r] of resourceEntries(cfg)) {
     if (r.create !== "" || r.destroy !== "") {
-      steps.push(step("resource-create", name, {
+      steps.push(step("resource-create", verbatimStepLabel(name), {
         note: r.create !== "" ? r.create : "(no create command)",
         condition: "first setup only — re-entry runs `ensure` instead",
       }));
     }
   }
   if (cfg.worktree.inherit_env.length > 0) {
-    steps.push(step("env", "inherit-env", {
+    steps.push(step("env", BUILT_IN_STEP_LABELS.inheritEnv, {
       note: cfg.worktree.inherit_env.join(", "),
     }));
   }
   if (cfg.worktree.port) {
-    steps.push(step("env", "record-port", {
+    steps.push(step("env", BUILT_IN_STEP_LABELS.recordPort, {
       note: "deterministic dev-server port → .env",
     }));
   }
   for (const s of cfg.worktree.setup.steps) {
-    steps.push(step("setup-step", s, { condition: "first setup only" }));
+    steps.push(
+      step("setup-step", verbatimStepLabel(s), {
+        condition: "first setup only",
+      }),
+    );
   }
   for (const s of cfg.repository.ensure) {
-    steps.push(step("repository-ensure", s));
+    steps.push(step("repository-ensure", verbatimStepLabel(s)));
   }
   for (const s of cfg.worktree.setup.ensure) {
-    steps.push(step("setup-ensure", s));
+    steps.push(step("setup-ensure", verbatimStepLabel(s)));
   }
-  steps.push(step("refresh", FULL_REFRESH_STEP_LABEL, {
+  steps.push(step("refresh", BUILT_IN_STEP_LABELS.completeRefresh, {
     note: FULL_REFRESH_STEP_NOTE,
   }));
   return {
@@ -424,12 +431,12 @@ function startVerb(cfg: DiscernConfig): VerbPlan {
 function ensureVerb(cfg: DiscernConfig): VerbPlan {
   const steps = [
     ...cfg.repository.ensure.map((s) =>
-      step("repository-ensure", s, {
+      step("repository-ensure", verbatimStepLabel(s), {
         condition: "converge this checkout on the tree",
       })
     ),
     ...cfg.worktree.setup.ensure.map((s) =>
-      step("setup-ensure", s, {
+      step("setup-ensure", verbatimStepLabel(s), {
         condition: "converge this worktree on its identity and tree",
       })
     ),
@@ -457,17 +464,19 @@ function updateVerb(cfg: DiscernConfig): VerbPlan {
     worktreeEnsureSteps: cfg.worktree.setup.ensure,
   });
   const steps = projected.steps.map((planned) => {
-    if (planned.label === "merge") {
+    if (planned.label === BUILT_IN_STEP_LABELS.merge) {
       return annotatePlanStep(planned, {
         condition: "only when the branch does not already contain the source",
       });
     }
-    if (planned.label === "auto-resolve generated conflicts") {
+    if (
+      planned.label === BUILT_IN_STEP_LABELS.autoResolveGeneratedConflicts
+    ) {
       return annotatePlanStep(planned, {
         condition: "after a real merge, before regeneration",
       });
     }
-    if (planned.label === "commit regenerated artifacts") {
+    if (planned.label === BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts) {
       return annotatePlanStep(planned, {
         hint:
           "Built-in convergence boundary: after a merge, commit successfully re-derived tracked paths whose bytes changed. Without a merge, report changed tracked refresh paths for review and an intentional commit; never create a bookkeeping commit.",
@@ -513,7 +522,9 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
     },
   });
   const steps = projected.steps.flatMap((planned): ExecutionStep[] => {
-    if (planned.label === ACCEPT_TRACKED_REFRESH_CHECK_LABEL) {
+    if (
+      planned.label === BUILT_IN_STEP_LABELS.trackedRefreshLandingBoundary
+    ) {
       return [annotatePlanStep(planned, {
         hint:
           "Built-in landing-boundary check: after either a valid Proof or an in-process gate rerun, verify the current engine's complete tracked refresh plan again. A pending or unprovable effect refuses before the trunk moves.",
@@ -521,7 +532,7 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
     }
     if (planned.kind === "resource-destroy" && destroyable.length > 0) {
       return [...destroyable].reverse().map(([name, resource]) =>
-        step("resource-destroy", name, {
+        step("resource-destroy", verbatimStepLabel(name), {
           note: resource.destroy,
           condition: "if the resource was provisioned (reverse-creation order)",
         })
@@ -553,19 +564,19 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
  * resources of any worktree that vanished without a clean teardown. */
 function pruneVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [
-    step("git", "remove-worktree", {
+    step("git", BUILT_IN_STEP_LABELS.removeWorktree, {
       condition: "for each stale worktree git no longer tracks",
     }),
-    step("git", "delete-branch", {
+    step("git", BUILT_IN_STEP_LABELS.deleteBranch, {
       condition: "for each fully-merged dangling branch",
     }),
-    step("git", "reclaim-orphan-dir", {
+    step("git", BUILT_IN_STEP_LABELS.reclaimOrphanDir, {
       condition: "for each orphan gitlinked directory",
     }),
   ];
   for (const [name, r] of resourceEntries(cfg)) {
     if (r.destroy !== "") {
-      steps.push(step("resource-destroy", name, {
+      steps.push(step("resource-destroy", verbatimStepLabel(name), {
         note: r.destroy,
         condition: r.gc === false
           ? "never — gc = false (teardown-only; reclaimed only by an explicit accept/teardown)"

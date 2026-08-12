@@ -69,6 +69,74 @@ export const STEP_KINDS = [
 export type StepKind = (typeof STEP_KINDS)[number];
 
 /**
+ * Stable labels for operations discern performs itself. Project-owned labels
+ * such as job, scope, standard, resource, command, and path identifiers remain
+ * outside this registry and preserve their configured spelling.
+ *
+ * Every built-in value is kebab-case. The structural guard in
+ * `tests/built_in_step_labels_test.ts` rejects a static step label authored at a
+ * construction site, so new built-in operations must enroll here first.
+ */
+export const BUILT_IN_STEP_LABELS = {
+  addWorktree: "add-worktree",
+  autoResolveGeneratedConflicts: "auto-resolve-generated-conflicts",
+  checkTrunkCheckout: "check-trunk-checkout",
+  commitRegeneratedArtifacts: "commit-regenerated-artifacts",
+  completeRefresh: "complete-refresh",
+  configureGeneratedMergeDriver: "configure-generated-merge-driver",
+  configuredMarkdown: "configured-markdown",
+  deleteBranch: "delete-branch",
+  ensureBranch: "ensure-branch",
+  fastForwardTrunk: "fast-forward-trunk",
+  guidanceCheck: "guidance-check",
+  inheritEnv: "inherit-env",
+  materializeLocalAgentArtifacts: "materialize-local-agent-artifacts",
+  merge: "merge",
+  mergeCheck: "merge-check",
+  planIntegrity: "plan-integrity",
+  preserveBranchTip: "preserve-branch-tip",
+  reconcileProofNoteFetch: "reconcile-proof-note-fetch",
+  recordPort: "record-port",
+  reclaimOrphanDir: "reclaim-orphan-dir",
+  recoverInterruptedAcceptance: "recover-interrupted-acceptance",
+  removeWorktree: "remove-worktree",
+  rootDiscernToml: "root-discern-toml",
+  setup: "setup",
+  skillsCheck: "skills-check",
+  standardsLimitsCheck: "standards-limits-check",
+  teardownResources: "teardown-resources",
+  trackedArtifactsCheck: "tracked-artifacts-check",
+  trackedRefreshCheck: "tracked-refresh-check",
+  trackedRefreshLandingBoundary: "tracked-refresh-check-landing-boundary",
+  trackedRefreshProofBoundary: "tracked-refresh-check-proof-boundary",
+  trunkLimits: "trunk-limits",
+  writeProofNote: "write-proof-note",
+} as const;
+
+/** One stable label for an operation discern performs itself. */
+export type BuiltInStepLabel =
+  (typeof BUILT_IN_STEP_LABELS)[keyof typeof BUILT_IN_STEP_LABELS];
+
+declare const VERBATIM_STEP_LABEL: unique symbol;
+
+/**
+ * A project-owned or runtime-derived step label whose spelling must survive
+ * unchanged. The brand makes every non-built-in source explicit at the point
+ * where it enters a plan while remaining a plain string on every output surface.
+ */
+export type VerbatimStepLabel = string & {
+  readonly [VERBATIM_STEP_LABEL]: "verbatim-step-label";
+};
+
+/** Mark a configured identifier, command, or path for verbatim step rendering. */
+export function verbatimStepLabel(value: string): VerbatimStepLabel {
+  return value as VerbatimStepLabel;
+}
+
+/** A registered built-in operation or an explicitly verbatim external label. */
+export type StepLabel = BuiltInStepLabel | VerbatimStepLabel;
+
+/**
  * Who a step's command belongs to — the two-way split `discern doctor`'s execution
  * model marks every step with: `"project"` is a command from the project's own config
  * (a declared job, a scope or standard command, a resource `create`/`destroy`, a
@@ -88,7 +156,7 @@ export type Actor = (typeof ACTORS)[number];
 export interface PlanStep {
   kind: StepKind;
   /** Stable label (a job/resource/scope/standard name, or a git verb). */
-  label: string;
+  label: StepLabel;
   disposition: StepDisposition;
   /** Human one-liner: what the step does, or why it is skipped. */
   note?: string | undefined;

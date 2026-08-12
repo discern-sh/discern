@@ -18,7 +18,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { STAGES } from "../src/shared/capabilities.ts";
-import { STEP_KINDS } from "../src/shared/result.ts";
+import { BUILT_IN_STEP_LABELS, STEP_KINDS } from "../src/shared/result.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import {
   buildExecutionModel,
@@ -30,8 +30,6 @@ import {
   gatePlanToEngine,
   preparePlanGroups,
   stageGroup,
-  TRACKED_REFRESH_CHECK_LABEL,
-  TRACKED_REFRESH_PROOF_CHECK_LABEL,
 } from "../src/engine/gate/plan.ts";
 import {
   buildStandardPlan,
@@ -41,7 +39,6 @@ import { planStandardJobsFromConfig } from "../src/engine/gate/standards_gate.ts
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 import {
   acceptPlanToEngine,
-  FULL_REFRESH_STEP_LABEL,
   updatePlanToEngine,
 } from "../src/engine/worktree/plan.ts";
 
@@ -287,8 +284,8 @@ Deno.test("execution model: done reports both tracked-refresh checkpoints in exe
     step.kind === "tracked-refresh-check"
   );
   assertEquals(refreshChecks.map((step) => step.label), [
-    TRACKED_REFRESH_CHECK_LABEL,
-    TRACKED_REFRESH_PROOF_CHECK_LABEL,
+    BUILT_IN_STEP_LABELS.trackedRefreshCheck,
+    BUILT_IN_STEP_LABELS.trackedRefreshProofBoundary,
   ]);
   assertEquals(done.steps.at(-1)?.label, refreshChecks.at(-1)?.label);
 });
@@ -348,13 +345,13 @@ Deno.test("execution model: every full refresh step names the complete operation
     }))
   );
   const fullRefreshSteps = refreshSteps.filter(({ step }) =>
-    step.label !== "materialize local agent artifacts"
+    step.label !== BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts
   );
   assert(fullRefreshSteps.length > 0);
   for (const { verb, step } of fullRefreshSteps) {
     assertEquals(
       step.label,
-      FULL_REFRESH_STEP_LABEL,
+      BUILT_IN_STEP_LABELS.completeRefresh,
       `${verb} must name the complete refresh operation`,
     );
     assertStringIncludes(
@@ -363,6 +360,15 @@ Deno.test("execution model: every full refresh step names the complete operation
       `${verb} must explain the complete refresh boundary`,
     );
   }
+});
+
+Deno.test("execution model: tidy uses the registered built-in labels", () => {
+  const model = buildExecutionModel(parseConfigOrThrow(RICH_TOML));
+  const tidy = model.find((plan) => plan.verb === "tidy");
+  assertEquals(tidy?.steps.map((step) => step.label), [
+    BUILT_IN_STEP_LABELS.configuredMarkdown,
+    BUILT_IN_STEP_LABELS.rootDiscernToml,
+  ]);
 });
 
 Deno.test("execution model: actor matches the user-configured vs built-in split", () => {

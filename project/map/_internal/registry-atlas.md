@@ -33,6 +33,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
 | [`step-kinds`](#step-kinds--step-kinds)                                                                               | `src/shared/result.ts#STEP_KINDS`                                                 | 19      | —                | node `doctor`               |
+| [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 33      | —                | node `plan-apply`           |
 | [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 15      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
@@ -89,9 +90,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 78      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 79      | —                | node `canonical-sets`       |
 
-78 sets · 117 guard tests · 53 committed artifacts.
+79 sets · 118 guard tests · 53 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -119,6 +120,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/browser_art_contour_test.ts`                | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_invariant_core_test.ts`         | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_persistent_trace_test.ts`       | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `tests/built_in_step_labels_test.ts`               | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/canonical_sets_enrolment_test.ts`           | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/cli_reference_codegen_test.ts`              | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/config_banner_parity_test.ts`               | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -702,6 +704,49 @@ The result-step operation vocabulary: what a step does. The doctor's `STEP_KIND_
 - Guards: `tests/execution_model_test.ts`, `tests/result_schemas_test.ts`
 - Glossary: not enrolled — Doctor explains each result-step kind in context
 - Feature canon: described by the `doctor` node
+
+## `built-in-step-labels` — Built-in step labels
+
+The stable kebab-case operation labels discern authors in plans and applied results. Configured identifiers use the separate verbatim-label boundary.
+
+- Source: `src/shared/result.ts` — `BUILT_IN_STEP_LABELS`
+- Members: 33
+  - `add-worktree`
+  - `auto-resolve-generated-conflicts`
+  - `check-trunk-checkout`
+  - `commit-regenerated-artifacts`
+  - `complete-refresh`
+  - `configure-generated-merge-driver`
+  - `configured-markdown`
+  - `delete-branch`
+  - `ensure-branch`
+  - `fast-forward-trunk`
+  - `guidance-check`
+  - `inherit-env`
+  - `materialize-local-agent-artifacts`
+  - `merge`
+  - `merge-check`
+  - `plan-integrity`
+  - `preserve-branch-tip`
+  - `reconcile-proof-note-fetch`
+  - `record-port`
+  - `reclaim-orphan-dir`
+  - `recover-interrupted-acceptance`
+  - `remove-worktree`
+  - `root-discern-toml`
+  - `setup`
+  - `skills-check`
+  - `standards-limits-check`
+  - `teardown-resources`
+  - `tracked-artifacts-check`
+  - `tracked-refresh-check`
+  - `tracked-refresh-check-landing-boundary`
+  - `tracked-refresh-check-proof-boundary`
+  - `trunk-limits`
+  - `write-proof-note`
+- Guards: `tests/built_in_step_labels_test.ts`
+- Glossary: not enrolled — the result-contract reference explains label ownership and configured identifiers preserve their project spelling
+- Feature canon: described by the `plan-apply` node
 
 ## `config-tables` — Config tables
 
@@ -2548,7 +2593,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 78
+- Members: 79
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2570,6 +2615,7 @@ This meta-registry: the closed set of closed sets.
   - `stages`
   - `diagnostic-formats`
   - `step-kinds`
+  - `built-in-step-labels`
   - `config-tables`
   - `source-paths`
   - `bundled-skills`

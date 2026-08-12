@@ -37,14 +37,12 @@ import type {
   StepOutcome,
   StepResult,
 } from "../../shared/result.ts";
+import {
+  BUILT_IN_STEP_LABELS,
+  verbatimStepLabel,
+} from "../../shared/result.ts";
 
 const LOUD_SUCCESS_ERROR_LIKE_LINES = 10;
-
-/** Labels distinguish the gate's initial refresh convergence check from the
- * repeated check that binds the final proof to the post-job tree. */
-export const TRACKED_REFRESH_CHECK_LABEL = "tracked-refresh-check";
-export const TRACKED_REFRESH_PROOF_CHECK_LABEL =
-  "tracked-refresh-check (proof boundary)";
 
 /**
  * A gate job as planned: the command to run plus the metadata the ADR-0004 report
@@ -558,7 +556,7 @@ export async function serializeJobSteps(
       steps.push({
         step: {
           kind,
-          label: j.label,
+          label: verbatimStepLabel(j.label),
           disposition: j.willRun ? "run" : "skip",
           note: j.note ?? (j.willRun ? j.command : "scope unchanged"),
           group: group.display,
@@ -671,7 +669,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   if (plan.mergeCheck) {
     steps.push({
       kind: "merge-check",
-      label: "merge-check",
+      label: BUILT_IN_STEP_LABELS.mergeCheck,
       disposition: "gate",
       note:
         "verify this branch contains the trunk — the shared landing branch — before running the gate (no-op in the main checkout)",
@@ -680,7 +678,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   if (plan.standardsLimitsCheck) {
     steps.push({
       kind: "standards-limits-check",
-      label: "standards-limits-check",
+      label: BUILT_IN_STEP_LABELS.standardsLimitsCheck,
       disposition: "gate",
       note:
         "verify no [standards] limit loosened or vanished versus the trunk (vacuous when none are configured)",
@@ -689,7 +687,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   if (plan.trackedArtifactsCheck) {
     steps.push({
       kind: "tracked-artifacts-check",
-      label: "tracked-artifacts-check",
+      label: BUILT_IN_STEP_LABELS.trackedArtifactsCheck,
       disposition: "gate",
       note:
         "verify discern-managed ignored artifacts are not tracked by Git (`git rm --cached` if tracked)",
@@ -698,7 +696,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   if (plan.guidanceCheck) {
     steps.push({
       kind: "guidance-check",
-      label: "guidance-check",
+      label: BUILT_IN_STEP_LABELS.guidanceCheck,
       disposition: "gate",
       note:
         "verify the agent files match their sources (`discern refresh` if stale)",
@@ -707,7 +705,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   if (plan.skillsCheck) {
     steps.push({
       kind: "skills-check",
-      label: "skills-check",
+      label: BUILT_IN_STEP_LABELS.skillsCheck,
       disposition: "gate",
       note:
         "verify the materialized skills match the effective set (`discern refresh` if stale)",
@@ -716,7 +714,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   if (plan.trackedRefreshCheck) {
     steps.push({
       kind: "tracked-refresh-check",
-      label: TRACKED_REFRESH_CHECK_LABEL,
+      label: BUILT_IN_STEP_LABELS.trackedRefreshCheck,
       disposition: "gate",
       note:
         "verify `discern refresh` has no pending effect on tracked files (run refresh, review, and commit if it does)",
@@ -730,7 +728,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
           : j.kind === "standard"
           ? "standard"
           : "job",
-        label: j.label,
+        label: verbatimStepLabel(j.label),
         disposition: j.willRun ? "run" : "skip",
         note: j.note ?? (j.willRun ? j.command : "scope unchanged"),
         group: group.display,
@@ -740,7 +738,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   if (plan.trackedRefreshCheck) {
     steps.push({
       kind: "tracked-refresh-check",
-      label: TRACKED_REFRESH_PROOF_CHECK_LABEL,
+      label: BUILT_IN_STEP_LABELS.trackedRefreshProofBoundary,
       disposition: "gate",
       note:
         "repeat the tracked refresh plan after every gate job, immediately before issuing the result and proof",

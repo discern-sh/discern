@@ -86,7 +86,6 @@ import {
   acceptPlanToEngine,
   type DropPlan,
   dropPlanToEngine,
-  FULL_REFRESH_STEP_LABEL,
   FULL_REFRESH_STEP_NOTE,
   type PrunePlan,
   prunePlanIsEmpty,
@@ -102,6 +101,8 @@ import {
 } from "./plan.ts";
 import {
   appliedResult,
+  BUILT_IN_STEP_LABELS,
+  type BuiltInStepLabel,
   type Diagnostic,
   dimBlock,
   type DiscernResult,
@@ -111,6 +112,7 @@ import {
   renderStepResults,
   type StepOutcome,
   type StepResult,
+  verbatimStepLabel,
 } from "../../shared/result.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import type {
@@ -434,7 +436,7 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   const branch = current !== "" ? current : identity.branch;
 
   const steps: SetupStepDesc[] = [
-    { kind: "git", label: "ensure-branch", note: branch },
+    { kind: "git", label: BUILT_IN_STEP_LABELS.ensureBranch, note: branch },
   ];
   if (
     !(await worktreeSetupComplete(ctx.cwd)) &&
@@ -442,14 +444,14 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   ) {
     steps.push({
       kind: "git",
-      label: "configure-generated-merge-driver",
+      label: BUILT_IN_STEP_LABELS.configureGeneratedMergeDriver,
       note: `merge.${DISCERN_GENERATED_MERGE_DRIVER}.driver=true (worktree)`,
     });
   }
   if (ctx.config.worktree.inherit_env.length > 0) {
     steps.push({
       kind: "env",
-      label: "inherit-env",
+      label: BUILT_IN_STEP_LABELS.inheritEnv,
       note: ctx.config.worktree.inherit_env.join(", "),
     });
   }
@@ -457,7 +459,7 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
     if (spec.create !== "" || spec.destroy !== "") {
       steps.push({
         kind: "resource-create",
-        label: spec.name,
+        label: verbatimStepLabel(spec.name),
         note: resourceForId(settings.slug, id, spec.name),
       });
     }
@@ -465,20 +467,23 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   if (ctx.config.worktree.port) {
     steps.push({
       kind: "env",
-      label: "record-port",
+      label: BUILT_IN_STEP_LABELS.recordPort,
       note: String(identity.port),
     });
   }
   for (const step of ctx.config.worktree.setup.steps) {
-    steps.push({ kind: "setup-step", label: step });
+    steps.push({ kind: "setup-step", label: verbatimStepLabel(step) });
   }
   for (const step of ctx.config.repository.ensure) {
-    steps.push({ kind: "repository-ensure", label: step });
+    steps.push({ kind: "repository-ensure", label: verbatimStepLabel(step) });
   }
   for (const step of ctx.config.worktree.setup.ensure) {
-    steps.push({ kind: "setup-ensure", label: step });
+    steps.push({ kind: "setup-ensure", label: verbatimStepLabel(step) });
   }
-  steps.push({ kind: "refresh", label: FULL_REFRESH_STEP_LABEL });
+  steps.push({
+    kind: "refresh",
+    label: BUILT_IN_STEP_LABELS.completeRefresh,
+  });
   return { branch, steps };
 }
 
@@ -1085,7 +1090,7 @@ export async function worktreeTeardown(
   const results: StepResult[] = plan.entries.map((item) => ({
     step: {
       kind: "resource-destroy",
-      label: item.entry.resource_name,
+      label: verbatimStepLabel(item.entry.resource_name),
       disposition: "run",
       note: item.entry.resource_identity,
     },
@@ -1329,7 +1334,7 @@ export async function worktreeDrop(
     steps.push({
       step: {
         kind: "git",
-        label: "preserve-branch-tip",
+        label: BUILT_IN_STEP_LABELS.preserveBranchTip,
         disposition: "run",
         note: recovery.ref,
       },
@@ -1339,7 +1344,7 @@ export async function worktreeDrop(
     steps.push({
       step: {
         kind: "git",
-        label: "preserve-branch-tip",
+        label: BUILT_IN_STEP_LABELS.preserveBranchTip,
         disposition: "skip",
         note: plan.branch === ""
           ? "detached — no branch tip to preserve"
@@ -1370,7 +1375,7 @@ export async function worktreeDrop(
     steps.push({
       step: {
         kind: "resource-destroy",
-        label: item.entry.resource_name,
+        label: verbatimStepLabel(item.entry.resource_name),
         disposition: "run",
         note: item.entry.resource_identity,
       },
@@ -1397,7 +1402,7 @@ export async function worktreeDrop(
   steps.push({
     step: {
       kind: "git",
-      label: "remove-worktree",
+      label: BUILT_IN_STEP_LABELS.removeWorktree,
       disposition: "run",
       note: plan.targetPath,
     },
@@ -1427,7 +1432,7 @@ export async function worktreeDrop(
     steps.push({
       step: {
         kind: "git",
-        label: "delete-branch",
+        label: BUILT_IN_STEP_LABELS.deleteBranch,
         disposition: "run",
         note: plan.branch,
       },
@@ -1438,7 +1443,7 @@ export async function worktreeDrop(
     steps.push({
       step: {
         kind: "git",
-        label: "delete-branch",
+        label: BUILT_IN_STEP_LABELS.deleteBranch,
         disposition: "skip",
         note: `${plan.branch} is the trunk — kept`,
       },
@@ -1858,7 +1863,7 @@ function recoveryStep(outcome: StepOutcome): StepResult {
   return {
     step: {
       kind: "git",
-      label: "recover-interrupted-acceptance",
+      label: BUILT_IN_STEP_LABELS.recoverInterruptedAcceptance,
       disposition: "run",
       note: "reconcile the journal-bound transaction before any new landing",
     },
@@ -2144,7 +2149,10 @@ async function executeAcceptPlan(
 
   const results = progress.steps;
   const authorityWarnings = progress.authorityWarnings;
-  const done = (kind: StepResult["step"]["kind"], label: string): void => {
+  const done = (
+    kind: StepResult["step"]["kind"],
+    label: BuiltInStepLabel,
+  ): void => {
     results.push({ step: { kind, label, disposition: "run" }, outcome: "ok" });
   };
   const doneRefresh = (
@@ -2154,7 +2162,7 @@ async function executeAcceptPlan(
     results.push({
       step: {
         kind: "refresh",
-        label: "materialize local agent artifacts",
+        label: BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts,
         disposition: "run",
         note,
       },
@@ -2299,7 +2307,7 @@ async function executeAcceptPlan(
   }
   progress.landing.trunk_landed = true;
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
-  done("git", "fast-forward-trunk");
+  done("git", BUILT_IN_STEP_LABELS.fastForwardTrunk);
 
   // Establish the tracked-checkout baseline immediately after the ref/checkout
   // transition, before any proof, local materialization, ensure, or smoke
@@ -2324,7 +2332,7 @@ async function executeAcceptPlan(
   results.push({
     step: {
       kind: "git",
-      label: "reconcile-proof-note-fetch",
+      label: BUILT_IN_STEP_LABELS.reconcileProofNoteFetch,
       disposition: "run",
       note: proofFetchOk
         ? `proof-note transport is ${proofFetch.status}`
@@ -2353,7 +2361,7 @@ async function executeAcceptPlan(
   results.push({
     step: {
       kind: "git",
-      label: "write-proof-note",
+      label: BUILT_IN_STEP_LABELS.writeProofNote,
       disposition: "run",
       note: proofWrite.reason ??
         `${proofWrite.ref} at ${proofWrite.commit}`,
@@ -2447,7 +2455,7 @@ async function executeAcceptPlan(
     results.push({
       step: {
         kind: "repository-ensure",
-        label: command,
+        label: verbatimStepLabel(command),
         disposition: "run",
         note: "converge the trunk checkout on the landed tree",
       },
@@ -2470,7 +2478,7 @@ async function executeAcceptPlan(
       results.push({
         step: {
           kind: "job",
-          label: smoke.label,
+          label: verbatimStepLabel(smoke.label),
           disposition: "run",
           note: smoke.command,
           group: "Smoke",
@@ -2496,7 +2504,7 @@ async function executeAcceptPlan(
   results.push({
     step: {
       kind: "checkout-clean-check",
-      label: "check trunk checkout",
+      label: BUILT_IN_STEP_LABELS.checkTrunkCheckout,
       disposition: "run",
       note: checkoutClean === undefined
         ? "the immediate post-fast-forward tracked baseline was unavailable"
@@ -2530,7 +2538,7 @@ async function executeAcceptPlan(
   // @dir@-bearing destroys resolve, and before removal so no orphan is left)
   ctx.log.info("Tearing down the worktree's resources…");
   await teardownResources(ctx);
-  done("resource-destroy", "teardown resources");
+  done("resource-destroy", BUILT_IN_STEP_LABELS.teardownResources);
 
   // remove the worktree (from the main repo)
   try {
@@ -2553,7 +2561,7 @@ async function executeAcceptPlan(
     );
   }
   ctx.log.ok("Worktree directory removed.");
-  done("git", "remove-worktree");
+  done("git", BUILT_IN_STEP_LABELS.removeWorktree);
   progress.landing.worktree_removed = true;
 
   // Delete the now-merged branch.
@@ -2566,7 +2574,7 @@ async function executeAcceptPlan(
     );
   }
   ctx.log.ok(`Deleted merged branch ${worktreeBranch}.`);
-  done("git", "delete-branch");
+  done("git", BUILT_IN_STEP_LABELS.deleteBranch);
   progress.landing.branch_deleted = true;
 
   ctx.log.heading("Acceptance complete.");
@@ -3371,7 +3379,7 @@ async function runUpdateGeneratedGroups(
       steps: groups.map((configured) => ({
         step: {
           kind: "job",
-          label: `generated:${configured.name}`,
+          label: verbatimStepLabel(`generated:${configured.name}`),
           disposition: "run",
           note: configured.run,
           group: "Generated artifacts",
@@ -3419,7 +3427,7 @@ async function commitUpdateRegeneratedArtifacts(
     step: {
       step: {
         kind: "git",
-        label: "commit regenerated artifacts",
+        label: BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts,
         disposition: "skip",
         note,
       },
@@ -3437,7 +3445,7 @@ async function commitUpdateRegeneratedArtifacts(
       step: {
         step: {
           kind: "git",
-          label: "commit regenerated artifacts",
+          label: BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts,
           disposition: "run",
           note: "commit regenerated outputs when their bytes changed",
         },
@@ -3493,7 +3501,7 @@ async function commitUpdateRegeneratedArtifacts(
       step: {
         step: {
           kind: "git",
-          label: "commit regenerated artifacts",
+          label: BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts,
           disposition: "run",
           note: `no merge; review and commit ${committedPaths.join(", ")}`,
         },
@@ -3516,7 +3524,7 @@ async function commitUpdateRegeneratedArtifacts(
       step: {
         step: {
           kind: "git",
-          label: "commit regenerated artifacts",
+          label: BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts,
           disposition: "run",
           note: committedPaths.join(", "),
         },
@@ -3530,7 +3538,7 @@ async function commitUpdateRegeneratedArtifacts(
     step: {
       step: {
         kind: "git",
-        label: "commit regenerated artifacts",
+        label: BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts,
         disposition: "run",
         note: committedPaths.join(", "),
       },
@@ -3581,7 +3589,7 @@ async function runUpdateConvergence(
   const steps: StepResult[] = [...generated.steps, {
     step: {
       kind: "refresh",
-      label: FULL_REFRESH_STEP_LABEL,
+      label: BUILT_IN_STEP_LABELS.completeRefresh,
       disposition: "run",
       note: FULL_REFRESH_STEP_NOTE,
     },
@@ -3606,7 +3614,7 @@ async function runUpdateConvergence(
     steps.push({
       step: {
         kind: "repository-ensure",
-        label: step,
+        label: verbatimStepLabel(step),
         disposition: "run",
         note: "converge the checkout on the current tree",
       },
@@ -3620,7 +3628,7 @@ async function runUpdateConvergence(
     steps.push({
       step: {
         kind: "setup-ensure",
-        label: step,
+        label: verbatimStepLabel(step),
         disposition: "run",
         note: "converge the worktree on the current tree",
       },
@@ -3678,7 +3686,7 @@ async function executeUpdatePlan(
         {
           step: {
             kind: "git",
-            label: "merge",
+            label: BUILT_IN_STEP_LABELS.merge,
             disposition: "skip",
             note: `already up to date with ${source}`,
           },
@@ -3687,7 +3695,7 @@ async function executeUpdatePlan(
         {
           step: {
             kind: "git",
-            label: "auto-resolve generated conflicts",
+            label: BUILT_IN_STEP_LABELS.autoResolveGeneratedConflicts,
             disposition: "skip",
             note: "no merge conflicts to classify",
           },
@@ -3746,7 +3754,7 @@ async function executeUpdatePlan(
         {
           step: {
             kind: "git",
-            label: "merge",
+            label: BUILT_IN_STEP_LABELS.merge,
             disposition: "run",
             note: outcome.fastForward
               ? `fast-forwarded ${source}`
@@ -3757,7 +3765,7 @@ async function executeUpdatePlan(
         {
           step: {
             kind: "git",
-            label: "auto-resolve generated conflicts",
+            label: BUILT_IN_STEP_LABELS.autoResolveGeneratedConflicts,
             disposition: outcome.autoResolved.length > 0 ? "run" : "skip",
             note: outcome.autoResolved.length > 0
               ? outcome.autoResolved.join(", ")
@@ -4167,7 +4175,7 @@ export async function startResult(
     {
       step: {
         kind: "git",
-        label: "add-worktree",
+        label: BUILT_IN_STEP_LABELS.addWorktree,
         disposition: "run",
         note: `${dir} on ${branch} (from ${startPoint})`,
       },
@@ -4176,7 +4184,7 @@ export async function startResult(
     {
       step: {
         kind: "setup-step",
-        label: "setup",
+        label: BUILT_IN_STEP_LABELS.setup,
         disposition: "run",
         note: "readied the new worktree",
       },
@@ -4840,7 +4848,13 @@ function pruneResults(
     note: string,
     group: string,
   ): StepResult => ({
-    step: { kind, label, disposition: "run", note, group },
+    step: {
+      kind,
+      label: verbatimStepLabel(label),
+      disposition: "run",
+      note,
+      group,
+    },
     outcome: "ok",
   });
   // The contained group is always REPORTED: reclaimed rows under the opt-in,
@@ -4859,7 +4873,7 @@ function pruneResults(
       ...reclaim.skipped.map(({ fact, reason }): StepResult => ({
         step: {
           kind: "git",
-          label: fact.path,
+          label: verbatimStepLabel(fact.path),
           disposition: "skip",
           note: reason,
           group: "Contained worktrees",
@@ -4870,7 +4884,7 @@ function pruneResults(
     : plan.contained.map((c): StepResult => ({
       step: {
         kind: "git",
-        label: c.path,
+        label: verbatimStepLabel(c.path),
         disposition: "skip",
         note: `contained in ${c.containingBranch} — reclaim with --contained ` +
           `(branch ref kept)`,
@@ -4899,7 +4913,7 @@ function pruneResults(
     ...reappeared.skipped.map(({ fact, reason }): StepResult => ({
       step: {
         kind: "git",
-        label: fact.path,
+        label: verbatimStepLabel(fact.path),
         disposition: "skip",
         note: reason,
         group: "Kept reappeared worktree paths",

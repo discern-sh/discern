@@ -35,6 +35,7 @@ import {
   renderPlan,
   renderStepResults,
   type StepResult,
+  verbatimStepLabel,
 } from "../../shared/result.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import {
@@ -309,7 +310,7 @@ export function tidyPlanToEngine(plan: TidyPlan): EnginePlan {
     ],
     steps: plan.changes.map((change) => ({
       kind: "tidy",
-      label: change.display,
+      label: verbatimStepLabel(change.display),
       disposition: "run",
       group: change.type === "md" ? "Markdown" : "TOML",
     })),
@@ -420,7 +421,7 @@ export async function applyTidyPlan(
   for (const change of plan.changes) {
     const step = {
       kind: "tidy" as const,
-      label: change.display,
+      label: verbatimStepLabel(change.display),
       disposition: "run" as const,
       group: change.type === "md" ? "Markdown" : "TOML",
     };

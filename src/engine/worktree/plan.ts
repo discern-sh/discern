@@ -11,7 +11,13 @@
  * with the rest of the lifecycle in `lifecycle.ts`.
  */
 
-import type { EnginePlan, PlanStep } from "../../shared/result.ts";
+import {
+  BUILT_IN_STEP_LABELS,
+  type EnginePlan,
+  type PlanStep,
+  type StepLabel,
+  verbatimStepLabel,
+} from "../../shared/result.ts";
 import type { ResolvedGeneratedGroup } from "../../shared/generated_artifacts.ts";
 import type { IgnoredFileChangeSummary } from "./ignored.ts";
 import type { LedgerItem } from "./resources.ts";
@@ -20,18 +26,9 @@ import type { GitWorktreePruneScan, OrphanWorktreeSweepScan } from "./git.ts";
 import type { ContainedWorktree } from "./containment.ts";
 import type { ReappearedWorktreePathScan } from "./retired_paths.ts";
 
-/** The shared label for the complete refresh reconciliation. Keep the full
- * operation distinct from acceptance's checkout-local materialization tail. */
-export const FULL_REFRESH_STEP_LABEL = "refresh artifacts";
-
 /** The shared note for the complete refresh reconciliation. */
 export const FULL_REFRESH_STEP_NOTE =
   "run the complete refresh reconciliation for shared files and checkout-local Agent artifacts";
-
-/** Acceptance rechecks the current engine's tracked refresh plan immediately
- * before it mutates the trunk. */
-export const ACCEPT_TRACKED_REFRESH_CHECK_LABEL =
-  "tracked-refresh-check (landing boundary)";
 
 // ── teardown ────────────────────────────────────────────────────────────────
 
@@ -49,7 +46,7 @@ export function teardownPlanToEngine(plan: TeardownPlan): EnginePlan {
     details: [],
     steps: plan.entries.map((item): PlanStep => ({
       kind: "resource-destroy",
-      label: item.entry.resource_name,
+      label: verbatimStepLabel(item.entry.resource_name),
       disposition: "run",
       note: item.entry.resource_identity,
     })),
@@ -93,7 +90,7 @@ export interface AcceptPlan {
 export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   const steps: PlanStep[] = [{
     kind: "tracked-refresh-check",
-    label: ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
+    label: BUILT_IN_STEP_LABELS.trackedRefreshLandingBoundary,
     disposition: "gate",
     note:
       "after proof or gate validation, verify the current engine's refresh plan has no pending tracked-file effect",
@@ -105,13 +102,13 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   // fast-forward with the worktree and its resources intact.
   steps.push({
     kind: "git",
-    label: "fast-forward-trunk",
+    label: BUILT_IN_STEP_LABELS.fastForwardTrunk,
     disposition: "run",
     note: `${plan.trunk} → ${plan.worktreeBranch} in ${plan.mainRepo}`,
   });
   steps.push({
     kind: "git",
-    label: "reconcile-proof-note-fetch",
+    label: BUILT_IN_STEP_LABELS.reconcileProofNoteFetch,
     disposition: "run",
     note: plan.proofNotes === "fetch"
       ? "add the proof-note fetch mapping for each remote"
@@ -119,13 +116,13 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   });
   steps.push({
     kind: "git",
-    label: "write-proof-note",
+    label: BUILT_IN_STEP_LABELS.writeProofNote,
     disposition: "run",
     note: `attach the landed proof under refs/notes/discern`,
   });
   steps.push({
     kind: "refresh",
-    label: "materialize local agent artifacts",
+    label: BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts,
     disposition: "run",
     note:
       "materialize only ignored/local Agent artifacts in the trunk checkout",
@@ -133,7 +130,7 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   for (const command of plan.repositoryEnsureSteps) {
     steps.push({
       kind: "repository-ensure",
-      label: command,
+      label: verbatimStepLabel(command),
       disposition: "run",
       note: "converge the trunk checkout on the landed tree",
     });
@@ -141,7 +138,7 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   for (const smoke of plan.smokeSteps) {
     steps.push({
       kind: "job",
-      label: smoke.label,
+      label: verbatimStepLabel(smoke.label),
       disposition: "run",
       note: smoke.command,
       group: "Smoke",
@@ -149,14 +146,14 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   }
   steps.push({
     kind: "checkout-clean-check",
-    label: "check trunk checkout",
+    label: BUILT_IN_STEP_LABELS.checkTrunkCheckout,
     disposition: "run",
     note:
       "report tracked dirt present immediately after landing or introduced by ensure/smoke convergence",
   });
   steps.push({
     kind: "resource-destroy",
-    label: "teardown resources",
+    label: BUILT_IN_STEP_LABELS.teardownResources,
     disposition: plan.hasResources ? "run" : "skip",
     note: plan.hasResources
       ? "destroy this worktree's external resources"
@@ -164,13 +161,13 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   });
   steps.push({
     kind: "git",
-    label: "remove-worktree",
+    label: BUILT_IN_STEP_LABELS.removeWorktree,
     disposition: "run",
     note: plan.worktreePath,
   });
   steps.push({
     kind: "git",
-    label: "delete-branch",
+    label: BUILT_IN_STEP_LABELS.deleteBranch,
     disposition: "run",
     note: `${plan.worktreeBranch} (merged into ${plan.trunk})`,
   });
@@ -247,7 +244,7 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
   const steps: PlanStep[] = [
     {
       kind: "git",
-      label: "merge",
+      label: BUILT_IN_STEP_LABELS.merge,
       disposition: act ? "run" : "skip",
       note: act
         ? `merge ${plan.source} into ${plan.worktreeBranch}`
@@ -255,7 +252,7 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
     },
     {
       kind: "git",
-      label: "auto-resolve generated conflicts",
+      label: BUILT_IN_STEP_LABELS.autoResolveGeneratedConflicts,
       disposition: act ? "run" : "skip",
       note: act
         ? "take the incoming side of generated conflicts before regeneration"
@@ -263,20 +260,20 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
     },
     ...plan.generatedGroups.map((group): PlanStep => ({
       kind: "job",
-      label: `generated:${group.name}`,
+      label: verbatimStepLabel(`generated:${group.name}`),
       disposition: "run",
       note: group.run,
       group: "Generated artifacts",
     })),
     {
       kind: "refresh",
-      label: FULL_REFRESH_STEP_LABEL,
+      label: BUILT_IN_STEP_LABELS.completeRefresh,
       disposition: "run",
       note: FULL_REFRESH_STEP_NOTE,
     },
     {
       kind: "git",
-      label: "commit regenerated artifacts",
+      label: BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts,
       disposition: act ? "run" : "skip",
       note:
         "after a merge, commit successfully re-derived tracked paths whose bytes changed; without a merge, report changed tracked refresh paths for review and an intentional commit",
@@ -285,7 +282,7 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
   for (const step of plan.repositoryEnsureSteps) {
     steps.push({
       kind: "repository-ensure",
-      label: step,
+      label: verbatimStepLabel(step),
       disposition: "run",
       note: "converge the checkout on the current tree",
     });
@@ -293,7 +290,7 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
   for (const step of plan.worktreeEnsureSteps) {
     steps.push({
       kind: "setup-ensure",
-      label: step,
+      label: verbatimStepLabel(step),
       disposition: "run",
       note: "converge the worktree on the current tree",
     });
@@ -350,13 +347,13 @@ export function startPlanToEngine(plan: StartPlan): EnginePlan {
     steps: [
       {
         kind: "git",
-        label: "add-worktree",
+        label: BUILT_IN_STEP_LABELS.addWorktree,
         disposition: "run",
         note: `${plan.worktreePath} on ${plan.branch}`,
       },
       {
         kind: "setup-step",
-        label: "setup",
+        label: BUILT_IN_STEP_LABELS.setup,
         disposition: "run",
         note:
           "ready the new worktree (branch, resources, env, port, agent files)",
@@ -371,7 +368,7 @@ export function startPlanToEngine(plan: StartPlan): EnginePlan {
  * plan lists exactly what setup will do (and a dry-run touches nothing). */
 export interface SetupStepDesc {
   kind: PlanStep["kind"];
-  label: string;
+  label: StepLabel;
   note?: string | undefined;
 }
 
@@ -427,7 +424,7 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
   const steps: PlanStep[] = [];
   steps.push({
     kind: "git",
-    label: "preserve-branch-tip",
+    label: BUILT_IN_STEP_LABELS.preserveBranchTip,
     disposition: plan.deleteBranch ? "run" : "skip",
     note: plan.deleteBranch
       ? `retain the commit under refs/discern/recovery/ (newest ${DROP_RECOVERY_REF_LIMIT})`
@@ -437,7 +434,7 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
   });
   steps.push({
     kind: "resource-destroy",
-    label: "teardown resources",
+    label: BUILT_IN_STEP_LABELS.teardownResources,
     disposition: plan.entries.length > 0 ? "run" : "skip",
     note: plan.entries.length > 0
       ? "destroy this worktree's external resources"
@@ -445,13 +442,13 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
   });
   steps.push({
     kind: "git",
-    label: "remove-worktree",
+    label: BUILT_IN_STEP_LABELS.removeWorktree,
     disposition: "run",
     note: plan.targetPath,
   });
   steps.push({
     kind: "git",
-    label: "delete-branch",
+    label: BUILT_IN_STEP_LABELS.deleteBranch,
     disposition: plan.deleteBranch ? "run" : "skip",
     note: plan.deleteBranch
       ? plan.branch
@@ -513,7 +510,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   for (const w of plan.gitScan.worktreesToRemove) {
     steps.push({
       kind: "git",
-      label: w.path,
+      label: verbatimStepLabel(w.path),
       disposition: "run",
       note: "remove stale worktree",
       group: "Worktrees",
@@ -522,7 +519,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   for (const b of pruneBranchesToDelete(plan.gitScan)) {
     steps.push({
       kind: "git",
-      label: b,
+      label: verbatimStepLabel(b),
       disposition: "run",
       note: "delete fully-merged branch",
       group: "Branches",
@@ -531,7 +528,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   for (const m of plan.gitScan.staleMetadata) {
     steps.push({
       kind: "git",
-      label: m.path,
+      label: verbatimStepLabel(m.path),
       disposition: "run",
       note: "prune stale git metadata",
       group: "Stale metadata",
@@ -540,7 +537,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   for (const d of plan.orphanScan.removable) {
     steps.push({
       kind: "git",
-      label: d.path,
+      label: verbatimStepLabel(d.path),
       disposition: "run",
       note: "reclaim orphan directory",
       group: "Orphan directories",
@@ -549,7 +546,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   for (const kept of plan.orphanScan.kept) {
     steps.push({
       kind: "git",
-      label: kept.path,
+      label: verbatimStepLabel(kept.path),
       disposition: "skip",
       note: kept.reason,
       group: "Kept orphan directories",
@@ -565,7 +562,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       }`;
     steps.push({
       kind: "git",
-      label: path.path,
+      label: verbatimStepLabel(path.path),
       disposition: "run",
       note: `remove files written after worktree removal (${sample})`,
       group: "Reappeared worktree paths",
@@ -574,7 +571,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   for (const path of plan.reappearedPathScan.kept) {
     steps.push({
       kind: "git",
-      label: path.path,
+      label: verbatimStepLabel(path.path),
       disposition: "skip",
       note: path.cleanup_blocked_reason ?? "cleanup is blocked",
       group: "Kept reappeared worktree paths",
@@ -583,7 +580,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   for (const r of plan.resourceReclaims) {
     steps.push({
       kind: "resource-destroy",
-      label: r.entry.resource_identity,
+      label: verbatimStepLabel(r.entry.resource_identity),
       disposition: "run",
       note: "reclaim orphaned resource",
       group: "Resources",
@@ -592,7 +589,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
   for (const c of plan.contained) {
     steps.push({
       kind: "git",
-      label: c.path,
+      label: verbatimStepLabel(c.path),
       disposition: plan.reclaimContained ? "run" : "skip",
       // Both modes carry the full evidence — the branch tips and the
       // container's lead — so the human confirms shas, not bare names.

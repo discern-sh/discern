@@ -38,7 +38,7 @@ import { ISSUES_URL, KIT_VERSION } from "../src/lib/version.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
-import { FULL_REFRESH_STEP_LABEL } from "../src/engine/worktree/plan.ts";
+import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
 import {
   AWAIT_WATCH_POLICY,
   OPERATING_POLICIES,
@@ -1623,7 +1623,8 @@ Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date
       }`,
     );
     assertEquals(
-      steps.find((s) => s.label === FULL_REFRESH_STEP_LABEL)?.outcome,
+      steps.find((s) => s.label === BUILT_IN_STEP_LABELS.completeRefresh)
+        ?.outcome,
       "ok",
       `the no-op still re-converges (refresh runs): ${
         JSON.stringify(noop.result.structuredContent)
