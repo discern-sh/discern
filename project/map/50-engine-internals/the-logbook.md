@@ -26,9 +26,9 @@ The substrate's constraints:
 
 `done` samples after fix/build and before check/test; standalone `test` samples before its test group. A shared registry selects planned jobs by stage, automatically enrolling future jobs.
 
-The state digest is an HMAC over full HEAD; index visibility tag, mode, object, stage, and raw path bytes; tracked differences plus checkout state hidden by index flags; untracked entries that Git does not ignore; and recursively verified clean submodule commits. Semantic entries avoid physical stat-cache and storage noise while sparse absence and assume-unchanged bytes remain visible. Dirty, uninitialized, conflicted, unknown-tag, or over-budget state is incomplete. One capture authority gives every Git probe the remaining 20,000-path, 64-MiB combined-output/content, and 5-second envelope.
+The state HMAC covers HEAD; index tag/mode/object/stage/path; matching checkout bytes; untracked files Git does not ignore; and recursively clean submodule commits. It ignores index storage while retaining sparse/assume-unchanged state. Uncertain or over-budget state is incomplete. Git probes share the 20,000-path, 64-MiB, 5-second envelope.
 
-The common key is a regular `0600` file checked on every use at `discern/validation-hmac-key`. Events store only opaque digests, counts, bytes, timing, and failure categories. Execution evidence adds keyed config/setup/job definitions, job metadata and outcomes, mode, concurrency, and writer version—never paths, contents, commands, config values, or environment values. Its separate pre-serialization ceiling is 1,000 jobs and 1 MiB. Capture failures leave the Gate verdict unchanged.
+The regular `0600` key at `discern/validation-hmac-key` is checked on every use. Events store opaque digests and bounded, keyed execution metadata/outcomes, mode, concurrency, and writer version. The execution ceiling is 1,000 jobs and 1 MiB before serialization. Capture failure leaves the Gate verdict unchanged.
 
 Patterns compares only complete state and execution envelopes of the same evidence version. Legacy identity is a separate group. Ignored files, external services, clocks, random seeds, runtime environment, and concurrent external processes remain disclosed exclusions ([ADR 0273](../_adr/0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)).
 
