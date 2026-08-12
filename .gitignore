@@ -32,6 +32,7 @@
 # `deno task site:build`. Discern's selections and compositions live in
 # `site/design_system.ts` and `site/page-src/`; build products never enter Git.
 /site/pages/index.html
+/site/pages/lipsum.html
 /site/pages/assets/design-system/
 /site/pages/fragments/
 /site/pages/v2.html

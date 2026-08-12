@@ -20,6 +20,12 @@ export const MARKETING_PAGES = [{
   source: "site/page-src/landing.tsx",
   negotiable: true,
   register: "brand",
+}, {
+  route: "/lipsum",
+  page: "pages/lipsum.html",
+  source: "site/page-src/lipsum.ts",
+  negotiable: false,
+  register: "brand",
 }] as const satisfies readonly MarketingPage[];
 
 export type MarketingPageRoute = typeof MARKETING_PAGES[number]["route"];

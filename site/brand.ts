@@ -14,6 +14,11 @@ export const LANDING_TITLE =
 export const LANDING_DESCRIPTION =
   "An engineering practice for agent-built software. Give coding agents a project-owned way to work, and come back to changes ready for a decision.";
 
+/** Metadata for the copy-neutral design-review twin of the homepage. */
+export const LIPSUM_TITLE = "Lorem ipsum dolor sit amet · discern";
+export const LIPSUM_DESCRIPTION =
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+
 /**
  * Landing-family routes that carry their own exact titles. Serving appends
  * the docs suffix to every other page; the SEO test and smoke crawl hold
@@ -22,6 +27,7 @@ export const LANDING_DESCRIPTION =
  */
 export const SELF_TITLED_PAGES: Readonly<Record<string, string>> = {
   "/": LANDING_TITLE,
+  "/lipsum": LIPSUM_TITLE,
 };
 
 /** Canonical 100-unit geometry for drawn derivatives of the Unicode mark. */

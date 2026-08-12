@@ -17,6 +17,7 @@ import {
 import { renderDiscernBrand } from "./page-src/branding.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 import { renderLanding } from "./page-src/landing.tsx";
+import { renderLipsum } from "./page-src/lipsum.ts";
 import { MARKETING_PAGES, type MarketingPageRoute } from "./marketing_pages.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
@@ -55,6 +56,7 @@ const MARKETING_PAGE_RENDERERS: Readonly<
   Record<MarketingPageRoute, () => string>
 > = {
   "/": renderLanding,
+  "/lipsum": renderLipsum,
 };
 
 /** Render one registry-owned marketing route from its authored source. */
