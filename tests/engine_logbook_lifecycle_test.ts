@@ -278,7 +278,7 @@ Deno.test({
             input,
           });
           assertEquals(result.code, 0, `${action}\n${result.output}`);
-          assertStringIncludes(result.output, "Aborted — nothing was changed.");
+          assertStringIncludes(result.output, "Aborted. Nothing changed.");
           assertEquals(await Deno.readTextFile(active), before);
           assertEquals(
             await exists(join(dir, ".git", "discern", "logbook-archives")),
