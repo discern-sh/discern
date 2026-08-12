@@ -88,14 +88,14 @@ export const BROWSER_ARTWORKS = [
     title: "The survey",
     description:
       "Measuring marks study an irregular found figure until one exact triangle inscribes itself within it and rests fitted to its bounds.",
-    sourceCommit: "0000000000000000000000000000000000000000",
+    sourceCommit: "2a94d9131027085e1d2869c631445d7fd67bd023",
   },
   {
     slug: "interference",
     title: "The interference",
     description:
       "Two fine triangular line grids drift slowly against each other inside one bounded triangle, letting larger figures bloom, travel, and settle home.",
-    sourceCommit: "0000000000000000000000000000000000000000",
+    sourceCommit: "abb4c5474843a8892d65523a2e50f93819238176",
   },
 ] as const satisfies readonly BrowserArtworkMetadata[];
 
