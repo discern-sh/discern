@@ -208,6 +208,11 @@ function sourceIds(findings: readonly PatternsFinding[]): string[] {
   return [...new Set(findings.map((finding) => finding.detector))];
 }
 
+/** Project source observations into one concrete investigation evidence line. */
+function joinedObservation(findings: readonly PatternsFinding[]): string {
+  return findings.map((finding) => finding.observed).join(" ");
+}
+
 /** Require complete current-version validation identity without legacy input. */
 function completeCurrentValidation(finding: PatternsFinding): boolean {
   return finding.basis?.validation_state.version === 1 &&
@@ -280,8 +285,11 @@ const validationInstability: InvestigationRelationship = {
           "Correlation between the findings does not identify the unstable input or establish a cause.",
         ],
       }),
+      summary:
+        "One validation job changed verdict under matched recorded conditions, alongside repeated confirmed Gate reruns.",
+      observed: joinedObservation(sources),
       interpretation:
-        "A job changed verdict under one complete recorded validation state while confirmed Gate reruns also recurred; together they support one validation-instability investigation, not a causal claim.",
+        "One validation job changed verdict under matched recorded conditions, alongside repeated confirmed Gate reruns.",
       diagnostic_action:
         "Reproduce the named job under the recorded envelope, then vary one unrecorded input at a time before changing the Gate or retry policy.",
       falsifier:
@@ -358,8 +366,11 @@ const feedbackLoop: InvestigationRelationship = {
             "The relationship joins one branch and recorded setup; it does not claim every red Gate in the conversation was preflight-preventable.",
           ],
         }),
+        summary:
+          "This branch had repeated red Gates and separate evidence of work that preflight could perform.",
+        observed: joinedObservation(sources),
         interpretation:
-          "Repeated full-Gate failures and separately recorded preflight-preventable work share one branch and setup, which supports investigating the feedback loop without making `prepare` mandatory.",
+          "This branch had repeated red Gates and separate evidence of work that preflight could perform.",
         diagnostic_action:
           "On the next comparable change, run `discern prepare`, review its exact changes, then reserve `discern done` for the clean committed tree and compare the resulting Gate rounds.",
         falsifier:
@@ -455,8 +466,11 @@ const validationScheduling: InvestigationRelationship = {
           "Any saved-tail seconds remain estimates; later-round elapsed time and queue waits are recorded observations.",
         ],
       }),
+      summary:
+        "Later Gate rounds exposed other failures while validation was long-running or queued under the same recorded setup.",
+      observed: joinedObservation(sources),
       interpretation:
-        "Distinct failures appeared in later Gate rounds while validation was long-running or queued under the same setup, which supports a controlled scheduling experiment rather than a configuration conclusion.",
+        "Later Gate rounds exposed other failures while validation was long-running or queued under the same recorded setup.",
       diagnostic_action:
         "Run one bounded comparison of the current schedule against a single alternative, keeping jobs and setup fixed, then compare later-round time, queue wait, and distinct failures.",
       falsifier:
@@ -521,8 +535,11 @@ const standardVariance: InvestigationRelationship = {
           "Mechanical pin eligibility is a Gate fact; recent reversals or failures make variance the investigation and suppress pin advice.",
         ],
       }),
+      summary:
+        `\`${finding.subject}\` is mechanically eligible to tighten, but its recent comparable readings are unstable.`,
+      observed: finding.observed,
       interpretation:
-        `\`${finding.subject}\` is mechanically eligible to tighten, but recent comparable readings also reversed direction or failed; that supports a variance investigation, not pin advice.`,
+        `\`${finding.subject}\` is mechanically eligible to tighten, but its recent comparable readings are unstable.`,
       diagnostic_action:
         `Run \`discern standards\` for a current \`${finding.subject}\` reading and inspect the recent comparable values before deciding whether the headroom is durable.`,
       falsifier:

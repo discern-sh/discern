@@ -7462,8 +7462,13 @@
                           "subject": {
                             "type": "string"
                           },
+                          "summary": {
+                            "type": "string",
+                            "minLength": 1
+                          },
                           "brief": {
-                            "type": "string"
+                            "type": "string",
+                            "minLength": 1
                           },
                           "series": {
                             "maxItems": 24,
@@ -7681,6 +7686,7 @@
                           "family",
                           "scope",
                           "tone",
+                          "summary",
                           "brief",
                           "observed",
                           "evidence",
@@ -10209,8 +10215,13 @@
                       "subject": {
                         "type": "string"
                       },
+                      "summary": {
+                        "type": "string",
+                        "minLength": 1
+                      },
                       "brief": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                       },
                       "series": {
                         "maxItems": 24,
@@ -10428,6 +10439,7 @@
                       "family",
                       "scope",
                       "tone",
+                      "summary",
                       "brief",
                       "observed",
                       "evidence",
@@ -10616,6 +10628,14 @@
                           "limitations"
                         ]
                       },
+                      "summary": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "observed": {
+                        "type": "string",
+                        "minLength": 1
+                      },
                       "interpretation": {
                         "type": "string",
                         "minLength": 1
@@ -10635,6 +10655,8 @@
                       "finding_ids",
                       "observations",
                       "evidence_boundary",
+                      "summary",
+                      "observed",
                       "interpretation",
                       "diagnostic_action",
                       "falsifier"

@@ -95,7 +95,8 @@ function finding(
       : "project",
     tone: "attention",
     ...(options.subject === undefined ? {} : { subject: options.subject }),
-    brief: `${detector} brief`,
+    summary: `${detector} summary`,
+    brief: `${detector} summary`,
     observed: `${detector} observed ${JSON.stringify(evidence)}`,
     evidence,
     ...(options.basis === undefined ? {} : { basis: options.basis }),
@@ -268,6 +269,13 @@ Deno.test("investigation registry enrolls every relationship in shared invariant
     const results = synthesizeInvestigations(fixture);
     assertEquals(results.length, 1, `${relationship.id} must synthesize`);
     PatternInvestigationSchema.parse(results[0]);
+    assert(
+      !PatternInvestigationSchema.safeParse({
+        ...results[0],
+        interpretation: "A second independently authored claim.",
+      }).success,
+      `${relationship.id}: interpretation must project summary exactly`,
+    );
     assertEquals(
       results[0]?.id.startsWith(relationship.id),
       true,
@@ -288,6 +296,10 @@ Deno.test("investigations keep source findings and their denominators traceable"
   assertEquals(sources, before, "synthesis is a pure additive projection");
   assertEquals(results.length, 4);
   for (const investigation of results) {
+    assert(investigation.summary.length > 0);
+    assert(investigation.observed.length > 0);
+    assertEquals(investigation.interpretation, investigation.summary);
+    assert(/\d/.test(investigation.observed));
     assert(investigation.observations.length > 0);
     assert(
       investigation.observations.every((observation) =>
@@ -332,8 +344,9 @@ Deno.test("investigation values retain observed and estimated provenance", () =>
   assertEquals(ledger.values.estimated_saved_tail_seconds?.kind, "estimated");
   assertEquals(ledger.values.later_round_elapsed_seconds?.kind, "observed");
   assert(
-    investigation.interpretation.includes("supports") &&
-      !investigation.interpretation.includes("caused"),
+    !/\b(?:caused|causes|rank|score)\b/i.test(
+      `${investigation.summary} ${investigation.observed}`,
+    ),
   );
 });
 

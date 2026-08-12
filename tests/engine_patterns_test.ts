@@ -1095,7 +1095,7 @@ Deno.test("patterns: an empty logbook is a first-class state with a helpful mess
   });
 });
 
-Deno.test("patterns: a seeded logbook yields ranked plain-count findings that validate", async () => {
+Deno.test("patterns: a seeded logbook yields two-layer findings that validate", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1126,7 +1126,8 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
     assertEquals(thrash.evidence.consecutive_failures, 3);
     assertStringIncludes(thrash.observed, "3 consecutive runs");
     assertEquals(thrash.tone, "attention");
-    assertStringIncludes(thrash.brief, "3 red `done` runs");
+    assertStringIncludes(thrash.summary, "repeated red Gates");
+    assertEquals(thrash.brief, thrash.summary);
     assertStringIncludes(thrash.next_step, "discern-cure-a-bug");
     assertEquals(thrash.scope, "branch");
 
@@ -1388,7 +1389,9 @@ Deno.test("patterns: Standard variance investigations retain raw findings across
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(human.output, "Investigation paths");
     assertStringIncludes(human.output, "Standard variance · coverage");
-    assertStringIncludes(human.output, "Evidence · standard-trajectory:");
+    assertStringIncludes(human.output, "comparable readings are unstable");
+    assertStringIncludes(human.output, "Evidence:");
+    assertStringIncludes(normalized(human.output), "5 readings");
     assertStringIncludes(human.output, "Falsifier:");
     for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
       assert(
@@ -1598,7 +1601,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     assertStringIncludes(card, "best day: 2026-07-01 · 2 accepted");
     assertStringIncludes(card, "2 of 3 `done` runs green (67%)");
     assertStringIncludes(card, "1 of 2 branches green first try (50%)");
-    assertStringIncludes(card, "1 red run stopped at the gate");
+    assertStringIncludes(card, "1 red run stopped at the Gate");
     assertStringIncludes(
       card,
       "`done`: 3 runs across 2 branches · 3 clean · 0 dirty · 0 unknown · 2 ok · 1 failed · 1 retry",
@@ -1628,7 +1631,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
     assertStringIncludes(
       card,
-      "1 limit tightened across 1 standard. Loosening fails the gate.",
+      "1 limit tightened across 1 standard. Loosening fails the Gate.",
     );
     assertStringIncludes(
       card,
@@ -1813,9 +1816,13 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
     assertStringIncludes(r.output, "Advisory only");
     assertStringIncludes(r.output, "→");
     assertStringIncludes(
-      r.output,
-      `    !  ${thrash.subject ?? ""}  ${thrash.brief}`,
-      "a row without series must keep the 2A spacing",
+      normalized(r.output),
+      normalized(`! ${thrash.subject ?? ""} ${thrash.summary}`),
+      "a wrapped row must retain its exact subject and canonical summary",
+    );
+    assertStringIncludes(
+      normalized(r.output),
+      normalized(`Evidence: ${thrash.observed}`),
     );
   });
 });
@@ -2027,7 +2034,7 @@ Deno.test("patterns: landing authority findings render in the overview and behav
     const plain = normalized(human.output);
     assertStringIncludes(
       plain,
-      "Pre-authorized landings: 8 of 20 consent-recorded landings (40%) · standing 4 · effort 4",
+      "Pre-authorized landings: Recorded landing authority handled part of this project's landings.",
     );
     assertStringIncludes(
       plain,
@@ -2131,8 +2138,10 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       const title = titleById.get(finding.detector) ?? finding.detector;
       const subject = finding.subject === undefined
         ? ""
-        : ` · ${finding.subject}`;
-      const index = bannerText.indexOf(normalized(`! ${title}${subject}`));
+        : `${finding.subject}: `;
+      const index = bannerText.indexOf(
+        normalized(`! ${subject}${finding.summary}`),
+      );
       assert(
         index > previousFinding,
         `${finding.detector} is out of rank order`,
@@ -2168,7 +2177,7 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
     }
 
     // Every finding still has one glyph row. Normalize whitespace so a wrap is
-    // presentation-only, then prove every subject + brief survived.
+    // presentation-only, then prove every subject + summary survived.
     const glyphs = new Set(
       Object.values(PATTERNS_TONE_GLYPHS).map(({ glyph }) => glyph),
     );
@@ -2192,7 +2201,7 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       const key = normalized(
         `${finding.subject === undefined ? "" : finding.subject} ${
           finding.series === undefined ? "" : sparkline(finding.series)
-        } ${finding.brief}`,
+        } ${finding.summary}`,
       );
       rowKeys.set(key, (rowKeys.get(key) ?? 0) + 1);
     }
@@ -2230,15 +2239,15 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       1,
     );
 
-    const spoke = data.detectors.filter((d) => d.status === "fired").length;
-    const clear = data.detectors.filter((d) => d.status === "quiet").length;
-    const young = data.detectors.filter((d) =>
+    const fired = data.detectors.filter((d) => d.status === "fired").length;
+    const quiet = data.detectors.filter((d) => d.status === "quiet").length;
+    const insufficient = data.detectors.filter((d) =>
       d.status === "insufficient-evidence"
     ).length;
-    assertEquals(spoke + clear + young, DETECTORS.length);
+    assertEquals(fired + quiet + insufficient, DETECTORS.length);
     assertStringIncludes(
       plain,
-      `${DETECTORS.length} detectors · ${spoke} spoke · ${clear} all clear · ${young} too young to say`,
+      `${DETECTORS.length} detectors · ${fired} fired · ${quiet} quiet · ${insufficient} insufficient evidence`,
     );
 
     // The old renderer spent four lines per finding, plus seven fixed lines.

@@ -103,7 +103,10 @@ export function routedFindingData(routed: RoutedFinding): PatternsFinding {
     scope: routed.detector.scope,
     tone: finding.tone ?? routed.detector.tone,
     ...(finding.subject !== undefined ? { subject: finding.subject } : {}),
-    brief: finding.brief,
+    summary: finding.summary,
+    // Published compatibility alias. One canonical authoring field prevents
+    // compact consumers from drifting into a second claim.
+    brief: finding.summary,
     ...(finding.series !== undefined ? { series: finding.series } : {}),
     observed: finding.observed,
     evidence: finding.evidence,

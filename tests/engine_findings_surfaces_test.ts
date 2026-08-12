@@ -24,14 +24,11 @@ import {
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
-const BRANCH_OBSERVED =
-  "`done` failed 4 consecutive runs on `agent/surface` (5 runs in the conversation).";
-const SESSION_OBSERVED =
-  "`update` refused 3 times on `agent/surface` with the same slug (`behind_trunk`).";
-const MAIN_SESSION_OBSERVED =
-  "`update` refused 3 times on `main` with the same slug (`behind_trunk`).";
+const BRANCH_SUMMARY =
+  "This branch had repeated red Gates in one conversation.";
+const SESSION_SUMMARY = "The same command refusal recurred on this branch.";
 const SESSION_NEXT =
-  "A refusal means the verb declined — repeating the call won't change its answer. Read the refusal message for the precondition it names; if agents keep hitting it, capture the lesson with the `discern-teach-the-project` skill.";
+  "Read the refusal message and satisfy the precondition it names before retrying. If the same precondition keeps recurring, capture the lesson with the `discern-teach-the-project` skill.";
 
 interface ResultEnvelope {
   ok: boolean;
@@ -228,7 +225,7 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
     const proofHint = assertHasHint(
       done,
       HINTS["logbook-proof-finding"],
-      { count: 1, observed: BRANCH_OBSERVED },
+      { count: 1, summary: BRANCH_SUMMARY },
     );
     assertEquals(
       proofHint.includes("\n"),
@@ -240,7 +237,7 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
     assertEquals(statusRun.code, 0, statusRun.output);
     const status = parse(statusRun.stdout);
     assertHasHint(status, HINTS["logbook-status-finding"], {
-      observed: SESSION_OBSERVED,
+      summary: SESSION_SUMMARY,
       next: SESSION_NEXT,
     });
 
@@ -328,7 +325,7 @@ Deno.test("done finding line is absent on red, while quiet, and with recording o
       assertEquals(result.ok, fixture.test === "true", fixture.name);
       assertLacksHint(result, HINTS["logbook-proof-finding"], {
         count: 2,
-        observed: BRANCH_OBSERVED,
+        summary: BRANCH_SUMMARY,
       });
     });
   }
@@ -357,7 +354,7 @@ Deno.test("status suppresses session findings until setup is bootstrapped", asyn
     assertEquals(run.code, 0, run.output);
     const result = parse(run.stdout);
     assertLacksHint(result, HINTS["logbook-status-finding"], {
-      observed: MAIN_SESSION_OBSERVED,
+      summary: SESSION_SUMMARY,
       next: SESSION_NEXT,
     });
     assert(result.data?.setup_unfinished !== undefined);
@@ -393,7 +390,7 @@ Deno.test("status does not correct an owner for interactive refusal history", as
     assertEquals(run.code, 0, run.output);
     const result = parse(run.stdout);
     assertLacksHint(result, HINTS["logbook-status-finding"], {
-      observed: MAIN_SESSION_OBSERVED,
+      summary: SESSION_SUMMARY,
       next: SESSION_NEXT,
     });
   });

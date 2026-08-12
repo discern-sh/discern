@@ -48,6 +48,7 @@ import {
   runDetector,
   tipAdoptionOutcome,
 } from "../src/engine/logbook/detectors.ts";
+import { routedFindingData } from "../src/engine/logbook/routing.ts";
 import { KNOWN_VERBS } from "../src/shared/verbs.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import {
@@ -2310,7 +2311,8 @@ Deno.test("patterns finding schema enforces additive evidence agreement without 
     scope: "project" as const,
     tone: "attention" as const,
     subject: "test",
-    brief: "1 red · 1 green",
+    summary: "This validation job changed verdict under matched conditions.",
+    brief: "This validation job changed verdict under matched conditions.",
     observed: "A recorded job passed and failed under matched conditions.",
     evidence: { runs: 2 },
     strength: 20,
@@ -2341,6 +2343,13 @@ Deno.test("patterns finding schema enforces additive evidence agreement without 
   assert(
     !PatternsFindingSchema.safeParse({ ...finding, confidence: 0.9 }).success,
     "the strict wire contract must reject a confidence score",
+  );
+  assert(
+    !PatternsFindingSchema.safeParse({
+      ...finding,
+      brief: "A second independently authored claim.",
+    }).success,
+    "the compatibility brief must remain an exact summary projection",
   );
 });
 
@@ -3138,9 +3147,9 @@ Deno.test("pre-authorized landings calls out a current single-source streak", ()
     finding.subject === undefined
   );
   assert(summary !== undefined);
-  assert(
-    summary.brief.includes("current run 4 standing grant"),
-    summary.brief,
+  assertEquals(
+    summary.summary,
+    "Recorded landing authority handled part of this project's landings.",
   );
   assert(
     summary.observed.includes(
@@ -3163,6 +3172,7 @@ Deno.test("grant suggestion names the scope after a dozen uninterrupted conversa
   assertEquals(finding?.subject, "docs");
   assertEquals(finding?.evidence, {
     consecutive_conversational_landings: 12,
+    accept_attempts: 12,
     scopes: 1,
     intervening_refusals: 0,
   });
@@ -3231,7 +3241,20 @@ for (const d of DETECTORS) {
     assert(r.findings.length > 0, `${d.id}: firing fixture found nothing`);
     for (const f of r.findings) {
       assert(f.observed.length > 0, `${d.id}: empty observation`);
-      assert(f.brief.length > 0, `${d.id}: empty brief`);
+      assert(f.summary.length > 0, `${d.id}: empty summary`);
+      assert(
+        /[.!?]$/.test(f.summary),
+        `${d.id}: summary is not a complete sentence: ${f.summary}`,
+      );
+      assert(
+        /\d/.test(f.observed),
+        `${d.id}: observation must carry concrete numerical evidence`,
+      );
+      assert(
+        !/\b(?:rank|score|lazy|careless|incompetent|abandoned|waste|caused|causes)\b/i
+          .test(`${f.summary} ${f.observed}`),
+        `${d.id}: finding makes an unsupported comparative, causal, or character claim`,
+      );
       assert(
         PATTERN_FINDING_TONES.includes(f.tone ?? d.tone),
         `${d.id}: unknown finding tone ${f.tone ?? d.tone}`,
@@ -3260,6 +3283,14 @@ for (const d of DETECTORS) {
         assert(Number.isFinite(v), `${d.id}: non-finite evidence value`);
       }
       assert(f.strength > 0, `${d.id}: findings must carry a ranking strength`);
+      const wire = routedFindingData({
+        detector: d,
+        finding: f,
+        considered: r.considered,
+      });
+      assertEquals(wire.summary, f.summary, `${d.id}: summary drifted`);
+      assertEquals(wire.brief, wire.summary, `${d.id}: brief drifted`);
+      PatternsFindingSchema.parse(wire);
     }
   });
 
@@ -3972,19 +4003,18 @@ function foreignSetupClones(events: readonly LogbookEvent[]): LogbookEvent[] {
 
 const windowedDetectors = DETECTORS.filter((d) => d.windowed === true);
 
-/** Decision content must survive foreign-setup interleaving. A structured
- * basis additionally discloses those excluded events, so its denominator is
- * compared separately rather than erased from the contract. */
+/** Decision content must survive foreign-setup interleaving. The observation
+ * and structured basis may additionally disclose excluded events, so those
+ * attribution fields are compared separately rather than erased. */
 function findingDecisionContent(finding: DetectorFinding): Omit<
   DetectorFinding,
-  "basis"
+  "basis" | "observed"
 > {
   return {
     ...(finding.subject !== undefined ? { subject: finding.subject } : {}),
-    brief: finding.brief,
+    summary: finding.summary,
     ...(finding.tone !== undefined ? { tone: finding.tone } : {}),
     ...(finding.series !== undefined ? { series: finding.series } : {}),
-    observed: finding.observed,
     evidence: finding.evidence,
     strength: finding.strength,
     ...(finding.next_step !== undefined
@@ -4014,6 +4044,15 @@ for (const d of windowedDetectors) {
       `${d.id}: interleaved foreign-setup runs must not change the trend`,
     );
     for (let index = 0; index < base.findings.length; index += 1) {
+      const baseFinding = base.findings[index];
+      const underFinding = under.findings[index];
+      assert(baseFinding !== undefined && underFinding !== undefined);
+      if (underFinding.observed !== baseFinding.observed) {
+        assert(
+          underFinding.observed.includes("excluded from this comparison"),
+          `${d.id}: a changed observation must explain the exclusion: ${underFinding.observed}`,
+        );
+      }
       const baseBasis = base.findings[index]?.basis;
       const underBasis = under.findings[index]?.basis;
       if (baseBasis === undefined) {
@@ -4126,7 +4165,7 @@ Deno.test("patterns regression: a gate-duration trend survives interleaved confi
   assertEquals(finding.evidence.median_late_s, 170);
   assert(
     finding.evidence.comparable_runs === undefined,
-    `enough interleaved same-config runs must trend, not refuse: ${finding.brief}`,
+    `enough interleaved same-config runs must trend, not refuse: ${finding.summary}`,
   );
 });
 
@@ -4452,7 +4491,7 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
       limit: 90,
       direction: "up" as const,
       tone: "good",
-      wording: "improving",
+      wording: "has more headroom",
       limitWord: "floor",
     },
     {
@@ -4461,7 +4500,7 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
       limit: 100,
       direction: "down" as const,
       tone: "good",
-      wording: "improving",
+      wording: "has more headroom",
       limitWord: "ceiling",
     },
     {
@@ -4470,7 +4509,7 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
       limit: 90,
       direction: "up" as const,
       tone: "attention",
-      wording: "headroom shrinking",
+      wording: "has less headroom",
       limitWord: "floor",
     },
     {
@@ -4479,7 +4518,7 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
       limit: 90,
       direction: "up" as const,
       tone: "neutral",
-      wording: "holding",
+      wording: "held steady",
       limitWord: "floor",
     },
     {
@@ -4488,7 +4527,7 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
       limit: 100,
       direction: "down" as const,
       tone: "good",
-      wording: "beating its limit",
+      wording: "beats its recorded limit",
       limitWord: "ceiling",
     },
   ] as const;
@@ -4504,18 +4543,18 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
     assert(finding !== undefined, item.label);
     assertEquals(finding.tone, item.tone, item.label);
     assert(
-      finding.brief.includes(item.wording),
-      `${item.label}: ${finding.brief}`,
+      finding.summary.includes(item.wording),
+      `${item.label}: ${finding.summary}`,
     );
     assert(
-      finding.brief.includes(item.limitWord),
-      `${item.label}: ${finding.brief}`,
+      finding.summary.includes(item.limitWord),
+      `${item.label}: ${finding.summary}`,
     );
     assertEquals(finding.strength, item.values.length);
   }
 });
 
-Deno.test("patterns trajectory: the brief compares today's value with today's limit", () => {
+Deno.test("patterns trajectory: the summary compares today's value with today's limit", () => {
   const trajectory = DETECTORS.find((d) => d.id === "standard-trajectory");
   assert(trajectory !== undefined);
   const values = [825, 830, 850, 880, 900];
@@ -4527,8 +4566,8 @@ Deno.test("patterns trajectory: the brief compares today's value with today's li
   const finding = outcome.findings[0];
   assert(finding !== undefined);
   assertEquals(
-    finding.brief,
-    "825 → 900 vs ceiling 837 — headroom shrinking",
+    finding.summary,
+    "This Standard has less headroom: 825 → 900 vs ceiling 837.",
   );
   assertEquals(finding.tone, "attention");
   assertEquals(finding.evidence.limit_first, 900);

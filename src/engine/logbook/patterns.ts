@@ -132,7 +132,7 @@ function noRepository(verb: string): DiscernResult<never> {
     verb,
     error: "no_repository",
     message:
-      "this directory isn't inside a git repository, so it has no logbook to read. " +
+      "this directory isn't inside a git repository, so it has no Logbook to read. " +
       "Run discern from the project's checkout.",
   };
 }
@@ -371,7 +371,7 @@ interface FamilyPresentation {
 export const PATTERNS_FAMILY_SECTIONS = {
   trajectory: { heading: "Trajectory: how the numbers moved" },
   "gate-fit": { heading: "Gate fit: time and failure patterns" },
-  behaviour: { heading: "Agent behavior: workflow habits" },
+  behaviour: { heading: "Workflow behavior: recorded actions" },
   funnel: { heading: "Task funnel: the path to green" },
 } satisfies Record<DetectorFamily, FamilyPresentation>;
 
@@ -452,15 +452,15 @@ function driversLine(population: PatternsPopulation): string {
 
 /** Summarize fired, quiet, and evidence-limited detectors in one report line. */
 function scoreboardLine(data: PatternsData): string {
-  const spoke = data.detectors.filter((d) => d.status === "fired").length;
-  const clear = data.detectors.filter((d) => d.status === "quiet").length;
-  const young =
+  const fired = data.detectors.filter((d) => d.status === "fired").length;
+  const quiet = data.detectors.filter((d) => d.status === "quiet").length;
+  const insufficient =
     data.detectors.filter((d) => d.status === "insufficient-evidence").length;
   return `${plural(data.detectors.length, "detector")} · ${
-    formatHumanNumber(spoke)
-  } spoke · ${formatHumanNumber(clear)} all clear · ${
-    formatHumanNumber(young)
-  } too young to say`;
+    formatHumanNumber(fired)
+  } fired · ${formatHumanNumber(quiet)} quiet · ${
+    formatHumanNumber(insufficient)
+  } insufficient evidence`;
 }
 
 /** The trust audit's one overview row. Its detailed source and scope findings
@@ -505,7 +505,7 @@ interface FindingRow {
   renderedSeries: string;
 }
 
-/** Align finding subjects and sparklines before wrapping their explanatory prose. */
+/** Render the canonical summary first and its concrete observation below. */
 function renderFindingRows(
   out: Out,
   findings: readonly PatternsFinding[],
@@ -548,8 +548,15 @@ function renderFindingRows(
           ? basePrefixes[index] ?? ""
           : seriesPrefixes[index] ?? ""
       }`,
-      row.finding.brief,
+      row.finding.summary,
       width,
+    );
+    writeWrapped(
+      out,
+      "      Evidence: ",
+      row.finding.observed,
+      width,
+      (line) => `${out.c.dim}${line}${out.c.reset}`,
     );
   }
 }
@@ -677,7 +684,6 @@ function renderAttentionBanner(
   out: Out,
   data: PatternsData,
   width: number,
-  titleById: ReadonlyMap<string, string>,
 ): void {
   // `data.findings` is already strength-ranked. Tone filters that order and
   // never becomes a second ranking policy.
@@ -692,14 +698,11 @@ function renderAttentionBanner(
   out.group("attention");
   out.raw(`  ${c.bold}${PATTERNS_ATTENTION_HEADING}${c.reset}\n`);
   for (const finding of findings) {
-    const title = titleById.get(finding.detector) ?? finding.detector;
-    const subject = finding.subject === undefined
-      ? ""
-      : ` · ${finding.subject}`;
+    const subject = finding.subject === undefined ? "" : `${finding.subject}: `;
     writeWrapped(
       out,
       `    ${toneGlyph(finding.tone, c)} `,
-      `${title}${subject}`,
+      `${subject}${finding.summary}`,
       width,
     );
   }
@@ -728,15 +731,13 @@ function renderInvestigations(
       width,
       (line) => `${c.bold}${line}${c.reset}`,
     );
-    writeWrapped(out, "    ", investigation.interpretation, width);
-    for (const observation of investigation.observations) {
-      writeWrapped(
-        out,
-        `    ${c.dim}Evidence · ${observation.finding_id}:${c.reset} `,
-        observation.observed,
-        width,
-      );
-    }
+    writeWrapped(out, "    ", investigation.summary, width);
+    writeWrapped(
+      out,
+      `    ${c.dim}Evidence:${c.reset} `,
+      investigation.observed,
+      width,
+    );
     writeWrapped(
       out,
       `    ${c.cyan}→${c.reset} `,
@@ -768,7 +769,7 @@ function renderClosingAccount(
   if (quiet.length > 0) {
     writeWrapped(
       out,
-      "  All clear: ",
+      "  No finding: ",
       `${quiet.map((d) => d.title).join(" · ")}.`,
       width,
       (line) => `${c.dim}${line}${c.reset}`,
@@ -777,7 +778,7 @@ function renderClosingAccount(
   if (young.length > 0) {
     writeWrapped(
       out,
-      "  Too young: ",
+      "  Insufficient evidence: ",
       `${young.map((d) => d.title).join(" · ")}.`,
       width,
       (line) => `${c.dim}${line}${c.reset}`,
@@ -786,7 +787,7 @@ function renderClosingAccount(
   writeWrapped(
     out,
     "  ",
-    "Advisory only. Nothing here fails the gate. Evidence: `discern patterns --json`.",
+    "Advisory only. Nothing here fails the Gate. Evidence: `discern patterns --json`.",
     width,
     (line) => `${c.dim}${line}${c.reset}`,
   );
@@ -833,12 +834,12 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     writeWrapped(
       out,
       "  Pre-authorized landings: ",
-      preAuthorized.brief,
+      preAuthorized.summary,
       width,
       (line) => `${c.dim}${line}${c.reset}`,
     );
   }
-  renderAttentionBanner(out, data, width, titleById);
+  renderAttentionBanner(out, data, width);
   renderInvestigations(out, data.investigations, width);
 
   if (data.logbook.events === 0) {
@@ -846,7 +847,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     writeWrapped(
       out,
       "  ",
-      "The logbook is empty. discern records one event per verb run under this repository's Git directory. Nothing leaves the machine. Check back after some use.",
+      "The Logbook is empty. discern records one event per verb run under this repository's Git directory. Nothing leaves the machine. Check back after some use.",
       width,
     );
     return;
@@ -862,17 +863,17 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
 
 /** The empty-state line for a stats card with no analyzed runs behind it. */
 export const STATS_EMPTY_MESSAGE =
-  "No stats yet: the logbook holds no analyzed runs. Check back after some use.";
+  "No stats yet: the Logbook holds no analyzed runs. Check back after some use.";
 
 /** The card's provenance line — where every number comes from, and how far
  * it travels. */
 export const STATS_PROVENANCE =
-  "Counted from this repository's local logbook. Nothing leaves the machine.";
+  "Counted from this repository's local Logbook. Nothing leaves the machine.";
 
 /** Section labels for the stats card, in render order. */
 export const STATS_SECTIONS = {
   accepted: "Accepted",
-  gate: "The gate",
+  gate: "The Gate",
   workflows: "Validation workflows",
   pace: "Pace",
   standards: "Standards",
@@ -1046,7 +1047,7 @@ function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
   const reds = gate.runs - gate.greens;
   if (reds > 0) {
     rows.push(
-      `${c.red}${plural(reds, "red run")}${c.reset} stopped at the gate`,
+      `${c.red}${plural(reds, "red run")}${c.reset} stopped at the Gate`,
     );
   }
   const tail: string[] = [];
@@ -1302,7 +1303,7 @@ function statsStandardsRows(
     rows.push(
       `${plural(ratchet.pins, "limit")} tightened across ${
         plural(ratchet.standards, "standard")
-      }. Loosening fails the gate.`,
+      }. Loosening fails the Gate.`,
     );
   }
   const improved = ratchet.most_improved;
@@ -1811,7 +1812,7 @@ function presentLifecycleResult<
     return 1;
   }
   if (result.dry_run === true) {
-    out.raw("Preview only — nothing changed.\n");
+    out.raw("Preview only. Nothing changed.\n");
   }
   return 0;
 }
@@ -1896,7 +1897,7 @@ export async function patternsArchiveResult(
 /** Present the cancellation outcome used by the other owner confirmations. */
 function presentLifecycleCancellation(): number {
   const out = makeOut(colorEnabled());
-  out.raw("Aborted — nothing was changed.\n");
+  out.raw("Aborted. Nothing changed.\n");
   return 0;
 }
 

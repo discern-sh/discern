@@ -741,46 +741,32 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: PatternsOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "Report the patterns in how this project's agents drive discern, read " +
-      "from the local logbook — discern's on-machine record of its own verb " +
-      "runs (metadata only; nothing leaves the machine). The diagnostic " +
-      "ladder's third question: discern_doctor asks whether the install is " +
-      "valid, discern_improvement whether the setup follows best practice, " +
-      "discern_patterns whether the practice is actually healthy. Named " +
-      "detectors cover agent behaviour (red-gate thrash, refusal loops, " +
-      "skipped prepare, work landing on the trunk), gate fit (a dominant " +
-      "stage, duration creep, per-job validation verdict divergence under " +
-      "matched or controlled execution contexts, recurring diagnostic classes), " +
-      "the task funnel (loops to green, cycle time, update " +
-      "friction), and each quality standard's measured trajectory against " +
-      "its limit's own history. data.findings is ranked by evidence " +
-      "strength — each carries plain counts, a scope, and a recommended " +
-      "next step — and keeps each detector's strongest few: when the bound " +
-      "elided anything, data.findings_total reports the uncapped count and " +
-      "all: true lifts the bound (a much larger result). data.detectors " +
-      "reports every detector including the ones " +
-      "with insufficient evidence, so a young logbook reads as young, never " +
-      "as healthy — each row's findings field counts everything that " +
-      "detector found, elided or not. Trends compare only runs sharing one config epoch and " +
-      "release — matched by equality, so runs from other setups interleaved " +
-      "through the stream are named and excluded, never blended in. Strictly " +
-      "ADVISORY: findings never block and never gate — standards remain the " +
-      "only enforcement surface. Distinct from discern_coupling, which mines " +
-      "git history for files that change together; patterns reads discern's " +
-      "own run history. An empty logbook is a normal state with a helpful " +
-      "message. Active history is the default; logbook_file can select one " +
-      "sealed archive basename listed by the CLI's `discern patterns archives`. " +
-      "Historical selection is advisory and never changes the active recorder. " +
-      "Reset and archive lifecycle actions remain owner-confirmed CLI-only " +
-      "operations. Pass stats: true when the owner asks for " +
-      "their stats: data.stats adds practice stats — changes accepted, green " +
-      "streaks, cycle times, standards trends, agent cohorts — counted from " +
-      "the same local evidence, for the owner to share, never for steering " +
-      "work.",
+      "Read the project's local, metadata-only Logbook and return advisory " +
+      "workflow findings without changing files, configuration, authority, " +
+      "or retry policy. Each data.findings member carries a plain summary, " +
+      "concrete observed evidence with the relevant counts and denominator, " +
+      "its exact subject and scope, structured evidence, any material " +
+      "limitations, and one next_step. " +
+      "brief is a compatibility alias equal to summary. data.investigations " +
+      "connects eligible findings with the same summary/observed distinction, " +
+      "a bounded evidence boundary, one diagnostic_action, and a falsifier; " +
+      "interpretation is a compatibility alias equal to summary. Treat " +
+      "estimated values only as estimates, cohort rows as descriptive rather " +
+      "than comparative judgments, and adjacency as non-causal. " +
+      "data.detectors includes fired, quiet, and insufficient-evidence states; " +
+      "do not treat limited history as a clean bill. The default keeps a " +
+      "bounded set of findings; data.findings_total reports any omitted count " +
+      "and all: true returns the larger complete set. Trends compare only " +
+      "runs sharing recorded setup conditions and name excluded runs in their " +
+      "evidence. Active history is the default; logbook_file selects one " +
+      "sealed archive basename from `discern patterns archives` without " +
+      "changing the active recorder. stats: true adds Practice Stats from the " +
+      "same local evidence. Findings never block the Gate. Retry only after " +
+      "the named evidence or precondition changes.",
     inputSchema: {
       stats: z.boolean().optional().describe(
         "Also compute data.stats — practice stats: changes accepted and " +
-          "their scale, green-gate streaks, start-to-accept cycle times, " +
+          "their scale, green Gate streaks, start-to-accept cycle times, " +
           "standards trends, agent cohorts, and breadth, as plain counts. " +
           "For the owner's own use; nothing is compared to anyone else's " +
           "numbers.",

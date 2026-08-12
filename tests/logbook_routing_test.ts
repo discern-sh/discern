@@ -61,7 +61,7 @@ Deno.test("logbook routing: every registry finding lands on patterns and exactly
     status: "fired",
     considered: detector.threshold,
     findings: [{
-      brief: `${detector.id} brief`,
+      summary: `${detector.id} summary.`,
       observed: `${detector.id} fired.`,
       evidence: { events: detector.threshold },
       strength: detector.threshold,
@@ -103,7 +103,7 @@ Deno.test("logbook routing: the optional trajectory series reaches the wire unch
     considered: series.length,
     finding: {
       subject: "coverage",
-      brief: "1 → 1 vs floor 0 — holding",
+      summary: "The value held at 1 against floor 0.",
       series,
       observed: "`coverage` measured 1 → 1 across 3 readings.",
       evidence: { readings: series.length },
@@ -140,7 +140,7 @@ Deno.test("logbook routing: the additive evidence basis reaches wire and inline 
     considered: 2,
     finding: {
       subject: "test",
-      brief: "1 red · 1 green",
+      summary: "The test changed verdict under matched conditions.",
       observed: "The recorded job changed verdict.",
       evidence: { runs: 2 },
       basis,

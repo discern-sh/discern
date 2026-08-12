@@ -2348,6 +2348,7 @@ export type DiscernImprovementResult = {
         scope: "branch" | "session" | "project";
         tone: "good" | "neutral" | "attention";
         subject?: string;
+        summary: string;
         brief: string;
         series?: Array<number>;
         observed: string;
@@ -3168,6 +3169,7 @@ export type DiscernPatternsResult = {
       scope: "branch" | "session" | "project";
       tone: "good" | "neutral" | "attention";
       subject?: string;
+      summary: string;
       brief: string;
       series?: Array<number>;
       observed: string;
@@ -3244,6 +3246,8 @@ export type DiscernPatternsResult = {
         excluded_events: number;
         limitations: Array<string>;
       };
+      summary: string;
+      observed: string;
       interpretation: string;
       diagnostic_action: string;
       falsifier: string;
