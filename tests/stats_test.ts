@@ -18,6 +18,7 @@ import {
 } from "../src/engine/logbook/schema.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import type { PatternsStats } from "../src/shared/patterns_vocabulary.ts";
+import { EMPTY_TREE_DIFF_FINGERPRINT } from "../src/shared/tree_identity.ts";
 
 /** A deterministic timestamp `n` hours after the fixture epoch. */
 function t(hours: number): string {
@@ -42,6 +43,76 @@ function verb(over: Partial<VerbEvent>): VerbEvent {
     duration_ms: 1_000,
     epoch: "e1",
     ...over,
+  };
+}
+
+interface ValidationOptions {
+  complete?: boolean;
+  executionComplete?: boolean;
+  tracked?: number;
+  untracked?: number;
+}
+
+/** One current validation record with configurable completeness and dirty counts. */
+function validation(
+  over: ValidationOptions = {},
+): NonNullable<VerbEvent["validation"]> {
+  const complete = over.complete ?? true;
+  const executionComplete = over.executionComplete ?? true;
+  return {
+    version: 1,
+    state: {
+      version: 1,
+      complete,
+      capture: "before-test-group",
+      elapsed_ms: 1,
+      ...(complete ? { digest: "state-a" } : {}),
+      components: {},
+      counts: {
+        index_entries: 1,
+        tracked_paths: over.tracked ?? 0,
+        untracked_paths: over.untracked ?? 0,
+        submodules: 0,
+      },
+      bytes: {
+        index_manifest: 40,
+        tracked_content: 0,
+        untracked_content: 0,
+      },
+      ...(!complete
+        ? {
+          incomplete: [{
+            category: "budget" as const,
+            reason: "byte-limit" as const,
+          }],
+        }
+        : {}),
+      exclusions: [],
+    },
+    execution: {
+      version: 1,
+      complete: executionComplete,
+      mode: "standalone-test",
+      writer: "9.9.9",
+      config_digest: "config-a",
+      setup_digest: "setup-a",
+      jobs: [{
+        id: "test",
+        stage: "test",
+        kind: "known",
+        definition_digest: "job-a",
+        outcome: "passed",
+        concurrent_siblings: false,
+      }],
+      ...(!executionComplete
+        ? {
+          incomplete: [{
+            category: "execution" as const,
+            reason: "unavailable" as const,
+          }],
+        }
+        : {}),
+    },
   };
 }
 
@@ -206,6 +277,245 @@ Deno.test("stats: check hours sum done, prepare, and test wall clocks and nothin
   assertEquals(b.gate.check_hours, 2);
 });
 
+Deno.test("stats: dirty validation bridges its commit into the later clean Gate cycle", () => {
+  const b = stats(run([
+    {
+      verb: "test",
+      branch: "agent/test-first",
+      head: "working-head",
+      clean: false,
+      outcome: "failed",
+      validation: validation({ tracked: 1 }),
+    },
+    {
+      verb: "test",
+      branch: "agent/test-first",
+      head: "working-head",
+      clean: false,
+      validation: validation({ tracked: 1 }),
+    },
+    {
+      verb: "done",
+      branch: "agent/test-first",
+      head: "committed-head",
+      clean: true,
+      validation: validation(),
+    },
+    {
+      verb: "done",
+      branch: "agent/commit-first",
+      head: "already-committed",
+      clean: true,
+      validation: validation(),
+    },
+  ]));
+
+  assertEquals(b.validation_workflows.cycles.total, 2);
+  assertEquals(b.validation_workflows.cycles.branches, 2);
+  assertEquals(b.validation_workflows.cycles.routes, [
+    {
+      route: "test-first",
+      cycles: 1,
+      branches: 1,
+      runs: 3,
+      successful_cycles: 1,
+      successful_runs: 2,
+      failed_cycles: 1,
+      failed_runs: 1,
+      retried_cycles: 1,
+      retry_runs: 2,
+    },
+    {
+      route: "commit-first",
+      cycles: 1,
+      branches: 1,
+      runs: 1,
+      successful_cycles: 1,
+      successful_runs: 1,
+      failed_cycles: 0,
+      failed_runs: 0,
+      retried_cycles: 0,
+      retry_runs: 0,
+    },
+    {
+      route: "unattributed",
+      cycles: 0,
+      branches: 0,
+      runs: 0,
+      successful_cycles: 0,
+      successful_runs: 0,
+      failed_cycles: 0,
+      failed_runs: 0,
+      retried_cycles: 0,
+      retry_runs: 0,
+    },
+  ]);
+  assertEquals(b.validation_workflows.cycles.precommit_to_clean_gate, {
+    cycles: 1,
+    branches: 1,
+    runs: 3,
+    retry_runs: 2,
+  });
+  assertEquals(
+    b.validation_workflows.runs.by_verb.find((row) => row.verb === "test"),
+    {
+      verb: "test",
+      runs: 2,
+      branches: 1,
+      clean: 0,
+      dirty: 2,
+      unknown: 0,
+      successes: 1,
+      failures: 1,
+      retries: 1,
+    },
+  );
+});
+
+Deno.test("stats: workflow evidence and current dirty shapes retain their denominators", () => {
+  const b = stats(run([
+    {
+      verb: "test",
+      branch: "agent/tracked",
+      clean: false,
+      tree: "tracked-diff",
+      validation: validation({ tracked: 1 }),
+    },
+    {
+      verb: "test",
+      branch: "agent/untracked",
+      clean: false,
+      tree: EMPTY_TREE_DIFF_FINGERPRINT,
+      validation: validation({ untracked: 2 }),
+    },
+    {
+      verb: "test",
+      branch: "agent/mixed",
+      clean: false,
+      tree: "tracked-diff",
+      validation: validation({ tracked: 1, untracked: 1 }),
+    },
+    {
+      verb: "test",
+      branch: "agent/incomplete",
+      clean: false,
+      validation: validation({ complete: false }),
+    },
+    { verb: "test", branch: "agent/legacy", clean: true },
+    { verb: "prepare", branch: "agent/prepare", clean: false },
+    { verb: "test", branch: "agent/unknown", clean: null },
+  ]));
+
+  assertEquals(b.validation_workflows.runs.evidence, {
+    denominator: 7,
+    complete: 3,
+    incomplete: 1,
+    legacy: 1,
+    unattributed: 2,
+  });
+  assertEquals(b.validation_workflows.runs.dirty_state, {
+    denominator: 3,
+    tracked_only: 1,
+    untracked_only: 1,
+    mixed: 1,
+    unclassified: 0,
+  });
+  assertEquals(b.validation_workflows.runs.total, 7);
+  assertEquals(b.validation_workflows.runs.branches, 7);
+  assert(
+    !JSON.stringify(b.validation_workflows).includes("tracked-diff"),
+    "workflow Stats expose counts, never recorded tree or path evidence",
+  );
+});
+
+Deno.test("stats: branch reuse and config changes close conservative workflow cycles", () => {
+  const b = stats(run([
+    {
+      verb: "test",
+      branch: "agent/reused",
+      head: "h1",
+      clean: false,
+    },
+    {
+      verb: "done",
+      branch: "agent/reused",
+      head: "h2",
+      clean: true,
+    },
+    {
+      verb: "start",
+      branch: "main",
+      target: "agent/reused",
+      head: "main-head",
+    },
+    {
+      verb: "test",
+      branch: "agent/reused",
+      head: "h3",
+      clean: false,
+    },
+    {
+      verb: "test",
+      branch: "agent/reused",
+      head: "h3",
+      clean: false,
+      epoch: "e2",
+    },
+  ]));
+
+  assertEquals(b.validation_workflows.cycles.total, 3);
+  assertEquals(
+    b.validation_workflows.cycles.routes.find((row) =>
+      row.route === "test-first"
+    )?.cycles,
+    3,
+  );
+  assertEquals(b.validation_workflows.cycles.precommit_to_clean_gate.cycles, 1);
+});
+
+Deno.test("stats: an unsuccessful accept does not close live workflow work", () => {
+  const b = stats(run([
+    { verb: "test", branch: "agent/open", clean: false },
+    { verb: "accept", branch: "agent/open", outcome: "refused" },
+    { verb: "done", branch: "agent/open", clean: true },
+  ]));
+  assertEquals(b.validation_workflows.cycles.total, 1);
+  assertEquals(
+    b.validation_workflows.cycles.routes.find((route) =>
+      route.route === "test-first"
+    )?.runs,
+    2,
+  );
+});
+
+Deno.test("stats: unknown entry state stays unattributed and a green retry stays in its cycle", () => {
+  const b = stats(run([
+    {
+      verb: "test",
+      branch: "agent/unknown-entry",
+      head: "h1",
+      clean: null,
+    },
+    {
+      verb: "done",
+      branch: "agent/unknown-entry",
+      head: "h1",
+      clean: true,
+    },
+    {
+      verb: "done",
+      branch: "agent/unknown-entry",
+      head: "h1",
+      clean: true,
+    },
+  ]));
+  const route = b.validation_workflows.cycles.routes.find((row) =>
+    row.route === "unattributed"
+  );
+  assertEquals(route?.cycles, 1);
+  assertEquals(route?.retry_runs, 2);
+});
+
 Deno.test("stats: cycles match a start's created branch to the first later accept on it", () => {
   const b = stats(run([
     { verb: "start", branch: "main", target: "agent/quick" }, // t(0)
@@ -341,6 +651,109 @@ Deno.test("stats: an empty stream produces a card of zeros, not an error", () =>
     longest_green_streak: 0,
     current_green_streak: 0,
     check_hours: 0,
+  });
+  assertEquals(b.validation_workflows, {
+    runs: {
+      total: 0,
+      branches: 0,
+      by_verb: [
+        {
+          verb: "prepare",
+          runs: 0,
+          branches: 0,
+          clean: 0,
+          dirty: 0,
+          unknown: 0,
+          successes: 0,
+          failures: 0,
+          retries: 0,
+        },
+        {
+          verb: "test",
+          runs: 0,
+          branches: 0,
+          clean: 0,
+          dirty: 0,
+          unknown: 0,
+          successes: 0,
+          failures: 0,
+          retries: 0,
+        },
+        {
+          verb: "done",
+          runs: 0,
+          branches: 0,
+          clean: 0,
+          dirty: 0,
+          unknown: 0,
+          successes: 0,
+          failures: 0,
+          retries: 0,
+        },
+      ],
+      evidence: {
+        denominator: 0,
+        complete: 0,
+        incomplete: 0,
+        legacy: 0,
+        unattributed: 0,
+      },
+      dirty_state: {
+        denominator: 0,
+        tracked_only: 0,
+        untracked_only: 0,
+        mixed: 0,
+        unclassified: 0,
+      },
+    },
+    cycles: {
+      total: 0,
+      branches: 0,
+      routes: [
+        {
+          route: "test-first",
+          cycles: 0,
+          branches: 0,
+          runs: 0,
+          successful_cycles: 0,
+          successful_runs: 0,
+          failed_cycles: 0,
+          failed_runs: 0,
+          retried_cycles: 0,
+          retry_runs: 0,
+        },
+        {
+          route: "commit-first",
+          cycles: 0,
+          branches: 0,
+          runs: 0,
+          successful_cycles: 0,
+          successful_runs: 0,
+          failed_cycles: 0,
+          failed_runs: 0,
+          retried_cycles: 0,
+          retry_runs: 0,
+        },
+        {
+          route: "unattributed",
+          cycles: 0,
+          branches: 0,
+          runs: 0,
+          successful_cycles: 0,
+          successful_runs: 0,
+          failed_cycles: 0,
+          failed_runs: 0,
+          retried_cycles: 0,
+          retry_runs: 0,
+        },
+      ],
+      precommit_to_clean_gate: {
+        cycles: 0,
+        branches: 0,
+        runs: 0,
+        retry_runs: 0,
+      },
+    },
   });
   assertEquals(b.cycles, undefined);
   assertEquals(b.ratchet, { pins: 0, standards: 0 });
@@ -504,6 +917,74 @@ Deno.test("stats: agents ride the cohort seam — below-minimum identities are c
   assertEquals(claude?.greens, 3);
   assertEquals(b.agents.below_minimum, { agents: 1, runs: 1 });
   assertEquals(b.agents.unattributed_runs, 1);
+});
+
+Deno.test("stats: workflow cohorts use shared minimums and keep every remainder", () => {
+  const cohortRuns = (
+    agent: string,
+    branch: string,
+    clean: boolean,
+  ): Partial<VerbEvent>[] =>
+    Array.from({ length: 5 }, (_, index) => ({
+      verb: clean ? "done" : "test",
+      branch,
+      clean,
+      outcome: index === 0 ? "failed" : "ok",
+      driver: signals(agent),
+    }));
+  const b = stats(run([
+    ...cohortRuns("claude", "agent/claude", false),
+    ...cohortRuns("cursor", "agent/cursor", true),
+    {
+      verb: "test",
+      branch: "agent/below",
+      clean: false,
+      driver: signals("codex"),
+    },
+    { verb: "test", branch: "agent/unattributed", clean: null },
+  ]));
+
+  assertEquals(b.validation_workflows.cohorts, {
+    denominator_cycles: 4,
+    denominator_runs: 12,
+    identities: [
+      {
+        agent: "claude",
+        label: "Claude Code",
+        cycles: 1,
+        runs: 5,
+        test_first_cycles: 1,
+        commit_first_cycles: 0,
+        successful_cycles: 0,
+        failed_cycles: 1,
+        retried_cycles: 1,
+      },
+      {
+        agent: "cursor",
+        label: "Cursor",
+        cycles: 1,
+        runs: 5,
+        test_first_cycles: 0,
+        commit_first_cycles: 1,
+        successful_cycles: 1,
+        failed_cycles: 1,
+        retried_cycles: 1,
+      },
+    ],
+    below_minimum: { cohorts: 1, cycles: 1, runs: 1 },
+    unattributed: { cycles: 1, runs: 1 },
+  });
+});
+
+Deno.test("stats: one eligible workflow identity never produces a comparison", () => {
+  const b = stats(run(
+    Array.from({ length: 5 }, () => ({
+      verb: "test",
+      clean: false,
+      driver: signals("claude"),
+    })),
+  ));
+  assertEquals(b.validation_workflows.cohorts, undefined);
 });
 
 Deno.test("stats: each listed identity carries its own usage series across the span", () => {

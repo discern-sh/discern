@@ -270,6 +270,107 @@ const patternsPopulationSchema = z.strictObject({
 /** The scored driver population of one report. */
 export type PatternsPopulation = z.infer<typeof patternsPopulationSchema>;
 
+/** The recorded order in which one change cycle first entered validation. */
+export const VALIDATION_WORKFLOW_ROUTES = [
+  "test-first",
+  "commit-first",
+  "unattributed",
+] as const;
+export type ValidationWorkflowRoute =
+  (typeof VALIDATION_WORKFLOW_ROUTES)[number];
+
+/** Counts shared by every validation-workflow route. */
+const validationWorkflowRouteSchema = z.strictObject({
+  route: z.enum(VALIDATION_WORKFLOW_ROUTES),
+  cycles: z.number().int().nonnegative(),
+  branches: z.number().int().nonnegative(),
+  runs: z.number().int().nonnegative(),
+  successful_cycles: z.number().int().nonnegative(),
+  successful_runs: z.number().int().nonnegative(),
+  failed_cycles: z.number().int().nonnegative(),
+  failed_runs: z.number().int().nonnegative(),
+  retried_cycles: z.number().int().nonnegative(),
+  retry_runs: z.number().int().nonnegative(),
+});
+
+/** Per-verb validation-workflow counts. */
+const validationWorkflowVerbSchema = z.strictObject({
+  verb: z.enum(["prepare", "test", "done"]),
+  runs: z.number().int().nonnegative(),
+  branches: z.number().int().nonnegative(),
+  clean: z.number().int().nonnegative(),
+  dirty: z.number().int().nonnegative(),
+  unknown: z.number().int().nonnegative(),
+  successes: z.number().int().nonnegative(),
+  failures: z.number().int().nonnegative(),
+  retries: z.number().int().nonnegative(),
+});
+
+/** One cohort's workflow counts, after the shared cohort minimums admit it. */
+const validationWorkflowCohortSchema = z.strictObject({
+  agent: z.string(),
+  label: z.string(),
+  cycles: z.number().int().nonnegative(),
+  runs: z.number().int().nonnegative(),
+  test_first_cycles: z.number().int().nonnegative(),
+  commit_first_cycles: z.number().int().nonnegative(),
+  successful_cycles: z.number().int().nonnegative(),
+  failed_cycles: z.number().int().nonnegative(),
+  retried_cycles: z.number().int().nonnegative(),
+});
+
+/** Validation-workflow Stats: counts over runs, change cycles, and eligible
+ * identity cohorts. The payload carries denominators rather than scores. */
+const validationWorkflowStatsSchema = z.strictObject({
+  runs: z.strictObject({
+    total: z.number().int().nonnegative(),
+    branches: z.number().int().nonnegative(),
+    by_verb: z.array(validationWorkflowVerbSchema).length(3),
+    evidence: z.strictObject({
+      denominator: z.number().int().nonnegative(),
+      complete: z.number().int().nonnegative(),
+      incomplete: z.number().int().nonnegative(),
+      legacy: z.number().int().nonnegative(),
+      unattributed: z.number().int().nonnegative(),
+    }),
+    dirty_state: z.strictObject({
+      denominator: z.number().int().nonnegative(),
+      tracked_only: z.number().int().nonnegative(),
+      untracked_only: z.number().int().nonnegative(),
+      mixed: z.number().int().nonnegative(),
+      unclassified: z.number().int().nonnegative(),
+    }),
+  }),
+  cycles: z.strictObject({
+    total: z.number().int().nonnegative(),
+    branches: z.number().int().nonnegative(),
+    routes: z.array(validationWorkflowRouteSchema).length(
+      VALIDATION_WORKFLOW_ROUTES.length,
+    ),
+    precommit_to_clean_gate: z.strictObject({
+      cycles: z.number().int().nonnegative(),
+      branches: z.number().int().nonnegative(),
+      runs: z.number().int().nonnegative(),
+      retry_runs: z.number().int().nonnegative(),
+    }),
+  }),
+  /** Present only when at least 2 cohorts clear the existing shared minimums. */
+  cohorts: z.strictObject({
+    denominator_cycles: z.number().int().nonnegative(),
+    denominator_runs: z.number().int().nonnegative(),
+    identities: z.array(validationWorkflowCohortSchema).max(10),
+    below_minimum: z.strictObject({
+      cohorts: z.number().int().nonnegative(),
+      cycles: z.number().int().nonnegative(),
+      runs: z.number().int().nonnegative(),
+    }),
+    unattributed: z.strictObject({
+      cycles: z.number().int().nonnegative(),
+      runs: z.number().int().nonnegative(),
+    }),
+  }).optional(),
+});
+
 /** The `--stats` payload — practice stats: the practice's countable feats,
  * read from the same analysis population as the detectors (CI runs, previews,
  * and setup-era events excluded). Counts and durations only, all local
@@ -333,6 +434,9 @@ export const PatternsStatsSchema = z.strictObject({
     greens_per_day: z.array(z.number().int()).max(PATTERNS_SERIES_MAX_POINTS)
       .optional(),
   }),
+  /** How this project moves from working validation to a clean green Gate.
+   * Change cycles and evidence boundaries are defined in the Patterns map. */
+  validation_workflows: validationWorkflowStatsSchema,
   /** Completed start-to-accept cycles, matched the same way the funnel
    * detector matches them. Present once at least one cycle completed. */
   cycles: z.strictObject({

@@ -10664,6 +10664,434 @@
                         "check_hours"
                       ]
                     },
+                    "validation_workflows": {
+                      "type": "object",
+                      "properties": {
+                        "runs": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "branches": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "by_verb": {
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "verb": {
+                                    "type": "string",
+                                    "enum": [
+                                      "prepare",
+                                      "test",
+                                      "done"
+                                    ]
+                                  },
+                                  "runs": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "branches": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "clean": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "dirty": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "unknown": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "successes": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "failures": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "retries": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "verb",
+                                  "runs",
+                                  "branches",
+                                  "clean",
+                                  "dirty",
+                                  "unknown",
+                                  "successes",
+                                  "failures",
+                                  "retries"
+                                ]
+                              }
+                            },
+                            "evidence": {
+                              "type": "object",
+                              "properties": {
+                                "denominator": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "complete": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "incomplete": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "legacy": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "unattributed": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "denominator",
+                                "complete",
+                                "incomplete",
+                                "legacy",
+                                "unattributed"
+                              ]
+                            },
+                            "dirty_state": {
+                              "type": "object",
+                              "properties": {
+                                "denominator": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "tracked_only": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "untracked_only": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "mixed": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "unclassified": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "denominator",
+                                "tracked_only",
+                                "untracked_only",
+                                "mixed",
+                                "unclassified"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "total",
+                            "branches",
+                            "by_verb",
+                            "evidence",
+                            "dirty_state"
+                          ]
+                        },
+                        "cycles": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "branches": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "routes": {
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "route": {
+                                    "type": "string",
+                                    "enum": [
+                                      "test-first",
+                                      "commit-first",
+                                      "unattributed"
+                                    ]
+                                  },
+                                  "cycles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "branches": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "runs": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "successful_cycles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "successful_runs": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "failed_cycles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "failed_runs": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "retried_cycles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "retry_runs": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "route",
+                                  "cycles",
+                                  "branches",
+                                  "runs",
+                                  "successful_cycles",
+                                  "successful_runs",
+                                  "failed_cycles",
+                                  "failed_runs",
+                                  "retried_cycles",
+                                  "retry_runs"
+                                ]
+                              }
+                            },
+                            "precommit_to_clean_gate": {
+                              "type": "object",
+                              "properties": {
+                                "cycles": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "branches": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "runs": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "retry_runs": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "cycles",
+                                "branches",
+                                "runs",
+                                "retry_runs"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "total",
+                            "branches",
+                            "routes",
+                            "precommit_to_clean_gate"
+                          ]
+                        },
+                        "cohorts": {
+                          "type": "object",
+                          "properties": {
+                            "denominator_cycles": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "denominator_runs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "identities": {
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "agent": {
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "cycles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "runs": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "test_first_cycles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "commit_first_cycles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "successful_cycles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "failed_cycles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "retried_cycles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "agent",
+                                  "label",
+                                  "cycles",
+                                  "runs",
+                                  "test_first_cycles",
+                                  "commit_first_cycles",
+                                  "successful_cycles",
+                                  "failed_cycles",
+                                  "retried_cycles"
+                                ]
+                              }
+                            },
+                            "below_minimum": {
+                              "type": "object",
+                              "properties": {
+                                "cohorts": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "cycles": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "runs": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "cohorts",
+                                "cycles",
+                                "runs"
+                              ]
+                            },
+                            "unattributed": {
+                              "type": "object",
+                              "properties": {
+                                "cycles": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "runs": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "cycles",
+                                "runs"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "denominator_cycles",
+                            "denominator_runs",
+                            "identities",
+                            "below_minimum",
+                            "unattributed"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "runs",
+                        "cycles"
+                      ]
+                    },
                     "cycles": {
                       "type": "object",
                       "properties": {
@@ -10918,6 +11346,7 @@
                   "required": [
                     "accepted",
                     "gate",
+                    "validation_workflows",
                     "ratchet",
                     "agents",
                     "breadth"

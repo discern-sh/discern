@@ -406,7 +406,9 @@ export interface LegacyValidationJobObservation {
 /** Complete current evidence must make every condition in the planned-job
  * envelope available. An incomplete reason on a nominally complete record is
  * treated conservatively as incomplete too. */
-function currentEvidenceIsComparable(validation: ValidationEvidence): boolean {
+export function validationEvidenceIsComparable(
+  validation: ValidationEvidence,
+): boolean {
   return validation.state.complete && validation.state.digest !== undefined &&
     (validation.state.incomplete?.length ?? 0) === 0 &&
     validation.execution.complete &&
@@ -435,7 +437,8 @@ export function currentValidationJobObservations(
     if (event.verb !== "done" && event.verb !== "test") continue;
     const validation = event.validation;
     if (
-      validation === undefined || !currentEvidenceIsComparable(validation) ||
+      validation === undefined ||
+      !validationEvidenceIsComparable(validation) ||
       !uniqueJobIds(validation.execution.jobs)
     ) {
       continue;

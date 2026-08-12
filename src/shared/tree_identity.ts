@@ -20,6 +20,9 @@ import { runGit } from "./subprocess.ts";
 import { cksumString } from "./crc.ts";
 import { parsePorcelainZ } from "./git_paths.ts";
 
+/** The tracked-diff fingerprint of an otherwise dirty untracked-only tree. */
+export const EMPTY_TREE_DIFF_FINGERPRINT = cksumString("").toString(16);
+
 /** Fingerprint the uncommitted diff at `root`, `undefined` when git cannot
  * answer. Hex form of the checksum; empty diff fingerprints too (a staged-only
  * or untracked-only tree still gets a stable value). */
@@ -30,7 +33,9 @@ export async function treeDiffFingerprint(
   if (!diff.success) {
     return undefined;
   }
-  return cksumString(diff.stdout).toString(16);
+  return diff.stdout === ""
+    ? EMPTY_TREE_DIFF_FINGERPRINT
+    : cksumString(diff.stdout).toString(16);
 }
 
 /** Fingerprint everything uncommitted at `root` — the tracked diff plus a

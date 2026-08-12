@@ -3249,6 +3249,83 @@ export type DiscernPatternsResult = {
         check_hours: number;
         greens_per_day?: Array<number>;
       };
+      validation_workflows: {
+        runs: {
+          total: number;
+          branches: number;
+          by_verb: Array<{
+            verb: "prepare" | "test" | "done";
+            runs: number;
+            branches: number;
+            clean: number;
+            dirty: number;
+            unknown: number;
+            successes: number;
+            failures: number;
+            retries: number;
+          }>;
+          evidence: {
+            denominator: number;
+            complete: number;
+            incomplete: number;
+            legacy: number;
+            unattributed: number;
+          };
+          dirty_state: {
+            denominator: number;
+            tracked_only: number;
+            untracked_only: number;
+            mixed: number;
+            unclassified: number;
+          };
+        };
+        cycles: {
+          total: number;
+          branches: number;
+          routes: Array<{
+            route: "test-first" | "commit-first" | "unattributed";
+            cycles: number;
+            branches: number;
+            runs: number;
+            successful_cycles: number;
+            successful_runs: number;
+            failed_cycles: number;
+            failed_runs: number;
+            retried_cycles: number;
+            retry_runs: number;
+          }>;
+          precommit_to_clean_gate: {
+            cycles: number;
+            branches: number;
+            runs: number;
+            retry_runs: number;
+          };
+        };
+        cohorts?: {
+          denominator_cycles: number;
+          denominator_runs: number;
+          identities: Array<{
+            agent: string;
+            label: string;
+            cycles: number;
+            runs: number;
+            test_first_cycles: number;
+            commit_first_cycles: number;
+            successful_cycles: number;
+            failed_cycles: number;
+            retried_cycles: number;
+          }>;
+          below_minimum: {
+            cohorts: number;
+            cycles: number;
+            runs: number;
+          };
+          unattributed: {
+            cycles: number;
+            runs: number;
+          };
+        };
+      };
       cycles?: {
         started: number;
         completed: number;
