@@ -19,6 +19,51 @@ export const SITE_DEV_BROWSER_HOST = "localhost";
 export const DEFAULT_SITE_DEV_PORT = 4507;
 export const LOCAL_SITE_BUILD_TASKS = ["site:build"] as const;
 
+/** Options shared by the ordinary and locally linked site-preview runners. */
+export interface SiteDevOptions {
+  readonly buildConfig?: string;
+  readonly extraWatchInputs: readonly string[];
+  readonly watch: boolean;
+}
+
+/** Parse site-runner arguments without letting an unknown option disappear. */
+export function parseSiteDevArgs(args: readonly string[]): SiteDevOptions {
+  let buildConfig: string | undefined;
+  const extraWatchInputs: string[] = [];
+  let watch = false;
+  for (let index = 0; index < args.length; index++) {
+    const option = args[index];
+    switch (option) {
+      case "--watch":
+        watch = true;
+        break;
+      case "--build-config": {
+        const value = args[++index];
+        if (value === undefined) {
+          throw new Error("--build-config requires a path");
+        }
+        buildConfig = value;
+        break;
+      }
+      case "--watch-input": {
+        const value = args[++index];
+        if (value === undefined) {
+          throw new Error("--watch-input requires a path");
+        }
+        extraWatchInputs.push(value);
+        break;
+      }
+      default:
+        throw new Error(`unknown site development option: ${option}`);
+    }
+  }
+  return {
+    ...(buildConfig === undefined ? {} : { buildConfig }),
+    extraWatchInputs,
+    watch,
+  };
+}
+
 /** Parse an optional local port override without silently accepting garbage. */
 export function parseSiteDevPort(value: string | undefined): number {
   if (value === undefined) return DEFAULT_SITE_DEV_PORT;
@@ -52,19 +97,33 @@ export async function resolveSiteDevPort(
   return (await discover()) ?? DEFAULT_SITE_DEV_PORT;
 }
 
+/** One fresh-process build command, optionally pinned to a temporary config. */
+export function localSiteBuildCommandArgs(
+  buildConfig?: string,
+): string[] {
+  if (buildConfig === undefined) return ["task", ...LOCAL_SITE_BUILD_TASKS];
+  return [
+    "run",
+    "--config",
+    buildConfig,
+    "--allow-read",
+    "--allow-write",
+    "--allow-run",
+    "--allow-env=NODE_ENV",
+    join(REPO_ROOT_PATH, "site/build.ts"),
+  ];
+}
+
 /** Run the build in a fresh process so changed TS modules cannot remain cached. */
-async function runSiteBuild(): Promise<boolean> {
-  for (const task of LOCAL_SITE_BUILD_TASKS) {
-    const result = await new Deno.Command(Deno.execPath(), {
-      args: ["task", task],
-      cwd: REPO_ROOT_PATH,
-      stdin: "null",
-      stdout: "inherit",
-      stderr: "inherit",
-    }).output();
-    if (!result.success) return false;
-  }
-  return true;
+async function runSiteBuild(buildConfig?: string): Promise<boolean> {
+  const result = await new Deno.Command(Deno.execPath(), {
+    args: localSiteBuildCommandArgs(buildConfig),
+    cwd: REPO_ROOT_PATH,
+    stdin: "null",
+    stdout: "inherit",
+    stderr: "inherit",
+  }).output();
+  return result.success;
 }
 
 /** Local development serves the same route surface as production. */
@@ -88,9 +147,20 @@ function startSiteServer(port: number): Deno.HttpServer<Deno.NetAddr> {
   );
 }
 
-/** Rebuild after debounced source changes, queuing one repeat when changes overlap. */
-async function watchSiteBuildInputs(): Promise<never> {
-  const watcher = Deno.watchFs(siteBuildInputPaths());
+/** Consumer inputs plus any source trees supplied by a local package runner. */
+export function localSiteWatchInputPaths(
+  extraWatchInputs: readonly string[],
+): string[] {
+  return [...new Set([...siteBuildInputPaths(), ...extraWatchInputs])];
+}
+
+/** Rebuild the site from the same config whenever an authored input changes. */
+async function watchSiteBuildInputs(
+  options: SiteDevOptions,
+): Promise<never> {
+  const watcher = Deno.watchFs(
+    localSiteWatchInputPaths(options.extraWatchInputs),
+  );
   let debounce: ReturnType<typeof setTimeout> | undefined;
   let rebuilding = false;
   let rebuildAgain = false;
@@ -105,7 +175,7 @@ async function watchSiteBuildInputs(): Promise<never> {
       do {
         rebuildAgain = false;
         console.log("Site source changed; rebuilding...");
-        if (!await runSiteBuild()) {
+        if (!await runSiteBuild(options.buildConfig)) {
           console.error("Site build failed; watching for the next change.");
         }
       } while (rebuildAgain);
@@ -129,12 +199,14 @@ async function watchSiteBuildInputs(): Promise<never> {
 }
 
 /** Build and serve the site, staying alive to rebuild when requested. */
-export async function runLocalSite(watch: boolean): Promise<void> {
+export async function runLocalSite(options: SiteDevOptions): Promise<void> {
   const port = await resolveSiteDevPort(Deno.env.get("PORT"));
-  if (!await runSiteBuild()) throw new Error("Initial site build failed");
+  if (!await runSiteBuild(options.buildConfig)) {
+    throw new Error("Initial site build failed");
+  }
   const server = startSiteServer(port);
-  if (watch) await watchSiteBuildInputs();
+  if (options.watch) await watchSiteBuildInputs(options);
   await server.finished;
 }
 
-if (import.meta.main) await runLocalSite(Deno.args.includes("--watch"));
+if (import.meta.main) await runLocalSite(parseSiteDevArgs(Deno.args));

@@ -22,6 +22,26 @@ Imports use only that package root and its documented `./runtime` and `./react` 
 
 When a package defect affects discern, release the fix from the package repository and update this repository to the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
+## Local package iteration
+
+Use the `site-design-system` Project Script to review changes that span both repositories before publication. Give it the root directory of the active design-system checkout or worktree:
+
+```sh
+discern scripts site-design-system /absolute/path/to/design-system-worktree
+```
+
+The script validates the package name and the root, React, and Runtime exports. It creates a temporary copy of discern's Deno configuration and links the selected checkout there. The temporary configuration has no lockfile or `node_modules` directory. Before building, the script proves that the public Runtime export resolves from the selected checkout.
+
+The script serves the normal site on this worktree's assigned port. Its watcher covers discern's site inputs, the linked package's `src/` tree, and its `deno.json`. Every rebuild uses the same temporary configuration. Stopping the script removes that configuration. The script also verifies that the committed `deno.json` and `deno.lock` remained unchanged.
+
+Use a one-shot build when another process already serves the generated site:
+
+```sh
+discern scripts site-design-system -- --build-only /absolute/path/to/design-system-worktree
+```
+
+`DISCERN_DESIGN_SYSTEM_PATH` may supply the checkout instead of the positional path. The local link provides visual and integration evidence only. The full Gate, release workflow, and production build continue to resolve the exact JSR version. After a release reaches JSR, update the committed pin and return to the ordinary production build.
+
 ## Site-owned integration
 
 [`site/design_system.ts`](../../../site/design_system.ts) contains the complete integration. Its `DESIGN_SYSTEM_BUNDLES` table declares:

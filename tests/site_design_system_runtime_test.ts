@@ -42,12 +42,21 @@ const BROWSER = {
 };
 
 interface DenoConfig {
+  readonly links?: readonly string[];
   readonly workspace?: readonly string[];
   readonly imports: Readonly<Record<string, string>>;
   readonly minimumDependencyAge?: {
     readonly age: string;
     readonly exclude: readonly string[];
   };
+}
+
+/** Report committed dependency containers that can replace registry packages locally. */
+function committedLocalOverrideViolations(config: DenoConfig): string[] {
+  return [
+    ...(config.workspace === undefined ? [] : ["workspace"]),
+    ...(config.links ?? []).map((path) => `links:${path}`),
+  ];
 }
 
 interface DenoLock {
@@ -327,11 +336,21 @@ function componentOwnedSelectors(
   return [...selectors].toSorted();
 }
 
+Deno.test("the committed-override detector catches a freshly named linked package", () => {
+  assertEquals(
+    committedLocalOverrideViolations({
+      imports: {},
+      links: ["../future-component-system"],
+    }),
+    ["links:../future-component-system"],
+  );
+});
+
 Deno.test("Discern pins one exact public design-system dependency", async () => {
   const config = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.json")),
   ) as DenoConfig;
-  assertEquals(config.workspace, undefined);
+  assertEquals(committedLocalOverrideViolations(config), []);
   assertEquals(
     Object.entries(config.imports).filter(([key, value]) =>
       key.includes("design-system") || value.includes("design-system")
