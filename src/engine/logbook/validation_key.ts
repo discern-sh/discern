@@ -1,4 +1,4 @@
-/** Repository-common secret used to make validation evidence opaque. */
+/** Repository-common secret that makes validation evidence opaque. */
 
 import { dirname } from "@std/path";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
