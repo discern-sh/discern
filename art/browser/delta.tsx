@@ -31,25 +31,43 @@ export interface DeltaChannel {
 export const DELTA_CHANNELS: readonly DeltaChannel[] = Object.freeze([
   {
     id: "top",
-    d: "M 170 270 C 230 270 250 180 310 180 L 450 180 C 510 180 530 270 590 270",
+    d: "M 178 270 C 234 270 252 180 310 180 L 450 180 C 510 180 528 270 582 270",
     gate: { x: 438, y1: 167, y2: 193 },
     chevronRest: "40%",
   },
   {
     id: "middle",
-    d: "M 170 270 L 590 270",
+    d: "M 178 270 L 582 270",
     gate: { x: 438, y1: 257, y2: 283 },
     chevronRest: "44%",
   },
   {
     id: "bottom",
-    d: "M 170 270 C 230 270 250 360 310 360 L 450 360 C 510 360 530 270 590 270",
+    d: "M 178 270 C 234 270 252 360 310 360 L 450 360 C 510 360 528 270 582 270",
     gate: { x: 438, y1: 347, y2: 373 },
     chevronRest: "52%",
   },
 ]);
 
 export const DELTA_CHANNEL_COUNT: number = DELTA_CHANNELS.length;
+
+/** The fork node: the open triangle whose apex releases the channels. */
+export const DELTA_FORK = Object.freeze({ baseX: 162, apexX: 178, y: 270 });
+
+/** The confluence node: the filled triangle whose base gathers them. */
+export const DELTA_MERGE = Object.freeze({ baseX: 582, apexX: 598, y: 270 });
+
+/** Half the height of each node triangle's vertical base. */
+const NODE_HALF_BASE = 9;
+
+/** A node triangle's path: vertical base, apex pointing with the flow. */
+function nodePath(
+  node: { readonly baseX: number; readonly apexX: number; readonly y: number },
+): string {
+  return `M ${node.baseX} ${node.y - NODE_HALF_BASE} L ${node.baseX} ${
+    node.y + NODE_HALF_BASE
+  } L ${node.apexX} ${node.y} Z`;
+}
 
 /** The gate ticks, one per channel, derived from the channel authority. */
 export const DELTA_GATE_TICKS: readonly DeltaGateTick[] = Object.freeze(
@@ -58,8 +76,9 @@ export const DELTA_GATE_TICKS: readonly DeltaGateTick[] = Object.freeze(
 
 export const DELTA_GATE_TICK_COUNT: number = DELTA_GATE_TICKS.length;
 
-/** The guide the accent pulse travels: from the merge node off the plate. */
-export const DELTA_EXIT_GUIDE = "M 590 270 L 790 270";
+/** The guide the accent pulse travels: from the confluence apex off the plate. */
+export const DELTA_EXIT_GUIDE =
+  `M ${DELTA_MERGE.apexX} ${DELTA_MERGE.y} L 790 ${DELTA_MERGE.y}`;
 
 /** The open chevron mark travelling each channel, pointing along it. */
 const CHEVRON_MARK = "M -6 -4.5 L 0 0 L -6 4.5";
@@ -108,25 +127,25 @@ export function DeltaArtwork(
         <g aria-hidden="true">
           <g className="fig-delta__construction">
             <path
-              d="M 170 270 L 230 270 L 250 180 L 310 180"
+              d="M 178 270 L 234 270 L 252 180 L 310 180"
               vectorEffect="non-scaling-stroke"
             />
             <path
-              d="M 450 180 L 510 180 L 530 270 L 590 270"
+              d="M 450 180 L 510 180 L 528 270 L 582 270"
               vectorEffect="non-scaling-stroke"
             />
             <path
-              d="M 170 270 L 230 270 L 250 360 L 310 360"
+              d="M 178 270 L 234 270 L 252 360 L 310 360"
               vectorEffect="non-scaling-stroke"
             />
             <path
-              d="M 450 360 L 510 360 L 530 270 L 590 270"
+              d="M 450 360 L 510 360 L 528 270 L 582 270"
               vectorEffect="non-scaling-stroke"
             />
           </g>
           <path
             className="fig-delta__envelope"
-            d="M 170 270 L 380 180 L 590 270 Z"
+            d="M 178 270 L 380 180 L 582 270 Z"
             vectorEffect="non-scaling-stroke"
           />
 
@@ -143,17 +162,17 @@ export function DeltaArtwork(
           <line
             className="fig-delta__entry"
             x1={0}
-            y1={270}
-            x2={162}
-            y2={270}
+            y1={DELTA_FORK.y}
+            x2={DELTA_FORK.baseX}
+            y2={DELTA_FORK.y}
             vectorEffect="non-scaling-stroke"
           />
           <line
             className="fig-delta__exit"
-            x1={597}
-            y1={270}
+            x1={DELTA_MERGE.apexX}
+            y1={DELTA_MERGE.y}
             x2={760}
-            y2={270}
+            y2={DELTA_MERGE.y}
             vectorEffect="non-scaling-stroke"
           />
 
@@ -172,12 +191,12 @@ export function DeltaArtwork(
 
           <path
             className="fig-delta__fork"
-            d="M 162 261 L 162 279 L 178 270 Z"
+            d={nodePath(DELTA_FORK)}
             vectorEffect="non-scaling-stroke"
           />
           <path
             className="fig-delta__merge"
-            d="M 582 261 L 582 279 L 598 270 Z"
+            d={nodePath(DELTA_MERGE)}
           />
 
           {DELTA_CHANNELS.map((channel) => (

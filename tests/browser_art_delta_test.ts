@@ -7,7 +7,9 @@ import {
   DELTA_CHANNEL_COUNT,
   DELTA_CHANNELS,
   DELTA_EXIT_GUIDE,
+  DELTA_FORK,
   DELTA_GATE_TICK_COUNT,
+  DELTA_MERGE,
 } from "../art/browser/delta.tsx";
 import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
 
@@ -166,6 +168,16 @@ Deno.test("the delta geometry shares one fork, one confluence, aligned gates", (
   });
   assertEquals(new Set(endpoints.map(({ start }) => start)).size, 1);
   assertEquals(new Set(endpoints.map(({ end }) => end)).size, 1);
+  assertEquals(
+    endpoints[0]?.start,
+    `${DELTA_FORK.apexX} ${DELTA_FORK.y}`,
+    "channels depart at the fork's apex, never inside its open form",
+  );
+  assertEquals(
+    endpoints[0]?.end,
+    `${DELTA_MERGE.baseX} ${DELTA_MERGE.y}`,
+    "channels arrive at the confluence's base",
+  );
 
   const first = DELTA_CHANNELS[0];
   assert(first !== undefined);
@@ -196,7 +208,7 @@ Deno.test("the delta geometry shares one fork, one confluence, aligned gates", (
   const exitStart = numbersIn(DELTA_EXIT_GUIDE).slice(0, 2).join(" ");
   assertEquals(
     exitStart,
-    endpoints.map(({ end }) => end)[0],
-    "the accent pulse departs from the confluence",
+    `${DELTA_MERGE.apexX} ${DELTA_MERGE.y}`,
+    "the accent pulse departs from the confluence apex",
   );
 });
