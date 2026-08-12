@@ -12,7 +12,7 @@ export const DISCERN_FAVICON_PATH = "/assets/favicon.svg";
 export const LANDING_TITLE =
   "discern · Build further. Stand behind what comes back.";
 export const LANDING_DESCRIPTION =
-  "An engineering practice for agent-built software. Put more work in motion, review less code, and keep the final say.";
+  "An engineering practice for agent-built software. Give coding agents a project-owned way to work, and come back to changes ready for a decision.";
 
 /**
  * Landing-family routes that carry their own exact titles. Serving appends

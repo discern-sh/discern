@@ -428,20 +428,14 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   const body = dom.window.document.body;
   const text = body.textContent ?? "";
 
-  // The first screen carries the revised ambition, category, and action.
+  // The first screen carries the ambition, category, actions, and direct prompt.
   assertEquals(body.querySelectorAll("h1").length, 1);
   assertEquals(
     body.querySelector("h1")?.textContent?.trim(),
-    "An engineering practice for agent-built software",
+    "A bolder way to build.",
   );
-  assertEquals(
-    body.querySelector("h1 .discern-heading__accent")?.textContent,
-    "practice",
-  );
-  assertStringIncludes(
-    text,
-    "discern is for people who take their software seriously.",
-  );
+  assertEquals(body.querySelector("h1 > span")?.textContent, "bolder");
+  assertStringIncludes(text, "For people who take their software seriously");
   assertEquals(
     (body.querySelector(".landing-hero")?.textContent ?? "").includes(
       "An engineering practice for agent-built software",
@@ -455,7 +449,12 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   );
   assert(
     body.querySelector(
-      '.landing-hero a[href="#delegation"].discern-button--secondary',
+      '.landing-hero a[href="#project-preview"].discern-button--primary',
+    ) !== null,
+  );
+  assert(
+    body.querySelector(
+      '.landing-hero a[href="#commissioning"].discern-button--secondary',
     ) !== null,
   );
   assertStringIncludes(text, COPY_PROMPT_TEXT);
@@ -472,12 +471,12 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     [
       "More capability should widen your ambition.",
       "Turn a backlog into organized work.",
-      "A complete practice, by design.",
+      "One careful beginning. Every future agent starts ahead.",
       "Come back to work that is ready for a decision.",
       "Make an improvement part of the next starting point.",
-      "You do not need the same background. You do need to care what happens next.",
-      "Change the agent. Keep the project.",
-      "Exact evidence. Explicit authority.",
+      "Built for people who care what happens next.",
+      "Change agents without starting the project over.",
+      "Know what the evidence covers.",
       "Software worth putting your name to.",
     ],
   );
@@ -495,7 +494,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     assertEquals(text.includes(retired), false, retired);
   }
 
-  // The masthead and the deliberately compact homepage evidence use published components.
+  // The masthead and the primary product specimen use published components.
   const masthead = body.querySelector(".landing-masthead");
   const mastheadInner = masthead?.querySelector(".landing-masthead__inner");
   assert(mastheadInner !== null && mastheadInner !== undefined);
@@ -512,30 +511,69 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     false,
   );
   assertEquals(html.includes("grain.css"), false);
-  const invitation = hero.querySelector(".landing-hero__invitation");
-  assert(invitation !== null);
+
+  const projectPreview = hero.querySelector("[data-project-preview]");
+  assert(projectPreview !== null);
+  assert(projectPreview.hasAttribute("data-site-prose-exclude"));
+  assertEquals(projectPreview.getAttribute("data-preview-stage"), "decision");
+  const previewControls = projectPreview.querySelector(
+    "[data-preview-controls]",
+  );
+  assert(previewControls !== null);
+  assert(previewControls.hasAttribute("hidden"));
   assertEquals(
-    invitation.querySelector("h2")?.textContent?.trim(),
-    "Already working with a coding agent?",
+    [...projectPreview.querySelectorAll("[data-preview-control]")].map(
+      (control) => [
+        control.textContent?.trim(),
+        control.getAttribute("data-preview-control"),
+      ],
+    ),
+    [
+      ["Brief", "brief"],
+      ["Work", "work"],
+      ["Evidence", "proof"],
+      ["Decision", "decision"],
+    ],
   );
   assertEquals(
-    invitation.querySelector("h2 + p")?.textContent?.trim(),
-    "Copy the setup prompt into the conversation.",
+    [...projectPreview.querySelectorAll("[data-preview-item]")].map((item) =>
+      item.getAttribute("data-preview-item")
+    ),
+    ["brief", "work", "proof", "decision"],
   );
+  assertStringIncludes(
+    projectPreview.textContent ?? "",
+    "Proof · 41d9a8f · clean committed tree",
+  );
+
   const integrations = hero.querySelector(".landing-integrations");
   assert(integrations !== null);
-  assertEquals(body.querySelector("#agents .landing-integrations"), null);
-  assertEquals(body.querySelectorAll(".discern-data-figure").length, 0);
-  for (
-    const selector of [
-      ".delegation-figure",
-      ".commissioning-figure",
-      ".standard-figure",
-      ".proof-figure",
-    ]
-  ) {
-    assertEquals(body.querySelector(selector), null, selector);
-  }
+  assert(body.querySelector("#agents .landing-integrations--compact") !== null);
+  assertEquals(body.querySelectorAll(".landing-integrations").length, 2);
+
+  const lifecycle = body.querySelector("#delegation .landing-lifecycle");
+  assert(lifecycle !== null);
+  assertEquals(lifecycle.querySelectorAll(":scope > li").length, 5);
+  assertEquals(
+    [...lifecycle.querySelectorAll(":scope > li > small")].map((label) =>
+      label.textContent?.trim()
+    ),
+    ["Commission", "Shape", "Work", "Prove", "Decide"],
+  );
+
+  const commissioning = body.querySelector(
+    "#commissioning .landing-commissioning-card",
+  );
+  assert(commissioning !== null);
+  assert(commissioning.hasAttribute("data-site-prose-exclude"));
+  assertEquals(commissioning.querySelectorAll("ol > li").length, 5);
+  assertEquals(
+    [...commissioning.querySelectorAll("ol strong")].map((label) =>
+      label.textContent?.trim()
+    ),
+    ["Study", "Ask", "Establish", "Prove", "Inherit"],
+  );
+
   const compactStandard = body.querySelector(".standard-trajectory--compact");
   assert(compactStandard !== null);
   assertEquals(
@@ -552,13 +590,6 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
       ".standard-caveat",
     ]
   ) assertEquals(compactStandard.querySelector(selector), null, selector);
-  for (
-    const retiredHomepageArtefact of [
-      "Open the project to beta users",
-      "Proof for the homepage brief amendment",
-      "Project setup · step by step",
-    ]
-  ) assertEquals(text.includes(retiredHomepageArtefact), false);
 
   const returnedChange = body.querySelector("#decision .landing-return");
   assert(returnedChange !== null);
@@ -608,45 +639,19 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
 
   const possibility = body.querySelector("#possibility");
   assert(possibility !== null);
-  const possibilityProse = possibility.querySelector(
-    ".landing-prose.landing-prose--wide",
+  const possibilityStory = possibility.querySelector(
+    ".landing-possibility__story",
   );
-  assert(possibilityProse !== null);
-  assertEquals(possibility.querySelector(".landing-prose--lead"), null);
-  assertEquals(possibilityProse.querySelectorAll(":scope > p").length, 5);
+  assert(possibilityStory !== null);
+  assertEquals(possibilityStory.querySelectorAll(":scope > p").length, 2);
   assertEquals(
-    possibilityProse.querySelector(":scope > .landing-section__action"),
-    null,
-  );
-  assert(
-    possibilityProse.querySelector(":scope > .landing-pullquote") !== null,
-  );
-
-  const commissioning = body.querySelector("#commissioning .landing-split");
-  assert(commissioning !== null);
-  const commissioningProse = commissioning.querySelector(
-    ":scope > .landing-prose",
-  );
-  const commissioningSummary = commissioning.querySelector(
-    ":scope > .landing-commissioning-summary",
-  );
-  assert(commissioningProse !== null);
-  assert(commissioningSummary !== null);
-  assertEquals(
-    commissioningProse.querySelector(".landing-prose__declaration"),
-    null,
-  );
-  assert(
-    commissioningSummary.querySelector(".landing-prose__declaration") !==
-      null,
-  );
-  assertEquals(
-    commissioningSummary.querySelectorAll(".landing-sequence-labels > li")
+    possibility.querySelectorAll(".landing-possibility__relationship > div")
       .length,
-    5,
+    3,
   );
   assertEquals(
-    commissioningSummary.querySelector("a")?.getAttribute("href"),
+    body.querySelector("#commissioning .landing-section__action a")
+      ?.getAttribute("href"),
     "/docs/getting-started/walkthrough",
   );
   assertEquals(
@@ -655,31 +660,35 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     ),
     "/docs/worktrees/team-workflow",
   );
+
+  assertEquals(
+    body.querySelectorAll("#audiences .landing-audiences__cards > article")
+      .length,
+    2,
+  );
   assert(
-    body.querySelector(
-      "#audiences .landing-pullquote.landing-pullquote--balanced",
-    ) !== null,
+    body.querySelector("#audiences .landing-audiences__threshold") !== null,
   );
-  for (const sectionId of ["agents", "trust"]) {
-    const sidecar = body.querySelector(`#${sectionId} .landing-sidecar`);
-    assert(sidecar !== null, sectionId);
-    assertEquals(sidecar.querySelectorAll(":scope > article").length, 2);
-    assert(sidecar.querySelector(":scope > .landing-sidecar__main") !== null);
-    assert(
-      sidecar.querySelector(":scope > .landing-sidecar__callout") !== null,
-    );
-  }
+
+  const agentResult = body.querySelector("#agents .landing-agent-result");
+  assert(agentResult !== null);
   assertEquals(
-    body.querySelector("#agents .landing-sidecar__callout h3")?.textContent,
-    "Built for the machine doing the work.",
-  );
-  assertEquals(
-    [...body.querySelectorAll("#agents .landing-sidecar__main a")].map((link) =>
+    [...body.querySelectorAll("#agents .landing-agents__main a")].map((link) =>
       link.getAttribute("href")
     ),
     ["/docs/agent-integrations", "/llms.txt"],
   );
-  assertEquals(body.querySelector("#agents .landing-machine"), null);
+  assertStringIncludes(agentResult.textContent ?? "", '"behind_trunk"');
+
+  assertEquals(
+    body.querySelectorAll("#trust .landing-trust__facts > article").length,
+    4,
+  );
+  assertEquals(
+    body.querySelectorAll("#trust .landing-trust__lower > article").length,
+    2,
+  );
+
   assertEquals(body.querySelectorAll("[data-copy-prompt]").length, 2);
   assertEquals(
     [...body.querySelectorAll(".landing-copy-prompt__text")].map((prompt) =>
@@ -692,14 +701,20 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     INSTALL_COMMAND,
   );
   assertEquals(
-    [...body.querySelectorAll(".landing-masthead__nav > a")].map((link) => [
+    [...body.querySelectorAll(".landing-masthead__link")].map((link) => [
       link.textContent?.trim(),
       link.getAttribute("href"),
     ]),
     [
-      ["Docs", "/docs"],
+      ["How it works", "#delegation"],
+      ["What returns", "#decision"],
+      ["Trust", "#trust"],
       ["GitHub ↗", "https://github.com/jackwh/discern"],
     ],
+  );
+  assertEquals(
+    body.querySelector(".landing-masthead__action")?.getAttribute("href"),
+    "#start",
   );
 
   // Provider labels and artwork remain derived from the canonical catalogue.
@@ -797,43 +812,41 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     "padding-block: var(--discern-space-20);",
   );
   assertEquals(integrationsRule.includes("border-block"), false);
-  const heroGridRule = cssRuleBody(landingCss, ".landing-hero__inner");
+  const heroInnerRule = cssRuleBody(landingCss, ".landing-hero__inner");
   assertStringIncludes(
-    heroGridRule,
-    "grid-template-columns: minmax(0, 1fr) clamp(22rem, 31.5vw, 29.5rem);",
+    heroInnerRule,
+    "padding-block-start: clamp(5rem, 9vw, 8.75rem);",
   );
-  assertStringIncludes(heroGridRule, "column-gap:");
-  assertStringIncludes(heroGridRule, "row-gap:");
   assertStringIncludes(
-    heroGridRule,
-    "padding-block-start: var(--discern-space-20);",
-  );
-  assertEquals(/(?:^|;)\s*gap\s*:/.test(heroGridRule), false);
-  assertEquals(
-    cssRuleBody(landingCss, ".landing-hero").includes("min-block-size"),
-    false,
+    cssRuleBody(landingCss, ".landing-hero__copy"),
+    "text-align: center;",
   );
   assertStringIncludes(
     cssRuleBody(landingCss, ".landing-hero h1"),
-    "font-size: clamp(3.8rem, 5.5vw, 7.15rem);",
+    "font-size: clamp(4.6rem, 9vw, 8.7rem);",
   );
+  assertStringIncludes(
+    cssRuleBody(landingCss, ".landing-project-preview__body"),
+    "grid-template-columns: minmax(0, 1.25fr) minmax(19rem, 0.75fr);",
+  );
+  assertStringIncludes(
+    cssRuleBody(landingCss, ".landing-lifecycle"),
+    "grid-template-columns: repeat(5, minmax(0, 1fr));",
+  );
+  assertStringIncludes(landingCss, "[data-preview-enhanced]");
+  assertStringIncludes(landingCss, "@media (max-width: 700px)");
+  assertStringIncludes(landingCss, "@media (prefers-reduced-motion: reduce)");
   assertEquals(fluidGridShorthandSelectors(landingCss), []);
   const checksRule = cssRuleBody(landingCss, ".landing-return__checks");
   assertStringIncludes(checksRule, "display: grid;");
   assertStringIncludes(checksRule, "align-content: center;");
-  assertStringIncludes(
-    cssRuleBody(landingCss, ".landing-pullquote--balanced"),
-    "margin-block: clamp(2.5rem, 6vw, 5rem);",
-  );
   assertEquals(offsetDecoratedHeadingSelectors(landingCss, body), []);
   const heroGlowRule = cssRuleBody(landingCss, ".landing-hero::before");
-  assertStringIncludes(heroGlowRule, "radial-gradient(circle in oklab,");
+  assertStringIncludes(heroGlowRule, "radial-gradient(ellipse in oklab,");
   assertStringIncludes(heroGlowRule, "var(--discern-color-canvas) 72%);");
-  assertEquals(heroGlowRule.includes("transparent"), false);
   assertEquals(heroGlowRule.includes("filter:"), false);
   assertEquals(heroGlowRule.includes("opacity:"), false);
   assertEquals(landingCss.includes("textures/grain.png"), false);
-  assertStringIncludes(landingCss, "inset-block-start: -3px;");
   assertStringIncludes(landingCss, ".landing-provider-logo");
   assertStringIncludes(
     cssRuleBody(

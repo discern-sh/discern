@@ -1,4 +1,4 @@
-/* Homepage-only progressive enhancement for the visible setup prompt. */
+/* Homepage-only progressive enhancement for prompts and the project preview. */
 (() => {
   "use strict";
 
@@ -26,7 +26,7 @@
     const reflect = (copied) => {
       label.textContent = copied
         ? "Copied! Now paste it to your agent."
-        : "Copy setup prompt";
+        : "Copy prompt";
       control.toggleAttribute("data-prompt-copied", copied);
       if (status) {
         status.textContent = copied
@@ -57,5 +57,36 @@
         reset();
       }
     });
+  }
+
+  const preview = document.querySelector("[data-project-preview]");
+  const previewControls = preview?.querySelector("[data-preview-controls]");
+  const previewStatus = preview?.querySelector("[data-preview-status]");
+  const stageControls = preview === null
+    ? []
+    : [...preview.querySelectorAll("[data-preview-control]")];
+
+  if (preview && previewControls && stageControls.length > 0) {
+    previewControls.hidden = false;
+    preview.setAttribute("data-preview-enhanced", "");
+
+    for (const control of stageControls) {
+      control.addEventListener("click", () => {
+        const stage = control.getAttribute("data-preview-control");
+        if (stage === null) return;
+
+        preview.setAttribute("data-preview-stage", stage);
+        for (const candidate of stageControls) {
+          candidate.setAttribute(
+            "aria-pressed",
+            String(candidate === control),
+          );
+        }
+        if (previewStatus) {
+          previewStatus.textContent =
+            `Showing the ${control.textContent.trim()} stage.`;
+        }
+      });
+    }
   }
 })();

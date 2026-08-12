@@ -1,4 +1,4 @@
-/** Runtime contract for the homepage's framework-free Copy prompt control. */
+/** Runtime contract for the homepage's framework-free interactions. */
 
 import { assert, assertEquals } from "@std/assert";
 // @ts-types="@types/jsdom"
@@ -32,6 +32,13 @@ Deno.test("Copy prompt stays readable without JavaScript and copies the exact ap
   const controls = [
     ...document.querySelectorAll<HTMLButtonElement>("[data-copy-prompt]"),
   ];
+  const preview = document.querySelector<HTMLElement>("[data-project-preview]");
+  const previewControls = document.querySelector<HTMLElement>(
+    "[data-preview-controls]",
+  );
+  const previewButtons = [
+    ...document.querySelectorAll<HTMLButtonElement>("[data-preview-control]"),
+  ];
 
   assertEquals(prompts.length, 2);
   assertEquals(
@@ -43,6 +50,10 @@ Deno.test("Copy prompt stays readable without JavaScript and copies the exact ap
     "the approved prompt must remain visible and selectable without JavaScript",
   );
   assertEquals(controls.map((control) => control.hidden), [true, true]);
+  assert(preview !== null);
+  assert(previewControls !== null);
+  assertEquals(previewControls.hidden, true);
+  assertEquals(preview.hasAttribute("data-preview-enhanced"), false);
 
   const copied: string[] = [];
   let externalRequests = 0;
@@ -64,6 +75,21 @@ Deno.test("Copy prompt stays readable without JavaScript and copies the exact ap
     false,
     false,
   ]);
+  assertEquals(previewControls.hidden, false);
+  assertEquals(preview.hasAttribute("data-preview-enhanced"), true);
+  assertEquals(previewButtons.length, 4);
+
+  previewButtons[0]?.click();
+  assertEquals(preview.getAttribute("data-preview-stage"), "brief");
+  assertEquals(
+    previewButtons.map((control) => control.getAttribute("aria-pressed")),
+    ["true", "false", "false", "false"],
+  );
+  assertEquals(
+    document.querySelector("[data-preview-status]")?.textContent,
+    "Showing the Brief stage.",
+  );
+
   controls[0]?.click();
   await new Promise((resolve) => setTimeout(resolve, 0));
 
