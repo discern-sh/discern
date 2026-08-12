@@ -6,11 +6,13 @@ import { BifurcationArtwork } from "./bifurcation.tsx";
 import { CircuitArtwork } from "./circuit.tsx";
 import { ContourArtwork } from "./contour.tsx";
 import { DeltaArtwork } from "./delta.tsx";
+import { InterferenceArtwork } from "./interference.tsx";
 import { InvariantCoreArtwork } from "./invariant-core.tsx";
 import { PersistentTraceArtwork } from "./persistent-trace.tsx";
 import { RatchetArtwork } from "./ratchet.tsx";
 import { RuleArtwork } from "./rule.tsx";
 import { SealArtwork } from "./seal.tsx";
+import { SurveyArtwork } from "./survey.tsx";
 import {
   BROWSER_ARTWORKS,
   type BrowserArtworkMetadata,
@@ -37,6 +39,8 @@ export const BROWSER_ARTWORK_RENDERERS: Readonly<
   delta: (idPrefix) => <DeltaArtwork id={idPrefix} />,
   ratchet: (idPrefix) => <RatchetArtwork id={idPrefix} />,
   rule: (idPrefix) => <RuleArtwork id={idPrefix} />,
+  survey: (idPrefix) => <SurveyArtwork id={idPrefix} />,
+  interference: (idPrefix) => <InterferenceArtwork id={idPrefix} />,
 };
 
 /** Render-ready projection used by the development gallery. */

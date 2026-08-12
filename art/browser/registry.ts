@@ -83,6 +83,20 @@ export const BROWSER_ARTWORKS = [
       "Compass arcs subdivide one triangle through three quiet generations and one small pulse retraces the figure before the construction unwinds.",
     sourceCommit: "5b3e48ae75dc345aa63454cf2063d11923046634",
   },
+  {
+    slug: "survey",
+    title: "The survey",
+    description:
+      "Measuring marks study an irregular found figure until one exact triangle inscribes itself within it and rests fitted to its bounds.",
+    sourceCommit: "0000000000000000000000000000000000000000",
+  },
+  {
+    slug: "interference",
+    title: "The interference",
+    description:
+      "Two fine triangular line grids drift slowly against each other inside one bounded triangle, letting larger figures bloom, travel, and settle home.",
+    sourceCommit: "0000000000000000000000000000000000000000",
+  },
 ] as const satisfies readonly BrowserArtworkMetadata[];
 
 /** The shared foundation stylesheet every figure-series member consumes. */
@@ -98,6 +112,8 @@ export const FIGURE_SERIES_SLUGS = [
   "delta",
   "ratchet",
   "rule",
+  "survey",
+  "interference",
 ] as const satisfies readonly BrowserArtworkSlug[];
 
 export type BrowserArtworkSlug = typeof BROWSER_ARTWORKS[number]["slug"];

@@ -1,0 +1,12 @@
+@layer discern.page {
+  .fig-survey__placeholder {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    vector-effect: non-scaling-stroke;
+  }
+
+  .fig-survey__placeholder-fill {
+    fill: currentColor;
+  }
+}
