@@ -1,12 +1,985 @@
+/*
+ * Fig. V — the rule. One 48s phrase (40 beats of 1.2s), percentage-staged:
+ *
+ *   0.00–20.83%  ( 0.0–10.0s)  scholarly dwell on the finished plate
+ *  20.83–30.83%  (10.0–14.8s)  figure recedes; gen-1 compass arcs re-sweep
+ *  30.83–33.75%  (14.8–16.2s)  midpoint ticks affirm with a settle
+ *  33.33–43.33%  (16.0–20.8s)  gen-1 chords re-ink point-to-point
+ *  43.33–50.00%  (20.8–24.0s)  the four-triangle division stands
+ *  50.00–60.00%  (24.0–28.8s)  gen-2 ritual, three corners a beat apart
+ *  62.50–73.33%  (30.0–35.2s)  gen-3 arpeggio, nine corners in reading order
+ *  75.83–84.00%  (36.4–40.3s)  the completed figure holds, re-inked
+ *  84.00–89.58%  (40.3–43.0s)  the accent pulse rounds the smallest cell
+ *  90.00–95.00%  (43.2–45.6s)  everything settles back to its resting ink
+ *  95.00–100.0%  (45.6–48.0s)  dwell, closing the loop into the opening frame
+ *
+ * Every 0%/100% state matches the authored rest: the finished subdivided
+ * plate with its construction faded to faint.
+ */
 @layer discern.page {
-  .fig-rule__placeholder {
+  .fig-rule__frame,
+  .fig-rule__chord,
+  .fig-rule__ink-chord,
+  .fig-rule__arc,
+  .fig-rule__arc-ink-path,
+  .fig-rule__tick,
+  .fig-rule__accent {
     fill: none;
-    stroke: currentColor;
-    stroke-width: var(--fig-hairline);
-    vector-effect: non-scaling-stroke;
   }
 
-  .fig-rule__placeholder-fill {
-    fill: currentColor;
+  .fig-rule__frame {
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-rule__chord,
+  .fig-rule__ink-chord {
+    stroke: currentColor;
+  }
+
+  .fig-rule__g1 .fig-rule__chord,
+  .fig-rule__g1-ink .fig-rule__ink-chord {
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-rule__g2 .fig-rule__chord,
+  .fig-rule__g3 .fig-rule__chord,
+  .fig-rule__g2-ink .fig-rule__ink-chord,
+  .fig-rule__g3-ink .fig-rule__ink-chord {
+    stroke-width: var(--fig-hairline);
+  }
+
+  .fig-rule__g1,
+  .fig-rule__g2 {
+    opacity: 1;
+  }
+
+  .fig-rule__g3 {
+    opacity: var(--fig-quiet);
+  }
+
+  .fig-rule__arc,
+  .fig-rule__arc-ink-path {
+    stroke: var(--fig-guide);
+    stroke-width: var(--fig-hairline);
+  }
+
+  .fig-rule__arc {
+    opacity: var(--fig-faint);
+  }
+
+  .fig-rule__arc-ink-path,
+  .fig-rule__ink-chord {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+
+  .fig-rule__tick {
+    stroke: var(--fig-guide);
+    stroke-width: var(--fig-line);
+    stroke-linecap: round;
+    opacity: var(--fig-faint);
+    transform: scale(1);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .fig-rule__accent-gate {
+    opacity: 0;
+    animation: fig-rule-accent-gate 48s var(--fig-ease-settle) infinite;
+  }
+
+  .fig-rule__accent {
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+    stroke-linecap: round;
+    stroke-dasharray: 0.16 0.84;
+    stroke-dashoffset: 1;
+    animation: fig-rule-accent-travel 48s linear infinite;
+  }
+
+  .fig-rule__g1 {
+    animation: fig-rule-form-one 48s var(--fig-ease-drift) infinite;
+  }
+
+  .fig-rule__g2 {
+    animation: fig-rule-form-two 48s var(--fig-ease-drift) infinite;
+  }
+
+  .fig-rule__g3 {
+    animation: fig-rule-form-three 48s var(--fig-ease-drift) infinite;
+  }
+
+  .fig-rule__arc-ink--s1a {
+    animation: fig-rule-arc-one 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__arc-ink--s1b,
+  .fig-rule__arc-ink--s2a {
+    animation: fig-rule-arc-two 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__arc-ink--s2b,
+  .fig-rule__arc-ink--s3a {
+    animation: fig-rule-arc-three 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__arc-ink--s3b {
+    animation: fig-rule-arc-four 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__tick--1 {
+    animation: fig-rule-tick-one 48s var(--fig-ease-drift) infinite;
+  }
+
+  .fig-rule__tick--2 {
+    animation: fig-rule-tick-two 48s var(--fig-ease-drift) infinite;
+  }
+
+  .fig-rule__tick--3 {
+    animation: fig-rule-tick-three 48s var(--fig-ease-drift) infinite;
+  }
+
+  .fig-rule__g1-ink--1 {
+    animation: fig-rule-g1-a 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g1-ink--2 {
+    animation: fig-rule-g1-b 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g1-ink--3 {
+    animation: fig-rule-g1-c 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g2-ink--c1 {
+    animation: fig-rule-g2-c1 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g2-ink--c2 {
+    animation: fig-rule-g2-c2 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g2-ink--c3 {
+    animation: fig-rule-g2-c3 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g3-ink--c1 {
+    animation: fig-rule-g3-c1 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g3-ink--c2 {
+    animation: fig-rule-g3-c2 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g3-ink--c3 {
+    animation: fig-rule-g3-c3 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g3-ink--c4 {
+    animation: fig-rule-g3-c4 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g3-ink--c5 {
+    animation: fig-rule-g3-c5 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g3-ink--c6 {
+    animation: fig-rule-g3-c6 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g3-ink--c7 {
+    animation: fig-rule-g3-c7 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g3-ink--c8 {
+    animation: fig-rule-g3-c8 48s var(--fig-ease-draw) infinite;
+  }
+
+  .fig-rule__g3-ink--c9 {
+    animation: fig-rule-g3-c9 48s var(--fig-ease-draw) infinite;
+  }
+
+  /* The figure recedes to ghost while the ritual re-derives it. */
+  @keyframes fig-rule-form-one {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    20.83% {
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    25% {
+      opacity: var(--fig-faint);
+    }
+    43.33% {
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    45.83% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fig-rule-form-two {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    20.83% {
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    25% {
+      opacity: var(--fig-faint);
+    }
+    61.25% {
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    63.75% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fig-rule-form-three {
+    0%,
+    100% {
+      opacity: var(--fig-quiet);
+    }
+    20.83% {
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    25% {
+      opacity: var(--fig-faint);
+    }
+    73.33% {
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    75.83% {
+      opacity: var(--fig-quiet);
+    }
+  }
+
+  /* Compass strikes: each side's first anchor sweeps, then its second. */
+  @keyframes fig-rule-arc-one {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    20.83% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    21.04% {
+      opacity: var(--fig-quiet);
+    }
+    23.33% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-arc-two {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    23.33% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    23.54% {
+      opacity: var(--fig-quiet);
+    }
+    25.83% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-arc-three {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    25.83% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    26.04% {
+      opacity: var(--fig-quiet);
+    }
+    28.33% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-arc-four {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    28.33% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    28.54% {
+      opacity: var(--fig-quiet);
+    }
+    30.83% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  /* The found midpoints affirm: a brief strike that settles into place. */
+  @keyframes fig-rule-tick-one {
+    0%,
+    100% {
+      opacity: var(--fig-faint);
+      transform: scale(1);
+    }
+    30.83% {
+      opacity: var(--fig-faint);
+      transform: scale(1);
+    }
+    30.94% {
+      opacity: 0;
+      transform: scale(0.4);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    32.5% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    90% {
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      opacity: var(--fig-faint);
+    }
+  }
+
+  @keyframes fig-rule-tick-two {
+    0%,
+    100% {
+      opacity: var(--fig-faint);
+      transform: scale(1);
+    }
+    31.46% {
+      opacity: var(--fig-faint);
+      transform: scale(1);
+    }
+    31.56% {
+      opacity: 0;
+      transform: scale(0.4);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    33.13% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    90% {
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      opacity: var(--fig-faint);
+    }
+  }
+
+  @keyframes fig-rule-tick-three {
+    0%,
+    100% {
+      opacity: var(--fig-faint);
+      transform: scale(1);
+    }
+    32.08% {
+      opacity: var(--fig-faint);
+      transform: scale(1);
+    }
+    32.19% {
+      opacity: 0;
+      transform: scale(0.4);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    33.75% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    90% {
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      opacity: var(--fig-faint);
+    }
+  }
+
+  /* Generation one re-inks itself, chord by chord, tip to tail. */
+  @keyframes fig-rule-g1-a {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    33.33% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    33.54% {
+      opacity: 1;
+    }
+    38.33% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g1-b {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    35.83% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    36.04% {
+      opacity: 1;
+    }
+    40.83% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g1-c {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    38.33% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    38.54% {
+      opacity: 1;
+    }
+    43.33% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  /* Generation two: the same ritual, compressed, three corners a beat apart. */
+  @keyframes fig-rule-g2-c1 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    50% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    50.21% {
+      opacity: 1;
+    }
+    55% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g2-c2 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    52.5% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    52.71% {
+      opacity: 1;
+    }
+    57.5% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g2-c3 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    55% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    55.21% {
+      opacity: 1;
+    }
+    60% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  /* Generation three: a calm arpeggio across nine corners in reading order. */
+  @keyframes fig-rule-g3-c1 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    62.5% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    62.71% {
+      opacity: 1;
+    }
+    65% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g3-c2 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    63.54% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    63.75% {
+      opacity: 1;
+    }
+    66.04% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g3-c3 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    64.58% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    64.79% {
+      opacity: 1;
+    }
+    67.08% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g3-c4 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    65.63% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    65.83% {
+      opacity: 1;
+    }
+    68.13% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g3-c5 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    66.67% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    66.88% {
+      opacity: 1;
+    }
+    69.17% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g3-c6 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    67.71% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    67.92% {
+      opacity: 1;
+    }
+    70.21% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g3-c7 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    68.75% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    68.96% {
+      opacity: 1;
+    }
+    71.25% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g3-c8 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    69.79% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    70% {
+      opacity: 1;
+    }
+    72.29% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes fig-rule-g3-c9 {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    70.83% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    71.04% {
+      opacity: 1;
+    }
+    73.33% {
+      stroke-dashoffset: 0;
+    }
+    90% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    95% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    95.2% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  /* The one accent: the smallest cell quietly performs the first figure. */
+  @keyframes fig-rule-accent-gate {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    84% {
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    84.63% {
+      opacity: 1;
+    }
+    88.54% {
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    89.58% {
+      opacity: 0;
+    }
+  }
+
+  /* A dash of 0.16 perimeter rounds the cell exactly once at constant speed. */
+  @keyframes fig-rule-accent-travel {
+    0%,
+    100% {
+      stroke-dashoffset: 1;
+    }
+    84% {
+      stroke-dashoffset: 1;
+      animation-timing-function: linear;
+    }
+    89% {
+      stroke-dashoffset: 0;
+    }
+    89.2% {
+      stroke-dashoffset: 1;
+    }
   }
 }
