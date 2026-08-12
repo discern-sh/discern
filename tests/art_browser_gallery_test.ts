@@ -24,19 +24,17 @@ import {
 import { handler, PAGES } from "../site/serve.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
-const PENDING_SOURCE_HEAD = "0000000000000000000000000000000000000000";
-
 const EXPECTED_BROWSER_ART = [
   ["alignment", "3006e8622db947c4417b4df2055e28820646ad2e"],
   ["bifurcation", "36084a9cf3cdabd04e9734468b07bdde6f73107b"],
   ["contour", "f7599b7669bfd3c4842c430adeb96330fbfa75d5"],
   ["persistent-trace", "ae15a479e7f169cbebcbf6c598d8c8b5d2ccbede"],
   ["invariant-core", "9b7b3eac0f1ffd1addeb970e1167866c855a37b1"],
-  ["circuit", PENDING_SOURCE_HEAD],
-  ["seal", PENDING_SOURCE_HEAD],
-  ["delta", PENDING_SOURCE_HEAD],
-  ["ratchet", PENDING_SOURCE_HEAD],
-  ["rule", PENDING_SOURCE_HEAD],
+  ["circuit", "d2792e90795f5201d10cd3f276b19b909a39aeb1"],
+  ["seal", "8bc6327fa346340e770bdd6ca439724a28b21200"],
+  ["delta", "7e6e5787a7d0b492f0c500b2c50ac08faf8280fb"],
+  ["ratchet", "f958175315b0f89fa3cf6d0c9f76eb8bbd0543f5"],
+  ["rule", "76be48e4a5f39b1e27ed218de4667a883272d50a"],
 ] as const;
 
 /** Collapse prose whitespace without changing punctuation. */

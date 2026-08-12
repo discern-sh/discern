@@ -53,40 +53,52 @@ export const BROWSER_ARTWORKS = [
     title: "The circuit",
     description:
       "An emblem unfolds into three stationed vertices and one pulse completes their triangular exchange before the form recollects itself.",
-    sourceCommit: "0000000000000000000000000000000000000000",
+    sourceCommit: "d2792e90795f5201d10cd3f276b19b909a39aeb1",
   },
   {
     slug: "seal",
     title: "The seal",
     description:
       "Scattered fragments register into one exact triangle whose right half takes ink under a confirming sweep, until a single fragment drifts.",
-    sourceCommit: "0000000000000000000000000000000000000000",
+    sourceCommit: "8bc6327fa346340e770bdd6ca439724a28b21200",
   },
   {
     slug: "delta",
     title: "The delta",
     description:
       "One line opens into parallel channels whose travelling marks work apart, wait for one another, and reconverge through a single settling point.",
-    sourceCommit: "0000000000000000000000000000000000000000",
+    sourceCommit: "7e6e5787a7d0b492f0c500b2c50ac08faf8280fb",
   },
   {
     slug: "ratchet",
     title: "The ratchet",
     description:
       "A trembling measure tightens two converging limits notch by notch until their corridor closes into an apex and begins again, finer.",
-    sourceCommit: "0000000000000000000000000000000000000000",
+    sourceCommit: "f958175315b0f89fa3cf6d0c9f76eb8bbd0543f5",
   },
   {
     slug: "rule",
     title: "The rule",
     description:
       "Compass arcs subdivide one triangle through three quiet generations and one small pulse retraces the figure before the construction unwinds.",
-    sourceCommit: "0000000000000000000000000000000000000000",
+    sourceCommit: "76be48e4a5f39b1e27ed218de4667a883272d50a",
   },
 ] as const satisfies readonly BrowserArtworkMetadata[];
 
 /** The shared foundation stylesheet every figure-series member consumes. */
 export const BROWSER_ART_FOUNDATION_STYLESHEET = "art-figures.css";
+
+/**
+ * The figure-series members bound to the shared metre in figures.css.
+ * A slug listed here enrols in the series-law structural tests.
+ */
+export const FIGURE_SERIES_SLUGS = [
+  "circuit",
+  "seal",
+  "delta",
+  "ratchet",
+  "rule",
+] as const satisfies readonly BrowserArtworkSlug[];
 
 export type BrowserArtworkSlug = typeof BROWSER_ARTWORKS[number]["slug"];
 
