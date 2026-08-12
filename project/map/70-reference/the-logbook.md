@@ -1,5 +1,5 @@
 ---
-title: The logbook
+title: The Logbook
 description: What discern records about its own verb runs, where the files live, and how to read, archive, reset, or disable them.
 order: 80
 aliases:
@@ -8,7 +8,7 @@ aliases:
   - operational history
 ---
 
-# The logbook
+# The Logbook
 
 _The Logbook is a local activity record containing metadata rather than code or output._
 
@@ -39,14 +39,16 @@ Setting `[project].logbook = false` stops new evidence for every feature below. 
 
 Each detector declares a scope and a tier. Scope selects the reader. Tier controls whether a working command may run it ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
-| Reader                | Findings it carries                                                                                                                                                          |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern done`        | Inline branch findings after a qualifying green Proof, capped at 1 line and held to a higher threshold.                                                                      |
-| `discern status`      | Inline session findings as observation-plus-next-step hints after setup finishes.                                                                                            |
-| `discern improvement` | Inline project findings in the advisory `data.history.findings` group.                                                                                                       |
-| `discern patterns`    | Every finding: up to 3 attention pointers, blocks grouped by family and standard sparklines for humans, globally strength-ranked JSON, and insufficient-evidence accounting. |
+| Reader                | Findings it carries                                                                                                                                                        |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern done`        | The canonical summary for 1 inline branch finding after a qualifying green Proof, held to a higher threshold; `discern patterns` carries its full evidence.                |
+| `discern status`      | The canonical summary and next step for inline session findings after setup finishes.                                                                                      |
+| `discern improvement` | Complete inline project findings in the advisory `data.history.findings` group.                                                                                            |
+| `discern patterns`    | Every finding: plain summary followed by concrete observed evidence, up to 3 attention pointers, family blocks, Standard sparklines, and insufficient-evidence accounting. |
 
 The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory. Findings change no command outcome, exit code, failed Gate stage, score, Proof identity, or acceptance decision.
+
+The shared result contract keeps one meaning across these routes. A finding's `summary` states the condition in plain language; `observed` carries its count, denominator, named subject and conditions, and any material limitation. `brief` is retained as an exact compatibility alias of `summary`. Investigations use the same two layers and retain `interpretation` as an exact compatibility alias of `summary`. Shorter routes project the canonical summary instead of maintaining separate claims.
 
 ## What a line contains
 
@@ -65,7 +67,7 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 | `clean`        | was the working tree clean?                                             |
 | `tree`         | a checksum of the uncommitted diff                                      |
 | `outcome`      | `"ok"`, `"failed"`, `"partial"`, or `"refused"`                         |
-| `failed_stage` | the gate stage that went red                                            |
+| `failed_stage` | the Gate stage that went red                                            |
 | `crash`        | error class name and one code location                                  |
 | `duration_ms`  | end-to-end wall-clock milliseconds                                      |
 | `waited_ms`    | test-run slot-wait milliseconds on capped runs                          |
@@ -109,7 +111,7 @@ For an MCP call, `driver.mcp_client` retains the declared `name`, optional `titl
 
 The read-time view preserves non-MCP evidence and merges duplicate agent/source pairs. A current MCP match replaces stored MCP evidence from the same declaration. Without a current match, stored MCP evidence remains. Independent sources that disagree leave the run unattributed.
 
-MCP describes the client implementation. An editor, extension, or proxy may sit between discern and the coding agent. These signals can be absent, inherited, or faked. They never change output, guidance, setup, gate behavior, or landing authority.
+MCP describes the client implementation. An editor, extension, or proxy may sit between discern and the coding agent. These signals can be absent, inherited, or faked. They never change output, guidance, setup, Gate behavior, or landing authority.
 
 ## Local storage only
 
