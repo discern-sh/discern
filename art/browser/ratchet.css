@@ -1,12 +1,563 @@
+/* Fig. IV — the ratchet. One 42s phrase: hold (0s–11s), unwind (11s–17.5s),
+ * breath (17.5s–19.5s), redraw (19.5s–37.5s), closure and settle (37.5s–42s).
+ * The authored SVG is the resolved plate; every keyframes block opens and
+ * closes on that rest state so the loop restarts without a seam. */
 @layer discern.page {
-  .fig-ratchet__placeholder {
+  /* Permanent construction: the centre rule and one vertical per step. */
+  .fig-ratchet__centre,
+  .fig-ratchet__rule {
+    fill: none;
+    stroke: var(--fig-guide);
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-faint);
+  }
+
+  /* The measure: one fine line, erased and redrawn at constant pen speed. */
+  .fig-ratchet__measure {
     fill: none;
     stroke: currentColor;
     stroke-width: var(--fig-hairline);
-    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 0;
+    animation: fig-ratchet-measure 42s linear infinite;
   }
 
-  .fig-ratchet__placeholder-fill {
+  /* The limits: true-form staircases whose steps land as damped clicks. */
+  .fig-ratchet__limit {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    stroke-dasharray: 664;
+    stroke-dashoffset: 0;
+  }
+
+  .fig-ratchet__limit--upper {
+    animation: fig-ratchet-limit-upper 42s linear infinite;
+  }
+
+  .fig-ratchet__limit--lower {
+    animation: fig-ratchet-limit-lower 42s linear infinite;
+  }
+
+  /* Notches: the permanent record of every abandoned stand. */
+  .fig-ratchet__notch {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    opacity: var(--fig-quiet);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation-duration: 42s;
+    animation-timing-function: var(--fig-ease-settle);
+    animation-iteration-count: infinite;
+  }
+
+  .fig-ratchet__notch--n1 {
+    animation-name: fig-ratchet-notch-1;
+  }
+
+  .fig-ratchet__notch--n2 {
+    animation-name: fig-ratchet-notch-2;
+  }
+
+  .fig-ratchet__notch--n3 {
+    animation-name: fig-ratchet-notch-3;
+  }
+
+  .fig-ratchet__notch--n4 {
+    animation-name: fig-ratchet-notch-4;
+  }
+
+  .fig-ratchet__notch--n5 {
+    animation-name: fig-ratchet-notch-5;
+  }
+
+  .fig-ratchet__notch--n6 {
+    animation-name: fig-ratchet-notch-6;
+  }
+
+  .fig-ratchet__notch--n7 {
+    animation-name: fig-ratchet-notch-7;
+  }
+
+  .fig-ratchet__notch--n8 {
+    animation-name: fig-ratchet-notch-8;
+  }
+
+  .fig-ratchet__notch--n9 {
+    animation-name: fig-ratchet-notch-9;
+  }
+
+  /* The split mark: the residue the corridor closes into. */
+  .fig-ratchet__mark {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: fig-ratchet-mark 42s var(--fig-ease-settle) infinite;
+  }
+
+  .fig-ratchet__mark-outline {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+  }
+
+  .fig-ratchet__mark-fill {
     fill: currentColor;
+  }
+
+  .fig-ratchet__mark-accent {
+    fill: var(--fig-accent);
+    opacity: 0;
+    animation: fig-ratchet-accent 42s var(--fig-ease-settle) infinite;
+  }
+
+  /* Hold to 11s; erase right-to-left 11s–14s; redraw 19.5s–37.5s. */
+  @keyframes fig-ratchet-measure {
+    0%,
+    100% {
+      stroke-dashoffset: 0;
+    }
+    26.19% {
+      stroke-dashoffset: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    33.333% {
+      stroke-dashoffset: 1000;
+    }
+    46.429% {
+      stroke-dashoffset: 1000;
+    }
+    89.286% {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* Runs draw at pen speed; each vertical step lands with a damped click. */
+  @keyframes fig-ratchet-limit-upper {
+    0%,
+    100% {
+      stroke-dashoffset: 0;
+    }
+    33.333% {
+      stroke-dashoffset: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    41.667% {
+      stroke-dashoffset: 664;
+    }
+    46.429% {
+      stroke-dashoffset: 664;
+    }
+    56.149% {
+      stroke-dashoffset: 592;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    57.22% {
+      stroke-dashoffset: 556;
+    }
+    69.891% {
+      stroke-dashoffset: 452;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    70.962% {
+      stroke-dashoffset: 422;
+    }
+    78.637% {
+      stroke-dashoffset: 334;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    79.708% {
+      stroke-dashoffset: 310;
+    }
+    83.805% {
+      stroke-dashoffset: 214;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    84.876% {
+      stroke-dashoffset: 196;
+    }
+    87.731% {
+      stroke-dashoffset: 68;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    88.802% {
+      stroke-dashoffset: 56;
+    }
+    89.762% {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* The lower limit's final click at 37.5s closes the corridor itself. */
+  @keyframes fig-ratchet-limit-lower {
+    0%,
+    100% {
+      stroke-dashoffset: 0;
+    }
+    33.333% {
+      stroke-dashoffset: 0;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    41.667% {
+      stroke-dashoffset: 664;
+    }
+    46.429% {
+      stroke-dashoffset: 664;
+    }
+    62.669% {
+      stroke-dashoffset: 544;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    63.74% {
+      stroke-dashoffset: 502;
+    }
+    75.596% {
+      stroke-dashoffset: 390;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    76.667% {
+      stroke-dashoffset: 354;
+    }
+    81.655% {
+      stroke-dashoffset: 278;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    82.727% {
+      stroke-dashoffset: 248;
+    }
+    89.286% {
+      stroke-dashoffset: 12;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    90.476% {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* Notches fade last-in-first-out during the unwind, then click back in
+   * the instant their step lands. Odd rest states never change. */
+  @keyframes fig-ratchet-notch-1 {
+    0%,
+    100% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+    40.238% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    41.548% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    42% {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    56.149% {
+      opacity: 0;
+      transform: translateY(-2px);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    57.22% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fig-ratchet-notch-2 {
+    0%,
+    100% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+    39.405% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    40.714% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    41.2% {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+    62.669% {
+      opacity: 0;
+      transform: translateY(2px);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    63.74% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fig-ratchet-notch-3 {
+    0%,
+    100% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+    38.571% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    39.881% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    40.4% {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    69.891% {
+      opacity: 0;
+      transform: translateY(-2px);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    70.962% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fig-ratchet-notch-4 {
+    0%,
+    100% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+    37.738% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    39.048% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    39.5% {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+    75.596% {
+      opacity: 0;
+      transform: translateY(2px);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    76.667% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fig-ratchet-notch-5 {
+    0%,
+    100% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+    36.905% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    38.214% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    38.7% {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    78.637% {
+      opacity: 0;
+      transform: translateY(-2px);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    79.708% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fig-ratchet-notch-6 {
+    0%,
+    100% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+    36.071% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    37.381% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    37.9% {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+    81.655% {
+      opacity: 0;
+      transform: translateY(2px);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    82.727% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fig-ratchet-notch-7 {
+    0%,
+    100% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+    35.238% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    36.548% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    37% {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    83.805% {
+      opacity: 0;
+      transform: translateY(-2px);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    84.876% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fig-ratchet-notch-8 {
+    0%,
+    100% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+    34.405% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    35.714% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    36.2% {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    87.731% {
+      opacity: 0;
+      transform: translateY(-2px);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    88.802% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fig-ratchet-notch-9 {
+    0%,
+    100% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+    33.571% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    34.881% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    35.4% {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+    89.286% {
+      opacity: 0;
+      transform: translateY(2px);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    90.357% {
+      opacity: var(--fig-quiet);
+      transform: translateY(0);
+    }
+  }
+
+  /* The mark lets go first during the unwind and inscribes last, pressed
+   * out of the closing corridor as the gate shuts. */
+  @keyframes fig-ratchet-mark {
+    0%,
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    26.19% {
+      opacity: 1;
+      transform: translateX(0);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    28.095% {
+      opacity: 0;
+      transform: translateX(0);
+    }
+    28.5% {
+      opacity: 0;
+      transform: translateX(-3px);
+    }
+    90.476% {
+      opacity: 0;
+      transform: translateX(-3px);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    92.381% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* The one accent event: the filled half arrives in accent at closure,
+   * holds a beat, and settles to ink over the next. */
+  @keyframes fig-ratchet-accent {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    90.476% {
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    91.905% {
+      opacity: 1;
+    }
+    93.333% {
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    96.19% {
+      opacity: 0;
+    }
   }
 }
