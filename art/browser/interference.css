@@ -1,12 +1,104 @@
+/* Fig. VII — the interference. One 48s phrase (40 beats): the plate rests
+ * on its authored bloom, grid A leans out toward +1.6° while grid B answers
+ * later and more slowly from its 2.5° counter-rotation; their angular gap
+ * narrows to a fraction of a degree just before mid-phrase — the deepest
+ * alignment, where the interference figures swell wider than the frame and
+ * sweep across it — then both grids glide home and the plate holds still.
+ * Entirely monochrome: no accent fires. Every keyframe block opens and
+ * closes on the authored rest pose. */
 @layer discern.page {
-  .fig-interference__placeholder {
-    fill: none;
-    stroke: currentColor;
+  .fig-interference__construction line {
+    stroke: var(--fig-guide);
     stroke-width: var(--fig-hairline);
-    vector-effect: non-scaling-stroke;
+    opacity: var(--fig-faint);
   }
 
-  .fig-interference__placeholder-fill {
-    fill: currentColor;
+  .fig-interference__frame {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-interference__line {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-quiet);
+  }
+
+  .fig-interference__grid--b .fig-interference__line {
+    opacity: calc(var(--fig-quiet) * 0.85);
+  }
+
+  /* Both grids pivot about the frame triangle's centroid. The reference box
+   * is the viewBox, not fill-box: each lattice's own bounds overfill the
+   * frame asymmetrically, so only the plate's coordinates name the shared
+   * pivot exactly. */
+  .fig-interference__grid {
+    transform-box: view-box;
+    transform-origin: 380px 288px;
+    animation-duration: calc(var(--fig-beat) * 40);
+    animation-timing-function: var(--fig-ease-drift);
+    animation-iteration-count: infinite;
+  }
+
+  .fig-interference__grid--a {
+    transform: translate(0px, 0px) rotate(0deg);
+    animation-name: fig-interference-grid-a;
+  }
+
+  .fig-interference__grid--b {
+    transform: translate(0px, 0px) rotate(2.5deg);
+    animation-name: fig-interference-grid-b;
+  }
+
+  /* Grid A: one slow breath out and back, velocity dying at the peak. */
+  @keyframes fig-interference-grid-a {
+    0%,
+    12% {
+      transform: translate(0px, 0px) rotate(0deg);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+
+    38% {
+      transform: translate(3.2px, -1.8px) rotate(1.6deg);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+
+    74%,
+    100% {
+      transform: translate(0px, 0px) rotate(0deg);
+    }
+  }
+
+  /* Grid B: the mirrored answer — later to leave, slower to peak, and a
+   * shoulder on the way home, so the interference travels differently out
+   * and back. Its peak meets grid A's decline where the lattices come
+   * nearest to coincidence. */
+  @keyframes fig-interference-grid-b {
+    0%,
+    15% {
+      transform: translate(0px, 0px) rotate(2.5deg);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+
+    30% {
+      transform: translate(-0.78px, 0.45px) rotate(2.23deg);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+
+    48% {
+      transform: translate(-2.6px, 1.5px) rotate(1.6deg);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+
+    60% {
+      transform: translate(-1.69px, 0.98px) rotate(1.92deg);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+
+    76%,
+    100% {
+      transform: translate(0px, 0px) rotate(2.5deg);
+    }
   }
 }
