@@ -16,6 +16,8 @@ import { basename, dirname, join } from "@std/path";
 import {
   CouplingOutputSchema,
   DoctorOutputSchema,
+  type PatternsData,
+  PatternsOutputSchema,
   RefreshOutputSchema,
   StandardsOutputSchema,
   StatusOutputSchema,
@@ -53,6 +55,7 @@ import {
 } from "../src/engine/await/defaults.ts";
 import { withTempDir } from "./helpers.ts";
 import { stageBundledDocs } from "../scripts/build.ts";
+import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import {
   addWorktree,
   defaultMapPath,
@@ -418,6 +421,56 @@ Deno.test("mcp: EVERY tool's live call echoes its own verb", async () => {
         }", not "${result.structuredContent.verb}"`,
       );
     }
+  });
+});
+
+Deno.test("mcp: discern_patterns reads sealed historical Stats without modifying the archive", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    await gitInit(dir);
+    const archives = logbookArchiveDir(join(dir, ".git"));
+    const filename = "logbook-20260811T120000Z.jsonl";
+    const path = join(archives, filename);
+    await Deno.mkdir(archives, { recursive: true });
+    await Deno.writeTextFile(
+      path,
+      `${
+        JSON.stringify({
+          schema: 1,
+          at: "2026-08-11T12:00:00.000Z",
+          writer: "9.9.9",
+          kind: "verb",
+          verb: "done",
+          surface: "cli",
+          branch: "main",
+          head: "abc1234",
+          clean: true,
+          outcome: "ok",
+          duration_ms: 1,
+          epoch: null,
+        })
+      }\n`,
+    );
+    const before = await Deno.readFile(path);
+    const tool = TOOLS.find((candidate) =>
+      candidate.name === "discern_patterns"
+    );
+    assert(tool !== undefined);
+    const result = await runTool(tool, new WorkingRoot(dir), {
+      logbook_file: filename,
+      stats: true,
+      all: true,
+    });
+    assertEquals(result.isError, false, JSON.stringify(result));
+    const parsed = PatternsOutputSchema.parse(result.structuredContent);
+    const data = parsed.data as PatternsData;
+    assertEquals(data.logbook.source, {
+      kind: "archive",
+      filename,
+    });
+    assertEquals(data.logbook.events, 1);
+    assert(data.stats !== undefined);
+    assertEquals(await Deno.readFile(path), before);
   });
 });
 

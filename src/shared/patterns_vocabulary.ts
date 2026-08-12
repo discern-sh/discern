@@ -114,6 +114,13 @@ export type PatternsDetector = z.infer<typeof patternsDetectorSchema>;
  * and whether recording is currently on (`[project].logbook`) — the report
  * reads existing history either way. */
 const patternsLogbookSchema = z.strictObject({
+  source: z.discriminatedUnion("kind", [
+    z.strictObject({ kind: z.literal("active") }),
+    z.strictObject({
+      kind: z.literal("archive"),
+      filename: z.string(),
+    }),
+  ]),
   events: z.number().int(),
   unparsed: z.number().int(),
   setup_era: z.number().int(),
@@ -317,14 +324,65 @@ export const PatternsDataSchema = z.strictObject({
 });
 export type PatternsData = z.infer<typeof PatternsDataSchema>;
 
-/** `patterns reset` — what the deletion (or its `--dry-run` preview) covers:
- * the logbook directory and every file in it, with sizes. */
-export const PatternsResetDataSchema = z.strictObject({
-  dir: z.string(),
-  removed: z.array(z.strictObject({
-    file: z.string(),
-    bytes: z.number().int(),
-  })),
+const logbookLifecycleFileSchema = z.strictObject({
+  file: z.string(),
   bytes: z.number().int(),
 });
+
+const logbookLifecycleImpactSchema = z.strictObject({
+  key: z.string(),
+  phrase: z.string(),
+  surface: z.string(),
+});
+
+/** `patterns reset` — the exact active history and capability evidence its
+ * deletion (or `--dry-run` preview) covers. */
+export const PatternsResetDataSchema = z.strictObject({
+  dir: z.string(),
+  removed: z.array(logbookLifecycleFileSchema),
+  bytes: z.number().int(),
+  events: z.number().int(),
+  unparsed: z.number().int(),
+  first_at: z.string().optional(),
+  last_at: z.string().optional(),
+  impacts: z.array(logbookLifecycleImpactSchema),
+  recovery_path: z.string().optional(),
+});
 export type PatternsResetData = z.infer<typeof PatternsResetDataSchema>;
+
+/** `patterns archive` — the reviewed active source and sealed destination. */
+export const PatternsArchiveDataSchema = z.strictObject({
+  source_dir: z.string(),
+  destination_dir: z.string(),
+  archive_file: z.string(),
+  archive_path: z.string(),
+  files: z.array(logbookLifecycleFileSchema),
+  source_bytes: z.number().int(),
+  archive_bytes: z.number().int(),
+  events: z.number().int(),
+  unparsed: z.number().int(),
+  first_at: z.string().optional(),
+  last_at: z.string().optional(),
+  recovery_path: z.string().optional(),
+});
+export type PatternsArchiveData = z.infer<typeof PatternsArchiveDataSchema>;
+
+/** One discoverable sealed archive and the tolerant counts inside it. */
+export const PatternsArchiveEntrySchema = z.strictObject({
+  filename: z.string(),
+  events: z.number().int(),
+  unparsed: z.number().int(),
+  bytes: z.number().int(),
+  first_at: z.string().optional(),
+  last_at: z.string().optional(),
+});
+export type PatternsArchiveEntry = z.infer<
+  typeof PatternsArchiveEntrySchema
+>;
+
+/** `patterns archives` — every sealed archive under the registered directory. */
+export const PatternsArchivesDataSchema = z.strictObject({
+  dir: z.string(),
+  archives: z.array(PatternsArchiveEntrySchema),
+});
+export type PatternsArchivesData = z.infer<typeof PatternsArchivesDataSchema>;

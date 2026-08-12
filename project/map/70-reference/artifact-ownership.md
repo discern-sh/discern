@@ -109,6 +109,9 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | ---------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------- |
 | `discern/resources/`                           | repository | Resource ledger.                                                                                                    |
 | `discern/logbook/`                             | repository | [Logbook](../00-orientation/trust-and-data.md) events.                                                              |
+| `discern/logbook-archives/`                    | repository | Sealed Logbook event streams for historical Patterns and Stats reads.                                               |
+| `discern/logbook-recovery/`                    | repository | Detached Logbook source retained if reset cleanup or archive sealing fails.                                         |
+| `discern/logbook-lifecycle.lock`               | repository | Advisory lock serializing terminal-confirmed Logbook reset and archive actions.                                     |
 | `discern/continuations/`                       | repository | Short-handle continuation state, kept for up to 7 days.                                                             |
 | `discern/retired-worktree-paths/`              | repository | Up to 256 removed-path records; status ignores records 90 days after removal.                                       |
 | `discern/drop-recovery.lock`                   | repository | Advisory lock serializing the bounded drop-recovery ref transaction.                                                |

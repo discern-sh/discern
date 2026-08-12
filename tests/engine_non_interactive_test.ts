@@ -10,6 +10,7 @@ import { walk } from "@std/fs";
 import { fromFileUrl, join, relative } from "@std/path";
 import {
   defaultMapPath,
+  engineEnv,
   git,
   gitInit,
   runAgent,
@@ -21,6 +22,11 @@ import { withTempDir } from "./helpers.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const PRESETS = join(REPO_ROOT, "tests", "fixtures", "presets");
+
+Deno.test("engine fixtures declare CI state instead of inheriting the test host", async () => {
+  assertEquals((await engineEnv()).CI, "false");
+  assertEquals((await engineEnv({ CI: "1" })).CI, "1");
+});
 
 /** Every currently interactive-capable CLI form and its non-interactive fallback. */
 const INTERACTIVE_CASES: readonly {
@@ -64,6 +70,18 @@ const INTERACTIVE_CASES: readonly {
     args: ["worktree", "prune"],
     code: 1,
     output: "Confirmation required",
+  },
+  {
+    name: "Logbook reset confirmation",
+    args: ["patterns", "reset"],
+    code: 1,
+    output: "requires terminal stdin and stdout",
+  },
+  {
+    name: "Logbook archive confirmation",
+    args: ["patterns", "archive"],
+    code: 1,
+    output: "requires terminal stdin and stdout",
   },
 ];
 

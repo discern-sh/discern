@@ -261,6 +261,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0268 — The benefit canon transposes the feature registry](0268-the-benefit-canon-transposes-the-feature-registry.md)
 - [0270 — The benefit canon separates commercial value from claim qualification](0270-the-benefit-canon-separates-value-from-claim-qualification.md)
 - [0271 — Destructive drops retain bounded recovery refs](0271-destructive-drops-retain-bounded-recovery-refs.md)
+- [0272 — Logbook lifecycle actions require terminal confirmation, and archives remain readable](0272-logbook-lifecycle-actions-require-terminal-confirmation.md)
 
 <!-- END GENERATED: current ADR records -->
 

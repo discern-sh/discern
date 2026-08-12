@@ -33,6 +33,24 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  logbookArchives: {
+    path: "discern/logbook-archives",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
+  logbookRecovery: {
+    path: "discern/logbook-recovery",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
+  logbookLifecycleLock: {
+    path: "discern/logbook-lifecycle.lock",
+    scope: "common",
+    kind: "file",
+    validation: false,
+  },
   crash: {
     path: "discern/crash",
     scope: "common",

@@ -34,7 +34,10 @@ import {
 } from "../crash.ts";
 import type { DriverFacts, LogbookSurface } from "./schema.ts";
 import type { AgentSignal } from "./agent_signals.ts";
-import { LOGBOOK_EFFECTFUL_VERBS } from "../../shared/verbs.ts";
+import {
+  LOGBOOK_EFFECTFUL_VERBS,
+  logbookInvocationIsRecorded,
+} from "../../shared/verbs.ts";
 
 const recordedVerbs = new Set<string>();
 const beginRecordedVerbs = new Set<string>();
@@ -150,6 +153,9 @@ export async function recordedRun(
   body: () => number | undefined | Promise<number | undefined>,
   opts: RecordedRunOptions = {},
 ): Promise<number> {
+  if (!logbookInvocationIsRecorded(verb)) {
+    return (await body()) ?? 0;
+  }
   // A CLI process normally serves one verb, but the accumulators are process
   // local: clear any stale test/embedded-call state before this invocation.
   takeSupplementalHintIds();

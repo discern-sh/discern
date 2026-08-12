@@ -87,6 +87,7 @@ export interface RunResult {
 }
 
 const DECODER = new TextDecoder();
+const ENCODER = new TextEncoder();
 
 /** Git env that isolates a temp repo from the developer's global/system config. */
 const GIT_ISOLATION: Record<string, string> = {
@@ -166,6 +167,9 @@ export async function engineEnv(
   const tmp = await suiteTempDir();
   return {
     NO_COLOR: "1",
+    // A fixture models a normal local invocation unless its test opts into CI.
+    // This keeps the harness independent of the environment running the suite.
+    CI: "false",
     // FORCE_COLOR flips Deno.noColor false even when NO_COLOR is set; empty
     // means unset, so an inherited value can't recolour spawned output.
     FORCE_COLOR: "",
@@ -344,7 +348,12 @@ export async function runAgent(
 export async function runAgentPty(
   dir: string,
   args: string[],
-  opts: { env?: Record<string, string>; timeoutMs?: number } = {},
+  opts: {
+    env?: Record<string, string>;
+    timeoutMs?: number;
+    /** Bytes to feed the terminal's stdin, then close it. */
+    input?: string;
+  } = {},
 ): Promise<RunResult> {
   if (Deno.build.os === "windows") {
     throw new Error("runAgentPty requires the Unix script(1) utility");
@@ -366,11 +375,16 @@ export async function runAgentPty(
     args: scriptArgs,
     cwd: dir,
     env: await engineEnv(opts.env),
-    stdin: "null",
+    stdin: opts.input === undefined ? "null" : "piped",
     stdout: "piped",
     stderr: "piped",
   });
   const process = child.spawn();
+  if (opts.input !== undefined) {
+    const writer = process.stdin.getWriter();
+    await writer.write(ENCODER.encode(opts.input));
+    await writer.close();
+  }
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;

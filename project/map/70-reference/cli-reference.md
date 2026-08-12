@@ -44,7 +44,9 @@ aliases:
   - discern coupling
   - discern await
   - discern patterns
+  - discern patterns archives
   - discern patterns reset
+  - discern patterns archive
   - discern status
   - discern desk
   - discern start
@@ -612,22 +614,44 @@ Report the patterns in this project's discern use, read from the local logbook o
 
 Usage: `discern patterns [options]`
 
-| Option    | Description                                                                                                                                                                                                    |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`  | Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).                                                                                                                          |
-| `--stats` | Report practice stats instead: changes accepted, green streaks, cycle times, standards trends, and agent cohorts, counted from the same local evidence. With --json, the counts join the result as data.stats. |
-| `--all`   | Report every finding from every detector.                                                                                                                                                                      |
+| Option                      | Description                                                                                                                                                                                                    |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`                    | Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).                                                                                                                          |
+| `--stats`                   | Report practice stats instead: changes accepted, green streaks, cycle times, standards trends, and agent cohorts, counted from the same local evidence. With --json, the counts join the result as data.stats. |
+| `--all`                     | Report every finding from every detector.                                                                                                                                                                      |
+| `--logbook-file <filename>` | Read one sealed archive basename listed by `discern patterns archives` instead of the active Logbook.                                                                                                          |
+
+#### `discern patterns archives`
+
+List sealed Logbook archives with their event counts, date spans, and byte sizes.
+
+Usage: `discern patterns archives [options]`
+
+| Option   | Description                                               |
+| -------- | --------------------------------------------------------- |
+| `--json` | Emit the result as a JSON DiscernResult object on stdout. |
 
 #### `discern patterns reset`
 
-Delete the recorded history: every logbook month file and the epoch sidecar. Local data only; nothing else is touched.
+Permanently remove the active Logbook after terminal confirmation. Sealed archives and other Git-admin state remain.
 
 Usage: `discern patterns reset [options]`
 
-| Option      | Description                                               |
-| ----------- | --------------------------------------------------------- |
-| `--json`    | Emit the result as a JSON DiscernResult object on stdout. |
-| `--dry-run` | List what would be removed; touch nothing.                |
+| Option      | Description                                                       |
+| ----------- | ----------------------------------------------------------------- |
+| `--json`    | Preview as one JSON DiscernResult; apply is refused in JSON mode. |
+| `--dry-run` | Render the complete plan without prompting or changing files.     |
+
+#### `discern patterns archive`
+
+Seal the active event history into a timestamped archive and begin a fresh active Logbook after terminal confirmation.
+
+Usage: `discern patterns archive [options]`
+
+| Option      | Description                                                       |
+| ----------- | ----------------------------------------------------------------- |
+| `--json`    | Preview as one JSON DiscernResult; apply is refused in JSON mode. |
+| `--dry-run` | Render the complete plan without prompting or changing files.     |
 
 ### `discern map`
 

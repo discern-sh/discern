@@ -177,6 +177,16 @@ const PROJECT_CASES: readonly PurityCase[] = [
     envelopeVerb: "patterns reset",
     args: ["patterns", "reset", "--dry-run"],
   },
+  {
+    commandPath: "patterns archive",
+    envelopeVerb: "patterns archive",
+    args: ["patterns", "archive", "--dry-run"],
+  },
+  {
+    commandPath: "patterns archives",
+    envelopeVerb: "patterns archives",
+    args: ["patterns", "archives"],
+  },
   { commandPath: "desk", envelopeVerb: "desk", args: ["desk"] },
   { commandPath: "doctor", envelopeVerb: "doctor", args: ["doctor"] },
   { commandPath: "setup", envelopeVerb: "setup", args: ["setup"] },

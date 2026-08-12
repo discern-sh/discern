@@ -14,6 +14,7 @@ import { withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
+  runAgentPty,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
@@ -1724,7 +1725,7 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
   });
 });
 
-Deno.test("patterns reset: dry-run previews, apply removes exactly the logbook", async () => {
+Deno.test("patterns reset: preview is read-only and terminal apply removes exactly the active logbook", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1733,6 +1734,20 @@ Deno.test("patterns reset: dry-run previews, apply removes exactly the logbook",
     // means the logbook directory alone. New registry members auto-enrol.
     const siblings = await seedAdminSiblings(dir);
     const logDir = join(dir, ".git", "discern", "logbook");
+    const sealedArchive = join(
+      dir,
+      ".git",
+      "discern",
+      "logbook-archives",
+      "logbook-20260811T120000Z.jsonl",
+    );
+    const sealedContents = `${
+      seededEvent(
+        "2026-08-11T12:00:00.000Z",
+        "ok",
+      )
+    }\n`;
+    await Deno.writeTextFile(sealedArchive, sealedContents);
 
     // The preview lists the files and removes nothing.
     const preview = await runAgent(dir, [
@@ -1756,34 +1771,35 @@ Deno.test("patterns reset: dry-run previews, apply removes exactly the logbook",
       "a dry-run removes nothing",
     );
 
-    // The apply removes the directory and reports what it removed.
-    const apply = await runAgent(dir, ["patterns", "reset", "--json"]);
-    assertEquals(apply.code, 0, apply.output);
-    const applyParsed = PatternsResetOutputSchema.parse(
-      JSON.parse(apply.stdout),
+    // Machine apply refuses without changing the active bytes.
+    const before = await Deno.readFile(join(logDir, "2026-06.jsonl"));
+    const refused = await runAgent(dir, ["patterns", "reset", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    const refusedParsed = PatternsResetOutputSchema.parse(
+      JSON.parse(refused.stdout),
     );
-    const applyData = applyParsed.data as PatternsResetData;
-    assert(applyData.removed.some((f) => f.file === "2026-06.jsonl"));
-    assert(applyData.bytes > 0);
+    assertEquals(refusedParsed.error, "confirmation_required");
+    assertEquals(
+      await Deno.readFile(join(logDir, "2026-06.jsonl")),
+      before,
+    );
+
+    // A terminal operator's explicit Yes removes the active history.
+    const apply = await runAgentPty(dir, ["patterns", "reset"], {
+      input: "y\n",
+    });
+    assertEquals(apply.code, 0, apply.output);
+    assertStringIncludes(
+      normalized(apply.output),
+      "Removed the active Logbook",
+    );
     let logbookGone = false;
     try {
       await Deno.stat(logDir);
     } catch {
       logbookGone = true;
     }
-    // The reset's own completion event may recreate the directory after the
-    // removal (recording never interferes, and the toggle is still on) — so
-    // assert on CONTENT: the seeded month must be gone even if a fresh
-    // logbook has already restarted.
-    if (!logbookGone) {
-      let seededGone = false;
-      try {
-        await Deno.stat(join(logDir, "2026-06.jsonl"));
-      } catch {
-        seededGone = true;
-      }
-      assert(seededGone, "the seeded history must be gone after reset");
-    }
+    assert(logbookGone, "reset itself must not recreate the active Logbook");
     for (const sibling of siblings) {
       assertEquals(
         await Deno.readTextFile(sibling.path),
@@ -1791,30 +1807,34 @@ Deno.test("patterns reset: dry-run previews, apply removes exactly the logbook",
         `reset must preserve ${sibling.path}`,
       );
     }
+    assertEquals(
+      await Deno.readTextFile(sealedArchive),
+      sealedContents,
+      "reset must preserve every sealed archive",
+    );
 
-    // Afterwards the verb reports a young logbook again (at most the reset's
-    // own freshly-recorded events), with no findings.
+    // Afterwards the verb reports a genuinely fresh active logbook.
     const after = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(after.code, 0, after.output);
     const afterData = PatternsOutputSchema.parse(JSON.parse(after.stdout))
       .data as PatternsData;
     assert(
-      afterData.logbook.events <= 2,
+      afterData.logbook.events === 0,
       `the history must be gone, saw ${afterData.logbook.events} events`,
     );
     assertEquals(afterData.findings, []);
   });
 });
 
-Deno.test("patterns reset: with nothing recorded it says so and succeeds", async () => {
+Deno.test("patterns reset: even an empty apply refuses outside a terminal", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     const r = await runAgent(dir, ["patterns", "reset", "--json"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
     const parsed = PatternsResetOutputSchema.parse(JSON.parse(r.stdout));
-    assertEquals(parsed.ok, true);
+    assertEquals(parsed.ok, false);
+    assertEquals(parsed.error, "confirmation_required");
     assertEquals((parsed.data as PatternsResetData).removed, []);
-    assertHasHint(parsed, HINTS["patterns-reset-empty"]);
   });
 });

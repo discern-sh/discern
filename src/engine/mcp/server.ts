@@ -767,8 +767,11 @@ export const TOOLS: McpTool[] = orderTools([
       "only enforcement surface. Distinct from discern_coupling, which mines " +
       "git history for files that change together; patterns reads discern's " +
       "own run history. An empty logbook is a normal state with a helpful " +
-      "message. The reset action (`discern patterns reset`, CLI only) " +
-      "deletes the recorded history. Pass stats: true when the owner asks for " +
+      "message. Active history is the default; logbook_file can select one " +
+      "sealed archive basename listed by the CLI's `discern patterns archives`. " +
+      "Historical selection is advisory and never changes the active recorder. " +
+      "Reset and archive lifecycle actions remain owner-confirmed CLI-only " +
+      "operations. Pass stats: true when the owner asks for " +
       "their stats: data.stats adds practice stats — changes accepted, green " +
       "streaks, cycle times, standards trends, agent cohorts — counted from " +
       "the same local evidence, for the owner to share, never for steering " +
@@ -786,12 +789,20 @@ export const TOOLS: McpTool[] = orderTools([
           "The result can be very large on a long history; prefer the " +
           "default bound unless the elided findings are the question.",
       ),
+      logbook_file: z.string().optional().describe(
+        "A sealed Logbook archive basename from `discern patterns archives`. " +
+          "Paths, active month files, and nonarchive names are rejected. " +
+          "Omit to read the active Logbook.",
+      ),
       ...PATH_PARAM,
     },
     run: (root, args) =>
       patternsResult(root, {
         stats: args.stats === true,
         all: args.all === true,
+        ...(args.logbook_file !== undefined
+          ? { logbookFile: args.logbook_file }
+          : {}),
       }),
   }),
   defineTool({

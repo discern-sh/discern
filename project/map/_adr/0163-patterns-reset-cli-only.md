@@ -1,6 +1,6 @@
 # ADR 0163: The patterns family houses its reset as a CLI-only imperative subcommand
 
-**Status**: accepted
+**Status**: accepted; the no-confirmation clause is superseded by [ADR 0272](0272-logbook-lifecycle-actions-require-terminal-confirmation.md). The CLI-only subcommand placement remains in force.
 
 ## Context
 

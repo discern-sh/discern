@@ -23,6 +23,8 @@ The diagnostic verbs ask different questions. `discern doctor` checks whether th
 ```sh
 discern patterns
 discern patterns --json
+discern patterns archives
+discern patterns --logbook-file logbook-20260811T143015Z.jsonl
 ```
 
 The human report uses a stable order: trajectory, Gate fit, agent behavior, then the task funnel. Within a section, the strongest detector block comes first. A detector's title appears once, followed by one row per finding and one recommended next step. Each block keeps its strongest 3 findings and notes what it omitted; `discern patterns --all` reports the full set ([ADR 0256](../_adr/0256-patterns-findings-bounded-per-detector.md)). `✓`, `·`, and `!` distinguish favorable, neutral, and attention-worthy evidence. `tone` never changes ranking or the advisory boundary ([ADR 0206](../_adr/0206-patterns-finding-tone-is-presentation-only.md)).
@@ -38,6 +40,8 @@ The closing account names clear and young detectors. `--json` keeps findings ran
 An empty Logbook is a normal state, and the report identifies it. A repository that never recorded, or opted out with `[project].logbook = false`, still gets a readable answer.
 
 `discern patterns --stats` reads the same Logbook for what went well and renders [practice stats](practice-stats.md) instead of the detector report: changes accepted, green streaks, cycle times, Standards trends, and agent cohorts in a shareable card of plain counts.
+
+The active Logbook is the default source. `discern patterns archives` lists each sealed archive's filename, event count, date span, skipped-line count, and bytes. `--logbook-file <filename>` selects one listed basename for the detector report or `--stats`; it also composes with `--all` and `--json`. `data.logbook.source` identifies `active` or the selected `archive`, and human output names historical reads. The read-only `discern_patterns` MCP tool accepts `logbook_file` with the same basename rule. Historical reads never modify the archive; their own completion event, when recording is on, goes to the active Logbook. Operational readers such as `status`, Proof hints, queue estimates, and work-in-flight checks always read active activity ([ADR 0272](../_adr/0272-logbook-lifecycle-actions-require-terminal-confirmation.md)).
 
 ## What the detectors watch
 
@@ -82,14 +86,18 @@ A cohort key follows the same lifetime rule as the driver split, so a persistent
 
 `guidance-parity` closes a loop specific to discern: one authored source compiles to every provider's guidance file, so a refusal or missing-page lookup that one population keeps hitting while its peers sit at zero points at that provider's compiled surface. The finding's next step names the file to check (`CLAUDE.md`, `GEMINI.md`, the canonical `AGENTS.md`), and a gap every cohort hits stays un-split: a shared gap is a shared fix.
 
-## Reset the history
+## Manage the active history
 
 ```sh
 discern patterns reset --dry-run
+discern patterns archive --dry-run
 discern patterns reset
+discern patterns archive
 ```
 
-The reset deletes the Logbook directory, including each month file and the epoch sidecar, and prints what it removed. `--dry-run` lists the same plan without touching anything. It detaches the directory before deleting its files, so a recorder arriving mid-cleanup starts a new directory and new activity remains available. This destructive action lives on the CLI because deleting recorded history is an owner's local decision; no MCP tool exposes it ([ADR 0163](../_adr/0163-patterns-reset-cli-only.md)). Recording starts again unless `[project].logbook = false`.
+Both lifecycle actions are CLI-only owner operations. Their `--dry-run` forms render the complete event count, date span, source-file list, bytes, and destination or deletion scope without prompting or changing files; add `--json` for the same machine-readable plan. Apply requires terminal stdin and stdout, operation outside CI and global `--plain`, and an explicit Yes to a confirmation that defaults to No. Pipes and `--json` apply refuse. There is no confirmation flag or environment bypass. This supersedes the earlier unattended-reset choice ([ADR 0272](../_adr/0272-logbook-lifecycle-actions-require-terminal-confirmation.md)).
+
+Reset removes only active history. Archive seals it and starts a fresh active Logbook. [Logbook lifecycle](../70-reference/logbook-lifecycle.md) specifies the transaction, recovery path, recorder boundary, and historical-read commands. Recording starts again after either action unless `[project].logbook = false`.
 
 Result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md). [The Logbook](../70-reference/the-logbook.md) covers the recording substrate.
 
@@ -99,7 +107,8 @@ Result fields and Model Context Protocol arguments are in [MCP tools & results](
 | ---------------------------------------- | ---------------------------------------------------------------------- |
 | The detector registry and every detector | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)             |
 | Driver scoring and the cohort seam       | [`cohorts.ts`](../../../src/engine/logbook/cohorts.ts)                 |
-| The verb core, rendering, and the reset  | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)               |
+| The verb core, reports, and lifecycle    | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)               |
+| Active/archive storage transactions      | [`store.ts`](../../../src/engine/logbook/store.ts)                     |
 | Shared terminal wrapping and alignment   | [`text.ts`](../../../src/lib/text.ts)                                  |
 | The tolerant stream reader               | [`read.ts`](../../../src/engine/logbook/read.ts)                       |
 | Scope and tier routing                   | [`routing.ts`](../../../src/engine/logbook/routing.ts)                 |

@@ -79,6 +79,8 @@ import { impactResult } from "../src/engine/scopes/scopes.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import { statusResult } from "../src/engine/status/status.ts";
 import {
+  patternsArchiveResult,
+  patternsArchivesResult,
   patternsResetResult,
   patternsResult,
 } from "../src/engine/logbook/patterns.ts";
@@ -555,6 +557,8 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "improvement",
   "update",
   "patterns",
+  "patternsArchive",
+  "patternsArchives",
   "patternsReset",
   "prepare",
   "standards",
@@ -1189,6 +1193,21 @@ Deno.test("patterns result and its reset are faithful (empty, seeded, dry-run, a
       "patternsReset",
       await patternsResetResult(dir),
       "patterns reset (nothing left)",
+    );
+    expectFaithful(
+      "patternsArchive",
+      await patternsArchiveResult(dir, { dryRun: true }),
+      "patterns archive dry-run",
+    );
+    expectFaithful(
+      "patternsArchive",
+      await patternsArchiveResult(dir),
+      "patterns archive refusal",
+    );
+    expectFaithful(
+      "patternsArchives",
+      await patternsArchivesResult(dir),
+      "patterns archives",
     );
   });
 });

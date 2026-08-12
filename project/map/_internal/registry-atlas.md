@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 33      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 3       | —                | —                           |
-| [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 21      | —                | node `plan-apply`           |
+| [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 22      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
 | [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 36      | —                | —                           |
@@ -28,7 +28,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 10      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 20      | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 23      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
@@ -47,7 +47,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 167     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 169     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `art/terminal/triangle.ts#DISCERN_TRIANGLE_MOTIFS`                                | 10      | —                | —                           |
@@ -57,6 +57,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
 | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 7       | —                | node `logbook`              |
+| [`logbook-lifecycle-actions`](#logbook-lifecycle-actions--logbook-lifecycle-actions)                                  | `src/shared/logbook_lifecycle.ts#LOGBOOK_LIFECYCLE_ACTIONS`                       | 2       | —                | node `patterns`             |
 | [`detector-families`](#detector-families--patterns-detector-families)                                                 | `src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES`                             | 4       | —                | node `patterns`             |
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 34      | "Patterns"       | node `patterns`             |
@@ -64,7 +65,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 40      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 128     | —                | —                           |
 | [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 44      | —                | —                           |
-| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 42      | —                | node `published-contracts`  |
+| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 44      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
@@ -75,7 +76,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 261     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 262     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 22      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -88,9 +89,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 77      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 78      | —                | node `canonical-sets`       |
 
-77 sets · 115 guard tests · 53 committed artifacts.
+78 sets · 117 guard tests · 53 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -142,9 +143,11 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/engine_json_purity_test.ts`                 | [`hints`](#hints--hints), [`result-contracts`](#result-contracts--result-contracts), [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts), [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes), [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                                                                                                          |
 | `tests/engine_landing_authority_test.ts`           | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources), [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                                                                                                                                                                                                                                                                                                        |
 | `tests/engine_lifecycle_authority_test.ts`         | [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tests/engine_logbook_lifecycle_test.ts`           | [`git-admin-state`](#git-admin-state--git-admin-state), [`logbook-lifecycle-actions`](#logbook-lifecycle-actions--logbook-lifecycle-actions)                                                                                                                                                                                                                                                                                                                                          |
 | `tests/engine_logbook_test.ts`                     | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources), [`hints`](#hints--hints), [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                              |
 | `tests/engine_mcp_test.ts`                         | [`mcp-tools`](#mcp-tools--mcp-tools), [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/engine_nested_root_test.ts`                 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs)                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/engine_non_interactive_test.ts`             | [`logbook-lifecycle-actions`](#logbook-lifecycle-actions--logbook-lifecycle-actions)                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/engine_nondefault_paths_test.ts`            | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/engine_patterns_test.ts`                    | [`git-admin-state`](#git-admin-state--git-admin-state), [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                        |
 | `tests/engine_plan_parity_test.ts`                 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -181,7 +184,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/logbook_no_network_test.ts`                 | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/logbook_powered_test.ts`                    | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/logbook_routing_test.ts`                    | [`logbook-events`](#logbook-events--logbook-events), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                                                                                                                                                                                                                                  |
-| `tests/logbook_test.ts`                            | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events), [`error-slugs`](#error-slugs--result-error-slugs)                                                                                                                                                                                                                                                                                                                     |
+| `tests/logbook_test.ts`                            | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events), [`logbook-lifecycle-actions`](#logbook-lifecycle-actions--logbook-lifecycle-actions), [`error-slugs`](#error-slugs--result-error-slugs)                                                                                                                                                                                                                               |
 | `tests/paths_literal_ban_test.ts`                  | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/paths_registry_test.ts`                     | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/paths_sentinel_render_test.ts`              | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -336,13 +339,14 @@ Every top-level verb kept out of the operator help listing carries a reason and 
 Every command path that registers `--dry-run`. These plan/apply verbs must produce a faithful preview: a dry run writes nothing, and apply performs only listed effects.
 
 - Source: `src/main.ts` — `dryRunCapableVerbs`
-- Members: 21
+- Members: 22
   - `accept`
   - `config set`
   - `config set-job`
   - `config set-scope`
   - `config set-standard`
   - `done`
+  - `patterns archive`
   - `patterns reset`
   - `preset`
   - `setup`
@@ -600,9 +604,12 @@ The Desk's per-Worktree action vocabulary and menu order. The legality table exe
 Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 20
+- Members: 23
   - `resources`
   - `logbook`
+  - `logbookArchives`
+  - `logbookRecovery`
+  - `logbookLifecycleLock`
   - `crash`
   - `testSlots`
   - `deskTips`
@@ -621,7 +628,7 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `setupMachineryCommitEvidence`
   - `worktreeReady`
   - `selfShim`
-- Guards: `tests/git_admin_state_test.ts`, `tests/engine_patterns_test.ts`, `tests/engine_write_preflight_test.ts`, `tests/engine_effort_grant_test.ts`
+- Guards: `tests/git_admin_state_test.ts`, `tests/engine_patterns_test.ts`, `tests/engine_logbook_lifecycle_test.ts`, `tests/engine_write_preflight_test.ts`, `tests/engine_effort_grant_test.ts`
 - Glossary: not enrolled — the Git-admin state reference owns this internal vocabulary for Proof, measurements, Logbook data, and Worktree lifecycle state
 - Feature canon: not enrolled — the registry supports several product features, each documented by its own node
 
@@ -975,7 +982,7 @@ The `@…@` runtime tokens substituted into a Worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 167
+- Members: 169
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -1037,6 +1044,8 @@ The advisory hint registry: every hint string enters results through it.
   - `patterns-advisory-findings`
   - `patterns-findings-capped`
   - `patterns-recording-off`
+  - `patterns-archive-selection`
+  - `patterns-lifecycle-confirmation`
   - `patterns-reset-empty`
   - `patterns-reset-preview`
   - `patterns-reset-recording-resumes`
@@ -1391,6 +1400,18 @@ The advisory capabilities that switch off with `[project].logbook = false`. Ever
 - Glossary: not enrolled — the Logbook reference documents these capability names and their opt-out behavior
 - Feature canon: described by the `logbook` node
 
+## `logbook-lifecycle-actions` — Logbook lifecycle actions
+
+Every CLI-only action allowed to detach or remove active Logbook history. Dispatch, recording exclusion, terminal-confirmation policy, and safety tests derive from this set.
+
+- Source: `src/shared/logbook_lifecycle.ts` — `LOGBOOK_LIFECYCLE_ACTIONS`
+- Members: 2
+  - `reset`
+  - `archive`
+- Guards: `tests/engine_logbook_lifecycle_test.ts`, `tests/engine_non_interactive_test.ts`, `tests/logbook_test.ts`
+- Glossary: not enrolled — the Patterns and Logbook references document these owner actions in lifecycle context
+- Feature canon: described by the `patterns` node
+
 ## `detector-families` — Patterns detector families
 
 The categories that group every Patterns detector and finding. Schemas, registry entries, and the human report derive from this vocabulary.
@@ -1729,7 +1750,7 @@ The commercially ordered transposition of the feature registry: human value and 
 The per-verb result contracts behind the published JSON schema and type declarations.
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
-- Members: 42
+- Members: 44
   - `discern`
   - `setup`
   - `setupVerify`
@@ -1757,6 +1778,8 @@ The per-verb result contracts behind the published JSON schema and type declarat
   - `await`
   - `patterns`
   - `patternsReset`
+  - `patternsArchive`
+  - `patternsArchives`
   - `desk`
   - `status`
   - `start`
@@ -1985,7 +2008,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 261
+- Members: 262
   - `0003`
   - `0005`
   - `0006`
@@ -2229,6 +2252,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0268`
   - `0270`
   - `0271`
+  - `0272`
   - `0001`
   - `0002`
   - `0004`
@@ -2524,7 +2548,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 77
+- Members: 78
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2570,6 +2594,7 @@ This meta-registry: the closed set of closed sets.
   - `logbook-outcomes`
   - `logbook-events`
   - `logbook-powered`
+  - `logbook-lifecycle-actions`
   - `detector-families`
   - `pattern-finding-tones`
   - `patterns-detectors`

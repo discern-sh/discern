@@ -1,6 +1,6 @@
 ---
 title: The logbook
-description: What discern records about its own verb runs, where the file lives, and how to read, delete, or disable it.
+description: What discern records about its own verb runs, where the files live, and how to read, archive, reset, or disable them.
 order: 80
 aliases:
   - logbook
@@ -16,9 +16,11 @@ With recording on and `discern.toml` readable, each command-line interface (CLI)
 
 An MCP call whose explicit `path` falls outside every discern project returns `not_initialized` and records nothing. No project Logbook or readable consent setting applies to that path.
 
-- **Read it:** `discern patterns` reports the findings ([practice patterns](../20-quality-gate/patterns.md)). `cat .git/discern/logbook/*.jsonl` shows the raw lines.
-- **Delete it:** `discern patterns reset` (preview with `--dry-run`). Nothing else references the files it removes.
-- **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`. Recording stops. Existing files remain until you reset them.
+- **Read active history:** `discern patterns` reports the findings ([practice patterns](../20-quality-gate/patterns.md)). `cat .git/discern/logbook/*.jsonl` shows the raw active lines.
+- **List and read sealed history:** `discern patterns archives`, then `discern patterns --logbook-file <filename>`. Add `--stats`, `--all`, or `--json` as needed.
+- **Seal active history:** `discern patterns archive` (preview with `--dry-run`). A confirmed terminal action starts a fresh active Logbook and preserves the sealed event lines for later reports.
+- **Delete active history:** `discern patterns reset` (preview with `--dry-run`). A confirmed terminal action removes only active history; sealed archives survive.
+- **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`. Recording stops. Existing active files remain until you archive or reset them.
 
 ## What it powers
 
@@ -107,6 +109,10 @@ discern writes the Logbook under the Git administrative area, outside commits an
 ## Rotation and config epochs
 
 Events use month-stamped files (`2026-07.jsonl`), and rotation keeps the newest 24 months. A `prune` line records each removed month with counts by verb and outcome, including a separate partial count. These aggregate counts remain after removal of the raw lines.
+
+## Archive and reset lifecycle
+
+[Logbook lifecycle](logbook-lifecycle.md) specifies the terminal confirmation, atomic archive boundary, recovery state, and historical source selector. Historical selection is advisory: Patterns and Stats may read a sealed file, but fleet activity, `status`, Proof hints, queue estimates, and work-in-flight checks always use the active Logbook.
 
 The `epoch` fingerprint hashes behavior-relevant configuration section by section, with a Standard's `limit` masked out. A pin leaves the fingerprint unchanged. An edit to a command, scope, input list, or other behavior-relevant setting changes it and adds a `config-change` line naming the section.
 

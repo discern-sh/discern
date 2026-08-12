@@ -537,6 +537,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/git_admin_state_test.ts",
       "tests/engine_patterns_test.ts",
+      "tests/engine_logbook_lifecycle_test.ts",
       "tests/engine_write_preflight_test.ts",
       "tests/engine_effort_grant_test.ts",
     ],
@@ -1388,6 +1389,34 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     members: async () =>
       (await import("../src/shared/logbook_powered.ts")).LOGBOOK_POWERED
         .map((member) => member.key),
+  },
+  {
+    id: "logbook-lifecycle-actions",
+    title: "Logbook lifecycle actions",
+    what:
+      "Every CLI-only action allowed to detach or remove active Logbook history. Dispatch, recording exclusion, terminal-confirmation policy, and safety tests derive from this set.",
+    source: {
+      kind: "module",
+      module: "src/shared/logbook_lifecycle.ts",
+      exportName: "LOGBOOK_LIFECYCLE_ACTIONS",
+    },
+    guards: [
+      "tests/engine_logbook_lifecycle_test.ts",
+      "tests/engine_non_interactive_test.ts",
+      "tests/logbook_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the Patterns and Logbook references document these owner actions in lifecycle context",
+      },
+      featureCanon: { nodeId: "patterns" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/logbook_lifecycle.ts"))
+        .LOGBOOK_LIFECYCLE_ACTION_NAMES,
+    ],
   },
   {
     id: "detector-families",
