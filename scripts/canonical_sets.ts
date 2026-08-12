@@ -652,6 +652,30 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "built-in-step-labels",
+    title: "Built-in step labels",
+    what:
+      "The stable kebab-case operation labels discern authors in plans and applied results. Configured identifiers use the separate verbatim-label boundary.",
+    source: {
+      kind: "module",
+      module: "src/shared/result.ts",
+      exportName: "BUILT_IN_STEP_LABELS",
+    },
+    guards: ["tests/built_in_step_labels_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the result-contract reference explains label ownership and configured identifiers preserve their project spelling",
+      },
+      featureCanon: { nodeId: "plan-apply" },
+    },
+    members: async () =>
+      Object.values(
+        (await import("../src/shared/result.ts")).BUILT_IN_STEP_LABELS,
+      ),
+  },
+  {
     id: "config-tables",
     title: "Config tables",
     what: "Every top-level table in the config schema.",

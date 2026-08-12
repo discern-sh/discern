@@ -20,7 +20,11 @@ import {
   renderGateTtyStatus,
   renderGateTtyTable,
 } from "../src/engine/gate/gate_tty.ts";
-import { dimBlock, type StepResult } from "../src/shared/result.ts";
+import {
+  dimBlock,
+  type StepResult,
+  verbatimStepLabel,
+} from "../src/shared/result.ts";
 import { makeOut, outSink } from "../src/engine/output.ts";
 import { displayWidth } from "../src/lib/text.ts";
 import type { GatePlan } from "../src/engine/gate/plan.ts";
@@ -60,7 +64,7 @@ const STEPS: StepResult[] = [
   {
     step: {
       kind: "job",
-      label: "format",
+      label: verbatimStepLabel("format"),
       disposition: "run",
       note: "deno fmt",
       group: "Fix",
@@ -71,7 +75,7 @@ const STEPS: StepResult[] = [
   {
     step: {
       kind: "job",
-      label: "lint",
+      label: verbatimStepLabel("lint"),
       disposition: "run",
       note: "deno lint",
       group: "Check & test",
@@ -82,7 +86,7 @@ const STEPS: StepResult[] = [
   {
     step: {
       kind: "job",
-      label: "test",
+      label: verbatimStepLabel("test"),
       disposition: "run",
       note: "deno task test",
       group: "Check & test",
@@ -93,7 +97,7 @@ const STEPS: StepResult[] = [
   {
     step: {
       kind: "scope-gate",
-      label: "scope:web",
+      label: verbatimStepLabel("scope:web"),
       disposition: "skip",
       note: "scope unchanged",
       group: "Scope gates",
@@ -231,7 +235,12 @@ Deno.test("proof render: a timed sub-second standard says <1s", () => {
 Deno.test("proof render: an untimed run claims no duration at all", () => {
   const untimed: StepResult[] = [
     {
-      step: { kind: "job", label: "smoke", disposition: "run", note: "true" },
+      step: {
+        kind: "job",
+        label: verbatimStepLabel("smoke"),
+        disposition: "run",
+        note: "true",
+      },
       outcome: "ok",
     },
   ];
@@ -253,7 +262,7 @@ Deno.test("proof render: a pipe in a command cannot break the table", () => {
     {
       step: {
         kind: "job",
-        label: "lint",
+        label: verbatimStepLabel("lint"),
         disposition: "run",
         note: "grep -c TODO src | sort",
         group: "Check & test",
@@ -405,7 +414,7 @@ Deno.test("gate TTY render: color changes styling only and every line stays with
     {
       step: {
         kind: "job",
-        label: "types",
+        label: verbatimStepLabel("types"),
         disposition: "run",
         note: "deno check a/long/path/to/the/project/entrypoint.ts",
         group: "Check",
@@ -416,7 +425,7 @@ Deno.test("gate TTY render: color changes styling only and every line stays with
     {
       step: {
         kind: "job",
-        label: "lint#2",
+        label: verbatimStepLabel("lint#2"),
         disposition: "run",
         note: "deno lint",
         group: "Check",

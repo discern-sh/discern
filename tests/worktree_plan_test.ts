@@ -8,12 +8,15 @@
 
 import { assert, assertEquals } from "@std/assert";
 import {
+  BUILT_IN_STEP_LABELS,
+  verbatimStepLabel,
+} from "../src/shared/result.ts";
+import {
   classifyOrphans,
   type LedgerItem,
   type ResourceEntry,
 } from "../src/engine/worktree/resources.ts";
 import {
-  ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
   acceptPlanToEngine,
   prunePlanIsEmpty,
   prunePlanToEngine,
@@ -140,20 +143,22 @@ Deno.test("acceptPlanToEngine: checks refresh before fast-forward; resources gat
     hasResources: true,
   });
   assertEquals(withResources.steps.map((s) => s.label), [
-    ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
+    BUILT_IN_STEP_LABELS.trackedRefreshLandingBoundary,
     "fast-forward-trunk",
     "reconcile-proof-note-fetch",
     "write-proof-note",
-    "materialize local agent artifacts",
+    BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts,
     "install-deps",
     "smoke",
-    "check trunk checkout",
-    "teardown resources",
+    BUILT_IN_STEP_LABELS.checkTrunkCheckout,
+    BUILT_IN_STEP_LABELS.teardownResources,
     "remove-worktree",
     "delete-branch",
   ]);
   assertEquals(
-    withResources.steps.find((s) => s.label === "teardown resources")
+    withResources.steps.find((s) =>
+      s.label === BUILT_IN_STEP_LABELS.teardownResources
+    )
       ?.disposition,
     "run",
   );
@@ -163,21 +168,22 @@ Deno.test("acceptPlanToEngine: checks refresh before fast-forward; resources gat
     hasResources: false,
   });
   assertEquals(clean.steps.map((s) => s.label), [
-    ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
+    BUILT_IN_STEP_LABELS.trackedRefreshLandingBoundary,
     "fast-forward-trunk",
     "reconcile-proof-note-fetch",
     "write-proof-note",
-    "materialize local agent artifacts",
+    BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts,
     "install-deps",
     "smoke",
-    "check trunk checkout",
-    "teardown resources",
+    BUILT_IN_STEP_LABELS.checkTrunkCheckout,
+    BUILT_IN_STEP_LABELS.teardownResources,
     "remove-worktree",
     "delete-branch",
   ]);
   // No resources → the teardown step is shown but skipped.
   assertEquals(
-    clean.steps.find((s) => s.label === "teardown resources")?.disposition,
+    clean.steps.find((s) => s.label === BUILT_IN_STEP_LABELS.teardownResources)
+      ?.disposition,
     "skip",
   );
   // The landing detail names the trunk fast-forward + branch deletion — the one
@@ -209,8 +215,16 @@ Deno.test("setupPlanToEngine: every step runs, branch surfaced as a detail", () 
   const plan = setupPlanToEngine({
     branch: "agent/x",
     steps: [
-      { kind: "git", label: "ensure-branch", note: "agent/x" },
-      { kind: "resource-create", label: "db", note: "app-x-db" },
+      {
+        kind: "git",
+        label: BUILT_IN_STEP_LABELS.ensureBranch,
+        note: "agent/x",
+      },
+      {
+        kind: "resource-create",
+        label: verbatimStepLabel("db"),
+        note: "app-x-db",
+      },
     ],
   });
   assert(plan.details.some((d) => d.includes("agent/x")));

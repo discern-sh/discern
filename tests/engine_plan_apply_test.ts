@@ -9,7 +9,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { FULL_REFRESH_STEP_LABEL } from "../src/engine/worktree/plan.ts";
+import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -212,7 +212,7 @@ Deno.test("worktree setup --dry-run shows the setup plan; --json reports the ste
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.stdout, "Worktree setup plan");
     assertStringIncludes(dry.stdout, "ensure-branch");
-    assertStringIncludes(dry.stdout, FULL_REFRESH_STEP_LABEL);
+    assertStringIncludes(dry.stdout, BUILT_IN_STEP_LABELS.completeRefresh);
 
     const json = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(json.code, 0, json.output);
@@ -220,7 +220,7 @@ Deno.test("worktree setup --dry-run shows the setup plan; --json reports the ste
     assertEquals(obj.ok, true);
     assert(
       obj.steps.some((s: { label: string }) =>
-        s.label === FULL_REFRESH_STEP_LABEL
+        s.label === BUILT_IN_STEP_LABELS.completeRefresh
       ),
       json.stdout,
     );
@@ -320,7 +320,7 @@ Deno.test("accept --json performs the acceptance and serializes the steps", asyn
     const labels = obj.steps.map((s: { label: string }) => s.label);
     assert(
       labels.indexOf("fast-forward-trunk") <
-        labels.indexOf("teardown resources"),
+        labels.indexOf(BUILT_IN_STEP_LABELS.teardownResources),
       `the trunk must land before resources are torn down\n${r.stdout}`,
     );
     // The work landed on the trunk in main.

@@ -25,7 +25,7 @@ import {
   type DetectorScope,
   type DetectorTier,
 } from "../src/shared/patterns_vocabulary.ts";
-import type { DiscernResult } from "../src/shared/result.ts";
+import { type DiscernResult, verbatimStepLabel } from "../src/shared/result.ts";
 
 const POLICY: Record<
   DetectorTier,
@@ -124,7 +124,11 @@ Deno.test("logbook routing: advisory attachment can change only hints on an enve
     error: "gate_failed",
     message: "tests failed",
     steps: [{
-      step: { kind: "job", label: "test", disposition: "run" },
+      step: {
+        kind: "job",
+        label: verbatimStepLabel("test"),
+        disposition: "run",
+      },
       outcome: "failed",
     }],
     diagnostics: [{

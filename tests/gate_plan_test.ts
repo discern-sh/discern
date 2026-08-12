@@ -29,6 +29,7 @@ import {
   type RenderSink,
   renderStepResults,
   type StepResult,
+  verbatimStepLabel,
 } from "../src/shared/result.ts";
 import { serializeResult } from "../src/shared/result_serialization.ts";
 import { assertHasHint } from "./hint_asserts.ts";
@@ -490,16 +491,35 @@ Deno.test("renderPlan: an empty plan says so", () => {
 
 Deno.test("step renderers preserve recurring semantic group runs", () => {
   const steps: EnginePlan["steps"] = [
-    { kind: "git", label: "before", disposition: "run" },
-    { kind: "job", label: "orbit-one", disposition: "run", group: "Orbit" },
+    {
+      kind: "git",
+      label: verbatimStepLabel("before"),
+      disposition: "run",
+    },
     {
       kind: "job",
-      label: "canopy",
+      label: verbatimStepLabel("orbit-one"),
+      disposition: "run",
+      group: "Orbit",
+    },
+    {
+      kind: "job",
+      label: verbatimStepLabel("canopy"),
       disposition: "run",
       group: "Canopy",
     },
-    { kind: "job", label: "orbit-two", disposition: "run", group: "Orbit" },
-    { kind: "refresh", label: "after", disposition: "run", group: "" },
+    {
+      kind: "job",
+      label: verbatimStepLabel("orbit-two"),
+      disposition: "run",
+      group: "Orbit",
+    },
+    {
+      kind: "refresh",
+      label: verbatimStepLabel("after"),
+      disposition: "run",
+      group: "",
+    },
   ];
   const renderers = [
     {
@@ -555,7 +575,7 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
     {
       step: {
         kind: "job",
-        label: "format",
+        label: verbatimStepLabel("format"),
         disposition: "run",
         note: "deno fmt",
         group: "Fix",
@@ -569,7 +589,7 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
     {
       step: {
         kind: "scope-gate",
-        label: "scope:map",
+        label: verbatimStepLabel("scope:map"),
         disposition: "skip",
         note: "scope unchanged",
         group: "Scopes",
@@ -579,7 +599,7 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
     {
       step: {
         kind: "standard",
-        label: "coverage",
+        label: verbatimStepLabel("coverage"),
         disposition: "run",
       },
       outcome: "failed",
@@ -587,7 +607,7 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
     {
       step: {
         kind: "job",
-        label: "typecheck",
+        label: verbatimStepLabel("typecheck"),
         disposition: "run",
       },
       outcome: "cancelled",

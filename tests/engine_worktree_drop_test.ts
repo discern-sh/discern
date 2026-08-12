@@ -525,7 +525,7 @@ Deno.test("worktree drop: tears down the worktree's recorded resources", async (
     await writeConfig(
       dir,
       '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
-        "[worktree.resources.probe]\n" +
+        "[worktree.resources.lifecycle-probe]\n" +
         'create = "true"\n' +
         `destroy = "touch ${dir}/destroyed.marker"\n`,
     );
@@ -552,6 +552,7 @@ Deno.test("worktree drop: tears down the worktree's recorded resources", async (
       steps: { kind: string; label: string; outcome: string }[];
     };
     const destroy = result.steps.find((s) => s.kind === "resource-destroy");
+    assertEquals(destroy?.label, "lifecycle-probe", r.stdout);
     assertEquals(destroy?.outcome, "ok", r.stdout);
   });
 });

@@ -24,6 +24,7 @@ import {
   writeDiscernToml,
 } from "../src/lib/tidy_format.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
 import {
   configSchema,
   type DiscernConfig,
@@ -333,7 +334,8 @@ Deno.test("accept: materializes only checkout-local artifacts after landing", as
     assertEquals(result.ok, true);
     assert(
       result.steps.some((s) =>
-        s.label === "materialize local agent artifacts" && s.outcome === "ok"
+        s.label === BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts &&
+        s.outcome === "ok"
       ),
       `accept should report checkout-local materialization\n${r.stdout}`,
     );

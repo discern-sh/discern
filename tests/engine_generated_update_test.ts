@@ -11,6 +11,7 @@ import type { z } from "@zod/zod";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
+import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
 import {
   type UpdateData,
   UpdateOutputSchema,
@@ -221,7 +222,8 @@ Deno.test("update regenerates a declared artifact after a clean merge and previe
     );
     assert(
       preview.plan?.steps.some((step) =>
-        step.label === "commit regenerated artifacts" && step.kind === "git"
+        step.label === BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts &&
+        step.kind === "git"
       ),
       previewRun.stdout,
     );
@@ -286,7 +288,7 @@ Deno.test("update commits a regenerated attributes block after generated config 
     const parsed = parse(result.stdout);
     assert(
       parsed.steps?.some((step) =>
-        step.label === "commit regenerated artifacts" &&
+        step.label === BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts &&
         step.note?.includes(".gitattributes")
       ),
       result.stdout,
@@ -314,7 +316,7 @@ Deno.test("update commits every tracked refresh output changed after a merge", a
     const parsed = parse(result.stdout);
     assert(
       parsed.steps?.some((step) =>
-        step.label === "commit regenerated artifacts" &&
+        step.label === BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts &&
         step.note?.includes(".mcp.json") && step.outcome === "ok"
       ),
       result.stdout,
@@ -342,7 +344,7 @@ Deno.test("an up-to-date update reports rather than commits tracked refresh outp
     assertEquals(parsed.ok, false, result.stdout);
     assert(
       parsed.steps?.some((step) =>
-        step.label === "commit regenerated artifacts" &&
+        step.label === BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts &&
         step.note?.includes(".mcp.json") && step.outcome === "failed"
       ),
       result.stdout,

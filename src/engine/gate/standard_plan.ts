@@ -18,7 +18,11 @@ import {
   type StandardConfig,
   toCommand,
 } from "../../shared/config_schema.ts";
-import type { EnginePlan, PlanStep } from "../../shared/result.ts";
+import {
+  type EnginePlan,
+  type PlanStep,
+  verbatimStepLabel,
+} from "../../shared/result.ts";
 import { expandMapDirReference } from "../../shared/map_path.ts";
 
 /** The denominator that turns a raw count into a rate, resolved to the shape the
@@ -225,7 +229,7 @@ export function perNote(per: PerSpec | undefined, scale: number): string {
 export function standardPlanToEngine(plan: StandardPlan): EnginePlan {
   const steps: PlanStep[] = plan.standards.map((r) => ({
     kind: "standard",
-    label: r.name,
+    label: verbatimStepLabel(r.name),
     disposition: "run",
     note: `${r.direction}, limit ${r.limit}${perNote(r.per, r.scale)}`,
   }));
