@@ -84,8 +84,8 @@ function event(n: number, over: Partial<VerbEvent>): VerbEvent {
 /** Seed evidence for all three routed scopes in one recent month. */
 async function seedMixedLogbook(main: string): Promise<void> {
   const events: VerbEvent[] = [];
-  // Branch: 4 consecutive red done runs plus one green clears both the
-  // detector threshold and the proof's stricter one-extra-event bar.
+  // Branch: 4 consecutive red done runs plus one green clears the detector
+  // threshold and the proof's stricter one-extra-event bar.
   for (let i = 0; i < 4; i += 1) {
     events.push(event(i, {
       outcome: "failed",
@@ -228,7 +228,7 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
     const proofHint = assertHasHint(
       done,
       HINTS["logbook-proof-finding"],
-      { count: 2, observed: BRANCH_OBSERVED },
+      { count: 1, observed: BRANCH_OBSERVED },
     );
     assertEquals(
       proofHint.includes("\n"),

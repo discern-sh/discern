@@ -1119,49 +1119,128 @@ const tipAdoption: Detector = {
   },
 };
 
+type PreparePreventableKind = "generation" | "fix-drift";
+
+/** Classify a clean Gate failure only when the recorded steps establish that
+ * `prepare` runs the work that stopped it. Dirty Gates retain their full-
+ * feedback role. Check/test and generic build failures remain outside the
+ * predicate because prepare cannot prevent them. */
+function preparePreventableKind(
+  event: VerbEvent,
+): PreparePreventableKind | undefined {
+  if (
+    event.verb !== "done" || event.clean !== true ||
+    event.outcome !== "failed" || event.head === null || event.epoch === null
+  ) {
+    return undefined;
+  }
+  const steps = event.steps ?? [];
+  if (event.failed_stage === "generated_drift") {
+    return "generation";
+  }
+  if (event.failed_stage !== "tree_drift") {
+    return undefined;
+  }
+  const fixWorked = steps.some((step) =>
+    step.group === "Fix" && step.outcome === "ok"
+  );
+  const regenerationRan = steps.some((step) =>
+    step.label.startsWith("generated:") && step.disposition === "run"
+  );
+  const genericBuildRan = steps.some((step) =>
+    step.group === "Build" && !step.label.startsWith("generated:") &&
+    step.disposition === "run"
+  );
+  const laterValidationRan = steps.some((step) =>
+    (step.group === "Check" || step.group === "Test" ||
+      step.group === "Check & test") &&
+    step.outcome !== "skipped" && step.outcome !== "cancelled"
+  );
+  return fixWorked && !regenerationRan && !genericBuildRan &&
+      !laterValidationRan
+    ? "fix-drift"
+    : undefined;
+}
+
 const skippedPrepare: Detector = {
   id: "skipped-prepare",
-  title: "Done-heavy iteration without prepare",
+  title: "Repeated Gate work preventable by prepare",
   family: "behaviour",
   scope: "branch",
   tier: "inline",
   tone: "attention",
-  // 4 gate-loop runs before judging a branch's iteration style.
-  threshold: 4,
+  // Two distinct clean HEADs establish repetition without treating additional
+  // runs on one HEAD as evidence of a project-wide workflow pattern.
+  threshold: 2,
   next_step:
-    "`discern prepare` is the fast inner loop (fixers plus checks, no tests) — iterating through `done` alone pays for the full gate on every attempt.",
+    "Run `discern prepare` before the next commit when the same recorded fix or regeneration work keeps stopping the full Gate. Review and commit its changes, then run `discern done`; `done` remains a supported first command and dirty runs retain full feedback.",
   detect(facts): DetectorOutcome {
-    const loop = facts.agentish.filter((e) =>
-      e.verb === "done" || e.verb === "prepare"
+    const workflow = facts.agentish.filter((event) =>
+      event.verb === "done" || event.verb === "prepare"
     );
     const findings: DetectorFinding[] = [];
-    for (const [branch, events] of byBranch(loop)) {
-      const dones = events.filter((e) => e.verb === "done");
-      const prepares = events.length - dones.length;
-      const redDones = dones.filter((e) => e.outcome === "failed").length;
-      // Red done runs prove iteration happened; zero prepares proves the fast
-      // loop never entered it.
-      if (dones.length >= 4 && redDones >= 2 && prepares === 0) {
+    let considered = 0;
+    for (const [branch, branchEvents] of byBranch(workflow)) {
+      const byEpoch = new Map<string, VerbEvent[]>();
+      for (const event of branchEvents) {
+        if (event.epoch === null) continue;
+        const events = byEpoch.get(event.epoch) ?? [];
+        events.push(event);
+        byEpoch.set(event.epoch, events);
+      }
+      for (const events of byEpoch.values()) {
+        const dones = events.filter((event) => event.verb === "done");
+        const candidates = dones.flatMap((event) => {
+          const kind = preparePreventableKind(event);
+          return kind === undefined ? [] : [{ event, kind }];
+        });
+        const byHead = new Map<string, (typeof candidates)[number]>();
+        for (const candidate of candidates) {
+          const head = candidate.event.head;
+          if (head !== null && !byHead.has(head)) {
+            byHead.set(head, candidate);
+          }
+        }
+        considered += dones.length;
+        if (byHead.size < 2) continue;
+        const distinct = [...byHead.values()];
+        const countKind = (kind: PreparePreventableKind): number =>
+          distinct.filter((candidate) => candidate.kind === kind).length;
+        const fixDrift = countKind("fix-drift");
+        const generation = countKind("generation");
+        const prepareRuns = events.filter((event) =>
+          event.verb === "prepare"
+        ).length;
         findings.push({
           subject: branch,
-          brief: `${formatHumanNumber(dones.length)} \`done\` runs (${
-            formatHumanNumber(redDones)
-          } red) · no \`prepare\``,
-          observed: `\`${branch}\` iterated through ${
+          brief: `${formatHumanNumber(byHead.size)} of ${
             formatHumanNumber(dones.length)
-          } \`done\` runs (${
-            formatHumanNumber(redDones)
-          } red) with no \`prepare\` between them.`,
+          } \`done\` runs · prepare-capable work · distinct clean HEADs`,
+          observed: `\`${branch}\` had ${formatHumanNumber(byHead.size)} of ${
+            formatHumanNumber(dones.length)
+          } \`done\` runs stop on ${
+            formatHumanNumber(byHead.size)
+          } distinct clean HEADs in work \`prepare\` also runs: ${
+            formatHumanNumber(fixDrift)
+          } fix-stage tree-drift failures and ${
+            formatHumanNumber(generation)
+          } regeneration failures. The same branch and config recorded ${
+            formatHumanNumber(prepareRuns)
+          } \`prepare\` runs; missing \`prepare\` alone did not establish this finding.`,
           evidence: {
+            prepare_preventable_failures: byHead.size,
             done_runs: dones.length,
-            red_done_runs: redDones,
-            prepare_runs: 0,
+            distinct_clean_heads: byHead.size,
+            same_head_additional_runs: candidates.length - byHead.size,
+            fix_drift_failures: fixDrift,
+            regeneration_failures: generation,
+            prepare_runs: prepareRuns,
           },
-          strength: redDones,
+          strength: byHead.size,
         });
       }
     }
-    return { considered: loop.length, findings };
+    return { considered, findings };
   },
 };
 

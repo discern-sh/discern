@@ -343,6 +343,29 @@ function step(
   };
 }
 
+/** A clean Gate stopped because a declared regeneration was stale. */
+function regenerationDrift(head: string): Partial<VerbEvent> {
+  return {
+    verb: "done",
+    head,
+    clean: true,
+    outcome: "failed",
+    failed_stage: "generated_drift",
+  };
+}
+
+/** A clean Gate stopped at the early checkpoint after only its fixer ran. */
+function fixDrift(head: string): Partial<VerbEvent> {
+  return {
+    verb: "done",
+    head,
+    clean: true,
+    outcome: "failed",
+    failed_stage: "tree_drift",
+    steps: [step("fmt", 1, "Fix")],
+  };
+}
+
 interface ValidationFixtureJob {
   id: string;
   outcome: "passed" | "failed" | "skipped" | "cancelled" | "unavailable";
@@ -767,9 +790,12 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     ]),
   },
   "skipped-prepare": {
-    firing: run([redDone(), redDone(), redDone(), { verb: "done" }]),
-    quiet: run([redDone(), { verb: "prepare" }, redDone(), { verb: "done" }]),
-    sparse: run([redDone(), redDone(), { verb: "done" }]),
+    firing: run([regenerationDrift("head-a"), fixDrift("head-b")]),
+    quiet: run([
+      redDone({ head: "head-a" }),
+      redDone({ head: "head-b" }),
+    ]),
+    sparse: run([regenerationDrift("head-a")]),
   },
   "dirty-done-churn": {
     firing: run([
@@ -2496,7 +2522,8 @@ Deno.test("hint follow-through stays distinct from skipped prepare", () => {
       prepareDetector,
       buildStreamFacts(doneOnly, "main"),
     ).status,
-    "fired",
+    "quiet",
+    "missing prepare and generic Gate reds do not establish preventable work",
   );
 
   const gateHint = measuredHints().find((entry) =>
@@ -2519,6 +2546,106 @@ Deno.test("hint follow-through stays distinct from skipped prepare", () => {
     "quiet",
     "prepare/test follow-through does not erase skipped-prepare's independent population",
   );
+});
+
+Deno.test("prepare advice requires repeated preventable work on distinct clean HEADs", () => {
+  const prepareDetector = detector("skipped-prepare");
+  const fired = runDetector(
+    prepareDetector,
+    buildStreamFacts(
+      run([
+        regenerationDrift("head-a"),
+        { verb: "prepare" },
+        fixDrift("head-b"),
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(fired.status, "fired");
+  assertEquals(fired.findings[0]?.evidence, {
+    prepare_preventable_failures: 2,
+    done_runs: 2,
+    distinct_clean_heads: 2,
+    same_head_additional_runs: 0,
+    fix_drift_failures: 1,
+    regeneration_failures: 1,
+    prepare_runs: 1,
+  });
+  assertStringIncludes(fired.findings[0]?.observed ?? "", "2 of 2 `done` runs");
+  assertStringIncludes(
+    fired.findings[0]?.observed ?? "",
+    "missing `prepare` alone did not establish this finding",
+  );
+  assertStringIncludes(prepareDetector.next_step, "supported first command");
+  assertStringIncludes(
+    prepareDetector.next_step,
+    "dirty runs retain full feedback",
+  );
+});
+
+Deno.test("prepare advice preserves successful done-first entry and productive dirty feedback", () => {
+  const prepareDetector = detector("skipped-prepare");
+  const successful = runDetector(
+    prepareDetector,
+    buildStreamFacts(
+      run([{ verb: "done", head: "head-a" }, { verb: "done", head: "head-b" }]),
+      "main",
+    ),
+  );
+  assertEquals(successful.status, "quiet");
+
+  const dirty = runDetector(
+    prepareDetector,
+    buildStreamFacts(
+      run([
+        regenerationDrift("head-a"),
+        regenerationDrift("head-b"),
+      ]).map((event) => ({ ...event, clean: false })),
+      "main",
+    ),
+  );
+  assertEquals(dirty.status, "quiet");
+});
+
+Deno.test("prepare advice excludes failures and drift outside prepare's recorded work", () => {
+  const prepareDetector = detector("skipped-prepare");
+  const uncaught = runDetector(
+    prepareDetector,
+    buildStreamFacts(
+      run([
+        redDone({ head: "head-a" }),
+        redDone({ head: "head-b", failed_stage: "test" }),
+        {
+          verb: "done",
+          head: "head-c",
+          outcome: "failed",
+          failed_stage: "tree_drift",
+          steps: [
+            step("fmt", 1, "Fix"),
+            step("compile", 2, "Build"),
+          ],
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(uncaught.status, "quiet");
+  assertEquals(uncaught.findings, []);
+});
+
+Deno.test("prepare advice leaves same-HEAD repeats to validation divergence", () => {
+  const result = runDetector(
+    detector("skipped-prepare"),
+    buildStreamFacts(
+      run([
+        regenerationDrift("same-head"),
+        regenerationDrift("same-head"),
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(result.status, "quiet");
+  assertEquals(result.findings, []);
 });
 
 Deno.test("tip adoption: every declaring registry entry resolves same- and cross-surface episodes", () => {
