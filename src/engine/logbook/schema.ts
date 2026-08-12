@@ -46,6 +46,7 @@ import { z } from "@zod/zod";
 import { AGENT_SIGNAL_SOURCES } from "../../shared/agent_catalogue.ts";
 import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
+import { validationEvidenceSchema } from "./validation.ts";
 
 /** The event-format major this build writes; readers skip unknown majors. */
 export const LOGBOOK_SCHEMA_VERSION = 1;
@@ -317,6 +318,9 @@ export const verbEventSchema = z.looseObject({
   scopes: z.array(z.string()).optional(),
   /** Per-step timings lifted from the result envelope, when the verb emitted one. */
   steps: z.array(stepTimingSchema).optional(),
+  /** Versioned, privacy-preserving state and execution evidence captured at a
+   * validation job boundary. Optional keeps every older schema-v1 line readable. */
+  validation: validationEvidenceSchema.optional(),
   /** Diagnostic classes lifted from the result envelope, when the verb emitted one. */
   diagnostics: z.array(diagnosticClassSchema).optional(),
   /** Stable ids of the advisory hints delivered by this invocation. Absent on

@@ -123,6 +123,16 @@ import {
 import { observeResult } from "../../shared/result_capture.ts";
 import { inlineFindingRoutes, proofFindingHints } from "../logbook/surfaces.ts";
 import {
+  attachValidationEvidence,
+  completeValidationEvidence,
+  VALIDATION_RUNS,
+  type ValidationStart,
+} from "../logbook/validation.ts";
+import {
+  captureValidationStart,
+  validationBoundaryNotReached,
+} from "../logbook/validation_state.ts";
+import {
   inspectLandingAuthority,
   landingAuthorityProjection,
   type LandingAuthorityResolution,
@@ -850,6 +860,25 @@ async function runGate(
     : resolveStandardActionsFromConfig(stdPlan.standards);
   const gateStandards = buildStandardJobs(root, resolved);
   const ctGroups = checkTestGroups(cfg, gateStandards.jobs);
+  let validation: ValidationStart | undefined;
+  if (cfg.project.logbook) {
+    // This is the shared validation boundary: every mutating fix/build group
+    // has settled, and no check/test/measurement job has started. A prior red
+    // records why the boundary was not reached instead of sampling another tree.
+    validation = failedStage === null
+      ? await captureValidationStart(
+        root,
+        cfg,
+        VALIDATION_RUNS.done,
+        ctGroups,
+      )
+      : await validationBoundaryNotReached(
+        root,
+        cfg,
+        VALIDATION_RUNS.done,
+        ctGroups,
+      );
+  }
 
   // 2b. The check/test groups — declared jobs AND the standards' measurement
   //     jobs under one scheduler (fail-fast, buffering, the per-job timeout).
@@ -1201,6 +1230,12 @@ async function runGate(
     result.hints = hintTexts(hints);
   } else {
     delete result.hints;
+  }
+  if (validation !== undefined) {
+    attachValidationEvidence(
+      result,
+      completeValidationEvidence(validation, result.steps),
+    );
   }
   progress?.complete(result.steps ?? []);
   return {

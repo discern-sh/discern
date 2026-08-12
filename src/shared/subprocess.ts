@@ -62,7 +62,12 @@ export interface GitResult {
   success: boolean;
   code: number;
   stdout: string;
+  /** Exact stdout bytes when the shared runner produced this result. Optional
+   * for injected test doubles and legacy callers that construct a result. */
+  stdoutBytes?: Uint8Array | undefined;
   stderr: string;
+  /** True when the caller's explicit wall-clock bound killed the process. */
+  timedOut?: boolean | undefined;
 }
 
 /** Diagnostic returned when generic Git execution reaches for commit authority. */
@@ -296,6 +301,8 @@ export async function runGit(
     env?: Record<string, string>;
     /** Bytes supplied to commands whose protocol is defined on stdin. */
     stdin?: string;
+    /** Optional caller-owned wall-clock bound. Omitted for ordinary Git calls. */
+    timeoutMs?: number;
   },
 ): Promise<GitResult> {
   const invocation = gitInvocation(args);
@@ -322,6 +329,7 @@ export async function runGit(
   // normalization pins machine-read status visibility at this shared funnel.
   const safeArgs = configInvariantGitArgs(args);
   let output: Deno.CommandOutput;
+  let timedOut = false;
   try {
     const command = new Deno.Command(gitBin(), {
       args: safeArgs,
@@ -332,7 +340,34 @@ export async function runGit(
       stderr: "piped",
     });
     if (opts.stdin === undefined) {
-      output = await command.output();
+      if (opts.timeoutMs === undefined) {
+        output = await command.output();
+      } else {
+        const child = command.spawn();
+        const outputPromise = child.output();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const winner = await Promise.race([
+          outputPromise.then((value) => ({ kind: "output" as const, value })),
+          new Promise<{ kind: "timeout" }>((resolveTimeout) => {
+            timer = setTimeout(
+              () => resolveTimeout({ kind: "timeout" }),
+              Math.max(0, opts.timeoutMs ?? 0),
+            );
+          }),
+        ]);
+        if (timer !== undefined) clearTimeout(timer);
+        if (winner.kind === "output") {
+          output = winner.value;
+        } else {
+          timedOut = true;
+          try {
+            child.kill("SIGKILL");
+          } catch {
+            // It may have exited at the same instant the timer won.
+          }
+          output = await outputPromise;
+        }
+      }
     } else {
       const child = command.spawn();
       const outputPromise = child.output();
@@ -367,10 +402,12 @@ export async function runGit(
   }
   const dec = new TextDecoder();
   return {
-    success: output.success,
-    code: output.code,
+    success: output.success && !timedOut,
+    code: timedOut ? 124 : output.code,
     stdout: dec.decode(output.stdout),
+    stdoutBytes: output.stdout,
     stderr: dec.decode(output.stderr),
+    ...(timedOut ? { timedOut: true } : {}),
   };
 }
 

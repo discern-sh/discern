@@ -52,39 +52,48 @@ The working commands inspect at most the newest 200 events. `patterns` reads the
 
 Each line contains names and numbers. It excludes code, prompts, command output, and file contents.
 
-| Field          | Example                                          |
-| -------------- | ------------------------------------------------ |
-| `kind`         | `"begin"`, `"verb"`, or a rarer event kind       |
-| `invocation`   | the opaque id joining a start and completion     |
-| `writer`       | `"1.2.0"` (which discern wrote it)               |
-| `verb`         | `"done"`                                         |
-| `surface`      | `"cli"` or `"mcp"`                               |
-| `driver`       | session, mode, CI, and possible agent signals    |
-| `branch`       | `"agent/fix-upload-retry"`                       |
-| `head`         | `"<short commit ID>"`                            |
-| `clean`        | was the working tree clean?                      |
-| `tree`         | a checksum of the uncommitted diff               |
-| `outcome`      | `"ok"`, `"failed"`, `"partial"`, or `"refused"`  |
-| `failed_stage` | the gate stage that went red                     |
-| `crash`        | error class name and one code location           |
-| `duration_ms`  | end-to-end wall-clock milliseconds               |
-| `waited_ms`    | test-run slot-wait milliseconds on capped runs   |
-| `target`       | page served, miss, new branch, or queued command |
-| `flags`        | `["force"]` (names without values)               |
-| `change`       | files/insertions/deletions/commits vs the trunk  |
-| `scopes`       | the configured scopes touched                    |
-| `steps`        | per-step labels, stages, outcomes, timings       |
-| `diagnostics`  | tool, rule id, file path at most                 |
-| `hint_ids`     | stable ids of advice delivered with the result   |
-| `tip_ids`      | stable ids of desk tips shown during the run     |
-| `standards`    | each standard's limit and measured value         |
-| `consent`      | consent source and matched scopes on accept      |
-| `landing`      | recovery, trunk, worktree, and branch effects    |
-| `epoch`        | a fingerprint of your config                     |
+| Field          | Example                                           |
+| -------------- | ------------------------------------------------- |
+| `kind`         | `"begin"`, `"verb"`, or a rarer event kind        |
+| `invocation`   | the opaque id joining a start and completion      |
+| `writer`       | `"1.2.0"` (which discern wrote it)                |
+| `verb`         | `"done"`                                          |
+| `surface`      | `"cli"` or `"mcp"`                                |
+| `driver`       | session, mode, CI, and possible agent signals     |
+| `branch`       | `"agent/fix-upload-retry"`                        |
+| `head`         | `"<short commit ID>"`                             |
+| `clean`        | was the working tree clean?                       |
+| `tree`         | a checksum of the uncommitted diff                |
+| `outcome`      | `"ok"`, `"failed"`, `"partial"`, or `"refused"`   |
+| `failed_stage` | the gate stage that went red                      |
+| `crash`        | error class name and one code location            |
+| `duration_ms`  | end-to-end wall-clock milliseconds                |
+| `waited_ms`    | test-run slot-wait milliseconds on capped runs    |
+| `target`       | page served, miss, new branch, or queued command  |
+| `flags`        | `["force"]` (names without values)                |
+| `change`       | files/insertions/deletions/commits vs the trunk   |
+| `scopes`       | the configured scopes touched                     |
+| `steps`        | per-step labels, stages, outcomes, timings        |
+| `validation`   | versioned validation-start and execution evidence |
+| `diagnostics`  | tool, rule id, file path at most                  |
+| `hint_ids`     | stable ids of advice delivered with the result    |
+| `tip_ids`      | stable ids of desk tips shown during the run      |
+| `standards`    | each standard's limit and measured value          |
+| `consent`      | consent source and matched scopes on accept       |
+| `landing`      | recovery, trunk, worktree, and branch effects     |
+| `epoch`        | a fingerprint of your config                      |
 
 `partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The Logbook omits the message and stack. A saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the Desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md).
 
 Readers skip unknown schema versions, and fields are append-only. `begin` carries run identity. Completion adds outcome and `duration_ms`. Capped runs add `waited_ms`, including `0`; uncapped and older events omit it. Readers derive execution as `duration_ms - (waited_ms ?? 0)` for priors and suite health. End-to-end statistics retain wall time. Other kinds are `config-change`, `pin`, and `prune`.
+
+### Validation evidence
+
+Completed `done` and standalone `test` events add `validation` when recording is enabled. Its `state` names the evidence version, capture moment, completeness, opaque HMAC digests, aggregate path and byte counts, elapsed milliseconds, and any categorical failure reason. Its `execution` names standalone or full-Gate mode, writer version, opaque config/setup/job-definition digests, job ids and stages, concurrent siblings, and explicit outcomes: `passed`, `failed`, `skipped`, `cancelled`, or `unavailable`.
+
+`done` captures after fix/build and before check/test. `test` captures before its test group. A run blocked earlier records `boundary/not-reached`. Complete state covers HEAD, semantic index entries, tracked worktree differences, untracked entries that Git does not ignore, and clean submodule commits. Dirty submodules and unreadable, over-budget, or timed-out input are incomplete and carry no combined digest.
+
+The HMAC key stays at `.git/discern/validation-hmac-key`; the Logbook stores no path manifest, content, command, config value, environment value, or plain content hash. Ignored files, external services, clocks, random seeds, runtime environment, and concurrent external processes are outside the snapshot. Older events omit `validation` and remain readable ([ADR 0273](../_adr/0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)).
 
 ### Possible agent identity signals
 

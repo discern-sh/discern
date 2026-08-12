@@ -21,6 +21,8 @@ import {
   runShell,
   SPAWN_FAILED,
 } from "../src/shared/subprocess.ts";
+import { join } from "@std/path";
+import { withTempDir } from "./helpers.ts";
 
 /** command → the probeable leading word, or undefined to skip the probe. */
 const CASES: [string, string | undefined][] = [
@@ -167,6 +169,33 @@ Deno.test("runGit supplies protocol input on stdin", async () => {
     first.stdout,
   );
   assert(first.stdout !== second.stdout, "runGit dropped or reused stdin");
+});
+
+Deno.test("runGit enforces an explicit caller-owned timeout", async () => {
+  await withTempDir(async (dir) => {
+    const fakeGit = join(dir, "slow-git");
+    await Deno.writeTextFile(fakeGit, "#!/bin/sh\nexec sleep 5\n");
+    await Deno.chmod(fakeGit, 0o755);
+    const previous = Deno.env.get("GIT_BIN");
+    Deno.env.set("GIT_BIN", fakeGit);
+    try {
+      const started = performance.now();
+      const result = await runGit(["status"], { cwd: dir, timeoutMs: 50 });
+      assertEquals(result.success, false);
+      assertEquals(result.code, 124);
+      assertEquals(result.timedOut, true);
+      assert(
+        performance.now() - started < 2_000,
+        "runGit waited for the child after its explicit deadline",
+      );
+    } finally {
+      if (previous === undefined) {
+        Deno.env.delete("GIT_BIN");
+      } else {
+        Deno.env.set("GIT_BIN", previous);
+      }
+    }
+  });
 });
 
 Deno.test("runShell: a spawn failure carries the real cause instead of being swallowed", async () => {

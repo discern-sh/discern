@@ -331,6 +331,63 @@ function step(
   };
 }
 
+/** One complete v1 validation record for same-input detector fixtures. */
+function validation(
+  outcome: "passed" | "failed" | "skipped" | "cancelled" | "unavailable",
+  over: {
+    digest?: string;
+    complete?: boolean;
+    mode?: "full-gate" | "standalone-test";
+    config?: string;
+  } = {},
+): NonNullable<VerbEvent["validation"]> {
+  const complete = over.complete ?? true;
+  return {
+    version: 1,
+    state: {
+      version: 1,
+      complete,
+      capture: over.mode === "full-gate"
+        ? "after-fix-build"
+        : "before-test-group",
+      elapsed_ms: 1,
+      ...(complete ? { digest: over.digest ?? "state-a" } : {}),
+      components: {},
+      counts: {
+        index_entries: 1,
+        tracked_paths: 0,
+        untracked_paths: 0,
+        submodules: 0,
+      },
+      bytes: {
+        index_manifest: 40,
+        tracked_content: 0,
+        untracked_content: 0,
+      },
+      ...(!complete
+        ? { incomplete: [{ category: "budget", reason: "byte-limit" }] }
+        : {}),
+      exclusions: [],
+    },
+    execution: {
+      version: 1,
+      complete: true,
+      mode: over.mode ?? "standalone-test",
+      writer: "9.9.9",
+      config_digest: over.config ?? "config-a",
+      setup_digest: "setup-a",
+      jobs: [{
+        id: "test",
+        stage: "test",
+        kind: "known",
+        definition_digest: "job-a",
+        outcome,
+        concurrent_siblings: false,
+      }],
+    },
+  };
+}
+
 /** A `standards` reading carried on a verb event. */
 function reading(
   name: string,
@@ -1193,12 +1250,15 @@ const FIXTURES: Record<string, DetectorFixtures> = {
   },
   "same-tree-flake": {
     firing: run([
-      redDone({ head: "cafe123" }),
-      { verb: "done", head: "cafe123" },
+      redDone({
+        head: "cafe123",
+        steps: [{ ...step("test", 1), outcome: "failed" }],
+      }),
+      { verb: "done", head: "cafe123", steps: [step("test", 1)] },
     ]),
     quiet: run([
-      { verb: "done", head: "cafe123" },
-      { verb: "done", head: "cafe123" },
+      { verb: "done", head: "cafe123", steps: [step("test", 1)] },
+      { verb: "done", head: "cafe123", steps: [step("test", 1)] },
     ]),
     sparse: run([
       { verb: "done", head: "cafe123" },
@@ -1426,6 +1486,107 @@ function detector(id: string): Detector {
   assert(found !== undefined, `no detector ${id}`);
   return found;
 }
+
+Deno.test("same-tree flake reads a failed standalone test from its explicit job step", () => {
+  const events = run([
+    {
+      verb: "test",
+      head: "cafe123",
+      outcome: "failed",
+      steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
+    },
+    {
+      verb: "test",
+      head: "cafe123",
+      outcome: "ok",
+      steps: [step("test", 1, "Test")],
+    },
+  ]);
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(events, "main"),
+  );
+  assertEquals(
+    outcome.status,
+    "fired",
+    "an explicit failed test step is red even though standalone test has no top-level failed_stage",
+  );
+});
+
+Deno.test("same-tree flake uses complete versioned state and normalized job verdicts", () => {
+  const detectorUnderTest = detector("same-tree-flake");
+  const fired = runDetector(
+    detectorUnderTest,
+    buildStreamFacts(
+      run([
+        { verb: "test", validation: validation("failed"), outcome: "failed" },
+        { verb: "test", validation: validation("passed"), outcome: "ok" },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(fired.status, "fired");
+
+  for (const unavailable of ["skipped", "cancelled", "unavailable"] as const) {
+    const neutral = runDetector(
+      detectorUnderTest,
+      buildStreamFacts(
+        run([
+          { verb: "test", validation: validation(unavailable) },
+          { verb: "test", validation: validation("passed") },
+        ]),
+        "main",
+      ),
+    );
+    assertEquals(neutral.status, "quiet", unavailable);
+  }
+});
+
+Deno.test("same-tree flake cannot compare incomplete, different-state, or different-envelope evidence", () => {
+  const detectorUnderTest = detector("same-tree-flake");
+  const pairs: Array<[string, Partial<VerbEvent>, Partial<VerbEvent>]> = [
+    [
+      "incomplete",
+      { verb: "test", validation: validation("failed", { complete: false }) },
+      { verb: "test", validation: validation("passed", { complete: false }) },
+    ],
+    [
+      "state",
+      { verb: "test", validation: validation("failed", { digest: "state-a" }) },
+      { verb: "test", validation: validation("passed", { digest: "state-b" }) },
+    ],
+    [
+      "mode",
+      { verb: "test", validation: validation("failed") },
+      {
+        verb: "done",
+        validation: validation("passed", { mode: "full-gate" }),
+      },
+    ],
+    [
+      "config",
+      { verb: "test", validation: validation("failed", { config: "a" }) },
+      { verb: "test", validation: validation("passed", { config: "b" }) },
+    ],
+    [
+      "legacy-versus-v1",
+      {
+        verb: "test",
+        outcome: "failed",
+        steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
+      },
+      { verb: "test", validation: validation("passed") },
+    ],
+  ];
+  for (const [label, first, second] of pairs) {
+    const outcome = runDetector(
+      detectorUnderTest,
+      buildStreamFacts(run([first, second]), "main"),
+    );
+    assertEquals(outcome.status, "insufficient-evidence", label);
+    assertEquals(outcome.considered, 0, label);
+  }
+});
 
 Deno.test("generator gate share attributes generated groups heaviest first", () => {
   const detectorUnderTest = detector("generator-gate-share");

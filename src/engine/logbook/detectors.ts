@@ -76,6 +76,10 @@ import {
   type VerbEvent,
 } from "./schema.ts";
 import { byBranch } from "./read.ts";
+import {
+  type ValidationJobOutcome,
+  validationJobOutcome,
+} from "./validation.ts";
 
 /** Stable marker carried in standard observations when their series crosses
  * a configuration or release boundary. The human report recognizes the same
@@ -296,10 +300,80 @@ export function inclusiveSpanDays(
   return Math.floor(Math.abs(endDay - startDay) / 86_400_000) + 1;
 }
 
-/** A red gate outcome whose failure reached the tests (the flake dimension). */
-function testRed(e: VerbEvent): boolean {
-  return e.outcome === "failed" &&
-    (e.failed_stage === "test" || e.failed_stage === "check/test");
+type TestVerdict = "red" | "green" | "unavailable";
+
+/** Reduce explicit configured-test outcomes without treating absence as green. */
+function testVerdictFrom(
+  outcomes: readonly ValidationJobOutcome[],
+): TestVerdict {
+  if (outcomes.some((outcome) => outcome === "failed")) return "red";
+  if (
+    outcomes.length > 0 &&
+    outcomes.every((outcome) => outcome === "passed")
+  ) {
+    return "green";
+  }
+  return "unavailable";
+}
+
+/**
+ * The test verdict from the one job-outcome authority. New evidence names job
+ * stages explicitly. Legacy standalone events can identify all their job
+ * steps; legacy `done` is deliberately narrower because a combined Check &
+ * test group cannot reveal an unknown custom job's original stage.
+ */
+function testVerdict(e: VerbEvent): TestVerdict {
+  if (e.validation !== undefined) {
+    return testVerdictFrom(
+      e.validation.execution.jobs
+        .filter((job) => job.stage === "test" && job.kind !== "standard")
+        .map((job) => validationJobOutcome(job)),
+    );
+  }
+  const steps = (e.steps ?? []).filter((step) => {
+    if (step.kind !== "job") return false;
+    if (e.verb === "test") return true;
+    return step.group === "Test" ||
+      /^(?:test|smoke)(?:#\d+)?$/.test(step.label);
+  });
+  return testVerdictFrom(steps.map((step) => validationJobOutcome(step)));
+}
+
+/** Comparable identity, version-separated and complete in both dimensions. */
+function validationComparisonKey(e: VerbEvent): string | undefined {
+  const validation = e.validation;
+  if (validation !== undefined) {
+    const state = validation.state;
+    const execution = validation.execution;
+    if (
+      !state.complete || state.digest === undefined || !execution.complete ||
+      execution.config_digest === undefined ||
+      execution.setup_digest === undefined
+    ) {
+      return undefined;
+    }
+    const testJobs = execution.jobs
+      .filter((job) => job.stage === "test" && job.kind !== "standard");
+    if (
+      testJobs.length === 0 ||
+      testJobs.some((job) => job.definition_digest === undefined)
+    ) {
+      return undefined;
+    }
+    const tests = testJobs
+      .map((job) =>
+        `${job.id}:${job.definition_digest ?? ""}:${job.concurrent_siblings}`
+      )
+      .sort()
+      .join("|");
+    return `validation-v${validation.version}:${state.digest}:` +
+      `${execution.mode}:${execution.writer}:${execution.config_digest}:` +
+      `${execution.setup_digest}:${tests}`;
+  }
+  if (e.head === null || (e.clean === false && e.tree === undefined)) {
+    return undefined;
+  }
+  return `legacy-v1:${e.head}:${e.tree ?? ""}`;
 }
 
 /** What a trend's candidate events resolved to: the comparable series and,
@@ -2784,15 +2858,8 @@ const sameTreeFlake: Detector = {
     );
     const byTree = new Map<string, VerbEvent[]>();
     for (const e of gateRuns) {
-      if (e.head === null) {
-        continue;
-      }
-      // `head` alone identifies a clean tree; `head` + the dirty-diff
-      // fingerprint identifies the same dirty tree across runs.
-      if (e.clean === false && e.tree === undefined) {
-        continue;
-      }
-      const key = `${e.head} ${e.tree ?? ""}`;
+      const key = validationComparisonKey(e);
+      if (key === undefined) continue;
       const group = byTree.get(key);
       if (group === undefined) {
         byTree.set(key, [e]);
@@ -2803,8 +2870,10 @@ const sameTreeFlake: Detector = {
     const repeats = [...byTree.values()].filter((g) => g.length >= 2);
     const findings: DetectorFinding[] = [];
     for (const group of repeats) {
-      const red = group.filter(testRed).length;
-      const green = group.filter((e) => e.outcome === "ok").length;
+      const red = group.filter((event) => testVerdict(event) === "red").length;
+      const green = group.filter((event) =>
+        testVerdict(event) === "green"
+      ).length;
       const head = group[0]?.head ?? "?";
       if (red > 0 && green > 0) {
         findings.push({

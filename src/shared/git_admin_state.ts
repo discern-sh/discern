@@ -51,6 +51,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  validationHmacKey: {
+    path: "discern/validation-hmac-key",
+    scope: "common",
+    kind: "file",
+    validation: false,
+  },
   crash: {
     path: "discern/crash",
     scope: "common",

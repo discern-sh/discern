@@ -58,6 +58,12 @@ Registry detectors run over the event stream, grouped by family:
 
 After 6 capped runs, `slot-contention` reads the latest 20. It reports when median wait reaches 30 seconds and 25% of median execution. Raise the cap when the machine has spare capacity. Lower concurrent test demand when the machine is saturated.
 
+### Same-input test verdicts
+
+`same-tree-flake` speaks only when at least 2 validations share complete, same-version project-state and execution evidence. Equality includes the semantic index, tracked state, untracked state that Git does not ignore, clean submodule commits, config/setup, test job definitions, standalone/full-Gate mode, and concurrent siblings. Incomplete evidence cannot support the claim. Older HEAD-plus-diff events remain readable but form a separate legacy population.
+
+Test verdicts come from explicit job steps: passed, failed, skipped, cancelled, or unavailable. A failed standalone `discern test` is red. Skipped, cancelled, missing, and ambiguous legacy evidence is neither red nor green. A combined `check/test` top-level failure does not by itself prove which job failed ([ADR 0273](../_adr/0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)).
+
 Hint follow-through derives three families from the hint registry: branch update, red-gate remedy, and main-session worktree start. It reports `fired`, `followed`, `not_followed`, and `censored` after 3 resolved episodes; missing correlation stays censored. `skipped-prepare` uses done-heavy iteration without a hint ([ADR 0207](../_adr/0207-hint-follow-through-is-declared-and-episode-based.md)).
 
 Tip adoption derives its measured entries and invited verbs from the tip registry. A showing opens an episode for that tip. The invited verb can run on any branch, session, or surface. The next showing without that run resolves not followed. Missing setup evidence and the end of history stay censored. Each tip needs 3 resolved episodes, so sparse tips never pool their evidence. The finding gives that tip's raw `fired`, `followed`, `not_followed`, and `censored` counts. Fully followed tips stay visible with favorable tone. A family with not-followed evidence names the tip to reword or retire first ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md), [ADR 0236](../_adr/0236-tip-adoption-clears-evidence-per-tip-across-setups.md)).

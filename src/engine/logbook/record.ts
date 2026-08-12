@@ -73,6 +73,7 @@ import {
   readEpochState,
   writeEpochState,
 } from "./store.ts";
+import { validationEvidence } from "./validation.ts";
 
 /** Everything the recorder learned about the invocation's surroundings. */
 interface RecordingContext {
@@ -555,6 +556,7 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
         const diagnostics = report.result !== undefined
           ? diagnosticClasses(report.result)
           : undefined;
+        const validation = validationEvidence(report.result);
         const lifted = liftData(report.result?.data);
         // A successful payload names the object actually served. Surface input
         // remains the fallback for human-only reads and refused lookups.
@@ -597,6 +599,7 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
           ...(ctx.change !== undefined ? { change: ctx.change } : {}),
           ...(lifted.scopes !== undefined ? { scopes: lifted.scopes } : {}),
           ...(steps !== undefined ? { steps } : {}),
+          ...(validation !== undefined ? { validation } : {}),
           ...(diagnostics !== undefined ? { diagnostics } : {}),
           hint_ids: report.hintIds ?? [],
           ...(report.tipIds !== undefined && report.tipIds.length > 0
