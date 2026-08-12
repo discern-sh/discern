@@ -576,7 +576,7 @@ Deno.test("logbook: a standards pin lands pin events and holds the epoch", async
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      `[standards.cov]\ndirection = "up"\nlimit = 10\nrun = "echo DISCERN_METRIC cov 50"\n`,
+      `[standards.cov]\ndirection = "up"\nlimit = 10\nmargin = 5\nrun = "echo DISCERN_METRIC cov 50"\n`,
     );
     await gitInit(dir);
     const check = await runAgent(dir, ["standards", "--json"]);
@@ -594,6 +594,9 @@ Deno.test("logbook: a standards pin lands pin events and holds the epoch", async
     assertEquals(reading.value, 50);
     assertEquals(reading.measurement, "measured");
     assertEquals(reading.limit, 10);
+    assertEquals(reading.margin, 5);
+    assertEquals(reading.pin_eligible, true);
+    assertEquals(reading.pin_target, 45);
     // The pin verb event records the flag; the pin itself lands as a
     // first-class event — the ratchet's trajectory, readable back out.
     const pinVerb = verbs.filter((e) => e.verb === "standards")[1];
@@ -605,7 +608,7 @@ Deno.test("logbook: a standards pin lands pin events and holds the epoch", async
     assert(pinEvent !== undefined && pinEvent.kind === "pin");
     assertEquals(pinEvent.standard, "cov");
     assertEquals(pinEvent.from, 10);
-    assertEquals(pinEvent.to, 50);
+    assertEquals(pinEvent.to, 45);
     assertEquals(pinEvent.measured, 50);
     // A pin rewrites only the limit, which the epoch masks: no config-change.
     const post = await runAgent(dir, ["status", "--json"]);

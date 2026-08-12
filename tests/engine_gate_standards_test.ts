@@ -62,11 +62,14 @@ interface GateJson {
       name: string;
       direction: string;
       limit: number;
+      margin?: number;
       measurement: string;
       value?: number;
       verdict?: string;
       duration_s?: number;
       replayed_from?: string;
+      pin_eligible?: boolean;
+      pin_target?: number;
     }>;
     standards_limits?: { status: string; trunk: string; reason?: string };
     proof?: { markdown: string };
@@ -233,7 +236,10 @@ Deno.test("tier 1: a trunk config that was fetched but does not parse fails hard
 Deno.test("tier 2: a holding standard is measured inside the check/test group, value and duration in the envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, covConfig({ limit: 80 }));
+    await writeConfig(
+      dir,
+      covConfig({ limit: 80, extra: ["margin = 5"] }),
+    );
     await gitInit(dir);
 
     const r = await runAgent(dir, ["done", "--json"]);
@@ -250,6 +256,9 @@ Deno.test("tier 2: a holding standard is measured inside the check/test group, v
     assertEquals(entry?.measurement, "measured");
     assertEquals(entry?.value, 90);
     assertEquals(entry?.verdict, "improved");
+    assertEquals(entry?.margin, 5);
+    assertEquals(entry?.pin_eligible, true);
+    assertEquals(entry?.pin_target, 85);
     assert(
       typeof entry?.duration_s === "number",
       `expected a recorded duration: ${JSON.stringify(entry)}`,

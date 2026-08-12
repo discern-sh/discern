@@ -52,36 +52,36 @@ The working commands inspect at most the newest 200 events. `patterns` reads the
 
 Each line contains names and numbers. It excludes code, prompts, command output, and file contents.
 
-| Field          | Example                                           |
-| -------------- | ------------------------------------------------- |
-| `kind`         | `"begin"`, `"verb"`, or a rarer event kind        |
-| `invocation`   | the opaque id joining a start and completion      |
-| `writer`       | `"1.2.0"` (which discern wrote it)                |
-| `verb`         | `"done"`                                          |
-| `surface`      | `"cli"` or `"mcp"`                                |
-| `driver`       | session, mode, CI, and possible agent signals     |
-| `branch`       | `"agent/fix-upload-retry"`                        |
-| `head`         | `"<short commit ID>"`                             |
-| `clean`        | was the working tree clean?                       |
-| `tree`         | a checksum of the uncommitted diff                |
-| `outcome`      | `"ok"`, `"failed"`, `"partial"`, or `"refused"`   |
-| `failed_stage` | the gate stage that went red                      |
-| `crash`        | error class name and one code location            |
-| `duration_ms`  | end-to-end wall-clock milliseconds                |
-| `waited_ms`    | test-run slot-wait milliseconds on capped runs    |
-| `target`       | page served, miss, new branch, or queued command  |
-| `flags`        | `["force"]` (names without values)                |
-| `change`       | files/insertions/deletions/commits vs the trunk   |
-| `scopes`       | the configured scopes touched                     |
-| `steps`        | per-step labels, stages, outcomes, timings        |
-| `validation`   | versioned validation-start and execution evidence |
-| `diagnostics`  | tool, rule id, file path at most                  |
-| `hint_ids`     | stable ids of advice delivered with the result    |
-| `tip_ids`      | stable ids of desk tips shown during the run      |
-| `standards`    | each standard's limit and measured value          |
-| `consent`      | consent source and matched scopes on accept       |
-| `landing`      | recovery, trunk, worktree, and branch effects     |
-| `epoch`        | a fingerprint of your config                      |
+| Field          | Example                                                                 |
+| -------------- | ----------------------------------------------------------------------- |
+| `kind`         | `"begin"`, `"verb"`, or a rarer event kind                              |
+| `invocation`   | the opaque id joining a start and completion                            |
+| `writer`       | `"1.2.0"` (which discern wrote it)                                      |
+| `verb`         | `"done"`                                                                |
+| `surface`      | `"cli"` or `"mcp"`                                                      |
+| `driver`       | session, mode, CI, and possible agent signals                           |
+| `branch`       | `"agent/fix-upload-retry"`                                              |
+| `head`         | `"<short commit ID>"`                                                   |
+| `clean`        | was the working tree clean?                                             |
+| `tree`         | a checksum of the uncommitted diff                                      |
+| `outcome`      | `"ok"`, `"failed"`, `"partial"`, or `"refused"`                         |
+| `failed_stage` | the gate stage that went red                                            |
+| `crash`        | error class name and one code location                                  |
+| `duration_ms`  | end-to-end wall-clock milliseconds                                      |
+| `waited_ms`    | test-run slot-wait milliseconds on capped runs                          |
+| `target`       | page served, miss, new branch, or queued command                        |
+| `flags`        | `["force"]` (names without values)                                      |
+| `change`       | files/insertions/deletions/commits vs the trunk                         |
+| `scopes`       | the configured scopes touched                                           |
+| `steps`        | per-step labels, stages, outcomes, timings                              |
+| `validation`   | versioned validation-start and execution evidence                       |
+| `diagnostics`  | tool, rule id, file path at most                                        |
+| `hint_ids`     | stable ids of advice delivered with the result                          |
+| `tip_ids`      | stable ids of desk tips shown during the run                            |
+| `standards`    | each Standard's measurement, limit, margin, and Gate-owned pin decision |
+| `consent`      | consent source and matched scopes on accept                             |
+| `landing`      | recovery, trunk, worktree, and branch effects                           |
+| `epoch`        | a fingerprint of your config                                            |
 
 `partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The Logbook omits the message and stack. A saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the Desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md).
 

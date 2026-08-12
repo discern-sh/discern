@@ -40,6 +40,7 @@ import {
   buildStreamFacts,
   comparableSeries,
   type Detector,
+  type DetectorFinding,
   type DetectorReport,
   DETECTORS,
   DORMANT_VERB_EXEMPTIONS,
@@ -312,6 +313,32 @@ function suiteReveal(): Partial<VerbEvent> {
   });
 }
 
+/** Four comparable cancelled-job/later-failure relationships with enough
+ * completed-job samples for the fail-fast ledger's estimator. */
+function failFastLedgerEvents(
+  completedTailS: number,
+  laterRoundS: number,
+): LogbookEvent[] {
+  return run(
+    Array.from({ length: 4 }).flatMap(() => [
+      redDone({
+        duration_ms: 5_000,
+        steps: [
+          { ...step("lint", 1), outcome: "failed" },
+          { ...step("test", 0), outcome: "cancelled" },
+        ],
+      }),
+      redDone({
+        duration_ms: laterRoundS * 1_000,
+        steps: [
+          step("lint", 1),
+          { ...step("test", completedTailS), outcome: "failed" },
+        ],
+      }),
+    ]),
+  );
+}
+
 /** One successful acceptance with recorded consent and changed-scope names. */
 function accepted(
   source: NonNullable<VerbEvent["consent"]>["source"],
@@ -460,7 +487,47 @@ function reading(
   limit: number,
   direction: "up" | "down" = "up",
 ): NonNullable<VerbEvent["standards"]>[number] {
-  return { name, value, limit, direction, verdict: "improved" };
+  const eligible = direction === "up" ? value > limit : value < limit;
+  return {
+    name,
+    value,
+    limit,
+    direction,
+    margin: 0,
+    measurement: "measured",
+    verdict: eligible ? "improved" : "regressed",
+    pin_eligible: eligible,
+    ...(eligible ? { pin_target: value } : {}),
+  };
+}
+
+/** A current Standard reading carrying the Gate-owned pin decision evidence. */
+function decisionReading(
+  name: string,
+  value: number | undefined,
+  limit: number,
+  over: {
+    direction?: "up" | "down";
+    margin?: number;
+    measurement?: "measured" | "replayed" | "deferred" | "skipped";
+    verdict?: "improved" | "held" | "regressed";
+    pinEligible?: boolean;
+    pinTarget?: number;
+  } = {},
+): NonNullable<VerbEvent["standards"]>[number] {
+  return {
+    name,
+    direction: over.direction ?? "up",
+    limit,
+    margin: over.margin ?? 0,
+    measurement: over.measurement ?? "measured",
+    ...(value !== undefined ? { value } : {}),
+    ...(over.verdict !== undefined ? { verdict: over.verdict } : {}),
+    ...(over.pinEligible !== undefined
+      ? { pin_eligible: over.pinEligible }
+      : {}),
+    ...(over.pinTarget !== undefined ? { pin_target: over.pinTarget } : {}),
+  } as unknown as NonNullable<VerbEvent["standards"]>[number];
 }
 
 /** A driver bundle carrying one invocation-scoped identity signal. */
@@ -1144,7 +1211,11 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     firing: run(
       Array.from({ length: 5 }, () => ({
         verb: "done",
-        steps: [step("lint", 30), step("test", 5)],
+        scopes: ["engine"],
+        steps: [
+          { ...step("scope:docs", 30), kind: "scope-gate" },
+          step("test", 5),
+        ],
       })),
     ),
     quiet: run(
@@ -1164,6 +1235,7 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     firing: run(
       Array.from({ length: 5 }, () => ({
         verb: "done",
+        validation: validation("passed", { digest: "generated-state" }),
         steps: [
           step("generated:schemas", 20, "Build"),
           step("generated:docs", 10, "Build"),
@@ -2316,6 +2388,7 @@ Deno.test("generator gate share attributes generated groups heaviest first", () 
     group_mean_seconds: 20,
     generated_share_pct: 60,
     generated_mean_seconds: 30,
+    unchanged_reruns: 4,
   });
   assertStringIncludes(
     audit.findings[0]?.observed ?? "",
@@ -2325,7 +2398,7 @@ Deno.test("generator gate share attributes generated groups heaviest first", () 
   assert(!/skip|less often/i.test(detectorUnderTest.next_step));
 });
 
-Deno.test("generator gate share keeps short gates below the absolute floor", () => {
+Deno.test("generator gate share stays statistical without recorded avoidable cost", () => {
   const events = run(
     Array.from({ length: 5 }, () => ({
       verb: "done",
@@ -2368,10 +2441,137 @@ Deno.test("slot contention reports material recent wait and frames the owner dec
   );
 });
 
+Deno.test("dominant stage stays statistical when a necessary test has no recorded avoidable cost", () => {
+  const events = run(
+    Array.from({ length: 5 }, (_, index) => ({
+      verb: "done",
+      head: `head-${index}`,
+      steps: [step("test", 30), step("lint", 5)],
+      validation: validation("passed", { digest: `state-${index}` }),
+    })),
+  );
+  const audit = runDetector(
+    detector("dominant-stage"),
+    buildStreamFacts(events, "main"),
+  );
+  assertEquals(
+    audit.findings,
+    [],
+    "share and duration alone must not turn a necessary test into optimization advice",
+  );
+});
+
+Deno.test("dominant stage advises only from a recorded scope mismatch", () => {
+  const events = run(
+    Array.from({ length: 5 }, (_, index) => ({
+      verb: "done",
+      head: `head-${index}`,
+      scopes: ["engine"],
+      steps: [
+        {
+          ...step("scope:docs", 30, "Scope gates"),
+          kind: "scope-gate",
+        },
+        step("lint", 5),
+      ],
+    })),
+  );
+  const audit = report(detector("dominant-stage"), events);
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.scope_mismatch_runs, 5);
+  assertStringIncludes(finding.next_step ?? "", "scope");
+  assert(
+    finding.basis !== undefined,
+    "decision evidence needs its setup boundary",
+  );
+});
+
+Deno.test("dominant stage can act on recorded queue contention without a duration threshold", () => {
+  const events = run(
+    Array.from({ length: 6 }, (_, index) => ({
+      verb: "done",
+      head: `head-${index}`,
+      duration_ms: 160_000,
+      waited_ms: 60_000,
+      steps: [step("test", 3), step("lint", 1)],
+      validation: validation("passed", { digest: `state-${index}` }),
+    })),
+  );
+  const audit = report(detector("dominant-stage"), events);
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.queue_contention_runs, 6);
+  assertStringIncludes(finding.next_step ?? "", "concurrent_test_runs");
+});
+
+Deno.test("fail-fast ledger distinguishes observations, estimates, and a savings-favouring result", () => {
+  const audit = report(
+    detector("masked-failures"),
+    failFastLedgerEvents(100, 10),
+  );
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.cancelled_jobs, 4);
+  assertEquals(finding.evidence.later_distinct_failures, 4);
+  assertEquals(finding.evidence.additional_gate_rounds, 4);
+  assertEquals(finding.evidence.later_round_elapsed_seconds, 40);
+  assertEquals(finding.evidence.estimated_saved_tail_seconds, 400);
+  assertEquals(finding.evidence.tail_duration_samples, 4);
+  assertEquals(
+    finding.basis?.values.estimated_saved_tail_seconds?.kind,
+    "estimated",
+  );
+  assertEquals(
+    finding.basis?.values.later_round_elapsed_seconds?.kind,
+    "observed",
+  );
+  assert(!finding.next_step?.includes("fail_fast = false"));
+  assertStringIncludes(finding.observed, "does not establish");
+});
+
+Deno.test("fail-fast ledger recommends a config trial only past the conservative project-local rule", () => {
+  const audit = report(
+    detector("masked-failures"),
+    failFastLedgerEvents(10, 100),
+  );
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.estimated_saved_tail_seconds, 40);
+  assertEquals(finding.evidence.later_round_elapsed_seconds, 400);
+  assertStringIncludes(finding.next_step ?? "", "fail_fast = false");
+  assertStringIncludes(finding.next_step ?? "", "controlled");
+});
+
+Deno.test("fail-fast ledger routes an unresolved tradeoff to a controlled experiment", () => {
+  const audit = report(
+    detector("masked-failures"),
+    failFastLedgerEvents(100, 100),
+  );
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertStringIncludes(finding.next_step ?? "", "controlled");
+  assert(!finding.next_step?.includes("fail_fast = false"));
+});
+
+Deno.test("fail-fast ledger never compares adjacent failures across setup boundaries", () => {
+  const events = failFastLedgerEvents(100, 10).map((event, index) =>
+    event.kind === "verb" && index % 2 === 1
+      ? { ...event, epoch: "other-setup" }
+      : event
+  );
+  const audit = runDetector(
+    detector("masked-failures"),
+    buildStreamFacts(events, "main"),
+  );
+  assertEquals(audit.findings, []);
+});
+
 Deno.test("generator gate share supersedes dominant stage for a generated job", () => {
   const events = run(
     Array.from({ length: 5 }, () => ({
       verb: "done",
+      validation: validation("passed", { digest: "generated-state" }),
       steps: [step("generated:schemas", 30, "Build"), step("test", 5)],
     })),
   );
@@ -3772,6 +3972,27 @@ function foreignSetupClones(events: readonly LogbookEvent[]): LogbookEvent[] {
 
 const windowedDetectors = DETECTORS.filter((d) => d.windowed === true);
 
+/** Decision content must survive foreign-setup interleaving. A structured
+ * basis additionally discloses those excluded events, so its denominator is
+ * compared separately rather than erased from the contract. */
+function findingDecisionContent(finding: DetectorFinding): Omit<
+  DetectorFinding,
+  "basis"
+> {
+  return {
+    ...(finding.subject !== undefined ? { subject: finding.subject } : {}),
+    brief: finding.brief,
+    ...(finding.tone !== undefined ? { tone: finding.tone } : {}),
+    ...(finding.series !== undefined ? { series: finding.series } : {}),
+    observed: finding.observed,
+    evidence: finding.evidence,
+    strength: finding.strength,
+    ...(finding.next_step !== undefined
+      ? { next_step: finding.next_step }
+      : {}),
+  };
+}
+
 Deno.test("patterns windowed: the registry carries windowed trend detectors", () => {
   assert(
     windowedDetectors.length > 0,
@@ -3788,10 +4009,44 @@ for (const d of windowedDetectors) {
       .sort((a, b) => a.at.localeCompare(b.at));
     const under = runDetector(d, buildStreamFacts(interleaved, "main"));
     assertEquals(
-      under.findings,
-      base.findings,
+      under.findings.map(findingDecisionContent),
+      base.findings.map(findingDecisionContent),
       `${d.id}: interleaved foreign-setup runs must not change the trend`,
     );
+    for (let index = 0; index < base.findings.length; index += 1) {
+      const baseBasis = base.findings[index]?.basis;
+      const underBasis = under.findings[index]?.basis;
+      if (baseBasis === undefined) {
+        assertEquals(underBasis, undefined);
+        continue;
+      }
+      assert(underBasis !== undefined);
+      assertEquals(
+        underBasis.coverage.comparable,
+        baseBasis.coverage.comparable,
+        `${d.id}: foreign setups cannot enter the comparable population`,
+      );
+      assert(
+        underBasis.coverage.denominator >= baseBasis.coverage.denominator,
+        `${d.id}: the basis denominator cannot hide foreign-setup events`,
+      );
+      assert(
+        underBasis.excluded_events >= baseBasis.excluded_events,
+        `${d.id}: foreign-setup exclusions cannot disappear from the basis`,
+      );
+      assertEquals(
+        {
+          ...underBasis,
+          coverage: {
+            ...underBasis.coverage,
+            denominator: baseBasis.coverage.denominator,
+          },
+          excluded_events: baseBasis.excluded_events,
+        },
+        baseBasis,
+        `${d.id}: only denominator/exclusion attribution may change`,
+      );
+    }
     assert(
       under.findings.every((f) => f.evidence.comparable_runs === undefined),
       `${d.id}: enough same-setup runs must trend, never refuse as too few comparable`,
@@ -3966,6 +4221,198 @@ Deno.test("patterns trajectory: sustained slack proposes the pin", () => {
   assertEquals(finding.tone, "good");
   assertEquals(finding.evidence.limit_first, 80);
   assertEquals(finding.evidence.limit_last, 80);
+});
+
+Deno.test("patterns trajectory: fresh stable Gate eligibility supports a pin recommendation", () => {
+  const events = run(
+    [85, 86, 87, 88, 89].map((value) => ({
+      standards: [decisionReading("coverage", value, 80, {
+        margin: 2,
+        pinEligible: true,
+        pinTarget: value - 2,
+        verdict: "improved",
+      })],
+    })),
+  );
+  const audit = report(detector("standard-trajectory"), events);
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.mechanically_eligible, 1);
+  assertEquals(finding.evidence.recommendation_supported, 1);
+  assertStringIncludes(finding.next_step ?? "", "--pin coverage");
+  assert(finding.basis !== undefined, "pin advice needs a structured basis");
+});
+
+Deno.test("patterns trajectory: an improvement inside the Standard margin is not pinnable", () => {
+  const events = run(
+    [81, 82, 83, 84, 85].map((value) => ({
+      standards: [decisionReading("tiny", value, 80, {
+        margin: 10,
+        pinEligible: false,
+        verdict: "improved",
+      })],
+    })),
+  );
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.mechanically_eligible, 0);
+  assertEquals(finding.evidence.recommendation_supported, 0);
+  assert(!finding.next_step?.includes("--pin"));
+});
+
+Deno.test("patterns trajectory: volatile eligible readings suppress recommendation without denying eligibility", () => {
+  const events = run(
+    [90, 100, 81, 100, 82].map((value) => ({
+      standards: [decisionReading("volatile", value, 80, {
+        pinEligible: true,
+        pinTarget: value,
+        verdict: "improved",
+      })],
+    })),
+  );
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.mechanically_eligible, 1);
+  assertEquals(finding.evidence.recommendation_supported, 0);
+  assert((finding.evidence.recent_reversals ?? 0) > 0);
+  assert(!finding.next_step?.includes("--pin"));
+  assertStringIncludes(finding.next_step ?? "", "volatile");
+});
+
+Deno.test("patterns trajectory: a stale on-demand Standard routes to fresh measurement", () => {
+  const events = run([
+    ...[85, 86, 87, 88, 89].map((value) => ({
+      standards: [decisionReading("deferred", value, 80, {
+        margin: 2,
+        pinEligible: true,
+        pinTarget: value - 2,
+        verdict: "improved" as const,
+      })],
+    })),
+    {
+      standards: [decisionReading("deferred", undefined, 80, {
+        margin: 2,
+        measurement: "deferred",
+      })],
+    },
+  ]);
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.current_measurement, 0);
+  assertStringIncludes(finding.next_step ?? "", "discern standards");
+  assert(!finding.next_step?.includes("--pin"));
+});
+
+Deno.test("patterns trajectory: a stale skipped Gate reading routes to fresh measurement", () => {
+  const events = run([
+    ...[85, 86, 87, 88, 89].map((value) => ({
+      standards: [decisionReading("stale", value, 80, {
+        pinEligible: true,
+        pinTarget: value,
+        verdict: "improved" as const,
+      })],
+    })),
+    {
+      standards: [decisionReading("stale", undefined, 80, {
+        measurement: "skipped",
+      })],
+    },
+  ]);
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.current_measurement, 0);
+  assertStringIncludes(finding.next_step ?? "", "discern standards");
+  assert(!finding.next_step?.includes("--pin"));
+});
+
+Deno.test("patterns trajectory: a recent failure suppresses an otherwise eligible pin", () => {
+  const events = run(
+    [
+      decisionReading("failing", 85, 80, {
+        pinEligible: true,
+        pinTarget: 85,
+        verdict: "improved",
+      }),
+      decisionReading("failing", 75, 80, {
+        pinEligible: false,
+        verdict: "regressed",
+      }),
+      decisionReading("failing", 90, 80, {
+        pinEligible: true,
+        pinTarget: 90,
+        verdict: "improved",
+      }),
+      decisionReading("failing", 91, 80, {
+        pinEligible: true,
+        pinTarget: 91,
+        verdict: "improved",
+      }),
+      decisionReading("failing", 92, 80, {
+        pinEligible: true,
+        pinTarget: 92,
+        verdict: "improved",
+      }),
+    ].map((standard) => ({ standards: [standard] })),
+  );
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.mechanically_eligible, 1);
+  assertEquals(finding.evidence.recent_failures, 1);
+  assertEquals(finding.evidence.recommendation_supported, 0);
+  assert(!finding.next_step?.includes("--pin"));
+});
+
+Deno.test("patterns trajectory: a retired Standard remains historical evidence without pin advice", () => {
+  const events = run([
+    ...[85, 86, 87, 88, 89].map((value) => ({
+      standards: [decisionReading("retired", value, 80, {
+        pinEligible: true,
+        pinTarget: value,
+        verdict: "improved" as const,
+      })],
+    })),
+    {
+      standards: [decisionReading("active", 5, 4, {
+        pinEligible: true,
+        pinTarget: 5,
+        verdict: "improved",
+      })],
+    },
+  ]);
+  const finding = report(detector("standard-trajectory"), events).findings.find(
+    (candidate) => candidate.subject === "retired",
+  );
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.retired, 1);
+  assertEquals(finding.evidence.recommendation_supported, 0);
+  assert(!finding.next_step?.includes("--pin"));
+  assertStringIncludes(finding.next_step ?? "", "historical");
+});
+
+Deno.test("patterns trajectory: recommendation persistence never blends configurations", () => {
+  const events = run([
+    ...[85, 86, 87].map((value) => ({
+      epoch: "old",
+      standards: [decisionReading("coverage", value, 80, {
+        pinEligible: true,
+        pinTarget: value,
+        verdict: "improved" as const,
+      })],
+    })),
+    ...[88, 89].map((value) => ({
+      epoch: "current",
+      standards: [decisionReading("coverage", value, 80, {
+        pinEligible: true,
+        pinTarget: value,
+        verdict: "improved" as const,
+      })],
+    })),
+  ]);
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.comparable_readings, 2);
+  assertEquals(finding.evidence.recommendation_supported, 0);
+  assert(!finding.next_step?.includes("--pin"));
 });
 
 Deno.test("patterns trajectory: long series use equal-time bucket means and exact endpoints", () => {

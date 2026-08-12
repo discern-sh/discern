@@ -56,6 +56,7 @@ import {
   DETECTORS,
   inclusiveSpanDays,
 } from "../src/engine/logbook/detectors.ts";
+import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 /** One synthetic seeded verb-event line (agent-shaped, on its own branch). */
@@ -98,6 +99,45 @@ function seededGeneratorGateEvent(at: string): string {
     outcome: "ok",
     duration_ms: 50_000,
     epoch: "e2",
+    validation: {
+      version: 1,
+      state: {
+        version: 1,
+        complete: true,
+        capture: "after-fix-build",
+        elapsed_ms: 1,
+        digest: "generated-state",
+        components: {},
+        counts: {
+          index_entries: 1,
+          tracked_paths: 0,
+          untracked_paths: 0,
+          submodules: 0,
+        },
+        bytes: {
+          index_manifest: 40,
+          tracked_content: 0,
+          untracked_content: 0,
+        },
+        exclusions: [],
+      },
+      execution: {
+        version: 1,
+        complete: true,
+        mode: "full-gate",
+        writer: "9.9.9",
+        config_digest: "generated-config",
+        setup_digest: "generated-setup",
+        jobs: [{
+          id: "test",
+          stage: "test",
+          kind: "known",
+          definition_digest: "test-definition",
+          outcome: "passed",
+          concurrent_siblings: true,
+        }],
+      },
+    },
     steps: [
       {
         label: "generated:schemas",
@@ -132,6 +172,36 @@ function seededGeneratorGateEvent(at: string): string {
         duration_s: 10,
       },
     ],
+  });
+}
+
+/** One current Standard observation carrying Gate-owned pin evidence. */
+function seededDecisionStandardEvent(at: string, value: number): string {
+  return JSON.stringify({
+    schema: 1,
+    at,
+    kind: "verb",
+    verb: "done",
+    surface: "cli",
+    writer: "9.9.9",
+    driver: { session: "cli:decision", json: true, tty: false, ci: false },
+    branch: "agent/decision",
+    head: `head-${value}`,
+    clean: true,
+    outcome: "ok",
+    duration_ms: 1_000,
+    epoch: "decision-epoch",
+    standards: [{
+      name: "coverage",
+      direction: "up",
+      limit: 80,
+      margin: 2,
+      measurement: "measured",
+      value,
+      verdict: "improved",
+      pin_eligible: true,
+      pin_target: value - 2,
+    }],
   });
 }
 
@@ -747,14 +817,20 @@ const REPORT_STANDARD_NAMES = Array.from(
 function reportStandards(reading: number, total: number): unknown[] {
   return REPORT_STANDARD_NAMES.map((name, index) => {
     switch (index % 3) {
-      case 0:
+      case 0: {
+        const value = 82 + reading / total;
         return {
           name,
           direction: "up",
           limit: 80,
-          value: 82 + reading / total,
+          margin: 0,
+          measurement: "measured",
+          value,
           verdict: "improved",
+          pin_eligible: true,
+          pin_target: value,
         };
+      }
       case 1:
         return {
           name,
@@ -825,10 +901,11 @@ async function seedCollapsedReportLogbook(dir: string): Promise<void> {
         outcome: failed ? "failed" : "ok",
         ...(failed ? { failed_stage: "check/test" } : {}),
         duration_ms: 21_000,
+        scopes: ["engine"],
         steps: [
           {
-            label: "test",
-            kind: "job",
+            label: "scope:docs",
+            kind: "scope-gate",
             outcome: failed ? "failed" : "ok",
             disposition: "run",
             group: "Check & test",
@@ -1190,6 +1267,12 @@ Deno.test("patterns: generator gate share names the heaviest generated groups on
       group_mean_seconds: 20,
       generated_share_pct: 60,
       generated_mean_seconds: 30,
+      unchanged_reruns: 4,
+    });
+    assertEquals(findings[0]?.basis?.coverage, {
+      comparable: 5,
+      denominator: 5,
+      unit: "Gate runs",
     });
     assertStringIncludes(findings[0]?.next_step ?? "", "Restructure");
     assertEquals(
@@ -1197,6 +1280,52 @@ Deno.test("patterns: generator gate share names the heaviest generated groups on
         ?.status,
       "fired",
     );
+  });
+});
+
+Deno.test("patterns: decision evidence is identical from active and sealed history", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const raw = `${
+      [85, 86, 87, 88, 89].map((value, index) =>
+        seededDecisionStandardEvent(
+          `2026-07-01T1${index}:00:00.000Z`,
+          value,
+        )
+      ).join("\n")
+    }\n`;
+    const activeDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(activeDir, { recursive: true });
+    await Deno.writeTextFile(join(activeDir, "2026-07.jsonl"), raw);
+    const filename = "logbook-20260812T120000Z.jsonl";
+    const archives = logbookArchiveDir(join(dir, ".git"));
+    await Deno.mkdir(archives, { recursive: true });
+    await Deno.writeTextFile(join(archives, filename), raw);
+
+    const active = await patternsResult(dir, { all: true });
+    const historical = await patternsResult(dir, {
+      all: true,
+      logbookFile: filename,
+    });
+    assert(active.ok && active.data !== undefined);
+    assert(historical.ok && historical.data !== undefined);
+    const decisionFindings = (data: PatternsData) =>
+      data.findings.filter((finding) =>
+        finding.detector === "standard-trajectory"
+      );
+    assertEquals(
+      decisionFindings(historical.data),
+      decisionFindings(active.data),
+      "archive selection changes provenance, never detector arithmetic",
+    );
+    const finding = decisionFindings(historical.data)[0];
+    assertEquals(finding?.evidence.recommendation_supported, 1);
+    assertStringIncludes(finding?.next_step ?? "", "--pin coverage");
+    assertEquals(historical.data.logbook.source, {
+      kind: "archive",
+      filename,
+    });
   });
 });
 

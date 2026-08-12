@@ -47,6 +47,8 @@ Report a breach the work itself caused (the deliverable grew what the metric mea
 
 The Gate checks limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Limits never defer. `discern prepare` skips measurement.
 
+One pure Gate function decides mechanical pin eligibility from direction, measured value, configured `margin`, and current limit. A measured or replayed result carries `margin`, `pin_eligible`, and the exact `pin_target` when eligible. Gate pinning and advisory Patterns therefore consume the same answer. Eligibility means only that the target is strictly tighter and still holds the measurement; [Patterns decision evidence](patterns-decision-evidence.md#standard-trajectory-decisions) applies separate freshness, persistence, variance, failure, and retirement evidence before recommending a pin ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)).
+
 ## Run standards directly
 
 `discern standards` freshly measures every Standard, including `measure = "on-demand"`. First it checks branch limits and trunk-only entries from one trunk snapshot. A loosened Standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid measurements.

@@ -281,10 +281,13 @@ const liftedStandardShape = z.looseObject({
   name: z.string(),
   direction: z.string().optional(),
   limit: z.number().optional(),
+  margin: z.number().optional(),
   value: z.number().optional(),
   verdict: z.string().optional(),
   measurement: z.string().optional(),
   replayed_from: z.string().optional(),
+  pin_eligible: z.boolean().optional(),
+  pin_target: z.number().optional(),
 });
 
 /** A payload carrying standard readings (the gate's or the standards verb's). */
@@ -384,12 +387,15 @@ function liftData(data: unknown): LiftedData {
       name: s.name,
       ...(s.direction !== undefined ? { direction: s.direction } : {}),
       ...(s.limit !== undefined ? { limit: s.limit } : {}),
+      ...(s.margin !== undefined ? { margin: s.margin } : {}),
       ...(s.value !== undefined ? { value: s.value } : {}),
       ...(s.verdict !== undefined ? { verdict: s.verdict } : {}),
       ...(s.measurement !== undefined ? { measurement: s.measurement } : {}),
       ...(s.replayed_from !== undefined
         ? { replayed_from: s.replayed_from }
         : {}),
+      ...(s.pin_eligible !== undefined ? { pin_eligible: s.pin_eligible } : {}),
+      ...(s.pin_target !== undefined ? { pin_target: s.pin_target } : {}),
     }));
   }
   const pins = liftedPinsShape.safeParse(data);

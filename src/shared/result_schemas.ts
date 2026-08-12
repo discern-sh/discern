@@ -475,11 +475,33 @@ export const GateStandardSchema = z.strictObject({
   name: z.string(),
   direction: z.enum(["up", "down"]),
   limit: z.number(),
+  /** Configured headroom used by the Gate's mechanical pin decision. */
+  margin: z.number().nonnegative().optional(),
   measurement: z.enum(STANDARD_MEASUREMENTS),
   value: z.number().optional(),
   verdict: z.enum(STANDARD_VERDICTS).optional(),
   duration_s: z.number().optional(),
   replayed_from: z.string().optional(),
+  /** Gate-owned mechanical eligibility at this value. Recommendation policy
+   * remains outside the Gate. */
+  pin_eligible: z.boolean().optional(),
+  /** The exact tighter limit the Gate would apply when eligible. */
+  pin_target: z.number().optional(),
+}).superRefine((reading, context) => {
+  if (reading.pin_eligible === true && reading.pin_target === undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["pin_target"],
+      message: "an eligible Standard reading must name its pin target",
+    });
+  }
+  if (reading.pin_eligible !== true && reading.pin_target !== undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["pin_target"],
+      message: "an ineligible or unevaluated Standard cannot name a pin target",
+    });
+  }
 });
 export type GateStandard = z.infer<typeof GateStandardSchema>;
 

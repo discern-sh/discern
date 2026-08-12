@@ -137,6 +137,8 @@ A successful `accept` reports the permission it used in `data.consent`: `source`
 
 Output metadata is advisory. A configured command's exit status decides the job verdict, except for Standards. Their `DISCERN_METRIC` value is the measurement contract.
 
+Gate and standalone Standards results carry each Standard's `direction`, `limit`, optional `margin`, `measurement`, value, and verdict. A measured or replayed value also carries the Gate-owned `pin_eligible` decision and, when true, its exact `pin_target`. Those fields describe mechanical eligibility. Patterns applies the project-history decision rule ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)).
+
 `cancelled` marks a fail-fast sibling; `skipped` marks a configured step that did not run.
 
 ### Diagnostics

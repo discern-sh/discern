@@ -190,10 +190,14 @@ const standardReadingSchema = z.looseObject({
   name: z.string(),
   direction: z.string().optional(),
   limit: z.number().optional(),
+  margin: z.number().optional(),
   value: z.number().optional(),
   verdict: z.string().optional(),
   measurement: z.string().optional(),
   replayed_from: z.string().optional(),
+  /** Mechanical pin evidence computed by the Gate's shared authority. */
+  pin_eligible: z.boolean().optional(),
+  pin_target: z.number().optional(),
 });
 /** One recorded standard reading. */
 export type StandardReading = z.infer<typeof standardReadingSchema>;

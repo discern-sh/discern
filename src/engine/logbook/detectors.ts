@@ -48,6 +48,7 @@ import { KNOWN_VERBS } from "../../shared/verbs.ts";
 import { hiddenVerbNames } from "../../shared/hidden_verbs.ts";
 import { SETUP_BRANCH } from "../../shared/setup_state.ts";
 import {
+  boundedPatternEvidenceCondition,
   type DetectorFamily,
   type DetectorScope,
   type DetectorStatus,
@@ -74,6 +75,7 @@ import {
   executionDurationMs,
   type LogbookEvent,
   type PruneDigest,
+  type StandardReading,
   type VerbEvent,
 } from "./schema.ts";
 import { byBranch } from "./read.ts";
@@ -468,6 +470,110 @@ function stageSeconds(e: VerbEvent, group: string): number | undefined {
     return undefined;
   }
   return steps.reduce((sum, s) => sum + (s.duration_s ?? 0), 0);
+}
+
+/** Whether two events share the complete setup boundary used by trend readers. */
+function sameComparableSetup(
+  left: VerbEvent,
+  right: VerbEvent,
+  all: LogbookEvent[],
+): boolean {
+  return comparableSeries([left, right], all).series.length === 2;
+}
+
+/** Count repeated complete validation states beyond the first observation. */
+function unchangedValidationReruns(events: readonly VerbEvent[]): number {
+  const counts = new Map<string, number>();
+  for (const event of events) {
+    const validation = event.validation;
+    if (
+      validation?.state.complete !== true ||
+      validation.execution.complete !== true ||
+      validation.state.digest === undefined
+    ) {
+      continue;
+    }
+    const key =
+      `${validation.version}\0${validation.state.version}\0${validation.state.digest}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.values()].reduce(
+    (total, count) => total + Math.max(0, count - 1),
+    0,
+  );
+}
+
+/** A bounded setup account for structured decision evidence. */
+function setupConditions(
+  events: readonly VerbEvent[],
+  all: readonly LogbookEvent[],
+): NonNullable<PatternEvidenceBasis["matched_conditions"]> {
+  const eras = dominantClientEras(analyzableVerbs(all));
+  const clientRelease = eras.label === undefined
+    ? undefined
+    : boundedPatternEvidenceCondition(
+      `${eras.label}-client-release`,
+      events.map((event) => ({
+        key: eras.versionInEffectOf(event) ?? "unrecorded",
+        label: eras.versionInEffectOf(event) ?? "unrecorded",
+      })),
+    );
+  return [
+    boundedPatternEvidenceCondition(
+      "config-epoch",
+      events.map((event) => ({
+        key: event.epoch ?? "unrecorded",
+        label: event.epoch ?? "unrecorded",
+      })),
+    ),
+    boundedPatternEvidenceCondition(
+      "writer-release",
+      events.map((event) => ({
+        key: event.writer ?? "unrecorded",
+        label: event.writer ?? "unrecorded",
+      })),
+    ),
+    clientRelease,
+  ].filter((condition) => condition !== undefined);
+}
+
+/** Build the common evidence basis for a decision finding. */
+function decisionEvidenceBasis(
+  kind: string,
+  evidence: Record<string, number>,
+  options: {
+    comparable: number;
+    denominator: number;
+    unit: string;
+    events: readonly VerbEvent[];
+    allEvents: readonly LogbookEvent[];
+    estimated?: ReadonlySet<string>;
+    legacyEvents?: number;
+    excludedEvents?: number;
+    limitations?: string[];
+  },
+): PatternEvidenceBasis {
+  const estimated = options.estimated ?? new Set<string>();
+  return {
+    kind,
+    coverage: {
+      comparable: options.comparable,
+      denominator: options.denominator,
+      unit: options.unit,
+    },
+    validation_state: { version: null, complete: false },
+    matched_conditions: setupConditions(options.events, options.allEvents),
+    differing_conditions: [],
+    legacy_events: options.legacyEvents ?? 0,
+    excluded_events: options.excludedEvents ?? 0,
+    limitations: options.limitations ?? [],
+    values: Object.fromEntries(
+      Object.entries(evidence).map(([name, value]) => [
+        name,
+        { value, kind: estimated.has(name) ? "estimated" : "observed" },
+      ]),
+    ),
+  };
 }
 
 // ── the detectors ───────────────────────────────────────────────────────────
@@ -2270,7 +2376,44 @@ const guidanceParity: Detector = {
 
 const GATE_DOMINANCE_MIN_RUNS = 5;
 const GATE_DOMINANCE_SHARE = 0.5;
-const GATE_DOMINANCE_MEAN_SECONDS = 10;
+const SLOT_CONTENTION_RECENT_RUNS = 20;
+const SLOT_CONTENTION_MIN_RUNS = 6;
+const SLOT_CONTENTION_WAIT_FLOOR_MS = 30_000;
+const SLOT_CONTENTION_WAIT_SHARE = 0.25;
+
+interface SlotContentionEvidence {
+  runs: number;
+  medianWaitS: number;
+  medianExecutionS: number;
+  waitSharePct: number;
+}
+
+/** Material queue pressure from recent capped runs. The standalone detector
+ * and dominant-stage advice consume one calculation. */
+function slotContentionEvidence(
+  events: readonly VerbEvent[],
+): SlotContentionEvidence | undefined {
+  const recent = events.filter((event) => event.waited_ms !== undefined)
+    .slice(-SLOT_CONTENTION_RECENT_RUNS);
+  if (recent.length < SLOT_CONTENTION_MIN_RUNS) {
+    return undefined;
+  }
+  const medianWaitMs = median(recent.map((event) => event.waited_ms ?? 0));
+  const medianExecutionMs = median(recent.map(executionDurationMs));
+  if (
+    medianExecutionMs <= 0 ||
+    medianWaitMs < SLOT_CONTENTION_WAIT_FLOOR_MS ||
+    medianWaitMs < medianExecutionMs * SLOT_CONTENTION_WAIT_SHARE
+  ) {
+    return undefined;
+  }
+  return {
+    runs: recent.length,
+    medianWaitS: round1(medianWaitMs / 1000),
+    medianExecutionS: round1(medianExecutionMs / 1000),
+    waitSharePct: Math.round((medianWaitMs / medianExecutionMs) * 100),
+  };
+}
 
 const dominantStage: Detector = {
   id: "dominant-stage",
@@ -2283,7 +2426,7 @@ const dominantStage: Detector = {
   // 5 timed gate runs on the current setup before calling a job dominant.
   threshold: GATE_DOMINANCE_MIN_RUNS,
   next_step:
-    "When one job is most of the gate's wall clock, that job sets the pace of every loop — cache it, split it, or move the slow part behind a scope gate so unrelated changes skip it.",
+    "Treat share as a statistic. Change the setup only when the finding names recorded avoidable cost such as a scope mismatch, unchanged reruns, or queue contention.",
   detect(facts): DetectorOutcome {
     const { series, excluded } = comparableSeries(
       facts.verbs.filter((e) =>
@@ -2320,16 +2463,50 @@ const dominantStage: Detector = {
       const [label, seconds] = top;
       const share = seconds / all;
       const meanS = seconds / series.length;
-      // Half the gate AND a real cost — a 1-second gate has no dominant-stage problem.
-      if (
-        share >= GATE_DOMINANCE_SHARE &&
-        meanS >= GATE_DOMINANCE_MEAN_SECONDS
-      ) {
+      if (share >= GATE_DOMINANCE_SHARE) {
         // Generated jobs yield to the restructure-only detector so the generic
         // cache/scope remedy cannot weaken their always-run contract.
         if (label.startsWith("generated:")) {
           return { considered, findings: [] };
         }
+        const scope = label.startsWith("scope:") ? label.slice(6) : undefined;
+        const scopeMismatchRuns = scope === undefined
+          ? 0
+          : series.filter((event) =>
+            event.scopes !== undefined && !event.scopes.includes(scope) &&
+            (event.steps ?? []).some((step) =>
+              step.label === label && step.disposition === "run"
+            )
+          ).length;
+        const unchangedReruns = unchangedValidationReruns(series);
+        const contention = slotContentionEvidence(series);
+        if (
+          scopeMismatchRuns === 0 && unchangedReruns === 0 &&
+          contention === undefined
+        ) {
+          return { considered, findings: [] };
+        }
+        const evidence = {
+          mean_seconds: round1(meanS),
+          share_pct: Math.round(share * 100),
+          runs: series.length,
+          scope_mismatch_runs: scopeMismatchRuns,
+          unchanged_reruns: unchangedReruns,
+          queue_contention_runs: contention?.runs ?? 0,
+          ...(contention === undefined ? {} : {
+            median_queue_wait_seconds: contention.medianWaitS,
+            queue_wait_to_execution_pct: contention.waitSharePct,
+          }),
+        };
+        const nextStep = scopeMismatchRuns > 0
+          ? `\`${label}\` ran outside its named scope on ${
+            formatHumanNumber(scopeMismatchRuns)
+          } recorded Gates. Correct the scope mapping so unrelated changes skip it; the percentage alone is not the reason.`
+          : contention !== undefined
+          ? "Recorded queue contention is the avoidable delay. Review `[gate].concurrent_test_runs` against machine capacity before changing the job itself."
+          : `\`${label}\` repeated on an unchanged recorded validation state ${
+            formatHumanNumber(unchangedReruns)
+          } times. Investigate a project-local cache or a narrower scope while preserving the job's coverage.`;
         findings.push({
           subject: label,
           brief: `${formatHumanNumber(round1(meanS))}s per \`done\` · ${
@@ -2342,12 +2519,20 @@ const dominantStage: Detector = {
           }% of all recorded gate time across ${
             formatHumanNumber(series.length)
           } runs.`,
-          evidence: {
-            mean_seconds: round1(meanS),
-            share_pct: Math.round(share * 100),
-            runs: series.length,
-          },
+          evidence,
+          basis: decisionEvidenceBasis("dominant-stage-cost", evidence, {
+            comparable: series.length,
+            denominator: considered,
+            unit: "Gate runs",
+            events: series,
+            allEvents: facts.events,
+            excludedEvents: excluded?.runs ?? 0,
+            limitations: [
+              "Gate-time share is descriptive; the recommendation depends only on the separately recorded avoidable-cost fields.",
+            ],
+          }),
           strength: Math.round(share * 100),
+          next_step: nextStep,
         });
       }
     }
@@ -2357,9 +2542,9 @@ const dominantStage: Detector = {
 
 /**
  * Watch the always-run generated family as one gate cost. Five comparable
- * timed `done` runs establish the current-setup window; a 50% share means
- * regeneration takes at least as much recorded job time as the rest of the
- * gate, and a 10-second mean keeps short gates below the advisory floor.
+ * timed `done` runs establish the current-setup window; a 50% share remains a
+ * statistic. Advice requires repeated execution on the same complete recorded
+ * validation state, rather than a repository-derived duration floor.
  *
  * `dominantStage` yields generated labels here so its generic cache/scope
  * remedy cannot contradict the always-run generator contract.
@@ -2416,10 +2601,8 @@ const generatorGateShare: Detector = {
     }
     const generatedShare = generatedSeconds / gateSeconds;
     const generatedMeanS = generatedSeconds / series.length;
-    if (
-      generatedShare < GATE_DOMINANCE_SHARE ||
-      generatedMeanS < GATE_DOMINANCE_MEAN_SECONDS
-    ) {
+    const unchangedReruns = unchangedValidationReruns(series);
+    if (generatedShare < GATE_DOMINANCE_SHARE || unchangedReruns === 0) {
       return { considered, findings: [] };
     }
 
@@ -2432,6 +2615,14 @@ const generatorGateShare: Detector = {
         const groupMeanS = seconds / series.length;
         const groupShare = seconds / gateSeconds;
         const groupSharePct = Math.round(groupShare * 100);
+        const evidence = {
+          runs: series.length,
+          group_share_pct: groupSharePct,
+          group_mean_seconds: round1(groupMeanS),
+          generated_share_pct: generatedSharePct,
+          generated_mean_seconds: round1(generatedMeanS),
+          unchanged_reruns: unchangedReruns,
+        };
         return {
           subject: label,
           brief: `${formatHumanNumber(round1(groupMeanS))}s per \`done\` · ${
@@ -2448,24 +2639,24 @@ const generatorGateShare: Detector = {
           } runs, while all generated groups averaged ${
             formatHumanNumber(round1(generatedMeanS))
           }s and accounted for ${formatHumanNumber(generatedSharePct)}%.`,
-          evidence: {
-            runs: series.length,
-            group_share_pct: groupSharePct,
-            group_mean_seconds: round1(groupMeanS),
-            generated_share_pct: generatedSharePct,
-            generated_mean_seconds: round1(generatedMeanS),
-          },
+          evidence,
+          basis: decisionEvidenceBasis("generator-gate-cost", evidence, {
+            comparable: series.length,
+            denominator: considered,
+            unit: "Gate runs",
+            events: series,
+            allEvents: facts.events,
+            excludedEvents: excluded?.runs ?? 0,
+            limitations: [
+              "Generator share is descriptive; advice is supported by repeated execution on an unchanged complete validation state.",
+            ],
+          }),
           strength: Math.max(1, Math.round(groupShare * 100)),
         };
       });
     return { considered, findings };
   },
 };
-
-const SLOT_CONTENTION_RECENT_RUNS = 20;
-const SLOT_CONTENTION_MIN_RUNS = 6;
-const SLOT_CONTENTION_WAIT_FLOOR_MS = 30_000;
-const SLOT_CONTENTION_WAIT_SHARE = 0.25;
 
 /**
  * Read recurring slot pressure, not one unlucky hand-off: six capped runs make
@@ -2488,25 +2679,15 @@ const slotContention: Detector = {
     const capped = facts.verbs.filter((event) => event.waited_ms !== undefined);
     const recent = capped.slice(-SLOT_CONTENTION_RECENT_RUNS);
     const considered = recent.length;
-    if (considered < SLOT_CONTENTION_MIN_RUNS) {
+    const contention = slotContentionEvidence(recent);
+    if (contention === undefined) {
       return { considered, findings: [] };
     }
-    const medianWaitMs = median(
-      recent.map((event) => event.waited_ms ?? 0),
-    );
-    const medianExecutionMs = median(recent.map(executionDurationMs));
-    if (
-      medianExecutionMs <= 0 ||
-      medianWaitMs < SLOT_CONTENTION_WAIT_FLOOR_MS ||
-      medianWaitMs < medianExecutionMs * SLOT_CONTENTION_WAIT_SHARE
-    ) {
-      return { considered, findings: [] };
-    }
-    const medianWaitS = round1(medianWaitMs / 1000);
-    const medianExecutionS = round1(medianExecutionMs / 1000);
-    const waitSharePct = Math.round(
-      (medianWaitMs / medianExecutionMs) * 100,
-    );
+    const {
+      medianWaitS,
+      medianExecutionS,
+      waitSharePct,
+    } = contention;
     return {
       considered,
       findings: [{
@@ -2554,40 +2735,64 @@ function intersection(a: Set<string>, b: Set<string>): string[] {
   return [...a].filter((x) => b.has(x));
 }
 
+/** One comparable adjacent-red relationship in the fail-fast ledger. */
+interface FailFastRelationship {
+  first: VerbEvent;
+  later: VerbEvent;
+  cancelled: string[];
+  neverStarted: string[];
+}
+
+/** Completed durations for one job under the first run's recorded setup. */
+function comparableCompletedDurations(
+  job: string,
+  anchor: VerbEvent,
+  dones: readonly VerbEvent[],
+  all: LogbookEvent[],
+): { event: VerbEvent; seconds: number }[] {
+  return dones.flatMap((event) => {
+    if (!sameComparableSetup(anchor, event, all)) {
+      return [];
+    }
+    const step = (event.steps ?? []).find((candidate) =>
+      candidate.label === job && candidate.disposition === "run" &&
+      (candidate.outcome === "ok" || candidate.outcome === "failed") &&
+      candidate.duration_s !== undefined
+    );
+    return step?.duration_s === undefined
+      ? []
+      : [{ event, seconds: step.duration_s }];
+  });
+}
+
 /**
- * Read serial discovery, not coincidence. A qualifying instance is two
- * adjacent red `done` runs in one conversation where the first run's failures
- * were all fixed by the second, yet a job the first run cancelled mid-flight
- * (fail-fast) or never started (its group stopped early) now fails: that
- * failure existed a run earlier, and its discovery cost one whole
- * fix-and-regate round. Requiring the original failures fixed is what makes
- * the attribution safe — a failure that merely persists, or one plausibly
- * introduced by an incomplete fix, never counts. Six adjacent red pairs give
- * the history real iteration to speak from; three instances make "every fix
- * happened to break the sibling" an unlikely story; pairs more than six hours
- * apart are two work sessions, not one fix loop.
+ * Read the two sides of the fail-fast tradeoff without assigning cause. A
+ * relationship is two adjacent red `done` runs in one conversation: the
+ * first run's failures are absent from the later run, while a job earlier
+ * cancelled or never started later reports a distinct failure. The later
+ * failure may have existed already or may have been introduced between runs;
+ * the finding says so. Tail work is estimated only for cancelled jobs, from
+ * at least three completed durations of that job under the same setup.
  */
 const maskedFailures: Detector = {
   id: "masked-failures",
-  title: "Failures discovered a run late",
+  title: "Fail-fast tradeoff ledger",
   family: "gate-fit",
   scope: "project",
   tier: "batch",
   tone: "attention",
   threshold: MASKED_FAILURES_MIN_PAIRS,
   next_step:
-    "Each instance paid a full fix-and-regate round to learn what one run could have reported. Weigh `[gate].fail_fast` against this history — a red run left to finish trades tail time for whole rounds — and consider whether a quick, often-red job belongs in a stage before the long one it keeps stopping.",
+    "Compare the recorded later-round cost with the explicitly estimated saved tail. Keep the setting when savings dominate; otherwise run a controlled project-local experiment before changing it.",
   detect(facts): DetectorOutcome {
     const dones = facts.verbs.filter((e) =>
       e.verb === "done" && (e.steps?.length ?? 0) > 0
     );
     let considered = 0;
-    let viaCancellation = 0;
-    let viaBarrier = 0;
-    const gapsMs: number[] = [];
-    const branches = new Set<string>();
-    const lateLabels = new Map<string, number>();
-    for (const [branch, events] of byBranch(dones)) {
+    let comparablePairs = 0;
+    let excludedSetupPairs = 0;
+    const relationships: FailFastRelationship[] = [];
+    for (const events of byBranch(dones).values()) {
       for (const session of bySession(events)) {
         for (let i = 0; i + 1 < session.length; i++) {
           const n = session[i];
@@ -2602,6 +2807,15 @@ const maskedFailures: Detector = {
             continue;
           }
           considered += 1;
+          if (
+            n.epoch === null || next.epoch === null ||
+            n.writer === undefined || next.writer === undefined ||
+            !sameComparableSetup(n, next, facts.events)
+          ) {
+            excludedSetupPairs += 1;
+            continue;
+          }
+          comparablePairs += 1;
           const failedNext = scheduledStepLabels(next, "failed");
           if (failedNext.size === 0) {
             continue;
@@ -2621,58 +2835,152 @@ const maskedFailures: Detector = {
           if (masked.length === 0 && deferred.length === 0) {
             continue;
           }
-          if (masked.length > 0) {
-            viaCancellation += 1;
-          }
-          if (deferred.length > 0) {
-            viaBarrier += 1;
-          }
-          gapsMs.push(gapMs);
-          branches.add(branch);
-          for (const label of [...masked, ...deferred]) {
-            lateLabels.set(label, (lateLabels.get(label) ?? 0) + 1);
-          }
+          relationships.push({
+            first: n,
+            later: next,
+            cancelled: masked,
+            neverStarted: deferred,
+          });
         }
       }
     }
-    const instances = gapsMs.length;
+    const instances = relationships.length;
     if (instances < MASKED_FAILURES_MIN_INSTANCES) {
       return { considered, findings: [] };
     }
-    const medianRoundS = round1(median(gapsMs) / 1000);
-    const commonest = [...lateLabels.entries()]
-      .sort((a, b) => b[1] - a[1])[0];
+    const cancelledJobs = relationships.reduce(
+      (sum, relationship) => sum + relationship.cancelled.length,
+      0,
+    );
+    const neverStartedJobs = relationships.reduce(
+      (sum, relationship) => sum + relationship.neverStarted.length,
+      0,
+    );
+    const laterDistinctFailures = cancelledJobs + neverStartedJobs;
+    const laterRoundElapsedS = round1(
+      relationships.reduce(
+        (sum, relationship) => sum + relationship.later.duration_ms / 1000,
+        0,
+      ),
+    );
+    let estimatedSavedTailS = 0;
+    let conservativeSavedTailS = 0;
+    let unestimatedTailJobs = 0;
+    const samples = new Set<string>();
+    for (const relationship of relationships) {
+      for (const label of relationship.cancelled) {
+        const completed = comparableCompletedDurations(
+          label,
+          relationship.first,
+          dones,
+          facts.events,
+        );
+        for (const sample of completed) {
+          samples.add(`${sample.event.at}\0${label}`);
+        }
+        if (completed.length < 3) {
+          unestimatedTailJobs += 1;
+          continue;
+        }
+        const partial = (relationship.first.steps ?? []).find((step) =>
+          step.label === label && step.outcome === "cancelled"
+        )?.duration_s ?? 0;
+        const durations = completed.map((sample) =>
+          sample.seconds
+        );
+        estimatedSavedTailS += Math.max(0, median(durations) - partial);
+        conservativeSavedTailS += Math.max(
+          0,
+          Math.max(...durations) - partial,
+        );
+      }
+    }
+    estimatedSavedTailS = round1(estimatedSavedTailS);
+    conservativeSavedTailS = round1(conservativeSavedTailS);
+    const recommendationSupported = cancelledJobs > 0 &&
+      unestimatedTailJobs === 0 && conservativeSavedTailS > 0 &&
+      laterRoundElapsedS > conservativeSavedTailS * 1.5;
+    const savingsFavoured = unestimatedTailJobs === 0 &&
+      estimatedSavedTailS > laterRoundElapsedS * 1.5;
+    const evidence = {
+      cancelled_jobs: cancelledJobs,
+      never_started_jobs: neverStartedJobs,
+      later_distinct_failures: laterDistinctFailures,
+      additional_gate_rounds: instances,
+      later_round_elapsed_seconds: laterRoundElapsedS,
+      estimated_saved_tail_seconds: estimatedSavedTailS,
+      conservative_saved_tail_seconds: conservativeSavedTailS,
+      tail_duration_samples: samples.size,
+      unestimated_tail_jobs: unestimatedTailJobs,
+      branches:
+        new Set(relationships.map((relationship) => relationship.first.branch))
+          .size,
+      recommendation_supported: recommendationSupported ? 1 : 0,
+    };
+    const nextStep = recommendationSupported
+      ? "This project's conservative rule was crossed: recorded later-round time exceeded 1.5× the maximum-duration saved-tail estimate, with at least 3 comparable samples per cancelled job. Run a controlled `[gate].fail_fast = false` trial and compare the same ledger before adopting the change."
+      : savingsFavoured
+      ? "The median-duration estimate of saved tail exceeds recorded later-round cost by more than 1.5×. Keep fail-fast for now; no configuration change is supported by this history."
+      : "The tradeoff is unresolved or undersampled. Run a controlled project-local experiment with fail-fast on and off, then compare recorded later-round time and the same saved-tail estimator; do not change the default from this evidence yet.";
+    const relationshipEvents = relationships.flatMap((relationship) => [
+      relationship.first,
+      relationship.later,
+    ]);
     return {
       considered,
       findings: [{
-        brief: `${formatHumanNumber(instances)} late discoveries · ${
-          formatHumanNumber(viaCancellation)
-        } cancelled · ${
-          formatHumanNumber(viaBarrier)
-        } never started · median round ${formatHumanNumber(medianRoundS)}s`,
+        brief: `${formatHumanNumber(cancelledJobs)} cancelled · ${
+          formatHumanNumber(laterDistinctFailures)
+        } later distinct failures · ${
+          formatHumanNumber(laterRoundElapsedS)
+        }s later rounds · ~${
+          formatHumanNumber(estimatedSavedTailS)
+        }s saved tail`,
+        tone: recommendationSupported
+          ? "attention"
+          : savingsFavoured
+          ? "good"
+          : "neutral",
         observed: `${
           formatHumanNumber(instances)
-        } red \`done\` runs were followed — original failures fixed — by a failure in a job the earlier run had cancelled (${
-          formatHumanNumber(viaCancellation)
-        }) or never started (${formatHumanNumber(viaBarrier)}), across ${
-          formatHumanNumber(branches.size)
-        } branches with a median ${
-          formatHumanNumber(medianRoundS)
-        }s round between the two runs${
-          commonest === undefined
-            ? ""
-            : `; \`${commonest[0]}\` surfaced late ${
-              formatHumanNumber(commonest[1])
-            } times`
-        }.`,
-        evidence: {
-          late_discoveries: instances,
-          via_cancelled_job: viaCancellation,
-          via_job_never_started: viaBarrier,
-          branches: branches.size,
-          median_round_seconds: medianRoundS,
-        },
+        } comparable adjacent red Gate relationships recorded ${
+          formatHumanNumber(cancelledJobs)
+        } cancelled jobs, ${
+          formatHumanNumber(neverStartedJobs)
+        } jobs not started, and ${
+          formatHumanNumber(laterDistinctFailures)
+        } distinct failures in later rounds; those later rounds recorded ${
+          formatHumanNumber(laterRoundElapsedS)
+        }s elapsed, while ${
+          formatHumanNumber(samples.size)
+        } comparable completed-job samples estimate ${
+          formatHumanNumber(estimatedSavedTailS)
+        }s of cancelled tail avoided. The sequence does not establish when or why a later failure arose.`,
+        evidence,
+        basis: decisionEvidenceBasis("fail-fast-ledger", evidence, {
+          comparable: comparablePairs,
+          denominator: considered,
+          unit: "adjacent red Gate pairs",
+          events: relationshipEvents,
+          allEvents: facts.events,
+          estimated: new Set([
+            "estimated_saved_tail_seconds",
+            "conservative_saved_tail_seconds",
+          ]),
+          excludedEvents: excludedSetupPairs,
+          limitations: [
+            "A later distinct failure may have existed during the earlier run or may have been introduced between runs; the sequence does not establish cause.",
+            "Saved tail uses the median of at least 3 completed durations for the same job and setup, less any recorded partial cancelled duration.",
+            "The conservative decision rule uses the maximum comparable completed duration for each cancelled job and requires later-round time to exceed that estimate by 1.5 times.",
+            ...(neverStartedJobs > 0
+              ? [
+                "Jobs that never started are observed separately and do not enter the cancelled-tail estimate.",
+              ]
+              : []),
+          ],
+        }),
         strength: instances,
+        next_step: nextStep,
       }],
     };
   },
@@ -3569,40 +3877,35 @@ const standardTrajectory: Detector = {
   // 5 readings of one standard before drawing its line.
   threshold: 5,
   next_step:
-    "Read each metric's line against its limit's own history — pins should track sustained gains, and a value drifting toward its limit deserves attention before it fails.",
+    "Read each metric's line against its limit's own history. Mechanical pin eligibility comes from the Gate; Patterns recommends a pin only when current comparable evidence is persistent and stable.",
   detect(facts): DetectorOutcome {
     interface Reading {
-      at: string;
-      value: number;
-      limit: number | undefined;
-      direction: string | undefined;
-      epoch: string | null;
-      writer: string | undefined;
+      event: VerbEvent;
+      standard: StandardReading;
     }
     const series = new Map<string, Reading[]>();
     for (const e of facts.verbs) {
       for (const s of e.standards ?? []) {
-        if (s.value === undefined) {
-          continue;
-        }
         const list = series.get(s.name) ?? [];
-        list.push({
-          at: e.at,
-          value: s.value,
-          limit: s.limit,
-          direction: s.direction,
-          epoch: e.epoch,
-          writer: e.writer,
-        });
+        list.push({ event: e, standard: s });
         series.set(s.name, list);
       }
     }
+    const latestInventory = facts.verbs.findLast((event) =>
+      event.standards !== undefined
+    );
+    const activeNames = new Set(
+      latestInventory?.standards?.map((standard) => standard.name) ?? [],
+    );
     const pins = facts.events.filter(
       (e): e is Extract<LogbookEvent, { kind: "pin" }> => e.kind === "pin",
     );
     let considered = 0;
     const findings: DetectorFinding[] = [];
-    for (const [name, readings] of [...series.entries()].sort()) {
+    for (const [name, entries] of [...series.entries()].sort()) {
+      const readings = entries.filter((entry) =>
+        entry.standard.value !== undefined
+      );
       considered += readings.length;
       if (readings.length < 5) {
         continue;
@@ -3612,7 +3915,12 @@ const standardTrajectory: Detector = {
       if (first === undefined || last === undefined) {
         continue;
       }
-      const span = daysBetween(first.at, last.at);
+      const firstValue = first.standard.value;
+      const lastValue = last.standard.value;
+      if (firstValue === undefined || lastValue === undefined) {
+        continue;
+      }
+      const span = daysBetween(first.event.at, last.event.at);
       const ownPins = pins.filter((p) => p.standard === name);
       const firstPin = ownPins[0];
       const lastPin = ownPins[ownPins.length - 1];
@@ -3621,11 +3929,13 @@ const standardTrajectory: Detector = {
       // can alternate for pages — that is still two setups, not a boundary
       // per flip.
       const setups = new Set(
-        readings.map((r) => `${r.epoch ?? ""} ${r.writer ?? ""}`),
+        readings.map((reading) =>
+          `${reading.event.epoch ?? ""} ${reading.event.writer ?? ""}`
+        ),
       ).size;
       const pieces = [
-        `\`${name}\` measured ${formatHumanNumber(first.value)} → ${
-          formatHumanNumber(last.value)
+        `\`${name}\` measured ${formatHumanNumber(firstValue)} → ${
+          formatHumanNumber(lastValue)
         } across ${formatHumanNumber(span)} days (${
           formatHumanNumber(readings.length)
         } readings)`,
@@ -3638,8 +3948,10 @@ const standardTrajectory: Detector = {
             ownPins.length === 1 ? "" : "s"
           }`,
         );
-      } else if (last.limit !== undefined) {
-        pieces.push(`the limit held at ${formatHumanNumber(last.limit)}`);
+      } else if (last.standard.limit !== undefined) {
+        pieces.push(
+          `the limit held at ${formatHumanNumber(last.standard.limit)}`,
+        );
       }
       if (setups > 1) {
         pieces.push(
@@ -3648,76 +3960,184 @@ const standardTrajectory: Detector = {
           } config/release setups, so ${TRAJECTORY_BOUNDARY_ATTRIBUTION}`,
         );
       }
-      // Direction-aware slack: the last three readings all strictly better
-      // than the limit they were held to.
-      const tail3 = readings.slice(-3);
-      const better = (r: Reading): boolean =>
-        r.limit !== undefined &&
-        (r.direction === "down"
-          ? r.value < r.limit
-          : r.direction === "up"
-          ? r.value > r.limit
-          : false);
-      const slack = tail3.length === 3 && tail3.every(better);
+      const retired = latestInventory !== undefined && !activeNames.has(name);
+      const currentEntries = retired || latestInventory === undefined
+        ? []
+        : entries.filter((entry) =>
+          sameComparableSetup(entry.event, latestInventory, facts.events)
+        );
+      const comparableReadings = currentEntries.filter((entry) =>
+        entry.standard.value !== undefined
+      );
+      const latestCurrent = currentEntries[currentEntries.length - 1]?.standard;
+      const recent = comparableReadings.slice(-5);
+      const tail3 = comparableReadings.slice(-3);
+      const mechanicallyEligible = latestCurrent?.pin_eligible === true &&
+        latestCurrent.pin_target !== undefined;
+      const currentMeasurement = latestCurrent?.value !== undefined &&
+          (latestCurrent.measurement === "measured" ||
+            latestCurrent.measurement === "replayed")
+        ? 1
+        : 0;
+      const persistentEligibility = tail3.length === 3 &&
+        tail3.every((entry) =>
+          entry.standard.pin_eligible === true &&
+          entry.standard.pin_target !== undefined
+        );
+      const direction = latestCurrent?.direction === "up" ||
+          latestCurrent?.direction === "down"
+        ? latestCurrent.direction
+        : undefined;
+      let previousDirection: number | undefined;
+      let recentReversals = 0;
+      for (let index = 1; index < recent.length; index += 1) {
+        const before = recent[index - 1]?.standard.value;
+        const after = recent[index]?.standard.value;
+        if (
+          before === undefined || after === undefined || direction === undefined
+        ) {
+          continue;
+        }
+        const oriented = (after - before) * (direction === "up" ? 1 : -1);
+        const movement = Math.sign(oriented);
+        if (movement === 0) {
+          continue;
+        }
+        if (
+          previousDirection !== undefined && movement !== previousDirection
+        ) {
+          recentReversals += 1;
+        }
+        previousDirection = movement;
+      }
+      const recentFailures = recent.filter((entry) =>
+        entry.standard.verdict === "regressed"
+      ).length;
+      const legacyEligibilityReadings = recent.filter((entry) =>
+        entry.standard.pin_eligible === undefined ||
+        entry.standard.margin === undefined ||
+        entry.standard.measurement === undefined
+      ).length;
+      const recommendationSupported = !retired && currentMeasurement === 1 &&
+        mechanicallyEligible && persistentEligibility &&
+        recentReversals === 0 && recentFailures === 0 &&
+        legacyEligibilityReadings === 0;
       const headroom = (r: Reading): number | undefined =>
-        r.limit === undefined
+        r.standard.value === undefined || r.standard.limit === undefined
           ? undefined
-          : r.direction === "down"
-          ? r.limit - r.value
-          : r.direction === "up"
-          ? r.value - r.limit
+          : r.standard.direction === "down"
+          ? r.standard.limit - r.standard.value
+          : r.standard.direction === "up"
+          ? r.standard.value - r.standard.limit
           : undefined;
       const firstHeadroom = headroom(first);
       const lastHeadroom = headroom(last);
-      const tone: PatternFindingTone = slack ||
-          (firstHeadroom !== undefined && lastHeadroom !== undefined &&
-            lastHeadroom > firstHeadroom)
+      const tone: PatternFindingTone = retired
+        ? "neutral"
+        : recommendationSupported ||
+            (firstHeadroom !== undefined && lastHeadroom !== undefined &&
+              lastHeadroom > firstHeadroom)
         ? "good"
         : firstHeadroom !== undefined && lastHeadroom !== undefined &&
             lastHeadroom < firstHeadroom
         ? "attention"
         : "neutral";
-      const movement = slack
+      const movement = recommendationSupported
         ? "beating its limit"
         : tone === "good"
         ? "improving"
         : tone === "attention"
         ? "headroom shrinking"
-        : first.value === last.value
+        : firstValue === lastValue
         ? "holding"
         : "changed";
-      const limitWord = last.direction === "down"
+      const limitWord = last.standard.direction === "down"
         ? "ceiling"
-        : last.direction === "up"
+        : last.standard.direction === "up"
         ? "floor"
         : "limit";
-      const againstLimit = last.limit === undefined
+      const againstLimit = last.standard.limit === undefined
         ? ""
-        : ` vs ${limitWord} ${formatHumanNumber(last.limit)}`;
+        : ` vs ${limitWord} ${formatHumanNumber(last.standard.limit)}`;
+      const evidence = {
+        readings: readings.length,
+        comparable_readings: comparableReadings.length,
+        span_days: span,
+        pins: ownPins.length,
+        first_value: firstValue,
+        last_value: lastValue,
+        mechanically_eligible: mechanicallyEligible ? 1 : 0,
+        recommendation_supported: recommendationSupported ? 1 : 0,
+        current_measurement: currentMeasurement,
+        recent_failures: recentFailures,
+        recent_reversals: recentReversals,
+        retired: retired ? 1 : 0,
+        legacy_eligibility_readings: legacyEligibilityReadings,
+        ...(first.standard.limit !== undefined
+          ? { limit_first: first.standard.limit }
+          : {}),
+        ...(last.standard.limit !== undefined
+          ? { limit_last: last.standard.limit }
+          : {}),
+        ...(latestCurrent?.margin !== undefined
+          ? { margin: latestCurrent.margin }
+          : {}),
+        ...(latestCurrent?.pin_target !== undefined
+          ? { pin_target: latestCurrent.pin_target }
+          : {}),
+      };
+      const nextStep = retired
+        ? `\`${name}\` is absent from the newest recorded Standard inventory. Keep this trajectory as historical evidence; there is no live limit to pin.`
+        : latestCurrent?.measurement === "deferred"
+        ? `\`${name}\` is on-demand and its latest Gate entry deferred measurement. Run \`discern standards\` for current evidence before considering a pin.`
+        : currentMeasurement === 0
+        ? `\`${name}\` has no current measured or replayed value. Run \`discern standards\` before considering a pin.`
+        : recommendationSupported
+        ? `\`${name}\` is mechanically eligible under its recorded margin and the last 3 comparable readings are persistent, non-reversing, and failure-free — capture the gain: \`discern standards --pin ${name}\`.`
+        : mechanicallyEligible && recentFailures > 0
+        ? `\`${name}\` is mechanically eligible now, but ${
+          formatHumanNumber(recentFailures)
+        } recent same-Standard failure${
+          recentFailures === 1 ? "" : "s"
+        } suppress pin advice.`
+        : mechanicallyEligible && recentReversals > 0
+        ? `\`${name}\` is mechanically eligible now, but recent comparable values are volatile (${
+          formatHumanNumber(recentReversals)
+        } direction reversals), so no pin is recommended.`
+        : mechanicallyEligible
+        ? `\`${name}\` is mechanically eligible now, but fewer than 3 comparable current readings establish persistent headroom, so no pin is recommended yet.`
+        : `\`${name}\` is not mechanically eligible under its recorded margin and current limit; keep the trajectory as a statistic.`;
       findings.push({
         subject: name,
-        brief: `${formatHumanNumber(first.value)} → ${
-          formatHumanNumber(last.value)
+        brief: `${formatHumanNumber(firstValue)} → ${
+          formatHumanNumber(lastValue)
         }${againstLimit} — ${movement}`,
         tone,
-        series: downsampleTrajectorySeries(readings),
+        series: downsampleTrajectorySeries(readings.map((reading) => ({
+          at: reading.event.at,
+          value: reading.standard.value ?? 0,
+        }))),
         observed: `${pieces.join("; ")}.`,
-        evidence: {
-          readings: readings.length,
-          span_days: span,
-          pins: ownPins.length,
-          first_value: first.value,
-          last_value: last.value,
-          ...(first.limit !== undefined ? { limit_first: first.limit } : {}),
-          ...(last.limit !== undefined ? { limit_last: last.limit } : {}),
-        },
+        evidence,
+        basis: decisionEvidenceBasis("standard-pin-decision", evidence, {
+          comparable: comparableReadings.length,
+          denominator: readings.length,
+          unit: "Standard readings",
+          events: currentEntries.map((entry) => entry.event),
+          allEvents: facts.events,
+          legacyEvents: legacyEligibilityReadings,
+          excludedEvents: readings.length - comparableReadings.length,
+          limitations: [
+            "Mechanical eligibility is recorded from the Gate's pin authority; recommendation additionally requires current comparable persistence, no recent reversals, and no recent failures.",
+            ...(retired
+              ? [
+                "Retired status is inferred only when a newer recorded Standard inventory names other active Standards.",
+              ]
+              : []),
+          ],
+        }),
         strength: readings.length,
-        ...(slack
-          ? {
-            next_step:
-              `\`${name}\` has measured better than its limit for the last 3 readings — capture the gain: \`discern standards --pin\`.`,
-          }
-          : {}),
+        next_step: nextStep,
       });
     }
     return { considered, findings };

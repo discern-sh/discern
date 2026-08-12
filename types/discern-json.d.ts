@@ -1988,11 +1988,14 @@ export type DiscernDoneResult = {
       name: string;
       direction: "up" | "down";
       limit: number;
+      margin?: number;
       measurement: "measured" | "replayed" | "deferred" | "skipped";
       value?: number;
       verdict?: "improved" | "held" | "regressed";
       duration_s?: number;
       replayed_from?: string;
+      pin_eligible?: boolean;
+      pin_target?: number;
     }>;
     standards_limits?: {
       status: "verified" | "loosened" | "unverified" | "parse_failed";
@@ -2484,11 +2487,14 @@ export type DiscernStandardsResult = {
       name: string;
       direction: "up" | "down";
       limit: number;
+      margin?: number;
       measurement: "measured" | "replayed" | "deferred" | "skipped";
       value?: number;
       verdict?: "improved" | "held" | "regressed";
       duration_s?: number;
       replayed_from?: string;
+      pin_eligible?: boolean;
+      pin_target?: number;
     }>;
     pinned?: Array<{
       name: string;

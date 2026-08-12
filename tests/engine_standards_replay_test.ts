@@ -47,6 +47,9 @@ interface GateJson {
       value?: number;
       verdict?: string;
       replayed_from?: string;
+      margin?: number;
+      pin_eligible?: boolean;
+      pin_target?: number;
     }>;
     proof?: { markdown: string };
   };
@@ -137,6 +140,9 @@ Deno.test("replay: untouched inputs replay the recorded value — no re-measure,
     assertEquals(entry?.measurement, "replayed");
     assertEquals(entry?.value, 90);
     assertEquals(entry?.replayed_from, baseline);
+    assertEquals(entry?.margin, 0);
+    assertEquals(entry?.pin_eligible, true);
+    assertEquals(entry?.pin_target, 90);
   });
 });
 

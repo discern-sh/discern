@@ -6281,6 +6281,10 @@
                       "limit": {
                         "type": "number"
                       },
+                      "margin": {
+                        "type": "number",
+                        "minimum": 0
+                      },
                       "measurement": {
                         "type": "string",
                         "enum": [
@@ -6306,6 +6310,12 @@
                       },
                       "replayed_from": {
                         "type": "string"
+                      },
+                      "pin_eligible": {
+                        "type": "boolean"
+                      },
+                      "pin_target": {
+                        "type": "number"
                       }
                     },
                     "required": [
@@ -7984,6 +7994,10 @@
                       "limit": {
                         "type": "number"
                       },
+                      "margin": {
+                        "type": "number",
+                        "minimum": 0
+                      },
                       "measurement": {
                         "type": "string",
                         "enum": [
@@ -8009,6 +8023,12 @@
                       },
                       "replayed_from": {
                         "type": "string"
+                      },
+                      "pin_eligible": {
+                        "type": "boolean"
+                      },
+                      "pin_target": {
+                        "type": "number"
                       }
                     },
                     "required": [
