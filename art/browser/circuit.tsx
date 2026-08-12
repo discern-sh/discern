@@ -214,25 +214,29 @@ function legStyle(leg: CircuitLeg): CircuitLegStyle {
   return { "--fig-circuit-leg-path": `path("${leg.path}")` };
 }
 
-/** Render a leg's cargo: one dash, doubling only on the rising side. */
+/**
+ * Render a leg's cargo as beads crossing the edge, doubling only on the
+ * rising side. A bead runs perpendicular to its rail so it stays visible
+ * against the drawn edge in either theme.
+ */
 function legDashes(leg: CircuitLeg): ReactElement {
   if (leg.id === "right") {
     return (
       <>
         <line
           className="fig-circuit__dash fig-circuit__dash--fine"
-          x1="-9"
-          y1="0"
-          x2="-2"
-          y2="0"
+          x1="-5"
+          y1="-8"
+          x2="-5"
+          y2="8"
           vectorEffect="non-scaling-stroke"
         />
         <line
           className="fig-circuit__dash fig-circuit__dash--fine"
-          x1="2"
-          y1="0"
-          x2="9"
-          y2="0"
+          x1="5"
+          y1="-8"
+          x2="5"
+          y2="8"
           vectorEffect="non-scaling-stroke"
         />
       </>
@@ -242,10 +246,10 @@ function legDashes(leg: CircuitLeg): ReactElement {
   return (
     <line
       className={`fig-circuit__dash${accent}`}
-      x1="-4.5"
-      y1="0"
-      x2="4.5"
-      y2="0"
+      x1="0"
+      y1="-9"
+      x2="0"
+      y2="9"
       vectorEffect="non-scaling-stroke"
     />
   );
