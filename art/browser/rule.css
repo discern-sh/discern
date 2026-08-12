@@ -8,9 +8,9 @@
  *  43.33–50.00%  (20.8–24.0s)  the four-triangle division stands
  *  50.00–60.00%  (24.0–28.8s)  gen-2 ritual, three corners a beat apart
  *  62.50–73.33%  (30.0–35.2s)  gen-3 arpeggio, nine corners in reading order
- *  75.83–84.00%  (36.4–40.3s)  the completed figure holds, re-inked
- *  84.00–89.58%  (40.3–43.0s)  the accent pulse rounds the smallest cell
- *  90.00–95.00%  (43.2–45.6s)  everything settles back to its resting ink
+ *  75.83–82.00%  (36.4–39.4s)  the completed figure holds, re-inked
+ *  82.00–92.50%  (39.4–44.4s)  the accent pulse rounds the smallest cell
+ *  92.50–95.00%  (44.4–45.6s)  everything settles back to its resting ink
  *  95.00–100.0%  (45.6–48.0s)  dwell, closing the loop into the opening frame
  *
  * Every 0%/100% state matches the authored rest: the finished subdivided
@@ -92,9 +92,9 @@
 
   .fig-rule__accent {
     stroke: var(--fig-accent);
-    stroke-width: var(--fig-line);
+    stroke-width: var(--fig-heavy);
     stroke-linecap: round;
-    stroke-dasharray: 0.16 0.84;
+    stroke-dasharray: 0.3 0.7;
     stroke-dashoffset: 1;
     animation: fig-rule-accent-travel 48s linear infinite;
   }
@@ -949,36 +949,36 @@
     100% {
       opacity: 0;
     }
-    84% {
+    81.5% {
       opacity: 0;
       animation-timing-function: var(--fig-ease-settle);
     }
-    84.63% {
+    82.3% {
       opacity: 1;
     }
-    88.54% {
+    91% {
       opacity: 1;
       animation-timing-function: var(--fig-ease-drift);
     }
-    89.58% {
+    92.5% {
       opacity: 0;
     }
   }
 
-  /* A dash of 0.16 perimeter rounds the cell exactly once at constant speed. */
+  /* A dash of 0.3 perimeter rounds the cell exactly once at constant speed. */
   @keyframes fig-rule-accent-travel {
     0%,
     100% {
       stroke-dashoffset: 1;
     }
-    84% {
+    82% {
       stroke-dashoffset: 1;
       animation-timing-function: linear;
     }
-    89% {
+    91.5% {
       stroke-dashoffset: 0;
     }
-    89.2% {
+    91.7% {
       stroke-dashoffset: 1;
     }
   }
