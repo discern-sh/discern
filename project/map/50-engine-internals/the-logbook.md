@@ -118,6 +118,7 @@ Context (branch, commit, config, toggle) is gathered from invocation, so `accept
 | Advisory identity detector       | [`src/engine/logbook/agent_signals.ts`](../../../src/engine/logbook/agent_signals.ts)             |
 | Config-epoch fingerprint         | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)                             |
 | Validation model and outcomes    | [`src/engine/logbook/validation.ts`](../../../src/engine/logbook/validation.ts)                   |
+| Repository validation key        | [`src/engine/logbook/validation_key.ts`](../../../src/engine/logbook/validation_key.ts)           |
 | Bounded validation-state capture | [`src/engine/logbook/validation_state.ts`](../../../src/engine/logbook/validation_state.ts)       |
 | Append, rotation, epoch sidecar  | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)                             |
 | The recorder                     | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)                           |

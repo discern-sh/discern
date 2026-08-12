@@ -161,6 +161,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "the logbook (events, epoch sidecar, rotation) — .git-internal, outside the project tree",
   ],
   [
+    "src/engine/logbook/validation_key.ts",
+    "the registry-resolved repository-common validation HMAC key — .git-internal, outside the project tree",
+  ],
+  [
     "src/engine/crash.ts",
     "crash report files — registry-resolved .git-internal state outside the project tree, with an OS-temp fallback outside a repository",
   ],
