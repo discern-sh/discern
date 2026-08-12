@@ -110,6 +110,10 @@
     text-wrap: balance;
   }
 
+  .landing-section--inverse :where(h1, h2, h3, h4, h5, h6) {
+    color: inherit;
+  }
+
   .landing-section-heading__intro {
     max-inline-size: 42rem;
     margin-block-start: var(--discern-space-6);
@@ -150,9 +154,14 @@
     isolation: isolate;
     overflow: hidden;
     background:
-      radial-gradient(circle at 50% 14% in oklab,
-      color-mix(in oklab, var(--discern-color-accent-300) 26%, transparent),
-      transparent 35%),
+      linear-gradient(118deg,
+      transparent 12%,
+      color-mix(in oklab, var(--discern-color-accent-200) 18%, transparent) 46%,
+      transparent 72%),
+      linear-gradient(242deg,
+      transparent 18%,
+      color-mix(in oklab, var(--discern-color-accent-300) 12%, transparent) 50%,
+      transparent 76%),
       linear-gradient(180deg,
       var(--discern-color-canvas) 0%,
       color-mix(in oklab, var(--discern-color-surface-sunken) 55%,
@@ -160,51 +169,33 @@
       var(--discern-color-canvas) 100%);
   }
 
-  .landing-hero::before,
-  .landing-hero::after {
+  .landing-hero::before {
     position: absolute;
     z-index: -2;
-    border-radius: 999px;
+    inset-block-start: 5rem;
+    inset-inline-start: 50%;
+    inline-size: min(92rem, 118vw);
+    block-size: 39rem;
+    background: linear-gradient(112deg,
+      transparent 5%,
+      color-mix(in oklab, var(--discern-color-canvas) 88%, transparent) 36%,
+      color-mix(in oklab, var(--discern-color-accent-100) 46%, transparent) 58%,
+      transparent 95%);
+    clip-path: polygon(29% 0, 71% 0, 94% 100%, 6% 100%);
     content: "";
+    transform: translateX(-50%);
     pointer-events: none;
-  }
-
-  .landing-hero::before {
-    inset-block-start: 8rem;
-    inset-inline-start: 50%;
-    inline-size: min(72rem, 96vw);
-    block-size: 38rem;
-    background: radial-gradient(ellipse in oklab,
-      color-mix(in oklab, var(--discern-color-accent-400) 17%,
-      var(--discern-color-canvas)),
-      var(--discern-color-canvas) 72%);
-    transform: translateX(-50%);
-  }
-
-  .landing-hero::after {
-    inset-inline-start: 50%;
-    inset-block-start: 38rem;
-    inline-size: 68rem;
-    block-size: 68rem;
-    border: 1px solid color-mix(in oklab,
-      var(--discern-color-accent-400) 18%, transparent);
-    box-shadow:
-      0 0 0 7rem color-mix(in oklab,
-      var(--discern-color-accent-300) 2.5%, transparent),
-      0 0 0 14rem color-mix(in oklab,
-      var(--discern-color-accent-300) 1.5%, transparent);
-    transform: translateX(-50%);
   }
 
   .landing-hero__halo {
     position: absolute;
     z-index: -1;
-    inset-block-start: 5rem;
-    inset-inline-start: 50%;
-    inline-size: clamp(19rem, 36vw, 34rem);
+    inset-block-start: 7.5rem;
+    inset-inline-start: calc(50% + min(38rem, 38vw));
+    inline-size: clamp(11rem, 18vw, 17rem);
     color: color-mix(in oklab,
-      var(--discern-color-accent-500) 8%, transparent);
-    transform: translateX(-50%);
+      var(--discern-color-accent-500) 12%, transparent);
+    transform: translateX(-50%) rotate(8deg);
     pointer-events: none;
   }
 
@@ -855,13 +846,17 @@
 
   .landing-possibility__grid {
     display: grid;
+    gap: clamp(3rem, 7vw, 6rem);
+  }
+
+  .landing-possibility__story-stage {
+    display: grid;
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     column-gap: clamp(3rem, 8vw, 8rem);
-    row-gap: clamp(3rem, 7vw, 6rem);
     align-items: start;
   }
 
-  .landing-possibility__grid > .landing-section-heading {
+  .landing-possibility__story-stage > .landing-section-heading {
     position: sticky;
     inset-block-start: 8rem;
     margin-block-end: 0;
@@ -891,7 +886,6 @@
   }
 
   .landing-possibility__relationship {
-    grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 1fr auto 1fr auto 1fr auto;
     align-items: center;
@@ -1873,13 +1867,13 @@
       grid-row: auto;
     }
 
-    .landing-possibility__grid,
+    .landing-possibility__story-stage,
     .landing-split,
     .landing-agents__grid {
       grid-template-columns: 1fr;
     }
 
-    .landing-possibility__grid > .landing-section-heading {
+    .landing-possibility__story-stage > .landing-section-heading {
       position: static;
     }
 
@@ -1946,6 +1940,10 @@
 
     .landing-hero__inner {
       padding-block-start: 4.5rem;
+    }
+
+    .landing-hero__halo {
+      display: none;
     }
 
     .landing-hero h1 {

@@ -182,6 +182,88 @@ function offsetDecoratedHeadingSelectors(
   });
 }
 
+const INVERSE_HEADING_SELECTOR =
+  ".landing-section--inverse :where(h1, h2, h3, h4, h5, h6)";
+
+/** Find top-level inverse sections that can regress to theme-token heading ink. */
+function inverseSectionHeadingViolations(
+  css: string,
+  root: ParentNode,
+): string[] {
+  const rules = pageCssRules(css);
+  const sharedStart = css.indexOf(`${INVERSE_HEADING_SELECTOR} {`);
+  const sharedBodyStart = sharedStart < 0
+    ? -1
+    : css.indexOf("{", sharedStart) + 1;
+  const sharedEnd = sharedBodyStart < 0
+    ? -1
+    : css.indexOf("}", sharedBodyStart);
+  const sharedHeadingRule = sharedBodyStart > 0 &&
+    sharedEnd > sharedBodyStart &&
+    /(?:^|;)\s*color\s*:\s*inherit\s*;?/.test(
+      css.slice(sharedBodyStart, sharedEnd),
+    );
+  const lightForeground =
+    /(?:^|;)\s*color\s*:\s*(?:white|#fff(?:fff)?|oklch\(\s*(?:9\d(?:\.\d+)?|100)%|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))/i;
+  const declarations = new Map<Element, string>();
+
+  for (const { selector, body } of rules) {
+    const querySelector = selector.replace(/\/\*[\s\S]*?\*\//g, "").trim();
+    if (querySelector === "") continue;
+    let matches: NodeListOf<Element>;
+    try {
+      matches = root.querySelectorAll(querySelector);
+    } catch {
+      continue;
+    }
+    for (const element of matches) {
+      if (
+        element.classList.contains("landing-section") &&
+        element.parentElement?.matches("main")
+      ) {
+        declarations.set(
+          element,
+          `${declarations.get(element) ?? ""}\n${body}`,
+        );
+      }
+    }
+  }
+
+  return [...declarations].flatMap(([element, body]) => {
+    const inverse = /(?:^|;)\s*background(?:-color)?\s*:/.test(body) &&
+      lightForeground.test(body);
+    return inverse &&
+        !(sharedHeadingRule &&
+          element.classList.contains("landing-section--inverse"))
+      ? [element.id === "" ? element.className : `#${element.id}`]
+      : [];
+  }).toSorted();
+}
+
+/** Find authored sticky content without a boundary that ends before later content. */
+function unboundedStickySelectors(css: string, root: ParentNode): string[] {
+  const violations = new Set<string>();
+  for (const { selector, body } of pageCssRules(css)) {
+    if (!/(?:^|;)\s*position\s*:\s*sticky\s*;?/.test(body)) continue;
+    const querySelector = selector.replace(/\/\*[\s\S]*?\*\//g, "").trim();
+    if (querySelector === "") continue;
+    let matches: NodeListOf<Element>;
+    try {
+      matches = root.querySelectorAll(querySelector);
+    } catch {
+      continue;
+    }
+    for (const element of matches) {
+      // Persistent page chrome intentionally uses the viewport as its boundary.
+      if (element.matches(".landing-masthead")) continue;
+      if (element.closest(".landing-sticky-boundary") === null) {
+        violations.add(selector);
+      }
+    }
+  }
+  return [...violations].toSorted();
+}
+
 /** Find homepage navigation actions whose idle state has no visible boundary. */
 function transparentNavigationActions(root: ParentNode): string[] {
   return [...root.querySelectorAll("a.discern-button--ghost")].map((action) =>
@@ -784,6 +866,23 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   const landingCss = await Deno.readTextFile(
     join(ROOT, "site/page-src/landing.css"),
   );
+  assertEquals(inverseSectionHeadingViolations(landingCss, body), []);
+  assertEquals(unboundedStickySelectors(landingCss, body), []);
+  const stickyBoundary = body.querySelector(
+    "#possibility .landing-sticky-boundary",
+  );
+  assert(stickyBoundary !== null);
+  assert(
+    stickyBoundary.contains(
+      body.querySelector("#possibility .landing-section-heading"),
+    ),
+  );
+  assertEquals(
+    stickyBoundary.contains(
+      body.querySelector("#possibility .landing-possibility__relationship"),
+    ),
+    false,
+  );
   const mastheadRule = cssRuleBody(landingCss, ".landing-masthead");
   assertStringIncludes(mastheadRule, "width: 100%;");
   assertEquals(mastheadRule.includes("max-inline-size"), false);
@@ -842,10 +941,23 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   assertStringIncludes(checksRule, "align-content: center;");
   assertEquals(offsetDecoratedHeadingSelectors(landingCss, body), []);
   const heroGlowRule = cssRuleBody(landingCss, ".landing-hero::before");
-  assertStringIncludes(heroGlowRule, "radial-gradient(ellipse in oklab,");
-  assertStringIncludes(heroGlowRule, "var(--discern-color-canvas) 72%);");
+  assertStringIncludes(heroGlowRule, "linear-gradient(112deg,");
+  assertStringIncludes(
+    heroGlowRule,
+    "clip-path: polygon(29% 0, 71% 0, 94% 100%, 6% 100%);",
+  );
+  assertEquals(heroGlowRule.includes("border-radius:"), false);
   assertEquals(heroGlowRule.includes("filter:"), false);
   assertEquals(heroGlowRule.includes("opacity:"), false);
+  assertEquals(landingCss.includes(".landing-hero::after"), false);
+  assertStringIncludes(
+    landingCss,
+    ".landing-hero__halo {\n      display: none;",
+  );
+  assertStringIncludes(
+    cssRuleBody(landingCss, ".landing-hero__halo"),
+    "inset-inline-start: calc(50% + min(38rem, 38vw));",
+  );
   assertEquals(landingCss.includes("textures/grain.png"), false);
   assertStringIncludes(landingCss, ".landing-provider-logo");
   assertStringIncludes(
@@ -927,6 +1039,35 @@ Deno.test("homepage layout detectors enroll unrelated future structures", () => 
     ),
     [".fresh-numbered-heading"],
   );
+
+  const inverseSynthetic = new JSDOM(`
+    <main>
+      <section id="fresh-depth" class="landing-section fresh-depth">
+        <h2>Fresh inverse heading</h2>
+      </section>
+    </main>
+  `);
+  assertEquals(
+    inverseSectionHeadingViolations(
+      `.fresh-depth { background-color: #10131d; }
+       .fresh-depth { color: white; }`,
+      inverseSynthetic.window.document,
+    ),
+    ["#fresh-depth"],
+  );
+  inverseSynthetic.window.close();
+
+  const stickySynthetic = new JSDOM(`
+    <main><section><header class="fresh-pin">Fresh sticky story</header></section></main>
+  `);
+  assertEquals(
+    unboundedStickySelectors(
+      `.fresh-pin { position: sticky; inset-block-start: 4rem; }`,
+      stickySynthetic.window.document,
+    ),
+    [".fresh-pin"],
+  );
+  stickySynthetic.window.close();
   synthetic.window.close();
 });
 Deno.test("consumer CSS never targets a package-manifest-owned class", async () => {

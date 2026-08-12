@@ -462,31 +462,33 @@ function PossibilitySection() {
       aria-labelledby="possibility-title"
     >
       <div className="landing-shell landing-possibility__grid">
-        <SectionHeading
-          kicker="The opportunity"
-          title="More capability should widen your ambition."
-          intro={
+        <div className="landing-possibility__story-stage landing-sticky-boundary">
+          <SectionHeading
+            kicker="The opportunity"
+            title="More capability should widen your ambition."
+            intro={
+              <p>
+                One person can now attempt work that once required more time, a
+                larger team, or specialist access.
+              </p>
+            }
+          />
+          <div className="landing-possibility__story">
             <p>
-              One person can now attempt work that once required more time, a
-              larger team, or specialist access.
+              That expansion is worth enjoying. Experienced engineers can direct
+              several streams of work. New builders can create software for
+              businesses, communities, and ideas that used to stay out of reach.
             </p>
-          }
-        />
-        <div className="landing-possibility__story">
-          <p>
-            That expansion is worth enjoying. Experienced engineers can direct
-            several streams of work. New builders can create software for
-            businesses, communities, and ideas that used to stay out of reach.
-          </p>
-          <p>
-            Implementation is only part of the work. Project context,
-            coordination, review, and memory still need somewhere to live as
-            more work moves.
-          </p>
-          <blockquote>
-            Let your attention stay with direction, architecture, trade-offs,
-            exceptions, and the working result.
-          </blockquote>
+            <p>
+              Implementation is only part of the work. Project context,
+              coordination, review, and memory still need somewhere to live as
+              more work moves.
+            </p>
+            <blockquote>
+              Let your attention stay with direction, architecture, trade-offs,
+              exceptions, and the working result.
+            </blockquote>
+          </div>
         </div>
         <div
           className="landing-possibility__relationship"
@@ -552,7 +554,7 @@ function DelegationSection() {
   ] as const;
   return (
     <section
-      className="landing-section landing-delegation"
+      className="landing-section landing-section--inverse landing-delegation"
       id="delegation"
       aria-labelledby="delegation-title"
     >
@@ -992,7 +994,7 @@ function AgentsSection() {
 function TrustSection() {
   return (
     <section
-      className="landing-section landing-trust"
+      className="landing-section landing-section--inverse landing-trust"
       id="trust"
       aria-labelledby="trust-title"
     >
