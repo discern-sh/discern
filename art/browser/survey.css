@@ -1,12 +1,608 @@
+/* Fig. VI — the survey. One 42s phrase (35 beats): fitted dwell (0–22%),
+ * the survey lifts — the triangle erases point to point and every mark
+ * fades (22–27.4%), the bare found figure holds as found (27.4–35.2%),
+ * the survey performs — extensions draw out, dimension runs span, tick
+ * pairs register, compass arcs swing, each on its own beat (35.2–68.4%),
+ * the triangle inscribes edge by edge with damped landings (68.6–81%),
+ * the accent registration pair lands in one beat (82.6–85.3%), and the
+ * marks ease back to faint for the closing dwell. The found polygon never
+ * moves. Every keyframes block opens and closes on the fitted rest state. */
 @layer discern.page {
-  .fig-survey__placeholder {
+  /* The subject: the found figure holds perfectly still. */
+  .fig-survey__found {
+    fill: none;
+    stroke: var(--fig-ink-muted);
+    stroke-width: var(--fig-hairline);
+  }
+
+  /* The survey's hairline apparatus shares one working voice. */
+  .fig-survey__extension,
+  .fig-survey__run,
+  .fig-survey__run-tick,
+  .fig-survey__arc {
     fill: none;
     stroke: currentColor;
     stroke-width: var(--fig-hairline);
-    vector-effect: non-scaling-stroke;
+    opacity: var(--fig-faint);
   }
 
-  .fig-survey__placeholder-fill {
-    fill: currentColor;
+  .fig-survey__extension,
+  .fig-survey__run,
+  .fig-survey__arc,
+  .fig-survey__register,
+  .fig-survey__triangle {
+    stroke-dashoffset: 0;
+    animation-duration: calc(var(--fig-beat) * 35);
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  .fig-survey__extension {
+    stroke-dasharray: 33;
+  }
+
+  .fig-survey__extension--a {
+    animation-name: fig-survey-ext-a;
+  }
+
+  .fig-survey__extension--b {
+    animation-name: fig-survey-ext-b;
+  }
+
+  .fig-survey__extension--c {
+    animation-name: fig-survey-ext-c;
+  }
+
+  .fig-survey__run {
+    stroke-dasharray: 100;
+  }
+
+  .fig-survey__run--a {
+    animation-name: fig-survey-run-a;
+  }
+
+  .fig-survey__run--b {
+    animation-name: fig-survey-run-b;
+  }
+
+  .fig-survey__run-tick {
+    stroke-linecap: round;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation-duration: calc(var(--fig-beat) * 35);
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  .fig-survey__run-tick--a {
+    animation-name: fig-survey-ticks-a;
+  }
+
+  .fig-survey__run-tick--b {
+    animation-name: fig-survey-ticks-b;
+  }
+
+  .fig-survey__arc {
+    stroke-dasharray: 60;
+  }
+
+  .fig-survey__arc--a {
+    animation-name: fig-survey-arc-a;
+  }
+
+  .fig-survey__arc--b {
+    animation-name: fig-survey-arc-b;
+  }
+
+  .fig-survey__arc--c {
+    animation-name: fig-survey-arc-c;
+  }
+
+  /* The inscription: the exact triangle in true-form weight. */
+  .fig-survey__triangle {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    stroke-dasharray: 300;
+    animation-name: fig-survey-triangle;
+  }
+
+  /* The one accent: the registration pair at the load-bearing contact. */
+  .fig-survey__register {
+    fill: none;
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+    stroke-linecap: round;
+    opacity: var(--fig-quiet);
+    stroke-dasharray: 12;
+    animation-name: fig-survey-register;
+  }
+
+  /* The triangle erases point to point at the lift, waits out the survey,
+   * then inscribes edge by edge, each vertex landing with a damped settle. */
+  @keyframes fig-survey-triangle {
+    0%,
+    22% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    27% {
+      stroke-dashoffset: 300;
+      opacity: 1;
+    }
+    27.4%,
+    68.4% {
+      stroke-dashoffset: 300;
+      opacity: 0;
+    }
+    68.6% {
+      stroke-dashoffset: 300;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    71.5% {
+      stroke-dashoffset: 210;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    72.3%,
+    72.9% {
+      stroke-dashoffset: 200;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    75.8% {
+      stroke-dashoffset: 110;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    76.6%,
+    77.2% {
+      stroke-dashoffset: 100;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    80.1% {
+      stroke-dashoffset: 10;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    81%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+  }
+
+  /* Extensions continue the top contact edge outward first. */
+  @keyframes fig-survey-ext-a {
+    0%,
+    22.4% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    25.6% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    27.2%,
+    35.2% {
+      stroke-dashoffset: 33;
+      opacity: 0;
+    }
+    35.4% {
+      stroke-dashoffset: 33;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    38% {
+      stroke-dashoffset: 4;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    38.8% {
+      stroke-dashoffset: 0;
+    }
+    85.6% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    89%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+    }
+  }
+
+  /* Then the lower-right contact edge continues. */
+  @keyframes fig-survey-ext-b {
+    0%,
+    22.7% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    25.9% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    27.5%,
+    39.6% {
+      stroke-dashoffset: 33;
+      opacity: 0;
+    }
+    39.8% {
+      stroke-dashoffset: 33;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    42.4% {
+      stroke-dashoffset: 4;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    43.2% {
+      stroke-dashoffset: 0;
+    }
+    85.9% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    89.2%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+    }
+  }
+
+  /* And the lower-left contact edge completes the extensions. */
+  @keyframes fig-survey-ext-c {
+    0%,
+    22.2% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    25.4% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    27%,
+    44% {
+      stroke-dashoffset: 33;
+      opacity: 0;
+    }
+    44.2% {
+      stroke-dashoffset: 33;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    46.8% {
+      stroke-dashoffset: 4;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    47.6% {
+      stroke-dashoffset: 0;
+    }
+    85.4% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    88.8%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+    }
+  }
+
+  /* The first dimension run spans the right unmeasured edge at pen speed. */
+  @keyframes fig-survey-run-a {
+    0%,
+    23% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    26.2% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    27.8%,
+    48.2% {
+      stroke-dashoffset: 100;
+      opacity: 0;
+    }
+    48.4% {
+      stroke-dashoffset: 100;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    51.8% {
+      stroke-dashoffset: 6;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    52.6% {
+      stroke-dashoffset: 0;
+    }
+    86% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    89.4%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+    }
+  }
+
+  /* The second run spans the left edge once the first has settled. */
+  @keyframes fig-survey-run-b {
+    0%,
+    23.3% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    26.5% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    28.1%,
+    53.4% {
+      stroke-dashoffset: 100;
+      opacity: 0;
+    }
+    53.6% {
+      stroke-dashoffset: 100;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-draw);
+    }
+    57% {
+      stroke-dashoffset: 6;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    57.8% {
+      stroke-dashoffset: 0;
+    }
+    86.3% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    89.6%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+    }
+  }
+
+  /* The first run's tick pair registers with one small settle. */
+  @keyframes fig-survey-ticks-a {
+    0%,
+    23.6% {
+      opacity: var(--fig-faint);
+      transform: scale(1);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    26.6%,
+    52.6% {
+      opacity: 0;
+      transform: scale(1);
+    }
+    52.8% {
+      opacity: 0;
+      transform: scale(1.45);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    54.2% {
+      opacity: var(--fig-quiet);
+      transform: scale(1);
+    }
+    85.8% {
+      opacity: var(--fig-quiet);
+      transform: scale(1);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    89.2%,
+    100% {
+      opacity: var(--fig-faint);
+      transform: scale(1);
+    }
+  }
+
+  /* The second pair lands two beats later, on its own span. */
+  @keyframes fig-survey-ticks-b {
+    0%,
+    23.9% {
+      opacity: var(--fig-faint);
+      transform: scale(1);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    26.9%,
+    57.8% {
+      opacity: 0;
+      transform: scale(1);
+    }
+    58% {
+      opacity: 0;
+      transform: scale(1.45);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    59.4% {
+      opacity: var(--fig-quiet);
+      transform: scale(1);
+    }
+    86.1% {
+      opacity: var(--fig-quiet);
+      transform: scale(1);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    89.5%,
+    100% {
+      opacity: var(--fig-faint);
+      transform: scale(1);
+    }
+  }
+
+  /* The compass swings at the top corner first. */
+  @keyframes fig-survey-arc-a {
+    0%,
+    22.5% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    25.7% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    27.3%,
+    60.2% {
+      stroke-dashoffset: 60;
+      opacity: 0;
+    }
+    60.4% {
+      stroke-dashoffset: 60;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    62.6% {
+      stroke-dashoffset: 6;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    63.4% {
+      stroke-dashoffset: 0;
+    }
+    85.5% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    88.9%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+    }
+  }
+
+  /* Then at the upper-right corner. */
+  @keyframes fig-survey-arc-b {
+    0%,
+    22.8% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    26% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    27.6%,
+    63.6% {
+      stroke-dashoffset: 60;
+      opacity: 0;
+    }
+    63.8% {
+      stroke-dashoffset: 60;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    65.8% {
+      stroke-dashoffset: 6;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    66.6% {
+      stroke-dashoffset: 0;
+    }
+    85.7% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    89.1%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+    }
+  }
+
+  /* And last at the bottom corner both base contacts depend on. */
+  @keyframes fig-survey-arc-c {
+    0%,
+    23.1% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    26.3% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    27.9%,
+    65.4% {
+      stroke-dashoffset: 60;
+      opacity: 0;
+    }
+    65.6% {
+      stroke-dashoffset: 60;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    67.6% {
+      stroke-dashoffset: 6;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    68.4% {
+      stroke-dashoffset: 0;
+    }
+    86.2% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    89.6%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-faint);
+    }
+  }
+
+  /* The single accent event: one beat after the triangle closes, the
+   * registration pair inscribes at the contact the fit turned on, then
+   * settles back to its quiet resting presence. */
+  @keyframes fig-survey-register {
+    0%,
+    22.2% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    25.2% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+    26.8%,
+    82.4% {
+      stroke-dashoffset: 12;
+      opacity: 0;
+    }
+    82.6% {
+      stroke-dashoffset: 12;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+    85.3% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    86.2% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+    89.4%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: var(--fig-quiet);
+    }
   }
 }
