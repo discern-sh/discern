@@ -29,53 +29,6 @@
     white-space: nowrap;
   }
 
-  .landing-masthead {
-    position: sticky;
-    z-index: 50;
-    inset-block-start: 0;
-    width: 100%;
-    border-block-end: 1px solid color-mix(in oklab,
-      var(--discern-color-border-strong) 62%, transparent);
-    background: color-mix(in oklab, var(--discern-color-canvas) 84%,
-      transparent);
-    backdrop-filter: blur(20px) saturate(135%);
-  }
-
-  .landing-masthead__inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--discern-space-4);
-    width: min(100% - 2 * var(--discern-space-6), 86rem);
-    min-block-size: 4.25rem;
-    margin-inline: auto;
-    padding-block: var(--discern-space-3);
-  }
-
-  .landing-masthead__brand {
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .landing-masthead__nav {
-    display: flex;
-    align-items: center;
-    gap: clamp(var(--discern-space-3), 2.2vw, var(--discern-space-6));
-    font-family: var(--discern-font-ui);
-    font-feature-settings: var(--discern-font-features-ui);
-    font-size: var(--discern-font-size-sm);
-  }
-
-  .landing-masthead__link {
-    color: var(--discern-color-ink-muted);
-    text-decoration: none;
-    transition: color var(--discern-duration-fast) var(--discern-ease-out);
-  }
-
-  .landing-masthead__link:hover {
-    color: var(--discern-color-ink);
-  }
-
   .landing-masthead__action {
     white-space: nowrap;
   }
@@ -149,44 +102,6 @@
 
   /* Hero */
 
-  .landing-hero {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    background:
-      linear-gradient(118deg,
-      transparent 12%,
-      color-mix(in oklab, var(--discern-color-accent-200) 18%, transparent) 46%,
-      transparent 72%),
-      linear-gradient(242deg,
-      transparent 18%,
-      color-mix(in oklab, var(--discern-color-accent-300) 12%, transparent) 50%,
-      transparent 76%),
-      linear-gradient(180deg,
-      var(--discern-color-canvas) 0%,
-      color-mix(in oklab, var(--discern-color-surface-sunken) 55%,
-      var(--discern-color-canvas)) 76%,
-      var(--discern-color-canvas) 100%);
-  }
-
-  .landing-hero::before {
-    position: absolute;
-    z-index: -2;
-    inset-block-start: 5rem;
-    inset-inline-start: 50%;
-    inline-size: min(92rem, 118vw);
-    block-size: 39rem;
-    background: linear-gradient(112deg,
-      transparent 5%,
-      color-mix(in oklab, var(--discern-color-canvas) 88%, transparent) 36%,
-      color-mix(in oklab, var(--discern-color-accent-100) 46%, transparent) 58%,
-      transparent 95%);
-    clip-path: polygon(29% 0, 71% 0, 94% 100%, 6% 100%);
-    content: "";
-    transform: translateX(-50%);
-    pointer-events: none;
-  }
-
   .landing-hero__halo {
     position: absolute;
     z-index: -1;
@@ -205,35 +120,10 @@
     block-size: auto;
   }
 
-  .landing-hero__inner {
-    padding-block-start: clamp(5rem, 9vw, 8.75rem);
-  }
-
-  .landing-hero__copy {
-    position: relative;
-    z-index: 2;
-    max-inline-size: 70rem;
-    margin-inline: auto;
-    text-align: center;
-  }
-
   .landing-hero__signature {
     display: inline-flex;
     align-items: center;
     gap: var(--discern-space-2);
-    margin: 0;
-    border: 1px solid color-mix(in oklab,
-      var(--discern-color-accent-500) 28%, var(--discern-color-border));
-    border-radius: var(--discern-radius-pill);
-    padding: 0.45rem 0.9rem;
-    background: color-mix(in oklab,
-      var(--discern-color-accent-100) 45%, var(--discern-color-canvas));
-    box-shadow: 0 0.45rem 1.6rem color-mix(in oklab,
-      var(--discern-color-accent-500) 10%, transparent);
-    color: var(--discern-color-ink-muted);
-    font-family: var(--discern-font-ui);
-    font-size: var(--discern-font-size-sm);
-    font-weight: var(--discern-font-weight-strong);
   }
 
   .landing-hero__signature span {
@@ -241,35 +131,8 @@
     font-size: 1.1em;
   }
 
-  .landing-hero h1 {
-    max-inline-size: 69rem;
-    margin: clamp(2rem, 4vw, 3.25rem) auto 0;
-    font-family: var(--discern-font-display);
-    font-size: clamp(4.6rem, 9vw, 8.7rem);
-    font-weight: var(--discern-font-weight-display);
-    line-height: 0.86;
-    letter-spacing: -0.055em;
-    text-wrap: balance;
-  }
-
-  .landing-hero h1 span {
-    background: linear-gradient(112deg,
-      var(--discern-color-accent-700) 8%,
-      var(--discern-color-accent-500) 52%,
-      color-mix(in oklab, var(--discern-color-accent-400) 76%,
-      var(--discern-color-ink)) 100%);
-    background-clip: text;
-    color: transparent;
-  }
-
   .landing-hero__lead {
-    max-inline-size: 52rem;
-    margin: clamp(2rem, 4vw, 3rem) auto 0;
-    color: var(--discern-color-ink-muted);
-    font-family: var(--discern-font-body);
-    font-size: clamp(1.15rem, 2vw, 1.48rem);
-    line-height: 1.62;
-    text-wrap: pretty;
+    margin: 0;
   }
 
   .landing-hero__category {
@@ -278,14 +141,6 @@
     font-family: var(--discern-font-ui);
     font-size: var(--discern-font-size-md);
     font-weight: var(--discern-font-weight-strong);
-  }
-
-  .landing-hero__actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--discern-space-3);
-    margin-block-start: var(--discern-space-8);
   }
 
   .landing-copy-prompt {
@@ -388,7 +243,7 @@
   .landing-project-preview {
     position: relative;
     max-inline-size: 82rem;
-    margin: clamp(4.5rem, 9vw, 8rem) auto 0;
+    margin: 0 auto;
     text-align: start;
   }
 
@@ -418,65 +273,13 @@
     text-wrap: balance;
   }
 
-  .landing-project-preview__window {
-    position: relative;
+  .landing-project-preview__title {
+    display: block;
     overflow: hidden;
-    border: 1px solid color-mix(in oklab,
-      var(--discern-color-border-strong) 85%, transparent);
-    border-radius: clamp(1.25rem, 2.8vw, 2rem);
-    background: var(--discern-color-surface);
-    box-shadow:
-      0 3rem 8rem color-mix(in oklab,
-      var(--discern-color-accent-700) 14%, transparent),
-      0 0.4rem 1.2rem color-mix(in oklab,
-      var(--discern-shadow-color) 35%, transparent),
-      inset 0 1px color-mix(in oklab, white 55%, transparent);
-  }
-
-  .landing-project-preview__bar {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: var(--discern-space-4);
-    min-block-size: 4rem;
-    border-block-end: 1px solid var(--discern-color-border);
-    padding-inline: clamp(1.1rem, 2.6vw, 2rem);
-    background: color-mix(in oklab,
-      var(--discern-color-surface-sunken) 56%, var(--discern-color-surface));
-  }
-
-  .landing-project-preview__bar code {
-    justify-self: center;
-    color: var(--discern-color-ink-muted);
-    font-family: var(--discern-font-mono);
-    font-size: var(--discern-font-size-xs);
-  }
-
-  .landing-window-dots {
-    display: flex;
-    gap: 0.4rem;
-  }
-
-  .landing-window-dots i {
-    inline-size: 0.62rem;
-    block-size: 0.62rem;
-    border-radius: 50%;
-    background: var(--discern-color-border-strong);
-  }
-
-  .landing-window-dots i:first-child {
-    background: color-mix(in oklab, var(--discern-color-danger) 65%,
-      var(--discern-color-border));
-  }
-
-  .landing-window-dots i:nth-child(2) {
-    background: color-mix(in oklab, var(--discern-color-warning) 65%,
-      var(--discern-color-border));
-  }
-
-  .landing-window-dots i:last-child {
-    background: color-mix(in oklab, var(--discern-color-success) 65%,
-      var(--discern-color-border));
+    color: inherit;
+    font: inherit;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .landing-project-preview__controls {
@@ -594,8 +397,7 @@
 
   .landing-preview-work > header,
   .landing-preview-proof > header,
-  .landing-compounding article > header,
-  .landing-agent-result > header {
+  .landing-compounding article > header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -778,57 +580,9 @@
 
   /* Provider strip */
 
-  .landing-integrations {
-    width: min(100% - 2 * var(--discern-space-6), 86rem);
-    margin-inline: auto;
-    padding-block: var(--discern-space-20);
-    text-align: center;
-  }
-
-  .landing-integrations > p {
-    margin: 0 0 var(--discern-space-5);
-    color: var(--discern-color-ink-faint);
-    font-family: var(--discern-font-ui);
-    font-size: var(--discern-font-size-xs);
-    font-weight: var(--discern-font-weight-strong);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .landing-integrations ul {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(var(--discern-space-4), 4vw, var(--discern-space-10));
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .landing-integrations li {
-    display: flex;
-    align-items: center;
-    gap: var(--discern-space-2);
-    color: var(--discern-color-ink-muted);
-    font-family: var(--discern-font-ui);
-    font-size: var(--discern-font-size-sm);
-    font-weight: var(--discern-font-weight-strong);
-  }
-
-  .landing-provider-logo-frame {
-    position: relative;
-    display: grid;
-    place-items: center;
-    inline-size: 2rem;
-    block-size: 2rem;
-  }
-
-  .landing-provider-logo {
-    display: block;
-    max-inline-size: 100%;
-    max-block-size: 100%;
-    object-fit: contain;
+  .landing-hero .landing-integrations {
+    width: 100%;
+    padding-block-end: 0;
   }
 
   .landing-integrations--compact {
@@ -1575,49 +1329,8 @@
     line-height: 1.7;
   }
 
-  .landing-agent-result {
-    overflow: hidden;
-    border: 1px solid var(--discern-color-border-strong);
-    border-radius: clamp(1.25rem, 3vw, 2rem);
-    background: var(--discern-color-inverse-surface);
-    box-shadow: var(--discern-shadow-window);
-    color: var(--discern-color-inverse-ink);
-  }
-
-  .landing-agent-result > header {
-    border-block-end: 1px solid color-mix(in oklab, white 12%, transparent);
-    padding: var(--discern-space-5);
-  }
-
   .landing-agent-result .landing-artifact-label {
     color: oklch(78% 0.12 259);
-  }
-
-  .landing-agent-result pre {
-    overflow-x: auto;
-    margin: 0;
-    padding: clamp(1.5rem, 4vw, 2.5rem);
-    color: oklch(88% 0.025 250);
-    font-family: var(--discern-font-mono);
-    font-size: clamp(0.78rem, 1.5vw, 0.95rem);
-    line-height: 1.7;
-  }
-
-  .landing-agent-result > footer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--discern-space-2);
-    border-block-start: 1px solid color-mix(in oklab, white 12%, transparent);
-    padding: var(--discern-space-5);
-  }
-
-  .landing-agent-result > footer span {
-    border: 1px solid color-mix(in oklab, white 17%, transparent);
-    border-radius: var(--discern-radius-pill);
-    padding: 0.3rem 0.65rem;
-    color: oklch(78% 0.02 250);
-    font-family: var(--discern-font-ui);
-    font-size: 0.68rem;
   }
 
   /* Trust */
@@ -1786,44 +1499,6 @@
     white-space: nowrap;
   }
 
-  /* Dark theme adaptations for authored imagery. */
-
-  html[data-discern-theme="dark"] .landing-provider-logo-frame {
-    background: transparent;
-  }
-
-  html[data-discern-theme="dark"] .landing-provider-logo-frame::before {
-    position: absolute;
-    inset: 0;
-    background: currentColor;
-    content: "";
-    mask: var(--landing-provider-logo-mask) center / contain no-repeat;
-  }
-
-  html[data-discern-theme="dark"] .landing-provider-logo {
-    opacity: 0;
-  }
-
-  html[data-discern-theme="dark"] .landing-project-preview__window {
-    box-shadow:
-      0 3rem 8rem oklch(3% 0.02 250 / 0.52),
-      0 0.4rem 1.2rem oklch(3% 0.02 250 / 0.44),
-      inset 0 1px oklch(100% 0 0 / 0.04);
-  }
-
-  html[data-discern-theme="dark"] .landing-hero__signature {
-    background: color-mix(in oklab,
-      var(--discern-color-accent-800) 18%, var(--discern-color-canvas));
-  }
-
-  html[data-discern-theme="dark"] .landing-hero h1 span {
-    background: linear-gradient(112deg,
-      var(--discern-color-accent-300),
-      var(--discern-color-accent-500));
-    background-clip: text;
-    color: transparent;
-  }
-
   /* Responsive composition */
 
   @media (max-width: 1180px) {
@@ -1854,8 +1529,8 @@
   }
 
   @media (max-width: 900px) {
-    .landing-masthead__link:nth-child(2),
-    .landing-masthead__link:nth-child(3) {
+    .landing-masthead nav a:nth-child(2),
+    .landing-masthead nav a:nth-child(3) {
       display: none;
     }
 
@@ -1910,18 +1585,11 @@
       scroll-padding-block-start: 4.5rem;
     }
 
-    .landing-shell,
-    .landing-masthead__inner,
-    .landing-integrations {
+    .landing-shell {
       width: min(100% - 2 * var(--discern-space-4), 86rem);
     }
 
-    .landing-masthead__nav {
-      gap: var(--discern-space-2);
-    }
-
-    .landing-masthead__link,
-    .landing-masthead__link--github {
+    .landing-masthead nav {
       display: none;
     }
 
@@ -1938,28 +1606,8 @@
       font-size: clamp(2.7rem, 13vw, 4.25rem);
     }
 
-    .landing-hero__inner {
-      padding-block-start: 4.5rem;
-    }
-
     .landing-hero__halo {
       display: none;
-    }
-
-    .landing-hero h1 {
-      font-size: clamp(4.1rem, 20vw, 6.25rem);
-    }
-
-    .landing-hero__lead {
-      font-size: 1.08rem;
-    }
-
-    .landing-hero__actions {
-      display: grid;
-    }
-
-    .landing-hero__actions > * {
-      inline-size: 100%;
     }
 
     .landing-copy-prompt__actions {
@@ -1989,20 +1637,12 @@
       text-align: start;
     }
 
-    .landing-project-preview__bar {
-      grid-template-columns: auto 1fr;
-    }
-
     .landing-project-preview__badge {
       display: none;
     }
 
-    .landing-project-preview__bar code {
-      justify-self: end;
-      overflow: hidden;
+    .landing-project-preview__title {
       max-inline-size: 13rem;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     .landing-project-preview__controls {
@@ -2100,10 +1740,6 @@
       inline-size: 100%;
     }
 
-    .landing-integrations li {
-      min-inline-size: 7.5rem;
-    }
-
     .landing-install {
       grid-template-columns: 1fr;
       text-align: center;
@@ -2143,7 +1779,7 @@
     .landing-hero h1,
     .landing-hero__lead,
     .landing-hero__category,
-    .landing-hero__actions,
+    .landing-hero__action,
     .landing-copy-prompt,
     .landing-project-preview {
       animation: landing-rise 700ms var(--discern-ease-out) both;
@@ -2158,7 +1794,7 @@
     .landing-hero__category {
       animation-delay: 180ms;
     }
-    .landing-hero__actions {
+    .landing-hero__action {
       animation-delay: 220ms;
     }
     .landing-copy-prompt {

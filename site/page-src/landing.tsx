@@ -1,14 +1,18 @@
 /** The authored homepage, rendered to static HTML by site/build.ts. */
 
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   Badge,
-  Brand,
   Button,
+  HeroBlock,
   Kicker,
+  LogoCloud,
   SiteFooter,
+  SiteHeader,
   SkipLink,
+  Terminal,
+  Window,
 } from "discern-design-system/react";
 import { providerBrandSilhouette, PROVIDERS } from "../../src/lib/providers.ts";
 import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
@@ -145,66 +149,49 @@ function CopyPrompt(
 /** Provider marks rendered from the canonical catalogue. */
 function ProviderStrip({ compact = false }: { readonly compact?: boolean }) {
   return (
-    <div
+    <LogoCloud
       className={compact
         ? "landing-integrations landing-integrations--compact"
         : "landing-integrations"}
       aria-label={`${AGENT_NAMES.length} supported coding agent providers`}
-    >
-      <p>One project practice across the agents you use</p>
-      <ul>
-        {PROVIDER_LOGOS.map((provider) => (
-          <li key={provider.name}>
-            <span
-              className="landing-provider-logo-frame"
-              style={{
-                "--landing-provider-logo-mask": `url("${provider.mask}")`,
-              } as CSSProperties}
-            >
-              <img
-                className="landing-provider-logo"
-                src={provider.mark}
-                alt=""
-                width={28}
-                height={28}
-                decoding="async"
-              />
-            </span>
-            <span>{provider.name}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+      label="One project practice across the agents you use"
+      items={PROVIDER_LOGOS.map((provider) => ({
+        name: provider.name,
+        mark: (
+          <img
+            className="landing-provider-logo"
+            src={provider.mark}
+            alt=""
+            width={28}
+            height={28}
+            decoding="async"
+          />
+        ),
+        markMask: `url("${provider.mask}")`,
+      }))}
+      variant="strip"
+    />
   );
 }
 
 /** Sticky navigation keeps the story and setup action in reach. */
 function Masthead() {
   return (
-    <header className="landing-masthead">
-      <div className="landing-masthead__inner">
-        <a href="/" className="landing-masthead__brand">
-          <Brand
-            mark={DISCERN_MARK}
-            name={<DiscernName />}
-            size="lg"
-            typeface="mono"
-          />
-        </a>
-        <nav className="landing-masthead__nav" aria-label="Site">
-          <a className="landing-masthead__link" href="#delegation">
-            How it works
-          </a>
-          <a className="landing-masthead__link" href="#decision">
-            What returns
-          </a>
-          <a className="landing-masthead__link" href="#trust">Trust</a>
-          <a
-            className="landing-masthead__link landing-masthead__link--github"
-            href={GITHUB}
-          >
-            GitHub ↗
-          </a>
+    <SiteHeader
+      className="landing-masthead"
+      brand={<DiscernName />}
+      brandMark={DISCERN_MARK}
+      brandTypeface="mono"
+      brandMarkTreatment="plain"
+      navLabel="Site"
+      navItems={[
+        { label: "How it works", href: "#delegation" },
+        { label: "What returns", href: "#decision" },
+        { label: "Trust", href: "#trust" },
+        { label: "GitHub ↗", href: GITHUB },
+      ]}
+      actions={
+        <>
           <Button
             className="landing-masthead__action"
             href="#start"
@@ -213,9 +200,11 @@ function Masthead() {
             Copy prompt
           </Button>
           <LandingThemeToggle />
-        </nav>
-      </div>
-    </header>
+        </>
+      }
+      sticky
+      variant="campaign"
+    />
   );
 }
 
@@ -228,31 +217,33 @@ function ProjectInMotion() {
     ["decision", "Decision"],
   ] as const;
   return (
-    <figure
+    <div
       className="landing-project-preview"
       data-project-preview
       data-preview-stage="decision"
       aria-labelledby="project-preview-title"
       data-site-prose-exclude
     >
-      <figcaption className="landing-project-preview__caption">
+      <header className="landing-project-preview__caption">
         <span>Illustrative project state</span>
         <strong id="project-preview-title">
           One ambition, returned ready for a decision
         </strong>
-      </figcaption>
-      <div className="landing-project-preview__window">
-        <header className="landing-project-preview__bar">
-          <span className="landing-window-dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <code>discern desk · booking-platform</code>
+      </header>
+      <Window
+        className="landing-project-preview__window"
+        title={
+          <code className="landing-project-preview__title">
+            discern desk · booking-platform
+          </code>
+        }
+        actions={
           <Badge className="landing-project-preview__badge" tone="success" dot>
             practice active
           </Badge>
-        </header>
+        }
+        variant="showcase"
+      >
         <div
           className="landing-project-preview__controls"
           hidden
@@ -390,27 +381,30 @@ function ProjectInMotion() {
             </small>
           </article>
         </div>
-      </div>
-    </figure>
+      </Window>
+    </div>
   );
 }
 
 /** Ambition-led opening with a direct commissioning path. */
 function Hero() {
   return (
-    <section className="landing-hero" aria-labelledby="hero-title">
-      <div className="landing-hero__halo" aria-hidden="true">
-        <MarkGlyph className="landing-hero__mark" />
-      </div>
-      <div className="landing-shell landing-hero__inner">
-        <div className="landing-hero__copy">
-          <p className="landing-hero__signature">
-            <span aria-hidden="true">{DISCERN_MARK}</span>
-            For people who take their software seriously
-          </p>
-          <h1 id="hero-title">
-            A <span>bolder</span> way to build.
-          </h1>
+    <HeroBlock
+      className="landing-hero"
+      aria-labelledby="hero-title"
+      eyebrow={
+        <span className="landing-hero__signature">
+          <span aria-hidden="true">{DISCERN_MARK}</span>
+          For people who take their software seriously
+        </span>
+      }
+      title={
+        <span id="hero-title">
+          A <em>bolder</em> way to build.
+        </span>
+      }
+      description={
+        <>
           <p className="landing-hero__lead">
             Coding agents can take on substantial work. <DiscernName />{" "}
             gives the project a serious way to carry context, conditions, and
@@ -420,13 +414,30 @@ function Hero() {
           <p className="landing-hero__category">
             An engineering practice for agent-built software.
           </p>
-          <div className="landing-hero__actions">
-            <Button href="#project-preview" variant="primary">
-              See discern in practice
-            </Button>
-            <Button href="#commissioning" variant="secondary">
-              Watch a project get commissioned
-            </Button>
+        </>
+      }
+      actions={
+        <>
+          <Button
+            className="landing-hero__action"
+            href="#project-preview"
+            variant="primary"
+          >
+            See discern in practice
+          </Button>
+          <Button
+            className="landing-hero__action"
+            href="#commissioning"
+            variant="secondary"
+          >
+            Watch a project get commissioned
+          </Button>
+        </>
+      }
+      meta={
+        <>
+          <div className="landing-hero__halo" aria-hidden="true">
+            <MarkGlyph className="landing-hero__mark" />
           </div>
           <CopyPrompt
             id="hero-copy-prompt"
@@ -443,13 +454,19 @@ function Hero() {
               <span aria-hidden="true">✓</span> No model or API key
             </li>
           </ul>
-        </div>
-        <div id="project-preview">
-          <ProjectInMotion />
-        </div>
-      </div>
-      <ProviderStrip />
-    </section>
+        </>
+      }
+      visual={
+        <>
+          <div id="project-preview">
+            <ProjectInMotion />
+          </div>
+          <ProviderStrip />
+        </>
+      }
+      layout="showcase"
+      surface="atmospheric"
+    />
   );
 }
 
@@ -964,25 +981,31 @@ function AgentsSection() {
               </Button>
             </div>
           </div>
-          <article className="landing-agent-result" data-site-prose-exclude>
-            <header>
+          <Terminal
+            className="landing-agent-result"
+            title={
               <span className="landing-artifact-label">
                 Built for the machine doing the work
               </span>
-              <Badge tone="accent">agent ergonomics</Badge>
-            </header>
-            <pre><code>{`{
+            }
+            actions={<Badge tone="accent">agent ergonomics</Badge>}
+            footer={
+              <>
+                <span>bounded context</span>
+                <span>explicit state</span>
+                <span>useful next step</span>
+              </>
+            }
+            variant="showcase"
+            data-site-prose-exclude
+          >
+            {`{
   "ok": false,
   "error": "behind_trunk",
   "state": "4 commits behind",
   "next": "call discern_update"
-}`}</code></pre>
-            <footer>
-              <span>bounded context</span>
-              <span>explicit state</span>
-              <span>useful next step</span>
-            </footer>
-          </article>
+}`}
+          </Terminal>
         </div>
         <ProviderStrip compact />
       </div>

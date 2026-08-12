@@ -55,6 +55,8 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "heading",
       "kicker",
       "tag",
+      "window",
+      "terminal",
       "skip-link",
     ],
     assets: ["fonts"],

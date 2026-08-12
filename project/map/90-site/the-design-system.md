@@ -15,7 +15,7 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.10.1"
+"discern-design-system": "jsr:@discern-sh/design-system@0.12.0"
 ```
 
 Imports use only that package root and its documented `./runtime` and `./react` exports. `deno.lock` records the same release. The package root and those exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
@@ -29,7 +29,7 @@ When a package defect affects discern, release the fix from the package reposito
 | Bundle         | Routes                      | Selection                                              | Optional assets |
 | -------------- | --------------------------- | ------------------------------------------------------ | --------------- |
 | `docs`         | `/docs` and its descendants | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
-| `compositions` | `/`                         | Marketing, Editorial, and shared display parts         | fonts           |
+| `compositions` | `/` and `/lipsum`           | Marketing, Editorial, and shared display parts         | fonts           |
 
 The table also owns the discern theme choice and emitted public directories. [`site/build.ts`](../../../site/build.ts) passes each selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a manifest, and the requested assets. The discern integration reads those outputs instead of copying the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 
@@ -37,6 +37,8 @@ The docs shell loads its smaller bundle from `/assets/design-system/docs/`, incl
 
 The docs bundle selects the `Docs` group plus the shared `icon`, `icon-button`, `theme-toggle`, `brand`, `divider`, `heading`, `kicker`, `table`, `breadcrumbs`, and `table-of-contents` components. Its explicit Workflow roots are `procedure`, `command`, `result-summary`, `path-reference`, `ownership-badge`, and `branch-choice`; the package adds their dependencies in manifest order. A selected Workflow root must appear on a real manual journey, and a rendered root must resolve into this bundle.
 
-Both bundles select the Core `Brand` component, which brings its `Logo` dependency with it. [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the canonical public lockup: the decorative `◮`, the visible `discern` name, the `mono` typeface, and an optional context tagline. The docs shell reuses its statically rendered markup, and the homepage can compose its React adapter. The browser receives the component's semantic HTML, selected CSS, and any framework-neutral behavior script declared by that selection, with no React runtime.
+Both bundles select the Core `Brand` component, which brings its `Logo` dependency with it. [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the canonical public lockup: the decorative `◮`, the visible `discern` name, the `mono` typeface, and an optional context tagline. The docs shell reuses its statically rendered markup. The homepage passes the same mark and name treatment into the Marketing `SiteHeader` campaign variant.
+
+The homepage also uses the Marketing `HeroBlock` showcase layout with its atmospheric surface and the `LogoCloud` strip variant. Its product-state composition remains site-owned inside the Display `Window` showcase variant, and its agent-result composition uses the Display `Terminal` showcase variant. Provider assets, page copy, and the inner product evidence remain consumer content; the shared scale, spacing, chrome, colour-scheme handling, and responsive behavior come from the published package. The browser receives semantic HTML, selected CSS, and any framework-neutral behavior script declared by that selection, with no React runtime.
 
 The static page boundary, homepage composition, build commands, and manifest-driven consumer guards are recorded separately in [design-system-consumption.md](design-system-consumption.md).

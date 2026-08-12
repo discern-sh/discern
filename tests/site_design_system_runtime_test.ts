@@ -34,7 +34,7 @@ import { JSDOM } from "jsdom";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
-const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.10.1";
+const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.12.0";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -346,8 +346,8 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
   const lock = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   ) as DenoLock;
-  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.10.1");
-  assert("@discern-sh/design-system@0.10.1" in lock.jsr);
+  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.12.0");
+  assert("@discern-sh/design-system@0.12.0" in lock.jsr);
 
   const sourceFiles = (await walk(SITE_ROOT)).filter((path) =>
     /\.[cm]?[jt]sx?$/.test(path)
@@ -516,7 +516,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     body.querySelector("h1")?.textContent?.trim(),
     "A bolder way to build.",
   );
-  assertEquals(body.querySelector("h1 > span")?.textContent, "bolder");
+  assertEquals(body.querySelector("h1 em")?.textContent, "bolder");
   assertStringIncludes(text, "For people who take their software seriously");
   assertEquals(
     (body.querySelector(".landing-hero")?.textContent ?? "").includes(
@@ -578,15 +578,23 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
 
   // The masthead and the primary product specimen use published components.
   const masthead = body.querySelector(".landing-masthead");
-  const mastheadInner = masthead?.querySelector(".landing-masthead__inner");
+  assert(masthead !== null);
+  assert(masthead.classList.contains("discern-site-header"));
+  assert(masthead.classList.contains("discern-site-header--campaign"));
+  assert(masthead.classList.contains("discern-site-header--sticky"));
+  const mastheadInner = masthead.querySelector(".discern-site-header__inner");
   assert(mastheadInner !== null && mastheadInner !== undefined);
-  assert(mastheadInner.querySelector(".discern-brand--lg") !== null);
+  assert(
+    mastheadInner.querySelector(".discern-site-header__brand--mono") !== null,
+  );
   assert(
     mastheadInner.querySelector(".discern-theme-toggle--quiet") !== null,
   );
   assert(body.querySelectorAll(".landing-brand-name").length >= 2);
   const hero = body.querySelector(".landing-hero");
   assert(hero !== null);
+  assert(hero.classList.contains("discern-hero-block--showcase"));
+  assert(hero.classList.contains("discern-hero-block--atmospheric"));
   assertEquals(hero.classList.contains("discern-grain-wash"), false);
   assertEquals(
     DESIGN_SYSTEM_BUNDLES.compositions.assets.map(String).includes("grain"),
@@ -596,6 +604,11 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
 
   const projectPreview = hero.querySelector("[data-project-preview]");
   assert(projectPreview !== null);
+  const previewWindow = projectPreview.querySelector(
+    ".landing-project-preview__window",
+  );
+  assert(previewWindow !== null);
+  assert(previewWindow.classList.contains("discern-window--showcase"));
   assert(projectPreview.hasAttribute("data-site-prose-exclude"));
   assertEquals(projectPreview.getAttribute("data-preview-stage"), "decision");
   const previewControls = projectPreview.querySelector(
@@ -630,6 +643,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
 
   const integrations = hero.querySelector(".landing-integrations");
   assert(integrations !== null);
+  assert(integrations.classList.contains("discern-logo-cloud--strip"));
   assert(body.querySelector("#agents .landing-integrations--compact") !== null);
   assertEquals(body.querySelectorAll(".landing-integrations").length, 2);
 
@@ -754,6 +768,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
 
   const agentResult = body.querySelector("#agents .landing-agent-result");
   assert(agentResult !== null);
+  assert(agentResult.classList.contains("discern-terminal--showcase"));
   assertEquals(
     [...body.querySelectorAll("#agents .landing-agents__main a")].map((link) =>
       link.getAttribute("href")
@@ -783,7 +798,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     INSTALL_COMMAND,
   );
   assertEquals(
-    [...body.querySelectorAll(".landing-masthead__link")].map((link) => [
+    [...body.querySelectorAll(".landing-masthead nav a")].map((link) => [
       link.textContent?.trim(),
       link.getAttribute("href"),
     ]),
@@ -822,10 +837,12 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   );
   assertEquals(
     integrationItems.map((item) =>
-      item.querySelector(".landing-provider-logo-frame")?.getAttribute("style")
+      item.querySelector(".discern-logo-cloud__mark--masked")?.getAttribute(
+        "style",
+      )
     ),
     AGENT_NAMES.map((name) =>
-      `--landing-provider-logo-mask:url("${
+      `--discern-logo-cloud-mark-mask:url("${
         providerBrandSilhouette(PROVIDERS[name].brand).path
       }")`
     ),
@@ -866,6 +883,9 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   const landingCss = await Deno.readTextFile(
     join(ROOT, "site/page-src/landing.css"),
   );
+  const componentCss = await Deno.readTextFile(
+    join(bundleRoot("compositions"), "discern.css"),
+  );
   assertEquals(inverseSectionHeadingViolations(landingCss, body), []);
   assertEquals(unboundedStickySelectors(landingCss, body), []);
   const stickyBoundary = body.querySelector(
@@ -883,12 +903,15 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     ),
     false,
   );
-  const mastheadRule = cssRuleBody(landingCss, ".landing-masthead");
-  assertStringIncludes(mastheadRule, "width: 100%;");
-  assertEquals(mastheadRule.includes("max-inline-size"), false);
+  const mastheadRule = cssRuleBody(
+    componentCss,
+    ".discern-site-header--campaign",
+  );
+  assertStringIncludes(mastheadRule, "z-index: 50;");
+  assertStringIncludes(mastheadRule, "backdrop-filter: blur(20px)");
   const mastheadInnerRule = cssRuleBody(
-    landingCss,
-    ".landing-masthead__inner",
+    componentCss,
+    ".discern-site-header--campaign .discern-site-header__inner",
   );
   assertStringIncludes(
     mastheadInnerRule,
@@ -900,29 +923,51 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     ),
     false,
   );
-  const integrationsRule = cssRuleBody(landingCss, ".landing-integrations");
+  const integrationsRule = cssRuleBody(
+    componentCss,
+    ".discern-logo-cloud--strip",
+  );
   assertStringIncludes(
     integrationsRule,
     "width: min(100% - 2 * var(--discern-space-6), 86rem);",
   );
-  assertStringIncludes(integrationsRule, "margin-inline: auto;");
   assertStringIncludes(
     integrationsRule,
     "padding-block: var(--discern-space-20);",
   );
-  assertEquals(integrationsRule.includes("border-block"), false);
-  const heroInnerRule = cssRuleBody(landingCss, ".landing-hero__inner");
-  assertStringIncludes(
-    heroInnerRule,
-    "padding-block-start: clamp(5rem, 9vw, 8.75rem);",
+  const heroInnerRule = cssRuleBody(
+    componentCss,
+    ".discern-hero-block--showcase .discern-hero-block__inner",
   );
   assertStringIncludes(
-    cssRuleBody(landingCss, ".landing-hero__copy"),
+    heroInnerRule,
+    "width: min(100% - 2 * var(--discern-space-6), 86rem);",
+  );
+  assertStringIncludes(
+    heroInnerRule,
+    "padding-block: clamp(5rem, 9vw, 8.75rem)",
+  );
+  assertStringIncludes(
+    cssRuleBody(
+      componentCss,
+      ".discern-hero-block--showcase .discern-hero-block__inner",
+    ),
     "text-align: center;",
   );
   assertStringIncludes(
-    cssRuleBody(landingCss, ".landing-hero h1"),
+    cssRuleBody(
+      componentCss,
+      ".discern-hero-block--showcase .discern-hero-block__title",
+    ),
     "font-size: clamp(4.6rem, 9vw, 8.7rem);",
+  );
+  assertStringIncludes(
+    cssRuleBody(componentCss, ".discern-window--showcase"),
+    "border-radius: clamp(1.25rem, 2.8vw, 2rem);",
+  );
+  assertStringIncludes(
+    cssRuleBody(componentCss, ".discern-terminal--showcase"),
+    "--discern-terminal-surface: var(--discern-color-inverse-surface);",
   );
   assertStringIncludes(
     cssRuleBody(landingCss, ".landing-project-preview__body"),
@@ -940,7 +985,10 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   assertStringIncludes(checksRule, "display: grid;");
   assertStringIncludes(checksRule, "align-content: center;");
   assertEquals(offsetDecoratedHeadingSelectors(landingCss, body), []);
-  const heroGlowRule = cssRuleBody(landingCss, ".landing-hero::before");
+  const heroGlowRule = cssRuleBody(
+    componentCss,
+    ".discern-hero-block--atmospheric::before",
+  );
   assertStringIncludes(heroGlowRule, "linear-gradient(112deg,");
   assertStringIncludes(
     heroGlowRule,
@@ -949,7 +997,15 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   assertEquals(heroGlowRule.includes("border-radius:"), false);
   assertEquals(heroGlowRule.includes("filter:"), false);
   assertEquals(heroGlowRule.includes("opacity:"), false);
-  assertEquals(landingCss.includes(".landing-hero::after"), false);
+  for (
+    const retiredPageRule of [
+      ".landing-masthead {",
+      ".landing-hero::before {",
+      ".landing-project-preview__window {",
+      ".landing-agent-result {",
+      ".landing-provider-logo-frame",
+    ]
+  ) assertEquals(landingCss.includes(retiredPageRule), false, retiredPageRule);
   assertStringIncludes(
     landingCss,
     ".landing-hero__halo {\n      display: none;",
@@ -959,29 +1015,17 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     "inset-inline-start: calc(50% + min(38rem, 38vw));",
   );
   assertEquals(landingCss.includes("textures/grain.png"), false);
-  assertStringIncludes(landingCss, ".landing-provider-logo");
-  assertStringIncludes(
-    cssRuleBody(
-      landingCss,
-      'html[data-discern-theme="dark"] .landing-provider-logo-frame',
-    ),
-    "background: transparent;",
-  );
   const darkSilhouetteRule = cssRuleBody(
-    landingCss,
-    'html[data-discern-theme="dark"] .landing-provider-logo-frame::before',
+    componentCss,
+    ".discern-logo-cloud__mark--masked::after",
   );
-  assertStringIncludes(darkSilhouetteRule, "background: currentColor;");
   assertStringIncludes(
     darkSilhouetteRule,
-    "mask: var(--landing-provider-logo-mask)",
+    "background: light-dark(transparent, currentColor);",
   );
   assertStringIncludes(
-    cssRuleBody(
-      landingCss,
-      'html[data-discern-theme="dark"] .landing-provider-logo',
-    ),
-    "opacity: 0;",
+    darkSilhouetteRule,
+    "mask: var(--discern-logo-cloud-mark-mask)",
   );
   assertEquals(landingCss.includes(".landing-provider-logo--"), false);
 
