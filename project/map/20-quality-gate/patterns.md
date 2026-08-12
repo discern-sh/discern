@@ -16,7 +16,7 @@ aliases:
 
 _`discern patterns` reads the [Logbook](../70-reference/the-logbook.md) and reports recurring local evidence, with the counts behind each finding and a recommended next step._
 
-The diagnostic verbs ask different questions. `discern doctor` checks whether the install is valid. `discern improvement` checks whether the setup follows the declared practices. `discern patterns` looks for recurring workflow evidence, Gate fit, and changes in measured values over time ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It is an [advisory](../00-orientation/glossary.md#advisory). Findings carry counts and durations, with no scores or severity tiers ([ADR 0063](../_adr/0063-doctor-execution-model.md)).
+The diagnostic verbs ask different questions. `discern doctor` checks whether the install is valid. `discern improvement` checks whether the setup follows the declared practices. `discern patterns` looks for recurring workflow evidence, Gate fit, and changes in measured values over time ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It is an [advisory](../00-orientation/glossary.md#advisory). Findings and their additive investigation paths carry counts and durations, with no scores or severity tiers ([ADR 0063](../_adr/0063-doctor-execution-model.md), [ADR 0277](../_adr/0277-patterns-investigations-preserve-source-findings.md)).
 
 ## Run it
 
@@ -27,13 +27,13 @@ discern patterns archives
 discern patterns --logbook-file logbook-20260811T143015Z.jsonl
 ```
 
-The human report uses a stable order: trajectory, Gate fit, agent behavior, then the task funnel. Within a section, the strongest detector block comes first. A detector's title appears once, followed by one row per finding and one recommended next step. Each block keeps its strongest 3 findings and notes what it omitted; `discern patterns --all` reports the full set ([ADR 0256](../_adr/0256-patterns-findings-bounded-per-detector.md)). `✓`, `·`, and `!` distinguish favorable, neutral, and attention-worthy evidence. `tone` never changes ranking or the advisory boundary ([ADR 0206](../_adr/0206-patterns-finding-tone-is-presentation-only.md)).
+The human report presents bounded investigation paths before the unchanged raw finding blocks, whose stable order remains trajectory, Gate fit, agent behavior, then the task funnel. Within a section, the strongest detector block comes first. A detector's title appears once, followed by one row per finding and one recommended next step. Each block keeps its strongest 3 findings and notes what it omitted; `discern patterns --all` reports the full set ([ADR 0256](../_adr/0256-patterns-findings-bounded-per-detector.md)). `✓`, `·`, and `!` distinguish favorable, neutral, and attention-worthy evidence. `tone` never changes ranking or the advisory boundary ([ADR 0206](../_adr/0206-patterns-finding-tone-is-presentation-only.md)).
 
 The header gives the day span, event and branch counts, driver split, detector scoreboard, and landing audit's count, share, and source split. `Worth your attention` lists the strongest 3 attention findings by glyph, detector, and subject, with the full blocks below.
 
 Standard trajectories render a `▁▂▃▄▅▆▇█` sparkline with exact endpoints and equal-duration interior means; the wire series caps at 24 points.
 
-The closing account names clear and young detectors. `--json` keeps findings ranked with their observation, scope, counts, next step, optional `series`, and optional structured `basis`; `data.findings_total` joins when the bound elided findings. `data.detectors` accounts for the registry; `data.population` carries the driver split.
+The closing account names clear and young detectors. `--json` keeps findings ranked with their observation, scope, counts, next step, optional `series`, and optional structured `basis`; `data.findings_total` joins when the bound elided findings. `data.investigations` is always present and cites the visible source findings without removing them. `data.detectors` accounts for the registry; `data.population` carries the driver split.
 
 `patterns` runs every detector, including batch detectors that need longitudinal history. Inline detectors also appear on the working command named by their scope: branch findings appear after a qualifying green Proof, session findings join `status` hints, and project findings form the advisory history group in `improvement`. The Proof waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
@@ -62,6 +62,10 @@ After 6 capped runs, `slot-contention` reads the latest 20. It reports when medi
 
 Gate-time percentages, fail-fast tradeoffs, and Standard pin trajectories remain observations until comparable project-local history supports an action. [Patterns decision evidence](patterns-decision-evidence.md) defines the separate avoidable-cost signals, labelled estimates, controlled-experiment rule, and mechanical-eligibility boundary ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)).
 
+### Investigation paths
+
+Related findings can form additive [Pattern investigations](pattern-investigations.md) with their source observations, evidence boundaries, diagnostic action, and falsifier. Raw findings stay visible, and incomplete or conflicting evidence produces no relationship ([ADR 0277](../_adr/0277-patterns-investigations-preserve-source-findings.md)).
+
 ### Validation verdict comparisons
 
 Validation findings compare explicit per-job verdicts. `same-tree-flake` retains its published id for divergence under matched recorded conditions; `execution-context-divergence` names differences between controlled contexts. [Validation findings](validation-findings.md) defines their comparison keys, legacy boundary, denominators, and structured evidence.
@@ -82,7 +86,7 @@ After 8 consent-recorded landings, 3 granted, `pre-authorized-landings` reports 
 
 Every detector declares an evidence threshold; below it the report says "insufficient evidence" rather than extrapolating: a young logbook produces a short report.
 
-Validation and decision findings add a structured `basis` beside compatible numerical evidence. It carries the comparable count and denominator, setup conditions and exclusions, limitations, and an `observed` or `estimated` label for every value. Its full contract and bounds are in [Validation findings](validation-findings.md).
+Validation and decision findings add a structured `basis` beside compatible numerical evidence. It carries the comparable count and denominator, setup conditions and exclusions, limitations, and an `observed` or `estimated` label for every value. Investigations preserve those distinctions in each cited observation and their shared `evidence_boundary`. The full source-evidence contract and bounds are in [Validation findings](validation-findings.md) and [Patterns decision evidence](patterns-decision-evidence.md).
 
 The recorder stores raw driver signals; readers score them fresh on every read, so improved scoring covers accumulated history without a migration. CI runs and `--dry-run` previews reach no detector. Agent-practice behavior detectors exclude runs that look interactively driven, so exploratory human runs do not enter agent-driven workflow evidence. Tip adoption keeps human-driven runs because the detector measures what a person did after seeing the tip ([ADR 0162](../_adr/0162-logbook-day-one-vocabulary.md), [ADR 0236](../_adr/0236-tip-adoption-clears-evidence-per-tip-across-setups.md)). Setup-branch events describe a project being configured and stay outside analysis ([ADR 0224](../_adr/0224-trend-comparability-is-setup-equality.md)).
 
@@ -118,6 +122,7 @@ Result fields and Model Context Protocol arguments are in [MCP tools & results](
 | Concern                                  | Source                                                                         |
 | ---------------------------------------- | ------------------------------------------------------------------------------ |
 | The detector registry and every detector | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)                     |
+| The investigation relationship registry  | [`investigations.ts`](../../../src/engine/logbook/investigations.ts)           |
 | Validation comparison projections        | [`validation_findings.ts`](../../../src/engine/logbook/validation_findings.ts) |
 | Driver scoring and the cohort seam       | [`cohorts.ts`](../../../src/engine/logbook/cohorts.ts)                         |
 | The verb core, reports, and lifecycle    | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)                       |
@@ -128,6 +133,7 @@ Result fields and Model Context Protocol arguments are in [MCP tools & results](
 | Bounded working-command reader           | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                       |
 | Wire vocabulary and data schemas         | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts)         |
 | Registry-driven fixtures and behavior    | [`patterns_test.ts`](../../../tests/patterns_test.ts)                          |
+| Investigation registry and matrix        | [`investigations_test.ts`](../../../tests/investigations_test.ts)              |
 | Cohort-seam rules at their home          | [`cohorts_test.ts`](../../../tests/cohorts_test.ts)                            |
 | Routing and outcome guards               | [`logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)            |
 | Black-box CLI coverage                   | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)            |

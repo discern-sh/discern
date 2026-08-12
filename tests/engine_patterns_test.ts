@@ -1329,6 +1329,76 @@ Deno.test("patterns: decision evidence is identical from active and sealed histo
   });
 });
 
+Deno.test("patterns: Standard variance investigations retain raw findings across JSON, terminal, and archives", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const raw = `${
+      [85, 88, 86, 89, 87].map((value, index) =>
+        seededDecisionStandardEvent(
+          `2026-07-01T1${index}:00:00.000Z`,
+          value,
+        )
+      ).join("\n")
+    }\n`;
+    const activeDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(activeDir, { recursive: true });
+    await Deno.writeTextFile(join(activeDir, "2026-07.jsonl"), raw);
+    const filename = "logbook-20260812T130000Z.jsonl";
+    const archives = logbookArchiveDir(join(dir, ".git"));
+    await Deno.mkdir(archives, { recursive: true });
+    await Deno.writeTextFile(join(archives, filename), raw);
+
+    const json = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const active = PatternsOutputSchema.parse(JSON.parse(json.stdout))
+      .data as PatternsData;
+    const investigation = active.investigations[0];
+    assertEquals(investigation?.id, "standard-variance/coverage");
+    assertEquals(investigation?.finding_ids, ["standard-trajectory"]);
+    assertEquals(
+      investigation?.observations[0]?.denominator,
+      { value: 5, unit: "Standard readings" },
+    );
+    assertEquals(investigation?.evidence_boundary.legacy_events, 0);
+    assertStringIncludes(investigation?.diagnostic_action ?? "", "standards");
+    assertStringIncludes(investigation?.falsifier ?? "", "Three current");
+    assert(
+      active.findings.some((finding) =>
+        finding.detector === "standard-trajectory" &&
+        finding.subject === "coverage"
+      ),
+      "synthesis must not hide its raw Standard finding",
+    );
+
+    const historical = await patternsResult(dir, {
+      all: true,
+      logbookFile: filename,
+    });
+    assert(historical.ok && historical.data !== undefined);
+    assertEquals(
+      historical.data.investigations,
+      active.investigations,
+      "archive provenance must not change synthesis arithmetic",
+    );
+
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "60", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.output, "Investigation paths");
+    assertStringIncludes(human.output, "Standard variance · coverage");
+    assertStringIncludes(human.output, "Evidence · standard-trajectory:");
+    assertStringIncludes(human.output, "Falsifier:");
+    for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
+      assert(
+        displayWidth(line) <= 60,
+        `60-column investigation line ${index + 1} is too wide: ${line}`,
+      );
+    }
+  });
+});
+
 Deno.test("patterns: current catalogue knowledge reinterprets historical raw MCP identity without rewriting it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

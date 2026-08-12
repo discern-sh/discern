@@ -10441,6 +10441,206 @@
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
                 },
+                "investigations": {
+                  "maxItems": 12,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "finding_ids": {
+                        "minItems": 1,
+                        "maxItems": 4,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "observations": {
+                        "minItems": 1,
+                        "maxItems": 4,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "finding_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "subject": {
+                              "type": "string"
+                            },
+                            "observed": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "denominator": {
+                              "type": "object",
+                              "properties": {
+                                "value": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "unit": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "value",
+                                "unit"
+                              ]
+                            },
+                            "values": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                  "value": {
+                                    "type": "number"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "observed",
+                                      "estimated"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "value",
+                                  "kind"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "finding_id",
+                            "observed",
+                            "denominator",
+                            "values"
+                          ]
+                        }
+                      },
+                      "evidence_boundary": {
+                        "type": "object",
+                        "properties": {
+                          "validation_versions": {
+                            "maxItems": 4,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "complete_validation_state": {
+                            "type": "boolean"
+                          },
+                          "setup_conditions": {
+                            "maxItems": 16,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "dimension": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "values": {
+                                  "minItems": 1,
+                                  "maxItems": 16,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "distinct": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "omitted": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "dimension",
+                                "values",
+                                "distinct",
+                                "omitted"
+                              ]
+                            }
+                          },
+                          "legacy_events": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "excluded_events": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "limitations": {
+                            "maxItems": 16,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        },
+                        "required": [
+                          "validation_versions",
+                          "complete_validation_state",
+                          "setup_conditions",
+                          "legacy_events",
+                          "excluded_events",
+                          "limitations"
+                        ]
+                      },
+                      "interpretation": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "diagnostic_action": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "falsifier": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "finding_ids",
+                      "observations",
+                      "evidence_boundary",
+                      "interpretation",
+                      "diagnostic_action",
+                      "falsifier"
+                    ]
+                  }
+                },
                 "detectors": {
                   "type": "array",
                   "items": {
@@ -11377,6 +11577,7 @@
                 "logbook",
                 "population",
                 "findings",
+                "investigations",
                 "detectors"
               ]
             },

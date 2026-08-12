@@ -3211,6 +3211,43 @@ export type DiscernPatternsResult = {
       next_step: string;
     }>;
     findings_total?: number;
+    investigations: Array<{
+      id: string;
+      title: string;
+      finding_ids: Array<string>;
+      subject?: string;
+      observations: Array<{
+        finding_id: string;
+        subject?: string;
+        observed: string;
+        denominator: {
+          value: number;
+          unit: string;
+        };
+        values: {
+          [key: string]: {
+            value: number;
+            kind: "observed" | "estimated";
+          };
+        };
+      }>;
+      evidence_boundary: {
+        validation_versions: Array<number>;
+        complete_validation_state: boolean;
+        setup_conditions: Array<{
+          dimension: string;
+          values: Array<string>;
+          distinct: number;
+          omitted: number;
+        }>;
+        legacy_events: number;
+        excluded_events: number;
+        limitations: Array<string>;
+      };
+      interpretation: string;
+      diagnostic_action: string;
+      falsifier: string;
+    }>;
     detectors: Array<{
       id: string;
       title: string;

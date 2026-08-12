@@ -266,6 +266,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0274 — Validation findings separate matched and cross-context divergence](0274-validation-findings-separate-matched-and-cross-context-divergence.md)
 - [0275 — Validation workflows use stream-bounded change cycles](0275-validation-workflows-use-stream-bounded-change-cycles.md)
 - [0276 — Patterns recommendations require project-local decision evidence](0276-patterns-recommendations-require-project-local-decision-evidence.md)
+- [0277 — Patterns investigations preserve source findings](0277-patterns-investigations-preserve-source-findings.md)
 
 <!-- END GENERATED: current ADR records -->
 

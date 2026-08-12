@@ -26,10 +26,14 @@ Saved tail is an estimate: the median of at least 3 completed durations for the 
 
 If later-round time exceeds 1.5 times a fully sampled maximum-duration saved-tail estimate, the finding recommends a controlled project-local `fail_fast = false` trial before adoption. If the median saved-tail estimate exceeds later-round time by 1.5 times, it recommends keeping fail-fast. Otherwise it calls the tradeoff unresolved and routes to a controlled experiment.
 
+When unresolved later distinct failures coincide with long-running or queued validation under one recorded setup, the additive validation-scheduling investigation proposes one bounded comparison. It preserves recorded time and queue observations separately from saved-tail estimates and makes no causal claim.
+
 ## Standard trajectory decisions
 
 The Gate records whether a measured or replayed Standard is mechanically eligible to pin and the exact target under its margin. Patterns reads that authority; it does not repeat direction, rounding, or margin arithmetic. Eligibility remains visible even when no pin is recommended.
 
 A recommendation additionally requires a current active Standard, measured or replayed evidence, Gate eligibility across the latest 3 comparable readings, and no direction reversal or same-Standard regression in the latest 5. A deferred on-demand reading routes to `discern standards`. Missing current fields stay historical or stale. A retired Standard remains a trajectory without a live pin action.
+
+When current mechanical eligibility instead coincides with recent comparable reversals or failures, the additive Standard-variance investigation replaces no finding and offers no pin advice. It directs the owner to test whether the headroom is durable ([ADR 0277](../_adr/0277-patterns-investigations-preserve-source-findings.md)).
 
 The thresholds and authority boundary are recorded for future changes ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)). [Practice patterns](patterns.md) covers the report, detector families, evidence handling, and historical selection.

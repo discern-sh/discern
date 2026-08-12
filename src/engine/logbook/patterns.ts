@@ -32,6 +32,7 @@ import {
   DETECTOR_FAMILIES,
   type DetectorFamily,
   type PatternFindingTone,
+  type PatternInvestigation,
   PATTERNS_FINDINGS_PER_DETECTOR,
   type PatternsArchiveData,
   type PatternsArchiveEntry,
@@ -96,6 +97,7 @@ import {
   TRAJECTORY_BOUNDARY_ATTRIBUTION,
 } from "./detectors.ts";
 import { routeDetectorReports, routedFindingData } from "./routing.ts";
+import { synthesizeInvestigations } from "./investigations.ts";
 
 /**
  * Score the analysis population's drivers — reader logic over the recorded
@@ -283,6 +285,7 @@ export async function patternsResult(
     routedFindingData,
   );
   const findings = opts.all === true ? ranked : capFindingsPerDetector(ranked);
+  const investigations = synthesizeInvestigations(findings);
   const first = stream.events[0];
   const last = stream.events[stream.events.length - 1];
   const branches = new Set(
@@ -305,6 +308,7 @@ export async function patternsResult(
     ...(findings.length < ranked.length
       ? { findings_total: ranked.length }
       : {}),
+    investigations,
     detectors: reports.map((r) => ({
       id: r.detector.id,
       title: r.detector.title,
@@ -701,6 +705,54 @@ function renderAttentionBanner(
   }
 }
 
+/** Render additive investigation paths without replacing or shortening the
+ * source findings that remain in their canonical family blocks below. */
+function renderInvestigations(
+  out: Out,
+  investigations: readonly PatternInvestigation[],
+  width: number,
+): void {
+  if (investigations.length === 0) return;
+  const c = out.c;
+  out.group("investigations");
+  out.raw(`${c.bold}Investigation paths${c.reset}\n`);
+  for (const [index, investigation] of investigations.entries()) {
+    if (index > 0) out.group(`investigation:${investigation.id}`);
+    const subject = investigation.subject === undefined
+      ? ""
+      : ` · ${investigation.subject}`;
+    writeWrapped(
+      out,
+      "  ",
+      `${investigation.title}${subject}`,
+      width,
+      (line) => `${c.bold}${line}${c.reset}`,
+    );
+    writeWrapped(out, "    ", investigation.interpretation, width);
+    for (const observation of investigation.observations) {
+      writeWrapped(
+        out,
+        `    ${c.dim}Evidence · ${observation.finding_id}:${c.reset} `,
+        observation.observed,
+        width,
+      );
+    }
+    writeWrapped(
+      out,
+      `    ${c.cyan}→${c.reset} `,
+      investigation.diagnostic_action,
+      width,
+    );
+    writeWrapped(
+      out,
+      "    Falsifier: ",
+      investigation.falsifier,
+      width,
+      (line) => `${c.dim}${line}${c.reset}`,
+    );
+  }
+}
+
 /** Account for quiet and evidence-limited detectors after the detailed findings. */
 function renderClosingAccount(
   out: Out,
@@ -787,6 +839,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     );
   }
   renderAttentionBanner(out, data, width, titleById);
+  renderInvestigations(out, data.investigations, width);
 
   if (data.logbook.events === 0) {
     out.group("empty-logbook");

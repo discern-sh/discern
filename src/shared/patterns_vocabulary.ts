@@ -70,6 +70,14 @@ export const PATTERNS_SERIES_MAX_POINTS = 24;
  * of growing with recorded history. */
 export const PATTERNS_FINDINGS_PER_DETECTOR = 3;
 
+/** Maximum advisory investigations in one Patterns result. Relationships
+ * independently keep their strongest few; this outer bound prevents a future
+ * registry from turning synthesis into another history-sized payload. */
+export const PATTERNS_INVESTIGATIONS_MAX = 12;
+
+/** Maximum source findings one synthesized investigation may restate. */
+export const PATTERN_INVESTIGATION_OBSERVATIONS_MAX = 4;
+
 /** Whether one numerical finding value was read directly from recorded events
  * or derived by a declared estimator. A confidence score is deliberately not
  * part of the vocabulary: uncertainty belongs in the denominator and
@@ -207,6 +215,88 @@ export const PatternsFindingSchema = z.strictObject({
 });
 /** One patterns finding. */
 export type PatternsFinding = z.infer<typeof PatternsFindingSchema>;
+
+/** One source finding as cited by an investigation. Numerical values retain
+ * their observed/estimated classification, and the source denominator stays
+ * explicit rather than being reconstructed from prose. */
+export const PatternInvestigationObservationSchema = z.strictObject({
+  finding_id: z.string().min(1),
+  subject: z.string().optional(),
+  observed: z.string().min(1),
+  denominator: z.strictObject({
+    value: z.number().nonnegative(),
+    unit: z.string().min(1),
+  }),
+  values: z.record(
+    z.string(),
+    z.strictObject({
+      value: z.number(),
+      kind: z.enum(PATTERN_EVIDENCE_VALUE_KINDS),
+    }),
+  ),
+});
+export type PatternInvestigationObservation = z.infer<
+  typeof PatternInvestigationObservationSchema
+>;
+
+/** The shared evidence boundary retained while several findings are read as
+ * one investigation path. An empty version list means the relationship does
+ * not depend on validation identity. */
+export const PatternInvestigationBoundarySchema = z.strictObject({
+  validation_versions: z.array(z.number().int().nonnegative()).max(4),
+  complete_validation_state: z.boolean(),
+  setup_conditions: z.array(PatternEvidenceConditionSchema).max(16),
+  legacy_events: z.number().int().nonnegative(),
+  excluded_events: z.number().int().nonnegative(),
+  limitations: z.array(z.string().min(1)).max(16),
+});
+export type PatternInvestigationBoundary = z.infer<
+  typeof PatternInvestigationBoundarySchema
+>;
+
+/** An advisory, unscored relationship among source findings. The source
+ * findings remain in `data.findings`; this additive projection supplies one
+ * bounded interpretation, preferred diagnostic action, and falsifier. */
+export const PatternInvestigationSchema = z.strictObject({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  finding_ids: z.array(z.string().min(1)).min(1).max(
+    PATTERN_INVESTIGATION_OBSERVATIONS_MAX,
+  ),
+  subject: z.string().optional(),
+  observations: z.array(PatternInvestigationObservationSchema).min(1).max(
+    PATTERN_INVESTIGATION_OBSERVATIONS_MAX,
+  ),
+  evidence_boundary: PatternInvestigationBoundarySchema,
+  interpretation: z.string().min(1),
+  diagnostic_action: z.string().min(1),
+  falsifier: z.string().min(1),
+}).superRefine((investigation, context) => {
+  const unique = new Set(investigation.finding_ids);
+  if (unique.size !== investigation.finding_ids.length) {
+    context.addIssue({
+      code: "custom",
+      path: ["finding_ids"],
+      message: "investigation finding ids must be unique",
+    });
+  }
+  const observed = new Set(
+    investigation.observations.map((observation) => observation.finding_id),
+  );
+  if (
+    observed.size !== investigation.observations.length ||
+    investigation.finding_ids.some((findingId) => !observed.has(findingId)) ||
+    [...observed].some((findingId) => !unique.has(findingId))
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["observations"],
+      message:
+        "investigation observations must account for every source finding id exactly",
+    });
+  }
+});
+export type PatternInvestigation = z.infer<typeof PatternInvestigationSchema>;
 
 /** One detector's run in a `patterns` report: its registry identity, how many
  * qualifying events it saw against its threshold, and how it turned out —
@@ -541,6 +631,9 @@ export const PatternsDataSchema = z.strictObject({
   population: patternsPopulationSchema,
   findings: z.array(PatternsFindingSchema),
   findings_total: z.number().int().optional(),
+  investigations: z.array(PatternInvestigationSchema).max(
+    PATTERNS_INVESTIGATIONS_MAX,
+  ),
   detectors: z.array(patternsDetectorSchema),
   stats: PatternsStatsSchema.optional(),
 });

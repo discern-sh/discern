@@ -37,3 +37,4 @@ For the JSON fields and agent-facing tool contract, use [MCP tools & results](..
 | [Practice stats](practice-stats.md)                         | Share what went well as one card of plain counts from the local logbook.         |
 | [Validation findings](validation-findings.md)               | Compare per-job verdicts within and across recorded execution conditions.        |
 | [Patterns decision evidence](patterns-decision-evidence.md) | Read the evidence required before Patterns recommends a Gate or Standard change. |
+| [Pattern investigations](pattern-investigations.md)         | Trace related findings into bounded diagnostic paths.                            |

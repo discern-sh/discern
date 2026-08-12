@@ -598,6 +598,10 @@ const doneThrash: Detector = {
         const streak = longestStreak(session, (e) => e.outcome === "failed");
         // A 3-streak is where iteration stops looking like progress.
         if (streak >= 3) {
+          const evidence = {
+            consecutive_failures: streak,
+            runs: session.length,
+          };
           findings.push({
             subject: branch,
             brief: `${formatHumanNumber(streak)} red \`done\` runs · ${
@@ -608,7 +612,17 @@ const doneThrash: Detector = {
             } consecutive runs on \`${branch}\` (${
               formatHumanNumber(session.length)
             } runs in the conversation).`,
-            evidence: { consecutive_failures: streak, runs: session.length },
+            evidence,
+            basis: decisionEvidenceBasis("red-done-streak", evidence, {
+              comparable: session.length,
+              denominator: session.length,
+              unit: "Gate runs in the conversation",
+              events: session,
+              allEvents: facts.events,
+              limitations: [
+                "The streak is conversation-scoped; synthesis requires another finding on the same branch and recorded setup.",
+              ],
+            }),
             strength: streak,
           });
         }
@@ -1317,6 +1331,15 @@ const skippedPrepare: Detector = {
         const prepareRuns = events.filter((event) =>
           event.verb === "prepare"
         ).length;
+        const evidence = {
+          prepare_preventable_failures: byHead.size,
+          done_runs: dones.length,
+          distinct_clean_heads: byHead.size,
+          same_head_additional_runs: candidates.length - byHead.size,
+          fix_drift_failures: fixDrift,
+          regeneration_failures: generation,
+          prepare_runs: prepareRuns,
+        };
         findings.push({
           subject: branch,
           brief: `${formatHumanNumber(byHead.size)} of ${
@@ -1333,15 +1356,21 @@ const skippedPrepare: Detector = {
           } regeneration failures. The same branch and config recorded ${
             formatHumanNumber(prepareRuns)
           } \`prepare\` runs; missing \`prepare\` alone did not establish this finding.`,
-          evidence: {
-            prepare_preventable_failures: byHead.size,
-            done_runs: dones.length,
-            distinct_clean_heads: byHead.size,
-            same_head_additional_runs: candidates.length - byHead.size,
-            fix_drift_failures: fixDrift,
-            regeneration_failures: generation,
-            prepare_runs: prepareRuns,
-          },
+          evidence,
+          basis: decisionEvidenceBasis(
+            "prepare-preventable-gate-work",
+            evidence,
+            {
+              comparable: byHead.size,
+              denominator: dones.length,
+              unit: "full-Gate runs",
+              events,
+              allEvents: facts.events,
+              limitations: [
+                "The predicate proves recorded fix or regeneration work that preflight also runs; missing prepare invocation alone establishes nothing.",
+              ],
+            },
+          ),
           strength: byHead.size,
         });
       }
@@ -2688,6 +2717,12 @@ const slotContention: Detector = {
       medianExecutionS,
       waitSharePct,
     } = contention;
+    const evidence = {
+      capped_runs: considered,
+      median_wait_seconds: medianWaitS,
+      median_execution_seconds: medianExecutionS,
+      wait_to_execution_pct: waitSharePct,
+    };
     return {
       considered,
       findings: [{
@@ -2703,12 +2738,17 @@ const slotContention: Detector = {
         }s median execution across ${formatHumanNumber(considered)} runs (${
           formatHumanNumber(waitSharePct)
         }%).`,
-        evidence: {
-          capped_runs: considered,
-          median_wait_seconds: medianWaitS,
-          median_execution_seconds: medianExecutionS,
-          wait_to_execution_pct: waitSharePct,
-        },
+        evidence,
+        basis: decisionEvidenceBasis("validation-queue-contention", evidence, {
+          comparable: recent.length,
+          denominator: recent.length,
+          unit: "capped validation runs",
+          events: recent,
+          allEvents: facts.events,
+          limitations: [
+            "Queue wait is observed locally; synthesis requires the related finding to share one recorded setup.",
+          ],
+        }),
         strength: Math.max(1, waitSharePct),
       }],
     };
