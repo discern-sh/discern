@@ -1,12 +1,381 @@
+/* Fig. III — the delta. One 36s phrase (30 beats): the plate rests, the
+ * three chevrons resume their channels, the middle one waits at its gate
+ * while the top passes, each is absorbed at the confluence in turn, and one
+ * accent dash exits along the heavier line before the flow stills again.
+ * Every keyframe block opens and closes on the authored rest state. */
 @layer discern.page {
-  .fig-delta__placeholder {
+  .fig-delta__construction path,
+  .fig-delta__envelope {
     fill: none;
-    stroke: currentColor;
+    stroke: var(--fig-guide);
     stroke-width: var(--fig-hairline);
-    vector-effect: non-scaling-stroke;
+    opacity: var(--fig-faint);
   }
 
-  .fig-delta__placeholder-fill {
+  .fig-delta__channel {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-delta__entry {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+  }
+
+  .fig-delta__exit {
+    stroke: currentColor;
+    stroke-width: var(--fig-heavy);
+  }
+
+  .fig-delta__gate {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-quiet);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation-duration: calc(var(--fig-beat) * 30);
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  .fig-delta__gate--top {
+    animation-name: fig-delta-gate-top;
+  }
+
+  .fig-delta__gate--middle {
+    animation-name: fig-delta-gate-middle;
+  }
+
+  .fig-delta__gate--bottom {
+    animation-name: fig-delta-gate-bottom;
+  }
+
+  .fig-delta__fork {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-delta__merge {
     fill: currentColor;
+    stroke: none;
+  }
+
+  .fig-delta__chevron {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    offset-rotate: auto;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation-duration: calc(var(--fig-beat) * 30);
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  .fig-delta__chevron--top {
+    animation-name: fig-delta-chevron-top;
+  }
+
+  .fig-delta__chevron--middle {
+    animation-name: fig-delta-chevron-middle;
+  }
+
+  .fig-delta__chevron--bottom {
+    animation-name: fig-delta-chevron-bottom;
+  }
+
+  .fig-delta__pulse {
+    fill: none;
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+    stroke-linecap: round;
+    opacity: 0;
+    offset-rotate: auto;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation-name: fig-delta-pulse;
+    animation-duration: calc(var(--fig-beat) * 30);
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  /* Top channel: resumes with the others, passes its gate while the middle
+   * chevron waits, and is absorbed second; its successor emerges from the
+   * fork and lands back on the authored rest position. */
+  @keyframes fig-delta-chevron-top {
+    0%,
+    10% {
+      offset-distance: 40%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+
+    14% {
+      offset-distance: 45%;
+      opacity: 1;
+      animation-timing-function: linear;
+    }
+
+    35.5% {
+      offset-distance: 96%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    38% {
+      offset-distance: 100%;
+      opacity: 0;
+    }
+
+    38.5%,
+    40% {
+      offset-distance: 0%;
+      opacity: 0;
+      animation-timing-function: linear;
+    }
+
+    44% {
+      offset-distance: 7%;
+      opacity: 1;
+      animation-timing-function: linear;
+    }
+
+    60% {
+      offset-distance: 35%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    64%,
+    100% {
+      offset-distance: 40%;
+      opacity: 1;
+    }
+  }
+
+  /* Middle channel: travels to just before its gate, dims and holds while
+   * the top chevron passes and is absorbed, then re-brightens, proceeds,
+   * and is absorbed last — releasing the accent pulse. */
+  @keyframes fig-delta-chevron-middle {
+    0%,
+    10% {
+      offset-distance: 44%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+
+    14% {
+      offset-distance: 48%;
+      opacity: 1;
+      animation-timing-function: linear;
+    }
+
+    20% {
+      offset-distance: 58%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    23%,
+    39% {
+      offset-distance: 58%;
+      opacity: var(--fig-quiet);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    41% {
+      offset-distance: 58%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+
+    44% {
+      offset-distance: 65%;
+      opacity: 1;
+      animation-timing-function: linear;
+    }
+
+    55% {
+      offset-distance: 96%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    57% {
+      offset-distance: 100%;
+      opacity: 0;
+    }
+
+    57.5%,
+    58% {
+      offset-distance: 0%;
+      opacity: 0;
+      animation-timing-function: linear;
+    }
+
+    62% {
+      offset-distance: 11%;
+      opacity: 1;
+      animation-timing-function: linear;
+    }
+
+    72% {
+      offset-distance: 39%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    76%,
+    100% {
+      offset-distance: 44%;
+      opacity: 1;
+    }
+  }
+
+  /* Bottom channel: the first arrival at the confluence; its successor is
+   * already resting again while the middle chevron still waits. */
+  @keyframes fig-delta-chevron-bottom {
+    0%,
+    10% {
+      offset-distance: 52%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+
+    14% {
+      offset-distance: 57%;
+      opacity: 1;
+      animation-timing-function: linear;
+    }
+
+    26% {
+      offset-distance: 96%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    28% {
+      offset-distance: 100%;
+      opacity: 0;
+    }
+
+    28.5%,
+    30% {
+      offset-distance: 0%;
+      opacity: 0;
+      animation-timing-function: linear;
+    }
+
+    34% {
+      offset-distance: 8.5%;
+      opacity: 1;
+      animation-timing-function: linear;
+    }
+
+    52% {
+      offset-distance: 47%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    56%,
+    100% {
+      offset-distance: 52%;
+      opacity: 1;
+    }
+  }
+
+  /* The single accent event: immediately after the last absorption a short
+   * dash leaves the merge node, runs the exit line, and is carried off the
+   * right edge of the plate. */
+  @keyframes fig-delta-pulse {
+    0%,
+    57% {
+      offset-distance: 0%;
+      opacity: 0;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    58% {
+      offset-distance: 8%;
+      opacity: 1;
+      animation-timing-function: linear;
+    }
+
+    63% {
+      offset-distance: 96%;
+      opacity: 1;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    63.5% {
+      offset-distance: 100%;
+      opacity: 0;
+    }
+
+    64%,
+    100% {
+      offset-distance: 0%;
+      opacity: 0;
+    }
+  }
+
+  /* Each gate tick gives one minute settle pulse as its chevron crosses. */
+  @keyframes fig-delta-gate-top {
+    0%,
+    20.4% {
+      transform: scaleY(1);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    21.4% {
+      transform: scaleY(1.28);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    23%,
+    100% {
+      transform: scaleY(1);
+    }
+  }
+
+  @keyframes fig-delta-gate-middle {
+    0%,
+    43% {
+      transform: scaleY(1);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    44% {
+      transform: scaleY(1.28);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    45.6%,
+    100% {
+      transform: scaleY(1);
+    }
+  }
+
+  @keyframes fig-delta-gate-bottom {
+    0%,
+    15% {
+      transform: scaleY(1);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    16% {
+      transform: scaleY(1.28);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    17.6%,
+    100% {
+      transform: scaleY(1);
+    }
   }
 }
