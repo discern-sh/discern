@@ -53,21 +53,21 @@ export const BROWSER_ARTWORKS = [
     title: "The circuit",
     description:
       "An emblem unfolds into three stationed vertices and one pulse completes their triangular exchange before the form recollects itself.",
-    sourceCommit: "d2792e90795f5201d10cd3f276b19b909a39aeb1",
+    sourceCommit: "49104c19ddb978b6d78b7327ef7658e80a640095",
   },
   {
     slug: "seal",
     title: "The seal",
     description:
       "Scattered fragments register into one exact triangle whose right half takes ink under a confirming sweep, until a single fragment drifts.",
-    sourceCommit: "8bc6327fa346340e770bdd6ca439724a28b21200",
+    sourceCommit: "73f09b4994be31ed1b8e1cb56e28b454239d7c5d",
   },
   {
     slug: "delta",
     title: "The delta",
     description:
       "One line opens into parallel channels whose travelling marks work apart, wait for one another, and reconverge through a single settling point.",
-    sourceCommit: "7e6e5787a7d0b492f0c500b2c50ac08faf8280fb",
+    sourceCommit: "48f1d3509b67195281102bfabacfa46cd03fcde7",
   },
   {
     slug: "ratchet",
@@ -81,7 +81,7 @@ export const BROWSER_ARTWORKS = [
     title: "The rule",
     description:
       "Compass arcs subdivide one triangle through three quiet generations and one small pulse retraces the figure before the construction unwinds.",
-    sourceCommit: "c238e1237cea38fed67ee2f67fae88551b88ff75",
+    sourceCommit: "5b3e48ae75dc345aa63454cf2063d11923046634",
   },
 ] as const satisfies readonly BrowserArtworkMetadata[];
 
