@@ -136,6 +136,22 @@ export function testTokens(overrides: Partial<TokenMap> = {}): TokenMap {
   };
 }
 
+/** Remove a directory tree, absorbing the teardown race where a finishing
+ * child process drops one last entry mid-removal ("Directory not empty").
+ * Retries briefly, then rethrows so a genuinely held tree still fails. */
+async function removeTempTree(dir: string): Promise<void> {
+  for (let attempt = 0;; attempt++) {
+    try {
+      await Deno.remove(dir, { recursive: true });
+      return;
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) return;
+      if (attempt >= 4) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
+    }
+  }
+}
+
 /** Run `fn` with a fresh temp directory, removing it afterwards. */
 export async function withTempDir(
   fn: (dir: string) => Promise<void>,
@@ -144,11 +160,11 @@ export async function withTempDir(
   try {
     await fn(dir);
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await removeTempTree(dir);
     // Worktrees land in a SIBLING dir by default (`<dir>.worktrees`, the new
     // placement) — sweep it too so sibling-placed test worktrees never leak into
     // the system temp root. Best-effort: absent on the many tests that make none.
-    await Deno.remove(`${dir}.worktrees`, { recursive: true }).catch(() => {});
+    await removeTempTree(`${dir}.worktrees`).catch(() => {});
   }
 }
 
