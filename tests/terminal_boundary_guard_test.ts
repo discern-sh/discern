@@ -150,9 +150,7 @@ const LEGACY_PALETTE_PATTERN =
 const LEGACY_PALETTE_CENSUS: Readonly<Record<string, number>> = {
   "src/engine/coupling/coupling.ts": 31,
   "src/engine/desk/desk.ts": 54,
-  "src/engine/gate/failure_tail.ts": 18,
   "src/engine/gate/finish.ts": 2,
-  "src/engine/gate/gate_tty.ts": 15,
   "src/engine/gate/gotchas.ts": 6,
   "src/engine/improve/improve.ts": 48,
   "src/engine/jobs/runner.ts": 8,

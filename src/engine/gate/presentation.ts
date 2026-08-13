@@ -3,7 +3,7 @@
  *
  * Discern supplies typed plan, execution, diagnostic, Standard, and Proof facts.
  * The released design-system package supplies every terminal Component, text
- * measurement, Token role, and triangle motif used to present those facts.
+ * measurement, Token role, and triangle motif that present those facts.
  * Nothing in this module observes the process, clock, filesystem, Git, or Gate.
  */
 
@@ -318,7 +318,7 @@ function safeMultiline(value: string, fallback = "(empty)"): string {
   return safe === "" ? fallback : safe;
 }
 
-/** True when a job state will no longer change in this run. */
+/** True when a job state is final in this run. */
 function statusSettled(status: GateJobPresentationStatus): boolean {
   return status !== "pending" && status !== "running";
 }

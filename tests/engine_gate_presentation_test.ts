@@ -10,6 +10,7 @@ import {
   DISCERN_TRIANGLE_SPINNER_ORDER,
   stripAnsi,
 } from "discern-design-system/cli";
+import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
 import {
   createGateTtyProgress,
   type GateProgressScheduler,
@@ -94,6 +95,19 @@ function terminal(options: {
 }
 
 const PLAIN = terminal();
+
+const TRIANGLE_WEAVE = [
+  DISCERN_TRIANGLE_GLYPHS.upRight,
+  DISCERN_TRIANGLE_GLYPHS.downRight,
+  DISCERN_TRIANGLE_GLYPHS.upLeft,
+  DISCERN_TRIANGLE_GLYPHS.downLeft,
+].join("");
+const TRIANGLE_RULE_TAIL = [
+  DISCERN_TRIANGLE_GLYPHS.downRight,
+  DISCERN_TRIANGLE_GLYPHS.upRight,
+  DISCERN_TRIANGLE_GLYPHS.downLeft,
+  DISCERN_TRIANGLE_GLYPHS.upLeft,
+].join("");
 
 const GROUP: JobGroup = {
   stage: "check",
@@ -250,12 +264,16 @@ Deno.test("Gate progress: a stable 25 percent frame pins Component composition",
   );
   const expected = [
     "Gate progress  1 / 4 steps settled",
-    "[ 25%] ◮⧩◭⧨◮⧩◭⧨◮⧩◭..................................",
+    `[ 25%] ${TRIANGLE_WEAVE.repeat(2)}${
+      TRIANGLE_WEAVE.slice(0, 3)
+    }..................................`,
     "",
     "Check",
     "",
-    "◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮⧩ Steps ⧩◮⧨◭⧩◮⧨◭⧩◮⧨◭⧩◮⧨◭⧩◮⧨◭⧩◮⧨",
-    "◮ format [passed]",
+    `${TRIANGLE_WEAVE.repeat(5)}${TRIANGLE_WEAVE.slice(0, 2)} Steps ${
+      TRIANGLE_RULE_TAIL.repeat(5)
+    }${TRIANGLE_RULE_TAIL.slice(0, 3)}`,
+    `${DISCERN_TRIANGLE_GLYPHS.upRight} format [passed]`,
     "│",
     "· lint [pending]",
     "│",
@@ -310,7 +328,12 @@ Deno.test("Gate progress: Unicode and ASCII expose every package spinner phase",
         ?.split(" ")[0] ?? "",
     );
   }
-  assertEquals([...unicode].sort(), ["[◮]", "[⧩]", "[◭]", "[⧨]"].sort());
+  assertEquals(
+    [...unicode].sort(),
+    DISCERN_TRIANGLE_SPINNER_ORDER.map((name) =>
+      `[${DISCERN_TRIANGLE_GLYPHS[name]}]`
+    ).sort(),
+  );
   assertEquals([...ascii].sort(), ["[>]", "[v]", "[^]", "[<]"].sort());
 });
 
