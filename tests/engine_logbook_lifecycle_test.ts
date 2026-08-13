@@ -11,6 +11,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { dirname, join } from "@std/path";
+import { stripAnsi } from "discern-design-system/cli";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import {
   gitInit,
@@ -130,6 +131,36 @@ async function exists(path: string): Promise<boolean> {
     }
     throw error;
   }
+}
+
+/** Assert the stable semantics of a Receipt check row while leaving its
+ * capability-selected marker to the package renderer. */
+function assertReceiptCheckSemantics(
+  output: string,
+  expected: {
+    readonly label: string;
+    readonly value: string;
+    readonly state: string;
+  },
+): void {
+  const line = stripAnsi(output).split(/\r?\n/u).find((candidate) =>
+    candidate.includes(expected.label)
+  );
+  assert(line !== undefined, `missing Receipt check ${expected.label}`);
+  const labelAt = line.indexOf(expected.label);
+  const valueToken = ` ${expected.value} `;
+  const valueAt = line.indexOf(valueToken, labelAt + expected.label.length);
+  const stateToken = ` ${expected.state}`;
+  const stateAt = line.indexOf(stateToken, valueAt + valueToken.length);
+  assert(
+    labelAt >= 0 && valueAt > labelAt && stateAt > valueAt,
+    `Receipt check must show label, value, and state in order: ${line}`,
+  );
+  const marker = line.slice(valueAt + valueToken.length, stateAt).trim();
+  assert(
+    marker.length > 0,
+    `Receipt check must retain a visible state marker: ${line}`,
+  );
 }
 
 interface SeededSibling {
@@ -478,8 +509,11 @@ Deno.test({
       assertEquals(humanListing.code, 0, humanListing.output);
       assertStringIncludes(humanListing.output, filename);
       assertStringIncludes(humanListing.output, "Events: 3");
-      assertStringIncludes(humanListing.output, "Unparsable lines");
-      assertStringIncludes(humanListing.output, "2 x fail");
+      assertReceiptCheckSemantics(humanListing.output, {
+        label: "Unparsable lines",
+        value: "2",
+        state: "fail",
+      });
 
       const historical = await runAgent(dir, [
         "patterns",

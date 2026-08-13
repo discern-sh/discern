@@ -2,6 +2,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
+import { detectTerminalCapabilities } from "discern-design-system/cli";
 import {
   type InteractiveTtyResult,
   type InteractiveTtyScenario,
@@ -111,8 +112,9 @@ function keys(bytes: string, delayMs = READY_DELAY_MS): PtyInputStep[] {
   return [{ delayMs, bytes }];
 }
 
-/** Assert process, line-mode, cursor, and final-frame restoration. */
-function assertRestored(run: HarnessRun): void {
+/** Assert process, line-mode, cursor, and final-frame restoration under the
+ * package's independently detected ANSI-control capability. */
+function assertRestored(run: HarnessRun, ansiControl = true): void {
   assertEquals(run.process.code, 0, run.process.transcript);
   assertEquals(
     run.result.terminal.restored,
@@ -123,6 +125,24 @@ function assertRestored(run: HarnessRun): void {
   );
   const hiddenAt = run.process.transcript.lastIndexOf(HIDE_CURSOR);
   const shownAt = run.process.transcript.lastIndexOf(SHOW_CURSOR);
+  if (!ansiControl) {
+    assertEquals(
+      hiddenAt,
+      -1,
+      `a terminal without ANSI control must not receive cursor-hide:\n${run.process.transcript}`,
+    );
+    assertEquals(
+      shownAt,
+      -1,
+      `a terminal without ANSI control must not receive cursor-show:\n${run.process.transcript}`,
+    );
+    assertEquals(
+      run.process.transcript.includes(CSI),
+      false,
+      `a terminal without ANSI control must receive no CSI sequences:\n${run.process.transcript}`,
+    );
+    return;
+  }
   assert(hiddenAt >= 0, run.process.transcript);
   assert(shownAt > hiddenAt, run.process.transcript);
   assertEquals(
@@ -135,10 +155,14 @@ function assertRestored(run: HarnessRun): void {
 }
 
 /** Assert an out-of-band submitted value and restored terminal. */
-function assertValue(run: HarnessRun, expected: unknown): void {
+function assertValue(
+  run: HarnessRun,
+  expected: unknown,
+  ansiControl = true,
+): void {
   assertEquals(run.result.outcome, "value", run.process.transcript);
   assertEquals(run.result.value, expected, run.process.transcript);
-  assertRestored(run);
+  assertRestored(run, ansiControl);
 }
 
 /** Whether a transcript contains a CSI sequence with matching parameters. */
@@ -391,47 +415,77 @@ Deno.test({
     "capability matrix degrades truecolour, 256, 16, no-colour, dumb, and ASCII",
   ignore: Deno.build.os === "windows",
   fn: async () => {
+    const truecolorEnv = {
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+    };
+    const ansi256Env = { TERM: "xterm-256color", COLORTERM: "" };
+    const ansi16Env = { TERM: "xterm", COLORTERM: "" };
+    const noColorEnv = {
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      NO_COLOR: "1",
+    };
+    const dumbEnv = { TERM: "dumb", COLORTERM: "" };
+    const asciiEnv = {
+      TERM: "xterm",
+      LC_ALL: "C",
+      LANG: "C",
+      NO_COLOR: "1",
+    };
+    const flagEnv = {
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+    };
     const [truecolor, ansi256, ansi16, noColor, dumb, ascii, flag] =
       await Promise
         .all([
           runHarness({
             scenario: "confirm-default-no",
-            env: { TERM: "xterm-256color", COLORTERM: "truecolor" },
+            env: truecolorEnv,
           }),
           runHarness({
             scenario: "confirm-default-no",
-            env: { TERM: "xterm-256color", COLORTERM: "" },
+            env: ansi256Env,
           }),
           runHarness({
             scenario: "confirm-default-no",
-            env: { TERM: "xterm", COLORTERM: "" },
+            env: ansi16Env,
           }),
           runHarness({
             scenario: "confirm-default-no",
-            env: {
-              TERM: "xterm-256color",
-              COLORTERM: "truecolor",
-              NO_COLOR: "1",
-            },
+            env: noColorEnv,
           }),
           runHarness({
             scenario: "confirm-default-no",
-            env: { TERM: "dumb", COLORTERM: "" },
+            env: dumbEnv,
           }),
           runHarness({
             scenario: "confirm-default-no",
-            env: { TERM: "xterm", LC_ALL: "C", LANG: "C", NO_COLOR: "1" },
+            env: asciiEnv,
           }),
           runHarness({
             scenario: "confirm-default-no",
             noColor: true,
-            env: { TERM: "xterm-256color", COLORTERM: "truecolor" },
+            env: flagEnv,
           }),
         ]);
     for (
-      const run of [truecolor, ansi256, ansi16, noColor, dumb, ascii, flag]
+      const { run, env } of [
+        { run: truecolor, env: truecolorEnv },
+        { run: ansi256, env: ansi256Env },
+        { run: ansi16, env: ansi16Env },
+        { run: noColor, env: noColorEnv },
+        { run: dumb, env: dumbEnv },
+        { run: ascii, env: asciiEnv },
+        { run: flag, env: flagEnv },
+      ]
     ) {
-      assertValue(run, false);
+      const capabilities = detectTerminalCapabilities({
+        env,
+        isTty: true,
+      });
+      assertValue(run, false, capabilities.ansiControl !== false);
     }
     assert(hasCsiSequence(truecolor.process.transcript, TRUECOLOUR_PARAMETERS));
     assert(hasCsiSequence(ansi256.process.transcript, ANSI_256_PARAMETERS));
@@ -449,6 +503,12 @@ Deno.test({
         (value.codePointAt(0) ?? 0) > 0x7f
       ),
       false,
+    );
+    assert(
+      [...dumb.process.transcript].some((value) =>
+        (value.codePointAt(0) ?? 0) > 0x7f
+      ),
+      "UTF-8 repertoire must remain available without ANSI cursor control",
     );
   },
 });
