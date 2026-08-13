@@ -63,7 +63,7 @@ The aspiration that ◮ becomes a recognized signal of project seriousness remai
 
 ## The design system: `discern-design-system`
 
-The Editorial Engineering aesthetic is implemented by the in-house **`discern-design-system`** package: an independently versioned library, maintained in its own repository and published on JSR as `@discern-sh/design-system` (ADR 0139). The public site consumes a pinned release, so the visual identity changes only through an explicit version update.
+The Editorial Engineering aesthetic is implemented by the in-house **`discern-design-system`** package: an independently versioned library, maintained in its own repository and published on JSR as `@discern-sh/design-system` (ADR 0139). The public site and terminal interface consume the same exact pinned release, so a package-owned visual change requires an explicit dependency update.
 
 What the package means for the brand:
 
@@ -71,7 +71,7 @@ What the package means for the brand:
 - **Typography is self-hosted.** Fonts and textures ship with the package; public pages depend on no third-party asset host.
 - **Pages ship as static, semantic HTML and CSS.** React is only an optional build-time adapter; the browser receives no framework runtime. The quiet, fast result is part of the premium feel.
 
-Components, tokens, the catalog, and theming seams belong to the package itself; the brand documents stay at this altitude. discern is primarily a CLI- and MCP-driven product, so frontend UI is concentrated in the public website. New visual surfaces draw on the same package and inherit its decisions.
+Components, tokens, the catalog, and theming seams belong to the package itself; the brand documents stay at this altitude. The public website consumes the browser graph, while terminal surfaces consume the React-free CLI graph. MCP results remain structured product facts rather than a visual projection. New visual surfaces draw on the same package and inherit its decisions.
 
 ## Relationship to the verbal brand
 

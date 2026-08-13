@@ -51,7 +51,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 169     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
-| [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `art/terminal/triangle.ts#DISCERN_TRIANGLE_MOTIFS`                                | 10      | —                | —                           |
+| [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
+| [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                               | `art/terminal/triangle.ts#DISCERN_PRODUCT_TRIANGLE_ART`                           | 2       | —                | —                           |
 | [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 12      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 64      | —                | node `hints`                |
@@ -90,9 +91,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 79      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 80      | —                | node `canonical-sets`       |
 
-79 sets · 126 guard tests · 53 committed artifacts.
+80 sets · 126 guard tests · 53 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -109,7 +110,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/agent_policy_parity_test.ts`                | [`operating-policies`](#operating-policies--operating-policies)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/agent_surface_contracts_test.ts`            | [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/art_browser_gallery_test.ts`                | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `tests/art_gallery_test.ts`                        | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants), [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                                                                                                                                                                                                                                                                                                           |
+| `tests/art_gallery_test.ts`                        | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants), [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs), [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                                                                                                                                                                                                                                   |
 | `tests/artifact_ownership_test.ts`                 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/brand_animation_test.ts`                    | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/brand_art_test.ts`                          | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -220,7 +221,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/tip_command_guard_test.ts`                  | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/tip_inventory_codegen_test.ts`              | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/tip_register_guard_test.ts`                 | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `tests/triangle_art_test.ts`                       | [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/triangle_art_test.ts`                       | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs), [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                                                                                                                                                                                                                                                                                                             |
 | `tests/validator_enrolment_test.ts`                | [`artifact-validators`](#artifact-validators--artifact-validators)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/vocab_drift_test.ts`                        | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/voice_vale_parity_test.ts`                  | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -1287,12 +1288,12 @@ The named terminal-art family: every static renderer carries one semantic animat
 - Glossary: not enrolled — the terminal-art gallery owns these internal design names
 - Feature canon: not enrolled — the existing terminal surfaces consume these decorative projections and maintainer previews
 
-## `terminal-triangle-motifs` — Terminal triangle motifs
+## `terminal-triangle-motifs` — Package triangle motifs
 
 The reusable triangle treatments: every pure static frame carries one semantic animation timeline and enters both maintainer gallery projections.
 
-- Source: `art/terminal/triangle.ts` — `DISCERN_TRIANGLE_MOTIFS`
-- Members: 10
+- Source: `art/terminal/triangle.ts` — `DISCERN_PACKAGE_TRIANGLE_MOTIFS`
+- Members: 8
   - `divider`
   - `ribbon`
   - `weave`
@@ -1301,11 +1302,21 @@ The reusable triangle treatments: every pure static frame carries one semantic a
   - `section-rule`
   - `stepper`
   - `beacon`
-  - `pyramid`
-  - `gasket`
 - Guards: `tests/triangle_art_test.ts`, `tests/art_gallery_test.ts`
 - Glossary: not enrolled — the terminal-art gallery owns these internal motif names
 - Feature canon: not enrolled — the existing terminal surfaces consume these motifs and maintainer previews
+
+## `terminal-product-triangle-art` — Product triangle art
+
+Discern-specific triangle compositions: every static figure derives its glyphs and order from the package and carries one matching animation timeline.
+
+- Source: `art/terminal/triangle.ts` — `DISCERN_PRODUCT_TRIANGLE_ART`
+- Members: 2
+  - `pyramid`
+  - `gasket`
+- Guards: `tests/triangle_art_test.ts`, `tests/art_gallery_test.ts`
+- Glossary: not enrolled — the terminal-art gallery owns these product composition names
+- Feature canon: not enrolled — the existing terminal surfaces consume these product compositions and maintainer previews
 
 ## `browser-artworks` — Browser artworks
 
@@ -2616,7 +2627,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 79
+- Members: 80
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2657,6 +2668,7 @@ This meta-registry: the closed set of closed sets.
   - `tips`
   - `terminal-art-variants`
   - `terminal-triangle-motifs`
+  - `terminal-product-triangle-art`
   - `browser-artworks`
   - `failure-recovery-evidence`
   - `error-failure-recovery`
