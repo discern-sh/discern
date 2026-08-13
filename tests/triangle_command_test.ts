@@ -13,7 +13,10 @@ import {
   triangleResult,
 } from "../src/commands/triangle.ts";
 import { DISCERN_MARK, DISCERN_WORDMARK } from "../src/shared/brand.ts";
-import { DISCERN_PRODUCT_TRIANGLE_ART } from "../art/terminal/triangle.ts";
+import {
+  DISCERN_PRODUCT_TRIANGLE_ART,
+  DISCERN_TRIANGLE_GLYPHS,
+} from "../art/terminal/triangle.ts";
 import type { TerminalAnimationEnvironment } from "../src/lib/terminal_animation.ts";
 import { runAgentPty } from "./engine_helpers.ts";
 import { fromFileUrl } from "@std/path";
@@ -144,7 +147,10 @@ Deno.test("triangle keeps Unicode in a Codex-style dumb UTF-8 terminal", async (
   });
   assertEquals(result.code, 0, result.output);
   assertStringIncludes(result.output, `       ${DISCERN_MARK}`);
-  assertStringIncludes(result.output, `      ${DISCERN_MARK} ◭`);
+  assertStringIncludes(
+    result.output,
+    `      ${DISCERN_MARK} ${DISCERN_TRIANGLE_GLYPHS.upLeft}`,
+  );
   assertStringIncludes(result.output, DISCERN_WORDMARK);
   assertEquals(result.output.includes("> ^"), false);
   assertEquals(result.output.includes(CSI), false);

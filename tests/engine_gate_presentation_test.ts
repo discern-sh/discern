@@ -795,7 +795,10 @@ Deno.test("Gate workflow TERM=dumb degrades through the shared context", () => {
     { width: 48, terminal: dumb },
     0,
   );
-  assertStringIncludes(rendered, "[◮] lint [running]");
+  assertStringIncludes(
+    rendered,
+    `[${DISCERN_TRIANGLE_GLYPHS.upRight}] lint [running]`,
+  );
   assertStringIncludes(rendered, "·  format [pending]");
   assertEquals(rendered.includes("\x1b["), false);
 });

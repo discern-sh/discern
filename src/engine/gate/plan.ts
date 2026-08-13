@@ -308,7 +308,7 @@ export function buildStageGroups(
   return [...preCheckpointGroups(cfg), ...checkTestGroups(cfg, standardJobs)];
 }
 
-/** Pure, conservative group shapes used to admit live Gate repainting. */
+/** Pure, conservative group shapes for live Gate repaint admission. */
 export function gateLiveAdmissionGroups(
   cfg: DiscernConfig,
   standardJobs: PlannedJob[] = [],
