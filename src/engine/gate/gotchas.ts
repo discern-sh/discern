@@ -19,7 +19,11 @@ import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { canonicalDocTargetFromPath } from "../../lib/docs.ts";
 import { resolveMapDir } from "../../lib/paths.ts";
 import { isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
-import { palette, writeStderr } from "../output.ts";
+import { writeStderr } from "../output.ts";
+import {
+  terminalLine,
+  terminalPresentationContext,
+} from "../../lib/terminal.ts";
 import {
   type GateFailureEvidence,
   type GotchasTrap,
@@ -205,12 +209,14 @@ export function gotchasHint(
 /** The shared stderr lead: the failed-step marker plus the fired hint text,
  * or the record-your-fix nudge when no gotchas doc is configured. */
 function renderGotchasLead(hint: FiredHint | undefined, color: boolean): void {
-  const c = palette(color);
-  const lead = `\n${c.dim}── a gate step failed.${c.reset}`;
+  const terminal = terminalPresentationContext(color);
+  const lead = `\n${terminal.role("── a gate step failed.", "muted")}`;
   writeStderr(
     hint !== undefined
       ? `${lead} ${hint.text}\n`
-      : `${lead} If it isn't self-explanatory, record the fix in a gotchas doc and point ${c.cyan}[project].gotchas_doc${c.reset} in discern.toml at it.\n`,
+      : `${lead} If it isn't self-explanatory, record the fix in a gotchas doc and point ${
+        terminal.tone("[project].gotchas_doc", "accent")
+      } in discern.toml at it.\n`,
   );
 }
 
@@ -221,8 +227,10 @@ export function renderGotchasTail(
   color: boolean,
 ): void {
   renderGotchasLead(tail?.hint, color);
-  const c = palette(color);
+  const terminal = terminalPresentationContext(color);
   for (const warning of tail?.warnings ?? []) {
-    writeStderr(`${c.yellow}!${c.reset} ${warning.text}\n`);
+    writeStderr(
+      `${terminal.tone("!", "warning")} ${terminalLine(warning.text)}\n`,
+    );
   }
 }

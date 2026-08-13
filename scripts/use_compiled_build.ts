@@ -33,14 +33,6 @@ import {
   writeExecutableSync,
 } from "./cli_install.ts";
 
-/** Apply an ANSI code only when stderr is a real terminal. */
-function style(code: string, text: string): string {
-  return Deno.stderr.isTerminal() ? `\x1b[${code}m${text}\x1b[0m` : text;
-}
-const bold = (t: string): string => style("1", t);
-const yellow = (t: string): string => style("33", t);
-const dim = (t: string): string => style("2", t);
-
 /** Build the host-target binary via the canonical build path. Returns success. */
 async function buildHostBinary(
   repoRoot: string,
@@ -67,25 +59,23 @@ async function buildHostBinary(
 
 /** Warn that PATH now resolves to the compiled binary and explain restoration. */
 function printLiveBanner(dest: string, triple: string): void {
-  const rule = yellow("─".repeat(68));
+  const rule = "─".repeat(68);
   console.error("");
   console.error(rule);
-  console.error(
-    `  ${bold(yellow("⚠  COMPILED discern is LIVE on your PATH"))}`,
-  );
+  console.error("  ⚠  COMPILED discern is LIVE on your PATH");
   console.error(`     ${dest}`);
   console.error(`     → compiled binary (${triple}), no trace of any checkout`);
   console.error("");
   console.error(
     "  The from-source dev shim is suspended while this process runs.",
   );
-  console.error(`  Press ${bold("Ctrl+C")} to restore it.`);
+  console.error("  Press Ctrl+C to restore it.");
   console.error("");
   console.error(
-    dim("  If this is KILLED (-9) or the machine dies, the shim won't restore"),
+    "  If this is KILLED (-9) or the machine dies, the shim won't restore",
   );
   console.error(
-    dim("  itself — put it back by hand with: deno task install-dev-cli"),
+    "  itself — put it back by hand with: deno task install-dev-cli",
   );
   console.error(rule);
   console.error("");
@@ -140,9 +130,7 @@ export function holdCompiledLease(opts: {
   setInterval(() => {
     const mins = Math.max(1, Math.round((Date.now() - startedMs) / 60_000));
     console.error(
-      dim(
-        `  ⚠  compiled discern still live (${mins}m) — Ctrl+C to restore the dev shim`,
-      ),
+      `  ⚠  compiled discern still live (${mins}m) — Ctrl+C to restore the dev shim`,
     );
   }, 60_000);
 

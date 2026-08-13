@@ -134,17 +134,6 @@ function enabledEnvironmentMarker(value: string | undefined): boolean {
   return marker !== undefined && marker !== "" && marker !== "false";
 }
 
-/** Raw affixes retained only for untouched feature renderers crossing in 3A. */
-export interface TerminalStyleFragments {
-  readonly reset: string;
-  readonly strong: string;
-  readonly muted: string;
-  readonly danger: string;
-  readonly success: string;
-  readonly warning: string;
-  readonly accent: string;
-}
-
 /** Resolve one positive integer dimension through observation, env, fallback. */
 function resolveDimension(
   observed: number | undefined,
@@ -382,56 +371,6 @@ export function terminalContextWithColor(
     context.themeVariant,
     context.stdoutIsTerminal,
   );
-}
-
-/** Extract package-emitted prefixes for the temporary legacy palette facade. */
-export function terminalStyleFragments(
-  context: TerminalContext,
-): TerminalStyleFragments {
-  const marker = "terminal-style-affix-probe";
-  const affixes = (render: (text: string) => string): {
-    readonly prefix: string;
-    readonly suffix: string;
-  } => {
-    const rendered = render(marker);
-    const at = rendered.indexOf(marker);
-    if (at < 0) {
-      throw new TypeError("terminal style renderer did not preserve its text");
-    }
-    return {
-      prefix: rendered.slice(0, at),
-      suffix: rendered.slice(at + marker.length),
-    };
-  };
-  const strong = affixes((text) => context.role(text, "strong"));
-  const muted = affixes((text) => context.role(text, "muted"));
-  const danger = affixes((text) => context.tone(text, "danger"));
-  const success = affixes((text) => context.tone(text, "success"));
-  const warning = affixes((text) => context.tone(text, "warning"));
-  const accent = affixes((text) => context.tone(text, "accent"));
-  const suffixes = [
-    strong.suffix,
-    muted.suffix,
-    danger.suffix,
-    success.suffix,
-    warning.suffix,
-    accent.suffix,
-  ].filter((suffix) => suffix !== "");
-  const reset = suffixes[0] ?? "";
-  if (suffixes.some((suffix) => suffix !== reset)) {
-    throw new TypeError(
-      "package terminal styles use incompatible reset affixes",
-    );
-  }
-  return {
-    reset,
-    strong: strong.prefix,
-    muted: muted.prefix,
-    danger: danger.prefix,
-    success: success.prefix,
-    warning: warning.prefix,
-    accent: accent.prefix,
-  };
 }
 
 /** Resolve both dimensions through the shared process adapter. */

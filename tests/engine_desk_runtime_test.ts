@@ -20,7 +20,11 @@ import type {
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import { Logger } from "../src/lib/log.ts";
-import { makeOut, type Out, type Palette } from "../src/engine/output.ts";
+import { makeOut, type Out } from "../src/engine/output.ts";
+import {
+  resolveTerminalContext,
+  type TerminalContext,
+} from "../src/lib/terminal.ts";
 import {
   type DeskRuntime,
   runDesk,
@@ -43,7 +47,7 @@ import {
 import { renderTipCli, TIPS } from "../src/shared/tips.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { displayWidth, wrapText } from "../src/lib/text.ts";
-import { withTempDir } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 
 const ROOT = "/project";
@@ -60,16 +64,6 @@ const CONFIG: DiscernConfig = configSchema.parse({
   repository: { trunk: "main" },
 });
 
-const PLAIN: Palette = {
-  reset: "",
-  bold: "",
-  dim: "",
-  red: "",
-  green: "",
-  yellow: "",
-  cyan: "",
-};
-
 interface Transcript {
   out: Out;
   stdout: string[];
@@ -77,16 +71,17 @@ interface Transcript {
 }
 
 /** Capture desk narration in ordered stdout and stderr arrays without a terminal. */
-function transcript(): Transcript {
+function transcript(
+  terminal: TerminalContext = makeOut(false).terminal,
+): Transcript {
   const stdout: string[] = [];
   const stderr: string[] = [];
   return {
     stdout,
     stderr,
     out: {
-      c: PLAIN,
-      color: false,
-      terminal: makeOut(false).terminal,
+      color: terminal.color,
+      terminal,
       info: (message) => stdout.push(`info:${message}`),
       ok: (message) => stdout.push(`ok:${message}`),
       warn: (message) => stderr.push(`warn:${message}`),
@@ -1319,19 +1314,22 @@ Deno.test("desk shows one tip below status, stable across redraws, marked once",
 });
 
 Deno.test("desk renders the Tip label in yellow", async () => {
-  const output = transcript();
-  output.out.c = {
-    ...PLAIN,
-    dim: "<dim>",
-    yellow: "<yellow>",
-    reset: "</>",
-  };
-  output.out.color = true;
+  const terminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      LANG: "en_GB.UTF-8",
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  });
+  const output = transcript(terminal);
 
   assertEquals(await runDesk({}, scriptedRuntime(output)), 0);
   assertStringIncludes(
     output.stdout.join(""),
-    "<dim>  ✦ </><yellow>Tip</><dim>  ",
+    `${terminal.role("  ✦ ", "muted")}${terminal.tone("Tip", "warning")}`,
   );
 });
 

@@ -17,26 +17,7 @@ import {
   terminalContext,
   terminalContextWithColor,
   terminalPresentationContext,
-  terminalStyleFragments,
 } from "../lib/terminal.ts";
-
-/**
- * Temporary raw-prefix facade for feature renderers migrating in 3A.
- *
- * Every member is derived from package Token roles by {@link palette}; no ANSI
- * number is authored here. The structural census prevents this compatibility
- * surface from growing while later streams replace prefix concatenation with
- * package Component renderers and {@link TerminalContext} helpers.
- */
-export interface Palette {
-  reset: string;
-  bold: string;
-  dim: string;
-  red: string;
-  green: string;
-  yellow: string;
-  cyan: string;
-}
 
 const ENCODER = new TextEncoder();
 
@@ -71,25 +52,6 @@ export function byteWriter(
   };
 }
 
-/** Resolve the 3A compatibility facade from package semantic roles. */
-export function palette(
-  color: boolean,
-  context: TerminalContext = terminalPresentationContext(color),
-): Palette {
-  const roles = terminalStyleFragments(
-    terminalContextWithColor(context, color),
-  );
-  return {
-    reset: roles.reset,
-    bold: roles.strong,
-    dim: roles.muted,
-    red: roles.danger,
-    green: roles.success,
-    yellow: roles.warning,
-    cyan: roles.accent,
-  };
-}
-
 /**
  * Compatibility setter for existing tests and direct engine callers. The CLI
  * installs a complete {@link TerminalContext}; this façade projects an injected
@@ -114,7 +76,6 @@ export function colorEnabled(): boolean {
 
 /** The human-output surface a gate command uses. */
 export interface Out {
-  c: Palette;
   color: boolean;
   /** The explicit package presentation context shared by feature renderers. */
   terminal: TerminalContext;
@@ -153,11 +114,9 @@ export function makeOut(
     opts.terminal ?? terminalPresentationContext(color),
     color,
   );
-  const c = palette(color, terminal);
   if (opts.quiet ?? false) {
     const noop = (): void => {};
     return {
-      c,
       color,
       terminal,
       info: noop,
@@ -190,14 +149,15 @@ export function makeOut(
   const stdout = (text: string): void => writeHuman(text, "stdout");
   const stderr = (text: string): void => writeHuman(text, "stderr");
   return {
-    c,
     color,
     terminal,
-    info: (m: string): void => stdout(`${c.cyan}→${c.reset} ${m}\n`),
-    ok: (m: string): void => stdout(`${c.green}✓${c.reset} ${m}\n`),
-    warn: (m: string): void => stderr(`${c.yellow}!${c.reset} ${m}\n`),
-    error: (m: string): void => stderr(`${c.red}✗${c.reset} ${m}\n`),
-    heading: (m: string): void => stdout(`\n${c.bold}${m}${c.reset}\n`),
+    info: (m: string): void => stdout(`${terminal.tone("→", "accent")} ${m}\n`),
+    ok: (m: string): void => stdout(`${terminal.tone("✓", "success")} ${m}\n`),
+    warn: (m: string): void =>
+      stderr(`${terminal.tone("!", "warning")} ${m}\n`),
+    error: (m: string): void =>
+      stderr(`${terminal.tone("✗", "danger")} ${m}\n`),
+    heading: (m: string): void => stdout(`\n${terminal.role(m, "strong")}\n`),
     group: (id: string, label?: string): void => {
       assertHumanOutputGroupId(id);
       if (label !== undefined) assertHumanOutputGroupLabel(id, label);
@@ -206,7 +166,9 @@ export function makeOut(
       }
       if (label !== undefined) {
         writeHuman(
-          `  ${c.dim}──${c.reset} ${c.bold}${label}${c.reset}\n`,
+          `  ${terminal.role("──", "muted")} ${
+            terminal.role(label, "strong")
+          }\n`,
           lastStream,
         );
       }
@@ -250,6 +212,6 @@ export function outSink(out: Out): RenderSink {
   return {
     heading: (t: string): void => out.heading(t),
     line: (t: string): void => out.raw(`${t}\n`),
-    dim: (t: string): string => `${out.c.dim}${t}${out.c.reset}`,
+    dim: (t: string): string => out.terminal.role(t, "muted"),
   };
 }

@@ -93,10 +93,14 @@ Deno.test("group writes exactly one boundary between populated groups", async ()
   assertEquals(err, ["→ first", "", "→ second", "", "  ── Third", "→ third"]);
 });
 
-Deno.test("bold and dim are identity functions when colour is off", () => {
+Deno.test("Logger exposes package presentation facts without inline style wrappers", () => {
   const log = new Logger({ json: false, noColor: true });
-  assertEquals(log.bold("x"), "x");
-  assertEquals(log.dim("y"), "y");
+  assertEquals(log.terminal.role("x", "strong"), "x");
+  assertEquals(log.terminal.role("y", "muted"), "y");
+  assertEquals("bold" in log, false);
+  assertEquals("dim" in log, false);
+  assertEquals("cyan" in log, false);
+  assertEquals("green" in log, false);
 });
 
 Deno.test("Logger narration styles come from injected package Token roles", async () => {

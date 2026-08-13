@@ -528,14 +528,6 @@ function presentationProbeFindings(
 
 const LEGACY_PALETTE_PATTERN =
   /\b(?:out\.c|c)\.(?:reset|bold|dim|red|green|yellow|cyan)\b/gu;
-const LEGACY_PALETTE_CENSUS: Readonly<Record<string, number>> = {
-  "src/engine/coupling/coupling.ts": 31,
-  "src/engine/desk/desk.ts": 37,
-  "src/engine/gate/finish.ts": 2,
-  "src/engine/gate/gotchas.ts": 6,
-  "src/engine/jobs/runner.ts": 8,
-};
-
 Deno.test("terminal boundary detectors reject unrelated future source", () => {
   assertEquals(
     authorityFindings(
@@ -734,14 +726,20 @@ Deno.test("migrated supervisory source consumes terminal presentation facts with
   assertEquals(findings, []);
 });
 
-Deno.test("the generated 3A palette compatibility facade has an exact census", async () => {
+Deno.test("authored runtime presentation has no raw palette-prefix API", async () => {
   const census: Record<string, number> = {};
   for (const rel of RUNTIME_TS_FILES) {
-    if (rel === "src/engine/output.ts") continue;
     const code = codeOnly(await Deno.readTextFile(join(REPO_ROOT, rel)));
     const count = [...code.matchAll(LEGACY_PALETTE_PATTERN)].length;
     if (count > 0) census[rel] = count;
   }
-  assertEquals(census, LEGACY_PALETTE_CENSUS);
-  assert(Object.values(census).reduce((sum, count) => sum + count, 0) > 0);
+  assertEquals(census, {});
+  assertEquals(
+    [
+      ...codeOnly("const c = out.c; c.red + c.reset").matchAll(
+        LEGACY_PALETTE_PATTERN,
+      ),
+    ].length,
+    2,
+  );
 });

@@ -25,7 +25,7 @@ import {
   type StepResult,
   verbatimStepLabel,
 } from "../src/shared/result.ts";
-import { makeOut, outSink, palette } from "../src/engine/output.ts";
+import { makeOut, outSink } from "../src/engine/output.ts";
 import { displayWidth } from "../src/lib/text.ts";
 import type { GatePlan } from "../src/engine/gate/plan.ts";
 import type { JobResult } from "../src/engine/jobs/types.ts";
@@ -616,21 +616,14 @@ Deno.test("dimBlock with a colour-off dim returns the block unchanged", () => {
   assertEquals(dimBlock(page, (s) => s), page);
 });
 
-Deno.test("a proof page dims per line under the real ANSI palette", () => {
-  const tokens = palette(true);
+Deno.test("a proof page applies the package muted role per line", () => {
   const dim = outSink(makeOut(true)).dim;
   const page = renderProofMarkdown(FACTS, STEPS);
   const block = dimBlock(page, dim);
-  for (const line of block.split("\n")) {
-    if (line === "") {
-      continue;
-    }
-    assertEquals(line.startsWith(tokens.dim), true, `undimmed line: ${line}`);
-    assertEquals(line.endsWith(tokens.reset), true, `unreset line: ${line}`);
-  }
-  // Attributes never straddle a newline: stripping the codes recovers the page.
   assertEquals(
-    block.replaceAll(tokens.dim, "").replaceAll(tokens.reset, ""),
-    page,
+    block.split("\n"),
+    page.split("\n").map((line) =>
+      line === "" ? "" : COLOR_TERMINAL.role(line, "muted")
+    ),
   );
 });

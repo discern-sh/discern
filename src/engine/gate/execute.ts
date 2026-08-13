@@ -189,6 +189,7 @@ export function gateRunContext(
       timeoutS: cfg.gate.timeout,
       ...(signal !== undefined ? { signal } : {}),
       color,
+      terminal,
       write: byteWriter("stdout"),
       quiet: quietRun,
     },

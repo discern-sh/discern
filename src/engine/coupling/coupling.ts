@@ -55,6 +55,7 @@ import {
   stripRepoPathPrefix,
 } from "../scopes/scopes.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { type TerminalContext, terminalLine } from "../../lib/terminal.ts";
 
 /** How many recent non-merge commits to mine — a bounded window, the one resource
  * bound. A name-only log over this many commits is cheap even on a large repo. */
@@ -794,27 +795,29 @@ function partnerRow(
   p: Partner,
   indent: string,
   countWidth: number,
-  c: Out["c"],
+  terminal: TerminalContext,
 ): string {
+  const pct = terminalLine(`${Math.round(p.confidence * 100)}%`.padStart(4));
   const strength = p.confidence >= 0.5
-    ? c.green
+    ? terminal.tone(pct, "success", "strong")
     : p.confidence >= 0.3
-    ? c.cyan
-    : c.dim;
-  const pctStr = `${Math.round(p.confidence * 100)}%`.padStart(4);
+    ? terminal.tone(pct, "accent", "strong")
+    : terminal.role(pct, "muted");
   const count = `${p.cochanges} of ${p.of}`.padStart(countWidth);
-  return `${indent}${c.bold}${strength}${pctStr}${c.reset}  ` +
-    `${c.dim}${count} commits${c.reset}  ${p.path}\n`;
+  return `${indent}${strength}  ${
+    terminal.role(`${count} commits`, "muted")
+  }  ${terminalLine(p.path)}\n`;
 }
 
 /** One evidence commit row: `<sha>  <date>  <subject>` — the same `  sha  subject` shape
  * `update` narrates (ADR 0064), plus the date, the sha cyan and the date dim. */
 function evidenceRow(
   commit: NonNullable<CouplingData["commits"]>[number],
-  c: Out["c"],
+  terminal: TerminalContext,
 ): string {
-  return `  ${c.cyan}${commit.sha}${c.reset}  ${c.dim}${commit.date}${c.reset}  ` +
-    `${commit.subject}\n`;
+  return `  ${terminal.tone(terminalLine(commit.sha), "accent")}  ${
+    terminal.role(terminalLine(commit.date), "muted")
+  }  ${terminalLine(commit.subject)}\n`;
 }
 
 /** Render the same generated-ownership fact carried by the typed notice. */
@@ -826,9 +829,15 @@ function renderGeneratedExclusions(data: CouplingData, out: Out): boolean {
   out.heading("Excluded from coupling");
   for (const { path, group } of excluded) {
     out.raw(
-      `  ${out.c.bold}${path}${out.c.reset}\n` +
-        `  ${out.c.dim}[generated.${group}] owns this declared output. ` +
-        `Coupling does not model projections as independent change partners.${out.c.reset}\n`,
+      `  ${out.terminal.role(terminalLine(path), "strong")}\n` +
+        `  ${
+          out.terminal.role(
+            terminalLine(
+              `[generated.${group}] owns this declared output. Coupling does not model projections as independent change partners.`,
+            ),
+            "muted",
+          )
+        }\n`,
     );
   }
   return true;
@@ -841,33 +850,44 @@ function renderGeneratedExclusions(data: CouplingData, out: Out): boolean {
  * reports each file's own count, so "no shared history" is the answer, not a blank.
  */
 function renderEvidenceHuman(data: CouplingData, out: Out): void {
-  const { c } = out;
-  const a = data.a ?? "";
-  const b = data.b ?? "";
+  const terminal = out.terminal;
+  const a = terminalLine(data.a ?? "");
+  const b = terminalLine(data.b ?? "");
   const together = data.together ?? 0;
   const ofA = data.of_a ?? 0;
   const ofB = data.of_b ?? 0;
   if (together === 0) {
     out.raw(
       `${a} and ${b} have not changed together in recent history.\n` +
-        `  ${c.dim}${a}: ${ofA} commit(s) · ${b}: ${ofB} commit(s)${c.reset}\n`,
+        `  ${
+          terminal.role(
+            `${a}: ${ofA} commit(s) · ${b}: ${ofB} commit(s)`,
+            "muted",
+          )
+        }\n`,
     );
     return;
   }
   out.heading(`Shared history of ${a} and ${b}`);
   out.raw(
-    `  ${c.dim}advisory — from git history; recent window${c.reset}\n` +
-      `  Changed together in ${c.bold}${together}${c.reset} commit(s) — ` +
+    `  ${
+      terminal.role("advisory — from git history; recent window", "muted")
+    }\n` +
+      `  Changed together in ${
+        terminal.role(String(together), "strong")
+      } commit(s) — ` +
       `${together} of ${ofA}${share(together, ofA)} touching ${a}, ` +
       `${together} of ${ofB}${share(together, ofB)} touching ${b}.\n`,
   );
   out.group("commits");
   for (const commit of data.commits ?? []) {
-    out.raw(evidenceRow(commit, c));
+    out.raw(evidenceRow(commit, terminal));
   }
   const more = together - (data.commits?.length ?? 0);
   if (more > 0) {
-    out.raw(`  ${c.dim}… and ${more} more shared commit(s).${c.reset}\n`);
+    out.raw(
+      `  ${terminal.role(`… and ${more} more shared commit(s).`, "muted")}\n`,
+    );
   }
 }
 
@@ -881,7 +901,7 @@ function renderEvidenceHuman(data: CouplingData, out: Out): void {
  * {@link couplingHints} instead; this is the standalone verb's view.
  */
 function renderCouplingHuman(data: CouplingData, out: Out): void {
-  const { c } = out;
+  const terminal = out.terminal;
   const renderedExclusions = renderGeneratedExclusions(data, out);
   if (data.mode === "evidence") {
     if (renderedExclusions) {
@@ -904,7 +924,11 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
       if (renderedExclusions) {
         return;
       }
-      out.raw(`No co-change partners found for \`${data.target ?? ""}\`.\n`);
+      out.raw(
+        `No co-change partners found for \`${
+          terminalLine(data.target ?? "")
+        }\`.\n`,
+      );
     } else if (n === 0) {
       if (!renderedExclusions) {
         out.raw("Nothing changed on this branch — no coupling findings.\n");
@@ -917,21 +941,29 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
   const countWidth = Math.max(
     ...data.partners.map((p) => `${p.cochanges} of ${p.of}`.length),
   );
-  const subtitle =
-    `${c.dim}advisory — from git history; not exhaustive${c.reset}`;
+  const subtitle = terminal.role(
+    "advisory — from git history; not exhaustive",
+    "muted",
+  );
 
   if (data.mode === "query") {
-    out.heading(`Files that usually change with ${data.target ?? ""}`);
+    out.heading(
+      `Files that usually change with ${terminalLine(data.target ?? "")}`,
+    );
     out.raw(`  ${subtitle}\n`);
     out.group("partners");
     for (const p of data.partners) {
-      out.raw(partnerRow(p, "  ", countWidth, c));
+      out.raw(partnerRow(p, "  ", countWidth, terminal));
     }
   } else {
     out.heading("Coupling");
     out.raw(
-      `  ${c.dim}Files that usually change with ${changedPhrase} (vs ` +
-        `the trunk, the shared landing branch), but aren't among them.${c.reset}\n  ${subtitle}\n`,
+      `  ${
+        terminal.role(
+          `Files that usually change with ${changedPhrase} (vs the trunk, the shared landing branch), but aren't among them.`,
+          "muted",
+        )
+      }\n  ${subtitle}\n`,
     );
     // Group partners under the file that drew them, in ranked order (the Map keeps
     // first-seen order, and data.partners is already ranked strongest-first).
@@ -941,11 +973,15 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
       arr.push(p);
       groups.set(p.from, arr);
     }
-    for (const [from, partners] of groups) {
-      out.group(`partners:${from}`);
-      out.raw(`  You changed ${c.bold}${from}${c.reset}, but not:\n`);
+    for (const [groupIndex, [from, partners]] of [...groups].entries()) {
+      out.group(`partners:${groupIndex + 1}`);
+      out.raw(
+        `  You changed ${
+          terminal.role(terminalLine(from), "strong")
+        }, but not:\n`,
+      );
       for (const p of partners) {
-        out.raw(partnerRow(p, "     ", countWidth, c));
+        out.raw(partnerRow(p, "     ", countWidth, terminal));
       }
     }
   }
@@ -954,9 +990,14 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
   if (strongest !== undefined && strongest.confidence >= STRONG_CONFIDENCE) {
     out.group("forcing-function-advice");
     out.raw(
-      `  ${c.dim}\`${strongest.from}\` and \`${strongest.path}\` change together ` +
-        `almost every time — if that's an essential invariant, lock it with a ` +
-        `forcing-function (the discern-cure-a-bug skill).${c.reset}\n`,
+      `  ${
+        terminal.role(
+          terminalLine(
+            `\`${strongest.from}\` and \`${strongest.path}\` change together almost every time — if that's an essential invariant, lock it with a forcing-function (the discern-cure-a-bug skill).`,
+          ),
+          "muted",
+        )
+      }\n`,
     );
   }
 }

@@ -1462,7 +1462,10 @@ function printSuccessTail(
     out.ok("Everything built and all checks passed.");
     if (unfilled > 0) {
       out.info(
-        `${out.c.dim}note: ${unfilled} of ${STAGES.length} gate stages have no command yet.${out.c.reset}`,
+        out.terminal.role(
+          `note: ${unfilled} of ${STAGES.length} gate stages have no command yet.`,
+          "muted",
+        ),
       );
     }
   }

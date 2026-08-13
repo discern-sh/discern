@@ -86,6 +86,7 @@ import { TIPS } from "../../shared/tips.ts";
 import { observeShownTip } from "../../shared/result_capture.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
 import { displayWidth, terminalWidth, wrapText } from "../../lib/text.ts";
+import { terminalLine } from "../../lib/terminal.ts";
 import { deskSessionEnv, inDeskSession } from "./session.ts";
 import { clearEffortGrant } from "../worktree/effort_grant_cleanup.ts";
 import {
@@ -193,7 +194,9 @@ export interface DeskRuntime {
 
 /** Dim "→ <command>" line: the CLI equivalent of the action about to run. */
 function echoCommand(out: Out, command: string): void {
-  out.raw(`${out.c.dim}→ ${command}${out.c.reset}\n`);
+  out.raw(
+    `${out.terminal.role(terminalLine(`→ ${command}`), "muted")}\n`,
+  );
 }
 
 /** Quote one argv word for display only. Execution never passes through a
@@ -221,7 +224,7 @@ function clearBoard(out: Out): void {
  * drop's summary) isn't wiped by the next survey pass's clear. */
 async function awaitEnter(out: Out): Promise<void> {
   out.group("return-to-desk");
-  out.raw(`${out.c.dim}press ↵ to return to the desk${out.c.reset} `);
+  out.raw(`${out.terminal.role("press ↵ to return to the desk", "muted")} `);
   const buf = new Uint8Array(64);
   await Deno.stdin.read(buf);
 }
@@ -342,8 +345,10 @@ async function printGitRead(
 ): Promise<void> {
   const res = await runtime.git(args, cwd);
   const body = (res.success ? res.stdout : res.stderr).trimEnd();
-  out.heading(title);
-  out.raw(body === "" ? `${out.c.dim}(none)${out.c.reset}\n` : `${body}\n`);
+  out.heading(terminalLine(title));
+  out.raw(
+    body === "" ? `${out.terminal.role("(none)", "muted")}\n` : `${body}\n`,
+  );
 }
 
 /** A branch-local config can be malformed while the fleet row remains Git-
@@ -556,7 +561,7 @@ function renderHeader(
   const project = config.project.slug === ""
     ? basename(root)
     : config.project.slug;
-  out.heading(`${DISCERN_WORDMARK} | ${project}`);
+  out.heading(terminalLine(`${DISCERN_WORDMARK} | ${project}`));
   const taskCount = rows.length === 0
     ? "No tasks"
     : `${rows.length} task${rows.length === 1 ? "" : "s"}`;
@@ -570,12 +575,16 @@ function renderHeader(
         main.changed_files === 1 ? "" : "s"
       }`
       : `${main.branch} state unknown`;
-    const stateColor = main.clean === true ? out.c.green : out.c.yellow;
+    const renderedMainState = main.clean === true
+      ? out.terminal.tone(terminalLine(mainState), "success")
+      : out.terminal.tone(terminalLine(mainState), "warning");
     summaryLines.push(
-      `  ${out.c.dim}${taskCount}  ·${out.c.reset}  ${stateColor}${mainState}${out.c.reset}`,
+      `  ${
+        out.terminal.role(`${taskCount}  ·`, "muted")
+      }  ${renderedMainState}`,
     );
   } else {
-    summaryLines.push(`  ${out.c.dim}${taskCount}${out.c.reset}`);
+    summaryLines.push(`  ${out.terminal.role(taskCount, "muted")}`);
   }
   const unlandedLines: string[] = [];
   const unlanded = data.unlanded_branches ?? [];
@@ -584,12 +593,17 @@ function renderHeader(
       unlanded.length === 1 ? " has" : "es have"
     } no worktree`;
     unlandedLines.push(
-      `  ${out.c.yellow}${branches}${out.c.reset}: ${out.c.dim}${
-        unlanded.join(", ")
-      }${out.c.reset}`,
+      `  ${out.terminal.tone(branches, "warning")}: ${
+        out.terminal.role(terminalLine(unlanded.join(", ")), "muted")
+      }`,
     );
     unlandedLines.push(
-      `  ${out.c.dim}Open one with \`discern start --from <branch>\`.${out.c.reset}`,
+      `  ${
+        out.terminal.role(
+          "Open one with `discern start --from <branch>`.",
+          "muted",
+        )
+      }`,
     );
   }
   // Reclaimed-stage refs are a calm fact, not a warning: their commits ride
@@ -602,19 +616,30 @@ function renderHeader(
     const line = containedRefs.length === 1 && first !== undefined
       ? `${first.branch} rides inside ${first.contained_in} until it lands`
       : `${containedRefs.length} reclaimed stage refs ride inside live branches until they land`;
-    containedLines.push(`  ${out.c.dim}${line}.${out.c.reset}`);
+    containedLines.push(
+      `  ${out.terminal.role(terminalLine(`${line}.`), "muted")}`,
+    );
   }
   const reappearedLines: string[] = [];
   const reappeared = data.reappeared_worktree_paths ?? [];
   if (reappeared.length > 0) {
     reappearedLines.push(
-      `  ${out.c.yellow}${reappeared.length} removed worktree path${
-        reappeared.length === 1 ? " is" : "s are"
-      } present again.${out.c.reset}`,
+      `  ${
+        out.terminal.tone(
+          `${reappeared.length} removed worktree path${
+            reappeared.length === 1 ? " is" : "s are"
+          } present again.`,
+          "warning",
+        )
+      }`,
     );
     reappearedLines.push(
-      "  " + out.c.dim +
-        "Review with `discern worktree prune --dry-run`." + out.c.reset,
+      `  ${
+        out.terminal.role(
+          "Review with `discern worktree prune --dry-run`.",
+          "muted",
+        )
+      }`,
     );
   }
   // The session's tip (ADR 0234): one teaching line directly below the status,
@@ -628,8 +653,10 @@ function renderHeader(
     for (const [index, line] of lines.entries()) {
       tipLines.push(
         index === 0
-          ? `${out.c.dim}  ✦ ${out.c.reset}${out.c.yellow}Tip${out.c.reset}${out.c.dim}  ${line}${out.c.reset}`
-          : `${out.c.dim}${indent}${line}${out.c.reset}`,
+          ? `${out.terminal.role("  ✦ ", "muted")}${
+            out.terminal.tone("Tip", "warning")
+          }${out.terminal.role(`  ${line}`, "muted")}`
+          : out.terminal.role(`${indent}${line}`, "muted"),
       );
     }
   }
@@ -1097,9 +1124,18 @@ async function actOn(
   runtime: DeskRuntime,
 ): Promise<void> {
   clearBoard(out);
-  out.heading(row.task.name);
-  out.raw(`  ${out.c.dim}${row.summary}${out.c.reset}\n`);
-  out.raw(`  ${out.c.dim}Branch ${row.entry.branch}${out.c.reset}\n`);
+  out.heading(terminalLine(row.task.name));
+  out.raw(
+    `  ${out.terminal.role(terminalLine(row.summary), "muted")}\n`,
+  );
+  out.raw(
+    `  ${
+      out.terminal.role(
+        terminalLine(`Branch ${row.entry.branch}`),
+        "muted",
+      )
+    }\n`,
+  );
   while (true) {
     const options = groupedSelectOptions<string>([
       ...actionGroups(row, config),

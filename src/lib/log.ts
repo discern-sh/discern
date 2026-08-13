@@ -50,7 +50,8 @@ export function colourEnabled(
 /** A presentation-aware logger shared across a command invocation. */
 export class Logger {
   readonly json: boolean;
-  private readonly terminal: TerminalContext;
+  /** Package presentation facts shared with composed human renderers. */
+  readonly terminal: TerminalContext;
   /**
    * Which stream human (non-JSON) narration (info/ok/heading/detail) goes to:
    * `"stdout"` for an interactive verb, `"stderr"` when the parent reserves its
@@ -201,33 +202,12 @@ export class Logger {
     emitResult(r);
   }
 
-  /** Temporary 3A compatibility helper for a strong inline fragment. */
-  bold(text: string): string {
-    return this.terminal.role(text, "strong");
-  }
-
-  /** Temporary 3A compatibility helper for a muted inline fragment. */
-  dim(text: string): string {
-    return this.terminal.role(text, "muted");
-  }
-
-  /** Temporary 3A compatibility helper for an accent inline fragment. */
-  cyan(text: string): string {
-    return this.terminal.tone(text, "accent");
-  }
-
-  /** Temporary 3A compatibility helper for a success inline fragment. */
-  green(text: string): string {
-    return this.terminal.tone(text, "success");
-  }
-
   /**
    * Emit a pre-composed line to the human (narration) stream verbatim — the
    * fully-controlled counterpart to {@link detail}, which forces its own indent and
-   * dim. A caller that builds a line out of inline colour fragments
-   * ({@link bold}/{@link dim}/{@link cyan}/…) and owns its own wrapping/indentation
-   * uses this. Follows `humanStream` (stderr for the installer) and is suppressed in
-   * JSON mode, like the rest of the narration.
+   * dim. A caller that composes package Token roles and owns its wrapping or
+   * indentation uses this. Follows `humanStream` (stderr for the installer) and
+   * is suppressed in JSON mode, like the rest of the narration.
    */
   humanLine(text: string): void {
     if (this.json) {
@@ -242,6 +222,6 @@ export function loggerSink(log: Logger): RenderSink {
   return {
     heading: (t: string): void => log.heading(t),
     line: (t: string): void => log.line(t),
-    dim: (t: string): string => log.dim(t),
+    dim: (t: string): string => log.terminal.role(t, "muted"),
   };
 }

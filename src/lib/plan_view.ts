@@ -7,6 +7,7 @@
 import type { Logger } from "./log.ts";
 import type { OpDisposition, Plan, PlanOp } from "./fs_plan.ts";
 import { agentIntegrationPrefixes } from "./providers.ts";
+import { terminalLine } from "./terminal.ts";
 
 /** A short, human label for each disposition. */
 const DISPOSITION_LABEL: Record<OpDisposition, string> = {
@@ -22,14 +23,18 @@ export function renderPlan(log: Logger, plan: Plan, heading: string): void {
   log.heading(heading);
   for (const op of plan.ops) {
     const label = DISPOSITION_LABEL[op.disposition];
-    const note = op.note ? log.dim(` — ${op.note}`) : "";
-    log.line(`  ${label.padEnd(9)} ${op.targetRel}${note}`);
+    const note = op.note
+      ? log.terminal.role(terminalLine(` — ${op.note}`), "muted")
+      : "";
+    log.line(`  ${label.padEnd(9)} ${terminalLine(op.targetRel)}${note}`);
   }
 }
 
 /** One labelled row in the summary: a path and a dim description. */
 function row(log: Logger, path: string, desc: string): string {
-  return `    ${path.padEnd(22)} ${log.dim(desc)}`;
+  return `    ${terminalLine(path.padEnd(22))} ${
+    log.terminal.role(terminalLine(desc), "muted")
+  }`;
 }
 
 /**
@@ -60,16 +65,17 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
     o.targetRel !== "discern.toml" && !integrationSet.has(o)
   );
 
-  log.heading(`discern will set itself up in ${destDir}`);
+  log.heading(`discern will set itself up in ${terminalLine(destDir)}`);
   log.line(
-    log.dim(
+    log.terminal.role(
       `  ${ops.length} files. It never overwrites anything you already have.`,
+      "muted",
     ),
   );
 
   if (hasConfig) {
     log.group("config");
-    log.line(`  ${log.bold("Config")}`);
+    log.line(`  ${log.terminal.role("Config", "strong")}`);
     log.line(
       row(
         log,
@@ -81,17 +87,23 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
 
   if (other.length > 0) {
     log.group("project-content");
-    log.line(`  ${log.bold("Your content")}`);
+    log.line(`  ${log.terminal.role("Your content", "strong")}`);
     for (const op of other) {
-      log.line(`    ${op.targetRel}${op.note ? log.dim(` — ${op.note}`) : ""}`);
+      log.line(
+        `    ${terminalLine(op.targetRel)}${
+          op.note
+            ? log.terminal.role(terminalLine(` — ${op.note}`), "muted")
+            : ""
+        }`,
+      );
     }
   }
 
   if (integration.length > 0) {
     log.group("integration");
     log.line(
-      `  ${log.bold("Git & agent settings")} ${
-        log.dim("— merged or reconciled into your project")
+      `  ${log.terminal.role("Git & agent settings", "strong")} ${
+        log.terminal.role("— merged or reconciled into your project", "muted")
       }`,
     );
     for (const op of integration) {
@@ -104,18 +116,25 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
         : op.disposition === "remove"
         ? "the empty managed file removed"
         : "created";
-      log.line(row(log, op.targetRel, what));
+      log.line(row(log, op.targetRel, terminalLine(what)));
     }
   }
 
   log.group("full-plan-pointer");
-  log.line(log.dim("  See every file by re-running with --dry-run."));
+  log.line(
+    log.terminal.role(
+      "  See every file by re-running with --dry-run.",
+      "muted",
+    ),
+  );
 
   if (plan.unknownTokens.size > 0) {
     log.group("unknown-tokens");
     for (const [path, tokens] of plan.unknownTokens) {
       log.warn(
-        `unknown token(s) left untouched in ${path}: ${tokens.join(", ")}`,
+        terminalLine(
+          `unknown token(s) left untouched in ${path}: ${tokens.join(", ")}`,
+        ),
       );
     }
   }

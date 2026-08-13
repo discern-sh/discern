@@ -37,7 +37,7 @@ import { operatorHelp } from "../src/cli_help.ts";
 import { KNOWN_ENGINE_VERBS } from "../src/engine/dispatch.ts";
 import {
   colorEnabled,
-  palette,
+  makeOut,
   setColorOverride,
 } from "../src/engine/output.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
@@ -80,7 +80,7 @@ Deno.test("resolveColorMode is the single decision: flag beats NO_COLOR beats is
   );
 });
 
-Deno.test("the temporary output palette is generated from package semantic roles", () => {
+Deno.test("engine narration uses package semantic roles without a raw palette", () => {
   const terminal = resolveTerminalContext({
     noColor: false,
     env: fakeEnv({
@@ -91,20 +91,30 @@ Deno.test("the temporary output palette is generated from package semantic roles
     isTerminal: () => true,
     consoleSize: () => ({ columns: 80, rows: 24 }),
   });
-  const c = palette(true, terminal);
-  assertEquals(`${c.bold}Strong${c.reset}`, terminal.role("Strong", "strong"));
-  assertEquals(`${c.dim}Muted${c.reset}`, terminal.role("Muted", "muted"));
-  assertEquals(`${c.red}Danger${c.reset}`, terminal.tone("Danger", "danger"));
+  let stdout = "";
+  let stderr = "";
+  const out = makeOut(true, {
+    terminal,
+    stdout: (text) => stdout += text,
+    stderr: (text) => stderr += text,
+  });
+  out.info("Info");
+  out.ok("Done");
+  out.warn("Warning");
+  out.error("Danger");
+  out.heading("Heading");
+  assertEquals("c" in out, false);
   assertEquals(
-    `${c.green}Success${c.reset}`,
-    terminal.tone("Success", "success"),
+    stdout,
+    `${terminal.tone("→", "accent")} Info\n` +
+      `${terminal.tone("✓", "success")} Done\n` +
+      `\n${terminal.role("Heading", "strong")}\n`,
   );
   assertEquals(
-    `${c.yellow}Warning${c.reset}`,
-    terminal.tone("Warning", "warning"),
+    stderr,
+    `${terminal.tone("!", "warning")} Warning\n` +
+      `${terminal.tone("✗", "danger")} Danger\n`,
   );
-  assertEquals(`${c.cyan}Accent${c.reset}`, terminal.tone("Accent", "accent"));
-  assert(c.reset !== "");
 });
 
 Deno.test("the engine colour choke point obeys the threaded decision, beating its own isatty check", () => {
