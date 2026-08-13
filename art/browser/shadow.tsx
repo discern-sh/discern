@@ -150,7 +150,6 @@ export function ShadowArtwork({ id }: ShadowArtworkProps): ReactElement {
                     key={index}
                     d={d}
                     pathLength={1}
-                    vectorEffect="non-scaling-stroke"
                     style={{
                       animationDelay: `${
                         Math.round(index * edgeStep * 100) / 100
@@ -163,7 +162,6 @@ export function ShadowArtwork({ id }: ShadowArtworkProps): ReactElement {
                 className="fig-shadow__plumb"
                 d={view.plumb}
                 pathLength={1}
-                vectorEffect="non-scaling-stroke"
               />
               <circle
                 className="fig-shadow__apex"

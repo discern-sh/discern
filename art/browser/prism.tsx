@@ -258,7 +258,6 @@ export function PrismArtwork({ id }: PrismArtworkProps): ReactElement {
             className="fig-prism__guide"
             d={PRISM_PATHS.undeviated}
             pathLength={1}
-            vectorEffect="non-scaling-stroke"
           />
 
           {/* The resting diagram, which recedes while the passage re-runs. */}
@@ -288,14 +287,12 @@ export function PrismArtwork({ id }: PrismArtworkProps): ReactElement {
               className="fig-prism__ink fig-prism__ink--beam"
               d={PRISM_PATHS.incident}
               pathLength={1}
-              vectorEffect="non-scaling-stroke"
               style={{ animationDelay: "2.3s" }}
             />
             <path
               className="fig-prism__ink fig-prism__ink--beam"
               d={PRISM_PATHS.internal}
               pathLength={1}
-              vectorEffect="non-scaling-stroke"
               style={{ animationDelay: "5.7s" }}
             />
             {PRISM_RAYS.map((ray, index) => (
@@ -304,7 +301,6 @@ export function PrismArtwork({ id }: PrismArtworkProps): ReactElement {
                 className="fig-prism__ink fig-prism__ink--ray"
                 d={ray.d}
                 pathLength={1}
-                vectorEffect="non-scaling-stroke"
                 style={{
                   animationDelay: `${Math.round(ray.offset * 100) / 100}s`,
                 }}

@@ -230,7 +230,6 @@ export function IsolateArtwork({ id }: IsolateArtworkProps): ReactElement {
                   x2={line.x2}
                   y2={line.y2}
                   pathLength={1}
-                  vectorEffect="non-scaling-stroke"
                   style={{
                     animationDelay: `${
                       Math.round(
@@ -257,7 +256,6 @@ export function IsolateArtwork({ id }: IsolateArtworkProps): ReactElement {
                 x2={line.x2}
                 y2={line.y2}
                 pathLength={1}
-                vectorEffect="non-scaling-stroke"
                 style={{
                   animationDelay: `${
                     Math.round((k % 9) * 0.18 * 1000) / 1000

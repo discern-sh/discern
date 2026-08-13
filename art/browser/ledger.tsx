@@ -180,7 +180,6 @@ export function LedgerArtwork({ id }: LedgerArtworkProps): ReactElement {
             x2={LEDGER_KEYLINE.x}
             y2={LEDGER_KEYLINE.to}
             pathLength={1}
-            vectorEffect="non-scaling-stroke"
           />
 
           <g className="fig-ledger__refused">

@@ -320,7 +320,6 @@ export function MeshArtwork({ id }: MeshArtworkProps): ReactElement {
                 cy={Math.round(probe.y * 100) / 100}
                 r={Math.round(probe.r * 100) / 100}
                 pathLength={1}
-                vectorEffect="non-scaling-stroke"
                 style={{
                   animationDelay: seconds(probing.start + index * probing.step),
                 }}
@@ -352,7 +351,6 @@ export function MeshArtwork({ id }: MeshArtworkProps): ReactElement {
                 x2={edge.to.x}
                 y2={edge.to.y}
                 pathLength={1}
-                vectorEffect="non-scaling-stroke"
                 style={{
                   animationDelay: seconds(
                     inking.start + (index / lastEdge) * inking.span,
@@ -366,7 +364,6 @@ export function MeshArtwork({ id }: MeshArtworkProps): ReactElement {
             className="fig-mesh__hull"
             points={MESH_HULL_POINTS}
             pathLength={1}
-            vectorEffect="non-scaling-stroke"
           />
 
           <g className="fig-mesh__mark">
@@ -387,7 +384,6 @@ export function MeshArtwork({ id }: MeshArtworkProps): ReactElement {
             className="fig-mesh__mark-edge"
             points={MESH_MARK_POINTS}
             pathLength={1}
-            vectorEffect="non-scaling-stroke"
           />
 
           <g className="fig-mesh__sites">

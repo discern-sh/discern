@@ -347,7 +347,6 @@ export function RuleArtwork(
                 }${arc.anchor === 0 ? "a" : "b"}`}
                 d={arc.d}
                 pathLength={1}
-                vectorEffect="non-scaling-stroke"
               />
             ))}
           </g>
@@ -393,7 +392,6 @@ export function RuleArtwork(
                 className={`fig-rule__ink-chord fig-rule__g1-ink--${index + 1}`}
                 d={chordPath(chord)}
                 pathLength={1}
-                vectorEffect="non-scaling-stroke"
               />
             ))}
           </g>
@@ -406,7 +404,6 @@ export function RuleArtwork(
                 }`}
                 d={chordPath(chord)}
                 pathLength={1}
-                vectorEffect="non-scaling-stroke"
               />
             ))}
           </g>
@@ -420,7 +417,6 @@ export function RuleArtwork(
                   }`}
                   d={chordPath(chord)}
                   pathLength={1}
-                  vectorEffect="non-scaling-stroke"
                 />
               ))
             )}
@@ -430,7 +426,6 @@ export function RuleArtwork(
               className="fig-rule__accent"
               d={trianglePath(RULE_ACCENT_CELL)}
               pathLength={1}
-              vectorEffect="non-scaling-stroke"
             />
           </g>
         </g>

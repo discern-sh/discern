@@ -186,7 +186,6 @@ export function QuorumArtwork({ id }: QuorumArtworkProps): ReactElement {
                 key={index}
                 points={seat.probe}
                 pathLength={1}
-                vectorEffect="non-scaling-stroke"
                 style={{ animationDelay: seconds(seat.probeOffset) }}
               />
             ))}
@@ -223,7 +222,6 @@ export function QuorumArtwork({ id }: QuorumArtworkProps): ReactElement {
             x2={quorum.to}
             y2={quorum.y}
             pathLength={1}
-            vectorEffect="non-scaling-stroke"
             style={{ animationDelay: seconds(quorum.offset) }}
           />
 
@@ -269,7 +267,6 @@ export function QuorumArtwork({ id }: QuorumArtworkProps): ReactElement {
             className="fig-quorum__seal-edge"
             points={COMPOSITE_POINTS}
             pathLength={1}
-            vectorEffect="non-scaling-stroke"
           />
         </g>
       </svg>

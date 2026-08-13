@@ -224,7 +224,6 @@ export function PackingArtwork({ id }: PackingArtworkProps): ReactElement {
             x2={gauge.x}
             y2={gauge.top}
             pathLength={1}
-            vectorEffect="non-scaling-stroke"
           />
 
           <g className="fig-packing__mark">
