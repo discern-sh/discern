@@ -1,6 +1,6 @@
 /**
  * Terminal-dimension funnel guard — size-aware human output funnels through
- * `src/lib/text.ts`, where the wrap helper lives.
+ * `src/lib/terminal.ts`, the shared process adapter.
  *
  * The grouped `discern --help` and `doctor`'s execution model wrap their prose to
  * the terminal width with {@link wrapText}, reading the width with
@@ -12,9 +12,9 @@
  * You cannot guard "all prose wraps" structurally: whether a line SHOULD wrap is a
  * judgment (a description should; a data table, a JSON blob, or a file path should
  * not), and discern can't tell them apart. What you CAN guard is the door: the
- * terminal width is read in exactly ONE module, the same module that exports
- * `wrapText`. So any code that becomes width-aware is forced through `lib/text.ts`
- * and meets the wrap helper there — no second ad-hoc reader can quietly diverge.
+ * terminal width is read in exactly ONE module. Any code that becomes
+ * width-aware is forced through `lib/terminal.ts`, whose compatibility facade is
+ * re-exported by `lib/text.ts`; no second process reader can quietly diverge.
  * This is the `discern-cure-a-bug` move applied to a presentation concern: pin the
  * single source of terminal dimensions, not every call site that should wrap.
  */
@@ -23,8 +23,8 @@ import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
-/** The one module allowed to read terminal dimensions (it pairs width with wrapText). */
-const HOME = "src/lib/text.ts";
+/** The one module allowed to observe terminal dimensions. */
+const HOME = "src/lib/terminal.ts";
 
 /** Source with comments removed, so the scan sees calls, not prose that merely
  * mentions `$COLUMNS` while documenting the behaviour. */
@@ -71,7 +71,7 @@ function directDimensionReads(rel: string, source: string): string[] {
   return offenders;
 }
 
-Deno.test("terminal dimensions are read only in lib/text.ts (the wrapText funnel)", async () => {
+Deno.test("terminal dimensions are read only in the process adapter", async () => {
   const offenders: string[] = [];
   for (const rel of RUNTIME_DENO_FILES) {
     offenders.push(
@@ -83,9 +83,8 @@ Deno.test("terminal dimensions are read only in lib/text.ts (the wrapText funnel
   }
   assert(
     offenders.length === 0,
-    `terminal-dimension reads must funnel through ${HOME} (terminalSize + terminalWidth + wrapText), so ` +
-      `width-aware human output always meets the shared wrap helper and can't diverge ` +
-      `into an ad-hoc reader that wraps differently — or not at all. Replace the direct ` +
+    `terminal-dimension reads must funnel through ${HOME} (terminalSize + terminalWidth), so ` +
+      `width-aware human output cannot diverge into an ad-hoc process reader. Replace the direct ` +
       `read with terminalSize() or terminalWidth():\n  ${
         offenders.join("\n  ")
       }`,

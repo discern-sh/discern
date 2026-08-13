@@ -2495,6 +2495,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/terminal_boundary_guard_test.ts":
+    "applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set",
   "tests/result_capture_drain_parity_test.ts":
     "derives its universe from the module's `take*` exports and checks that both recording points drain every `result_capture` one-slot mailbox",
   "tests/control_byte_guard_test.ts":

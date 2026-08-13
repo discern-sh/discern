@@ -21,6 +21,7 @@
 import type { Job, JobResult, StageRunResult } from "./types.ts";
 import { spawnJob, type SpawnOptions } from "./command.ts";
 import { trackRun } from "./interrupt.ts";
+import { palette } from "../output.ts";
 
 /**
  * Lifecycle events for one scheduler run. A live gate-job TTY table can observe
@@ -80,24 +81,10 @@ function defaultWrite(chunk: Uint8Array): void {
   }
 }
 
-interface Palette {
-  dim: string;
-  reset: string;
-  green: string;
-  red: string;
-}
-const ON: Palette = {
-  dim: "\x1b[2m",
-  reset: "\x1b[0m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-};
-const OFF: Palette = { dim: "", reset: "", green: "", red: "" };
-
 /** Render the per-job status line. A fail-fast-cancelled sibling is labelled
  * `cancelled`, not `FAILED` — it wasn't a real failure, just killed mid-run. */
 function banner(result: JobResult, color: boolean): Uint8Array {
-  const c = color ? ON : OFF;
+  const c = palette(color);
   const tail = result.code === 0
     ? `${c.green}ok${c.reset}`
     : result.cancelled === true

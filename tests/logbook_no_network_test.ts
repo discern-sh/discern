@@ -39,10 +39,10 @@ const NETWORK_TOKEN =
  * The vetted external dependencies of the logbook graph. Each entry is a
  * specifier PREFIX, checked as vetted-for-this-graph: path/filesystem/assert
  * std modules, the TOML parser and Zod (the config schema), the terminal
- * colour helper (via the shared Logger type), and the process and os shims
- * the shared modules use (`os` supplies tmpdir for the temp-artifact
- * registry the self-shim mints in — platform constants, no socket). None
- * opens a socket.
+ * design-system CLI graph (pure rendering and capability types), and the
+ * process and os shims the shared modules use (`os` supplies tmpdir for the
+ * temp-artifact registry the self-shim mints in — platform constants, no
+ * socket). None opens a socket.
  */
 const ALLOWED_EXTERNAL_PREFIXES = [
   "@std/path",
@@ -51,6 +51,7 @@ const ALLOWED_EXTERNAL_PREFIXES = [
   "@std/fmt",
   "@zod/zod",
   "@cliffy/ansi",
+  "discern-design-system/cli",
   "node:process",
   "process",
   "node:os",

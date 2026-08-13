@@ -53,7 +53,7 @@ import { runCommandGroup } from "./shared/command_group.ts";
 import { cliJsonResultVerb } from "./shared/result_contracts.ts";
 import {
   productionTerminalContext,
-  resolveTerminalContext,
+  resolveTerminalColor,
   setTerminalContext,
   type TerminalContext,
 } from "./lib/terminal.ts";
@@ -83,14 +83,7 @@ export function resolveColorMode(
   env: EnvReader = Deno.env,
   isTerminal: () => boolean = () => Deno.stdout.isTerminal(),
 ): boolean {
-  return resolveTerminalContext({
-    noColor: noColorFlag,
-    env,
-    isTerminal,
-    consoleSize: () => {
-      throw new Error("colour-only resolution does not observe dimensions");
-    },
-  }).color;
+  return resolveTerminalColor(noColorFlag, env, isTerminal);
 }
 
 /**
