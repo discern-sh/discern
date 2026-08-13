@@ -1,13 +1,5 @@
 /**
- * Unit tests for the `setup` wizard's non-interactive surface (`src/lib/prompts.ts`).
- *
- * The interactive prompt bodies (Cliffy `Input`/`Checkbox`/`Confirm`) are
- * reached only on a TTY with `--yes` absent and are deliberately NOT exercised
- * here — mocking Cliffy is out of scope. These tests pin only the flag-driven
- * and error paths: `resolveBrief`'s literal/`@path`/missing-file behaviour,
- * `canPrompt`'s `--yes` short-circuit, and `resolveSetupConfig` with prompts
- * suppressed (warnings on unknown agents, dropping the unknown, and the
- * empty-input fallbacks to defaults).
+ * Product-policy and deterministic package-adapter tests for prompts.
  */
 
 import {
@@ -17,16 +9,81 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
+import type { TerminalCapabilities } from "discern-design-system/cli";
+import type {
+  TerminalIO,
+  TerminalSize,
+} from "discern-design-system/cli/interactive";
 import {
   canPrompt,
+  checkboxPrompt,
+  groupedSelectOptions,
+  inputPrompt,
   interactionAllowed,
+  isPromptCancellation,
   promptAllowed,
   resolveBrief,
   resolveSetupConfig,
+  selectPrompt,
+  setJsonMode,
+  setPlainMode,
 } from "../src/lib/prompts.ts";
 import { DEFAULTS } from "../src/lib/config.ts";
 import { Logger } from "../src/lib/log.ts";
 import { withTempDir } from "./helpers.ts";
+
+const encoder = new TextEncoder();
+
+/** Scripted package terminal that still runs the production prompt wrappers. */
+class ScriptedTerminal implements TerminalIO {
+  readonly writes: string[] = [];
+  readonly rawTransitions: boolean[] = [];
+  readonly #chunks: Uint8Array[];
+
+  constructor(
+    chunks: readonly string[],
+    readonly facts: TerminalCapabilities = {
+      colorDepth: "none",
+      columns: 60,
+      unicode: true,
+    },
+    readonly dimensions: TerminalSize = { columns: 60, rows: 24 },
+  ) {
+    this.#chunks = chunks.map((chunk) => encoder.encode(chunk));
+  }
+
+  isInteractive(): boolean {
+    return true;
+  }
+
+  capabilities(): TerminalCapabilities {
+    return this.facts;
+  }
+
+  size(): TerminalSize {
+    return this.dimensions;
+  }
+
+  read(): Promise<Uint8Array | null> {
+    return Promise.resolve(this.#chunks.shift() ?? null);
+  }
+
+  setRawMode(enabled: boolean): void {
+    this.rawTransitions.push(enabled);
+  }
+
+  write(value: string): void {
+    this.writes.push(value);
+  }
+}
+
+/** Explicitly allow a scripted terminal while keeping production wrappers. */
+function scriptedRuntime(io: TerminalIO): {
+  readonly io: TerminalIO;
+  readonly interactive: () => true;
+} {
+  return { io, interactive: () => true };
+}
 
 /** A real, colourless, non-JSON logger as the wizard receives one. */
 function logger(): Logger {
@@ -86,7 +143,7 @@ Deno.test("canPrompt(true) is false — --yes always suppresses prompts", () => 
   assertEquals(canPrompt(true), false);
 });
 
-Deno.test("interaction policy independently honors --plain, CI, and both streams", () => {
+Deno.test("interaction policy independently honors every prompt veto", () => {
   const env = (CI?: string) => ({
     get: (key: string) => key === "CI" ? CI : undefined,
   });
@@ -96,34 +153,429 @@ Deno.test("interaction policy independently honors --plain, CI, and both streams
   });
 
   assertEquals(
-    interactionAllowed(false, false, env(), streams(true, true)),
+    interactionAllowed(false, false, false, env(), streams(true, true)),
     true,
   );
   assertEquals(
-    interactionAllowed(false, true, env(), streams(true, true)),
+    interactionAllowed(true, false, false, env(), streams(true, true)),
     false,
   );
   assertEquals(
-    interactionAllowed(false, false, env("1"), streams(true, true)),
+    interactionAllowed(false, true, false, env(), streams(true, true)),
     false,
   );
   assertEquals(
-    interactionAllowed(false, false, env("false"), streams(true, true)),
+    interactionAllowed(false, false, true, env(), streams(true, true)),
+    false,
+  );
+  assertEquals(
+    interactionAllowed(false, false, false, env("1"), streams(true, true)),
+    false,
+  );
+  assertEquals(
+    interactionAllowed(
+      false,
+      false,
+      false,
+      env("false"),
+      streams(true, true),
+    ),
     true,
   );
   assertEquals(
-    interactionAllowed(false, false, env(), streams(false, true)),
+    interactionAllowed(false, false, false, env(), streams(false, true)),
     false,
   );
   assertEquals(
-    interactionAllowed(false, false, env(), streams(true, false)),
+    interactionAllowed(false, false, false, env(), streams(true, false)),
     false,
+  );
+});
+
+Deno.test("a veto refuses before constructing or touching terminal effects", async () => {
+  let terminalEffects = 0;
+  const io: TerminalIO = {
+    isInteractive: () => {
+      terminalEffects += 1;
+      return true;
+    },
+    capabilities: () => {
+      terminalEffects += 1;
+      return { colorDepth: "none", columns: 40, unicode: true };
+    },
+    size: () => {
+      terminalEffects += 1;
+      return { columns: 40, rows: 20 };
+    },
+    read: () => {
+      terminalEffects += 1;
+      return Promise.resolve(null);
+    },
+    setRawMode: () => {
+      terminalEffects += 1;
+    },
+    write: () => {
+      terminalEffects += 1;
+    },
+  };
+  await assertRejects(
+    () =>
+      selectPrompt({
+        message: "Choose",
+        options: [{ name: "One", value: "one" }],
+      }, { io, interactive: () => false }),
+    Error,
+    "needs an interactive terminal",
+  );
+  assertEquals(terminalEffects, 0);
+});
+
+Deno.test("global JSON and plain vetoes outrank an injected interactive runtime", async () => {
+  const io = new ScriptedTerminal(["\r"]);
+  try {
+    setJsonMode(true);
+    await assertRejects(
+      () =>
+        selectPrompt({
+          message: "Choose",
+          options: [{ name: "One", value: "one" }],
+        }, scriptedRuntime(io)),
+      Error,
+      "remove --plain and --json",
+    );
+    setJsonMode(false);
+    setPlainMode(true);
+    await assertRejects(
+      () =>
+        selectPrompt({
+          message: "Choose",
+          options: [{ name: "One", value: "one" }],
+        }, scriptedRuntime(io)),
+      Error,
+      "remove --plain and --json",
+    );
+  } finally {
+    setJsonMode(false);
+    setPlainMode(false);
+  }
+  assertEquals(io.rawTransitions, []);
+});
+
+Deno.test("grouped select keeps headings structural and ids stable across reorder", async () => {
+  const groups = groupedSelectOptions([
+    {
+      id: "first",
+      label: "First group",
+      items: [{ id: "alpha", name: "Duplicate label", value: "alpha" }],
+    },
+    {
+      id: "second",
+      label: "Second group",
+      items: [{ id: "beta", name: "Duplicate label", value: "beta" }],
+    },
+  ]);
+  const first = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await selectPrompt({
+      message: "Choose",
+      options: groups,
+      default: "beta",
+    }, scriptedRuntime(first)),
+    "beta",
+  );
+  assertStringIncludes(first.writes.join(""), "First group");
+  assertStringIncludes(first.writes.join(""), "Second group");
+
+  const reordered = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await selectPrompt({
+      message: "Choose",
+      options: groupedSelectOptions([
+        {
+          id: "second",
+          label: "Second group",
+          items: [{ id: "beta", name: "Duplicate label", value: "beta" }],
+        },
+        {
+          id: "first",
+          label: "First group",
+          items: [{ id: "alpha", name: "Duplicate label", value: "alpha" }],
+        },
+      ]),
+      default: "beta",
+    }, scriptedRuntime(reordered)),
+    "beta",
+  );
+});
+
+Deno.test("choice identity rejects duplicate values, ids, and implicit object ids", async () => {
+  const cases: Array<
+    readonly {
+      readonly id?: string;
+      readonly name: string;
+      readonly value: unknown;
+    }[]
+  > = [
+    [
+      { name: "One", value: "same" },
+      { name: "Two", value: "same" },
+    ],
+    [
+      { id: "same", name: "One", value: "one" },
+      { id: "same", name: "Two", value: "two" },
+    ],
+    [{ name: "Object", value: { id: "object" } }],
+  ];
+  for (const options of cases) {
+    const io = new ScriptedTerminal(["\r"]);
+    await assertRejects(
+      () =>
+        selectPrompt<unknown>(
+          { message: "Choose", options },
+          scriptedRuntime(io),
+        ),
+      TypeError,
+    );
+    assertEquals(io.rawTransitions, []);
+  }
+});
+
+Deno.test("single-select rejects nullish values that collide with no-selection", async () => {
+  for (const value of [null, undefined]) {
+    const io = new ScriptedTerminal(["\r"]);
+    await assertRejects(
+      () =>
+        selectPrompt<unknown>({
+          message: "Choose",
+          options: [{ id: "nullish", name: "Nullish", value }],
+        }, scriptedRuntime(io)),
+      TypeError,
+      "cannot use null or undefined",
+    );
+    assertEquals(io.rawTransitions, []);
+  }
+
+  const multiple = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await checkboxPrompt<null>({
+      message: "Choose",
+      options: [{ id: "null", name: "Null", value: null, checked: true }],
+    }, scriptedRuntime(multiple)),
+    [null],
+  );
+});
+
+Deno.test("search preserves matching groups, order, identity, and returned value", async () => {
+  const io = new ScriptedTerminal(["Beta", "\x1b[B", "\r"]);
+  const value = await selectPrompt({
+    message: "Browse",
+    search: true,
+    searchLabel: "filter",
+    options: groupedSelectOptions([
+      {
+        id: "documents",
+        label: "Documents",
+        items: [
+          { id: "alpha", name: "Alpha guide", value: "alpha" },
+          { id: "beta", name: "Beta guide", value: "beta" },
+        ],
+      },
+      {
+        id: "browse",
+        label: "Browse",
+        items: [{ id: "quit", name: "Quit", value: "quit" }],
+      },
+    ]),
+  }, scriptedRuntime(io));
+  assertEquals(value, "beta");
+  const transcript = io.writes.join("");
+  assertStringIncludes(transcript, "Documents");
+  assertStringIncludes(transcript, "Beta guide");
+});
+
+Deno.test("search rejects an initial selection the released API cannot restore", async () => {
+  const io = new ScriptedTerminal(["\r"]);
+  await assertRejects(
+    () =>
+      selectPrompt({
+        message: "Browse",
+        search: true,
+        default: "alpha",
+        options: [{ name: "Alpha", value: "alpha" }],
+      }, scriptedRuntime(io)),
+    TypeError,
+    "cannot restore an initial selection",
+  );
+  assertEquals(io.rawTransitions, []);
+});
+
+Deno.test("unknown single- and multi-select defaults fail before raw mode", async () => {
+  const single = new ScriptedTerminal(["\r"]);
+  await assertRejects(
+    () =>
+      selectPrompt({
+        message: "Choose",
+        default: "missing",
+        options: [{ name: "Present", value: "present" }],
+      }, scriptedRuntime(single)),
+    TypeError,
+    "does not name a prompt choice",
+  );
+  assertEquals(single.rawTransitions, []);
+
+  const multiple = new ScriptedTerminal(["\r"]);
+  await assertRejects(
+    () =>
+      checkboxPrompt({
+        message: "Choose",
+        default: ["missing"],
+        options: [{ name: "Present", value: "present" }],
+      }, scriptedRuntime(multiple)),
+    TypeError,
+    "does not name a prompt choice",
+  );
+  assertEquals(multiple.rawTransitions, []);
+});
+
+Deno.test("component text is inert while submitted values remain exact", async () => {
+  const rawValue = "\x1b[31mvalue";
+  const io = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await selectPrompt({
+      message: "Choose\x1bmessage",
+      hint: "Hint\nnext",
+      options: groupedSelectOptions([{
+        id: "hostile-group",
+        label: "Group\tname",
+        items: [{
+          id: "hostile-choice",
+          name: "Choice\rname",
+          value: rawValue,
+        }],
+      }]),
+    }, scriptedRuntime(io)),
+    rawValue,
+  );
+  const transcript = io.writes.join("");
+  for (
+    const visible of [
+      "Choose␛message",
+      "Hint␊next",
+      "Group␉name",
+      "Choice␍name",
+    ]
+  ) {
+    assertStringIncludes(transcript, visible);
+  }
+
+  const text = new ScriptedTerminal([
+    "bad\r",
+    "\x7f\x7f\x7f",
+    "good\r",
+  ]);
+  assertEquals(
+    await inputPrompt({
+      message: "Value\tlabel",
+      hint: "Use\rletters",
+      placeholder: "Type\nhere",
+      validate: (value) => value === "good" || "Wrong\x1bvalue",
+    }, scriptedRuntime(text)),
+    "good",
+  );
+  const textTranscript = text.writes.join("");
+  for (
+    const visible of [
+      "Value␉label",
+      "Use␍letters",
+      "Type␊here",
+      "Wrong␛value",
+    ]
+  ) {
+    assertStringIncludes(textTranscript, visible);
+  }
+});
+
+Deno.test("multiselect composes minimum and caller validation in source order", async () => {
+  const io = new ScriptedTerminal([
+    "\r",
+    " ",
+    "\r",
+    "\x1b[B",
+    " ",
+    "\r",
+  ]);
+  const values = await checkboxPrompt({
+    message: "Choose",
+    options: [
+      { id: "alpha", name: "Alpha", value: "alpha" },
+      { id: "beta", name: "Beta", value: "beta" },
+    ],
+    minOptions: 1,
+    validate: (selected) =>
+      selected.includes("beta") || "Beta is required for this test.",
+  }, scriptedRuntime(io));
+  assertEquals(values, ["alpha", "beta"]);
+  const transcript = io.writes.join("");
+  assertStringIncludes(transcript, "Select at least 1 option.");
+  assertStringIncludes(transcript, "Beta is required for this test.");
+});
+
+Deno.test("text validation stays distinct from normalized Ctrl-C and EOF cancellation", async () => {
+  const validation = new ScriptedTerminal([
+    "bad\r",
+    "\x7f\x7f\x7f",
+    "good\r",
+  ]);
+  assertEquals(
+    await inputPrompt({
+      message: "Value",
+      validate: (value) => value === "good" || "Enter good.",
+    }, scriptedRuntime(validation)),
+    "good",
+  );
+  assertStringIncludes(validation.writes.join(""), "Enter good.");
+
+  for (const chunks of [["\x03"], []] as const) {
+    const cancelled = new ScriptedTerminal(chunks);
+    const error = await (async (): Promise<unknown> => {
+      try {
+        await inputPrompt("Value", scriptedRuntime(cancelled));
+        return undefined;
+      } catch (caught) {
+        return caught;
+      }
+    })();
+    assertEquals(isPromptCancellation(error), true);
+    assertEquals(cancelled.rawTransitions, [true, false]);
+    assertEquals(cancelled.writes[0], "\n");
+  }
+});
+
+Deno.test("an unexpected in-frame error restores and terminates the prompt terminal", async () => {
+  const io = new ScriptedTerminal(["\r"]);
+  const failure = new Error("synthetic validator fault");
+  await assertRejects(
+    () =>
+      inputPrompt({
+        message: "Value",
+        validate: () => {
+          throw failure;
+        },
+      }, scriptedRuntime(io)),
+    Error,
+    failure.message,
+  );
+  assertEquals(io.rawTransitions, [true, false]);
+  assertEquals(
+    io.writes.at(-1),
+    "\n",
+    "the restored cursor must be followed by a semantic frame terminator",
   );
 });
 
 // ---- promptAllowed: no interactive prompt is reachable under --json (B53) ---
 //
-// The class: a blocking Cliffy prompt reachable while `--json` is the output
+// The class: a blocking interactive prompt reachable while `--json` is the output
 // contract — it would render to stdout and hang a machine caller that holds a
 // TTY. The cure forbids prompting in json mode BEFORE the TTY check, at the one
 // choke `confirmProceed` routes through. The interactive gate is injected here

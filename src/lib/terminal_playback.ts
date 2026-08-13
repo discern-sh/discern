@@ -4,7 +4,12 @@
  * and the executor alone owns cursor state, redraws, and waits.
  */
 
+import type { TerminalCapabilities } from "discern-design-system/cli";
 import { displayWidth, type TerminalSize } from "./text.ts";
+import {
+  createInlineFramePainter,
+  type InlineFramePainter,
+} from "./terminal_painter.ts";
 
 const MAX_FRAME_MS = 1_000;
 const MAX_FINAL_HOLD_MS = 5_000;
@@ -37,6 +42,8 @@ export interface TerminalPlaybackPort {
   readonly write: (value: string) => void;
   readonly wait: (milliseconds: number, signal: AbortSignal) => Promise<void>;
   readonly terminalSize: () => TerminalSize;
+  /** Explicit control facts; omission preserves the legacy capable test seam. */
+  readonly terminalCapabilities?: () => TerminalCapabilities;
 }
 
 /** A captured cleanup failure that preserves thrown values of any type. */
@@ -181,29 +188,11 @@ function hasPlaybackRoom(
     Number.isInteger(size.rows) && size.rows > maxHeight;
 }
 
-/** Return the cursor sequence that replaces the currently visible viewport. */
-function clearViewport(lines: number): string {
-  return `\x1b[${lines}A\r\x1b[J`;
-}
-
 /** Turn an aborted signal into a stable Error even when its reason is absent. */
 function abortFailure(signal: AbortSignal): Error {
   return signal.reason instanceof Error
     ? signal.reason
     : new DOMException("Terminal playback was interrupted", "AbortError");
-}
-
-/** Attempt a cleanup write without letting it replace an earlier failure. */
-function captureWriteFailure(
-  write: (value: string) => void,
-  value: string,
-): CapturedFailure | undefined {
-  try {
-    write(value);
-    return undefined;
-  } catch (error) {
-    return { error };
-  }
 }
 
 /** Throw a captured non-Error value through a stable Error boundary. */
@@ -230,13 +219,15 @@ function playbackStillFits(
   }
 }
 
-/** Print the stable transcript below a viewport whose physical rows are unknown. */
+/** Print the stable transcript below the current package-owned inline frame. */
 function settleBelowViewport(
   plan: TerminalPlaybackPlan,
   port: TerminalPlaybackPort,
-  hasLiveViewport: boolean,
+  painter: InlineFramePainter,
+  paint: (effect: () => void) => void,
 ): void {
-  port.write(`${hasLiveViewport ? "\n" : ""}${plan.finalTranscript}\n`);
+  paint(() => painter.finish());
+  port.write(`${plan.finalTranscript}\n`);
 }
 
 /**
@@ -256,9 +247,34 @@ export async function applyTerminalPlayback(
     throw abortFailure(signal);
   }
 
-  let visibleLines = 0;
+  const painter = createInlineFramePainter({
+    write: port.write,
+    size: port.terminalSize,
+    capabilities: () => {
+      const size = port.terminalSize();
+      const capabilities = port.terminalCapabilities?.() ?? {
+        ansiControl: true,
+        colorDepth: "none" as const,
+        columns: size.columns,
+        unicode: true,
+      };
+      return { ...capabilities, columns: size.columns };
+    },
+  });
   let failure: CapturedFailure | undefined;
+  let painterWriteFailed = false;
   let settled = false;
+  const paint = <T>(effect: () => T): T => {
+    try {
+      return effect();
+    } catch (error) {
+      // The package emits a replacement prefix and frame as one write. Once a
+      // write fails, its physical cursor position is unknowable; never attempt
+      // a second cursor-up cleanup that could move above the reserved region.
+      painterWriteFailed = true;
+      throw error;
+    }
+  };
   try {
     port.write("\n");
     scenes: for (const scene of plan.scenes) {
@@ -267,19 +283,16 @@ export async function applyTerminalPlayback(
           throw abortFailure(signal);
         }
         if (!playbackStillFits(plan, port)) {
-          const hadLiveViewport = visibleLines > 0;
-          visibleLines = 0;
-          settleBelowViewport(plan, port, hadLiveViewport);
+          settleBelowViewport(plan, port, painter, paint);
           settled = true;
           break scenes;
         }
-        if (visibleLines > 0) {
-          const linesToClear = visibleLines;
-          visibleLines = 0;
-          port.write(clearViewport(linesToClear));
+        const result = paint(() => painter.replace(viewport));
+        if (result.status === "refused") {
+          settleBelowViewport(plan, port, painter, paint);
+          settled = true;
+          break scenes;
         }
-        port.write(`${viewport}\n`);
-        visibleLines = viewportHeight(viewport);
         if (frameIndex < scene.viewports.length - 1) {
           await port.wait(scene.frameMs, signal);
         }
@@ -293,14 +306,10 @@ export async function applyTerminalPlayback(
     }
     if (!settled) {
       if (!playbackStillFits(plan, port)) {
-        const hadLiveViewport = visibleLines > 0;
-        visibleLines = 0;
-        settleBelowViewport(plan, port, hadLiveViewport);
+        settleBelowViewport(plan, port, painter, paint);
         settled = true;
-      } else if (visibleLines > 0) {
-        const linesToClear = visibleLines;
-        visibleLines = 0;
-        port.write(clearViewport(linesToClear));
+      } else {
+        paint(() => painter.clear());
       }
     }
     if (!settled) {
@@ -308,10 +317,15 @@ export async function applyTerminalPlayback(
     }
   } catch (error) {
     failure = { error };
-    if (visibleLines > 0 && playbackStillFits(plan, port)) {
-      const linesToClear = visibleLines;
-      visibleLines = 0;
-      captureWriteFailure(port.write, clearViewport(linesToClear));
+    if (
+      !painterWriteFailed && painter.currentFrame !== "" &&
+      playbackStillFits(plan, port)
+    ) {
+      try {
+        painter.clear();
+      } catch {
+        // Cleanup is best effort and never replaces the original failure.
+      }
     }
   }
 

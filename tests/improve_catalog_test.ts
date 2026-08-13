@@ -19,7 +19,10 @@ import {
   CATEGORY_NAMES,
   isDeterministic,
 } from "../src/engine/improve/rules.ts";
-import { evaluateReport } from "../src/engine/improve/improve.ts";
+import {
+  evaluateReport,
+  IMPROVEMENT_RULE_RESULT_STATE,
+} from "../src/engine/improve/improve.ts";
 import {
   type ImprovementContext,
   RULE_STATUSES,
@@ -88,6 +91,13 @@ Deno.test("improve wire schema's rule status enum equals the RuleStatus SSOT", (
   // the enum weakened to z.string()) red-lights here.
   assertEquals(
     [...ruleResultSchema.shape.status.options].sort(),
+    [...RULE_STATUSES].sort(),
+  );
+});
+
+Deno.test("improve presentation exhaustively adapts every RuleStatus", () => {
+  assertEquals(
+    Object.keys(IMPROVEMENT_RULE_RESULT_STATE).sort(),
     [...RULE_STATUSES].sort(),
   );
 });

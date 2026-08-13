@@ -171,28 +171,33 @@ export function loosenedLimitReason(
   return undefined;
 }
 
+/** Inputs to the mechanical Standard-pin decision. */
+export interface StandardPinEligibilityInput {
+  direction: "up" | "down";
+  value: number;
+  margin: number;
+  limit: number;
+}
+
+/** The mechanical pin decision shared by Gate execution and every recorded
+ * consumer. Recommendation policy does not belong here. */
+export type StandardPinEligibility =
+  | { eligible: true; target: number }
+  | { eligible: false };
+
 /**
- * The value `standards --pin` would tighten a limit to, or `undefined` when there is
- * no improvement worth capturing. It moves the limit toward the measured `value`,
- * leaving `margin` of headroom (floor → `value − margin`, ceiling → `value + margin`),
- * and rounds in the LOOSER direction (a floor down, a ceiling up, to two decimals) so
- * the value just measured still satisfies the pinned limit. It returns `undefined`
- * unless the result is STRICTLY tighter than `current` — so pin can only ever tighten
- * (never loosen, whatever the margin) and never churns a no-op commit for an
- * improvement smaller than the margin. Pure, so the whole decision is unit-testable.
- *
- * The pinned limit is guaranteed to be one the measured `value` still SATISFIES: a
- * floor never rises above the measurement, a ceiling never falls below it. `margin`
- * ≥ 0 upholds that at the source (the schema refuses a negative margin), but the
- * check is enforced here too — a limit the value fails is never worth pinning, so
- * `undefined` is the only safe answer whatever the caller passed.
+ * Evaluate one Standard's mechanical pin eligibility. The target moves the
+ * limit toward the measurement while leaving configured headroom: floor to
+ * `value - margin`, ceiling to `value + margin`. Rounding goes in the looser
+ * direction so the measurement still satisfies the target. Eligibility is
+ * true only for a strictly tighter, measurement-satisfying result. Pure and
+ * total over numeric inputs, including defensive rejection of a negative
+ * margin.
  */
-export function pinnedLimit(
-  direction: "up" | "down",
-  value: number,
-  margin: number,
-  current: number,
-): number | undefined {
+export function standardPinEligibility(
+  input: StandardPinEligibilityInput,
+): StandardPinEligibility {
+  const { direction, value, margin, limit } = input;
   const target = direction === "up" ? value - margin : value + margin;
   const rounded = direction === "up"
     ? Math.floor(target * 100) / 100
@@ -203,10 +208,26 @@ export function pinnedLimit(
     ? value + 1e-9 >= rounded
     : value - 1e-9 <= rounded;
   if (!satisfiedByMeasurement) {
-    return undefined;
+    return { eligible: false };
   }
-  const tighter = direction === "up" ? rounded > current : rounded < current;
-  return tighter ? rounded : undefined;
+  const tighter = direction === "up" ? rounded > limit : rounded < limit;
+  return tighter ? { eligible: true, target: rounded } : { eligible: false };
+}
+
+/** Compatibility projection for callers that need only the prospective limit. */
+export function pinnedLimit(
+  direction: "up" | "down",
+  value: number,
+  margin: number,
+  current: number,
+): number | undefined {
+  const eligibility = standardPinEligibility({
+    direction,
+    value,
+    margin,
+    limit: current,
+  });
+  return eligibility.eligible ? eligibility.target : undefined;
 }
 
 /** A human suffix for a standard's denominator, e.g. " per 1000 words in <docs-dir>**"

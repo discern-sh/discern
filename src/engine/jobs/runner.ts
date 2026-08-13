@@ -21,6 +21,11 @@
 import type { Job, JobResult, StageRunResult } from "./types.ts";
 import { spawnJob, type SpawnOptions } from "./command.ts";
 import { trackRun } from "./interrupt.ts";
+import {
+  type TerminalContext,
+  terminalLine,
+  terminalPresentationContext,
+} from "../../lib/terminal.ts";
 
 /**
  * Lifecycle events for one scheduler run. A live gate-job TTY table can observe
@@ -49,6 +54,8 @@ export interface RunOptions {
   signal?: AbortSignal;
   /** Whether colour is enabled for the status banners. */
   color: boolean;
+  /** Explicit package presentation facts for the status banners. */
+  terminal?: TerminalContext;
   /**
    * Per-command time budget in SECONDS (`[gate].timeout`), applied to EVERY job in
    * the run. A job that never exits within it is tree-killed and fails with a
@@ -80,30 +87,17 @@ function defaultWrite(chunk: Uint8Array): void {
   }
 }
 
-interface Palette {
-  dim: string;
-  reset: string;
-  green: string;
-  red: string;
-}
-const ON: Palette = {
-  dim: "\x1b[2m",
-  reset: "\x1b[0m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-};
-const OFF: Palette = { dim: "", reset: "", green: "", red: "" };
-
 /** Render the per-job status line. A fail-fast-cancelled sibling is labelled
  * `cancelled`, not `FAILED` — it wasn't a real failure, just killed mid-run. */
-function banner(result: JobResult, color: boolean): Uint8Array {
-  const c = color ? ON : OFF;
+function banner(result: JobResult, terminal: TerminalContext): Uint8Array {
   const tail = result.code === 0
-    ? `${c.green}ok${c.reset}`
+    ? terminal.tone("ok", "success")
     : result.cancelled === true
-    ? `${c.dim}cancelled${c.reset}`
-    : `${c.red}FAILED (exit ${result.code})${c.reset}`;
-  return ENCODER.encode(`${c.dim}── ${result.label} ─${c.reset} ${tail}\n`);
+    ? terminal.role("cancelled", "muted")
+    : terminal.tone(`FAILED (exit ${result.code})`, "danger");
+  return ENCODER.encode(
+    `${terminal.role(terminalLine(`── ${result.label} ─`), "muted")} ${tail}\n`,
+  );
 }
 
 /**
@@ -180,6 +174,7 @@ export async function runParallel(
   opts: RunOptions,
 ): Promise<StageRunResult> {
   const write = opts.write ?? defaultWrite;
+  const terminal = opts.terminal ?? terminalPresentationContext(opts.color);
   // Quiet (--json): withhold every write and force buffered capture so spawnJob
   // can't stream-write either. Failure output is still captured for diagnostics.
   const quiet = opts.quiet ?? false;
@@ -210,7 +205,7 @@ export async function runParallel(
     );
     if (!quiet) {
       for (const s of settled) {
-        write(banner(s.result, opts.color));
+        write(banner(s.result, terminal));
         if (!stream && s.output.length > 0) {
           write(s.output);
         }
@@ -238,6 +233,7 @@ export async function runSerial(
   opts: RunOptions,
 ): Promise<StageRunResult> {
   const write = opts.write ?? defaultWrite;
+  const terminal = opts.terminal ?? terminalPresentationContext(opts.color);
   const quiet = opts.quiet ?? false;
   const stream = quiet ? false : opts.stream;
   const controller = new AbortController();
@@ -261,7 +257,7 @@ export async function runSerial(
       const result = await evaluateResult(job, s.result);
       opts.observer?.settled(result);
       if (!quiet) {
-        write(banner(result, opts.color));
+        write(banner(result, terminal));
         if (!stream && s.output.length > 0) {
           write(s.output);
         }

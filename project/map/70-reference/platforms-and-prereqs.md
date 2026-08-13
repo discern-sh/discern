@@ -31,7 +31,7 @@ _The release targets and local tools discern requires, followed by identity sele
 | GNU/Linux        | `x86_64`, `amd64`                             | `discern-x86_64-unknown-linux-gnu`  |
 | GNU/Linux        | `arm64`, `aarch64`                            | `discern-aarch64-unknown-linux-gnu` |
 
-There is no native Windows release. Run the Linux binary inside Windows Subsystem for Linux (WSL). The installer rejects other operating systems and architectures before downloading an asset.
+There is no native Windows release. Run the Linux binary inside Windows Subsystem for Linux (WSL). The installer rejects other operating systems and architectures before downloading an asset. Release CI verifies the WSL path: a release-blocking job runs the full repository gate inside WSL 2 Ubuntu on a hosted Windows runner before every publication ([ADR 0278](../_adr/0278-wsl-support-is-proven-by-a-hosted-wsl2-gate-lane.md)).
 
 ## Required tools
 

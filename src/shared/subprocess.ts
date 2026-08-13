@@ -62,7 +62,16 @@ export interface GitResult {
   success: boolean;
   code: number;
   stdout: string;
+  /** Exact stdout bytes when the shared runner produced this result. Optional
+   * for injected test doubles and legacy callers that construct a result. */
+  stdoutBytes?: Uint8Array | undefined;
   stderr: string;
+  /** Exact stderr bytes when the shared runner produced this result. */
+  stderrBytes?: Uint8Array | undefined;
+  /** True when the caller's explicit wall-clock bound killed the process. */
+  timedOut?: boolean | undefined;
+  /** True when the caller's explicit combined output bound killed the process. */
+  outputLimitExceeded?: boolean | undefined;
 }
 
 /** Diagnostic returned when generic Git execution reaches for commit authority. */
@@ -74,6 +83,9 @@ export const GIT_COMMIT_BOUNDARY_ERROR =
 export const GIT_ALIAS_BOUNDARY_ERROR =
   "Git alias configuration cannot run through the generic Git runner. " +
   "Call the Git subcommand directly.";
+
+/** Exit code used when a caller-owned output ceiling terminates Git. */
+export const GIT_OUTPUT_LIMIT_EXCEEDED = 125;
 
 type GitConfigSource = "config" | "config-env" | "other";
 
@@ -242,6 +254,148 @@ export function configInvariantGitArgs(args: readonly string[]): string[] {
   ];
 }
 
+interface CapturedCommandOutput {
+  readonly success: boolean;
+  readonly code: number;
+  readonly stdout: Uint8Array;
+  readonly stderr: Uint8Array;
+}
+
+interface OutputBudget {
+  remaining: number;
+  exceeded: boolean;
+}
+
+/** Read one child stream while retaining no more than the shared byte ceiling. */
+async function readBoundedStream(
+  stream: ReadableStream<Uint8Array>,
+  budget: OutputBudget,
+  terminate: () => void,
+  signal: AbortSignal,
+): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = [];
+  let retained = 0;
+  const reader = stream.getReader();
+  const cancel = (): void => {
+    void reader.cancel().catch(() => undefined);
+  };
+  signal.addEventListener("abort", cancel, { once: true });
+  if (signal.aborted) cancel();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (budget.exceeded) continue;
+      const accepted = Math.min(value.length, budget.remaining);
+      if (accepted > 0) {
+        chunks.push(value.slice(0, accepted));
+        retained += accepted;
+        budget.remaining -= accepted;
+      }
+      if (accepted < value.length) {
+        budget.exceeded = true;
+        terminate();
+      }
+    }
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    reader.releaseLock();
+  }
+  const output = new Uint8Array(retained);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return output;
+}
+
+/** Write optional protocol input without owning the caller's process globals. */
+async function writeChildInput(
+  child: Deno.ChildProcess,
+  input: string | undefined,
+): Promise<unknown> {
+  if (input === undefined) return undefined;
+  const writer = child.stdin.getWriter();
+  try {
+    await writer.write(new TextEncoder().encode(input));
+    await writer.close();
+    return undefined;
+  } catch (error) {
+    try {
+      await writer.abort(error);
+    } catch {
+      // The process may already have closed stdin with a more specific result.
+    }
+    return error;
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+/** Capture a child under optional time and combined stdout/stderr ceilings. */
+async function boundedChildOutput(
+  child: Deno.ChildProcess,
+  opts: {
+    readonly stdin?: string | undefined;
+    readonly timeoutMs?: number | undefined;
+    readonly maxOutputBytes: number;
+  },
+): Promise<{
+  output: CapturedCommandOutput;
+  timedOut: boolean;
+  outputLimitExceeded: boolean;
+  inputError?: unknown;
+}> {
+  let timedOut = false;
+  let terminated = false;
+  const captureAbort = new AbortController();
+  const terminate = (): void => {
+    if (terminated) return;
+    terminated = true;
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // The process may have exited at the same instant as the boundary fired.
+    }
+    // Closing the two capture pipes prevents an escaped descendant that
+    // inherited them from turning a killed producer into an unbounded drain.
+    captureAbort.abort();
+  };
+  const budget: OutputBudget = {
+    remaining: Number.isFinite(opts.maxOutputBytes)
+      ? Math.max(0, Math.floor(opts.maxOutputBytes))
+      : 0,
+    exceeded: false,
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  if (opts.timeoutMs !== undefined) {
+    timer = setTimeout(() => {
+      timedOut = true;
+      terminate();
+    }, Math.max(0, opts.timeoutMs));
+  }
+  const inputPromise = writeChildInput(child, opts.stdin);
+  const [status, stdout, stderr, inputError] = await Promise.all([
+    child.status,
+    readBoundedStream(child.stdout, budget, terminate, captureAbort.signal),
+    readBoundedStream(child.stderr, budget, terminate, captureAbort.signal),
+    inputPromise,
+  ]);
+  if (timer !== undefined) clearTimeout(timer);
+  return {
+    output: {
+      success: status.success,
+      code: status.code,
+      stdout,
+      stderr,
+    },
+    timedOut,
+    outputLimitExceeded: budget.exceeded,
+    ...(inputError !== undefined ? { inputError } : {}),
+  };
+}
+
 /** Options for {@link discernMergeArgs}. */
 export interface DiscernMergeOptions {
   /** Require a fast-forward instead of permitting a merge commit. */
@@ -294,8 +448,14 @@ export async function runGit(
   opts: {
     cwd: string;
     env?: Record<string, string>;
+    /** Explicit binary seam for parallel-safe tests; ordinary callers omit it. */
+    bin?: string;
     /** Bytes supplied to commands whose protocol is defined on stdin. */
     stdin?: string;
+    /** Optional caller-owned wall-clock bound. Omitted for ordinary Git calls. */
+    timeoutMs?: number;
+    /** Optional caller-owned combined stdout/stderr ceiling. */
+    maxOutputBytes?: number;
   },
 ): Promise<GitResult> {
   const invocation = gitInvocation(args);
@@ -321,9 +481,12 @@ export async function runGit(
   // A configured alias is another spelling for an arbitrary command. The same
   // normalization pins machine-read status visibility at this shared funnel.
   const safeArgs = configInvariantGitArgs(args);
-  let output: Deno.CommandOutput;
+  const binary = opts.bin ?? gitBin();
+  let output: CapturedCommandOutput;
+  let timedOut = false;
+  let outputLimitExceeded = false;
   try {
-    const command = new Deno.Command(gitBin(), {
+    const command = new Deno.Command(binary, {
       args: safeArgs,
       cwd: opts.cwd,
       ...(opts.env !== undefined ? { env: opts.env } : {}),
@@ -331,8 +494,52 @@ export async function runGit(
       stdout: "piped",
       stderr: "piped",
     });
-    if (opts.stdin === undefined) {
+    if (
+      opts.stdin === undefined && opts.timeoutMs === undefined &&
+      opts.maxOutputBytes === undefined
+    ) {
       output = await command.output();
+    } else if (opts.maxOutputBytes !== undefined) {
+      const bounded = await boundedChildOutput(command.spawn(), {
+        ...(opts.stdin !== undefined ? { stdin: opts.stdin } : {}),
+        ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
+        maxOutputBytes: opts.maxOutputBytes,
+      });
+      output = bounded.output;
+      timedOut = bounded.timedOut;
+      outputLimitExceeded = bounded.outputLimitExceeded;
+      if (bounded.inputError !== undefined && output.success) {
+        throw bounded.inputError;
+      }
+    } else if (opts.stdin === undefined) {
+      if (opts.timeoutMs === undefined) {
+        output = await command.output();
+      } else {
+        const child = command.spawn();
+        const outputPromise = child.output();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const winner = await Promise.race([
+          outputPromise.then((value) => ({ kind: "output" as const, value })),
+          new Promise<{ kind: "timeout" }>((resolveTimeout) => {
+            timer = setTimeout(
+              () => resolveTimeout({ kind: "timeout" }),
+              Math.max(0, opts.timeoutMs ?? 0),
+            );
+          }),
+        ]);
+        if (timer !== undefined) clearTimeout(timer);
+        if (winner.kind === "output") {
+          output = winner.value;
+        } else {
+          timedOut = true;
+          try {
+            child.kill("SIGKILL");
+          } catch {
+            // It may have exited at the same instant the timer won.
+          }
+          output = await outputPromise;
+        }
+      }
     } else {
       const child = command.spawn();
       const outputPromise = child.output();
@@ -362,15 +569,23 @@ export async function runGit(
       success: false,
       code: SPAWN_FAILED,
       stdout: "",
-      stderr: describeSpawnError(error, gitBin()),
+      stderr: describeSpawnError(error, binary),
     };
   }
   const dec = new TextDecoder();
   return {
-    success: output.success,
-    code: output.code,
+    success: output.success && !timedOut && !outputLimitExceeded,
+    code: timedOut
+      ? 124
+      : outputLimitExceeded
+      ? GIT_OUTPUT_LIMIT_EXCEEDED
+      : output.code,
     stdout: dec.decode(output.stdout),
+    stdoutBytes: output.stdout,
     stderr: dec.decode(output.stderr),
+    stderrBytes: output.stderr,
+    ...(timedOut ? { timedOut: true } : {}),
+    ...(outputLimitExceeded ? { outputLimitExceeded: true } : {}),
   };
 }
 

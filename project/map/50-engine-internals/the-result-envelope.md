@@ -17,13 +17,13 @@ _Every verb builds one result object. Types, runtime validation, generated contr
 
 ## Human CLI groups
 
-Composed human views declare stable `HumanOutputGroup<T>` identities. `renderHumanOutputGroups` drops empty groups and puts one empty line between populated groups. Plans use `PlanStep.group`. Live output uses `Out.group` or `Logger.group`. An optional label draws a ruled heading. Pickers use `groupedSelectOptions`, which places one empty row before each ruled heading. `withPromptBoundary` starts every Cliffy prompt with one newline, separating its `?` context line from the preceding human output ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)).
+Human views declare stable `HumanOutputGroup<T>` ids. `renderHumanOutputGroups` omits empty groups and separates populated ones; plans use `PlanStep.group`, live output uses `Out.group` or `Logger.group`, and labels draw headings. discern owns picker groups: `groupedSelectOptions` gives every populated group, including the first, a non-selectable package heading. The package owns terminal I/O, editing, frames, and restoration; `withPromptBoundary` adds one blank outside redraw accounting ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)).
 
 Plan and result renderers preserve step order. When a `PlanStep.group` value returns after another group, the renderer opens another visible run and qualifies its non-rendered ID by occurrence. Directly authored `HumanOutputGroup` IDs reject duplicates.
 
 Boundaries mark changes in meaning; a homogeneous list stays one group. Machine protocols, scalar stdout, document bodies, framed tables, and project-owned streams retain their own structure.
 
-The Git-derived [`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing, direct prompt separators, and Cliffy prompt calls that bypass the shared boundary across authored TypeScript. Imported Cliffy classes enroll by structure, including aliases and new prompt kinds. Renderer tests cover recurring plan and result groups. Behavior tests cover plan stages, status regions, desk buckets, and every improvement category.
+[`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing and direct package-prompt bypasses across shipped `src/**` human surfaces. Named, aliased, namespace, and dynamic prompt access enrols structurally. The broader Git-derived [`terminal_boundary_guard_test.ts`](../../../tests/terminal_boundary_guard_test.ts) scans every authored Deno file for interaction and terminal violations. Renderer tests cover recurring plan and result groups; behavior tests cover plan stages, status regions, Desk buckets, and every improvement category.
 
 ## Step-label ownership
 

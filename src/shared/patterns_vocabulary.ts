@@ -70,25 +70,255 @@ export const PATTERNS_SERIES_MAX_POINTS = 24;
  * of growing with recorded history. */
 export const PATTERNS_FINDINGS_PER_DETECTOR = 3;
 
-/** One `patterns` finding: which detector spoke, its presentation tone and
- * one-line brief, an optional bounded trajectory series, what it observed (one
- * plain-count sentence), the named counts behind it, and the recommended next
- * step. `strength` is the report's ranking key — unitless, never evidence. */
+/** Maximum advisory investigations in one Patterns result. Relationships
+ * independently keep their strongest few; this outer bound prevents a future
+ * registry from turning synthesis into another history-sized payload. */
+export const PATTERNS_INVESTIGATIONS_MAX = 12;
+
+/** Maximum source findings one synthesized investigation may restate. */
+export const PATTERN_INVESTIGATION_OBSERVATIONS_MAX = 4;
+
+/** Whether one numerical finding value was read directly from recorded events
+ * or derived by a declared estimator. A confidence score is deliberately not
+ * part of the vocabulary: uncertainty belongs in the denominator and
+ * limitations. */
+export const PATTERN_EVIDENCE_VALUE_KINDS = ["observed", "estimated"] as const;
+export type PatternEvidenceValueKind =
+  (typeof PATTERN_EVIDENCE_VALUE_KINDS)[number];
+
+/** Maximum displayed readings for one condition. The full cardinality remains
+ * explicit through `distinct` and `omitted`, so the wire stays bounded without
+ * turning a sample into the complete set. */
+export const PATTERN_EVIDENCE_CONDITION_VALUES_MAX = 16;
+
+/** One controlled condition and a bounded sample of its recorded values. */
+export const PatternEvidenceConditionSchema = z.strictObject({
+  dimension: z.string().min(1),
+  values: z.array(z.string()).min(1).max(
+    PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
+  ),
+  distinct: z.number().int().positive(),
+  omitted: z.number().int().nonnegative(),
+}).superRefine((condition, context) => {
+  if (condition.distinct !== condition.values.length + condition.omitted) {
+    context.addIssue({
+      code: "custom",
+      path: ["distinct"],
+      message:
+        "condition distinct count must equal displayed values plus omitted values",
+    });
+  }
+});
+export type PatternEvidenceCondition = z.infer<
+  typeof PatternEvidenceConditionSchema
+>;
+
+/** Project distinct keyed readings into the bounded public condition shape.
+ * Ordering and truncation affect display only; callers retain the complete
+ * readings for comparison and signatures. */
+export function boundedPatternEvidenceCondition(
+  dimension: string,
+  readings: readonly { key: string; label: string }[],
+): PatternEvidenceCondition | undefined {
+  const distinct = new Map(readings.map((reading) => [
+    reading.key,
+    reading.label,
+  ]));
+  const ordered = [...distinct.entries()].sort(([left], [right]) =>
+    left.localeCompare(right)
+  );
+  if (ordered.length === 0) return undefined;
+  const values = ordered.slice(0, PATTERN_EVIDENCE_CONDITION_VALUES_MAX)
+    .map(([, label]) => label);
+  return {
+    dimension,
+    values,
+    distinct: ordered.length,
+    omitted: ordered.length - values.length,
+  };
+}
+
+/** The additive evidence contract shared by current and future findings. It
+ * keeps coverage, validation provenance, controlled-condition boundaries,
+ * exclusions, limitations, and observed/estimated value provenance separate
+ * from the compatible flat numerical `evidence` map. */
+export const PatternEvidenceBasisSchema = z.strictObject({
+  kind: z.string().min(1),
+  coverage: z.strictObject({
+    comparable: z.number().int().nonnegative(),
+    denominator: z.number().int().nonnegative(),
+    unit: z.string().min(1),
+  }).refine(
+    (coverage) => coverage.comparable <= coverage.denominator,
+    { message: "comparable evidence cannot exceed its denominator" },
+  ),
+  validation_state: z.strictObject({
+    version: z.number().int().nonnegative().nullable(),
+    complete: z.boolean(),
+  }),
+  matched_conditions: z.array(PatternEvidenceConditionSchema).max(16),
+  differing_conditions: z.array(PatternEvidenceConditionSchema).max(16),
+  legacy_events: z.number().int().nonnegative(),
+  excluded_events: z.number().int().nonnegative(),
+  limitations: z.array(z.string().min(1)).max(16),
+  values: z.record(
+    z.string(),
+    z.strictObject({
+      value: z.number(),
+      kind: z.enum(PATTERN_EVIDENCE_VALUE_KINDS),
+    }),
+  ),
+});
+export type PatternEvidenceBasis = z.infer<typeof PatternEvidenceBasisSchema>;
+
+/** One `patterns` finding: which detector spoke, its presentation tone, a
+ * plain-language summary, an optional bounded trajectory series, the concrete
+ * observation behind the summary, the named counts, and the recommended next
+ * step. `brief` remains as a compatibility alias of `summary`; renderers must
+ * project `summary` rather than author another claim. `strength` is the
+ * report's ranking key — unitless, never evidence. */
 export const PatternsFindingSchema = z.strictObject({
   detector: z.string(),
   family: z.enum(DETECTOR_FAMILIES),
   scope: z.enum(DETECTOR_SCOPES),
   tone: z.enum(PATTERN_FINDING_TONES),
   subject: z.string().optional(),
-  brief: z.string(),
+  summary: z.string().min(1),
+  brief: z.string().min(1),
   series: z.array(z.number()).max(PATTERNS_SERIES_MAX_POINTS).optional(),
   observed: z.string(),
   evidence: z.record(z.string(), z.number()),
+  basis: PatternEvidenceBasisSchema.optional(),
   strength: z.number(),
   next_step: z.string(),
+}).superRefine((finding, context) => {
+  if (finding.brief !== finding.summary) {
+    context.addIssue({
+      code: "custom",
+      path: ["brief"],
+      message: "finding brief must be the canonical summary projection",
+    });
+  }
+  if (finding.basis === undefined) {
+    return;
+  }
+  const evidenceKeys = Object.keys(finding.evidence).sort();
+  const valueKeys = Object.keys(finding.basis.values).sort();
+  if (evidenceKeys.join("\0") !== valueKeys.join("\0")) {
+    context.addIssue({
+      code: "custom",
+      path: ["basis", "values"],
+      message:
+        "structured evidence values must classify every flat evidence value exactly once",
+    });
+    return;
+  }
+  for (const key of evidenceKeys) {
+    if (finding.basis.values[key]?.value !== finding.evidence[key]) {
+      context.addIssue({
+        code: "custom",
+        path: ["basis", "values", key, "value"],
+        message: `structured evidence value ${key} must equal flat evidence`,
+      });
+    }
+  }
 });
 /** One patterns finding. */
 export type PatternsFinding = z.infer<typeof PatternsFindingSchema>;
+
+/** One source finding as cited by an investigation. Numerical values retain
+ * their observed/estimated classification, and the source denominator stays
+ * explicit rather than being reconstructed from prose. */
+export const PatternInvestigationObservationSchema = z.strictObject({
+  finding_id: z.string().min(1),
+  subject: z.string().optional(),
+  observed: z.string().min(1),
+  denominator: z.strictObject({
+    value: z.number().nonnegative(),
+    unit: z.string().min(1),
+  }),
+  values: z.record(
+    z.string(),
+    z.strictObject({
+      value: z.number(),
+      kind: z.enum(PATTERN_EVIDENCE_VALUE_KINDS),
+    }),
+  ),
+});
+export type PatternInvestigationObservation = z.infer<
+  typeof PatternInvestigationObservationSchema
+>;
+
+/** The shared evidence boundary retained while several findings are read as
+ * one investigation path. An empty version list means the relationship does
+ * not depend on validation identity. */
+export const PatternInvestigationBoundarySchema = z.strictObject({
+  validation_versions: z.array(z.number().int().nonnegative()).max(4),
+  complete_validation_state: z.boolean(),
+  setup_conditions: z.array(PatternEvidenceConditionSchema).max(16),
+  legacy_events: z.number().int().nonnegative(),
+  excluded_events: z.number().int().nonnegative(),
+  limitations: z.array(z.string().min(1)).max(16),
+});
+export type PatternInvestigationBoundary = z.infer<
+  typeof PatternInvestigationBoundarySchema
+>;
+
+/** An advisory, unscored relationship among source findings. The source
+ * findings remain in `data.findings`; this additive projection supplies one
+ * plain summary, one concrete observation, a preferred diagnostic action, and
+ * a falsifier. `interpretation` remains as a compatibility alias of
+ * `summary`. */
+export const PatternInvestigationSchema = z.strictObject({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  finding_ids: z.array(z.string().min(1)).min(1).max(
+    PATTERN_INVESTIGATION_OBSERVATIONS_MAX,
+  ),
+  subject: z.string().optional(),
+  observations: z.array(PatternInvestigationObservationSchema).min(1).max(
+    PATTERN_INVESTIGATION_OBSERVATIONS_MAX,
+  ),
+  evidence_boundary: PatternInvestigationBoundarySchema,
+  summary: z.string().min(1),
+  observed: z.string().min(1),
+  interpretation: z.string().min(1),
+  diagnostic_action: z.string().min(1),
+  falsifier: z.string().min(1),
+}).superRefine((investigation, context) => {
+  if (investigation.interpretation !== investigation.summary) {
+    context.addIssue({
+      code: "custom",
+      path: ["interpretation"],
+      message:
+        "investigation interpretation must be the canonical summary projection",
+    });
+  }
+  const unique = new Set(investigation.finding_ids);
+  if (unique.size !== investigation.finding_ids.length) {
+    context.addIssue({
+      code: "custom",
+      path: ["finding_ids"],
+      message: "investigation finding ids must be unique",
+    });
+  }
+  const observed = new Set(
+    investigation.observations.map((observation) => observation.finding_id),
+  );
+  if (
+    observed.size !== investigation.observations.length ||
+    investigation.finding_ids.some((findingId) => !observed.has(findingId)) ||
+    [...observed].some((findingId) => !unique.has(findingId))
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["observations"],
+      message:
+        "investigation observations must account for every source finding id exactly",
+    });
+  }
+});
+export type PatternInvestigation = z.infer<typeof PatternInvestigationSchema>;
 
 /** One detector's run in a `patterns` report: its registry identity, how many
  * qualifying events it saw against its threshold, and how it turned out —
@@ -151,6 +381,107 @@ const patternsPopulationSchema = z.strictObject({
 });
 /** The scored driver population of one report. */
 export type PatternsPopulation = z.infer<typeof patternsPopulationSchema>;
+
+/** The recorded order in which one change cycle first entered validation. */
+export const VALIDATION_WORKFLOW_ROUTES = [
+  "test-first",
+  "commit-first",
+  "unattributed",
+] as const;
+export type ValidationWorkflowRoute =
+  (typeof VALIDATION_WORKFLOW_ROUTES)[number];
+
+/** Counts shared by every validation-workflow route. */
+const validationWorkflowRouteSchema = z.strictObject({
+  route: z.enum(VALIDATION_WORKFLOW_ROUTES),
+  cycles: z.number().int().nonnegative(),
+  branches: z.number().int().nonnegative(),
+  runs: z.number().int().nonnegative(),
+  successful_cycles: z.number().int().nonnegative(),
+  successful_runs: z.number().int().nonnegative(),
+  failed_cycles: z.number().int().nonnegative(),
+  failed_runs: z.number().int().nonnegative(),
+  retried_cycles: z.number().int().nonnegative(),
+  retry_runs: z.number().int().nonnegative(),
+});
+
+/** Per-verb validation-workflow counts. */
+const validationWorkflowVerbSchema = z.strictObject({
+  verb: z.enum(["prepare", "test", "done"]),
+  runs: z.number().int().nonnegative(),
+  branches: z.number().int().nonnegative(),
+  clean: z.number().int().nonnegative(),
+  dirty: z.number().int().nonnegative(),
+  unknown: z.number().int().nonnegative(),
+  successes: z.number().int().nonnegative(),
+  failures: z.number().int().nonnegative(),
+  retries: z.number().int().nonnegative(),
+});
+
+/** One cohort's workflow counts, after the shared cohort minimums admit it. */
+const validationWorkflowCohortSchema = z.strictObject({
+  agent: z.string(),
+  label: z.string(),
+  cycles: z.number().int().nonnegative(),
+  runs: z.number().int().nonnegative(),
+  test_first_cycles: z.number().int().nonnegative(),
+  commit_first_cycles: z.number().int().nonnegative(),
+  successful_cycles: z.number().int().nonnegative(),
+  failed_cycles: z.number().int().nonnegative(),
+  retried_cycles: z.number().int().nonnegative(),
+});
+
+/** Validation-workflow Stats: counts over runs, change cycles, and eligible
+ * identity cohorts. The payload carries denominators rather than scores. */
+const validationWorkflowStatsSchema = z.strictObject({
+  runs: z.strictObject({
+    total: z.number().int().nonnegative(),
+    branches: z.number().int().nonnegative(),
+    by_verb: z.array(validationWorkflowVerbSchema).length(3),
+    evidence: z.strictObject({
+      denominator: z.number().int().nonnegative(),
+      complete: z.number().int().nonnegative(),
+      incomplete: z.number().int().nonnegative(),
+      legacy: z.number().int().nonnegative(),
+      unattributed: z.number().int().nonnegative(),
+    }),
+    dirty_state: z.strictObject({
+      denominator: z.number().int().nonnegative(),
+      tracked_only: z.number().int().nonnegative(),
+      untracked_only: z.number().int().nonnegative(),
+      mixed: z.number().int().nonnegative(),
+      unclassified: z.number().int().nonnegative(),
+    }),
+  }),
+  cycles: z.strictObject({
+    total: z.number().int().nonnegative(),
+    branches: z.number().int().nonnegative(),
+    routes: z.array(validationWorkflowRouteSchema).length(
+      VALIDATION_WORKFLOW_ROUTES.length,
+    ),
+    precommit_to_clean_gate: z.strictObject({
+      cycles: z.number().int().nonnegative(),
+      branches: z.number().int().nonnegative(),
+      runs: z.number().int().nonnegative(),
+      retry_runs: z.number().int().nonnegative(),
+    }),
+  }),
+  /** Present only when at least 2 cohorts clear the existing shared minimums. */
+  cohorts: z.strictObject({
+    denominator_cycles: z.number().int().nonnegative(),
+    denominator_runs: z.number().int().nonnegative(),
+    identities: z.array(validationWorkflowCohortSchema).max(10),
+    below_minimum: z.strictObject({
+      cohorts: z.number().int().nonnegative(),
+      cycles: z.number().int().nonnegative(),
+      runs: z.number().int().nonnegative(),
+    }),
+    unattributed: z.strictObject({
+      cycles: z.number().int().nonnegative(),
+      runs: z.number().int().nonnegative(),
+    }),
+  }).optional(),
+});
 
 /** The `--stats` payload — practice stats: the practice's countable feats,
  * read from the same analysis population as the detectors (CI runs, previews,
@@ -215,6 +546,9 @@ export const PatternsStatsSchema = z.strictObject({
     greens_per_day: z.array(z.number().int()).max(PATTERNS_SERIES_MAX_POINTS)
       .optional(),
   }),
+  /** How this project moves from working validation to a clean green Gate.
+   * Change cycles and evidence boundaries are defined in the Patterns map. */
+  validation_workflows: validationWorkflowStatsSchema,
   /** Completed start-to-accept cycles, matched the same way the funnel
    * detector matches them. Present once at least one cycle completed. */
   cycles: z.strictObject({
@@ -319,6 +653,9 @@ export const PatternsDataSchema = z.strictObject({
   population: patternsPopulationSchema,
   findings: z.array(PatternsFindingSchema),
   findings_total: z.number().int().optional(),
+  investigations: z.array(PatternInvestigationSchema).max(
+    PATTERNS_INVESTIGATIONS_MAX,
+  ),
   detectors: z.array(patternsDetectorSchema),
   stats: PatternsStatsSchema.optional(),
 });

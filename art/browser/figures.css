@@ -1,0 +1,66 @@
+/* The shared metre for the "Figures" browser-art series.
+ *
+ * Every figure consumes these custom properties instead of declaring its
+ * own colors, easings, stroke widths, or opacity steps, so the five pieces
+ * read as one hand. Durations are authored per piece but must be whole
+ * multiples of the base beat. The reduced-motion rule below is the single
+ * kill switch: each figure's authored SVG is its complete resolved state,
+ * so removing animation leaves the finished composition.
+ */
+@layer discern.page {
+  .fig {
+    /* One beat. Phrase lengths are whole multiples of it. */
+    --fig-beat: 1.2s;
+
+    /* The easing family: a pen draw, an instrument settle, an ambient drift. */
+    --fig-ease-draw: cubic-bezier(0.55, 0.05, 0.35, 1);
+    --fig-ease-settle: cubic-bezier(0.18, 0.82, 0.22, 1);
+    --fig-ease-drift: cubic-bezier(0.37, 0, 0.63, 1);
+
+    /* The stroke scale, applied with non-scaling strokes. */
+    --fig-hairline: 0.75;
+    --fig-line: 1.25;
+    --fig-heavy: 2.25;
+
+    /* The opacity steps between construction and ink. */
+    --fig-faint: 0.26;
+    --fig-quiet: 0.42;
+
+    /* The palette: ink for form, guide for construction, one accent. */
+    --fig-ink: var(--discern-color-ink);
+    --fig-ink-muted: var(--discern-color-ink-muted);
+    --fig-guide: var(--discern-color-border-strong);
+    --fig-accent: var(--discern-color-accent-600);
+
+    /* Prism's physically meaningful spectrum, shared here rather than
+     * embedded in its renderer so both supported themes receive one source. */
+    --fig-spectrum-violet: oklch(60% 0.2 300);
+    --fig-spectrum-indigo: oklch(58% 0.21 276);
+    --fig-spectrum-blue: oklch(56% 0.21 258);
+    --fig-spectrum-azure: oklch(63% 0.16 232);
+    --fig-spectrum-cyan: oklch(68% 0.13 208);
+
+    position: relative;
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .fig__art {
+    display: block;
+    width: 100%;
+    height: auto;
+    color: var(--fig-ink);
+    shape-rendering: geometricPrecision;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fig *,
+    .fig::before,
+    .fig::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+}

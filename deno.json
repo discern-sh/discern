@@ -70,9 +70,6 @@
     "zlib": "node:zlib",
     "@zod/zod": "jsr:@zod/zod@^4.4.3",
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
-    "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.8",
-    "@cliffy/table": "jsr:@cliffy/table@^1.0.0-rc.8",
-    "@cliffy/ansi/colors": "jsr:@cliffy/ansi@^1.0.0-rc.8/colors",
     "@std/fmt/colors": "jsr:@std/fmt@^1.0.10/colors",
     "@std/path": "jsr:@std/path@^1.0.8",
     "@std/fs": "jsr:@std/fs@^1.0.13",
@@ -89,7 +86,7 @@
     "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
     "react-dom/client": "npm:react-dom@18.3.1/client",
     "react-dom/server": "npm:react-dom@18.3.1/server",
-    "discern-design-system": "jsr:@discern-sh/design-system@0.12.0"
+    "discern-design-system": "jsr:@discern-sh/design-system@0.12.2"
   },
   "fmt": {
     "proseWrap": "never",

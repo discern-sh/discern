@@ -89,7 +89,7 @@ function oneLine(text: string): string {
 
 /**
  * The proof-tail advisory: zero or one hint, with a count, the strongest
- * current-branch observation, and the asked-for verb that carries full detail.
+ * current-branch summary, and the asked-for verb that carries full detail.
  */
 export function proofFindingHints(
   findings: readonly RoutedFinding[],
@@ -108,12 +108,12 @@ export function proofFindingHints(
   return [
     fire(HINTS["logbook-proof-finding"], {
       count,
-      observed: oneLine(strongest.finding.observed),
+      summary: oneLine(strongest.finding.summary),
     }),
   ];
 }
 
-/** Session-scoped status hints, each as observation plus the registry next step. */
+/** Session-scoped status hints, each as summary plus the registry next step. */
 export function statusFindingHints(
   findings: readonly RoutedFinding[],
   branch: string | undefined,
@@ -124,7 +124,7 @@ export function statusFindingHints(
     .map((routed) => {
       const next = routed.finding.next_step ?? routed.detector.next_step;
       return fire(HINTS["logbook-status-finding"], {
-        observed: oneLine(routed.finding.observed),
+        summary: oneLine(routed.finding.summary),
         next: oneLine(next),
       });
     });

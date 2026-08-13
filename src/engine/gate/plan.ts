@@ -308,6 +308,26 @@ export function buildStageGroups(
   return [...preCheckpointGroups(cfg), ...checkTestGroups(cfg, standardJobs)];
 }
 
+/** Pure, conservative group shapes for live Gate repaint admission. */
+export function gateLiveAdmissionGroups(
+  cfg: DiscernConfig,
+  standardJobs: PlannedJob[] = [],
+): {
+  readonly initialGroups: readonly JobGroup[];
+  readonly maximumGroups: readonly JobGroup[];
+} {
+  const initialGroups = buildStageGroups(cfg, standardJobs);
+  const allScopes = Object.keys(cfg.scopes);
+  return {
+    initialGroups,
+    maximumGroups: composeGatePlan(
+      initialGroups,
+      scopeGatesGroup(planScopeGates(cfg, allScopes)),
+      allScopes,
+    ).groups,
+  };
+}
+
 /** The display label of the `[generated]` regeneration group `prepare` runs —
  * exported so prepare's summary can recognize it without matching a literal. */
 export const GENERATED_GROUP_DISPLAY = "Generated";

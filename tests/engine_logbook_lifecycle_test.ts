@@ -4,9 +4,15 @@
  * points reset or archive at discern's own Logbook.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { dirname, join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { stripAnsi } from "discern-design-system/cli";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -42,6 +48,10 @@ import {
   withLogbookLifecycleLock,
 } from "../src/engine/logbook/store.ts";
 import { readLogbookStream } from "../src/engine/logbook/read.ts";
+import { runPatternsLifecycle } from "../src/engine/logbook/patterns.ts";
+import { logbookLifecycleConfirmation } from "../src/engine/dispatch.ts";
+import { PromptCancellation } from "../src/lib/prompts.ts";
+import { resolveTerminalContext } from "../src/lib/terminal.ts";
 
 /** One well-formed recorded completion line. */
 function verbLine(
@@ -121,6 +131,36 @@ async function exists(path: string): Promise<boolean> {
     }
     throw error;
   }
+}
+
+/** Assert the stable semantics of a Receipt check row while leaving its
+ * capability-selected marker to the package renderer. */
+function assertReceiptCheckSemantics(
+  output: string,
+  expected: {
+    readonly label: string;
+    readonly value: string;
+    readonly state: string;
+  },
+): void {
+  const line = stripAnsi(output).split(/\r?\n/u).find((candidate) =>
+    candidate.includes(expected.label)
+  );
+  assert(line !== undefined, `missing Receipt check ${expected.label}`);
+  const labelAt = line.indexOf(expected.label);
+  const valueToken = ` ${expected.value} `;
+  const valueAt = line.indexOf(valueToken, labelAt + expected.label.length);
+  const stateToken = ` ${expected.state}`;
+  const stateAt = line.indexOf(stateToken, valueAt + valueToken.length);
+  assert(
+    labelAt >= 0 && valueAt > labelAt && stateAt > valueAt,
+    `Receipt check must show label, value, and state in order: ${line}`,
+  );
+  const marker = line.slice(valueAt + valueToken.length, stateAt).trim();
+  assert(
+    marker.length > 0,
+    `Receipt check must retain a visible state marker: ${line}`,
+  );
 }
 
 interface SeededSibling {
@@ -247,7 +287,7 @@ Deno.test({
               );
             }
           } else {
-            assertStringIncludes(result.output, "1 event", label);
+            assertStringIncludes(result.output, "Events: 1", label);
             assertStringIncludes(result.output, "2026-08.jsonl", label);
             assertStringIncludes(result.output, "Preview only", label);
           }
@@ -278,7 +318,7 @@ Deno.test({
             input,
           });
           assertEquals(result.code, 0, `${action}\n${result.output}`);
-          assertStringIncludes(result.output, "Aborted — nothing was changed.");
+          assertStringIncludes(result.output, "Aborted. Nothing changed.");
           assertEquals(await Deno.readTextFile(active), before);
           assertEquals(
             await exists(join(dir, ".git", "discern", "logbook-archives")),
@@ -293,6 +333,64 @@ Deno.test({
       });
     }
   },
+});
+
+Deno.test("Logbook dispatch maps only product cancellation to default No", async () => {
+  let observedDefault: boolean | undefined;
+  assertEquals(
+    await logbookLifecycleConfirmation(
+      "Confirm",
+      (_message, defaultTo) => {
+        observedDefault = defaultTo;
+        return Promise.reject(new PromptCancellation());
+      },
+    ),
+    false,
+  );
+  assertEquals(observedDefault, false);
+
+  const fault = new Error("synthetic confirmation fault");
+  const caught = await assertRejects(
+    () => logbookLifecycleConfirmation("Confirm", () => Promise.reject(fault)),
+    Error,
+    fault.message,
+  );
+  assertEquals(caught, fault);
+});
+
+Deno.test("Logbook core propagates unrelated confirmation faults", async () => {
+  for (const action of LOGBOOK_LIFECYCLE_ACTION_NAMES) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      const active = await seedActiveLogbook(dir);
+      const before = await Deno.readTextFile(active);
+      const fault = new Error(`synthetic ${action} confirmation fault`);
+      const caught = await assertRejects(
+        () =>
+          runPatternsLifecycle(dir, action, {
+            json: false,
+            dryRun: false,
+            interactive: true,
+            terminal: resolveTerminalContext({
+              noColor: true,
+              env: fakeEnv({ TERM: "dumb", LANG: "C" }),
+              isTerminal: () => true,
+              consoleSize: () => ({ columns: 80, rows: 24 }),
+            }),
+            confirm: () => Promise.reject(fault),
+          }),
+        Error,
+        fault.message,
+      );
+      assertEquals(caught, fault);
+      assertEquals(
+        await Deno.readTextFile(active),
+        before,
+        `${action} changed active history after a confirmation fault`,
+      );
+    });
+  }
 });
 
 Deno.test("Logbook lifecycle exposes no unattended confirmation bypass", async () => {
@@ -358,7 +456,7 @@ Deno.test({
         input: "y\n",
       });
       assertEquals(archived.code, 0, archived.output);
-      assertStringIncludes(archived.output, "3 events");
+      assertStringIncludes(archived.output, "Events: 3");
       assertStringIncludes(archived.output, "2026-07-31 → 2026-08-11");
       assertStringIncludes(archived.output, "2026-07.jsonl");
       assertStringIncludes(archived.output, "2026-08.jsonl");
@@ -410,8 +508,12 @@ Deno.test({
       const humanListing = await runAgent(dir, ["patterns", "archives"]);
       assertEquals(humanListing.code, 0, humanListing.output);
       assertStringIncludes(humanListing.output, filename);
-      assertStringIncludes(humanListing.output, "3 events");
-      assertStringIncludes(humanListing.output, "2 unparsable lines skipped");
+      assertStringIncludes(humanListing.output, "Events: 3");
+      assertReceiptCheckSemantics(humanListing.output, {
+        label: "Unparsable lines",
+        value: "2",
+        state: "fail",
+      });
 
       const historical = await runAgent(dir, [
         "patterns",
@@ -446,6 +548,70 @@ Deno.test({
         kind: "archive",
         filename,
       });
+      assertEquals(statsData.stats.validation_workflows.runs, {
+        total: 2,
+        branches: 1,
+        by_verb: [
+          {
+            verb: "prepare",
+            runs: 1,
+            branches: 1,
+            clean: 1,
+            dirty: 0,
+            unknown: 0,
+            successes: 1,
+            failures: 0,
+            retries: 0,
+          },
+          {
+            verb: "test",
+            runs: 0,
+            branches: 0,
+            clean: 0,
+            dirty: 0,
+            unknown: 0,
+            successes: 0,
+            failures: 0,
+            retries: 0,
+          },
+          {
+            verb: "done",
+            runs: 1,
+            branches: 1,
+            clean: 1,
+            dirty: 0,
+            unknown: 0,
+            successes: 1,
+            failures: 0,
+            retries: 0,
+          },
+        ],
+        evidence: {
+          denominator: 2,
+          complete: 0,
+          incomplete: 0,
+          legacy: 1,
+          unattributed: 1,
+        },
+        dirty_state: {
+          denominator: 0,
+          tracked_only: 0,
+          untracked_only: 0,
+          mixed: 0,
+          unclassified: 0,
+        },
+      });
+      assertEquals(statsData.stats.validation_workflows.cycles.total, 2);
+
+      const historicalStats = await runAgent(dir, [
+        "patterns",
+        "--stats",
+        "--logbook-file",
+        filename,
+      ], { env: { COLUMNS: "80", NO_COLOR: "1" } });
+      assertEquals(historicalStats.code, 0, historicalStats.output);
+      assertStringIncludes(historicalStats.output, `archive ${filename}`);
+      assertStringIncludes(historicalStats.output, "Validation workflows");
 
       const terminal = await runAgent(dir, [
         "patterns",

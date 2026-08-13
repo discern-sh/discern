@@ -1,0 +1,253 @@
+/* Fig. VIII — the mesh. One 24s phrase (20 beats of 1.2s):
+ *
+ *   0–10%    the resolved triangulation rests
+ *  10–16%    the mesh recedes to faint; the sites settle in reading order
+ *  16–35%    three empty-circle tests sweep, tightest first
+ *  20–62%    every edge re-inks, shortest to longest
+ *  62–68%    the resting mesh returns and the ink hands over
+ *  66–86%    the convex boundary is emphasised
+ *  77–95%    the one central cell takes the accent across its right half
+ *  95–100%   the plate settles, closing the loop on its opening frame
+ *
+ * Every 0%/100% state matches the authored rest: the finished triangulation
+ * with its construction crosses faint and the mark unlit.
+ */
+@layer discern.page {
+  .fig-mesh__construction path {
+    fill: none;
+    stroke: var(--fig-guide);
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-faint);
+  }
+
+  .fig-mesh__probes,
+  .fig-mesh__inking,
+  .fig-mesh__rest {
+    fill: none;
+    stroke: currentColor;
+  }
+
+  .fig-mesh__probe {
+    stroke-width: var(--fig-hairline);
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+    animation: fig-mesh-probe calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite both;
+  }
+
+  .fig-mesh__rest {
+    stroke-width: var(--fig-line);
+    opacity: var(--fig-quiet);
+    animation: fig-mesh-recede calc(var(--fig-beat) * 20) var(--fig-ease-drift)
+      infinite;
+  }
+
+  .fig-mesh__ink {
+    stroke-width: var(--fig-line);
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+    animation: fig-mesh-ink calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite both;
+  }
+
+  .fig-mesh__hull {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-heavy);
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+    animation: fig-mesh-hull calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite;
+  }
+
+  .fig-mesh__mark {
+    opacity: 0;
+    animation: fig-mesh-mark calc(var(--fig-beat) * 20) var(--fig-ease-settle)
+      infinite;
+  }
+
+  .fig-mesh__mark-half {
+    fill: var(--fig-accent);
+    opacity: 0.5;
+  }
+
+  .fig-mesh__mark-median {
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-mesh__mark-edge {
+    fill: none;
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+    animation: fig-mesh-mark-edge calc(var(--fig-beat) * 20)
+      var(--fig-ease-draw) infinite;
+  }
+
+  .fig-mesh__site {
+    fill: currentColor;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: fig-mesh-site calc(var(--fig-beat) * 20) var(--fig-ease-settle)
+      infinite both;
+  }
+
+  /* The mesh gives way so the derivation can be seen, then takes it back. */
+  @keyframes fig-mesh-recede {
+    0%,
+    10% {
+      opacity: var(--fig-quiet);
+    }
+    16% {
+      opacity: 0.13;
+    }
+    58% {
+      opacity: 0.13;
+    }
+    68%,
+    100% {
+      opacity: var(--fig-quiet);
+    }
+  }
+
+  /* One test per strike: the circle closes, holds, and clears. */
+  @keyframes fig-mesh-probe {
+    0% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    1.5% {
+      opacity: 0.3;
+    }
+    11% {
+      stroke-dashoffset: 0;
+    }
+    24% {
+      opacity: 0.3;
+    }
+    31% {
+      opacity: 0;
+    }
+    31.1%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+  }
+
+  /* Each edge draws once, holds while its neighbours arrive, then hands over. */
+  @keyframes fig-mesh-ink {
+    0% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    1% {
+      opacity: 1;
+    }
+    9% {
+      stroke-dashoffset: 0;
+    }
+    42% {
+      opacity: 1;
+    }
+    48% {
+      opacity: 0;
+    }
+    48.1%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-mesh-hull {
+    0%,
+    66% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    68% {
+      opacity: 0.6;
+    }
+    77% {
+      stroke-dashoffset: 0;
+    }
+    80% {
+      opacity: 0.6;
+    }
+    86% {
+      opacity: 0;
+    }
+    86.1%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+  }
+
+  /* The one accent: the central cell asserts the mark, then releases it. */
+  @keyframes fig-mesh-mark {
+    0%,
+    77% {
+      opacity: 0;
+    }
+    81% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    95%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-mesh-mark-edge {
+    0%,
+    76% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    78% {
+      opacity: 1;
+    }
+    84% {
+      stroke-dashoffset: 0;
+    }
+    91% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    95% {
+      opacity: 0;
+    }
+    95.1%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-mesh-site {
+    0%,
+    7% {
+      transform: scale(1);
+    }
+    11% {
+      transform: scale(2.1);
+    }
+    19%,
+    100% {
+      transform: scale(1);
+    }
+  }
+}

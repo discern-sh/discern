@@ -60,7 +60,7 @@ Human, JSON, and MCP tool forms share one result. `structuredContent` is machine
 | `discern_accept`      | Land an authorized worktree and tear down its resources and branch.                                    | Destructive; requires conversation consent or a verified grant.      |
 | `discern_impact`      | List the scopes the current change activates.                                                          | Read-only and idempotent.                                            |
 | `discern_coupling`    | Report historical co-change partners for the current diff or named files.                              | Read-only, idempotent, and advisory.                                 |
-| `discern_patterns`    | Report findings or Stats from the active Logbook or a selected sealed archive (`logbook_file`).        | Read-only, idempotent, and advisory; lifecycle actions are CLI-only. |
+| `discern_patterns`    | Report findings, investigation paths, or Stats from the active Logbook or a selected sealed archive.   | Read-only, idempotent, and advisory; lifecycle actions are CLI-only. |
 | `discern_refresh`     | Rebuild generated Guidance, Skills, integrations, and the ADR index.                                   | Mutating, closed-world, and idempotent.                              |
 | `discern_map`         | Index, search, or read the project's agent-maintained Map.                                             | Read-only and idempotent.                                            |
 | `discern_docs`        | Index, search, or read discern's bundled public manual.                                                | Read-only, idempotent, and project-independent.                      |
@@ -136,6 +136,10 @@ A successful `accept` reports the permission it used in `data.consent`: `source`
 | `error_like_lines` | Number of lines shaped like compiler or linter diagnostics.                            |
 
 Output metadata is advisory. A configured command's exit status decides the job verdict, except for Standards. Their `DISCERN_METRIC` value is the measurement contract.
+
+Gate and standalone Standards results carry each Standard's `direction`, `limit`, optional `margin`, `measurement`, value, and verdict. A measured or replayed value also carries the Gate-owned `pin_eligible` decision and, when true, its exact `pin_target`. Those fields describe mechanical eligibility. Patterns applies the project-history decision rule ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)).
+
+Patterns results always carry `data.investigations`. Each entry cites source ids that remain present in `data.findings`, repeats their observations and denominators with numerical provenance, and states the shared evidence boundary, bounded interpretation, diagnostic action, and falsifier. An empty array means no registered relationship cleared its evidence requirements. Terminal, JSON, Model Context Protocol, and sealed-archive reads use the same synthesis arithmetic ([ADR 0277](../_adr/0277-patterns-investigations-preserve-source-findings.md)).
 
 `cancelled` marks a fail-fast sibling; `skipped` marks a configured step that did not run.
 

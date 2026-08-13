@@ -14,13 +14,41 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
+import { stripAnsi } from "discern-design-system/cli";
+import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
+import { runImprovement } from "../src/engine/improve/improve.ts";
+import { resolveTerminalContext } from "../src/lib/terminal.ts";
+import { displayWidth } from "../src/lib/text.ts";
 import {
   runAgent,
   runAgentPty,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { unexpectedTerminalControls, withTempDir } from "./helpers.ts";
+
+/** Locate one package triangle section at or after a previous section. */
+function triangleSectionAt(
+  output: string,
+  label: string,
+  after = 0,
+): number {
+  let cursor = after;
+  while (cursor < output.length) {
+    const end = output.indexOf("\n", cursor);
+    const lineEnd = end < 0 ? output.length : end;
+    const line = output.slice(cursor, lineEnd);
+    const decoration = line.replace(label, "");
+    const hasTriangle = Object.values(DISCERN_TRIANGLE_GLYPHS).some((glyph) =>
+      decoration.includes(glyph)
+    );
+    if (line.includes(label) && (hasTriangle || /[<>^v]/u.test(decoration))) {
+      return cursor;
+    }
+    cursor = lineEnd + 1;
+  }
+  return -1;
+}
 
 /** One deterministic rule result in the `improvement --json` payload. */
 interface RuleJson {
@@ -289,7 +317,10 @@ Deno.test({
           path.name,
         );
         if (path.name !== "--json") {
-          assertStringIncludes(path.rendered, "── Next action", path.name);
+          assert(
+            triangleSectionAt(path.rendered, "Next action") >= 0,
+            `${path.name} is missing the package-backed Next action section`,
+          );
         }
       }
     });
@@ -424,8 +455,7 @@ Deno.test("improvement: every human report group has a visible section", async (
     assertEquals(code, 0);
     assertStringIncludes(stdout, "discern improvement");
     assertStringIncludes(stdout, "Automated practice health");
-    assertStringIncludes(stdout, "improvement reviews open");
-    assertStringIncludes(stdout, "weakest first");
+    assertStringIncludes(stdout, "Reviews open:");
     const labels = [
       "Health",
       "Next action",
@@ -435,17 +465,211 @@ Deno.test("improvement: every human report group has a visible section", async (
     ];
     let after = 0;
     for (const label of labels) {
-      const marker = `── ${label}`;
-      const at = stdout.indexOf(marker, after);
+      const at = triangleSectionAt(stdout, label, after);
       assert(
         at >= after,
-        `expected visible section '${marker}' after byte ${after}`,
+        `expected package triangle section '${label}' after byte ${after}`,
       );
-      after = at + marker.length;
+      after = at + label.length;
     }
     // A failing rule shows its fix line.
-    assertStringIncludes(stdout, "fix:");
+    assertStringIncludes(stdout, "Fix:");
     // A subjective rule shows its ask line.
-    assertStringIncludes(stdout, "ask:");
+    assertStringIncludes(stdout, "Review question:");
   });
+});
+
+Deno.test("improvement: responsive package reports keep hostile evidence inert and cap at 104 columns", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, STRONG_CONFIG);
+    await writeStrongFiles(dir);
+    await Deno.writeTextFile(
+      join(dir, "guidance.md"),
+      `Project evidence \u001b[31m\u0007\u009b stays visible. ${
+        "This is project-specific guidance with enough substance to review. "
+          .repeat(10)
+      }`,
+    );
+    assertEquals((await runAgent(dir, ["refresh"])).code, 0);
+
+    const outputs = new Map<number, string>();
+    for (const width of [39, 80, 104, 400]) {
+      const run = await runAgent(
+        dir,
+        ["improvement", "--category", "guidance", "--plain"],
+        {
+          env: {
+            COLUMNS: String(width),
+            LINES: "24",
+            TERM: "xterm-256color",
+            LANG: "en_US.UTF-8",
+          },
+        },
+      );
+      assertEquals(run.code, 0);
+      outputs.set(width, run.stdout);
+      assertStringIncludes(run.stdout, "Agent guidance");
+      assertStringIncludes(run.stdout, "Review question:");
+      assertStringIncludes(
+        run.stdout.replaceAll(/\s+/gu, " "),
+        "Project evidence ␛[31m␇<U+009B>",
+      );
+      assert(!run.stdout.includes("\u001b[31m"));
+      assert(!run.stdout.includes("\u009b"));
+      assert(
+        unexpectedTerminalControls(run.stdout).length === 0,
+        `${width}-column improvement output contains a raw terminal control`,
+      );
+      const budget = Math.min(width, 104);
+      for (const line of run.stdout.split("\n")) {
+        assert(
+          displayWidth(line) <= budget,
+          `${width}-column improvement line is ${
+            displayWidth(line)
+          } columns: ${line}`,
+        );
+      }
+    }
+    assertEquals(outputs.get(400), outputs.get(104));
+  });
+});
+
+Deno.test("improvement: one injected context controls colour and width without re-observation", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+
+    const render = async (
+      width: number,
+      color: boolean,
+    ): Promise<string> => {
+      let processObservations = 0;
+      const values: Readonly<Record<string, string>> = {
+        TERM: "xterm-256color",
+        COLORTERM: "truecolor",
+        LANG: "en_US.UTF-8",
+      };
+      const terminal = resolveTerminalContext({
+        noColor: !color,
+        env: {
+          get(name: string): string | undefined {
+            processObservations++;
+            return values[name];
+          },
+        },
+        isTerminal: () => {
+          processObservations++;
+          return true;
+        },
+        consoleSize: () => {
+          processObservations++;
+          return { columns: width, rows: 24 };
+        },
+      });
+      const observationsAtBoundary = processObservations;
+      let stdout = "";
+      let stderr = "";
+      assertEquals(
+        await runImprovement(dir, {
+          json: false,
+          category: "guidance",
+          terminal,
+          stdout: (text) => stdout += text,
+          stderr: (text) => stderr += text,
+        }),
+        0,
+      );
+      assertEquals(stderr, "");
+      assertEquals(
+        processObservations,
+        observationsAtBoundary,
+        "rendering must consume the injected snapshot without reading its process seams again",
+      );
+      return stdout;
+    };
+
+    const narrow = await render(39, true);
+    const wide = await render(80, false);
+    const narrowPlain = stripAnsi(narrow);
+    assert(narrow !== narrowPlain, "the injected colour capability must win");
+    assertEquals(
+      wide,
+      stripAnsi(wide),
+      "the injected no-colour policy must win",
+    );
+    for (const line of narrowPlain.split("\n")) {
+      assert(
+        displayWidth(line) <= 39,
+        `injected 39-column context produced ${displayWidth(line)} columns`,
+      );
+    }
+    assert(
+      narrowPlain.split("\n").length > wide.split("\n").length,
+      "the injected narrow viewport must produce the more wrapped report",
+    );
+  });
+});
+
+Deno.test({
+  name:
+    "improvement: truecolour, 256, 16, and no-colour package modes keep the same coaching facts",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(dir, STRONG_CONFIG);
+      await writeStrongFiles(dir);
+
+      const modes = [
+        {
+          name: "truecolour",
+          env: {
+            TERM: "xterm-256color",
+            COLORTERM: "truecolor",
+            NO_COLOR: "",
+          },
+          marker: "\u001b[38;2;",
+        },
+        {
+          name: "256",
+          env: { TERM: "xterm-256color", COLORTERM: "", NO_COLOR: "" },
+          marker: "\u001b[38;5;",
+        },
+        {
+          name: "16",
+          env: { TERM: "xterm-color", COLORTERM: "", NO_COLOR: "" },
+          marker: "\u001b[",
+        },
+        {
+          name: "no-colour",
+          env: {
+            TERM: "xterm-256color",
+            COLORTERM: "truecolor",
+            NO_COLOR: "1",
+          },
+          marker: "",
+        },
+      ] as const;
+      let baseline: string | undefined;
+      for (const mode of modes) {
+        const run = await runAgentPty(
+          dir,
+          ["improvement", "--category", "guidance"],
+          { env: { ...mode.env, LANG: "en_US.UTF-8" } },
+        );
+        assertEquals(run.code, 0);
+        const rendered = run.stdout.replaceAll("\r", "");
+        if (mode.marker === "") {
+          assert(!rendered.includes("\u001b["), mode.name);
+        } else {
+          assertStringIncludes(rendered, mode.marker, mode.name);
+        }
+        const facts = stripAnsi(rendered);
+        assertStringIncludes(facts, "Agent guidance");
+        assertStringIncludes(facts, "Review question:");
+        baseline ??= facts;
+        assertEquals(facts, baseline, `${mode.name} changed coaching facts`);
+      }
+    });
+  },
 });

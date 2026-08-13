@@ -317,6 +317,31 @@ Deno.test("preset reports an unknown preset as plain text (no --json)", async ()
   });
 });
 
+Deno.test("preset human errors make hostile names inert while JSON stays exact", async () => {
+  await withTempDir(async (dir) => {
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
+    const name = "nope\x1b[31m\nspoof\u009b";
+    const human = await runCli(["preset", name], dir, PRESET_ENV);
+    const transcript = human.stdout + human.stderr;
+    assertEquals(human.code, 1);
+    assertEquals(transcript.includes("\x1b[31m"), false);
+    assertEquals(transcript.includes("\u009b"), false);
+    assertStringIncludes(
+      human.stderr,
+      "nope␛[31m␊spoof<U+009B>",
+    );
+
+    const machine = await runCli(
+      ["preset", name, "--json"],
+      dir,
+      PRESET_ENV,
+    );
+    assertEquals(machine.code, 1);
+    const result = JSON.parse(machine.stdout) as { message?: string };
+    assertStringIncludes(result.message ?? "", name);
+  });
+});
+
 Deno.test("preset with no presets dir reports 'ships no presets yet'", async () => {
   await withTempDir(async (dir) => {
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);

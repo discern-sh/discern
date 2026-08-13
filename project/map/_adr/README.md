@@ -262,6 +262,13 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0270 — The benefit canon separates commercial value from claim qualification](0270-the-benefit-canon-separates-value-from-claim-qualification.md)
 - [0271 — Destructive drops retain bounded recovery refs](0271-destructive-drops-retain-bounded-recovery-refs.md)
 - [0272 — Logbook lifecycle actions require terminal confirmation, and archives remain readable](0272-logbook-lifecycle-actions-require-terminal-confirmation.md)
+- [0273 — Validation comparisons require complete keyed semantic evidence](0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)
+- [0274 — Validation findings separate matched and cross-context divergence](0274-validation-findings-separate-matched-and-cross-context-divergence.md)
+- [0275 — Validation workflows use stream-bounded change cycles](0275-validation-workflows-use-stream-bounded-change-cycles.md)
+- [0276 — Patterns recommendations require project-local decision evidence](0276-patterns-recommendations-require-project-local-decision-evidence.md)
+- [0277 — Patterns investigations preserve source findings](0277-patterns-investigations-preserve-source-findings.md)
+- [0278 — WSL support is proven by a hosted WSL 2 gate lane that publication requires](0278-wsl-support-is-proven-by-a-hosted-wsl2-gate-lane.md)
+- [0279 — External terminal rendering crosses one Discern-owned process boundary](0279-external-terminal-rendering-crosses-one-process-boundary.md)
 
 <!-- END GENERATED: current ADR records -->
 

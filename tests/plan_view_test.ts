@@ -22,6 +22,7 @@ import {
 import { Logger } from "../src/lib/log.ts";
 import type { OpDisposition, Plan, PlanOp } from "../src/lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../src/lib/plan_view.ts";
+import { displayWidth } from "../src/lib/text.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 
 /** Capture everything written to console.error / console.log while `fn` runs. */
@@ -133,6 +134,14 @@ Deno.test("renderPlan on an empty plan prints only the heading, no rows", async 
   assertEquals(out, []);
 });
 
+Deno.test("renderPlan makes a caller-supplied heading inert", async () => {
+  const { err } = await capture(() =>
+    renderPlan(plainLogger(), plan([]), "preset\x1b[31m\nname")
+  );
+  assertEquals(err, ["\npreset␛[31m␊name"]);
+  assertEquals(err[0]?.includes("\x1b"), false);
+});
+
 // ---------------------------------------------------------------------------
 // renderReview — the grouped review-and-confirm screen.
 // ---------------------------------------------------------------------------
@@ -182,6 +191,24 @@ Deno.test("renderReview lists seeded content under 'Your content', with and with
   assertStringIncludes(text, "— a stray note");
   const bareLine = out.find((l) => l.includes("stray/bare.txt"));
   assert(bareLine !== undefined && !bareLine.includes("—"));
+});
+
+Deno.test("renderReview sanitizes before display-width padding", async () => {
+  const hostile = ".claude/a\x1b[31m界";
+  const { out } = await capture(() =>
+    renderReview(
+      plainLogger(),
+      plan([op("discern.toml", "create"), op(hostile, "merge")]),
+      "/dest",
+    )
+  );
+  const line = out.find((candidate) => candidate.includes("␛[31m界"));
+  assertExists(line);
+  assertEquals(line.includes("\x1b"), false);
+  assertEquals(
+    displayWidth(line.slice(4).split(" merged into")[0] ?? ""),
+    22,
+  );
 });
 
 Deno.test("renderReview warns about unknown tokens after the file list", async () => {

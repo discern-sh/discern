@@ -1,8 +1,8 @@
 /**
- * Colour-aware human output for the gate: `info` (cyan →), `ok` (green ✓), `warn`
- * (yellow !), and a
- * bold `heading`. All output goes to **stderr**, so `done --json` keeps stdout
- * clean for the single JSON object (ADR 0004).
+ * Token-aware human output shared by engine renderers. Semantic accent, success,
+ * warning, and danger roles come from the installed package terminal context.
+ * Routing remains unchanged: narration uses its declared stdout/stderr owner and
+ * JSON mode stays silent outside the single result object.
  */
 
 import {
@@ -10,36 +10,13 @@ import {
   assertHumanOutputGroupLabel,
   type RenderSink,
 } from "../shared/result.ts";
-
-/** The ANSI palette, mirroring `output.sh`'s C_* variables. */
-export interface Palette {
-  reset: string;
-  bold: string;
-  dim: string;
-  red: string;
-  green: string;
-  yellow: string;
-  cyan: string;
-}
-
-const ANSI: Palette = {
-  reset: "\x1b[0m",
-  bold: "\x1b[1m",
-  dim: "\x1b[2m",
-  red: "\x1b[31m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  cyan: "\x1b[36m",
-};
-const PLAIN: Palette = {
-  reset: "",
-  bold: "",
-  dim: "",
-  red: "",
-  green: "",
-  yellow: "",
-  cyan: "",
-};
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalContextWithColor,
+  terminalLine,
+  terminalPresentationContext,
+} from "../lib/terminal.ts";
 
 const ENCODER = new TextEncoder();
 
@@ -74,54 +51,20 @@ export function byteWriter(
   };
 }
 
-/** The ANSI / plain palette for a colour mode. */
-export function palette(color: boolean): Palette {
-  return color ? ANSI : PLAIN;
-}
-
 /**
- * The colour decision resolved once at the CLI entry point (`main`), from the
- * `--no-color` flag + NO_COLOR + whether stdout is a TTY. `undefined` means "no
- * decision has been threaded" — the standalone fallback below applies. Setting it
- * is what lets `--no-color` reach every engine verb: they all resolve colour
- * through {@link colorEnabled}, so one resolved value governs the whole binary
- * rather than each output path re-deciding (and forgetting the flag).
- */
-let colorOverride: boolean | undefined;
-
-/**
- * Thread the CLI's single resolved colour decision to every engine output path.
- * Called once by `main` after parsing the global flags; every {@link colorEnabled}
- * caller (the gate, status, desk, coupling, …) then honours `--no-color`, NO_COLOR,
- * and non-TTY output uniformly. Passing `undefined` restores the standalone fallback
- * (used by tests to reset process-global state between cases).
- */
-export function setColorOverride(color: boolean | undefined): void {
-  colorOverride = color;
-}
-
-/**
- * Whether colour is on. When the CLI has resolved the colour decision
- * ({@link setColorOverride}) that value wins — so the `--no-color` flag is honoured
- * everywhere. Absent that (a direct engine caller in a test), fall back to the
- * standalone rule: NO_COLOR unset AND stdout is a TTY. The engine routes human
- * output to stdout, so the TTY check is on stdout.
+ * Whether the shared process context permits colour. Direct callers use the
+ * terminal module's production constructor; the CLI installs its one resolved
+ * context before dispatch.
  */
 export function colorEnabled(): boolean {
-  if (colorOverride !== undefined) {
-    return colorOverride;
-  }
-  const nc = Deno.env.get("NO_COLOR");
-  if (nc !== undefined && nc !== "") {
-    return false;
-  }
-  return Deno.stdout.isTerminal();
+  return terminalContext().color;
 }
 
 /** The human-output surface a gate command uses. */
 export interface Out {
-  c: Palette;
   color: boolean;
+  /** The explicit package presentation context shared by feature renderers. */
+  terminal: TerminalContext;
   info(m: string): void;
   ok(m: string): void;
   warn(m: string): void;
@@ -149,14 +92,19 @@ export function makeOut(
     stdout?: ((text: string) => void) | undefined;
     /** Test seam for the stderr byte writer. */
     stderr?: ((text: string) => void) | undefined;
+    /** Explicit package presentation facts for deterministic rendering tests. */
+    terminal?: TerminalContext;
   } = {},
 ): Out {
-  const c = color ? ANSI : PLAIN;
+  const terminal = terminalContextWithColor(
+    opts.terminal ?? terminalPresentationContext(color),
+    color,
+  );
   if (opts.quiet ?? false) {
     const noop = (): void => {};
     return {
-      c,
       color,
+      terminal,
       info: noop,
       ok: noop,
       warn: noop,
@@ -187,13 +135,18 @@ export function makeOut(
   const stdout = (text: string): void => writeHuman(text, "stdout");
   const stderr = (text: string): void => writeHuman(text, "stderr");
   return {
-    c,
     color,
-    info: (m: string): void => stdout(`${c.cyan}→${c.reset} ${m}\n`),
-    ok: (m: string): void => stdout(`${c.green}✓${c.reset} ${m}\n`),
-    warn: (m: string): void => stderr(`${c.yellow}!${c.reset} ${m}\n`),
-    error: (m: string): void => stderr(`${c.red}✗${c.reset} ${m}\n`),
-    heading: (m: string): void => stdout(`\n${c.bold}${m}${c.reset}\n`),
+    terminal,
+    info: (m: string): void =>
+      stdout(`${terminal.tone("→", "accent")} ${terminalLine(m)}\n`),
+    ok: (m: string): void =>
+      stdout(`${terminal.tone("✓", "success")} ${terminalLine(m)}\n`),
+    warn: (m: string): void =>
+      stderr(`${terminal.tone("!", "warning")} ${terminalLine(m)}\n`),
+    error: (m: string): void =>
+      stderr(`${terminal.tone("✗", "danger")} ${terminalLine(m)}\n`),
+    heading: (m: string): void =>
+      stdout(`\n${terminal.role(terminalLine(m), "strong")}\n`),
     group: (id: string, label?: string): void => {
       assertHumanOutputGroupId(id);
       if (label !== undefined) assertHumanOutputGroupLabel(id, label);
@@ -202,7 +155,9 @@ export function makeOut(
       }
       if (label !== undefined) {
         writeHuman(
-          `  ${c.dim}──${c.reset} ${c.bold}${label}${c.reset}\n`,
+          `  ${terminal.role("──", "muted")} ${
+            terminal.role(terminalLine(label), "strong")
+          }\n`,
           lastStream,
         );
       }
@@ -246,6 +201,7 @@ export function outSink(out: Out): RenderSink {
   return {
     heading: (t: string): void => out.heading(t),
     line: (t: string): void => out.raw(`${t}\n`),
-    dim: (t: string): string => `${out.c.dim}${t}${out.c.reset}`,
+    safeLine: (t: string): string => terminalLine(t),
+    dim: (t: string): string => out.terminal.role(terminalLine(t), "muted"),
   };
 }

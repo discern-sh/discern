@@ -47,6 +47,10 @@ Report a breach the work itself caused (the deliverable grew what the metric mea
 
 The Gate checks limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Limits never defer. `discern prepare` skips measurement.
 
+Package StandardMeter views retain each reading, limit, headroom, trajectory, measurement source, margin, and pin eligibility. Deferred and skipped facts invent no value. [`presentation.ts`](../../../src/engine/gate/presentation.ts) only maps `GateStandard` facts; the Gate still decides comparisons and pin eligibility.
+
+One pure Gate function decides mechanical pin eligibility from direction, measured value, configured `margin`, and current limit. A measured or replayed result carries `margin`, `pin_eligible`, and the exact `pin_target` when eligible. Gate pinning and advisory Patterns therefore consume the same answer. Eligibility means only that the target is strictly tighter and still holds the measurement; [Patterns decision evidence](patterns-decision-evidence.md#standard-trajectory-decisions) applies separate freshness, persistence, variance, failure, and retirement evidence before recommending a pin ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)).
+
 ## Run standards directly
 
 `discern standards` freshly measures every Standard, including `measure = "on-demand"`. First it checks branch limits and trunk-only entries from one trunk snapshot. A loosened Standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid measurements.
@@ -81,6 +85,7 @@ Pin records a clean `HEAD` before reading values and rechecks before editing. A 
 | Shared trunk-limit verification           | [`standard_limits.ts`](../../../src/engine/gate/standard_limits.ts) |
 | Shared measurement and pin execution      | [`standards.ts`](../../../src/engine/gate/standards.ts)             |
 | Gate replay and deferral policy           | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts)   |
+| Human Standard presentation               | [`presentation.ts`](../../../src/engine/gate/presentation.ts)       |
 | Parallel scheduling and process-tree kill | [`runner.ts`](../../../src/engine/jobs/runner.ts)                   |
 | Built-in write probes                     | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)      |
 

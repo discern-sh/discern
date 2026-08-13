@@ -1710,7 +1710,7 @@ export const HINTS = {
    */
   "logbook-proof-finding": defineHint<{
     count: number;
-    observed: string;
+    summary: string;
   }>({
     id: "logbook-proof-finding",
     category: "next-step",
@@ -1719,18 +1719,18 @@ export const HINTS = {
     family: "logbook-inline-finding",
     example: {
       count: 2,
-      observed: "This branch has repeated the same failed stage.",
+      summary: "This branch has repeated the same failed stage.",
     },
-    template: ({ count, observed }): string =>
+    template: ({ count, summary }): string =>
       `Run ${
         discernCommand("patterns")
       } for full evidence and next steps. The logbook ` +
-      `has ${count} branch finding${count === 1 ? "" : "s"}. ${observed}`,
+      `has ${count} branch finding${count === 1 ? "" : "s"}. ${summary}`,
   }),
 
-  /** A session-scoped finding rendered as its observation and next step. */
+  /** A session-scoped finding rendered as its summary and next step. */
   "logbook-status-finding": defineHint<{
-    observed: string;
+    summary: string;
     next: string;
   }>({
     id: "logbook-status-finding",
@@ -1739,11 +1739,11 @@ export const HINTS = {
     when: "`status` carries a session-scoped logbook finding.",
     family: "logbook-inline-finding",
     example: {
-      observed: "The same worktree has been refused 3 times.",
+      summary: "The same worktree has been refused 3 times.",
       next: "Inspect its current branch and Proof.",
     },
-    template: ({ observed, next }): string =>
-      `${next} Logbook finding: ${observed}`,
+    template: ({ summary, next }): string =>
+      `${next} Logbook finding: ${summary}`,
   }),
 
   /** The audit names its missing input instead of reading as a clean bill. */

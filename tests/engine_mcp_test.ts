@@ -474,6 +474,69 @@ Deno.test("mcp: discern_patterns reads sealed historical Stats without modifying
   });
 });
 
+Deno.test("mcp: discern_patterns carries synthesized investigations beside raw findings", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    await gitInit(dir);
+    const logDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(logDir, { recursive: true });
+    const values = [85, 88, 86, 89, 87];
+    const events = values.map((value, index) => ({
+      schema: 1,
+      at: new Date(Date.UTC(2026, 6, 1, index)).toISOString(),
+      kind: "verb",
+      verb: "done",
+      surface: "cli",
+      writer: "9.9.9",
+      driver: {
+        session: "cli:mcp-investigation",
+        json: true,
+        tty: false,
+        ci: false,
+      },
+      branch: "agent/mcp-investigation",
+      head: `head-${index}`,
+      clean: true,
+      outcome: "ok",
+      duration_ms: 1_000,
+      epoch: "investigation-epoch",
+      standards: [{
+        name: "coverage",
+        direction: "up",
+        limit: 80,
+        margin: 2,
+        measurement: "measured",
+        value,
+        verdict: "improved",
+        pin_eligible: true,
+        pin_target: value - 2,
+      }],
+    }));
+    await Deno.writeTextFile(
+      join(logDir, "2026-07.jsonl"),
+      `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+    );
+    const tool = TOOLS.find((candidate) =>
+      candidate.name === "discern_patterns"
+    );
+    assert(tool !== undefined);
+    const result = await runTool(tool, new WorkingRoot(dir), {});
+    assertEquals(result.isError, false, JSON.stringify(result));
+    const data = PatternsOutputSchema.parse(result.structuredContent)
+      .data as PatternsData;
+    assertEquals(
+      data.investigations.map(({ id }) => id),
+      ["standard-variance/coverage"],
+    );
+    assert(
+      data.findings.some((finding) =>
+        finding.detector === "standard-trajectory"
+      ),
+      "the MCP synthesis must retain its raw source finding",
+    );
+  });
+});
+
 // ---------------------------------------------------------------------------
 // B38 class guard: a tool declared root-INDEPENDENT must stay reachable when the
 // server spawned OUTSIDE any discern project (working root undefined), because it

@@ -15,10 +15,10 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.12.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.12.2"
 ```
 
-Imports use only that package root and its documented `./runtime` and `./react` exports. `deno.lock` records the same release. The package root and those exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
+Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI consumer additionally uses the documented `./cli` and `./cli/interactive` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
 
 When a package defect affects discern, release the fix from the package repository and update this repository to the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
@@ -41,6 +41,12 @@ discern scripts site-design-system -- --build-only /absolute/path/to/design-syst
 ```
 
 `DISCERN_DESIGN_SYSTEM_PATH` may supply the checkout instead of the positional path. The local link provides visual and integration evidence only. The full Gate, release workflow, and production build continue to resolve the exact JSR version. After a release reaches JSR, update the committed pin and return to the ordinary production build.
+
+## CLI-owned integration
+
+The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, prompts, and safe repaint refusal. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`prompts.ts`](../../../src/lib/prompts.ts).
+
+Consumer conformance proves both CLI graphs are React-free and resolved from the exact external release. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
 
 ## Site-owned integration
 

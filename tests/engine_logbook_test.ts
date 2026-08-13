@@ -512,6 +512,36 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
   });
 });
 
+Deno.test("logbook: unavailable pre-boundary evidence cannot replace the gate's original red", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, `[jobs]\nformat = "false"\ntest = "true"\n`);
+    await gitInit(dir);
+    await Deno.mkdir(
+      join(dir, ".git", "discern", "validation-hmac-key"),
+      { recursive: true },
+    );
+
+    const result = await runAgent(dir, ["done", "--json"]);
+    assertEquals(result.code, 1, result.output);
+    const event = verbEvents(await readEvents(dir))[0];
+    assert(event !== undefined);
+    assertEquals(event.outcome, "failed");
+    assertEquals(event.failed_stage, "fix");
+    assertEquals(event.validation?.state.complete, false);
+    assert(
+      event.validation?.state.incomplete?.some((entry) =>
+        entry.category === "boundary" && entry.reason === "not-reached"
+      ),
+    );
+    assert(
+      event.validation?.state.incomplete?.some((entry) =>
+        entry.category === "key" && entry.reason === "invalid"
+      ),
+    );
+  });
+});
+
 Deno.test("logbook: an unchanged-tree rerun refusal records its slug, and a confirmed rerun records the flag", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -546,7 +576,7 @@ Deno.test("logbook: a standards pin lands pin events and holds the epoch", async
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      `[standards.cov]\ndirection = "up"\nlimit = 10\nrun = "echo DISCERN_METRIC cov 50"\n`,
+      `[standards.cov]\ndirection = "up"\nlimit = 10\nmargin = 5\nrun = "echo DISCERN_METRIC cov 50"\n`,
     );
     await gitInit(dir);
     const check = await runAgent(dir, ["standards", "--json"]);
@@ -564,6 +594,9 @@ Deno.test("logbook: a standards pin lands pin events and holds the epoch", async
     assertEquals(reading.value, 50);
     assertEquals(reading.measurement, "measured");
     assertEquals(reading.limit, 10);
+    assertEquals(reading.margin, 5);
+    assertEquals(reading.pin_eligible, true);
+    assertEquals(reading.pin_target, 45);
     // The pin verb event records the flag; the pin itself lands as a
     // first-class event — the ratchet's trajectory, readable back out.
     const pinVerb = verbs.filter((e) => e.verb === "standards")[1];
@@ -575,7 +608,7 @@ Deno.test("logbook: a standards pin lands pin events and holds the epoch", async
     assert(pinEvent !== undefined && pinEvent.kind === "pin");
     assertEquals(pinEvent.standard, "cov");
     assertEquals(pinEvent.from, 10);
-    assertEquals(pinEvent.to, 50);
+    assertEquals(pinEvent.to, 45);
     assertEquals(pinEvent.measured, 50);
     // A pin rewrites only the limit, which the epoch masks: no config-change.
     const post = await runAgent(dir, ["status", "--json"]);

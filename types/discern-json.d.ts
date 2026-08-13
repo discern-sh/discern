@@ -1988,11 +1988,14 @@ export type DiscernDoneResult = {
       name: string;
       direction: "up" | "down";
       limit: number;
+      margin?: number;
       measurement: "measured" | "replayed" | "deferred" | "skipped";
       value?: number;
       verdict?: "improved" | "held" | "regressed";
       duration_s?: number;
       replayed_from?: string;
+      pin_eligible?: boolean;
+      pin_target?: number;
     }>;
     standards_limits?: {
       status: "verified" | "loosened" | "unverified" | "parse_failed";
@@ -2345,11 +2348,45 @@ export type DiscernImprovementResult = {
         scope: "branch" | "session" | "project";
         tone: "good" | "neutral" | "attention";
         subject?: string;
+        summary: string;
         brief: string;
         series?: Array<number>;
         observed: string;
         evidence: {
           [key: string]: number;
+        };
+        basis?: {
+          kind: string;
+          coverage: {
+            comparable: number;
+            denominator: number;
+            unit: string;
+          };
+          validation_state: {
+            version: number | null;
+            complete: boolean;
+          };
+          matched_conditions: Array<{
+            dimension: string;
+            values: Array<string>;
+            distinct: number;
+            omitted: number;
+          }>;
+          differing_conditions: Array<{
+            dimension: string;
+            values: Array<string>;
+            distinct: number;
+            omitted: number;
+          }>;
+          legacy_events: number;
+          excluded_events: number;
+          limitations: Array<string>;
+          values: {
+            [key: string]: {
+              value: number;
+              kind: "observed" | "estimated";
+            };
+          };
         };
         strength: number;
         next_step: string;
@@ -2451,11 +2488,14 @@ export type DiscernStandardsResult = {
       name: string;
       direction: "up" | "down";
       limit: number;
+      margin?: number;
       measurement: "measured" | "replayed" | "deferred" | "skipped";
       value?: number;
       verdict?: "improved" | "held" | "regressed";
       duration_s?: number;
       replayed_from?: string;
+      pin_eligible?: boolean;
+      pin_target?: number;
     }>;
     pinned?: Array<{
       name: string;
@@ -3129,16 +3169,89 @@ export type DiscernPatternsResult = {
       scope: "branch" | "session" | "project";
       tone: "good" | "neutral" | "attention";
       subject?: string;
+      summary: string;
       brief: string;
       series?: Array<number>;
       observed: string;
       evidence: {
         [key: string]: number;
       };
+      basis?: {
+        kind: string;
+        coverage: {
+          comparable: number;
+          denominator: number;
+          unit: string;
+        };
+        validation_state: {
+          version: number | null;
+          complete: boolean;
+        };
+        matched_conditions: Array<{
+          dimension: string;
+          values: Array<string>;
+          distinct: number;
+          omitted: number;
+        }>;
+        differing_conditions: Array<{
+          dimension: string;
+          values: Array<string>;
+          distinct: number;
+          omitted: number;
+        }>;
+        legacy_events: number;
+        excluded_events: number;
+        limitations: Array<string>;
+        values: {
+          [key: string]: {
+            value: number;
+            kind: "observed" | "estimated";
+          };
+        };
+      };
       strength: number;
       next_step: string;
     }>;
     findings_total?: number;
+    investigations: Array<{
+      id: string;
+      title: string;
+      finding_ids: Array<string>;
+      subject?: string;
+      observations: Array<{
+        finding_id: string;
+        subject?: string;
+        observed: string;
+        denominator: {
+          value: number;
+          unit: string;
+        };
+        values: {
+          [key: string]: {
+            value: number;
+            kind: "observed" | "estimated";
+          };
+        };
+      }>;
+      evidence_boundary: {
+        validation_versions: Array<number>;
+        complete_validation_state: boolean;
+        setup_conditions: Array<{
+          dimension: string;
+          values: Array<string>;
+          distinct: number;
+          omitted: number;
+        }>;
+        legacy_events: number;
+        excluded_events: number;
+        limitations: Array<string>;
+      };
+      summary: string;
+      observed: string;
+      interpretation: string;
+      diagnostic_action: string;
+      falsifier: string;
+    }>;
     detectors: Array<{
       id: string;
       title: string;
@@ -3182,6 +3295,83 @@ export type DiscernPatternsResult = {
         current_green_streak: number;
         check_hours: number;
         greens_per_day?: Array<number>;
+      };
+      validation_workflows: {
+        runs: {
+          total: number;
+          branches: number;
+          by_verb: Array<{
+            verb: "prepare" | "test" | "done";
+            runs: number;
+            branches: number;
+            clean: number;
+            dirty: number;
+            unknown: number;
+            successes: number;
+            failures: number;
+            retries: number;
+          }>;
+          evidence: {
+            denominator: number;
+            complete: number;
+            incomplete: number;
+            legacy: number;
+            unattributed: number;
+          };
+          dirty_state: {
+            denominator: number;
+            tracked_only: number;
+            untracked_only: number;
+            mixed: number;
+            unclassified: number;
+          };
+        };
+        cycles: {
+          total: number;
+          branches: number;
+          routes: Array<{
+            route: "test-first" | "commit-first" | "unattributed";
+            cycles: number;
+            branches: number;
+            runs: number;
+            successful_cycles: number;
+            successful_runs: number;
+            failed_cycles: number;
+            failed_runs: number;
+            retried_cycles: number;
+            retry_runs: number;
+          }>;
+          precommit_to_clean_gate: {
+            cycles: number;
+            branches: number;
+            runs: number;
+            retry_runs: number;
+          };
+        };
+        cohorts?: {
+          denominator_cycles: number;
+          denominator_runs: number;
+          identities: Array<{
+            agent: string;
+            label: string;
+            cycles: number;
+            runs: number;
+            test_first_cycles: number;
+            commit_first_cycles: number;
+            successful_cycles: number;
+            failed_cycles: number;
+            retried_cycles: number;
+          }>;
+          below_minimum: {
+            cohorts: number;
+            cycles: number;
+            runs: number;
+          };
+          unattributed: {
+            cycles: number;
+            runs: number;
+          };
+        };
       };
       cycles?: {
         started: number;

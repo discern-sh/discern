@@ -17,13 +17,15 @@ _A clean green Gate records what ran and identifies the exact branch state ready
 - **The line** (`data.proof.line`): one sentence naming the branch, validated commit, diffstat, Standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_proof.proof_line`; `accept` derives its line from it and appends the recorded consent source.
 - **The page** (`data.proof.markdown`): Standards, declared jobs and scope gates, then the diff command. `status --verbose` prints a valid Proof. Git owns commit and per-file lists; `Inspect:` names the command.
 
-`done` and `prepare` share the TTY job table: rows move from `pending` through `running` to outcomes and durations. `done` adds its Proof. `prepare` reports omitted build jobs and tests without review evidence. When `accept` or `setup done` runs the full Gate internally, it uses the same job projection; setup shows it for the main checkout and the temporary-worktree verification. `[gate].stream = true` streams output. `--plain` is static. Pipes get the `done` Proof page. `--json` and MCP runs emit no table. `--no-color` removes styling.
+`done` and `prepare` share package progress, grouped jobs, activity, and commands. `done` adds review, recording, and readiness facts; only `recorded` passes. `prepare` names omitted work. The byte-exact relay stays separate.
 
-Capped-run waits remain live `waited_ms` telemetry; the Proof line, page, and durable record omit them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
+`accept` and `setup done` reuse it. Streaming stays raw. CI, `--plain`, oversized, or cursor-ineligible terminals stay static; pipes receive Proof; JSON and MCP omit Components. UTF-8 retains Unicode under `TERM=dumb` and no colour; exact `C` or `POSIX` uses ASCII.
 
-The Proof pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
+`waited_ms` reports capped-run waits; durable Proof omits them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
-A qualifying Proof may carry one `Logbook:` advisory from `hints[]`. `discern patterns` holds its evidence and next step. The advisory changes neither the stored Proof, `ok`, nor acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+The Proof pins a reviewable `HEAD` even if trunk advances. Without a verified grant, the agent reports and waits. `discern accept --confirmed` records conversation consent; standing and effort grants need no flag. Landing returns the final line.
+
+A Proof may carry one `Logbook:` advisory from `hints[]`. `discern patterns` owns its evidence and next step. The advisory changes neither stored Proof, `ok`, nor acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
 ## When a Proof is recorded
 
@@ -69,7 +71,8 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 | Marker identity and validation | [`proof.ts`](../../../src/engine/gate/proof.ts)                |
 | Write-authority probe          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts) |
 | Proof facts and markdown       | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts)  |
-| Shared gate-job TTY projection | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)          |
+| Pure human presentation        | [`presentation.ts`](../../../src/engine/gate/presentation.ts)  |
+| Live TTY effects and viewport  | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)          |
 | `done` proof panel             | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)          |
 | `done` integration             | [`finish.ts`](../../../src/engine/gate/finish.ts)              |
 | `prepare` integration          | [`prepare.ts`](../../../src/engine/gate/prepare.ts)            |

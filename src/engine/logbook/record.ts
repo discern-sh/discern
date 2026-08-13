@@ -73,6 +73,7 @@ import {
   readEpochState,
   writeEpochState,
 } from "./store.ts";
+import { validationEvidence } from "./validation.ts";
 
 /** Everything the recorder learned about the invocation's surroundings. */
 interface RecordingContext {
@@ -280,10 +281,13 @@ const liftedStandardShape = z.looseObject({
   name: z.string(),
   direction: z.string().optional(),
   limit: z.number().optional(),
+  margin: z.number().optional(),
   value: z.number().optional(),
   verdict: z.string().optional(),
   measurement: z.string().optional(),
   replayed_from: z.string().optional(),
+  pin_eligible: z.boolean().optional(),
+  pin_target: z.number().optional(),
 });
 
 /** A payload carrying standard readings (the gate's or the standards verb's). */
@@ -383,12 +387,15 @@ function liftData(data: unknown): LiftedData {
       name: s.name,
       ...(s.direction !== undefined ? { direction: s.direction } : {}),
       ...(s.limit !== undefined ? { limit: s.limit } : {}),
+      ...(s.margin !== undefined ? { margin: s.margin } : {}),
       ...(s.value !== undefined ? { value: s.value } : {}),
       ...(s.verdict !== undefined ? { verdict: s.verdict } : {}),
       ...(s.measurement !== undefined ? { measurement: s.measurement } : {}),
       ...(s.replayed_from !== undefined
         ? { replayed_from: s.replayed_from }
         : {}),
+      ...(s.pin_eligible !== undefined ? { pin_eligible: s.pin_eligible } : {}),
+      ...(s.pin_target !== undefined ? { pin_target: s.pin_target } : {}),
     }));
   }
   const pins = liftedPinsShape.safeParse(data);
@@ -555,6 +562,7 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
         const diagnostics = report.result !== undefined
           ? diagnosticClasses(report.result)
           : undefined;
+        const validation = validationEvidence(report.result);
         const lifted = liftData(report.result?.data);
         // A successful payload names the object actually served. Surface input
         // remains the fallback for human-only reads and refused lookups.
@@ -597,6 +605,7 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
           ...(ctx.change !== undefined ? { change: ctx.change } : {}),
           ...(lifted.scopes !== undefined ? { scopes: lifted.scopes } : {}),
           ...(steps !== undefined ? { steps } : {}),
+          ...(validation !== undefined ? { validation } : {}),
           ...(diagnostics !== undefined ? { diagnostics } : {}),
           hint_ids: report.hintIds ?? [],
           ...(report.tipIds !== undefined && report.tipIds.length > 0

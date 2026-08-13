@@ -69,7 +69,7 @@ import {
 } from "../../lib/provider_hooks.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
-import { terminalWidth } from "../../lib/text.ts";
+import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
   type TrackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifacts,
@@ -113,7 +113,7 @@ import {
   scanContainedWorktrees,
 } from "../worktree/containment.ts";
 import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
-import { colorEnabled, makeOut } from "../output.ts";
+import { makeOut } from "../output.ts";
 import { inspectGateProof } from "../gate/proof.ts";
 import { isLandingCandidate, isReadyToLand } from "../worktree/readiness.ts";
 import { addAdvisoryHints } from "../logbook/routing.ts";
@@ -160,6 +160,8 @@ export interface StatusOptions {
   all?: boolean;
   /** Local view only — suppress the fleet survey even in the main checkout. */
   local?: boolean;
+  /** One effect-boundary clock shared by collection, hints, and presentation. */
+  nowMs?: number;
 }
 
 /** CLI-only presentation flags. `verbose` prints the full proof page for an
@@ -167,6 +169,8 @@ export interface StatusOptions {
  * or without it — `--json` and MCP always carry the proof (ADR 0188). */
 export interface StatusRenderOptions {
   verbose?: boolean;
+  terminal?: TerminalContext;
+  nowMs: number;
 }
 
 // ── the `data` payload shapes ──────────────────────────────────────────────────
@@ -203,6 +207,7 @@ export async function statusResult(
   root: string,
   opts: StatusOptions = {},
 ): Promise<DiscernResult<StatusData>> {
+  const nowMs = opts.nowMs ?? Date.now();
   const all = opts.all ?? false;
   const local = opts.local ?? false;
   if (all && local) {
@@ -454,7 +459,6 @@ export async function statusResult(
     // for like against row.path (also canonical).
     const here = await Deno.realPath(root).catch(() => root);
     const settings = await loadIdentitySettings(root).catch(() => undefined);
-    const nowMs = Date.now();
     let logbookActivity: FleetLogbookActivity | undefined;
     if (cfg.project.logbook) {
       const commonGitDir = await resolveCommonGitDir(root);
@@ -618,6 +622,7 @@ export async function statusResult(
     trackedIgnoredArtifacts,
     untrackedGuidance,
     setupPending,
+    nowMs,
     gateProof,
     landingAuthority,
     logbookEnabled: cfg.project.logbook,
@@ -909,6 +914,8 @@ interface HintContext {
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
+  /** The invocation clock already captured by the status effect boundary. */
+  nowMs: number;
   /** Whether the current clean HEAD has an honored proof from `discern done`. */
   gateProof: GateProofCheckData | undefined;
   /** The current branch's authority, from the one resolver used by acceptance. */
@@ -1250,7 +1257,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       // Stale members: idle for a while and still carrying work — surface the
       // abandonment before it fossilises, with both ways out.
       const stale = others.filter((e) => {
-        const idleDays = idleDaysOf(e.last_activity);
+        const idleDays = idleDaysOf(e.last_activity, ctx.nowMs);
         return (
           e.broken !== true && idleDays !== undefined &&
           idleDays >= STALE_WORKTREE_DAYS &&
@@ -1322,6 +1329,7 @@ async function isMainCheckoutDirty(
 export async function runStatus(
   opts: { json: boolean; all: boolean; local: boolean; verbose: boolean },
 ): Promise<number> {
+  const nowMs = Date.now();
   const root = await findRoot();
   if (root === undefined) {
     if (opts.json) {
@@ -1334,13 +1342,14 @@ export async function runStatus(
   const result = await statusResult(root, {
     all: opts.all,
     local: opts.local,
+    nowMs,
   });
   observeResult(result);
   if (opts.json) {
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  renderStatusHuman(result, { verbose: opts.verbose });
+  renderStatusHuman(result, { verbose: opts.verbose, nowMs });
   return result.ok ? 0 : 1;
 }
 
@@ -1349,19 +1358,20 @@ export async function runStatus(
 /** Render the width-aware static dashboard on stdout. JSON never calls this path. */
 function renderStatusHuman(
   result: DiscernResult<StatusData>,
-  render: StatusRenderOptions = {},
+  render: StatusRenderOptions,
 ): void {
-  const color = colorEnabled();
-  const out = makeOut(color);
+  const terminal = render.terminal ?? terminalContext();
+  const out = makeOut(terminal.color, { terminal });
   if (!result.ok || result.data === undefined) {
     out.error(result.message ?? "status failed.");
     return;
   }
   out.raw(
     renderStatusDashboard(result.data, result.hints, {
-      width: terminalWidth(),
-      color,
+      terminal,
+      width: terminal.size.columns,
       verbose: render.verbose ?? false,
+      nowMs: render.nowMs,
     }),
   );
 }

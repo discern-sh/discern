@@ -39,9 +39,11 @@ import { observeResult } from "../../shared/result_capture.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import { makeOut, type Out } from "../output.ts";
+import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
   createGateTtyProgress,
   gateTtyPresentation,
+  gateTtyProgressCanRepaint,
   renderGateTtyStatus,
   renderGateTtyTable,
 } from "./gate_tty.ts";
@@ -56,7 +58,10 @@ async function runPrepareGate(
   root: string,
   json: boolean,
   signal?: AbortSignal,
-  presentation: { liveWidth?: number } = {},
+  presentation: {
+    liveWidth?: number;
+    terminal?: TerminalContext;
+  } = {},
 ): Promise<
   {
     result: DiscernResult;
@@ -65,26 +70,36 @@ async function runPrepareGate(
     cfg: DiscernConfig;
     gotchasTail: GotchasFailureTail | undefined;
     liveTable: boolean;
+    outputWithheld: boolean;
   }
 > {
   const cfg = await loadConfig(root);
   const groups = preparePlanGroups(cfg);
-  const compactTty = presentation.liveWidth !== undefined && !json &&
-    !cfg.gate.stream;
+  const liveOptions = presentation.liveWidth === undefined ||
+      presentation.terminal === undefined
+    ? undefined
+    : { width: presentation.liveWidth, terminal: presentation.terminal };
+  const compactTty = liveOptions !== undefined && !json && !cfg.gate.stream &&
+    gateTtyProgressCanRepaint(groups, liveOptions);
   const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal, {
     quietHumanRun: compactTty,
+    ...(presentation.terminal === undefined
+      ? {}
+      : { terminal: presentation.terminal }),
   });
-  const progress = compactTty && presentation.liveWidth !== undefined
+  const progress = compactTty && liveOptions !== undefined
     ? createGateTtyProgress(out.raw, {
-      width: presentation.liveWidth,
-      color: out.color,
+      width: liveOptions.width,
+      terminal: out.terminal,
     })
     : undefined;
   if (progress !== undefined) {
     runOpts.observer = progress;
     progress.start(groups);
   }
-  const runOut = compactTty ? makeOut(out.color, { quiet: true }) : out;
+  const runOut = compactTty
+    ? makeOut(out.color, { quiet: true, terminal: out.terminal })
+    : out;
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
@@ -141,7 +156,8 @@ async function runPrepareGate(
     out,
     cfg,
     gotchasTail,
-    liveTable: progress !== undefined,
+    liveTable: progress?.renderedFinal() ?? false,
+    outputWithheld: compactTty,
   };
 }
 
@@ -170,17 +186,26 @@ export async function runPrepare(
     return result.ok ? 0 : 1;
   }
 
+  const terminal = terminalContext();
   const { ttyWidth, liveWidth } = gateTtyPresentation(
     false,
     opts.plain ?? false,
+    terminal,
   );
-  const { result, failedStage, out, cfg, gotchasTail, liveTable } =
-    await runPrepareGate(
-      root,
-      false,
-      undefined,
-      liveWidth === undefined ? {} : { liveWidth },
-    );
+  const {
+    result,
+    failedStage,
+    out,
+    cfg,
+    gotchasTail,
+    liveTable,
+    outputWithheld,
+  } = await runPrepareGate(
+    root,
+    false,
+    undefined,
+    { terminal, ...(liveWidth === undefined ? {} : { liveWidth }) },
+  );
   observeResult(result); // the logbook recorder lifts step timings from it
   const ttyTable = ttyWidth !== undefined && !cfg.gate.stream;
   if (ttyTable && !liveTable && ttyWidth !== undefined) {
@@ -189,7 +214,7 @@ export async function runPrepare(
       `${
         renderGateTtyTable(result.steps ?? [], {
           width: ttyWidth,
-          color: out.color,
+          terminal: out.terminal,
         })
       }\n`,
     );
@@ -203,9 +228,10 @@ export async function runPrepare(
         ? "A regeneration failed."
         : "A check failed.",
       diagnostics: result.diagnostics ?? [],
+      failedStage,
       gotchas: gotchasTail,
       // The live table quiets the runner, so the tail carries the output.
-      outputWithheld: liveTable,
+      outputWithheld,
     });
     return 1;
   }
@@ -225,7 +251,7 @@ export async function runPrepare(
       `${
         renderGateTtyStatus(success, "ok", {
           width: ttyWidth,
-          color: out.color,
+          terminal: out.terminal,
         })
       }\n`,
     );

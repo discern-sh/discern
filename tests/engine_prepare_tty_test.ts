@@ -56,13 +56,12 @@ Deno.test("prepare TTY: an 80-column live table moves every job through executio
       timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
-    assertStringIncludes(result.output, "JOB");
-    assertStringIncludes(result.output, "COMMAND");
-    assertStringIncludes(result.output, "RESULT");
+    assertStringIncludes(result.output, "Gate progress");
+    assertStringIncludes(result.output, "Steps");
     assertStringIncludes(result.output, "format");
     assertStringIncludes(result.output, "sleep 1");
     assertStringIncludes(result.output, "lint");
-    assertStringIncludes(result.output, "ok · 1s");
+    assertStringIncludes(result.output, "passed in 1s");
 
     const firstRedraw = result.stdout.indexOf(CSI);
     assert(firstRedraw > 0, result.output);
@@ -77,13 +76,13 @@ Deno.test("prepare TTY: an 80-column live table moves every job through executio
     const passed = result.stdout.lastIndexOf(
       "Fix and check stages passed. Build and test stages did not run.",
     );
-    assert(passed > result.stdout.lastIndexOf("ok · 1s"), result.stdout);
+    assert(passed > result.stdout.lastIndexOf("passed in 1s"), result.stdout);
     assert(passed > result.stdout.lastIndexOf(CSI), result.stdout);
     assertEquals(SGR.test(result.output), false);
   });
 });
 
-Deno.test("prepare TTY: a narrow terminal uses the stacked layout", async () => {
+Deno.test("prepare TTY: a narrow terminal wraps every command fact", async () => {
   await withTempDir(async (dir) => {
     await preparedRepo(
       dir,
@@ -98,9 +97,12 @@ Deno.test("prepare TTY: a narrow terminal uses the stacked layout", async () => 
       timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
-    assertStringIncludes(result.output, "JOB / RESULT");
-    assertStringIncludes(result.output, "format  pending");
-    assertStringIncludes(result.output, "    true");
+    assertStringIncludes(result.output, "Gate progress");
+    assertStringIncludes(result.output, "format [passed]");
+    assertStringIncludes(result.output, "$ true");
+    assertStringIncludes(result.output, "a-check-command-with-detail");
+    assertEquals(result.output.includes("pending"), false);
+    assertEquals(result.output.includes(CSI), false);
     assertEquals(result.output.includes("JOB                 COMMAND"), false);
   });
 });
@@ -122,20 +124,28 @@ Deno.test("prepare TTY: a failed live table completes before the actionable tail
       timeoutMs: 20_000,
     });
     assertEquals(result.code, 1, result.output);
-    assertStringIncludes(result.output, "failed · <1s");
+    assertStringIncludes(result.output, "failed in <1s");
     assertStringIncludes(result.output, "cancelled");
     const tailStart = result.stdout.indexOf("Failure guide:");
     assert(tailStart > result.stdout.lastIndexOf(CSI), result.stdout);
     assert(
-      tailStart > result.stdout.lastIndexOf("failed · <1s"),
+      tailStart > result.stdout.lastIndexOf("failed in <1s"),
       result.stdout,
     );
-    const lines = result.stdout.split("\n").filter((line) =>
-      line.trim() !== ""
+    assertStringIncludes(result.stdout.slice(tailStart), "FAILURE: lint");
+    assertStringIncludes(
+      result.stdout.slice(tailStart),
+      `Reproduce: $ ${failing}`,
     );
-    const last = lines.at(-1) ?? "";
-    assertStringIncludes(last, "discern prepare failed");
-    assertStringIncludes(last, `reproduce: ${failing}`);
+    assertStringIncludes(result.stdout.slice(tailStart), "Safe to retry");
+    assertStringIncludes(
+      result.stdout.slice(tailStart),
+      "Failed: discern prepare failed",
+    );
+    assertStringIncludes(
+      result.stdout.slice(tailStart),
+      `reproduce: ${failing}`,
+    );
   });
 });
 
@@ -167,9 +177,9 @@ Deno.test("prepare TTY: --plain and CI render a static final table", async () =>
         timeoutMs: 20_000,
       });
       assertEquals(result.code, 0, `${label}: ${result.output}`);
-      assertStringIncludes(result.output, "JOB");
-      assertStringIncludes(result.output, "COMMAND");
-      assertStringIncludes(result.output, "ok · <1s");
+      assertStringIncludes(result.output, "Gate progress");
+      assertStringIncludes(result.output, "Steps");
+      assertStringIncludes(result.output, "passed in <1s");
       assertEquals(result.output.includes("pending"), false, label);
       assertEquals(result.output.includes("running"), false, label);
       assertEquals(result.output.includes(CSI), false, label);
@@ -250,10 +260,14 @@ Deno.test("prepare TTY: a no-op names the missing fix and check jobs", async () 
       timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
-    assertStringIncludes(result.output, "(no job is wired — nothing ran)");
     assertStringIncludes(
       result.output,
-      "No fix or check job is configured. Build and test stages did not run.",
+      "No Gate job is configured, so no project command ran.",
     );
+    assertStringIncludes(
+      result.output,
+      "No fix or check job is configured. Build and test stages did not",
+    );
+    assertStringIncludes(result.output, "run.");
   });
 });

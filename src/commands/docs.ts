@@ -22,7 +22,10 @@
  * dispatch, the interactive loop, and the pager.
  */
 
-import { colors } from "@cliffy/ansi/colors";
+import {
+  renderDocsHeaderCli,
+  renderSectionCli,
+} from "discern-design-system/cli";
 import {
   basename,
   dirname,
@@ -32,9 +35,16 @@ import {
   resolve,
   SEPARATOR,
 } from "@std/path";
-import { colourEnabled, Logger } from "../lib/log.ts";
+import { Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
-import { terminalWidth } from "../lib/text.ts";
+import { displayWidth, padDisplayEnd, wrapText } from "../lib/text.ts";
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalContextWithColor,
+  terminalLine,
+  terminalMultiline,
+} from "../lib/terminal.ts";
 import {
   browserOpenFailureMessage,
   openInBrowser,
@@ -89,6 +99,7 @@ import {
   canPrompt,
   checkboxPrompt,
   groupedSelectOptions,
+  isPromptCancellation,
   selectPrompt,
 } from "../lib/prompts.ts";
 import {
@@ -108,14 +119,14 @@ const QUIT_BROWSE = "\x00quit";
  * manual has an equivalent online home; a project's map stays local. */
 export function docsBrowseNavigationChoices(
   verb: "map" | "docs",
-  color: boolean,
+  _color: boolean,
 ): Array<{ name: string; value: string }> {
   return [
     ...(verb === "docs"
       ? [{ name: "Read the docs online", value: READ_DOCS_ONLINE }]
       : []),
     {
-      name: color ? colors.dim("Quit") : "Quit",
+      name: "Quit",
       value: QUIT_BROWSE,
     },
   ];
@@ -652,7 +663,7 @@ function invalidOptions(
       hints: failureRecoveryHintTexts(verb),
     });
   } else {
-    log.error(message);
+    log.error(terminalLine(message));
   }
   return 1;
 }
@@ -662,12 +673,19 @@ function invalidOptions(
  * width (or `$COLUMNS`), capped to a readable maximum with a small margin, and
  * falling back to 80 off a TTY.
  */
-function resolveWidth(explicit: number | undefined): number {
+function resolveWidth(
+  explicit: number | undefined,
+  terminal: TerminalContext,
+): number {
   if (explicit && explicit > 0) return Math.floor(explicit);
-  // A fallback of 82 preserves the renderer's established 80-column page
-  // after its two-column margin.
-  const cols = terminalWidth({ fallback: 82 });
-  return Math.max(40, Math.min(cols - 2, 100));
+  const cols = terminal.capabilities.columns;
+  return Math.max(20, Math.min(cols - 2, 100));
+}
+
+/** Apply the command's explicit no-colour decision to the active CLI context. */
+function docsTerminal(noColor: boolean): TerminalContext {
+  const base = terminalContext();
+  return terminalContextWithColor(base, base.color && !noColor);
 }
 
 /**
@@ -709,24 +727,59 @@ async function present(text: string, noPager: boolean): Promise<void> {
   console.log(text);
 }
 
-/** The picker label for a doc: its docs-relative path, then its title. */
-function optionLabel(e: DocEntry, color: boolean): string {
-  if (!color) return `${e.relToDocs}  —  ${e.title}`;
-  return `${colors.cyan(e.relToDocs)}  ${colors.dim("· " + e.title)}`;
+/** The semantic picker label; prompt rendering owns selection-state styling. */
+function optionLabel(e: DocEntry): string {
+  return terminalLine(`${e.relToDocs}  —  ${e.title}`);
 }
 
-/** The one-line corpus header both the static TOC and the interactive picker
- * show: `discern <verb> — N documents in <dir>`. The single source for "which
- * tree am I in, and how big is it" so the two surfaces can never disagree. */
+/** The one-line corpus fact kept plain for the interactive prompt seam. */
+function docsHeaderFact(
+  verb: string,
+  count: number,
+  directory: string,
+): string {
+  return terminalLine(
+    `discern ${verb} — ${count} documents in ${directory}`,
+  );
+}
+
+/** Render one exact corpus fact through the package Docs Header Component. */
+export function renderDocsCorpusHeader(
+  verb: string,
+  count: number,
+  directory: string,
+  width: number,
+  terminal: TerminalContext,
+): string {
+  const fact = docsHeaderFact(verb, count, directory);
+  if (!terminal.stdoutIsTerminal) return fact;
+  const safeDirectory = terminalLine(directory);
+  return renderDocsHeaderCli(
+    {
+      brand: terminalLine(`discern ${verb}`),
+      middle: terminalLine(`— ${count} documents in ${safeDirectory}`),
+      theme: terminal.themeVariant,
+      maxWidth: width,
+    },
+    { ...terminal.capabilities, columns: width },
+  );
+}
+
+/** Adapt a discovered tree to the pure corpus-header renderer. */
 function docsHeader(
   verb: string,
   tree: DocsTree,
   cwd: string,
-  color: boolean,
+  width: number,
+  terminal: TerminalContext,
 ): string {
-  const paint = (fn: (s: string) => string, s: string) => color ? fn(s) : s;
-  return `${paint(colors.bold, `discern ${verb}`)} — ${tree.entries.length} ` +
-    `documents in ${display(tree.docsDir, cwd)}`;
+  return renderDocsCorpusHeader(
+    verb,
+    tree.entries.length,
+    display(tree.docsDir, cwd),
+    width,
+    terminal,
+  );
 }
 
 /** The interactive browse loop: pick a doc, view it, repeat until quit. */
@@ -735,20 +788,22 @@ async function browse(
   tree: DocsTree,
   options: DocsOptions,
   cwd: string,
+  terminal: TerminalContext,
 ): Promise<number> {
   const verb = desc.verb;
-  const color = colourEnabled(options.noColor);
-  const width = resolveWidth(options.width);
+  const width = resolveWidth(options.width, terminal);
   const choices = tree.entries.map((e) => ({
-    name: optionLabel(e, color),
+    name: optionLabel(e),
     value: e.path,
   }));
   // Keep the corpus context visible across every re-render of the picker (it
   // redraws each iteration), so the reader always knows which tree they are
   // filtering and how large it is — the same line the static `--list` TOC leads with.
-  const message = `${docsHeader(verb, tree, cwd, color)}  ·  type to filter`;
-  let last: string | undefined;
-
+  const message = terminalLine(
+    `${
+      docsHeaderFact(verb, tree.entries.length, display(tree.docsDir, cwd))
+    }  ·  type to filter`,
+  );
   while (true) {
     let choice: string;
     try {
@@ -763,16 +818,15 @@ async function browse(
           {
             id: "browse-navigation",
             label: "Browse",
-            items: docsBrowseNavigationChoices(verb, color),
+            items: docsBrowseNavigationChoices(verb, terminal.color),
           },
-        ], color ? colors.dim : (rule) => rule),
+        ]),
         search: true,
-        info: true,
         maxRows: 14,
-        ...(last !== undefined ? { default: last } : {}),
       });
-    } catch {
-      // Cancelled (Ctrl-C / Esc) — a clean exit, not an error.
+    } catch (error) {
+      if (!isPromptCancellation(error)) throw error;
+      // Ctrl-C or end-of-input leaves the browser without changing anything.
       return 0;
     }
     if (choice === QUIT_BROWSE) return 0;
@@ -780,12 +834,13 @@ async function browse(
       const opened = await openInBrowser(DISCERN_DOCS_URL);
       if (opened.status !== "opened") {
         console.error(
-          browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
+          terminalLine(
+            browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
+          ),
         );
       }
       continue;
     }
-    last = choice;
     const entry = tree.entries.find((e) => e.path === choice);
     if (!entry) continue;
     observeVerbTarget(canonicalDocTarget(entry));
@@ -794,7 +849,14 @@ async function browse(
       entry,
       await Deno.readTextFile(entry.absPath),
     );
-    await present(renderMarkdown(content, { width, color }), options.noPager);
+    await present(
+      renderMarkdown(content, {
+        width,
+        color: terminal.color,
+        terminal,
+      }),
+      options.noPager,
+    );
   }
 }
 
@@ -803,37 +865,67 @@ function printToc(
   verb: string,
   tree: DocsTree,
   cwd: string,
-  color: boolean,
+  terminal: TerminalContext,
+  width: number,
 ): void {
-  const paint = (fn: (s: string) => string, s: string) => color ? fn(s) : s;
   const labelOf = (e: DocEntry) =>
-    e.section ? e.relToDocs.slice(e.section.length + 1) : e.relToDocs;
-  const colWidth = Math.min(
-    32,
-    Math.max(...tree.entries.map((e) => labelOf(e).length)),
-  );
+    terminalLine(
+      e.section ? e.relToDocs.slice(e.section.length + 1) : e.relToDocs,
+    );
 
   const groups: HumanOutputGroup<string>[] = [{
     id: "contents-summary",
-    items: [docsHeader(verb, tree, cwd, color)],
+    items: [docsHeader(verb, tree, cwd, width, terminal)],
   }];
-  let section: string | null | undefined;
-  let sectionItems: string[] | undefined;
+  const sections = new Map<string, DocEntry[]>();
   for (const e of tree.entries) {
-    if (e.section !== section) {
-      section = e.section;
-      sectionItems = [
-        paint(colors.bold.cyan, (section || "(root)") + "/"),
-      ];
-      groups.push({
-        id: `contents:${section || "root"}`,
-        items: sectionItems,
-      });
-    }
-    const label = labelOf(e).padEnd(colWidth);
-    sectionItems?.push(
-      `  ${paint(colors.cyan, label)}  ${paint(colors.dim, e.title)}`,
+    const section = e.section || "root";
+    const entries = sections.get(section) ?? [];
+    entries.push(e);
+    sections.set(section, entries);
+  }
+  const capabilities = { ...terminal.capabilities, columns: width };
+  for (const [section, entries] of sections) {
+    const safeSection = terminalLine(section);
+    const colWidth = Math.min(
+      32,
+      Math.max(...entries.map((entry) => displayWidth(labelOf(entry)))),
     );
+    const rows = entries.map((entry) => {
+      const label = labelOf(entry);
+      const title = terminalLine(entry.title);
+      const aligned = `  ${padDisplayEnd(label, colWidth)}  ${title}`;
+      if (terminal.stdoutIsTerminal || displayWidth(aligned) <= width) {
+        return aligned;
+      }
+      return wrapText(
+        `${label}  ${title}`,
+        Math.max(1, width - 2),
+        "",
+        { breakLongWords: true },
+      ).map((line) => `  ${line}`).join("\n");
+    });
+    const title = `${safeSection === "root" ? "(root)" : safeSection}/`;
+    const body = terminal.stdoutIsTerminal
+      ? renderSectionCli(
+        {
+          title: terminalLine(title),
+          body: terminalMultiline(rows.join("\n")),
+          treatment: "rule",
+          spacing: "sm",
+          theme: terminal.themeVariant,
+          width,
+        },
+        capabilities,
+      )
+      : [
+        title,
+        ...rows,
+      ].join("\n");
+    groups.push({
+      id: `contents:${section}`,
+      items: [body],
+    });
   }
   console.log(renderHumanOutputGroups(groups));
 }
@@ -843,45 +935,74 @@ function printMapOverview(
   tree: DocsTree,
   cwd: string,
   regions: readonly MapRegion[],
-  color: boolean,
+  terminal: TerminalContext,
+  width: number,
 ): void {
-  const paint = (fn: (s: string) => string, s: string) => color ? fn(s) : s;
+  const capabilities = { ...terminal.capabilities, columns: width };
+  const directory = terminalLine(display(tree.docsDir, cwd));
+  const summary = terminalLine(
+    `discern map — ${regions.length} region${
+      regions.length === 1 ? "" : "s"
+    } in ${directory}`,
+  );
   const groups: HumanOutputGroup<string>[] = [{
     id: "map-summary",
     items: [
-      `${paint(colors.bold, "discern map")} — ${regions.length} region${
-        regions.length === 1 ? "" : "s"
-      } in ${display(tree.docsDir, cwd)}`,
+      terminal.stdoutIsTerminal
+        ? renderDocsHeaderCli(
+          {
+            brand: "discern map",
+            middle: terminalLine(
+              `— ${regions.length} region${
+                regions.length === 1 ? "" : "s"
+              } in ${directory}`,
+            ),
+            theme: terminal.themeVariant,
+            maxWidth: width,
+          },
+          capabilities,
+        )
+        : summary,
     ],
   }];
   for (const [index, region] of regions.entries()) {
-    const items = [
-      `${paint(colors.bold.cyan, region.name)}  ${region.description}`,
-    ];
+    const name = terminalLine(region.name);
+    const details: string[] = [terminalMultiline(region.description)];
     if (
       region.pages_changed_at === undefined ||
       region.code_changes_since === undefined
     ) {
-      items.push(
-        paint(
-          colors.dim,
-          "  freshness unknown — no specific file links or usable Git history",
-        ),
+      details.push(
+        "freshness unknown — no specific file links or usable Git history",
       );
     } else {
       const changes = region.code_changes_since;
-      items.push(
-        paint(
-          colors.dim,
-          `  pages last changed ${
-            ageSince(region.pages_changed_at)
-          }; linked code changed ${changes} time${
-            changes === 1 ? "" : "s"
-          } since`,
-        ),
+      details.push(
+        `pages last changed ${
+          ageSince(region.pages_changed_at)
+        }; linked code changed ${changes} time${
+          changes === 1 ? "" : "s"
+        } since`,
       );
     }
-    groups.push({ id: `map-region:${index}`, items });
+    const safeDetails = terminalMultiline(details.join("\n"));
+    const body = terminal.stdoutIsTerminal
+      ? renderSectionCli(
+        {
+          title: terminalLine(name),
+          body: terminalMultiline(safeDetails),
+          treatment: "rule",
+          spacing: "sm",
+          theme: terminal.themeVariant,
+          width,
+        },
+        capabilities,
+      )
+      : `${name}  ${safeDetails.replaceAll("\n", "\n  ")}`;
+    groups.push({
+      id: `map-region:${index}`,
+      items: [body],
+    });
   }
   console.log(renderHumanOutputGroups(groups));
 }
@@ -890,46 +1011,85 @@ function printMapOverview(
 function printSearchResults(
   verb: string,
   data: DocsData,
-  color: boolean,
+  terminal: TerminalContext,
+  width: number,
 ): void {
-  const paint = (fn: (s: string) => string, value: string) =>
-    color ? fn(value) : value;
-  const query = data.query ?? "";
+  const capabilities = { ...terminal.capabilities, columns: width };
+  const query = terminalLine(data.query ?? "");
   const results = data.results ?? [];
-  const scope = data.scope === undefined ? "" : ` in ${data.scope}`;
+  const scope = data.scope === undefined
+    ? ""
+    : ` in ${terminalLine(data.scope)}`;
   if (results.length === 0) {
-    console.log(`No ${verb} docs matched "${query}"${scope}.`);
+    console.log(terminalLine(`No ${verb} docs matched "${query}"${scope}.`));
     return;
   }
   const count = data.count ?? results.length;
   const groups: HumanOutputGroup<string>[] = [{
     id: "search-summary",
     items: [
-      `${count} result${count === 1 ? "" : "s"} for "${query}"${scope}`,
+      terminal.stdoutIsTerminal
+        ? renderDocsHeaderCli(
+          {
+            brand: terminalLine(
+              `${count} result${count === 1 ? "" : "s"}`,
+            ),
+            middle: terminalLine(`for "${query}"${scope}`),
+            theme: terminal.themeVariant,
+            maxWidth: width,
+          },
+          capabilities,
+        )
+        : `${count} result${count === 1 ? "" : "s"} for "${query}"${scope}`,
     ],
   }];
   for (const [index, result] of results.entries()) {
-    const heading = result.heading === undefined ? "" : ` · ${result.heading}`;
+    const heading = result.heading === undefined
+      ? ""
+      : ` · ${terminalLine(result.heading)}`;
     const match = result.match === "complete"
       ? ""
       : result.match === "partial"
       ? " · partial match"
       : " · title or alias match";
-    const items = [
-      `${
-        paint(colors.bold.cyan, result.target)
-      }  ${result.title}${heading}${match}`,
+    const items: string[] = [
+      terminalLine(`${terminalLine(result.title)}${heading}${match}`),
     ];
     if (result.snippet !== "") {
-      items.push(`  ${paint(colors.dim, result.snippet)}`);
+      items.push(terminalMultiline(result.snippet));
     }
-    groups.push({ id: `search-result:${index}`, items });
+    const target = terminalLine(result.target);
+    groups.push({
+      id: `search-result:${index}`,
+      items: [
+        terminal.stdoutIsTerminal
+          ? renderSectionCli(
+            {
+              body: terminalMultiline([target, ...items].join("\n")),
+              surface: "sunken",
+              spacing: "sm",
+              theme: terminal.themeVariant,
+              width,
+            },
+            capabilities,
+          )
+          : [
+            `${target}  ${items[0] ?? ""}`,
+            ...items.slice(1).map((item) => `  ${item}`),
+          ].join("\n"),
+      ],
+    });
   }
   if (data.truncated === true) {
     groups.push({
       id: "search-truncation",
       items: [
-        paint(colors.dim, `Showing the first ${results.length} results.`),
+        terminal.stdoutIsTerminal
+          ? terminal.role(
+            `Showing the first ${results.length} results.`,
+            "muted",
+          )
+          : `Showing the first ${results.length} results.`,
       ],
     });
   }
@@ -962,7 +1122,7 @@ async function exportDocs(
       includeInternal,
     });
   if (!discovered) {
-    log.error(desc.missingTree(options));
+    log.error(terminalLine(desc.missingTree(options)));
     return 1;
   }
   // `--export public` is an explicitly-published projection for either verb;
@@ -983,11 +1143,11 @@ async function exportDocs(
       const docsDir = await Deno.realPath(tree.docsDir);
       const canonicalOutput = await canonicalOutputPath(outputPath);
       if (pathIsWithin(docsDir, canonicalOutput)) {
-        log.error(
+        log.error(terminalLine(
           `refusing to write an export inside ${
             display(tree.docsDir, cwd)
           }; choose a path outside the source documentation tree.`,
-        );
+        ));
         return 1;
       }
     }
@@ -1002,9 +1162,9 @@ async function exportDocs(
         pathMatchesPattern(entry.path, pattern)
       );
       if (matches.length === 0) {
-        log.warn(
+        log.warn(terminalLine(
           `scope "${selection.name}" path "${pattern}" matches no map documents.`,
-        );
+        ));
       }
       for (const match of matches) {
         if (!seen.has(match.path)) {
@@ -1017,7 +1177,9 @@ async function exportDocs(
   } else if (selection.scope === "select") {
     const groups = groupDocs(entries);
     if (groups.length === 0) {
-      log.warn(`no Markdown files under ${display(tree.docsDir, cwd)}.`);
+      log.warn(terminalLine(
+        `no Markdown files under ${display(tree.docsDir, cwd)}.`,
+      ));
       return 0;
     }
 
@@ -1026,14 +1188,15 @@ async function exportDocs(
       selected = await checkboxPrompt<string>({
         message: "Include documentation sections",
         options: groups.map((group) => ({
-          name: `${group.name} (${group.entries.length})`,
+          name: terminalLine(`${group.name} (${group.entries.length})`),
           value: group.name,
           checked: !group.internal,
         })),
         minOptions: 1,
       });
-    } catch {
-      // Cancelled (Ctrl-C / Esc) — do not create or overwrite the output file.
+    } catch (error) {
+      if (!isPromptCancellation(error)) throw error;
+      // Cancellation does not create or overwrite the output file.
       return 0;
     }
 
@@ -1053,7 +1216,11 @@ async function exportDocs(
     markdown = formatDocsExport(sources);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log.error(`could not read every documentation source: ${message}`);
+    log.terminalSafeMultilineError(
+      terminalMultiline(
+        `could not read every documentation source: ${message}`,
+      ),
+    );
     return 1;
   }
 
@@ -1062,14 +1229,18 @@ async function exportDocs(
       await Deno.writeTextFile(outputPath, markdown);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      log.error(`could not write "${options.output}": ${message}`);
+      log.terminalSafeMultilineError(
+        terminalMultiline(
+          `could not write "${options.output}": ${message}`,
+        ),
+      );
       return 1;
     }
-    log.ok(
+    log.ok(terminalLine(
       `Exported ${entries.length} document${
         entries.length === 1 ? "" : "s"
       } to ${display(outputPath, cwd)}.`,
-    );
+    ));
     return 0;
   }
 
@@ -1322,25 +1493,26 @@ async function viewTarget(
   log: Logger,
   cwd: string,
   target: string,
+  terminal: TerminalContext,
 ): Promise<number> {
   const verb = desc.verb;
   const res = resolveDoc(tree, target, cwd);
 
   if (res.kind === "none") {
     const suggestions = suggestDocs(tree, target).map((item) => item.entry);
-    log.error(notFoundMessage(target, suggestions));
+    log.error(terminalLine(notFoundMessage(target, suggestions)));
     for (const label of suggestionLabels(suggestions)) {
-      log.detail(label);
+      log.detail(terminalLine(label));
     }
     log.detail(`list what's available: discern ${verb} --list`);
     return 1;
   }
 
   if (res.kind === "ambiguous") {
-    log.error(
+    log.error(terminalLine(
       `"${target}" matches ${res.entries.length} docs. Qualify it with a section or path:`,
-    );
-    for (const e of res.entries) log.detail(e.path);
+    ));
+    for (const e of res.entries) log.detail(terminalLine(e.path));
     return 1;
   }
 
@@ -1352,10 +1524,10 @@ async function viewTarget(
     await Deno.stdout.write(new TextEncoder().encode(content));
     return 0;
   }
-  const color = colourEnabled(options.noColor);
   const rendered = renderMarkdown(terminalBody(desc, res.entry, content), {
-    width: resolveWidth(options.width),
-    color,
+    width: resolveWidth(options.width, terminal),
+    color: terminal.color,
+    terminal,
   });
   await present(rendered, options.noPager);
   return 0;
@@ -1370,6 +1542,8 @@ async function viewTarget(
 async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   const log = new Logger(options);
   const cwd = Deno.cwd();
+  const terminal = docsTerminal(options.noColor);
+  const width = resolveWidth(options.width, terminal);
 
   if (options.output && !options.export) {
     return invalidOptions(log, desc.verb, "--output requires --export.");
@@ -1478,7 +1652,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     ? undefined
     : verbTree(desc, discovered, internal);
   if (!tree) {
-    log.error(desc.missingTree(options));
+    log.error(terminalLine(desc.missingTree(options)));
     return 1;
   }
   if (options.search !== undefined && options.search.trim() === "") {
@@ -1488,17 +1662,20 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   if (tree.entries.length === 0) {
     if (options.search !== undefined) {
       if (options.target !== undefined && options.target !== "") {
-        log.error(notFoundMessage(options.target, []));
+        log.error(terminalLine(notFoundMessage(options.target, [])));
         return 1;
       }
       printSearchResults(
         desc.verb,
         await searchData(desc, tree, options.search),
-        colourEnabled(options.noColor),
+        terminal,
+        width,
       );
       return 0;
     }
-    log.warn(`no Markdown files under ${display(tree.docsDir, cwd)}.`);
+    log.warn(terminalLine(
+      `no Markdown files under ${display(tree.docsDir, cwd)}.`,
+    ));
     return 0;
   }
 
@@ -1515,14 +1692,16 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
         const suggestions = suggestDocs(tree, options.target).map((item) =>
           item.entry
         );
-        log.error(notFoundMessage(options.target, suggestions));
+        log.error(
+          terminalLine(notFoundMessage(options.target, suggestions)),
+        );
         return 1;
       }
       if (resolvedScope.kind === "ambiguous") {
-        log.error(
+        log.error(terminalLine(
           `"${options.target}" matches ${resolvedScope.entries.length} docs. ` +
             "Qualify it with a section or path.",
-        );
+        ));
         return 1;
       }
       searchTree = resolvedScope.tree;
@@ -1531,7 +1710,8 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     printSearchResults(
       desc.verb,
       await searchData(desc, searchTree, options.search, scope),
-      colourEnabled(options.noColor),
+      terminal,
+      width,
     );
     return 0;
   }
@@ -1544,7 +1724,8 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
         desc.verb,
         { ...tree, entries: region.entries },
         cwd,
-        colourEnabled(options.noColor),
+        terminal,
+        width,
       );
       return 0;
     }
@@ -1552,7 +1733,15 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
 
   // 2. A specific doc was named → render / raw-dump just that one.
   if (options.target !== undefined && options.target !== "") {
-    return await viewTarget(desc, tree, options, log, cwd, options.target);
+    return await viewTarget(
+      desc,
+      tree,
+      options,
+      log,
+      cwd,
+      options.target,
+      terminal,
+    );
   }
 
   // 3. `map` earns its name with a region overview before any drill-in. A pipe
@@ -1564,18 +1753,19 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
       tree,
       cwd,
       regions,
-      colourEnabled(options.noColor),
+      terminal,
+      width,
     );
     if (!interactive) return 0;
   }
 
   // 4. A real terminal and no `--list` → the interactive browser.
   if (interactive) {
-    return await browse(desc, tree, options, cwd);
+    return await browse(desc, tree, options, cwd, terminal);
   }
 
   // 5. Otherwise (docs off a TTY, or explicit `--list`) → a plain TOC.
-  printToc(desc.verb, tree, cwd, colourEnabled(options.noColor));
+  printToc(desc.verb, tree, cwd, terminal, width);
   return 0;
 }
 

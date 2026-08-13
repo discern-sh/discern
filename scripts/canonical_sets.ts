@@ -1230,13 +1230,13 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   },
   {
     id: "terminal-triangle-motifs",
-    title: "Terminal triangle motifs",
+    title: "Package triangle motifs",
     what:
       "The reusable triangle treatments: every pure static frame carries one semantic animation timeline and enters both maintainer gallery projections.",
     source: {
       kind: "module",
       module: "art/terminal/triangle.ts",
-      exportName: "DISCERN_TRIANGLE_MOTIFS",
+      exportName: "DISCERN_PACKAGE_TRIANGLE_MOTIFS",
     },
     guards: [
       "tests/triangle_art_test.ts",
@@ -1255,7 +1255,37 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     members: async () =>
       Object.keys(
         (await import("../art/terminal/triangle.ts"))
-          .DISCERN_TRIANGLE_MOTIFS,
+          .DISCERN_PACKAGE_TRIANGLE_MOTIFS,
+      ),
+  },
+  {
+    id: "terminal-product-triangle-art",
+    title: "Product triangle art",
+    what:
+      "The product-specific triangle compositions: every static figure derives its glyphs and order from the package and carries one matching animation timeline.",
+    source: {
+      kind: "module",
+      module: "art/terminal/triangle.ts",
+      exportName: "DISCERN_PRODUCT_TRIANGLE_ART",
+    },
+    guards: [
+      "tests/triangle_art_test.ts",
+      "tests/art_gallery_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent: "the terminal-art gallery owns these product composition names",
+      },
+      featureCanon: {
+        absent:
+          "the existing terminal surfaces consume these product compositions and maintainer previews",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../art/terminal/triangle.ts"))
+          .DISCERN_PRODUCT_TRIANGLE_ART,
       ),
   },
   {
@@ -1275,6 +1305,13 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/browser_art_contour_test.ts",
       "tests/browser_art_persistent_trace_test.ts",
       "tests/browser_art_invariant_core_test.ts",
+      "tests/browser_art_figures_test.ts",
+      "tests/browser_art_circuit_test.ts",
+      "tests/browser_art_seal_test.ts",
+      "tests/browser_art_delta_test.ts",
+      "tests/browser_art_rule_test.ts",
+      "tests/browser_art_interference_test.ts",
+      "tests/browser_art_quorum_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -2487,6 +2524,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/terminal_boundary_guard_test.ts":
+    "applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set",
   "tests/result_capture_drain_parity_test.ts":
     "derives its universe from the module's `take*` exports and checks that both recording points drain every `result_capture` one-slot mailbox",
   "tests/control_byte_guard_test.ts":

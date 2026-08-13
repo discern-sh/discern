@@ -14,6 +14,7 @@ import type { Job, JobResult } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
 import { selfShimPath } from "../../shared/self_shim.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
+import { terminalLine } from "../../lib/terminal.ts";
 import {
   KILL_GRACE_MS,
   KILLED_PIPE_GRACE_MS,
@@ -142,7 +143,7 @@ async function streamPrefixed(
   onChunk?: (chunk: Uint8Array) => void | Promise<void>,
 ): Promise<void> {
   const dec = new TextDecoder();
-  const prefix = `── ${label} │ `;
+  const prefix = `── ${terminalLine(label)} │ `;
   let buf = "";
   for await (const chunk of stream) {
     await onChunk?.(chunk);

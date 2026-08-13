@@ -1,13 +1,12 @@
 /**
  * Colour-aware, TTY-aware logging for the installer.
  *
- * Mirrors discern's output convention: a single `Logger` instance holds
- * the run's presentation mode (colour on/off, JSON mode) so every command emits
- * consistently. Colour is suppressed when `--no-color` is passed, when `NO_COLOR`
- * is set, or when stdout is not a TTY — matching the engine's `output.sh`.
+ * A single `Logger` instance holds the run's presentation mode (package terminal
+ * context plus JSON mode) so every command emits consistently. The process
+ * adapter has already resolved `--no-color`, NO_COLOR, TERM, locale, dimensions,
+ * and terminal attachment before Logger chooses semantic Token roles.
  */
 
-import { colors } from "@cliffy/ansi/colors";
 import {
   assertHumanOutputGroupId,
   assertHumanOutputGroupLabel,
@@ -16,7 +15,13 @@ import {
 } from "../shared/result.ts";
 import { emitResult } from "../shared/emit.ts";
 import { observeResult } from "../shared/result_capture.ts";
-import type { EnvReader } from "../shared/env.ts";
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalContextWithColor,
+  terminalLine,
+  type TerminalMultiline,
+} from "./terminal.ts";
 
 /** How a command should present its results. */
 export interface LogOptions {
@@ -30,28 +35,15 @@ export interface LogOptions {
    * heading → stdout, warn/error → stderr).
    */
   humanStream?: "stdout" | "stderr";
-}
-
-/** Resolve whether colour should be used for this run. */
-export function colourEnabled(
-  noColor: boolean,
-  env: EnvReader = Deno.env,
-): boolean {
-  if (noColor) {
-    return false;
-  }
-  if (
-    env.get("NO_COLOR") !== undefined && env.get("NO_COLOR") !== ""
-  ) {
-    return false;
-  }
-  return Deno.stdout.isTerminal();
+  /** Explicit package presentation facts for deterministic tests/callers. */
+  terminal?: TerminalContext;
 }
 
 /** A presentation-aware logger shared across a command invocation. */
 export class Logger {
   readonly json: boolean;
-  private readonly colour: boolean;
+  /** Package presentation facts shared with composed human renderers. */
+  readonly terminal: TerminalContext;
   /**
    * Which stream human (non-JSON) narration (info/ok/heading/detail) goes to:
    * `"stdout"` for an interactive verb, `"stderr"` when the parent reserves its
@@ -67,7 +59,10 @@ export class Logger {
   /** Build a logger from the resolved run options. */
   constructor(options: LogOptions) {
     this.json = options.json;
-    this.colour = colourEnabled(options.noColor);
+    const terminal = options.terminal ?? terminalContext();
+    this.terminal = options.noColor
+      ? terminalContextWithColor(terminal, false)
+      : terminal;
     this.humanStream = options.humanStream ?? "stderr";
   }
 
@@ -82,43 +77,46 @@ export class Logger {
     this.atGroupBoundary = line === "" || line.endsWith("\n\n");
   }
 
-  /** Apply a colour transform only when colour is enabled. */
-  private paint(fn: (s: string) => string, text: string): string {
-    return this.colour ? fn(text) : text;
-  }
-
-  /** Informational step (cyan arrow). Suppressed in JSON mode. */
+  /** Informational step (accent arrow). Suppressed in JSON mode. */
   info(message: string): void {
     if (this.json) {
       return;
     }
-    this.writeHuman(`${this.paint(colors.cyan, "→")} ${message}`);
+    this.writeHuman(
+      `${this.terminal.tone("→", "accent")} ${terminalLine(message)}`,
+    );
   }
 
-  /** Success line (green check). Suppressed in JSON mode. */
+  /** Success line (semantic success check). Suppressed in JSON mode. */
   ok(message: string): void {
     if (this.json) {
       return;
     }
-    this.writeHuman(`${this.paint(colors.green, "✓")} ${message}`);
+    this.writeHuman(
+      `${this.terminal.tone("✓", "success")} ${terminalLine(message)}`,
+    );
   }
 
-  /** Non-fatal warning (yellow bang) to stderr. Suppressed in JSON mode. */
+  /** Non-fatal warning (semantic warning bang) to stderr. */
   warn(message: string): void {
     if (this.json) {
       return;
     }
-    console.error(`${this.paint(colors.yellow, "!")} ${message}`);
+    console.error(
+      `${this.terminal.tone("!", "warning")} ${terminalLine(message)}`,
+    );
     this.wroteHuman = true;
     this.atGroupBoundary = false;
   }
 
-  /** Error line (red cross) to stderr. Does not exit. Suppressed in JSON mode. */
+  /** Error line (semantic danger cross) to stderr. Does not exit. */
   error(message: string): void {
     if (this.json) {
       return;
     }
-    console.error(`${this.paint(colors.red, "✗")} ${message}`);
+    console.error(
+      `${this.terminal.tone("✗", "danger")} ${terminalLine(message)}`,
+    );
     this.wroteHuman = true;
     this.atGroupBoundary = false;
   }
@@ -128,7 +126,9 @@ export class Logger {
     if (this.json) {
       return;
     }
-    this.writeHuman(`\n${this.paint(colors.bold, text)}`);
+    this.writeHuman(
+      `\n${this.terminal.role(terminalLine(text), "strong")}`,
+    );
   }
 
   /** Start a semantic group and optionally give it a visible ruled label. */
@@ -141,7 +141,9 @@ export class Logger {
     }
     if (label !== undefined) {
       this.writeHuman(
-        `  ${this.paint(colors.dim, "──")} ${this.paint(colors.bold, label)}`,
+        `  ${this.terminal.role("──", "muted")} ${
+          this.terminal.role(terminalLine(label), "strong")
+        }`,
       );
     }
   }
@@ -151,7 +153,7 @@ export class Logger {
     if (this.json) {
       return;
     }
-    this.writeHuman(`  ${this.paint(colors.dim, text)}`);
+    this.writeHuman(`  ${this.terminal.role(terminalLine(text), "muted")}`);
   }
 
   /**
@@ -202,39 +204,28 @@ export class Logger {
     emitResult(r);
   }
 
-  /** Bold a fragment of text inline (no-op without colour). */
-  bold(text: string): string {
-    return this.paint(colors.bold, text);
-  }
-
-  /** Dim a fragment of text inline (no-op without colour). */
-  dim(text: string): string {
-    return this.paint(colors.dim, text);
-  }
-
-  /** Cyan a fragment of text inline (no-op without colour). */
-  cyan(text: string): string {
-    return this.paint(colors.cyan, text);
-  }
-
-  /** Green a fragment of text inline (no-op without colour). */
-  green(text: string): string {
-    return this.paint(colors.green, text);
-  }
-
   /**
    * Emit a pre-composed line to the human (narration) stream verbatim — the
    * fully-controlled counterpart to {@link detail}, which forces its own indent and
-   * dim. A caller that builds a line out of inline colour fragments
-   * ({@link bold}/{@link dim}/{@link cyan}/…) and owns its own wrapping/indentation
-   * uses this. Follows `humanStream` (stderr for the installer) and is suppressed in
-   * JSON mode, like the rest of the narration.
+   * dim. A caller that composes package Token roles and owns its wrapping or
+   * indentation uses this. Follows `humanStream` (stderr for the installer) and
+   * is suppressed in JSON mode, like the rest of the narration.
    */
   humanLine(text: string): void {
     if (this.json) {
       return;
     }
     this.writeHuman(text);
+  }
+
+  /** Emit branded terminal-safe multiline text as one semantic error block. */
+  terminalSafeMultilineError(message: TerminalMultiline): void {
+    if (this.json) {
+      return;
+    }
+    console.error(`${this.terminal.tone("✗", "danger")} ${message}`);
+    this.wroteHuman = true;
+    this.atGroupBoundary = false;
   }
 }
 
@@ -243,6 +234,7 @@ export function loggerSink(log: Logger): RenderSink {
   return {
     heading: (t: string): void => log.heading(t),
     line: (t: string): void => log.line(t),
-    dim: (t: string): string => log.dim(t),
+    safeLine: (t: string): string => terminalLine(t),
+    dim: (t: string): string => log.terminal.role(terminalLine(t), "muted"),
   };
 }

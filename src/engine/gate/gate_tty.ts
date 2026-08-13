@@ -1,459 +1,350 @@
 /**
- * The compact terminal projection for planned gate jobs. Jobs appear before
- * execution, update as the scheduler settles them, and finish from the
- * serialized result steps.
- *
- * This is presentation only. The scheduler and result envelope own every fact.
+ * Effectful TTY controller around the Gate's pure package-backed presentation.
+ * Scheduler events, cursor replacement, and viewport updates stay here. Typed
+ * Gate facts cross into `presentation.ts`; that module performs no observation.
  */
 
-import {
-  displayWidth,
-  padDisplayEnd,
-  terminalWidth,
-  wrapText,
-} from "../../lib/text.ts";
-import type { StepOutcome, StepResult } from "../../shared/result.ts";
+import { DISCERN_TRIANGLE_SPINNER_ORDER } from "discern-design-system/cli";
+import type { TerminalContext, TerminalSize } from "../../lib/terminal.ts";
+import { createInlineFramePainter } from "../../lib/terminal_painter.ts";
+import type { StepResult } from "../../shared/result.ts";
+import type { GateStandard } from "../../shared/result_schemas.ts";
 import type { JobRunObserver } from "../jobs/runner.ts";
 import type { Job, JobResult } from "../jobs/types.ts";
-import { type Palette, palette } from "../output.ts";
 import type { JobGroup } from "./plan.ts";
-import { fmtDuration } from "./proof_render.ts";
+import {
+  completedGateJobs,
+  type GateJobPresentationStatus,
+  liveGateJobs,
+  renderGateJobs,
+  renderGateStandards,
+  renderGateStatus,
+} from "./presentation.ts";
 
-const INDENT = "  ";
-const GUTTER = "  ";
-const MAX_REPORT_WIDTH = 120;
-const MIN_THREE_COLUMN_WIDTH = 44;
-const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-
-/** The success treatment shared by gate-job rows and verb-specific tails. */
-export const GATE_TTY_SUCCESS = "\x1b[38;2;52;211;121m";
-
+/** Explicit package presentation facts for one Gate frame. */
 export interface GateTtyOptions {
   /** Full terminal width in visible columns. */
   width: number;
-  /** Whether ANSI color is enabled. */
-  color: boolean;
+  /** The already-resolved process-to-package boundary. */
+  terminal: TerminalContext;
 }
 
-type GateRowTone = StepOutcome | "pending" | "running";
-
-interface GateRow {
-  job: string;
-  command: string;
-  result: string;
-  tone: GateRowTone;
-}
-
-/** Bound the report to the usable terminal width while retaining a readable minimum. */
-export function gateReportWidth(width: number): number {
-  const terminal = Number.isFinite(width) ? Math.floor(width) : 80;
-  return Math.max(
-    1,
-    Math.min(MAX_REPORT_WIDTH, terminal - displayWidth(INDENT)),
-  );
-}
-
-/** Project completed jobs and scope gates into the common report-row model. */
-function completedRows(steps: readonly StepResult[]): GateRow[] {
-  return steps
-    .filter((result) =>
-      result.step.kind === "job" || result.step.kind === "scope-gate"
-    )
-    .map((result) => {
-      const ran = result.step.disposition === "run";
-      const duration = ran && result.durationS !== undefined
-        ? ` · ${fmtDuration(result.durationS)}`
-        : "";
-      return {
-        job: result.step.label,
-        command: ran
-          ? result.step.note ?? result.step.label
-          : result.step.note ?? "—",
-        result: `${result.outcome}${duration}`,
-        tone: result.outcome,
-      };
-    });
-}
-
-/** Map scheduler status and exit code to the human outcome vocabulary. */
-function jobOutcome(result: JobResult): StepOutcome {
-  if (result.cancelled === true) {
-    return "cancelled";
-  }
-  return result.code === 0 ? "ok" : "failed";
-}
-
-/** Project planned groups and scheduler state without implying pending jobs ran. */
-function plannedRows(
-  groups: readonly JobGroup[],
-  running: ReadonlySet<string>,
-  results: ReadonlyMap<string, JobResult>,
-): GateRow[] {
-  return groups.flatMap((group) =>
-    group.jobs
-      .filter((job) => job.kind !== "standard")
-      .map((job): GateRow => {
-        const settled = results.get(job.label);
-        if (settled !== undefined) {
-          const outcome = jobOutcome(settled);
-          return {
-            job: job.label,
-            command: job.command,
-            result: `${outcome} · ${fmtDuration(settled.durationS)}`,
-            tone: outcome,
-          };
-        }
-        if (running.has(job.label)) {
-          return {
-            job: job.label,
-            command: job.command,
-            result: "running",
-            tone: "running",
-          };
-        }
-        if (!job.willRun) {
-          return {
-            job: job.label,
-            command: job.command,
-            result: "skipped",
-            tone: "skipped",
-          };
-        }
-        return {
-          job: job.label,
-          command: job.command,
-          result: "pending",
-          tone: "pending",
-        };
-      })
-  );
-}
-
-/** Choose the ANSI treatment associated with one outcome. */
-function rowStyle(
-  tone: GateRowTone,
-  color: boolean,
-  c: Palette,
-): string {
-  if (!color) {
-    return "";
-  }
-  switch (tone) {
-    case "ok":
-      return GATE_TTY_SUCCESS;
-    case "failed":
-      return c.red;
-    case "cancelled":
-      return c.yellow;
-    case "skipped":
-    case "pending":
-      return c.dim;
-    case "running":
-      return c.cyan;
-  }
-}
-
-/** Apply a row style only when color output is enabled. */
-function styled(
-  value: string,
-  style: string,
-  reset: string,
-): string {
-  return style === "" ? value : `${style}${value}${reset}`;
-}
-
-/** Draw a horizontal divider sized to the active report width. */
-function rule(width: number, c: Palette): string {
-  return `${INDENT}${styled("─".repeat(width), c.dim, c.reset)}`;
-}
-
-/** Keep table cells inside their column even when one path or command has no spaces. */
-function wrapCell(text: string, width: number): string[] {
-  return wrapText(text, width).flatMap((line) => {
-    if (displayWidth(line) <= width) {
-      return [line];
-    }
-    const parts: string[] = [];
-    let part = "";
-    for (const { segment } of GRAPHEMES.segment(line)) {
-      if (part !== "" && displayWidth(`${part}${segment}`) > width) {
-        parts.push(part);
-        part = segment;
-      } else {
-        part += segment;
-      }
-    }
-    if (part !== "") {
-      parts.push(part);
-    }
-    return parts;
-  });
-}
-
-/** Render narrow terminals as stacked label-value rows without truncation. */
-function renderCompactTable(
-  rows: readonly GateRow[],
-  width: number,
-  color: boolean,
-  c: Palette,
-): string[] {
-  const lines = [
-    `${INDENT}${styled("JOB / RESULT", c.dim, c.reset)}`,
-    rule(width, c),
-  ];
-  if (rows.length === 0) {
-    lines.push(
-      ...wrapCell("(no job is wired — nothing ran)", width)
-        .map((line) => `${INDENT}${line}`),
-      rule(width, c),
-    );
-    return lines;
-  }
-  for (const row of rows) {
-    const result = styled(
-      row.result,
-      rowStyle(row.tone, color, c),
-      c.reset,
-    );
-    lines.push(`${INDENT}${row.job}  ${result}`);
-    lines.push(
-      ...wrapCell(row.command, Math.max(1, width - 2))
-        .map((line) => `${INDENT}  ${line}`),
-      rule(width, c),
-    );
-  }
-  return lines;
-}
-
-/** Render result, job, and command columns within the measured width budget. */
-function renderThreeColumnTable(
-  rows: readonly GateRow[],
-  width: number,
-  color: boolean,
-  c: Palette,
-): string[] {
-  const resultWidth = Math.max(12, Math.floor(width * 0.2));
-  const jobWidth = Math.max(10, Math.floor(width * 0.24));
-  const commandWidth = Math.max(
-    1,
-    width - jobWidth - resultWidth - (2 * displayWidth(GUTTER)),
-  );
-  const line = (
-    job: string,
-    command: string,
-    result: string,
-  ): string =>
-    `${INDENT}${padDisplayEnd(job, jobWidth)}${GUTTER}${
-      padDisplayEnd(command, commandWidth)
-    }${GUTTER}${result}`;
-
-  const lines = [
-    styled(line("JOB", "COMMAND", "RESULT"), c.dim, c.reset),
-    rule(width, c),
-  ];
-  if (rows.length === 0) {
-    lines.push(
-      ...wrapCell("(no job is wired — nothing ran)", width)
-        .map((value) => `${INDENT}${value}`),
-      rule(width, c),
-    );
-    return lines;
-  }
-
-  for (const row of rows) {
-    const jobs = wrapCell(row.job, jobWidth);
-    const commands = wrapCell(row.command, commandWidth);
-    const results = wrapCell(row.result, resultWidth);
-    const height = Math.max(jobs.length, commands.length, results.length);
-    for (let index = 0; index < height; index++) {
-      const job = padDisplayEnd(jobs[index] ?? "", jobWidth);
-      const command = padDisplayEnd(commands[index] ?? "", commandWidth);
-      const resultValue = results[index] ?? "";
-      const result = styled(
-        resultValue,
-        resultValue === "" ? "" : rowStyle(row.tone, color, c),
-        c.reset,
-      );
-      lines.push(
-        line(
-          styled(job, c.dim, c.reset),
-          command,
-          result,
-        ),
-      );
-    }
-    lines.push(rule(width, c));
-  }
-  return lines;
-}
-
-/** Choose the compact or 3-column layout from available terminal width. */
-function renderRows(
-  rows: readonly GateRow[],
-  options: GateTtyOptions,
-): string {
-  const width = gateReportWidth(options.width);
-  const c = palette(options.color);
-  const lines = width < MIN_THREE_COLUMN_WIDTH
-    ? renderCompactTable(rows, width, options.color, c)
-    : renderThreeColumnTable(rows, width, options.color, c);
-  return lines.join("\n");
-}
-
-/**
- * Render the `JOB / COMMAND / RESULT` table from executed envelope steps.
- * Narrow terminals use a stacked row so no column is squeezed into noise.
- */
+/** Render completed envelope steps and optional Standard readings. */
 export function renderGateTtyTable(
   steps: readonly StepResult[],
   options: GateTtyOptions,
+  standards: readonly GateStandard[] = [],
 ): string {
-  return renderRows(completedRows(steps), options);
+  const jobs = renderGateJobs(completedGateJobs(steps), options);
+  const standardFrame = renderGateStandards(standards, options);
+  return standardFrame === "" ? jobs : `${jobs}\n\n${standardFrame}`;
 }
 
-/** Render the current live table from planned job groups and scheduler events. */
+/** Render the current live workflow from scheduler facts and an injected phase. */
 export function renderGateTtyProgressTable(
   groups: readonly JobGroup[],
   running: ReadonlySet<string>,
   results: ReadonlyMap<string, JobResult>,
   options: GateTtyOptions,
+  phase = 0,
+  startedAtMs: ReadonlyMap<string, number> = new Map(),
+  timeMs = 0,
 ): string {
-  return renderRows(plannedRows(groups, running, results), options);
+  return renderGateJobs(
+    liveGateJobs(groups, running, results, startedAtMs, timeMs),
+    { ...options, phase },
+  );
 }
 
-/** The effectful controller that keeps one live job table in place on a TTY. */
+/** Whether the package painter accepts the initial Gate frame for replacement. */
+export function gateTtyProgressCanRepaint(
+  groups: readonly JobGroup[],
+  options: GateTtyOptions,
+): boolean {
+  const painter = createInlineFramePainter({
+    write: () => {},
+    size: () => options.terminal.size,
+    capabilities: () => ({
+      ...options.terminal.capabilities,
+      columns: options.width,
+    }),
+  });
+  return painter.replace(
+    `${
+      renderGateTtyProgressTable(
+        groups,
+        new Set(),
+        new Map(),
+        options,
+      )
+    }\n`,
+  ).status !== "refused";
+}
+
+/** Injectable repeating scheduler for deterministic activity-frame tests. */
+export interface GateProgressScheduler {
+  repeat(callback: () => void, intervalMs: number): () => void;
+}
+
+const systemProgressScheduler: GateProgressScheduler = {
+  repeat(callback, intervalMs): () => void {
+    const timer = setInterval(callback, intervalMs);
+    return () => clearInterval(timer);
+  },
+};
+
+/** The effectful controller that keeps one live workflow in place on a TTY. */
 export interface GateTtyProgress extends JobRunObserver {
   start(groups: readonly JobGroup[]): void;
   replaceGroups(groups: readonly JobGroup[]): void;
-  complete(steps: readonly StepResult[]): void;
+  /** Update an explicitly observed viewport before the next repaint. */
+  resize(size: TerminalSize): void;
+  complete(
+    steps: readonly StepResult[],
+    standards?: readonly GateStandard[],
+  ): void;
+  /** Whether completion successfully left one final Gate frame visible. */
+  renderedFinal(): boolean;
+}
+
+/** Controller-only options. Pure view functions never receive the scheduler. */
+export interface GateTtyProgressOptions extends GateTtyOptions {
+  scheduler?: GateProgressScheduler;
+  intervalMs?: number;
+  initialPhase?: number;
+  /** Effectful time source; pure views receive only its numeric reading. */
+  clock?: () => number;
+}
+
+/** Validate and default the package activity-frame interval. */
+function progressInterval(intervalMs: number | undefined): number {
+  const interval = intervalMs ?? 80;
+  if (!Number.isSafeInteger(interval) || interval < 1) {
+    throw new TypeError(
+      `Gate progress interval must be a positive safe integer; received ${interval}`,
+    );
+  }
+  return interval;
 }
 
 /**
- * Create one in-place TTY table. Color SGR sequences follow `options.color`;
- * cursor movement remains active in no-color mode because it controls layout.
+ * Create one in-place package workflow. ANSI SGR follows the supplied terminal
+ * context. Cursor movement remains active without colour because it owns layout.
  */
 export function createGateTtyProgress(
   write: (value: string) => void,
-  options: GateTtyOptions,
+  options: GateTtyProgressOptions,
 ): GateTtyProgress {
   const running = new Set<string>();
   const results = new Map<string, JobResult>();
+  const startedAtMs = new Map<string, number>();
+  const scheduler = options.scheduler ?? systemProgressScheduler;
+  const clock = options.clock ?? Date.now;
+  const intervalMs = progressInterval(options.intervalMs);
   let groups: readonly JobGroup[] | undefined;
   let visible = new Set<string>();
-  let renderedLines = 0;
   let redrawQueued = false;
   let completed = false;
+  let repainting = true;
+  let paintFailed = false;
+  let finalRendered = false;
+  let phase = options.initialPhase ?? 0;
+  let viewport: TerminalSize = {
+    columns: options.width,
+    rows: options.terminal.size.rows,
+  };
+  let stopRepeating: (() => void) | undefined;
+  const painter = createInlineFramePainter({
+    write,
+    size: () => viewport,
+    capabilities: () => ({
+      ...options.terminal.capabilities,
+      columns: viewport.columns,
+    }),
+  });
 
-  const replace = (table: string): void => {
-    if (renderedLines === 0) {
-      write(`\n${table}\n`);
-    } else {
-      write(`\x1b[${renderedLines}A\r\x1b[J${table}\n`);
+  const frameOptions = (): GateTtyOptions => ({
+    width: viewport.columns,
+    terminal: options.terminal,
+  });
+
+  const stopTicker = (): void => {
+    try {
+      stopRepeating?.();
+    } catch {
+      // Presentation cleanup cannot change the Gate's scheduler result.
     }
-    renderedLines = table.split("\n").length;
+    stopRepeating = undefined;
+  };
+
+  const abandonPaint = (): void => {
+    paintFailed = true;
+    repainting = false;
+    stopTicker();
+  };
+
+  const attemptWrite = (effect: () => void): boolean => {
+    if (paintFailed) return false;
+    try {
+      effect();
+      return true;
+    } catch {
+      // Once a write fails, the physical cursor position is unknowable. Never
+      // issue a compensating erase or let presentation mask the Gate result.
+      abandonPaint();
+      return false;
+    }
+  };
+
+  const replace = (table: string, final = false): void => {
+    if (paintFailed) return;
+    if (!repainting) {
+      if (final) {
+        finalRendered = attemptWrite(() => write(`${table}\n`));
+      }
+      return;
+    }
+    if (
+      painter.currentFrame === "" && !attemptWrite(() => write("\n"))
+    ) return;
+    let result: ReturnType<typeof painter.replace>;
+    try {
+      result = painter.replace(`${table}\n`);
+    } catch {
+      abandonPaint();
+      return;
+    }
+    if (result.status !== "refused") {
+      if (final) finalRendered = true;
+      return;
+    }
+    if (
+      painter.currentFrame !== "" &&
+      !attemptWrite(() => painter.clear())
+    ) return;
+    repainting = false;
+    stopTicker();
+    if (final) {
+      finalRendered = attemptWrite(() => write(`${table}\n`));
+    }
   };
 
   const redraw = (): void => {
-    if (groups === undefined || completed) {
-      return;
-    }
-    replace(renderGateTtyProgressTable(groups, running, results, options));
+    if (groups === undefined || completed || paintFailed || !repainting) return;
+    replace(
+      renderGateTtyProgressTable(
+        groups,
+        running,
+        results,
+        frameOptions(),
+        phase,
+        startedAtMs,
+        clock(),
+      ),
+    );
   };
 
   const queueRedraw = (): void => {
-    if (redrawQueued || completed) {
-      return;
-    }
+    if (redrawQueued || completed || paintFailed || !repainting) return;
     redrawQueued = true;
     queueMicrotask(() => {
       redrawQueued = false;
-      redraw();
+      try {
+        redraw();
+      } catch {
+        abandonPaint();
+      }
     });
+  };
+
+  const syncTicker = (): void => {
+    if (completed || paintFailed || !repainting || running.size === 0) {
+      stopTicker();
+      return;
+    }
+    if (stopRepeating !== undefined) return;
+    stopRepeating = scheduler.repeat(() => {
+      phase = (phase + 1) % DISCERN_TRIANGLE_SPINNER_ORDER.length;
+      queueRedraw();
+    }, intervalMs);
   };
 
   const setGroups = (next: readonly JobGroup[]): void => {
     groups = next;
     visible = new Set(
-      next.flatMap((group) =>
-        group.jobs
-          .filter((job) => job.kind !== "standard")
-          .map((job) => job.label)
-      ),
+      next.flatMap((group) => group.jobs.map((job) => job.label)),
     );
   };
 
   return {
-    start: (next: readonly JobGroup[]): void => {
+    start: (next): void => {
       setGroups(next);
-      redraw();
-    },
-    replaceGroups: (next: readonly JobGroup[]): void => {
-      if (completed) {
-        return;
+      try {
+        redraw();
+      } catch {
+        abandonPaint();
       }
+    },
+    replaceGroups: (next): void => {
+      if (completed) return;
       setGroups(next);
-      redraw();
+      try {
+        redraw();
+      } catch {
+        abandonPaint();
+      }
+    },
+    resize: (next): void => {
+      if (
+        !Number.isFinite(next.columns) || next.columns < 1 ||
+        !Number.isFinite(next.rows) || next.rows < 1
+      ) return;
+      viewport = {
+        columns: Math.floor(next.columns),
+        rows: Math.floor(next.rows),
+      };
+      try {
+        redraw();
+      } catch {
+        abandonPaint();
+      }
     },
     started: (job: Job): void => {
-      if (!visible.has(job.label) || completed) {
-        return;
-      }
+      if (!visible.has(job.label) || completed) return;
       running.add(job.label);
+      startedAtMs.set(job.label, clock());
+      syncTicker();
       queueRedraw();
     },
     settled: (result: JobResult): void => {
-      if (!visible.has(result.label) || completed) {
-        return;
-      }
+      if (!visible.has(result.label) || completed) return;
       running.delete(result.label);
+      startedAtMs.delete(result.label);
       results.set(result.label, result);
+      syncTicker();
       queueRedraw();
     },
-    complete: (steps: readonly StepResult[]): void => {
+    complete: (steps, standards = []): void => {
       completed = true;
-      replace(renderGateTtyTable(steps, options));
+      stopTicker();
+      if (paintFailed) return;
+      try {
+        replace(renderGateTtyTable(steps, frameOptions(), standards), true);
+      } catch {
+        abandonPaint();
+      }
     },
+    renderedFinal: (): boolean => finalRendered,
   };
 }
 
-/** Render one wrapped status line inside the same width and color budget as the table. */
+/** Render one package Result summary inside the same explicit viewport. */
 export function renderGateTtyStatus(
   message: string,
-  tone: GateRowTone,
+  status: GateJobPresentationStatus,
   options: GateTtyOptions,
 ): string {
-  const width = gateReportWidth(options.width);
-  const c = palette(options.color);
-  const marker = tone === "ok"
-    ? "✓"
-    : tone === "failed"
-    ? "✗"
-    : tone === "cancelled"
-    ? "!"
-    : tone === "running"
-    ? "→"
-    : "·";
-  const markerWidth = displayWidth(marker) + 1;
-  const lines = wrapCell(message, Math.max(1, width - markerWidth));
-  return lines.map((line, index) => {
-    const prefix = index === 0
-      ? `${styled(marker, rowStyle(tone, options.color, c), c.reset)} `
-      : " ".repeat(markerWidth);
-    return `${INDENT}${prefix}${line}`;
-  }).join("\n");
-}
-
-/** CI and `--plain` request a static transcript even when stdout is a TTY. */
-function staticOutputRequested(plain: boolean): boolean {
-  if (plain) {
-    return true;
-  }
-  try {
-    const marker = Deno.env.get("CI")?.trim().toLowerCase();
-    return marker !== undefined && marker !== "" && marker !== "false";
-  } catch {
-    return false;
-  }
+  return renderGateStatus(message, status, options);
 }
 
 /** The terminal widths available to a gate verb's static and live projections. */
@@ -462,17 +353,19 @@ export interface GateTtyPresentation {
   liveWidth?: number;
 }
 
-/** Resolve the common TTY, CI, and `--plain` presentation boundary once. */
+/** Resolve the common TTY, CI, and `--plain` effect boundary once. */
 export function gateTtyPresentation(
   json: boolean,
   plain: boolean,
+  terminal: TerminalContext,
 ): GateTtyPresentation {
-  if (json || !Deno.stdout.isTerminal()) {
-    return {};
-  }
-  const width = terminalWidth();
+  if (json || !terminal.stdoutIsTerminal) return {};
+  const width = terminal.size.columns;
   return {
     ttyWidth: width,
-    ...(staticOutputRequested(plain) ? {} : { liveWidth: width }),
+    ...(plain || terminal.ciRequestsStaticOutput ||
+        terminal.capabilities.ansiControl === false
+      ? {}
+      : { liveWidth: width }),
   };
 }

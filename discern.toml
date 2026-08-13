@@ -170,7 +170,10 @@
   # Local gates default to JUnit for per-test Tier-1 diagnostics (file, line,
   # test name) and attributable logbook classes. Hosted full gates select the
   # pretty reporter for readable logs; bare `deno task test` does the same.
-  test = { run = "deno task test --reporter=${DISCERN_GATE_TEST_REPORTER:-junit}", timeout = 1200 }
+  # The budget fits the slowest hosted lane: the WSL 2 gate runs the suite
+  # 5-6x slower than a dev machine and needs ~1300s on a 2-core runner, so
+  # 2400 leaves headroom there while still bounding a genuine hang.
+  test = { run = "deno task test --reporter=${DISCERN_GATE_TEST_REPORTER:-junit}", timeout = 2400 }
   smoke = "deno task dev --version"
 
   # `prose` lints the map with Vale at the check stage. Error-severity findings

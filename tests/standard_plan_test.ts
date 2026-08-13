@@ -12,6 +12,7 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   buildStandardPlan,
   pinnedLimit,
+  standardPinEligibility,
   standardPlanToEngine,
 } from "../src/engine/gate/standard_plan.ts";
 
@@ -125,6 +126,31 @@ Deno.test("pinnedLimit: rounds a rate in the SAFE direction so the measurement s
   // A floor rounds DOWN (so measured ≥ pinned floor); a ceiling rounds UP.
   assertEquals(pinnedLimit("up", 89.317, 0, 80), 89.31);
   assertEquals(pinnedLimit("down", 18.311, 0, 40), 18.32);
+});
+
+Deno.test("standardPinEligibility is the one mechanical authority Gate and Patterns record", () => {
+  const values = [0, 12.5, 50, 100, 1000];
+  const margins = [0, 0.01, 5, 100];
+  const currents = [0, 40, 80, 500, 2000];
+  for (const direction of ["up", "down"] as const) {
+    for (const value of values) {
+      for (const margin of margins) {
+        for (const current of currents) {
+          const eligibility = standardPinEligibility({
+            direction,
+            value,
+            margin,
+            limit: current,
+          });
+          assertEquals(
+            eligibility.eligible ? eligibility.target : undefined,
+            pinnedLimit(direction, value, margin, current),
+            `${direction} value=${value} margin=${margin} limit=${current}`,
+          );
+        }
+      }
+    }
+  }
 });
 
 Deno.test("pinnedLimit: a negative margin never pins a limit the measurement fails (B31)", () => {

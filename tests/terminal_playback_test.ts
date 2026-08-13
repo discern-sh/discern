@@ -142,16 +142,39 @@ Deno.test("terminal playback applies the complete plan and settles on static out
   assertEquals(waits, [10, 20, 30]);
   assertEquals(writes, [
     "\n",
-    "[one]\nA\n",
-    "\x1b[2A\r\x1b[J",
-    "[one]\nB\n",
-    "\x1b[2A\r\x1b[J",
-    "[two]\n界\né\n",
-    "\x1b[3A\r\x1b[J",
-    "[two]\nC\n",
-    "\x1b[2A\r\x1b[J",
+    "[one]\nA",
+    "\x1b[1G\x1b[1A\x1b[J[one]\nB",
+    "\x1b[1G\x1b[1A\x1b[J[two]\n界\né",
+    "\x1b[1G\x1b[2A\x1b[J[two]\nC",
+    "\x1b[1G\x1b[1A\x1b[J",
     "static\n",
   ]);
+});
+
+Deno.test("terminal playback settles immediately when the package refuses control", async () => {
+  const writes: string[] = [];
+  const waits: number[] = [];
+  await applyTerminalPlayback(
+    fixturePlan(),
+    {
+      write: (value) => writes.push(value),
+      wait: (milliseconds) => {
+        waits.push(milliseconds);
+        return Promise.resolve();
+      },
+      terminalSize: STABLE_TERMINAL_SIZE,
+      terminalCapabilities: () => ({
+        ansiControl: false,
+        colorDepth: "none",
+        columns: 80,
+        unicode: true,
+      }),
+    },
+    new AbortController().signal,
+  );
+
+  assertEquals(writes, ["\n", "static\n"]);
+  assertEquals(waits, []);
 });
 
 Deno.test("terminal playback abort clears the partial viewport without persistent cursor state", async () => {
@@ -178,8 +201,8 @@ Deno.test("terminal playback abort clears the partial viewport without persisten
   );
   assertEquals(writes, [
     "\n",
-    "[one]\nA\n",
-    "\x1b[2A\r\x1b[J",
+    "[one]\nA",
+    "\x1b[1G\x1b[1A\x1b[J",
   ]);
 });
 
@@ -212,7 +235,7 @@ Deno.test("a first-frame write failure never leaves persistent cursor state", as
         {
           write: (value) => {
             writes.push(value);
-            if (value === "[one]\nA\n") {
+            if (value === "[one]\nA") {
               throw new Error("closed stream");
             }
           },
@@ -224,7 +247,7 @@ Deno.test("a first-frame write failure never leaves persistent cursor state", as
     Error,
     "closed stream",
   );
-  assertEquals(writes, ["\n", "[one]\nA\n"]);
+  assertEquals(writes, ["\n", "[one]\nA"]);
 });
 
 Deno.test("a redraw failure never moves above the cleared animation viewport", async () => {
@@ -236,7 +259,7 @@ Deno.test("a redraw failure never moves above the cleared animation viewport", a
         {
           write: (value) => {
             writes.push(value);
-            if (value === "[one]\nB\n") {
+            if (value.endsWith("[one]\nB")) {
               throw new Error("redraw failed");
             }
           },
@@ -250,15 +273,14 @@ Deno.test("a redraw failure never moves above the cleared animation viewport", a
   );
   assertEquals(writes, [
     "\n",
-    "[one]\nA\n",
-    "\x1b[2A\r\x1b[J",
-    "[one]\nB\n",
+    "[one]\nA",
+    "\x1b[1G\x1b[1A\x1b[J[one]\nB",
   ]);
 });
 
 Deno.test("a partial clear failure is never retried above the reserved viewport", async () => {
   const writes: string[] = [];
-  const clear = "\x1b[2A\r\x1b[J";
+  const clear = "\x1b[1G\x1b[1A\x1b[J";
   await assertRejects(
     () =>
       applyTerminalPlayback(
@@ -303,5 +325,5 @@ Deno.test("a terminal resize settles below the live viewport without cursor-up",
   );
 
   assertEquals(writes.filter((value) => value.includes("\x1b[")).length, 0);
-  assertEquals(writes.at(-1), "\nstatic\n");
+  assertEquals(writes.slice(-2), ["\n", "static\n"]);
 });

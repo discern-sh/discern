@@ -33,9 +33,9 @@ import { colorEnabled, makeOut, outSink } from "../output.ts";
 import {
   buildStandardPlan,
   perNote,
-  pinnedLimit,
   type PlannedStandard,
   standardJobLabel,
+  standardPinEligibility,
   type StandardPlan,
   standardPlanToEngine,
 } from "./standard_plan.ts";
@@ -368,6 +368,23 @@ function heldVerdict(
   return better ? "improved" : "held";
 }
 
+/** Gate-owned pin evidence for one measured value. Patterns records and reads
+ * this projection; it never reimplements margin arithmetic. */
+function standardPinEvidence(
+  standard: PlannedStandard,
+  value: number,
+): Pick<GateStandard, "pin_eligible" | "pin_target"> {
+  const eligibility = standardPinEligibility({
+    direction: standard.direction,
+    value,
+    margin: standard.margin,
+    limit: standard.limit,
+  });
+  return eligibility.eligible
+    ? { pin_eligible: true, pin_target: eligibility.target }
+    : { pin_eligible: false };
+}
+
 /** Project one resolved standard into the scheduler's planned-job shape. */
 export function plannedStandardJob(
   standard: PlannedStandard,
@@ -441,6 +458,7 @@ export function buildStandardJobs(
       name: standard.name,
       direction: standard.direction,
       limit: standard.limit,
+      margin: standard.margin,
     };
     jobs.push(plannedStandardJob(standard, action, label));
     if (action.kind === "defer") {
@@ -474,6 +492,7 @@ export function buildStandardJobs(
         measurement: "replayed",
         value: action.value,
         replayed_from: action.from,
+        ...standardPinEvidence(standard, action.value),
         ...(verdict.held
           ? { verdict: heldVerdict(standard, action.value) }
           : { verdict: "regressed" as const }),
@@ -496,6 +515,9 @@ export function buildStandardJobs(
         measurement: "measured",
         duration_s: result.durationS,
         ...(verdict.value !== undefined ? { value: verdict.value } : {}),
+        ...(verdict.value !== undefined
+          ? standardPinEvidence(standard, verdict.value)
+          : {}),
         ...(verdict.held && verdict.value !== undefined
           ? { verdict: heldVerdict(standard, verdict.value) }
           : {}),
@@ -795,6 +817,7 @@ async function executeStandardPlan(
       name: standard.name,
       direction: standard.direction,
       limit: standard.limit,
+      margin: standard.margin,
       measurement: "skipped" as const,
     }
   );
@@ -920,6 +943,7 @@ function replayExecutionFromProof(
         name: standard.name,
         direction: standard.direction,
         limit: standard.limit,
+        margin: standard.margin,
         measurement: "skipped",
       });
       diagnostics.push({
@@ -947,8 +971,10 @@ function replayExecutionFromProof(
       name: standard.name,
       direction: standard.direction,
       limit: standard.limit,
+      margin: standard.margin,
       measurement: "replayed",
       value,
+      ...standardPinEvidence(standard, value),
       ...(held ? { verdict: heldVerdict(standard, value) } : {}),
     });
     if (!held) {
@@ -1380,9 +1406,15 @@ async function pinStandardsResult(
   for (const o of considered) {
     const r = o.standard;
     const bound = r.direction === "up" ? "floor" : "ceiling";
-    const newLimit = o.value === undefined
-      ? undefined
-      : pinnedLimit(r.direction, o.value, r.margin, r.limit);
+    const eligibility = o.value === undefined
+      ? { eligible: false as const }
+      : standardPinEligibility({
+        direction: r.direction,
+        value: o.value,
+        margin: r.margin,
+        limit: r.limit,
+      });
+    const newLimit = eligibility.eligible ? eligibility.target : undefined;
     if (o.value === undefined || newLimit === undefined) {
       const seen = o.value === undefined
         ? ""
@@ -1631,15 +1663,16 @@ export async function standardsResult(
                 return [];
               }
               const standard = o.standard;
-              const newLimit = pinnedLimit(
-                standard.direction,
-                o.value,
-                standard.margin,
-                standard.limit,
-              );
-              if (newLimit === undefined) {
+              const eligibility = standardPinEligibility({
+                direction: standard.direction,
+                value: o.value,
+                margin: standard.margin,
+                limit: standard.limit,
+              });
+              if (!eligibility.eligible) {
                 return [];
               }
+              const newLimit = eligibility.target;
               const bound: "floor" | "ceiling" = standard.direction === "up"
                 ? "floor"
                 : "ceiling";

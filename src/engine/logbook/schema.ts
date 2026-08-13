@@ -46,6 +46,7 @@ import { z } from "@zod/zod";
 import { AGENT_SIGNAL_SOURCES } from "../../shared/agent_catalogue.ts";
 import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
+import { validationEvidenceSchema } from "./validation.ts";
 
 /** The event-format major this build writes; readers skip unknown majors. */
 export const LOGBOOK_SCHEMA_VERSION = 1;
@@ -189,10 +190,14 @@ const standardReadingSchema = z.looseObject({
   name: z.string(),
   direction: z.string().optional(),
   limit: z.number().optional(),
+  margin: z.number().optional(),
   value: z.number().optional(),
   verdict: z.string().optional(),
   measurement: z.string().optional(),
   replayed_from: z.string().optional(),
+  /** Mechanical pin evidence computed by the Gate's shared authority. */
+  pin_eligible: z.boolean().optional(),
+  pin_target: z.number().optional(),
 });
 /** One recorded standard reading. */
 export type StandardReading = z.infer<typeof standardReadingSchema>;
@@ -278,9 +283,10 @@ export const verbEventSchema = z.looseObject({
   head: z.string().nullable(),
   /** Whether the working tree was clean at invocation (null when unknown). */
   clean: z.boolean().nullable(),
-  /** Fingerprint of the uncommitted diff, present only on a dirty tree: `head`
-   * plus this identifies "the same exact tree" across runs, which is what a
-   * flake reader needs (`clean` runs are identified by `head` alone). */
+  /** Legacy fingerprint of `git diff HEAD`, present only on a dirty tree.
+   * It identifies one tracked start fingerprint beside `head`; it does not
+   * distinguish index/worktree form or untracked inputs. Current validation
+   * comparisons use the versioned `validation` evidence below. */
   tree: z.string().optional(),
   /** How the invocation ended ({@link LOGBOOK_OUTCOMES}). */
   outcome: z.enum(LOGBOOK_OUTCOMES),
@@ -317,6 +323,9 @@ export const verbEventSchema = z.looseObject({
   scopes: z.array(z.string()).optional(),
   /** Per-step timings lifted from the result envelope, when the verb emitted one. */
   steps: z.array(stepTimingSchema).optional(),
+  /** Versioned, privacy-preserving state and execution evidence captured at a
+   * validation job boundary. Optional keeps every older schema-v1 line readable. */
+  validation: validationEvidenceSchema.optional(),
   /** Diagnostic classes lifted from the result envelope, when the verb emitted one. */
   diagnostics: z.array(diagnosticClassSchema).optional(),
   /** Stable ids of the advisory hints delivered by this invocation. Absent on

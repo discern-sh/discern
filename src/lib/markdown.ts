@@ -23,7 +23,22 @@
  * The single entry point is {@link renderMarkdown}. Everything else is private.
  */
 
-import { Table } from "@cliffy/table";
+import {
+  renderCodeListingCli,
+  renderDividerCli,
+  renderHeadingCli,
+  renderTableCli,
+  type TerminalTextStyle,
+} from "discern-design-system/cli";
+import {
+  type TerminalContext,
+  terminalContextWithColor,
+  type TerminalLine,
+  terminalLine,
+  terminalMultiline,
+  terminalPresentationContext,
+} from "./terminal.ts";
+import { displayWidth, wrapText } from "./text.ts";
 
 /** How to render: wrap width and whether to emit ANSI styling. */
 export interface RenderOptions {
@@ -31,6 +46,8 @@ export interface RenderOptions {
   width?: number;
   /** Apply ANSI colour/style. When false, output is clean plain text. */
   color?: boolean;
+  /** Explicit package presentation facts supplied by the command boundary. */
+  terminal?: TerminalContext;
 }
 
 /** The style flags an inline span can carry. `href` makes the span a link. */
@@ -47,38 +64,8 @@ interface Seg extends Style {
   text: string;
 }
 
-/** A single character carrying the style of the span it came from. */
-interface SChar {
-  ch: string;
-  style: Style;
-}
-
-/**
- * Apply one SGR style unconditionally. `RenderOptions.color` is already the
- * caller's explicit policy, so inheriting @std/fmt's process-global NO_COLOR
- * switch here would make `{ color: true }` lie. Production callers resolve
- * NO_COLOR before invoking the renderer; this layer only obeys its argument.
- */
-function sgr(text: string, open: number, close: number): string {
-  const start = `\x1b[${open}m`;
-  const end = `\x1b[${close}m`;
-  return `${start}${text.replaceAll(end, start)}${end}`;
-}
-
-const bold = (text: string): string => sgr(text, 1, 22);
-const dim = (text: string): string => sgr(text, 2, 22);
-const italic = (text: string): string => sgr(text, 3, 23);
-const underline = (text: string): string => sgr(text, 4, 24);
-const strikethrough = (text: string): string => sgr(text, 9, 29);
-const green = (text: string): string => sgr(text, 32, 39);
-const yellow = (text: string): string => sgr(text, 33, 39);
-const blue = (text: string): string => sgr(text, 34, 39);
-const cyan = (text: string): string => sgr(text, 36, 39);
-const brightBlack = (text: string): string => sgr(text, 90, 39);
-const brightCyan = (text: string): string => sgr(text, 96, 39);
-
 /** OSC-8 terminal hyperlink: clickable in modern terminals, inert elsewhere. */
-function osc8(url: string, text: string): string {
+function osc8(url: TerminalLine, text: string): string {
   const ESC = "\x1b";
   return `${ESC}]8;;${url}${ESC}\\${text}${ESC}]8;;${ESC}\\`;
 }
@@ -288,22 +275,35 @@ function sameStyle(a: Style, b: Style): boolean {
     a.strike === b.strike && a.code === b.code && a.href === b.href;
 }
 
-/** Paint one uniformly-styled run, or annotate it for plain (no-colour) output. */
-function styleRun(text: string, style: Style, color: boolean): string {
-  if (!color) {
+/** Paint one uniformly-styled run from package Token facts. */
+function styleRun(
+  text: string,
+  style: Style,
+  terminal: TerminalContext,
+): string {
+  const safeText = terminalLine(text);
+  if (!terminal.color) {
     // Keep just enough markup that structure survives without colour.
-    if (style.code) return `\`${text}\``;
-    return text;
+    if (style.code) return `\`${safeText}\``;
+    return safeText;
   }
-  if (style.code) return yellow(text);
-  // Compose styles as successive wrappers so combinations remain properly
-  // nested and each style closes independently.
-  let painted = text;
-  if (style.strike) painted = strikethrough(painted);
-  if (style.italic) painted = italic(painted);
-  if (style.bold) painted = bold(painted);
-  if (style.href) painted = osc8(style.href, blue(underline(painted)));
-  return painted;
+  const tokenStyle: TerminalTextStyle = {
+    ...(style.code ? terminal.theme.typography.annotation : {}),
+    ...(style.bold === true ? { bold: true } : {}),
+    ...(style.italic === true ? { italic: true } : {}),
+    ...(style.strike === true ? { strikethrough: true } : {}),
+    ...(style.href === undefined ? {} : {
+      underline: true,
+      color: terminal.themeColor("--discern-color-accent-700"),
+    }),
+    ...(style.code !== true ? {} : {
+      color: terminal.themeColor("--discern-color-warning-deep"),
+    }),
+  };
+  const painted = terminal.style(safeText, tokenStyle);
+  return style.href === undefined
+    ? painted
+    : osc8(terminalLine(style.href), painted);
 }
 
 /**
@@ -330,79 +330,91 @@ function annotateLinksForPlain(segs: Seg[]): Seg[] {
 
 // ── wrapping ───────────────────────────────────────────────────────────────
 
-/** Explode segments into a styled-character stream for width-aware wrapping. */
-function toChars(segs: Seg[]): SChar[] {
-  const chars: SChar[] = [];
-  for (const seg of segs) {
-    const style: Style = {
-      bold: seg.bold,
-      italic: seg.italic,
-      strike: seg.strike,
-      code: seg.code,
-      href: seg.href,
-    };
-    for (const ch of seg.text) chars.push({ ch, style });
-  }
-  return chars;
-}
-
-/** True when a styled char exists and carries whitespace (out-of-range → false). */
-function isSpace(c: SChar | undefined): boolean {
-  return c !== undefined && /\s/.test(c.ch);
-}
-
-/**
- * Greedy word-wrap a styled-character stream to `width`, breaking on spaces and
- * keeping words intact (a word longer than `width` overflows rather than being
- * cut). Whitespace runs collapse to a single break opportunity.
- */
-function wrapChars(chars: SChar[], width: number): SChar[][] {
-  const lines: SChar[][] = [];
-  let line: SChar[] = [];
+/** Collapse inline whitespace without losing the style of any visible run. */
+function normalizedSegments(segments: readonly Seg[]): Seg[] {
+  const normalized: Seg[] = [];
   let pendingSpace = false;
-  let i = 0;
-
-  while (i < chars.length) {
-    if (isSpace(chars[i])) {
-      let j = i;
-      while (isSpace(chars[j])) j++;
-      pendingSpace = line.length > 0;
-      i = j;
-      continue;
+  for (const segment of segments) {
+    for (const part of segment.text.split(/(\s+)/u)) {
+      if (part === "") continue;
+      if (/^\s+$/u.test(part)) {
+        pendingSpace = normalized.length > 0;
+        continue;
+      }
+      if (pendingSpace) normalized.push({ text: " " });
+      normalized.push({ ...segment, text: part });
+      pendingSpace = false;
     }
-    let j = i;
-    while (j < chars.length && !isSpace(chars[j])) j++;
-    const word = chars.slice(i, j);
-    const sep = pendingSpace ? 1 : 0;
-    if (line.length > 0 && line.length + sep + word.length > width) {
-      lines.push(line);
-      line = word.slice();
-    } else {
-      if (sep) line.push({ ch: " ", style: {} });
-      for (const ch of word) line.push(ch);
-    }
-    pendingSpace = false;
-    i = j;
   }
-  if (line.length) lines.push(line);
-  return lines.length ? lines : [[]];
+  return normalized;
 }
 
-/** Paint a wrapped line, merging adjacent same-style runs into one escape. */
-function emitChars(chars: SChar[], color: boolean): string {
+/** Project package-owned plain line breaks back onto the parsed inline styles. */
+function wrapSegments(segments: readonly Seg[], width: number): Seg[][] {
+  const normalized = normalizedSegments(segments);
+  const plain = normalized.map((segment) => segment.text).join("");
+  const lines = wrapText(plain, width);
+  if (lines.length === 0) return [[]];
+  let segmentIndex = 0;
+  let segmentOffset = 0;
+
+  const consume = (length: number): Seg[] => {
+    const consumed: Seg[] = [];
+    let remaining = length;
+    while (remaining > 0) {
+      const source = normalized[segmentIndex];
+      if (source === undefined) {
+        throw new TypeError("package wrapping exceeded parsed inline text");
+      }
+      const available = source.text.length - segmentOffset;
+      const take = Math.min(remaining, available);
+      consumed.push({
+        ...source,
+        text: source.text.slice(segmentOffset, segmentOffset + take),
+      });
+      segmentOffset += take;
+      remaining -= take;
+      if (segmentOffset === source.text.length) {
+        segmentIndex += 1;
+        segmentOffset = 0;
+      }
+    }
+    return consumed;
+  };
+  const nextText = (): string => {
+    const source = normalized[segmentIndex];
+    return source?.text.slice(segmentOffset) ?? "";
+  };
+
+  return lines.map((line, index) => {
+    const styled = consume(line.length);
+    const renderedPlain = styled.map((segment) => segment.text).join("");
+    if (renderedPlain !== line) {
+      throw new TypeError("package wrapping changed parsed inline text");
+    }
+    if (index < lines.length - 1 && nextText().startsWith(" ")) consume(1);
+    return styled;
+  });
+}
+
+/** Paint one package-wrapped line, merging adjacent same-style runs. */
+function emitSegments(
+  segments: readonly Seg[],
+  terminal: TerminalContext,
+): string {
   let out = "";
   let k = 0;
-  while (k < chars.length) {
-    const ck = chars[k];
-    if (ck === undefined) break;
+  while (k < segments.length) {
+    const current = segments[k];
+    if (current === undefined) break;
     let m = k;
-    while (m < chars.length) {
-      const cm = chars[m];
-      if (cm === undefined || !sameStyle(cm.style, ck.style)) break;
+    while (m < segments.length) {
+      const candidate = segments[m];
+      if (candidate === undefined || !sameStyle(candidate, current)) break;
       m++;
     }
-    const text = chars.slice(k, m).map((c) => c.ch).join("");
-    out += styleRun(text, ck.style, color);
+    const text = segments.slice(k, m).map((segment) => segment.text).join("");
+    out += styleRun(text, current, terminal);
     k = m;
   }
   return out;
@@ -412,16 +424,16 @@ function emitChars(chars: SChar[], color: boolean): string {
 function renderInlineBlock(
   text: string,
   width: number,
-  color: boolean,
+  terminal: TerminalContext,
   indent = "",
   hanging = indent,
 ): string[] {
   let segs = parseInline(text);
-  if (!color) segs = annotateLinksForPlain(segs);
-  const avail = Math.max(1, width - indent.length);
-  const lines = wrapChars(toChars(segs), avail);
+  if (!terminal.color) segs = annotateLinksForPlain(segs);
+  const avail = Math.max(1, width - displayWidth(indent));
+  const lines = wrapSegments(segs, avail);
   return lines.map((ln, idx) =>
-    (idx === 0 ? indent : hanging) + emitChars(ln, color)
+    (idx === 0 ? indent : hanging) + emitSegments(ln, terminal)
   );
 }
 
@@ -462,21 +474,42 @@ export function splitRow(line: string): string[] {
   return cells;
 }
 
-/** Render a GFM table through Cliffy's Table, cells flattened to plain text. */
-function renderTable(rows: string[][], width: number): string[] {
-  const header = rows[0] ?? [];
-  const body = rows.slice(1);
-  const cols = Math.max(1, header.length);
-  // Leave room for borders/padding (~3 cells of chrome per column) so a wide
-  // table wraps its cells instead of blowing past the terminal edge.
-  const maxCol = Math.max(8, Math.floor((width - (cols * 3 + 1)) / cols));
-  const table = new Table()
-    .header(header.map(inlineToPlain))
-    .body(body.map((r) => r.map(inlineToPlain)))
-    .border(true)
-    .padding(1)
-    .maxColWidth(maxCol);
-  return table.toString().split("\n");
+/** Render a GFM table through the published width-aware Table Component. */
+function renderTable(
+  rows: string[][],
+  width: number,
+  terminal: TerminalContext,
+): string[] {
+  const visibleCell = (value: string | undefined): string => {
+    const plain = terminalLine(inlineToPlain(value ?? ""));
+    return plain === "" ? " " : plain;
+  };
+  const header = (rows[0] ?? [""]).map(visibleCell);
+  const body = rows.slice(1).map((row) =>
+    header.map((_, index) => visibleCell(row[index]))
+  );
+  const minimumWidth = header.length * 4 + 1;
+  return renderTableCli(
+    width >= minimumWidth
+      ? {
+        columns: header.map((value) => ({ header: terminalLine(value) })),
+        rows: body.map((row) => row.map((cell) => terminalLine(cell))),
+        striped: true,
+        theme: terminal.themeVariant,
+        width,
+      }
+      : {
+        // A terminal too narrow for N framed columns still delegates geometry
+        // to Table: project each source row into one labelled column rather
+        // than inventing a second local cell-layout algorithm.
+        columns: [{ header: terminalLine(header.join(" · ")) }],
+        rows: body.map((row) => [terminalLine(row.join(" · "))]),
+        striped: true,
+        theme: terminal.themeVariant,
+        width,
+      },
+    terminal.capabilities,
+  ).split("\n");
 }
 
 /** Style an ATX heading by level (or keep the `#` markers in plain mode). */
@@ -484,41 +517,42 @@ function renderHeading(
   level: number,
   text: string,
   width: number,
-  color: boolean,
+  terminal: TerminalContext,
 ): string[] {
-  if (!color) {
+  if (!terminal.color) {
     return ["#".repeat(level) + " " + inlineToPlain(text)];
   }
-  const plainLen = inlineToPlain(text).length;
-  const segs = parseInline(text);
-  const chars = toChars(segs);
-  if (level === 1) {
-    const painted = brightCyan(bold(emitCharsPlainText(chars)));
-    return [painted, brightCyan("─".repeat(Math.min(width, plainLen)))];
-  }
-  const plain = emitCharsPlainText(chars);
-  if (level === 2) return [cyan(bold(plain))];
-  if (level >= 4) return [brightBlack(bold(plain))];
-  return [bold(plain)];
-}
-
-/** A heading's text, flattened (headings get one uniform style, not per-run). */
-function emitCharsPlainText(chars: SChar[]): string {
-  return chars.map((c) => c.ch).join("");
+  const headingLevel = Math.min(6, Math.max(1, level)) as 1 | 2 | 3 | 4 | 5 | 6;
+  return [renderHeadingCli(
+    {
+      text: terminalLine(inlineToPlain(text)),
+      level: headingLevel,
+      theme: terminal.themeVariant,
+      maxWidth: width,
+    },
+    terminal.capabilities,
+  )];
 }
 
 /** Render a fenced code block: a bordered, labelled box (fences kept in plain). */
-function renderCode(lang: string, lines: string[], color: boolean): string[] {
-  if (!color) {
+function renderCode(
+  lang: string,
+  lines: string[],
+  width: number,
+  terminal: TerminalContext,
+): string[] {
+  if (!terminal.color) {
     return ["```" + lang, ...lines, "```"];
   }
-  const bar = brightBlack("│ ");
-  const out: string[] = [];
-  if (lang) out.push(brightBlack("┌─ ") + dim(lang));
-  else out.push(brightBlack("┌─"));
-  for (const ln of lines) out.push(bar + ln);
-  out.push(brightBlack("└─"));
-  return out;
+  return renderCodeListingCli(
+    {
+      code: terminalMultiline(lines.join("\n")),
+      ...(lang === "" ? {} : { language: terminalLine(lang) }),
+      theme: terminal.themeVariant,
+      maxWidth: width,
+    },
+    terminal.capabilities,
+  ).split("\n");
 }
 
 /** One parsed list item: nesting depth, its marker, and the inline text. */
@@ -532,13 +566,14 @@ interface ListItem {
 function renderList(
   items: ListItem[],
   width: number,
-  color: boolean,
+  terminal: TerminalContext,
 ): string[] {
   const out: string[] = [];
   for (const item of items) {
     const pad = "  ".repeat(item.depth);
     let bullet = item.marker;
     let text = item.text;
+    let completedTask = false;
 
     // GFM task list: a leading [ ] / [x] becomes a checkbox glyph.
     const task = text.match(/^\[([ xX])\]\s+(.*)$/);
@@ -546,20 +581,34 @@ function renderList(
       const mark = task[1];
       const rest = task[2];
       if (mark !== undefined && rest !== undefined) {
-        bullet = mark.toLowerCase() === "x" ? "☑" : "☐";
+        completedTask = mark.toLowerCase() === "x";
+        bullet = completedTask
+          ? (terminal.capabilities.unicode ? "☑" : "[x]")
+          : (terminal.capabilities.unicode ? "☐" : "[ ]");
         text = rest;
       }
     }
+    if (!terminal.capabilities.unicode && bullet === "•") bullet = "-";
 
-    const paintedBullet = color
-      ? (task ? (bullet === "☑" ? green(bullet) : dim(bullet)) : cyan(bullet))
+    const paintedBullet = terminal.color
+      ? (task
+        ? (completedTask
+          ? terminal.tone(bullet, "success")
+          : terminal.role(bullet, "muted"))
+        : terminal.tone(bullet, "accent"))
       : bullet;
     const prefix = `${pad}${paintedBullet} `;
     // The hanging indent aligns continuation lines under the text, not the
     // bullet — measured on the *visible* prefix width, ignoring colour.
-    const visiblePrefixLen = pad.length + bullet.length + 1;
+    const visiblePrefixLen = displayWidth(pad) + displayWidth(bullet) + 1;
     const hanging = " ".repeat(visiblePrefixLen);
-    const wrapped = renderInlineBlock(text, width, color, prefix, hanging);
+    const wrapped = renderInlineBlock(
+      text,
+      width,
+      terminal,
+      prefix,
+      hanging,
+    );
     out.push(...wrapped);
   }
   return out;
@@ -605,10 +654,21 @@ export function renderMarkdown(
 ): string {
   const width = Math.max(20, Math.floor(options.width ?? 80));
   const color = options.color ?? false;
+  const baseTerminal = options.terminal ?? terminalPresentationContext(color);
+  const coloredTerminal = terminalContextWithColor(baseTerminal, color);
+  const terminal: TerminalContext = {
+    ...coloredTerminal,
+    capabilities: { ...coloredTerminal.capabilities, columns: width },
+    size: { ...coloredTerminal.size, columns: width },
+  };
 
-  const src = md
+  const normalized = md
     .replace(/\r\n?/g, "\n")
     .replace(/<!--[\s\S]*?-->/g, "");
+  // Markdown parsing stays byte-for-byte on the normalized source above. Only
+  // the terminal projection makes repository-authored controls inert; HTML,
+  // raw, export, JSON, and MCP projections never pass through this adapter.
+  const src = terminalMultiline(normalized);
   const lines = src.split("\n");
   const out: string[] = [];
   const pushBlock = (block: string[]) => {
@@ -640,7 +700,7 @@ export function renderMarkdown(
         i++;
       }
       i++; // consume the closing fence
-      pushBlock(renderCode(lang, code, color));
+      pushBlock(renderCode(lang, code, width, terminal));
       continue;
     }
 
@@ -650,7 +710,7 @@ export function renderMarkdown(
       const hashes = heading[1];
       const headingText = heading[2];
       if (hashes !== undefined && headingText !== undefined) {
-        pushBlock(renderHeading(hashes.length, headingText, width, color));
+        pushBlock(renderHeading(hashes.length, headingText, width, terminal));
         i++;
         continue;
       }
@@ -659,7 +719,16 @@ export function renderMarkdown(
     // Horizontal rule.
     if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
       pushBlock([
-        color ? brightBlack("─".repeat(width)) : "─".repeat(width),
+        terminal.color
+          ? renderDividerCli(
+            {
+              treatment: "rule",
+              theme: terminal.themeVariant,
+              width,
+            },
+            terminal.capabilities,
+          )
+          : (terminal.capabilities.unicode ? "─" : "-").repeat(width),
       ]);
       i++;
       continue;
@@ -676,9 +745,11 @@ export function renderMarkdown(
       }
       const rendered = renderMarkdown(inner.join("\n"), {
         width: Math.max(20, width - 2),
-        color,
+        color: terminal.color,
+        terminal,
       }).split("\n");
-      const bar = color ? brightBlack("│ ") : "│ ";
+      const marker = terminal.capabilities.unicode ? "│ " : "| ";
+      const bar = terminal.color ? terminal.role(marker, "muted") : marker;
       pushBlock(rendered.map((ln) => bar + ln));
       continue;
     }
@@ -696,7 +767,7 @@ export function renderMarkdown(
         rows.push(splitRow(cur));
         i++;
       }
-      pushBlock(renderTable(rows, width));
+      pushBlock(renderTable(rows, width, terminal));
       continue;
     }
 
@@ -732,7 +803,7 @@ export function renderMarkdown(
           break;
         }
       }
-      pushBlock(renderList(items, width, color));
+      pushBlock(renderList(items, width, terminal));
       continue;
     }
 
@@ -745,7 +816,7 @@ export function renderMarkdown(
       para.push(cur);
       i++;
     }
-    pushBlock(renderInlineBlock(para.join(" "), width, color));
+    pushBlock(renderInlineBlock(para.join(" "), width, terminal));
   }
 
   return out.join("\n").replace(/^\n+/, "").replace(/\n+$/, "");

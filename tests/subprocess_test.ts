@@ -21,6 +21,8 @@ import {
   runShell,
   SPAWN_FAILED,
 } from "../src/shared/subprocess.ts";
+import { join } from "@std/path";
+import { withTempDir } from "./helpers.ts";
 
 /** command → the probeable leading word, or undefined to skip the probe. */
 const CASES: [string, string | undefined][] = [
@@ -167,6 +169,51 @@ Deno.test("runGit supplies protocol input on stdin", async () => {
     first.stdout,
   );
   assert(first.stdout !== second.stdout, "runGit dropped or reused stdin");
+});
+
+Deno.test("runGit enforces an explicit caller-owned timeout", async () => {
+  await withTempDir(async (dir) => {
+    const fakeGit = join(dir, "slow-git");
+    await Deno.writeTextFile(fakeGit, "#!/bin/sh\nexec sleep 5\n");
+    await Deno.chmod(fakeGit, 0o755);
+    const started = performance.now();
+    const result = await runGit(["status"], {
+      cwd: dir,
+      bin: fakeGit,
+      timeoutMs: 50,
+    });
+    assertEquals(result.success, false);
+    assertEquals(result.code, 124);
+    assertEquals(result.timedOut, true);
+    assert(
+      performance.now() - started < 2_000,
+      "runGit waited for the child after its explicit deadline",
+    );
+  });
+});
+
+Deno.test("runGit terminates a real producer at its combined output ceiling", async () => {
+  await withTempDir(async (dir) => {
+    const fakeGit = join(dir, "loud-git");
+    await Deno.writeTextFile(
+      fakeGit,
+      "#!/bin/sh\ni=0\nwhile [ $i -lt 10000 ]; do printf 0123456789abcdef; i=$((i+1)); done\n",
+    );
+    await Deno.chmod(fakeGit, 0o755);
+    const result = await runGit(["status"], {
+      cwd: dir,
+      bin: fakeGit,
+      maxOutputBytes: 257,
+      timeoutMs: 2_000,
+    });
+    assertEquals(result.success, false);
+    assertEquals(result.outputLimitExceeded, true);
+    assertEquals(result.timedOut, undefined);
+    assertEquals(
+      (result.stdoutBytes?.length ?? 0) + (result.stderrBytes?.length ?? 0),
+      257,
+    );
+  });
 });
 
 Deno.test("runShell: a spawn failure carries the real cause instead of being swallowed", async () => {

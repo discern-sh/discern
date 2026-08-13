@@ -28,6 +28,12 @@ Every successful run reports:
 
 A deterministic rule checks a concrete fact such as whether tests are configured, guidance exists, or a standard is declared. A qualitative review asks an agent to inspect cited project material, such as whether tests isolate shared state or whether the map still matches the code. Those reviews remain open beside a `100/100` automated score because the binary does not claim judgments it cannot prove ([ADR 0029](../_adr/0029-best-practices-audit.md)).
 
+## Presentation authority
+
+The catalogue, evaluation, order, score, review questions, Logbook findings, and next action remain facts. The renderer exhaustively maps them to Result summary, Procedure, Diagnostic, Meter, Command, and section Components; package state adds no judgment.
+
+One terminal snapshot per human invocation caps the report at 104 columns and preserves coaching at 39, 80, 104, and wider widths in every mode. Safe text escapes untrusted controls.
+
 ## Findings from the logbook
 
 The `From the Logbook` group carries recorded conditions that may need an owner decision. It currently includes edits made on the trunk, repeated documentation misses, one diagnostic class recurring across branches, and each Standard's recent value and limit trajectory. Every item retains its detector id, plain-count evidence, ranking strength, and recommended next step. A proposed guidance line, config change, class guard, or Standards stanza remains a proposal for you to decide ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
@@ -70,12 +76,13 @@ The result fields and Model Context Protocol wrapper are in [MCP tools & results
 
 ## Where it lives in code
 
-| Concern                                | Source                                                 |
-| -------------------------------------- | ------------------------------------------------------ |
-| Category and rule catalog              | [`rules.ts`](../../../src/engine/improve/rules.ts)     |
-| Rule and report vocabulary             | [`types.ts`](../../../src/engine/improve/types.ts)     |
-| Scoring, prioritization, and rendering | [`improve.ts`](../../../src/engine/improve/improve.ts) |
-| Scope and tier routing                 | [`routing.ts`](../../../src/engine/logbook/routing.ts) |
+| Concern                                | Source                                                                    |
+| -------------------------------------- | ------------------------------------------------------------------------- |
+| Category and rule catalog              | [`rules.ts`](../../../src/engine/improve/rules.ts)                        |
+| Rule and report vocabulary             | [`types.ts`](../../../src/engine/improve/types.ts)                        |
+| Scoring, prioritization, and rendering | [`improve.ts`](../../../src/engine/improve/improve.ts)                    |
+| Scope and tier routing                 | [`routing.ts`](../../../src/engine/logbook/routing.ts)                    |
+| Responsive and closed-set coverage     | [`engine_improvement_test.ts`](../../../tests/engine_improvement_test.ts) |
 
 ## Current state & gotchas
 

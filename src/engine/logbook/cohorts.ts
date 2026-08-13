@@ -329,8 +329,20 @@ export function dominantClientEras(
     }
     lastVersion = client.version;
   }
-  const eraOf = (e: VerbEvent): number =>
-    boundaries.filter((b) => b.at <= e.at).length;
+  const eraOf = (e: VerbEvent): number => {
+    let low = 0;
+    let high = boundaries.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      const boundary = boundaries[middle];
+      if (boundary !== undefined && boundary.at <= e.at) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    return low;
+  };
   const versionOf = (era: number): string | undefined =>
     era === 0 ? firstVersion : boundaries[era - 1]?.to;
   return {

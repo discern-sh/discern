@@ -10,7 +10,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { stripAnsi } from "discern-design-system/cli";
+import { unexpectedTerminalControls, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -33,18 +34,21 @@ import type {
 } from "../src/shared/result_schemas.ts";
 import {
   DETECTOR_FAMILIES,
+  PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
+  PATTERN_FINDING_TONES,
   PATTERNS_FINDINGS_PER_DETECTOR,
   PATTERNS_SERIES_MAX_POINTS,
 } from "../src/shared/patterns_vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { TIPS } from "../src/shared/tips.ts";
 import { displayWidth, sparkline } from "../src/lib/text.ts";
+import { terminalMultiline } from "../src/lib/terminal.ts";
 import { formatHumanNumber } from "../src/shared/human_number.ts";
 import {
   PATTERNS_ATTENTION_HEADING,
   PATTERNS_ATTENTION_LIMIT,
   PATTERNS_FAMILY_SECTIONS,
-  PATTERNS_TONE_GLYPHS,
+  PATTERNS_TONE_RESULT_STATE,
   PATTERNS_TRAJECTORY_CAVEAT,
   patternsResult,
   STATS_EMPTY_MESSAGE,
@@ -55,6 +59,7 @@ import {
   DETECTORS,
   inclusiveSpanDays,
 } from "../src/engine/logbook/detectors.ts";
+import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 /** One synthetic seeded verb-event line (agent-shaped, on its own branch). */
@@ -97,6 +102,45 @@ function seededGeneratorGateEvent(at: string): string {
     outcome: "ok",
     duration_ms: 50_000,
     epoch: "e2",
+    validation: {
+      version: 1,
+      state: {
+        version: 1,
+        complete: true,
+        capture: "after-fix-build",
+        elapsed_ms: 1,
+        digest: "generated-state",
+        components: {},
+        counts: {
+          index_entries: 1,
+          tracked_paths: 0,
+          untracked_paths: 0,
+          submodules: 0,
+        },
+        bytes: {
+          index_manifest: 40,
+          tracked_content: 0,
+          untracked_content: 0,
+        },
+        exclusions: [],
+      },
+      execution: {
+        version: 1,
+        complete: true,
+        mode: "full-gate",
+        writer: "9.9.9",
+        config_digest: "generated-config",
+        setup_digest: "generated-setup",
+        jobs: [{
+          id: "test",
+          stage: "test",
+          kind: "known",
+          definition_digest: "test-definition",
+          outcome: "passed",
+          concurrent_siblings: true,
+        }],
+      },
+    },
     steps: [
       {
         label: "generated:schemas",
@@ -132,6 +176,174 @@ function seededGeneratorGateEvent(at: string): string {
       },
     ],
   });
+}
+
+/** One current Standard observation carrying Gate-owned pin evidence. */
+function seededDecisionStandardEvent(at: string, value: number): string {
+  return JSON.stringify({
+    schema: 1,
+    at,
+    kind: "verb",
+    verb: "done",
+    surface: "cli",
+    writer: "9.9.9",
+    driver: { session: "cli:decision", json: true, tty: false, ci: false },
+    branch: "agent/decision",
+    head: `head-${value}`,
+    clean: true,
+    outcome: "ok",
+    duration_ms: 1_000,
+    epoch: "decision-epoch",
+    standards: [{
+      name: "coverage",
+      direction: "up",
+      limit: 80,
+      margin: 2,
+      measurement: "measured",
+      value,
+      verdict: "improved",
+      pin_eligible: true,
+      pin_target: value - 2,
+    }],
+  });
+}
+
+/** One complete v1 validation event for strict and cross-context findings. */
+function seededValidationEvent(
+  at: string,
+  job: string,
+  outcome: "passed" | "failed",
+  mode: "full-gate" | "standalone-test",
+  sibling = "lint",
+  additionalSiblings: readonly string[] = [],
+): string {
+  const fullGate = mode === "full-gate";
+  return JSON.stringify({
+    schema: 1,
+    at,
+    kind: "verb",
+    verb: fullGate ? "done" : "test",
+    surface: "cli",
+    writer: "9.9.9",
+    driver: { session: "cli:validation", json: true, tty: false, ci: false },
+    branch: "agent/validation",
+    head: "abc1234",
+    clean: true,
+    outcome: outcome === "failed" ? "failed" : "ok",
+    duration_ms: 1_200,
+    epoch: "validation-epoch",
+    validation: {
+      version: 1,
+      state: {
+        version: 1,
+        complete: true,
+        capture: fullGate ? "after-fix-build" : "before-test-group",
+        elapsed_ms: 1,
+        digest: "state-a",
+        components: {},
+        counts: {
+          index_entries: 1,
+          tracked_paths: 0,
+          untracked_paths: 0,
+          submodules: 0,
+        },
+        bytes: {
+          index_manifest: 40,
+          tracked_content: 0,
+          untracked_content: 0,
+        },
+        exclusions: [],
+      },
+      execution: {
+        version: 1,
+        complete: true,
+        mode,
+        writer: "9.9.9",
+        config_digest: "config-a",
+        setup_digest: "setup-a",
+        jobs: [
+          {
+            id: job,
+            stage: "test",
+            kind: "known",
+            definition_digest: `definition-${job}`,
+            outcome,
+            concurrent_siblings: fullGate,
+          },
+          ...(fullGate
+            ? [sibling, ...additionalSiblings].map((siblingId) => ({
+              id: siblingId,
+              stage: "check",
+              kind: "known",
+              definition_digest: `definition-${siblingId}`,
+              outcome: "passed" as const,
+              concurrent_siblings: true,
+            }))
+            : []),
+        ],
+      },
+    },
+  });
+}
+
+/** Seed one strict relationship and one mode/context relationship. */
+async function seedValidationFindings(dir: string): Promise<void> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    [
+      seededValidationEvent(
+        "2026-07-01T10:00:00.000Z",
+        "strict-test",
+        "failed",
+        "standalone-test",
+      ),
+      seededValidationEvent(
+        "2026-07-01T11:00:00.000Z",
+        "strict-test",
+        "passed",
+        "standalone-test",
+      ),
+      seededValidationEvent(
+        "2026-07-01T12:00:00.000Z",
+        "context-test",
+        "failed",
+        "standalone-test",
+      ),
+      seededValidationEvent(
+        "2026-07-01T13:00:00.000Z",
+        "context-test",
+        "passed",
+        "full-gate",
+      ),
+    ].join("\n") + "\n",
+  );
+}
+
+/** Seed more controlled sibling contexts than one condition may display. */
+async function seedHighCardinalityValidationFinding(
+  dir: string,
+): Promise<void> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  const contexts = PATTERN_EVIDENCE_CONDITION_VALUES_MAX + 1;
+  const largeRoster = Array.from(
+    { length: 200 },
+    (_, index) => `roster-${String(index + 1).padStart(3, "0")}`,
+  );
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    Array.from({ length: contexts }, (_, index) =>
+      seededValidationEvent(
+        `2026-07-${String(index + 1).padStart(2, "0")}T10:00:00.000Z`,
+        "bounded-context-test",
+        index === 0 ? "failed" : "passed",
+        "full-gate",
+        `sibling-${String(index + 1).padStart(2, "0")}`,
+        index === 0 ? largeRoster : [],
+      )).join("\n") + "\n",
+  );
 }
 
 Deno.test("patterns calendar span counts inclusive UTC dates, not elapsed 24-hour blocks", () => {
@@ -608,14 +820,20 @@ const REPORT_STANDARD_NAMES = Array.from(
 function reportStandards(reading: number, total: number): unknown[] {
   return REPORT_STANDARD_NAMES.map((name, index) => {
     switch (index % 3) {
-      case 0:
+      case 0: {
+        const value = 82 + reading / total;
         return {
           name,
           direction: "up",
           limit: 80,
-          value: 82 + reading / total,
+          margin: 0,
+          measurement: "measured",
+          value,
           verdict: "improved",
+          pin_eligible: true,
+          pin_target: value,
         };
+      }
       case 1:
         return {
           name,
@@ -686,10 +904,11 @@ async function seedCollapsedReportLogbook(dir: string): Promise<void> {
         outcome: failed ? "failed" : "ok",
         ...(failed ? { failed_stage: "check/test" } : {}),
         duration_ms: 21_000,
+        scopes: ["engine"],
         steps: [
           {
-            label: "test",
-            kind: "job",
+            label: "scope:docs",
+            kind: "scope-gate",
             outcome: failed ? "failed" : "ok",
             disposition: "run",
             group: "Check & test",
@@ -879,7 +1098,7 @@ Deno.test("patterns: an empty logbook is a first-class state with a helpful mess
   });
 });
 
-Deno.test("patterns: a seeded logbook yields ranked plain-count findings that validate", async () => {
+Deno.test("patterns: a seeded logbook yields two-layer findings that validate", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -910,7 +1129,8 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
     assertEquals(thrash.evidence.consecutive_failures, 3);
     assertStringIncludes(thrash.observed, "3 consecutive runs");
     assertEquals(thrash.tone, "attention");
-    assertStringIncludes(thrash.brief, "3 red `done` runs");
+    assertStringIncludes(thrash.summary, "repeated red Gates");
+    assertEquals(thrash.brief, thrash.summary);
     assertStringIncludes(thrash.next_step, "discern-cure-a-bug");
     assertEquals(thrash.scope, "branch");
 
@@ -989,9 +1209,11 @@ Deno.test("patterns: the report keeps each detector's strongest findings and --a
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(
       human.output,
-      `+${branches - PATTERNS_FINDINGS_PER_DETECTOR} more findings — ` +
-        "`discern patterns --all` lists every one.",
+      `${
+        branches - PATTERNS_FINDINGS_PER_DETECTOR
+      } more findings remain for this detector.`,
     );
+    assertStringIncludes(human.output, "$ discern patterns --all");
   });
 });
 
@@ -1051,6 +1273,12 @@ Deno.test("patterns: generator gate share names the heaviest generated groups on
       group_mean_seconds: 20,
       generated_share_pct: 60,
       generated_mean_seconds: 30,
+      unchanged_reruns: 4,
+    });
+    assertEquals(findings[0]?.basis?.coverage, {
+      comparable: 5,
+      denominator: 5,
+      unit: "Gate runs",
     });
     assertStringIncludes(findings[0]?.next_step ?? "", "Restructure");
     assertEquals(
@@ -1058,6 +1286,124 @@ Deno.test("patterns: generator gate share names the heaviest generated groups on
         ?.status,
       "fired",
     );
+  });
+});
+
+Deno.test("patterns: decision evidence is identical from active and sealed history", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const raw = `${
+      [85, 86, 87, 88, 89].map((value, index) =>
+        seededDecisionStandardEvent(
+          `2026-07-01T1${index}:00:00.000Z`,
+          value,
+        )
+      ).join("\n")
+    }\n`;
+    const activeDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(activeDir, { recursive: true });
+    await Deno.writeTextFile(join(activeDir, "2026-07.jsonl"), raw);
+    const filename = "logbook-20260812T120000Z.jsonl";
+    const archives = logbookArchiveDir(join(dir, ".git"));
+    await Deno.mkdir(archives, { recursive: true });
+    await Deno.writeTextFile(join(archives, filename), raw);
+
+    const active = await patternsResult(dir, { all: true });
+    const historical = await patternsResult(dir, {
+      all: true,
+      logbookFile: filename,
+    });
+    assert(active.ok && active.data !== undefined);
+    assert(historical.ok && historical.data !== undefined);
+    const decisionFindings = (data: PatternsData) =>
+      data.findings.filter((finding) =>
+        finding.detector === "standard-trajectory"
+      );
+    assertEquals(
+      decisionFindings(historical.data),
+      decisionFindings(active.data),
+      "archive selection changes provenance, never detector arithmetic",
+    );
+    const finding = decisionFindings(historical.data)[0];
+    assertEquals(finding?.evidence.recommendation_supported, 1);
+    assertStringIncludes(finding?.next_step ?? "", "--pin coverage");
+    assertEquals(historical.data.logbook.source, {
+      kind: "archive",
+      filename,
+    });
+  });
+});
+
+Deno.test("patterns: Standard variance investigations retain raw findings across JSON, terminal, and archives", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const raw = `${
+      [85, 88, 86, 89, 87].map((value, index) =>
+        seededDecisionStandardEvent(
+          `2026-07-01T1${index}:00:00.000Z`,
+          value,
+        )
+      ).join("\n")
+    }\n`;
+    const activeDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(activeDir, { recursive: true });
+    await Deno.writeTextFile(join(activeDir, "2026-07.jsonl"), raw);
+    const filename = "logbook-20260812T130000Z.jsonl";
+    const archives = logbookArchiveDir(join(dir, ".git"));
+    await Deno.mkdir(archives, { recursive: true });
+    await Deno.writeTextFile(join(archives, filename), raw);
+
+    const json = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const active = PatternsOutputSchema.parse(JSON.parse(json.stdout))
+      .data as PatternsData;
+    const investigation = active.investigations[0];
+    assertEquals(investigation?.id, "standard-variance/coverage");
+    assertEquals(investigation?.finding_ids, ["standard-trajectory"]);
+    assertEquals(
+      investigation?.observations[0]?.denominator,
+      { value: 5, unit: "Standard readings" },
+    );
+    assertEquals(investigation?.evidence_boundary.legacy_events, 0);
+    assertStringIncludes(investigation?.diagnostic_action ?? "", "standards");
+    assertStringIncludes(investigation?.falsifier ?? "", "Three current");
+    assert(
+      active.findings.some((finding) =>
+        finding.detector === "standard-trajectory" &&
+        finding.subject === "coverage"
+      ),
+      "synthesis must not hide its raw Standard finding",
+    );
+
+    const historical = await patternsResult(dir, {
+      all: true,
+      logbookFile: filename,
+    });
+    assert(historical.ok && historical.data !== undefined);
+    assertEquals(
+      historical.data.investigations,
+      active.investigations,
+      "archive provenance must not change synthesis arithmetic",
+    );
+
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "60", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.output, "Investigation paths");
+    assertStringIncludes(human.output, "Standard variance · coverage");
+    assertStringIncludes(human.output, "comparable readings are unstable");
+    assertStringIncludes(human.output, "Evidence:");
+    assertStringIncludes(normalized(human.output), "5 readings");
+    assertStringIncludes(human.output, "Falsifier:");
+    for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
+      assert(
+        displayWidth(line) <= 60,
+        `60-column investigation line ${index + 1} is too wide: ${line}`,
+      );
+    }
   });
 });
 
@@ -1136,6 +1482,61 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       current_green_streak: 2,
       check_hours: 3,
     });
+    assertEquals(stats.validation_workflows.cycles, {
+      total: 2,
+      branches: 2,
+      routes: [
+        {
+          route: "test-first",
+          cycles: 0,
+          branches: 0,
+          runs: 0,
+          successful_cycles: 0,
+          successful_runs: 0,
+          failed_cycles: 0,
+          failed_runs: 0,
+          retried_cycles: 0,
+          retry_runs: 0,
+        },
+        {
+          route: "commit-first",
+          cycles: 2,
+          branches: 2,
+          runs: 3,
+          successful_cycles: 2,
+          successful_runs: 2,
+          failed_cycles: 1,
+          failed_runs: 1,
+          retried_cycles: 1,
+          retry_runs: 1,
+        },
+        {
+          route: "unattributed",
+          cycles: 0,
+          branches: 0,
+          runs: 0,
+          successful_cycles: 0,
+          successful_runs: 0,
+          failed_cycles: 0,
+          failed_runs: 0,
+          retried_cycles: 0,
+          retry_runs: 0,
+        },
+      ],
+      precommit_to_clean_gate: {
+        cycles: 0,
+        branches: 0,
+        runs: 0,
+        retry_runs: 0,
+      },
+    });
+    assertEquals(stats.validation_workflows.runs.evidence, {
+      denominator: 3,
+      complete: 0,
+      incomplete: 0,
+      legacy: 3,
+      unattributed: 0,
+    });
     assertEquals(stats.cycles, {
       started: 2,
       completed: 2,
@@ -1181,7 +1582,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
 
     const human = await runAgent(dir, ["patterns", "--stats"], {
-      env: { COLUMNS: "100", NO_COLOR: "1" },
+      env: { COLUMNS: "80", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
     const card = normalized(human.output);
@@ -1205,7 +1606,19 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     assertStringIncludes(card, "best day: 2026-07-01 · 2 accepted");
     assertStringIncludes(card, "2 of 3 `done` runs green (67%)");
     assertStringIncludes(card, "1 of 2 branches green first try (50%)");
-    assertStringIncludes(card, "1 red run stopped at the gate");
+    assertStringIncludes(card, "1 red run stopped at the Gate");
+    assertStringIncludes(
+      card,
+      "`done`: 3 runs across 2 branches · 3 clean · 0 dirty · 0 unknown · 2 ok · 1 failed · 1 retry",
+    );
+    assertStringIncludes(
+      card,
+      "commit-first: 2 cycles / 3 runs across 2 branches · 2 ok / 1 failed runs · 2 reached a clean Gate / 1 had a failure · 1 retried cycle / 1 retry run",
+    );
+    assertStringIncludes(
+      card,
+      "evidence across 3 runs: complete 0 (0%) · incomplete 0 (0%) · legacy 3 (100%) · unattributed 0 (0%)",
+    );
     assert(
       !card.includes("never shipped") && !card.includes("shipped"),
       "the card speaks in accepted, not shipped",
@@ -1214,8 +1627,12 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       card,
       "longest green streak 2 · current 2 · 3h of checks run (`done` · `prepare` · `test`)",
     );
-    assertStringIncludes(card, "█", "the proportion meters render");
-    assertStringIncludes(card, "░");
+    assertStringIncludes(card, "Green Gate runs");
+    assertStringIncludes(
+      card,
+      "[ 66%]",
+      "the package proportion Meter renders",
+    );
     assertStringIncludes(card, "2 of 2 starts were accepted (100%)");
     assertStringIncludes(
       card,
@@ -1223,7 +1640,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
     assertStringIncludes(
       card,
-      "1 limit tightened across 1 standard. Loosening fails the gate.",
+      "1 limit tightened across 1 standard. Loosening fails the Gate.",
     );
     assertStringIncludes(
       card,
@@ -1243,6 +1660,14 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       !card.includes(PATTERNS_ATTENTION_HEADING),
       "the card replaces the detector report, never interleaves it",
     );
+    for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
+      assert(
+        displayWidth(line) <= 80,
+        `80-column stats line ${index + 1} is ${
+          displayWidth(line)
+        } columns: ${line}`,
+      );
+    }
   });
 });
 
@@ -1395,15 +1820,337 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "discern patterns");
     assertStringIncludes(r.output, "Consecutive red done runs");
-    assertStringIncludes(r.output, "driven by agents");
-    assertStringIncludes(r.output, "Claude Code 1");
-    assertStringIncludes(r.output, "Advisory only");
-    assertStringIncludes(r.output, "→");
+    assertStringIncludes(normalized(r.output), "driven by agents");
+    assertStringIncludes(normalized(r.output), "Claude Code 1");
     assertStringIncludes(
-      r.output,
-      `    !  ${thrash.subject ?? ""}  ${thrash.brief}`,
-      "a row without series must keep the 2A spacing",
+      normalized(r.output),
+      "The report is advisory and does not change the Gate.",
     );
+    assertStringIncludes(normalized(r.output), "Next action:");
+    assertStringIncludes(
+      normalized(r.output),
+      normalized(
+        `${thrash.summary} · Subject: ${thrash.subject ?? ""}`,
+      ),
+      "a wrapped row must retain its exact subject and canonical summary",
+    );
+    assertStringIncludes(
+      normalized(r.output),
+      normalized(`Evidence: ${thrash.observed}`),
+    );
+  });
+});
+
+Deno.test("patterns: 39, 80, 104, and capped reports keep hostile Logbook facts inert", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await gitInit(dir);
+    const branch = "agent/測試-evil\u001b[31m\tb\u0007c\nz\u009b";
+    const safeBranch = "agent/測試-evil␛[31m␉b␇c␊z<U+009B>";
+    const logDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(logDir, { recursive: true });
+    await Deno.writeTextFile(
+      join(logDir, "2026-06.jsonl"),
+      `${
+        ["10", "11", "12", "13"].map((hour, index) =>
+          seededEvent(
+            `2026-06-01T${hour}:00:00.000Z`,
+            index === 3 ? "ok" : "failed",
+            branch,
+          )
+        ).join("\n")
+      }\n`,
+    );
+
+    const observed = await patternsResult(dir);
+    assert(observed.ok && observed.data !== undefined);
+    const finding = observed.data.findings.find((candidate) =>
+      candidate.detector === "done-thrash"
+    );
+    assertEquals(finding?.subject, branch);
+
+    const outputs = new Map<number, string>();
+    for (const width of [39, 80, 104, 400]) {
+      const run = await runAgent(dir, ["patterns"], {
+        env: {
+          COLUMNS: String(width),
+          LINES: "24",
+          NO_COLOR: "1",
+          TERM: "xterm-256color",
+          LANG: "en_US.UTF-8",
+        },
+      });
+      assertEquals(run.code, 0, run.output);
+      outputs.set(width, run.stdout);
+      const plain = normalized(run.stdout);
+      assertStringIncludes(run.stdout.replaceAll(/\s+/gu, ""), safeBranch);
+      assertStringIncludes(plain, normalized(finding?.summary ?? ""));
+      assertStringIncludes(
+        run.stdout.replaceAll(/\s+/gu, ""),
+        terminalMultiline(finding?.observed ?? "").replaceAll(/\s+/gu, ""),
+      );
+      assert(!run.stdout.includes("\u001b[31m"));
+      assert(!run.stdout.includes("\u009b"));
+      assert(
+        unexpectedTerminalControls(run.stdout).length === 0,
+        `${width}-column Patterns output contains a raw terminal control`,
+      );
+      const budget = Math.min(width, 104);
+      for (const line of run.stdout.split("\n")) {
+        assert(
+          displayWidth(line) <= budget,
+          `${width}-column Patterns line is ${
+            displayWidth(line)
+          } columns: ${line}`,
+        );
+      }
+    }
+    assertEquals(outputs.get(400), outputs.get(104));
+  });
+});
+
+Deno.test({
+  name:
+    "patterns: truecolour, 256, 16, no-colour, and ASCII modes retain advisory facts",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(dir, "[project]\nlogbook = false\n");
+      await gitInit(dir);
+      await seedLogbook(dir);
+
+      const modes = [
+        {
+          name: "truecolour",
+          env: {
+            TERM: "xterm-256color",
+            COLORTERM: "truecolor",
+            NO_COLOR: "",
+            LANG: "en_US.UTF-8",
+          },
+          marker: "\u001b[38;2;",
+          comparable: true,
+        },
+        {
+          name: "256",
+          env: {
+            TERM: "xterm-256color",
+            COLORTERM: "",
+            NO_COLOR: "",
+            LANG: "en_US.UTF-8",
+          },
+          marker: "\u001b[38;5;",
+          comparable: true,
+        },
+        {
+          name: "16",
+          env: {
+            TERM: "xterm-color",
+            COLORTERM: "",
+            NO_COLOR: "",
+            LANG: "en_US.UTF-8",
+          },
+          marker: "\u001b[",
+          comparable: true,
+        },
+        {
+          name: "no-colour",
+          env: {
+            TERM: "xterm-256color",
+            COLORTERM: "truecolor",
+            NO_COLOR: "1",
+            LANG: "en_US.UTF-8",
+          },
+          marker: "",
+          comparable: true,
+        },
+        {
+          name: "ASCII",
+          env: {
+            TERM: "dumb",
+            COLORTERM: "",
+            NO_COLOR: "1",
+            LANG: "C",
+            LC_ALL: "C",
+          },
+          marker: "",
+          comparable: false,
+        },
+      ] as const;
+      let baseline: string | undefined;
+      for (const mode of modes) {
+        const run = await runAgentPty(dir, ["patterns"], {
+          env: { ...mode.env, COLUMNS: "80", LINES: "24" },
+        });
+        assertEquals(run.code, 0, run.output);
+        const rendered = run.stdout.replaceAll("\r", "");
+        if (mode.marker === "") {
+          assert(!rendered.includes("\u001b["), mode.name);
+        } else {
+          assertStringIncludes(rendered, mode.marker, mode.name);
+        }
+        // BSD script(1) prefixes a closed stdin as `^D` plus two backspaces;
+        // remove that harness framing before auditing the engine's own bytes.
+        const ptyClosedStdin = `^D${String.fromCharCode(8).repeat(2)}`;
+        const stripped = stripAnsi(rendered);
+        const facts = stripped.startsWith(ptyClosedStdin)
+          ? stripped.slice(ptyClosedStdin.length)
+          : stripped;
+        assertStringIncludes(facts, "Consecutive red done runs");
+        assertStringIncludes(normalized(facts), "agent/seeded");
+        assertStringIncludes(
+          normalized(facts),
+          "The report is advisory and does not change the Gate.",
+        );
+        const unexpected = unexpectedTerminalControls(facts);
+        assert(
+          unexpected.length === 0,
+          `${mode.name} left raw terminal controls in Patterns facts: ${
+            unexpected.map((character) =>
+              `U+${character.codePointAt(0)?.toString(16).toUpperCase()}`
+            ).join(", ")
+          }`,
+        );
+        if (mode.comparable) {
+          baseline ??= facts;
+          assertEquals(facts, baseline, `${mode.name} changed advisory facts`);
+        }
+      }
+    });
+  },
+});
+
+Deno.test("patterns: validation relationships preserve structured evidence and compact terminal parity", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await seedValidationFindings(dir);
+
+    const json = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    assert(parsed.ok && parsed.data !== undefined);
+    const data = parsed.data as PatternsData;
+    const strict = data.findings.find((finding) =>
+      finding.detector === "same-tree-flake"
+    );
+    const contextual = data.findings.find((finding) =>
+      finding.detector === "execution-context-divergence"
+    );
+    assertEquals(strict?.subject, "strict-test");
+    assertEquals(strict?.basis?.kind, "complete-validation-state");
+    assertEquals(strict?.basis?.coverage, {
+      comparable: 2,
+      denominator: 2,
+      unit: "job-runs",
+    });
+    assertEquals(contextual?.subject, "context-test");
+    assertEquals(
+      contextual?.basis?.differing_conditions.map((condition) =>
+        condition.dimension
+      ),
+      [
+        "capture-boundary",
+        "execution-mode",
+        "concurrency",
+        "sibling-context",
+      ],
+    );
+
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "80", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(
+      human.output,
+      "Divergent outcomes under matched recorded conditions",
+    );
+    assertStringIncludes(
+      human.output,
+      "Divergent outcomes between recorded execution contexts",
+    );
+    assertStringIncludes(human.output, "strict-test");
+    assertStringIncludes(human.output, "context-test");
+    assert(!human.output.includes("exact same tree"));
+    for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
+      assert(
+        displayWidth(line) <= 80,
+        `80-column line ${index + 1} is ${displayWidth(line)} columns: ${line}`,
+      );
+    }
+  });
+});
+
+Deno.test("patterns: high-cardinality validation contexts stay bounded and disclose omissions", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await seedHighCardinalityValidationFinding(dir);
+
+    const json = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    assert(parsed.ok && parsed.data !== undefined);
+    const data = parsed.data as PatternsData;
+    const finding = data.findings.find((candidate) =>
+      candidate.detector === "execution-context-divergence"
+    );
+    assertEquals(finding?.subject, "bounded-context-test");
+    assertEquals(
+      finding?.evidence.contexts,
+      PATTERN_EVIDENCE_CONDITION_VALUES_MAX + 1,
+    );
+    const siblings = finding?.basis?.differing_conditions.find((condition) =>
+      condition.dimension === "sibling-context"
+    );
+    assertEquals(
+      siblings?.values.length,
+      PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
+    );
+    assertEquals(
+      siblings?.distinct,
+      PATTERN_EVIDENCE_CONDITION_VALUES_MAX + 1,
+    );
+    assertEquals(siblings?.omitted, 1);
+    assert(
+      (finding?.observed.length ?? Number.POSITIVE_INFINITY) <= 1_000,
+      `bounded observed prose grew to ${finding?.observed.length} characters`,
+    );
+    assertStringIncludes(
+      finding?.observed ?? "",
+      "additional contexts omitted from this summary",
+    );
+    assertStringIncludes(
+      finding?.observed ?? "",
+      "additional siblings omitted",
+    );
+
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "80", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.output, "bounded-context-test");
+    assertStringIncludes(
+      human.output,
+      "Divergent outcomes between recorded execution contexts",
+    );
+    const lines = human.output.trimEnd().split("\n");
+    assert(
+      lines.length <= 80,
+      `bounded terminal result grew to ${lines.length} lines`,
+    );
+    assert(
+      human.output.length <= 5_000,
+      `bounded terminal result grew to ${human.output.length} characters`,
+    );
+    for (const [index, line] of lines.entries()) {
+      assert(
+        displayWidth(line) <= 80,
+        `80-column line ${index + 1} is ${displayWidth(line)} columns: ${line}`,
+      );
+    }
   });
 });
 
@@ -1482,8 +2229,9 @@ Deno.test("patterns: landing authority findings render in the overview and behav
     const plain = normalized(human.output);
     assertStringIncludes(
       plain,
-      "Pre-authorized landings: 8 of 20 consent-recorded landings (40%) · standing 4 · effort 4",
+      "Recorded landing authority handled part of this project's landings.",
     );
+    assertStringIncludes(plain, "Detector: Pre-authorized landings ·");
     assertStringIncludes(
       plain,
       "Repeated conversational landings in one scope",
@@ -1493,9 +2241,7 @@ Deno.test("patterns: landing authority findings render in the overview and behav
       "Consider adding `map` to `[acceptance].pre_authorized`",
     );
     assertEquals(
-      human.output.trimEnd().split("\n").filter((line) =>
-        line.trim() === "Pre-authorized landings"
-      ).length,
+      occurrences(plain, "Detector: Pre-authorized landings ·"),
       1,
       "the detailed detector block keeps one title",
     );
@@ -1565,7 +2311,7 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       "the fixture needs enough attention findings to prove the cap",
     );
     const bannerStart = lines.findIndex((line) =>
-      line.trim() === PATTERNS_ATTENTION_HEADING
+      line.includes(PATTERNS_ATTENTION_HEADING)
     );
     assert(bannerStart >= 0, "attention findings need a banner");
     const firstSection = lines.findIndex((line) =>
@@ -1573,10 +2319,10 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
     );
     assert(firstSection > bannerStart, "the banner belongs above the sections");
     const bannerLines = lines.slice(bannerStart + 1, firstSection);
-    const bannerGlyphLines = bannerLines.filter((line) =>
-      line.startsWith("    ! ")
+    const bannerDiagnosticLines = bannerLines.filter((line) =>
+      /^(?:\*|◇) Changed:/u.test(line)
     );
-    assertEquals(bannerGlyphLines.length, PATTERNS_ATTENTION_LIMIT);
+    assertEquals(bannerDiagnosticLines.length, PATTERNS_ATTENTION_LIMIT);
     const bannerText = normalized(bannerLines.join("\n"));
     const titleById = new Map(
       data.detectors.map((detector) => [detector.id, detector.title]),
@@ -1586,15 +2332,19 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       const title = titleById.get(finding.detector) ?? finding.detector;
       const subject = finding.subject === undefined
         ? ""
-        : ` · ${finding.subject}`;
-      const index = bannerText.indexOf(normalized(`! ${title}${subject}`));
+        : `${finding.subject}: `;
+      const index = bannerText.indexOf(
+        normalized(`${subject}${finding.summary}`),
+      );
       assert(
         index > previousFinding,
         `${finding.detector} is out of rank order`,
       );
       previousFinding = index;
       assert(
-        lines.slice(firstSection).some((line) => line.trim() === title),
+        normalized(lines.slice(firstSection).join("\n")).includes(
+          normalized(`Detector: ${title} ·`),
+        ),
         `${title} must also name its full block below`,
       );
     }
@@ -1610,28 +2360,22 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       previousSection = index;
     }
 
-    // Each fired detector becomes one block title, even when it emitted many
-    // rows. Footer titles do not count because only an exact trimmed line is a
-    // block heading.
-    const trimmedLines = lines.map((line) => line.trim());
+    // Each fired detector becomes one package summary, even when it emitted
+    // many rows.
     for (const detector of data.detectors.filter((d) => d.status === "fired")) {
       assertEquals(
-        trimmedLines.filter((line) => line === detector.title).length,
+        occurrences(plain, normalized(`Detector: ${detector.title} ·`)),
         1,
         `${detector.id} must render its title once`,
       );
     }
 
-    // Every finding still has one glyph row. Normalize whitespace so a wrap is
-    // presentation-only, then prove every subject + brief survived.
-    const glyphs = new Set(
-      Object.values(PATTERNS_TONE_GLYPHS).map(({ glyph }) => glyph),
+    // The package-state adapter and every rendered finding auto-enrol from the
+    // closed tone vocabulary. Normalize wrapping to prove no fact disappeared.
+    assertEquals(
+      Object.keys(PATTERNS_TONE_RESULT_STATE).sort(),
+      [...PATTERN_FINDING_TONES].sort(),
     );
-    const glyphRows = lines.filter((line) =>
-      line.startsWith("    ") && glyphs.has(line.slice(4, 5)) &&
-      line.slice(5, 7) === "  "
-    );
-    assertEquals(glyphRows.length, data.findings.length);
     const seriesFindings = data.findings.filter((finding) =>
       finding.series !== undefined
     );
@@ -1645,9 +2389,16 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
     const rowKeys = new Map<string, number>();
     for (const finding of data.findings) {
       const key = normalized(
-        `${finding.subject === undefined ? "" : finding.subject} ${
-          finding.series === undefined ? "" : sparkline(finding.series)
-        } ${finding.brief}`,
+        [
+          finding.summary,
+          ...(finding.subject === undefined
+            ? []
+            : [`Subject: ${finding.subject}`]),
+          ...(finding.series === undefined
+            ? []
+            : [`Series: ${sparkline(finding.series)}`]),
+          `Evidence: ${finding.observed}`,
+        ].join(" · "),
       );
       rowKeys.set(key, (rowKeys.get(key) ?? 0) + 1);
     }
@@ -1685,15 +2436,15 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       1,
     );
 
-    const spoke = data.detectors.filter((d) => d.status === "fired").length;
-    const clear = data.detectors.filter((d) => d.status === "quiet").length;
-    const young = data.detectors.filter((d) =>
+    const fired = data.detectors.filter((d) => d.status === "fired").length;
+    const quiet = data.detectors.filter((d) => d.status === "quiet").length;
+    const insufficient = data.detectors.filter((d) =>
       d.status === "insufficient-evidence"
     ).length;
-    assertEquals(spoke + clear + young, DETECTORS.length);
+    assertEquals(fired + quiet + insufficient, DETECTORS.length);
     assertStringIncludes(
       plain,
-      `${DETECTORS.length} detectors · ${spoke} spoke · ${clear} all clear · ${young} too young to say`,
+      `${DETECTORS.length} detectors · ${fired} fired · ${quiet} quiet · ${insufficient} insufficient evidence`,
     );
 
     // The old renderer spent four lines per finding, plus seven fixed lines.

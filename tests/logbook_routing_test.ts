@@ -61,7 +61,7 @@ Deno.test("logbook routing: every registry finding lands on patterns and exactly
     status: "fired",
     considered: detector.threshold,
     findings: [{
-      brief: `${detector.id} brief`,
+      summary: `${detector.id} summary.`,
       observed: `${detector.id} fired.`,
       evidence: { events: detector.threshold },
       strength: detector.threshold,
@@ -103,7 +103,7 @@ Deno.test("logbook routing: the optional trajectory series reaches the wire unch
     considered: series.length,
     finding: {
       subject: "coverage",
-      brief: "1 → 1 vs floor 0 — holding",
+      summary: "The value held at 1 against floor 0.",
       series,
       observed: "`coverage` measured 1 → 1 across 3 readings.",
       evidence: { readings: series.length },
@@ -111,6 +111,43 @@ Deno.test("logbook routing: the optional trajectory series reaches the wire unch
     },
   });
   assertEquals(finding.series, series);
+});
+
+Deno.test("logbook routing: the additive evidence basis reaches wire and inline projections unchanged", () => {
+  const detector = DETECTORS.find((entry) => entry.id === "same-tree-flake");
+  assertEquals(detector?.id, "same-tree-flake");
+  if (detector === undefined) return;
+  const basis = {
+    kind: "complete-validation-state",
+    coverage: { comparable: 2, denominator: 2, unit: "job-runs" },
+    validation_state: { version: 1, complete: true },
+    matched_conditions: [{
+      dimension: "execution-mode",
+      values: ["standalone-test"],
+      distinct: 1,
+      omitted: 0,
+    }],
+    differing_conditions: [],
+    legacy_events: 0,
+    excluded_events: 0,
+    limitations: ["External context was not recorded."],
+    values: {
+      runs: { value: 2, kind: "observed" as const },
+    },
+  };
+  const finding = routedFindingData({
+    detector,
+    considered: 2,
+    finding: {
+      subject: "test",
+      summary: "The test changed verdict under matched conditions.",
+      observed: "The recorded job changed verdict.",
+      evidence: { runs: 2 },
+      basis,
+      strength: 20,
+    },
+  });
+  assertEquals(finding.basis, basis);
 });
 
 Deno.test("logbook routing: advisory attachment can change only hints on an envelope", () => {

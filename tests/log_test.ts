@@ -1,5 +1,5 @@
 /**
- * Unit tests for the presentation-aware {@link Logger} and {@link colourEnabled}.
+ * Unit tests for the presentation-aware {@link Logger}.
  *
  * These run with colour forced off (no TTY under `deno test`, and `--no-color`
  * passed explicitly), so every human method emits plain, un-painted text. We spy
@@ -9,13 +9,12 @@
  * `jsonResult` speaks.
  */
 
+import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
+import { Logger } from "../src/lib/log.ts";
 import {
-  assert,
-  assertEquals,
-  assertExists,
-  assertStringIncludes,
-} from "@std/assert";
-import { colourEnabled, Logger } from "../src/lib/log.ts";
+  resolveTerminalContext,
+  terminalMultiline,
+} from "../src/lib/terminal.ts";
 import { fakeEnv } from "./helpers.ts";
 
 /** Capture everything written to console.error / console.log while `fn` runs. */
@@ -92,10 +91,110 @@ Deno.test("group writes exactly one boundary between populated groups", async ()
   assertEquals(err, ["→ first", "", "→ second", "", "  ── Third", "→ third"]);
 });
 
-Deno.test("bold and dim are identity functions when colour is off", () => {
+Deno.test("Logger exposes package presentation facts without inline style wrappers", () => {
   const log = new Logger({ json: false, noColor: true });
-  assertEquals(log.bold("x"), "x");
-  assertEquals(log.dim("y"), "y");
+  assertEquals(log.terminal.role("x", "strong"), "x");
+  assertEquals(log.terminal.role("y", "muted"), "y");
+  assertEquals("bold" in log, false);
+  assertEquals("dim" in log, false);
+  assertEquals("cyan" in log, false);
+  assertEquals("green" in log, false);
+});
+
+Deno.test("Logger narration styles come from injected package Token roles", async () => {
+  const terminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      LANG: "en_GB.UTF-8",
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  });
+  const log = new Logger({ json: false, noColor: false, terminal });
+  const { err } = await capture(() => {
+    log.info("starting");
+    log.ok("done");
+    log.warn("careful");
+    log.error("oops");
+    log.heading("Section");
+    log.detail("detail");
+  });
+  assertEquals(err, [
+    `${terminal.tone("→", "accent")} starting`,
+    `${terminal.tone("✓", "success")} done`,
+    `${terminal.tone("!", "warning")} careful`,
+    `${terminal.tone("✗", "danger")} oops`,
+    `\n${terminal.role("Section", "strong")}`,
+    `  ${terminal.role("detail", "muted")}`,
+  ]);
+});
+
+Deno.test("Logger narration makes hostile caller facts inert at the shared boundary", async () => {
+  const log = new Logger({ json: false, noColor: true });
+  const hostile = "repo\x1b[31m\nbranch\x00\u0085\u202E";
+  const safe = "repo␛[31m␊branch␀<U+0085><U+202E>";
+  const hostileLabel = "repo\x1b[31m\x00\u0085\u202E";
+  const safeLabel = "repo␛[31m␀<U+0085><U+202E>";
+  const { err, out } = await capture(() => {
+    log.info(hostile);
+    log.ok(hostile);
+    log.warn(hostile);
+    log.error(hostile);
+    log.heading(hostile);
+    log.detail(hostile);
+    log.group("hostile-label", hostileLabel);
+  });
+
+  assertEquals(out, []);
+  assertEquals(err, [
+    `→ ${safe}`,
+    `✓ ${safe}`,
+    `! ${safe}`,
+    `✗ ${safe}`,
+    `\n${safe}`,
+    `  ${safe}`,
+    "",
+    `  ── ${safeLabel}`,
+  ]);
+});
+
+Deno.test("Logger pre-composed package frames honor color mode and keep content plain", async () => {
+  const terminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      LANG: "en_GB.UTF-8",
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  });
+  const colorLog = new Logger({ json: false, noColor: false, terminal });
+  const plainLog = new Logger({ json: false, noColor: true, terminal });
+  const coloredFrame = `${
+    colorLog.terminal.role("package", "strong")
+  }\nwrapped`;
+  const plainFrame = `${plainLog.terminal.role("package", "strong")}\nwrapped`;
+  const { err, out } = await capture(() => {
+    colorLog.humanLine(coloredFrame);
+    plainLog.humanLine(plainFrame);
+    plainLog.terminalSafeMultilineError(terminalMultiline("safe\nwrapped"));
+    plainLog.line("content\nrow");
+  });
+  assertStringIncludes(coloredFrame, "\x1b[");
+  assertEquals(plainFrame.includes("\x1b["), false);
+  assertEquals(err, [coloredFrame, plainFrame, "✗ safe\nwrapped"]);
+  assertEquals(out, ["content\nrow"]);
+});
+
+Deno.test("Logger multiline errors require the branded safe-text boundary", () => {
+  const rejectsArbitraryStrings = (log: Logger, text: string): void => {
+    // @ts-expect-error — future callers must cross terminalMultiline first.
+    log.terminalSafeMultilineError(text);
+  };
+  assertEquals(typeof rejectsArbitraryStrings, "function");
 });
 
 Deno.test("jsonResult does nothing in human mode", async () => {
@@ -121,6 +220,8 @@ Deno.test("JSON mode silences every human method", async () => {
     log.group("g");
     log.detail("d");
     log.line("l");
+    log.humanLine("hl");
+    log.terminalSafeMultilineError(terminalMultiline("em"));
   });
   assertEquals(err, []);
   assertEquals(out, []);
@@ -138,27 +239,4 @@ Deno.test("JSON mode: jsonResult emits a pretty-printed payload to stdout", asyn
   // Pretty-printed with a two-space indent.
   assertEquals(payload, JSON.stringify({ ok: true, items: ["a"] }, null, 2));
   assertStringIncludes(payload, "\n  ");
-});
-
-Deno.test("colourEnabled(true) is always false (forced off)", () => {
-  assertEquals(colourEnabled(true), false);
-});
-
-Deno.test("colourEnabled(false) is false when NO_COLOR is set and non-empty", () => {
-  assertEquals(colourEnabled(false, fakeEnv({ NO_COLOR: "1" })), false);
-});
-
-Deno.test("colourEnabled(false) ignores an empty NO_COLOR and falls back to the TTY check", () => {
-  // Empty NO_COLOR is not "set"; without a TTY (the test runner) this is false.
-  assertEquals(
-    colourEnabled(false, fakeEnv({ NO_COLOR: "" })),
-    Deno.stdout.isTerminal(),
-  );
-});
-
-Deno.test("colourEnabled(false) defers to the TTY check when NO_COLOR is unset", () => {
-  // Under `deno test` stdout is not a terminal, so this resolves false; the
-  // assertion is written against the live TTY state to stay correct anywhere.
-  assertEquals(colourEnabled(false, fakeEnv()), Deno.stdout.isTerminal());
-  assert(typeof Deno.stdout.isTerminal() === "boolean");
 });

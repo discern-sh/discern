@@ -12,15 +12,33 @@ aliases:
 
 _A local activity record (the Logbook) stores metadata for each CLI verb run and each Model Context Protocol (MCP) invocation resolved to the project. Effectful verbs record their start and completion._
 
-The Logbook records how discern has been used ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). Every invocation appends a completion line. Effectful invocations also append a `begin` line with an invocation id shared by the completion. The completion carries the writing version, verb, surface, raw driver signals, branch, short commit, cleanliness (plus a diff checksum when dirty), outcome (`ok`, `failed`, `refused`, or `partial`) with the refusal slug and failed Gate stage, duration, the verb's target and flag names, the change's scale, touched scopes, per-step timings with their dispositions, diagnostic classes with counts, delivered hint ids, shown tip ids, per-standard readings, and a config-epoch fingerprint. `partial` identifies an error after an irreversible effect, while `refused` identifies a read-only refusal. Acceptance also records its landing-state booleans. Driver signals can include possible coding-agent identity markers, separated by provenance, plus the MCP client's bounded declaration. These signals do not identify which agent drove the run ([ADR 0166](../_adr/0166-agent-identity-is-advisory-logbook-evidence.md)). [The Logbook reference](../70-reference/the-logbook.md) lists every field.
+The Logbook records how discern has been used ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). Every invocation appends a completion line. Effectful invocations also append a `begin` line with an invocation id shared by the completion. The completion carries the writing version, verb, surface, raw driver signals, branch, short commit, invocation-start cleanliness and legacy diff checksum, outcome (`ok`, `failed`, `refused`, or `partial`) with the refusal slug and failed Gate stage, duration, the verb's target and flag names, the change's scale, touched scopes, per-step timings with their dispositions, diagnostic classes with counts, delivered hint ids, shown tip ids, per-standard readings, and a config-epoch fingerprint. Completed validation runs also carry versioned validation-start state and execution evidence. `partial` identifies an error after an irreversible effect, while `refused` identifies a read-only refusal. Acceptance also records its landing-state booleans. Driver signals can include possible coding-agent identity markers, separated by provenance, plus the MCP client's bounded declaration. These signals do not identify which agent drove the run ([ADR 0166](../_adr/0166-agent-identity-is-advisory-logbook-evidence.md)). [The Logbook reference](../70-reference/the-logbook.md) lists every field.
 
-The recorder preserves raw evidence. Readers derive their views from those signals, so a future reader can recompute its view from the stored lines. A practice report that finds recurring friction and trends (`discern patterns`) runs a detector registry over the stream and reports findings in plain counts. Its result stays strength-ranked for JSON and MCP. The human report filters that order into a 3-finding attention pointer, then groups it into the canonical family sections. Standard trajectories carry a bounded series for their row sparkline. `discern status` reads the same local stream to show activity across current tasks in flight (the fleet). The subsystem records and rotates events without changing the result of the command being observed.
+The recorder preserves raw evidence. Readers derive their views from those signals, so a future reader can recompute its view from the stored lines. A practice report that finds recurring friction and trends (`discern patterns`) derives setup identity, client release, and completed Gate-job indexes once per stream, then runs the detector registry over those facts. The report states findings in plain counts. Its result stays strength-ranked for JSON and MCP. The human report filters that order into a 3-finding attention pointer, then groups it into the canonical family sections. Standard trajectories carry a bounded series for their row sparkline. `discern status` reads the same local stream to show activity across current tasks in flight (the fleet). The subsystem records and rotates events without changing the result of the command being observed.
 
 The substrate's constraints:
 
 - **Metadata only.** Lines contain no code, prompts, or command output.
 - **Local.** The Logbook stays on the machine. An architectural test walks the subsystem's module graph and fails on any network API, so the Gate enforces this boundary.
 - **Recording never interferes.** A write failure drops the event. The failure cannot change the verb's result or exit code.
+
+## Report presentation
+
+Schemas, readers, detectors, statistics, investigations, and lifecycle plans own Logbook facts. One terminal snapshot per human invocation builds output. Presentation observes nothing and maps results to result-summary, stat, meter, procedure, Proof, file-change, command, and section Components. JSON and MCP match.
+
+Patterns retains order, families, its advisory boundary, evidence, actions, quiet-detector account, and falsifiers. Statistics retain exact counts and provenance. Archive and reset retain exact file, byte, and destination facts. Confirmation stays on the shared default-No prompt boundary.
+
+At 39, 80, 104, and wider widths in every mode, safe text shows controls. Components add no payload, prompt, output, or network access; the metadata-only, offline contract remains unchanged.
+
+## Validation evidence
+
+`done` samples after fix/build and before check/test; standalone `test` samples before its test group. A shared registry selects planned jobs by stage, automatically enrolling future jobs.
+
+The state HMAC covers HEAD; index tag/mode/object/stage/path; matching checkout bytes; untracked files Git does not ignore; and recursively clean submodule commits. It ignores index storage while retaining sparse/assume-unchanged state. Uncertain or over-budget state is incomplete. Git probes share the 20,000-path, 64-MiB, 5-second envelope.
+
+The regular `0600` key at `discern/validation-hmac-key` is checked on every use. Events store opaque digests and bounded, keyed execution metadata/outcomes, mode, concurrency, and writer version. The execution ceiling is 1,000 jobs and 1 MiB before serialization. Capture failure leaves the Gate verdict unchanged.
+
+Patterns compares only complete state and execution envelopes of the same evidence version. Legacy identity is a separate group. Ignored files, external services, clocks, random seeds, runtime environment, and concurrent external processes remain disclosed exclusions ([ADR 0273](../_adr/0273-validation-comparisons-require-complete-keyed-semantic-evidence.md)).
 
 ## Agent identity over time
 
@@ -77,7 +95,7 @@ The full historical reader accepts a regular archive basename resolved inside `l
 
 Longitudinal comparison needs to identify config changes that affect behavior. Every Standard pin rewrites a limit in `discern.toml`, so the epoch fingerprint hashes each top-level config section separately with volatile values masked. It masks a Standard's `limit` while retaining its command, `inputs`, and measure mode, and masks `[meta]` bookkeeping as a whole. A pin does not move the epoch. A behavioral edit changes its section, and the recorder appends a `config-change` event naming it. The section list iterates the config schema itself, so a new section enrolls without a hand-kept list. `epoch.json` tracks epoch state per branch. Parallel worktrees can hold different configs, and a shared comparison would report a phantom change on every interleaving.
 
-The Logbook records masked limits separately. A `standards --pin` reports its applied pins in the verb's envelope (`data.pinned`), and the recorder appends one `pin` event per tightened limit: Standard name, old bound, new bound, and measured value. The Standard trajectory reads these values from the Logbook, as the decision record promised.
+The Logbook records masked limits separately. Standard readings lift the configured margin and the Gate's mechanical `pin_eligible` decision, plus `pin_target` when eligible, alongside measurement source, value, limit, direction, and verdict. Patterns reads those fields without reconstructing Gate arithmetic. A `standards --pin` reports its applied pins in the verb's envelope (`data.pinned`), and the recorder appends one `pin` event per tightened limit: Standard name, old bound, new bound, and measured value. The Standard trajectory reads these values from the Logbook ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)).
 
 ## The recording points
 
@@ -99,30 +117,35 @@ Context (branch, commit, config, toggle) is gathered from invocation, so `accept
 
 ## Where it lives in code
 
-| Concept                         | File                                                                                              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Event schema + tolerant parser  | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)                           |
-| Agent identity catalog          | [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts)                         |
-| Desk tip registry               | [`src/shared/tips.ts`](../../../src/shared/tips.ts)                                               |
-| MCP classifier + effective view | [`src/engine/logbook/agent_identity.ts`](../../../src/engine/logbook/agent_identity.ts)           |
-| Advisory identity detector      | [`src/engine/logbook/agent_signals.ts`](../../../src/engine/logbook/agent_signals.ts)             |
-| Config-epoch fingerprint        | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)                             |
-| Append, rotation, epoch sidecar | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)                             |
-| The recorder                    | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)                           |
-| Verb vocabulary + effect class  | [`src/shared/verbs.ts`](../../../src/shared/verbs.ts)                                             |
-| The CLI wrapper + verb registry | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)                                 |
-| The stream reader               | [`src/engine/logbook/read.ts`](../../../src/engine/logbook/read.ts)                               |
-| The detector registry           | [`src/engine/logbook/detectors.ts`](../../../src/engine/logbook/detectors.ts)                     |
-| Finding routing                 | [`src/engine/logbook/routing.ts`](../../../src/engine/logbook/routing.ts)                         |
-| Working-command collection      | [`src/engine/logbook/surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                       |
-| The `patterns` verb + reset     | [`src/engine/logbook/patterns.ts`](../../../src/engine/logbook/patterns.ts)                       |
-| The observed-envelope seam      | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)                           |
-| Crash capture + report files    | [`src/engine/crash.ts`](../../../src/engine/crash.ts)                                             |
-| Mailbox drain parity guard      | [`tests/result_capture_drain_parity_test.ts`](../../../tests/result_capture_drain_parity_test.ts) |
-| The no-network guard            | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts)                   |
-| Behavior tests                  | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)                           |
-| Routing and outcome guards      | [`tests/logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)                         |
-| Working-command tests           | [`tests/engine_findings_surfaces_test.ts`](../../../tests/engine_findings_surfaces_test.ts)       |
+| Concept                          | File                                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Event schema + tolerant parser   | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)                           |
+| Agent identity catalog           | [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts)                         |
+| Desk tip registry                | [`src/shared/tips.ts`](../../../src/shared/tips.ts)                                               |
+| MCP classifier + effective view  | [`src/engine/logbook/agent_identity.ts`](../../../src/engine/logbook/agent_identity.ts)           |
+| Advisory identity detector       | [`src/engine/logbook/agent_signals.ts`](../../../src/engine/logbook/agent_signals.ts)             |
+| Config-epoch fingerprint         | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)                             |
+| Validation model and outcomes    | [`src/engine/logbook/validation.ts`](../../../src/engine/logbook/validation.ts)                   |
+| Repository validation key        | [`src/engine/logbook/validation_key.ts`](../../../src/engine/logbook/validation_key.ts)           |
+| Bounded validation-state capture | [`src/engine/logbook/validation_state.ts`](../../../src/engine/logbook/validation_state.ts)       |
+| Append, rotation, epoch sidecar  | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)                             |
+| The recorder                     | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)                           |
+| Verb vocabulary + effect class   | [`src/shared/verbs.ts`](../../../src/shared/verbs.ts)                                             |
+| The CLI wrapper + verb registry  | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)                                 |
+| The stream reader                | [`src/engine/logbook/read.ts`](../../../src/engine/logbook/read.ts)                               |
+| The detector registry            | [`src/engine/logbook/detectors.ts`](../../../src/engine/logbook/detectors.ts)                     |
+| Finding routing                  | [`src/engine/logbook/routing.ts`](../../../src/engine/logbook/routing.ts)                         |
+| Working-command collection       | [`src/engine/logbook/surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                       |
+| The `patterns` verb + reset      | [`src/engine/logbook/patterns.ts`](../../../src/engine/logbook/patterns.ts)                       |
+| The observed-envelope seam       | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)                           |
+| Crash capture + report files     | [`src/engine/crash.ts`](../../../src/engine/crash.ts)                                             |
+| Mailbox drain parity guard       | [`tests/result_capture_drain_parity_test.ts`](../../../tests/result_capture_drain_parity_test.ts) |
+| The no-network guard             | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts)                   |
+| Report parity and safety matrix  | [`tests/engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)                         |
+| Terminal-observation guard       | [`tests/terminal_boundary_guard_test.ts`](../../../tests/terminal_boundary_guard_test.ts)         |
+| Behavior tests                   | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)                           |
+| Routing and outcome guards       | [`tests/logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)                         |
+| Working-command tests            | [`tests/engine_findings_surfaces_test.ts`](../../../tests/engine_findings_surfaces_test.ts)       |
 
 ## See also
 

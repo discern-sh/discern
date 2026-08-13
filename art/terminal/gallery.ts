@@ -15,9 +15,14 @@ import {
   terminalPlaybackPort,
 } from "../../src/lib/terminal_animation.ts";
 import { type TerminalSize, terminalSize } from "../../src/lib/text.ts";
+import type { TerminalCapabilities } from "discern-design-system/cli";
+import { TRIANGLE_GALLERY_CAPABILITIES } from "./triangle.ts";
 import { writeStderr, writeStdout } from "../../src/engine/output.ts";
 import { DISCERN_ART_VARIANTS, type DiscernArtVariant } from "./brand.ts";
-import { DISCERN_TRIANGLE_MOTIFS } from "./triangle.ts";
+import {
+  DISCERN_PACKAGE_TRIANGLE_MOTIFS,
+  DISCERN_PRODUCT_TRIANGLE_ART,
+} from "./triangle.ts";
 
 const ART_USAGE = "Run `deno task art` or `deno task art --animate`.";
 
@@ -48,7 +53,10 @@ const ART_GALLERY_ENTRIES: readonly ArtGalleryEntry[] = Object.freeze([
   ...Object.entries(DISCERN_ART_VARIANTS).map(([name, variant]) =>
     Object.freeze({ name, variant })
   ),
-  ...Object.entries(DISCERN_TRIANGLE_MOTIFS).map(([name, variant]) =>
+  ...Object.entries(DISCERN_PACKAGE_TRIANGLE_MOTIFS).map(([name, variant]) =>
+    Object.freeze({ name, variant })
+  ),
+  ...Object.entries(DISCERN_PRODUCT_TRIANGLE_ART).map(([name, variant]) =>
     Object.freeze({ name, variant })
   ),
 ]);
@@ -59,16 +67,20 @@ export function artGalleryEntries(): readonly ArtGalleryEntry[] {
 }
 
 /** Render every registered design in stable order with a compact name label. */
-export function renderArtGallery(): string {
+export function renderArtGallery(
+  capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
+): string {
   return artGalleryEntries()
-    .map(({ name, variant }) => `[${name}]\n${variant.render()}`)
+    .map(({ name, variant }) => `[${name}]\n${variant.render(capabilities)}`)
     .join("\n\n");
 }
 
 /** Derive one labelled semantic animation scene from every registered design. */
-export function artAnimationScenes(): readonly TerminalAnimationScene[] {
+export function artAnimationScenes(
+  capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
+): readonly TerminalAnimationScene[] {
   return artGalleryEntries().map(({ name, variant }) => {
-    const animation = variant.animate();
+    const animation = variant.animate(capabilities);
     return Object.freeze({
       label: `[${name}]`,
       frames: animation.frames,
@@ -95,16 +107,19 @@ export function planArtCommand(
     };
   }
 
-  const gallery = `${renderArtGallery()}\n`;
+  const gallery = `${renderArtGallery(environment.capabilities)}\n`;
   if (args.length === 0 || !terminalAnimationAllowed(environment)) {
     return { mode: "static", output: gallery };
   }
 
-  const playback = planTerminalPlayback(artAnimationScenes(), {
-    terminalColumns: environment.terminalColumns,
-    terminalRows: environment.terminalRows,
-    finalTranscript: renderArtGallery(),
-  });
+  const playback = planTerminalPlayback(
+    artAnimationScenes(environment.capabilities),
+    {
+      terminalColumns: environment.terminalColumns,
+      terminalRows: environment.terminalRows,
+      finalTranscript: renderArtGallery(environment.capabilities),
+    },
+  );
   return playback === null
     ? { mode: "static", output: gallery }
     : { mode: "animate", playback };

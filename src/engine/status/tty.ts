@@ -8,7 +8,16 @@
  */
 
 import { basename } from "@std/path";
-import { dimBlock } from "../../shared/result.ts";
+import {
+  type FleetCliProps,
+  renderDiagnosticCli,
+  renderFleetCli,
+  renderRawOutputCli,
+  renderReceiptCli,
+  renderResultSummaryCli,
+  renderTriangleSectionRule,
+  type TerminalCapabilities,
+} from "discern-design-system/cli";
 import { interactiveHintTexts } from "../../shared/hints.ts";
 import type {
   GateProofCheckData,
@@ -17,17 +26,23 @@ import type {
   StatusFleetCollision,
   StatusFleetEntry,
 } from "../../shared/result_schemas.ts";
-import { displayWidth, padDisplayEnd, wrapText } from "../../lib/text.ts";
-import { compactDuration, type Palette, palette } from "../output.ts";
+import { wrapText } from "../../lib/text.ts";
+import {
+  type TerminalContext,
+  terminalLine,
+  terminalMultiline,
+} from "../../lib/terminal.ts";
+import { compactDuration } from "../output.ts";
 import { isScopeMarker } from "../scopes/scopes.ts";
 import { isReadyToLand } from "../worktree/readiness.ts";
+
+type AgentStatus = NonNullable<FleetCliProps["rows"][number]["status"]>;
 
 /** Very wide terminals still get a report whose related fields stay together. */
 export const STATUS_REPORT_MAX_WIDTH = 104;
 
-/** One authority for the section rule and the column where its content begins. */
-const SECTION_RULE = "──";
-const SECTION_CONTENT_COLUMN = displayWidth(`${SECTION_RULE} `);
+/** Package rules own section geometry; content retains one stable gutter. */
+const SECTION_CONTENT_COLUMN = 2;
 const SECTION_CONTENT_INDENT = " ".repeat(SECTION_CONTENT_COLUMN);
 
 /** Fleet activity older than this is stale when unlanded work remains. */
@@ -62,6 +77,29 @@ interface StatusMeta {
   tone: FleetRowTone;
   priority: number;
 }
+
+/**
+ * Exhaustive adaptation from Discern's richer status vocabulary into Fleet's
+ * generic agent-state vocabulary. The Discern label remains visible beside it;
+ * this mapping never replaces status precedence or invents readiness.
+ */
+export const FLEET_ROW_AGENT_STATUS = {
+  broken: "blocked",
+  unreadable: "blocked",
+  failed: "blocked",
+  blocked: "blocked",
+  collision: "waiting",
+  behind: "waiting",
+  ready: "done",
+  running: "working",
+  stale: "waiting",
+  "in-progress": "working",
+  "proof-unreadable": "blocked",
+  "proof-unavailable": "waiting",
+  "proof-stale": "waiting",
+  "needs-gate": "waiting",
+  idle: "idle",
+} as const satisfies Readonly<Record<FleetRowStatusKind, AgentStatus>>;
 
 const STATUS_META = {
   broken: { label: "Broken", glyph: "✗", tone: "red", priority: 0 },
@@ -113,6 +151,8 @@ const STATUS_META = {
 
 interface RowIdentity {
   primary: string;
+  /** Exact worktree id used as Fleet's persona identity. */
+  worktree: string;
   secondary?: string;
 }
 
@@ -142,6 +182,7 @@ export interface FleetRowPresentation {
   glyph: string;
   tone: FleetRowTone;
   priority: number;
+  agentStatus: AgentStatus;
   identity: RowIdentity;
   git: string;
   gitTone: FleetRowTone;
@@ -157,21 +198,29 @@ export interface FleetRowPresentation {
 
 export interface FleetRowPresentationOptions {
   trunk: string;
-  nowMs?: number;
+  nowMs: number;
   collisions?: readonly StatusFleetCollision[];
 }
 
 export interface StatusDashboardOptions {
+  terminal: TerminalContext;
   width: number;
-  color?: boolean;
   verbose?: boolean;
-  nowMs?: number;
+  nowMs: number;
+}
+
+/** Give one pure package renderer the report's already-resolved width. */
+function capabilitiesAtWidth(
+  terminal: TerminalContext,
+  width: number,
+): TerminalCapabilities {
+  return { ...terminal.capabilities, columns: Math.max(1, width) };
 }
 
 /** Whole days since an ISO timestamp, or undefined when absent/unparseable. */
 export function idleDaysOf(
   iso: string | undefined,
-  nowMs: number = Date.now(),
+  nowMs: number,
 ): number | undefined {
   if (iso === undefined) return undefined;
   const then = Date.parse(iso);
@@ -182,7 +231,7 @@ export function idleDaysOf(
 /** A compact relative age for row activity. */
 export function relativeAge(
   iso: string | undefined,
-  nowMs: number = Date.now(),
+  nowMs: number,
 ): string {
   if (iso === undefined) return "—";
   const then = Date.parse(iso);
@@ -268,6 +317,7 @@ function rowIdentity(entry: StatusFleetEntry): RowIdentity {
     (entry.branch === id || entry.branch === `agent/${id}`);
   return {
     primary,
+    worktree: id,
     ...(!equivalent && id !== "" ? { secondary: id } : {}),
   };
 }
@@ -513,7 +563,7 @@ export function presentFleetRow(
   entry: StatusFleetEntry,
   options: FleetRowPresentationOptions,
 ): FleetRowPresentation {
-  const nowMs = options.nowMs ?? Date.now();
+  const nowMs = options.nowMs;
   const proof = proofPresentation(entry);
   const collisions = rowCollisions(entry, options.collisions ?? []);
   const proofReady = isReadyToLand(entry, proof.status === "honored");
@@ -534,6 +584,7 @@ export function presentFleetRow(
     entry,
     kind,
     ...meta,
+    agentStatus: FLEET_ROW_AGENT_STATUS[kind],
     identity: rowIdentity(entry),
     git: gitPresentation(entry),
     gitTone: gitTone(entry),
@@ -566,41 +617,6 @@ export function sortFleetRows(
   );
 }
 
-/** Apply one semantic palette color without changing the text. */
-function tone(text: string, value: FleetRowTone, c: Palette): string {
-  switch (value) {
-    case "red":
-      return `${c.red}${text}${c.reset}`;
-    case "cyan":
-      return `${c.cyan}${text}${c.reset}`;
-    case "yellow":
-      return `${c.yellow}${text}${c.reset}`;
-    case "green":
-      return `${c.green}${text}${c.reset}`;
-    case "dim":
-      return `${c.dim}${text}${c.reset}`;
-  }
-}
-
-/** Style only mechanical identity fragments. ANSI changes appearance, never the
- * copied branch or worktree id. */
-function styledIdentifier(value: string, c: Palette): string {
-  if (value === "(detached)") return `${c.yellow}${value}${c.reset}`;
-  const prefix = value.startsWith("agent/") ? "agent/" : "";
-  const tail = value.slice(prefix.length);
-  const match = tail.match(/^(.*)(-[0-9a-f]{6})$/u);
-  const body = match?.[1] ?? tail;
-  const suffix = match?.[2] ?? "";
-  return `${prefix === "" ? "" : `${c.dim}${prefix}${c.reset}`}${body}${
-    suffix === "" ? "" : `${c.dim}${suffix}${c.reset}`
-  }`;
-}
-
-/** Current-location cue placed beside the identity. */
-function currentMarker(current: boolean, c: Palette): string {
-  return current ? ` ${c.cyan}← current${c.reset}` : "";
-}
-
 const BACKTICKED_DISCERN_COMMAND = /`(discern(?:[ \t]+[^`\r\n]+)?)`/gu;
 
 /** Highlight actionable discern commands while preserving their backticks and
@@ -608,42 +624,17 @@ const BACKTICKED_DISCERN_COMMAND = /`(discern(?:[ \t]+[^`\r\n]+)?)`/gu;
  * between command words from leaking color into the next terminal line. */
 function styledDiscernCommands(
   text: string,
-  c: Palette,
-  resumeStyle = "",
+  terminal: TerminalContext,
 ): string {
   return text.replace(
     BACKTICKED_DISCERN_COMMAND,
     (_match: string, command: string): string =>
       `\`${
         command.split(/([ \t]+)/u).map((part) =>
-          /^[ \t]+$/u.test(part)
-            ? part
-            : `${c.cyan}${part}${c.reset}${resumeStyle}`
+          /^[ \t]+$/u.test(part) ? part : terminal.tone(part, "accent")
         ).join("")
       }\``,
   );
-}
-
-/** Wrap one section-relative labelled field with a hanging continuation. */
-function wrappedField(
-  label: string,
-  text: string,
-  width: number,
-  indent = "",
-): string[] {
-  const prefix = `${label}:`;
-  const available = Math.max(1, width - displayWidth(indent));
-  return wrapText(
-    `${prefix} ${text}`,
-    available,
-    " ".repeat(displayWidth(prefix) + 1),
-    { breakLongWords: true },
-  ).map((line) => `${indent}${line}`);
-}
-
-interface GlyphSectionLine {
-  glyph: string;
-  text: string;
 }
 
 interface VerbatimSectionLine {
@@ -652,50 +643,14 @@ interface VerbatimSectionLine {
   verbatim: string;
 }
 
-type StatusSectionLine = string | GlyphSectionLine | VerbatimSectionLine;
-
-/** Keep a glyph in the section gutter while its text uses the shared content
- * column. */
-function glyphLine(glyph: string, text: string): GlyphSectionLine {
-  return { glyph, text };
-}
-
-/** Wrap one glyph-led line with its text and continuations in the shared
- * section content column. */
-function wrappedBullet(
-  glyph: string,
-  text: string,
-  width: number,
-  c: Palette,
-  glyphTone: FleetRowTone = "cyan",
-): StatusSectionLine[] {
-  const styled = tone(glyph, glyphTone, c);
-  const styledText = styledDiscernCommands(text, c);
-  const wrapped = wrapText(
-    styledText,
-    width,
-    "",
-    { breakLongWords: true },
-  );
-  const [first, ...continuations] = wrapped;
-  return first === undefined
-    ? []
-    : [glyphLine(styled, first), ...continuations];
-}
+type StatusSectionLine = string | VerbatimSectionLine;
 
 /** Place one typed line in the section's shared display columns. */
 function renderSectionLine(line: StatusSectionLine): string {
   if (typeof line === "string") {
     return line === "" ? "" : `${SECTION_CONTENT_INDENT}${line}`;
   }
-  if ("verbatim" in line) return line.verbatim;
-  const gutter = " ".repeat(
-    Math.max(
-      0,
-      SECTION_CONTENT_COLUMN - displayWidth(line.glyph) - 1,
-    ),
-  );
-  return `${gutter}${line.glyph} ${line.text}`;
+  return line.verbatim;
 }
 
 /** Join one populated dashboard section. This is the sole owner of ordinary
@@ -704,195 +659,163 @@ function renderSectionLine(line: StatusSectionLine): string {
 function section(
   label: string,
   lines: readonly StatusSectionLine[],
-  c: Palette,
+  terminal: TerminalContext,
+  width: number,
 ): string {
+  const capabilities = capabilitiesAtWidth(terminal, width);
   return [
-    `${c.dim}${SECTION_RULE}${c.reset} ${c.bold}${label}${c.reset}`,
+    renderTriangleSectionRule(terminalLine(label), {
+      width,
+      theme: terminal.themeVariant,
+    }, capabilities),
     ...lines.map(renderSectionLine),
   ].join("\n");
 }
 
-/** Multi-line row used at narrow widths and for detailed states. */
-function renderStackedRow(
-  row: FleetRowPresentation,
-  width: number,
-  c: Palette,
-): StatusSectionLine[] {
-  const identity = `${styledIdentifier(row.identity.primary, c)}${
-    currentMarker(row.entry.is_current, c)
-  }`;
-  const lines: StatusSectionLine[] = [
-    glyphLine(tone(row.glyph, row.tone, c), identity),
-  ];
-  if (row.identity.secondary !== undefined) {
-    lines.push(
-      `${c.dim}Worktree id:${c.reset} ${
-        styledIdentifier(row.identity.secondary, c)
-      }`,
-    );
-  }
-  lines.push(
-    ...wrappedField(
-      "Status",
-      `${tone(row.label, row.tone, c)} · Git ${tone(row.git, row.gitTone, c)}`,
-      width,
-    ),
-  );
-  const proofText = `${tone(row.proof.label, row.proof.tone, c)}${
-    row.proof.detail === undefined ? "" : ` · ${row.proof.detail}`
-  }`;
-  lines.push(...wrappedField("Proof", proofText, width));
-  lines.push(
-    ...wrappedField(
-      "Activity",
-      row.entry.running !== undefined
-        ? tone(row.activity, "cyan", c)
-        : row.activity,
-      width,
-    ),
-  );
-  if (row.authority !== undefined) {
-    lines.push(
-      ...wrappedField(
-        "Landing",
-        `${tone(row.authority.label, row.authority.tone, c)}${
-          row.authority.detail === undefined ? "" : ` · ${row.authority.detail}`
-        }`,
-        width,
-      ),
-    );
-  }
-  if (row.entry.contained_in !== undefined) {
-    lines.push(
-      ...wrappedField(
-        "Contained in",
-        styledIdentifier(row.entry.contained_in, c),
-        width,
-      ),
-    );
-  }
-  for (const collision of row.collisions) {
-    lines.push(
-      ...wrappedField(
-        "Collision",
-        `${styledIdentifier(collision.branch, c)} · ${
-          fileCount(collision.total)
-        }`,
-        width,
-      ),
-    );
-  }
-  return lines;
-}
+/** Exhaustive adaptation into Result summary's outcome vocabulary. */
+export const FLEET_ROW_RESULT_STATE = {
+  broken: "failed",
+  unreadable: "failed",
+  failed: "failed",
+  blocked: "blocked",
+  collision: "blocked",
+  behind: "blocked",
+  ready: "passed",
+  running: "changed",
+  stale: "blocked",
+  "in-progress": "changed",
+  "proof-unreadable": "failed",
+  "proof-unavailable": "blocked",
+  "proof-stale": "blocked",
+  "needs-gate": "blocked",
+  idle: "unchanged",
+} as const satisfies Readonly<
+  Record<
+    FleetRowStatusKind,
+    "passed" | "failed" | "blocked" | "changed" | "unchanged"
+  >
+>;
 
-interface TableColumn {
-  header: string;
-  values: string[];
-}
+/** Exhaustive Proof-state adaptation into Receipt check semantics. */
+export const STATUS_PROOF_RECEIPT_STATE = {
+  honored: "pass",
+  missing: "skip",
+  stale: "fail",
+  dirty: "skip",
+  unavailable: "fail",
+  read_failed: "fail",
+} as const satisfies Readonly<
+  Record<GateProofCheckStatus, "pass" | "fail" | "skip">
+>;
 
-/** Bounded table when every natural column fits and no detail would be lost. */
-function tableLines(
-  rows: readonly FleetRowPresentation[],
-  width: number,
-  c: Palette,
-): string[] | undefined {
-  if (width < 92 - SECTION_CONTENT_COLUMN) return undefined;
-  if (
-    rows.some((row) =>
-      row.identity.secondary !== undefined ||
-      row.proof.detail !== undefined ||
-      row.authority?.detail !== undefined ||
-      row.collisions.length > 0 ||
-      row.entry.contained_in !== undefined
-    )
-  ) return undefined;
-  const columns: TableColumn[] = [
-    {
-      header: "Worktree",
-      values: rows.map((row) =>
-        `${styledIdentifier(row.identity.primary, c)}${
-          currentMarker(row.entry.is_current, c)
-        }`
-      ),
-    },
-    {
-      header: "Status",
-      values: rows.map((row) =>
-        `${tone(row.glyph, row.tone, c)} ${tone(row.label, row.tone, c)}`
-      ),
-    },
-    {
-      header: "Git",
-      values: rows.map((row) => tone(row.git, row.gitTone, c)),
-    },
-    {
-      header: "Proof",
-      values: rows.map((row) => tone(row.proof.label, row.proof.tone, c)),
-    },
-    {
-      header: "Activity",
-      values: rows.map((row) =>
-        row.entry.running !== undefined
-          ? tone(row.activity, "cyan", c)
-          : row.activity
-      ),
-    },
-  ];
-  if (rows.some((row) => row.authority !== undefined)) {
-    columns.push({
-      header: "Landing",
-      values: rows.map((row) =>
-        row.authority === undefined
-          ? "—"
-          : tone(row.authority.label, row.authority.tone, c)
-      ),
-    });
-  }
-  const widths = columns.map((column) =>
-    Math.max(
-      displayWidth(column.header),
-      ...column.values.map(displayWidth),
-    )
-  );
-  const total = widths.reduce((sum, value) => sum + value, 0) +
-    (columns.length - 1) * 2;
-  if (total > width) return undefined;
-  const line = (values: readonly string[]): string =>
-    values.map((value, index) =>
-      index === values.length - 1
-        ? value
-        : padDisplayEnd(value, widths[index] ?? 0)
-    ).join("  ");
-  const header = line(columns.map((column) => column.header));
-  return [
-    `${c.dim}${header}${c.reset}`,
-    ...rows.map((_, rowIndex) =>
-      line(columns.map((column) => column.values[rowIndex] ?? ""))
-    ),
-  ];
-}
-
-/** Choose table or stacked rows, with the conditional ownership caption. */
+/** Fleet owns identity, state, drift, and responsive layout. Discern composes
+ * the product evidence Fleet cannot generically know beside each row. */
 function renderWorktrees(
   rows: readonly FleetRowPresentation[],
   width: number,
-  c: Palette,
+  terminal: TerminalContext,
   ownershipCaption: boolean,
 ): StatusSectionLine[] {
-  const table = tableLines(rows, width, c);
-  const lines: StatusSectionLine[] = table ??
-    rows.flatMap((row, index): StatusSectionLine[] => [
-      ...(index === 0 ? [] : [""]),
-      ...renderStackedRow(row, width, c),
-    ]);
+  const capabilities = capabilitiesAtWidth(terminal, width);
+  const fleet = renderFleetCli({
+    label: terminalLine("Active worktrees"),
+    identityMode: "lossless",
+    maxWidth: width,
+    rows: rows.map((row) => ({
+      persona: terminalLine(row.identity.worktree),
+      branch: terminalLine(row.identity.primary),
+      status: row.agentStatus,
+      statusLabel: terminalLine(
+        `${row.label}${row.entry.is_current ? " · current" : ""}`,
+      ),
+      ...(row.entry.ahead === undefined ? {} : { ahead: row.entry.ahead }),
+      ...(row.entry.behind === undefined ? {} : { behind: row.entry.behind }),
+      ...(row.kind === "running" ? { beaconPhase: 0 } : {}),
+    })),
+    theme: terminal.themeVariant,
+  }, capabilities);
+  const lines: StatusSectionLine[] = [{ verbatim: fleet }];
+  for (const row of rows) {
+    const proofValue = row.proof.detail === undefined
+      ? row.proof.label
+      : `${row.proof.label} · ${row.proof.detail}`;
+    const summary = renderResultSummaryCli({
+      state: FLEET_ROW_RESULT_STATE[row.kind],
+      fact: terminalLine(
+        `${row.identity.primary}${
+          row.entry.is_current ? " is the current worktree. " : ". "
+        }${row.label}.`,
+      ),
+      counts: [
+        { label: terminalLine("Git"), value: terminalLine(row.git) },
+        { label: terminalLine("Activity"), value: terminalLine(row.activity) },
+      ],
+      ...(row.attention === undefined
+        ? {}
+        : { nextAction: terminalMultiline(row.attention) }),
+      maxWidth: width,
+      theme: terminal.themeVariant,
+    }, capabilities);
+    const meta = [
+      ...(row.authority === undefined ? [] : [{
+        label: terminalLine("Landing"),
+        value: terminalLine(
+          `${row.authority.label}${
+            row.authority.detail === undefined
+              ? ""
+              : ` · ${row.authority.detail}`
+          }`,
+        ),
+      }]),
+      ...(row.entry.contained_in === undefined ? [] : [{
+        label: terminalLine("Contained in"),
+        value: terminalLine(row.entry.contained_in),
+      }]),
+      ...row.collisions.map((collision) => ({
+        label: terminalLine("Collision"),
+        value: terminalLine(
+          `${collision.branch} · ${fileCount(collision.total)}`,
+        ),
+      })),
+    ];
+    const receipt = renderReceiptCli({
+      title: terminalLine(`${row.identity.primary} Proof`),
+      checks: [{
+        label: terminalLine("Proof"),
+        state: STATUS_PROOF_RECEIPT_STATE[row.proof.status],
+        stateLabel: terminalLine(row.proof.label),
+        ...(row.proof.detail === undefined
+          ? {}
+          : { value: terminalLine(proofValue) }),
+      }],
+      ...(meta.length === 0 ? {} : {
+        meta: meta.map((item) => ({
+          label: terminalLine(item.label),
+          value: terminalLine(item.value),
+        })),
+      }),
+      maxWidth: width,
+      theme: terminal.themeVariant,
+    }, capabilities);
+    lines.push(
+      "",
+      { verbatim: styledDiscernCommands(summary, terminal) },
+      { verbatim: receipt },
+    );
+  }
   if (ownershipCaption) {
     lines.push(
       "",
-      ...wrappedField(
-        "Ownership",
-        `${c.dim}Worktrees stay with the effort that created them.${c.reset}`,
-        width,
-      ),
+      {
+        verbatim: renderResultSummaryCli({
+          state: "unchanged",
+          fact: terminalLine(
+            "Worktrees stay with the effort that created them.",
+          ),
+          maxWidth: width,
+          theme: terminal.themeVariant,
+        }, capabilities),
+      },
     );
   }
   return lines;
@@ -902,7 +825,8 @@ function renderWorktrees(
 function renderFleetSummary(
   rows: readonly FleetRowPresentation[],
   width: number,
-): string[] {
+  c: TerminalContext,
+): StatusSectionLine[] {
   const ready = rows.filter((row) => row.landingReady).length;
   const active =
     rows.filter((row) => row.kind === "running" || row.kind === "in-progress")
@@ -916,7 +840,14 @@ function renderFleetSummary(
     ...(ready === 0 ? [] : [`${ready} ready`]),
     ...(active === 0 ? [] : [`${active} in progress`]),
   ].join(" · ");
-  return wrappedField("Summary", summary, width);
+  return [{
+    verbatim: renderResultSummaryCli({
+      state: attention > 0 ? "blocked" : active > 0 ? "changed" : "unchanged",
+      fact: terminalLine(summary),
+      maxWidth: width,
+      theme: c.themeVariant,
+    }, capabilitiesAtWidth(c, width)),
+  }];
 }
 
 /** Render row actions and complete fleet/ADR collision evidence. */
@@ -924,38 +855,49 @@ function renderAttention(
   rows: readonly FleetRowPresentation[],
   data: StatusData,
   width: number,
-  c: Palette,
+  c: TerminalContext,
   nowMs: number,
 ): StatusSectionLine[] {
   const lines: StatusSectionLine[] = [];
+  const capabilities = capabilitiesAtWidth(c, width);
   for (const row of rows) {
     if (row.attention === undefined) continue;
-    lines.push(
-      ...(lines.length === 0 ? [] : [""]),
-      glyphLine(
-        tone(row.glyph, row.tone, c),
-        `${styledIdentifier(row.identity.primary, c)}${
-          currentMarker(row.entry.is_current, c)
+    const diagnostic = renderDiagnosticCli({
+      title: terminalLine(
+        `${row.identity.primary}: ${row.label}${
+          row.entry.is_current ? " (current)" : ""
         }`,
       ),
-      ...wrappedField(
-        row.label,
-        styledDiscernCommands(row.attention, c),
-        width,
+      impact: terminalLine(
+        `Git ${row.git}; Proof ${row.proof.label}; ${row.activity}.`,
       ),
+      correction: terminalMultiline(row.attention),
+      severity: row.tone === "red" ? "failure" : "attention",
+      path: terminalLine(row.entry.path),
+      maxWidth: width,
+      theme: c.themeVariant,
+    }, capabilities);
+    lines.push(
+      ...(lines.length === 0 ? [] : [""]),
+      {
+        verbatim: styledDiscernCommands(diagnostic, c),
+      },
     );
     if (
       row.landingReady && row.kind !== "ready" &&
       row.authority !== undefined
     ) {
       lines.push(
-        ...wrappedField(
-          "Readiness",
-          `${tone("ready", "green", c)} · landing ${
-            tone(row.authority.label, row.authority.tone, c)
-          }`,
-          width,
-        ),
+        {
+          verbatim: renderResultSummaryCli({
+            state: "passed",
+            fact: terminalLine(
+              `The branch is ready; landing ${row.authority.label}.`,
+            ),
+            maxWidth: width,
+            theme: c.themeVariant,
+          }, capabilities),
+        },
       );
     }
   }
@@ -969,93 +911,89 @@ function renderAttention(
       : `${path.contents.join(", ")}${
         path.contents_truncated ? " · more entries present" : ""
       }`;
+    const correction = path.cleanup_blocked_reason === undefined
+      ? "Inspect the current contents before removing the path."
+      : `Kept: ${path.cleanup_blocked_reason}`;
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
-      ...wrappedBullet(
-        "!",
-        styledIdentifier(path.path, c),
-        width,
-        c,
-        "yellow",
-      ),
-      ...wrappedField(
-        "State",
-        `discern removed the worktree ${
-          relativeAge(path.removed_at, nowMs)
-        }; the path is present again`,
-        width,
-      ),
-      ...wrappedField("Contents", contents, width),
-      ...(path.cleanup_blocked_reason === undefined ? [] : wrappedField(
-        "Cleanup",
-        `Kept: ${path.cleanup_blocked_reason}`,
-        width,
-      )),
+      {
+        verbatim: renderDiagnosticCli({
+          title: terminalLine(path.path),
+          impact: terminalLine(
+            `discern removed the worktree ${
+              relativeAge(path.removed_at, nowMs)
+            }; the path is present again. Contents: ${contents}.`,
+          ),
+          correction: terminalMultiline(correction),
+          severity: "attention",
+          path: terminalLine(path.path),
+          maxWidth: width,
+          theme: c.themeVariant,
+        }, capabilities),
+      },
     );
   }
   for (const collision of data.fleet_collisions ?? []) {
+    const diagnostic = renderDiagnosticCli({
+      title: terminalLine("Fleet collision"),
+      impact: terminalLine(
+        `${collision.branches.join(" ↔ ")} change the same ${
+          fileCount(collision.total)
+        }.`,
+      ),
+      evidence: terminalMultiline(collision.overlap.join(", ")),
+      correction: terminalMultiline(
+        "Whoever lands second should run `discern update` and re-read these paths.",
+      ),
+      severity: "attention",
+      maxWidth: width,
+      theme: c.themeVariant,
+    }, capabilities);
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
-      ...wrappedBullet("!", "Fleet collision", width, c, "yellow"),
-      ...wrappedField(
-        "Branches",
-        collision.branches.map((branch) => styledIdentifier(branch, c)).join(
-          " ↔ ",
-        ),
-        width,
-      ),
-      ...wrappedField(
-        "Paths",
-        `${collision.overlap.join(", ")}${
-          collision.total > collision.overlap.length
-            ? ` · ${collision.total} files total`
-            : ""
-        }`,
-        width,
-      ),
-      ...wrappedField(
-        "Action",
-        styledDiscernCommands(
-          "Whoever lands second should run `discern update` and re-read these paths.",
-          c,
-        ),
-        width,
-      ),
+      { verbatim: styledDiscernCommands(diagnostic, c) },
     );
   }
   for (const collision of data.adr_collisions ?? []) {
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
-      ...wrappedBullet(
-        "!",
-        `ADR ${collision.number} has multiple claims`,
-        width,
-        c,
-        "yellow",
-      ),
-      ...wrappedField(
-        "Branches",
-        collision.branches.map((branch) => styledIdentifier(branch, c)).join(
-          ", ",
-        ),
-        width,
-      ),
-      ...wrappedField("Records", collision.paths.join(", "), width),
-      ...wrappedField(
-        "Action",
-        "Whoever lands second takes the next free record number.",
-        width,
-      ),
+      {
+        verbatim: renderDiagnosticCli({
+          title: terminalLine(
+            `ADR ${collision.number} has multiple claims`,
+          ),
+          impact: terminalLine(
+            `${collision.branches.join(", ")} claim the same record number.`,
+          ),
+          evidence: terminalMultiline(collision.paths.join(", ")),
+          correction: terminalMultiline(
+            "Whoever lands second takes the next free record number.",
+          ),
+          severity: "attention",
+          maxWidth: width,
+          theme: c.themeVariant,
+        }, capabilities),
+      },
     );
   }
   if (data.git?.incoming_overlap?.length) {
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
-      ...wrappedField(
-        "Incoming overlap",
-        data.git.incoming_overlap.join(", "),
-        width,
-      ),
+      {
+        verbatim: renderDiagnosticCli({
+          title: terminalLine("Incoming overlap"),
+          impact: terminalLine(
+            "The worktree and incoming trunk commits change the same paths.",
+          ),
+          evidence: terminalMultiline(data.git.incoming_overlap.join(", ")),
+          correction: terminalMultiline(
+            "Re-read the shared paths after updating the branch.",
+          ),
+          severity: "attention",
+          maxWidth: width,
+          theme: c.themeVariant,
+        }, capabilities),
+      },
     );
   }
   return lines;
@@ -1109,33 +1047,36 @@ function trunkOf(data: StatusData): string {
 function mainCheckoutLine(
   data: StatusData,
   width: number,
-  c: Palette,
-): string[] {
+  c: TerminalContext,
+): string {
+  const capabilities = capabilitiesAtWidth(c, width);
   const git = data.git;
   if (git === null) {
-    return wrappedField(
-      "Main checkout",
-      `${tone("Git unreadable", "red", c)}`,
-      width,
-      "",
-    );
+    return renderResultSummaryCli({
+      state: "failed",
+      fact: terminalLine("The main checkout is unreadable."),
+      maxWidth: width,
+      theme: c.themeVariant,
+    }, capabilities);
   }
-  const state = git.clean
-    ? `${c.dim}Git clean${c.reset}`
-    : tone(`Git ${fileCount(git.changed_files)}`, "yellow", c);
+  const state = git.clean ? "clean" : fileCount(git.changed_files);
   const counts = divergence(
     git.ahead_trunk === null ? undefined : git.ahead_trunk,
     git.behind_trunk === null ? undefined : git.behind_trunk,
   );
   const branch = git.branch === "" ? "(detached)" : git.branch;
-  return wrappedField(
-    "Main checkout",
-    `${styledIdentifier(branch, c)}${currentMarker(true, c)} · ${state}${
-      counts === "" ? "" : ` · ${counts}`
-    }`,
-    width,
-    "",
-  );
+  return renderResultSummaryCli({
+    state: git.clean ? "unchanged" : "changed",
+    fact: terminalLine(`Main checkout ${branch} is current.`),
+    counts: [
+      { label: terminalLine("Git"), value: terminalLine(state) },
+      ...(counts === ""
+        ? []
+        : [{ label: terminalLine("Drift"), value: terminalLine(counts) }]),
+    ],
+    maxWidth: width,
+    theme: c.themeVariant,
+  }, capabilities);
 }
 
 /** Render the main checkout outside the worktree list for `--all` worktree views. */
@@ -1143,44 +1084,51 @@ function surveyedMainCheckout(
   entry: StatusFleetEntry,
   width: number,
   nowMs: number,
-  c: Palette,
-): string[] {
+  c: TerminalContext,
+): StatusSectionLine[] {
   const state = entry.git_unavailable === true
     ? "unreadable"
     : entry.clean === true
     ? "clean"
     : fileCount(entry.changed_files ?? 0);
-  const stateTone = entry.git_unavailable === true
-    ? "red"
-    : entry.clean === true
-    ? "dim"
-    : "yellow";
   const counts = divergence(entry.ahead, entry.behind);
   const activity = relativeAge(entry.last_activity, nowMs);
-  return [
-    ...wrappedField(
-      "Git",
-      `${tone(state, stateTone, c)}${counts === "" ? "" : ` · ${counts}`}`,
-      width,
-    ),
-    ...(activity === "—" ? [] : wrappedField("Activity", activity, width)),
-  ];
+  return [{
+    verbatim: renderResultSummaryCli({
+      state: entry.git_unavailable === true
+        ? "failed"
+        : entry.clean === true
+        ? "unchanged"
+        : "changed",
+      fact: terminalLine("The main checkout is outside the active fleet."),
+      counts: [
+        { label: terminalLine("Git"), value: terminalLine(state) },
+        ...(counts === ""
+          ? []
+          : [{ label: terminalLine("Drift"), value: terminalLine(counts) }]),
+        ...(activity === "—" ? [] : [{
+          label: terminalLine("Activity"),
+          value: terminalLine(activity),
+        }]),
+      ],
+      maxWidth: width,
+      theme: c.themeVariant,
+    }, capabilitiesAtWidth(c, width)),
+  }];
 }
 
 /** Lower-priority configured-scope, gate, and standards facts. */
-function renderChecks(data: StatusData, width: number): string[] {
-  const lines: string[] = [];
+function renderChecks(
+  data: StatusData,
+  width: number,
+  c: TerminalContext,
+): StatusSectionLine[] {
+  const counts: Array<{ label: string; value: string }> = [];
   const changedScopes = (data.scopes ?? []).filter((scope) =>
     !isScopeMarker(scope)
   );
   if (changedScopes.length > 0) {
-    lines.push(
-      ...wrappedField(
-        "Changed scopes",
-        changedScopes.join(", "),
-        width,
-      ),
-    );
+    counts.push({ label: "Changed scopes", value: changedScopes.join(", ") });
   }
   if (data.gate !== undefined) {
     const jobs = data.gate.jobs.length === 0
@@ -1189,43 +1137,56 @@ function renderChecks(data: StatusData, width: number): string[] {
     const scopes = data.gate.scope_gates.length === 0
       ? ""
       : ` · scope gates: ${data.gate.scope_gates.join(", ")}`;
-    lines.push(...wrappedField("Gate", `${jobs}${scopes}`, width));
+    counts.push({ label: "Gate", value: `${jobs}${scopes}` });
   }
-  lines.push(
-    ...wrappedField(
-      "Standards",
-      `${data.standards.length} configured`,
-      width,
-    ),
-  );
-  return lines;
+  counts.push({
+    label: "Standards",
+    value: `${data.standards.length} configured`,
+  });
+  return [{
+    verbatim: renderResultSummaryCli({
+      state: changedScopes.length > 0 ? "changed" : "unchanged",
+      fact: terminalLine("Configured checks for this status result."),
+      counts: counts.map((count) => ({
+        label: terminalLine(count.label),
+        value: terminalLine(count.value),
+      })),
+      maxWidth: width,
+      theme: c.themeVariant,
+    }, capabilitiesAtWidth(c, width)),
+  }];
 }
 
 /** Worktree-local runtime coordinates, separate from quality checks. */
 function renderLocalEnvironment(
   data: StatusData,
   width: number,
-  c: Palette,
-): string[] {
+  c: TerminalContext,
+): StatusSectionLine[] {
   if (data.worktree !== null) {
-    const lines = wrappedField(
-      "Port",
-      `${c.dim}${data.worktree.port}${c.reset}`,
-      width,
-    );
     const resources = Object.entries(data.worktree.resources);
-    if (resources.length > 0) {
-      lines.push(
-        ...wrappedField(
-          "Resources",
-          `${c.dim}${
-            resources.map(([name, value]) => `${name}=${value}`).join(", ")
-          }${c.reset}`,
-          width,
+    return [{
+      verbatim: renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(
+          `${data.worktree.id} has a provisioned local environment.`,
         ),
-      );
-    }
-    return lines;
+        counts: [
+          {
+            label: terminalLine("Port"),
+            value: terminalLine(String(data.worktree.port)),
+          },
+          ...(resources.length === 0 ? [] : [{
+            label: terminalLine("Resources"),
+            value: terminalLine(
+              resources.map(([name, value]) => `${name}=${value}`).join(", "),
+            ),
+          }]),
+        ],
+        maxWidth: width,
+        theme: c.themeVariant,
+      }, capabilitiesAtWidth(c, width)),
+    }];
   }
   return [];
 }
@@ -1234,30 +1195,50 @@ function renderLocalEnvironment(
 function renderLastLanding(
   data: StatusData,
   width: number,
-  c: Palette,
+  c: TerminalContext,
   nowMs: number,
-): string[] {
+): StatusSectionLine[] {
   if (data.landed_proof !== undefined) {
     const proof = data.landed_proof.proof;
     const age = relativeAge(data.landed_proof.commit_at, nowMs);
-    return wrappedField(
-      "Last landing",
-      `${tone("passed", "green", c)} · ${styledIdentifier(proof.branch, c)} · ${
-        fileCount(proof.files_total)
-      } · +${proof.insertions} −${proof.deletions} · ${proof.head}${
-        age === "—" ? "" : ` · ${age}`
-      }`,
-      width,
-    );
+    return [{
+      verbatim: renderReceiptCli({
+        title: terminalLine("Last landing"),
+        stamp: "pass",
+        meta: [
+          { label: terminalLine("Branch"), value: terminalLine(proof.branch) },
+          { label: terminalLine("Commit"), value: terminalLine(proof.head) },
+          ...(age === "—"
+            ? []
+            : [{ label: terminalLine("Age"), value: terminalLine(age) }]),
+        ],
+        checks: [{
+          label: terminalLine("Files"),
+          state: "pass",
+          value: terminalLine(
+            `${
+              fileCount(proof.files_total)
+            } · +${proof.insertions} −${proof.deletions}`,
+          ),
+        }],
+        maxWidth: width,
+        theme: c.themeVariant,
+      }, capabilitiesAtWidth(c, width)),
+    }];
   }
   if (data.landed_proof_unsupported !== undefined) {
-    return wrappedField(
-      "Last landing",
-      `${
-        data.landed_proof_unsupported.commit.slice(0, 12)
-      } · proof unavailable in this discern version (${data.landed_proof_unsupported.format})`,
-      width,
-    );
+    return [{
+      verbatim: renderResultSummaryCli({
+        state: "blocked",
+        fact: terminalLine(
+          `proof unavailable in this discern version (${data.landed_proof_unsupported.format}). Commit: ${
+            data.landed_proof_unsupported.commit.slice(0, 12)
+          }.`,
+        ),
+        maxWidth: width,
+        theme: c.themeVariant,
+      }, capabilitiesAtWidth(c, width)),
+    }];
   }
   return [];
 }
@@ -1266,62 +1247,57 @@ function renderLastLanding(
 function renderSetup(
   data: StatusData,
   width: number,
-  c: Palette,
+  c: TerminalContext,
 ): StatusSectionLine[] {
   const setup = data.setup_unfinished;
   if (setup === undefined) return [];
-  const lines = wrappedBullet(
-    "!",
-    "Setup is not finished. Complete the setup brief before starting or landing work.",
-    width,
-    c,
-    "yellow",
-  );
-  if (setup.pending_markers.length > 0) {
-    lines.push(
-      ...wrappedField(
-        "Skeleton markers",
-        setup.pending_markers.join(", "),
-        width,
-      ),
-    );
-  }
   const wired = setup.known_jobs.filter((job) => job.wired).map((job) =>
     job.name
   );
   const missing = setup.known_jobs.filter((job) => !job.wired).map((job) =>
     job.name
   );
-  lines.push(
-    ...wrappedField(
-      "Gate jobs",
-      `${wired.length === 0 ? "none configured" : wired.join(", ")}${
-        missing.length === 0 ? "" : ` · still unset: ${missing.join(", ")}`
-      }`,
-      width,
-    ),
-  );
-  return lines;
+  const impact = [
+    ...(setup.pending_markers.length === 0
+      ? []
+      : [`Skeleton markers: ${setup.pending_markers.join(", ")}.`]),
+    `Gate jobs: ${wired.length === 0 ? "none configured" : wired.join(", ")}${
+      missing.length === 0 ? "" : `; still unset: ${missing.join(", ")}`
+    }.`,
+  ].join(" ");
+  return [{
+    verbatim: renderDiagnosticCli({
+      title: terminalLine("Setup is not finished"),
+      impact: terminalLine(impact),
+      correction: terminalMultiline(
+        "Complete the setup brief before starting or landing work.",
+      ),
+      severity: "attention",
+      maxWidth: width,
+      theme: c.themeVariant,
+    }, capabilitiesAtWidth(c, width)),
+  }];
 }
 
 /** Copyable stored Markdown pages shown only under `--verbose`. */
 function renderVerboseProofs(
   data: StatusData,
   rows: readonly FleetRowPresentation[],
-  c: Palette,
+  c: TerminalContext,
 ): StatusSectionLine[] {
   const blocks: StatusSectionLine[] = [];
   const add = (label: string, page: string | undefined): void => {
     if (page === undefined) return;
-    const styledPage = styledDiscernCommands(page, c, c.dim);
     blocks.push(
       ...(blocks.length === 0 ? [] : [""]),
-      `${c.dim}${label}${c.reset}`,
       {
-        verbatim: dimBlock(
-          styledPage,
-          (line) => `${c.dim}${line}${c.reset}`,
-        ),
+        verbatim: renderRawOutputCli({
+          label: terminalLine(label),
+          output: terminalMultiline(page),
+          expanded: true,
+          maxWidth: STATUS_REPORT_MAX_WIDTH,
+          theme: c.themeVariant,
+        }, capabilitiesAtWidth(c, STATUS_REPORT_MAX_WIDTH)),
       },
     );
   };
@@ -1353,11 +1329,13 @@ export function renderStatusDashboard(
 ): string {
   const width = reportWidth(options.width);
   const contentWidth = sectionContentWidth(width);
-  const nowMs = options.nowMs ?? Date.now();
-  const c = palette(options.color ?? false);
-  const project = data.project ?? (basename(data.root) || data.root);
+  const nowMs = options.nowMs;
+  const c = options.terminal;
+  const project = terminalLine(
+    data.project ?? (basename(data.root) || data.root),
+  );
   const heading = wrapText(
-    `${c.bold}discern status${c.reset} ${c.dim}· ${project}${c.reset}`,
+    `${c.role("discern status", "strong")} ${c.role(`· ${project}`, "muted")}`,
     width,
     SECTION_CONTENT_INDENT,
     { breakLongWords: true },
@@ -1365,9 +1343,9 @@ export function renderStatusDashboard(
   const blocks: string[] = [heading];
 
   const setup = renderSetup(data, contentWidth, c);
-  if (setup.length > 0) blocks.push(section("Setup", setup, c));
+  if (setup.length > 0) blocks.push(section("Setup", setup, c, width));
   if (data.location === "main" && data.fleet === undefined) {
-    blocks.push(mainCheckoutLine(data, width, c).join("\n"));
+    blocks.push(mainCheckoutLine(data, width, c));
   }
 
   const trunk = trunkOf(data);
@@ -1392,12 +1370,17 @@ export function renderStatusDashboard(
 
   if (data.fleet !== undefined) {
     blocks.push(
-      section("Fleet", renderFleetSummary(fleetRows, contentWidth), c),
+      section(
+        "Fleet",
+        renderFleetSummary(fleetRows, contentWidth, c),
+        c,
+        width,
+      ),
     );
   }
   const attention = renderAttention(shownRows, data, contentWidth, c, nowMs);
   if (attention.length > 0) {
-    blocks.push(section("Attention", attention, c));
+    blocks.push(section("Attention", attention, c, width));
   }
   if (fleetRows.length > 0) {
     blocks.push(
@@ -1411,21 +1394,35 @@ export function renderStatusDashboard(
             fleetRows.some((row) => !row.entry.is_current),
         ),
         c,
+        width,
       ),
     );
   } else if (data.fleet !== undefined) {
-    blocks.push(section("Worktrees", ["No active worktrees."], c));
+    blocks.push(section(
+      "Worktrees",
+      [{
+        verbatim: renderResultSummaryCli({
+          state: "unchanged",
+          fact: terminalLine("No active worktrees."),
+          maxWidth: contentWidth,
+          theme: c.themeVariant,
+        }, capabilitiesAtWidth(c, contentWidth)),
+      }],
+      c,
+      width,
+    ));
   } else if (localRows.length > 0) {
     blocks.push(
       section(
         "Current worktree",
         renderWorktrees(localRows, contentWidth, c, false),
         c,
+        width,
       ),
     );
   }
   if (data.location === "main" && data.fleet !== undefined) {
-    blocks.push(mainCheckoutLine(data, width, c).join("\n"));
+    blocks.push(mainCheckoutLine(data, width, c));
   }
   const surveyedMain = data.location === "worktree"
     ? data.fleet?.find((entry) => entry.is_main)
@@ -1436,28 +1433,37 @@ export function renderStatusDashboard(
         "Main checkout",
         surveyedMainCheckout(surveyedMain, contentWidth, nowMs, c),
         c,
+        width,
       ),
     );
   }
 
-  const next = interactiveHintTexts(hints).flatMap((hint) =>
-    wrappedBullet("→", hint, contentWidth, c)
-  );
-  if (next.length > 0) blocks.push(section("Next steps", next, c));
+  const next = interactiveHintTexts(hints).flatMap((hint) => {
+    const result = renderResultSummaryCli({
+      state: "blocked",
+      fact: terminalLine("Status recommends an action."),
+      nextAction: terminalMultiline(hint),
+      maxWidth: contentWidth,
+      theme: c.themeVariant,
+    }, capabilitiesAtWidth(c, contentWidth));
+    return [{ verbatim: styledDiscernCommands(result, c) }, ""];
+  });
+  if (next.at(-1) === "") next.pop();
+  if (next.length > 0) blocks.push(section("Next steps", next, c, width));
 
-  const checks = renderChecks(data, contentWidth);
-  if (checks.length > 0) blocks.push(section("Checks", checks, c));
+  const checks = renderChecks(data, contentWidth, c);
+  if (checks.length > 0) blocks.push(section("Checks", checks, c, width));
   const environment = renderLocalEnvironment(data, contentWidth, c);
   if (environment.length > 0) {
-    blocks.push(section("Local environment", environment, c));
+    blocks.push(section("Local environment", environment, c, width));
   }
   const landing = renderLastLanding(data, contentWidth, c, nowMs);
-  if (landing.length > 0) blocks.push(section("Landing", landing, c));
+  if (landing.length > 0) blocks.push(section("Landing", landing, c, width));
 
   if (options.verbose === true) {
     const proofs = renderVerboseProofs(data, shownRows, c);
     if (proofs.length > 0) {
-      blocks.push(section("Proofs", proofs, c));
+      blocks.push(section("Proofs", proofs, c, width));
     }
   }
   return `${blocks.join("\n\n")}\n`;

@@ -136,6 +136,22 @@ export function testTokens(overrides: Partial<TokenMap> = {}): TokenMap {
   };
 }
 
+/** Remove a directory tree, absorbing the teardown race where a finishing
+ * child process drops one last entry mid-removal ("Directory not empty").
+ * Retries briefly, then rethrows so a genuinely held tree still fails. */
+async function removeTempTree(dir: string): Promise<void> {
+  for (let attempt = 0;; attempt++) {
+    try {
+      await Deno.remove(dir, { recursive: true });
+      return;
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) return;
+      if (attempt >= 4) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
+    }
+  }
+}
+
 /** Run `fn` with a fresh temp directory, removing it afterwards. */
 export async function withTempDir(
   fn: (dir: string) => Promise<void>,
@@ -144,12 +160,29 @@ export async function withTempDir(
   try {
     await fn(dir);
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await removeTempTree(dir);
     // Worktrees land in a SIBLING dir by default (`<dir>.worktrees`, the new
     // placement) — sweep it too so sibling-placed test worktrees never leak into
     // the system temp root. Best-effort: absent on the many tests that make none.
-    await Deno.remove(`${dir}.worktrees`, { recursive: true }).catch(() => {});
+    await removeTempTree(`${dir}.worktrees`).catch(() => {});
   }
+}
+
+/** Return C0/C1 bytes that are unsafe outside an intentional terminal sequence. */
+export function unexpectedTerminalControls(text: string): string[] {
+  const controls: string[] = [];
+  for (const character of text) {
+    const codePoint = character.codePointAt(0);
+    if (
+      codePoint !== undefined &&
+      (codePoint <= 0x08 || codePoint === 0x0b || codePoint === 0x0c ||
+        (codePoint >= 0x0e && codePoint <= 0x1f) ||
+        (codePoint >= 0x7f && codePoint <= 0x9f))
+    ) {
+      controls.push(character);
+    }
+  }
+  return controls;
 }
 
 /**
@@ -183,8 +216,8 @@ export async function targetExists(dir: string, rel: string): Promise<boolean> {
 
 /**
  * An {@link EnvReader} backed by a plain map — the parallel-safe way for a test to
- * hand env overrides to a function under test (resolveTemplatesDir, colourEnabled,
- * resolveWorktreeId, …) WITHOUT mutating the real process env. A process-env
+ * hand env overrides to a function under test (resolveTemplatesDir,
+ * resolveTerminalContext, resolveWorktreeId, …) WITHOUT mutating the real process env. A process-env
  * mutation is global and leaks across test files running concurrently under
  * `deno test --parallel`; an injected reader stays local to the call. An unlisted
  * key reads as absent.

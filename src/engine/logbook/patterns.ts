@@ -24,6 +24,18 @@
 import { agentLabel } from "../../shared/agent_catalogue.ts";
 import { basename, join } from "@std/path";
 import {
+  renderCommandCli,
+  renderFileChangeCli,
+  renderMeterCli,
+  renderProcedureCli,
+  renderReceiptCli,
+  renderResultSummaryCli,
+  renderStatCli,
+  renderTriangleSectionRule,
+  type ResultSummaryCliProps,
+  type TerminalCapabilities,
+} from "discern-design-system/cli";
+import {
   loadConfig,
   resolveConfiguredAgents,
 } from "../../shared/config_schema.ts";
@@ -32,6 +44,7 @@ import {
   DETECTOR_FAMILIES,
   type DetectorFamily,
   type PatternFindingTone,
+  type PatternInvestigation,
   PATTERNS_FINDINGS_PER_DETECTOR,
   type PatternsArchiveData,
   type PatternsArchiveEntry,
@@ -53,15 +66,14 @@ import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
+import { sparkline } from "../../lib/text.ts";
 import {
-  displayWidth,
-  meter,
-  renderAlignedTable,
-  sparkline,
-  terminalWidth,
-  wrapText,
-} from "../../lib/text.ts";
-import { colorEnabled, makeOut, type Out, type Palette } from "../output.ts";
+  type TerminalContext,
+  terminalContext,
+  terminalLine,
+  terminalMultiline,
+} from "../../lib/terminal.ts";
+import { makeOut, type Out } from "../output.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import {
   freshInFlightInvocations,
@@ -96,6 +108,7 @@ import {
   TRAJECTORY_BOUNDARY_ATTRIBUTION,
 } from "./detectors.ts";
 import { routeDetectorReports, routedFindingData } from "./routing.ts";
+import { synthesizeInvestigations } from "./investigations.ts";
 
 /**
  * Score the analysis population's drivers — reader logic over the recorded
@@ -130,7 +143,7 @@ function noRepository(verb: string): DiscernResult<never> {
     verb,
     error: "no_repository",
     message:
-      "this directory isn't inside a git repository, so it has no logbook to read. " +
+      "this directory isn't inside a git repository, so it has no Logbook to read. " +
       "Run discern from the project's checkout.",
   };
 }
@@ -283,6 +296,7 @@ export async function patternsResult(
     routedFindingData,
   );
   const findings = opts.all === true ? ranked : capFindingsPerDetector(ranked);
+  const investigations = synthesizeInvestigations(findings);
   const first = stream.events[0];
   const last = stream.events[stream.events.length - 1];
   const branches = new Set(
@@ -305,6 +319,7 @@ export async function patternsResult(
     ...(findings.length < ranked.length
       ? { findings_total: ranked.length }
       : {}),
+    investigations,
     detectors: reports.map((r) => ({
       id: r.detector.id,
       title: r.detector.title,
@@ -362,28 +377,54 @@ interface FamilyPresentation {
   heading: string;
 }
 
+/** Build one human output surface from an already-resolved terminal snapshot. */
+function presentationOut(terminal: TerminalContext): Out {
+  return makeOut(terminal.color, { terminal });
+}
+
 /** Human section labels keyed exhaustively by the canonical family vocabulary.
  * `DETECTOR_FAMILIES` alone owns their order. */
 export const PATTERNS_FAMILY_SECTIONS = {
   trajectory: { heading: "Trajectory: how the numbers moved" },
   "gate-fit": { heading: "Gate fit: time and failure patterns" },
-  behaviour: { heading: "Agent behavior: workflow habits" },
+  behaviour: { heading: "Workflow behavior: recorded actions" },
   funnel: { heading: "Task funnel: the path to green" },
 } satisfies Record<DetectorFamily, FamilyPresentation>;
 
-type ToneColor = "green" | "dim" | "yellow";
+/** Exhaustive adaptation from advisory tone into package result semantics. */
+export const PATTERNS_TONE_RESULT_STATE = {
+  good: "passed",
+  neutral: "unchanged",
+  attention: "changed",
+} as const satisfies Readonly<
+  Record<PatternFindingTone, ResultSummaryCliProps["state"]>
+>;
 
-interface TonePresentation {
-  glyph: string;
-  color: ToneColor;
+/** Give pure package renderers explicit capabilities from the shared context. */
+function presentationFacts(out: Out): {
+  readonly capabilities: TerminalCapabilities;
+  readonly width: number;
+  readonly theme: Out["terminal"]["themeVariant"];
+} {
+  const width = Math.max(20, Math.min(104, out.terminal.size.columns));
+  return {
+    capabilities: { ...out.terminal.capabilities, columns: width },
+    width,
+    theme: out.terminal.themeVariant,
+  };
 }
 
-/** The compact report's glyphs, exhaustively bound to the canonical tones. */
-export const PATTERNS_TONE_GLYPHS = {
-  good: { glyph: "✓", color: "green" },
-  neutral: { glyph: "·", color: "dim" },
-  attention: { glyph: "!", color: "yellow" },
-} satisfies Record<PatternFindingTone, TonePresentation>;
+/** Preserve the stable human-output group id while the package owns its rule. */
+function renderGroup(out: Out, id: string, label: string): void {
+  const { capabilities, width, theme } = presentationFacts(out);
+  out.group(id);
+  out.raw(`${
+    renderTriangleSectionRule(terminalLine(label), {
+      width,
+      theme,
+    }, capabilities)
+  }\n`);
+}
 
 /** The one human caveat for trajectory series spanning several setups. */
 export const PATTERNS_TRAJECTORY_CAVEAT =
@@ -394,7 +435,6 @@ export const PATTERNS_ATTENTION_HEADING = "Worth your attention";
 export const PATTERNS_ATTENTION_LIMIT = 3;
 
 const PIN_COMMAND = "`discern standards --pin`";
-const ALL_COMMAND = "`discern patterns --all`";
 
 /** Format a count with its singular or supplied plural noun. */
 function plural(
@@ -448,15 +488,15 @@ function driversLine(population: PatternsPopulation): string {
 
 /** Summarize fired, quiet, and evidence-limited detectors in one report line. */
 function scoreboardLine(data: PatternsData): string {
-  const spoke = data.detectors.filter((d) => d.status === "fired").length;
-  const clear = data.detectors.filter((d) => d.status === "quiet").length;
-  const young =
+  const fired = data.detectors.filter((d) => d.status === "fired").length;
+  const quiet = data.detectors.filter((d) => d.status === "quiet").length;
+  const insufficient =
     data.detectors.filter((d) => d.status === "insufficient-evidence").length;
   return `${plural(data.detectors.length, "detector")} · ${
-    formatHumanNumber(spoke)
-  } spoke · ${formatHumanNumber(clear)} all clear · ${
-    formatHumanNumber(young)
-  } too young to say`;
+    formatHumanNumber(fired)
+  } fired · ${formatHumanNumber(quiet)} quiet · ${
+    formatHumanNumber(insufficient)
+  } insufficient evidence`;
 }
 
 /** The trust audit's one overview row. Its detailed source and scope findings
@@ -470,83 +510,30 @@ function preAuthorizedLandingOverview(
   );
 }
 
-/** Wrap prose after a fixed prefix and align every continuation line beneath it. */
-function writeWrapped(
-  out: Out,
-  prefix: string,
-  text: string,
-  width: number,
-  style?: (line: string) => string,
-): void {
-  const prefixWidth = displayWidth(prefix);
-  const lines = wrapText(text, Math.max(1, width - prefixWidth));
-  const continuation = " ".repeat(prefixWidth);
-  for (const [index, line] of lines.entries()) {
-    out.raw(
-      `${index === 0 ? prefix : continuation}${
-        style === undefined ? line : style(line)
-      }\n`,
-    );
-  }
-}
-
-/** Render the canonical glyph and color assigned to a finding tone. */
-function toneGlyph(tone: PatternFindingTone, palette: Palette): string {
-  const presentation = PATTERNS_TONE_GLYPHS[tone];
-  return `${palette[presentation.color]}${presentation.glyph}${palette.reset}`;
-}
-
-interface FindingRow {
-  finding: PatternsFinding;
-  renderedSeries: string;
-}
-
-/** Align finding subjects and sparklines before wrapping their explanatory prose. */
+/** Render the canonical summary first and its concrete observation below. */
 function renderFindingRows(
   out: Out,
   findings: readonly PatternsFinding[],
   width: number,
 ): void {
-  const rows = findings.map((finding) => ({
-    finding,
-    renderedSeries: finding.series === undefined
-      ? ""
-      : sparkline(finding.series),
-  }));
-  const basePrefixes = renderAlignedTable<FindingRow>([
-    {
-      header: "",
-      value: (row) => toneGlyph(row.finding.tone, out.c),
-    },
-    {
-      header: "",
-      value: (row) => row.finding.subject ?? "",
-    },
-    { header: "", value: () => "" },
-  ], rows).slice(1);
-  const seriesPrefixes = renderAlignedTable<FindingRow>([
-    {
-      header: "",
-      value: (row) => toneGlyph(row.finding.tone, out.c),
-    },
-    {
-      header: "",
-      value: (row) => row.finding.subject ?? "",
-    },
-    { header: "", value: (row) => row.renderedSeries },
-    { header: "", value: () => "" },
-  ], rows).slice(1);
-  for (const [index, row] of rows.entries()) {
-    writeWrapped(
-      out,
-      `    ${
-        row.renderedSeries === ""
-          ? basePrefixes[index] ?? ""
-          : seriesPrefixes[index] ?? ""
-      }`,
-      row.finding.brief,
-      width,
-    );
+  const { capabilities, theme } = presentationFacts(out);
+  for (const finding of findings) {
+    const facts = [
+      finding.summary,
+      ...(finding.subject === undefined ? [] : [`Subject: ${finding.subject}`]),
+      ...(finding.series === undefined
+        ? []
+        : [`Series: ${sparkline(finding.series)}`]),
+      `Evidence: ${finding.observed}`,
+    ];
+    out.raw(`${
+      renderResultSummaryCli({
+        state: PATTERNS_TONE_RESULT_STATE[finding.tone],
+        fact: terminalMultiline(facts.join(" · ")),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
   }
 }
 
@@ -616,40 +603,53 @@ function renderFamily(
   if (familyFindings.length === 0) {
     return;
   }
+  const { capabilities, theme } = presentationFacts(out);
   const groups = findingsByDetector(familyFindings);
   const countById = new Map(data.detectors.map((d) => [d.id, d.findings]));
-  const c = out.c;
-  out.group(`family:${family}`);
-  out.raw(
-    `${c.bold}${PATTERNS_FAMILY_SECTIONS[family].heading}${c.reset}\n`,
+  renderGroup(
+    out,
+    `family:${family}`,
+    PATTERNS_FAMILY_SECTIONS[family].heading,
   );
   for (const [index, [detector, findings]] of [...groups].entries()) {
     if (index > 0) out.group(`family:${family}:detector:${detector}`);
-    writeWrapped(
-      out,
-      "  ",
-      titleById.get(detector) ?? detector,
-      width,
-      (line) => `${c.bold}${line}${c.reset}`,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(
+          `Detector: ${
+            titleById.get(detector) ?? detector
+          } · ${findings.length} shown.`,
+        ),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
     renderFindingRows(out, findings, width);
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalMultiline(
+          `Next action: ${detectorNextStep(findings)}`,
+        ),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
     const elided = (countById.get(detector) ?? findings.length) -
       findings.length;
     if (elided > 0) {
-      writeWrapped(
-        out,
-        "    ",
-        `+${plural(elided, "more finding")} — ${ALL_COMMAND} lists every one.`,
-        width,
-        (line) => `${c.dim}${line}${c.reset}`,
-      );
+      out.raw(`${
+        renderCommandCli({
+          command: terminalLine("discern patterns --all"),
+          explanation: terminalLine(
+            `${plural(elided, "more finding")} remain for this detector.`,
+          ),
+          maxWidth: width,
+          theme,
+        }, { ...capabilities, columns: width })
+      }\n`);
     }
-    writeWrapped(
-      out,
-      `    ${c.cyan}→${c.reset} `,
-      detectorNextStep(findings),
-      width,
-    );
   }
 
   const crossesBoundary = family === "trajectory" &&
@@ -658,13 +658,14 @@ function renderFamily(
     );
   if (crossesBoundary) {
     out.group(`family:${family}:caveat`);
-    writeWrapped(
-      out,
-      "  ",
-      `(${PATTERNS_TRAJECTORY_CAVEAT})`,
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(PATTERNS_TRAJECTORY_CAVEAT),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
   }
 }
 
@@ -673,7 +674,6 @@ function renderAttentionBanner(
   out: Out,
   data: PatternsData,
   width: number,
-  titleById: ReadonlyMap<string, string>,
 ): void {
   // `data.findings` is already strength-ranked. Tone filters that order and
   // never becomes a second ranking policy.
@@ -684,20 +684,55 @@ function renderAttentionBanner(
     return;
   }
 
-  const c = out.c;
-  out.group("attention");
-  out.raw(`  ${c.bold}${PATTERNS_ATTENTION_HEADING}${c.reset}\n`);
+  const { capabilities, theme } = presentationFacts(out);
+  renderGroup(out, "attention", PATTERNS_ATTENTION_HEADING);
   for (const finding of findings) {
-    const title = titleById.get(finding.detector) ?? finding.detector;
-    const subject = finding.subject === undefined
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "changed",
+        fact: terminalLine(
+          finding.subject === undefined
+            ? finding.summary
+            : `${finding.subject}: ${finding.summary}`,
+        ),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
+  }
+}
+
+/** Render additive investigation paths without replacing or shortening the
+ * source findings that remain in their canonical family blocks below. */
+function renderInvestigations(
+  out: Out,
+  investigations: readonly PatternInvestigation[],
+  width: number,
+): void {
+  if (investigations.length === 0) return;
+  const { capabilities, theme } = presentationFacts(out);
+  renderGroup(out, "investigations", "Investigation paths");
+  for (const [index, investigation] of investigations.entries()) {
+    if (index > 0) out.group(`investigation:${investigation.id}`);
+    const subject = investigation.subject === undefined
       ? ""
-      : ` · ${finding.subject}`;
-    writeWrapped(
-      out,
-      `    ${toneGlyph(finding.tone, c)} `,
-      `${title}${subject}`,
-      width,
-    );
+      : ` · ${investigation.subject}`;
+    out.raw(`${
+      renderProcedureCli({
+        title: terminalLine(`${investigation.title}${subject}`),
+        description: terminalMultiline(
+          `${investigation.summary}\nEvidence: ${investigation.observed}\nDiagnostic: ${investigation.diagnostic_action}`,
+        ),
+        steps: [{
+          title: terminalLine("Run the diagnostic investigation."),
+          status: "active",
+        }],
+        completionLabel: terminalLine("Falsifier"),
+        completion: terminalMultiline(investigation.falsifier),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
   }
 }
 
@@ -707,95 +742,99 @@ function renderClosingAccount(
   data: PatternsData,
   width: number,
 ): void {
-  const c = out.c;
+  const { capabilities, theme } = presentationFacts(out);
   out.group("closing-account");
   const quiet = data.detectors.filter((d) => d.status === "quiet");
   const young = data.detectors.filter((d) =>
     d.status === "insufficient-evidence"
   );
-  if (quiet.length > 0) {
-    writeWrapped(
-      out,
-      "  All clear: ",
-      `${quiet.map((d) => d.title).join(" · ")}.`,
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
-  }
-  if (young.length > 0) {
-    writeWrapped(
-      out,
-      "  Too young: ",
-      `${young.map((d) => d.title).join(" · ")}.`,
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
-  }
-  writeWrapped(
-    out,
-    "  ",
-    "Advisory only. Nothing here fails the gate. Evidence: `discern patterns --json`.",
-    width,
-    (line) => `${c.dim}${line}${c.reset}`,
-  );
+  out.raw(`${
+    renderResultSummaryCli({
+      state: "unchanged",
+      fact: terminalMultiline([
+        "The report is advisory and does not change the Gate.",
+        ...(quiet.length === 0 ? [] : [
+          `No finding (${quiet.length}): ${
+            quiet.map((detector) => detector.title).join(" · ")
+          }`,
+        ]),
+        ...(young.length === 0 ? [] : [
+          `Insufficient evidence (${young.length}): ${
+            young.map((detector) => detector.title).join(" · ")
+          }`,
+        ]),
+        "Structured data: discern patterns --json",
+      ].join(" · ")),
+      maxWidth: width,
+      theme,
+    }, { ...capabilities, columns: width })
+  }\n`);
 }
 
 /** Render the recurring report for a person. The wire findings stay
  * strength-ranked; this projection groups them by canonical family and
  * collapses repeated detector guidance. */
 function renderReport(out: Out, data: PatternsData, slug: string): void {
-  const c = out.c;
-  const width = terminalWidth();
+  const { capabilities, width, theme } = presentationFacts(out);
   const titleById = new Map(
     data.detectors.map((detector) => [detector.id, detector.title]),
   );
   const archive = data.logbook.source.kind === "archive"
     ? ` · archive ${data.logbook.source.filename}`
     : "";
-  out.heading(`discern patterns${slug ? ` · ${slug}` : ""}${archive}`);
-  writeWrapped(
-    out,
-    "  ",
-    summaryLine(data),
-    width,
-    (line) => `${c.dim}${line}${c.reset}`,
-  );
-  if (data.population.analyzed > 0) {
-    writeWrapped(
-      out,
-      "  ",
-      driversLine(data.population),
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
-  }
-  writeWrapped(
-    out,
-    "  ",
-    scoreboardLine(data),
-    width,
-    (line) => `${c.dim}${line}${c.reset}`,
-  );
+  out.raw(`${
+    out.terminal.role(
+      terminalLine(
+        `discern patterns${slug ? ` · ${slug}` : ""}${archive}`,
+      ),
+      "strong",
+    )
+  }\n`);
+  out.raw(`${
+    renderResultSummaryCli({
+      state: "unchanged",
+      fact: terminalMultiline([
+        summaryLine(data),
+        ...(data.population.analyzed === 0
+          ? []
+          : [`Drivers: ${driversLine(data.population)}`]),
+        `Detectors: ${scoreboardLine(data)}`,
+      ].join(" · ")),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
   const preAuthorized = preAuthorizedLandingOverview(data);
   if (preAuthorized !== undefined) {
-    writeWrapped(
-      out,
-      "  Pre-authorized landings: ",
-      preAuthorized.brief,
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: PATTERNS_TONE_RESULT_STATE[preAuthorized.tone],
+        fact: terminalMultiline(
+          `${preAuthorized.summary} · Evidence: ${preAuthorized.observed}`,
+        ),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
   }
-  renderAttentionBanner(out, data, width, titleById);
+  renderAttentionBanner(out, data, width);
+  renderInvestigations(out, data.investigations, width);
 
   if (data.logbook.events === 0) {
     out.group("empty-logbook");
-    writeWrapped(
-      out,
-      "  ",
-      "The logbook is empty. discern records one event per verb run under this repository's Git directory. Nothing leaves the machine. Check back after some use.",
-      width,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(
+          "The Logbook is empty. Privacy: local metadata only; nothing leaves the machine.",
+        ),
+        nextAction: terminalLine(
+          "Check back after discern records local metadata for some verb runs.",
+        ),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
     return;
   }
 
@@ -809,17 +848,18 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
 
 /** The empty-state line for a stats card with no analyzed runs behind it. */
 export const STATS_EMPTY_MESSAGE =
-  "No stats yet: the logbook holds no analyzed runs. Check back after some use.";
+  "No stats yet: the Logbook holds no analyzed runs. Check back after some use.";
 
 /** The card's provenance line — where every number comes from, and how far
  * it travels. */
 export const STATS_PROVENANCE =
-  "Counted from this repository's local logbook. Nothing leaves the machine.";
+  "Counted from this repository's local Logbook. Nothing leaves the machine.";
 
 /** Section labels for the stats card, in render order. */
 export const STATS_SECTIONS = {
   accepted: "Accepted",
-  gate: "The gate",
+  gate: "The Gate",
+  workflows: "Validation workflows",
   pace: "Pace",
   standards: "Standards",
   agents: "Agents",
@@ -831,14 +871,12 @@ function percent(part: number, whole: number): string {
   return `${Math.round((part / whole) * 100)}%`;
 }
 
-/** Meter cells on a proportion row — wide enough to read, narrow enough to
- * leave the count and its denominator room on an 80-column card. */
-export const STATS_METER_WIDTH = 18;
+/** Package Meter cap keeps the reading legible without filling wide terminals. */
+export const STATS_METER_WIDTH = 48;
 
-/** A proportion row: a green-filled meter, then the counts it summarizes. */
-function meterRow(c: Palette, fraction: number, text: string): string {
-  const cells = meter(fraction, STATS_METER_WIDTH);
-  return `${c.green}${cells.filled}${c.reset}${c.dim}${cells.track}${c.reset} ${text}`;
+/** A proportion row keeps the explicit denominator beside its percentage. */
+function meterRow(fraction: number, text: string): string {
+  return `${Math.round(fraction * 100)}% · ${text}`;
 }
 
 /** Cadence label beside a sparkline — "accepted per day", or the folded form
@@ -894,13 +932,12 @@ function statsHeaderLine(data: PatternsData, stats: PatternsStats): string {
  * git-style, green and red. */
 function statsAcceptedRows(
   accepted: PatternsStats["accepted"],
-  c: Palette,
 ): string[] {
   if (accepted.count === 0) {
     return ["Nothing accepted yet."];
   }
   const rows = [
-    `${c.bold}${plural(accepted.count, "change")} accepted${c.reset} from ${
+    `${plural(accepted.count, "change")} accepted from ${
       plural(accepted.branches, "branch", "branches")
     }${accepted.commits > 0 ? ` · ${plural(accepted.commits, "commit")}` : ""}`,
   ];
@@ -909,11 +946,9 @@ function statsAcceptedRows(
       ? round1(accepted.insertions / accepted.deletions)
       : undefined;
     rows.push(
-      `${c.green}+${
-        formatHumanNumber(accepted.insertions)
-      }${c.reset} ${c.red}−${
+      `+${formatHumanNumber(accepted.insertions)} −${
         formatHumanNumber(accepted.deletions)
-      }${c.reset} across ${plural(accepted.files, "file")}${
+      } across ${plural(accepted.files, "file")}${
         ratio !== undefined
           ? ` · ${formatHumanNumber(ratio)} ${
             ratio === 1 ? "line" : "lines"
@@ -935,7 +970,7 @@ function statsAcceptedRows(
       rows.push(
         `biggest: ${
           biggest.branch !== undefined ? `\`${biggest.branch}\` · ` : ""
-        }${c.yellow}${plural(biggest.lines, "changed line")}${c.reset} · ${
+        }${plural(biggest.lines, "changed line")} · ${
           plural(biggest.files, "file")
         } (${biggest.day})`,
       );
@@ -943,13 +978,9 @@ function statsAcceptedRows(
     const best = accepted.best_day;
     if (best !== undefined) {
       rows.push(
-        `best day: ${best.day} · ${c.yellow}${
-          formatHumanNumber(best.accepted)
-        } accepted${c.reset}${
+        `best day: ${best.day} · ${formatHumanNumber(best.accepted)} accepted${
           accepted.longest_streak > 1
-            ? ` · longest streak ${c.green}${
-              plural(accepted.longest_streak, "day")
-            }${c.reset}`
+            ? ` · longest streak ${plural(accepted.longest_streak, "day")}`
             : ""
         }`,
       );
@@ -961,15 +992,14 @@ function statsAcceptedRows(
 /** The gate section: the green share and first-try share as meter rows with
  * their denominators, red runs reframed as the gate's saves, then streaks
  * and check time. Streaks of one stay off the card. */
-function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
+function statsGateRows(gate: PatternsStats["gate"]): string[] {
   if (gate.runs === 0) {
     return ["No `done` runs yet."];
   }
   const rows = [
     meterRow(
-      c,
       gate.greens / gate.runs,
-      `${c.green}${formatHumanNumber(gate.greens)}${c.reset} of ${
+      `${formatHumanNumber(gate.greens)} of ${
         plural(gate.runs, "`done` run")
       } green (${percent(gate.greens, gate.runs)})`,
     ),
@@ -977,11 +1007,8 @@ function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
   if (gate.gated_branches > 0) {
     rows.push(
       meterRow(
-        c,
         gate.first_try_green_branches / gate.gated_branches,
-        `${c.green}${
-          formatHumanNumber(gate.first_try_green_branches)
-        }${c.reset} of ${
+        `${formatHumanNumber(gate.first_try_green_branches)} of ${
           plural(gate.gated_branches, "branch", "branches")
         } green first try (${
           percent(gate.first_try_green_branches, gate.gated_branches)
@@ -992,22 +1019,18 @@ function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
   const reds = gate.runs - gate.greens;
   if (reds > 0) {
     rows.push(
-      `${c.red}${plural(reds, "red run")}${c.reset} stopped at the gate`,
+      `${plural(reds, "red run")} stopped at the Gate`,
     );
   }
   const tail: string[] = [];
   if (gate.longest_green_streak > 1) {
     tail.push(
-      `longest green streak ${c.green}${
-        formatHumanNumber(gate.longest_green_streak)
-      }${c.reset}`,
+      `longest green streak ${formatHumanNumber(gate.longest_green_streak)}`,
     );
   }
   if (gate.current_green_streak > 1) {
     tail.push(
-      `current ${c.green}${
-        formatHumanNumber(gate.current_green_streak)
-      }${c.reset}`,
+      `current ${formatHumanNumber(gate.current_green_streak)}`,
     );
   }
   if (gate.check_hours > 0) {
@@ -1019,6 +1042,127 @@ function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
   }
   if (tail.length > 0) {
     rows.push(tail.join(" · "));
+  }
+  return rows;
+}
+
+/** One evidence count with its share of an explicit denominator. */
+function evidenceShare(part: number, whole: number): string {
+  return `${formatHumanNumber(part)} (${percent(part, whole)})`;
+}
+
+/** The validation-workflow section: verb entry state, conservative change
+ * cycles and their routes, evidence coverage, privacy-safe dirty-state shape,
+ * then eligible identity cohorts with every denominator and remainder. */
+function statsValidationWorkflowRows(
+  workflows: PatternsStats["validation_workflows"],
+): string[] {
+  if (workflows.runs.total === 0) {
+    return ["No `prepare`, `test`, or `done` runs yet."];
+  }
+  const rows: string[] = [];
+  for (const verb of workflows.runs.by_verb) {
+    rows.push(
+      `\`${verb.verb}\`: ${plural(verb.runs, "run")} across ${
+        plural(verb.branches, "branch", "branches")
+      } · ${formatHumanNumber(verb.clean)} clean · ${
+        formatHumanNumber(verb.dirty)
+      } dirty · ${formatHumanNumber(verb.unknown)} unknown · ${
+        formatHumanNumber(verb.successes)
+      } ok · ${formatHumanNumber(verb.failures)} failed · ${
+        plural(verb.retries, "retry", "retries")
+      }`,
+    );
+  }
+  rows.push(
+    `${plural(workflows.cycles.total, "change cycle")} across ${
+      plural(workflows.cycles.branches, "branch", "branches")
+    }`,
+  );
+  for (const route of workflows.cycles.routes) {
+    rows.push(
+      `${route.route}: ${plural(route.cycles, "cycle")} / ${
+        plural(route.runs, "run")
+      } across ${plural(route.branches, "branch", "branches")} · ${
+        formatHumanNumber(route.successful_runs)
+      } ok / ${formatHumanNumber(route.failed_runs)} failed runs · ${
+        formatHumanNumber(route.successful_cycles)
+      } reached a clean Gate / ${
+        formatHumanNumber(route.failed_cycles)
+      } had a failure · ${plural(route.retried_cycles, "retried cycle")} / ${
+        plural(route.retry_runs, "retry run")
+      }`,
+    );
+  }
+  const precommit = workflows.cycles.precommit_to_clean_gate;
+  const testFirst = workflows.cycles.routes.find((route) =>
+    route.route === "test-first"
+  );
+  rows.push(
+    `pre-commit validation → clean Gate: ${
+      formatHumanNumber(precommit.cycles)
+    } of ${plural(testFirst?.cycles ?? 0, "test-first cycle")} across ${
+      plural(precommit.branches, "branch", "branches")
+    } · ${plural(precommit.runs, "run")} · ${
+      plural(precommit.retry_runs, "retry run")
+    }`,
+  );
+  const evidence = workflows.runs.evidence;
+  rows.push(
+    `evidence across ${plural(evidence.denominator, "run")}: complete ${
+      evidenceShare(evidence.complete, evidence.denominator)
+    } · incomplete ${
+      evidenceShare(evidence.incomplete, evidence.denominator)
+    } · legacy ${
+      evidenceShare(evidence.legacy, evidence.denominator)
+    } · unattributed ${
+      evidenceShare(evidence.unattributed, evidence.denominator)
+    }`,
+  );
+  const dirty = workflows.runs.dirty_state;
+  if (dirty.denominator > 0) {
+    rows.push(
+      `complete dirty states across ${
+        plural(dirty.denominator, "run")
+      }: tracked-only ${
+        formatHumanNumber(dirty.tracked_only)
+      } · untracked-only ${formatHumanNumber(dirty.untracked_only)} · mixed ${
+        formatHumanNumber(dirty.mixed)
+      } · unclassified ${formatHumanNumber(dirty.unclassified)}`,
+    );
+  }
+  const cohorts = workflows.cohorts;
+  if (cohorts !== undefined) {
+    rows.push(
+      `identity cohorts: ${plural(cohorts.denominator_cycles, "cycle")} / ${
+        plural(cohorts.denominator_runs, "run")
+      }`,
+    );
+    for (const identity of cohorts.identities) {
+      rows.push(
+        `${identity.label}: ${plural(identity.cycles, "cycle")} / ${
+          plural(identity.runs, "run")
+        } · test-first ${
+          formatHumanNumber(identity.test_first_cycles)
+        } · commit-first ${
+          formatHumanNumber(identity.commit_first_cycles)
+        } · clean Gate ${
+          formatHumanNumber(identity.successful_cycles)
+        } · failed ${formatHumanNumber(identity.failed_cycles)} · retried ${
+          formatHumanNumber(identity.retried_cycles)
+        }`,
+      );
+    }
+    rows.push(
+      `below reporting minimums: ${
+        plural(cohorts.below_minimum.cohorts, "cohort")
+      } · ${plural(cohorts.below_minimum.cycles, "cycle")} / ${
+        plural(cohorts.below_minimum.runs, "run")
+      }`,
+      `unattributed: ${plural(cohorts.unattributed.cycles, "cycle")} / ${
+        plural(cohorts.unattributed.runs, "run")
+      }`,
+    );
   }
   return rows;
 }
@@ -1037,15 +1181,14 @@ function everyLabel(hours: number): string {
  * are both on record, so the cycle count can sit below the accepted count.
  * Empty before the first measured cycle on a one-day span. The fastest cycle
  * is a record, so it reads in yellow. */
-function statsPaceRows(stats: PatternsStats, c: Palette): string[] {
+function statsPaceRows(stats: PatternsStats): string[] {
   const rows: string[] = [];
   const cycles = stats.cycles;
   if (cycles !== undefined) {
     rows.push(
       meterRow(
-        c,
         cycles.completed / cycles.started,
-        `${c.green}${formatHumanNumber(cycles.completed)}${c.reset} of ${
+        `${formatHumanNumber(cycles.completed)} of ${
           plural(cycles.started, "start")
         } were accepted (${percent(cycles.completed, cycles.started)})`,
       ),
@@ -1060,11 +1203,9 @@ function statsPaceRows(stats: PatternsStats, c: Palette): string[] {
       rows.push(
         `start-to-accept across ${
           plural(cycles.completed, "measured cycle")
-        } · median ${
-          formatHumanNumber(cycles.median_hours)
-        }h · fastest ${c.yellow}${
+        } · median ${formatHumanNumber(cycles.median_hours)}h · fastest ${
           formatHumanNumber(cycles.fastest_hours)
-        }h${c.reset}${
+        }h${
           cycles.under_day > 0
             ? ` · ${formatHumanNumber(cycles.under_day)} inside a day`
             : ""
@@ -1087,7 +1228,6 @@ function statsPaceRows(stats: PatternsStats, c: Palette): string[] {
  * the peak overlap — the most changes in flight at one instant. */
 function statsBreadthRows(
   breadth: PatternsStats["breadth"],
-  c: Palette,
 ): string[] {
   const busiest = breadth.busiest_day;
   const rows = [
@@ -1095,18 +1235,18 @@ function statsBreadthRows(
       formatHumanNumber(breadth.active_days)
     } of ${plural(breadth.span_days, "day")}${
       busiest !== undefined && busiest.branches > 1
-        ? ` · busiest day ${c.yellow}${
+        ? ` · busiest day ${
           plural(busiest.branches, "branch", "branches")
-        }${c.reset} (${busiest.day})`
+        } (${busiest.day})`
         : ""
     }`,
   ];
   const peak = breadth.peak_in_flight;
   if (peak !== undefined && peak.branches > 1) {
     rows.push(
-      `up to ${c.yellow}${
+      `up to ${
         plural(peak.branches, "change")
-      } in flight at once${c.reset} (${peak.day})`,
+      } in flight at once (${peak.day})`,
     );
   }
   return rows;
@@ -1117,14 +1257,13 @@ function statsBreadthRows(
  * like-for-like. */
 function statsStandardsRows(
   ratchet: PatternsStats["ratchet"],
-  c: Palette,
 ): string[] {
   const rows: string[] = [];
   if (ratchet.pins > 0) {
     rows.push(
       `${plural(ratchet.pins, "limit")} tightened across ${
         plural(ratchet.standards, "standard")
-      }. Loosening fails the gate.`,
+      }. Loosening fails the Gate.`,
     );
   }
   const improved = ratchet.most_improved;
@@ -1132,9 +1271,9 @@ function statsStandardsRows(
     rows.push(
       `most improved: \`${improved.standard}\` ${
         formatHumanNumber(improved.from)
-      } → ${formatHumanNumber(improved.to)} (${c.green}${
+      } → ${formatHumanNumber(improved.to)} (${
         formatHumanNumber(improved.better_percent)
-      }% better${c.reset})`,
+      }% better)`,
     );
   }
   return rows;
@@ -1146,7 +1285,6 @@ function statsStandardsRows(
  * unattributed share is always stated. */
 function statsAgentsRows(
   agents: PatternsStats["agents"],
-  c: Palette,
 ): string[] {
   const below = agents.below_minimum;
   const rows = [
@@ -1158,17 +1296,15 @@ function statsAgentsRows(
   ];
   for (const identity of agents.identities) {
     const spark = identity.per_day !== undefined && identity.per_day.length > 1
-      ? `${c.cyan}${sparkline(identity.per_day)}${c.reset} `
+      ? `${sparkline(identity.per_day)} `
       : "";
     const share = identity.done_runs > 0
-      ? `${c.green}${formatHumanNumber(identity.greens)}${c.reset} of ${
+      ? `${formatHumanNumber(identity.greens)} of ${
         plural(identity.done_runs, "`done` run")
       } green (${percent(identity.greens, identity.done_runs)})`
       : "no `done` runs";
     rows.push(
-      `${spark}${c.bold}${identity.label}${c.reset} · ${
-        plural(identity.runs, "run")
-      } · ${share}`,
+      `${spark}${identity.label} · ${plural(identity.runs, "run")} · ${share}`,
     );
   }
   if (below !== undefined) {
@@ -1191,16 +1327,28 @@ function statsSection(
   rows: readonly string[],
   spark?: StatsSpark | undefined,
 ): void {
-  const c = out.c;
-  out.group(`stats:${label}`);
-  const tail = spark === undefined
-    ? ""
-    : `  ${c.cyan}${
-      sparkline(spark.series)
-    }${c.reset} ${c.dim}${spark.label}${c.reset}`;
-  out.raw(`  ${c.bold}${label}${c.reset}${tail}\n`);
+  const { capabilities, theme } = presentationFacts(out);
+  renderGroup(out, `stats:${label}`, label);
+  out.raw(`${
+    renderStatCli({
+      label: terminalLine(label),
+      value: terminalLine(plural(rows.length, "reading")),
+      ...(spark === undefined ? {} : {
+        context: terminalLine(`${sparkline(spark.series)} ${spark.label}`),
+      }),
+      maxWidth: width,
+      theme,
+    }, { ...capabilities, columns: width })
+  }\n`);
   for (const row of rows) {
-    writeWrapped(out, "    ", row, width);
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalMultiline(row),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
   }
 }
 
@@ -1215,44 +1363,82 @@ function renderStatsReport(
   stats: PatternsStats,
   slug: string,
 ): void {
-  const c = out.c;
-  const width = terminalWidth();
+  const { capabilities, width, theme } = presentationFacts(out);
   const archive = data.logbook.source.kind === "archive"
     ? ` · archive ${data.logbook.source.filename}`
     : "";
-  out.heading(
+  out.heading(terminalLine(
     `discern patterns --stats${slug ? ` · ${slug}` : ""}${archive}`,
-  );
+  ));
   if (data.population.analyzed === 0) {
-    writeWrapped(out, "  ", STATS_EMPTY_MESSAGE, width);
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(STATS_EMPTY_MESSAGE),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
     return;
   }
-  const dim = (line: string): string => `${c.dim}${line}${c.reset}`;
-  writeWrapped(out, "  ", statsHeaderLine(data, stats), width, dim);
-  writeWrapped(out, "  ", STATS_PROVENANCE, width, dim);
+  out.raw(`${
+    renderResultSummaryCli({
+      state: "unchanged",
+      fact: terminalMultiline(
+        `${statsHeaderLine(data, stats)} · Source: ${STATS_PROVENANCE}`,
+      ),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
+  if (stats.gate.runs > 0) {
+    out.raw(`${
+      renderMeterCli({
+        kind: "determinate-progress",
+        label: terminalLine("Green Gate runs"),
+        lifecycle: { status: "active" },
+        completed: stats.gate.greens,
+        total: stats.gate.runs,
+        reading: terminalLine(
+          `${formatHumanNumber(stats.gate.greens)} of ${
+            formatHumanNumber(stats.gate.runs)
+          }`,
+        ),
+        tone: "neutral",
+        width: Math.min(STATS_METER_WIDTH, width),
+        theme,
+      }, capabilities)
+    }\n`);
+  }
   const daysPerPoint = stats.series_days_per_point ?? 1;
   statsSection(
     out,
     width,
     STATS_SECTIONS.accepted,
-    statsAcceptedRows(stats.accepted, c),
+    statsAcceptedRows(stats.accepted),
     statsSpark(stats.accepted.per_day, cadenceLabel("accepted", daysPerPoint)),
   );
   statsSection(
     out,
     width,
     STATS_SECTIONS.gate,
-    statsGateRows(stats.gate, c),
+    statsGateRows(stats.gate),
     statsSpark(
       stats.gate.greens_per_day,
       cadenceLabel("green runs", daysPerPoint),
     ),
   );
-  const pace = statsPaceRows(stats, c);
+  statsSection(
+    out,
+    width,
+    STATS_SECTIONS.workflows,
+    statsValidationWorkflowRows(stats.validation_workflows),
+  );
+  const pace = statsPaceRows(stats);
   if (pace.length > 0) {
     statsSection(out, width, STATS_SECTIONS.pace, pace);
   }
-  const standards = statsStandardsRows(stats.ratchet, c);
+  const standards = statsStandardsRows(stats.ratchet);
   if (standards.length > 0) {
     // The trend can honestly fall, so unlike the count sparks it shows
     // whenever it moves at all.
@@ -1276,7 +1462,7 @@ function renderStatsReport(
       out,
       width,
       STATS_SECTIONS.agents,
-      statsAgentsRows(stats.agents, c),
+      statsAgentsRows(stats.agents),
       statsSpark(
         stats.agents.per_day,
         cadenceLabel("agent runs", daysPerPoint),
@@ -1287,7 +1473,7 @@ function renderStatsReport(
     out,
     width,
     STATS_SECTIONS.breadth,
-    statsBreadthRows(stats.breadth, c),
+    statsBreadthRows(stats.breadth),
     statsSpark(
       stats.breadth.branches_per_day,
       daysPerPoint <= 1
@@ -1295,18 +1481,23 @@ function renderStatsReport(
         : `peak branches per ${formatHumanNumber(daysPerPoint)} days`,
     ),
   );
-  writeWrapped(
-    out,
-    "  ",
-    "Data: `discern patterns --stats --json`.",
-    width,
-    dim,
-  );
+  out.raw(`${
+    renderCommandCli({
+      command: terminalLine("discern patterns --stats --json"),
+      explanation: terminalLine(
+        "Read the same counted facts as structured data.",
+      ),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
 }
 
 /** Options accepted by the patterns CLI. */
 export interface RunPatternsOptions {
   json: boolean;
+  /** Explicit human presentation facts; CLI callers use the installed context. */
+  terminal?: TerminalContext;
   /** Render the practice-stats card (and carry `data.stats`) instead of the
    * detector report. */
   stats: boolean;
@@ -1334,7 +1525,8 @@ export async function runPatterns(
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  const out = makeOut(colorEnabled());
+  const terminal = opts.terminal ?? terminalContext();
+  const out = presentationOut(terminal);
   if (!result.ok || result.data === undefined) {
     out.error(result.message ?? "patterns failed.");
     return 1;
@@ -1526,53 +1718,143 @@ function renderLifecycleFiles(
   out: Out,
   files: readonly LogbookFile[],
 ): void {
+  const { capabilities, width, theme } = presentationFacts(out);
   for (const file of files) {
-    out.raw(`  ${file.file} ${out.c.dim}(${file.bytes} bytes)${out.c.reset}\n`);
+    out.raw(`${
+      renderFileChangeCli({
+        path: terminalLine(file.file),
+        disposition: "unchanged",
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(
+          `Source file: ${file.file}. Bytes: ${formatHumanNumber(file.bytes)}.`,
+        ),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
   }
 }
 
 /** Render the complete reset scope before preview, refusal, or confirmation. */
 function renderResetScope(out: Out, data: PatternsResetData): void {
-  out.heading("Active Logbook reset");
-  out.raw(
-    `  ${plural(data.events, "event")} · ${lifecycleSpan(data)} · ${
-      plural(data.removed.length, "file")
-    } · ${formatHumanNumber(data.bytes)} bytes\n`,
-  );
-  renderLifecycleFiles(out, data.removed);
-  out.group("impact");
-  out.raw("Evidence restarts for:\n");
+  const { capabilities, width, theme } = presentationFacts(out);
+  out.heading(terminalLine("Active Logbook reset"));
+  out.raw(`${
+    renderReceiptCli({
+      title: terminalLine("Reset scope"),
+      meta: [
+        {
+          label: terminalLine("Events"),
+          value: terminalLine(String(data.events)),
+        },
+        {
+          label: terminalLine("Span"),
+          value: terminalLine(lifecycleSpan(data)),
+        },
+        {
+          label: terminalLine("Files"),
+          value: terminalLine(String(data.removed.length)),
+        },
+        {
+          label: terminalLine("Bytes"),
+          value: terminalLine(formatHumanNumber(data.bytes)),
+        },
+      ],
+      summary: terminalLine(
+        "The active local metadata history will be removed.",
+      ),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
   for (const impact of data.impacts) {
-    out.raw(`  - ${impact.phrase} (${impact.surface})\n`);
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "changed",
+        fact: terminalMultiline(
+          `${impact.surface}: evidence restarts. ${impact.phrase}`,
+        ),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
   }
+  renderLifecycleFiles(out, data.removed);
 }
 
 /** Render the complete archive scope before preview, refusal, or confirmation. */
 function renderArchiveScope(out: Out, data: PatternsArchiveData): void {
-  out.heading("Active Logbook archive");
-  out.raw(
-    `  ${plural(data.events, "event")} · ${lifecycleSpan(data)} · ${
-      plural(data.files.length, "file")
-    } · ${formatHumanNumber(data.source_bytes)} source bytes\n`,
-  );
+  const { capabilities, width, theme } = presentationFacts(out);
+  out.heading(terminalLine("Active Logbook archive"));
+  out.raw(`${
+    renderReceiptCli({
+      title: terminalLine("Archive scope"),
+      meta: [
+        {
+          label: terminalLine("Events"),
+          value: terminalLine(String(data.events)),
+        },
+        {
+          label: terminalLine("Span"),
+          value: terminalLine(lifecycleSpan(data)),
+        },
+        {
+          label: terminalLine("Files"),
+          value: terminalLine(String(data.files.length)),
+        },
+        {
+          label: terminalLine("Source bytes"),
+          value: terminalLine(formatHumanNumber(data.source_bytes)),
+        },
+        {
+          label: terminalLine("Archive bytes"),
+          value: terminalLine(formatHumanNumber(data.archive_bytes)),
+        },
+      ],
+      summary: terminalLine(
+        "epoch.json starts fresh and is not copied into the archive.",
+      ),
+      footer: terminalLine(`Destination: ${data.archive_path}`),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
+  out.raw(`${
+    renderResultSummaryCli({
+      state: "unchanged",
+      fact: terminalLine(`Destination: ${data.archive_path}`),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
   renderLifecycleFiles(out, data.files);
-  out.raw(
-    `Destination: ${data.archive_path} (${
-      formatHumanNumber(data.archive_bytes)
-    } event bytes)\n`,
-  );
-  out.raw("epoch.json starts fresh and is not copied into the archive.\n");
 }
 
-/** Ask one default-No confirmation, treating prompt cancellation as No. */
+/** Preserve a confirmation fault across the core's lifecycle error renderer. */
+class LifecycleConfirmationFault extends Error {
+  readonly fault: unknown;
+
+  constructor(fault: unknown) {
+    super("The lifecycle confirmation failed.");
+    this.fault = fault;
+  }
+}
+
+/** Ask one injected boolean confirmation without knowing its prompt source. */
 async function confirmLifecycle(
   message: string,
   confirm: LifecycleConfirmation,
 ): Promise<boolean> {
   try {
     return await confirm(message);
-  } catch {
-    return false;
+  } catch (error) {
+    throw new LifecycleConfirmationFault(error);
   }
 }
 
@@ -1608,13 +1890,16 @@ function presentLifecycleResult<
   action: LogbookLifecycleActionName,
   result: DiscernResult<T>,
   json: boolean,
+  out: Out | undefined,
 ): number {
   observeResult(result);
   if (json) {
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  const out = makeOut(colorEnabled());
+  if (out === undefined) {
+    throw new TypeError("human lifecycle presentation requires terminal facts");
+  }
   if (result.data !== undefined) {
     if (action === "reset") {
       renderResetScope(out, result.data as PatternsResetData);
@@ -1627,7 +1912,7 @@ function presentLifecycleResult<
     return 1;
   }
   if (result.dry_run === true) {
-    out.raw("Preview only — nothing changed.\n");
+    out.raw("Preview only. Nothing changed.\n");
   }
   return 0;
 }
@@ -1710,9 +1995,8 @@ export async function patternsArchiveResult(
 }
 
 /** Present the cancellation outcome used by the other owner confirmations. */
-function presentLifecycleCancellation(): number {
-  const out = makeOut(colorEnabled());
-  out.raw("Aborted — nothing was changed.\n");
+function presentLifecycleCancellation(out: Out): number {
+  out.raw("Aborted. Nothing changed.\n");
   return 0;
 }
 
@@ -1735,6 +2019,7 @@ function changedDuringConfirmation<T>(
 async function applyReset(
   root: string,
   confirm: LifecycleConfirmation,
+  out: Out,
 ): Promise<number> {
   const commonGitDir = await resolveCommonGitDir(root);
   if (commonGitDir === undefined) {
@@ -1742,6 +2027,7 @@ async function applyReset(
       "reset",
       noRepository("patterns reset"),
       false,
+      out,
     );
   }
   try {
@@ -1753,9 +2039,8 @@ async function applyReset(
       reviewedData,
     );
     if (running !== undefined) {
-      return presentLifecycleResult("reset", running, false);
+      return presentLifecycleResult("reset", running, false, out);
     }
-    const out = makeOut(colorEnabled());
     renderResetScope(out, reviewedData);
     const filenames = reviewed.files.length === 0
       ? "no source files"
@@ -1769,7 +2054,7 @@ async function applyReset(
       confirm,
     );
     if (!accepted) {
-      return presentLifecycleCancellation();
+      return presentLifecycleCancellation(out);
     }
     return await withLogbookLifecycleLock(commonGitDir, async () => {
       const current = await activeLifecycleSnapshot(root, commonGitDir);
@@ -1778,6 +2063,7 @@ async function applyReset(
           "reset",
           changedDuringConfirmation("patterns reset", resetData(current)),
           false,
+          out,
         );
       }
       const newlyRunning = inFlightRefusal(
@@ -1786,7 +2072,7 @@ async function applyReset(
         resetData(current),
       );
       if (newlyRunning !== undefined) {
-        return presentLifecycleResult("reset", newlyRunning, false);
+        return presentLifecycleResult("reset", newlyRunning, false, out);
       }
       try {
         await removeLogbook(commonGitDir);
@@ -1794,13 +2080,18 @@ async function applyReset(
         const recovery = error instanceof LogbookLifecycleError
           ? error.detachedPath
           : undefined;
-        return presentLifecycleResult("reset", {
-          ok: false,
-          verb: "patterns reset",
-          error: "apply_failed",
-          message: error instanceof Error ? error.message : String(error),
-          data: resetData(current, recovery),
-        }, false);
+        return presentLifecycleResult(
+          "reset",
+          {
+            ok: false,
+            verb: "patterns reset",
+            error: "apply_failed",
+            message: error instanceof Error ? error.message : String(error),
+            data: resetData(current, recovery),
+          },
+          false,
+          out,
+        );
       }
       const resetHints = [
         ...(current.files.length === 0
@@ -1816,22 +2107,28 @@ async function applyReset(
         data: resetData(current),
         ...(resetHints.length > 0 ? { hints: hintTexts(resetHints) } : {}),
       };
-      const code = presentLifecycleResult("reset", result, false);
-      makeOut(colorEnabled()).raw("Removed the active Logbook permanently.\n");
+      const code = presentLifecycleResult("reset", result, false, out);
+      out.raw("Removed the active Logbook permanently.\n");
       return code;
     });
   } catch (error) {
+    if (error instanceof LifecycleConfirmationFault) throw error.fault;
     const message = error instanceof LogbookLifecycleBusyError
       ? error.message
       : `Could not apply the Logbook reset: ${
         error instanceof Error ? error.message : String(error)
       }`;
-    return presentLifecycleResult("reset", {
-      ok: false,
-      verb: "patterns reset",
-      error: "precondition_failed",
-      message,
-    }, false);
+    return presentLifecycleResult(
+      "reset",
+      {
+        ok: false,
+        verb: "patterns reset",
+        error: "precondition_failed",
+        message,
+      },
+      false,
+      out,
+    );
   }
 }
 
@@ -1839,6 +2136,7 @@ async function applyReset(
 async function applyArchive(
   root: string,
   confirm: LifecycleConfirmation,
+  out: Out,
 ): Promise<number> {
   const commonGitDir = await resolveCommonGitDir(root);
   if (commonGitDir === undefined) {
@@ -1846,6 +2144,7 @@ async function applyArchive(
       "archive",
       noRepository("patterns archive"),
       false,
+      out,
     );
   }
   try {
@@ -1858,9 +2157,8 @@ async function applyArchive(
       reviewedData,
     );
     if (running !== undefined) {
-      return presentLifecycleResult("archive", running, false);
+      return presentLifecycleResult("archive", running, false, out);
     }
-    const out = makeOut(colorEnabled());
     renderArchiveScope(out, reviewedData);
     const filenames = reviewed.files.length === 0
       ? "no source files"
@@ -1874,7 +2172,7 @@ async function applyArchive(
       confirm,
     );
     if (!accepted) {
-      return presentLifecycleCancellation();
+      return presentLifecycleCancellation(out);
     }
     return await withLogbookLifecycleLock(commonGitDir, async () => {
       const current = await activeLifecycleSnapshot(root, commonGitDir);
@@ -1886,6 +2184,7 @@ async function applyArchive(
             archiveData(current, filename),
           ),
           false,
+          out,
         );
       }
       const newlyRunning = inFlightRefusal(
@@ -1894,15 +2193,20 @@ async function applyArchive(
         archiveData(current, filename),
       );
       if (newlyRunning !== undefined) {
-        return presentLifecycleResult("archive", newlyRunning, false);
+        return presentLifecycleResult("archive", newlyRunning, false, out);
       }
       if (current.archiveBytes === 0) {
-        const code = presentLifecycleResult("archive", {
-          ok: true,
-          verb: "patterns archive",
-          data: archiveData(current, filename),
-        }, false);
-        makeOut(colorEnabled()).raw(
+        const code = presentLifecycleResult(
+          "archive",
+          {
+            ok: true,
+            verb: "patterns archive",
+            data: archiveData(current, filename),
+          },
+          false,
+          out,
+        );
+        out.raw(
           "No active event lines exist to archive.\n",
         );
         return code;
@@ -1915,10 +2219,9 @@ async function applyArchive(
           verb: "patterns archive",
           data,
         };
-        const code = presentLifecycleResult("archive", result, false);
-        const successOut = makeOut(colorEnabled());
-        successOut.raw(`Sealed ${archived.path}.\n`);
-        successOut.raw(
+        const code = presentLifecycleResult("archive", result, false, out);
+        out.raw(`Sealed ${archived.path}.\n`);
+        out.raw(
           `Read it: discern patterns --logbook-file ${archived.file}\n`,
         );
         return code;
@@ -1926,32 +2229,43 @@ async function applyArchive(
         const lifecycle = error instanceof LogbookLifecycleError
           ? error
           : undefined;
-        return presentLifecycleResult("archive", {
-          ok: false,
-          verb: "patterns archive",
-          error: "apply_failed",
-          message: error instanceof Error ? error.message : String(error),
-          data: archiveData(
-            current,
-            filename,
-            current.archiveBytes,
-            lifecycle?.detachedPath,
-          ),
-        }, false);
+        return presentLifecycleResult(
+          "archive",
+          {
+            ok: false,
+            verb: "patterns archive",
+            error: "apply_failed",
+            message: error instanceof Error ? error.message : String(error),
+            data: archiveData(
+              current,
+              filename,
+              current.archiveBytes,
+              lifecycle?.detachedPath,
+            ),
+          },
+          false,
+          out,
+        );
       }
     });
   } catch (error) {
+    if (error instanceof LifecycleConfirmationFault) throw error.fault;
     const message = error instanceof LogbookLifecycleBusyError
       ? error.message
       : `Could not apply the Logbook archive: ${
         error instanceof Error ? error.message : String(error)
       }`;
-    return presentLifecycleResult("archive", {
-      ok: false,
-      verb: "patterns archive",
-      error: "precondition_failed",
-      message,
-    }, false);
+    return presentLifecycleResult(
+      "archive",
+      {
+        ok: false,
+        verb: "patterns archive",
+        error: "precondition_failed",
+        message,
+      },
+      false,
+      out,
+    );
   }
 }
 
@@ -1959,6 +2273,8 @@ async function applyArchive(
 export interface RunPatternsLifecycleOptions {
   json: boolean;
   dryRun: boolean;
+  /** Explicit human presentation facts; JSON paths never resolve them. */
+  terminal?: TerminalContext;
   /** Whether the caller proved terminal stdin/stdout and non-CI/non-plain mode. */
   interactive: boolean;
   /** The guarded default-No terminal confirmation supplied by CLI dispatch. */
@@ -1972,29 +2288,43 @@ type LifecycleHandler = (
   root: string,
   opts: RunPatternsLifecycleOptions,
   access: LogbookLifecycleAccess,
+  out: Out | undefined,
 ) => Promise<number>;
 
 /** Preview/refuse/apply the reset through the common lifecycle policy. */
-const runResetLifecycle: LifecycleHandler = async (root, opts, access) => {
+const runResetLifecycle: LifecycleHandler = async (root, opts, access, out) => {
   if (access === "apply") {
-    return await applyReset(root, opts.confirm);
+    if (out === undefined) {
+      throw new TypeError("reset apply requires human presentation facts");
+    }
+    return await applyReset(root, opts.confirm, out);
   }
   return presentLifecycleResult(
     "reset",
     await patternsResetResult(root, { dryRun: access === "preview" }),
     opts.json,
+    out,
   );
 };
 
 /** Preview/refuse/apply the archive through the common lifecycle policy. */
-const runArchiveLifecycle: LifecycleHandler = async (root, opts, access) => {
+const runArchiveLifecycle: LifecycleHandler = async (
+  root,
+  opts,
+  access,
+  out,
+) => {
   if (access === "apply") {
-    return await applyArchive(root, opts.confirm);
+    if (out === undefined) {
+      throw new TypeError("archive apply requires human presentation facts");
+    }
+    return await applyArchive(root, opts.confirm, out);
   }
   return presentLifecycleResult(
     "archive",
     await patternsArchiveResult(root, { dryRun: access === "preview" }),
     opts.json,
+    out,
   );
 };
 
@@ -2017,7 +2347,10 @@ export async function runPatternsLifecycle(
     json: opts.json,
     interactive: opts.interactive,
   });
-  return await LIFECYCLE_HANDLERS[action](root, opts, access);
+  const out = opts.json
+    ? undefined
+    : presentationOut(opts.terminal ?? terminalContext());
+  return await LIFECYCLE_HANDLERS[action](root, opts, access, out);
 }
 
 /** Backward-compatible internal entry for the reset CLI wiring. */
@@ -2102,7 +2435,7 @@ export async function patternsArchivesResult(
 /** Run the read-only archive listing. */
 export async function runPatternsArchives(
   root: string,
-  opts: { json: boolean },
+  opts: { json: boolean; terminal?: TerminalContext },
 ): Promise<number> {
   const result = await patternsArchivesResult(root);
   observeResult(result);
@@ -2110,26 +2443,61 @@ export async function runPatternsArchives(
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  const out = makeOut(colorEnabled());
+  const out = presentationOut(opts.terminal ?? terminalContext());
   if (!result.ok || result.data === undefined) {
     out.error(result.message ?? "patterns archives failed.");
     return 1;
   }
-  out.heading("Sealed Logbook archives");
+  const { capabilities, width, theme } = presentationFacts(out);
+  out.heading(terminalLine("Sealed Logbook archives"));
   if (result.data.archives.length === 0) {
-    out.raw("  No sealed archives.\n");
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine("No sealed archives."),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
     return 0;
   }
   for (const archive of result.data.archives) {
-    out.raw(
-      `  ${archive.filename} · ${plural(archive.events, "event")} · ${
-        lifecycleSpan(archive)
-      } · ${formatHumanNumber(archive.bytes)} bytes${
-        archive.unparsed > 0
-          ? ` · ${plural(archive.unparsed, "unparsable line")} skipped`
-          : ""
-      }\n`,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: archive.unparsed === 0 ? "unchanged" : "changed",
+        fact: terminalLine(`Sealed archive: ${archive.filename}`),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
+    out.raw(`${
+      renderReceiptCli({
+        title: terminalLine("Archive evidence"),
+        meta: [
+          {
+            label: terminalLine("Events"),
+            value: terminalLine(String(archive.events)),
+          },
+          {
+            label: terminalLine("Span"),
+            value: terminalLine(lifecycleSpan(archive)),
+          },
+          {
+            label: terminalLine("Bytes"),
+            value: terminalLine(formatHumanNumber(archive.bytes)),
+          },
+        ],
+        ...(archive.unparsed === 0 ? {} : {
+          checks: [{
+            label: terminalLine("Unparsable lines"),
+            state: "fail" as const,
+            value: terminalLine(String(archive.unparsed)),
+          }],
+        }),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
   }
   return 0;
 }

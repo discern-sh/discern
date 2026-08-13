@@ -34,6 +34,7 @@ import {
   confirmationPrompt,
   groupedSelectOptions,
   inputPrompt,
+  isPromptCancellation,
   selectPrompt,
   type SelectPromptGroup,
   type SelectPromptOptions,
@@ -85,6 +86,7 @@ import { TIPS } from "../../shared/tips.ts";
 import { observeShownTip } from "../../shared/result_capture.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
 import { displayWidth, terminalWidth, wrapText } from "../../lib/text.ts";
+import { terminalLine } from "../../lib/terminal.ts";
 import { deskSessionEnv, inDeskSession } from "./session.ts";
 import { clearEffortGrant } from "../worktree/effort_grant_cleanup.ts";
 import {
@@ -192,7 +194,9 @@ export interface DeskRuntime {
 
 /** Dim "→ <command>" line: the CLI equivalent of the action about to run. */
 function echoCommand(out: Out, command: string): void {
-  out.raw(`${out.c.dim}→ ${command}${out.c.reset}\n`);
+  out.raw(
+    `${out.terminal.role(terminalLine(`→ ${command}`), "muted")}\n`,
+  );
 }
 
 /** Quote one argv word for display only. Execution never passes through a
@@ -220,7 +224,7 @@ function clearBoard(out: Out): void {
  * drop's summary) isn't wiped by the next survey pass's clear. */
 async function awaitEnter(out: Out): Promise<void> {
   out.group("return-to-desk");
-  out.raw(`${out.c.dim}press ↵ to return to the desk${out.c.reset} `);
+  out.raw(`${out.terminal.role("press ↵ to return to the desk", "muted")} `);
   const buf = new Uint8Array(64);
   await Deno.stdin.read(buf);
 }
@@ -232,7 +236,8 @@ async function confirmOrNo(
 ): Promise<boolean> {
   try {
     return await confirmationPrompt(message, defaultTo);
-  } catch {
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
     return false;
   }
 }
@@ -340,8 +345,10 @@ async function printGitRead(
 ): Promise<void> {
   const res = await runtime.git(args, cwd);
   const body = (res.success ? res.stdout : res.stderr).trimEnd();
-  out.heading(title);
-  out.raw(body === "" ? `${out.c.dim}(none)${out.c.reset}\n` : `${body}\n`);
+  out.heading(terminalLine(title));
+  out.raw(
+    body === "" ? `${out.terminal.role("(none)", "muted")}\n` : `${body}\n`,
+  );
 }
 
 /** A branch-local config can be malformed while the fleet row remains Git-
@@ -482,9 +489,9 @@ async function pickAgentLaunch(
       message: `Choose an agent for ${row.task.name}`,
       options,
       hint: "Use the arrow keys to move and Enter to choose.",
-      info: false,
     });
-  } catch {
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
     return undefined;
   }
   return id === BACK
@@ -527,9 +534,9 @@ async function pickScript(
       hint: search
         ? "Type to filter. Use the arrow keys to move and Enter to choose."
         : "Use the arrow keys to move and Enter to choose.",
-      info: false,
     });
-  } catch {
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
     return undefined;
   }
   return name === BACK
@@ -554,7 +561,7 @@ function renderHeader(
   const project = config.project.slug === ""
     ? basename(root)
     : config.project.slug;
-  out.heading(`${DISCERN_WORDMARK} | ${project}`);
+  out.heading(terminalLine(`${DISCERN_WORDMARK} | ${project}`));
   const taskCount = rows.length === 0
     ? "No tasks"
     : `${rows.length} task${rows.length === 1 ? "" : "s"}`;
@@ -568,12 +575,16 @@ function renderHeader(
         main.changed_files === 1 ? "" : "s"
       }`
       : `${main.branch} state unknown`;
-    const stateColor = main.clean === true ? out.c.green : out.c.yellow;
+    const renderedMainState = main.clean === true
+      ? out.terminal.tone(terminalLine(mainState), "success")
+      : out.terminal.tone(terminalLine(mainState), "warning");
     summaryLines.push(
-      `  ${out.c.dim}${taskCount}  ·${out.c.reset}  ${stateColor}${mainState}${out.c.reset}`,
+      `  ${
+        out.terminal.role(`${taskCount}  ·`, "muted")
+      }  ${renderedMainState}`,
     );
   } else {
-    summaryLines.push(`  ${out.c.dim}${taskCount}${out.c.reset}`);
+    summaryLines.push(`  ${out.terminal.role(taskCount, "muted")}`);
   }
   const unlandedLines: string[] = [];
   const unlanded = data.unlanded_branches ?? [];
@@ -582,12 +593,17 @@ function renderHeader(
       unlanded.length === 1 ? " has" : "es have"
     } no worktree`;
     unlandedLines.push(
-      `  ${out.c.yellow}${branches}${out.c.reset}: ${out.c.dim}${
-        unlanded.join(", ")
-      }${out.c.reset}`,
+      `  ${out.terminal.tone(branches, "warning")}: ${
+        out.terminal.role(terminalLine(unlanded.join(", ")), "muted")
+      }`,
     );
     unlandedLines.push(
-      `  ${out.c.dim}Open one with \`discern start --from <branch>\`.${out.c.reset}`,
+      `  ${
+        out.terminal.role(
+          "Open one with `discern start --from <branch>`.",
+          "muted",
+        )
+      }`,
     );
   }
   // Reclaimed-stage refs are a calm fact, not a warning: their commits ride
@@ -600,19 +616,30 @@ function renderHeader(
     const line = containedRefs.length === 1 && first !== undefined
       ? `${first.branch} rides inside ${first.contained_in} until it lands`
       : `${containedRefs.length} reclaimed stage refs ride inside live branches until they land`;
-    containedLines.push(`  ${out.c.dim}${line}.${out.c.reset}`);
+    containedLines.push(
+      `  ${out.terminal.role(terminalLine(`${line}.`), "muted")}`,
+    );
   }
   const reappearedLines: string[] = [];
   const reappeared = data.reappeared_worktree_paths ?? [];
   if (reappeared.length > 0) {
     reappearedLines.push(
-      `  ${out.c.yellow}${reappeared.length} removed worktree path${
-        reappeared.length === 1 ? " is" : "s are"
-      } present again.${out.c.reset}`,
+      `  ${
+        out.terminal.tone(
+          `${reappeared.length} removed worktree path${
+            reappeared.length === 1 ? " is" : "s are"
+          } present again.`,
+          "warning",
+        )
+      }`,
     );
     reappearedLines.push(
-      "  " + out.c.dim +
-        "Review with `discern worktree prune --dry-run`." + out.c.reset,
+      `  ${
+        out.terminal.role(
+          "Review with `discern worktree prune --dry-run`.",
+          "muted",
+        )
+      }`,
     );
   }
   // The session's tip (ADR 0234): one teaching line directly below the status,
@@ -626,8 +653,10 @@ function renderHeader(
     for (const [index, line] of lines.entries()) {
       tipLines.push(
         index === 0
-          ? `${out.c.dim}  ✦ ${out.c.reset}${out.c.yellow}Tip${out.c.reset}${out.c.dim}  ${line}${out.c.reset}`
-          : `${out.c.dim}${indent}${line}${out.c.reset}`,
+          ? `${out.terminal.role("  ✦ ", "muted")}${
+            out.terminal.tone("Tip", "warning")
+          }${out.terminal.role(`  ${line}`, "muted")}`
+          : out.terminal.role(`${indent}${line}`, "muted"),
       );
     }
   }
@@ -644,24 +673,10 @@ function renderHeader(
 async function pickRow(
   rows: DeskRow[],
   rootScripts: readonly ProjectScript[],
-  out: Out,
   runtime: DeskRuntime,
 ): Promise<string> {
-  const dim = (s: string): string =>
-    out.color ? `${out.c.dim}${s}${out.c.reset}` : s;
-  const bucketHeading = (bucket: DeskRow["bucket"], count: number): string => {
-    if (!out.color) {
-      return `${bucketTitle(bucket)} · ${count}`;
-    }
-    const color = bucket === "ready"
-      ? out.c.green
-      : bucket === "attention"
-      ? out.c.yellow
-      : out.c.cyan;
-    return `${out.c.bold}${color}${
-      bucketTitle(bucket)
-    } · ${count}${out.c.reset}`;
-  };
+  const bucketHeading = (bucket: DeskRow["bucket"], count: number): string =>
+    `${bucketTitle(bucket)} · ${count}`;
   const nameCounts = new Map<string, number>();
   for (const row of rows) {
     nameCounts.set(row.task.name, (nameCounts.get(row.task.name) ?? 0) + 1);
@@ -678,7 +693,7 @@ async function pickRow(
         ? { plain: row.task.name, rendered: row.task.name }
         : {
           plain: `${row.task.name}  ${disambiguator}`,
-          rendered: `${row.task.name}  ${dim(disambiguator)}`,
+          rendered: `${row.task.name}  ${disambiguator}`,
         },
     );
   }
@@ -703,7 +718,7 @@ async function pickRow(
         return {
           name: `${label.rendered}${
             " ".repeat(labelWidth - label.plain.length)
-          }  ${dim(r.summary)}`,
+          }  ${r.summary}`,
           value: r.entry.path,
         };
       }),
@@ -711,12 +726,10 @@ async function pickRow(
   }
   groups.push({
     id: "desk-actions",
-    label: out.color ? `${out.c.bold}${out.c.cyan}Desk${out.c.reset}` : "Desk",
+    label: "Desk",
     items: [
       {
-        name: out.color
-          ? `${out.c.bold}${out.c.cyan}Start a task${out.c.reset}`
-          : "Start a task",
+        name: "Start a task",
         value: START_TASK,
       },
       ...(rootScripts.length === 0
@@ -727,10 +740,10 @@ async function pickRow(
   });
   groups.push({
     id: "session-actions",
-    label: out.color ? `${out.c.dim}Session${out.c.reset}` : "Session",
+    label: "Session",
     items: [
-      { name: dim("Refresh"), value: REFRESH },
-      { name: dim("Quit"), value: QUIT },
+      { name: "Refresh", value: REFRESH },
+      { name: "Quit", value: QUIT },
     ],
   });
   const options = groupedSelectOptions(groups);
@@ -742,15 +755,15 @@ async function pickRow(
         : "Choose a task or action",
       options,
       search,
-      ...(search ? { searchLabel: dim("filter") } : {}),
+      ...(search ? { searchLabel: "filter" } : {}),
       hint: search
         ? "Type to filter. Use the arrow keys to move and Enter to choose."
         : "Use the arrow keys to move and Enter to choose.",
-      info: false,
       maxRows: 16,
     });
-  } catch {
-    // Cancelled (Ctrl-C / Esc) — a clean exit, not an error.
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
+    // Ctrl-C or end-of-input closes the Desk.
     return QUIT;
   }
 }
@@ -809,7 +822,8 @@ async function startTask(
     answer = await runtime.input(
       "Task name (blank uses a codename)",
     );
-  } catch {
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
     return undefined;
   }
   const name = answer.trim();
@@ -972,7 +986,8 @@ async function dispatchAction(
           typed = await runtime.input(
             `Type the branch name (${row.entry.branch}) to discard it permanently — anything else cancels`,
           );
-        } catch {
+        } catch (error) {
+          if (!isPromptCancellation(error)) throw error;
           typed = "";
         }
         if (typed.trim() !== row.entry.branch) {
@@ -1109,15 +1124,24 @@ async function actOn(
   runtime: DeskRuntime,
 ): Promise<void> {
   clearBoard(out);
-  out.heading(row.task.name);
-  out.raw(`  ${out.c.dim}${row.summary}${out.c.reset}\n`);
-  out.raw(`  ${out.c.dim}Branch ${row.entry.branch}${out.c.reset}\n`);
+  out.heading(terminalLine(row.task.name));
+  out.raw(
+    `  ${out.terminal.role(terminalLine(row.summary), "muted")}\n`,
+  );
+  out.raw(
+    `  ${
+      out.terminal.role(
+        terminalLine(`Branch ${row.entry.branch}`),
+        "muted",
+      )
+    }\n`,
+  );
   while (true) {
     const options = groupedSelectOptions<string>([
       ...actionGroups(row, config),
       {
         id: "task-navigation",
-        label: out.color ? `${out.c.dim}Task${out.c.reset}` : "Task",
+        label: "Task",
         items: [{ name: "Back", value: BACK }],
       },
     ]);
@@ -1127,9 +1151,9 @@ async function actOn(
         message: "Choose an action",
         options,
         hint: "Use the arrow keys to move and Enter to choose.",
-        info: false,
       });
-    } catch {
+    } catch (error) {
+      if (!isPromptCancellation(error)) throw error;
       return;
     }
     if (action === BACK) {
@@ -1299,7 +1323,7 @@ export async function runDesk(
       : rows.find((row) => row.entry.path === focusPath);
     focusPath = undefined;
     const choice = focused?.entry.path ??
-      await pickRow(rows, rootScripts, out, runtime);
+      await pickRow(rows, rootScripts, runtime);
     if (choice === QUIT) {
       return 0;
     }

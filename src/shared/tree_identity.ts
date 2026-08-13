@@ -1,12 +1,11 @@
 /**
- * How discern fingerprints "the same exact tree" across runs. A committed tree
- * is named by its HEAD sha alone; an uncommitted tree adds a fingerprint of
- * what is uncommitted. Two graders share the approach at two precisions:
+ * How two legacy/current consumers fingerprint recorded working state at two
+ * precisions:
  *
  * - {@link treeDiffFingerprint} — the POSIX cksum of `git diff HEAD` (tracked
- *   files only). The logbook stamps it into each event's `tree` field: cheap,
- *   stable, and precise enough for an ADVISORY reader comparing runs (a flake
- *   detector), where an occasional collision only softens a finding.
+ *   files only). The logbook stamps it into each legacy event's `tree` field.
+ *   It supports a deliberately weak tracked-start comparison; it is not a
+ *   complete validation-input identity.
  * - {@link workingStateFingerprint} — the tracked diff PLUS every path
  *   `git status` reports (untracked included, `-uall`) with its size and
  *   mtime. The gate's last-run marker uses it because a REFUSAL rides on the
@@ -21,6 +20,9 @@ import { runGit } from "./subprocess.ts";
 import { cksumString } from "./crc.ts";
 import { parsePorcelainZ } from "./git_paths.ts";
 
+/** The tracked-diff fingerprint of an otherwise dirty untracked-only tree. */
+export const EMPTY_TREE_DIFF_FINGERPRINT = cksumString("").toString(16);
+
 /** Fingerprint the uncommitted diff at `root`, `undefined` when git cannot
  * answer. Hex form of the checksum; empty diff fingerprints too (a staged-only
  * or untracked-only tree still gets a stable value). */
@@ -31,7 +33,9 @@ export async function treeDiffFingerprint(
   if (!diff.success) {
     return undefined;
   }
-  return cksumString(diff.stdout).toString(16);
+  return diff.stdout === ""
+    ? EMPTY_TREE_DIFF_FINGERPRINT
+    : cksumString(diff.stdout).toString(16);
 }
 
 /** Fingerprint everything uncommitted at `root` — the tracked diff plus a

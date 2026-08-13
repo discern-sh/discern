@@ -30,6 +30,13 @@ import { observeResult } from "../../shared/result_capture.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 import { renderSlotWait } from "./slot_wait_render.ts";
+import {
+  attachValidationEvidence,
+  completeValidationEvidence,
+  VALIDATION_RUNS,
+  type ValidationStart,
+} from "../logbook/validation.ts";
+import { captureValidationStart } from "../logbook/validation_state.ts";
 
 /**
  * Run the test gate once: build the test stage's group and run it through the shared
@@ -63,12 +70,25 @@ async function runTestGate(
       ...(inProgress !== undefined ? [inProgress] : []),
       fire(HINTS["test-job-not-configured"]),
     ];
+    const result: DiscernResult = {
+      ok: true,
+      verb: "test",
+      hints: hintTexts(hints),
+    };
+    if (cfg.project.logbook) {
+      const validation = await captureValidationStart(
+        root,
+        cfg,
+        VALIDATION_RUNS.test,
+        [],
+      );
+      attachValidationEvidence(
+        result,
+        completeValidationEvidence(validation, undefined),
+      );
+    }
     return {
-      result: {
-        ok: true,
-        verb: "test",
-        hints: hintTexts(hints),
-      },
+      result,
       failedStage: null,
       out,
       configured: false,
@@ -79,6 +99,17 @@ async function runTestGate(
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
+  let validation: ValidationStart | undefined;
+  if (cfg.project.logbook) {
+    // The snapshot is the last project-state read before the standalone test
+    // group starts. Capture failures are evidence, never command failures.
+    validation = await captureValidationStart(
+      root,
+      cfg,
+      VALIDATION_RUNS.test,
+      [group],
+    );
+  }
   const { results, failedStage } = await runJobGroups(
     [group],
     runOpts,
@@ -101,28 +132,35 @@ async function runTestGate(
   // The fleet test-run cap's wait notices (the same lines the human run
   // narrated live), so a --json/MCP caller sees why the run took longer.
   const slotWaits = slots?.waits ?? [];
+  const result: DiscernResult = {
+    ok: failedStage === null,
+    verb: "test",
+    steps,
+    ...(slots?.waitedMs !== undefined ? { waitedMs: slots.waitedMs } : {}),
+    diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+    ...(
+      inProgress !== undefined || hints.length > 0 || slotWaits.length > 0 ||
+        failedStage !== null || gotchasHints.length > 0
+        ? {
+          hints: hintTexts([
+            ...(inProgress !== undefined ? [inProgress] : []),
+            ...slotWaits,
+            ...hints,
+            ...(failedStage !== null ? [gateFailureRemedy(failedStage)] : []),
+            ...gotchasHints,
+          ]),
+        }
+        : {}
+    ),
+  };
+  if (validation !== undefined) {
+    attachValidationEvidence(
+      result,
+      completeValidationEvidence(validation, steps),
+    );
+  }
   return {
-    result: {
-      ok: failedStage === null,
-      verb: "test",
-      steps,
-      ...(slots?.waitedMs !== undefined ? { waitedMs: slots.waitedMs } : {}),
-      diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
-      ...(
-        inProgress !== undefined || hints.length > 0 || slotWaits.length > 0 ||
-          failedStage !== null || gotchasHints.length > 0
-          ? {
-            hints: hintTexts([
-              ...(inProgress !== undefined ? [inProgress] : []),
-              ...slotWaits,
-              ...hints,
-              ...(failedStage !== null ? [gateFailureRemedy(failedStage)] : []),
-              ...gotchasHints,
-            ]),
-          }
-          : {}
-      ),
-    },
+    result,
     failedStage,
     out,
     configured: true,
@@ -171,6 +209,7 @@ export async function runTestJob(
       verb: "test",
       headline: "Tests failed.",
       diagnostics: result.diagnostics ?? [],
+      failedStage,
       gotchas: gotchasTail,
       // `test` never quiets its human run — the runner narrated the output.
       outputWithheld: false,

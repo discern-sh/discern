@@ -10,7 +10,12 @@ import {
   type TerminalPlaybackPlan,
   type TerminalPlaybackPort,
 } from "./terminal_playback.ts";
-import { terminalSize } from "./text.ts";
+import type { TerminalCapabilities } from "discern-design-system/cli";
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalSize,
+} from "./terminal.ts";
 import {
   INTERRUPT_SIGNALS,
   reraiseInterrupt,
@@ -20,9 +25,9 @@ import {
 export interface TerminalAnimationEnvironment {
   readonly stdoutIsTerminal: boolean;
   readonly ci: string | undefined;
-  readonly term: string | undefined;
   readonly terminalColumns: number;
   readonly terminalRows: number;
+  readonly capabilities: TerminalCapabilities;
 }
 
 /** Interpret the conventional CI marker used by discern's static TTY policy. */
@@ -37,28 +42,25 @@ export function terminalAnimationAllowed(
 ): boolean {
   return environment.stdoutIsTerminal &&
     !ciRequestsStatic(environment.ci) &&
-    environment.term?.trim().toLowerCase() !== "dumb";
+    environment.capabilities.ansiControl !== false;
 }
 
-/** Read one narrowly permitted environment value without making imports effectful. */
-function readEnvironment(name: string): string | undefined {
-  try {
-    return Deno.env.get(name);
-  } catch {
-    return undefined;
-  }
-}
-
-/** Observe the live terminal inputs after a command's static code has loaded. */
-export function observeTerminalAnimationEnvironment(): TerminalAnimationEnvironment {
-  const dimensions = terminalSize();
+/** Project one shared process context into the animation planner's pure facts. */
+export function terminalAnimationEnvironment(
+  terminal: TerminalContext,
+): TerminalAnimationEnvironment {
   return {
-    stdoutIsTerminal: Deno.stdout.isTerminal(),
-    ci: readEnvironment("CI"),
-    term: readEnvironment("TERM"),
-    terminalColumns: dimensions.columns,
-    terminalRows: dimensions.rows,
+    stdoutIsTerminal: terminal.stdoutIsTerminal,
+    ci: terminal.environment.CI,
+    terminalColumns: terminal.size.columns,
+    terminalRows: terminal.size.rows,
+    capabilities: terminal.capabilities,
   };
+}
+
+/** Observe the process once through Discern's sole terminal adapter. */
+export function observeTerminalAnimationEnvironment(): TerminalAnimationEnvironment {
+  return terminalAnimationEnvironment(terminalContext());
 }
 
 /** Wait for one frame and reject promptly when playback is interrupted. */
@@ -91,7 +93,13 @@ export function abortableWait(
 export function terminalPlaybackPort(
   write: (value: string) => void,
 ): TerminalPlaybackPort {
-  return { write, wait: abortableWait, terminalSize };
+  const capabilities = terminalContext().capabilities;
+  return {
+    write,
+    wait: abortableWait,
+    terminalSize,
+    terminalCapabilities: () => capabilities,
+  };
 }
 
 /** Re-throw an unknown execution failure through a stable Error boundary. */

@@ -20,7 +20,11 @@ import type {
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import { Logger } from "../src/lib/log.ts";
-import type { Out, Palette } from "../src/engine/output.ts";
+import { makeOut, type Out } from "../src/engine/output.ts";
+import {
+  resolveTerminalContext,
+  type TerminalContext,
+} from "../src/lib/terminal.ts";
 import {
   type DeskRuntime,
   runDesk,
@@ -43,7 +47,7 @@ import {
 import { renderTipCli, TIPS } from "../src/shared/tips.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { displayWidth, wrapText } from "../src/lib/text.ts";
-import { withTempDir } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 
 const ROOT = "/project";
@@ -60,16 +64,6 @@ const CONFIG: DiscernConfig = configSchema.parse({
   repository: { trunk: "main" },
 });
 
-const PLAIN: Palette = {
-  reset: "",
-  bold: "",
-  dim: "",
-  red: "",
-  green: "",
-  yellow: "",
-  cyan: "",
-};
-
 interface Transcript {
   out: Out;
   stdout: string[];
@@ -77,15 +71,17 @@ interface Transcript {
 }
 
 /** Capture desk narration in ordered stdout and stderr arrays without a terminal. */
-function transcript(): Transcript {
+function transcript(
+  terminal: TerminalContext = makeOut(false).terminal,
+): Transcript {
   const stdout: string[] = [];
   const stderr: string[] = [];
   return {
     stdout,
     stderr,
     out: {
-      c: PLAIN,
-      color: false,
+      color: terminal.color,
+      terminal,
       info: (message) => stdout.push(`info:${message}`),
       ok: (message) => stdout.push(`ok:${message}`),
       warn: (message) => stderr.push(`warn:${message}`),
@@ -330,7 +326,6 @@ Deno.test("desk session renders task-first fleet rows from the survey's own proo
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
     select: (options) => {
-      assertEquals(options.info, false);
       assertEquals(options.search, false);
       assertStringIncludes(String(options.hint), "arrow keys");
       optionText.push(JSON.stringify(options.options));
@@ -363,11 +358,11 @@ Deno.test("desk session renders task-first fleet rows from the survey's own proo
   );
   for (
     const section of [
-      "── Ready to land · 1 ──",
-      "── In flight · 1 ──",
-      "── Needs attention · 2 ──",
-      "── Desk ──",
-      "── Session ──",
+      '"kind":"group-heading","id":"tasks-ready","name":"Ready to land · 1"',
+      '"kind":"group-heading","id":"tasks-in_flight","name":"In flight · 1"',
+      '"kind":"group-heading","id":"tasks-attention","name":"Needs attention · 2"',
+      '"kind":"group-heading","id":"desk-actions","name":"Desk"',
+      '"kind":"group-heading","id":"session-actions","name":"Session"',
     ]
   ) {
     assertStringIncludes(options, section);
@@ -522,7 +517,6 @@ Deno.test("desk adds filtering for a large fleet and disambiguates duplicate tas
     select: (options) => {
       assertEquals(options.search, true);
       assertEquals(options.searchLabel, "filter");
-      assertEquals(options.info, false);
       assertStringIncludes(String(options.hint), "Type to filter");
       optionText = JSON.stringify(options.options);
       return QUIT;
@@ -801,10 +795,16 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
   assert(actionMenu !== undefined);
   assert(agentMenu !== undefined);
   assertStringIncludes(actionMenu.options, "Open with an agent");
-  assertStringIncludes(agentMenu.options, "── Claude Code ──");
-  assertStringIncludes(agentMenu.options, "── Task ──");
+  assertStringIncludes(
+    agentMenu.options,
+    '"kind":"group-heading","id":"agent-claude_code","name":"Claude Code"',
+  );
+  assertStringIncludes(
+    agentMenu.options,
+    '"kind":"group-heading","id":"task-navigation","name":"Task"',
+  );
   assert(
-    !agentMenu.options.includes("── Agents ──"),
+    !agentMenu.options.includes('"name":"Agents"'),
     "agent actions should be grouped by provider",
   );
   assertStringIncludes(agentMenu.options, "Open in Claude Code");
@@ -883,11 +883,11 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   const actionMenu = menus.join("\n");
   for (
     const group of [
-      "── Landing ──",
-      "── Work in this task ──",
-      "── Review ──",
-      "── Worktree ──",
-      "── Task ──",
+      '"kind":"group-heading","id":"actions-landing","name":"Landing"',
+      '"kind":"group-heading","id":"actions-work","name":"Work in this task"',
+      '"kind":"group-heading","id":"actions-review","name":"Review"',
+      '"kind":"group-heading","id":"actions-worktree","name":"Worktree"',
+      '"kind":"group-heading","id":"task-navigation","name":"Task"',
     ]
   ) {
     assertStringIncludes(actionMenu, group);
@@ -1038,7 +1038,10 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
   assert(scriptMenu !== undefined);
   assertStringIncludes(scriptMenu.options, "health");
   assertStringIncludes(scriptMenu.options, "check the project");
-  assertStringIncludes(scriptMenu.options, "── Desk ──");
+  assertStringIncludes(
+    scriptMenu.options,
+    '"kind":"group-heading","id":"desk-navigation","name":"Desk"',
+  );
   assertStringIncludes(
     joined(output),
     "discern scripts health  (in project root)",
@@ -1311,19 +1314,22 @@ Deno.test("desk shows one tip below status, stable across redraws, marked once",
 });
 
 Deno.test("desk renders the Tip label in yellow", async () => {
-  const output = transcript();
-  output.out.c = {
-    ...PLAIN,
-    dim: "<dim>",
-    yellow: "<yellow>",
-    reset: "</>",
-  };
-  output.out.color = true;
+  const terminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      LANG: "en_GB.UTF-8",
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  });
+  const output = transcript(terminal);
 
   assertEquals(await runDesk({}, scriptedRuntime(output)), 0);
   assertStringIncludes(
     output.stdout.join(""),
-    "<dim>  ✦ </><yellow>Tip</><dim>  ",
+    `${terminal.role("  ✦ ", "muted")}${terminal.tone("Tip", "warning")}`,
   );
 });
 

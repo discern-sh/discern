@@ -48,10 +48,12 @@ import { KNOWN_VERBS } from "../../shared/verbs.ts";
 import { hiddenVerbNames } from "../../shared/hidden_verbs.ts";
 import { SETUP_BRANCH } from "../../shared/setup_state.ts";
 import {
+  boundedPatternEvidenceCondition,
   type DetectorFamily,
   type DetectorScope,
   type DetectorStatus,
   type DetectorTier,
+  type PatternEvidenceBasis,
   type PatternFindingTone,
   PATTERNS_SERIES_MAX_POINTS,
 } from "../../shared/patterns_vocabulary.ts";
@@ -73,9 +75,20 @@ import {
   executionDurationMs,
   type LogbookEvent,
   type PruneDigest,
+  type StandardReading,
   type VerbEvent,
 } from "./schema.ts";
 import { byBranch } from "./read.ts";
+import {
+  crossContextValidationGroups,
+  observedEvidenceValues,
+  sameEnvelopeValidationGroups,
+  VALIDATION_FINDING_RELATIONSHIPS,
+  type ValidationContextBucket,
+  validationContextLabel,
+  type ValidationFindingRelationship,
+  type ValidationRepeatGroup,
+} from "./validation_findings.ts";
 
 /** Stable marker carried in standard observations when their series crosses
  * a configuration or release boundary. The human report recognizes the same
@@ -84,6 +97,27 @@ export const TRAJECTORY_BOUNDARY_ATTRIBUTION =
   "segments are attributed, not blended";
 
 // ── the stream, pre-digested ────────────────────────────────────────────────
+
+/** One completed Gate-job duration retained in the per-stream analysis. */
+interface CompletedJobSample {
+  event: VerbEvent;
+  seconds: number;
+}
+
+/** Setup and completed-job facts derived once for every detector run. */
+export interface StreamAnalysis {
+  /** Display label for the dominant recorded MCP client, when one exists. */
+  clientLabel: string | undefined;
+  /** One event's dominant-client version in effect. */
+  clientVersionOf(event: VerbEvent): string | undefined;
+  /** Constant-time config/writer/client setup identity for one event. */
+  setupKeyOf(event: VerbEvent): string;
+  /** Completed Gate jobs, indexed first by label and then by setup identity. */
+  completedJobs: ReadonlyMap<
+    string,
+    ReadonlyMap<string, readonly CompletedJobSample[]>
+  >;
+}
 
 /** The event stream plus everything detectors keep re-deriving, computed once. */
 export interface StreamFacts {
@@ -108,6 +142,8 @@ export interface StreamFacts {
   /** Events recorded during the project's one-time setup, set aside before
    * any population was derived — reported, so the exclusion is never silent. */
   setupEra: number;
+  /** Whole-stream setup and completed-job analysis shared by every detector. */
+  analysis: StreamAnalysis;
 }
 
 /** The analysis population of a raw stream: verb events minus CI noise and
@@ -129,6 +165,58 @@ function setupEraEvent(e: LogbookEvent): boolean {
   return e.kind !== "prune" && e.branch === SETUP_BRANCH;
 }
 
+/** Build the setup and completed-job indexes once for one analyzed stream. */
+function buildStreamAnalysis(verbs: readonly VerbEvent[]): StreamAnalysis {
+  const eras = dominantClientEras(verbs);
+  const clientVersions = new Map<VerbEvent, string | undefined>();
+  const setupKeys = new Map<VerbEvent, string>();
+  for (const event of verbs) {
+    clientVersions.set(event, eras.versionInEffectOf(event));
+  }
+  const clientVersionOf = (event: VerbEvent): string | undefined =>
+    clientVersions.has(event)
+      ? clientVersions.get(event)
+      : eras.versionInEffectOf(event);
+  for (const event of verbs) {
+    setupKeys.set(event, setupOf(event, clientVersionOf));
+  }
+  const setupKeyOf = (event: VerbEvent): string =>
+    setupKeys.get(event) ?? setupOf(event, clientVersionOf);
+
+  const completedJobs = new Map<
+    string,
+    Map<string, CompletedJobSample[]>
+  >();
+  for (const event of verbs) {
+    if (event.verb !== "done") {
+      continue;
+    }
+    const setup = setupKeyOf(event);
+    const indexedLabels = new Set<string>();
+    for (const step of event.steps ?? []) {
+      if (
+        step.disposition !== "run" ||
+        (step.outcome !== "ok" && step.outcome !== "failed") ||
+        step.duration_s === undefined || indexedLabels.has(step.label)
+      ) {
+        continue;
+      }
+      indexedLabels.add(step.label);
+      const bySetup = completedJobs.get(step.label) ?? new Map();
+      const samples = bySetup.get(setup) ?? [];
+      samples.push({ event, seconds: step.duration_s });
+      bySetup.set(setup, samples);
+      completedJobs.set(step.label, bySetup);
+    }
+  }
+  return {
+    clientLabel: eras.label,
+    clientVersionOf,
+    setupKeyOf,
+    completedJobs,
+  };
+}
+
 /** Build the pre-digested facts every detector receives. Setup-era events are
  * set aside first — every derived population, the boundary vocabulary, and
  * the stream horizon read from the remainder. */
@@ -140,6 +228,7 @@ export function buildStreamFacts(
   const analyzed = events.filter((e) => !setupEraEvent(e));
   const verbs = analyzableVerbs(analyzed);
   const agentish = verbs.filter((e) => driverKind(e) !== "human");
+  const analysis = buildStreamAnalysis(verbs);
   return {
     events: analyzed,
     verbs,
@@ -148,6 +237,7 @@ export function buildStreamFacts(
     configuredAgents,
     horizon: analyzed[analyzed.length - 1]?.at,
     setupEra: events.length - analyzed.length,
+    analysis,
   };
 }
 
@@ -157,8 +247,8 @@ export function buildStreamFacts(
 export interface DetectorFinding {
   /** What the finding is about — a branch, a standard, a tool+rule, a commit. */
   subject?: string;
-  /** One-line row form, read beside {@link subject}. */
-  brief: string;
+  /** Plain-language first sentence, read beside {@link subject}. */
+  summary: string;
   /** Overrides the detector's presentation tone when this finding's facts decide it. */
   tone?: PatternFindingTone;
   /** Optional bounded numeric series for a compact reading aid. */
@@ -167,6 +257,8 @@ export interface DetectorFinding {
   observed: string;
   /** The counts behind the sentence, named. */
   evidence: Record<string, number>;
+  /** Optional structured provenance and comparison boundary for the counts. */
+  basis?: PatternEvidenceBasis;
   /** Unitless ranking key for report ordering — never evidence. */
   strength: number;
   /** Overrides the detector's default next step when a finding shape needs its own. */
@@ -202,6 +294,10 @@ export interface Detector {
    * exactly this set: a windowed detector's findings must be identical
    * whether or not foreign-setup runs interleave its comparable series. */
   windowed?: true;
+  /** Present on the validation relationships derived from the canonical
+   * relationship registry. Guards then auto-enrol every such detector into
+   * the common evidence-contract assertions. */
+  validationRelationship?: ValidationFindingRelationship;
   /** Minimum `considered` before the detector may speak. */
   threshold: number;
   /** The recommended structural next step (findings may override per shape). */
@@ -296,12 +392,6 @@ export function inclusiveSpanDays(
   return Math.floor(Math.abs(endDay - startDay) / 86_400_000) + 1;
 }
 
-/** A red gate outcome whose failure reached the tests (the flake dimension). */
-function testRed(e: VerbEvent): boolean {
-  return e.outcome === "failed" &&
-    (e.failed_stage === "test" || e.failed_stage === "check/test");
-}
-
 /** What a trend's candidate events resolved to: the comparable series and,
  * when any candidate ran under a different setup, the excluded remainder. */
 export interface ComparableSeries {
@@ -339,27 +429,26 @@ function setupOf(
  * writer or client release), so a trend detector can attribute instead of
  * blending — or staying silent.
  */
-export function comparableSeries(
+function comparableSeriesWithAnalysis(
   events: VerbEvent[],
   all: LogbookEvent[],
+  analysis: StreamAnalysis,
 ): ComparableSeries {
   const last = events[events.length - 1];
   if (last === undefined) {
     return { series: [] };
   }
-  const eras = dominantClientEras(analyzableVerbs(all));
-  const version = eras.versionInEffectOf;
-  const currentSetup = setupOf(last, version);
+  const currentSetup = analysis.setupKeyOf(last);
   const series: VerbEvent[] = [];
   const excludedEvents: VerbEvent[] = [];
   for (const e of events) {
-    (setupOf(e, version) === currentSetup ? series : excludedEvents).push(e);
+    (analysis.setupKeyOf(e) === currentSetup ? series : excludedEvents).push(e);
   }
   if (excludedEvents.length === 0) {
     return { series };
   }
 
-  const setups = new Set(excludedEvents.map((e) => setupOf(e, version))).size;
+  const setups = new Set(excludedEvents.map(analysis.setupKeyOf)).size;
   const moved: string[] = [];
   const otherEpochs = new Set(
     excludedEvents.filter((e) => e.epoch !== last.epoch).map((e) => e.epoch),
@@ -392,17 +481,19 @@ export function comparableSeries(
         : `${formatHumanNumber(otherWriters.size)} other releases`,
     );
   }
-  const currentVersion = version(last);
+  const currentVersion = analysis.clientVersionOf(last);
   const otherVersions = new Set(
-    excludedEvents.map(version).filter((v) => v !== currentVersion),
+    excludedEvents.map(analysis.clientVersionOf).filter((v) =>
+      v !== currentVersion
+    ),
   );
-  if (otherVersions.size > 0 && eras.label !== undefined) {
+  if (otherVersions.size > 0 && analysis.clientLabel !== undefined) {
     const [only] = otherVersions;
     moved.push(
       otherVersions.size === 1 && only !== undefined &&
         currentVersion !== undefined
-        ? `the ${eras.label} ${only} → ${currentVersion} client release`
-        : `other ${eras.label} client releases`,
+        ? `the ${analysis.clientLabel} ${only} → ${currentVersion} client release`
+        : `other ${analysis.clientLabel} client releases`,
     );
   }
   return {
@@ -413,6 +504,26 @@ export function comparableSeries(
       detail: moved.join(" and "),
     },
   };
+}
+
+/** Compare an arbitrary event list using one freshly derived stream index. */
+export function comparableSeries(
+  events: VerbEvent[],
+  all: LogbookEvent[],
+): ComparableSeries {
+  return comparableSeriesWithAnalysis(
+    events,
+    all,
+    buildStreamAnalysis(analyzableVerbs(all)),
+  );
+}
+
+/** Compare detector candidates through the shared per-stream setup index. */
+function comparableFactsSeries(
+  events: VerbEvent[],
+  facts: StreamFacts,
+): ComparableSeries {
+  return comparableSeriesWithAnalysis(events, facts.events, facts.analysis);
 }
 
 /** The attribution finding a trend detector reports when its comparable
@@ -426,11 +537,8 @@ function attributionFinding(
   const firstAt = series[0]?.at;
   const since = firstAt === undefined ? "" : `, first recorded ${day(firstAt)}`;
   return {
-    brief: `${formatHumanNumber(comparable)} comparable ${
-      comparable === 1 ? "run" : "runs"
-    } on the current setup · ${formatHumanNumber(excluded.runs)} under ${
-      excluded.setups === 1 ? "another" : "others"
-    }`,
+    summary:
+      "The current setup does not yet have enough comparable runs for a trend.",
     tone: "neutral",
     observed: `only ${formatHumanNumber(comparable)} ${
       comparable === 1 ? "run shares" : "runs share"
@@ -450,6 +558,16 @@ function attributionFinding(
   };
 }
 
+/** Name runs excluded from a current-setup comparison, when any exist. */
+function excludedSetupSentence(
+  excluded: { runs: number; detail: string } | undefined,
+): string {
+  if (excluded === undefined || excluded.runs === 0) return "";
+  return ` ${formatHumanNumber(excluded.runs)} ${
+    excluded.runs === 1 ? "run was" : "runs were"
+  } recorded under ${excluded.detail} and excluded from this comparison.`;
+}
+
 /** Sum of a step group's recorded durations within one event. */
 function stageSeconds(e: VerbEvent, group: string): number | undefined {
   const steps = (e.steps ?? []).filter((s) => s.group === group);
@@ -457,6 +575,109 @@ function stageSeconds(e: VerbEvent, group: string): number | undefined {
     return undefined;
   }
   return steps.reduce((sum, s) => sum + (s.duration_s ?? 0), 0);
+}
+
+/** Whether two events share the complete setup boundary used by trend readers. */
+function sameComparableSetup(
+  left: VerbEvent,
+  right: VerbEvent,
+  facts: StreamFacts,
+): boolean {
+  return facts.analysis.setupKeyOf(left) === facts.analysis.setupKeyOf(right);
+}
+
+/** Count repeated complete validation states beyond the first observation. */
+function unchangedValidationReruns(events: readonly VerbEvent[]): number {
+  const counts = new Map<string, number>();
+  for (const event of events) {
+    const validation = event.validation;
+    if (
+      validation?.state.complete !== true ||
+      validation.execution.complete !== true ||
+      validation.state.digest === undefined
+    ) {
+      continue;
+    }
+    const key =
+      `${validation.version}\0${validation.state.version}\0${validation.state.digest}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.values()].reduce(
+    (total, count) => total + Math.max(0, count - 1),
+    0,
+  );
+}
+
+/** A bounded setup account for structured decision evidence. */
+function setupConditions(
+  events: readonly VerbEvent[],
+  analysis: StreamAnalysis,
+): NonNullable<PatternEvidenceBasis["matched_conditions"]> {
+  const clientRelease = analysis.clientLabel === undefined
+    ? undefined
+    : boundedPatternEvidenceCondition(
+      `${analysis.clientLabel}-client-release`,
+      events.map((event) => ({
+        key: analysis.clientVersionOf(event) ?? "unrecorded",
+        label: analysis.clientVersionOf(event) ?? "unrecorded",
+      })),
+    );
+  return [
+    boundedPatternEvidenceCondition(
+      "config-epoch",
+      events.map((event) => ({
+        key: event.epoch ?? "unrecorded",
+        label: event.epoch ?? "unrecorded",
+      })),
+    ),
+    boundedPatternEvidenceCondition(
+      "writer-release",
+      events.map((event) => ({
+        key: event.writer ?? "unrecorded",
+        label: event.writer ?? "unrecorded",
+      })),
+    ),
+    clientRelease,
+  ].filter((condition) => condition !== undefined);
+}
+
+/** Build the common evidence basis for a decision finding. */
+function decisionEvidenceBasis(
+  kind: string,
+  evidence: Record<string, number>,
+  options: {
+    comparable: number;
+    denominator: number;
+    unit: string;
+    events: readonly VerbEvent[];
+    facts: StreamFacts;
+    estimated?: ReadonlySet<string>;
+    legacyEvents?: number;
+    excludedEvents?: number;
+    limitations?: string[];
+  },
+): PatternEvidenceBasis {
+  const estimated = options.estimated ?? new Set<string>();
+  return {
+    kind,
+    coverage: {
+      comparable: options.comparable,
+      denominator: options.denominator,
+      unit: options.unit,
+    },
+    validation_state: { version: null, complete: false },
+    matched_conditions: setupConditions(options.events, options.facts.analysis),
+    differing_conditions: [],
+    legacy_events: options.legacyEvents ?? 0,
+    excluded_events: options.excludedEvents ?? 0,
+    limitations: options.limitations ?? [],
+    values: Object.fromEntries(
+      Object.entries(evidence).map(([name, value]) => [
+        name,
+        { value, kind: estimated.has(name) ? "estimated" : "observed" },
+      ]),
+    ),
+  };
 }
 
 // ── the detectors ───────────────────────────────────────────────────────────
@@ -472,7 +693,7 @@ const doneThrash: Detector = {
   // keeps a brand-new branch's first stumbles out of the report.
   threshold: 4,
   next_step:
-    "A red `done` loop is usually symptom-chasing — run the `discern-cure-a-bug` skill's diagnose procedure to prove the cause, and iterate with `discern prepare` between attempts instead of paying the full gate each time.",
+    "Start with the first repeated diagnostic and use the `discern-cure-a-bug` skill's diagnose procedure to prove its cause. Use `discern prepare` when the Gate identifies fix or regeneration work it can prevent.",
   detect(facts): DetectorOutcome {
     const dones = facts.agentish.filter((e) => e.verb === "done");
     const findings: DetectorFinding[] = [];
@@ -481,17 +702,29 @@ const doneThrash: Detector = {
         const streak = longestStreak(session, (e) => e.outcome === "failed");
         // A 3-streak is where iteration stops looking like progress.
         if (streak >= 3) {
+          const evidence = {
+            consecutive_failures: streak,
+            runs: session.length,
+          };
           findings.push({
             subject: branch,
-            brief: `${formatHumanNumber(streak)} red \`done\` runs · ${
-              formatHumanNumber(session.length)
-            } in the conversation`,
+            summary: "This branch had repeated red Gates in one conversation.",
             observed: `\`done\` failed ${
               formatHumanNumber(streak)
             } consecutive runs on \`${branch}\` (${
               formatHumanNumber(session.length)
             } runs in the conversation).`,
-            evidence: { consecutive_failures: streak, runs: session.length },
+            evidence,
+            basis: decisionEvidenceBasis("red-done-streak", evidence, {
+              comparable: session.length,
+              denominator: session.length,
+              unit: "Gate runs in the conversation",
+              events: session,
+              facts,
+              limitations: [
+                "The streak is conversation-scoped; synthesis requires another finding on the same branch and recorded setup.",
+              ],
+            }),
             strength: streak,
           });
         }
@@ -509,10 +742,10 @@ const refusalLoop: Detector = {
   tier: "inline",
   tone: "attention",
   // 3 refusals: two can be one honest retry; the third repeat of the same
-  // refusal is an agent arguing with a precondition.
+  // refusal shows the same precondition remained unmet.
   threshold: 3,
   next_step:
-    "A refusal means the verb declined — repeating the call won't change its answer. Read the refusal message for the precondition it names; if agents keep hitting it, capture the lesson with the `discern-teach-the-project` skill.",
+    "Read the refusal message and satisfy the precondition it names before retrying. If the same precondition keeps recurring, capture the lesson with the `discern-teach-the-project` skill.",
   detect(facts): DetectorOutcome {
     const refused = facts.agentish.filter((e) => e.outcome === "refused");
     const findings: DetectorFinding[] = [];
@@ -532,15 +765,13 @@ const refusalLoop: Detector = {
         if (count >= 3) {
           findings.push({
             subject: branch,
-            brief: `${formatHumanNumber(count)} refusals · \`${verb}\`${
-              slug !== "" ? ` · \`${slug}\`` : ""
-            }`,
+            summary: "The same command refusal recurred on this branch.",
             observed:
-              `\`${verb}\` refused ${
-                formatHumanNumber(count)
-              } times on \`${branch}\`` +
+              `\`${verb}\` refused ${formatHumanNumber(count)} of ${
+                formatHumanNumber(events.length)
+              } recorded refusals on \`${branch}\`` +
               (slug !== "" ? ` with the same slug (\`${slug}\`).` : "."),
-            evidence: { refusals: count },
+            evidence: { refusals: count, branch_refusals: events.length },
             strength: count,
           });
         }
@@ -804,11 +1035,9 @@ const hintFollowThrough: Detector = {
       const allFollowed = familyCounts.notFollowed === 0;
       findings.push({
         subject: family.family,
-        brief: `${formatHumanNumber(familyCounts.followed)} of ${
-          formatHumanNumber(resolved)
-        } resolved followed · ${
-          formatHumanNumber(familyCounts.notFollowed)
-        } not followed · ${formatHumanNumber(familyCounts.censored)} censored`,
+        summary: allFollowed
+          ? "Every resolved episode followed this hint family."
+          : "Some resolved episodes did not follow this hint family.",
         tone: allFollowed ? "good" : "attention",
         observed: `\`${family.family}\` fired ${
           formatHumanNumber(familyCounts.fired)
@@ -1000,7 +1229,6 @@ export function tipAdoptionOutcome(
   registry: readonly RegisteredTip[] = TIPS,
 ): DetectorOutcome {
   const families = tipAdoptionFamilies(registry);
-  const eras = dominantClientEras(facts.verbs);
   const countsById = new Map<string, TipAdoptionCounts>();
   for (const family of families) {
     for (const member of family.members) {
@@ -1022,8 +1250,8 @@ export function tipAdoptionOutcome(
             facts.verbs,
             index,
             member,
-            eras.versionInEffectOf,
-            eras.label !== undefined,
+            facts.analysis.clientVersionOf,
+            facts.analysis.clientLabel !== undefined,
           )
         ) {
           case "followed":
@@ -1061,11 +1289,9 @@ export function tipAdoptionOutcome(
       const resolved = counts.followed + counts.notFollowed;
       findings.push({
         subject: counts.id,
-        brief: `${formatHumanNumber(counts.followed)} of ${
-          formatHumanNumber(resolved)
-        } resolved followed · ${
-          formatHumanNumber(counts.notFollowed)
-        } not followed · ${formatHumanNumber(counts.censored)} censored`,
+        summary: counts.notFollowed === 0
+          ? "Every resolved episode followed this tip."
+          : "Some resolved episodes did not follow this tip.",
         tone: counts.notFollowed === 0 ? "good" : "attention",
         observed: `The \`${counts.id}\` tip appeared at the desk ${
           formatHumanNumber(counts.fired)
@@ -1108,49 +1334,142 @@ const tipAdoption: Detector = {
   },
 };
 
+type PreparePreventableKind = "generation" | "fix-drift";
+
+/** Classify a clean Gate failure only when the recorded steps establish that
+ * `prepare` runs the work that stopped it. Dirty Gates retain their full-
+ * feedback role. Check/test and generic build failures remain outside the
+ * predicate because prepare cannot prevent them. */
+function preparePreventableKind(
+  event: VerbEvent,
+): PreparePreventableKind | undefined {
+  if (
+    event.verb !== "done" || event.clean !== true ||
+    event.outcome !== "failed" || event.head === null || event.epoch === null
+  ) {
+    return undefined;
+  }
+  const steps = event.steps ?? [];
+  if (event.failed_stage === "generated_drift") {
+    return "generation";
+  }
+  if (event.failed_stage !== "tree_drift") {
+    return undefined;
+  }
+  const fixWorked = steps.some((step) =>
+    step.group === "Fix" && step.outcome === "ok"
+  );
+  const regenerationRan = steps.some((step) =>
+    step.label.startsWith("generated:") && step.disposition === "run"
+  );
+  const genericBuildRan = steps.some((step) =>
+    step.group === "Build" && !step.label.startsWith("generated:") &&
+    step.disposition === "run"
+  );
+  const laterValidationRan = steps.some((step) =>
+    (step.group === "Check" || step.group === "Test" ||
+      step.group === "Check & test") &&
+    step.outcome !== "skipped" && step.outcome !== "cancelled"
+  );
+  return fixWorked && !regenerationRan && !genericBuildRan &&
+      !laterValidationRan
+    ? "fix-drift"
+    : undefined;
+}
+
 const skippedPrepare: Detector = {
   id: "skipped-prepare",
-  title: "Done-heavy iteration without prepare",
+  title: "Repeated Gate work preventable by prepare",
   family: "behaviour",
   scope: "branch",
   tier: "inline",
   tone: "attention",
-  // 4 gate-loop runs before judging a branch's iteration style.
-  threshold: 4,
+  // Two distinct clean HEADs establish repetition without treating additional
+  // runs on one HEAD as evidence of a project-wide workflow pattern.
+  threshold: 2,
   next_step:
-    "`discern prepare` is the fast inner loop (fixers plus checks, no tests) — iterating through `done` alone pays for the full gate on every attempt.",
+    "Run `discern prepare` before the next commit when the same recorded fix or regeneration work keeps stopping the full Gate. Review and commit its changes, then run `discern done`; `done` remains a supported first command and dirty runs retain full feedback.",
   detect(facts): DetectorOutcome {
-    const loop = facts.agentish.filter((e) =>
-      e.verb === "done" || e.verb === "prepare"
+    const workflow = facts.agentish.filter((event) =>
+      event.verb === "done" || event.verb === "prepare"
     );
     const findings: DetectorFinding[] = [];
-    for (const [branch, events] of byBranch(loop)) {
-      const dones = events.filter((e) => e.verb === "done");
-      const prepares = events.length - dones.length;
-      const redDones = dones.filter((e) => e.outcome === "failed").length;
-      // Red done runs prove iteration happened; zero prepares proves the fast
-      // loop never entered it.
-      if (dones.length >= 4 && redDones >= 2 && prepares === 0) {
+    let considered = 0;
+    for (const [branch, branchEvents] of byBranch(workflow)) {
+      const byEpoch = new Map<string, VerbEvent[]>();
+      for (const event of branchEvents) {
+        if (event.epoch === null) continue;
+        const events = byEpoch.get(event.epoch) ?? [];
+        events.push(event);
+        byEpoch.set(event.epoch, events);
+      }
+      for (const events of byEpoch.values()) {
+        const dones = events.filter((event) => event.verb === "done");
+        const candidates = dones.flatMap((event) => {
+          const kind = preparePreventableKind(event);
+          return kind === undefined ? [] : [{ event, kind }];
+        });
+        const byHead = new Map<string, (typeof candidates)[number]>();
+        for (const candidate of candidates) {
+          const head = candidate.event.head;
+          if (head !== null && !byHead.has(head)) {
+            byHead.set(head, candidate);
+          }
+        }
+        considered += dones.length;
+        if (byHead.size < 2) continue;
+        const distinct = [...byHead.values()];
+        const countKind = (kind: PreparePreventableKind): number =>
+          distinct.filter((candidate) => candidate.kind === kind).length;
+        const fixDrift = countKind("fix-drift");
+        const generation = countKind("generation");
+        const prepareRuns = events.filter((event) =>
+          event.verb === "prepare"
+        ).length;
+        const evidence = {
+          prepare_preventable_failures: byHead.size,
+          done_runs: dones.length,
+          distinct_clean_heads: byHead.size,
+          same_head_additional_runs: candidates.length - byHead.size,
+          fix_drift_failures: fixDrift,
+          regeneration_failures: generation,
+          prepare_runs: prepareRuns,
+        };
         findings.push({
           subject: branch,
-          brief: `${formatHumanNumber(dones.length)} \`done\` runs (${
-            formatHumanNumber(redDones)
-          } red) · no \`prepare\``,
-          observed: `\`${branch}\` iterated through ${
+          summary:
+            "Repeated clean Gate runs stopped on work that `discern prepare` also performs.",
+          observed: `\`${branch}\` had ${formatHumanNumber(byHead.size)} of ${
             formatHumanNumber(dones.length)
-          } \`done\` runs (${
-            formatHumanNumber(redDones)
-          } red) with no \`prepare\` between them.`,
-          evidence: {
-            done_runs: dones.length,
-            red_done_runs: redDones,
-            prepare_runs: 0,
-          },
-          strength: redDones,
+          } \`done\` runs stop on ${
+            formatHumanNumber(byHead.size)
+          } distinct clean HEADs in work \`prepare\` also runs: ${
+            formatHumanNumber(fixDrift)
+          } fix-stage tree-drift failures and ${
+            formatHumanNumber(generation)
+          } regeneration failures. The same branch and config recorded ${
+            formatHumanNumber(prepareRuns)
+          } \`prepare\` runs; missing \`prepare\` alone did not establish this finding.`,
+          evidence,
+          basis: decisionEvidenceBasis(
+            "prepare-preventable-gate-work",
+            evidence,
+            {
+              comparable: byHead.size,
+              denominator: dones.length,
+              unit: "full-Gate runs",
+              events,
+              facts,
+              limitations: [
+                "The predicate proves recorded fix or regeneration work that preflight also runs; missing prepare invocation alone establishes nothing.",
+              ],
+            },
+          ),
+          strength: byHead.size,
         });
       }
     }
-    return { considered: loop.length, findings };
+    return { considered, findings };
   },
 };
 
@@ -1165,7 +1484,7 @@ const dirtyDoneChurn: Detector = {
   // for enough of them to call the pattern a habit rather than a moment.
   threshold: 5,
   next_step:
-    "Only a clean committed HEAD earns a valid proof, so a dirty `done` can never be the final one — iterate with `prepare` and `test`, then commit and run `done` once on the finished tree.",
+    "Use `done` whenever full Gate feedback is needed. For a final Proof, commit the finished tree and run `done` on that clean HEAD; use `prepare` only for recorded fix or regeneration work and `test` for targeted iteration.",
   detect(facts): DetectorOutcome {
     const dones = facts.agentish.filter((e) => e.verb === "done");
     const findings: DetectorFinding[] = [];
@@ -1174,9 +1493,8 @@ const dirtyDoneChurn: Detector = {
       if (dirty >= 5 && dirty * 2 > events.length) {
         findings.push({
           subject: branch,
-          brief: `${formatHumanNumber(dirty)} of ${
-            formatHumanNumber(events.length)
-          } \`done\` runs · dirty tree`,
+          summary:
+            "Most recorded `done` runs on this branch started from a dirty tree.",
           observed: `${formatHumanNumber(dirty)} of ${
             formatHumanNumber(events.length)
           } \`done\` runs on \`${branch}\` ran on a dirty tree.`,
@@ -1199,7 +1517,7 @@ const trunkEdits: Detector = {
   // 3 dirty-trunk events: one is a stray, three is a working pattern.
   threshold: 3,
   next_step:
-    "Work belongs in worktrees — `discern start` creates one per change. Edits made directly on the trunk collide with every other effort and bypass the landing flow.",
+    "Use `discern start` to put each change in its own worktree. Direct trunk edits bypass the isolated landing flow and can overlap with active efforts.",
   detect(facts): DetectorOutcome {
     const onTrunk = facts.agentish.filter((e) => e.branch === facts.trunk);
     const dirty = onTrunk.filter((e) => e.clean === false);
@@ -1207,10 +1525,10 @@ const trunkEdits: Detector = {
     const findings: DetectorFinding[] = dirty.length >= 3
       ? [{
         subject: facts.trunk,
-        brief: `${formatHumanNumber(dirty.length)} dirty runs · ${
-          [...verbs].sort().join(", ")
-        }`,
-        observed: `${formatHumanNumber(dirty.length)} runs (${
+        summary: "Uncommitted work repeatedly appeared on the trunk.",
+        observed: `${formatHumanNumber(dirty.length)} of ${
+          formatHumanNumber(onTrunk.length)
+        } analyzed trunk runs (${
           [...verbs].sort().join(", ")
         }) happened on \`${facts.trunk}\` with uncommitted changes in the tree.`,
         evidence: {
@@ -1235,7 +1553,7 @@ const forceHabit: Detector = {
   // 3 forced runs — each --force bypasses a guard once; three is a habit.
   threshold: 3,
   next_step:
-    "Each `--force` bypasses a guard. When it becomes routine, the guard is mis-fit or the workflow has a gap — fix the underlying refusal, or record the situation with the `discern-teach-the-project` skill so future sessions don't inherit the habit.",
+    "Inspect the recorded reason for each forced run. Fix an unmet precondition first; adjust a guard only when repeated valid cases show it does not fit the workflow, and capture that decision with the `discern-teach-the-project` skill.",
   detect(facts): DetectorOutcome {
     const forced = facts.agentish.filter((e) =>
       (e.flags ?? []).includes("force")
@@ -1243,13 +1561,16 @@ const forceHabit: Detector = {
     const verbs = new Set(forced.map((e) => e.verb));
     const findings: DetectorFinding[] = forced.length >= 3
       ? [{
-        brief: `${formatHumanNumber(forced.length)} forced runs · ${
-          [...verbs].sort().join(", ")
-        }`,
+        summary: "`--force` was used repeatedly across recorded runs.",
         observed: `\`--force\` was passed ${
           formatHumanNumber(forced.length)
-        } times (${[...verbs].sort().join(", ")}).`,
-        evidence: { forced_runs: forced.length },
+        } times across ${
+          formatHumanNumber(facts.agentish.length)
+        } analyzed agent-driven runs (${[...verbs].sort().join(", ")}).`,
+        evidence: {
+          forced_runs: forced.length,
+          agent_driven_runs: facts.agentish.length,
+        },
         strength: forced.length,
       }]
       : [];
@@ -1259,7 +1580,7 @@ const forceHabit: Detector = {
 
 const confirmedRerun: Detector = {
   id: "confirmed-rerun",
-  title: "Recurring confirmed gate reruns",
+  title: "Recurring confirmed Gate reruns",
   family: "behaviour",
   scope: "project",
   tier: "batch",
@@ -1268,7 +1589,7 @@ const confirmedRerun: Detector = {
   // deliberate probe; three is a habit worth naming.
   threshold: 3,
   next_step:
-    "A confirmed rerun asks an unchanged tree for a changed verdict. When that becomes routine, the gate's verdicts aren't trusted — diagnose the unstable check (`discern-cure-a-bug`, diagnose procedure) instead of paying the gate to re-ask; the same-tree-flake findings name which trees flipped.",
+    "Inspect why each already-judged tree was rerun. If a job changed verdict under matched recorded conditions, use the `discern-cure-a-bug` diagnose procedure; otherwise keep the recorded reason as context rather than inferring instability.",
   detect(facts): DetectorOutcome {
     const confirmed = facts.agentish.filter((e) =>
       e.verb === "done" && (e.flags ?? []).includes("confirmed")
@@ -1276,22 +1597,23 @@ const confirmedRerun: Detector = {
     const branches = new Set(
       confirmed.map((e) => e.branch).filter((b): b is string => b !== null),
     );
+    const doneRuns = facts.agentish.filter((event) => event.verb === "done")
+      .length;
     const findings: DetectorFinding[] = confirmed.length >= 3
       ? [{
-        brief: `${formatHumanNumber(confirmed.length)} confirmed reruns${
-          branches.size > 0
-            ? ` · ${formatHumanNumber(branches.size)} branches`
-            : ""
-        }`,
+        summary: "The Gate was repeatedly rerun on already-judged trees.",
         observed:
-          `\`done --confirmed\` re-ran the gate on an already-judged tree ${
+          `\`done --confirmed\` re-ran the Gate on an already-judged tree ${
             formatHumanNumber(confirmed.length)
-          } times` +
+          } times across ${
+            formatHumanNumber(doneRuns)
+          } recorded \`done\` runs` +
           (branches.size > 0
             ? ` across ${formatHumanNumber(branches.size)} branches.`
             : "."),
         evidence: {
           confirmed_runs: confirmed.length,
+          done_runs: doneRuns,
           branches: branches.size,
         },
         strength: confirmed.length,
@@ -1345,7 +1667,7 @@ export function dormantWatchedVerbs(): Set<string> {
  */
 const dormantVerbs: Detector = {
   id: "dormant-verbs",
-  title: "Dormant operator verbs",
+  title: "Operator verbs absent from the Logbook",
   family: "behaviour",
   scope: "project",
   tier: "batch",
@@ -1366,9 +1688,8 @@ const dormantVerbs: Detector = {
     const dormant = watched.filter((name) => !seen.has(name));
     const findings: DetectorFinding[] = dormant.length > 0
       ? [{
-        brief: `${formatHumanNumber(dormant.length)} of ${
-          formatHumanNumber(watched.length)
-        } operator verbs never recorded`,
+        summary:
+          "Some operator commands have not appeared in this repository's Logbook.",
         observed: `${formatHumanNumber(dormant.length)} of the ${
           formatHumanNumber(watched.length)
         } operator verbs ${
@@ -1468,17 +1789,11 @@ const preAuthorizedLandings: Detector = {
     const shifted = half >= 4 &&
       Math.abs(laterShare - earlierShare) >= 30;
 
-    const trendBriefs: string[] = [];
     const trendSentences: string[] = [];
     if (current >= 4) {
       const source = currentSources.size === 1
         ? currentSources.values().next().value
         : undefined;
-      trendBriefs.push(
-        `current run ${formatHumanNumber(current)}${
-          source === undefined ? "" : ` ${grantSourceLabel(source)}`
-        }`,
-      );
       trendSentences.push(
         `The current run is ${formatHumanNumber(current)} pre-authorized ${
           current === 1 ? "landing" : "landings"
@@ -1487,7 +1802,6 @@ const preAuthorizedLandings: Detector = {
         }`,
       );
     } else if (longest >= 4) {
-      trendBriefs.push(`longest run ${formatHumanNumber(longest)}`);
       trendSentences.push(
         `The longest pre-authorized run was ${
           formatHumanNumber(longest)
@@ -1495,11 +1809,6 @@ const preAuthorizedLandings: Detector = {
       );
     }
     if (shifted) {
-      trendBriefs.push(
-        `share ${formatHumanNumber(earlierShare)}% → ${
-          formatHumanNumber(laterShare)
-        }%`,
-      );
       trendSentences.push(
         `The pre-authorized share moved from ${
           formatHumanNumber(earlierShare)
@@ -1512,13 +1821,8 @@ const preAuthorizedLandings: Detector = {
     }
 
     const findings: DetectorFinding[] = [{
-      brief: `${formatHumanNumber(delegated.length)} of ${
-        formatHumanNumber(landings.length)
-      } consent-recorded landings (${formatHumanNumber(share)}%) · standing ${
-        formatHumanNumber(standing.length)
-      } · effort ${formatHumanNumber(effort)}${
-        trendBriefs.length === 0 ? "" : ` · ${trendBriefs.join(" · ")}`
-      }`,
+      summary:
+        "Recorded landing authority handled part of this project's landings.",
       observed: `${formatHumanNumber(delegated.length)} of ${
         formatHumanNumber(landings.length)
       } landings with recorded consent evidence (${
@@ -1561,9 +1865,7 @@ const preAuthorizedLandings: Detector = {
     ) {
       findings.push({
         subject: scope,
-        brief: `${formatHumanNumber(count)} standing grant ${
-          count === 1 ? "landing" : "landings"
-        }`,
+        summary: "The standing grant for this scope covered recorded landings.",
         observed: `The standing grant for \`${scope}\` covered ${
           formatHumanNumber(count)
         } of ${formatHumanNumber(standing.length)} standing grant landings.`,
@@ -1620,14 +1922,14 @@ const grantSuggestion: Detector = {
       considered: attempts.length,
       findings: [{
         subject: scope,
-        brief: `${
-          formatHumanNumber(run)
-        } consecutive conversational landings · one scope`,
-        observed: `The latest ${
-          formatHumanNumber(run)
-        } \`accept\` attempts landed with conversation consent, and each changed only \`${scope}\`. No refusal interrupted the run.`,
+        summary:
+          "Recent landings repeatedly used conversation consent for the same scope.",
+        observed: `The latest ${formatHumanNumber(run)} of ${
+          formatHumanNumber(attempts.length)
+        } recorded \`accept\` attempts landed with conversation consent, and each changed only \`${scope}\`. No refusal interrupted the run.`,
         evidence: {
           consecutive_conversational_landings: run,
+          accept_attempts: attempts.length,
           scopes: 1,
           intervening_refusals: 0,
         },
@@ -1674,17 +1976,19 @@ const docsGap: Detector = {
     for (const [key, count] of repeatedMisses) {
       findings.push({
         subject: key,
-        brief: `${formatHumanNumber(count)} requests · all refused`,
+        summary: "The same documentation request was repeatedly refused.",
         tone: "attention",
         observed: `\`${key}\` was asked for ${
           formatHumanNumber(count)
-        } times and refused every time — the purest guidance-gap signal the logbook holds.`,
-        evidence: { misses: count },
+        } times and refused every time across ${
+          formatHumanNumber(lookups.length)
+        } recorded documentation lookups.`,
+        evidence: { misses: count, lookups: lookups.length },
         // Misses outrank read counts in the report: a missing page is
         // actionable, a popular one is context.
         strength: count * 25,
         next_step:
-          "Agents keep asking for a page that isn't there. Add the topic (the `discern-document-subsystem` skill fits), or cross-link it from where they look.",
+          "Add or cross-link the missing topic where the recorded requests looked for it; the `discern-document-subsystem` skill fits this work.",
       });
     }
     if (lookups.length >= 10 && reads.size > 0) {
@@ -1692,10 +1996,8 @@ const docsGap: Detector = {
       const first = top[0];
       if (first !== undefined) {
         findings.push({
-          brief: `${formatHumanNumber(lookups.length)} lookups · most read ${
-            top.map(([key, count]) => `\`${key}\` ${formatHumanNumber(count)}`)
-              .join(" · ")
-          }`,
+          summary:
+            "These were the most-read documentation topics in the recorded lookups.",
           observed: `${
             formatHumanNumber(lookups.length)
           } documentation lookups; most-read: ${
@@ -1714,7 +2016,7 @@ const docsGap: Detector = {
 
 const abandonedWorktrees: Detector = {
   id: "abandoned-worktrees",
-  title: "Started but never green",
+  title: "Inactive branches without a recorded green Gate",
   family: "behaviour",
   scope: "project",
   tier: "batch",
@@ -1722,7 +2024,7 @@ const abandonedWorktrees: Detector = {
   // 2 tracked branches: with one branch there is no fleet to compare against.
   threshold: 2,
   next_step:
-    "`discern status` lists the fleet — finish what's alive, and drop what's dead with `discern worktree drop` so stale efforts stop reading as work in flight.",
+    "Use `discern status` to inspect each named branch. Continue active work, or drop an effort only after confirming it is no longer needed.",
   detect(facts): DetectorOutcome {
     const branches = byBranch(
       facts.agentish.filter((e) => e.branch !== facts.trunk),
@@ -1747,9 +2049,7 @@ const abandonedWorktrees: Detector = {
     const named = abandoned.slice(0, 5);
     const findings: DetectorFinding[] = abandoned.length > 0
       ? [{
-        brief: `${formatHumanNumber(abandoned.length)} of ${
-          formatHumanNumber(branches.size)
-        } branches · ${formatHumanNumber(named[0]?.idleDays ?? 0)}d idle`,
+        summary: "Some inactive branches have no recorded green Gate.",
         observed: `${formatHumanNumber(abandoned.length)} of ${
           formatHumanNumber(branches.size)
         } branches never went green and have been idle a week or more: ${
@@ -1771,7 +2071,7 @@ const abandonedWorktrees: Detector = {
 
 const sequenceAnomaly: Detector = {
   id: "sequence-anomaly",
-  title: "Out-of-protocol verb orderings",
+  title: "Validation and acceptance ordering",
   family: "behaviour",
   scope: "branch",
   tier: "batch",
@@ -1779,7 +2079,7 @@ const sequenceAnomaly: Detector = {
   // 2 qualifying events before judging orderings at all.
   threshold: 2,
   next_step:
-    "The flow is `start` → `prepare` → `done` → `accept`: `done` produces the proof and `accept` verifies it — acceptance can't substitute for a green gate.",
+    "A clean green `done` produces the Proof that `accept` verifies. Run `prepare` only when fix or regeneration work is relevant; acceptance cannot replace the Gate.",
   detect(facts): DetectorOutcome {
     const findings: DetectorFinding[] = [];
     const accepts = facts.agentish.filter((e) => e.verb === "accept");
@@ -1794,14 +2094,13 @@ const sequenceAnomaly: Detector = {
     ];
     if (premature.length >= 1) {
       findings.push({
-        brief: `${formatHumanNumber(premature.length)} premature \`accept\` ${
-          premature.length === 1 ? "" : "s"
-        } · ${formatHumanNumber(prematureBranches.length)} branch${
-          prematureBranches.length === 1 ? "" : "es"
-        }`,
+        summary:
+          "`accept` was attempted on branches without a recorded green Gate.",
         observed: `\`accept\` was attempted ${
           formatHumanNumber(premature.length)
-        } time${premature.length === 1 ? "" : "s"} on ${
+        } time${premature.length === 1 ? "" : "s"} across ${
+          formatHumanNumber(accepts.length)
+        } recorded \`accept\` attempts, on ${
           formatHumanNumber(prematureBranches.length)
         } branch${
           prematureBranches.length === 1 ? "" : "es"
@@ -1811,6 +2110,7 @@ const sequenceAnomaly: Detector = {
         evidence: {
           premature_accepts: premature.length,
           branches: prematureBranches.length,
+          accept_attempts: accepts.length,
         },
         strength: premature.length * 10,
       });
@@ -1834,13 +2134,12 @@ const sequenceAnomaly: Detector = {
     }
     if (redundant >= 2) {
       findings.push({
-        brief: `${
-          formatHumanNumber(redundant)
-        } green \`done\` reruns · unchanged tree`,
-        observed: `${
-          formatHumanNumber(redundant)
-        } green \`done\` runs repeated the full gate on an identical, already-honored tree.`,
-        evidence: { redundant_reruns: redundant },
+        summary:
+          "The Gate was rerun on unchanged trees that already had a valid Proof.",
+        observed: `${formatHumanNumber(redundant)} of ${
+          formatHumanNumber(dones.length)
+        } recorded \`done\` runs repeated the full Gate on an identical tree that already had a valid Proof.`,
+        evidence: { redundant_reruns: redundant, done_runs: dones.length },
         strength: redundant,
         next_step:
           "A green `done` on an unchanged tree is already honored — `discern status` shows the proof's standing without re-running anything.",
@@ -1860,7 +2159,7 @@ const identityGap: Detector = {
   // 5 identity-bearing runs before reading anything into the gaps.
   threshold: 5,
   next_step:
-    "Runs discern can't attribute to a known agent read as one anonymous cohort. A newer discern release may recognize the client; until then, weigh the other findings knowing part of the corpus is unattributed.",
+    "Check whether the current discern release recognizes the recorded client declaration. Until it does, treat identity-based cohort findings as incomplete.",
   detect(facts): DetectorOutcome {
     // Identity evidence is about the corpus, not behaviour pathology, so the
     // population is every analyzed run that carries any of it.
@@ -1896,24 +2195,25 @@ const identityGap: Detector = {
     for (const [name, count] of recurring) {
       findings.push({
         subject: name,
-        brief: `${formatHumanNumber(count)} MCP calls · unknown client`,
-        observed: `\`${name}\` drove ${
-          formatHumanNumber(count)
-        } MCP calls but matches nothing in the identity catalogue.`,
-        evidence: { runs: count },
+        summary: "Some MCP runs could not be attributed to a known client.",
+        observed: `\`${name}\` drove ${formatHumanNumber(count)} of ${
+          formatHumanNumber(bearing.length)
+        } identity-bearing runs but matches nothing in the identity catalogue.`,
+        evidence: { runs: count, identity_bearing_runs: bearing.length },
         strength: count,
       });
     }
     if (undeclared >= 3) {
       findings.push({
-        brief: `${
-          formatHumanNumber(undeclared)
-        } runs · unrecognized \`AI_AGENT\``,
+        summary: "Some runs carried an unrecognized `AI_AGENT` declaration.",
         observed:
           `an agent declaring an \`AI_AGENT\` value discern doesn't recognize drove ${
             formatHumanNumber(undeclared)
-          } runs.`,
-        evidence: { runs: undeclared },
+          } of ${formatHumanNumber(bearing.length)} identity-bearing runs.`,
+        evidence: {
+          runs: undeclared,
+          identity_bearing_runs: bearing.length,
+        },
         strength: undeclared,
       });
     }
@@ -1933,7 +2233,7 @@ const providerFit: Detector = {
   // not a stray visit.
   threshold: 5,
   next_step:
-    "discern can compile guidance and materialize skills for this agent natively — add it to [project].agents in discern.toml and run `discern refresh`, so the agents actually driving the project receive its guidance.",
+    "discern can compile guidance and materialize skills for this agent natively. Add it to `[project].agents` in `discern.toml`, then run `discern refresh`.",
   detect(facts): DetectorOutcome {
     const runsByIdentity = new Map<string, number>();
     let attributed = 0;
@@ -1963,9 +2263,8 @@ const providerFit: Detector = {
       }
       findings.push({
         subject: entry.label,
-        brief: `${formatHumanNumber(runs)} of ${
-          formatHumanNumber(attributed)
-        } attributed runs · integration absent`,
+        summary:
+          "A returning coding agent is not among this project's configured integrations.",
         observed: `${entry.label} drove ${formatHumanNumber(runs)} of ${
           formatHumanNumber(attributed)
         } identity-attributed runs, but isn't among the configured agent integrations.`,
@@ -2039,7 +2338,8 @@ const cohortDoneThrash: Detector = {
     return {
       considered,
       findings: [{
-        brief: clauses.join(" · "),
+        summary:
+          "The report separates recorded red-Gate streaks by attributed driver cohort.",
         observed:
           `branches hitting a 3+ consecutive-red \`done\` streak, by attributed driver: ${
             clauses.join(", ")
@@ -2053,7 +2353,7 @@ const cohortDoneThrash: Detector = {
 
 const guidanceParity: Detector = {
   id: "guidance-parity",
-  title: "A gap one cohort keeps hitting that its peers never do",
+  title: "Guidance gaps by attributed driver cohort",
   family: "behaviour",
   scope: "project",
   tier: "batch",
@@ -2062,7 +2362,7 @@ const guidanceParity: Detector = {
   // Cohort-counted `considered`, as for every cohort detector.
   threshold: COHORT_MINIMUMS.cohorts,
   next_step:
-    "A gap only one population hits points at the guidance surface compiled for it, not at the agent — fix the surface, then `discern refresh`.",
+    "Inspect the compiled guidance surface named by the finding. If it does not teach or route the recorded workflow, amend the authored guidance source and run `discern refresh`.",
   detect(facts): DetectorOutcome {
     // One authored source compiles to every provider's guidance file, so a
     // refusal or doc miss ONE population keeps hitting while its peers never
@@ -2149,9 +2449,9 @@ const guidanceParity: Detector = {
           : "";
         findings.push({
           subject: `${only.label} · ${key}`,
-          brief: shape === "refusal"
-            ? `${formatHumanNumber(hits)} refusals · peers 0`
-            : `${formatHumanNumber(hits)} requests · peers 0 · all missed`,
+          summary: shape === "refusal"
+            ? "One attributed driver cohort repeatedly met this refusal while its peers did not."
+            : "One attributed driver cohort repeatedly missed this documentation target while its peers did not.",
           observed: `${
             shape === "refusal"
               ? `\`${key}\` refused ${only.label} ${
@@ -2164,8 +2464,8 @@ const guidanceParity: Detector = {
           evidence,
           strength: hits * 10,
           next_step: shape === "refusal"
-            ? `A refusal one population keeps hitting while its peers never do points at the guidance compiled for it, not at the agent. Check how \`${surface}\` (${only.label}'s guidance surface) teaches the workflow this refusal names, amend the authored guidance source, then run \`discern refresh\`.`
-            : `A page one population keeps asking for while its peers never miss points at how its compiled guidance routes it. Add or cross-link the topic (the \`discern-document-subsystem\` skill fits), and check \`${surface}\` (${only.label}'s guidance surface) routes agents there.`,
+            ? `Check how \`${surface}\` teaches the workflow named by this refusal. If the instruction is absent or unclear, amend the authored guidance source and run \`discern refresh\`.`
+            : `Check how \`${surface}\` routes agents to this topic. Add or cross-link the page if needed; the \`discern-document-subsystem\` skill fits this work.`,
         });
       }
     };
@@ -2180,11 +2480,48 @@ const guidanceParity: Detector = {
 
 const GATE_DOMINANCE_MIN_RUNS = 5;
 const GATE_DOMINANCE_SHARE = 0.5;
-const GATE_DOMINANCE_MEAN_SECONDS = 10;
+const SLOT_CONTENTION_RECENT_RUNS = 20;
+const SLOT_CONTENTION_MIN_RUNS = 6;
+const SLOT_CONTENTION_WAIT_FLOOR_MS = 30_000;
+const SLOT_CONTENTION_WAIT_SHARE = 0.25;
+
+interface SlotContentionEvidence {
+  runs: number;
+  medianWaitS: number;
+  medianExecutionS: number;
+  waitSharePct: number;
+}
+
+/** Material queue pressure from recent capped runs. The standalone detector
+ * and dominant-stage advice consume one calculation. */
+function slotContentionEvidence(
+  events: readonly VerbEvent[],
+): SlotContentionEvidence | undefined {
+  const recent = events.filter((event) => event.waited_ms !== undefined)
+    .slice(-SLOT_CONTENTION_RECENT_RUNS);
+  if (recent.length < SLOT_CONTENTION_MIN_RUNS) {
+    return undefined;
+  }
+  const medianWaitMs = median(recent.map((event) => event.waited_ms ?? 0));
+  const medianExecutionMs = median(recent.map(executionDurationMs));
+  if (
+    medianExecutionMs <= 0 ||
+    medianWaitMs < SLOT_CONTENTION_WAIT_FLOOR_MS ||
+    medianWaitMs < medianExecutionMs * SLOT_CONTENTION_WAIT_SHARE
+  ) {
+    return undefined;
+  }
+  return {
+    runs: recent.length,
+    medianWaitS: round1(medianWaitMs / 1000),
+    medianExecutionS: round1(medianExecutionMs / 1000),
+    waitSharePct: Math.round((medianWaitMs / medianExecutionMs) * 100),
+  };
+}
 
 const dominantStage: Detector = {
   id: "dominant-stage",
-  title: "One job dominating gate time",
+  title: "One job dominating Gate time",
   family: "gate-fit",
   scope: "project",
   tier: "batch",
@@ -2193,14 +2530,14 @@ const dominantStage: Detector = {
   // 5 timed gate runs on the current setup before calling a job dominant.
   threshold: GATE_DOMINANCE_MIN_RUNS,
   next_step:
-    "When one job is most of the gate's wall clock, that job sets the pace of every loop — cache it, split it, or move the slow part behind a scope gate so unrelated changes skip it.",
+    "Treat share as a statistic. Change the setup only when the finding names recorded avoidable cost such as a scope mismatch, unchanged reruns, or queue contention.",
   detect(facts): DetectorOutcome {
-    const { series, excluded } = comparableSeries(
+    const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) =>
         e.verb === "done" &&
         (e.steps ?? []).some((s) => s.duration_s !== undefined)
       ),
-      facts.events,
+      facts,
     );
     // "Considered" counts every examined run, comparable or not, so a series
     // outnumbered by other setups reports the attribution instead of going quiet.
@@ -2230,34 +2567,89 @@ const dominantStage: Detector = {
       const [label, seconds] = top;
       const share = seconds / all;
       const meanS = seconds / series.length;
-      // Half the gate AND a real cost — a 1-second gate has no dominant-stage problem.
-      if (
-        share >= GATE_DOMINANCE_SHARE &&
-        meanS >= GATE_DOMINANCE_MEAN_SECONDS
-      ) {
+      if (share >= GATE_DOMINANCE_SHARE) {
         // Generated jobs yield to the restructure-only detector so the generic
         // cache/scope remedy cannot weaken their always-run contract.
         if (label.startsWith("generated:")) {
           return { considered, findings: [] };
         }
+        const scope = label.startsWith("scope:") ? label.slice(6) : undefined;
+        const scopeMismatchRuns = scope === undefined
+          ? 0
+          : series.filter((event) =>
+            event.scopes !== undefined && !event.scopes.includes(scope) &&
+            (event.steps ?? []).some((step) =>
+              step.label === label && step.disposition === "run"
+            )
+          ).length;
+        const unchangedReruns = unchangedValidationReruns(series);
+        const contention = slotContentionEvidence(series);
+        if (
+          scopeMismatchRuns === 0 && unchangedReruns === 0 &&
+          contention === undefined
+        ) {
+          return { considered, findings: [] };
+        }
+        const evidence = {
+          mean_seconds: round1(meanS),
+          share_pct: Math.round(share * 100),
+          runs: series.length,
+          scope_mismatch_runs: scopeMismatchRuns,
+          unchanged_reruns: unchangedReruns,
+          queue_contention_runs: contention?.runs ?? 0,
+          ...(contention === undefined ? {} : {
+            median_queue_wait_seconds: contention.medianWaitS,
+            queue_wait_to_execution_pct: contention.waitSharePct,
+          }),
+        };
+        const avoidableObservation = scopeMismatchRuns > 0
+          ? `${formatHumanNumber(scopeMismatchRuns)} of ${
+            formatHumanNumber(series.length)
+          } comparable Gates ran outside the job's named scope.`
+          : contention !== undefined
+          ? `${formatHumanNumber(contention.runs)} recent capped runs had a ${
+            formatHumanNumber(contention.medianWaitS)
+          }s median queue wait.`
+          : `${formatHumanNumber(unchangedReruns)} of ${
+            formatHumanNumber(series.length)
+          } comparable Gates repeated one complete validation state.`;
+        const nextStep = scopeMismatchRuns > 0
+          ? `\`${label}\` ran outside its named scope on ${
+            formatHumanNumber(scopeMismatchRuns)
+          } recorded Gates. Correct the scope mapping so unrelated changes skip it; the percentage alone is not the reason.`
+          : contention !== undefined
+          ? "Recorded queue contention is the avoidable delay. Review `[gate].concurrent_test_runs` against machine capacity before changing the job itself."
+          : `\`${label}\` repeated on an unchanged recorded validation state ${
+            formatHumanNumber(unchangedReruns)
+          } times. Investigate a project-local cache or a narrower scope while preserving the job's coverage.`;
         findings.push({
           subject: label,
-          brief: `${formatHumanNumber(round1(meanS))}s per \`done\` · ${
-            formatHumanNumber(Math.round(share * 100))
-          }% of gate time · ${formatHumanNumber(series.length)} runs`,
+          summary: "One job used most Gate time with avoidable-cost evidence.",
           observed: `\`${label}\` averages ${
             formatHumanNumber(round1(meanS))
           }s per \`done\` — ${
             formatHumanNumber(Math.round(share * 100))
-          }% of all recorded gate time across ${
+          }% of all recorded Gate time across ${
             formatHumanNumber(series.length)
-          } runs.`,
-          evidence: {
-            mean_seconds: round1(meanS),
-            share_pct: Math.round(share * 100),
-            runs: series.length,
-          },
+          } of ${
+            formatHumanNumber(considered)
+          } considered runs. ${avoidableObservation}${
+            excludedSetupSentence(excluded)
+          }`,
+          evidence,
+          basis: decisionEvidenceBasis("dominant-stage-cost", evidence, {
+            comparable: series.length,
+            denominator: considered,
+            unit: "Gate runs",
+            events: series,
+            facts,
+            excludedEvents: excluded?.runs ?? 0,
+            limitations: [
+              "Gate-time share is descriptive; the recommendation depends only on the separately recorded avoidable-cost fields.",
+            ],
+          }),
           strength: Math.round(share * 100),
+          next_step: nextStep,
         });
       }
     }
@@ -2267,16 +2659,16 @@ const dominantStage: Detector = {
 
 /**
  * Watch the always-run generated family as one gate cost. Five comparable
- * timed `done` runs establish the current-setup window; a 50% share means
- * regeneration takes at least as much recorded job time as the rest of the
- * gate, and a 10-second mean keeps short gates below the advisory floor.
+ * timed `done` runs establish the current-setup window; a 50% share remains a
+ * statistic. Advice requires repeated execution on the same complete recorded
+ * validation state, rather than a repository-derived duration floor.
  *
  * `dominantStage` yields generated labels here so its generic cache/scope
  * remedy cannot contradict the always-run generator contract.
  */
 const generatorGateShare: Detector = {
   id: "generator-gate-share",
-  title: "Generator share of gate time",
+  title: "Generator share of Gate time",
   family: "gate-fit",
   scope: "project",
   tier: "batch",
@@ -2284,14 +2676,14 @@ const generatorGateShare: Detector = {
   windowed: true,
   threshold: GATE_DOMINANCE_MIN_RUNS,
   next_step:
-    "Restructure the heaviest generated group: split it, speed up its command, or narrow what it derives so regeneration takes less time on every full gate.",
+    "Restructure the heaviest generated group: split it, speed up its command, or narrow what it derives so regeneration takes less time on every full Gate.",
   detect(facts): DetectorOutcome {
-    const { series, excluded } = comparableSeries(
+    const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) =>
         e.verb === "done" &&
         (e.steps ?? []).some((s) => s.duration_s !== undefined)
       ),
-      facts.events,
+      facts,
     );
     const considered = series.length + (excluded?.runs ?? 0);
     if (series.length < GATE_DOMINANCE_MIN_RUNS) {
@@ -2326,10 +2718,8 @@ const generatorGateShare: Detector = {
     }
     const generatedShare = generatedSeconds / gateSeconds;
     const generatedMeanS = generatedSeconds / series.length;
-    if (
-      generatedShare < GATE_DOMINANCE_SHARE ||
-      generatedMeanS < GATE_DOMINANCE_MEAN_SECONDS
-    ) {
+    const unchangedReruns = unchangedValidationReruns(series);
+    if (generatedShare < GATE_DOMINANCE_SHARE || unchangedReruns === 0) {
       return { considered, findings: [] };
     }
 
@@ -2342,40 +2732,51 @@ const generatorGateShare: Detector = {
         const groupMeanS = seconds / series.length;
         const groupShare = seconds / gateSeconds;
         const groupSharePct = Math.round(groupShare * 100);
+        const evidence = {
+          runs: series.length,
+          group_share_pct: groupSharePct,
+          group_mean_seconds: round1(groupMeanS),
+          generated_share_pct: generatedSharePct,
+          generated_mean_seconds: round1(generatedMeanS),
+          unchanged_reruns: unchangedReruns,
+        };
         return {
           subject: label,
-          brief: `${formatHumanNumber(round1(groupMeanS))}s per \`done\` · ${
-            formatHumanNumber(groupSharePct)
-          }% of gate time · generators ${
-            formatHumanNumber(generatedSharePct)
-          }% · ${formatHumanNumber(series.length)} runs`,
+          summary:
+            "Generated-artifact checks account for most Gate time and repeated on an unchanged validation state.",
           observed: `\`${label}\` averaged ${
             formatHumanNumber(round1(groupMeanS))
           }s per \`done\` and ${
             formatHumanNumber(groupSharePct)
-          }% of recorded gate time across ${
+          }% of recorded Gate time across ${
             formatHumanNumber(series.length)
           } runs, while all generated groups averaged ${
             formatHumanNumber(round1(generatedMeanS))
-          }s and accounted for ${formatHumanNumber(generatedSharePct)}%.`,
-          evidence: {
-            runs: series.length,
-            group_share_pct: groupSharePct,
-            group_mean_seconds: round1(groupMeanS),
-            generated_share_pct: generatedSharePct,
-            generated_mean_seconds: round1(generatedMeanS),
-          },
+          }s and accounted for ${formatHumanNumber(generatedSharePct)}%; ${
+            formatHumanNumber(unchangedReruns)
+          } of ${
+            formatHumanNumber(series.length)
+          } comparable Gates repeated one complete validation state.${
+            excludedSetupSentence(excluded)
+          }`,
+          evidence,
+          basis: decisionEvidenceBasis("generator-gate-cost", evidence, {
+            comparable: series.length,
+            denominator: considered,
+            unit: "Gate runs",
+            events: series,
+            facts,
+            excludedEvents: excluded?.runs ?? 0,
+            limitations: [
+              "Generator share is descriptive; advice is supported by repeated execution on an unchanged complete validation state.",
+            ],
+          }),
           strength: Math.max(1, Math.round(groupShare * 100)),
         };
       });
     return { considered, findings };
   },
 };
-
-const SLOT_CONTENTION_RECENT_RUNS = 20;
-const SLOT_CONTENTION_MIN_RUNS = 6;
-const SLOT_CONTENTION_WAIT_FLOOR_MS = 30_000;
-const SLOT_CONTENTION_WAIT_SHARE = 0.25;
 
 /**
  * Read recurring slot pressure, not one unlucky hand-off: six capped runs make
@@ -2398,33 +2799,26 @@ const slotContention: Detector = {
     const capped = facts.verbs.filter((event) => event.waited_ms !== undefined);
     const recent = capped.slice(-SLOT_CONTENTION_RECENT_RUNS);
     const considered = recent.length;
-    if (considered < SLOT_CONTENTION_MIN_RUNS) {
+    const contention = slotContentionEvidence(recent);
+    if (contention === undefined) {
       return { considered, findings: [] };
     }
-    const medianWaitMs = median(
-      recent.map((event) => event.waited_ms ?? 0),
-    );
-    const medianExecutionMs = median(recent.map(executionDurationMs));
-    if (
-      medianExecutionMs <= 0 ||
-      medianWaitMs < SLOT_CONTENTION_WAIT_FLOOR_MS ||
-      medianWaitMs < medianExecutionMs * SLOT_CONTENTION_WAIT_SHARE
-    ) {
-      return { considered, findings: [] };
-    }
-    const medianWaitS = round1(medianWaitMs / 1000);
-    const medianExecutionS = round1(medianExecutionMs / 1000);
-    const waitSharePct = Math.round(
-      (medianWaitMs / medianExecutionMs) * 100,
-    );
+    const {
+      medianWaitS,
+      medianExecutionS,
+      waitSharePct,
+    } = contention;
+    const evidence = {
+      capped_runs: considered,
+      median_wait_seconds: medianWaitS,
+      median_execution_seconds: medianExecutionS,
+      wait_to_execution_pct: waitSharePct,
+    };
     return {
       considered,
       findings: [{
-        brief: `${formatHumanNumber(medianWaitS)}s median wait · ${
-          formatHumanNumber(medianExecutionS)
-        }s median execution · ${formatHumanNumber(waitSharePct)}% · ${
-          formatHumanNumber(considered)
-        } capped runs`,
+        summary:
+          "Recent validation runs spent material time waiting for a test-run slot.",
         observed: `recent capped runs waited a median ${
           formatHumanNumber(medianWaitS)
         }s for a test-run slot alongside ${
@@ -2432,12 +2826,17 @@ const slotContention: Detector = {
         }s median execution across ${formatHumanNumber(considered)} runs (${
           formatHumanNumber(waitSharePct)
         }%).`,
-        evidence: {
-          capped_runs: considered,
-          median_wait_seconds: medianWaitS,
-          median_execution_seconds: medianExecutionS,
-          wait_to_execution_pct: waitSharePct,
-        },
+        evidence,
+        basis: decisionEvidenceBasis("validation-queue-contention", evidence, {
+          comparable: recent.length,
+          denominator: recent.length,
+          unit: "capped validation runs",
+          events: recent,
+          facts,
+          limitations: [
+            "Queue wait is observed locally; synthesis requires the related finding to share one recorded setup.",
+          ],
+        }),
         strength: Math.max(1, waitSharePct),
       }],
     };
@@ -2464,40 +2863,53 @@ function intersection(a: Set<string>, b: Set<string>): string[] {
   return [...a].filter((x) => b.has(x));
 }
 
+/** One comparable adjacent-red relationship in the fail-fast ledger. */
+interface FailFastRelationship {
+  first: VerbEvent;
+  later: VerbEvent;
+  cancelled: string[];
+  neverStarted: string[];
+}
+
+/** Completed durations for one job under the first run's recorded setup. */
+function comparableCompletedDurations(
+  job: string,
+  anchor: VerbEvent,
+  facts: StreamFacts,
+): readonly CompletedJobSample[] {
+  return facts.analysis.completedJobs.get(job)?.get(
+    facts.analysis.setupKeyOf(anchor),
+  ) ?? [];
+}
+
 /**
- * Read serial discovery, not coincidence. A qualifying instance is two
- * adjacent red `done` runs in one conversation where the first run's failures
- * were all fixed by the second, yet a job the first run cancelled mid-flight
- * (fail-fast) or never started (its group stopped early) now fails: that
- * failure existed a run earlier, and its discovery cost one whole
- * fix-and-regate round. Requiring the original failures fixed is what makes
- * the attribution safe — a failure that merely persists, or one plausibly
- * introduced by an incomplete fix, never counts. Six adjacent red pairs give
- * the history real iteration to speak from; three instances make "every fix
- * happened to break the sibling" an unlikely story; pairs more than six hours
- * apart are two work sessions, not one fix loop.
+ * Read the two sides of the fail-fast tradeoff without assigning cause. A
+ * relationship is two adjacent red `done` runs in one conversation: the
+ * first run's failures are absent from the later run, while a job earlier
+ * cancelled or never started later reports a distinct failure. The later
+ * failure may have existed already or may have been introduced between runs;
+ * the finding says so. Tail work is estimated only for cancelled jobs, from
+ * at least three completed durations of that job under the same setup.
  */
 const maskedFailures: Detector = {
   id: "masked-failures",
-  title: "Failures discovered a run late",
+  title: "Fail-fast tradeoff ledger",
   family: "gate-fit",
   scope: "project",
   tier: "batch",
   tone: "attention",
   threshold: MASKED_FAILURES_MIN_PAIRS,
   next_step:
-    "Each instance paid a full fix-and-regate round to learn what one run could have reported. Weigh `[gate].fail_fast` against this history — a red run left to finish trades tail time for whole rounds — and consider whether a quick, often-red job belongs in a stage before the long one it keeps stopping.",
+    "Compare the recorded later-round cost with the explicitly estimated saved tail. Keep the setting when savings dominate; otherwise run a controlled project-local experiment before changing it.",
   detect(facts): DetectorOutcome {
     const dones = facts.verbs.filter((e) =>
       e.verb === "done" && (e.steps?.length ?? 0) > 0
     );
     let considered = 0;
-    let viaCancellation = 0;
-    let viaBarrier = 0;
-    const gapsMs: number[] = [];
-    const branches = new Set<string>();
-    const lateLabels = new Map<string, number>();
-    for (const [branch, events] of byBranch(dones)) {
+    let comparablePairs = 0;
+    let excludedSetupPairs = 0;
+    const relationships: FailFastRelationship[] = [];
+    for (const events of byBranch(dones).values()) {
       for (const session of bySession(events)) {
         for (let i = 0; i + 1 < session.length; i++) {
           const n = session[i];
@@ -2512,6 +2924,15 @@ const maskedFailures: Detector = {
             continue;
           }
           considered += 1;
+          if (
+            n.epoch === null || next.epoch === null ||
+            n.writer === undefined || next.writer === undefined ||
+            !sameComparableSetup(n, next, facts)
+          ) {
+            excludedSetupPairs += 1;
+            continue;
+          }
+          comparablePairs += 1;
           const failedNext = scheduledStepLabels(next, "failed");
           if (failedNext.size === 0) {
             continue;
@@ -2531,58 +2952,150 @@ const maskedFailures: Detector = {
           if (masked.length === 0 && deferred.length === 0) {
             continue;
           }
-          if (masked.length > 0) {
-            viaCancellation += 1;
-          }
-          if (deferred.length > 0) {
-            viaBarrier += 1;
-          }
-          gapsMs.push(gapMs);
-          branches.add(branch);
-          for (const label of [...masked, ...deferred]) {
-            lateLabels.set(label, (lateLabels.get(label) ?? 0) + 1);
-          }
+          relationships.push({
+            first: n,
+            later: next,
+            cancelled: masked,
+            neverStarted: deferred,
+          });
         }
       }
     }
-    const instances = gapsMs.length;
+    const instances = relationships.length;
     if (instances < MASKED_FAILURES_MIN_INSTANCES) {
       return { considered, findings: [] };
     }
-    const medianRoundS = round1(median(gapsMs) / 1000);
-    const commonest = [...lateLabels.entries()]
-      .sort((a, b) => b[1] - a[1])[0];
+    const cancelledJobs = relationships.reduce(
+      (sum, relationship) => sum + relationship.cancelled.length,
+      0,
+    );
+    const neverStartedJobs = relationships.reduce(
+      (sum, relationship) => sum + relationship.neverStarted.length,
+      0,
+    );
+    const laterDistinctFailures = cancelledJobs + neverStartedJobs;
+    const laterRoundElapsedS = round1(
+      relationships.reduce(
+        (sum, relationship) => sum + relationship.later.duration_ms / 1000,
+        0,
+      ),
+    );
+    let estimatedSavedTailS = 0;
+    let conservativeSavedTailS = 0;
+    let unestimatedTailJobs = 0;
+    const samples = new Set<string>();
+    for (const relationship of relationships) {
+      for (const label of relationship.cancelled) {
+        const completed = comparableCompletedDurations(
+          label,
+          relationship.first,
+          facts,
+        );
+        for (const sample of completed) {
+          samples.add(`${sample.event.at}\0${label}`);
+        }
+        if (completed.length < 3) {
+          unestimatedTailJobs += 1;
+          continue;
+        }
+        const partial = (relationship.first.steps ?? []).find((step) =>
+          step.label === label && step.outcome === "cancelled"
+        )?.duration_s ?? 0;
+        const durations = completed.map((sample) =>
+          sample.seconds
+        );
+        estimatedSavedTailS += Math.max(0, median(durations) - partial);
+        conservativeSavedTailS += Math.max(
+          0,
+          Math.max(...durations) - partial,
+        );
+      }
+    }
+    estimatedSavedTailS = round1(estimatedSavedTailS);
+    conservativeSavedTailS = round1(conservativeSavedTailS);
+    const recommendationSupported = cancelledJobs > 0 &&
+      unestimatedTailJobs === 0 && conservativeSavedTailS > 0 &&
+      laterRoundElapsedS > conservativeSavedTailS * 1.5;
+    const savingsFavoured = unestimatedTailJobs === 0 &&
+      estimatedSavedTailS > laterRoundElapsedS * 1.5;
+    const evidence = {
+      cancelled_jobs: cancelledJobs,
+      never_started_jobs: neverStartedJobs,
+      later_distinct_failures: laterDistinctFailures,
+      additional_gate_rounds: instances,
+      later_round_elapsed_seconds: laterRoundElapsedS,
+      estimated_saved_tail_seconds: estimatedSavedTailS,
+      conservative_saved_tail_seconds: conservativeSavedTailS,
+      tail_duration_samples: samples.size,
+      unestimated_tail_jobs: unestimatedTailJobs,
+      branches:
+        new Set(relationships.map((relationship) => relationship.first.branch))
+          .size,
+      recommendation_supported: recommendationSupported ? 1 : 0,
+    };
+    const nextStep = recommendationSupported
+      ? "This project's conservative rule was crossed: recorded later-round time exceeded 1.5× the maximum-duration saved-tail estimate, with at least 3 comparable samples per cancelled job. Run a controlled `[gate].fail_fast = false` trial and compare the same ledger before adopting the change."
+      : savingsFavoured
+      ? "The median-duration estimate of saved tail exceeds recorded later-round cost by more than 1.5×. Keep fail-fast for now; no configuration change is supported by this history."
+      : "The tradeoff is unresolved or undersampled. Run a controlled project-local experiment with fail-fast on and off, then compare recorded later-round time and the same saved-tail estimator; do not change the default from this evidence yet.";
+    const relationshipEvents = relationships.flatMap((relationship) => [
+      relationship.first,
+      relationship.later,
+    ]);
     return {
       considered,
       findings: [{
-        brief: `${formatHumanNumber(instances)} late discoveries · ${
-          formatHumanNumber(viaCancellation)
-        } cancelled · ${
-          formatHumanNumber(viaBarrier)
-        } never started · median round ${formatHumanNumber(medianRoundS)}s`,
+        summary:
+          "Fail-fast avoided estimated tail time while later Gate rounds exposed other failures.",
+        tone: recommendationSupported
+          ? "attention"
+          : savingsFavoured
+          ? "good"
+          : "neutral",
         observed: `${
           formatHumanNumber(instances)
-        } red \`done\` runs were followed — original failures fixed — by a failure in a job the earlier run had cancelled (${
-          formatHumanNumber(viaCancellation)
-        }) or never started (${formatHumanNumber(viaBarrier)}), across ${
-          formatHumanNumber(branches.size)
-        } branches with a median ${
-          formatHumanNumber(medianRoundS)
-        }s round between the two runs${
-          commonest === undefined
-            ? ""
-            : `; \`${commonest[0]}\` surfaced late ${
-              formatHumanNumber(commonest[1])
-            } times`
-        }.`,
-        evidence: {
-          late_discoveries: instances,
-          via_cancelled_job: viaCancellation,
-          via_job_never_started: viaBarrier,
-          branches: branches.size,
-          median_round_seconds: medianRoundS,
-        },
+        } qualifying relationships among ${
+          formatHumanNumber(comparablePairs)
+        } comparable of ${
+          formatHumanNumber(considered)
+        } adjacent red Gate pairs recorded ${
+          formatHumanNumber(cancelledJobs)
+        } cancelled jobs, ${
+          formatHumanNumber(neverStartedJobs)
+        } jobs not started, and ${
+          formatHumanNumber(laterDistinctFailures)
+        } distinct failures in later rounds; those later rounds recorded ${
+          formatHumanNumber(laterRoundElapsedS)
+        }s elapsed, while ${
+          formatHumanNumber(samples.size)
+        } comparable completed-job samples estimate ${
+          formatHumanNumber(estimatedSavedTailS)
+        }s of cancelled tail avoided. The sequence does not establish when or why a later failure arose.`,
+        evidence,
+        basis: decisionEvidenceBasis("fail-fast-ledger", evidence, {
+          comparable: comparablePairs,
+          denominator: considered,
+          unit: "adjacent red Gate pairs",
+          events: relationshipEvents,
+          facts,
+          estimated: new Set([
+            "estimated_saved_tail_seconds",
+            "conservative_saved_tail_seconds",
+          ]),
+          excludedEvents: excludedSetupPairs,
+          limitations: [
+            "A later distinct failure may have existed during the earlier run or may have been introduced between runs; the sequence does not establish cause.",
+            "Saved tail uses the median of at least 3 completed durations for the same job and setup, less any recorded partial cancelled duration.",
+            "The conservative decision rule uses the maximum comparable completed duration for each cancelled job and requires later-round time to exceed that estimate by 1.5 times.",
+            ...(neverStartedJobs > 0
+              ? [
+                "Jobs that never started are observed separately and do not enter the cancelled-tail estimate.",
+              ]
+              : []),
+          ],
+        }),
         strength: instances,
+        next_step: nextStep,
       }],
     };
   },
@@ -2599,14 +3112,14 @@ const durationCreep: Detector = {
   // 8 runs on one setup: two halves of 4 are the fewest medians worth comparing.
   threshold: 8,
   next_step:
-    "The gate got slower on an unchanged setup — find what grew (test count, build cache misses, an input set that widened) before the extra seconds tax every loop.",
+    "Inspect the later comparable runs for changes in test count, build-cache behavior, or widened inputs. Treat each as a hypothesis until recorded job evidence confirms it.",
   detect(facts): DetectorOutcome {
     // Only green runs measure the gate's length: a red run's duration measures
     // where it failed (a fail-fast check dies in seconds, a test failure in
     // minutes), so mixing outcomes reads a red/green mix shift as creep.
-    const { series, excluded } = comparableSeries(
+    const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) => e.verb === "done" && e.outcome === "ok"),
-      facts.events,
+      facts,
     );
     const considered = series.length + (excluded?.runs ?? 0);
     if (series.length < 8) {
@@ -2633,18 +3146,18 @@ const durationCreep: Detector = {
       sizeLate <= Math.max(sizeEarly, 1) * 1.25
     ) {
       findings.push({
-        brief: `${formatHumanNumber(round1(durEarly))}s → ${
-          formatHumanNumber(round1(durLate))
-        }s median · ${formatHumanNumber(series.length)} runs`,
+        summary: "Green Gate runs became slower under one recorded setup.",
         observed: `median green \`done\` duration rose from ${
           formatHumanNumber(round1(durEarly))
         }s to ${formatHumanNumber(round1(durLate))}s across ${
           formatHumanNumber(series.length)
-        } runs on one setup (${day(earlier[0]?.at ?? "")} → ${
+        } of ${formatHumanNumber(considered)} considered runs on one setup (${
+          day(earlier[0]?.at ?? "")
+        } → ${
           day(later[later.length - 1]?.at ?? "")
         }), while the median change stayed ~${
           formatHumanNumber(Math.round(sizeLate))
-        } files.`,
+        } files.${excludedSetupSentence(excluded)}`,
         evidence: {
           median_early_s: round1(durEarly),
           median_late_s: round1(durLate),
@@ -2669,14 +3182,14 @@ const fixStageIdle: Detector = {
   // idle is the highest in the registry.
   threshold: 10,
   next_step:
-    "If the fixers never change anything the agents didn't already do, the stage is paying rent without working — check whether it still earns its place in the inner loop, or belongs in `done` alone.",
+    "Verify whether the configured fix stage still provides project-local benefit. If it does not, adjust where that job runs while preserving the full Gate's coverage.",
   detect(facts): DetectorOutcome {
-    const { series, excluded } = comparableSeries(
+    const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) =>
         (e.verb === "done" || e.verb === "prepare") &&
         stageSeconds(e, "Fix") !== undefined
       ),
-      facts.events,
+      facts,
     );
     const considered = series.length + (excluded?.runs ?? 0);
     if (series.length < 10) {
@@ -2705,14 +3218,15 @@ const fixStageIdle: Detector = {
     const findings: DetectorFinding[] = [];
     if (!anyEffect && meanS >= 3) {
       findings.push({
-        brief: `${formatHumanNumber(round1(meanS))}s per run · ${
-          formatHumanNumber(series.length)
-        } runs · no visible effect`,
+        summary:
+          "The recorded fix stage consumed time without a visible recorded effect.",
         observed: `the fix stage (${[...fixLabels].sort().join(", ")}) cost ~${
           formatHumanNumber(round1(meanS))
-        }s per run across ${
-          formatHumanNumber(series.length)
-        } runs with no visible effect: no fix failures, no tree drift, no diagnostics.`,
+        }s per run across ${formatHumanNumber(series.length)} of ${
+          formatHumanNumber(considered)
+        } considered runs with no visible effect: no fix failures, no tree drift, and no diagnostics.${
+          excludedSetupSentence(excluded)
+        }`,
         evidence: { mean_seconds: round1(meanS), runs: series.length },
         strength: Math.round(meanS),
       });
@@ -2752,9 +3266,7 @@ const recurringDiagnostic: Detector = {
       .slice(0, 3)
       .map(([key, c]) => ({
         subject: key,
-        brief: `${formatHumanNumber(c.branches.size)} branches · ${
-          formatHumanNumber(c.count)
-        } diagnostics`,
+        summary: "The same diagnostic class failed across several branches.",
         observed: `\`${key}\` failed on ${
           formatHumanNumber(c.branches.size)
         } different branches (${
@@ -2767,64 +3279,318 @@ const recurringDiagnostic: Detector = {
   },
 };
 
+interface ValidationVerdictCounts {
+  red: number;
+  green: number;
+  excluded: number;
+  denominator: number;
+  comparable: number;
+}
+
+/** Exact per-job counts; absence, cancellation, and skips stay in the
+ * denominator but never become either verdict. */
+function validationVerdictCounts(
+  observations: readonly { verdict: "red" | "green" | "excluded" }[],
+): ValidationVerdictCounts {
+  const red =
+    observations.filter((observation) => observation.verdict === "red").length;
+  const green =
+    observations.filter((observation) => observation.verdict === "green")
+      .length;
+  const excluded = observations.length - red - green;
+  return {
+    red,
+    green,
+    excluded,
+    denominator: observations.length,
+    comparable: red + green,
+  };
+}
+
+/** Distinct recorded events represented by a per-job observation group. */
+function distinctValidationEvents(
+  observations: readonly { event: VerbEvent }[],
+): number {
+  return new Set(observations.map((observation) => observation.event)).size;
+}
+
+/** Complete common basis for one strict validation finding. */
+function strictValidationBasis(
+  group: ValidationRepeatGroup,
+  counts: ValidationVerdictCounts,
+  evidence: Record<string, number>,
+): PatternEvidenceBasis {
+  const current = group.basisKind === "complete-validation-state";
+  const limitations = current
+    ? [
+      "Recorded repository and execution conditions matched; unrecorded external context remains outside the comparison.",
+    ]
+    : group.basisKind === "legacy-clean-start"
+    ? [
+      "Legacy evidence records one clean start at a HEAD, but not job definitions or a complete execution envelope.",
+      "Unrecorded external context and ignored inputs remain outside the comparison.",
+    ]
+    : [
+      "Legacy dirty evidence matches only the tracked start fingerprint; index/worktree form and untracked or mixed inputs were not distinguished.",
+      "Job definitions, a complete execution envelope, and external context were not recorded.",
+    ];
+  return {
+    kind: group.basisKind,
+    coverage: {
+      comparable: counts.comparable,
+      denominator: counts.denominator,
+      unit: "job-runs",
+    },
+    validation_state: {
+      version: group.stateVersion,
+      complete: current,
+    },
+    matched_conditions: group.matchedConditions,
+    differing_conditions: [],
+    legacy_events: current ? 0 : distinctValidationEvents(group.observations),
+    excluded_events: distinctValidationEvents(
+      group.observations.filter((observation) =>
+        observation.verdict === "excluded"
+      ),
+    ),
+    limitations,
+    values: observedEvidenceValues(evidence),
+  };
+}
+
+/** The deliberately weaker sentence attached to one legacy basis. */
+function legacyValidationObservation(
+  group: Exclude<
+    ValidationRepeatGroup,
+    { basisKind: "complete-validation-state" }
+  >,
+  counts: ValidationVerdictCounts,
+): string {
+  const state = group.basisKind === "legacy-clean-start"
+    ? `a recorded clean start at \`${group.head}\``
+    : `one tracked start fingerprint at \`${group.head}\``;
+  return `\`${group.jobId}\` recorded ${
+    formatHumanNumber(counts.red)
+  } red and ${formatHumanNumber(counts.green)} green across ${
+    formatHumanNumber(counts.comparable)
+  } of ${
+    formatHumanNumber(counts.denominator)
+  } job runs sharing ${state}; legacy evidence did not record the job definition or complete execution conditions.`;
+}
+
+const sameEnvelopeRelationship = VALIDATION_FINDING_RELATIONSHIPS[0];
+
 const sameTreeFlake: Detector = {
-  id: "same-tree-flake",
-  title: "Divergent outcomes on one tree",
+  id: sameEnvelopeRelationship.detectorId,
+  title: "Divergent outcomes under matched recorded conditions",
   family: "gate-fit",
   scope: "project",
   tier: "batch",
   tone: "attention",
-  // 2 repeat runs of some exact tree — the smallest set that can diverge.
+  validationRelationship: sameEnvelopeRelationship.kind,
+  // 2 eligible observations in a repeated per-job comparison group are the
+  // smallest population capable of carrying both verdicts.
   threshold: 2,
   next_step:
-    "A test that flips verdict on an identical tree is flaky. Diagnose the test itself (`discern-cure-a-bug`, diagnose procedure); quarantining it beats retrying until green, which teaches agents that red is negotiable.",
+    "A validation job changed verdict under matching recorded conditions. Reproduce the job and use the `discern-cure-a-bug` diagnosis procedure; check unrecorded environment and service inputs before naming a cause.",
   detect(facts): DetectorOutcome {
-    const gateRuns = facts.verbs.filter((e) =>
-      e.verb === "done" || e.verb === "test"
-    );
-    const byTree = new Map<string, VerbEvent[]>();
-    for (const e of gateRuns) {
-      if (e.head === null) {
-        continue;
-      }
-      // `head` alone identifies a clean tree; `head` + the dirty-diff
-      // fingerprint identifies the same dirty tree across runs.
-      if (e.clean === false && e.tree === undefined) {
-        continue;
-      }
-      const key = `${e.head} ${e.tree ?? ""}`;
-      const group = byTree.get(key);
-      if (group === undefined) {
-        byTree.set(key, [e]);
-      } else {
-        group.push(e);
-      }
-    }
-    const repeats = [...byTree.values()].filter((g) => g.length >= 2);
+    const groups = sameEnvelopeValidationGroups(facts.verbs);
     const findings: DetectorFinding[] = [];
-    for (const group of repeats) {
-      const red = group.filter(testRed).length;
-      const green = group.filter((e) => e.outcome === "ok").length;
-      const head = group[0]?.head ?? "?";
-      if (red > 0 && green > 0) {
-        findings.push({
-          subject: head,
-          brief: `${formatHumanNumber(red)} red · ${
-            formatHumanNumber(green)
-          } green on one tree`,
-          observed: `the exact same tree at \`${head}\` ran ${
-            formatHumanNumber(red)
-          } test-red and ${formatHumanNumber(green)} green across ${
-            formatHumanNumber(group.length)
-          } runs with no change in between.`,
-          evidence: { runs: group.length, red, green },
-          strength: (red + green) * 10,
-        });
-      }
+    for (const group of groups) {
+      const counts = validationVerdictCounts(group.observations);
+      if (counts.red === 0 || counts.green === 0) continue;
+      const evidence = {
+        runs: counts.comparable,
+        denominator: counts.denominator,
+        red: counts.red,
+        green: counts.green,
+        excluded_outcomes: counts.excluded,
+      };
+      const observed = group.basisKind === "complete-validation-state"
+        ? `\`${group.jobId}\` recorded ${
+          formatHumanNumber(counts.red)
+        } red and ${formatHumanNumber(counts.green)} green across ${
+          formatHumanNumber(counts.comparable)
+        } of ${
+          formatHumanNumber(counts.denominator)
+        } job runs under one complete v${
+          formatHumanNumber(group.stateVersion)
+        } validation state and matching recorded execution conditions; external context was not recorded.`
+        : legacyValidationObservation(group, counts);
+      findings.push({
+        subject: group.jobId,
+        summary: group.basisKind === "complete-validation-state"
+          ? "This validation job changed verdict under matching recorded conditions."
+          : "This validation job changed verdict under limited legacy conditions.",
+        observed,
+        evidence,
+        basis: strictValidationBasis(group, counts, evidence),
+        strength: counts.comparable * 10,
+      });
     }
-    findings.sort((a, b) => b.strength - a.strength);
+    findings.sort((a, b) =>
+      b.strength - a.strength ||
+      (a.subject ?? "").localeCompare(b.subject ?? "")
+    );
     return {
-      considered: repeats.reduce((sum, g) => sum + g.length, 0),
+      considered: groups.reduce(
+        (sum, group) => sum + group.observations.length,
+        0,
+      ),
+      findings: findings.slice(0, 3),
+    };
+  },
+};
+
+type ContextVerdict = "red" | "green" | "mixed" | "excluded";
+
+/** One controlled context must be internally stable before it can support a
+ * cross-context relationship. Mixed contexts belong to the strict detector. */
+function validationContextVerdict(
+  context: ValidationContextBucket,
+): ContextVerdict {
+  const counts = validationVerdictCounts(context.observations);
+  if (counts.red > 0 && counts.green > 0) return "mixed";
+  if (counts.red > 0) return "red";
+  if (counts.green > 0) return "green";
+  return "excluded";
+}
+
+/** Compact count suffixes remain compatible while naming controlled modes. */
+function validationModeEvidence(
+  observations: readonly { event: VerbEvent; verdict: string }[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const observation of observations) {
+    if (observation.verdict !== "red" && observation.verdict !== "green") {
+      continue;
+    }
+    const mode = observation.event.validation?.execution.mode;
+    const key = mode === "full-gate"
+      ? "full_gate_runs"
+      : mode === "standalone-test"
+      ? "standalone_test_runs"
+      : undefined;
+    if (key !== undefined) counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+const crossContextRelationship = VALIDATION_FINDING_RELATIONSHIPS[1];
+/** Human context clauses are a sample; the evidence map and basis retain the
+ * full context count and bounded condition cardinalities. */
+const VALIDATION_CONTEXT_SUMMARY_MAX = 4;
+
+const executionContextDivergence: Detector = {
+  id: crossContextRelationship.detectorId,
+  title: "Divergent outcomes between recorded execution contexts",
+  family: "gate-fit",
+  scope: "project",
+  tier: "batch",
+  tone: "attention",
+  validationRelationship: crossContextRelationship.kind,
+  // Two per-job observations across distinct controlled contexts are the
+  // smallest cross-context population.
+  threshold: 2,
+  next_step:
+    "Compare the named execution contexts in a controlled reproduction. Resource contention, ordering, and environment sensitivity are investigation paths, not established causes.",
+  detect(facts): DetectorOutcome {
+    const groups = crossContextValidationGroups(facts.verbs);
+    const findings: DetectorFinding[] = [];
+    for (const group of groups) {
+      const classified = group.contexts.map((context) => ({
+        context,
+        verdict: validationContextVerdict(context),
+      }));
+      if (classified.some(({ verdict }) => verdict === "mixed")) {
+        continue;
+      }
+      const redContexts = classified.filter(({ verdict }) => verdict === "red");
+      const greenContexts = classified.filter(({ verdict }) =>
+        verdict === "green"
+      );
+      if (redContexts.length === 0 || greenContexts.length === 0) continue;
+      const counts = validationVerdictCounts(group.observations);
+      const evidence = {
+        runs: counts.comparable,
+        denominator: counts.denominator,
+        red: counts.red,
+        green: counts.green,
+        contexts: redContexts.length + greenContexts.length,
+        ...validationModeEvidence(group.observations),
+        excluded_outcomes: counts.excluded,
+      };
+      const clauses = [...redContexts, ...greenContexts].map(
+        ({ context, verdict }) => {
+          const contextCounts = validationVerdictCounts(context.observations);
+          const count = verdict === "red"
+            ? contextCounts.red
+            : contextCounts.green;
+          const [mode, ...detail] = validationContextLabel(context).split(
+            ", ",
+          );
+          return `${mode ?? "recorded context"} ${
+            formatHumanNumber(count)
+          } ${verdict}${detail.length > 0 ? ` (${detail.join(", ")})` : ""}`;
+        },
+      );
+      const displayedClauses = clauses.slice(0, VALIDATION_CONTEXT_SUMMARY_MAX);
+      const omittedClauses = clauses.length - displayedClauses.length;
+      const contextSummary = [
+        ...displayedClauses,
+        ...(omittedClauses > 0
+          ? [
+            `${
+              formatHumanNumber(omittedClauses)
+            } additional contexts omitted from this summary`,
+          ]
+          : []),
+      ].join("; ");
+      const basis: PatternEvidenceBasis = {
+        kind: group.basisKind,
+        coverage: {
+          comparable: counts.comparable,
+          denominator: counts.denominator,
+          unit: "job-runs",
+        },
+        validation_state: { version: group.stateVersion, complete: true },
+        matched_conditions: group.matchedConditions,
+        differing_conditions: group.differingConditions,
+        legacy_events: 0,
+        excluded_events: distinctValidationEvents(
+          group.observations.filter((observation) =>
+            observation.verdict === "excluded"
+          ),
+        ),
+        limitations: [
+          "The contexts differ only in the named recorded conditions; resource contention, ordering, environment sensitivity, and other external context remain possible investigation paths, not established causes.",
+        ],
+        values: observedEvidenceValues(evidence),
+      };
+      findings.push({
+        subject: group.jobId,
+        summary:
+          "This validation job changed verdict between recorded execution contexts.",
+        observed:
+          `\`${group.jobId}\` differed between recorded contexts: ${contextSummary} across ${
+            formatHumanNumber(counts.comparable)
+          } of ${
+            formatHumanNumber(counts.denominator)
+          } job runs on one complete validation state.`,
+        evidence,
+        basis,
+        strength: counts.comparable * 10,
+      });
+    }
+    findings.sort((a, b) =>
+      b.strength - a.strength ||
+      (a.subject ?? "").localeCompare(b.subject ?? "")
+    );
+    return {
+      considered: groups.reduce(
+        (sum, group) => sum + group.observations.length,
+        0,
+      ),
       findings: findings.slice(0, 3),
     };
   },
@@ -2840,7 +3606,7 @@ const loopsToGreen: Detector = {
   // 2 branches that reached green — one branch has nothing to stand out from.
   threshold: 2,
   next_step:
-    "A high loop count on a small change points at guesswork — a falsifying diagnosis loop (`discern-cure-a-bug`, diagnose procedure) is a cheaper probe than the full gate.",
+    "Start with the first repeated diagnostic and use the `discern-cure-a-bug` diagnose procedure to test one cause at a time before another full Gate.",
   detect(facts): DetectorOutcome {
     const loop = facts.agentish.filter((e) =>
       e.verb === "done" || e.verb === "prepare" || e.verb === "test"
@@ -2866,9 +3632,9 @@ const loopsToGreen: Detector = {
         const perFile = files > 0 ? round1(reds / files) : reds;
         findings.push({
           subject: branch,
-          brief: `${formatHumanNumber(reds)} red runs · ${
-            formatHumanNumber(files)
-          }-file change · ${formatHumanNumber(perFile)} per file`,
+          summary: `This branch had ${
+            formatHumanNumber(reds)
+          } red runs before its first green Gate.`,
           observed: `\`${branch}\` took ${
             formatHumanNumber(reds)
           } red runs to reach its first green \`done\`, on a ${
@@ -2946,7 +3712,8 @@ const cohortLoopsToGreen: Detector = {
     return {
       considered,
       findings: [{
-        brief: clauses.join(" · "),
+        summary:
+          "The report separates red-run medians before green by attributed driver cohort.",
         observed: `branches reaching a green \`done\`, by attributed driver: ${
           clauses.join("; ")
         }; ${formatHumanNumber(split.unattributedUnits)} ${
@@ -2971,7 +3738,7 @@ const cycleTime: Detector = {
   // 3 completed cycles before a median means anything.
   threshold: 3,
   next_step:
-    "Long cycles usually mean oversized tasks. Splitting the ask into smaller, sharply-scoped briefs lands faster, and smaller landings merge cleaner for everyone behind them.",
+    "Review the longest recorded cycle. If work scope accounts for the elapsed time, split the next brief; otherwise inspect recorded waiting and update events before changing practice.",
   detect(facts): DetectorOutcome {
     const starts = facts.verbs.filter((e) =>
       e.verb === "start" && e.outcome === "ok" && e.target !== undefined
@@ -2992,16 +3759,16 @@ const cycleTime: Detector = {
     }
     const findings: DetectorFinding[] = cycles.length >= 3
       ? [{
-        brief: `${formatHumanNumber(cycles.length)} cycles · median ${
-          formatHumanNumber(round1(median(cycles)))
-        }h · longest ${formatHumanNumber(round1(Math.max(...cycles)))}h`,
-        observed: `${
-          formatHumanNumber(cycles.length)
-        } completed start-to-accept cycles: median ${
+        summary:
+          "Completed changes have a recorded start-to-accept cycle time.",
+        observed: `${formatHumanNumber(cycles.length)} of ${
+          formatHumanNumber(starts.length)
+        } recorded starts completed a start-to-accept cycle: median ${
           formatHumanNumber(round1(median(cycles)))
         }h, longest ${formatHumanNumber(round1(Math.max(...cycles)))}h.`,
         evidence: {
           cycles: cycles.length,
+          starts: starts.length,
           median_hours: round1(median(cycles)),
           longest_hours: round1(Math.max(...cycles)),
         },
@@ -3022,7 +3789,7 @@ const giantCommitLanding: Detector = {
   // 3 landing-shaped runs before judging commit hygiene.
   threshold: 3,
   next_step:
-    "One giant commit hides the steps that built it — atomic commits make review tractable and selective reverts possible. Ask for them in guidance; agents follow what the repo teaches.",
+    "If the change contains independent steps, request atomic commits so review and selective reverts can address them separately.",
   detect(facts): DetectorOutcome {
     // The landing-shaped moment: a green done on a clean, committed tree.
     const landings = facts.agentish.filter((e) =>
@@ -3043,17 +3810,18 @@ const giantCommitLanding: Detector = {
       if (change.commits === 1 && lines >= 400) {
         findings.push({
           subject: e.branch,
-          brief: `${formatHumanNumber(lines)} changed lines · ${
-            formatHumanNumber(change.files)
-          } files · 1 commit`,
+          summary: "This branch reached a green Gate with one large commit.",
           observed:
             `\`${e.branch}\` reached green as a single commit carrying ${
               formatHumanNumber(lines)
-            } changed lines across ${formatHumanNumber(change.files)} files.`,
+            } changed lines across ${formatHumanNumber(change.files)} files; ${
+              formatHumanNumber(landings.length)
+            } landing-shaped runs were considered.`,
           evidence: {
             commits: 1,
             changed_lines: lines,
             files: change.files,
+            landing_runs: landings.length,
           },
           strength: Math.round(lines / 100),
         });
@@ -3074,13 +3842,13 @@ const updateFriction: Detector = {
   // 6 updates on one setup: halves of 3 are the fewest worth comparing.
   threshold: 6,
   next_step:
-    "Rising behind-counts and overlap mean efforts are outliving the trunk's pace — update earlier in the task, and land smaller so each merge brings less in.",
+    "Review the later updates. If long-lived efforts account for the larger counts, update earlier or reduce the next brief's scope; otherwise inspect the overlapping files before changing practice.",
   detect(facts): DetectorOutcome {
-    const { series, excluded } = comparableSeries(
+    const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) =>
         e.verb === "update" && e.update !== undefined && e.outcome === "ok"
       ),
-      facts.events,
+      facts,
     );
     const considered = series.length + (excluded?.runs ?? 0);
     if (series.length < 6) {
@@ -3105,18 +3873,17 @@ const updateFriction: Detector = {
       (overlapLate >= Math.max(overlapEarly, 1) * 2 && overlapLate >= 2)
     ) {
       findings.push({
-        brief: `behind ${formatHumanNumber(behindEarly)} → ${
-          formatHumanNumber(behindLate)
-        } · overlap ${formatHumanNumber(overlapEarly)} → ${
-          formatHumanNumber(overlapLate)
-        } · ${formatHumanNumber(series.length)} updates`,
-        observed: `across ${
-          formatHumanNumber(series.length)
-        } updates, the median behind-count moved ${
+        summary:
+          "Later updates brought in more trunk commits or overlapping files under one recorded setup.",
+        observed: `across ${formatHumanNumber(series.length)} of ${
+          formatHumanNumber(considered)
+        } considered updates, the median behind-count moved ${
           formatHumanNumber(behindEarly)
         } → ${formatHumanNumber(behindLate)} and overlapping files ${
           formatHumanNumber(overlapEarly)
-        } → ${formatHumanNumber(overlapLate)}.`,
+        } → ${formatHumanNumber(overlapLate)}.${
+          excludedSetupSentence(excluded)
+        }`,
         evidence: {
           updates: series.length,
           behind_early: behindEarly,
@@ -3136,7 +3903,7 @@ interface TrajectorySeriesPoint {
   value: number;
 }
 
-// Leaves room for the subject and brief in the conventional 80-column report;
+// Leaves room for the subject and summary in the conventional 80-column report;
 // the wire cap remains the authority if it ever falls below this target.
 const STANDARD_TRAJECTORY_SERIES_POINTS = Math.min(
   16,
@@ -3220,40 +3987,35 @@ const standardTrajectory: Detector = {
   // 5 readings of one standard before drawing its line.
   threshold: 5,
   next_step:
-    "Read each metric's line against its limit's own history — pins should track sustained gains, and a value drifting toward its limit deserves attention before it fails.",
+    "Read each metric's line against its limit's own history. Mechanical pin eligibility comes from the Gate; Patterns recommends a pin only when current comparable evidence is persistent and stable.",
   detect(facts): DetectorOutcome {
     interface Reading {
-      at: string;
-      value: number;
-      limit: number | undefined;
-      direction: string | undefined;
-      epoch: string | null;
-      writer: string | undefined;
+      event: VerbEvent;
+      standard: StandardReading;
     }
     const series = new Map<string, Reading[]>();
     for (const e of facts.verbs) {
       for (const s of e.standards ?? []) {
-        if (s.value === undefined) {
-          continue;
-        }
         const list = series.get(s.name) ?? [];
-        list.push({
-          at: e.at,
-          value: s.value,
-          limit: s.limit,
-          direction: s.direction,
-          epoch: e.epoch,
-          writer: e.writer,
-        });
+        list.push({ event: e, standard: s });
         series.set(s.name, list);
       }
     }
+    const latestInventory = facts.verbs.findLast((event) =>
+      event.standards !== undefined
+    );
+    const activeNames = new Set(
+      latestInventory?.standards?.map((standard) => standard.name) ?? [],
+    );
     const pins = facts.events.filter(
       (e): e is Extract<LogbookEvent, { kind: "pin" }> => e.kind === "pin",
     );
     let considered = 0;
     const findings: DetectorFinding[] = [];
-    for (const [name, readings] of [...series.entries()].sort()) {
+    for (const [name, entries] of [...series.entries()].sort()) {
+      const readings = entries.filter((entry) =>
+        entry.standard.value !== undefined
+      );
       considered += readings.length;
       if (readings.length < 5) {
         continue;
@@ -3263,7 +4025,12 @@ const standardTrajectory: Detector = {
       if (first === undefined || last === undefined) {
         continue;
       }
-      const span = daysBetween(first.at, last.at);
+      const firstValue = first.standard.value;
+      const lastValue = last.standard.value;
+      if (firstValue === undefined || lastValue === undefined) {
+        continue;
+      }
+      const span = daysBetween(first.event.at, last.event.at);
       const ownPins = pins.filter((p) => p.standard === name);
       const firstPin = ownPins[0];
       const lastPin = ownPins[ownPins.length - 1];
@@ -3272,11 +4039,13 @@ const standardTrajectory: Detector = {
       // can alternate for pages — that is still two setups, not a boundary
       // per flip.
       const setups = new Set(
-        readings.map((r) => `${r.epoch ?? ""} ${r.writer ?? ""}`),
+        readings.map((reading) =>
+          `${reading.event.epoch ?? ""} ${reading.event.writer ?? ""}`
+        ),
       ).size;
       const pieces = [
-        `\`${name}\` measured ${formatHumanNumber(first.value)} → ${
-          formatHumanNumber(last.value)
+        `\`${name}\` measured ${formatHumanNumber(firstValue)} → ${
+          formatHumanNumber(lastValue)
         } across ${formatHumanNumber(span)} days (${
           formatHumanNumber(readings.length)
         } readings)`,
@@ -3289,8 +4058,10 @@ const standardTrajectory: Detector = {
             ownPins.length === 1 ? "" : "s"
           }`,
         );
-      } else if (last.limit !== undefined) {
-        pieces.push(`the limit held at ${formatHumanNumber(last.limit)}`);
+      } else if (last.standard.limit !== undefined) {
+        pieces.push(
+          `the limit held at ${formatHumanNumber(last.standard.limit)}`,
+        );
       }
       if (setups > 1) {
         pieces.push(
@@ -3299,76 +4070,184 @@ const standardTrajectory: Detector = {
           } config/release setups, so ${TRAJECTORY_BOUNDARY_ATTRIBUTION}`,
         );
       }
-      // Direction-aware slack: the last three readings all strictly better
-      // than the limit they were held to.
-      const tail3 = readings.slice(-3);
-      const better = (r: Reading): boolean =>
-        r.limit !== undefined &&
-        (r.direction === "down"
-          ? r.value < r.limit
-          : r.direction === "up"
-          ? r.value > r.limit
-          : false);
-      const slack = tail3.length === 3 && tail3.every(better);
+      const retired = latestInventory !== undefined && !activeNames.has(name);
+      const currentEntries = retired || latestInventory === undefined
+        ? []
+        : entries.filter((entry) =>
+          sameComparableSetup(entry.event, latestInventory, facts)
+        );
+      const comparableReadings = currentEntries.filter((entry) =>
+        entry.standard.value !== undefined
+      );
+      const latestCurrent = currentEntries[currentEntries.length - 1]?.standard;
+      const recent = comparableReadings.slice(-5);
+      const tail3 = comparableReadings.slice(-3);
+      const mechanicallyEligible = latestCurrent?.pin_eligible === true &&
+        latestCurrent.pin_target !== undefined;
+      const currentMeasurement = latestCurrent?.value !== undefined &&
+          (latestCurrent.measurement === "measured" ||
+            latestCurrent.measurement === "replayed")
+        ? 1
+        : 0;
+      const persistentEligibility = tail3.length === 3 &&
+        tail3.every((entry) =>
+          entry.standard.pin_eligible === true &&
+          entry.standard.pin_target !== undefined
+        );
+      const direction = latestCurrent?.direction === "up" ||
+          latestCurrent?.direction === "down"
+        ? latestCurrent.direction
+        : undefined;
+      let previousDirection: number | undefined;
+      let recentReversals = 0;
+      for (let index = 1; index < recent.length; index += 1) {
+        const before = recent[index - 1]?.standard.value;
+        const after = recent[index]?.standard.value;
+        if (
+          before === undefined || after === undefined || direction === undefined
+        ) {
+          continue;
+        }
+        const oriented = (after - before) * (direction === "up" ? 1 : -1);
+        const movement = Math.sign(oriented);
+        if (movement === 0) {
+          continue;
+        }
+        if (
+          previousDirection !== undefined && movement !== previousDirection
+        ) {
+          recentReversals += 1;
+        }
+        previousDirection = movement;
+      }
+      const recentFailures = recent.filter((entry) =>
+        entry.standard.verdict === "regressed"
+      ).length;
+      const legacyEligibilityReadings = recent.filter((entry) =>
+        entry.standard.pin_eligible === undefined ||
+        entry.standard.margin === undefined ||
+        entry.standard.measurement === undefined
+      ).length;
+      const recommendationSupported = !retired && currentMeasurement === 1 &&
+        mechanicallyEligible && persistentEligibility &&
+        recentReversals === 0 && recentFailures === 0 &&
+        legacyEligibilityReadings === 0;
       const headroom = (r: Reading): number | undefined =>
-        r.limit === undefined
+        r.standard.value === undefined || r.standard.limit === undefined
           ? undefined
-          : r.direction === "down"
-          ? r.limit - r.value
-          : r.direction === "up"
-          ? r.value - r.limit
+          : r.standard.direction === "down"
+          ? r.standard.limit - r.standard.value
+          : r.standard.direction === "up"
+          ? r.standard.value - r.standard.limit
           : undefined;
       const firstHeadroom = headroom(first);
       const lastHeadroom = headroom(last);
-      const tone: PatternFindingTone = slack ||
-          (firstHeadroom !== undefined && lastHeadroom !== undefined &&
-            lastHeadroom > firstHeadroom)
+      const tone: PatternFindingTone = retired
+        ? "neutral"
+        : recommendationSupported ||
+            (firstHeadroom !== undefined && lastHeadroom !== undefined &&
+              lastHeadroom > firstHeadroom)
         ? "good"
         : firstHeadroom !== undefined && lastHeadroom !== undefined &&
             lastHeadroom < firstHeadroom
         ? "attention"
         : "neutral";
-      const movement = slack
-        ? "beating its limit"
-        : tone === "good"
-        ? "improving"
-        : tone === "attention"
-        ? "headroom shrinking"
-        : first.value === last.value
-        ? "holding"
-        : "changed";
-      const limitWord = last.direction === "down"
+      const limitWord = last.standard.direction === "down"
         ? "ceiling"
-        : last.direction === "up"
+        : last.standard.direction === "up"
         ? "floor"
         : "limit";
-      const againstLimit = last.limit === undefined
+      const againstLimit = last.standard.limit === undefined
         ? ""
-        : ` vs ${limitWord} ${formatHumanNumber(last.limit)}`;
+        : ` vs ${limitWord} ${formatHumanNumber(last.standard.limit)}`;
+      const movement = recommendationSupported
+        ? "beats its recorded limit"
+        : tone === "good"
+        ? "has more headroom"
+        : tone === "attention"
+        ? "has less headroom"
+        : firstValue === lastValue
+        ? "held steady"
+        : "changed";
+      const evidence = {
+        readings: readings.length,
+        comparable_readings: comparableReadings.length,
+        span_days: span,
+        pins: ownPins.length,
+        first_value: firstValue,
+        last_value: lastValue,
+        mechanically_eligible: mechanicallyEligible ? 1 : 0,
+        recommendation_supported: recommendationSupported ? 1 : 0,
+        current_measurement: currentMeasurement,
+        recent_failures: recentFailures,
+        recent_reversals: recentReversals,
+        retired: retired ? 1 : 0,
+        legacy_eligibility_readings: legacyEligibilityReadings,
+        ...(first.standard.limit !== undefined
+          ? { limit_first: first.standard.limit }
+          : {}),
+        ...(last.standard.limit !== undefined
+          ? { limit_last: last.standard.limit }
+          : {}),
+        ...(latestCurrent?.margin !== undefined
+          ? { margin: latestCurrent.margin }
+          : {}),
+        ...(latestCurrent?.pin_target !== undefined
+          ? { pin_target: latestCurrent.pin_target }
+          : {}),
+      };
+      const nextStep = retired
+        ? `\`${name}\` is absent from the newest recorded Standard inventory. Keep this trajectory as historical evidence; there is no live limit to pin.`
+        : latestCurrent?.measurement === "deferred"
+        ? `\`${name}\` is on-demand and its latest Gate entry deferred measurement. Run \`discern standards\` for current evidence before considering a pin.`
+        : currentMeasurement === 0
+        ? `\`${name}\` has no current measured or replayed value. Run \`discern standards\` before considering a pin.`
+        : recommendationSupported
+        ? `\`${name}\` is mechanically eligible under its recorded margin and the last 3 comparable readings are persistent, non-reversing, and failure-free — capture the gain: \`discern standards --pin ${name}\`.`
+        : mechanicallyEligible && recentFailures > 0
+        ? `\`${name}\` is mechanically eligible now, but ${
+          formatHumanNumber(recentFailures)
+        } recent same-Standard failure${
+          recentFailures === 1 ? "" : "s"
+        } suppress pin advice.`
+        : mechanicallyEligible && recentReversals > 0
+        ? `\`${name}\` is mechanically eligible now, but recent comparable values are volatile (${
+          formatHumanNumber(recentReversals)
+        } direction reversals), so no pin is recommended.`
+        : mechanicallyEligible
+        ? `\`${name}\` is mechanically eligible now, but fewer than 3 comparable current readings establish persistent headroom, so no pin is recommended yet.`
+        : `\`${name}\` is not mechanically eligible under its recorded margin and current limit; keep the trajectory as a statistic.`;
       findings.push({
         subject: name,
-        brief: `${formatHumanNumber(first.value)} → ${
-          formatHumanNumber(last.value)
-        }${againstLimit} — ${movement}`,
+        summary: `This Standard ${movement}: ${
+          formatHumanNumber(firstValue)
+        } → ${formatHumanNumber(lastValue)}${againstLimit}.`,
         tone,
-        series: downsampleTrajectorySeries(readings),
+        series: downsampleTrajectorySeries(readings.map((reading) => ({
+          at: reading.event.at,
+          value: reading.standard.value ?? 0,
+        }))),
         observed: `${pieces.join("; ")}.`,
-        evidence: {
-          readings: readings.length,
-          span_days: span,
-          pins: ownPins.length,
-          first_value: first.value,
-          last_value: last.value,
-          ...(first.limit !== undefined ? { limit_first: first.limit } : {}),
-          ...(last.limit !== undefined ? { limit_last: last.limit } : {}),
-        },
+        evidence,
+        basis: decisionEvidenceBasis("standard-pin-decision", evidence, {
+          comparable: comparableReadings.length,
+          denominator: readings.length,
+          unit: "Standard readings",
+          events: currentEntries.map((entry) => entry.event),
+          facts,
+          legacyEvents: legacyEligibilityReadings,
+          excludedEvents: readings.length - comparableReadings.length,
+          limitations: [
+            "Mechanical eligibility is recorded from the Gate's pin authority; recommendation additionally requires current comparable persistence, no recent reversals, and no recent failures.",
+            ...(retired
+              ? [
+                "Retired status is inferred only when a newer recorded Standard inventory names other active Standards.",
+              ]
+              : []),
+          ],
+        }),
         strength: readings.length,
-        ...(slack
-          ? {
-            next_step:
-              `\`${name}\` has measured better than its limit for the last 3 readings — capture the gain: \`discern standards --pin\`.`,
-          }
-          : {}),
+        next_step: nextStep,
       });
     }
     return { considered, findings };
@@ -3385,7 +4264,7 @@ const redRateHistory: Detector = {
   // 3 months of data — fewer is a datapoint, not a series.
   threshold: 3,
   next_step:
-    "A rising red rate is either the gate catching more or the practice degrading — read it alongside duration-creep and loops-to-green before concluding which.",
+    "Compare the latest direction with `duration-creep` and `loops-to-green`. Investigate only when the movement recurs; this series does not identify a cause.",
   detect(facts): DetectorOutcome {
     interface MonthCounts {
       ok: number;
@@ -3439,12 +4318,8 @@ const redRateHistory: Detector = {
           (newest[1].failed / (newest[1].ok + newest[1].failed)) * 100,
         )
         : 0;
-      const firstRendered = rendered[0] ?? "";
-      const lastRendered = rendered[rendered.length - 1] ?? "";
       findings.push({
-        brief: `${firstRendered} → ${lastRendered} · ${
-          formatHumanNumber(total)
-        } runs`,
+        summary: "This is the project's recorded red-run rate by month.",
         observed: `red rate by month: ${rendered.join(", ")} — ${
           formatHumanNumber(total)
         } runs in all; months marked coarse survive only as rotation digests.`,
@@ -3494,6 +4369,7 @@ export const DETECTORS: readonly Detector[] = [
   fixStageIdle,
   recurringDiagnostic,
   sameTreeFlake,
+  executionContextDivergence,
   loopsToGreen,
   cohortLoopsToGreen,
   cycleTime,

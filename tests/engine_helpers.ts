@@ -374,7 +374,10 @@ export async function runAgentPty(
   const child = new Deno.Command("script", {
     args: scriptArgs,
     cwd: dir,
-    env: await engineEnv(opts.env),
+    // `script(1)` supplies the PTY but inherits TERM. Give every PTY fixture a
+    // usable default independent of the test runner; a test can still model a
+    // degraded terminal explicitly with `TERM=dumb`.
+    env: await engineEnv({ TERM: "xterm-256color", ...opts.env }),
     stdin: opts.input === undefined ? "null" : "piped",
     stdout: "piped",
     stderr: "piped",

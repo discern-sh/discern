@@ -14,6 +14,7 @@ import {
   buildGatePlan,
   buildGateResult,
   type GateData,
+  gateLiveAdmissionGroups,
   gatePlanToEngine,
   planScopeGates,
   planStageJobs,
@@ -153,6 +154,29 @@ Deno.test("buildGatePlan: groups in fix→build→check/test→scope_gates order
     "smoke",
   ]);
   assert(plan.mergeCheck);
+});
+
+Deno.test("live Gate admission stays pure and reserves every configured scope row", () => {
+  const admission = gateLiveAdmissionGroups(FULL);
+  assertEquals(admission.initialGroups.map((group) => group.stage), [
+    "fix",
+    "build",
+    "check/test",
+  ]);
+  assertEquals(admission.maximumGroups.map((group) => group.stage), [
+    "fix",
+    "build",
+    "check/test",
+    "scope_gates",
+  ]);
+  const scopeJobs = admission.maximumGroups
+    .find((group) => group.stage === "scope_gates")
+    ?.jobs ?? [];
+  assertEquals(scopeJobs.map((job) => job.label), [
+    "scope:widget",
+    "scope:gadget",
+  ]);
+  assert(scopeJobs.every((job) => job.willRun));
 });
 
 Deno.test("buildGatePlan: empty stages produce no group (a no-op gate has no groups)", () => {
@@ -453,6 +477,7 @@ function captureSink(): { sink: RenderSink; lines: string[] } {
   const sink: RenderSink = {
     heading: (t) => lines.push(t),
     line: (t) => lines.push(t),
+    safeLine: (t) => t,
     dim: (t) => t,
   };
   return { sink, lines };

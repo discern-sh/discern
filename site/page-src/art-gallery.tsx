@@ -2,12 +2,15 @@
 
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Badge, Brand, SkipLink } from "discern-design-system/react";
+import { Brand, SkipLink } from "discern-design-system/react";
 import {
   BROWSER_ARTWORK_ENTRIES,
   type BrowserArtworkEntry,
 } from "../../art/browser/renderers.tsx";
-import { browserArtworkStylesheetNames } from "../../art/browser/registry.ts";
+import {
+  BROWSER_ART_FOUNDATION_STYLESHEET,
+  browserArtworkStylesheetNames,
+} from "../../art/browser/registry.ts";
 import {
   artGalleryEntries,
   type ArtGalleryEntry,
@@ -29,23 +32,25 @@ function BrowserArtwork(
     readonly index: number;
   },
 ): ReactNode {
+  const artworkId = `art-${artwork.slug}`;
   const headingId = `art-${artwork.slug}-title`;
   return (
     <article
       className="art-gallery__study"
-      id={`art-${artwork.slug}`}
+      id={artworkId}
       aria-labelledby={headingId}
       data-browser-artwork={artwork.slug}
     >
       <header className="art-gallery__study-header">
         <span>{String(index + 1).padStart(2, "0")}</span>
         <div>
-          <h3 id={headingId}>{artwork.title}</h3>
+          <h3 id={headingId}>
+            <a className="art-gallery__permalink" href={`#${artworkId}`}>
+              {artwork.title}
+            </a>
+          </h3>
           <p>{artwork.description}</p>
         </div>
-        <code title={artwork.sourceCommit}>
-          {artwork.sourceCommit.slice(0, 8)}
-        </code>
       </header>
       <div className="art-gallery__theme-pair">
         {PREVIEW_THEMES.map((theme) => (
@@ -109,7 +114,6 @@ function ArtGallery(
           typeface="mono"
         />
         <div className="art-gallery__masthead-meta">
-          <Badge tone="neutral">Development only</Badge>
           <span>Browser and terminal studies</span>
         </div>
       </header>
@@ -136,8 +140,8 @@ function ArtGallery(
               <h2>Geometric motion studies</h2>
             </div>
             <p>
-              Five scalable, token-driven SVG compositions. Motion is
-              decorative; each retains its meaning when animation is reduced.
+              Scalable, token-driven SVG compositions. Motion is decorative;
+              each retains its meaning when animation is reduced.
             </p>
           </header>
           {browserArtworks.map((artwork, index) => (
@@ -191,6 +195,7 @@ export function renderArtGallery(
       "discern.css",
       "grain.css",
       "art-gallery.css",
+      BROWSER_ART_FOUNDATION_STYLESHEET,
       ...browserArtworkStylesheetNames(browserArtworks),
     ],
     scripts: [],

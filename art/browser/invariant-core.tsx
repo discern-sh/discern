@@ -40,7 +40,7 @@ export function InvariantCoreArtwork(
       data-art-center-x={ART_CENTER.x}
       data-art-center-y={ART_CENTER.y}
     >
-      <title id={titleId}>Invariant core</title>
+      <title id={titleId}>Navigator</title>
       <desc id={descriptionId}>
         Cartesian, oblique, and radial hairline frames change around a small
         split triangle that remains fixed at their shared center. The complete

@@ -26,10 +26,14 @@
 import {
   PATTERNS_SERIES_MAX_POINTS,
   type PatternsStats,
+  VALIDATION_WORKFLOW_ROUTES,
+  type ValidationWorkflowRoute,
 } from "../../shared/patterns_vocabulary.ts";
 import type { PinEvent, VerbEvent } from "./schema.ts";
 import { byBranch } from "./read.ts";
-import { driverKind, splitByCohort } from "./cohorts.ts";
+import { comparative, driverKind, splitByCohort } from "./cohorts.ts";
+import { validationEvidenceIsComparable } from "./validation_findings.ts";
+import { EMPTY_TREE_DIFF_FINGERPRINT } from "../../shared/tree_identity.ts";
 import {
   day,
   inclusiveSpanDays,
@@ -44,7 +48,9 @@ const DAY_MS = 86_400_000;
 
 /** The verbs whose wall-clock time counts as "checks run": the full gate and
  * its two inner loops. */
-const CHECK_VERBS = new Set(["done", "prepare", "test"]);
+const VALIDATION_WORKFLOW_VERBS = ["prepare", "test", "done"] as const;
+type ValidationWorkflowVerb = (typeof VALIDATION_WORKFLOW_VERBS)[number];
+const CHECK_VERBS = new Set<string>(VALIDATION_WORKFLOW_VERBS);
 
 /** Epoch day number of a "YYYY-MM-DD" string, for consecutive-day arithmetic. */
 function epochDay(dayString: string): number {
@@ -239,6 +245,338 @@ function gateFeats(facts: StreamFacts): PatternsStats["gate"] {
     longest_green_streak: longestStreak(dones, green),
     current_green_streak: current,
     check_hours: round1(checkMs / HOUR_MS),
+  };
+}
+
+/** One stream-defined change cycle on one branch and one recorded config
+ * epoch. Its events are validation-workflow runs only. */
+interface ValidationWorkflowCycle {
+  branch: string;
+  epoch: string;
+  events: VerbEvent[];
+}
+
+/** Whether one event is part of the validation-workflow population. */
+function isValidationWorkflowEvent(
+  event: VerbEvent,
+): event is VerbEvent & { verb: ValidationWorkflowVerb } {
+  return (VALIDATION_WORKFLOW_VERBS as readonly string[]).includes(event.verb);
+}
+
+/** Whether one event is a clean successful full Gate. */
+function isCleanGreenGate(event: VerbEvent): boolean {
+  return event.verb === "done" && event.clean === true &&
+    event.outcome === "ok";
+}
+
+/** Finish one active branch cycle if it contains validation runs. */
+function finishWorkflowCycle(
+  branch: string,
+  active: Map<string, ValidationWorkflowCycle>,
+  completed: ValidationWorkflowCycle[],
+): void {
+  const cycle = active.get(branch);
+  if (cycle !== undefined && cycle.events.length > 0) {
+    completed.push(cycle);
+  }
+  active.delete(branch);
+}
+
+/** Build conservative change cycles entirely from recorded stream evidence.
+ * A successful `start` for a reused branch, a successful `accept`, or a config epoch
+ * change closes the prior cycle. After a clean green Gate, a later dirty run
+ * or another recorded HEAD begins a new cycle. The dirty-to-committed HEAD
+ * transition before that green Gate remains inside its cycle. */
+function validationWorkflowCycles(
+  facts: StreamFacts,
+): ValidationWorkflowCycle[] {
+  const active = new Map<string, ValidationWorkflowCycle>();
+  const completed: ValidationWorkflowCycle[] = [];
+  for (const event of facts.verbs) {
+    if (
+      event.verb === "start" && event.outcome === "ok" &&
+      event.target !== undefined
+    ) {
+      finishWorkflowCycle(event.target, active, completed);
+    }
+    if (
+      event.verb === "accept" && event.outcome === "ok" &&
+      event.branch !== null
+    ) {
+      finishWorkflowCycle(event.branch, active, completed);
+    }
+    if (!isValidationWorkflowEvent(event) || event.branch === null) {
+      continue;
+    }
+    const epoch = event.epoch;
+    let cycle = active.get(event.branch);
+    const priorGreen = cycle?.events.findLast(isCleanGreenGate);
+    const startsAnotherChange = priorGreen !== undefined &&
+      (event.clean === false ||
+        (priorGreen.head !== null && event.head !== null &&
+          priorGreen.head !== event.head));
+    if (
+      cycle !== undefined &&
+      (epoch === null || cycle.epoch !== epoch || startsAnotherChange)
+    ) {
+      finishWorkflowCycle(event.branch, active, completed);
+      cycle = undefined;
+    }
+    if (cycle === undefined) {
+      // A missing epoch cannot support a relationship with another run. Its
+      // placeholder is unique to this cycle because the next null event closes it.
+      cycle = {
+        branch: event.branch,
+        epoch: epoch ?? `unattributed:${event.at}`,
+        events: [],
+      };
+      active.set(event.branch, cycle);
+    }
+    cycle.events.push(event);
+  }
+  for (const branch of [...active.keys()]) {
+    finishWorkflowCycle(branch, active, completed);
+  }
+  return completed;
+}
+
+/** The first recorded entry state decides a cycle's route. Dirty entry is
+ * test-first; clean entry is commit-first; missing state stays unattributed.
+ * A later state cannot reconstruct an entry state the stream did not record. */
+function validationWorkflowRoute(
+  cycle: ValidationWorkflowCycle,
+): ValidationWorkflowRoute {
+  const first = cycle.events[0];
+  return first?.clean === false
+    ? "test-first"
+    : first?.clean === true
+    ? "commit-first"
+    : "unattributed";
+}
+
+/** Whether a test-first cycle records dirty validation, a later HEAD, and a
+ * clean green Gate on that later HEAD. */
+function isPrecommitToCleanGate(cycle: ValidationWorkflowCycle): boolean {
+  if (validationWorkflowRoute(cycle) !== "test-first") {
+    return false;
+  }
+  const greenIndex = cycle.events.findIndex(isCleanGreenGate);
+  const green = cycle.events[greenIndex];
+  if (greenIndex < 1 || green === undefined || green.head === null) {
+    return false;
+  }
+  return cycle.events.slice(0, greenIndex).some((event) =>
+    event.clean === false && event.head !== null && event.head !== green.head
+  );
+}
+
+/** Classify how much workflow evidence one run carries. Current validation
+ * evidence must clear the complete 3A comparison boundary. Older `done` and
+ * `test` runs may contribute their coarse recorded start state. `prepare`
+ * has no versioned validation capture and remains unattributed here. */
+function validationWorkflowEvidence(
+  event: VerbEvent,
+): "complete" | "incomplete" | "legacy" | "unattributed" {
+  if (event.validation !== undefined) {
+    return validationEvidenceIsComparable(event.validation)
+      ? "complete"
+      : "incomplete";
+  }
+  if (event.verb !== "prepare" && event.clean !== null) {
+    return "legacy";
+  }
+  return "unattributed";
+}
+
+/** Classify a complete current dirty standalone-test state without exposing
+ * paths. That capture shares the invocation-start boundary; a full Gate's
+ * post-pre-group capture does not and remains unclassified. The validation
+ * counts identify worktree and untracked changes, while the legacy tracked-
+ * diff fingerprint closes the staged-only gap when it was readable. */
+function validationDirtyState(
+  event: VerbEvent,
+): "tracked_only" | "untracked_only" | "mixed" | "unclassified" {
+  const state = event.validation?.state;
+  if (
+    state === undefined || validationWorkflowEvidence(event) !== "complete" ||
+    event.clean !== false ||
+    event.validation?.execution.mode !== "standalone-test"
+  ) {
+    return "unclassified";
+  }
+  const trackedAtBoundary = state.counts.tracked_paths > 0;
+  const trackedAtStart = event.tree !== undefined &&
+    event.tree !== EMPTY_TREE_DIFF_FINGERPRINT;
+  const noTrackedAtStart = event.tree === EMPTY_TREE_DIFF_FINGERPRINT;
+  const tracked = trackedAtBoundary || trackedAtStart;
+  const untracked = state.counts.untracked_paths > 0;
+  if (tracked && untracked) return "mixed";
+  if (tracked && !untracked) return "tracked_only";
+  if (!tracked && untracked && noTrackedAtStart) return "untracked_only";
+  return "unclassified";
+}
+
+/** Route-level counts, including cycle and run denominators. */
+function validationRouteCounts(
+  route: ValidationWorkflowRoute,
+  cycles: readonly ValidationWorkflowCycle[],
+): PatternsStats["validation_workflows"]["cycles"]["routes"][number] {
+  const selected = cycles.filter((cycle) =>
+    validationWorkflowRoute(cycle) === route
+  );
+  return {
+    route,
+    cycles: selected.length,
+    branches: new Set(selected.map((cycle) => cycle.branch)).size,
+    runs: selected.reduce((sum, cycle) => sum + cycle.events.length, 0),
+    successful_cycles:
+      selected.filter((cycle) => cycle.events.some(isCleanGreenGate)).length,
+    successful_runs: selected.reduce(
+      (sum, cycle) =>
+        sum + cycle.events.filter((event) => event.outcome === "ok").length,
+      0,
+    ),
+    failed_cycles:
+      selected.filter((cycle) =>
+        cycle.events.some((event) => event.outcome === "failed")
+      ).length,
+    failed_runs: selected.reduce(
+      (sum, cycle) =>
+        sum + cycle.events.filter((event) => event.outcome === "failed").length,
+      0,
+    ),
+    retried_cycles: selected.filter((cycle) => cycle.events.length > 1).length,
+    retry_runs: selected.reduce(
+      (sum, cycle) => sum + Math.max(0, cycle.events.length - 1),
+      0,
+    ),
+  };
+}
+
+/** Workflow cohort split through the shared identity seam and minimums. */
+function validationWorkflowCohorts(
+  cycles: readonly ValidationWorkflowCycle[],
+): PatternsStats["validation_workflows"]["cohorts"] {
+  const split = splitByCohort(cycles, (cycle) => cycle.events);
+  if (!comparative(split)) {
+    return undefined;
+  }
+  const below = split.belowMinimum;
+  return {
+    denominator_cycles: cycles.length,
+    denominator_runs: cycles.reduce(
+      (sum, cycle) => sum + cycle.events.length,
+      0,
+    ),
+    identities: split.speaking.map((cohort) => ({
+      agent: cohort.agent,
+      label: cohort.label,
+      cycles: cohort.units.length,
+      runs: cohort.runs,
+      test_first_cycles:
+        cohort.units.filter((cycle) =>
+          validationWorkflowRoute(cycle) === "test-first"
+        ).length,
+      commit_first_cycles:
+        cohort.units.filter((cycle) =>
+          validationWorkflowRoute(cycle) === "commit-first"
+        ).length,
+      successful_cycles:
+        cohort.units.filter((cycle) => cycle.events.some(isCleanGreenGate))
+          .length,
+      failed_cycles:
+        cohort.units.filter((cycle) =>
+          cycle.events.some((event) => event.outcome === "failed")
+        ).length,
+      retried_cycles:
+        cohort.units.filter((cycle) => cycle.events.length > 1).length,
+    })).sort((left, right) => left.agent.localeCompare(right.agent)),
+    below_minimum: {
+      cohorts: below.length,
+      cycles: below.reduce((sum, cohort) => sum + cohort.units.length, 0),
+      runs: below.reduce((sum, cohort) => sum + cohort.runs, 0),
+    },
+    unattributed: {
+      cycles: split.unattributedUnits,
+      runs: split.unattributedRuns,
+    },
+  };
+}
+
+/** Validation workflow counts over runs, cycles, and eligible cohorts. */
+function validationWorkflowFeats(
+  facts: StreamFacts,
+): PatternsStats["validation_workflows"] {
+  const runs = facts.verbs.filter(isValidationWorkflowEvent);
+  const cycles = validationWorkflowCycles(facts);
+  const retryEvents = new Set(
+    cycles.flatMap((cycle) => cycle.events.slice(1)),
+  );
+  const evidence = {
+    denominator: runs.length,
+    complete: 0,
+    incomplete: 0,
+    legacy: 0,
+    unattributed: 0,
+  };
+  const dirtyState = {
+    denominator: 0,
+    tracked_only: 0,
+    untracked_only: 0,
+    mixed: 0,
+    unclassified: 0,
+  };
+  for (const event of runs) {
+    evidence[validationWorkflowEvidence(event)] += 1;
+    if (
+      event.clean === false &&
+      validationWorkflowEvidence(event) === "complete"
+    ) {
+      dirtyState.denominator += 1;
+      dirtyState[validationDirtyState(event)] += 1;
+    }
+  }
+  const precommit = cycles.filter(isPrecommitToCleanGate);
+  const cohorts = validationWorkflowCohorts(cycles);
+  return {
+    runs: {
+      total: runs.length,
+      branches: byBranch(runs).size,
+      by_verb: VALIDATION_WORKFLOW_VERBS.map((verb) => {
+        const selected = runs.filter((event) => event.verb === verb);
+        return {
+          verb,
+          runs: selected.length,
+          branches: byBranch(selected).size,
+          clean: selected.filter((event) => event.clean === true).length,
+          dirty: selected.filter((event) => event.clean === false).length,
+          unknown: selected.filter((event) => event.clean === null).length,
+          successes: selected.filter((event) => event.outcome === "ok").length,
+          failures: selected.filter((event) => event.outcome === "failed")
+            .length,
+          retries: selected.filter((event) => retryEvents.has(event)).length,
+        };
+      }),
+      evidence,
+      dirty_state: dirtyState,
+    },
+    cycles: {
+      total: cycles.length,
+      branches: new Set(cycles.map((cycle) => cycle.branch)).size,
+      routes: VALIDATION_WORKFLOW_ROUTES.map((route) =>
+        validationRouteCounts(route, cycles)
+      ),
+      precommit_to_clean_gate: {
+        cycles: precommit.length,
+        branches: new Set(precommit.map((cycle) => cycle.branch)).size,
+        runs: precommit.reduce((sum, cycle) => sum + cycle.events.length, 0),
+        retry_runs: precommit.reduce(
+          (sum, cycle) => sum + Math.max(0, cycle.events.length - 1),
+          0,
+        ),
+      },
+    },
+    ...(cohorts !== undefined ? { cohorts } : {}),
   };
 }
 
@@ -573,6 +911,7 @@ export function computeStats(facts: StreamFacts): PatternsStats {
         ? { greens_per_day: fold(dailyTotals(greens, span)) }
         : {}),
     },
+    validation_workflows: validationWorkflowFeats(facts),
     ...(cycles !== undefined ? { cycles } : {}),
     ratchet: {
       pins: pins.length,

@@ -11,6 +11,7 @@ import {
   SITE_DEV_BROWSER_HOST,
 } from "./dev.ts";
 import {
+  BROWSER_ART_FOUNDATION_STYLESHEET,
   BROWSER_ARTWORKS,
   browserArtworkStylesheetName,
 } from "../art/browser/registry.ts";
@@ -35,6 +36,10 @@ const ART_STYLESHEET_SOURCES: ReadonlyMap<string, URL> = new Map([
   [
     ART_GALLERY_STYLESHEET_PATH,
     new URL("page-src/art-gallery.css", SITE_ROOT),
+  ],
+  [
+    designSystemAssetPath("compositions", BROWSER_ART_FOUNDATION_STYLESHEET),
+    new URL("figures.css", BROWSER_ART_ROOT),
   ],
   ...BROWSER_ARTWORKS.map(({ slug }) =>
     [

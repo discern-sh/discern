@@ -40,6 +40,7 @@ import {
   buildStreamFacts,
   comparableSeries,
   type Detector,
+  type DetectorFinding,
   type DetectorReport,
   DETECTORS,
   DORMANT_VERB_EXEMPTIONS,
@@ -47,6 +48,7 @@ import {
   runDetector,
   tipAdoptionOutcome,
 } from "../src/engine/logbook/detectors.ts";
+import { routedFindingData } from "../src/engine/logbook/routing.ts";
 import { KNOWN_VERBS } from "../src/shared/verbs.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import {
@@ -56,11 +58,23 @@ import {
   type VerbEvent,
   verbEventSchema,
 } from "../src/engine/logbook/schema.ts";
+import { VALIDATION_EVIDENCE_SCHEMA_FIELDS } from "../src/engine/logbook/validation.ts";
 import {
+  VALIDATION_COMPARISON_FIELD_ACCOUNTING,
+  VALIDATION_COMPARISON_IDENTITY_SOURCES,
+  VALIDATION_COMPATIBILITY_DETECTOR_ID,
+  VALIDATION_CONTROLLED_CONDITIONS,
+  VALIDATION_FINDING_RELATIONSHIPS,
+} from "../src/engine/logbook/validation_findings.ts";
+import {
+  boundedPatternEvidenceCondition,
   DETECTOR_FAMILIES,
   type DetectorFamily,
+  PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
   PATTERN_FINDING_TONES,
+  PatternEvidenceConditionSchema,
   PATTERNS_SERIES_MAX_POINTS,
+  PatternsFindingSchema,
 } from "../src/shared/patterns_vocabulary.ts";
 import { type HintFollowThroughRule, HINTS } from "../src/shared/hints.ts";
 import {
@@ -300,6 +314,32 @@ function suiteReveal(): Partial<VerbEvent> {
   });
 }
 
+/** Four comparable cancelled-job/later-failure relationships with enough
+ * completed-job samples for the fail-fast ledger's estimator. */
+function failFastLedgerEvents(
+  completedTailS: number,
+  laterRoundS: number,
+): LogbookEvent[] {
+  return run(
+    Array.from({ length: 4 }).flatMap(() => [
+      redDone({
+        duration_ms: 5_000,
+        steps: [
+          { ...step("lint", 1), outcome: "failed" },
+          { ...step("test", 0), outcome: "cancelled" },
+        ],
+      }),
+      redDone({
+        duration_ms: laterRoundS * 1_000,
+        steps: [
+          step("lint", 1),
+          { ...step("test", completedTailS), outcome: "failed" },
+        ],
+      }),
+    ]),
+  );
+}
+
 /** One successful acceptance with recorded consent and changed-scope names. */
 function accepted(
   source: NonNullable<VerbEvent["consent"]>["source"],
@@ -331,6 +371,116 @@ function step(
   };
 }
 
+/** A clean Gate stopped because a declared regeneration was stale. */
+function regenerationDrift(head: string): Partial<VerbEvent> {
+  return {
+    verb: "done",
+    head,
+    clean: true,
+    outcome: "failed",
+    failed_stage: "generated_drift",
+  };
+}
+
+/** A clean Gate stopped at the early checkpoint after only its fixer ran. */
+function fixDrift(head: string): Partial<VerbEvent> {
+  return {
+    verb: "done",
+    head,
+    clean: true,
+    outcome: "failed",
+    failed_stage: "tree_drift",
+    steps: [step("fmt", 1, "Fix")],
+  };
+}
+
+interface ValidationFixtureJob {
+  id: string;
+  outcome: "passed" | "failed" | "skipped" | "cancelled" | "unavailable";
+  stage?: string;
+  kind?: string;
+  definition?: string;
+  concurrent?: boolean;
+}
+
+interface ValidationFixtureOptions {
+  digest?: string;
+  complete?: boolean;
+  executionComplete?: boolean;
+  mode?: "full-gate" | "standalone-test";
+  config?: string;
+  setup?: string;
+  writer?: string;
+  job?: string;
+  definition?: string;
+  concurrent?: boolean;
+  siblings?: ValidationFixtureJob[];
+  version?: number;
+}
+
+/** One validation record whose job list is the detector fixture's enrollment source. */
+function validation(
+  outcome: "passed" | "failed" | "skipped" | "cancelled" | "unavailable",
+  over: ValidationFixtureOptions = {},
+): NonNullable<VerbEvent["validation"]> {
+  const complete = over.complete ?? true;
+  const version = over.version ?? 1;
+  return {
+    version,
+    state: {
+      version,
+      complete,
+      capture: over.mode === "full-gate"
+        ? "after-fix-build"
+        : "before-test-group",
+      elapsed_ms: 1,
+      ...(complete ? { digest: over.digest ?? "state-a" } : {}),
+      components: {},
+      counts: {
+        index_entries: 1,
+        tracked_paths: 0,
+        untracked_paths: 0,
+        submodules: 0,
+      },
+      bytes: {
+        index_manifest: 40,
+        tracked_content: 0,
+        untracked_content: 0,
+      },
+      ...(!complete
+        ? { incomplete: [{ category: "budget", reason: "byte-limit" }] }
+        : {}),
+      exclusions: [],
+    },
+    execution: {
+      version,
+      complete: over.executionComplete ?? true,
+      mode: over.mode ?? "standalone-test",
+      writer: over.writer ?? "9.9.9",
+      config_digest: over.config ?? "config-a",
+      setup_digest: over.setup ?? "setup-a",
+      jobs: [
+        {
+          id: over.job ?? "test",
+          stage: "test",
+          kind: "known",
+          definition_digest: over.definition ?? "job-a",
+          outcome,
+          concurrent_siblings: over.concurrent ?? false,
+        },
+        ...(over.siblings ?? []).map((job) => ({
+          id: job.id,
+          stage: job.stage ?? "test",
+          kind: job.kind ?? "known",
+          definition_digest: job.definition ?? `definition-${job.id}`,
+          outcome: job.outcome,
+          concurrent_siblings: job.concurrent ?? false,
+        })),
+      ],
+    },
+  } as NonNullable<VerbEvent["validation"]>;
+}
+
 /** A `standards` reading carried on a verb event. */
 function reading(
   name: string,
@@ -338,7 +488,47 @@ function reading(
   limit: number,
   direction: "up" | "down" = "up",
 ): NonNullable<VerbEvent["standards"]>[number] {
-  return { name, value, limit, direction, verdict: "improved" };
+  const eligible = direction === "up" ? value > limit : value < limit;
+  return {
+    name,
+    value,
+    limit,
+    direction,
+    margin: 0,
+    measurement: "measured",
+    verdict: eligible ? "improved" : "regressed",
+    pin_eligible: eligible,
+    ...(eligible ? { pin_target: value } : {}),
+  };
+}
+
+/** A current Standard reading carrying the Gate-owned pin decision evidence. */
+function decisionReading(
+  name: string,
+  value: number | undefined,
+  limit: number,
+  over: {
+    direction?: "up" | "down";
+    margin?: number;
+    measurement?: "measured" | "replayed" | "deferred" | "skipped";
+    verdict?: "improved" | "held" | "regressed";
+    pinEligible?: boolean;
+    pinTarget?: number;
+  } = {},
+): NonNullable<VerbEvent["standards"]>[number] {
+  return {
+    name,
+    direction: over.direction ?? "up",
+    limit,
+    margin: over.margin ?? 0,
+    measurement: over.measurement ?? "measured",
+    ...(value !== undefined ? { value } : {}),
+    ...(over.verdict !== undefined ? { verdict: over.verdict } : {}),
+    ...(over.pinEligible !== undefined
+      ? { pin_eligible: over.pinEligible }
+      : {}),
+    ...(over.pinTarget !== undefined ? { pin_target: over.pinTarget } : {}),
+  } as unknown as NonNullable<VerbEvent["standards"]>[number];
 }
 
 /** A driver bundle carrying one invocation-scoped identity signal. */
@@ -668,9 +858,12 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     ]),
   },
   "skipped-prepare": {
-    firing: run([redDone(), redDone(), redDone(), { verb: "done" }]),
-    quiet: run([redDone(), { verb: "prepare" }, redDone(), { verb: "done" }]),
-    sparse: run([redDone(), redDone(), { verb: "done" }]),
+    firing: run([regenerationDrift("head-a"), fixDrift("head-b")]),
+    quiet: run([
+      redDone({ head: "head-a" }),
+      redDone({ head: "head-b" }),
+    ]),
+    sparse: run([regenerationDrift("head-a")]),
   },
   "dirty-done-churn": {
     firing: run([
@@ -1019,7 +1212,11 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     firing: run(
       Array.from({ length: 5 }, () => ({
         verb: "done",
-        steps: [step("lint", 30), step("test", 5)],
+        scopes: ["engine"],
+        steps: [
+          { ...step("scope:docs", 30), kind: "scope-gate" },
+          step("test", 5),
+        ],
       })),
     ),
     quiet: run(
@@ -1039,6 +1236,7 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     firing: run(
       Array.from({ length: 5 }, () => ({
         verb: "done",
+        validation: validation("passed", { digest: "generated-state" }),
         steps: [
           step("generated:schemas", 20, "Build"),
           step("generated:docs", 10, "Build"),
@@ -1193,16 +1391,49 @@ const FIXTURES: Record<string, DetectorFixtures> = {
   },
   "same-tree-flake": {
     firing: run([
-      redDone({ head: "cafe123" }),
-      { verb: "done", head: "cafe123" },
+      {
+        verb: "test",
+        outcome: "failed",
+        validation: validation("failed", { job: "future-verifier" }),
+      },
+      {
+        verb: "test",
+        validation: validation("passed", { job: "future-verifier" }),
+      },
     ]),
     quiet: run([
-      { verb: "done", head: "cafe123" },
-      { verb: "done", head: "cafe123" },
+      { verb: "test", validation: validation("passed") },
+      { verb: "test", validation: validation("passed") },
     ]),
     sparse: run([
-      { verb: "done", head: "cafe123" },
-      { verb: "done", head: "beef456" },
+      { verb: "test", validation: validation("passed") },
+    ]),
+  },
+  "execution-context-divergence": {
+    firing: run([
+      {
+        verb: "test",
+        outcome: "failed",
+        validation: validation("failed"),
+      },
+      {
+        verb: "done",
+        validation: validation("passed", {
+          mode: "full-gate",
+          concurrent: true,
+          siblings: [{ id: "lint", outcome: "passed", stage: "check" }],
+        }),
+      },
+    ]),
+    quiet: run([
+      { verb: "test", validation: validation("passed") },
+      {
+        verb: "done",
+        validation: validation("passed", { mode: "full-gate" }),
+      },
+    ]),
+    sparse: run([
+      { verb: "test", validation: validation("failed") },
     ]),
   },
   "loops-to-green": {
@@ -1379,6 +1610,63 @@ Deno.test("patterns registry: every family has at least one member", () => {
   assertEquals([...populated].sort(), [...DETECTOR_FAMILIES].sort());
 });
 
+Deno.test("patterns registry: every detector stays bounded on a large history", () => {
+  const standards = Array.from(
+    { length: 12 },
+    (_, index) => reading(`large-history-${index}`, 100 + index, 80),
+  );
+  const events = Array.from({ length: 1_200 }, (_, index) =>
+    verb({
+      at: t(index),
+      duration_ms: index % 2 === 0 ? 5_000 : 10_000,
+      outcome: "failed",
+      failed_stage: "check/test",
+      driver: {
+        session: "mcp:large-history",
+        json: true,
+        tty: false,
+        ci: false,
+        mcp_client: {
+          name: "synthetic-client",
+          version: `9.9.${Math.floor(index / 300)}`,
+        },
+      },
+      standards,
+      steps: index % 2 === 0
+        ? [
+          { ...step("lint", 1), outcome: "failed" },
+          { ...step("test", 0), outcome: "cancelled" },
+        ]
+        : [
+          step("lint", 1),
+          { ...step("test", 10), outcome: "failed" },
+        ],
+    }));
+  const facts = buildStreamFacts(events, "main");
+  const timings: { id: string; milliseconds: number }[] = [];
+  const started = performance.now();
+  for (const entry of DETECTORS) {
+    const detectorStarted = performance.now();
+    runDetector(entry, facts);
+    timings.push({
+      id: entry.id,
+      milliseconds: performance.now() - detectorStarted,
+    });
+  }
+  const elapsed = performance.now() - started;
+  const slow = timings.filter((timing) => timing.milliseconds >= 2_000);
+  assertEquals(
+    slow,
+    [],
+    `large-history detectors exceeded 2s: ${JSON.stringify(slow)}`,
+  );
+  assert(
+    elapsed < 6_000,
+    `the enrolled detector registry took ${Math.round(elapsed)}ms on 1,200 ` +
+      `events: ${JSON.stringify(timings)}`,
+  );
+});
+
 Deno.test("patterns registry: every detector supplies its three fixtures", () => {
   assertEquals(
     Object.keys(FIXTURES).sort(),
@@ -1401,6 +1689,104 @@ Deno.test("patterns registry: dormant-verb exemptions name known verbs with reco
     assert(!watched.has(name), `exempt verb ${name} is still watched`);
   }
   assert(watched.size > 0, "the dormancy universe must not be empty");
+});
+
+Deno.test("validation finding registry: relationships have unique detector ids and one retained compatibility id", () => {
+  const relationshipIds = VALIDATION_FINDING_RELATIONSHIPS.map((relationship) =>
+    relationship.detectorId
+  );
+  assertEquals(
+    relationshipIds.length,
+    new Set(relationshipIds).size,
+    "one relationship cannot publish a duplicate finding under another registry row",
+  );
+  const enrolled = DETECTORS.filter((entry) =>
+    entry.validationRelationship !== undefined
+  );
+  assertEquals(
+    enrolled.map((entry) => entry.id).sort(),
+    [...relationshipIds].sort(),
+    "every validation relationship and detector must enroll each other",
+  );
+  assertEquals(
+    VALIDATION_FINDING_RELATIONSHIPS.filter((relationship) =>
+      "compatibility" in relationship
+    ).map((relationship) => relationship.detectorId),
+    [VALIDATION_COMPATIBILITY_DETECTOR_ID],
+  );
+  assertEquals(
+    VALIDATION_COMPATIBILITY_DETECTOR_ID,
+    "same-tree-flake",
+    "the published compatibility id remains the sole retained id",
+  );
+});
+
+Deno.test("validation finding registry: every relationship fixture carries the common evidence basis", () => {
+  for (const relationship of VALIDATION_FINDING_RELATIONSHIPS) {
+    const entry = detector(relationship.detectorId);
+    const outcome = report(entry, fixturesOf(entry).firing);
+    assertEquals(outcome.status, "fired", relationship.kind);
+    for (const finding of outcome.findings) {
+      const basis = findingBasis(finding);
+      assertEquals(
+        Object.keys(basis.values).sort(),
+        Object.keys(finding.evidence).sort(),
+        relationship.kind,
+      );
+      for (const [key, value] of Object.entries(finding.evidence)) {
+        assertEquals(
+          basis.values[key]?.value,
+          value,
+          `${relationship.kind}:${key}`,
+        );
+      }
+    }
+  }
+});
+
+Deno.test("validation comparison accounting: every live schema field has one declared role", () => {
+  for (const layer of ["evidence", "state", "execution", "job"] as const) {
+    assertEquals(
+      Object.keys(VALIDATION_COMPARISON_FIELD_ACCOUNTING[layer]).sort(),
+      [...VALIDATION_EVIDENCE_SCHEMA_FIELDS[layer]].sort(),
+      `${layer}: a new evidence field must declare how comparison handles it`,
+    );
+  }
+});
+
+Deno.test("validation comparison accounting: every identity and controlled field enters the pure projection", () => {
+  const projected = new Set<string>([
+    ...VALIDATION_COMPARISON_IDENTITY_SOURCES,
+    ...VALIDATION_CONTROLLED_CONDITIONS.flatMap((condition) =>
+      condition.sources
+    ),
+  ]);
+  const required: string[] = [];
+  for (
+    const [layer, fields] of Object.entries(
+      VALIDATION_COMPARISON_FIELD_ACCOUNTING,
+    )
+  ) {
+    for (const [field, role] of Object.entries(fields)) {
+      if (
+        role === "comparison-identity" || role === "controlled-condition" ||
+        role === "recorded-job-enrollment" || role === "job-identity"
+      ) {
+        required.push(`${layer}.${field}`);
+      }
+    }
+  }
+  assertEquals(
+    [...projected].sort(),
+    required.sort(),
+    "comparison identity and controlled conditions must derive from every classified v1 field",
+  );
+  assertEquals(
+    VALIDATION_CONTROLLED_CONDITIONS.map((condition) => condition.id).length,
+    new Set(VALIDATION_CONTROLLED_CONDITIONS.map((condition) => condition.id))
+      .size,
+    "controlled-condition ids are unique",
+  );
 });
 
 // ── the three behaviours, parameterized ─────────────────────────────────────
@@ -1427,6 +1813,625 @@ function detector(id: string): Detector {
   return found;
 }
 
+interface FindingBasisView {
+  kind: string;
+  coverage: { comparable: number; denominator: number; unit: string };
+  validation_state: { version: number | null; complete: boolean };
+  matched_conditions: Array<{
+    dimension: string;
+    values: string[];
+    distinct: number;
+    omitted: number;
+  }>;
+  differing_conditions: Array<{
+    dimension: string;
+    values: string[];
+    distinct: number;
+    omitted: number;
+  }>;
+  legacy_events: number;
+  excluded_events: number;
+  limitations: string[];
+  values: Record<string, { value: number; kind: string }>;
+}
+
+/** Read the additive evidence contract before its inferred type exists. */
+function findingBasis(
+  finding: DetectorReport["findings"][number] | undefined,
+): FindingBasisView {
+  assert(finding !== undefined, "expected a finding");
+  const basis = (finding as unknown as { basis?: FindingBasisView }).basis;
+  assert(basis !== undefined, "expected structured finding basis");
+  return basis;
+}
+
+/** Every controlled-condition dimension named by a finding, in stable order. */
+function differingDimensions(basis: FindingBasisView): string[] {
+  return basis.differing_conditions.map((condition) => condition.dimension);
+}
+
+Deno.test("validation findings: each recorded job auto-enrols in strict same-envelope divergence", () => {
+  for (const mode of ["standalone-test", "full-gate"] as const) {
+    const fired = runDetector(
+      detector("same-tree-flake"),
+      buildStreamFacts(
+        run([
+          {
+            verb: mode === "full-gate" ? "done" : "test",
+            outcome: "failed",
+            validation: validation("failed", {
+              mode,
+              job: "future-verifier",
+              siblings: [{ id: "unrelated-check", outcome: "passed" }],
+            }),
+          },
+          {
+            verb: mode === "full-gate" ? "done" : "test",
+            validation: validation("passed", {
+              mode,
+              job: "future-verifier",
+              siblings: [{ id: "unrelated-check", outcome: "passed" }],
+            }),
+          },
+        ]),
+        "main",
+      ),
+    );
+    assertEquals(fired.status, "fired", mode);
+    assertEquals(fired.findings.length, 1, mode);
+    const finding = fired.findings[0];
+    assertEquals(finding?.subject, "future-verifier", mode);
+    assertEquals(finding?.evidence, {
+      runs: 2,
+      denominator: 2,
+      red: 1,
+      green: 1,
+      excluded_outcomes: 0,
+    });
+    const basis = findingBasis(finding);
+    assertEquals(basis.kind, "complete-validation-state");
+    assertEquals(basis.coverage, {
+      comparable: 2,
+      denominator: 2,
+      unit: "job-runs",
+    });
+    assertEquals(basis.validation_state, { version: 1, complete: true });
+    assertEquals(basis.differing_conditions, []);
+    assert(
+      basis.matched_conditions.some((condition) =>
+        condition.dimension === "sibling-context"
+      ),
+      "the same-envelope basis must cover the whole planned sibling set",
+    );
+    assert(
+      basis.limitations.some((limitation) =>
+        limitation.includes("external context")
+      ),
+      "the finding must disclose the material unrecorded-context boundary",
+    );
+  }
+});
+
+Deno.test("validation findings: strict comparison is per job, not one event-level suite verdict", () => {
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          validation: validation("failed", {
+            job: "unit",
+            siblings: [{ id: "smoke", outcome: "passed" }],
+          }),
+        },
+        {
+          verb: "test",
+          validation: validation("passed", {
+            job: "unit",
+            siblings: [{ id: "smoke", outcome: "passed" }],
+          }),
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(outcome.findings.map((finding) => finding.subject), ["unit"]);
+});
+
+Deno.test("validation findings regression: two event-level reds still expose each job's opposite verdict", () => {
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          outcome: "failed",
+          validation: validation("failed", {
+            job: "unit",
+            siblings: [{ id: "smoke", outcome: "passed" }],
+          }),
+        },
+        {
+          verb: "test",
+          outcome: "failed",
+          validation: validation("passed", {
+            job: "unit",
+            siblings: [{ id: "smoke", outcome: "failed" }],
+          }),
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(
+    outcome.findings.map((finding) => finding.subject).sort(),
+    ["smoke", "unit"],
+    "suite-level red/red must not hide two per-job red/green changes",
+  );
+});
+
+Deno.test("validation findings regression: legacy runs of different jobs never form one divergence", () => {
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          head: "shared-head",
+          clean: true,
+          outcome: "failed",
+          steps: [{ ...step("unit", 1, "Test"), outcome: "failed" }],
+        },
+        {
+          verb: "test",
+          head: "shared-head",
+          clean: true,
+          steps: [step("smoke", 1, "Test")],
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(
+    outcome.findings,
+    [],
+    "event-level tree grouping must not compare unrelated validation jobs",
+  );
+});
+
+Deno.test("validation findings: cross-context divergence names every changed controlled condition", () => {
+  const strict = detector("same-tree-flake");
+  const contextual = detector("execution-context-divergence");
+  const facts = buildStreamFacts(
+    run([
+      {
+        verb: "test",
+        outcome: "failed",
+        validation: validation("failed", { mode: "standalone-test" }),
+      },
+      {
+        verb: "test",
+        outcome: "failed",
+        validation: validation("failed", { mode: "standalone-test" }),
+      },
+      {
+        verb: "done",
+        validation: validation("passed", {
+          mode: "full-gate",
+          concurrent: true,
+          siblings: [{
+            id: "lint",
+            outcome: "passed",
+            stage: "check",
+            concurrent: true,
+          }],
+        }),
+      },
+      {
+        verb: "done",
+        validation: validation("passed", {
+          mode: "full-gate",
+          concurrent: true,
+          siblings: [{
+            id: "lint",
+            outcome: "passed",
+            stage: "check",
+            concurrent: true,
+          }],
+        }),
+      },
+    ]),
+    "main",
+  );
+  assertEquals(runDetector(strict, facts).status, "quiet");
+  const outcome = runDetector(contextual, facts);
+  assertEquals(outcome.status, "fired");
+  const finding = outcome.findings[0];
+  assertEquals(finding?.subject, "test");
+  assertEquals(finding?.evidence, {
+    runs: 4,
+    denominator: 4,
+    red: 2,
+    green: 2,
+    contexts: 2,
+    full_gate_runs: 2,
+    standalone_test_runs: 2,
+    excluded_outcomes: 0,
+  });
+  assertStringIncludes(finding?.observed ?? "", "standalone test 2 red");
+  assertStringIncludes(finding?.observed ?? "", "full Gate 2 green");
+  assertEquals(differingDimensions(findingBasis(finding)), [
+    "capture-boundary",
+    "execution-mode",
+    "concurrency",
+    "sibling-context",
+  ]);
+});
+
+Deno.test("validation findings: sibling and concurrency context can diverge within one mode", () => {
+  const outcome = runDetector(
+    detector("execution-context-divergence"),
+    buildStreamFacts(
+      run([
+        { verb: "test", validation: validation("failed") },
+        {
+          verb: "test",
+          validation: validation("passed", {
+            concurrent: true,
+            siblings: [{ id: "smoke", outcome: "passed", concurrent: true }],
+          }),
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(outcome.status, "fired");
+  assertEquals(differingDimensions(findingBasis(outcome.findings[0])), [
+    "concurrency",
+    "sibling-context",
+  ]);
+});
+
+Deno.test("validation findings: unclassified context differences prevent every current comparison", () => {
+  const cases: Array<[
+    string,
+    ValidationFixtureOptions,
+    ValidationFixtureOptions,
+  ]> = [
+    ["state", { digest: "state-a" }, { digest: "state-b" }],
+    ["definition", { definition: "job-a" }, { definition: "job-b" }],
+    ["writer", { writer: "9.8.7" }, { writer: "9.8.8" }],
+    ["config", { config: "config-a" }, { config: "config-b" }],
+    ["setup", { setup: "setup-a" }, { setup: "setup-b" }],
+  ];
+  for (const [label, red, green] of cases) {
+    const facts = buildStreamFacts(
+      run([
+        { verb: "test", validation: validation("failed", red) },
+        {
+          verb: "done",
+          validation: validation("passed", { ...green, mode: "full-gate" }),
+        },
+      ]),
+      "main",
+    );
+    for (const id of ["same-tree-flake", "execution-context-divergence"]) {
+      assertEquals(
+        runDetector(detector(id), facts).findings,
+        [],
+        `${label}:${id}`,
+      );
+    }
+  }
+});
+
+Deno.test("validation findings: mixed outcomes inside one context never masquerade as cross-context divergence", () => {
+  const facts = buildStreamFacts(
+    run([
+      { verb: "test", validation: validation("failed") },
+      { verb: "test", validation: validation("passed") },
+      {
+        verb: "done",
+        validation: validation("passed", { mode: "full-gate" }),
+      },
+    ]),
+    "main",
+  );
+  assertEquals(runDetector(detector("same-tree-flake"), facts).status, "fired");
+  assertEquals(
+    runDetector(detector("execution-context-divergence"), facts).findings,
+    [],
+  );
+});
+
+Deno.test("validation findings: incomplete and non-verdict evidence cannot establish divergence", () => {
+  const incomplete: Array<[string, ValidationFixtureOptions]> = [
+    ["state", { complete: false }],
+    ["execution", { executionComplete: false }],
+  ];
+  for (const [label, options] of incomplete) {
+    const facts = buildStreamFacts(
+      run([
+        { verb: "test", validation: validation("failed", options) },
+        { verb: "test", validation: validation("passed", options) },
+      ]),
+      "main",
+    );
+    for (const id of ["same-tree-flake", "execution-context-divergence"]) {
+      assertEquals(
+        runDetector(detector(id), facts).findings,
+        [],
+        `${label}:${id}`,
+      );
+    }
+  }
+
+  for (const excluded of ["skipped", "cancelled", "unavailable"] as const) {
+    const facts = buildStreamFacts(
+      run([
+        { verb: "test", validation: validation("failed") },
+        { verb: "test", validation: validation(excluded) },
+      ]),
+      "main",
+    );
+    assertEquals(
+      runDetector(detector("same-tree-flake"), facts).findings,
+      [],
+      excluded,
+    );
+  }
+});
+
+Deno.test("validation findings: skipped and cancelled outcomes stay visible only in the denominator", () => {
+  for (const excluded of ["skipped", "cancelled", "unavailable"] as const) {
+    const outcome = runDetector(
+      detector("same-tree-flake"),
+      buildStreamFacts(
+        run([
+          { verb: "test", validation: validation("failed") },
+          { verb: "test", validation: validation("passed") },
+          { verb: "test", validation: validation(excluded) },
+        ]),
+        "main",
+      ),
+    );
+    assertEquals(outcome.status, "fired", excluded);
+    assertEquals(outcome.findings[0]?.evidence, {
+      runs: 2,
+      denominator: 3,
+      red: 1,
+      green: 1,
+      excluded_outcomes: 1,
+    });
+    assertEquals(findingBasis(outcome.findings[0]).excluded_events, 1);
+  }
+});
+
+Deno.test("validation findings: staged, worktree, untracked, and mixed state identities never collapse", () => {
+  const states: Array<[string, string, string]> = [
+    ["staged-versus-worktree", "state-index", "state-worktree"],
+    ["tracked-versus-untracked", "state-tracked", "state-untracked"],
+    ["untracked-versus-mixed", "state-untracked", "state-mixed"],
+  ];
+  for (const [label, redState, greenState] of states) {
+    const facts = buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          validation: validation("failed", { digest: redState }),
+        },
+        {
+          verb: "test",
+          validation: validation("passed", { digest: greenState }),
+        },
+      ]),
+      "main",
+    );
+    for (const id of ["same-tree-flake", "execution-context-divergence"]) {
+      assertEquals(
+        runDetector(detector(id), facts).findings,
+        [],
+        `${label}:${id}`,
+      );
+    }
+  }
+});
+
+Deno.test("validation findings: evidence versions and legacy bases never blend", () => {
+  const versionedFacts = buildStreamFacts(
+    run([
+      { verb: "test", validation: validation("failed", { version: 1 }) },
+      { verb: "test", validation: validation("passed", { version: 2 }) },
+    ]),
+    "main",
+  );
+  assertEquals(
+    runDetector(detector("same-tree-flake"), versionedFacts).findings,
+    [],
+  );
+
+  const legacyAndCurrent = buildStreamFacts(
+    run([
+      {
+        verb: "test",
+        outcome: "failed",
+        steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
+      },
+      { verb: "test", validation: validation("passed") },
+    ]),
+    "main",
+  );
+  assertEquals(
+    runDetector(detector("same-tree-flake"), legacyAndCurrent).findings,
+    [],
+  );
+});
+
+Deno.test("validation findings: legacy clean and dirty evidence stay separate and weak", () => {
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          head: "clean-head",
+          clean: true,
+          outcome: "failed",
+          steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
+        },
+        {
+          verb: "test",
+          head: "clean-head",
+          clean: true,
+          steps: [step("test", 1, "Test")],
+        },
+        {
+          verb: "test",
+          head: "dirty-head",
+          clean: false,
+          tree: "tracked-fingerprint",
+          outcome: "failed",
+          steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
+        },
+        {
+          verb: "test",
+          head: "dirty-head",
+          clean: false,
+          tree: "tracked-fingerprint",
+          steps: [step("test", 1, "Test")],
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(outcome.status, "fired");
+  assertEquals(outcome.findings.length, 2);
+  const bases = outcome.findings.map(findingBasis);
+  assertEquals(
+    bases.map((basis) => basis.kind).sort(),
+    ["legacy-clean-start", "legacy-dirty-tracked-start"],
+  );
+  for (const basis of bases) {
+    assertEquals(basis.validation_state, { version: null, complete: false });
+    assertEquals(basis.coverage, {
+      comparable: 2,
+      denominator: 2,
+      unit: "job-runs",
+    });
+    assertEquals(basis.legacy_events, 2);
+  }
+  const observed = outcome.findings.map((finding) => finding.observed).join(
+    "\n",
+  );
+  assertStringIncludes(observed, "recorded clean start");
+  assertStringIncludes(observed, "tracked start fingerprint");
+  assert(!observed.includes("exact same tree"));
+  assert(!observed.includes("identical tree"));
+});
+
+Deno.test("validation findings: legacy staged/index and untracked distinctions remain disclosed limitations", () => {
+  const outcome = runDetector(
+    detector("same-tree-flake"),
+    buildStreamFacts(
+      run([
+        {
+          verb: "test",
+          clean: false,
+          tree: "same-tracked-diff",
+          outcome: "failed",
+          steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
+        },
+        {
+          verb: "test",
+          clean: false,
+          tree: "same-tracked-diff",
+          steps: [step("test", 1, "Test")],
+        },
+      ]),
+      "main",
+    ),
+  );
+  const basis = findingBasis(outcome.findings[0]);
+  assertEquals(basis.kind, "legacy-dirty-tracked-start");
+  assert(
+    basis.limitations.some((limitation) =>
+      limitation.includes("index/worktree") && limitation.includes("untracked")
+    ),
+    "legacy dirty evidence must disclose both staged/index and mixed-untracked ambiguity",
+  );
+});
+
+Deno.test("patterns finding schema enforces additive evidence agreement without confidence", () => {
+  const finding = {
+    detector: "same-tree-flake",
+    family: "gate-fit" as const,
+    scope: "project" as const,
+    tone: "attention" as const,
+    subject: "test",
+    summary: "This validation job changed verdict under matched conditions.",
+    brief: "This validation job changed verdict under matched conditions.",
+    observed: "A recorded job passed and failed under matched conditions.",
+    evidence: { runs: 2 },
+    strength: 20,
+    next_step: "Investigate the job.",
+    basis: {
+      kind: "complete-validation-state",
+      coverage: { comparable: 2, denominator: 2, unit: "job-runs" },
+      validation_state: { version: 1, complete: true },
+      matched_conditions: [],
+      differing_conditions: [],
+      legacy_events: 0,
+      excluded_events: 0,
+      limitations: ["External context was not recorded."],
+      values: { runs: { value: 2, kind: "observed" } },
+    },
+  };
+  assert(PatternsFindingSchema.safeParse(finding).success);
+  assert(
+    !PatternsFindingSchema.safeParse({
+      ...finding,
+      basis: {
+        ...finding.basis,
+        values: { runs: { value: 3, kind: "observed" } },
+      },
+    }).success,
+    "the structured value must equal ordinary numerical evidence",
+  );
+  assert(
+    !PatternsFindingSchema.safeParse({ ...finding, confidence: 0.9 }).success,
+    "the strict wire contract must reject a confidence score",
+  );
+  assert(
+    !PatternsFindingSchema.safeParse({
+      ...finding,
+      brief: "A second independently authored claim.",
+    }).success,
+    "the compatibility brief must remain an exact summary projection",
+  );
+});
+
+Deno.test("patterns evidence conditions bound displayed values and disclose full cardinality", () => {
+  const condition = boundedPatternEvidenceCondition(
+    "sibling-context",
+    Array.from(
+      { length: PATTERN_EVIDENCE_CONDITION_VALUES_MAX + 1 },
+      (_, index) => ({ key: `key-${index}`, label: `context-${index}` }),
+    ),
+  );
+  assert(condition !== undefined);
+  assertEquals(condition.values.length, PATTERN_EVIDENCE_CONDITION_VALUES_MAX);
+  assertEquals(condition.distinct, PATTERN_EVIDENCE_CONDITION_VALUES_MAX + 1);
+  assertEquals(condition.omitted, 1);
+  assert(PatternEvidenceConditionSchema.safeParse(condition).success);
+  assert(
+    !PatternEvidenceConditionSchema.safeParse({
+      ...condition,
+      omitted: 0,
+    }).success,
+    "the schema must reject a bounded sample that hides its omitted value",
+  );
+});
+
 Deno.test("generator gate share attributes generated groups heaviest first", () => {
   const detectorUnderTest = detector("generator-gate-share");
   assertEquals(detectorUnderTest.family, "gate-fit");
@@ -1449,6 +2454,7 @@ Deno.test("generator gate share attributes generated groups heaviest first", () 
     group_mean_seconds: 20,
     generated_share_pct: 60,
     generated_mean_seconds: 30,
+    unchanged_reruns: 4,
   });
   assertStringIncludes(
     audit.findings[0]?.observed ?? "",
@@ -1458,7 +2464,7 @@ Deno.test("generator gate share attributes generated groups heaviest first", () 
   assert(!/skip|less often/i.test(detectorUnderTest.next_step));
 });
 
-Deno.test("generator gate share keeps short gates below the absolute floor", () => {
+Deno.test("generator gate share stays statistical without recorded avoidable cost", () => {
   const events = run(
     Array.from({ length: 5 }, () => ({
       verb: "done",
@@ -1501,10 +2507,137 @@ Deno.test("slot contention reports material recent wait and frames the owner dec
   );
 });
 
+Deno.test("dominant stage stays statistical when a necessary test has no recorded avoidable cost", () => {
+  const events = run(
+    Array.from({ length: 5 }, (_, index) => ({
+      verb: "done",
+      head: `head-${index}`,
+      steps: [step("test", 30), step("lint", 5)],
+      validation: validation("passed", { digest: `state-${index}` }),
+    })),
+  );
+  const audit = runDetector(
+    detector("dominant-stage"),
+    buildStreamFacts(events, "main"),
+  );
+  assertEquals(
+    audit.findings,
+    [],
+    "share and duration alone must not turn a necessary test into optimization advice",
+  );
+});
+
+Deno.test("dominant stage advises only from a recorded scope mismatch", () => {
+  const events = run(
+    Array.from({ length: 5 }, (_, index) => ({
+      verb: "done",
+      head: `head-${index}`,
+      scopes: ["engine"],
+      steps: [
+        {
+          ...step("scope:docs", 30, "Scope gates"),
+          kind: "scope-gate",
+        },
+        step("lint", 5),
+      ],
+    })),
+  );
+  const audit = report(detector("dominant-stage"), events);
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.scope_mismatch_runs, 5);
+  assertStringIncludes(finding.next_step ?? "", "scope");
+  assert(
+    finding.basis !== undefined,
+    "decision evidence needs its setup boundary",
+  );
+});
+
+Deno.test("dominant stage can act on recorded queue contention without a duration threshold", () => {
+  const events = run(
+    Array.from({ length: 6 }, (_, index) => ({
+      verb: "done",
+      head: `head-${index}`,
+      duration_ms: 160_000,
+      waited_ms: 60_000,
+      steps: [step("test", 3), step("lint", 1)],
+      validation: validation("passed", { digest: `state-${index}` }),
+    })),
+  );
+  const audit = report(detector("dominant-stage"), events);
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.queue_contention_runs, 6);
+  assertStringIncludes(finding.next_step ?? "", "concurrent_test_runs");
+});
+
+Deno.test("fail-fast ledger distinguishes observations, estimates, and a savings-favouring result", () => {
+  const audit = report(
+    detector("masked-failures"),
+    failFastLedgerEvents(100, 10),
+  );
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.cancelled_jobs, 4);
+  assertEquals(finding.evidence.later_distinct_failures, 4);
+  assertEquals(finding.evidence.additional_gate_rounds, 4);
+  assertEquals(finding.evidence.later_round_elapsed_seconds, 40);
+  assertEquals(finding.evidence.estimated_saved_tail_seconds, 400);
+  assertEquals(finding.evidence.tail_duration_samples, 4);
+  assertEquals(
+    finding.basis?.values.estimated_saved_tail_seconds?.kind,
+    "estimated",
+  );
+  assertEquals(
+    finding.basis?.values.later_round_elapsed_seconds?.kind,
+    "observed",
+  );
+  assert(!finding.next_step?.includes("fail_fast = false"));
+  assertStringIncludes(finding.observed, "does not establish");
+});
+
+Deno.test("fail-fast ledger recommends a config trial only past the conservative project-local rule", () => {
+  const audit = report(
+    detector("masked-failures"),
+    failFastLedgerEvents(10, 100),
+  );
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.estimated_saved_tail_seconds, 40);
+  assertEquals(finding.evidence.later_round_elapsed_seconds, 400);
+  assertStringIncludes(finding.next_step ?? "", "fail_fast = false");
+  assertStringIncludes(finding.next_step ?? "", "controlled");
+});
+
+Deno.test("fail-fast ledger routes an unresolved tradeoff to a controlled experiment", () => {
+  const audit = report(
+    detector("masked-failures"),
+    failFastLedgerEvents(100, 100),
+  );
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertStringIncludes(finding.next_step ?? "", "controlled");
+  assert(!finding.next_step?.includes("fail_fast = false"));
+});
+
+Deno.test("fail-fast ledger never compares adjacent failures across setup boundaries", () => {
+  const events = failFastLedgerEvents(100, 10).map((event, index) =>
+    event.kind === "verb" && index % 2 === 1
+      ? { ...event, epoch: "other-setup" }
+      : event
+  );
+  const audit = runDetector(
+    detector("masked-failures"),
+    buildStreamFacts(events, "main"),
+  );
+  assertEquals(audit.findings, []);
+});
+
 Deno.test("generator gate share supersedes dominant stage for a generated job", () => {
   const events = run(
     Array.from({ length: 5 }, () => ({
       verb: "done",
+      validation: validation("passed", { digest: "generated-state" }),
       steps: [step("generated:schemas", 30, "Build"), step("test", 5)],
     })),
   );
@@ -1655,7 +2788,8 @@ Deno.test("hint follow-through stays distinct from skipped prepare", () => {
       prepareDetector,
       buildStreamFacts(doneOnly, "main"),
     ).status,
-    "fired",
+    "quiet",
+    "missing prepare and generic Gate reds do not establish preventable work",
   );
 
   const gateHint = measuredHints().find((entry) =>
@@ -1678,6 +2812,106 @@ Deno.test("hint follow-through stays distinct from skipped prepare", () => {
     "quiet",
     "prepare/test follow-through does not erase skipped-prepare's independent population",
   );
+});
+
+Deno.test("prepare advice requires repeated preventable work on distinct clean HEADs", () => {
+  const prepareDetector = detector("skipped-prepare");
+  const fired = runDetector(
+    prepareDetector,
+    buildStreamFacts(
+      run([
+        regenerationDrift("head-a"),
+        { verb: "prepare" },
+        fixDrift("head-b"),
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(fired.status, "fired");
+  assertEquals(fired.findings[0]?.evidence, {
+    prepare_preventable_failures: 2,
+    done_runs: 2,
+    distinct_clean_heads: 2,
+    same_head_additional_runs: 0,
+    fix_drift_failures: 1,
+    regeneration_failures: 1,
+    prepare_runs: 1,
+  });
+  assertStringIncludes(fired.findings[0]?.observed ?? "", "2 of 2 `done` runs");
+  assertStringIncludes(
+    fired.findings[0]?.observed ?? "",
+    "missing `prepare` alone did not establish this finding",
+  );
+  assertStringIncludes(prepareDetector.next_step, "supported first command");
+  assertStringIncludes(
+    prepareDetector.next_step,
+    "dirty runs retain full feedback",
+  );
+});
+
+Deno.test("prepare advice preserves successful done-first entry and productive dirty feedback", () => {
+  const prepareDetector = detector("skipped-prepare");
+  const successful = runDetector(
+    prepareDetector,
+    buildStreamFacts(
+      run([{ verb: "done", head: "head-a" }, { verb: "done", head: "head-b" }]),
+      "main",
+    ),
+  );
+  assertEquals(successful.status, "quiet");
+
+  const dirty = runDetector(
+    prepareDetector,
+    buildStreamFacts(
+      run([
+        regenerationDrift("head-a"),
+        regenerationDrift("head-b"),
+      ]).map((event) => ({ ...event, clean: false })),
+      "main",
+    ),
+  );
+  assertEquals(dirty.status, "quiet");
+});
+
+Deno.test("prepare advice excludes failures and drift outside prepare's recorded work", () => {
+  const prepareDetector = detector("skipped-prepare");
+  const uncaught = runDetector(
+    prepareDetector,
+    buildStreamFacts(
+      run([
+        redDone({ head: "head-a" }),
+        redDone({ head: "head-b", failed_stage: "test" }),
+        {
+          verb: "done",
+          head: "head-c",
+          outcome: "failed",
+          failed_stage: "tree_drift",
+          steps: [
+            step("fmt", 1, "Fix"),
+            step("compile", 2, "Build"),
+          ],
+        },
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(uncaught.status, "quiet");
+  assertEquals(uncaught.findings, []);
+});
+
+Deno.test("prepare advice leaves same-HEAD repeats to validation divergence", () => {
+  const result = runDetector(
+    detector("skipped-prepare"),
+    buildStreamFacts(
+      run([
+        regenerationDrift("same-head"),
+        regenerationDrift("same-head"),
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(result.status, "quiet");
+  assertEquals(result.findings, []);
 });
 
 Deno.test("tip adoption: every declaring registry entry resolves same- and cross-surface episodes", () => {
@@ -1970,9 +3204,9 @@ Deno.test("pre-authorized landings calls out a current single-source streak", ()
     finding.subject === undefined
   );
   assert(summary !== undefined);
-  assert(
-    summary.brief.includes("current run 4 standing grant"),
-    summary.brief,
+  assertEquals(
+    summary.summary,
+    "Recorded landing authority handled part of this project's landings.",
   );
   assert(
     summary.observed.includes(
@@ -1995,6 +3229,7 @@ Deno.test("grant suggestion names the scope after a dozen uninterrupted conversa
   assertEquals(finding?.subject, "docs");
   assertEquals(finding?.evidence, {
     consecutive_conversational_landings: 12,
+    accept_attempts: 12,
     scopes: 1,
     intervening_refusals: 0,
   });
@@ -2063,7 +3298,20 @@ for (const d of DETECTORS) {
     assert(r.findings.length > 0, `${d.id}: firing fixture found nothing`);
     for (const f of r.findings) {
       assert(f.observed.length > 0, `${d.id}: empty observation`);
-      assert(f.brief.length > 0, `${d.id}: empty brief`);
+      assert(f.summary.length > 0, `${d.id}: empty summary`);
+      assert(
+        /[.!?]$/.test(f.summary),
+        `${d.id}: summary is not a complete sentence: ${f.summary}`,
+      );
+      assert(
+        /\d/.test(f.observed),
+        `${d.id}: observation must carry concrete numerical evidence`,
+      );
+      assert(
+        !/\b(?:rank|score|lazy|careless|incompetent|abandoned|waste|caused|causes)\b/i
+          .test(`${f.summary} ${f.observed}`),
+        `${d.id}: finding makes an unsupported comparative, causal, or character claim`,
+      );
       assert(
         PATTERN_FINDING_TONES.includes(f.tone ?? d.tone),
         `${d.id}: unknown finding tone ${f.tone ?? d.tone}`,
@@ -2092,6 +3340,14 @@ for (const d of DETECTORS) {
         assert(Number.isFinite(v), `${d.id}: non-finite evidence value`);
       }
       assert(f.strength > 0, `${d.id}: findings must carry a ranking strength`);
+      const wire = routedFindingData({
+        detector: d,
+        finding: f,
+        considered: r.considered,
+      });
+      assertEquals(wire.summary, f.summary, `${d.id}: summary drifted`);
+      assertEquals(wire.brief, wire.summary, `${d.id}: brief drifted`);
+      PatternsFindingSchema.parse(wire);
     }
   });
 
@@ -2804,6 +4060,26 @@ function foreignSetupClones(events: readonly LogbookEvent[]): LogbookEvent[] {
 
 const windowedDetectors = DETECTORS.filter((d) => d.windowed === true);
 
+/** Decision content must survive foreign-setup interleaving. The observation
+ * and structured basis may additionally disclose excluded events, so those
+ * attribution fields are compared separately rather than erased. */
+function findingDecisionContent(finding: DetectorFinding): Omit<
+  DetectorFinding,
+  "basis" | "observed"
+> {
+  return {
+    ...(finding.subject !== undefined ? { subject: finding.subject } : {}),
+    summary: finding.summary,
+    ...(finding.tone !== undefined ? { tone: finding.tone } : {}),
+    ...(finding.series !== undefined ? { series: finding.series } : {}),
+    evidence: finding.evidence,
+    strength: finding.strength,
+    ...(finding.next_step !== undefined
+      ? { next_step: finding.next_step }
+      : {}),
+  };
+}
+
 Deno.test("patterns windowed: the registry carries windowed trend detectors", () => {
   assert(
     windowedDetectors.length > 0,
@@ -2820,10 +4096,53 @@ for (const d of windowedDetectors) {
       .sort((a, b) => a.at.localeCompare(b.at));
     const under = runDetector(d, buildStreamFacts(interleaved, "main"));
     assertEquals(
-      under.findings,
-      base.findings,
+      under.findings.map(findingDecisionContent),
+      base.findings.map(findingDecisionContent),
       `${d.id}: interleaved foreign-setup runs must not change the trend`,
     );
+    for (let index = 0; index < base.findings.length; index += 1) {
+      const baseFinding = base.findings[index];
+      const underFinding = under.findings[index];
+      assert(baseFinding !== undefined && underFinding !== undefined);
+      if (underFinding.observed !== baseFinding.observed) {
+        assert(
+          underFinding.observed.includes("excluded from this comparison"),
+          `${d.id}: a changed observation must explain the exclusion: ${underFinding.observed}`,
+        );
+      }
+      const baseBasis = base.findings[index]?.basis;
+      const underBasis = under.findings[index]?.basis;
+      if (baseBasis === undefined) {
+        assertEquals(underBasis, undefined);
+        continue;
+      }
+      assert(underBasis !== undefined);
+      assertEquals(
+        underBasis.coverage.comparable,
+        baseBasis.coverage.comparable,
+        `${d.id}: foreign setups cannot enter the comparable population`,
+      );
+      assert(
+        underBasis.coverage.denominator >= baseBasis.coverage.denominator,
+        `${d.id}: the basis denominator cannot hide foreign-setup events`,
+      );
+      assert(
+        underBasis.excluded_events >= baseBasis.excluded_events,
+        `${d.id}: foreign-setup exclusions cannot disappear from the basis`,
+      );
+      assertEquals(
+        {
+          ...underBasis,
+          coverage: {
+            ...underBasis.coverage,
+            denominator: baseBasis.coverage.denominator,
+          },
+          excluded_events: baseBasis.excluded_events,
+        },
+        baseBasis,
+        `${d.id}: only denominator/exclusion attribution may change`,
+      );
+    }
     assert(
       under.findings.every((f) => f.evidence.comparable_runs === undefined),
       `${d.id}: enough same-setup runs must trend, never refuse as too few comparable`,
@@ -2903,7 +4222,7 @@ Deno.test("patterns regression: a gate-duration trend survives interleaved confi
   assertEquals(finding.evidence.median_late_s, 170);
   assert(
     finding.evidence.comparable_runs === undefined,
-    `enough interleaved same-config runs must trend, not refuse: ${finding.brief}`,
+    `enough interleaved same-config runs must trend, not refuse: ${finding.summary}`,
   );
 });
 
@@ -3000,6 +4319,198 @@ Deno.test("patterns trajectory: sustained slack proposes the pin", () => {
   assertEquals(finding.evidence.limit_last, 80);
 });
 
+Deno.test("patterns trajectory: fresh stable Gate eligibility supports a pin recommendation", () => {
+  const events = run(
+    [85, 86, 87, 88, 89].map((value) => ({
+      standards: [decisionReading("coverage", value, 80, {
+        margin: 2,
+        pinEligible: true,
+        pinTarget: value - 2,
+        verdict: "improved",
+      })],
+    })),
+  );
+  const audit = report(detector("standard-trajectory"), events);
+  const finding = audit.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.mechanically_eligible, 1);
+  assertEquals(finding.evidence.recommendation_supported, 1);
+  assertStringIncludes(finding.next_step ?? "", "--pin coverage");
+  assert(finding.basis !== undefined, "pin advice needs a structured basis");
+});
+
+Deno.test("patterns trajectory: an improvement inside the Standard margin is not pinnable", () => {
+  const events = run(
+    [81, 82, 83, 84, 85].map((value) => ({
+      standards: [decisionReading("tiny", value, 80, {
+        margin: 10,
+        pinEligible: false,
+        verdict: "improved",
+      })],
+    })),
+  );
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.mechanically_eligible, 0);
+  assertEquals(finding.evidence.recommendation_supported, 0);
+  assert(!finding.next_step?.includes("--pin"));
+});
+
+Deno.test("patterns trajectory: volatile eligible readings suppress recommendation without denying eligibility", () => {
+  const events = run(
+    [90, 100, 81, 100, 82].map((value) => ({
+      standards: [decisionReading("volatile", value, 80, {
+        pinEligible: true,
+        pinTarget: value,
+        verdict: "improved",
+      })],
+    })),
+  );
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.mechanically_eligible, 1);
+  assertEquals(finding.evidence.recommendation_supported, 0);
+  assert((finding.evidence.recent_reversals ?? 0) > 0);
+  assert(!finding.next_step?.includes("--pin"));
+  assertStringIncludes(finding.next_step ?? "", "volatile");
+});
+
+Deno.test("patterns trajectory: a stale on-demand Standard routes to fresh measurement", () => {
+  const events = run([
+    ...[85, 86, 87, 88, 89].map((value) => ({
+      standards: [decisionReading("deferred", value, 80, {
+        margin: 2,
+        pinEligible: true,
+        pinTarget: value - 2,
+        verdict: "improved" as const,
+      })],
+    })),
+    {
+      standards: [decisionReading("deferred", undefined, 80, {
+        margin: 2,
+        measurement: "deferred",
+      })],
+    },
+  ]);
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.current_measurement, 0);
+  assertStringIncludes(finding.next_step ?? "", "discern standards");
+  assert(!finding.next_step?.includes("--pin"));
+});
+
+Deno.test("patterns trajectory: a stale skipped Gate reading routes to fresh measurement", () => {
+  const events = run([
+    ...[85, 86, 87, 88, 89].map((value) => ({
+      standards: [decisionReading("stale", value, 80, {
+        pinEligible: true,
+        pinTarget: value,
+        verdict: "improved" as const,
+      })],
+    })),
+    {
+      standards: [decisionReading("stale", undefined, 80, {
+        measurement: "skipped",
+      })],
+    },
+  ]);
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.current_measurement, 0);
+  assertStringIncludes(finding.next_step ?? "", "discern standards");
+  assert(!finding.next_step?.includes("--pin"));
+});
+
+Deno.test("patterns trajectory: a recent failure suppresses an otherwise eligible pin", () => {
+  const events = run(
+    [
+      decisionReading("failing", 85, 80, {
+        pinEligible: true,
+        pinTarget: 85,
+        verdict: "improved",
+      }),
+      decisionReading("failing", 75, 80, {
+        pinEligible: false,
+        verdict: "regressed",
+      }),
+      decisionReading("failing", 90, 80, {
+        pinEligible: true,
+        pinTarget: 90,
+        verdict: "improved",
+      }),
+      decisionReading("failing", 91, 80, {
+        pinEligible: true,
+        pinTarget: 91,
+        verdict: "improved",
+      }),
+      decisionReading("failing", 92, 80, {
+        pinEligible: true,
+        pinTarget: 92,
+        verdict: "improved",
+      }),
+    ].map((standard) => ({ standards: [standard] })),
+  );
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.mechanically_eligible, 1);
+  assertEquals(finding.evidence.recent_failures, 1);
+  assertEquals(finding.evidence.recommendation_supported, 0);
+  assert(!finding.next_step?.includes("--pin"));
+});
+
+Deno.test("patterns trajectory: a retired Standard remains historical evidence without pin advice", () => {
+  const events = run([
+    ...[85, 86, 87, 88, 89].map((value) => ({
+      standards: [decisionReading("retired", value, 80, {
+        pinEligible: true,
+        pinTarget: value,
+        verdict: "improved" as const,
+      })],
+    })),
+    {
+      standards: [decisionReading("active", 5, 4, {
+        pinEligible: true,
+        pinTarget: 5,
+        verdict: "improved",
+      })],
+    },
+  ]);
+  const finding = report(detector("standard-trajectory"), events).findings.find(
+    (candidate) => candidate.subject === "retired",
+  );
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.retired, 1);
+  assertEquals(finding.evidence.recommendation_supported, 0);
+  assert(!finding.next_step?.includes("--pin"));
+  assertStringIncludes(finding.next_step ?? "", "historical");
+});
+
+Deno.test("patterns trajectory: recommendation persistence never blends configurations", () => {
+  const events = run([
+    ...[85, 86, 87].map((value) => ({
+      epoch: "old",
+      standards: [decisionReading("coverage", value, 80, {
+        pinEligible: true,
+        pinTarget: value,
+        verdict: "improved" as const,
+      })],
+    })),
+    ...[88, 89].map((value) => ({
+      epoch: "current",
+      standards: [decisionReading("coverage", value, 80, {
+        pinEligible: true,
+        pinTarget: value,
+        verdict: "improved" as const,
+      })],
+    })),
+  ]);
+  const finding = report(detector("standard-trajectory"), events).findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.comparable_readings, 2);
+  assertEquals(finding.evidence.recommendation_supported, 0);
+  assert(!finding.next_step?.includes("--pin"));
+});
+
 Deno.test("patterns trajectory: long series use equal-time bucket means and exact endpoints", () => {
   const trajectory = DETECTORS.find((d) => d.id === "standard-trajectory");
   assert(trajectory !== undefined);
@@ -3037,7 +4548,7 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
       limit: 90,
       direction: "up" as const,
       tone: "good",
-      wording: "improving",
+      wording: "has more headroom",
       limitWord: "floor",
     },
     {
@@ -3046,7 +4557,7 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
       limit: 100,
       direction: "down" as const,
       tone: "good",
-      wording: "improving",
+      wording: "has more headroom",
       limitWord: "ceiling",
     },
     {
@@ -3055,7 +4566,7 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
       limit: 90,
       direction: "up" as const,
       tone: "attention",
-      wording: "headroom shrinking",
+      wording: "has less headroom",
       limitWord: "floor",
     },
     {
@@ -3064,7 +4575,7 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
       limit: 90,
       direction: "up" as const,
       tone: "neutral",
-      wording: "holding",
+      wording: "held steady",
       limitWord: "floor",
     },
     {
@@ -3073,7 +4584,7 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
       limit: 100,
       direction: "down" as const,
       tone: "good",
-      wording: "beating its limit",
+      wording: "beats its recorded limit",
       limitWord: "ceiling",
     },
   ] as const;
@@ -3089,18 +4600,18 @@ Deno.test("patterns trajectory: direction-aware facts decide tone without changi
     assert(finding !== undefined, item.label);
     assertEquals(finding.tone, item.tone, item.label);
     assert(
-      finding.brief.includes(item.wording),
-      `${item.label}: ${finding.brief}`,
+      finding.summary.includes(item.wording),
+      `${item.label}: ${finding.summary}`,
     );
     assert(
-      finding.brief.includes(item.limitWord),
-      `${item.label}: ${finding.brief}`,
+      finding.summary.includes(item.limitWord),
+      `${item.label}: ${finding.summary}`,
     );
     assertEquals(finding.strength, item.values.length);
   }
 });
 
-Deno.test("patterns trajectory: the brief compares today's value with today's limit", () => {
+Deno.test("patterns trajectory: the summary compares today's value with today's limit", () => {
   const trajectory = DETECTORS.find((d) => d.id === "standard-trajectory");
   assert(trajectory !== undefined);
   const values = [825, 830, 850, 880, 900];
@@ -3112,8 +4623,8 @@ Deno.test("patterns trajectory: the brief compares today's value with today's li
   const finding = outcome.findings[0];
   assert(finding !== undefined);
   assertEquals(
-    finding.brief,
-    "825 → 900 vs ceiling 837 — headroom shrinking",
+    finding.summary,
+    "This Standard has less headroom: 825 → 900 vs ceiling 837.",
   );
   assertEquals(finding.tone, "attention");
   assertEquals(finding.evidence.limit_first, 900);

@@ -18,7 +18,12 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import type { Command } from "@cliffy/command";
+import { Command } from "@cliffy/command";
+import {
+  DISCERN_TRIANGLE_GLYPHS,
+  measureText,
+  stripAnsi,
+} from "discern-design-system/cli";
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import { HIDDEN_VERBS, hiddenVerbNames } from "../src/shared/hidden_verbs.ts";
 import {
@@ -26,20 +31,35 @@ import {
   groupedCommandNames,
   operatorHelp,
 } from "../src/cli_help.ts";
+import {
+  resolveTerminalContext,
+  type TerminalContext,
+} from "../src/lib/terminal.ts";
+import { fakeEnv } from "./helpers.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
-/** The ESC byte that opens every ANSI escape (built without a control-char regex). */
-const ESC = String.fromCharCode(27);
+/** Compare parser facts independently of presentation whitespace. */
+function compact(s: string): string {
+  return s.replace(/\s+/gu, "");
+}
 
-/** Strip ANSI SGR colour sequences so substring checks see plain text. Cliffy
- * forces colour in `getHelp()` and highlights `<arg>`/`[arg]` per-token, so the
- * usage shape is only contiguous once the escapes are removed. */
+/** Strip ANSI through the published terminal-text authority. */
 function plain(s: string): string {
-  return s
-    .split(ESC)
-    .map((part, i) => (i === 0 ? part : part.slice(part.indexOf("m") + 1)))
-    .join("");
+  return stripAnsi(s);
+}
+
+/** Resolve deterministic package capabilities for width/degradation proofs. */
+function helpTerminal(columns: number, unicode = true): TerminalContext {
+  return resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      ...(unicode ? { LANG: "en_GB.UTF-8" } : { LC_ALL: "C" }),
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns, rows: 24 }),
+  });
 }
 
 /** The full root with `setup` shown — the maximal set of
@@ -106,6 +126,64 @@ Deno.test("operator help renders the groups in order, the human's desk first", (
   assert(
     help.includes("discern <command> --help"),
     "the per-command --help footer is missing",
+  );
+});
+
+Deno.test("operator help retains every public Cliffy root fact modulo layout and ANSI", () => {
+  const root = fullRoot();
+  const rendered = plain(operatorHelp(root, { width: 48, color: false }));
+  const facts = compact(rendered);
+
+  assertStringIncludes(
+    facts,
+    compact(`${root.getPath()} ${root.getUsage()}`),
+    "the public usage path or placeholder was lost",
+  );
+  assertStringIncludes(
+    facts,
+    compact(root.getDescription()),
+    "the public root description was lost",
+  );
+
+  // operatorHelp's getHelp() registration must enroll Cliffy's built-in options
+  // exactly once alongside the root globals, without using generated help bytes.
+  const options = root.getOptions(false);
+  assertEquals(
+    options.filter((option) => option.flags.includes("--help")).length,
+    1,
+  );
+  assertEquals(
+    options.filter((option) => option.flags.includes("--version")).length,
+    1,
+  );
+  for (const option of options) {
+    assertStringIncludes(facts, compact(option.flags.join(", ")));
+    assertStringIncludes(facts, compact(option.description));
+  }
+
+  for (const command of root.getCommands(false)) {
+    assertStringIncludes(facts, compact(command.getName()));
+    assertStringIncludes(facts, compact(command.getShortDescription()));
+  }
+
+  let previousExample = -1;
+  for (const example of root.getExamples()) {
+    const at = facts.indexOf(
+      compact(`${example.name}${example.description}`),
+    );
+    assert(
+      at > previousExample,
+      `example ${JSON.stringify(example.name)} was lost or reordered`,
+    );
+    previousExample = at;
+  }
+
+  operatorHelp(root, { width: 48, color: false });
+  assertEquals(
+    root.getOptions(false).filter((option) => option.flags.includes("--help"))
+      .length,
+    1,
+    "repeated rendering duplicated Cliffy's built-in help option",
   );
 });
 
@@ -238,7 +316,7 @@ Deno.test("worktree help hides the provider-hook namespace while keeping it call
   }
 });
 
-Deno.test("the grouped command list word-wraps to the width with hanging indents", () => {
+Deno.test("the complete root help word-wraps with stable hanging indents", () => {
   // Inject the layout width directly: tests can run under a real PTY, so the
   // physical terminal and its inherited $COLUMNS must not affect this contract.
   // 80 is wide enough that no single description token overflows on its own, so
@@ -247,7 +325,14 @@ Deno.test("the grouped command list word-wraps to the width with hanging indents
   const lines = plain(
     operatorHelp(fullRoot(), { width: WIDTH }),
   ).split("\n");
-  // Scope to the command list — Cliffy's own sections wrap on their own width.
+  for (const line of lines) {
+    assert(
+      measureText(line) <= WIDTH,
+      `root help overflowed ${WIDTH} cols: ${JSON.stringify(line)}`,
+    );
+  }
+
+  // The grouped command descriptions retain their established hanging indent.
   const start = lines.findIndex((l) => l.trimEnd() === "Commands:");
   const endRaw = lines.findIndex((l, i) =>
     i > start && l.trimEnd() === "Examples:"
@@ -260,7 +345,7 @@ Deno.test("the grouped command list word-wraps to the width with hanging indents
   for (const l of body) {
     const breakable = l.trimStart().includes(" ");
     assert(
-      l.length <= WIDTH || !breakable,
+      measureText(l) <= WIDTH || !breakable,
       `a wrappable command line overflowed ${WIDTH} cols: ${JSON.stringify(l)}`,
     );
   }
@@ -272,4 +357,117 @@ Deno.test("the grouped command list word-wraps to the width with hanging indents
     body.some((l) => /^ {10,}\S/.test(l)),
     "no hang-indented continuation line — descriptions did not wrap cleanly",
   );
+
+  // Options and examples align their wrapped bodies to a stable continuation
+  // column when the terminal has room for side-by-side labels.
+  const plainOption = lines.findIndex((line) => line.includes("--plain"));
+  assert(plainOption !== -1, "the --plain option row is missing");
+  assert(
+    /^ {10,}\S/.test(lines[plainOption + 1] ?? ""),
+    "the --plain continuation lost its hanging indent",
+  );
+  const mainExample = lines.findIndex((line) =>
+    line.includes("Agent in the main checkout?")
+  );
+  assert(mainExample !== -1, "the main-checkout example label is missing");
+  assert(
+    /^ {20,}\S/.test(lines[mainExample + 1] ?? ""),
+    "the example continuation lost its aligned hanging indent",
+  );
+});
+
+Deno.test("the complete root help follows narrow, wide, and ASCII package capabilities", () => {
+  for (const width of [42, 48, 80, 120]) {
+    const rendered = operatorHelp(fullRoot(), {
+      terminal: helpTerminal(width),
+    });
+    const lines = rendered.split("\n");
+    for (const rawLine of lines) {
+      const line = plain(rawLine);
+      assert(
+        measureText(line) <= width,
+        `${width}-column root help overflowed: ${JSON.stringify(line)}`,
+      );
+      assertEquals(
+        line,
+        line.trimEnd(),
+        `${width}-column root help retained trailing display whitespace`,
+      );
+    }
+    for (const group of COMMAND_GROUPS) {
+      assertStringIncludes(plain(rendered), group.name);
+    }
+  }
+
+  const ascii = plain(operatorHelp(fullRoot(), {
+    terminal: helpTerminal(72, false),
+    color: false,
+  }));
+  for (const glyph of Object.values(DISCERN_TRIANGLE_GLYPHS)) {
+    assert(!ascii.includes(glyph), `Unicode package glyph leaked: ${glyph}`);
+  }
+  assertStringIncludes(ascii, "Your desk");
+  assertStringIncludes(ascii, "discern <command> --help");
+});
+
+Deno.test("root help makes hostile Cliffy facts inert and keeps long graphemes bounded", () => {
+  const controls = "esc\u001b[31m bell\u0007 c1\u0085 bidi\u202e";
+  const graphemeToken = "e\u0301".repeat(64);
+  const fixture = new Command()
+    .name("fixture")
+    .version("1.2.3")
+    .usage("<value:string> [options]")
+    .description(`Description ${controls}\r\n${graphemeToken}`)
+    .option(
+      "-x, --xray <value:string>",
+      `Option ${controls} ${graphemeToken}`,
+    )
+    .example("Hostile example", `Example ${controls}\r\n${graphemeToken}`);
+  const width = 42;
+  const rendered = operatorHelp(fixture as unknown as Command, {
+    terminal: helpTerminal(width),
+    color: false,
+  });
+
+  assert(!rendered.includes("\u001b"), "an injected ESC reached root help");
+  assert(!rendered.includes("\u0007"), "an injected C0 reached root help");
+  assert(!rendered.includes("\u0085"), "an injected C1 reached root help");
+  assert(
+    !rendered.includes("\u202e"),
+    "an injected bidi control reached root help",
+  );
+  assert(
+    !rendered.includes("\r"),
+    "CRLF was not normalized at the terminal edge",
+  );
+  for (const visible of ["␛", "␇", "<U+0085>", "<U+202E>", graphemeToken]) {
+    assertStringIncludes(compact(rendered), compact(visible));
+  }
+  for (const line of rendered.split("\n")) {
+    assert(
+      measureText(line) <= width,
+      `hostile fixture overflowed: ${JSON.stringify(line)}`,
+    );
+    assertEquals(line, line.trimEnd());
+  }
+
+  // The configured trunk is repository-derived and enters several live command
+  // descriptions; those facts cross the same safe-text boundary before styling.
+  const hostileTrunk = `ma\u001b[31m\u0007\u0085\u202ein`;
+  const trunkHelp = operatorHelp(
+    buildCli(false, hostileTrunk) as unknown as Command,
+    { terminal: helpTerminal(48), color: false },
+  );
+  for (const control of ["\u001b", "\u0007", "\u0085", "\u202e"]) {
+    assert(
+      !trunkHelp.includes(control),
+      "hostile trunk control reached output",
+    );
+  }
+  for (const visible of ["␛", "␇", "<U+0085>", "<U+202E>"]) {
+    assertStringIncludes(trunkHelp, visible);
+  }
+  for (const line of trunkHelp.split("\n")) {
+    assert(measureText(line) <= 48, `hostile trunk overflowed: ${line}`);
+  }
 });
