@@ -39,10 +39,6 @@
     align-items: center;
   }
 
-  .landing-placeholder--hero {
-    min-block-size: clamp(38rem, 82svh, 60rem);
-  }
-
   .landing-placeholder__label {
     margin: 0;
     color: var(--discern-color-ink-muted);
@@ -51,6 +47,10 @@
     font-weight: var(--discern-font-weight-strong);
     letter-spacing: 0.09em;
     text-transform: uppercase;
+  }
+
+  .landing-footer .discern-site-footer__inner {
+    width: min(100%, 86rem);
   }
 
   .landing-section {

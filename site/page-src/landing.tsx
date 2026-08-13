@@ -1164,6 +1164,7 @@ function LandingShell({ archived = false, children }: LandingShellProps) {
       <Masthead archived={archived} />
       <main id="main">{children}</main>
       <SiteFooter
+        className={archived ? undefined : "landing-footer"}
         brand={<DiscernName />}
         brandMark={DISCERN_MARK}
         brandTypeface="mono"
@@ -1204,12 +1205,12 @@ function LandingShell({ archived = false, children }: LandingShellProps) {
             <>
               <a href={GITHUB}>Source code</a>
               {" · "}
-              <a href={LICENSE}>FSL-1.1-ALv2 license</a>
+              <a href={LICENSE}>FSL-1.1-ALv2</a>
               {" · "}
               <a href="/llms.txt">llms.txt</a>
             </>
           )}
-        meta="© 2026 Jack Webb-Heller."
+        meta={archived ? "© 2026 Jack Webb-Heller." : "© 2026 Jack Webb-Heller"}
       />
     </>
   );
@@ -1220,17 +1221,7 @@ function LandingPlaceholders() {
   return (
     <LandingShell>
       <>
-        <MarketingSection
-          className="landing-placeholder landing-placeholder--hero"
-          frame="wide"
-          spacing="spacious"
-          data-site-prose-exclude
-          aria-labelledby="placeholder-hero"
-        >
-          <h1 className="landing-placeholder__label" id="placeholder-hero">
-            Hero
-          </h1>
-        </MarketingSection>
+        <Hero />
         {PLACEHOLDER_SECTION_SURFACES.map((surface, index) => {
           const number = index + 1;
           const labelId = `placeholder-section-${number}`;
