@@ -19,7 +19,9 @@ Run it when a session starts or the next move is unclear. Human, JSON, and Model
 
 Worktrees default to a local view. Main leads with the fleet summary, attention, and worktrees. `--all` adds the fleet from a worktree; `--local` suppresses it. The flags conflict.
 
-The renderer measures width, capped at 104 columns. It uses a bounded table when all facts fit and stacked rows otherwise. Section content starts beneath its heading text. Glyphs use the preceding 2 columns, keeping all item text aligned. Detail wraps with hanging indents. Long identities remain complete on isolated lines; current, secondary, and detached identities stay explicit.
+Observation and presentation have separate authorities. `statusResult` gathers Git, Proof, Logbook activity, collision, receipt, and landing-authority facts. The pure dashboard receives that typed result. Its other inputs are explicit time, width, verbosity, and the shared terminal context. It performs no Git, filesystem, receipt, or Logbook read. Released design-system Fleet, Result summary, Receipt, Diagnostic, Raw output, and section-rule Components own the terminal grammar.
+
+The renderer caps width at 104 columns. Fleet uses its lossless identity mode. It uses a bounded table when identities and state fit. Otherwise, it moves complete branch and worktree identities onto labelled continuation lines. It never truncates or hashes them. Rows stack at 39 columns; ordinary and wider terminals retain the denser fleet view. Current, secondary, and detached identities remain explicit and copyable. Labelled Components place the additional Git, activity, Proof, authority, and collision facts beside the generic Fleet row.
 
 Each row derives one status: broken, unreadable, failed, blocked, collision, behind, running, ready, stale, in progress, proof unreadable, proof unavailable, proof stale, needs gate, then idle. New running work supersedes an older failure. A completed `status` contributes activity time and no health evidence. Collision takes precedence without hiding Proof readiness or authority.
 
@@ -30,7 +32,7 @@ The other fields explain that status:
 - **Activity** combines the winning clock and completed action. In `running done 2m · usually 4m`, `usually 4m` is the historical median.
 - **Landing** is granted, needs approval, or scope-limited on ready rows; detail wraps below it.
 
-Text and glyphs carry every state. Red is failure or unreadable; yellow needs attention; cyan is current, running, or a `discern …` command inside preserved backticks; green is Proof-backed evidence or granted authority; mechanical detail is dim. `--no-color` changes no facts.
+Text, labels, and glyphs carry every state. Color is never the classifier. The shared terminal context resolves Unicode or plain-text glyphs and 24-bit, 256-color, 16-color, or no-color output once. Package semantic states adapt the closed status and Proof vocabularies. They never replace product precedence or invent readiness. `--no-color` changes no facts.
 
 The supervisor view reports main once and shows collision paths. Recent changes remain normal work in progress; failures, stale or behind work, collisions, unreadable state, ready Proofs, and removed worktree paths that exist again receive attention. A reappeared path shows when discern removed its worktree, a bounded content sample, and any reason prune must keep it.
 
@@ -64,15 +66,16 @@ After setup, detectors can add recent Logbook observations to `hints[]`. They in
 
 ## Where it lives in code
 
-| Concern                         | Source                                                                  |
-| ------------------------------- | ----------------------------------------------------------------------- |
-| Status facts and hints          | [`status.ts`](../../../src/engine/status/status.ts)                     |
-| Pure responsive dashboard       | [`tty.ts`](../../../src/engine/status/tty.ts)                           |
-| Terminal measurement and wrap   | [`text.ts`](../../../src/lib/text.ts)                                   |
-| Result and proof schemas        | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)            |
-| Human and machine hint routing  | [`hints.ts`](../../../src/shared/hints.ts)                              |
-| Width and semantic-state matrix | [`engine_status_tty_test.ts`](../../../tests/engine_status_tty_test.ts) |
-| End-to-end status behavior      | [`engine_status_test.ts`](../../../tests/engine_status_test.ts)         |
+| Concern                               | Source                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| Status facts and hints                | [`status.ts`](../../../src/engine/status/status.ts)                     |
+| Pure package-component adaptation     | [`tty.ts`](../../../src/engine/status/tty.ts)                           |
+| Shared terminal facts and safe text   | [`terminal.ts`](../../../src/lib/terminal.ts)                           |
+| Result and Proof schemas              | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)            |
+| Human and machine hint routing        | [`hints.ts`](../../../src/shared/hints.ts)                              |
+| Width, degradation, and state matrix  | [`engine_status_tty_test.ts`](../../../tests/engine_status_tty_test.ts) |
+| End-to-end status behavior            | [`engine_status_test.ts`](../../../tests/engine_status_test.ts)         |
+| Terminal-observation structural guard | [`terminal_boundary_guard_test.ts`](../../../tests/terminal_boundary_guard_test.ts) |
 
 ## Current state and gotchas
 

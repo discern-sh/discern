@@ -22,6 +22,14 @@ The substrate's constraints:
 - **Local.** The Logbook stays on the machine. An architectural test walks the subsystem's module graph and fails on any network API, so the Gate enforces this boundary.
 - **Recording never interferes.** A write failure drops the event. The failure cannot change the verb's result or exit code.
 
+## Report presentation
+
+Logbook schemas, tolerant readers, detector registries, statistics, investigations, and lifecycle plans own every fact. Human presentation observes no new evidence. It receives their typed results through the shared terminal context. Released design-system Result summary, Stat, Meter, Procedure, Receipt, File change, Command, and section-rule Components own the terminal grammar. JSON and MCP remain projections of the same results.
+
+Patterns preserves its strength order, canonical families, advisory boundary, full evidence, next actions, quiet-detector account, and investigation falsifiers. Statistics keep their exact counts and provenance. Package file summaries sit beside complete source-file, byte, and destination facts in archive and reset receipts. Responsive layout cannot erase that operational evidence. Destructive confirmation still goes through the shared prompt boundary and remains default-No.
+
+Reports cap at 104 columns. They preserve their facts at 39, 80, 104, and wider terminals. Unicode or plain-text glyphs and 24-bit, 256-color, 16-color, or no-color output alter presentation only. Every Logbook-derived string crosses the shared safe-text boundary. Terminal controls become visible escapes. This richer presentation does not widen the stored payload. It reads neither prompts nor command output and adds no network path.
+
 ## Validation evidence
 
 `done` samples after fix/build and before check/test; standalone `test` samples before its test group. A shared registry selects planned jobs by stage, automatically enrolling future jobs.
@@ -133,6 +141,8 @@ Context (branch, commit, config, toggle) is gathered from invocation, so `accept
 | Crash capture + report files     | [`src/engine/crash.ts`](../../../src/engine/crash.ts)                                             |
 | Mailbox drain parity guard       | [`tests/result_capture_drain_parity_test.ts`](../../../tests/result_capture_drain_parity_test.ts) |
 | The no-network guard             | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts)                   |
+| Report parity and safety matrix  | [`tests/engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)                         |
+| Terminal-observation guard       | [`tests/terminal_boundary_guard_test.ts`](../../../tests/terminal_boundary_guard_test.ts)         |
 | Behavior tests                   | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)                           |
 | Routing and outcome guards       | [`tests/logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)                         |
 | Working-command tests            | [`tests/engine_findings_surfaces_test.ts`](../../../tests/engine_findings_surfaces_test.ts)       |
