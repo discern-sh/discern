@@ -2,8 +2,8 @@ name: gate
 
 # Run the repo's own quality gate — the same `discern done` developers run —
 # on every push to main and every pull request. Ubuntu covers private
-# development; native macOS joins routine CI once the repository is public.
-# The release workflow runs the macOS gate before every publication.
+# development; native macOS and WSL 2 join routine CI once the repository is
+# public. The release workflow repeats both gates before every publication.
 #
 # The engine is TS-native (in the binary), so there is no committed shell engine
 # or shell recipe matrix. The standalone remote installer remains POSIX shell and
@@ -13,6 +13,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Ad-hoc runs while the repository is private: dispatch runs the Ubuntu gate
+  # and forces the WSL lane (see its job condition below).
+  workflow_dispatch:
 
 # The gate only ever reads the repo; grant nothing more (least privilege).
 permissions:
@@ -90,6 +93,32 @@ jobs:
 
       - name: Run the native macOS gate
         uses: ./.github/actions/macos-gate
+
+  wsl:
+    name: WSL gate
+    # Windows support is WSL-only (the Linux binary inside WSL 2), so this lane
+    # provisions WSL 2 on a hosted Windows runner and runs the gate inside it.
+    # Routine on public CI like macOS; workflow_dispatch keeps it runnable
+    # ad hoc while the repository is private.
+    if: github.event.repository.private == false || github.event_name == 'workflow_dispatch'
+    runs-on: windows-2025
+    # WSL provisioning can hang when the runner image misbehaves; a bound keeps
+    # a stuck lane from burning six hours of 2x Windows minutes.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Fetch main for baseline checks
+        shell: bash
+        run: |
+          git fetch --no-tags --depth=1 origin \
+            +refs/heads/main:refs/remotes/origin/main
+          if [ "$(git branch --show-current)" != "main" ]; then
+            git branch --force main refs/remotes/origin/main
+          fi
+
+      - name: Run the gate inside WSL 2
+        uses: ./.github/actions/wsl-gate
 
   standards:
     # Hold the metric standards (coverage, …). They run the whole suite under

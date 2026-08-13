@@ -2,7 +2,8 @@ name: release
 
 # Build the per-platform `discern` binaries and attach them to the GitHub
 # Release whenever a v* tag is pushed. One native macOS row runs the full gate
-# before compilation, so publication never relies only on routine CI.
+# before compilation, and a WSL 2 job repeats it in the environment Windows
+# users run, so publication never relies only on routine CI.
 
 on:
   push:
@@ -193,9 +194,34 @@ jobs:
           rm -f "$RUNNER_TEMP/developer-id-application.p12"
           rm -f "$RUNNER_TEMP/${{ matrix.output }}.zip"
 
+  # Windows ships no native binary — WSL users run the Linux build — so the
+  # WSL gate has no build row to ride the way the macOS gate does. It runs as
+  # its own job, in parallel with the builds, and publication requires it.
+  wsl-gate:
+    name: WSL gate
+    needs: plan
+    runs-on: windows-2025
+    # WSL provisioning can hang when the runner image misbehaves; a bound keeps
+    # a stuck lane from burning six hours of 2x Windows minutes.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Fetch main for the release gate
+        shell: bash
+        run: |
+          git fetch --no-tags --depth=1 origin \
+            +refs/heads/main:refs/remotes/origin/main
+          if [ "$(git branch --show-current)" != "main" ]; then
+            git branch --force main refs/remotes/origin/main
+          fi
+
+      - name: Run the gate inside WSL 2
+        uses: ./.github/actions/wsl-gate
+
   release:
     name: publish release
-    needs: build
+    needs: [build, wsl-gate]
     runs-on: ubuntu-latest
     permissions:
       contents: write
