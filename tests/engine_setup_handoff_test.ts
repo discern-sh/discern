@@ -206,10 +206,14 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
 
     // Human view: a leading semantic section, not a buried hint.
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.stdout, "── Setup");
-    assertStringIncludes(human.stdout, "Setup is not finished.");
+    assertStringIncludes(human.stdout, "Setup is not finished");
+    const setupSection = human.stdout.split("\n").find((line) =>
+      line.includes("Setup") && /[<>^v]/u.test(line.replace("Setup", ""))
+    );
+    assert(setupSection !== undefined, human.stdout);
     assert(
-      human.stdout.indexOf("── Setup") < human.stdout.indexOf("Main checkout"),
+      human.stdout.indexOf(setupSection) <
+        human.stdout.toLowerCase().indexOf("main checkout"),
       human.stdout,
     );
 

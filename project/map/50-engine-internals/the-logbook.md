@@ -24,7 +24,7 @@ The substrate's constraints:
 
 ## Report presentation
 
-Schemas, readers, detectors, statistics, investigations, and lifecycle plans own Logbook facts. Human presentation observes nothing and maps results through shared terminal context to Result summary, Stat, Meter, Procedure, Receipt, File change, Command, and section Components. JSON and MCP match.
+Schemas, readers, detectors, statistics, investigations, and lifecycle plans own Logbook facts. Human presentation observes nothing and maps results through shared terminal context to result-summary, stat, meter, procedure, Proof, file-change, command, and section Components. JSON and MCP match.
 
 Patterns retains order, families, its advisory boundary, evidence, actions, quiet-detector account, and falsifiers. Statistics retain exact counts and provenance. Archive and reset retain exact file, byte, and destination facts. Confirmation stays on the shared default-No prompt boundary.
 

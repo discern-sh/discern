@@ -66,10 +66,10 @@ Deno.test("status flags a configless worktree as broken, with the drop hint", as
 
     // The human row carries the derived broken state and its concrete action.
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.output, "Status: Broken");
+    assertStringIncludes(humanWords(human.output), "agent/crashed: Broken");
     assertStringIncludes(
       humanWords(human.output),
-      "Broken: Setup never completed. Inspect the checkout before discarding it with `discern worktree drop <name>`.",
+      "Setup never completed. Inspect the checkout before discarding it with `discern worktree drop <name>`.",
     );
   });
 });
@@ -138,11 +138,15 @@ Deno.test("a failed worktree status read stays unreadable through status and the
 
       // Both fleet and local projections retain the derived unreadable state.
       const human = await runAgent(dir, ["status"]);
-      assertStringIncludes(human.output, "Status: Unreadable");
+      assertStringIncludes(
+        humanWords(human.output),
+        "agent/damaged: Unreadable",
+      );
       const local = await runAgent(wt, ["status"]);
+      assertStringIncludes(humanWords(local.output), "Unreadable.");
       assertStringIncludes(
         humanWords(local.output),
-        "Unreadable: Git could not read this checkout. Investigate the path before resuming or discarding it.",
+        "Git could not read this checkout. Investigate the path before resuming or discarding it.",
       );
     } finally {
       await Deno.chmod(index, 0o644);

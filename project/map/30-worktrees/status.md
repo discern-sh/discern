@@ -19,7 +19,7 @@ Run it when a session starts or the next move is unclear. Human, JSON, and Model
 
 Worktrees default to a local view. Main leads with the fleet summary, attention, and worktrees. `--all` adds the fleet from a worktree; `--local` suppresses it. The flags conflict.
 
-`statusResult` owns observation: Git, Proof, Logbook activity, collisions, receipts, and landing. The pure dashboard receives those facts with time, width, verbosity, and shared terminal context. It observes nothing; Fleet and supporting Components own layout.
+`statusResult` owns Git, Logbook activity, collision, Proof, and landing observation. The pure dashboard receives those facts with time, width, verbosity, and shared terminal context. It observes nothing; Fleet and supporting Components own layout.
 
 Fleet's lossless mode caps at 104 columns, stacking at 39 or when its table cannot fit. It never truncates or hashes branch and worktree text. Current and detached markers plus secondary facts stay labelled.
 

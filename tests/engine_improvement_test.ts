@@ -15,6 +15,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { stripAnsi } from "discern-design-system/cli";
+import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
 import { displayWidth } from "../src/lib/text.ts";
 import {
   runAgent,
@@ -35,10 +36,11 @@ function triangleSectionAt(
     const end = output.indexOf("\n", cursor);
     const lineEnd = end < 0 ? output.length : end;
     const line = output.slice(cursor, lineEnd);
-    if (
-      line.includes(label) &&
-      /[◮◭⧨⧩<>^v]/u.test(line.replace(label, ""))
-    ) {
+    const decoration = line.replace(label, "");
+    const hasTriangle = Object.values(DISCERN_TRIANGLE_GLYPHS).some((glyph) =>
+      decoration.includes(glyph)
+    );
+    if (line.includes(label) && (hasTriangle || /[<>^v]/u.test(decoration))) {
       return cursor;
     }
     cursor = lineEnd + 1;
