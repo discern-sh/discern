@@ -198,7 +198,7 @@ export interface FleetRowPresentation {
 
 export interface FleetRowPresentationOptions {
   trunk: string;
-  nowMs?: number;
+  nowMs: number;
   collisions?: readonly StatusFleetCollision[];
 }
 
@@ -206,7 +206,7 @@ export interface StatusDashboardOptions {
   terminal: TerminalContext;
   width: number;
   verbose?: boolean;
-  nowMs?: number;
+  nowMs: number;
 }
 
 /** Give one pure package renderer the report's already-resolved width. */
@@ -220,7 +220,7 @@ function capabilitiesAtWidth(
 /** Whole days since an ISO timestamp, or undefined when absent/unparseable. */
 export function idleDaysOf(
   iso: string | undefined,
-  nowMs: number = Date.now(),
+  nowMs: number,
 ): number | undefined {
   if (iso === undefined) return undefined;
   const then = Date.parse(iso);
@@ -231,7 +231,7 @@ export function idleDaysOf(
 /** A compact relative age for row activity. */
 export function relativeAge(
   iso: string | undefined,
-  nowMs: number = Date.now(),
+  nowMs: number,
 ): string {
   if (iso === undefined) return "—";
   const then = Date.parse(iso);
@@ -563,7 +563,7 @@ export function presentFleetRow(
   entry: StatusFleetEntry,
   options: FleetRowPresentationOptions,
 ): FleetRowPresentation {
-  const nowMs = options.nowMs ?? Date.now();
+  const nowMs = options.nowMs;
   const proof = proofPresentation(entry);
   const collisions = rowCollisions(entry, options.collisions ?? []);
   const proofReady = isReadyToLand(entry, proof.status === "honored");
@@ -1324,7 +1324,7 @@ export function renderStatusDashboard(
 ): string {
   const width = reportWidth(options.width);
   const contentWidth = sectionContentWidth(width);
-  const nowMs = options.nowMs ?? Date.now();
+  const nowMs = options.nowMs;
   const c = options.terminal;
   const project = terminalLine(
     data.project ?? (basename(data.root) || data.root),

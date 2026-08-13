@@ -16,6 +16,8 @@ import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { stripAnsi } from "discern-design-system/cli";
 import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
+import { runImprovement } from "../src/engine/improve/improve.ts";
+import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { displayWidth } from "../src/lib/text.ts";
 import {
   runAgent,
@@ -530,6 +532,81 @@ Deno.test("improvement: responsive package reports keep hostile evidence inert a
       }
     }
     assertEquals(outputs.get(400), outputs.get(104));
+  });
+});
+
+Deno.test("improvement: one injected context controls colour and width without re-observation", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+
+    const render = async (
+      width: number,
+      color: boolean,
+    ): Promise<string> => {
+      let processObservations = 0;
+      const values: Readonly<Record<string, string>> = {
+        TERM: "xterm-256color",
+        COLORTERM: "truecolor",
+        LANG: "en_US.UTF-8",
+      };
+      const terminal = resolveTerminalContext({
+        noColor: !color,
+        env: {
+          get(name: string): string | undefined {
+            processObservations++;
+            return values[name];
+          },
+        },
+        isTerminal: () => {
+          processObservations++;
+          return true;
+        },
+        consoleSize: () => {
+          processObservations++;
+          return { columns: width, rows: 24 };
+        },
+      });
+      const observationsAtBoundary = processObservations;
+      let stdout = "";
+      let stderr = "";
+      assertEquals(
+        await runImprovement(dir, {
+          json: false,
+          category: "guidance",
+          terminal,
+          stdout: (text) => stdout += text,
+          stderr: (text) => stderr += text,
+        }),
+        0,
+      );
+      assertEquals(stderr, "");
+      assertEquals(
+        processObservations,
+        observationsAtBoundary,
+        "rendering must consume the injected snapshot without reading its process seams again",
+      );
+      return stdout;
+    };
+
+    const narrow = await render(39, true);
+    const wide = await render(80, false);
+    const narrowPlain = stripAnsi(narrow);
+    assert(narrow !== narrowPlain, "the injected colour capability must win");
+    assertEquals(
+      wide,
+      stripAnsi(wide),
+      "the injected no-colour policy must win",
+    );
+    for (const line of narrowPlain.split("\n")) {
+      assert(
+        displayWidth(line) <= 39,
+        `injected 39-column context produced ${displayWidth(line)} columns`,
+      );
+    }
+    assert(
+      narrowPlain.split("\n").length > wide.split("\n").length,
+      "the injected narrow viewport must produce the more wrapped report",
+    );
   });
 });
 

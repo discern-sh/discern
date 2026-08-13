@@ -37,8 +37,13 @@ import {
   hintTexts,
 } from "../../shared/hints.ts";
 import { addAdvisoryHints } from "../logbook/routing.ts";
-import { colorEnabled, makeOut, type Out } from "../output.ts";
-import { terminalLine, terminalMultiline } from "../../lib/terminal.ts";
+import { makeOut, type Out } from "../output.ts";
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalLine,
+  terminalMultiline,
+} from "../../lib/terminal.ts";
 import { buildContext, CATEGORIES, isDeterministic } from "./rules.ts";
 import type {
   Category,
@@ -652,6 +657,11 @@ function renderFooter(
 /** Options accepted by the improvement CLI. */
 export interface RunImprovementOptions extends ImprovementOptions {
   json: boolean;
+  /** Explicit human presentation facts; CLI callers use the installed context. */
+  terminal?: TerminalContext;
+  /** Injectable writers retained for deterministic human-entrypoint coverage. */
+  stdout?: (text: string) => void;
+  stderr?: (text: string) => void;
 }
 
 /** Run `discern improvement`. Returns a process exit code (0 = ok / above the floor). */
@@ -667,8 +677,12 @@ export async function runImprovement(
   }
 
   const built = await buildReport(root, opts);
-  const color = colorEnabled();
-  const out = makeOut(color);
+  const terminal = opts.terminal ?? terminalContext();
+  const out = makeOut(terminal.color, {
+    terminal,
+    ...(opts.stdout === undefined ? {} : { stdout: opts.stdout }),
+    ...(opts.stderr === undefined ? {} : { stderr: opts.stderr }),
+  });
   if ("error" in built) {
     out.error(built.error.message ?? "improvement failed.");
     return 1;

@@ -67,8 +67,13 @@ import { observeResult } from "../../shared/result_capture.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { sparkline } from "../../lib/text.ts";
-import { terminalLine, terminalMultiline } from "../../lib/terminal.ts";
-import { colorEnabled, makeOut, type Out } from "../output.ts";
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalLine,
+  terminalMultiline,
+} from "../../lib/terminal.ts";
+import { makeOut, type Out } from "../output.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import {
   freshInFlightInvocations,
@@ -370,6 +375,11 @@ export async function patternsResult(
 
 interface FamilyPresentation {
   heading: string;
+}
+
+/** Build one human output surface from an already-resolved terminal snapshot. */
+function presentationOut(terminal: TerminalContext): Out {
+  return makeOut(terminal.color, { terminal });
 }
 
 /** Human section labels keyed exhaustively by the canonical family vocabulary.
@@ -1486,6 +1496,8 @@ function renderStatsReport(
 /** Options accepted by the patterns CLI. */
 export interface RunPatternsOptions {
   json: boolean;
+  /** Explicit human presentation facts; CLI callers use the installed context. */
+  terminal?: TerminalContext;
   /** Render the practice-stats card (and carry `data.stats`) instead of the
    * detector report. */
   stats: boolean;
@@ -1513,7 +1525,8 @@ export async function runPatterns(
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  const out = makeOut(colorEnabled());
+  const terminal = opts.terminal ?? terminalContext();
+  const out = presentationOut(terminal);
   if (!result.ok || result.data === undefined) {
     out.error(result.message ?? "patterns failed.");
     return 1;
@@ -1867,13 +1880,16 @@ function presentLifecycleResult<
   action: LogbookLifecycleActionName,
   result: DiscernResult<T>,
   json: boolean,
+  out: Out | undefined,
 ): number {
   observeResult(result);
   if (json) {
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  const out = makeOut(colorEnabled());
+  if (out === undefined) {
+    throw new TypeError("human lifecycle presentation requires terminal facts");
+  }
   if (result.data !== undefined) {
     if (action === "reset") {
       renderResetScope(out, result.data as PatternsResetData);
@@ -1969,8 +1985,7 @@ export async function patternsArchiveResult(
 }
 
 /** Present the cancellation outcome used by the other owner confirmations. */
-function presentLifecycleCancellation(): number {
-  const out = makeOut(colorEnabled());
+function presentLifecycleCancellation(out: Out): number {
   out.raw("Aborted. Nothing changed.\n");
   return 0;
 }
@@ -1994,6 +2009,7 @@ function changedDuringConfirmation<T>(
 async function applyReset(
   root: string,
   confirm: LifecycleConfirmation,
+  out: Out,
 ): Promise<number> {
   const commonGitDir = await resolveCommonGitDir(root);
   if (commonGitDir === undefined) {
@@ -2001,6 +2017,7 @@ async function applyReset(
       "reset",
       noRepository("patterns reset"),
       false,
+      out,
     );
   }
   try {
@@ -2012,9 +2029,8 @@ async function applyReset(
       reviewedData,
     );
     if (running !== undefined) {
-      return presentLifecycleResult("reset", running, false);
+      return presentLifecycleResult("reset", running, false, out);
     }
-    const out = makeOut(colorEnabled());
     renderResetScope(out, reviewedData);
     const filenames = reviewed.files.length === 0
       ? "no source files"
@@ -2028,7 +2044,7 @@ async function applyReset(
       confirm,
     );
     if (!accepted) {
-      return presentLifecycleCancellation();
+      return presentLifecycleCancellation(out);
     }
     return await withLogbookLifecycleLock(commonGitDir, async () => {
       const current = await activeLifecycleSnapshot(root, commonGitDir);
@@ -2037,6 +2053,7 @@ async function applyReset(
           "reset",
           changedDuringConfirmation("patterns reset", resetData(current)),
           false,
+          out,
         );
       }
       const newlyRunning = inFlightRefusal(
@@ -2045,7 +2062,7 @@ async function applyReset(
         resetData(current),
       );
       if (newlyRunning !== undefined) {
-        return presentLifecycleResult("reset", newlyRunning, false);
+        return presentLifecycleResult("reset", newlyRunning, false, out);
       }
       try {
         await removeLogbook(commonGitDir);
@@ -2053,13 +2070,18 @@ async function applyReset(
         const recovery = error instanceof LogbookLifecycleError
           ? error.detachedPath
           : undefined;
-        return presentLifecycleResult("reset", {
-          ok: false,
-          verb: "patterns reset",
-          error: "apply_failed",
-          message: error instanceof Error ? error.message : String(error),
-          data: resetData(current, recovery),
-        }, false);
+        return presentLifecycleResult(
+          "reset",
+          {
+            ok: false,
+            verb: "patterns reset",
+            error: "apply_failed",
+            message: error instanceof Error ? error.message : String(error),
+            data: resetData(current, recovery),
+          },
+          false,
+          out,
+        );
       }
       const resetHints = [
         ...(current.files.length === 0
@@ -2075,8 +2097,8 @@ async function applyReset(
         data: resetData(current),
         ...(resetHints.length > 0 ? { hints: hintTexts(resetHints) } : {}),
       };
-      const code = presentLifecycleResult("reset", result, false);
-      makeOut(colorEnabled()).raw("Removed the active Logbook permanently.\n");
+      const code = presentLifecycleResult("reset", result, false, out);
+      out.raw("Removed the active Logbook permanently.\n");
       return code;
     });
   } catch (error) {
@@ -2085,12 +2107,17 @@ async function applyReset(
       : `Could not apply the Logbook reset: ${
         error instanceof Error ? error.message : String(error)
       }`;
-    return presentLifecycleResult("reset", {
-      ok: false,
-      verb: "patterns reset",
-      error: "precondition_failed",
-      message,
-    }, false);
+    return presentLifecycleResult(
+      "reset",
+      {
+        ok: false,
+        verb: "patterns reset",
+        error: "precondition_failed",
+        message,
+      },
+      false,
+      out,
+    );
   }
 }
 
@@ -2098,6 +2125,7 @@ async function applyReset(
 async function applyArchive(
   root: string,
   confirm: LifecycleConfirmation,
+  out: Out,
 ): Promise<number> {
   const commonGitDir = await resolveCommonGitDir(root);
   if (commonGitDir === undefined) {
@@ -2105,6 +2133,7 @@ async function applyArchive(
       "archive",
       noRepository("patterns archive"),
       false,
+      out,
     );
   }
   try {
@@ -2117,9 +2146,8 @@ async function applyArchive(
       reviewedData,
     );
     if (running !== undefined) {
-      return presentLifecycleResult("archive", running, false);
+      return presentLifecycleResult("archive", running, false, out);
     }
-    const out = makeOut(colorEnabled());
     renderArchiveScope(out, reviewedData);
     const filenames = reviewed.files.length === 0
       ? "no source files"
@@ -2133,7 +2161,7 @@ async function applyArchive(
       confirm,
     );
     if (!accepted) {
-      return presentLifecycleCancellation();
+      return presentLifecycleCancellation(out);
     }
     return await withLogbookLifecycleLock(commonGitDir, async () => {
       const current = await activeLifecycleSnapshot(root, commonGitDir);
@@ -2145,6 +2173,7 @@ async function applyArchive(
             archiveData(current, filename),
           ),
           false,
+          out,
         );
       }
       const newlyRunning = inFlightRefusal(
@@ -2153,15 +2182,20 @@ async function applyArchive(
         archiveData(current, filename),
       );
       if (newlyRunning !== undefined) {
-        return presentLifecycleResult("archive", newlyRunning, false);
+        return presentLifecycleResult("archive", newlyRunning, false, out);
       }
       if (current.archiveBytes === 0) {
-        const code = presentLifecycleResult("archive", {
-          ok: true,
-          verb: "patterns archive",
-          data: archiveData(current, filename),
-        }, false);
-        makeOut(colorEnabled()).raw(
+        const code = presentLifecycleResult(
+          "archive",
+          {
+            ok: true,
+            verb: "patterns archive",
+            data: archiveData(current, filename),
+          },
+          false,
+          out,
+        );
+        out.raw(
           "No active event lines exist to archive.\n",
         );
         return code;
@@ -2174,10 +2208,9 @@ async function applyArchive(
           verb: "patterns archive",
           data,
         };
-        const code = presentLifecycleResult("archive", result, false);
-        const successOut = makeOut(colorEnabled());
-        successOut.raw(`Sealed ${archived.path}.\n`);
-        successOut.raw(
+        const code = presentLifecycleResult("archive", result, false, out);
+        out.raw(`Sealed ${archived.path}.\n`);
+        out.raw(
           `Read it: discern patterns --logbook-file ${archived.file}\n`,
         );
         return code;
@@ -2185,18 +2218,23 @@ async function applyArchive(
         const lifecycle = error instanceof LogbookLifecycleError
           ? error
           : undefined;
-        return presentLifecycleResult("archive", {
-          ok: false,
-          verb: "patterns archive",
-          error: "apply_failed",
-          message: error instanceof Error ? error.message : String(error),
-          data: archiveData(
-            current,
-            filename,
-            current.archiveBytes,
-            lifecycle?.detachedPath,
-          ),
-        }, false);
+        return presentLifecycleResult(
+          "archive",
+          {
+            ok: false,
+            verb: "patterns archive",
+            error: "apply_failed",
+            message: error instanceof Error ? error.message : String(error),
+            data: archiveData(
+              current,
+              filename,
+              current.archiveBytes,
+              lifecycle?.detachedPath,
+            ),
+          },
+          false,
+          out,
+        );
       }
     });
   } catch (error) {
@@ -2205,12 +2243,17 @@ async function applyArchive(
       : `Could not apply the Logbook archive: ${
         error instanceof Error ? error.message : String(error)
       }`;
-    return presentLifecycleResult("archive", {
-      ok: false,
-      verb: "patterns archive",
-      error: "precondition_failed",
-      message,
-    }, false);
+    return presentLifecycleResult(
+      "archive",
+      {
+        ok: false,
+        verb: "patterns archive",
+        error: "precondition_failed",
+        message,
+      },
+      false,
+      out,
+    );
   }
 }
 
@@ -2218,6 +2261,8 @@ async function applyArchive(
 export interface RunPatternsLifecycleOptions {
   json: boolean;
   dryRun: boolean;
+  /** Explicit human presentation facts; JSON paths never resolve them. */
+  terminal?: TerminalContext;
   /** Whether the caller proved terminal stdin/stdout and non-CI/non-plain mode. */
   interactive: boolean;
   /** The guarded default-No terminal confirmation supplied by CLI dispatch. */
@@ -2231,29 +2276,43 @@ type LifecycleHandler = (
   root: string,
   opts: RunPatternsLifecycleOptions,
   access: LogbookLifecycleAccess,
+  out: Out | undefined,
 ) => Promise<number>;
 
 /** Preview/refuse/apply the reset through the common lifecycle policy. */
-const runResetLifecycle: LifecycleHandler = async (root, opts, access) => {
+const runResetLifecycle: LifecycleHandler = async (root, opts, access, out) => {
   if (access === "apply") {
-    return await applyReset(root, opts.confirm);
+    if (out === undefined) {
+      throw new TypeError("reset apply requires human presentation facts");
+    }
+    return await applyReset(root, opts.confirm, out);
   }
   return presentLifecycleResult(
     "reset",
     await patternsResetResult(root, { dryRun: access === "preview" }),
     opts.json,
+    out,
   );
 };
 
 /** Preview/refuse/apply the archive through the common lifecycle policy. */
-const runArchiveLifecycle: LifecycleHandler = async (root, opts, access) => {
+const runArchiveLifecycle: LifecycleHandler = async (
+  root,
+  opts,
+  access,
+  out,
+) => {
   if (access === "apply") {
-    return await applyArchive(root, opts.confirm);
+    if (out === undefined) {
+      throw new TypeError("archive apply requires human presentation facts");
+    }
+    return await applyArchive(root, opts.confirm, out);
   }
   return presentLifecycleResult(
     "archive",
     await patternsArchiveResult(root, { dryRun: access === "preview" }),
     opts.json,
+    out,
   );
 };
 
@@ -2276,7 +2335,10 @@ export async function runPatternsLifecycle(
     json: opts.json,
     interactive: opts.interactive,
   });
-  return await LIFECYCLE_HANDLERS[action](root, opts, access);
+  const out = opts.json
+    ? undefined
+    : presentationOut(opts.terminal ?? terminalContext());
+  return await LIFECYCLE_HANDLERS[action](root, opts, access, out);
 }
 
 /** Backward-compatible internal entry for the reset CLI wiring. */
@@ -2361,7 +2423,7 @@ export async function patternsArchivesResult(
 /** Run the read-only archive listing. */
 export async function runPatternsArchives(
   root: string,
-  opts: { json: boolean },
+  opts: { json: boolean; terminal?: TerminalContext },
 ): Promise<number> {
   const result = await patternsArchivesResult(root);
   observeResult(result);
@@ -2369,7 +2431,7 @@ export async function runPatternsArchives(
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  const out = makeOut(colorEnabled());
+  const out = presentationOut(opts.terminal ?? terminalContext());
   if (!result.ok || result.data === undefined) {
     out.error(result.message ?? "patterns archives failed.");
     return 1;
