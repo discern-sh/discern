@@ -410,7 +410,7 @@ Deno.test("improvement names its missing history while recording is off, and onl
     );
     const human = await runAgent(dir, ["improvement"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, expected);
+    assertStringIncludes(human.output.replaceAll(/\s+/gu, " "), expected);
 
     await writeConfig(dir, gateConfig("true", true));
     const onRun = await runAgent(dir, ["improvement", "--json"]);

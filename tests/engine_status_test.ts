@@ -98,6 +98,23 @@ function parseStatus(stdout: string): any {
   return obj;
 }
 
+/** Collapse responsive wrapping before comparing one complete human fact. */
+function normalized(text: string): string {
+  return text.replaceAll(/\s+/gu, " ").trim();
+}
+
+/** Find one package triangle-rule section and prove both motifs are visible. */
+function triangleSectionLine(output: string, label: string): string {
+  const line = output.split("\n").find((candidate) =>
+    candidate.includes(` ${label} `)
+  );
+  assert(
+    line !== undefined && /^[<>^v]+\s+.+\s+[<>^v]+$/u.test(line),
+    `missing package triangle section ${label}:\n${output}`,
+  );
+  return line;
+}
+
 Deno.test("status: the fleet view surfaces cross-worktree file collisions", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -401,7 +418,7 @@ Deno.test("status fleet: logbook-off rows degrade to git activity and carry the 
     );
     const human = await runAgent(dir, ["status"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, expected);
+    assertStringIncludes(normalized(human.output), expected);
   });
 });
 
@@ -618,9 +635,10 @@ Deno.test("status human output separates its semantic groups", async () => {
         "Local environment",
       ]
     ) {
-      assertStringIncludes(
-        human.stdout,
-        `\n\n── ${section}\n`,
+      const line = triangleSectionLine(human.stdout, section);
+      const at = human.stdout.indexOf(line);
+      assert(
+        at === 0 || human.stdout.slice(0, at).endsWith("\n\n"),
         `${section} must start after a visible group boundary:\n${human.stdout}`,
       );
     }
@@ -722,7 +740,9 @@ Deno.test({
       });
       assertEquals(colored.code, 0, colored.output);
       assertStringIncludes(colored.output, `${STATUS_ESCAPE}[`);
-      assertStringIncludes(colored.output, "Status:");
+      assertStringIncludes(colored.output, "Active worktrees");
+      assertStringIncludes(colored.output, "Branch: agent/alpha");
+      assertStringIncludes(colored.output, "Idle");
       for (const line of colored.stdout.trimEnd().split("\n")) {
         assert(
           displayWidth(line) <= 48,
@@ -736,7 +756,9 @@ Deno.test({
       });
       assertEquals(plain.code, 0, plain.output);
       assert(!plain.output.includes(STATUS_ESCAPE), plain.output);
-      assertStringIncludes(plain.output, "Status:");
+      assertStringIncludes(plain.output, "Active worktrees");
+      assertStringIncludes(plain.output, "Branch: agent/alpha");
+      assertStringIncludes(plain.output, "Idle");
       for (const line of plain.stdout.trimEnd().split("\n")) {
         assert(
           displayWidth(line) <= 48,
@@ -768,10 +790,8 @@ Deno.test("status fleet (human): measured lines stay bounded while long identifi
     assertStringIncludes(r.output, branch);
     for (const line of r.stdout.split("\n")) {
       if (displayWidth(line) <= width) continue;
-      const identifierLine = line.includes(branch) &&
-        !/(?:Git|Proof|Activity|Status|clean|changed|ahead|behind)/.test(
-          line,
-        );
+      const identifierLine = line === `Branch: ${branch}` ||
+        line === `Persona: ${id}`;
       assert(
         identifierLine,
         `ordinary ${width}-column line is ${
@@ -802,18 +822,27 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     const localHuman = await runAgent(wt, ["status"], {
       env: { COLUMNS: "72" },
     });
-    assertStringIncludes(localHuman.output, "── Current worktree");
-    assertStringIncludes(localHuman.output, "── Local environment");
+    const currentSection = triangleSectionLine(
+      localHuman.output,
+      "Current worktree",
+    );
+    const environmentSection = triangleSectionLine(
+      localHuman.output,
+      "Local environment",
+    );
     assertStringIncludes(localHuman.output, "Port:");
     assert(!localHuman.output.includes("Change: code"), localHuman.output);
-    const checksAt = localHuman.output.indexOf("── Checks");
-    const environmentAt = localHuman.output.indexOf("── Local environment");
+    const checksAt = localHuman.output.indexOf(
+      triangleSectionLine(localHuman.output, "Checks"),
+    );
+    const environmentAt = localHuman.output.indexOf(environmentSection);
     assert(checksAt >= 0 && environmentAt > checksAt, localHuman.output);
     assert(
       !localHuman.output.slice(checksAt, environmentAt).includes("Port:"),
       localHuman.output,
     );
-    assert(!localHuman.output.includes("── Fleet"), localHuman.output);
+    assert(!localHuman.output.includes(" Fleet "), localHuman.output);
+    assert(localHuman.output.indexOf(currentSection) >= 0);
 
     // --all from a worktree keeps the local blocks AND adds the fleet survey.
     const all = await runAgent(wt, ["status", "--all", "--json"]);
@@ -828,9 +857,9 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     const allHuman = await runAgent(wt, ["status", "--all"], {
       env: { COLUMNS: "72" },
     });
-    assertStringIncludes(allHuman.output, "── Fleet");
-    assertStringIncludes(allHuman.output, "── Worktrees");
-    assertStringIncludes(allHuman.output, "── Main checkout");
+    triangleSectionLine(allHuman.output, "Fleet");
+    triangleSectionLine(allHuman.output, "Worktrees");
+    triangleSectionLine(allHuman.output, "Main checkout");
   });
 });
 
@@ -1057,7 +1086,9 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     // reserves the stored Markdown page for --verbose.
     const plain = await runAgent(wt, ["status"]);
     assertEquals(plain.code, 0, plain.output);
-    assertStringIncludes(plain.output, "Proof: honored");
+    assertStringIncludes(plain.output, "Receipt: agent/alpha Proof");
+    assertStringIncludes(plain.output, "Proof");
+    assertStringIncludes(plain.output, "+ honored");
     assert(
       !plain.output.includes("### Proof"),
       `plain status must not print the page:\n${plain.output}`,
@@ -1179,7 +1210,8 @@ Deno.test("status: a landed proof carries its commit time for the human age", as
       JSON.stringify(result.data.landed_proof),
     );
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.output, "Last landing: passed");
+    assertStringIncludes(human.output, "Receipt: Last landing");
+    assertStringIncludes(human.output, "[PASS]");
     assertStringIncludes(human.output, "just now");
   });
 });

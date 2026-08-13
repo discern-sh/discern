@@ -247,7 +247,7 @@ Deno.test({
               );
             }
           } else {
-            assertStringIncludes(result.output, "1 event", label);
+            assertStringIncludes(result.output, "Events: 1", label);
             assertStringIncludes(result.output, "2026-08.jsonl", label);
             assertStringIncludes(result.output, "Preview only", label);
           }
@@ -358,7 +358,7 @@ Deno.test({
         input: "y\n",
       });
       assertEquals(archived.code, 0, archived.output);
-      assertStringIncludes(archived.output, "3 events");
+      assertStringIncludes(archived.output, "Events: 3");
       assertStringIncludes(archived.output, "2026-07-31 → 2026-08-11");
       assertStringIncludes(archived.output, "2026-07.jsonl");
       assertStringIncludes(archived.output, "2026-08.jsonl");
@@ -410,8 +410,9 @@ Deno.test({
       const humanListing = await runAgent(dir, ["patterns", "archives"]);
       assertEquals(humanListing.code, 0, humanListing.output);
       assertStringIncludes(humanListing.output, filename);
-      assertStringIncludes(humanListing.output, "3 events");
-      assertStringIncludes(humanListing.output, "2 unparsable lines skipped");
+      assertStringIncludes(humanListing.output, "Events: 3");
+      assertStringIncludes(humanListing.output, "Unparsable lines");
+      assertStringIncludes(humanListing.output, "2 x fail");
 
       const historical = await runAgent(dir, [
         "patterns",
