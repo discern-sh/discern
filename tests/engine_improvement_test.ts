@@ -14,6 +14,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
+import { stripAnsi } from "discern-design-system/cli";
 import { displayWidth } from "../src/lib/text.ts";
 import {
   runAgent,
@@ -21,7 +22,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { unexpectedTerminalControls, withTempDir } from "./helpers.ts";
 
 /** Locate one package triangle section at or after a previous section. */
 function triangleSectionAt(
@@ -513,9 +514,7 @@ Deno.test("improvement: responsive package reports keep hostile evidence inert a
       assert(!run.stdout.includes("\u001b[31m"));
       assert(!run.stdout.includes("\u009b"));
       assert(
-        !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(
-          run.stdout,
-        ),
+        unexpectedTerminalControls(run.stdout).length === 0,
         `${width}-column improvement output contains a raw terminal control`,
       );
       const budget = Math.min(width, 104);
@@ -586,7 +585,7 @@ Deno.test({
         } else {
           assertStringIncludes(rendered, mode.marker, mode.name);
         }
-        const facts = rendered.replaceAll(/\u001b\[[0-9;]*m/gu, "");
+        const facts = stripAnsi(rendered);
         assertStringIncludes(facts, "Agent guidance");
         assertStringIncludes(facts, "Review question:");
         baseline ??= facts;

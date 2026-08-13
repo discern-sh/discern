@@ -1,6 +1,7 @@
 /** Pure width and semantic-state guards for the static status dashboard. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { unexpectedTerminalControls } from "./helpers.ts";
 import { displayWidth } from "../src/lib/text.ts";
 import {
   resolveTerminalContext,
@@ -355,7 +356,7 @@ Deno.test("status dashboard: truecolour, 256, 16, no-colour, and ASCII modes ret
     assert(!words.includes("\u001b[31m"));
     assert(!words.includes("\u009b"));
     assert(
-      !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(words),
+      unexpectedTerminalControls(words).length === 0,
       `${mode} left a raw terminal control in package output`,
     );
     if (mode !== "ascii") {

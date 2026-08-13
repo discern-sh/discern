@@ -11,7 +11,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { stripAnsi } from "discern-design-system/cli";
-import { withTempDir } from "./helpers.ts";
+import { unexpectedTerminalControls, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -1893,9 +1893,7 @@ Deno.test("patterns: 39, 80, 104, and capped reports keep hostile Logbook facts 
       assert(!run.stdout.includes("\u001b[31m"));
       assert(!run.stdout.includes("\u009b"));
       assert(
-        !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(
-          run.stdout,
-        ),
+        unexpectedTerminalControls(run.stdout).length === 0,
         `${width}-column Patterns output contains a raw terminal control`,
       );
       const budget = Math.min(width, 104);
@@ -1995,18 +1993,18 @@ Deno.test({
         }
         // BSD script(1) prefixes a closed stdin as `^D` plus two backspaces;
         // remove that harness framing before auditing the engine's own bytes.
-        const facts = stripAnsi(rendered).replace(/^\^D\u0008\u0008/u, "");
+        const ptyClosedStdin = `^D${String.fromCharCode(8).repeat(2)}`;
+        const stripped = stripAnsi(rendered);
+        const facts = stripped.startsWith(ptyClosedStdin)
+          ? stripped.slice(ptyClosedStdin.length)
+          : stripped;
         assertStringIncludes(facts, "Consecutive red done runs");
         assertStringIncludes(normalized(facts), "agent/seeded");
         assertStringIncludes(
           normalized(facts),
           "The report is advisory and does not change the Gate.",
         );
-        const unexpected = [...facts].filter((character) =>
-          /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(
-            character,
-          )
-        );
+        const unexpected = unexpectedTerminalControls(facts);
         assert(
           unexpected.length === 0,
           `${mode.name} left raw terminal controls in Patterns facts: ${

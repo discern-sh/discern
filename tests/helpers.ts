@@ -152,6 +152,23 @@ export async function withTempDir(
   }
 }
 
+/** Return C0/C1 bytes that are unsafe outside an intentional terminal sequence. */
+export function unexpectedTerminalControls(text: string): string[] {
+  const controls: string[] = [];
+  for (const character of text) {
+    const codePoint = character.codePointAt(0);
+    if (
+      codePoint !== undefined &&
+      (codePoint <= 0x08 || codePoint === 0x0b || codePoint === 0x0c ||
+        (codePoint >= 0x0e && codePoint <= 0x1f) ||
+        (codePoint >= 0x7f && codePoint <= 0x9f))
+    ) {
+      controls.push(character);
+    }
+  }
+  return controls;
+}
+
 /**
  * Seed a minimal config at the root `discern.toml` path. For tests that fake an
  * install without running the installer.
