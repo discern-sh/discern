@@ -2,6 +2,7 @@
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import {
+  DISCERN_TRIANGLE_ASCII_GLYPHS as PACKAGE_ASCII_GLYPHS,
   DISCERN_TRIANGLE_GLYPHS as PACKAGE_GLYPHS,
   DISCERN_TRIANGLE_SPINNER_ORDER as PACKAGE_SPINNER_ORDER,
   DISCERN_TRIANGLE_WEAVE_ORDER as PACKAGE_WEAVE_ORDER,
@@ -17,6 +18,7 @@ import {
 import {
   DISCERN_PACKAGE_TRIANGLE_MOTIFS,
   DISCERN_PRODUCT_TRIANGLE_ART,
+  DISCERN_TRIANGLE_ASCII_GLYPHS,
   DISCERN_TRIANGLE_GLYPHS,
   DISCERN_TRIANGLE_SPINNER_ORDER,
   DISCERN_TRIANGLE_WEAVE_ORDER,
@@ -85,6 +87,7 @@ function packageMotifFrames(
 }
 
 Deno.test("Discern re-exports the published triangle vocabulary by identity", () => {
+  assert(DISCERN_TRIANGLE_ASCII_GLYPHS === PACKAGE_ASCII_GLYPHS);
   assert(DISCERN_TRIANGLE_GLYPHS === PACKAGE_GLYPHS);
   assert(DISCERN_TRIANGLE_WEAVE_ORDER === PACKAGE_WEAVE_ORDER);
   assert(DISCERN_TRIANGLE_SPINNER_ORDER === PACKAGE_SPINNER_ORDER);
@@ -146,14 +149,26 @@ Deno.test("product pyramid and gasket derive Unicode and ASCII from package fact
     capabilities: UNICODE,
   });
   const asciiPyramid = renderTrianglePyramid({ rows: 8, capabilities: ASCII });
-  const packageGlyphs = new Set(Object.values(PACKAGE_GLYPHS));
-  for (const glyph of unicodePyramid.replaceAll(/[\s]/gu, "")) {
-    assert(packageGlyphs.has(glyph as never), `unexpected glyph ${glyph}`);
+  for (
+    const [label, pyramid, authority] of [
+      ["Unicode", unicodePyramid, PACKAGE_GLYPHS],
+      ["ASCII", asciiPyramid, PACKAGE_ASCII_GLYPHS],
+    ] as const
+  ) {
+    const authorityGlyphs = new Set<string>(Object.values(authority));
+    const productGlyphs = new Set(pyramid.replaceAll(/[\s]/gu, ""));
+    assertEquals(
+      productGlyphs,
+      authorityGlyphs,
+      `${label} product art must use every glyph from its package authority`,
+    );
+    for (const glyph of pyramid.replaceAll(/[\s]/gu, "")) {
+      assert(
+        authorityGlyphs.has(glyph),
+        `${label} product art used non-package glyph ${glyph}`,
+      );
+    }
   }
-  assertEquals(
-    new Set(asciiPyramid.replaceAll(/[\s]/gu, "").split("")),
-    new Set([">", "v", "^", "<"]),
-  );
 
   assertEquals(
     renderTriangleGasket({ rows: 8, levels: 0, capabilities: UNICODE }),

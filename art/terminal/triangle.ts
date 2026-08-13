@@ -5,6 +5,7 @@
  */
 
 import {
+  DISCERN_TRIANGLE_ASCII_GLYPHS,
   DISCERN_TRIANGLE_GLYPHS,
   DISCERN_TRIANGLE_SPINNER_ORDER,
   DISCERN_TRIANGLE_WEAVE_ORDER,
@@ -21,6 +22,7 @@ import { type DiscernArtAnimation, finishAnimation } from "./animation.ts";
 import type { DiscernArtVariant } from "./brand.ts";
 
 export {
+  DISCERN_TRIANGLE_ASCII_GLYPHS,
   DISCERN_TRIANGLE_GLYPHS,
   DISCERN_TRIANGLE_SPINNER_ORDER,
   DISCERN_TRIANGLE_WEAVE_ORDER,
@@ -111,14 +113,10 @@ function productGlyph(
   );
   const name = DISCERN_TRIANGLE_WEAVE_ORDER[index] ??
     DISCERN_TRIANGLE_WEAVE_ORDER[0];
-  if (capabilities.unicode) return DISCERN_TRIANGLE_GLYPHS[name];
-  const ascii: Readonly<Record<TriangleName, string>> = {
-    upRight: ">",
-    upLeft: "^",
-    downLeft: "<",
-    downRight: "v",
-  };
-  return ascii[name];
+  const glyphs: Readonly<Record<TriangleName, string>> = capabilities.unicode
+    ? DISCERN_TRIANGLE_GLYPHS
+    : DISCERN_TRIANGLE_ASCII_GLYPHS;
+  return glyphs[name];
 }
 
 /** Render Discern's solid pyramid from package glyph and order constants. */
@@ -331,7 +329,7 @@ function animateSpinner(
   return finishAnimation(
     staticArt,
     Array.from(
-      { length: 8 },
+      { length: DISCERN_TRIANGLE_SPINNER_ORDER.length * 2 },
       (_, phase) => renderTriangleSpinnerFrame(phase, capabilities),
     ),
     90,
