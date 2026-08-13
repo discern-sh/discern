@@ -20,6 +20,7 @@ const RUNTIME_DENO_FILES = AUTHORED_DENO_FILES.filter((rel) =>
 );
 const PROMPT_AUTHORITY = "src/lib/prompts.ts";
 const PAINTER_AUTHORITY = "src/lib/terminal_painter.ts";
+const CLI_MODULE = "discern-design-system/cli";
 const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
 
 /** Every migrated supervisory presentation tree, enrolled from authored source. */
@@ -993,6 +994,10 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                 node.source.type === "Literal" &&
                 node.source.value === INTERACTIVE_MODULE
               ) add("dynamic-interactive-package-import", node);
+              if (
+                node.source.type === "Literal" &&
+                node.source.value === CLI_MODULE
+              ) add("dynamic-cli-package-import", node);
             },
             VariableDeclarator(node): void {
               if (
@@ -1799,6 +1804,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     'import { terminalLine as safe } from "../../lib/terminal.ts";',
     'const dynamic = import("@cliffy/prompt");',
     `const interactive = await import("${INTERACTIVE_MODULE}"); interactive.promptFuture({});`,
+    `const cli = await import("${CLI_MODULE}"); cli.renderResultSummaryCli({ fact: row.path }, {});`,
     'const term = Deno.env.get("TERM");',
     'const noColor = Deno.env.get("NO_COLOR");',
     "const size = Deno.consoleSize();",
@@ -1844,6 +1850,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "package-terminal-io-import",
       "package-prompt-import:promptFuture",
       "dynamic-interactive-package-import",
+      "dynamic-cli-package-import",
       "direct-inline-painter-construction",
       "process-terminal-environment-probe",
       "process-console-size-probe",
