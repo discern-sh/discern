@@ -7,7 +7,10 @@ import {
   BROWSER_ARTWORK_ENTRIES,
   type BrowserArtworkEntry,
 } from "../../art/browser/renderers.tsx";
-import { browserArtworkStylesheetNames } from "../../art/browser/registry.ts";
+import {
+  BROWSER_ART_FOUNDATION_STYLESHEET,
+  browserArtworkStylesheetNames,
+} from "../../art/browser/registry.ts";
 import {
   artGalleryEntries,
   type ArtGalleryEntry,
@@ -136,8 +139,8 @@ function ArtGallery(
               <h2>Geometric motion studies</h2>
             </div>
             <p>
-              Five scalable, token-driven SVG compositions. Motion is
-              decorative; each retains its meaning when animation is reduced.
+              Scalable, token-driven SVG compositions. Motion is decorative;
+              each retains its meaning when animation is reduced.
             </p>
           </header>
           {browserArtworks.map((artwork, index) => (
@@ -191,6 +194,7 @@ export function renderArtGallery(
       "discern.css",
       "grain.css",
       "art-gallery.css",
+      BROWSER_ART_FOUNDATION_STYLESHEET,
       ...browserArtworkStylesheetNames(browserArtworks),
     ],
     scripts: [],

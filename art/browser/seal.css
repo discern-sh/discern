@@ -1,0 +1,216 @@
+/* Fig. II — the seal. One 35-beat phrase: sealed dwell, a single fragment's
+ * departure releasing the ink, a staged scatter, a suspended cloud, staged
+ * re-registration ending with the departed fragment's click home, one
+ * confirming sweep, the flood of the right half, and the accent mark's
+ * re-inscription into the closing dwell. Every keyframe loop opens and
+ * closes at the authored sealed state. */
+
+@layer discern.page {
+  /* The true registration: centre line and vertex ticks never move. */
+  .fig-seal__construction {
+    fill: none;
+    stroke: var(--fig-guide);
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-faint);
+  }
+
+  .fig-seal__fragment {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation-duration: calc(var(--fig-beat) * 35);
+    animation-iteration-count: infinite;
+    animation-timing-function: var(--fig-ease-drift);
+  }
+
+  .fig-seal__fragment--traitor {
+    animation-name: fig-seal-loosen-traitor;
+  }
+
+  .fig-seal__fragment--early {
+    animation-name: fig-seal-loosen-early;
+  }
+
+  .fig-seal__fragment--middle {
+    animation-name: fig-seal-loosen-middle;
+  }
+
+  .fig-seal__fragment--late {
+    animation-name: fig-seal-loosen-late;
+  }
+
+  /* The right half's ink, revealed through a static triangular clip. */
+  .fig-seal__ink {
+    fill: currentColor;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: fig-seal-ink calc(var(--fig-beat) * 35) var(--fig-ease-settle)
+      infinite;
+  }
+
+  /* The confirming pass: present only while it crosses the form. */
+  .fig-seal__sweep {
+    opacity: 0;
+    animation: fig-seal-sweep-presence calc(var(--fig-beat) * 35)
+      var(--fig-ease-drift) infinite;
+  }
+
+  /* The confirming pass is the piece's one accent event. */
+  .fig-seal__sweep-line {
+    fill: none;
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: fig-seal-sweep-travel calc(var(--fig-beat) * 35)
+      var(--fig-ease-draw) infinite;
+  }
+
+  /* The departed fragment: out first, home last, the click that earns
+   * the sweep. */
+  @keyframes fig-seal-loosen-traitor {
+    0%,
+    12% {
+      transform: none;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+
+    16%,
+    58% {
+      transform: var(--fig-seal-scatter);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    63%,
+    100% {
+      transform: none;
+    }
+  }
+
+  @keyframes fig-seal-loosen-early {
+    0%,
+    15% {
+      transform: none;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+
+    21%,
+    51% {
+      transform: var(--fig-seal-scatter);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    58%,
+    100% {
+      transform: none;
+    }
+  }
+
+  @keyframes fig-seal-loosen-middle {
+    0%,
+    17% {
+      transform: none;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+
+    23%,
+    45% {
+      transform: var(--fig-seal-scatter);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    52%,
+    100% {
+      transform: none;
+    }
+  }
+
+  @keyframes fig-seal-loosen-late {
+    0%,
+    19% {
+      transform: none;
+      animation-timing-function: var(--fig-ease-drift);
+    }
+
+    25%,
+    48% {
+      transform: var(--fig-seal-scatter);
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    55%,
+    100% {
+      transform: none;
+    }
+  }
+
+  /* Drain fast at the instant of departure; flood back up from the base
+   * under the sweep. The hidden reset rides inside the zero-opacity gap. */
+  @keyframes fig-seal-ink {
+    0%,
+    12% {
+      opacity: 1;
+      transform: none;
+      animation-timing-function: var(--fig-ease-settle);
+    }
+
+    15% {
+      opacity: 0;
+      transform: none;
+    }
+
+    17% {
+      opacity: 0;
+      transform: translateY(332px);
+    }
+
+    19%,
+    67% {
+      opacity: 1;
+      transform: translateY(332px);
+      animation-timing-function: var(--fig-ease-draw);
+    }
+
+    73%,
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes fig-seal-sweep-presence {
+    0%,
+    63.8% {
+      opacity: 0;
+    }
+
+    64.7%,
+    67.3% {
+      opacity: 1;
+    }
+
+    68%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-seal-sweep-travel {
+    0%,
+    63.8% {
+      transform: none;
+      animation-timing-function: var(--fig-ease-draw);
+    }
+
+    68% {
+      transform: translateY(316px);
+    }
+
+    70%,
+    100% {
+      transform: none;
+    }
+  }
+}

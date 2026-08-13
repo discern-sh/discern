@@ -48,7 +48,73 @@ export const BROWSER_ARTWORKS = [
       "Cartesian, oblique, and radial frames change around a split triangular core that never leaves its centre.",
     sourceCommit: "9b7b3eac0f1ffd1addeb970e1167866c855a37b1",
   },
+  {
+    slug: "circuit",
+    title: "The circuit",
+    description:
+      "An emblem unfolds into three stationed vertices and one pulse completes their triangular exchange before the form recollects itself.",
+    sourceCommit: "49104c19ddb978b6d78b7327ef7658e80a640095",
+  },
+  {
+    slug: "seal",
+    title: "The seal",
+    description:
+      "Scattered fragments register into one exact triangle whose right half takes ink under a confirming sweep, until a single fragment drifts.",
+    sourceCommit: "73f09b4994be31ed1b8e1cb56e28b454239d7c5d",
+  },
+  {
+    slug: "delta",
+    title: "The delta",
+    description:
+      "One line opens into parallel channels whose travelling marks work apart, wait for one another, and reconverge through a single settling point.",
+    sourceCommit: "48f1d3509b67195281102bfabacfa46cd03fcde7",
+  },
+  {
+    slug: "ratchet",
+    title: "The ratchet",
+    description:
+      "A trembling measure tightens two converging limits notch by notch until their corridor closes into an apex and begins again, finer.",
+    sourceCommit: "c238e1237cea38fed67ee2f67fae88551b88ff75",
+  },
+  {
+    slug: "rule",
+    title: "The rule",
+    description:
+      "Compass arcs subdivide one triangle through three quiet generations and one small pulse retraces the figure before the construction unwinds.",
+    sourceCommit: "5b3e48ae75dc345aa63454cf2063d11923046634",
+  },
+  {
+    slug: "survey",
+    title: "The survey",
+    description:
+      "Measuring marks study an irregular found figure until one exact triangle inscribes itself within it and rests fitted to its bounds.",
+    sourceCommit: "2a94d9131027085e1d2869c631445d7fd67bd023",
+  },
+  {
+    slug: "interference",
+    title: "The interference",
+    description:
+      "Two fine triangular line grids drift slowly against each other inside one bounded triangle, letting larger figures bloom, travel, and settle home.",
+    sourceCommit: "abb4c5474843a8892d65523a2e50f93819238176",
+  },
 ] as const satisfies readonly BrowserArtworkMetadata[];
+
+/** The shared foundation stylesheet every figure-series member consumes. */
+export const BROWSER_ART_FOUNDATION_STYLESHEET = "art-figures.css";
+
+/**
+ * The figure-series members bound to the shared metre in figures.css.
+ * A slug listed here enrols in the series-law structural tests.
+ */
+export const FIGURE_SERIES_SLUGS = [
+  "circuit",
+  "seal",
+  "delta",
+  "ratchet",
+  "rule",
+  "survey",
+  "interference",
+] as const satisfies readonly BrowserArtworkSlug[];
 
 export type BrowserArtworkSlug = typeof BROWSER_ARTWORKS[number]["slug"];
 
