@@ -53,7 +53,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
 | [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                               | `art/terminal/triangle.ts#DISCERN_PRODUCT_TRIANGLE_ART`                           | 2       | —                | —                           |
-| [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 12      | —                | —                           |
+| [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 19      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 64      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
@@ -78,7 +78,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 268     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 269     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 22      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -93,7 +93,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 80      | —                | node `canonical-sets`       |
 
-80 sets · 126 guard tests · 53 committed artifacts.
+80 sets · 125 guard tests · 53 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -125,10 +125,9 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/browser_art_interference_test.ts`           | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_invariant_core_test.ts`         | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_persistent_trace_test.ts`       | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `tests/browser_art_ratchet_test.ts`                | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `tests/browser_art_quorum_test.ts`                 | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_rule_test.ts`                   | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_seal_test.ts`                   | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `tests/browser_art_survey_test.ts`                 | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/built_in_step_labels_test.ts`               | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/canonical_sets_enrolment_test.ts`           | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/cli_reference_codegen_test.ts`              | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -1323,7 +1322,7 @@ The product-specific triangle compositions: every static figure derives its glyp
 The approved browser-art family: every member supplies its metadata, renderer, immutable source provenance, stylesheet, dual-theme gallery projection, and structural guards.
 
 - Source: `art/browser/registry.ts` — `BROWSER_ARTWORKS`
-- Members: 12
+- Members: 19
   - `alignment`
   - `bifurcation`
   - `contour`
@@ -1332,11 +1331,18 @@ The approved browser-art family: every member supplies its metadata, renderer, i
   - `circuit`
   - `seal`
   - `delta`
-  - `ratchet`
   - `rule`
-  - `survey`
   - `interference`
-- Guards: `tests/art_browser_gallery_test.ts`, `tests/browser_art_alignment_test.ts`, `tests/browser_art_bifurcation_test.ts`, `tests/browser_art_contour_test.ts`, `tests/browser_art_persistent_trace_test.ts`, `tests/browser_art_invariant_core_test.ts`, `tests/browser_art_figures_test.ts`, `tests/browser_art_circuit_test.ts`, `tests/browser_art_seal_test.ts`, `tests/browser_art_delta_test.ts`, `tests/browser_art_ratchet_test.ts`, `tests/browser_art_rule_test.ts`, `tests/browser_art_survey_test.ts`, `tests/browser_art_interference_test.ts`
+  - `mesh`
+  - `phase`
+  - `prism`
+  - `packing`
+  - `quorum`
+  - `isolate`
+  - `ledger`
+  - `gate`
+  - `shadow`
+- Guards: `tests/art_browser_gallery_test.ts`, `tests/browser_art_alignment_test.ts`, `tests/browser_art_bifurcation_test.ts`, `tests/browser_art_contour_test.ts`, `tests/browser_art_persistent_trace_test.ts`, `tests/browser_art_invariant_core_test.ts`, `tests/browser_art_figures_test.ts`, `tests/browser_art_circuit_test.ts`, `tests/browser_art_seal_test.ts`, `tests/browser_art_delta_test.ts`, `tests/browser_art_rule_test.ts`, `tests/browser_art_interference_test.ts`, `tests/browser_art_quorum_test.ts`
 - Glossary: not enrolled — the browser-art gallery owns these internal study names
 - Feature canon: not enrolled — the development-only gallery owns these visual references outside the public product surface
 
@@ -2081,7 +2087,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 268
+- Members: 269
   - `0003`
   - `0005`
   - `0006`
@@ -2331,6 +2337,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0275`
   - `0276`
   - `0277`
+  - `0278`
   - `0278`
   - `0001`
   - `0002`
