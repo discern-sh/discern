@@ -22,6 +22,7 @@ import { isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
 import { writeStderr } from "../output.ts";
 import {
   terminalLine,
+  terminalMultiline,
   terminalPresentationContext,
 } from "../../lib/terminal.ts";
 import {
@@ -213,7 +214,7 @@ function renderGotchasLead(hint: FiredHint | undefined, color: boolean): void {
   const lead = `\n${terminal.role("── a gate step failed.", "muted")}`;
   writeStderr(
     hint !== undefined
-      ? `${lead} ${hint.text}\n`
+      ? `${lead} ${terminalMultiline(hint.text)}\n`
       : `${lead} If it isn't self-explanatory, record the fix in a gotchas doc and point ${
         terminal.tone("[project].gotchas_doc", "accent")
       } in discern.toml at it.\n`,

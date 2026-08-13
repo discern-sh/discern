@@ -7,6 +7,7 @@
 import type { Logger } from "./log.ts";
 import type { OpDisposition, Plan, PlanOp } from "./fs_plan.ts";
 import { agentIntegrationPrefixes } from "./providers.ts";
+import { padDisplayEnd } from "./text.ts";
 import { terminalLine } from "./terminal.ts";
 
 /** A short, human label for each disposition. */
@@ -20,7 +21,7 @@ const DISPOSITION_LABEL: Record<OpDisposition, string> = {
 
 /** Render the full plan as a per-file listing under a heading (used by --dry-run). */
 export function renderPlan(log: Logger, plan: Plan, heading: string): void {
-  log.heading(heading);
+  log.heading(terminalLine(heading));
   for (const op of plan.ops) {
     const label = DISPOSITION_LABEL[op.disposition];
     const note = op.note
@@ -32,7 +33,8 @@ export function renderPlan(log: Logger, plan: Plan, heading: string): void {
 
 /** One labelled row in the summary: a path and a dim description. */
 function row(log: Logger, path: string, desc: string): string {
-  return `    ${terminalLine(path.padEnd(22))} ${
+  const safePath = terminalLine(path);
+  return `    ${padDisplayEnd(safePath, 22)} ${
     log.terminal.role(terminalLine(desc), "muted")
   }`;
 }

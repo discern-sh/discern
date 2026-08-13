@@ -59,6 +59,9 @@ async function buildHostBinary(
 
 /** Warn that PATH now resolves to the compiled binary and explain restoration. */
 function printLiveBanner(dest: string, triple: string): void {
+  // This maintainer-only script deliberately stays plain: it is outside the
+  // shipped CLI and must not grow a second terminal-capability or style authority.
+  // The warning's rule, glyph, casing, and repetition carry its salience.
   const rule = "─".repeat(68);
   console.error("");
   console.error(rule);

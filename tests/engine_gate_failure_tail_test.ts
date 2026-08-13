@@ -23,6 +23,7 @@ import {
 } from "./engine_helpers.ts";
 import { renderFailureTail } from "../src/engine/gate/failure_tail.ts";
 import { makeOut } from "../src/engine/output.ts";
+import { terminalMultiline } from "../src/lib/terminal.ts";
 import type { Diagnostic } from "../src/shared/result.ts";
 
 const EXIT_127_TITLE = "A gate command fails with exit 127 (command not found)";
@@ -257,8 +258,14 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
     const mapDir = "knowledge";
     const target = "91-unrelated/operator notes";
     const doc = `${mapDir}/${target}.md`;
+    const matchedHeading = `### ${EXIT_127_TITLE}`;
+    const hostileMatchedBody =
+      "Authored first line\nAuthored second line \x1b[31mstill text";
+    const seededGotchas = (await Deno.readTextFile(TEMPLATE_GOTCHAS))
+      .replace(matchedHeading, `${matchedHeading}\n\n${hostileMatchedBody}`)
+      .trimEnd();
     const body = [
-      (await Deno.readTextFile(TEMPLATE_GOTCHAS)).trimEnd(),
+      seededGotchas,
       "",
       "### Broken matcher",
       "",
@@ -337,7 +344,13 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
     // tree red. Its human failure tail prints the same fired texts verbatim.
     const human = await runGate(["done", "--confirmed"]);
     assertEquals(human.code, 1, human.output);
-    assertStringIncludes(human.stderr, envelopeHint);
+    const safeEnvelopeHint = terminalMultiline(envelopeHint);
+    assertStringIncludes(human.stderr, safeEnvelopeHint);
+    assertStringIncludes(
+      human.stderr,
+      "Authored first line\nAuthored second line ␛[31mstill text",
+    );
+    assertEquals(human.stderr.includes("\x1b[31mstill text"), false);
     assertStringIncludes(human.stderr, envelopeWarning);
     const printed = gotchasMapCommand(human.stderr);
     assertEquals(printed.command, expectedCommand);
