@@ -1,6 +1,6 @@
 # ADR 0088: the fresh setup welcome decorates only on TTY
 
-> **Presentation amendment (2026-08-13; [ADR 0278](0278-external-terminal-rendering-crosses-one-process-boundary.md)):** The content-routing and no-colour decisions survive. An eligible colour TTY with enough room now composes the styled welcome through package Box, Section, Command, Token, and layout APIs. Narrow TTYs, `--no-color`, `NO_COLOR`, non-TTY, JSON, and later setup states retain their plain contracts. One process context decides attachment, dimensions, and colour before the pure renderer runs.
+> **Presentation amendment (2026-08-13; [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md)):** The content-routing and no-colour decisions survive. An eligible colour TTY with enough room now composes the styled welcome through package Box, Section, Command, Token, and layout APIs. Narrow TTYs, `--no-color`, `NO_COLOR`, non-TTY, JSON, and later setup states retain their plain contracts. One process context decides attachment, dimensions, and colour before the pure renderer runs.
 
 **Status**: accepted; narrows the TTY stance in [ADR 0075](0075-setup-staged-handshake.md) and builds on [ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md).
 

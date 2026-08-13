@@ -1,6 +1,6 @@
 # ADR 0255: Status is a measured responsive dashboard over one result model
 
-> **Presentation implementation amendment (2026-08-13; [ADR 0278](0278-external-terminal-rendering-crosses-one-process-boundary.md)):** The typed status result, precedence, and complete identity policy survive. The published package's lossless Fleet mode and Components now own responsive terminal geometry and reusable frames; Discern supplies safe product facts and explicit time/capability context. Proof is the current product term for the Gate evidence historically called a receipt below. Machine compatibility fields retain their declared names.
+> **Presentation implementation amendment (2026-08-13; [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md)):** The typed status result, precedence, and complete identity policy survive. The published package's lossless Fleet mode and Components now own responsive terminal geometry and reusable frames; Discern supplies safe product facts and explicit time/capability context. Proof is the current product term for the Gate evidence historically called a receipt below. Machine compatibility fields retain their declared names.
 
 **Status**: accepted. Extends [ADR 0033](0033-status-verb-and-location-aware-scope.md), [ADR 0041](0041-self-describing-mcp-surface.md), [ADR 0188](0188-the-receipt-relays-as-one-line.md), and [ADR 0250](0250-discern-managed-human-output-declares-semantic-groups.md).
 

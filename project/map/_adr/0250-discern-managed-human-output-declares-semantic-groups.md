@@ -1,6 +1,6 @@
 # ADR 0250: Discern-managed human output declares semantic groups
 
-> **Interaction implementation amendment (2026-08-13; [ADR 0278](0278-external-terminal-rendering-crosses-one-process-boundary.md)):** The semantic grouping decision survives. `groupedSelectOptions` now maps each populated group to a first-class, non-selectable package heading through the sole product prompt choke point; it no longer encodes a fake blank choice or a framework separator. The grouping guard scans shipped `src/**` human surfaces, while the broader Git-derived terminal outlaw rejects direct package-prompt bypasses in every authored Deno source.
+> **Interaction implementation amendment (2026-08-13; [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md)):** The semantic grouping decision survives. `groupedSelectOptions` now maps each populated group to a first-class, non-selectable package heading through the sole product prompt choke point; it no longer encodes a fake blank choice or a framework separator. The grouping guard scans shipped `src/**` human surfaces, while the broader Git-derived terminal outlaw rejects direct package-prompt bypasses in every authored Deno source.
 
 **Status**: accepted
 

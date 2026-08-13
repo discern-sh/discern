@@ -8,7 +8,7 @@
  * No exported generator supports command groups. Cliffy remains the command-fact
  * and parser authority through its public getters; the published design-system
  * CLI owns text measurement, wrapping, Tokens, and the complete visible root-help
- * treatment. (ADR 0066, as amended by ADR 0278.)
+ * treatment. (ADR 0066, as amended by ADR 0279.)
  */
 
 import type { Command, Example, Option } from "@cliffy/command";

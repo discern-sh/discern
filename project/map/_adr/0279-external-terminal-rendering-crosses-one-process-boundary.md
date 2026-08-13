@@ -1,4 +1,4 @@
-# ADR 0278: External terminal rendering crosses one Discern-owned process boundary
+# ADR 0279: External terminal rendering crosses one Discern-owned process boundary
 
 **Status**: accepted. Extends the independent package boundary in [ADR 0139](0139-the-design-system-is-an-independent-package.md) and the semantic grouping contract in [ADR 0250](0250-discern-managed-human-output-declares-semantic-groups.md).
 

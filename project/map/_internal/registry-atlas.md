@@ -2338,7 +2338,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0276`
   - `0277`
   - `0278`
-  - `0278`
+  - `0279`
   - `0001`
   - `0002`
   - `0004`

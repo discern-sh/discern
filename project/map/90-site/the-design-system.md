@@ -26,7 +26,7 @@ When a package defect affects discern, release the fix from the package reposito
 
 The package's `./cli` graph owns pure Components, Token roles, generic terminal text/layout, and reusable triangle motifs. Its `./cli/interactive` graph owns terminal I/O, key decoding, grapheme editing, prompt machines, painting, cancellation, and restoration. [`src/lib/terminal.ts`](../../../src/lib/terminal.ts) remains discern's process and safe-text boundary; [`src/lib/prompts.ts`](../../../src/lib/prompts.ts) remains its product interaction choke point. Product facts, action legality, effects, streams, machine schemas, raw child bytes, and product artwork remain under discern's authority.
 
-Consumer conformance proves both CLI graphs are React-free and resolved from the exact external release. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0278](../_adr/0278-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves both CLI graphs are React-free and resolved from the exact external release. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
 
 ## Site-owned integration
 
