@@ -23,7 +23,6 @@ const INDENT = "  ";
 const GUTTER = "  ";
 const MAX_REPORT_WIDTH = 120;
 const MIN_THREE_COLUMN_WIDTH = 44;
-const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 /** The success treatment shared by gate-job rows and verb-specific tails. */
 export const GATE_TTY_SUCCESS = "\x1b[38;2;52;211;121m";
@@ -169,25 +168,7 @@ function rule(width: number, c: Palette): string {
 
 /** Keep table cells inside their column even when one path or command has no spaces. */
 function wrapCell(text: string, width: number): string[] {
-  return wrapText(text, width).flatMap((line) => {
-    if (displayWidth(line) <= width) {
-      return [line];
-    }
-    const parts: string[] = [];
-    let part = "";
-    for (const { segment } of GRAPHEMES.segment(line)) {
-      if (part !== "" && displayWidth(`${part}${segment}`) > width) {
-        parts.push(part);
-        part = segment;
-      } else {
-        part += segment;
-      }
-    }
-    if (part !== "") {
-      parts.push(part);
-    }
-    return parts;
-  });
+  return wrapText(text, width, "", { breakLongWords: true });
 }
 
 /** Render narrow terminals as stacked label-value rows without truncation. */

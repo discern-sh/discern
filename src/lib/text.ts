@@ -1,222 +1,74 @@
 /**
- * Shared terminal-text layout for human (non-`--json`) renderings: the one
- * dimension reader, display-width measurement, word-wrap, and content-sized table.
+ * Discern's retained terminal-text conveniences.
  *
- * Layout measures ANSI-styled text by stripping control sequences while
- * retaining them in the returned strings. Callers may therefore style before
- * layout without escape bytes skewing padding or wrapping.
+ * The design-system package owns ANSI stripping, grapheme measurement,
+ * truncation, padding, and the generic wrapping decisions. Discern keeps this
+ * facade so later renderer migrations remain disjoint, plus four product-level
+ * conveniences the package does not own: hanging indents, an explicit
+ * long-token overflow policy, content-shaped tables, and numeric mini-charts.
  */
 
-import type { EnvReader } from "../shared/env.ts";
+import {
+  measureText,
+  padText,
+  stripAnsi as packageStripAnsi,
+  truncateText as packageTruncateText,
+  wrapText as packageWrapText,
+} from "discern-design-system/cli";
 
-const DEFAULT_TERMINAL_WIDTH = 80;
-const DEFAULT_TERMINAL_ROWS = 24;
-const ESC = String.fromCharCode(27);
-const ANSI_CSI = new RegExp(`${ESC}\\[[0-?]*[ -/]*[@-~]`, "g");
-const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-const MARK = /\p{Mark}/u;
-const PICTOGRAPH = /\p{Extended_Pictographic}/u;
-const EMOJI_PRESENTATION = /\p{Emoji_Presentation}/u;
+export { terminalSize, terminalWidth } from "./terminal.ts";
+export type {
+  TerminalSize,
+  TerminalSizeOptions,
+  TerminalWidthOptions,
+} from "./terminal.ts";
+
 const SPARKLINE_GLYPHS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"] as const;
-
-interface DisplayAtom {
-  text: string;
-  width: number;
-}
-
-/** Whether one Unicode scalar is conventionally two terminal columns. */
-function isWideCodePoint(code: number): boolean {
-  return code >= 0x1100 &&
-    (
-      code <= 0x115f ||
-      code === 0x2329 ||
-      code === 0x232a ||
-      (code >= 0x2e80 && code <= 0xa4cf && code !== 0x303f) ||
-      (code >= 0xac00 && code <= 0xd7a3) ||
-      (code >= 0xf900 && code <= 0xfaff) ||
-      (code >= 0xfe10 && code <= 0xfe19) ||
-      (code >= 0xfe30 && code <= 0xfe6f) ||
-      (code >= 0xff00 && code <= 0xff60) ||
-      (code >= 0xffe0 && code <= 0xffe6) ||
-      (code >= 0x1b000 && code <= 0x1b2ff) ||
-      (code >= 0x1f200 && code <= 0x1f251) ||
-      (code >= 0x20000 && code <= 0x3fffd)
-    );
-}
-
-/** Terminal width of one extended grapheme cluster. */
-function graphemeWidth(grapheme: string): number {
-  if (
-    PICTOGRAPH.test(grapheme) ||
-    EMOJI_PRESENTATION.test(grapheme) ||
-    grapheme.includes("\u20e3")
-  ) {
-    return 2;
-  }
-  for (const scalar of grapheme) {
-    const code = scalar.codePointAt(0) ?? 0;
-    if (
-      MARK.test(scalar) ||
-      code === 0x200d ||
-      (code >= 0xfe00 && code <= 0xfe0f) ||
-      (code >= 0xe0100 && code <= 0xe01ef)
-    ) {
-      continue;
-    }
-    if (code === 0 || code < 0x20 || (code >= 0x7f && code < 0xa0)) {
-      return 0;
-    }
-    return isWideCodePoint(code) ? 2 : 1;
-  }
-  return 0;
-}
-
-/** Injectable boundaries for resolving the current terminal width. */
-export interface TerminalWidthOptions {
-  env?: EnvReader;
-  /** Width used when neither the console nor `$COLUMNS` supplies one. */
-  fallback?: number;
-  /** Test seam for `Deno.consoleSize`; production callers leave it unset. */
-  consoleSize?: () => { columns: number };
-}
-
-/** A terminal viewport measured in character cells. */
-export interface TerminalSize {
-  readonly columns: number;
-  readonly rows: number;
-}
-
-/** Injectable boundaries for resolving both current terminal dimensions. */
-export interface TerminalSizeOptions {
-  env?: EnvReader;
-  /** Width used when neither the console nor `$COLUMNS` supplies one. */
-  fallbackColumns?: number;
-  /** Height used when neither the console nor `$LINES` supplies one. */
-  fallbackRows?: number;
-  /** Test seam for `Deno.consoleSize`; production callers leave it unset. */
-  consoleSize?: () => TerminalSize;
-}
 
 /** Optional policy for tokens wider than a wrapping line. */
 export interface WrapTextOptions {
-  /** Split an overlong token at grapheme boundaries instead of overflowing. */
-  breakLongWords?: boolean;
+  /** Split an overlong token at package-owned grapheme boundaries. */
+  readonly breakLongWords?: boolean;
 }
 
-/** Resolve one positive terminal dimension through console, env, then fallback. */
-function resolveTerminalDimension(
-  observed: number | undefined,
-  env: EnvReader,
-  environmentName: string,
-  fallback: number,
-  conventionalFallback: number,
-): number {
-  if (observed !== undefined && Number.isFinite(observed) && observed > 0) {
-    return observed;
-  }
-  const parsed = Number(env.get(environmentName));
-  if (Number.isFinite(parsed) && parsed > 0) {
-    return parsed;
-  }
-  return Number.isFinite(fallback) && fallback > 0
-    ? fallback
-    : conventionalFallback;
+/** Strip ANSI through the package authority. */
+export function stripAnsi(text: string): string {
+  return packageStripAnsi(text);
 }
 
-/**
- * Resolve both terminal dimensions from one console observation, then the
- * conventional `$COLUMNS` / `$LINES` environment values and stable fallbacks.
- */
-export function terminalSize(options: TerminalSizeOptions = {}): TerminalSize {
-  const env = options.env ?? Deno.env;
-  let observed: TerminalSize | undefined;
-  try {
-    observed = (options.consoleSize ?? (() => Deno.consoleSize())).call(
-      undefined,
-    );
-  } catch {
-    observed = undefined;
-  }
-  return {
-    columns: resolveTerminalDimension(
-      observed?.columns,
-      env,
-      "COLUMNS",
-      options.fallbackColumns ?? DEFAULT_TERMINAL_WIDTH,
-      DEFAULT_TERMINAL_WIDTH,
-    ),
-    rows: resolveTerminalDimension(
-      observed?.rows,
-      env,
-      "LINES",
-      options.fallbackRows ?? DEFAULT_TERMINAL_ROWS,
-      DEFAULT_TERMINAL_ROWS,
-    ),
-  };
-}
-
-/**
- * Resolve the terminal's usable column count. The real console wins, then
- * `$COLUMNS`, then a caller-specific fallback or the conventional 80 columns.
- * This module's dimension helpers are the only place the CLI reads them.
- */
-export function terminalWidth(options: TerminalWidthOptions = {}): number {
-  const env = options.env ?? Deno.env;
-  let cols: number | undefined;
-  try {
-    cols = (options.consoleSize ?? (() => Deno.consoleSize())).call(undefined)
-      .columns;
-  } catch {
-    cols = undefined;
-  }
-  return resolveTerminalDimension(
-    cols,
-    env,
-    "COLUMNS",
-    options.fallback ?? DEFAULT_TERMINAL_WIDTH,
-    DEFAULT_TERMINAL_WIDTH,
-  );
-}
-
-/**
- * Visible terminal columns in `text`: ANSI CSI escapes, controls, combining
- * marks, and joiners count as zero; CJK/full-width and emoji graphemes count as
- * two; other graphemes count as one.
- */
+/** Measure the widest visible line through the package authority. */
 export function displayWidth(text: string): number {
-  let width = 0;
-  for (const { segment } of GRAPHEMES.segment(text.replace(ANSI_CSI, ""))) {
-    width += graphemeWidth(segment);
-  }
-  return width;
+  return measureText(text);
+}
+
+/** Truncate plain display text without splitting a grapheme. */
+export function truncateText(
+  text: string,
+  width: number,
+  ellipsis = "…",
+): string {
+  return packageTruncateText(text, width, ellipsis);
 }
 
 /**
  * Render finite numeric values as a compact Unicode sparkline scaled across
- * their own minimum and maximum. Flat input uses the lowest glyph for every
- * point, including a single value. Empty input stays empty; a non-finite value
- * is a contract error rather than an invented mark.
+ * their own minimum and maximum. This remains a Discern data projection; it
+ * does not reproduce package text measurement.
  */
 export function sparkline(values: readonly number[]): string {
-  if (values.length === 0) {
-    return "";
-  }
+  if (values.length === 0) return "";
   if (values.some((value) => !Number.isFinite(value))) {
     throw new TypeError("sparkline values must be finite numbers");
   }
   const first = values[0];
-  if (first === undefined) {
-    return "";
-  }
+  if (first === undefined) return "";
   let minimum = first;
   let maximum = first;
   for (const value of values.slice(1)) {
     minimum = Math.min(minimum, value);
     maximum = Math.max(maximum, value);
   }
-  if (minimum === maximum) {
-    return SPARKLINE_GLYPHS[0].repeat(values.length);
-  }
+  if (minimum === maximum) return SPARKLINE_GLYPHS[0].repeat(values.length);
   const range = maximum - minimum;
   return values.map((value) => {
     const index = Math.round(
@@ -227,11 +79,8 @@ export function sparkline(values: readonly number[]): string {
 }
 
 /**
- * A fixed-width proportion meter, returned as its two runs — the filled cells
- * and the remaining track — so the caller styles each with its own palette
- * entry. The fraction clamps to [0, 1]; a nonzero fraction always shows at
- * least one filled cell, and a fraction under one always keeps at least one
- * track cell, so "barely" and "almost" never render as "none" and "all".
+ * Project a bounded fraction into filled and unfilled runs. The caller retains
+ * semantic styling; package Tokens remain the colour authority.
  */
 export function meter(
   fraction: number,
@@ -242,59 +91,82 @@ export function meter(
   }
   const clamped = Math.max(0, Math.min(1, fraction));
   let cells = Math.round(clamped * width);
-  if (clamped > 0 && cells === 0) {
-    cells = 1;
-  }
-  if (clamped < 1 && cells === width) {
-    cells = width - 1;
-  }
+  if (clamped > 0 && cells === 0) cells = 1;
+  if (clamped < 1 && cells === width) cells = width - 1;
   return { filled: "█".repeat(cells), track: "░".repeat(width - cells) };
 }
 
-/** ANSI controls and visible graphemes as indivisible layout atoms. */
-function displayAtoms(text: string): DisplayAtom[] {
-  const atoms: DisplayAtom[] = [];
-  const matcher = new RegExp(ANSI_CSI.source, ANSI_CSI.flags);
-  let cursor = 0;
-  for (const match of text.matchAll(matcher)) {
-    const index = match.index;
-    for (const { segment } of GRAPHEMES.segment(text.slice(cursor, index))) {
-      atoms.push({ text: segment, width: graphemeWidth(segment) });
-    }
-    const control = match[0] ?? "";
-    atoms.push({ text: control, width: 0 });
-    cursor = index + control.length;
-  }
-  for (const { segment } of GRAPHEMES.segment(text.slice(cursor))) {
-    atoms.push({ text: segment, width: graphemeWidth(segment) });
-  }
-  return atoms;
+/** Whether package wrapping keeps one candidate on a single bounded line. */
+function fitsOneLine(text: string, width: number): boolean {
+  const lines = packageWrapText(packageStripAnsi(text), width);
+  return lines.length === 1 && measureText(lines[0] ?? "") <= width;
 }
 
-/** Split one word to a first-line width and a narrower continuation width. */
+/** Find the raw-string boundary for one offset in its ANSI-stripped value. */
+function rawBoundary(
+  raw: string,
+  plain: string,
+  offset: number,
+): number {
+  if (offset <= 0) return 0;
+  if (offset >= plain.length) return raw.length;
+  const expected = plain.slice(0, offset);
+  for (let index = 1; index < raw.length; index += 1) {
+    if (packageStripAnsi(raw.slice(0, index)) === expected) return index;
+  }
+  throw new TypeError("package wrapping produced an unmappable text boundary");
+}
+
+/** Reproject package-owned plain chunks onto the caller's existing ANSI bytes. */
+function restoreStyledChunks(
+  raw: string,
+  chunks: readonly string[],
+): string[] {
+  const plain = packageStripAnsi(raw);
+  if (plain === "") return [raw];
+  const result: string[] = [];
+  let plainStart = 0;
+  for (const [index, chunk] of chunks.entries()) {
+    if (!plain.startsWith(chunk, plainStart)) {
+      throw new TypeError("package wrapping changed a long token unexpectedly");
+    }
+    const plainEnd = plainStart + chunk.length;
+    const rawStart = rawBoundary(raw, plain, plainStart);
+    const rawEnd = index === chunks.length - 1
+      ? raw.length
+      : rawBoundary(raw, plain, plainEnd);
+    result.push(raw.slice(rawStart, rawEnd));
+    plainStart = plainEnd;
+  }
+  return result;
+}
+
+/** Split one styled token with package wrapping at two continuation widths. */
 function splitDisplayWord(
   word: string,
   firstWidth: number,
   continuationWidth: number,
 ): string[] {
+  const plain = packageStripAnsi(word);
+  if (plain === "") return [word];
   const chunks: string[] = [];
-  let chunk = "";
-  let chunkWidth = 0;
-  for (const atom of displayAtoms(word)) {
-    const limit = chunks.length === 0 ? firstWidth : continuationWidth;
-    if (atom.width > 0 && chunkWidth > 0 && chunkWidth + atom.width > limit) {
-      chunks.push(chunk);
-      chunk = "";
-      chunkWidth = 0;
+  let remaining = plain;
+  let width = firstWidth;
+  while (remaining !== "") {
+    const chunk = packageWrapText(remaining, width)[0] ?? "";
+    if (chunk === "") {
+      throw new TypeError(
+        "package wrapping returned an empty long-token chunk",
+      );
     }
-    chunk += atom.text;
-    chunkWidth += atom.width;
+    chunks.push(chunk);
+    remaining = remaining.slice(chunk.length);
+    width = continuationWidth;
   }
-  if (chunk !== "" || chunks.length === 0) chunks.push(chunk);
-  return chunks;
+  return restoreStyledChunks(word, chunks);
 }
 
-/** Greedy wrapping variant that hard-wraps a token wider than its line. */
+/** Greedy hanging-indent adaptation for an explicit hard-wrap policy. */
 function wrapBreakingLongWords(
   words: readonly string[],
   target: number,
@@ -305,9 +177,7 @@ function wrapBreakingLongWords(
   let line = "";
   for (const word of words) {
     const available = lines.length === 0 ? target : continuationWidth;
-    if (
-      line !== "" && displayWidth(line) + 1 + displayWidth(word) <= available
-    ) {
+    if (line !== "" && fitsOneLine(`${line} ${word}`, available)) {
       line += ` ${word}`;
       continue;
     }
@@ -327,10 +197,9 @@ function wrapBreakingLongWords(
 }
 
 /**
- * Greedy word-wrap `text` into lines no wider than `width`. Continuation lines
- * carry `hangingIndent`, whose display width reduces their available content
- * width. A single word longer than the available width overflows on its own
- * line unless `breakLongWords` asks for grapheme-safe hard wrapping.
+ * Adapt package wrapping to Discern's existing hanging-indent contract. A lone
+ * overlong token intentionally overflows unless `breakLongWords` is explicit;
+ * the package still owns every measurement and grapheme split.
  */
 export function wrapText(
   text: string,
@@ -338,14 +207,12 @@ export function wrapText(
   hangingIndent = "",
   options: WrapTextOptions = {},
 ): string[] {
-  const words = text.split(/\s+/).filter((w) => w !== "");
-  if (words.length === 0) {
-    return [""];
-  }
+  const words = text.split(/\s+/u).filter((word) => word !== "");
+  if (words.length === 0) return [""];
   const target = Number.isFinite(width) ? Math.max(1, Math.floor(width)) : 1;
   const continuationWidth = Math.max(
     1,
-    target - displayWidth(hangingIndent),
+    target - measureText(hangingIndent),
   );
   if (options.breakLongWords === true) {
     return wrapBreakingLongWords(
@@ -359,7 +226,7 @@ export function wrapText(
   let line = words[0] ?? "";
   for (const word of words.slice(1)) {
     const available = lines.length === 0 ? target : continuationWidth;
-    if (displayWidth(line) + 1 + displayWidth(word) <= available) {
+    if (fitsOneLine(`${line} ${word}`, available)) {
       line += ` ${word}`;
     } else {
       lines.push(line);
@@ -374,38 +241,36 @@ export function wrapText(
 
 /** One column in a content-sized aligned table. */
 export interface AlignedColumn<Row> {
-  header: string;
-  value: (row: Row) => string;
+  readonly header: string;
+  readonly value: (row: Row) => string;
 }
 
-/** Pad `text` to a visible width without counting its ANSI escape bytes. */
+/** Pad one styled line through the package's display-width authority. */
 export function padDisplayEnd(text: string, width: number): string {
-  return `${text}${" ".repeat(Math.max(0, width - displayWidth(text)))}`;
+  return padText(text, width, "start");
 }
 
 /**
- * Render a header and rows as an aligned table. Each column sizes to its widest
- * visible header or cell; the final column carries no trailing padding.
+ * Render a content-shaped table. Discern owns the row projection and two-cell
+ * gutter; package measurement and padding own all generic cell geometry.
  */
 export function renderAlignedTable<Row>(
   columns: readonly AlignedColumn<Row>[],
   rows: readonly Row[],
 ): string[] {
-  if (columns.length === 0) {
-    return [];
-  }
+  if (columns.length === 0) return [];
   const cells = rows.map((row) => columns.map((column) => column.value(row)));
   const widths = columns.map((column, index) =>
     Math.max(
-      displayWidth(column.header),
-      ...cells.map((row) => displayWidth(row[index] ?? "")),
+      measureText(column.header),
+      ...cells.map((row) => measureText(row[index] ?? "")),
     )
   );
   const line = (values: readonly string[]): string =>
     values.map((value, index) =>
       index === values.length - 1
         ? value
-        : padDisplayEnd(value, widths[index] ?? 0)
+        : padText(value, widths[index] ?? 0, "start")
     ).join("  ");
   return [
     line(columns.map((column) => column.header)),

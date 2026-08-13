@@ -1,12 +1,21 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
+  measureText,
+  padText,
+  stripAnsi as packageStripAnsi,
+  truncateText as packageTruncateText,
+  wrapText as packageWrapText,
+} from "discern-design-system/cli";
+import {
   displayWidth,
   meter,
   padDisplayEnd,
   renderAlignedTable,
   sparkline,
+  stripAnsi,
   terminalSize,
   terminalWidth,
+  truncateText,
   wrapText,
 } from "../src/lib/text.ts";
 
@@ -20,9 +29,31 @@ Deno.test("displayWidth measures ANSI, combining, wide, and emoji graphemes", ()
   assertEquals(displayWidth("界"), 2);
   assertEquals(displayWidth("A界"), 3);
   assertEquals(displayWidth("👩‍💻"), 2);
-  assertEquals(displayWidth("🇬🇧"), 2);
-  assertEquals(displayWidth("1️⃣"), 2);
+  assertEquals(displayWidth("🇬🇧"), 1);
+  assertEquals(displayWidth("1️⃣"), 1);
   assertEquals(displayWidth(`${ESC}[31m界${ESC}[0m`), 2);
+});
+
+Deno.test("generic text facades stay exact delegates of the package authority", () => {
+  const samples = [
+    "plain",
+    `${ESC}[31mred${ESC}[0m`,
+    "e\u0301",
+    "界",
+    "👩‍💻",
+    "🇬🇧",
+    "1️⃣",
+  ];
+  for (const sample of samples) {
+    assertEquals(displayWidth(sample), measureText(sample));
+    assertEquals(stripAnsi(sample), packageStripAnsi(sample));
+    assertEquals(padDisplayEnd(sample, 8), padText(sample, 8, "start"));
+    assertEquals(truncateText(sample, 3), packageTruncateText(sample, 3));
+  }
+  assertEquals(
+    wrapText("alpha beta gamma", 10),
+    packageWrapText("alpha beta gamma", 10),
+  );
 });
 
 Deno.test("padDisplayEnd pads visible columns without counting ANSI bytes", () => {

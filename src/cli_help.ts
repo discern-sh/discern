@@ -15,7 +15,7 @@
 
 import type { Command } from "@cliffy/command";
 import { colors } from "@cliffy/ansi/colors";
-import { terminalWidth, wrapText } from "./lib/text.ts";
+import { stripAnsi, terminalWidth, wrapText } from "./lib/text.ts";
 import type { EnvReader } from "./shared/env.ts";
 import { colorEnabled } from "./engine/output.ts";
 
@@ -113,23 +113,6 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
 /** Every command name that has a declared group (drives the coverage guard). */
 export function groupedCommandNames(): Set<string> {
   return new Set(COMMAND_GROUPS.flatMap((g) => g.commands));
-}
-
-/** The ESC byte that opens every ANSI escape, built without a control-char regex. */
-const ESC = String.fromCharCode(27);
-
-/**
- * Strip ANSI SGR colour sequences (`ESC [ … m`) from a string. Cliffy's `getHelp()`
- * colours from `Deno.noColor` alone, so it emits escapes even under `--no-color` or
- * to a pipe; when the resolved decision is "no colour" we remove them here so the
- * help is truly plain. Built by splitting on ESC and dropping each part up to its
- * terminating `m`, avoiding a control-character regex (matches the test helper).
- */
-function stripAnsi(s: string): string {
-  return s
-    .split(ESC)
-    .map((part, i) => (i === 0 ? part : part.slice(part.indexOf("m") + 1)))
-    .join("");
 }
 
 /**
