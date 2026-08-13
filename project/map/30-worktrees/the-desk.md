@@ -70,7 +70,7 @@ Open with agent appears only when an agent is configured in that checkout's `dis
 
 ## Know when the Desk stays closed
 
-Desk questions cross the shared discern prompt boundary. Product code owns eligibility, labels, groups, values, defaults, validation, and cancellation meaning. The design-system package owns terminal input, editing, frames, and restoration. `--plain`, `--json`, CI, or either non-terminal stream vetoes Desk interaction before raw mode. Commands that expose `--yes` pass that caller fact through the same policy. The Desk has no `--yes` option. Bare `discern` prints static help when interaction is unavailable. Named `discern desk` returns `invalid_arguments` and points automation at `discern status --json`. Ctrl+C or end-of-input cancels the current question. Ctrl+U reports that this single-step prompt has no previous form step.
+discern owns Desk policy; design-system package owns terminal effects. Vetoes: `--plain`, `--json`, CI, either non-TTY stream. Bare `discern`: help; `discern desk`: `invalid_arguments`; remedy: `discern status --json`. Ctrl+C/end-of-input cancel; Ctrl+U: no previous form step.
 
 Before setup completes, bare `discern` keeps showing the setup welcome. From inside a linked worktree, the Desk directs you to the main checkout because accept and drop operate from the fleet's supervisory view. Desk-launched processes reject nested Desk entry; exit to return ([ADR 0157](../_adr/0157-the-desk-owns-launched-child-sessions.md)).
 
