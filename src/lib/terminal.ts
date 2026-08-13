@@ -37,6 +37,7 @@ const TERMINAL_ENVIRONMENT_KEYS = [
   ...CAPABILITY_ENVIRONMENT_KEYS,
   ...DIMENSION_ENVIRONMENT_KEYS,
   "NO_COLOR",
+  "CI",
 ] as const;
 
 declare const terminalLineBrand: unique symbol;
@@ -101,6 +102,10 @@ export interface TerminalWidthOptions {
 export interface TerminalContext {
   readonly capabilities: TerminalCapabilities;
   readonly color: boolean;
+  /** Whether stdout was attached when this process snapshot was resolved. */
+  readonly stdoutIsTerminal: boolean;
+  /** Whether the conventional CI marker requests static human output. */
+  readonly ciRequestsStaticOutput: boolean;
   readonly environment: Readonly<Record<string, string | undefined>>;
   readonly size: TerminalSize;
   readonly theme: TerminalTheme;
@@ -116,6 +121,12 @@ export interface TerminalContext {
     token: TerminalColorTokenName,
     role?: TerminalTextRole,
   ): string;
+}
+
+/** Interpret the conventional process marker once at the shared boundary. */
+function enabledEnvironmentMarker(value: string | undefined): boolean {
+  const marker = value?.trim().toLowerCase();
+  return marker !== undefined && marker !== "" && marker !== "false";
 }
 
 /** Raw affixes retained only for untouched feature renderers crossing in 3A. */
@@ -201,6 +212,7 @@ function contextFromFacts(
   size: TerminalSize,
   environment: Readonly<Record<string, string | undefined>>,
   themeVariant: TerminalThemeVariant,
+  stdoutIsTerminal: boolean,
 ): TerminalContext {
   const theme = terminalThemes[themeVariant];
   const styled = (
@@ -210,6 +222,8 @@ function contextFromFacts(
   return {
     capabilities,
     color: capabilities.colorDepth !== "none",
+    stdoutIsTerminal,
+    ciRequestsStaticOutput: enabledEnvironmentMarker(environment.CI),
     environment,
     size,
     theme,
@@ -243,6 +257,7 @@ export function resolveTerminalContext(
 ): TerminalContext {
   const environment = environmentSnapshot(input.env);
   if (input.noColor) environment.NO_COLOR = "1";
+  const stdoutIsTerminal = input.isTerminal();
   const size = resolveSize(
     input.consoleSize,
     environment,
@@ -251,7 +266,7 @@ export function resolveTerminalContext(
   );
   const capabilities = detectTerminalCapabilities({
     env: environment,
-    isTty: input.isTerminal(),
+    isTty: stdoutIsTerminal,
     columns: size.columns,
   });
   return contextFromFacts(
@@ -259,6 +274,7 @@ export function resolveTerminalContext(
     size,
     environment,
     input.theme ?? "dark",
+    stdoutIsTerminal,
   );
 }
 
@@ -325,6 +341,7 @@ export function terminalPresentationContext(
     { columns: DEFAULT_TERMINAL_COLUMNS, rows: DEFAULT_TERMINAL_ROWS },
     {},
     "dark",
+    false,
   );
   return terminalContextWithColor(base, color);
 }
@@ -348,6 +365,7 @@ export function terminalContextWithColor(
     context.size,
     context.environment,
     context.themeVariant,
+    context.stdoutIsTerminal,
   );
 }
 

@@ -21,7 +21,7 @@ Use `discern done` on the intended final commit. A green run on a clean branch a
 
 For the JSON fields and agent-facing tool contract, use [MCP tools & results](../70-reference/mcp-and-results.md).
 
-Human Gate views live in [`presentation.ts`](../../../src/engine/gate/presentation.ts). Pure functions map typed facts and shared terminal context into package Components. Plans use Procedure and PrerequisiteList; execution uses Meter and Command. Collection, scheduling, result envelopes, raw child bytes, and Proof authority stay in discern.
+Human Gate views live in [`presentation.ts`](../../../src/engine/gate/presentation.ts). Pure functions map typed facts and the shared context's attachment, CI policy, and width into package Components. Plans use Procedure and PrerequisiteList; execution uses Meter and Command. Collection, scheduling, result envelopes, raw child bytes, and Proof authority stay in discern.
 
 | Read next                                                   | What it helps you do                                                             |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |

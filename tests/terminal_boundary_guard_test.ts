@@ -9,6 +9,9 @@ const TEXT_AUTHORITY = "src/lib/text.ts";
 const RUNTIME_TS_FILES = AUTHORED_TS_FILES.filter((rel) =>
   !rel.startsWith("tests/")
 );
+const GATE_RUNTIME_TS_FILES = RUNTIME_TS_FILES.filter((rel) =>
+  rel.startsWith("src/engine/gate/")
+);
 
 interface Finding {
   readonly file: string;
@@ -145,6 +148,81 @@ function genericWidthFindings(rel: string, source: string): Finding[] {
   );
 }
 
+const GATE_PRESENTATION_OBSERVERS = new Set([
+  "productionTerminalContext",
+  "resolveTerminalContext",
+  "terminalSize",
+  "terminalWidth",
+]);
+
+/** Extract original named imports from one relative module, including aliases. */
+function relativeNamedImports(source: string, module: RegExp): string[] {
+  const imports: string[] = [];
+  for (
+    const match of source.matchAll(
+      /import\s*\{([\s\S]*?)\}\s*from\s*["']([^"']+)["']/gu,
+    )
+  ) {
+    if (!module.test(match[2] ?? "")) continue;
+    for (const part of (match[1] ?? "").split(",")) {
+      const imported = part.trim().replace(/^type\s+/u, "").split(
+        /\s+as\s+/u,
+      )[0]?.trim();
+      if (imported !== undefined && imported !== "") imports.push(imported);
+    }
+  }
+  return imports;
+}
+
+/** Find Gate-local observation of terminal presentation policy or dimensions. */
+function gatePresentationProbeFindings(
+  rel: string,
+  source: string,
+): Finding[] {
+  const findings: Finding[] = [];
+  const code = codeOnly(source);
+  if (/\bDeno\.(?:stdin|stdout|stderr)\.isTerminal\s*\(/u.test(code)) {
+    findings.push({ file: rel, rule: "direct-stream-terminal-probe" });
+  }
+  if (/\bDeno\.consoleSize\s*\(/u.test(code)) {
+    findings.push({ file: rel, rule: "direct-console-size-probe" });
+  }
+  for (const match of code.matchAll(/\bDeno\.env\.get\s*\(([^)]*)\)/gu)) {
+    const argument = match[1] ?? "";
+    if (
+      /["'](?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)["']/u
+        .test(argument) ||
+      /\b(?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)\b/u
+        .test(argument)
+    ) {
+      findings.push({ file: rel, rule: "direct-terminal-environment-probe" });
+    }
+  }
+  const terminalImports = relativeNamedImports(
+    code,
+    /(?:^|\/)lib\/(?:terminal|text)\.ts$/u,
+  );
+  for (const imported of terminalImports) {
+    if (GATE_PRESENTATION_OBSERVERS.has(imported)) {
+      findings.push({
+        file: rel,
+        rule: `terminal-observer-import:${imported}`,
+      });
+    }
+  }
+  for (
+    const match of code.matchAll(
+      /\.\s*(productionTerminalContext|resolveTerminalContext|terminalSize|terminalWidth)\s*\(/gu,
+    )
+  ) {
+    findings.push({
+      file: rel,
+      rule: `terminal-observer-access:${match[1] ?? "unknown"}`,
+    });
+  }
+  return findings;
+}
+
 const LEGACY_PALETTE_PATTERN =
   /\b(?:out\.c|c)\.(?:reset|bold|dim|red|green|yellow|cyan)\b/gu;
 const LEGACY_PALETTE_CENSUS: Readonly<Record<string, number>> = {
@@ -202,6 +280,40 @@ Deno.test("authored runtime source cannot bypass terminal and text authorities",
       ...authorityFindings(rel, source),
       ...packageSourceImportFindings(rel, source),
       ...genericWidthFindings(rel, source),
+    );
+  }
+  assertEquals(findings, []);
+});
+
+Deno.test("Gate source consumes terminal presentation facts without observing the process", async () => {
+  const futureSibling = gatePresentationProbeFindings(
+    "src/engine/gate/orbit_view.ts",
+    [
+      'import { terminalWidth as viewport } from "../../lib/terminal.ts";',
+      'import * as display from "../../lib/text.ts";',
+      'const automated = Deno.env.get("CI");',
+      "const attached = Deno.stdout.isTerminal();",
+      "const dimensions = Deno.consoleSize();",
+      "const fallback = display.terminalSize();",
+      "Deno.stdout.writeSync(new Uint8Array());",
+      "const trunk = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk);",
+    ].join("\n"),
+  ).map((finding) => finding.rule).toSorted();
+  assertEquals(futureSibling, [
+    "direct-console-size-probe",
+    "direct-stream-terminal-probe",
+    "direct-terminal-environment-probe",
+    "terminal-observer-access:terminalSize",
+    "terminal-observer-import:terminalWidth",
+  ]);
+
+  const findings: Finding[] = [];
+  for (const rel of GATE_RUNTIME_TS_FILES) {
+    findings.push(
+      ...gatePresentationProbeFindings(
+        rel,
+        await Deno.readTextFile(join(REPO_ROOT, rel)),
+      ),
     );
   }
   assertEquals(findings, []);

@@ -102,6 +102,7 @@ import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
+import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import { assertMainMerged, detectSilentDivergence } from "../worktree/git.ts";
 import {
   type Diagnostic,
@@ -451,6 +452,7 @@ async function runGate(
   signal?: AbortSignal,
   presentation: {
     liveWidth?: number;
+    terminal?: TerminalContext;
     validationCaptureOptions?: ValidationCaptureOptions;
   } = {},
 ): Promise<
@@ -483,6 +485,9 @@ async function runGate(
   // context is also the one `prepare`/`test` use.
   const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal, {
     quietHumanRun: compactTty,
+    ...(presentation.terminal === undefined
+      ? {}
+      : { terminal: presentation.terminal }),
   });
   const progress = compactTty && presentation.liveWidth !== undefined
     ? createGateTtyProgress(out.raw, {
@@ -1601,11 +1606,14 @@ export async function finishResult(
         : {}),
     })).result;
   }
+  const terminal = terminalContext();
   const { ttyWidth, liveWidth } = gateTtyPresentation(
     false,
     opts.surface.plain,
+    terminal,
   );
   const gate = await runGate(root, false, opts.signal, {
+    terminal,
     ...(liveWidth !== undefined ? { liveWidth } : {}),
     ...(opts.validationCaptureOptions !== undefined
       ? { validationCaptureOptions: opts.validationCaptureOptions }
@@ -1670,12 +1678,15 @@ export async function runFinish(
     }
     return 1;
   }
+  const terminal = terminalContext();
   const { ttyWidth, liveWidth } = gateTtyPresentation(
     opts.json,
     opts.plain ?? false,
+    terminal,
   );
   const gateRun = (): ReturnType<typeof runGate> =>
     runGate(root, opts.json, undefined, {
+      terminal,
       ...(liveWidth !== undefined ? { liveWidth } : {}),
     });
   const gate = await gateRun();

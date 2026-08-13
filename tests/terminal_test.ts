@@ -17,6 +17,7 @@ const throwsConsoleSize = (): { columns: number; rows: number } => {
 
 Deno.test("terminal context snapshots process facts and observes dimensions once", () => {
   let observations = 0;
+  let attachmentObservations = 0;
   const context = resolveTerminalContext({
     noColor: false,
     env: fakeEnv({
@@ -25,14 +26,19 @@ Deno.test("terminal context snapshots process facts and observes dimensions once
       LANG: "en_GB.UTF-8",
       COLUMNS: "91",
       LINES: "33",
+      CI: "1",
     }),
-    isTerminal: () => true,
+    isTerminal: () => {
+      attachmentObservations += 1;
+      return true;
+    },
     consoleSize: () => {
       observations += 1;
       return { columns: 101, rows: 51 };
     },
   });
   assertEquals(observations, 1);
+  assertEquals(attachmentObservations, 1);
   assertEquals(context.size, { columns: 101, rows: 51 });
   assertEquals(context.capabilities, {
     colorDepth: "truecolor",
@@ -41,6 +47,9 @@ Deno.test("terminal context snapshots process facts and observes dimensions once
   });
   assertEquals(context.themeVariant, "dark");
   assertEquals(context.color, true);
+  assertEquals(context.stdoutIsTerminal, true);
+  assertEquals(context.ciRequestsStaticOutput, true);
+  assertEquals(context.environment.CI, "1");
   assertEquals(stripAnsi(context.role("Strong", "strong")), "Strong");
   assertEquals(stripAnsi(context.tone("Done", "success")), "Done");
 });
@@ -82,6 +91,8 @@ Deno.test("empty NO_COLOR, non-TTY, dumb TERM, and C locale degrade distinctly",
     columns: 80,
     unicode: false,
   });
+  assertEquals(nonTerminal.stdoutIsTerminal, false);
+  assertEquals(nonTerminal.ciRequestsStaticOutput, false);
 
   const dumb = resolveTerminalContext({
     noColor: false,

@@ -14,7 +14,8 @@
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { Job, JobResult } from "../jobs/types.ts";
 import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
-import { byteWriter, colorEnabled, makeOut, type Out } from "../output.ts";
+import { byteWriter, makeOut, type Out } from "../output.ts";
+import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import type { FailedStage } from "../../shared/result.ts";
 import type { JobGroup } from "./plan.ts";
 import {
@@ -172,9 +173,13 @@ export function gateRunContext(
   cfg: DiscernConfig,
   json: boolean,
   signal?: AbortSignal,
-  presentation: { quietHumanRun?: boolean } = {},
+  presentation: {
+    quietHumanRun?: boolean;
+    terminal?: TerminalContext;
+  } = {},
 ): { runOpts: RunOptions; out: Out; slots: TestRunSlots | undefined } {
-  const color = colorEnabled();
+  const terminal = presentation.terminal ?? terminalContext();
+  const color = terminal.color;
   const quietRun = json || (presentation.quietHumanRun ?? false);
   return {
     runOpts: {
@@ -187,7 +192,7 @@ export function gateRunContext(
       write: byteWriter("stdout"),
       quiet: quietRun,
     },
-    out: makeOut(color, { quiet: json }),
+    out: makeOut(color, { quiet: json, terminal }),
     slots: buildTestRunSlots(root, cfg),
   };
 }

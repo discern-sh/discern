@@ -14,6 +14,7 @@ import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
 import {
   createGateTtyProgress,
   type GateProgressScheduler,
+  gateTtyPresentation,
   renderGateTtyProgressTable,
   renderGateTtyTable,
 } from "../src/engine/gate/gate_tty.ts";
@@ -75,6 +76,8 @@ function terminal(options: {
   readonly color?: "none" | "ansi16" | "ansi256" | "truecolor";
   readonly unicode?: boolean;
   readonly columns?: number;
+  readonly stdoutIsTerminal?: boolean;
+  readonly ci?: string;
 } = {}): TerminalContext {
   const color = options.color ?? "none";
   const unicode = options.unicode ?? true;
@@ -85,11 +88,12 @@ function terminal(options: {
       : "xterm",
     LANG: unicode ? "en_GB.UTF-8" : "C",
     ...(color === "truecolor" ? { COLORTERM: "truecolor" } : {}),
+    ...(options.ci === undefined ? {} : { CI: options.ci }),
   };
   return resolveTerminalContext({
     noColor: color === "none",
     env: fakeEnv(env),
-    isTerminal: () => true,
+    isTerminal: () => options.stdoutIsTerminal ?? true,
     consoleSize: () => ({ columns, rows: 24 }),
   });
 }
@@ -209,6 +213,27 @@ Deno.test("Gate presentation mappings cover every closed typed state", () => {
       "clear_failed",
     ] satisfies GateProofRecord["status"][],
   );
+});
+
+Deno.test("Gate TTY selection consumes only injected attachment, CI, plain, JSON, and width facts", () => {
+  const live = terminal({ columns: 93, ci: "false" });
+  assertEquals(gateTtyPresentation(false, false, live), {
+    ttyWidth: 93,
+    liveWidth: 93,
+  });
+
+  const ci = terminal({ columns: 71, ci: "  TRUE " });
+  assertEquals(gateTtyPresentation(false, false, ci), { ttyWidth: 71 });
+  assertEquals(gateTtyPresentation(false, true, live), { ttyWidth: 93 });
+  assertEquals(
+    gateTtyPresentation(
+      false,
+      false,
+      terminal({ columns: 67, stdoutIsTerminal: false }),
+    ),
+    {},
+  );
+  assertEquals(gateTtyPresentation(true, false, live), {});
 });
 
 Deno.test("Gate receipt makes landing readiness explicit without claiming consent", () => {

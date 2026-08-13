@@ -5,7 +5,7 @@
  */
 
 import { DISCERN_TRIANGLE_SPINNER_ORDER } from "discern-design-system/cli";
-import { type TerminalContext, terminalWidth } from "../../lib/terminal.ts";
+import type { TerminalContext } from "../../lib/terminal.ts";
 import type { StepResult } from "../../shared/result.ts";
 import type { GateStandard } from "../../shared/result_schemas.ts";
 import type { JobRunObserver } from "../jobs/runner.ts";
@@ -231,17 +231,6 @@ export function renderGateTtyStatus(
   return renderGateStatus(message, status, options);
 }
 
-/** CI and `--plain` request a static transcript even when stdout is a TTY. */
-function staticOutputRequested(plain: boolean): boolean {
-  if (plain) return true;
-  try {
-    const marker = Deno.env.get("CI")?.trim().toLowerCase();
-    return marker !== undefined && marker !== "" && marker !== "false";
-  } catch {
-    return false;
-  }
-}
-
 /** The terminal widths available to a gate verb's static and live projections. */
 export interface GateTtyPresentation {
   ttyWidth?: number;
@@ -252,11 +241,12 @@ export interface GateTtyPresentation {
 export function gateTtyPresentation(
   json: boolean,
   plain: boolean,
+  terminal: TerminalContext,
 ): GateTtyPresentation {
-  if (json || !Deno.stdout.isTerminal()) return {};
-  const width = terminalWidth();
+  if (json || !terminal.stdoutIsTerminal) return {};
+  const width = terminal.size.columns;
   return {
     ttyWidth: width,
-    ...(staticOutputRequested(plain) ? {} : { liveWidth: width }),
+    ...(plain || terminal.ciRequestsStaticOutput ? {} : { liveWidth: width }),
   };
 }

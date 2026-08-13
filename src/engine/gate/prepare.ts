@@ -39,6 +39,7 @@ import { observeResult } from "../../shared/result_capture.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import { makeOut, type Out } from "../output.ts";
+import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
   createGateTtyProgress,
   gateTtyPresentation,
@@ -56,7 +57,10 @@ async function runPrepareGate(
   root: string,
   json: boolean,
   signal?: AbortSignal,
-  presentation: { liveWidth?: number } = {},
+  presentation: {
+    liveWidth?: number;
+    terminal?: TerminalContext;
+  } = {},
 ): Promise<
   {
     result: DiscernResult;
@@ -73,6 +77,9 @@ async function runPrepareGate(
     !cfg.gate.stream;
   const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal, {
     quietHumanRun: compactTty,
+    ...(presentation.terminal === undefined
+      ? {}
+      : { terminal: presentation.terminal }),
   });
   const progress = compactTty && presentation.liveWidth !== undefined
     ? createGateTtyProgress(out.raw, {
@@ -172,16 +179,18 @@ export async function runPrepare(
     return result.ok ? 0 : 1;
   }
 
+  const terminal = terminalContext();
   const { ttyWidth, liveWidth } = gateTtyPresentation(
     false,
     opts.plain ?? false,
+    terminal,
   );
   const { result, failedStage, out, cfg, gotchasTail, liveTable } =
     await runPrepareGate(
       root,
       false,
       undefined,
-      liveWidth === undefined ? {} : { liveWidth },
+      { terminal, ...(liveWidth === undefined ? {} : { liveWidth }) },
     );
   observeResult(result); // the logbook recorder lifts step timings from it
   const ttyTable = ttyWidth !== undefined && !cfg.gate.stream;
