@@ -17,7 +17,7 @@ _Every verb builds one result object. Types, runtime validation, generated contr
 
 ## Human CLI groups
 
-Composed human views declare stable `HumanOutputGroup<T>` identities. `renderHumanOutputGroups` drops empty groups and puts one empty line between populated groups. Plans use `PlanStep.group`. Live output uses `Out.group` or `Logger.group`. An optional label draws a ruled heading. Pickers use `groupedSelectOptions`, which places one empty row before each ruled heading. `withPromptBoundary` starts every Cliffy prompt with one newline, separating its `?` context line from the preceding human output ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)).
+Composed human views declare stable `HumanOutputGroup<T>` identities. `renderHumanOutputGroups` drops empty groups and puts one empty line between populated groups. Plans use `PlanStep.group`. Live output uses `Out.group` or `Logger.group`. An optional label draws a ruled heading. Picker semantics stay with discern. `groupedSelectOptions` maps every populated group, including the first, to a package-native non-selectable heading. The design-system package owns terminal I/O, editing, frames, and restoration. `withPromptBoundary` adds one leading semantic blank before the first package frame without entering its redraw accounting ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)).
 
 Plan and result renderers preserve step order. When a `PlanStep.group` value returns after another group, the renderer opens another visible run and qualifies its non-rendered ID by occurrence. Directly authored `HumanOutputGroup` IDs reject duplicates.
 
