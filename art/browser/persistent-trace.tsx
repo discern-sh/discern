@@ -145,7 +145,7 @@ export function PersistentTraceArtwork(
         data-center-x={center.x}
         data-center-y={center.y}
       >
-        <title id={titleId}>Persistent trace</title>
+        <title id={titleId}>Inbound</title>
         <desc id={descriptionId}>
           A balanced angular spiral winds from a broad outer contour to a
           half-filled triangle at the exact centre. A small blue point follows

@@ -1,0 +1,172 @@
+/* Fig. XI — the packing. One 24s phrase (20 beats of 1.2s):
+ *
+ *   0–4%      the resolved packing rests, each generation at its own opacity
+ *   4–55%     a scan brightens every cell in order of size, largest first
+ *   4–63%     the measure rises through the four generation graduations
+ *  63–88%     the measure holds at 0.684, visibly short of the whole
+ *  76–95%     the frame takes the accent across its right half
+ *  95–100%    the measure clears and the plate returns to its rest
+ *
+ * Each cell rests at the opacity of its own generation, so the scan is a
+ * brightening rather than an arrival: the packing is never absent, only
+ * more or less asserted.
+ */
+@layer discern.page {
+  .fig-packing__residue {
+    fill: currentColor;
+    opacity: 0.025;
+    animation: fig-packing-residue calc(var(--fig-beat) * 20)
+      var(--fig-ease-drift) infinite;
+  }
+
+  .fig-packing__cells {
+    fill: currentColor;
+    stroke: currentColor;
+  }
+
+  .fig-packing__cell {
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-packing-rest);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: fig-packing-scan calc(var(--fig-beat) * 20)
+      var(--fig-ease-settle) infinite both;
+  }
+
+  .fig-packing__frame {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    stroke-linejoin: round;
+  }
+
+  .fig-packing__graduations line {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-faint);
+  }
+
+  .fig-packing__measure {
+    stroke: currentColor;
+    stroke-width: var(--fig-heavy);
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0.5;
+    animation: fig-packing-measure calc(var(--fig-beat) * 20)
+      var(--fig-ease-settle) infinite;
+  }
+
+  .fig-packing__mark {
+    opacity: 0;
+    animation: fig-packing-mark calc(var(--fig-beat) * 20)
+      var(--fig-ease-settle) infinite;
+  }
+
+  .fig-packing__mark-half {
+    fill: var(--fig-accent);
+    opacity: 0.1;
+  }
+
+  .fig-packing__mark-edge {
+    fill: none;
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+    stroke-linejoin: round;
+  }
+
+  .fig-packing__mark-median {
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-hairline);
+  }
+
+  @keyframes fig-packing-scan {
+    0%,
+    3% {
+      opacity: var(--fig-packing-rest);
+      transform: scale(1);
+    }
+    7% {
+      opacity: var(--fig-packing-peak);
+      transform: scale(1.04);
+    }
+    20% {
+      opacity: var(--fig-packing-rest);
+      transform: scale(1);
+    }
+    100% {
+      opacity: var(--fig-packing-rest);
+      transform: scale(1);
+    }
+  }
+
+  /* The graduations the measure stops at: 0.25, 0.4375, 0.5781, 0.6836. */
+  @keyframes fig-packing-measure {
+    0%,
+    4% {
+      stroke-dashoffset: 1;
+      opacity: 0.5;
+    }
+    13% {
+      stroke-dashoffset: 0.75;
+    }
+    23% {
+      stroke-dashoffset: 0.5625;
+    }
+    37% {
+      stroke-dashoffset: 0.4219;
+    }
+    63% {
+      stroke-dashoffset: 0.3164;
+    }
+    88% {
+      stroke-dashoffset: 0.3164;
+      opacity: 0.5;
+    }
+    95% {
+      stroke-dashoffset: 0.3164;
+      opacity: 0;
+    }
+    95.1% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0.5;
+    }
+  }
+
+  @keyframes fig-packing-residue {
+    0%,
+    4% {
+      opacity: 0.025;
+    }
+    63% {
+      opacity: 0.07;
+    }
+    88% {
+      opacity: 0.07;
+    }
+    96%,
+    100% {
+      opacity: 0.025;
+    }
+  }
+
+  @keyframes fig-packing-mark {
+    0%,
+    76% {
+      opacity: 0;
+    }
+    80% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    95%,
+    100% {
+      opacity: 0;
+    }
+  }
+}

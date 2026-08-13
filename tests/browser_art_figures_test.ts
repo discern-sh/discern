@@ -137,6 +137,82 @@ function animationDurations(css: string): number[] {
   return durations;
 }
 
+/** One unit-normalised SVG stroke whose dash is barred from scaling. */
+type UnitDashScalingConflict = {
+  element: string;
+  line: number;
+};
+
+/**
+ * Find SVG geometry that asks pathLength to normalise its dash to one unit
+ * while asking vector-effect to keep that dash out of the geometry's scale.
+ */
+function unitDashScalingConflicts(
+  source: string,
+): UnitDashScalingConflict[] {
+  const conflicts: UnitDashScalingConflict[] = [];
+  const geometry = /<(circle|ellipse|line|path|polygon|polyline|rect)\b[^>]*>/g;
+  for (
+    let match = geometry.exec(source);
+    match;
+    match = geometry.exec(source)
+  ) {
+    const tag = match[0];
+    if (!/\bpathLength\s*=\s*\{\s*1\s*\}/.test(tag)) continue;
+    if (!/\bvectorEffect\s*=\s*"non-scaling-stroke"/.test(tag)) continue;
+    conflicts.push({
+      element: match[1] ?? "geometry",
+      line: source.slice(0, match.index).split("\n").length,
+    });
+  }
+  return conflicts;
+}
+
+/** Read every authored browser-art TSX file, including future additions. */
+async function browserArtworkSources(): Promise<
+  Array<{ name: string; source: string }>
+> {
+  const directory = new URL("../art/browser/", import.meta.url);
+  const names: string[] = [];
+  for await (const entry of Deno.readDir(directory)) {
+    if (entry.isFile && entry.name.endsWith(".tsx")) names.push(entry.name);
+  }
+  names.sort();
+  return await Promise.all(
+    names.map(async (name) => ({
+      name,
+      source: await Deno.readTextFile(new URL(name, directory)),
+    })),
+  );
+}
+
+Deno.test("unit-normalised SVG dashes scale with their geometry", async () => {
+  const violations: string[] = [];
+  for (const { name, source } of await browserArtworkSources()) {
+    for (const conflict of unitDashScalingConflicts(source)) {
+      violations.push(`${name}:${conflict.line} <${conflict.element}>`);
+    }
+  }
+  assertEquals(
+    violations,
+    [],
+    "pathLength={1} cannot share a geometry element with " +
+      'vectorEffect="non-scaling-stroke"; a responsive SVG then scales the ' +
+      "path but not its unit dash, so drawing animations miss their endpoints",
+  );
+});
+
+Deno.test("unit-dash guard catches a fresh artwork sibling", () => {
+  const futureArtwork = `
+    export function FutureEtch() {
+      return <line pathLength={1} vectorEffect="non-scaling-stroke" />;
+    }
+  `;
+  assertEquals(unitDashScalingConflicts(futureArtwork), [
+    { element: "line", line: 3 },
+  ]);
+});
+
 for (const slug of FIGURE_SERIES_SLUGS) {
   Deno.test(`figure '${slug}' obeys the series metre`, async () => {
     const css = effectiveCss(await artSource(`${slug}.css`));

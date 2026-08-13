@@ -1,0 +1,72 @@
+name: WSL gate
+description: Run the repository gate inside WSL 2 Ubuntu and verify a clean tree.
+
+# Windows support is WSL-only: users run the Linux binary inside WSL 2, so
+# this lane provisions WSL 2 on a hosted Windows runner and proves the gate
+# there. WSL 2 rides nested virtualization, which GitHub's Windows runners
+# have carried since 2024 but still label experimental — if this lane breaks
+# with no repo change in sight, suspect the runner image (actions/runner-images)
+# before the engine.
+#
+# The wsl-bash steps run as the distribution default user, which is root.
+# The gate itself runs as the unprivileged `gate` user instead: root ignores
+# file-permission bits, which silently defuses the suite's permission-sabotage
+# tests — and a real WSL user is unprivileged anyway.
+
+runs:
+  using: composite
+  steps:
+    - name: Provision WSL 2 Ubuntu
+      uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
+      with:
+        distribution: Ubuntu-24.04
+        wsl-version: 2
+        additional-packages: ca-certificates curl git unzip
+
+    - name: Create the unprivileged user the gate runs as
+      shell: wsl-bash {0}
+      run: useradd --create-home gate
+
+    # The Windows-side checkout sits behind the slow 9P bridge with Windows
+    # line endings and file modes. Copy only .git onto the WSL ext4 file
+    # system and let git materialize the working tree there — LF, native
+    # modes, fast I/O — which is also the tree a real WSL user's clone gets.
+    - name: Materialize the checkout on the WSL file system
+      shell: wsl-bash {0}
+      run: |
+        mkdir /home/gate/discern
+        cp -r .git /home/gate/discern/.git
+        chown -R gate:gate /home/gate/discern
+        runuser -u gate -- env HOME=/home/gate \
+          git -C /home/gate/discern reset --hard
+
+    # Deno installs the way a WSL user installs it (the official script);
+    # Vale matches the pinned version the other gate lanes use. Both land in
+    # /usr/local/bin, so this step stays root while everything after drops
+    # privileges.
+    - name: Install Deno and Vale inside WSL
+      shell: wsl-bash {0}
+      run: |
+        curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
+        VALE_VERSION="$(</home/gate/discern/.vale-version)"
+        curl -sfL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+          | tar -xz -C /usr/local/bin vale
+        runuser -u gate -- env HOME=/home/gate \
+          bash -c 'cd /home/gate/discern && vale sync'
+
+    - name: Run the gate (discern done, via the dev binary)
+      shell: wsl-bash {0}
+      env:
+        DISCERN_GATE_TEST_REPORTER: pretty
+        # Windows-side env crosses into WSL only when WSLENV names it.
+        WSLENV: DISCERN_GATE_TEST_REPORTER
+      run: |
+        runuser -u gate -- env HOME=/home/gate \
+          DISCERN_GATE_TEST_REPORTER="${DISCERN_GATE_TEST_REPORTER}" \
+          bash -c 'cd /home/gate/discern && deno task dev done'
+
+    - name: Assert a clean tree (the fix stage must change nothing in CI)
+      shell: wsl-bash {0}
+      run: |
+        runuser -u gate -- env HOME=/home/gate \
+          git -C /home/gate/discern diff --exit-code

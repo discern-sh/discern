@@ -1,0 +1,174 @@
+/* Fig. IX — the phase. One 24s phrase (20 beats of 1.2s). Each cell runs the
+ * same turn on the same clock, offset by where it sits along the slanted
+ * front, so the sweep is a phase gradient rather than a scripted sequence:
+ *
+ *   0–7%      the field rests, upward cells upward
+ *   7–11%     each cell turns as the front reaches it (front sweeps 6–41%)
+ *  41–63%     the field holds inverted
+ *  63–67%     each cell turns back as the second front passes (69–96%)
+ *  96–100%    the field rests
+ *
+ * The turn is a reflection, not a rotation: a rotation sweeps a cell through
+ * every intermediate angle and the band of turning cells reads as noise.
+ */
+@layer discern.page {
+  .fig-phase__rules line {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    opacity: 0.14;
+    animation: fig-phase-rules calc(var(--fig-beat) * 20) var(--fig-ease-drift)
+      infinite;
+  }
+
+  .fig-phase__field {
+    fill: none;
+    stroke: currentColor;
+    opacity: var(--fig-quiet);
+  }
+
+  .fig-phase__cell,
+  .fig-phase__mark-cell {
+    stroke-width: var(--fig-hairline);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: fig-phase-turn calc(var(--fig-beat) * 20) var(--fig-ease-settle)
+      infinite both;
+  }
+
+  .fig-phase__mark {
+    opacity: 0;
+    animation: fig-phase-mark calc(var(--fig-beat) * 20) var(--fig-ease-settle)
+      infinite;
+  }
+
+  .fig-phase__mark-half {
+    fill: var(--fig-accent);
+    opacity: 0.5;
+  }
+
+  .fig-phase__mark-edge {
+    fill: none;
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+    stroke-linejoin: round;
+  }
+
+  .fig-phase__front {
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    opacity: 0;
+    animation: fig-phase-front calc(var(--fig-beat) * 20) linear infinite;
+  }
+
+  /* Reflecting about the cell's own box carries an upward cell exactly onto
+   * the downward cell of the same box, so the field inverts without drift. */
+  @keyframes fig-phase-turn {
+    0%,
+    7% {
+      transform: scaleY(1);
+    }
+    11% {
+      transform: scaleY(-1);
+    }
+    63% {
+      transform: scaleY(-1);
+    }
+    67% {
+      transform: scaleY(1);
+    }
+    100% {
+      transform: scaleY(1);
+    }
+  }
+
+  @keyframes fig-phase-rules {
+    0%,
+    4% {
+      opacity: 0.14;
+    }
+    12% {
+      opacity: 0.3;
+    }
+    44% {
+      opacity: 0.3;
+    }
+    66%,
+    100% {
+      opacity: 0.14;
+    }
+  }
+
+  /* The mark lights only while its own cell is turning, twice per phrase. */
+  @keyframes fig-phase-mark {
+    0%,
+    17% {
+      opacity: 0;
+    }
+    20% {
+      opacity: 1;
+    }
+    28% {
+      opacity: 1;
+    }
+    33% {
+      opacity: 0;
+    }
+    33.1%,
+    73% {
+      opacity: 0;
+    }
+    76% {
+      opacity: 1;
+    }
+    84% {
+      opacity: 1;
+    }
+    89% {
+      opacity: 0;
+    }
+    89.1%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-phase-front {
+    0%,
+    6% {
+      transform: translateX(24px);
+      opacity: 0;
+    }
+    8% {
+      opacity: 0.5;
+    }
+    41% {
+      transform: translateX(956px);
+      opacity: 0.5;
+    }
+    43% {
+      transform: translateX(956px);
+      opacity: 0;
+    }
+    43.1%,
+    69% {
+      transform: translateX(24px);
+      opacity: 0;
+    }
+    71% {
+      opacity: 0.32;
+    }
+    96% {
+      transform: translateX(956px);
+      opacity: 0.32;
+    }
+    98% {
+      transform: translateX(956px);
+      opacity: 0;
+    }
+    98.1%,
+    100% {
+      transform: translateX(24px);
+      opacity: 0;
+    }
+  }
+}
