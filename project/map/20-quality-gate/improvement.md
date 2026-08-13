@@ -30,9 +30,9 @@ A deterministic rule checks a concrete fact such as whether tests are configured
 
 ## Presentation authority
 
-The catalogue, evaluation, category order, score, review questions, Logbook findings, and selected next action remain product facts. The human renderer adapts that typed report into released design-system Result summary, Procedure, Diagnostic, Meter, Command, and section-rule Components. Package states express the existing `pass`, `partial`, and `fail` semantics. They do not manufacture urgency, success, or a second score.
+The catalogue, evaluation, order, score, review questions, Logbook findings, and next action remain facts. The renderer exhaustively maps them to Result summary, Procedure, Diagnostic, Meter, Command, and section Components; package state adds no judgment.
 
-The renderer receives terminal capabilities through the shared output context. It caps the report at 104 columns. Complete coaching facts survive at 39, 80, 104, and wider terminals. Unicode or plain-text glyphs and 24-bit, 256-color, 16-color, or no-color output change presentation only. Project excerpts and other untrusted evidence cross the shared safe-text boundary before entering Component props. Controls become visible escapes instead of terminal instructions.
+Shared terminal facts cap the report at 104 columns and preserve coaching at 39, 80, 104, and wider widths in every mode. Safe text shows untrusted controls as escapes.
 
 ## Findings from the logbook
 

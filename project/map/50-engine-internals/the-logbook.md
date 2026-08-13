@@ -24,11 +24,11 @@ The substrate's constraints:
 
 ## Report presentation
 
-Logbook schemas, tolerant readers, detector registries, statistics, investigations, and lifecycle plans own every fact. Human presentation observes no new evidence. It receives their typed results through the shared terminal context. Released design-system Result summary, Stat, Meter, Procedure, Receipt, File change, Command, and section-rule Components own the terminal grammar. JSON and MCP remain projections of the same results.
+Schemas, readers, detectors, statistics, investigations, and lifecycle plans own Logbook facts. Human presentation observes nothing and maps results through shared terminal context to Result summary, Stat, Meter, Procedure, Receipt, File change, Command, and section Components. JSON and MCP match.
 
-Patterns preserves its strength order, canonical families, advisory boundary, full evidence, next actions, quiet-detector account, and investigation falsifiers. Statistics keep their exact counts and provenance. Package file summaries sit beside complete source-file, byte, and destination facts in archive and reset receipts. Responsive layout cannot erase that operational evidence. Destructive confirmation still goes through the shared prompt boundary and remains default-No.
+Patterns retains order, families, its advisory boundary, evidence, actions, quiet-detector account, and falsifiers. Statistics retain exact counts and provenance. Archive and reset retain exact file, byte, and destination facts. Confirmation stays on the shared default-No prompt boundary.
 
-Reports cap at 104 columns. They preserve their facts at 39, 80, 104, and wider terminals. Unicode or plain-text glyphs and 24-bit, 256-color, 16-color, or no-color output alter presentation only. Every Logbook-derived string crosses the shared safe-text boundary. Terminal controls become visible escapes. This richer presentation does not widen the stored payload. It reads neither prompts nor command output and adds no network path.
+At 39, 80, 104, and wider widths in every mode, safe text shows controls. Components add no payload, prompt, output, or network access; the metadata-only, offline contract remains unchanged.
 
 ## Validation evidence
 

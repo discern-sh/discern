@@ -19,9 +19,9 @@ Run it when a session starts or the next move is unclear. Human, JSON, and Model
 
 Worktrees default to a local view. Main leads with the fleet summary, attention, and worktrees. `--all` adds the fleet from a worktree; `--local` suppresses it. The flags conflict.
 
-Observation and presentation have separate authorities. `statusResult` gathers Git, Proof, Logbook activity, collision, receipt, and landing-authority facts. The pure dashboard receives that typed result. Its other inputs are explicit time, width, verbosity, and the shared terminal context. It performs no Git, filesystem, receipt, or Logbook read. Released design-system Fleet, Result summary, Receipt, Diagnostic, Raw output, and section-rule Components own the terminal grammar.
+`statusResult` owns observation: Git, Proof, Logbook activity, collisions, receipts, and landing. The pure dashboard receives those facts with time, width, verbosity, and shared terminal context. It observes nothing; Fleet and supporting Components own layout.
 
-The renderer caps width at 104 columns. Fleet uses its lossless identity mode. It uses a bounded table when identities and state fit. Otherwise, it moves complete branch and worktree identities onto labelled continuation lines. It never truncates or hashes them. Rows stack at 39 columns; ordinary and wider terminals retain the denser fleet view. Current, secondary, and detached identities remain explicit and copyable. Labelled Components place the additional Git, activity, Proof, authority, and collision facts beside the generic Fleet row.
+Fleet's lossless mode caps at 104 columns, stacking at 39 or when its table cannot fit. It never truncates or hashes branch and worktree text. Current and detached markers plus secondary facts stay labelled.
 
 Each row derives one status: broken, unreadable, failed, blocked, collision, behind, running, ready, stale, in progress, proof unreadable, proof unavailable, proof stale, needs gate, then idle. New running work supersedes an older failure. A completed `status` contributes activity time and no health evidence. Collision takes precedence without hiding Proof readiness or authority.
 
@@ -32,7 +32,7 @@ The other fields explain that status:
 - **Activity** combines the winning clock and completed action. In `running done 2m · usually 4m`, `usually 4m` is the historical median.
 - **Landing** is granted, needs approval, or scope-limited on ready rows; detail wraps below it.
 
-Text, labels, and glyphs carry every state. Color is never the classifier. The shared terminal context resolves Unicode or plain-text glyphs and 24-bit, 256-color, 16-color, or no-color output once. Package semantic states adapt the closed status and Proof vocabularies. They never replace product precedence or invent readiness. `--no-color` changes no facts.
+Text and glyphs classify every state; color does not. Exhaustive adapters preserve status and Proof precedence through every terminal mode. `--no-color` changes no facts.
 
 The supervisor view reports main once and shows collision paths. Recent changes remain normal work in progress; failures, stale or behind work, collisions, unreadable state, ready Proofs, and removed worktree paths that exist again receive attention. A reappeared path shows when discern removed its worktree, a bounded content sample, and any reason prune must keep it.
 
