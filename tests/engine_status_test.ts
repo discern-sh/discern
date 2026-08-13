@@ -43,6 +43,7 @@ import {
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
 } from "../src/engine/logbook/schema.ts";
+import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
 
 const STATUS_ESCAPE = String.fromCharCode(27);
 
@@ -103,17 +104,54 @@ function normalized(text: string): string {
   return text.replaceAll(/\s+/gu, " ").trim();
 }
 
-/** Find one package triangle-rule section and prove both motifs are visible. */
-function triangleSectionLine(output: string, label: string): string {
-  const line = output.split("\n").find((candidate) =>
-    candidate.includes(` ${label} `)
-  );
+/** Find one package section rule without pinning its capability-specific glyphs. */
+function sectionRuleLine(output: string, label: string): string {
+  const marker = ` ${label} `;
+  const line = output.split("\n").find((candidate) => {
+    const markerAt = candidate.indexOf(marker);
+    if (markerAt < 1) return false;
+    const left = candidate.slice(0, markerAt);
+    const right = candidate.slice(markerAt + marker.length);
+    return right.length > 0 && !/\s/u.test(`${left}${right}`);
+  });
   assert(
-    line !== undefined && /^[<>^v]+\s+.+\s+[<>^v]+$/u.test(line),
-    `missing package triangle section ${label}:\n${output}`,
+    line !== undefined,
+    `missing package section rule ${label}:\n${output}`,
   );
   return line;
 }
+
+/** Prove one labelled state fact without treating its status mark as data. */
+function assertStatusFactLine(
+  output: string,
+  label: string,
+  state: string,
+): void {
+  assert(
+    output.split("\n").some((line) =>
+      line.includes(label) && line.includes(state)
+    ),
+    `missing ${label} state ${state}:\n${output}`,
+  );
+}
+
+Deno.test("status assertions accept either package glyph repertoire", () => {
+  const triangles = DISCERN_TRIANGLE_GLYPHS;
+  const unicodeRule =
+    `${triangles.upRight}${triangles.downRight}${triangles.upLeft} ` +
+    `Current worktree ` +
+    `${triangles.upLeft}${triangles.downRight}${triangles.upRight}`;
+  assertEquals(
+    sectionRuleLine(">v<> Current worktree v><^", "Current worktree"),
+    ">v<> Current worktree v><^",
+  );
+  assertEquals(
+    sectionRuleLine(unicodeRule, "Current worktree"),
+    unicodeRule,
+  );
+  assertStatusFactLine("Proof ... + honored", "Proof", "honored");
+  assertStatusFactLine("Proof ... ✓ honored", "Proof", "honored");
+});
 
 Deno.test("status: the fleet view surfaces cross-worktree file collisions", async () => {
   await withTempDir(async (dir) => {
@@ -635,7 +673,7 @@ Deno.test("status human output separates its semantic groups", async () => {
         "Local environment",
       ]
     ) {
-      const line = triangleSectionLine(human.stdout, section);
+      const line = sectionRuleLine(human.stdout, section);
       const at = human.stdout.indexOf(line);
       assert(
         at === 0 || human.stdout.slice(0, at).endsWith("\n\n"),
@@ -822,18 +860,18 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     const localHuman = await runAgent(wt, ["status"], {
       env: { COLUMNS: "72" },
     });
-    const currentSection = triangleSectionLine(
+    const currentSection = sectionRuleLine(
       localHuman.output,
       "Current worktree",
     );
-    const environmentSection = triangleSectionLine(
+    const environmentSection = sectionRuleLine(
       localHuman.output,
       "Local environment",
     );
     assertStringIncludes(localHuman.output, "Port:");
     assert(!localHuman.output.includes("Change: code"), localHuman.output);
     const checksAt = localHuman.output.indexOf(
-      triangleSectionLine(localHuman.output, "Checks"),
+      sectionRuleLine(localHuman.output, "Checks"),
     );
     const environmentAt = localHuman.output.indexOf(environmentSection);
     assert(checksAt >= 0 && environmentAt > checksAt, localHuman.output);
@@ -857,9 +895,9 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     const allHuman = await runAgent(wt, ["status", "--all"], {
       env: { COLUMNS: "72" },
     });
-    triangleSectionLine(allHuman.output, "Fleet");
-    triangleSectionLine(allHuman.output, "Worktrees");
-    triangleSectionLine(allHuman.output, "Main checkout");
+    sectionRuleLine(allHuman.output, "Fleet");
+    sectionRuleLine(allHuman.output, "Worktrees");
+    sectionRuleLine(allHuman.output, "Main checkout");
   });
 });
 
@@ -1088,7 +1126,7 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     assertEquals(plain.code, 0, plain.output);
     assertStringIncludes(plain.output, "Receipt: agent/alpha Proof");
     assertStringIncludes(plain.output, "Proof");
-    assertStringIncludes(plain.output, "+ honored");
+    assertStatusFactLine(plain.output, "Proof", "honored");
     assert(
       !plain.output.includes("### Proof"),
       `plain status must not print the page:\n${plain.output}`,
