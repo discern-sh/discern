@@ -9,8 +9,11 @@ import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 const PACKAGE_NAME = "@discern-sh/design-system";
+const PACKAGE_NAME_SPECIFIER = `jsr:${PACKAGE_NAME}`;
 const PACKAGE_EXPORTS = [".", "./react", "./runtime"] as const;
 const PATH_ENV = "DISCERN_DESIGN_SYSTEM_PATH";
+const SEMVER_PATTERN =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
 type JsonObject = Record<string, unknown>;
 
@@ -52,13 +55,24 @@ export function parseLocalDesignSystemArgs(
   return { buildOnly, packageRoot };
 }
 
-/** Copy the consumer config and add a local link only in the temporary copy. */
+/** Align the temporary alias with a linked checkout without mutating the base. */
 export function localDesignSystemConfig(
   base: Readonly<JsonObject>,
   packageRoot: string,
+  packageVersion: string,
 ): JsonObject {
+  const imports = base.imports;
+  if (
+    imports === null || typeof imports !== "object" || Array.isArray(imports)
+  ) {
+    throw new Error("discern's deno.json must declare imports");
+  }
   return {
     ...base,
+    imports: {
+      ...imports,
+      "discern-design-system": `${PACKAGE_NAME_SPECIFIER}@${packageVersion}`,
+    },
     links: [packageRoot],
     lock: false,
     nodeModulesDir: "none",
@@ -69,13 +83,19 @@ export function localDesignSystemConfig(
 export function assertLocalDesignSystemPackage(
   config: unknown,
   path: string,
-): asserts config is JsonObject {
+): asserts config is JsonObject & { readonly version: string } {
   if (config === null || typeof config !== "object") {
     throw new Error(`${path}/deno.json must contain an object`);
   }
   const candidate = config as JsonObject;
   if (candidate.name !== PACKAGE_NAME) {
     throw new Error(`${path} must be the ${PACKAGE_NAME} package`);
+  }
+  if (
+    typeof candidate.version !== "string" ||
+    !SEMVER_PATTERN.test(candidate.version)
+  ) {
+    throw new Error(`${path}/deno.json must declare a semantic version`);
   }
   const exports = candidate.exports;
   if (exports === null || typeof exports !== "object") {
@@ -228,9 +248,10 @@ Usage:
   discern scripts site-design-system -- --build-only <checkout>
   ${PATH_ENV}=<checkout> discern scripts site-design-system [-- --build-only]
 
-The helper writes an untracked temporary Deno config, verifies that the public
-package export resolves from that checkout, and leaves deno.json and deno.lock
-unchanged. Without --build-only it serves and watches both repositories.`);
+The helper writes an untracked temporary Deno config, aligns only that copy's
+package version so Deno accepts an ahead or behind checkout, verifies that the
+public export resolves locally, and leaves deno.json and deno.lock unchanged.
+Without --build-only it serves and watches both repositories.`);
 }
 
 /** Run the complete temporary-link lifecycle. */
@@ -245,10 +266,8 @@ async function main(): Promise<number> {
   );
   const packageRoot = await Deno.realPath(resolve(options.packageRoot));
   const packageConfigPath = join(packageRoot, "deno.json");
-  assertLocalDesignSystemPackage(
-    await readJsonObject(packageConfigPath),
-    packageRoot,
-  );
+  const packageConfig = await readJsonObject(packageConfigPath);
+  assertLocalDesignSystemPackage(packageConfig, packageRoot);
 
   const rootConfigPath = join(REPO_ROOT, "deno.json");
   const rootConfig = await readJsonObject(rootConfigPath);
@@ -265,7 +284,15 @@ async function main(): Promise<number> {
   await Deno.writeTextFile(
     temporaryConfig,
     `${
-      JSON.stringify(localDesignSystemConfig(rootConfig, packageRoot), null, 2)
+      JSON.stringify(
+        localDesignSystemConfig(
+          rootConfig,
+          packageRoot,
+          packageConfig.version,
+        ),
+        null,
+        2,
+      )
     }\n`,
   );
 

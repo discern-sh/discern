@@ -1,6 +1,7 @@
 /** Local design-system development keeps the published consumer pin untouched. */
 
 import { assertEquals, assertThrows } from "@std/assert";
+import { join } from "@std/path";
 import {
   assertLocalDesignSystemPackage,
   isLocalPackageResolution,
@@ -20,15 +21,104 @@ Deno.test("the local design-system config overlays a link without mutating the c
   const snapshot = structuredClone(base);
 
   assertEquals(
-    localDesignSystemConfig(base, "/tmp/future-component-system"),
+    localDesignSystemConfig(
+      base,
+      "/tmp/future-component-system",
+      "91.2.3",
+    ),
     {
       ...base,
+      imports: {
+        ...base.imports,
+        "discern-design-system": "jsr:@discern-sh/design-system@91.2.3",
+      },
       links: ["/tmp/future-component-system"],
       lock: false,
       nodeModulesDir: "none",
     },
   );
   assertEquals(base, snapshot);
+});
+
+Deno.test("the temporary link resolves an unrelated local version without changing the consumer pin", async () => {
+  const temporaryRoot = await Deno.makeTempDir({
+    prefix: "discern-local-package-guard-",
+  });
+  const packageRoot = join(temporaryRoot, "future-layout-kit");
+  const sourceRoot = join(packageRoot, "source");
+  const configPath = join(temporaryRoot, "deno.json");
+  const consumer = {
+    imports: {
+      "discern-design-system": "jsr:@discern-sh/design-system@4.5.6",
+    },
+  };
+  const snapshot = structuredClone(consumer);
+
+  try {
+    await Deno.mkdir(sourceRoot, { recursive: true });
+    await Deno.writeTextFile(
+      join(packageRoot, "deno.json"),
+      `${
+        JSON.stringify(
+          {
+            name: "@discern-sh/design-system",
+            version: "91.2.3",
+            exports: {
+              ".": "./source/mod.ts",
+              "./react": "./source/react.ts",
+              "./runtime": "./source/runtime.ts",
+            },
+          },
+          null,
+          2,
+        )
+      }\n`,
+    );
+    for (const name of ["mod", "react", "runtime"]) {
+      await Deno.writeTextFile(
+        join(sourceRoot, `${name}.ts`),
+        `export const source = "local-${name}";\n`,
+      );
+    }
+
+    const temporaryConfig = localDesignSystemConfig(
+      consumer,
+      packageRoot,
+      "91.2.3",
+    );
+    await Deno.writeTextFile(
+      configPath,
+      `${JSON.stringify(temporaryConfig, null, 2)}\n`,
+    );
+
+    const probe = await new Deno.Command(Deno.execPath(), {
+      args: [
+        "eval",
+        "--cached-only",
+        "--config",
+        configPath,
+        'console.log(import.meta.resolve("discern-design-system/runtime"))',
+      ],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const resolution = new TextDecoder().decode(probe.stdout).trim();
+    assertEquals(
+      probe.success,
+      true,
+      new TextDecoder().decode(probe.stderr),
+    );
+    assertEquals(isLocalPackageResolution(resolution, packageRoot), true);
+    assertEquals(
+      (temporaryConfig.imports as Record<string, string>)[
+        "discern-design-system"
+      ],
+      "jsr:@discern-sh/design-system@91.2.3",
+    );
+    assertEquals(consumer, snapshot);
+  } finally {
+    await Deno.remove(temporaryRoot, { recursive: true });
+  }
 });
 
 Deno.test("local design-system arguments accept an explicit checkout or the dedicated environment fallback", () => {
@@ -62,6 +152,7 @@ Deno.test("local design-system arguments accept an explicit checkout or the dedi
 Deno.test("the package guard rejects a freshly named non-package sibling", () => {
   const valid = {
     name: "@discern-sh/design-system",
+    version: "91.2.3",
     exports: {
       ".": "./src/mod.ts",
       "./react": "./src/react.ts",
@@ -69,6 +160,15 @@ Deno.test("the package guard rejects a freshly named non-package sibling", () =>
     },
   };
   assertLocalDesignSystemPackage(valid, "/tmp/design-system");
+  assertThrows(
+    () =>
+      assertLocalDesignSystemPackage(
+        { ...valid, version: "future" },
+        "/tmp/unversioned-kit",
+      ),
+    Error,
+    "semantic version",
+  );
   assertThrows(
     () =>
       assertLocalDesignSystemPackage(

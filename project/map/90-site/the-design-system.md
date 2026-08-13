@@ -30,7 +30,7 @@ Use the `site-design-system` Project Script to review changes that span both rep
 discern scripts site-design-system /absolute/path/to/design-system-worktree
 ```
 
-The script validates the package name and the root, React, and Runtime exports. It creates a temporary copy of discern's Deno configuration and links the selected checkout there. The temporary configuration has no lockfile or `node_modules` directory. Before building, the script proves that the public Runtime export resolves from the selected checkout.
+The script validates the package name, semantic version, and the root, React, and Runtime exports. It creates a temporary copy of discern's Deno configuration, aligns only that copy's package alias with the selected checkout's declared version, and links the checkout there. This lets Deno accept an ahead or behind local package while the committed exact JSR pin remains unchanged. The temporary configuration has no lockfile or `node_modules` directory. Before building, the script proves that the public Runtime export resolves from the selected checkout rather than JSR.
 
 The script serves the normal site on this worktree's assigned port. Its watcher covers discern's site inputs, the linked package's `src/` tree, and its `deno.json`. Every rebuild uses the same temporary configuration. Stopping the script removes that configuration. The script also verifies that the committed `deno.json` and `deno.lock` remained unchanged.
 
