@@ -268,6 +268,7 @@ function requireInteraction(
   }
 }
 
+/** Compare product choice values while treating repeated NaN as one value. */
 function sameValue(left: unknown, right: unknown): boolean {
   return left === right || (Number.isNaN(left) && Number.isNaN(right));
 }

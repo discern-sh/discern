@@ -23,7 +23,11 @@ const HARNESS = join(
 );
 const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
-const SGR = /\x1b\[[0-9;]*m/u;
+const CSI = "\x1b[";
+const SGR_PARAMETERS = /^[0-9;]*m/u;
+const TRUECOLOUR_PARAMETERS = /^[0-9;]*38;2;/u;
+const ANSI_256_PARAMETERS = /^[0-9;]*38;5;/u;
+const CSI_SEQUENCE = /^[0-?]*[ -/]*[@-~]/u;
 const READY_DELAY_MS = 350;
 
 interface HarnessRun {
@@ -46,10 +50,12 @@ interface HarnessRunOptions {
   readonly timeoutMs?: number;
 }
 
+/** Encode one terminal size for the child harness protocol. */
 function sizeArgument(size: { columns: number; rows: number }): string {
   return `${size.columns}x${size.rows}`;
 }
 
+/** Run one production prompt scenario inside a real pseudo-terminal. */
 async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
   const resultPath = await Deno.makeTempFile({
     prefix: "discern-interactive-result-",
@@ -100,10 +106,12 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
   }
 }
 
+/** Schedule one prompt input chunk after the child reaches raw mode. */
 function keys(bytes: string, delayMs = READY_DELAY_MS): PtyInputStep[] {
   return [{ delayMs, bytes }];
 }
 
+/** Assert process, line-mode, cursor, and final-frame restoration. */
 function assertRestored(run: HarnessRun): void {
   assertEquals(run.process.code, 0, run.process.transcript);
   assertEquals(
@@ -126,10 +134,27 @@ function assertRestored(run: HarnessRun): void {
   );
 }
 
+/** Assert an out-of-band submitted value and restored terminal. */
 function assertValue(run: HarnessRun, expected: unknown): void {
   assertEquals(run.result.outcome, "value", run.process.transcript);
   assertEquals(run.result.value, expected, run.process.transcript);
   assertRestored(run);
+}
+
+/** Whether a transcript contains a CSI sequence with matching parameters. */
+function hasCsiSequence(transcript: string, pattern: RegExp): boolean {
+  return transcript.split(CSI).slice(1).some((part) => pattern.test(part));
+}
+
+/** Remove complete CSI controls while preserving all printable transcript text. */
+function stripCsiSequences(transcript: string): string {
+  const [first = "", ...rest] = transcript.split(CSI);
+  return first + rest.map((part) => {
+    const sequence = CSI_SEQUENCE.exec(part)?.[0];
+    return sequence === undefined
+      ? `${CSI}${part}`
+      : part.slice(sequence.length);
+  }).join("");
 }
 
 Deno.test({
@@ -154,7 +179,8 @@ Deno.test({
     });
     assertValue(run, "ΩAéB!");
     assert(
-      /^\r?\n\x1b\[\?25l/u.test(run.process.transcript),
+      run.process.transcript.startsWith(`\n${HIDE_CURSOR}`) ||
+        run.process.transcript.startsWith(`\r\n${HIDE_CURSOR}`),
       `the prompt needs exactly one leading semantic boundary:\n${run.process.transcript}`,
     );
   },
@@ -305,7 +331,13 @@ Deno.test({
       runHarness({
         scenario: "cancellation",
         canonicalEofAfterMs: 180,
-        input: keys("\x04", 450),
+        input: [
+          { delayMs: 450, bytes: "\x04" },
+          // If a read began just before canonical mode changed, the first VEOF
+          // can complete that raw read. A later VEOF then reaches a fresh
+          // canonical read and produces the required zero-byte result.
+          { delayMs: 75, bytes: "\x04" },
+        ],
       }),
     ]);
     assertValue(validation, "valid");
@@ -331,7 +363,11 @@ Deno.test({
       scenario: "grouped-select",
       size: { columns: 32, rows: 10 },
       resize: { columns: 100, rows: 30, afterMs: 180 },
-      input: keys("\x04\r", 450),
+      input: [
+        { delayMs: 450, bytes: "\x1b[B" },
+        { delayMs: 75, bytes: "\x1b[H" },
+        { delayMs: 75, bytes: "\r" },
+      ],
     });
     assertValue(run, "alpha");
     assertEquals(run.result.terminal.initialSize, { columns: 32, rows: 10 });
@@ -340,10 +376,10 @@ Deno.test({
       rows: 30,
     });
     assertStringIncludes(run.process.transcript, "…");
-    const visible = run.process.transcript.replaceAll(
-      /\x1b\[[0-?]*[ -/]*[@-~]/gu,
-      "",
-    ).replaceAll(/\s+/gu, " ");
+    const visible = stripCsiSequences(run.process.transcript).replaceAll(
+      /\s+/gu,
+      " ",
+    );
     assertStringIncludes(visible, "Choose from semantic groups [active]");
     assertStringIncludes(visible, "Alpha with a deliberately long label");
     assertStringIncludes(visible, "that becomes complete after resize");
@@ -397,18 +433,23 @@ Deno.test({
     ) {
       assertValue(run, false);
     }
-    assert(/\x1b\[[0-9;]*38;2;/u.test(truecolor.process.transcript));
-    assert(/\x1b\[[0-9;]*38;5;/u.test(ansi256.process.transcript));
-    assert(SGR.test(ansi16.process.transcript));
+    assert(hasCsiSequence(truecolor.process.transcript, TRUECOLOUR_PARAMETERS));
+    assert(hasCsiSequence(ansi256.process.transcript, ANSI_256_PARAMETERS));
+    assert(hasCsiSequence(ansi16.process.transcript, SGR_PARAMETERS));
     assertEquals(/38;(?:2|5);/u.test(ansi16.process.transcript), false);
     for (const run of [noColor, dumb, ascii, flag]) {
       assertEquals(
-        SGR.test(run.process.transcript),
+        hasCsiSequence(run.process.transcript, SGR_PARAMETERS),
         false,
         run.process.transcript,
       );
     }
-    assertEquals(/[^\x00-\x7f]/u.test(ascii.process.transcript), false);
+    assertEquals(
+      [...ascii.process.transcript].some((value) =>
+        (value.codePointAt(0) ?? 0) > 0x7f
+      ),
+      false,
+    );
   },
 });
 
