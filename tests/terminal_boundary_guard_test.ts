@@ -9,9 +9,19 @@ const TEXT_AUTHORITY = "src/lib/text.ts";
 const RUNTIME_TS_FILES = AUTHORED_TS_FILES.filter((rel) =>
   !rel.startsWith("tests/")
 );
-const GATE_RUNTIME_TS_FILES = RUNTIME_TS_FILES.filter((rel) =>
-  rel.startsWith("src/engine/gate/")
-);
+
+/** Every migrated supervisory presentation tree, enrolled from authored source. */
+function consumesExplicitPresentationFacts(
+  rel: string,
+  source = "",
+): boolean {
+  return rel.startsWith("src/engine/gate/") ||
+    rel.startsWith("src/engine/status/") ||
+    rel.startsWith("src/engine/improve/") ||
+    rel === "src/engine/logbook/patterns.ts" ||
+    (rel.startsWith("src/engine/logbook/") &&
+      publicCliImports(source).some((name) => name.startsWith("render")));
+}
 
 interface Finding {
   readonly file: string;
@@ -148,7 +158,7 @@ function genericWidthFindings(rel: string, source: string): Finding[] {
   );
 }
 
-const GATE_PRESENTATION_OBSERVERS = new Set([
+const PRESENTATION_OBSERVERS = new Set([
   "productionTerminalContext",
   "resolveTerminalContext",
   "terminalSize",
@@ -174,8 +184,8 @@ function relativeNamedImports(source: string, module: RegExp): string[] {
   return imports;
 }
 
-/** Find Gate-local observation of terminal presentation policy or dimensions. */
-function gatePresentationProbeFindings(
+/** Find local observation of terminal presentation policy or dimensions. */
+function presentationProbeFindings(
   rel: string,
   source: string,
 ): Finding[] {
@@ -203,7 +213,7 @@ function gatePresentationProbeFindings(
     /(?:^|\/)lib\/(?:terminal|text)\.ts$/u,
   );
   for (const imported of terminalImports) {
-    if (GATE_PRESENTATION_OBSERVERS.has(imported)) {
+    if (PRESENTATION_OBSERVERS.has(imported)) {
       findings.push({
         file: rel,
         rule: `terminal-observer-import:${imported}`,
@@ -230,10 +240,7 @@ const LEGACY_PALETTE_CENSUS: Readonly<Record<string, number>> = {
   "src/engine/desk/desk.ts": 54,
   "src/engine/gate/finish.ts": 2,
   "src/engine/gate/gotchas.ts": 6,
-  "src/engine/improve/improve.ts": 48,
   "src/engine/jobs/runner.ts": 8,
-  "src/engine/logbook/patterns.ts": 96,
-  "src/engine/status/tty.ts": 45,
 };
 
 Deno.test("terminal boundary detectors reject unrelated future source", () => {
@@ -285,9 +292,28 @@ Deno.test("authored runtime source cannot bypass terminal and text authorities",
   assertEquals(findings, []);
 });
 
-Deno.test("Gate source consumes terminal presentation facts without observing the process", async () => {
-  const futureSibling = gatePresentationProbeFindings(
-    "src/engine/gate/orbit_view.ts",
+Deno.test("migrated supervisory source consumes terminal presentation facts without observing the process", async () => {
+  for (
+    const [futureSibling, source] of [
+      ["src/engine/gate/orbit_view.ts", ""],
+      ["src/engine/status/orbit_view.ts", ""],
+      ["src/engine/improve/orbit_view.ts", ""],
+      ["src/engine/logbook/patterns.ts", ""],
+      [
+        "src/engine/logbook/orbit_view.ts",
+        'import { renderReceiptCli } from "discern-design-system/cli";',
+      ],
+    ] as const
+  ) {
+    assert(
+      consumesExplicitPresentationFacts(futureSibling, source),
+      futureSibling,
+    );
+  }
+  assert(!consumesExplicitPresentationFacts("src/engine/orbit/view.ts"));
+
+  const futureFindings = presentationProbeFindings(
+    "src/engine/status/orbit_view.ts",
     [
       'import { terminalWidth as viewport } from "../../lib/terminal.ts";',
       'import * as display from "../../lib/text.ts";',
@@ -299,7 +325,7 @@ Deno.test("Gate source consumes terminal presentation facts without observing th
       "const trunk = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk);",
     ].join("\n"),
   ).map((finding) => finding.rule).toSorted();
-  assertEquals(futureSibling, [
+  assertEquals(futureFindings, [
     "direct-console-size-probe",
     "direct-stream-terminal-probe",
     "direct-terminal-environment-probe",
@@ -308,11 +334,13 @@ Deno.test("Gate source consumes terminal presentation facts without observing th
   ]);
 
   const findings: Finding[] = [];
-  for (const rel of GATE_RUNTIME_TS_FILES) {
+  for (const rel of RUNTIME_TS_FILES) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    if (!consumesExplicitPresentationFacts(rel, source)) continue;
     findings.push(
-      ...gatePresentationProbeFindings(
+      ...presentationProbeFindings(
         rel,
-        await Deno.readTextFile(join(REPO_ROOT, rel)),
+        source,
       ),
     );
   }
