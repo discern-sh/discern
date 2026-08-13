@@ -241,6 +241,15 @@ function HeroFacts() {
   );
 }
 
+/** Atmospheric discern mark shared by the current and archived heroes. */
+function HeroHalo() {
+  return (
+    <div className="landing-hero__halo" aria-hidden="true">
+      <MarkGlyph className="landing-hero__mark" />
+    </div>
+  );
+}
+
 /** Ambition-led opening with a direct commissioning path. */
 function Hero({ archived = false }: { readonly archived?: boolean }) {
   return (
@@ -277,36 +286,38 @@ function Hero({ archived = false }: { readonly archived?: boolean }) {
             : <HeroFacts />}
         </>
       }
-      actions={
-        <>
-          <Button
-            className="landing-hero__action"
-            href="#project-preview"
-            variant="primary"
-          >
-            See discern in practice
-          </Button>
-          <Button
-            className="landing-hero__action"
-            href="#commissioning"
-            variant="secondary"
-          >
-            Watch a project get commissioned
-          </Button>
-        </>
-      }
-      meta={
-        <>
-          <div className="landing-hero__halo" aria-hidden="true">
-            <MarkGlyph className="landing-hero__mark" />
-          </div>
-          <CopyPrompt
-            id="hero-copy-prompt"
-            label="Already working with a coding agent? Copy this into the conversation."
-          />
-          {archived ? <HeroFacts /> : null}
-        </>
-      }
+      actions={archived
+        ? (
+          <>
+            <Button
+              className="landing-hero__action"
+              href="#project-preview"
+              variant="primary"
+            >
+              See discern in practice
+            </Button>
+            <Button
+              className="landing-hero__action"
+              href="#commissioning"
+              variant="secondary"
+            >
+              Watch a project get commissioned
+            </Button>
+          </>
+        )
+        : null}
+      meta={archived
+        ? (
+          <>
+            <HeroHalo />
+            <CopyPrompt
+              id="hero-copy-prompt"
+              label="Already working with a coding agent? Copy this into the conversation."
+            />
+            <HeroFacts />
+          </>
+        )
+        : null}
       visual={
         <>
           {archived
@@ -316,6 +327,7 @@ function Hero({ archived = false }: { readonly archived?: boolean }) {
               </div>
             )
             : null}
+          {archived ? null : <HeroHalo />}
           <ProviderStrip />
         </>
       }
