@@ -9,11 +9,21 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
+  DISCERN_TRIANGLE_GLYPHS,
+  measureText,
+  renderCodeListingCli,
+  renderDividerCli,
+  renderHeadingCli,
+  renderTableCli,
+  stripAnsi,
+} from "discern-design-system/cli";
+import {
   inlineToPlain,
   renderMarkdown,
   renderMarkdownHtml,
   renderMarkdownInlineHtml,
 } from "../src/lib/markdown.ts";
+import { terminalPresentationContext } from "../src/lib/terminal.ts";
 
 const plain = (md: string, width = 80) =>
   renderMarkdown(md, { width, color: false });
@@ -145,7 +155,13 @@ Deno.test("colour mode emits ANSI and a heading underline rule", () => {
   const out = renderMarkdown("# Title", { color: true, width: 40 });
   assertStringIncludes(out, "\x1b["); // some styling was applied
   assertStringIncludes(out, "Title");
-  assertStringIncludes(out, "─────"); // the H1 underline row
+  assertEquals(
+    out,
+    renderHeadingCli(
+      { text: "Title", level: 1, maxWidth: 40 },
+      { colorDepth: "ansi16", columns: 40, unicode: true },
+    ),
+  );
 });
 
 Deno.test("explicit colour is independent of inherited NO_COLOR", async () => {
@@ -229,9 +245,9 @@ Deno.test("emphasis with a space just inside the marker is not emphasis", () => 
   assertEquals(plain("a *unclosed b"), "a *unclosed b");
 });
 
-Deno.test("inline code is yellow in colour mode", () => {
+Deno.test("inline code uses a package Token colour in colour mode", () => {
   const out = renderMarkdown("`code`", { color: true });
-  assertStringIncludes(out, "\x1b[33m"); // yellow
+  assertStringIncludes(out, "\x1b[");
   assertStringIncludes(out, "code");
 });
 
@@ -261,10 +277,13 @@ Deno.test("a horizontal rule renders as a full-width line", () => {
   assertStringIncludes(plain("___", 20), "─".repeat(20));
 });
 
-Deno.test("a horizontal rule is dimmed in colour mode", () => {
+Deno.test("a horizontal rule is the package Divider component in colour mode", () => {
   const out = renderMarkdown("a\n\n---\n\nb", { color: true, width: 20 });
-  assertStringIncludes(out, "\x1b[90m"); // brightBlack
-  assertStringIncludes(out, "─".repeat(20));
+  const divider = renderDividerCli(
+    { treatment: "rule", width: 20 },
+    { colorDepth: "ansi16", columns: 20, unicode: true },
+  );
+  assertStringIncludes(out, divider);
 });
 
 Deno.test("list continuation lines fold into the preceding item", () => {
@@ -296,34 +315,99 @@ Deno.test("a paragraph gathers consecutive lines and wraps them", () => {
 });
 
 Deno.test("headings above level 1 are styled by level in colour mode", () => {
-  const h2 = renderMarkdown("## Heading two", { color: true });
-  assertStringIncludes(h2, "\x1b[36m"); // cyan for H2
-  assertStringIncludes(h2, "Heading two");
-
-  const h3 = renderMarkdown("### Heading three", { color: true });
-  assertStringIncludes(h3, "\x1b[1m"); // bold (no extra colour) for H3
-  assertStringIncludes(h3, "Heading three");
-
-  const h4 = renderMarkdown("#### Heading four", { color: true });
-  assertStringIncludes(h4, "\x1b[90m"); // brightBlack for H4+
-  assertStringIncludes(h4, "Heading four");
+  for (
+    const [level, text] of [[2, "Heading two"], [3, "Heading three"], [
+      4,
+      "Heading four",
+    ]] as const
+  ) {
+    assertEquals(
+      renderMarkdown(`${"#".repeat(level)} ${text}`, { color: true }),
+      renderHeadingCli(
+        { text, level, maxWidth: 80 },
+        { colorDepth: "ansi16", columns: 80, unicode: true },
+      ),
+    );
+  }
 });
 
 Deno.test("fenced code blocks render a bordered box in colour mode", () => {
   const withLang = renderMarkdown("```sh\necho hi\n```", { color: true });
-  assertStringIncludes(withLang, "┌─"); // top border
-  assertStringIncludes(withLang, "│ "); // body bar glyph
-  assertStringIncludes(withLang, "echo hi"); // code content
-  assertStringIncludes(withLang, "└─"); // bottom border
-  assertStringIncludes(withLang, "\x1b[2m"); // dim language label
-  assertStringIncludes(withLang, "sh");
+  assertEquals(
+    withLang,
+    renderCodeListingCli(
+      { code: "echo hi", language: "sh", maxWidth: 80 },
+      { colorDepth: "ansi16", columns: 80, unicode: true },
+    ),
+  );
 
   // Without a language the box has no label but still has borders.
   const noLang = renderMarkdown("```\nplain\n```", { color: true });
-  assertStringIncludes(noLang, "┌─");
-  assertStringIncludes(noLang, "│ ");
-  assertStringIncludes(noLang, "plain");
-  assertStringIncludes(noLang, "└─");
+  assertEquals(
+    noLang,
+    renderCodeListingCli(
+      { code: "plain", maxWidth: 80 },
+      { colorDepth: "ansi16", columns: 80, unicode: true },
+    ),
+  );
+});
+
+Deno.test("Markdown tables are byte-for-byte the public Table component", () => {
+  const markdown = "| Name | State |\n|---|---|\n| café 🙂 | ready |";
+  for (
+    const capabilities of [
+      { colorDepth: "none" as const, columns: 40, unicode: true },
+      { colorDepth: "ansi16" as const, columns: 40, unicode: true },
+      { colorDepth: "none" as const, columns: 40, unicode: false },
+    ]
+  ) {
+    const rendered = renderMarkdown(markdown, {
+      width: 40,
+      color: capabilities.colorDepth !== "none",
+      terminal: {
+        // Resolve the renderer through its public compatibility context while
+        // overriding only the package facts under test.
+        ...terminalPresentationContext(capabilities.colorDepth !== "none"),
+        capabilities,
+        size: { columns: 40, rows: 24 },
+      },
+    });
+    const expected = renderTableCli(
+      {
+        columns: [{ header: "Name" }, { header: "State" }],
+        rows: [["café 🙂", "ready"]],
+        striped: true,
+        width: 40,
+      },
+      capabilities,
+    );
+    assertEquals(rendered, expected);
+    for (const line of stripAnsi(rendered).split("\n")) {
+      assertEquals(measureText(line), 40);
+    }
+  }
+});
+
+Deno.test("ASCII Markdown presentation contains no Unicode-only motif glyphs", () => {
+  const terminal = terminalPresentationContext(false);
+  const out = renderMarkdown("# Heading\n\n---\n\n> quote\n\n- item", {
+    width: 32,
+    color: false,
+    terminal: {
+      ...terminal,
+      capabilities: {
+        ...terminal.capabilities,
+        columns: 32,
+        unicode: false,
+      },
+      size: { columns: 32, rows: 24 },
+    },
+  });
+  for (const glyph of Object.values(DISCERN_TRIANGLE_GLYPHS)) {
+    assert(!out.includes(glyph), `Unicode triangle leaked: ${glyph}`);
+  }
+  assertStringIncludes(out, "| quote");
+  assertStringIncludes(out, "- item");
 });
 
 Deno.test("HTML heading ids match GitHub's anchor algorithm", () => {

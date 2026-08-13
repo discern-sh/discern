@@ -1340,7 +1340,7 @@ Deno.test("doctor: human output prints the execution-model section on stderr", a
     assertEquals(code, 0);
     assertStringIncludes(stderr, "Execution model");
     assertStringIncludes(stderr, "[discern] merge-check");
-    assertStringIncludes(stderr, "\naccept\n");
+    assertStringIncludes(stderr, " accept ");
   });
 });
 
@@ -1376,10 +1376,10 @@ Deno.test("doctor --verbose: shows every step's hint, undeduplicated, and drops 
     // Hints are shown and never deduplicated: the git hint recurs on every git step
     // within a single verb (accept runs several), so it appears more than
     // once in that one section — the ambiguity a per-verb dedup would introduce.
-    const start = stderr.indexOf("\naccept\n");
+    const start = stderr.indexOf(" accept ");
     const section = stderr.slice(
       start,
-      stderr.indexOf("worktree prune", start),
+      stderr.indexOf(" worktree prune ", start),
     );
     const gitHints = section.split("A built-in git mutation").length - 1;
     assert(

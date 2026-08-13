@@ -17,7 +17,17 @@ import {
 import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { Logger } from "../lib/log.ts";
-import { terminalWidth, wrapText } from "../lib/text.ts";
+import {
+  renderBannerCli,
+  renderDocsHeaderCli,
+  renderSectionCli,
+} from "discern-design-system/cli";
+import { padDisplayEnd, wrapText } from "../lib/text.ts";
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalContextWithColor,
+} from "../lib/terminal.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { isRecordedSchemaNewer, resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION, UPDATE_CHANNEL } from "../lib/version.ts";
@@ -1173,8 +1183,8 @@ function midSetup(cfg: DiscernConfig | undefined): boolean {
 /** The width to wrap the execution model to: the terminal's, or a sane default when
  * output is piped/redirected (not a TTY). Capped so lines stay readable on a very wide
  * terminal, and floored so the hanging indents still leave room for text. */
-function modelWidth(): number {
-  return Math.max(56, Math.min(terminalWidth({ fallback: 100 }), 110));
+function modelWidth(terminal: TerminalContext): number {
+  return Math.max(24, Math.min(terminal.capabilities.columns, 110));
 }
 
 /** The opt-in pointer shown at the top and foot of the human execution-model section
@@ -1201,8 +1211,10 @@ function renderExecutionModel(
   log: Logger,
   model: VerbPlan[],
   verbose: boolean,
+  terminal: TerminalContext,
 ): void {
-  const width = modelWidth();
+  const width = modelWidth(terminal);
+  const capabilities = { ...terminal.capabilities, columns: width };
   const LABEL_COL = 12; // 2 (indent) + 9 (padded actor tag) + 1 (space)
   const HINT_COL = 14; // hints nest one notch under the label column
   const labelIndent = " ".repeat(LABEL_COL);
@@ -1210,36 +1222,69 @@ function renderExecutionModel(
   // The opt-in pointer, emitted at the top and foot of the section when hints are off.
   const showPointer = (): void => {
     log.group("execution-model-pointer");
-    log.humanLine(`  ${log.cyan("→")} ${log.bold(VERBOSE_HINT_POINTER)}`);
+    log.humanLine(
+      `  ${terminal.tone("→", "accent")} ${
+        terminal.role(VERBOSE_HINT_POINTER, "strong")
+      }`,
+    );
   };
 
-  log.heading("Execution model");
+  log.humanLine(renderSectionCli(
+    {
+      title: "Execution model",
+      body: "",
+      treatment: "rule",
+      spacing: "none",
+      theme: terminal.themeVariant,
+      width,
+    },
+    capabilities,
+  ));
   // An aligned legend, rather than one long sentence that would itself wrap.
-  log.humanLine(`  ${log.dim("What runs when you call each verb:")}`);
   log.humanLine(
-    `    ${log.green("[project]".padEnd(9))} ${
-      log.dim("your configured command")
+    `  ${terminal.role("What runs when you call each verb:", "muted")}`,
+  );
+  log.humanLine(
+    `    ${terminal.tone(padDisplayEnd("[project]", 9), "success")} ${
+      terminal.role("your configured command", "muted")
     }`,
   );
   log.humanLine(
-    `    ${log.cyan("[discern]".padEnd(9))} ${log.dim("a built-in step")}`,
+    `    ${terminal.tone(padDisplayEnd("[discern]", 9), "accent")} ${
+      terminal.role("a built-in step", "muted")
+    }`,
   );
   if (!verbose) {
     showPointer();
   }
 
   for (const vp of model) {
-    log.heading(vp.verb);
-    for (const line of wrapText(vp.when, width - 2)) {
-      log.humanLine(`  ${log.dim(line)}`);
-    }
+    log.humanLine(renderSectionCli(
+      {
+        title: vp.verb,
+        body: vp.when,
+        treatment: "rule",
+        spacing: "sm",
+        theme: terminal.themeVariant,
+        width,
+      },
+      capabilities,
+    ));
     if (vp.steps.length === 0) {
-      log.humanLine(`  ${log.dim("(nothing configured)")}`);
+      log.humanLine(
+        `  ${terminal.role("(nothing configured)", "muted")}`,
+      );
       continue;
     }
     for (const s of vp.steps) {
-      const tag = (s.actor === "project" ? "[project]" : "[discern]").padEnd(9);
-      const tagColored = s.actor === "project" ? log.green(tag) : log.cyan(tag);
+      const tag = padDisplayEnd(
+        s.actor === "project" ? "[project]" : "[discern]",
+        9,
+      );
+      const tagColored = terminal.tone(
+        tag,
+        s.actor === "project" ? "success" : "accent",
+      );
       const note = s.note !== undefined ? ` — ${s.note}` : "";
       const cond = s.condition !== undefined ? ` (${s.condition})` : "";
       // Wrap the headline body (label + note + condition) to the room right of the
@@ -1248,9 +1293,9 @@ function renderExecutionModel(
       const bodyLines = wrapText(`${s.label}${note}${cond}`, width - LABEL_COL);
       bodyLines.forEach((bl, i) => {
         if (i === 0) {
-          const boldLen = Math.min(s.label.length, bl.length);
+          const boldLen = bl.startsWith(s.label) ? s.label.length : 0;
           log.humanLine(
-            `  ${tagColored} ${log.bold(bl.slice(0, boldLen))}${
+            `  ${tagColored} ${terminal.role(bl.slice(0, boldLen), "strong")}${
               bl.slice(boldLen)
             }`,
           );
@@ -1262,7 +1307,7 @@ function renderExecutionModel(
       // own explanation, so the meaning of a line is never deferred to an earlier one.
       if (verbose && s.hint !== undefined) {
         for (const hl of wrapText(s.hint, width - HINT_COL)) {
-          log.humanLine(`${hintIndent}${log.dim(hl)}`);
+          log.humanLine(`${hintIndent}${terminal.role(hl, "muted")}`);
         }
       }
     }
@@ -1276,18 +1321,52 @@ function renderExecutionModel(
 }
 
 /** Render the actionable install checks for the human (non-`--json`) path. */
-function renderDoctorChecks(log: Logger, checks: Check[]): void {
-  log.heading("Doctor checks");
+function renderDoctorChecks(
+  log: Logger,
+  checks: Check[],
+  terminal: TerminalContext,
+): void {
+  const width = modelWidth(terminal);
+  const capabilities = { ...terminal.capabilities, columns: width };
+  log.humanLine(renderSectionCli(
+    {
+      title: "Doctor checks",
+      body: "",
+      treatment: "rule",
+      spacing: "none",
+      theme: terminal.themeVariant,
+      width,
+    },
+    capabilities,
+  ));
   for (const check of checks) {
     if (check.status === "warn") {
-      log.warn(`${check.name}: ${check.detail}`);
+      log.humanLine(renderBannerCli(
+        {
+          title: "",
+          message: `${check.name}: ${check.detail}`,
+          tone: "warning",
+          theme: terminal.themeVariant,
+          width,
+        },
+        capabilities,
+      ));
       if (check.fix) {
         log.detail(`fix: ${check.fix}`);
       }
     } else if (check.status === "ok") {
       log.ok(`${check.name}: ${check.detail}`);
     } else {
-      log.error(`${check.name}: ${check.detail}`);
+      log.humanLine(renderBannerCli(
+        {
+          title: "",
+          message: `${check.name}: ${check.detail}`,
+          tone: "danger",
+          theme: terminal.themeVariant,
+          width,
+        },
+        capabilities,
+      ));
       if (check.fix) {
         log.detail(`fix: ${check.fix}`);
       }
@@ -1297,7 +1376,12 @@ function renderDoctorChecks(log: Logger, checks: Check[]): void {
 
 /** Run `discern doctor`. Returns a process exit code (0 = healthy). */
 export async function runDoctor(options: DoctorOptions): Promise<number> {
-  const log = new Logger(options);
+  const baseTerminal = terminalContext();
+  const terminal = terminalContextWithColor(
+    baseTerminal,
+    baseTerminal.color && !options.noColor,
+  );
+  const log = new Logger({ ...options, terminal });
   // Resolve the project root the way every other verb (and the `discern_doctor`
   // MCP tool) does — walk up from the cwd via `findRoot` — so doctor run from any
   // subdirectory diagnoses the same install the gate, status, and finish would,
@@ -1314,13 +1398,19 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
 
   const checks = result.data?.checks ?? [];
   const healthy = checks.every((c) => c.status !== "fail");
-  log.heading("discern doctor");
   const env = result.data?.environment ?? await doctorEnvironment();
-  log.detail(
-    `discern ${env.discern} · ${env.platform} · git ${
-      env.git !== undefined ? gitDisplayVersion(env.git) : "not found"
-    }`,
-  );
+  const width = modelWidth(terminal);
+  log.humanLine(renderDocsHeaderCli(
+    {
+      brand: "discern doctor",
+      middle: `discern ${env.discern} · ${env.platform} · git ${
+        env.git !== undefined ? gitDisplayVersion(env.git) : "not found"
+      }`,
+      theme: terminal.themeVariant,
+      maxWidth: width,
+    },
+    { ...terminal.capabilities, columns: width },
+  ));
   if (env.desk_session === true) {
     log.detail(
       "desk session: active — this process was launched by discern desk",
@@ -1328,9 +1418,14 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   }
   const cfg = await loadModelConfig(destDir);
   if (cfg !== undefined) {
-    renderExecutionModel(log, buildExecutionModel(cfg), options.verbose);
+    renderExecutionModel(
+      log,
+      buildExecutionModel(cfg),
+      options.verbose,
+      terminal,
+    );
   }
-  renderDoctorChecks(log, checks);
+  renderDoctorChecks(log, checks, terminal);
   log.group("doctor-verdict");
   if (healthy) {
     const advisories = checks.filter((c) => c.status === "warn").length;

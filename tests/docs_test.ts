@@ -10,14 +10,25 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
-import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
+import { measureText, stripAnsi } from "discern-design-system/cli";
+import {
+  fakeEnv,
+  readTarget,
+  runCli,
+  seedConfig,
+  withTempDir,
+} from "./helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import {
   COMMAND_SYNONYM_SUGGESTIONS,
   RETIRED_COMMAND_REDIRECTS,
 } from "../src/shared/vocabulary.ts";
 import { stageBundledDocs } from "../scripts/build.ts";
-import { docsBrowseNavigationChoices } from "../src/commands/docs.ts";
+import {
+  docsBrowseNavigationChoices,
+  renderDocsCorpusHeader,
+} from "../src/commands/docs.ts";
+import { resolveTerminalContext } from "../src/lib/terminal.ts";
 
 /** This repo's root — used by the dogfood test to resolve discern's real docs. */
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
@@ -30,6 +41,45 @@ Deno.test("docs browser offers its online manual without adding it to map", () =
   assertEquals(
     docsBrowseNavigationChoices("map", false).map((choice) => choice.name),
     ["Quit"],
+  );
+});
+
+Deno.test("docs headers preserve exact facts at narrow and wide TTY widths", () => {
+  const directory = "/a/long/grapheme-safe/café-🙂/manual";
+  for (const width of [24, 80]) {
+    const terminal = resolveTerminalContext({
+      noColor: false,
+      env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+      isTerminal: () => true,
+      consoleSize: () => ({ columns: width, rows: 24 }),
+    });
+    const rendered = stripAnsi(
+      renderDocsCorpusHeader("docs", 17, directory, width, terminal),
+    );
+    for (const line of rendered.split("\n")) {
+      assert(
+        measureText(line) <= width,
+        `${width}-column docs header overflowed: ${JSON.stringify(line)}`,
+      );
+    }
+    assertStringIncludes(rendered, "discern docs");
+    assertEquals(
+      rendered.split("\n").slice(1).join("").replaceAll(/\s+/gu, ""),
+      `— 17 documents in ${directory}`.replaceAll(/\s+/gu, ""),
+    );
+  }
+});
+
+Deno.test("docs headers keep the original one-line fact for pipes", () => {
+  const terminal = resolveTerminalContext({
+    noColor: true,
+    env: fakeEnv({}),
+    isTerminal: () => false,
+    consoleSize: () => ({ columns: 24, rows: 24 }),
+  });
+  assertEquals(
+    renderDocsCorpusHeader("docs", 17, "manual", 24, terminal),
+    "discern docs — 17 documents in manual",
   );
 });
 

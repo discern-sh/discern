@@ -417,6 +417,17 @@ function packageSourceImportFindings(rel: string, source: string): Finding[] {
   return findings;
 }
 
+/** Find presentation imports whose only remaining owner is Cliffy's parser. */
+function cliffyPresentationFindings(rel: string, source: string): Finding[] {
+  const code = codeOnly(source);
+  return [...code.matchAll(
+    /(?:from\s*|import\s*(?:\(\s*)?)["'](@cliffy\/(?:ansi(?:\/colors)?|table))["']/gu,
+  )].map((match) => ({
+    file: rel,
+    rule: `cliffy-presentation:${match[1] ?? "unknown"}`,
+  }));
+}
+
 const GENERIC_WIDTH_RULES = [
   { id: "Intl-Segmenter", pattern: /\bIntl\.Segmenter\b/u },
   { id: "extended-pictographic", pattern: /Extended_Pictographic/u },
@@ -551,6 +562,17 @@ Deno.test("terminal boundary detectors reject unrelated future source", () => {
     1,
   );
   assertEquals(
+    cliffyPresentationFindings(
+      "src/engine/orbit/view.ts",
+      'import { colors } from "@cliffy/ansi/colors";\n' +
+        'import { Table } from "@cliffy/table";',
+    ).map((finding) => finding.rule),
+    [
+      "cliffy-presentation:@cliffy/ansi/colors",
+      "cliffy-presentation:@cliffy/table",
+    ],
+  );
+  assertEquals(
     genericWidthFindings(
       "src/engine/orbit/view.ts",
       "const segmenter = new Intl.Segmenter();\n" +
@@ -650,6 +672,7 @@ Deno.test("authored runtime source cannot bypass terminal and text authorities",
     findings.push(
       ...authorityFindings(rel, source),
       ...packageSourceImportFindings(rel, source),
+      ...cliffyPresentationFindings(rel, source),
       ...genericWidthFindings(rel, source),
     );
   }
