@@ -16,7 +16,10 @@ import {
 } from "./design_system.ts";
 import { renderDiscernBrand } from "./page-src/branding.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
-import { renderLanding } from "./page-src/landing.tsx";
+import {
+  renderLanding,
+  renderOldLanding,
+} from "./page-src/landing.tsx";
 import { renderLipsum } from "./page-src/lipsum.ts";
 import { MARKETING_PAGES, type MarketingPageRoute } from "./marketing_pages.ts";
 
@@ -56,6 +59,7 @@ const MARKETING_PAGE_RENDERERS: Readonly<
   Record<MarketingPageRoute, () => string>
 > = {
   "/": renderLanding,
+  "/old": renderOldLanding,
   "/lipsum": renderLipsum,
 };
 

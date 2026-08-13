@@ -1135,24 +1135,13 @@ function FinalInvitation() {
   );
 }
 
-/** The complete public homepage. */
-function LandingPage() {
+/** Shared campaign chrome around the current and archived homepage bodies. */
+function LandingShell({ children }: { readonly children?: ReactNode }) {
   return (
     <>
       <SkipLink href="#main">Skip to content</SkipLink>
       <Masthead />
-      <main id="main">
-        <Hero />
-        <PossibilitySection />
-        <DelegationSection />
-        <CommissioningSection />
-        <DecisionSection />
-        <CompoundingSection />
-        <AudienceSection />
-        <AgentsSection />
-        <TrustSection />
-        <FinalInvitation />
-      </main>
+      <main id="main">{children}</main>
       <SiteFooter
         brand={<DiscernName />}
         brandMark={DISCERN_MARK}
@@ -1195,7 +1184,27 @@ function LandingPage() {
   );
 }
 
-/** Render the homepage for static serving. */
+/** The complete homepage retained at /old while the new page takes shape. */
+function OldLandingPage() {
+  return (
+    <LandingShell>
+      <>
+        <Hero />
+        <PossibilitySection />
+        <DelegationSection />
+        <CommissioningSection />
+        <DecisionSection />
+        <CompoundingSection />
+        <AudienceSection />
+        <AgentsSection />
+        <TrustSection />
+        <FinalInvitation />
+      </>
+    </LandingShell>
+  );
+}
+
+/** Render the blank homepage canvas for static serving. */
 export function renderLanding(): string {
   return pageDocument({
     source: "landing.tsx",
@@ -1203,6 +1212,18 @@ export function renderLanding(): string {
     description: LANDING_DESCRIPTION,
     styles: ["fonts.css", "discern.css", "landing.css"],
     scripts: ["landing.js"],
-    body: renderToStaticMarkup(<LandingPage />),
+    body: renderToStaticMarkup(<LandingShell />),
+  });
+}
+
+/** Render the preserved full homepage at /old. */
+export function renderOldLanding(): string {
+  return pageDocument({
+    source: "landing.tsx",
+    title: LANDING_TITLE,
+    description: LANDING_DESCRIPTION,
+    styles: ["fonts.css", "discern.css", "landing.css"],
+    scripts: ["landing.js"],
+    body: renderToStaticMarkup(<OldLandingPage />),
   });
 }

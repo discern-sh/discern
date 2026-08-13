@@ -21,6 +21,12 @@ export const MARKETING_PAGES = [{
   negotiable: true,
   register: "brand",
 }, {
+  route: "/old",
+  page: "pages/old.html",
+  source: "site/page-src/landing.tsx",
+  negotiable: false,
+  register: "brand",
+}, {
   route: "/lipsum",
   page: "pages/lipsum.html",
   source: "site/page-src/lipsum.ts",

@@ -27,6 +27,7 @@ export const LIPSUM_DESCRIPTION =
  */
 export const SELF_TITLED_PAGES: Readonly<Record<string, string>> = {
   "/": LANDING_TITLE,
+  "/old": LANDING_TITLE,
   "/lipsum": LIPSUM_TITLE,
 };
 

@@ -1,13 +1,14 @@
 /**
  * Copy-neutral design-review twin of the homepage.
  *
- * The real landing renderer remains the one structural authority. This module
- * changes only its visible words and adds review numbers to the top-level
- * sections, so the two routes cannot acquire different layouts by accident.
+ * The archived full landing renderer remains the one structural authority.
+ * This module changes only its visible words and adds review numbers to the
+ * top-level sections, so the two routes cannot acquire different layouts by
+ * accident.
  */
 
 import { LIPSUM_DESCRIPTION, LIPSUM_TITLE } from "../brand.ts";
-import { renderLanding } from "./landing.tsx";
+import { renderOldLanding } from "./landing.tsx";
 
 const LOREM_WORDS = [
   "lorem",
@@ -223,7 +224,7 @@ function neutralizeBody(body: string): string {
 
 /** Replace the body and metadata while retaining the homepage's exact shell. */
 export function renderLipsum(): string {
-  const landing = renderLanding();
+  const landing = renderOldLanding();
   const bodyStart = landing.indexOf("<body>");
   const bodyEnd = landing.indexOf("</body>", bodyStart);
   if (bodyStart < 0 || bodyEnd < 0) {
