@@ -1610,6 +1610,63 @@ Deno.test("patterns registry: every family has at least one member", () => {
   assertEquals([...populated].sort(), [...DETECTOR_FAMILIES].sort());
 });
 
+Deno.test("patterns registry: every detector stays bounded on a large history", () => {
+  const standards = Array.from(
+    { length: 12 },
+    (_, index) => reading(`large-history-${index}`, 100 + index, 80),
+  );
+  const events = Array.from({ length: 1_200 }, (_, index) =>
+    verb({
+      at: t(index),
+      duration_ms: index % 2 === 0 ? 5_000 : 10_000,
+      outcome: "failed",
+      failed_stage: "check/test",
+      driver: {
+        session: "mcp:large-history",
+        json: true,
+        tty: false,
+        ci: false,
+        mcp_client: {
+          name: "synthetic-client",
+          version: `9.9.${Math.floor(index / 300)}`,
+        },
+      },
+      standards,
+      steps: index % 2 === 0
+        ? [
+          { ...step("lint", 1), outcome: "failed" },
+          { ...step("test", 0), outcome: "cancelled" },
+        ]
+        : [
+          step("lint", 1),
+          { ...step("test", 10), outcome: "failed" },
+        ],
+    }));
+  const facts = buildStreamFacts(events, "main");
+  const timings: { id: string; milliseconds: number }[] = [];
+  const started = performance.now();
+  for (const entry of DETECTORS) {
+    const detectorStarted = performance.now();
+    runDetector(entry, facts);
+    timings.push({
+      id: entry.id,
+      milliseconds: performance.now() - detectorStarted,
+    });
+  }
+  const elapsed = performance.now() - started;
+  const slow = timings.filter((timing) => timing.milliseconds >= 2_000);
+  assertEquals(
+    slow,
+    [],
+    `large-history detectors exceeded 2s: ${JSON.stringify(slow)}`,
+  );
+  assert(
+    elapsed < 6_000,
+    `the enrolled detector registry took ${Math.round(elapsed)}ms on 1,200 ` +
+      `events: ${JSON.stringify(timings)}`,
+  );
+});
+
 Deno.test("patterns registry: every detector supplies its three fixtures", () => {
   assertEquals(
     Object.keys(FIXTURES).sort(),

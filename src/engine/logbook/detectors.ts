@@ -98,6 +98,27 @@ export const TRAJECTORY_BOUNDARY_ATTRIBUTION =
 
 // ── the stream, pre-digested ────────────────────────────────────────────────
 
+/** One completed Gate-job duration retained in the per-stream analysis. */
+interface CompletedJobSample {
+  event: VerbEvent;
+  seconds: number;
+}
+
+/** Setup and completed-job facts derived once for every detector run. */
+export interface StreamAnalysis {
+  /** Display label for the dominant recorded MCP client, when one exists. */
+  clientLabel: string | undefined;
+  /** One event's dominant-client version in effect. */
+  clientVersionOf(event: VerbEvent): string | undefined;
+  /** Constant-time config/writer/client setup identity for one event. */
+  setupKeyOf(event: VerbEvent): string;
+  /** Completed Gate jobs, indexed first by label and then by setup identity. */
+  completedJobs: ReadonlyMap<
+    string,
+    ReadonlyMap<string, readonly CompletedJobSample[]>
+  >;
+}
+
 /** The event stream plus everything detectors keep re-deriving, computed once. */
 export interface StreamFacts {
   /** Every parsed event eligible for analysis, oldest first (setup-era
@@ -121,6 +142,8 @@ export interface StreamFacts {
   /** Events recorded during the project's one-time setup, set aside before
    * any population was derived — reported, so the exclusion is never silent. */
   setupEra: number;
+  /** Whole-stream setup and completed-job analysis shared by every detector. */
+  analysis: StreamAnalysis;
 }
 
 /** The analysis population of a raw stream: verb events minus CI noise and
@@ -142,6 +165,58 @@ function setupEraEvent(e: LogbookEvent): boolean {
   return e.kind !== "prune" && e.branch === SETUP_BRANCH;
 }
 
+/** Build the setup and completed-job indexes once for one analyzed stream. */
+function buildStreamAnalysis(verbs: readonly VerbEvent[]): StreamAnalysis {
+  const eras = dominantClientEras(verbs);
+  const clientVersions = new Map<VerbEvent, string | undefined>();
+  const setupKeys = new Map<VerbEvent, string>();
+  for (const event of verbs) {
+    clientVersions.set(event, eras.versionInEffectOf(event));
+  }
+  const clientVersionOf = (event: VerbEvent): string | undefined =>
+    clientVersions.has(event)
+      ? clientVersions.get(event)
+      : eras.versionInEffectOf(event);
+  for (const event of verbs) {
+    setupKeys.set(event, setupOf(event, clientVersionOf));
+  }
+  const setupKeyOf = (event: VerbEvent): string =>
+    setupKeys.get(event) ?? setupOf(event, clientVersionOf);
+
+  const completedJobs = new Map<
+    string,
+    Map<string, CompletedJobSample[]>
+  >();
+  for (const event of verbs) {
+    if (event.verb !== "done") {
+      continue;
+    }
+    const setup = setupKeyOf(event);
+    const indexedLabels = new Set<string>();
+    for (const step of event.steps ?? []) {
+      if (
+        step.disposition !== "run" ||
+        (step.outcome !== "ok" && step.outcome !== "failed") ||
+        step.duration_s === undefined || indexedLabels.has(step.label)
+      ) {
+        continue;
+      }
+      indexedLabels.add(step.label);
+      const bySetup = completedJobs.get(step.label) ?? new Map();
+      const samples = bySetup.get(setup) ?? [];
+      samples.push({ event, seconds: step.duration_s });
+      bySetup.set(setup, samples);
+      completedJobs.set(step.label, bySetup);
+    }
+  }
+  return {
+    clientLabel: eras.label,
+    clientVersionOf,
+    setupKeyOf,
+    completedJobs,
+  };
+}
+
 /** Build the pre-digested facts every detector receives. Setup-era events are
  * set aside first — every derived population, the boundary vocabulary, and
  * the stream horizon read from the remainder. */
@@ -153,6 +228,7 @@ export function buildStreamFacts(
   const analyzed = events.filter((e) => !setupEraEvent(e));
   const verbs = analyzableVerbs(analyzed);
   const agentish = verbs.filter((e) => driverKind(e) !== "human");
+  const analysis = buildStreamAnalysis(verbs);
   return {
     events: analyzed,
     verbs,
@@ -161,6 +237,7 @@ export function buildStreamFacts(
     configuredAgents,
     horizon: analyzed[analyzed.length - 1]?.at,
     setupEra: events.length - analyzed.length,
+    analysis,
   };
 }
 
@@ -352,27 +429,26 @@ function setupOf(
  * writer or client release), so a trend detector can attribute instead of
  * blending — or staying silent.
  */
-export function comparableSeries(
+function comparableSeriesWithAnalysis(
   events: VerbEvent[],
   all: LogbookEvent[],
+  analysis: StreamAnalysis,
 ): ComparableSeries {
   const last = events[events.length - 1];
   if (last === undefined) {
     return { series: [] };
   }
-  const eras = dominantClientEras(analyzableVerbs(all));
-  const version = eras.versionInEffectOf;
-  const currentSetup = setupOf(last, version);
+  const currentSetup = analysis.setupKeyOf(last);
   const series: VerbEvent[] = [];
   const excludedEvents: VerbEvent[] = [];
   for (const e of events) {
-    (setupOf(e, version) === currentSetup ? series : excludedEvents).push(e);
+    (analysis.setupKeyOf(e) === currentSetup ? series : excludedEvents).push(e);
   }
   if (excludedEvents.length === 0) {
     return { series };
   }
 
-  const setups = new Set(excludedEvents.map((e) => setupOf(e, version))).size;
+  const setups = new Set(excludedEvents.map(analysis.setupKeyOf)).size;
   const moved: string[] = [];
   const otherEpochs = new Set(
     excludedEvents.filter((e) => e.epoch !== last.epoch).map((e) => e.epoch),
@@ -405,17 +481,19 @@ export function comparableSeries(
         : `${formatHumanNumber(otherWriters.size)} other releases`,
     );
   }
-  const currentVersion = version(last);
+  const currentVersion = analysis.clientVersionOf(last);
   const otherVersions = new Set(
-    excludedEvents.map(version).filter((v) => v !== currentVersion),
+    excludedEvents.map(analysis.clientVersionOf).filter((v) =>
+      v !== currentVersion
+    ),
   );
-  if (otherVersions.size > 0 && eras.label !== undefined) {
+  if (otherVersions.size > 0 && analysis.clientLabel !== undefined) {
     const [only] = otherVersions;
     moved.push(
       otherVersions.size === 1 && only !== undefined &&
         currentVersion !== undefined
-        ? `the ${eras.label} ${only} → ${currentVersion} client release`
-        : `other ${eras.label} client releases`,
+        ? `the ${analysis.clientLabel} ${only} → ${currentVersion} client release`
+        : `other ${analysis.clientLabel} client releases`,
     );
   }
   return {
@@ -426,6 +504,26 @@ export function comparableSeries(
       detail: moved.join(" and "),
     },
   };
+}
+
+/** Compare an arbitrary event list using one freshly derived stream index. */
+export function comparableSeries(
+  events: VerbEvent[],
+  all: LogbookEvent[],
+): ComparableSeries {
+  return comparableSeriesWithAnalysis(
+    events,
+    all,
+    buildStreamAnalysis(analyzableVerbs(all)),
+  );
+}
+
+/** Compare detector candidates through the shared per-stream setup index. */
+function comparableFactsSeries(
+  events: VerbEvent[],
+  facts: StreamFacts,
+): ComparableSeries {
+  return comparableSeriesWithAnalysis(events, facts.events, facts.analysis);
 }
 
 /** The attribution finding a trend detector reports when its comparable
@@ -483,9 +581,9 @@ function stageSeconds(e: VerbEvent, group: string): number | undefined {
 function sameComparableSetup(
   left: VerbEvent,
   right: VerbEvent,
-  all: LogbookEvent[],
+  facts: StreamFacts,
 ): boolean {
-  return comparableSeries([left, right], all).series.length === 2;
+  return facts.analysis.setupKeyOf(left) === facts.analysis.setupKeyOf(right);
 }
 
 /** Count repeated complete validation states beyond the first observation. */
@@ -513,16 +611,15 @@ function unchangedValidationReruns(events: readonly VerbEvent[]): number {
 /** A bounded setup account for structured decision evidence. */
 function setupConditions(
   events: readonly VerbEvent[],
-  all: readonly LogbookEvent[],
+  analysis: StreamAnalysis,
 ): NonNullable<PatternEvidenceBasis["matched_conditions"]> {
-  const eras = dominantClientEras(analyzableVerbs(all));
-  const clientRelease = eras.label === undefined
+  const clientRelease = analysis.clientLabel === undefined
     ? undefined
     : boundedPatternEvidenceCondition(
-      `${eras.label}-client-release`,
+      `${analysis.clientLabel}-client-release`,
       events.map((event) => ({
-        key: eras.versionInEffectOf(event) ?? "unrecorded",
-        label: eras.versionInEffectOf(event) ?? "unrecorded",
+        key: analysis.clientVersionOf(event) ?? "unrecorded",
+        label: analysis.clientVersionOf(event) ?? "unrecorded",
       })),
     );
   return [
@@ -553,7 +650,7 @@ function decisionEvidenceBasis(
     denominator: number;
     unit: string;
     events: readonly VerbEvent[];
-    allEvents: readonly LogbookEvent[];
+    facts: StreamFacts;
     estimated?: ReadonlySet<string>;
     legacyEvents?: number;
     excludedEvents?: number;
@@ -569,7 +666,7 @@ function decisionEvidenceBasis(
       unit: options.unit,
     },
     validation_state: { version: null, complete: false },
-    matched_conditions: setupConditions(options.events, options.allEvents),
+    matched_conditions: setupConditions(options.events, options.facts.analysis),
     differing_conditions: [],
     legacy_events: options.legacyEvents ?? 0,
     excluded_events: options.excludedEvents ?? 0,
@@ -623,7 +720,7 @@ const doneThrash: Detector = {
               denominator: session.length,
               unit: "Gate runs in the conversation",
               events: session,
-              allEvents: facts.events,
+              facts,
               limitations: [
                 "The streak is conversation-scoped; synthesis requires another finding on the same branch and recorded setup.",
               ],
@@ -1132,7 +1229,6 @@ export function tipAdoptionOutcome(
   registry: readonly RegisteredTip[] = TIPS,
 ): DetectorOutcome {
   const families = tipAdoptionFamilies(registry);
-  const eras = dominantClientEras(facts.verbs);
   const countsById = new Map<string, TipAdoptionCounts>();
   for (const family of families) {
     for (const member of family.members) {
@@ -1154,8 +1250,8 @@ export function tipAdoptionOutcome(
             facts.verbs,
             index,
             member,
-            eras.versionInEffectOf,
-            eras.label !== undefined,
+            facts.analysis.clientVersionOf,
+            facts.analysis.clientLabel !== undefined,
           )
         ) {
           case "followed":
@@ -1363,7 +1459,7 @@ const skippedPrepare: Detector = {
               denominator: dones.length,
               unit: "full-Gate runs",
               events,
-              allEvents: facts.events,
+              facts,
               limitations: [
                 "The predicate proves recorded fix or regeneration work that preflight also runs; missing prepare invocation alone establishes nothing.",
               ],
@@ -2436,12 +2532,12 @@ const dominantStage: Detector = {
   next_step:
     "Treat share as a statistic. Change the setup only when the finding names recorded avoidable cost such as a scope mismatch, unchanged reruns, or queue contention.",
   detect(facts): DetectorOutcome {
-    const { series, excluded } = comparableSeries(
+    const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) =>
         e.verb === "done" &&
         (e.steps ?? []).some((s) => s.duration_s !== undefined)
       ),
-      facts.events,
+      facts,
     );
     // "Considered" counts every examined run, comparable or not, so a series
     // outnumbered by other setups reports the attribution instead of going quiet.
@@ -2546,7 +2642,7 @@ const dominantStage: Detector = {
             denominator: considered,
             unit: "Gate runs",
             events: series,
-            allEvents: facts.events,
+            facts,
             excludedEvents: excluded?.runs ?? 0,
             limitations: [
               "Gate-time share is descriptive; the recommendation depends only on the separately recorded avoidable-cost fields.",
@@ -2582,12 +2678,12 @@ const generatorGateShare: Detector = {
   next_step:
     "Restructure the heaviest generated group: split it, speed up its command, or narrow what it derives so regeneration takes less time on every full Gate.",
   detect(facts): DetectorOutcome {
-    const { series, excluded } = comparableSeries(
+    const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) =>
         e.verb === "done" &&
         (e.steps ?? []).some((s) => s.duration_s !== undefined)
       ),
-      facts.events,
+      facts,
     );
     const considered = series.length + (excluded?.runs ?? 0);
     if (series.length < GATE_DOMINANCE_MIN_RUNS) {
@@ -2669,7 +2765,7 @@ const generatorGateShare: Detector = {
             denominator: considered,
             unit: "Gate runs",
             events: series,
-            allEvents: facts.events,
+            facts,
             excludedEvents: excluded?.runs ?? 0,
             limitations: [
               "Generator share is descriptive; advice is supported by repeated execution on an unchanged complete validation state.",
@@ -2736,7 +2832,7 @@ const slotContention: Detector = {
           denominator: recent.length,
           unit: "capped validation runs",
           events: recent,
-          allEvents: facts.events,
+          facts,
           limitations: [
             "Queue wait is observed locally; synthesis requires the related finding to share one recorded setup.",
           ],
@@ -2779,22 +2875,11 @@ interface FailFastRelationship {
 function comparableCompletedDurations(
   job: string,
   anchor: VerbEvent,
-  dones: readonly VerbEvent[],
-  all: LogbookEvent[],
-): { event: VerbEvent; seconds: number }[] {
-  return dones.flatMap((event) => {
-    if (!sameComparableSetup(anchor, event, all)) {
-      return [];
-    }
-    const step = (event.steps ?? []).find((candidate) =>
-      candidate.label === job && candidate.disposition === "run" &&
-      (candidate.outcome === "ok" || candidate.outcome === "failed") &&
-      candidate.duration_s !== undefined
-    );
-    return step?.duration_s === undefined
-      ? []
-      : [{ event, seconds: step.duration_s }];
-  });
+  facts: StreamFacts,
+): readonly CompletedJobSample[] {
+  return facts.analysis.completedJobs.get(job)?.get(
+    facts.analysis.setupKeyOf(anchor),
+  ) ?? [];
 }
 
 /**
@@ -2842,7 +2927,7 @@ const maskedFailures: Detector = {
           if (
             n.epoch === null || next.epoch === null ||
             n.writer === undefined || next.writer === undefined ||
-            !sameComparableSetup(n, next, facts.events)
+            !sameComparableSetup(n, next, facts)
           ) {
             excludedSetupPairs += 1;
             continue;
@@ -2904,8 +2989,7 @@ const maskedFailures: Detector = {
         const completed = comparableCompletedDurations(
           label,
           relationship.first,
-          dones,
-          facts.events,
+          facts,
         );
         for (const sample of completed) {
           samples.add(`${sample.event.at}\0${label}`);
@@ -2993,7 +3077,7 @@ const maskedFailures: Detector = {
           denominator: considered,
           unit: "adjacent red Gate pairs",
           events: relationshipEvents,
-          allEvents: facts.events,
+          facts,
           estimated: new Set([
             "estimated_saved_tail_seconds",
             "conservative_saved_tail_seconds",
@@ -3033,9 +3117,9 @@ const durationCreep: Detector = {
     // Only green runs measure the gate's length: a red run's duration measures
     // where it failed (a fail-fast check dies in seconds, a test failure in
     // minutes), so mixing outcomes reads a red/green mix shift as creep.
-    const { series, excluded } = comparableSeries(
+    const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) => e.verb === "done" && e.outcome === "ok"),
-      facts.events,
+      facts,
     );
     const considered = series.length + (excluded?.runs ?? 0);
     if (series.length < 8) {
@@ -3100,12 +3184,12 @@ const fixStageIdle: Detector = {
   next_step:
     "Verify whether the configured fix stage still provides project-local benefit. If it does not, adjust where that job runs while preserving the full Gate's coverage.",
   detect(facts): DetectorOutcome {
-    const { series, excluded } = comparableSeries(
+    const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) =>
         (e.verb === "done" || e.verb === "prepare") &&
         stageSeconds(e, "Fix") !== undefined
       ),
-      facts.events,
+      facts,
     );
     const considered = series.length + (excluded?.runs ?? 0);
     if (series.length < 10) {
@@ -3760,11 +3844,11 @@ const updateFriction: Detector = {
   next_step:
     "Review the later updates. If long-lived efforts account for the larger counts, update earlier or reduce the next brief's scope; otherwise inspect the overlapping files before changing practice.",
   detect(facts): DetectorOutcome {
-    const { series, excluded } = comparableSeries(
+    const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) =>
         e.verb === "update" && e.update !== undefined && e.outcome === "ok"
       ),
-      facts.events,
+      facts,
     );
     const considered = series.length + (excluded?.runs ?? 0);
     if (series.length < 6) {
@@ -3990,7 +4074,7 @@ const standardTrajectory: Detector = {
       const currentEntries = retired || latestInventory === undefined
         ? []
         : entries.filter((entry) =>
-          sameComparableSetup(entry.event, latestInventory, facts.events)
+          sameComparableSetup(entry.event, latestInventory, facts)
         );
       const comparableReadings = currentEntries.filter((entry) =>
         entry.standard.value !== undefined
@@ -4150,7 +4234,7 @@ const standardTrajectory: Detector = {
           denominator: readings.length,
           unit: "Standard readings",
           events: currentEntries.map((entry) => entry.event),
-          allEvents: facts.events,
+          facts,
           legacyEvents: legacyEligibilityReadings,
           excludedEvents: readings.length - comparableReadings.length,
           limitations: [
