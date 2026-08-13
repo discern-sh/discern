@@ -25,27 +25,25 @@ import { handler, PAGES } from "../site/serve.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const EXPECTED_BROWSER_ART = [
-  ["alignment", "3006e8622db947c4417b4df2055e28820646ad2e"],
-  ["bifurcation", "36084a9cf3cdabd04e9734468b07bdde6f73107b"],
-  ["contour", "f7599b7669bfd3c4842c430adeb96330fbfa75d5"],
-  ["persistent-trace", "ae15a479e7f169cbebcbf6c598d8c8b5d2ccbede"],
-  ["invariant-core", "9b7b3eac0f1ffd1addeb970e1167866c855a37b1"],
-  ["circuit", "49104c19ddb978b6d78b7327ef7658e80a640095"],
-  ["seal", "73f09b4994be31ed1b8e1cb56e28b454239d7c5d"],
-  ["delta", "48f1d3509b67195281102bfabacfa46cd03fcde7"],
-  ["ratchet", "c238e1237cea38fed67ee2f67fae88551b88ff75"],
-  ["rule", "5b3e48ae75dc345aa63454cf2063d11923046634"],
-  ["survey", "2a94d9131027085e1d2869c631445d7fd67bd023"],
-  ["interference", "abb4c5474843a8892d65523a2e50f93819238176"],
-  ["mesh", "0000000000000000000000000000000000000000"],
-  ["phase", "0000000000000000000000000000000000000000"],
-  ["prism", "0000000000000000000000000000000000000000"],
-  ["packing", "0000000000000000000000000000000000000000"],
-  ["quorum", "0000000000000000000000000000000000000000"],
-  ["isolate", "0000000000000000000000000000000000000000"],
-  ["ledger", "0000000000000000000000000000000000000000"],
-  ["gate", "0000000000000000000000000000000000000000"],
-  ["shadow", "0000000000000000000000000000000000000000"],
+  ["alignment", "Alignment", "3006e8622db947c4417b4df2055e28820646ad2e"],
+  ["bifurcation", "Bifurcation", "36084a9cf3cdabd04e9734468b07bdde6f73107b"],
+  ["contour", "Contours", "f7599b7669bfd3c4842c430adeb96330fbfa75d5"],
+  ["persistent-trace", "Inbound", "ae15a479e7f169cbebcbf6c598d8c8b5d2ccbede"],
+  ["invariant-core", "Navigator", "9b7b3eac0f1ffd1addeb970e1167866c855a37b1"],
+  ["circuit", "The Trinity", "49104c19ddb978b6d78b7327ef7658e80a640095"],
+  ["seal", "Fragments", "73f09b4994be31ed1b8e1cb56e28b454239d7c5d"],
+  ["delta", "Parallel Paths", "48f1d3509b67195281102bfabacfa46cd03fcde7"],
+  ["rule", "Subdivisions", "5b3e48ae75dc345aa63454cf2063d11923046634"],
+  ["interference", "Interference", "abb4c5474843a8892d65523a2e50f93819238176"],
+  ["mesh", "Mesh", "0000000000000000000000000000000000000000"],
+  ["phase", "Phase Shift", "0000000000000000000000000000000000000000"],
+  ["prism", "Prism", "0000000000000000000000000000000000000000"],
+  ["packing", "Sieving Through", "0000000000000000000000000000000000000000"],
+  ["quorum", "Quorum", "0000000000000000000000000000000000000000"],
+  ["isolate", "Crosshatch", "0000000000000000000000000000000000000000"],
+  ["ledger", "Full Stack", "0000000000000000000000000000000000000000"],
+  ["gate", "Guard Duty", "0000000000000000000000000000000000000000"],
+  ["shadow", "Perspectives", "0000000000000000000000000000000000000000"],
 ] as const;
 
 /** Collapse prose whitespace without changing punctuation. */
@@ -110,8 +108,16 @@ Deno.test("browser art uses only neutral study vocabulary", async () => {
 
 Deno.test("the browser-art registry preserves the recorded source heads", async () => {
   assertEquals(
-    BROWSER_ARTWORKS.map(({ slug, sourceCommit }) => [slug, sourceCommit]),
-    EXPECTED_BROWSER_ART.map(([slug, sourceCommit]) => [slug, sourceCommit]),
+    BROWSER_ARTWORKS.map(({ slug, title, sourceCommit }) => [
+      slug,
+      title,
+      sourceCommit,
+    ]),
+    EXPECTED_BROWSER_ART.map(([slug, title, sourceCommit]) => [
+      slug,
+      title,
+      sourceCommit,
+    ]),
   );
   assertEquals(
     new Set(BROWSER_ARTWORKS.map(({ slug }) => slug)).size,
@@ -132,6 +138,16 @@ Deno.test("the art archive renders every browser study twice and every terminal 
   const document = dom.window.document;
   const studies = [...document.querySelectorAll("[data-browser-artwork]")];
   assertEquals(studies.length, BROWSER_ARTWORK_ENTRIES.length);
+  assertEquals(
+    document.querySelectorAll(".art-gallery__study-header code").length,
+    0,
+  );
+  assert(
+    !readableText(
+      document.querySelector(".art-gallery__masthead")?.textContent ?? null,
+    )
+      .includes("Development only"),
+  );
 
   for (const [index, artwork] of BROWSER_ARTWORK_ENTRIES.entries()) {
     const study = studies[index];

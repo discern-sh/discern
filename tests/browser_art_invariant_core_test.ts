@@ -72,7 +72,7 @@ Deno.test("the invariant-core study renders one fixed center in each theme", () 
 
   assertEquals(
     readableText(study.querySelector("h3")?.textContent ?? null),
-    "Invariant core",
+    "Navigator",
   );
 
   const themes = [...study.querySelectorAll(".art-gallery__theme")];
@@ -102,7 +102,7 @@ Deno.test("the invariant-core study renders one fixed center in each theme", () 
       svg.getAttribute("aria-labelledby"),
       `${title.id} ${description.id}`,
     );
-    assertStringIncludes(readableText(title.textContent), "Invariant core");
+    assertStringIncludes(readableText(title.textContent), "Navigator");
     assertStringIncludes(
       readableText(description.textContent),
       "remains fixed",

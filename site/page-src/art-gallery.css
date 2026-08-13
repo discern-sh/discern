@@ -146,7 +146,7 @@
 
   .art-gallery__study-header {
     display: grid;
-    grid-template-columns: 4rem minmax(0, 1fr) auto;
+    grid-template-columns: 4rem minmax(0, 1fr);
     gap: var(--discern-space-5);
     align-items: start;
     max-width: 68rem;
@@ -179,12 +179,6 @@
     font-size: 0.42em;
     font-weight: var(--discern-font-weight-body);
     vertical-align: 0.48em;
-  }
-
-  .art-gallery__study-header code {
-    padding-block-start: 0.2rem;
-    color: var(--discern-color-ink-faint);
-    font-size: var(--discern-font-size-xs);
   }
 
   .art-gallery__theme-pair {

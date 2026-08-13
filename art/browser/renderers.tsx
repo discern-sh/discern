@@ -17,11 +17,9 @@ import { PersistentTraceArtwork } from "./persistent-trace.tsx";
 import { PhaseArtwork } from "./phase.tsx";
 import { PrismArtwork } from "./prism.tsx";
 import { QuorumArtwork } from "./quorum.tsx";
-import { RatchetArtwork } from "./ratchet.tsx";
 import { RuleArtwork } from "./rule.tsx";
 import { SealArtwork } from "./seal.tsx";
 import { ShadowArtwork } from "./shadow.tsx";
-import { SurveyArtwork } from "./survey.tsx";
 import {
   BROWSER_ARTWORKS,
   type BrowserArtworkMetadata,
@@ -46,9 +44,7 @@ export const BROWSER_ARTWORK_RENDERERS: Readonly<
   circuit: (idPrefix) => <CircuitArtwork id={idPrefix} />,
   seal: (idPrefix) => <SealArtwork id={idPrefix} />,
   delta: (idPrefix) => <DeltaArtwork id={idPrefix} />,
-  ratchet: (idPrefix) => <RatchetArtwork id={idPrefix} />,
   rule: (idPrefix) => <RuleArtwork id={idPrefix} />,
-  survey: (idPrefix) => <SurveyArtwork id={idPrefix} />,
   interference: (idPrefix) => <InterferenceArtwork id={idPrefix} />,
   mesh: (idPrefix) => <MeshArtwork id={idPrefix} />,
   phase: (idPrefix) => <PhaseArtwork id={idPrefix} />,

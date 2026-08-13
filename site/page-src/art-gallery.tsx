@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Badge, Brand, SkipLink } from "discern-design-system/react";
+import { Brand, SkipLink } from "discern-design-system/react";
 import {
   BROWSER_ARTWORK_ENTRIES,
   type BrowserArtworkEntry,
@@ -51,9 +51,6 @@ function BrowserArtwork(
           </h3>
           <p>{artwork.description}</p>
         </div>
-        <code title={artwork.sourceCommit}>
-          {artwork.sourceCommit.slice(0, 8)}
-        </code>
       </header>
       <div className="art-gallery__theme-pair">
         {PREVIEW_THEMES.map((theme) => (
@@ -117,7 +114,6 @@ function ArtGallery(
           typeface="mono"
         />
         <div className="art-gallery__masthead-meta">
-          <Badge tone="neutral">Development only</Badge>
           <span>Browser and terminal studies</span>
         </div>
       </header>
