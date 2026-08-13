@@ -67,7 +67,6 @@ import { observeResult } from "../../shared/result_capture.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { sparkline } from "../../lib/text.ts";
-import { isPromptCancellation } from "../../lib/prompts.ts";
 import {
   type TerminalContext,
   terminalContext,
@@ -1837,7 +1836,17 @@ function renderArchiveScope(out: Out, data: PatternsArchiveData): void {
   renderLifecycleFiles(out, data.files);
 }
 
-/** Ask one default-No confirmation, treating prompt cancellation as No. */
+/** Preserve a confirmation fault across the core's lifecycle error renderer. */
+class LifecycleConfirmationFault extends Error {
+  readonly fault: unknown;
+
+  constructor(fault: unknown) {
+    super("The lifecycle confirmation failed.");
+    this.fault = fault;
+  }
+}
+
+/** Ask one injected boolean confirmation without knowing its prompt source. */
 async function confirmLifecycle(
   message: string,
   confirm: LifecycleConfirmation,
@@ -1845,8 +1854,7 @@ async function confirmLifecycle(
   try {
     return await confirm(message);
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
-    return false;
+    throw new LifecycleConfirmationFault(error);
   }
 }
 
@@ -2104,6 +2112,7 @@ async function applyReset(
       return code;
     });
   } catch (error) {
+    if (error instanceof LifecycleConfirmationFault) throw error.fault;
     const message = error instanceof LogbookLifecycleBusyError
       ? error.message
       : `Could not apply the Logbook reset: ${
@@ -2240,6 +2249,7 @@ async function applyArchive(
       }
     });
   } catch (error) {
+    if (error instanceof LifecycleConfirmationFault) throw error.fault;
     const message = error instanceof LogbookLifecycleBusyError
       ? error.message
       : `Could not apply the Logbook archive: ${

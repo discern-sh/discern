@@ -46,6 +46,7 @@ import { Logger } from "../lib/log.ts";
 import {
   canPrompt,
   confirmationPrompt,
+  isPromptCancellation,
   plainModeEnabled,
 } from "../lib/prompts.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
@@ -70,6 +71,24 @@ export {
   KNOWN_INSTALLER_VERBS,
   KNOWN_VERBS,
 } from "../shared/verbs.ts";
+
+type ConfirmationOperation = (
+  message: string,
+  defaultTo: boolean,
+) => Promise<boolean>;
+
+/** Supply the Logbook core a boolean default-No contract at dispatch time. */
+export async function logbookLifecycleConfirmation(
+  message: string,
+  operation: ConfirmationOperation = confirmationPrompt,
+): Promise<boolean> {
+  try {
+    return await operation(message, false);
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
+    return false;
+  }
+}
 
 // Verb BODIES load at dispatch time (`await import(…)` inside each action),
 // never at registration: every invocation — `--help` included — builds the
@@ -656,7 +675,7 @@ export function attachEngineCommands(
                 json: o.json ?? false,
                 dryRun: o.dryRun ?? false,
                 interactive: canPrompt(false),
-                confirm: (message) => confirmationPrompt(message, false),
+                confirm: logbookLifecycleConfirmation,
               },
             );
           }),

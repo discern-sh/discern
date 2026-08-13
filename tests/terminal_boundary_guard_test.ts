@@ -530,7 +530,7 @@ const LEGACY_PALETTE_PATTERN =
   /\b(?:out\.c|c)\.(?:reset|bold|dim|red|green|yellow|cyan)\b/gu;
 const LEGACY_PALETTE_CENSUS: Readonly<Record<string, number>> = {
   "src/engine/coupling/coupling.ts": 31,
-  "src/engine/desk/desk.ts": 54,
+  "src/engine/desk/desk.ts": 37,
   "src/engine/gate/finish.ts": 2,
   "src/engine/gate/gotchas.ts": 6,
   "src/engine/jobs/runner.ts": 8,

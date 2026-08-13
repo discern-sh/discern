@@ -4,9 +4,14 @@
  * points reset or archive at discern's own Logbook.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { dirname, join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -42,6 +47,10 @@ import {
   withLogbookLifecycleLock,
 } from "../src/engine/logbook/store.ts";
 import { readLogbookStream } from "../src/engine/logbook/read.ts";
+import { runPatternsLifecycle } from "../src/engine/logbook/patterns.ts";
+import { logbookLifecycleConfirmation } from "../src/engine/dispatch.ts";
+import { PromptCancellation } from "../src/lib/prompts.ts";
+import { resolveTerminalContext } from "../src/lib/terminal.ts";
 
 /** One well-formed recorded completion line. */
 function verbLine(
@@ -293,6 +302,64 @@ Deno.test({
       });
     }
   },
+});
+
+Deno.test("Logbook dispatch maps only product cancellation to default No", async () => {
+  let observedDefault: boolean | undefined;
+  assertEquals(
+    await logbookLifecycleConfirmation(
+      "Confirm",
+      (_message, defaultTo) => {
+        observedDefault = defaultTo;
+        return Promise.reject(new PromptCancellation());
+      },
+    ),
+    false,
+  );
+  assertEquals(observedDefault, false);
+
+  const fault = new Error("synthetic confirmation fault");
+  const caught = await assertRejects(
+    () => logbookLifecycleConfirmation("Confirm", () => Promise.reject(fault)),
+    Error,
+    fault.message,
+  );
+  assertEquals(caught, fault);
+});
+
+Deno.test("Logbook core propagates unrelated confirmation faults", async () => {
+  for (const action of LOGBOOK_LIFECYCLE_ACTION_NAMES) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      const active = await seedActiveLogbook(dir);
+      const before = await Deno.readTextFile(active);
+      const fault = new Error(`synthetic ${action} confirmation fault`);
+      const caught = await assertRejects(
+        () =>
+          runPatternsLifecycle(dir, action, {
+            json: false,
+            dryRun: false,
+            interactive: true,
+            terminal: resolveTerminalContext({
+              noColor: true,
+              env: fakeEnv({ TERM: "dumb", LANG: "C" }),
+              isTerminal: () => true,
+              consoleSize: () => ({ columns: 80, rows: 24 }),
+            }),
+            confirm: () => Promise.reject(fault),
+          }),
+        Error,
+        fault.message,
+      );
+      assertEquals(caught, fault);
+      assertEquals(
+        await Deno.readTextFile(active),
+        before,
+        `${action} changed active history after a confirmation fault`,
+      );
+    });
+  }
 });
 
 Deno.test("Logbook lifecycle exposes no unattended confirmation bypass", async () => {
