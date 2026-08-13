@@ -234,6 +234,7 @@ export function loggerSink(log: Logger): RenderSink {
   return {
     heading: (t: string): void => log.heading(t),
     line: (t: string): void => log.line(t),
-    dim: (t: string): string => log.terminal.role(t, "muted"),
+    safeLine: (t: string): string => terminalLine(t),
+    dim: (t: string): string => log.terminal.role(terminalLine(t), "muted"),
   };
 }

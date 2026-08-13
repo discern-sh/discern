@@ -201,6 +201,7 @@ export function outSink(out: Out): RenderSink {
   return {
     heading: (t: string): void => out.heading(t),
     line: (t: string): void => out.raw(`${t}\n`),
-    dim: (t: string): string => out.terminal.role(t, "muted"),
+    safeLine: (t: string): string => terminalLine(t),
+    dim: (t: string): string => out.terminal.role(terminalLine(t), "muted"),
   };
 }

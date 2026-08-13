@@ -788,7 +788,12 @@ function renderWorktrees(
           ? {}
           : { value: terminalLine(proofValue) }),
       }],
-      ...(meta.length === 0 ? {} : { meta }),
+      ...(meta.length === 0 ? {} : {
+        meta: meta.map((item) => ({
+          label: terminalLine(item.label),
+          value: terminalLine(item.value),
+        })),
+      }),
       maxWidth: width,
       theme: terminal.themeVariant,
     }, capabilities);

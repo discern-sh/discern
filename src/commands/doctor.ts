@@ -1396,7 +1396,7 @@ export function renderDoctorCheck(
     line: renderBannerCli(
       {
         title: "",
-        message,
+        message: terminalMultiline(message),
         tone: check.status === "warn" ? "warning" : "danger",
         theme: terminal.themeVariant,
         width,
@@ -1424,7 +1424,7 @@ export function renderDoctorHeader(
   return renderDocsHeaderCli(
     {
       brand: "discern doctor",
-      middle: summary,
+      middle: terminalLine(summary),
       theme: terminal.themeVariant,
       maxWidth: width,
     },

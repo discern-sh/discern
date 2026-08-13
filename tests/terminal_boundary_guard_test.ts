@@ -643,6 +643,7 @@ function staticallyUnsafeProductText(
   sanitizers: ReadonlySet<string>,
 ): boolean {
   const node = unwrappedExpression(candidate);
+  if (node.type === "Identifier") return true;
   if (node.type === "MemberExpression") return true;
   if (node.type === "TemplateLiteral") return node.expressions.length > 0;
   if (node.type === "BinaryExpression" || node.type === "LogicalExpression") {
@@ -668,6 +669,53 @@ function staticallyUnsafeProductText(
       );
   }
   return false;
+}
+
+/** Whether one leaf is visibly crossed through the named safe-text adapter. */
+function isSanitizedProductText(
+  node: Deno.lint.Node,
+  sanitizers: ReadonlySet<string>,
+): boolean {
+  const expression = unwrappedExpression(node);
+  return expression.type === "CallExpression" &&
+    expression.callee.type === "Identifier" &&
+    sanitizers.has(expression.callee.name);
+}
+
+/** Inspect one declared Component container, failing closed on opaque data. */
+function unsafeComponentContainer(
+  node: Deno.lint.Node,
+  sanitizers: ReadonlySet<string>,
+  path: string,
+  renderer: string,
+): string[] {
+  const expression = unwrappedExpression(node);
+  if (
+    expression.type === "ObjectExpression" ||
+    expression.type === "ArrayExpression"
+  ) return unsafeComponentProps(expression, sanitizers, path, renderer);
+  if (expression.type === "ConditionalExpression") {
+    return [expression.consequent, expression.alternate].flatMap((branch) =>
+      unsafeComponentContainer(branch, sanitizers, path, renderer)
+    );
+  }
+  if (expression.type === "LogicalExpression") {
+    return [expression.left, expression.right].flatMap((branch) =>
+      unsafeComponentContainer(branch, sanitizers, path, renderer)
+    );
+  }
+  const mapped = inlineMapResults(expression);
+  if (mapped !== undefined) {
+    return mapped.length === 0
+      ? [`${path}.<opaque-map>`]
+      : mapped.flatMap((result) =>
+        isSanitizedProductText(result, sanitizers)
+          ? []
+          : unsafeComponentContainer(result, sanitizers, path, renderer)
+      );
+  }
+  if (expression.type === "Literal" && expression.value === null) return [];
+  return [`${path}.<opaque-container>`];
 }
 
 /** Direct values returned by one inline mapping callback. */
@@ -696,6 +744,25 @@ function inlineMapResults(node: Deno.lint.Node): Deno.lint.Node[] | undefined {
   const callback = expression.arguments[0];
   if (callback === undefined || callback.type === "SpreadElement") return [];
   return inlineCallbackResults(callback);
+}
+
+/** Distinguish published text/container key collisions from their static shape. */
+function staticallyContainerShaped(node: Deno.lint.Node): boolean {
+  const expression = unwrappedExpression(node);
+  if (
+    expression.type === "ObjectExpression" ||
+    expression.type === "ArrayExpression" ||
+    inlineMapResults(expression) !== undefined
+  ) return true;
+  if (expression.type === "ConditionalExpression") {
+    return staticallyContainerShaped(expression.consequent) ||
+      staticallyContainerShaped(expression.alternate);
+  }
+  if (expression.type === "LogicalExpression") {
+    return staticallyContainerShaped(expression.left) ||
+      staticallyContainerShaped(expression.right);
+  }
+  return false;
 }
 
 /** Inspect one spread value, failing closed only when its keys are opaque. */
@@ -765,7 +832,9 @@ function unsafeComponentProps(
         ? []
         : element.type === "SpreadElement"
         ? unsafeComponentSpread(element.argument, sanitizers, path, renderer)
-        : unsafeComponentProps(element, sanitizers, path, renderer)
+        : isSanitizedProductText(element, sanitizers)
+        ? []
+        : unsafeComponentContainer(element, sanitizers, path, renderer)
     );
   }
   if (expression.type !== "ObjectExpression") return [];
@@ -785,23 +854,31 @@ function unsafeComponentProps(
     const key = propertyName(property.key);
     if (key === undefined) continue;
     const nextPath = path === "" ? key : `${path}.${key}`;
+    const textProp = COMPONENT_TEXT_PROPS.has(key);
+    const containerProp = COMPONENT_CONTAINER_PROPS.has(key);
+    const containerShaped = containerProp &&
+      staticallyContainerShaped(property.value);
     if (
-      COMPONENT_TEXT_PROPS.has(key) &&
+      textProp && (!containerProp || !containerShaped) &&
       !(renderer === "renderStandardMeterCli" && nextPath === "value") &&
       staticallyUnsafeProductText(property.value, sanitizers)
     ) {
       findings.push(nextPath);
     }
-    if (
-      COMPONENT_CONTAINER_PROPS.has(key) &&
-      unwrappedExpression(property.value).type === "CallExpression" &&
-      inlineMapResults(property.value) === undefined
-    ) {
-      findings.push(`${nextPath}.<opaque-call>`);
+    if (containerProp && (!textProp || containerShaped)) {
+      findings.push(
+        ...unsafeComponentContainer(
+          property.value,
+          sanitizers,
+          nextPath,
+          renderer,
+        ),
+      );
+    } else {
+      findings.push(
+        ...unsafeComponentProps(property.value, sanitizers, nextPath, renderer),
+      );
     }
-    findings.push(
-      ...unsafeComponentProps(property.value, sanitizers, nextPath, renderer),
-    );
   }
   return findings;
 }
@@ -1734,6 +1811,8 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     'ask({ label: "Future" });',
     "draw({ fact: row.path, counts: [{ label: meta.name, value: `${meta.value}` }] }, {});",
     "const alias = draw;",
+    "const fact = row.path;",
+    "alias({ fact }, {});",
     "alias({ fact: String(row.path) }, {});",
     'alias({ fact: terminal.role(row.path, "muted") }, {});',
     "alias({ fact: helper(row.path) }, {});",
@@ -1745,6 +1824,10 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     "class OrbitLog { errorMultiline(message) { return message; } }",
     "new OrbitLog().errorMultiline(row.message);",
     "future({ rows: records.map((record) => ({ label: record.name })) }, {});",
+    "future({ rows }, {});",
+    "future({ rows: model.rows }, {});",
+    "future({ rows: condition ? rows : [] }, {});",
+    "future({ rows: safe(model.rows) }, {});",
     "future({ body: row.body, explanation: row.explanation, checks: [{ stateLabel: row.stateLabel }], subtitle: row.subtitle, details: row.details }, {});",
     "draw({ fact: safe(row.path) }, {});",
   ].join("\n");
@@ -1775,6 +1858,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "unsafe-component-text:counts.<spread>",
       "unsafe-component-text:<opaque-props>",
       "unsafe-component-text:rows.label",
+      "unsafe-component-text:rows.<opaque-container>",
       "unsafe-component-text:body",
       "unsafe-component-text:explanation",
       "unsafe-component-text:checks.stateLabel",
@@ -1785,8 +1869,15 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
   ) assert(rules.includes(expected), `missing synthetic ${expected}`);
   assertEquals(
     rules.filter((rule) => rule === "unsafe-component-text:fact").length,
+    5,
+    "member, identifier, String(), terminal.role(), and helper() bypasses fail; safe() passes",
+  );
+  assertEquals(
+    rules.filter((rule) =>
+      rule === "unsafe-component-text:rows.<opaque-container>"
+    ).length,
     4,
-    "member, String(), terminal.role(), and helper() bypasses fail; safe() passes",
+    "identifier, member, conditional identifier, and sanitizer-call containers fail closed",
   );
   assertEquals(
     rules.filter((rule) => rule === "unsafe-component-text:<opaque-props>")

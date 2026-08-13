@@ -9,7 +9,6 @@
 
 import {
   type DiagnosticCliProps,
-  type PrerequisiteListCliProps,
   type ReceiptCliProps,
   renderCommandCli,
   renderDiagnosticCli,
@@ -449,7 +448,7 @@ export function renderGateJobs(
     lifecycle,
     completed,
     total: rows.length,
-    ...(readingFits ? { reading } : {}),
+    ...(readingFits ? { reading: safeLine(reading) } : {}),
     tone: failed ? "danger" : cancelled ? "warning" : "neutral",
     theme,
     width: capabilities.columns,
@@ -571,18 +570,17 @@ function renderPlanPrerequisites(
   options: GatePresentationOptions,
 ): string {
   const capabilities = componentCapabilities(options);
-  const items: PrerequisiteListCliProps["items"] = run.steps.map((step) => ({
-    requirement: safeMultiline(
-      `${step.label}: ${step.note ?? planKindLabel(step.kind)}`,
-    ),
-    state: step.disposition === "skip" ? "satisfied" : "required",
-    detail: safeMultiline(
-      `${planKindLabel(step.kind)} is marked ${step.disposition}.`,
-    ),
-  }));
   return renderPrerequisiteListCli({
     title: occurrence === 1 ? "Gate prerequisites" : "Final checks",
-    items,
+    items: run.steps.map((step) => ({
+      requirement: safeMultiline(
+        `${step.label}: ${step.note ?? planKindLabel(step.kind)}`,
+      ),
+      state: step.disposition === "skip" ? "satisfied" : "required",
+      detail: safeMultiline(
+        `${planKindLabel(step.kind)} is marked ${step.disposition}.`,
+      ),
+    })),
     theme: componentTheme(options),
     maxWidth: capabilities.columns,
   }, capabilities);
@@ -759,7 +757,7 @@ function renderDiagnosticRetry(
   const capabilities = componentCapabilities(options);
   return renderRetryNoticeCli({
     safeToRetry: true,
-    reason: diagnosticCorrection(diagnostic),
+    reason: safeMultiline(diagnosticCorrection(diagnostic)),
     label: safeLine(`after running ${safeLine(diagnostic.reproduce_cmd)}`),
     theme: componentTheme(options),
     maxWidth: capabilities.columns,
@@ -816,7 +814,7 @@ export function renderGateDiagnostics(
     const finding = renderDiagnosticCli({
       title: safeLine(title),
       impact: safeMultiline(diagnostic.message),
-      correction: diagnosticCorrection(diagnostic),
+      correction: safeMultiline(diagnosticCorrection(diagnostic)),
       severity: GATE_DIAGNOSTIC_SEVERITY[diagnostic.severity],
       ...(diagnostic.file === undefined
         ? {}
@@ -944,7 +942,9 @@ export function renderGateProofReceipt(
       {
         label: "Gate steps",
         state: "pass",
-        value: stepSummary === "" ? "no jobs configured" : stepSummary,
+        value: safeLine(
+          stepSummary === "" ? "no jobs configured" : stepSummary,
+        ),
       },
       {
         label: "Proof record",
@@ -1002,7 +1002,7 @@ export function renderGateProofCheckReceipt(
       state: state.checkState,
       stateLabel: safeLine(state.stateLabel),
     }],
-    summary,
+    summary: safeMultiline(summary),
     footer: check.status === "honored"
       ? "The recorded Gate result is authoritative for this tree."
       : "Refresh proof: discern done",

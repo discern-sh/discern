@@ -492,8 +492,8 @@ function renderTable(
   return renderTableCli(
     width >= minimumWidth
       ? {
-        columns: header.map((value) => ({ header: value })),
-        rows: body,
+        columns: header.map((value) => ({ header: terminalLine(value) })),
+        rows: body.map((row) => row.map((cell) => terminalLine(cell))),
         striped: true,
         theme: terminal.themeVariant,
         width,
@@ -502,8 +502,8 @@ function renderTable(
         // A terminal too narrow for N framed columns still delegates geometry
         // to Table: project each source row into one labelled column rather
         // than inventing a second local cell-layout algorithm.
-        columns: [{ header: header.join(" · ") }],
-        rows: body.map((row) => [row.join(" · ")]),
+        columns: [{ header: terminalLine(header.join(" · ")) }],
+        rows: body.map((row) => [terminalLine(row.join(" · "))]),
         striped: true,
         theme: terminal.themeVariant,
         width,
@@ -525,7 +525,7 @@ function renderHeading(
   const headingLevel = Math.min(6, Math.max(1, level)) as 1 | 2 | 3 | 4 | 5 | 6;
   return [renderHeadingCli(
     {
-      text: inlineToPlain(text),
+      text: terminalLine(inlineToPlain(text)),
       level: headingLevel,
       theme: terminal.themeVariant,
       maxWidth: width,
@@ -546,8 +546,8 @@ function renderCode(
   }
   return renderCodeListingCli(
     {
-      code: lines.join("\n"),
-      ...(lang === "" ? {} : { language: lang }),
+      code: terminalMultiline(lines.join("\n")),
+      ...(lang === "" ? {} : { language: terminalLine(lang) }),
       theme: terminal.themeVariant,
       maxWidth: width,
     },

@@ -453,6 +453,7 @@ function captureSink(): { sink: RenderSink; lines: string[] } {
   const sink: RenderSink = {
     heading: (t) => lines.push(t),
     line: (t) => lines.push(t),
+    safeLine: (t) => t,
     dim: (t) => t,
   };
   return { sink, lines };

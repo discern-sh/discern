@@ -686,6 +686,8 @@ export function renderHumanOutputGroups(
 export interface RenderSink {
   heading(text: string): void;
   line(text: string): void;
+  /** Make one dynamic human fact inert before composing a content line. */
+  safeLine(text: string): string;
   /** Dim a fragment (returns it unchanged when colour is off). */
   dim(text: string): string;
 }
@@ -720,6 +722,7 @@ interface RenderedStepLine {
  * identities so the shared duplicate-id check remains meaningful. */
 function renderedStepGroups(
   lines: readonly RenderedStepLine[],
+  safeLine: RenderSink["safeLine"],
 ): HumanOutputGroup<string>[] {
   const groups: HumanOutputGroup<string>[] = [];
   const occurrences = new Map<string, number>();
@@ -733,7 +736,7 @@ function renderedStepGroups(
     occurrences.set(identity, occurrence);
     groups.push({
       id: `${identity}:${occurrence}`,
-      label: namedGroup ? group : "Steps",
+      label: namedGroup ? safeLine(group ?? "") : "Steps",
       items,
     });
     items = [];
@@ -761,17 +764,20 @@ export function renderPlan(sink: RenderSink, plan: EnginePlan): void {
     label: "Context",
     items: plan.details.map((detail) => `  ${sink.dim(detail)}`),
   }];
-  groups.push(...renderedStepGroups(plan.steps.map((step) => {
-    const indent = step.group !== undefined && step.group !== ""
-      ? "    "
-      : "  ";
-    const label = DISPOSITION_LABEL[step.disposition].padEnd(6);
-    const note = step.note !== undefined ? sink.dim(` — ${step.note}`) : "";
-    return {
-      group: step.group,
-      text: `${indent}${label} ${step.label}${note}`,
-    };
-  })));
+  groups.push(...renderedStepGroups(
+    plan.steps.map((step) => {
+      const indent = step.group !== undefined && step.group !== ""
+        ? "    "
+        : "  ";
+      const label = DISPOSITION_LABEL[step.disposition].padEnd(6);
+      const note = step.note !== undefined ? sink.dim(` — ${step.note}`) : "";
+      return {
+        group: step.group,
+        text: `${indent}${label} ${sink.safeLine(step.label)}${note}`,
+      };
+    }),
+    sink.safeLine,
+  ));
   if (plan.steps.length === 0) {
     groups.push({
       id: "steps-empty",
@@ -854,19 +860,22 @@ export function renderStepResults(
     label: "Context",
     items: details.map((detail) => `  ${sink.dim(detail)}`),
   }];
-  groups.push(...renderedStepGroups(view.steps.map((result) => {
-    const step = result.step;
-    const indent = step.group !== undefined && step.group !== ""
-      ? "    "
-      : "  ";
-    const label = OUTCOME_LABEL[result.outcome].padEnd(8);
-    const detail = stepResultNote(result);
-    const note = detail !== undefined ? sink.dim(` - ${detail}`) : "";
-    return {
-      group: step.group,
-      text: `${indent}${label} ${step.label}${note}`,
-    };
-  })));
+  groups.push(...renderedStepGroups(
+    view.steps.map((result) => {
+      const step = result.step;
+      const indent = step.group !== undefined && step.group !== ""
+        ? "    "
+        : "  ";
+      const label = OUTCOME_LABEL[result.outcome].padEnd(8);
+      const detail = stepResultNote(result);
+      const note = detail !== undefined ? sink.dim(` - ${detail}`) : "";
+      return {
+        group: step.group,
+        text: `${indent}${label} ${sink.safeLine(step.label)}${note}`,
+      };
+    }),
+    sink.safeLine,
+  ));
   if (view.steps.length === 0) {
     groups.push({
       id: "steps-empty",

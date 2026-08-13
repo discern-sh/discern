@@ -909,7 +909,7 @@ function printToc(
     const body = terminal.stdoutIsTerminal
       ? renderSectionCli(
         {
-          title,
+          title: terminalLine(title),
           body: terminalMultiline(rows.join("\n")),
           treatment: "rule",
           spacing: "sm",
@@ -989,8 +989,8 @@ function printMapOverview(
     const body = terminal.stdoutIsTerminal
       ? renderSectionCli(
         {
-          title: name,
-          body: safeDetails,
+          title: terminalLine(name),
+          body: terminalMultiline(safeDetails),
           treatment: "rule",
           spacing: "sm",
           theme: terminal.themeVariant,
