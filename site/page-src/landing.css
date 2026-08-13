@@ -33,6 +33,26 @@
     white-space: nowrap;
   }
 
+  .landing-placeholder {
+    display: grid;
+    min-block-size: clamp(20rem, 32vw, 28rem);
+    align-items: center;
+  }
+
+  .landing-placeholder--hero {
+    min-block-size: clamp(38rem, 82svh, 60rem);
+  }
+
+  .landing-placeholder__label {
+    margin: 0;
+    color: var(--discern-color-ink-muted);
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-sm);
+    font-weight: var(--discern-font-weight-strong);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
   .landing-section {
     position: relative;
     padding-block: clamp(6rem, 11vw, 10rem);

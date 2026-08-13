@@ -8,6 +8,7 @@ import {
   HeroBlock,
   Kicker,
   LogoCloud,
+  MarketingSection,
   SiteFooter,
   SiteHeader,
   SkipLink,
@@ -28,6 +29,17 @@ import { CompactStandardTrajectory } from "./specimens.tsx";
 
 const GITHUB = "https://github.com/jackwh/discern";
 const LICENSE = GITHUB + "/blob/main/LICENSE";
+const PLACEHOLDER_SECTION_SURFACES = [
+  "surface",
+  "contrast",
+  "surface",
+  "contrast",
+  "surface",
+  "contrast",
+  "surface",
+  "contrast",
+  "surface",
+] as const;
 
 /** The commissioning instruction shared by every copy control on the page. */
 export const COPY_PROMPT_TEXT =
@@ -174,8 +186,8 @@ function ProviderStrip({ compact = false }: { readonly compact?: boolean }) {
   );
 }
 
-/** Sticky navigation keeps the story and setup action in reach. */
-function Masthead() {
+/** Sticky navigation for the current page or its preserved predecessor. */
+function Masthead({ archived = false }: { readonly archived?: boolean }) {
   return (
     <SiteHeader
       className="landing-masthead"
@@ -184,24 +196,28 @@ function Masthead() {
       brandTypeface="mono"
       brandMarkTreatment="plain"
       navLabel="Site"
-      navItems={[
-        { label: "How it works", href: "#delegation" },
-        { label: "What returns", href: "#decision" },
-        { label: "Trust", href: "#trust" },
-        { label: "GitHub ↗", href: GITHUB },
-      ]}
-      actions={
-        <>
-          <Button
-            className="landing-masthead__action"
-            href="#start"
-            variant="primary"
-          >
-            Copy prompt
-          </Button>
-          <LandingThemeToggle />
-        </>
-      }
+      navItems={archived
+        ? [
+          { label: "How it works", href: "#delegation" },
+          { label: "What returns", href: "#decision" },
+          { label: "Trust", href: "#trust" },
+          { label: "GitHub ↗", href: GITHUB },
+        ]
+        : [{ label: "GitHub ↗", href: GITHUB }]}
+      actions={archived
+        ? (
+          <>
+            <Button
+              className="landing-masthead__action"
+              href="#start"
+              variant="primary"
+            >
+              Copy prompt
+            </Button>
+            <LandingThemeToggle />
+          </>
+        )
+        : <LandingThemeToggle />}
       sticky
       variant="campaign"
     />
@@ -1135,12 +1151,17 @@ function FinalInvitation() {
   );
 }
 
+interface LandingShellProps {
+  readonly archived?: boolean;
+  readonly children?: ReactNode;
+}
+
 /** Shared campaign chrome around the current and archived homepage bodies. */
-function LandingShell({ children }: { readonly children?: ReactNode }) {
+function LandingShell({ archived = false, children }: LandingShellProps) {
   return (
     <>
       <SkipLink href="#main">Skip to content</SkipLink>
-      <Masthead />
+      <Masthead archived={archived} />
       <main id="main">{children}</main>
       <SiteFooter
         brand={<DiscernName />}
@@ -1171,23 +1192,73 @@ function LandingShell({ children }: { readonly children?: ReactNode }) {
             ],
           },
         ]}
-        legal={
-          <>
-            <a href={GITHUB}>Public source ↗</a>
-            {" · "}
-            <a href="/llms.txt">Machine guide</a>
-          </>
-        }
+        legal={archived
+          ? (
+            <>
+              <a href={GITHUB}>Public source ↗</a>
+              {" · "}
+              <a href="/llms.txt">Machine guide</a>
+            </>
+          )
+          : (
+            <>
+              <a href={GITHUB}>Source code</a>
+              {" · "}
+              <a href={LICENSE}>FSL-1.1-ALv2 license</a>
+              {" · "}
+              <a href="/llms.txt">llms.txt</a>
+            </>
+          )}
         meta="© 2026 Jack Webb-Heller."
       />
     </>
   );
 }
 
+/** Empty design-system sections ready for the composed homepage content. */
+function LandingPlaceholders() {
+  return (
+    <LandingShell>
+      <>
+        <MarketingSection
+          className="landing-placeholder landing-placeholder--hero"
+          frame="wide"
+          spacing="spacious"
+          data-site-prose-exclude
+          aria-labelledby="placeholder-hero"
+        >
+          <h1 className="landing-placeholder__label" id="placeholder-hero">
+            Hero
+          </h1>
+        </MarketingSection>
+        {PLACEHOLDER_SECTION_SURFACES.map((surface, index) => {
+          const number = index + 1;
+          const labelId = `placeholder-section-${number}`;
+          return (
+            <MarketingSection
+              className="landing-placeholder landing-placeholder--section"
+              frame="wide"
+              spacing="spacious"
+              surface={surface}
+              data-site-prose-exclude
+              aria-labelledby={labelId}
+              key={labelId}
+            >
+              <h2 className="landing-placeholder__label" id={labelId}>
+                Section {number}
+              </h2>
+            </MarketingSection>
+          );
+        })}
+      </>
+    </LandingShell>
+  );
+}
+
 /** The complete homepage retained at /old while the new page takes shape. */
 function OldLandingPage() {
   return (
-    <LandingShell>
+    <LandingShell archived>
       <>
         <Hero />
         <PossibilitySection />
@@ -1204,7 +1275,7 @@ function OldLandingPage() {
   );
 }
 
-/** Render the blank homepage canvas for static serving. */
+/** Render the homepage scaffold for static serving. */
 export function renderLanding(): string {
   return pageDocument({
     source: "landing.tsx",
@@ -1212,7 +1283,7 @@ export function renderLanding(): string {
     description: LANDING_DESCRIPTION,
     styles: ["fonts.css", "discern.css", "landing.css"],
     scripts: ["landing.js"],
-    body: renderToStaticMarkup(<LandingShell />),
+    body: renderToStaticMarkup(<LandingPlaceholders />),
   });
 }
 
