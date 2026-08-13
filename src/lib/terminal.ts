@@ -11,6 +11,7 @@ import {
   detectTerminalCapabilities,
   styleText,
   type TerminalCapabilities,
+  type TerminalColor,
   type TerminalColorTokenName,
   type TerminalSemanticTone,
   type TerminalTextRole,
@@ -110,6 +111,10 @@ export interface TerminalContext {
   readonly size: TerminalSize;
   readonly theme: TerminalTheme;
   readonly themeVariant: TerminalThemeVariant;
+  /** Apply one explicit package text style under these resolved capabilities. */
+  style(text: string, style: TerminalTextStyle): string;
+  /** Resolve one package Token colour for a Component prop. */
+  themeColor(token: TerminalColorTokenName): TerminalColor;
   role(text: string, role: TerminalTextRole): string;
   tone(
     text: string,
@@ -235,6 +240,9 @@ function contextFromFacts(
     size,
     theme,
     themeVariant,
+    style: styled,
+    themeColor: (token: TerminalColorTokenName): TerminalColor =>
+      terminalThemeColor(theme, token),
     role: (text: string, role: TerminalTextRole): string =>
       styled(text, theme.typography[role]),
     tone: (

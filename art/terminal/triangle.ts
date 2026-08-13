@@ -9,7 +9,6 @@ import {
   DISCERN_TRIANGLE_GLYPHS,
   DISCERN_TRIANGLE_SPINNER_ORDER,
   DISCERN_TRIANGLE_WEAVE_ORDER,
-  measureText,
   renderTriangleActivityBeacon,
   renderTrianglePattern,
   renderTriangleProgressFrame,
@@ -18,6 +17,7 @@ import {
   renderTriangleWorkflowStepper,
   type TerminalCapabilities,
 } from "discern-design-system/cli";
+import { displayWidth } from "../../src/lib/text.ts";
 import { type DiscernArtAnimation, finishAnimation } from "./animation.ts";
 import type { DiscernArtVariant } from "./brand.ts";
 
@@ -218,6 +218,7 @@ const BEACON = Object.freeze({ width: 32, phase: 14 });
 const PYRAMID = Object.freeze({ rows: 8 });
 const GASKET = Object.freeze({ rows: 8 });
 
+/** Render one reusable package pattern with the gallery's explicit defaults. */
 function packagePattern(
   options: Parameters<typeof renderTrianglePattern>[0],
   capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
@@ -225,6 +226,7 @@ function packagePattern(
   return renderTrianglePattern(options, capabilities);
 }
 
+/** Render one reusable package progress frame with explicit capabilities. */
 function packageProgress(
   options: Parameters<typeof renderTriangleProgressFrame>[0],
   capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
@@ -232,6 +234,7 @@ function packageProgress(
   return renderTriangleProgressFrame(options, capabilities);
 }
 
+/** Render one reusable package section rule with explicit capabilities. */
 function packageSectionRule(
   label: string,
   options: Parameters<typeof renderTriangleSectionRule>[1],
@@ -244,6 +247,7 @@ function packageSectionRule(
   );
 }
 
+/** Project Discern's labelled steps into the package workflow stepper. */
 function packageStepper(
   activeIndex: number,
   capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
@@ -262,6 +266,7 @@ function packageStepper(
   );
 }
 
+/** Render one package activity-beacon phase with the gallery's fixed width. */
 function packageBeacon(
   phase: number,
   capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
@@ -282,6 +287,7 @@ function renderSpinnerStoryboard(
   return `${frames.join(" -> ")} -> (repeat)`;
 }
 
+/** Reveal the package divider geometry before settling on its static frame. */
 function animateDivider(
   staticArt: string,
   capabilities: TerminalCapabilities,
@@ -294,6 +300,7 @@ function animateDivider(
   );
 }
 
+/** Grow the package ribbon thickness before settling on its static frame. */
 function animateRibbon(
   staticArt: string,
   capabilities: TerminalCapabilities,
@@ -308,6 +315,7 @@ function animateRibbon(
   );
 }
 
+/** Grow the package weave length before settling on its static frame. */
 function animateWeave(
   staticArt: string,
   capabilities: TerminalCapabilities,
@@ -322,6 +330,7 @@ function animateWeave(
   );
 }
 
+/** Play two complete package spinner rotations before the static storyboard. */
 function animateSpinner(
   staticArt: string,
   capabilities: TerminalCapabilities,
@@ -337,6 +346,7 @@ function animateSpinner(
   );
 }
 
+/** Advance package progress frames before settling on the registered frame. */
 function animateProgress(
   staticArt: string,
   capabilities: TerminalCapabilities,
@@ -351,11 +361,12 @@ function animateProgress(
   );
 }
 
+/** Center a package section rule whose two arms are still growing. */
 function renderGrowingSectionRule(
   visibleArmCells: number,
   capabilities: TerminalCapabilities,
 ): string {
-  const labelWidth = measureText(SECTION_LABEL);
+  const labelWidth = displayWidth(SECTION_LABEL);
   const finalLeftCells = Math.floor(
     (SECTION_RULE.width - labelWidth - 2) / 2,
   );
@@ -365,6 +376,7 @@ function renderGrowingSectionRule(
   }`;
 }
 
+/** Grow a package section rule before settling on its registered static frame. */
 function animateSectionRule(
   staticArt: string,
   capabilities: TerminalCapabilities,
@@ -377,6 +389,7 @@ function animateSectionRule(
   );
 }
 
+/** Advance package workflow states before settling on the static stepper. */
 function animateStepper(
   staticArt: string,
   capabilities: TerminalCapabilities,
@@ -389,6 +402,7 @@ function animateStepper(
   );
 }
 
+/** Sweep the package activity beacon before settling on its static frame. */
 function animateBeacon(
   staticArt: string,
   capabilities: TerminalCapabilities,
@@ -403,6 +417,7 @@ function animateBeacon(
   );
 }
 
+/** Reveal Discern's product-specific pyramid row by row. */
 function animatePyramid(
   staticArt: string,
   capabilities: TerminalCapabilities,
@@ -420,6 +435,7 @@ function animatePyramid(
   );
 }
 
+/** Reveal and subdivide Discern's product-specific gasket composition. */
 function animateGasket(
   staticArt: string,
   capabilities: TerminalCapabilities,

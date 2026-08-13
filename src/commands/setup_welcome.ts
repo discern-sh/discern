@@ -24,7 +24,6 @@ import {
   renderBox,
   renderCommandCli,
   renderSectionCli,
-  terminalThemeColor,
 } from "discern-design-system/cli";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
@@ -446,7 +445,7 @@ function styledFreshWelcome(
       padding: 1,
       borderStyle: {
         ...terminal.theme.typography.muted,
-        color: terminalThemeColor(terminal.theme, "--discern-color-accent-700"),
+        color: terminal.themeColor("--discern-color-accent-700"),
       },
     },
     capabilities,

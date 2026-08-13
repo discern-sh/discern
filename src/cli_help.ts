@@ -16,13 +16,15 @@
 
 import type { Command } from "@cliffy/command";
 import {
-  measureText,
-  padText,
   renderSectionCli,
-  stripAnsi,
-  wrapText,
 } from "discern-design-system/cli";
 import type { EnvReader } from "./shared/env.ts";
+import {
+  displayWidth,
+  padDisplayEnd,
+  stripAnsi,
+  wrapText,
+} from "./lib/text.ts";
 import {
   productionTerminalContext,
   type TerminalContext,
@@ -185,7 +187,7 @@ function renderGroupedCommands(
   const visible = root.getCommands(false);
   const byName = new Map(visible.map((c) => [c.getName(), c]));
   const nameCol = Math.min(
-    Math.max(0, ...visible.map((c) => measureText(c.getName()))),
+    Math.max(0, ...visible.map((c) => displayWidth(c.getName()))),
     20,
   );
   // The description column begins after `    <name padded>  `; its continuation
@@ -206,15 +208,22 @@ function renderGroupedCommands(
       const indent = "      ";
       const wrapped = wrapText(
         c.getShortDescription(),
-        Math.max(1, width - measureText(indent)),
+        Math.max(1, width - displayWidth(indent)),
+        "",
+        { breakLongWords: true },
       );
       return [
         `    ${name(c.getName())}`,
         ...wrapped.map((line) => `${indent}${desc(line)}`),
       ];
     }
-    const wrapped = wrapText(c.getShortDescription(), descWidth);
-    const first = `    ${name(padText(c.getName(), nameCol))}  ${
+    const wrapped = wrapText(
+      c.getShortDescription(),
+      descWidth,
+      "",
+      { breakLongWords: true },
+    );
+    const first = `    ${name(padDisplayEnd(c.getName(), nameCol))}  ${
       desc(wrapped[0] ?? "")
     }`;
     return [first, ...wrapped.slice(1).map((l) => `${descIndent}${desc(l)}`)];
