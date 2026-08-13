@@ -231,6 +231,33 @@ Deno.test("buffered mode captures combined stdout+stderr after the banner", asyn
   assert(s.text().includes("oops-stderr"), s.text());
 });
 
+Deno.test("job labels are inert while buffered child-output bytes stay raw", async () => {
+  const s = makeSink();
+  const label = "job\x1b[31m\nspoof\u009b";
+  const child = "\x1b[35mchild\x1b[0m\n";
+  const r = await runParallel([
+    {
+      label,
+      command: "printf '\\033[35mchild\\033[0m\\n'",
+    },
+  ], {
+    cwd: CWD,
+    stream: false,
+    failFast: true,
+    color: false,
+    write: s.write,
+  });
+
+  assertEquals(r.ok, true);
+  assertEquals(r.results[0]?.label, label);
+  assertStringIncludes(
+    s.text(),
+    "── job␛[31m␊spoof<U+009B> ─ ok",
+  );
+  assertEquals(s.text().includes("\x1b[31m"), false);
+  assertStringIncludes(s.text(), child);
+});
+
 Deno.test("a genuinely failed job carries diagnostic output; a passing one carries only an artifact", async () => {
   const s = makeSink();
   const r = await runParallel([
@@ -606,4 +633,25 @@ Deno.test("stream mode prefixes each output line", async () => {
   });
   assert(s.text().includes("── j │ one"), s.text());
   assert(s.text().includes("── j │ two"), s.text());
+});
+
+Deno.test("stream mode makes configured labels inert without rewriting child bytes", async () => {
+  const s = makeSink();
+  const label = "stream\x1b[31m\nspoof\u009b";
+  const child = "\x1b[35mchild\x1b[0m";
+  await runParallel([{
+    label,
+    command: "printf '\\033[35mchild\\033[0m\\n'",
+  }], {
+    cwd: CWD,
+    stream: true,
+    failFast: true,
+    color: false,
+    write: s.write,
+  });
+  assertStringIncludes(
+    s.text(),
+    `── stream␛[31m␊spoof<U+009B> │ ${child}`,
+  );
+  assertEquals(s.text().includes("\x1b[31m"), false);
 });

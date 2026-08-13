@@ -11,7 +11,10 @@
 
 import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
 import { Logger } from "../src/lib/log.ts";
-import { resolveTerminalContext } from "../src/lib/terminal.ts";
+import {
+  resolveTerminalContext,
+  terminalMultiline,
+} from "../src/lib/terminal.ts";
 import { fakeEnv } from "./helpers.ts";
 
 /** Capture everything written to console.error / console.log while `fn` runs. */
@@ -128,6 +131,72 @@ Deno.test("Logger narration styles come from injected package Token roles", asyn
   ]);
 });
 
+Deno.test("Logger narration makes hostile caller facts inert at the shared boundary", async () => {
+  const log = new Logger({ json: false, noColor: true });
+  const hostile = "repo\x1b[31m\nbranch\x00\u0085\u202E";
+  const safe = "repo␛[31m␊branch␀<U+0085><U+202E>";
+  const hostileLabel = "repo\x1b[31m\x00\u0085\u202E";
+  const safeLabel = "repo␛[31m␀<U+0085><U+202E>";
+  const { err, out } = await capture(() => {
+    log.info(hostile);
+    log.ok(hostile);
+    log.warn(hostile);
+    log.error(hostile);
+    log.heading(hostile);
+    log.detail(hostile);
+    log.group("hostile-label", hostileLabel);
+  });
+
+  assertEquals(out, []);
+  assertEquals(err, [
+    `→ ${safe}`,
+    `✓ ${safe}`,
+    `! ${safe}`,
+    `✗ ${safe}`,
+    `\n${safe}`,
+    `  ${safe}`,
+    "",
+    `  ── ${safeLabel}`,
+  ]);
+});
+
+Deno.test("Logger pre-composed package frames honor color mode and keep content plain", async () => {
+  const terminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      LANG: "en_GB.UTF-8",
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  });
+  const colorLog = new Logger({ json: false, noColor: false, terminal });
+  const plainLog = new Logger({ json: false, noColor: true, terminal });
+  const coloredFrame = `${
+    colorLog.terminal.role("package", "strong")
+  }\nwrapped`;
+  const plainFrame = `${plainLog.terminal.role("package", "strong")}\nwrapped`;
+  const { err, out } = await capture(() => {
+    colorLog.humanLine(coloredFrame);
+    plainLog.humanLine(plainFrame);
+    plainLog.terminalSafeMultilineError(terminalMultiline("safe\nwrapped"));
+    plainLog.line("content\nrow");
+  });
+  assertStringIncludes(coloredFrame, "\x1b[");
+  assertEquals(plainFrame.includes("\x1b["), false);
+  assertEquals(err, [coloredFrame, plainFrame, "✗ safe\nwrapped"]);
+  assertEquals(out, ["content\nrow"]);
+});
+
+Deno.test("Logger multiline errors require the branded safe-text boundary", () => {
+  const rejectsArbitraryStrings = (log: Logger, text: string): void => {
+    // @ts-expect-error — future callers must cross terminalMultiline first.
+    log.terminalSafeMultilineError(text);
+  };
+  assertEquals(typeof rejectsArbitraryStrings, "function");
+});
+
 Deno.test("jsonResult does nothing in human mode", async () => {
   const log = new Logger({ json: false, noColor: true });
   const { err, out } = await capture(() => log.jsonResult({ a: 1 }));
@@ -151,6 +220,8 @@ Deno.test("JSON mode silences every human method", async () => {
     log.group("g");
     log.detail("d");
     log.line("l");
+    log.humanLine("hl");
+    log.terminalSafeMultilineError(terminalMultiline("em"));
   });
   assertEquals(err, []);
   assertEquals(out, []);

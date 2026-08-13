@@ -16,7 +16,7 @@
  *    promptly on SIGINT with nothing left behind.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
@@ -968,6 +968,41 @@ Deno.test("the CLI exits 0 on met, 124 on not-yet, 1 on refusal", async () => {
     };
     assertEquals(refusal.ok, false);
     assertEquals(refusal.error, "not_found");
+  });
+});
+
+Deno.test("await human refusals make hostile branch facts inert while JSON stays exact", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const branch = "agent/missing\x1b[31m\nspoof\u009b";
+
+    const human = await runAgent(dir, [
+      "await",
+      "--landed",
+      branch,
+      "--timeout",
+      "0",
+    ]);
+    assertEquals(human.code, 1, human.output);
+    assertEquals(human.output.includes("\x1b[31m"), false);
+    assertEquals(human.output.includes("\u009b"), false);
+    assertStringIncludes(
+      human.output,
+      "agent/missing␛[31m␊spoof<U+009B>",
+    );
+
+    const machine = await runAgent(dir, [
+      "await",
+      "--landed",
+      branch,
+      "--timeout",
+      "0",
+      "--json",
+    ]);
+    assertEquals(machine.code, 1, machine.output);
+    const result = JSON.parse(machine.stdout) as { message?: string };
+    assertStringIncludes(result.message ?? "", branch);
   });
 });
 

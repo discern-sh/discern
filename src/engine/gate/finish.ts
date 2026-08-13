@@ -1461,12 +1461,10 @@ function printSuccessTail(
   } else {
     out.ok("Everything built and all checks passed.");
     if (unfilled > 0) {
-      out.info(
-        out.terminal.role(
-          `note: ${unfilled} of ${STAGES.length} gate stages have no command yet.`,
-          "muted",
-        ),
-      );
+      // This is an intentionally pre-composed human line: applying terminalLine
+      // after the package role would expose the package-owned SGR instead of
+      // preserving the muted note. Dynamic facts are numeric and locally owned.
+      out.raw(renderGateStageGapNote(unfilled, STAGES.length, out.terminal));
     }
   }
   if (proof?.markdown !== undefined) {
@@ -1479,6 +1477,20 @@ function printSuccessTail(
   for (const hint of hints) {
     out.info(hint);
   }
+}
+
+/** Render the package-styled note for a partially wired gate. */
+export function renderGateStageGapNote(
+  unfilled: number,
+  total: number,
+  terminal: TerminalContext,
+): string {
+  return `${terminal.tone("→", "accent")} ${
+    terminal.role(
+      `note: ${unfilled} of ${total} gate stages have no command yet.`,
+      "muted",
+    )
+  }\n`;
 }
 
 /**

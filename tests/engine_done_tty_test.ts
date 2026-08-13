@@ -15,8 +15,16 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
-import { finishResult } from "../src/engine/gate/finish.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
+import {
+  finishResult,
+  renderGateStageGapNote,
+} from "../src/engine/gate/finish.ts";
+import {
+  resolveTerminalContext,
+  terminalContextWithColor,
+} from "../src/lib/terminal.ts";
+import { stripAnsi } from "discern-design-system/cli";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "u");
@@ -52,6 +60,29 @@ Deno.test("an in-process full gate must declare its output surface", () => {
     void finishResult("/synthetic/orbit");
   };
   assertEquals(typeof futureComposite, "function");
+});
+
+Deno.test("the partially wired gate note preserves package SGR only in color mode", () => {
+  const colorTerminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  });
+  const colored = renderGateStageGapNote(2, 3, colorTerminal);
+  const plain = renderGateStageGapNote(
+    2,
+    3,
+    terminalContextWithColor(colorTerminal, false),
+  );
+
+  assert(SGR.test(colored), colored);
+  assertEquals(stripAnsi(colored), plain);
+  assertEquals(SGR.test(plain), false);
+  assertStringIncludes(
+    plain,
+    "note: 2 of 3 gate stages have no command yet.",
+  );
 });
 
 /** Create a linked worktree with optional config and one clean committed change. */

@@ -830,6 +830,7 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
   const findings: Finding[] = [];
   const renderers = new Map<string, string>();
   const sanitizers = new Set<string>();
+  const multilineSanitizers = new Set<string>();
   if (rel === "src/engine/gate/presentation.ts") {
     sanitizers.add("safeLine");
     sanitizers.add("safeMultiline");
@@ -904,6 +905,9 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                     imported === "terminalLine" ||
                     imported === "terminalMultiline"
                   ) sanitizers.add(entry.local.name);
+                  if (imported === "terminalMultiline") {
+                    multilineSanitizers.add(entry.local.name);
+                  }
                 }
               }
             },
@@ -947,6 +951,18 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
             },
             CallExpression(node): void {
               const callee = context.sourceCode.getText(node.callee);
+              if (
+                node.callee.type === "MemberExpression" &&
+                propertyName(node.callee.property) ===
+                  "terminalSafeMultilineError"
+              ) {
+                const message = node.arguments[0];
+                if (
+                  message?.type !== "CallExpression" ||
+                  message.callee.type !== "Identifier" ||
+                  !multilineSanitizers.has(message.callee.name)
+                ) add("unsafe-terminal-safe-multiline-error", node);
+              }
               if (callee === "Deno.consoleSize") {
                 add("process-console-size-probe", node);
               }
@@ -1725,6 +1741,9 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     "draw({ counts: [{ ...row }] }, {});",
     "draw(row, {});",
     "draw(makeProps(row), {});",
+    "log.terminalSafeMultilineError(row.message);",
+    "class OrbitLog { errorMultiline(message) { return message; } }",
+    "new OrbitLog().errorMultiline(row.message);",
     "future({ rows: records.map((record) => ({ label: record.name })) }, {});",
     "future({ body: row.body, explanation: row.explanation, checks: [{ stateLabel: row.stateLabel }], subtitle: row.subtitle, details: row.details }, {});",
     "draw({ fact: safe(row.path) }, {});",
@@ -1761,6 +1780,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "unsafe-component-text:checks.stateLabel",
       "unsafe-component-text:subtitle",
       "unsafe-component-text:details",
+      "unsafe-terminal-safe-multiline-error",
     ]
   ) assert(rules.includes(expected), `missing synthetic ${expected}`);
   assertEquals(
@@ -1779,6 +1799,12 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     2,
     "ordinary string and template SGR literals both fail",
   );
+  assertEquals(
+    rules.filter((rule) => rule === "unsafe-terminal-safe-multiline-error")
+      .length,
+    1,
+    "the Logger-specific unsafe call fails while an unrelated method does not",
+  );
 
   assertEquals(
     structuralTerminalFindings(
@@ -1787,6 +1813,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
         'import { renderDiagnosticCli as paint } from "discern-design-system/cli";',
         'import { terminalMultiline as safeMany } from "../../lib/terminal.ts";',
         'paint({ message: safeMany(row.message), context: "static" }, {});',
+        "log.terminalSafeMultilineError(safeMany(row.message));",
         'paint({ ...{ body: safeMany(row.body) }, counts: [...[{ label: "Count", value: "1" }]] }, {});',
         'paint({ ...(condition ? {} : { nextAction: safeMany(row.nextAction) }), counts: [...(condition ? [] : [{ label: "Count", value: "1" }])] }, {});',
         "paint({ rows: records.map((record) => ({ label: safeMany(record.name) })) }, {});",

@@ -414,7 +414,19 @@ Deno.test("Gate progress controller injects time, resize, cancellation, and sche
 
   progress.complete(PROOF_STEPS);
   assertEquals(stops, 1);
-  assertStringIncludes(writes.at(-1) ?? "", "scope:site [skipped]");
+  const completedFrame = writes.at(-1) ?? "";
+  assertStringIncludes(completedFrame, "scope:site [skipped]");
+  assert(completedFrame.endsWith("\n"));
+  assertEquals(completedFrame.endsWith("\x1b[J"), false);
+  const completedWriteCount = writes.length;
+  callback?.();
+  progress.resize(20);
+  await Promise.resolve();
+  assertEquals(
+    writes.length,
+    completedWriteCount,
+    "ticks and resizes must not erase or replace the completed static frame",
+  );
   assertThrows(
     () =>
       createGateTtyProgress(() => {}, {

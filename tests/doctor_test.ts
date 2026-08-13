@@ -29,6 +29,7 @@ import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import {
   renderDoctorCheck,
+  renderDoctorCheckLine,
   renderDoctorHeader,
   runChecks,
 } from "../src/commands/doctor.ts";
@@ -112,7 +113,14 @@ Deno.test("doctor terminal Components make dynamic facts inert without mutating 
     terminal,
   );
   const header = renderDoctorHeader(environment, terminal);
-  const okOutput = `✓ ${okCheck.line}`;
+  const okOutput = renderDoctorCheckLine(okCheck, terminal);
+
+  assertStringIncludes(okCheck.line, "\n");
+  assertEquals(
+    stripAnsi(okOutput).split("\n").length,
+    okCheck.line.split("\n").length,
+  );
+  assertEquals(okOutput.includes("␊"), false);
 
   for (const output of [header, check.line, check.fix ?? "", okOutput]) {
     const plain = stripAnsi(output);

@@ -19,6 +19,8 @@ import {
   type TerminalContext,
   terminalContext,
   terminalContextWithColor,
+  terminalLine,
+  type TerminalMultiline,
 } from "./terminal.ts";
 
 /** How a command should present its results. */
@@ -80,7 +82,9 @@ export class Logger {
     if (this.json) {
       return;
     }
-    this.writeHuman(`${this.terminal.tone("→", "accent")} ${message}`);
+    this.writeHuman(
+      `${this.terminal.tone("→", "accent")} ${terminalLine(message)}`,
+    );
   }
 
   /** Success line (semantic success check). Suppressed in JSON mode. */
@@ -88,7 +92,9 @@ export class Logger {
     if (this.json) {
       return;
     }
-    this.writeHuman(`${this.terminal.tone("✓", "success")} ${message}`);
+    this.writeHuman(
+      `${this.terminal.tone("✓", "success")} ${terminalLine(message)}`,
+    );
   }
 
   /** Non-fatal warning (semantic warning bang) to stderr. */
@@ -96,7 +102,9 @@ export class Logger {
     if (this.json) {
       return;
     }
-    console.error(`${this.terminal.tone("!", "warning")} ${message}`);
+    console.error(
+      `${this.terminal.tone("!", "warning")} ${terminalLine(message)}`,
+    );
     this.wroteHuman = true;
     this.atGroupBoundary = false;
   }
@@ -106,7 +114,9 @@ export class Logger {
     if (this.json) {
       return;
     }
-    console.error(`${this.terminal.tone("✗", "danger")} ${message}`);
+    console.error(
+      `${this.terminal.tone("✗", "danger")} ${terminalLine(message)}`,
+    );
     this.wroteHuman = true;
     this.atGroupBoundary = false;
   }
@@ -116,7 +126,9 @@ export class Logger {
     if (this.json) {
       return;
     }
-    this.writeHuman(`\n${this.terminal.role(text, "strong")}`);
+    this.writeHuman(
+      `\n${this.terminal.role(terminalLine(text), "strong")}`,
+    );
   }
 
   /** Start a semantic group and optionally give it a visible ruled label. */
@@ -130,7 +142,7 @@ export class Logger {
     if (label !== undefined) {
       this.writeHuman(
         `  ${this.terminal.role("──", "muted")} ${
-          this.terminal.role(label, "strong")
+          this.terminal.role(terminalLine(label), "strong")
         }`,
       );
     }
@@ -141,7 +153,7 @@ export class Logger {
     if (this.json) {
       return;
     }
-    this.writeHuman(`  ${this.terminal.role(text, "muted")}`);
+    this.writeHuman(`  ${this.terminal.role(terminalLine(text), "muted")}`);
   }
 
   /**
@@ -204,6 +216,16 @@ export class Logger {
       return;
     }
     this.writeHuman(text);
+  }
+
+  /** Emit branded terminal-safe multiline text as one semantic error block. */
+  terminalSafeMultilineError(message: TerminalMultiline): void {
+    if (this.json) {
+      return;
+    }
+    console.error(`${this.terminal.tone("✗", "danger")} ${message}`);
+    this.wroteHuman = true;
+    this.atGroupBoundary = false;
   }
 }
 

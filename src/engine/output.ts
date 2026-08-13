@@ -14,6 +14,7 @@ import {
   type TerminalContext,
   terminalContext,
   terminalContextWithColor,
+  terminalLine,
   terminalPresentationContext,
 } from "../lib/terminal.ts";
 
@@ -136,13 +137,16 @@ export function makeOut(
   return {
     color,
     terminal,
-    info: (m: string): void => stdout(`${terminal.tone("→", "accent")} ${m}\n`),
-    ok: (m: string): void => stdout(`${terminal.tone("✓", "success")} ${m}\n`),
+    info: (m: string): void =>
+      stdout(`${terminal.tone("→", "accent")} ${terminalLine(m)}\n`),
+    ok: (m: string): void =>
+      stdout(`${terminal.tone("✓", "success")} ${terminalLine(m)}\n`),
     warn: (m: string): void =>
-      stderr(`${terminal.tone("!", "warning")} ${m}\n`),
+      stderr(`${terminal.tone("!", "warning")} ${terminalLine(m)}\n`),
     error: (m: string): void =>
-      stderr(`${terminal.tone("✗", "danger")} ${m}\n`),
-    heading: (m: string): void => stdout(`\n${terminal.role(m, "strong")}\n`),
+      stderr(`${terminal.tone("✗", "danger")} ${terminalLine(m)}\n`),
+    heading: (m: string): void =>
+      stdout(`\n${terminal.role(terminalLine(m), "strong")}\n`),
     group: (id: string, label?: string): void => {
       assertHumanOutputGroupId(id);
       if (label !== undefined) assertHumanOutputGroupLabel(id, label);
@@ -152,7 +156,7 @@ export function makeOut(
       if (label !== undefined) {
         writeHuman(
           `  ${terminal.role("──", "muted")} ${
-            terminal.role(label, "strong")
+            terminal.role(terminalLine(label), "strong")
           }\n`,
           lastStream,
         );

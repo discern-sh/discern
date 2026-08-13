@@ -323,6 +323,35 @@ Deno.test("the live output grouping surface writes exactly one complete boundary
   );
 });
 
+Deno.test("the live narration surface makes hostile caller facts inert but keeps raw bytes", () => {
+  const chunks: string[] = [];
+  const errors: string[] = [];
+  const out = makeOut(false, {
+    stdout: (text) => chunks.push(text),
+    stderr: (text) => errors.push(text),
+  });
+  const hostile = "repo\x1b[31m\nbranch\x00\u0085\u202E";
+  const safe = "repo␛[31m␊branch␀<U+0085><U+202E>";
+  const hostileLabel = "repo\x1b[31m\x00\u0085\u202E";
+  const safeLabel = "repo␛[31m␀<U+0085><U+202E>";
+
+  out.info(hostile);
+  out.ok(hostile);
+  out.warn(hostile);
+  out.error(hostile);
+  out.heading(hostile);
+  out.group("hostile-label", hostileLabel);
+
+  assertEquals(
+    chunks.join(""),
+    `→ ${safe}\n✓ ${safe}\n\n${safe}\n\n  ── ${safeLabel}\n`,
+  );
+  assertEquals(errors.join(""), `! ${safe}\n✗ ${safe}\n`);
+
+  out.raw(hostile);
+  assertEquals(chunks.at(-1), hostile);
+});
+
 Deno.test("the prompt grouping surface gives every populated group a heading", () => {
   const options = groupedSelectOptions<string>([
     {

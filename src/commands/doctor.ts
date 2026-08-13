@@ -1352,6 +1352,16 @@ export interface DoctorCheckPresentation {
   readonly status: Check["status"];
 }
 
+/** Compose one already-safe doctor check for the narration stream. */
+export function renderDoctorCheckLine(
+  rendered: DoctorCheckPresentation,
+  terminal: TerminalContext,
+): string {
+  return rendered.status === "ok"
+    ? `${terminal.tone("✓", "success")} ${rendered.line}`
+    : rendered.line;
+}
+
 /** Render one doctor diagnostic only after making its dynamic facts inert. */
 export function renderDoctorCheck(
   check: Check,
@@ -1443,11 +1453,9 @@ function renderDoctorChecks(
   ));
   for (const check of checks) {
     const rendered = renderDoctorCheck(check, terminal);
-    if (rendered.status === "ok") {
-      log.ok(rendered.line);
-    } else {
-      log.humanLine(rendered.line);
-    }
+    // Package renderers own wrapping and SGR here; the dynamic check facts were
+    // crossed through terminalMultiline in renderDoctorCheck above.
+    log.humanLine(renderDoctorCheckLine(rendered, terminal));
     if (rendered.fix !== undefined) {
       log.humanLine(rendered.fix);
     }

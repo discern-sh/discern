@@ -23,6 +23,7 @@ import { spawnJob, type SpawnOptions } from "./command.ts";
 import { trackRun } from "./interrupt.ts";
 import {
   type TerminalContext,
+  terminalLine,
   terminalPresentationContext,
 } from "../../lib/terminal.ts";
 
@@ -95,7 +96,7 @@ function banner(result: JobResult, terminal: TerminalContext): Uint8Array {
     ? terminal.role("cancelled", "muted")
     : terminal.tone(`FAILED (exit ${result.code})`, "danger");
   return ENCODER.encode(
-    `${terminal.role(`── ${result.label} ─`, "muted")} ${tail}\n`,
+    `${terminal.role(terminalLine(`── ${result.label} ─`), "muted")} ${tail}\n`,
   );
 }
 

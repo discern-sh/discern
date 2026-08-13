@@ -1216,9 +1216,11 @@ async function exportDocs(
     markdown = formatDocsExport(sources);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log.error(terminalMultiline(
-      `could not read every documentation source: ${message}`,
-    ));
+    log.terminalSafeMultilineError(
+      terminalMultiline(
+        `could not read every documentation source: ${message}`,
+      ),
+    );
     return 1;
   }
 
@@ -1227,9 +1229,11 @@ async function exportDocs(
       await Deno.writeTextFile(outputPath, markdown);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      log.error(terminalMultiline(
-        `could not write "${options.output}": ${message}`,
-      ));
+      log.terminalSafeMultilineError(
+        terminalMultiline(
+          `could not write "${options.output}": ${message}`,
+        ),
+      );
       return 1;
     }
     log.ok(terminalLine(
