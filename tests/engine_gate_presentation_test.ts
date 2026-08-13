@@ -48,8 +48,8 @@ import {
 import {
   type Diagnostic,
   DIAGNOSTIC_SEVERITIES,
-  FAILED_STAGES,
   type EnginePlan,
+  FAILED_STAGES,
   STEP_DISPOSITIONS,
   STEP_OUTCOMES,
   type StepResult,
@@ -221,10 +221,8 @@ Deno.test("Gate receipt makes landing readiness explicit without claiming consen
   );
   assertStringIncludes(conversational, "conversation required");
   assertStringIncludes(conversational, "1 uncovered");
-  assertStringIncludes(
-    conversational.replaceAll(/\s+/gu, " "),
-    "still needs conversation consent",
-  );
+  assertStringIncludes(conversational, "Landing still needs");
+  assertStringIncludes(conversational, "conversation consent");
   assertEquals(conversational.includes("Landing is authorized"), false);
 });
 

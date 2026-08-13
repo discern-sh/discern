@@ -915,7 +915,9 @@ export function renderGateProofReceipt(
   const landingSummary = landingAuthority === undefined
     ? ""
     : landingAuthority.kind === "authorized"
-    ? ` Landing is authorized by ${landingAuthority.source ?? "a verified grant"}.`
+    ? ` Landing is authorized by ${
+      landingAuthority.source ?? "a verified grant"
+    }.`
     : ` Landing still needs conversation consent; ${uncovered} changed path${
       uncovered === 1 ? " is" : "s are"
     } uncovered.`;
@@ -943,15 +945,13 @@ export function renderGateProofReceipt(
         state: state.checkState,
         stateLabel: state.stateLabel,
       },
-      ...(landingAuthority === undefined
-        ? []
-        : [{
-          label: "Landing authority",
-          ...GATE_LANDING_AUTHORITY_PRESENTATION[landingAuthority.kind],
-          value: landingAuthority.kind === "authorized"
-            ? landingAuthority.source ?? "verified grant"
-            : `${uncovered} uncovered`,
-        }]),
+      ...(landingAuthority === undefined ? [] : [{
+        label: "Landing authority",
+        ...GATE_LANDING_AUTHORITY_PRESENTATION[landingAuthority.kind],
+        value: landingAuthority.kind === "authorized"
+          ? landingAuthority.source ?? "verified grant"
+          : `${uncovered} uncovered`,
+      }]),
     ],
     summary: `${proofSummary}${landingSummary}`,
     footer: "Full proof: discern status --verbose",
