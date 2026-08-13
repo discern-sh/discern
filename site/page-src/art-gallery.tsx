@@ -32,18 +32,23 @@ function BrowserArtwork(
     readonly index: number;
   },
 ): ReactNode {
+  const artworkId = `art-${artwork.slug}`;
   const headingId = `art-${artwork.slug}-title`;
   return (
     <article
       className="art-gallery__study"
-      id={`art-${artwork.slug}`}
+      id={artworkId}
       aria-labelledby={headingId}
       data-browser-artwork={artwork.slug}
     >
       <header className="art-gallery__study-header">
         <span>{String(index + 1).padStart(2, "0")}</span>
         <div>
-          <h3 id={headingId}>{artwork.title}</h3>
+          <h3 id={headingId}>
+            <a className="art-gallery__permalink" href={`#${artworkId}`}>
+              {artwork.title}
+            </a>
+          </h3>
           <p>{artwork.description}</p>
         </div>
         <code title={artwork.sourceCommit}>

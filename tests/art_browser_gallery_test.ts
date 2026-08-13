@@ -37,6 +37,15 @@ const EXPECTED_BROWSER_ART = [
   ["rule", "5b3e48ae75dc345aa63454cf2063d11923046634"],
   ["survey", "2a94d9131027085e1d2869c631445d7fd67bd023"],
   ["interference", "abb4c5474843a8892d65523a2e50f93819238176"],
+  ["mesh", "0000000000000000000000000000000000000000"],
+  ["phase", "0000000000000000000000000000000000000000"],
+  ["prism", "0000000000000000000000000000000000000000"],
+  ["packing", "0000000000000000000000000000000000000000"],
+  ["quorum", "0000000000000000000000000000000000000000"],
+  ["isolate", "0000000000000000000000000000000000000000"],
+  ["ledger", "0000000000000000000000000000000000000000"],
+  ["gate", "0000000000000000000000000000000000000000"],
+  ["shadow", "0000000000000000000000000000000000000000"],
 ] as const;
 
 /** Collapse prose whitespace without changing punctuation. */
@@ -128,10 +137,17 @@ Deno.test("the art archive renders every browser study twice and every terminal 
     const study = studies[index];
     assert(study !== undefined);
     assertEquals(study.getAttribute("data-browser-artwork"), artwork.slug);
+    assertEquals(study.id, `art-${artwork.slug}`);
     assertEquals(
       readableText(study.querySelector("h3")?.textContent ?? null),
       artwork.title,
     );
+    const permalink = study.querySelector<HTMLAnchorElement>(
+      ".art-gallery__permalink",
+    );
+    assert(permalink !== null, `${artwork.slug} must link its title`);
+    assertEquals(permalink.getAttribute("href"), `#${study.id}`);
+    assertEquals(readableText(permalink.textContent), artwork.title);
     assertStringIncludes(readableText(study.textContent), artwork.description);
 
     const themes = [...study.querySelectorAll(".art-gallery__theme")];

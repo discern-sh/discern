@@ -1,0 +1,186 @@
+/* Fig. XV — the gate. One 24s phrase (20 beats of 1.2s). The stream is
+ * continuous rather than staged: every figure runs the same constant-speed
+ * traverse, in phase, one interval apart, entering and leaving off-plate so
+ * the loop has no seam.
+ *
+ *   0–100%    eight figures cross at 3s intervals
+ *  48–52%     the oversize figure enters
+ *  70–75%     it meets the posts, recoils, and holds
+ *  68–91%     the aperture's mark takes the accent, and the figure withdraws
+ */
+@layer discern.page {
+  .fig-gate__graduations line {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    opacity: 0.18;
+  }
+
+  .fig-gate__gauge {
+    opacity: var(--fig-faint);
+    animation: fig-gate-gauge calc(var(--fig-beat) * 20) var(--fig-ease-drift)
+      infinite;
+  }
+
+  .fig-gate__gauge line {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+  }
+
+  .fig-gate__gauge-drop {
+    stroke-dasharray: 3 4;
+  }
+
+  .fig-gate__travelling polygon,
+  .fig-gate__turned-back polygon {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    stroke-linejoin: round;
+  }
+
+  .fig-gate__travelling polygon {
+    opacity: 0.55;
+  }
+
+  .fig-gate__travelling {
+    animation: fig-gate-travel calc(var(--fig-beat) * 20) linear infinite both;
+  }
+
+  .fig-gate__turned-back {
+    opacity: 0;
+    animation: fig-gate-refuse calc(var(--fig-beat) * 20) var(--fig-ease-settle)
+      infinite;
+  }
+
+  .fig-gate__turned-back line {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    stroke-dasharray: 3 3;
+  }
+
+  .fig-gate__posts line {
+    stroke: currentColor;
+    stroke-width: var(--fig-heavy);
+    stroke-linecap: round;
+  }
+
+  .fig-gate__rail {
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-gate__aperture-half {
+    fill: currentColor;
+    opacity: 0.08;
+  }
+
+  .fig-gate__aperture {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    stroke-linejoin: round;
+    opacity: 0.34;
+  }
+
+  .fig-gate__seal {
+    opacity: 0;
+    animation: fig-gate-seal calc(var(--fig-beat) * 20) var(--fig-ease-settle)
+      infinite;
+  }
+
+  .fig-gate__seal-half {
+    fill: var(--fig-accent);
+    opacity: 0.5;
+  }
+
+  .fig-gate__seal-edge {
+    fill: none;
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+    stroke-linejoin: round;
+  }
+
+  .fig-gate__seal-median {
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-hairline);
+  }
+
+  @keyframes fig-gate-travel {
+    0% {
+      transform: translateX(-160px);
+    }
+    99.9% {
+      transform: translateX(940px);
+    }
+    100% {
+      transform: translateX(-160px);
+    }
+  }
+
+  /* Short of the posts, a recoil off them, then back the way it came. */
+  @keyframes fig-gate-refuse {
+    0%,
+    48% {
+      opacity: 0;
+      transform: translateX(-160px);
+    }
+    52% {
+      opacity: 0.85;
+    }
+    70% {
+      transform: translateX(404px);
+    }
+    72% {
+      transform: translateX(412px);
+    }
+    75% {
+      transform: translateX(388px);
+    }
+    88% {
+      opacity: 0.85;
+      transform: translateX(-160px);
+    }
+    91% {
+      opacity: 0;
+    }
+    91.1%,
+    100% {
+      opacity: 0;
+      transform: translateX(-160px);
+    }
+  }
+
+  @keyframes fig-gate-gauge {
+    0%,
+    9% {
+      opacity: var(--fig-faint);
+    }
+    62% {
+      opacity: 0.5;
+    }
+    80% {
+      opacity: 0.5;
+    }
+    90%,
+    100% {
+      opacity: var(--fig-faint);
+    }
+  }
+
+  @keyframes fig-gate-seal {
+    0%,
+    68% {
+      opacity: 0;
+    }
+    73% {
+      opacity: 1;
+    }
+    85% {
+      opacity: 1;
+    }
+    91%,
+    100% {
+      opacity: 0;
+    }
+  }
+}

@@ -32,6 +32,14 @@
     --fig-guide: var(--discern-color-border-strong);
     --fig-accent: var(--discern-color-accent-600);
 
+    /* Prism's physically meaningful spectrum, shared here rather than
+     * embedded in its renderer so both supported themes receive one source. */
+    --fig-spectrum-violet: oklch(60% 0.2 300);
+    --fig-spectrum-indigo: oklch(58% 0.21 276);
+    --fig-spectrum-blue: oklch(56% 0.21 258);
+    --fig-spectrum-azure: oklch(63% 0.16 232);
+    --fig-spectrum-cyan: oklch(68% 0.13 208);
+
     position: relative;
     margin: 0;
     min-width: 0;

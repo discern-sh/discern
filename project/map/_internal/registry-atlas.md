@@ -52,7 +52,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `art/terminal/triangle.ts#DISCERN_TRIANGLE_MOTIFS`                                | 10      | —                | —                           |
-| [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 12      | —                | —                           |
+| [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 21      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 64      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
@@ -1312,7 +1312,7 @@ The reusable triangle treatments: every pure static frame carries one semantic a
 The approved browser-art family: every member supplies its metadata, renderer, immutable source provenance, stylesheet, dual-theme gallery projection, and structural guards.
 
 - Source: `art/browser/registry.ts` — `BROWSER_ARTWORKS`
-- Members: 12
+- Members: 21
   - `alignment`
   - `bifurcation`
   - `contour`
@@ -1325,6 +1325,15 @@ The approved browser-art family: every member supplies its metadata, renderer, i
   - `rule`
   - `survey`
   - `interference`
+  - `mesh`
+  - `phase`
+  - `prism`
+  - `packing`
+  - `quorum`
+  - `isolate`
+  - `ledger`
+  - `gate`
+  - `shadow`
 - Guards: `tests/art_browser_gallery_test.ts`, `tests/browser_art_alignment_test.ts`, `tests/browser_art_bifurcation_test.ts`, `tests/browser_art_contour_test.ts`, `tests/browser_art_persistent_trace_test.ts`, `tests/browser_art_invariant_core_test.ts`, `tests/browser_art_figures_test.ts`, `tests/browser_art_circuit_test.ts`, `tests/browser_art_seal_test.ts`, `tests/browser_art_delta_test.ts`, `tests/browser_art_ratchet_test.ts`, `tests/browser_art_rule_test.ts`, `tests/browser_art_survey_test.ts`, `tests/browser_art_interference_test.ts`
 - Glossary: not enrolled — the browser-art gallery owns these internal study names
 - Feature canon: not enrolled — the development-only gallery owns these visual references outside the public product surface
