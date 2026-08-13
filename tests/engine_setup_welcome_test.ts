@@ -13,7 +13,8 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { measureText, stripAnsi } from "discern-design-system/cli";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
@@ -26,10 +27,13 @@ import {
   renderFreshWelcome,
   resolveWelcomeStyle,
 } from "../src/commands/setup_welcome.ts";
+import {
+  resolveTerminalContext,
+  type TerminalContext,
+} from "../src/lib/terminal.ts";
 
 const ESC = String.fromCharCode(27);
 const ANSI_ESCAPE = new RegExp(`${ESC}\\[[0-9;]*m`);
-const ANSI_ESCAPES = new RegExp(`${ESC}\\[[0-9;]*m`, "g");
 
 const FRESH_WELCOME_FACTS: readonly string[] = [
   DISCERN_MARK,
@@ -57,21 +61,44 @@ const FRESH_WELCOME_FACTS: readonly string[] = [
   "Don't hand this back as a report",
 ];
 
-/** Remove terminal escape sequences so styled and plain welcome content can be compared. */
-function stripAnsi(text: string): string {
-  return text.replace(ANSI_ESCAPES, "");
-}
-
 /** Require machine and non-TTY setup output to remain free of terminal control sequences. */
 function assertNoAnsi(text: string, label: string): void {
   assert(!ANSI_ESCAPE.test(text), `${label} must not contain ANSI escapes`);
 }
 
 /** Require every canonical first-run fact on each setup welcome surface. */
-function assertFreshWelcomeFacts(text: string, label: string): void {
-  for (const fact of FRESH_WELCOME_FACTS) {
-    assertStringIncludes(text, fact, `${label} missing ${fact}`);
+function assertFreshWelcomeFacts(
+  text: string,
+  label: string,
+  includeUnicodeMark = true,
+): void {
+  const normalized = text.replaceAll(/[│|]/gu, " ").replaceAll(/\s+/gu, " ");
+  const facts = includeUnicodeMark
+    ? FRESH_WELCOME_FACTS
+    : FRESH_WELCOME_FACTS.filter((fact) => fact !== DISCERN_MARK);
+  for (const fact of facts) {
+    assertStringIncludes(
+      normalized,
+      fact.replaceAll(/\s+/gu, " "),
+      `${label} missing ${fact}`,
+    );
   }
+}
+
+/** Resolve deterministic TTY facts for responsive Unicode and ASCII rendering. */
+function welcomeTerminal(
+  columns: number,
+  unicode = true,
+): TerminalContext {
+  return resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      ...(unicode ? { LANG: "en_GB.UTF-8" } : { LC_ALL: "C" }),
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns, rows: 24 }),
+  });
 }
 
 /** A git work tree with a file but NO discern.toml — the fresh-install entry point. */
@@ -92,14 +119,14 @@ Deno.test("the fresh welcome renderer adds TTY decoration without losing content
     ANSI_ESCAPE.test(styled),
     "TTY renderer should apply ANSI styling",
   );
-  assertStringIncludes(styledPlain, "╭");
-  assertStringIncludes(styledPlain, "╰");
+  assertStringIncludes(styledPlain, "┌");
+  assertStringIncludes(styledPlain, "└");
   const styledLines = styledPlain.split("\n");
   const splitMark = renderDiscernArt("split").split("\n");
   for (const [index, row] of splitMark.entries()) {
-    assertStringIncludes(
-      styledLines[index + 1] ?? "",
-      row.trim(),
+    assertEquals(
+      styledLines[index],
+      row,
       `styled welcome split-mark row ${index + 1}`,
     );
   }
@@ -108,23 +135,53 @@ Deno.test("the fresh welcome renderer adds TTY decoration without losing content
     "the split-mark art belongs only to the styled TTY welcome",
   );
   assertStringIncludes(
-    styledLines[splitMark.length + 1] ?? "",
+    styledLines[splitMark.length] ?? "",
     "quality gates and safe worktrees",
   );
   assertStringIncludes(
-    styledLines[splitMark.length + 2] ?? "",
+    styledLines[splitMark.length + 1] ?? "",
     "for coding agents and the humans who run them.",
   );
-  const boxWidth = styledLines[0]?.length;
+  const frameStart = styledLines.findIndex((line) => line.startsWith("┌"));
+  assert(frameStart >= 0, "expected the package-rendered welcome frame");
+  const boxWidth = measureText(styledLines[frameStart] ?? "");
   assertEquals(boxWidth, 78);
-  for (const line of styledPlain.split("\n")) {
+  for (const line of styledLines.slice(frameStart)) {
     assert(
-      line.length === boxWidth,
-      `styled welcome line has width ${line.length}, expected ${boxWidth}: ${line}`,
+      measureText(line) === boxWidth,
+      `styled welcome line has width ${
+        measureText(line)
+      }, expected ${boxWidth}: ${line}`,
     );
   }
   assertFreshWelcomeFacts(plain, "plain welcome");
   assertFreshWelcomeFacts(styledPlain, "styled welcome");
+});
+
+Deno.test("the styled welcome follows package width and ASCII capabilities", () => {
+  for (const columns of [42, 120]) {
+    const terminal = welcomeTerminal(columns);
+    const lines = stripAnsi(
+      renderFreshWelcome({ tty: true, terminal }).join("\n"),
+    ).split("\n");
+    const frameStart = lines.findIndex((line) => line.startsWith("┌"));
+    const expectedWidth = Math.min(78, columns);
+    assert(frameStart >= 0, `missing ${columns}-column package frame`);
+    for (const line of lines.slice(frameStart)) {
+      assertEquals(measureText(line), expectedWidth, `${columns}-column frame`);
+    }
+    assertFreshWelcomeFacts(lines.join("\n"), `${columns}-column welcome`);
+  }
+
+  const ascii = stripAnsi(
+    renderFreshWelcome({
+      tty: true,
+      terminal: welcomeTerminal(78, false),
+    }).join("\n"),
+  );
+  assertStringIncludes(ascii, renderDiscernArt("stamp"));
+  assert(!ascii.includes("┌") && !ascii.includes("└") && !ascii.includes("│"));
+  assertFreshWelcomeFacts(ascii, "ASCII welcome", false);
 });
 
 Deno.test("the fresh welcome keeps the human CTA contiguous", () => {

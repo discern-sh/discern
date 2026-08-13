@@ -8,7 +8,6 @@
  */
 
 import { Command, ValidationError } from "@cliffy/command";
-import { colors } from "@cliffy/ansi/colors";
 import { setColorEnabled as setStdColorEnabled } from "@std/fmt/colors";
 import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
@@ -89,19 +88,16 @@ export function resolveColorMode(
 /**
  * Thread the one resolved terminal context to every surface that emits colour:
  *  - package-backed Logger and engine output consume the installed context;
- *  - the remaining Cliffy `colors` chain (help and later presentation migrations)
- *    receives the context's colour boolean;
- *  - the `@std/fmt/colors` module-global, for any consumer outside Cliffy's help
- *    generator (the generator saves, forces, and restores that global around each
- *    render, so it is governed by {@link applyHelpColorOption} instead);
+ *  - the `@std/fmt/colors` module-global remains synchronized for legacy
+ *    consumers outside the package-backed 2C surfaces;
  *  - the engine's `colorEnabled()` reads the installed context.
- * The root help additionally strips Cliffy's `getHelp()` escapes when off (it honours
- * only `Deno.noColor`); {@link operatorHelp} does that from the `color` argument.
+ * Root help strips Cliffy's generated presentation unconditionally and renders
+ * semantic headings through the package context; {@link operatorHelp} accepts the
+ * `color` argument only as a compatibility override of that context.
  */
 function applyColorMode(context: TerminalContext): void {
   const color = context.color;
   setTerminalContext(context);
-  colors.setColorEnabled(color);
   setStdColorEnabled(color);
 }
 

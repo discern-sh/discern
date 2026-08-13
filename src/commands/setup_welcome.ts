@@ -19,9 +19,20 @@
 import { emitResult } from "../shared/emit.ts";
 import { DISCERN_WORDMARK } from "../shared/brand.ts";
 import { renderDiscernArt } from "../../art/terminal/brand.ts";
+import {
+  joinVertical,
+  renderBox,
+  renderCommandCli,
+  renderSectionCli,
+  terminalThemeColor,
+} from "discern-design-system/cli";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
-import { displayWidth } from "../lib/text.ts";
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalPresentationContext,
+} from "../lib/terminal.ts";
 import {
   type HumanOutputGroup,
   renderHumanOutputGroups,
@@ -48,6 +59,8 @@ export interface WelcomeOptions {
 export interface WelcomeStyleMode {
   /** True only for an interactive TTY when colour has not been disabled. */
   tty: boolean;
+  /** Explicit package presentation facts for the styled branch. */
+  terminal?: TerminalContext;
 }
 
 /** The repo facts the fresh welcome grounds itself in — today just whether the
@@ -62,13 +75,18 @@ export interface WelcomeStyleInputs {
   stdoutTty: boolean;
   /** Already resolved from `--no-color` and `NO_COLOR` by the CLI plumbing. */
   noColor: boolean;
+  /** The process context already resolved by the CLI entry point. */
+  terminal?: TerminalContext;
 }
 
 /** Resolve the welcome's presentation mode from the existing no-colour plumbing. */
 export function resolveWelcomeStyle(
   inputs: WelcomeStyleInputs,
 ): WelcomeStyleMode {
-  return { tty: inputs.stdoutTty && !inputs.noColor };
+  return {
+    tty: inputs.stdoutTty && !inputs.noColor,
+    ...(inputs.terminal === undefined ? {} : { terminal: inputs.terminal }),
+  };
 }
 
 /**
@@ -186,9 +204,11 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
     return 0;
   }
 
+  const terminal = terminalContext();
   const style = resolveWelcomeStyle({
-    stdoutTty: opts.stdoutIsTerminal ?? Deno.stdout.isTerminal(),
+    stdoutTty: opts.stdoutIsTerminal ?? terminal.stdoutIsTerminal,
     noColor: opts.noColor,
+    terminal,
   });
 
   switch (phase) {
@@ -210,116 +230,8 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
 }
 
 const RULE = `  ${"─".repeat(72)}`;
-const TTY_BOX_WIDTH = 78;
-const TTY_BOX_INNER_WIDTH = TTY_BOX_WIDTH - 4;
-const ACTION_BOX_WIDTH = 56;
-const ESC = String.fromCharCode(27);
-
-/** Wrap text in an ANSI style while reopening that style after nested resets. */
-function sgr(text: string, open: number, close: number): string {
-  const start = `${ESC}[${open}m`;
-  const end = `${ESC}[${close}m`;
-  return `${start}${text.replaceAll(end, start)}${end}`;
-}
-
-/** Apply bold ANSI styling with the matching intensity reset. */
-function bold(text: string): string {
-  return sgr(text, 1, 22);
-}
-
-/** Apply dim ANSI styling with the matching intensity reset. */
-function dim(text: string): string {
-  return sgr(text, 2, 22);
-}
-
-/** Apply the cyan foreground used for the welcome frame. */
-function cyan(text: string): string {
-  return sgr(text, 36, 39);
-}
-
-/** Apply the green foreground used for the setup action. */
-function green(text: string): string {
-  return sgr(text, 32, 39);
-}
-
-/** Apply the yellow foreground used for the non-Git warning. */
-function yellow(text: string): string {
-  return sgr(text, 33, 39);
-}
-
-/** Measure styled text through the CLI's shared terminal-width authority. */
-function visibleLength(text: string): number {
-  return displayWidth(text);
-}
-
-/** Right-pad styled text to a requested visible terminal width. */
-function padVisible(text: string, width: number): string {
-  return `${text}${" ".repeat(Math.max(0, width - visibleLength(text)))}`;
-}
-
-/** Center styled text using visible width rather than escape-sequence bytes. */
-function centerVisible(text: string, width: number): string {
-  const padding = Math.max(0, width - visibleLength(text));
-  const left = Math.floor(padding / 2);
-  const right = padding - left;
-  return `${" ".repeat(left)}${text}${" ".repeat(right)}`;
-}
-
-/** Apply the shared dim-cyan style to one box-drawing fragment. */
-function border(text: string): string {
-  return dim(cyan(text));
-}
-
-/** Draw the fixed-width upper edge of the welcome frame. */
-function boxTop(): string {
-  return border(`╭${"─".repeat(TTY_BOX_WIDTH - 2)}╮`);
-}
-
-/** Draw the fixed-width lower edge of the welcome frame. */
-function boxBottom(): string {
-  return border(`╰${"─".repeat(TTY_BOX_WIDTH - 2)}╯`);
-}
-
-/** Draw a labeled divider across the welcome frame. */
-function boxRule(label: string): string {
-  const dashes = "─".repeat(Math.max(1, TTY_BOX_WIDTH - label.length - 5));
-  return `${border("├─ ")}${bold(label)}${border(` ${dashes}┤`)}`;
-}
-
-/** Fit one styled content row between the welcome frame's side borders. */
-function boxLine(text = ""): string {
-  return `${border("│")} ${padVisible(text, TTY_BOX_INNER_WIDTH)} ${
-    border("│")
-  }`;
-}
-
-/** Fit one styled row inside the narrower green action panel. */
-function actionBoxLine(text: string): string {
-  const innerWidth = ACTION_BOX_WIDTH - 4;
-  return `${green("│")} ${padVisible(text, innerWidth)} ${green("│")}`;
-}
-
-/** Build the centered panel containing the sentence a user gives their agent. */
-function actionBox(): string[] {
-  const quote = '"Run `discern setup` in this project."';
-  return [
-    boxLine(
-      centerVisible(
-        green(`╭${"─".repeat(ACTION_BOX_WIDTH - 2)}╮`),
-        TTY_BOX_INNER_WIDTH,
-      ),
-    ),
-    boxLine(
-      centerVisible(actionBoxLine(bold(quote)), TTY_BOX_INNER_WIDTH),
-    ),
-    boxLine(
-      centerVisible(
-        green(`╰${"─".repeat(ACTION_BOX_WIDTH - 2)}╯`),
-        TTY_BOX_INNER_WIDTH,
-      ),
-    ),
-  ];
-}
+const TTY_MAX_BOX_WIDTH = 78;
+const TTY_MIN_BOX_WIDTH = 24;
 
 /**
  * The fresh-install welcome, authored as lines and printed in one go — so the text is
@@ -423,10 +335,11 @@ function freshWelcomeGroups(
   style: WelcomeStyleMode,
   ctx: WelcomeContext = { gitRepo: true },
 ): HumanOutputGroup<string>[] {
-  if (style.tty) {
+  const terminal = style.terminal ?? terminalPresentationContext(style.tty);
+  if (style.tty && terminal.capabilities.columns >= TTY_MIN_BOX_WIDTH) {
     return [{
       id: "welcome-frame",
-      items: [styledFreshWelcome(ctx).join("\n")],
+      items: [styledFreshWelcome(ctx, terminal).join("\n")],
     }];
   }
   const lines = [...PLAIN_FRESH_WELCOME];
@@ -447,142 +360,100 @@ export function renderFreshWelcome(
   return renderHumanOutputGroups(freshWelcomeGroups(style, ctx)).split("\n");
 }
 
-/** Compose the TTY welcome, including the Git prerequisite warning when needed. */
-function styledFreshWelcome(ctx: WelcomeContext): string[] {
-  const mark = renderDiscernArt("split").split("\n");
-  const markWidth = Math.max(...mark.map(visibleLength));
-  return [
-    boxTop(),
-    ...mark.map((line) =>
-      boxLine(
-        centerVisible(
-          padVisible(bold(cyan(line)), markWidth),
-          TTY_BOX_INNER_WIDTH,
-        ),
-      )
+/** Compose the package-backed TTY welcome, including the Git prerequisite. */
+function styledFreshWelcome(
+  ctx: WelcomeContext,
+  terminal: TerminalContext,
+): string[] {
+  const capabilities = terminal.capabilities;
+  const width = Math.min(TTY_MAX_BOX_WIDTH, capabilities.columns);
+  const innerWidth = width - 4;
+  const innerCapabilities = { ...capabilities, columns: innerWidth };
+  const theme = terminal.themeVariant;
+  const mark = renderDiscernArt(capabilities.unicode ? "split" : "stamp");
+  const action = terminal.tone(
+    '"Run `discern setup` in this project."',
+    "success",
+    "strong",
+  );
+  const humans = joinVertical([
+    renderSectionCli(
+      {
+        title: "FOR HUMANS",
+        body:
+          "Welcome! discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo — tailored to YOUR codebase by your own coding agent.",
+        treatment: "rule",
+        spacing: "sm",
+        theme,
+        width: innerWidth,
+      },
+      innerCapabilities,
     ),
-    boxLine(
-      centerVisible(
-        dim("quality gates and safe worktrees"),
-        TTY_BOX_INNER_WIDTH,
-      ),
+    "quality gate   isolated git worktrees   shared agent instructions",
+    "To get started, tell your coding agent:",
+    action,
+    "Setup is isolated and reversible. Everything discern itself owns lands in one root file (`discern.toml`) and one visible `discern/` folder, plus the config files your coding tools require — your own tools' integrations, wired for you and committed in the open. Your agent works on a dedicated `discern-setup` branch in small step-by-step commits, so you can follow along — and if you change your mind, `discern uninstall` backs it all out. There's no lock-in, no API key, and no surprises.",
+    "Point your MOST CAPABLE model at it: setup is a one-time, high-leverage step, and discern is only as good as the model that configured it. Expect roughly 20–40 minutes and a meaningful number of tokens.",
+  ], { spacing: 1 });
+  const agents = joinVertical([
+    renderSectionCli(
+      {
+        title: "FOR CODING AGENTS",
+        body:
+          "You are discern's configuration engine here: the capable agent already in the loop, set to configure discern for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done) — not a status to relay back and stop on. discern guides each step; NOTHING is written until you explicitly run `begin`.",
+        treatment: "rule",
+        spacing: "sm",
+        theme,
+        width: innerWidth,
+      },
+      innerCapabilities,
     ),
-    boxLine(
-      centerVisible(
-        dim("for coding agents and the humans who run them."),
-        TTY_BOX_INNER_WIDTH,
-      ),
+    "Your next action, now — preview the plan and open the consent conversation:",
+    renderCommandCli(
+      {
+        command: "discern setup verify",
+        explanation: "(read-only; add --json for machine output)",
+        theme,
+        maxWidth: innerWidth,
+      },
+      innerCapabilities,
     ),
-    boxRule("This project isn't set up yet."),
-    ...(ctx.gitRepo ? [] : [
-      boxLine(""),
-      boxLine(
-        yellow(
-          "⚠ This folder isn't a git repository yet. Setup's first step is",
-        ),
-      ),
-      boxLine(
-        yellow(
-          "  `git init` — git is what makes setup isolated, reversible, and",
-        ),
-      ),
-      boxLine(yellow("  easy to undo.")),
-    ]),
-    boxLine(""),
-    boxLine(bold(cyan("FOR HUMANS"))),
-    boxLine(
-      "Welcome! discern adds a quality gate, isolated git worktrees, and shared",
+    terminal.role(
+      "Run it yourself: it hands you the exact message to relay to your human, then points you at the next step. Don't hand this back as a report — carry it through.",
+      "muted",
     ),
-    boxLine(
-      "agent instructions to this repo — tailored to YOUR codebase by your own",
+  ], { spacing: 1 });
+  const header = joinVertical([
+    terminal.tone(mark, "accent", "strong"),
+    terminal.role(
+      "quality gates and safe worktrees\nfor coding agents and the humans who run them.",
+      "muted",
     ),
-    boxLine("coding agent."),
-    boxLine(""),
-    boxLine(
-      centerVisible(
-        `${cyan("quality gate")}   ${green("isolated git worktrees")}   ${
-          yellow("shared agent instructions")
-        }`,
-        TTY_BOX_INNER_WIDTH,
-      ),
-    ),
-    boxLine(""),
-    boxLine("To get started, tell your coding agent:"),
-    boxLine(""),
-    ...actionBox(),
-    boxLine(""),
-    boxLine(
-      "Setup is isolated and reversible. Everything discern itself owns lands",
-    ),
-    boxLine(
-      "in one root file (`discern.toml`) and one visible `discern/` folder,",
-    ),
-    boxLine(
-      "plus the config files your coding tools require — your own tools'",
-    ),
-    boxLine("integrations, wired for you and committed in the open."),
-    boxLine("Your agent works on a dedicated `discern-setup` branch in small"),
-    boxLine(
-      "step-by-step commits, so you can follow along — and if you change",
-    ),
-    boxLine(
-      "your mind, `discern uninstall` backs it all out. There's no lock-in,",
-    ),
-    boxLine("no API key, and no surprises."),
-    boxLine(""),
-    boxLine("Point your MOST CAPABLE model at it: setup is a one-time,"),
-    boxLine(
-      "high-leverage step, and discern is only as good as the model that",
-    ),
-    boxLine("configured it."),
-    boxLine("Expect roughly 20–40 minutes and a meaningful number of tokens."),
-    boxLine(""),
-    boxRule("FOR CODING AGENTS"),
-    boxLine(
-      dim(
-        "You are discern's configuration engine here: the capable agent already in",
-      ),
-    ),
-    boxLine(
-      dim("the loop, set to configure discern for your human. This is a short"),
-    ),
-    boxLine(
-      dim("workflow you DRIVE end to end (verify → begin → author → done) —"),
-    ),
-    boxLine(
-      dim("not a status to relay back and stop on. discern guides each step;"),
-    ),
-    boxLine(dim("NOTHING is written until you explicitly run `begin`.")),
-    boxLine(""),
-    boxLine(
-      dim(
-        "Your next action, now — preview the plan and open the consent",
-      ),
-    ),
-    boxLine(dim("conversation:")),
-    boxLine(""),
-    boxLine(
-      centerVisible(
-        dim(
-          "discern setup verify        (read-only; add --json for machine output)",
-        ),
-        TTY_BOX_INNER_WIDTH,
-      ),
-    ),
-    boxLine(""),
-    boxLine(
-      dim(
-        "Run it yourself: it hands you the exact message to relay to your human,",
-      ),
-    ),
-    boxLine(
-      dim(
-        "then points you at the next step. Don't hand this back as a report —",
-      ),
-    ),
-    boxLine(dim("carry it through.")),
-    boxBottom(),
-  ];
+  ]).split("\n");
+  const body = joinVertical([
+    terminal.role("This project isn't set up yet.", "strong"),
+    ...(ctx.gitRepo ? [] : [terminal.tone(
+      "⚠ This folder isn't a git repository yet. Setup's first step is `git init` — git is what makes setup isolated, reversible, and easy to undo.",
+      "warning",
+    )]),
+    humans,
+    agents,
+  ], { spacing: 1 });
+  const frame = renderBox(
+    {
+      body,
+      width,
+      padding: 1,
+      borderStyle: {
+        ...terminal.theme.typography.muted,
+        color: terminalThemeColor(terminal.theme, "--discern-color-accent-700"),
+      },
+    },
+    capabilities,
+  ).split("\n");
+  // The package box intentionally normalizes indentation while wrapping. Keep
+  // Discern's product-owned art outside it so those accepted rows remain exact.
+  return [...header, "", ...frame];
 }
 
 /** The abandoned-mid-setup welcome: a `discern-setup` branch exists with setup's

@@ -19,6 +19,11 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import type { Command } from "@cliffy/command";
+import {
+  DISCERN_TRIANGLE_GLYPHS,
+  measureText,
+  stripAnsi,
+} from "discern-design-system/cli";
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import { HIDDEN_VERBS, hiddenVerbNames } from "../src/shared/hidden_verbs.ts";
 import {
@@ -26,20 +31,30 @@ import {
   groupedCommandNames,
   operatorHelp,
 } from "../src/cli_help.ts";
+import {
+  resolveTerminalContext,
+  type TerminalContext,
+} from "../src/lib/terminal.ts";
+import { fakeEnv } from "./helpers.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
-/** The ESC byte that opens every ANSI escape (built without a control-char regex). */
-const ESC = String.fromCharCode(27);
-
-/** Strip ANSI SGR colour sequences so substring checks see plain text. Cliffy
- * forces colour in `getHelp()` and highlights `<arg>`/`[arg]` per-token, so the
- * usage shape is only contiguous once the escapes are removed. */
+/** Strip ANSI through the published terminal-text authority. */
 function plain(s: string): string {
-  return s
-    .split(ESC)
-    .map((part, i) => (i === 0 ? part : part.slice(part.indexOf("m") + 1)))
-    .join("");
+  return stripAnsi(s);
+}
+
+/** Resolve deterministic package capabilities for width/degradation proofs. */
+function helpTerminal(columns: number, unicode = true): TerminalContext {
+  return resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      ...(unicode ? { LANG: "en_GB.UTF-8" } : { LC_ALL: "C" }),
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns, rows: 24 }),
+  });
 }
 
 /** The full root with `setup` shown — the maximal set of
@@ -260,7 +275,7 @@ Deno.test("the grouped command list word-wraps to the width with hanging indents
   for (const l of body) {
     const breakable = l.trimStart().includes(" ");
     assert(
-      l.length <= WIDTH || !breakable,
+      measureText(l) <= WIDTH || !breakable,
       `a wrappable command line overflowed ${WIDTH} cols: ${JSON.stringify(l)}`,
     );
   }
@@ -272,4 +287,35 @@ Deno.test("the grouped command list word-wraps to the width with hanging indents
     body.some((l) => /^ {10,}\S/.test(l)),
     "no hang-indented continuation line — descriptions did not wrap cleanly",
   );
+});
+
+Deno.test("the grouped command list follows narrow, wide, and ASCII package capabilities", () => {
+  for (const width of [42, 120]) {
+    const lines = plain(operatorHelp(fullRoot(), {
+      terminal: helpTerminal(width),
+    })).split("\n");
+    const start = lines.findIndex((line) => line.trimEnd() === "Commands:");
+    const end = lines.findIndex((line, index) =>
+      index > start && line.trimEnd() === "Examples:"
+    );
+    const body = lines.slice(start + 1, end === -1 ? undefined : end);
+    for (const line of body) {
+      assert(
+        measureText(line) <= width,
+        `${width}-column grouped help overflowed: ${JSON.stringify(line)}`,
+      );
+    }
+    for (const group of COMMAND_GROUPS) {
+      assertStringIncludes(body.join("\n"), group.name);
+    }
+  }
+
+  const ascii = plain(operatorHelp(fullRoot(), {
+    terminal: helpTerminal(72, false),
+  }));
+  for (const glyph of Object.values(DISCERN_TRIANGLE_GLYPHS)) {
+    assert(!ascii.includes(glyph), `Unicode package glyph leaked: ${glyph}`);
+  }
+  assertStringIncludes(ascii, "Your desk");
+  assertStringIncludes(ascii, "discern <command> --help");
 });

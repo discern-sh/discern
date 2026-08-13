@@ -9,15 +9,26 @@
  * groups. So we let Cliffy render its canonical help — header, usage, options,
  * examples, all byte-identical to every subcommand's own `--help` — then rewrite
  * just its "Commands:" section into named, ordered groups read from
- * {@link COMMAND_GROUPS}. No internal Cliffy imports, no custom help handler, and
- * the rest of the help stays exactly as the framework renders it. (ADR 0066.)
+ * {@link COMMAND_GROUPS}. Cliffy remains the command-fact/parser authority; the
+ * published design-system CLI owns text measurement, wrapping, Tokens, and the
+ * visible grouped treatment. (ADR 0066.)
  */
 
 import type { Command } from "@cliffy/command";
-import { colors } from "@cliffy/ansi/colors";
-import { stripAnsi, terminalWidth, wrapText } from "./lib/text.ts";
+import {
+  measureText,
+  padText,
+  renderSectionCli,
+  stripAnsi,
+  wrapText,
+} from "discern-design-system/cli";
 import type { EnvReader } from "./shared/env.ts";
-import { colorEnabled } from "./engine/output.ts";
+import {
+  productionTerminalContext,
+  type TerminalContext,
+  terminalContext,
+  terminalContextWithColor,
+} from "./lib/terminal.ts";
 
 /** Ambient inputs that callers may pin for deterministic help rendering. */
 export interface OperatorHelpOptions {
@@ -25,12 +36,14 @@ export interface OperatorHelpOptions {
   readonly width?: number;
   /** Environment source used by terminal-width fallback (chiefly `$COLUMNS`). */
   readonly env?: EnvReader;
+  /** Package presentation facts already resolved at the CLI boundary. */
+  readonly terminal?: TerminalContext;
   /**
    * The CLI's resolved colour decision (`--no-color` flag + NO_COLOR + isatty).
    * When set it governs the help's colour — including stripping any escape Cliffy's
    * own `getHelp()` emitted, since that generator consults only `Deno.noColor` and
    * so ignores both `--no-color` and non-TTY output. Omitted, the process-wide
-   * resolved decision (`colorEnabled`) applies.
+   * terminal context applies.
    */
   readonly color?: boolean;
 }
@@ -127,20 +140,33 @@ function isHeading(line: string, label: string): boolean {
 }
 
 /**
- * The width to lay the command list out to. Mirrors how Cliffy wraps the rest of
- * the help (its `getColumns() ?? 150`) so the grouped commands and the framework's
- * own sections wrap to the SAME width: the terminal's when attached to one, else
- * `$COLUMNS`, else 150 (Cliffy's piped default). The per-row floor below keeps a
- * narrow terminal sane; there is no cap, so a wide terminal stays consistent.
+ * Resolve one presentation snapshot for the whole help render. An injected width
+ * alters only the immutable snapshot used here; it never re-observes the process.
  */
-function helpWidth(options: OperatorHelpOptions): number {
-  if (options.width !== undefined) {
-    return Math.max(1, Math.floor(options.width));
-  }
-  return terminalWidth({
-    env: options.env ?? Deno.env,
-    fallback: 150,
-  });
+function helpPresentation(options: OperatorHelpOptions): {
+  readonly terminal: TerminalContext;
+  readonly width: number;
+} {
+  const base = options.terminal ??
+    (options.env === undefined
+      ? terminalContext()
+      : productionTerminalContext({ env: options.env, fallbackColumns: 150 }));
+  const width = Math.max(
+    1,
+    Math.floor(options.width ?? base.capabilities.columns),
+  );
+  const colored = terminalContextWithColor(
+    base,
+    options.color ?? base.color,
+  );
+  return {
+    terminal: {
+      ...colored,
+      capabilities: { ...colored.capabilities, columns: width },
+      size: { ...colored.size, columns: width },
+    },
+    width,
+  };
 }
 
 /**
@@ -153,28 +179,42 @@ function helpWidth(options: OperatorHelpOptions): number {
  */
 function renderGroupedCommands(
   root: Command,
-  color: boolean,
+  terminal: TerminalContext,
   width: number,
 ): string {
   const visible = root.getCommands(false);
   const byName = new Map(visible.map((c) => [c.getName(), c]));
   const nameCol = Math.min(
-    Math.max(0, ...visible.map((c) => c.getName().length)),
+    Math.max(0, ...visible.map((c) => measureText(c.getName()))),
     20,
   );
   // The description column begins after `    <name padded>  `; its continuation
   // lines hang-indent to the same column. A floor keeps the wrap sane if the
   // terminal is unusually narrow.
   const descStart = 4 + nameCol + 2;
-  const descWidth = Math.max(24, width - descStart);
+  const descWidth = Math.max(1, width - descStart);
   const descIndent = " ".repeat(descStart);
+  const stacked = descWidth < 24;
 
-  const heading = (s: string): string => (color ? colors.bold.cyan(s) : s);
-  const name = (s: string): string => (color ? colors.brightBlue(s) : s);
-  const desc = (s: string): string => (color ? colors.dim(s) : s);
+  const heading = (text: string): string =>
+    terminal.tone(text, "accent", "strong");
+  const name = (text: string): string =>
+    terminal.tone(text, "accent", "strong");
+  const desc = (text: string): string => terminal.role(text, "muted");
   const rowLines = (c: Command): string[] => {
+    if (stacked) {
+      const indent = "      ";
+      const wrapped = wrapText(
+        c.getShortDescription(),
+        Math.max(1, width - measureText(indent)),
+      );
+      return [
+        `    ${name(c.getName())}`,
+        ...wrapped.map((line) => `${indent}${desc(line)}`),
+      ];
+    }
     const wrapped = wrapText(c.getShortDescription(), descWidth);
-    const first = `    ${name(c.getName().padEnd(nameCol))}  ${
+    const first = `    ${name(padText(c.getName(), nameCol))}  ${
       desc(wrapped[0] ?? "")
     }`;
     return [first, ...wrapped.slice(1).map((l) => `${descIndent}${desc(l)}`)];
@@ -189,7 +229,21 @@ function renderGroupedCommands(
     if (members.length === 0) {
       continue;
     }
-    out.push(`  ${heading(group.name)} ${desc(`— ${group.note}`)}`);
+    if (width >= 5) {
+      out.push(renderSectionCli(
+        {
+          title: group.name,
+          body: `— ${group.note}`,
+          treatment: "rule",
+          spacing: "none",
+          theme: terminal.themeVariant,
+          width,
+        },
+        terminal.capabilities,
+      ));
+    } else {
+      out.push(heading(group.name), desc(`— ${group.note}`));
+    }
     for (const c of members) {
       out.push(...rowLines(c));
       seen.add(c.getName());
@@ -233,21 +287,17 @@ export function operatorHelp(
   root: Command,
   options: OperatorHelpOptions = {},
 ): string {
-  const rawBase = root.getHelp();
-  // The CLI's resolved decision wins; absent an explicit value, read the
-  // process-wide decision — never infer it from the rendered bytes. Cliffy's
-  // generator colours from `Deno.noColor` alone, and FORCE_COLOR flips that even
-  // when NO_COLOR is set, so "did Cliffy colour the base?" would let the
-  // environment override the resolved decision. When the decision is "no
-  // colour", strip the escapes Cliffy emitted regardless.
-  const color = options.color ?? colorEnabled();
-  const base = color ? rawBase : stripAnsi(rawBase);
+  const presentation = helpPresentation(options);
+  // Cliffy remains the parser/fact source, never the ANSI source: strip its
+  // presentation unconditionally, then style semantic headings and groups from
+  // the one package context above.
+  const base = stripAnsi(root.getHelp());
   const lines = dropVersionRow(base.split("\n"));
 
   const ci = lines.findIndex((l) => isHeading(l, "Commands"));
   if (ci === -1) {
     // No command list (degenerate tree) — nothing to regroup.
-    return appendFooter(base, color);
+    return appendFooter(base, presentation.terminal);
   }
   // The command list runs until the next heading. We always register an example
   // (see buildCli), so "Examples:" reliably bounds it; fall back to end-of-help.
@@ -255,19 +305,39 @@ export function operatorHelp(
   if (end === -1) {
     end = lines.length;
   }
-  const before = lines.slice(0, ci);
-  const after = lines.slice(end);
-  const grouped = renderGroupedCommands(root, color, helpWidth(options)).split(
-    "\n",
+  const before = styleScaffoldHeadings(
+    lines.slice(0, ci),
+    presentation.terminal,
   );
+  const after = styleScaffoldHeadings(
+    lines.slice(end),
+    presentation.terminal,
+  );
+  const grouped = renderGroupedCommands(
+    root,
+    presentation.terminal,
+    presentation.width,
+  ).split("\n");
   const rebuilt = [...before, ...grouped, "", ...after].join("\n");
-  return appendFooter(rebuilt, color);
+  return appendFooter(rebuilt, presentation.terminal);
+}
+
+/** Restyle Cliffy's plain structural headings through package Token roles. */
+function styleScaffoldHeadings(
+  lines: readonly string[],
+  terminal: TerminalContext,
+): string[] {
+  return lines.map((line) =>
+    ["Usage", "Options", "Examples"].some((label) => isHeading(line, label))
+      ? terminal.tone(line, "accent", "strong")
+      : line
+  );
 }
 
 /** Append the "drill into any command" pointer as a trailing footer line, set
  * off by a blank line from the examples above it. */
-function appendFooter(help: string, color: boolean): string {
+function appendFooter(help: string, terminal: TerminalContext): string {
   const note = "Run `discern <command> --help` for detail on any command.";
   const body = help.replace(/\n+$/, "");
-  return `${body}\n\n${color ? colors.dim(note) : note}\n`;
+  return `${body}\n\n${terminal.role(note, "muted")}\n`;
 }
