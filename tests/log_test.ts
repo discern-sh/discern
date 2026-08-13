@@ -16,6 +16,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { colourEnabled, Logger } from "../src/lib/log.ts";
+import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { fakeEnv } from "./helpers.ts";
 
 /** Capture everything written to console.error / console.log while `fn` runs. */
@@ -96,6 +97,36 @@ Deno.test("bold and dim are identity functions when colour is off", () => {
   const log = new Logger({ json: false, noColor: true });
   assertEquals(log.bold("x"), "x");
   assertEquals(log.dim("y"), "y");
+});
+
+Deno.test("Logger narration styles come from injected package Token roles", async () => {
+  const terminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      LANG: "en_GB.UTF-8",
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  });
+  const log = new Logger({ json: false, noColor: false, terminal });
+  const { err } = await capture(() => {
+    log.info("starting");
+    log.ok("done");
+    log.warn("careful");
+    log.error("oops");
+    log.heading("Section");
+    log.detail("detail");
+  });
+  assertEquals(err, [
+    `${terminal.tone("→", "accent")} starting`,
+    `${terminal.tone("✓", "success")} done`,
+    `${terminal.tone("!", "warning")} careful`,
+    `${terminal.tone("✗", "danger")} oops`,
+    `\n${terminal.role("Section", "strong")}`,
+    `  ${terminal.role("detail", "muted")}`,
+  ]);
 });
 
 Deno.test("jsonResult does nothing in human mode", async () => {

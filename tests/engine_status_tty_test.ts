@@ -2,6 +2,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { displayWidth } from "../src/lib/text.ts";
+import { palette } from "../src/engine/output.ts";
 import {
   fire,
   type HintDef,
@@ -324,7 +325,8 @@ Deno.test("status dashboard: narrow, ordinary, wide, and capped layouts keep equ
     }
   }
   assertEquals(render(fixture, 400), render(fixture, STATUS_REPORT_MAX_WIDTH));
-  assert(!render(fixture, 104, true).includes(`${ESC}[32mclean`));
+  const tokens = palette(true);
+  assert(!render(fixture, 104, true).includes(`${tokens.green}clean`));
 });
 
 Deno.test("status dashboard: marked and unmarked item text shares the heading content column", () => {
@@ -393,8 +395,9 @@ Deno.test("status dashboard: every long or differing identity survives every lay
     assertLinesFit(output, width, [branch, id]);
   }
   const styled = render(fixture, 104, true);
-  assertStringIncludes(styled, `${ESC}[2magent/${ESC}[0m`);
-  assertStringIncludes(styled, `${ESC}[2m-abc123${ESC}[0m`);
+  const tokens = palette(true);
+  assertStringIncludes(styled, `${tokens.dim}agent/${tokens.reset}`);
+  assertStringIncludes(styled, `${tokens.dim}-abc123${tokens.reset}`);
   assertEquals(
     presentFleetRow(entry({ branch: "plain-id", id: "plain-id" }), {
       trunk: "main",
@@ -553,16 +556,17 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
   assertStringIncludes(words, "Landing: scope-limited");
   assert(!words.includes("2m of ~2m"));
   assert(!words.includes("0 ahead"));
-  assertStringIncludes(output, `${ESC}[31mFailed${ESC}[0m`);
-  assertStringIncludes(output, `${ESC}[33mBehind${ESC}[0m`);
+  const tokens = palette(true);
+  assertStringIncludes(output, `${tokens.red}Failed${tokens.reset}`);
+  assertStringIncludes(output, `${tokens.yellow}Behind${tokens.reset}`);
   assertStringIncludes(
     output,
-    `${ESC}[33m2 files changed · ↑8 ↓3${ESC}[0m`,
+    `${tokens.yellow}2 files changed · ↑8 ↓3${tokens.reset}`,
   );
-  assertStringIncludes(output, `${ESC}[32mReady${ESC}[0m`);
+  assertStringIncludes(output, `${tokens.green}Ready${tokens.reset}`);
   assertStringIncludes(
     output,
-    `${ESC}[36mrunning done 2m · usually 2m${ESC}[0m`,
+    `${tokens.cyan}running done 2m · usually 2m${tokens.reset}`,
   );
   assertLinesFit(output, 72);
 });
@@ -662,8 +666,9 @@ Deno.test("status dashboard: every backticked discern command is cyan without ch
   const color = render(fixture, 104, true, hints, true);
 
   assertEquals(plain(color), noColor);
+  const tokens = palette(true);
   const commandCount = noColor.split("`discern").length - 1;
-  const highlighted = color.split(`\`${ESC}[36mdiscern`).length - 1;
+  const highlighted = color.split(`\`${tokens.cyan}discern`).length - 1;
   assert(
     commandCount >= 4,
     "fixture must exercise every command text route",
@@ -672,11 +677,11 @@ Deno.test("status dashboard: every backticked discern command is cyan without ch
   assertEquals(highlighted, commandCount);
   assertStringIncludes(
     color,
-    `\`${ESC}[36mdiscern${ESC}[0m ${ESC}[36mupdate${ESC}[0m\``,
+    `\`${tokens.cyan}discern${tokens.reset} ${tokens.cyan}update${tokens.reset}\``,
   );
   assertStringIncludes(
     color,
-    `\`${ESC}[36mdiscern${ESC}[0m${ESC}[2m ${ESC}[36mstandards${ESC}[0m${ESC}[2m\``,
+    `\`${tokens.cyan}discern${tokens.reset}${tokens.dim} ${tokens.cyan}standards${tokens.reset}${tokens.dim}\``,
   );
   assertLinesFit(color, 104);
 });

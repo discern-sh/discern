@@ -118,6 +118,17 @@ export interface TerminalContext {
   ): string;
 }
 
+/** Raw affixes retained only for untouched feature renderers crossing in 3A. */
+export interface TerminalStyleFragments {
+  readonly reset: string;
+  readonly strong: string;
+  readonly muted: string;
+  readonly danger: string;
+  readonly success: string;
+  readonly warning: string;
+  readonly accent: string;
+}
+
 /** Resolve one positive integer dimension through observation, env, fallback. */
 function resolveDimension(
   observed: number | undefined,
@@ -282,6 +293,95 @@ export function setTerminalContext(
 /** Return the process context, constructing a stable fallback for direct calls. */
 export function terminalContext(): TerminalContext {
   return activeTerminalContext ?? productionTerminalContext();
+}
+
+/**
+ * Resolve presentation-only compatibility facts without manufacturing a real
+ * terminal in a pure renderer. The CLI's active context wins; isolated render
+ * tests receive deterministic 80-column Unicode facts.
+ */
+export function terminalPresentationContext(
+  color: boolean,
+): TerminalContext {
+  const base = activeTerminalContext ?? contextFromFacts(
+    { colorDepth: "none", columns: DEFAULT_TERMINAL_COLUMNS, unicode: true },
+    { columns: DEFAULT_TERMINAL_COLUMNS, rows: DEFAULT_TERMINAL_ROWS },
+    {},
+    "dark",
+  );
+  return terminalContextWithColor(base, color);
+}
+
+/**
+ * Apply an already-resolved compatibility colour decision without probing the
+ * process again. Enabling a context that had no depth uses the package's stable
+ * ANSI-16 fallback; production calls normally preserve their detected depth.
+ */
+export function terminalContextWithColor(
+  context: TerminalContext,
+  color: boolean,
+): TerminalContext {
+  const colorDepth = color
+    ? context.capabilities.colorDepth === "none"
+      ? "ansi16"
+      : context.capabilities.colorDepth
+    : "none";
+  return contextFromFacts(
+    { ...context.capabilities, colorDepth },
+    context.size,
+    context.environment,
+    context.themeVariant,
+  );
+}
+
+/** Extract package-emitted prefixes for the temporary legacy palette facade. */
+export function terminalStyleFragments(
+  context: TerminalContext,
+): TerminalStyleFragments {
+  const marker = "discern-terminal-style-marker";
+  const affixes = (render: (text: string) => string): {
+    readonly prefix: string;
+    readonly suffix: string;
+  } => {
+    const rendered = render(marker);
+    const at = rendered.indexOf(marker);
+    if (at < 0) {
+      throw new TypeError("terminal style renderer did not preserve its text");
+    }
+    return {
+      prefix: rendered.slice(0, at),
+      suffix: rendered.slice(at + marker.length),
+    };
+  };
+  const strong = affixes((text) => context.role(text, "strong"));
+  const muted = affixes((text) => context.role(text, "muted"));
+  const danger = affixes((text) => context.tone(text, "danger"));
+  const success = affixes((text) => context.tone(text, "success"));
+  const warning = affixes((text) => context.tone(text, "warning"));
+  const accent = affixes((text) => context.tone(text, "accent"));
+  const suffixes = [
+    strong.suffix,
+    muted.suffix,
+    danger.suffix,
+    success.suffix,
+    warning.suffix,
+    accent.suffix,
+  ].filter((suffix) => suffix !== "");
+  const reset = suffixes[0] ?? "";
+  if (suffixes.some((suffix) => suffix !== reset)) {
+    throw new TypeError(
+      "package terminal styles use incompatible reset affixes",
+    );
+  }
+  return {
+    reset,
+    strong: strong.prefix,
+    muted: muted.prefix,
+    danger: danger.prefix,
+    success: success.prefix,
+    warning: warning.prefix,
+    accent: accent.prefix,
+  };
 }
 
 /** Resolve both dimensions through the shared process adapter. */

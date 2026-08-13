@@ -35,7 +35,12 @@ import {
 import { buildCli, resolveColorMode } from "../src/main.ts";
 import { operatorHelp } from "../src/cli_help.ts";
 import { KNOWN_ENGINE_VERBS } from "../src/engine/dispatch.ts";
-import { colorEnabled, setColorOverride } from "../src/engine/output.ts";
+import {
+  colorEnabled,
+  palette,
+  setColorOverride,
+} from "../src/engine/output.ts";
+import { resolveTerminalContext } from "../src/lib/terminal.ts";
 
 /** The ESC byte that opens every ANSI escape (built without a control-char regex). */
 const ESC = String.fromCharCode(27);
@@ -69,6 +74,37 @@ Deno.test("resolveColorMode is the single decision: flag beats NO_COLOR beats is
   // an agent capturing output) is off — the B36 non-TTY member.
   assertEquals(resolveColorMode(false, fakeEnv({}), () => false), false);
   assertEquals(resolveColorMode(false, fakeEnv({}), () => true), true);
+  assertEquals(
+    resolveColorMode(false, fakeEnv({ TERM: "dumb" }), () => true),
+    false,
+  );
+});
+
+Deno.test("the temporary output palette is generated from package semantic roles", () => {
+  const terminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      LANG: "en_GB.UTF-8",
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  });
+  const c = palette(true, terminal);
+  assertEquals(`${c.bold}Strong${c.reset}`, terminal.role("Strong", "strong"));
+  assertEquals(`${c.dim}Muted${c.reset}`, terminal.role("Muted", "muted"));
+  assertEquals(`${c.red}Danger${c.reset}`, terminal.tone("Danger", "danger"));
+  assertEquals(
+    `${c.green}Success${c.reset}`,
+    terminal.tone("Success", "success"),
+  );
+  assertEquals(
+    `${c.yellow}Warning${c.reset}`,
+    terminal.tone("Warning", "warning"),
+  );
+  assertEquals(`${c.cyan}Accent${c.reset}`, terminal.tone("Accent", "accent"));
+  assert(c.reset !== "");
 });
 
 Deno.test("the engine colour choke point obeys the threaded decision, beating its own isatty check", () => {

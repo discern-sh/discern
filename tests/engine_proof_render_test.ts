@@ -25,7 +25,7 @@ import {
   type StepResult,
   verbatimStepLabel,
 } from "../src/shared/result.ts";
-import { makeOut, outSink } from "../src/engine/output.ts";
+import { makeOut, outSink, palette } from "../src/engine/output.ts";
 import { displayWidth } from "../src/lib/text.ts";
 import type { GatePlan } from "../src/engine/gate/plan.ts";
 import type { JobResult } from "../src/engine/jobs/types.ts";
@@ -452,9 +452,10 @@ Deno.test("gate TTY render: color changes styling only and every line stays with
     )
   }`;
   const stripSgr = (value: string): string => value.replaceAll(SGR_GLOBAL, "");
+  const tokens = palette(true);
   assertEquals(stripSgr(colored), plain);
-  assertStringIncludes(colored, "\x1b[31mfailed");
-  assertStringIncludes(colored, "\x1b[33mcancelled");
+  assertStringIncludes(colored, `${tokens.red}failed`);
+  assertStringIncludes(colored, `${tokens.yellow}cancelled`);
   for (const line of colored.split("\n")) {
     assert(
       displayWidth(line) <= options.width,
@@ -586,6 +587,7 @@ Deno.test("dimBlock with a colour-off dim returns the block unchanged", () => {
 });
 
 Deno.test("a proof page dims per line under the real ANSI palette", () => {
+  const tokens = palette(true);
   const dim = outSink(makeOut(true)).dim;
   const page = renderProofMarkdown(FACTS, STEPS);
   const block = dimBlock(page, dim);
@@ -593,12 +595,12 @@ Deno.test("a proof page dims per line under the real ANSI palette", () => {
     if (line === "") {
       continue;
     }
-    assertEquals(line.startsWith("\x1b[2m"), true, `undimmed line: ${line}`);
-    assertEquals(line.endsWith("\x1b[0m"), true, `unreset line: ${line}`);
+    assertEquals(line.startsWith(tokens.dim), true, `undimmed line: ${line}`);
+    assertEquals(line.endsWith(tokens.reset), true, `unreset line: ${line}`);
   }
   // Attributes never straddle a newline: stripping the codes recovers the page.
   assertEquals(
-    block.replaceAll("\x1b[2m", "").replaceAll("\x1b[0m", ""),
+    block.replaceAll(tokens.dim, "").replaceAll(tokens.reset, ""),
     page,
   );
 });

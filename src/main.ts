@@ -14,7 +14,6 @@ import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
 import { emitResult } from "./shared/emit.ts";
 import { observeVerbTarget } from "./shared/result_capture.ts";
-import { setColorOverride } from "./engine/output.ts";
 import {
   AGENT_NAMES,
   ConfigParseError,
@@ -52,6 +51,12 @@ import {
 } from "./engine/crash.ts";
 import { runCommandGroup } from "./shared/command_group.ts";
 import { cliJsonResultVerb } from "./shared/result_contracts.ts";
+import {
+  productionTerminalContext,
+  resolveTerminalContext,
+  setTerminalContext,
+  type TerminalContext,
+} from "./lib/terminal.ts";
 
 // The full built-in verb vocabulary (installer + engine) is defined once in the
 // dispatcher and re-exported here as the CLI's
@@ -59,59 +64,52 @@ import { cliJsonResultVerb } from "./shared/result_contracts.ts";
 export { KNOWN_VERBS };
 
 /**
- * Resolve the effective "no colour" decision. Cliffy maps `--no-color` to a
- * negatable boolean `color` (true by default, false when the flag is passed);
- * we also honour the NO_COLOR env var as a hard off-switch.
+ * Resolve Cliffy's negatable `color` flag only. NO_COLOR and process facts are
+ * already part of the shared terminal context, so command callbacks must not
+ * re-read them.
  */
 function noColorFrom(color: boolean | undefined): boolean {
-  if (color === false) {
-    return true;
-  }
-  const env = Deno.env.get("NO_COLOR");
-  return env !== undefined && env !== "";
+  return color === false;
 }
 
 /**
- * The CLI's single colour decision — resolved ONCE, from the three inputs the
- * `--no-color` help text promises: the flag itself, the NO_COLOR env var, and
- * whether stdout is a TTY. Every colour-emitting path (engine verbs, the installer
- * Loggers, the root help) is threaded from this one value in {@link main}, so no
- * output path re-decides on its own and drops the flag. `noColorFlag` is read from
- * argv pre-Cliffy (the flag reaches the router before Cliffy parses it). `env` and
- * `isTerminal` are injectable so the decision is unit-testable without touching the
- * process (the codebase's EnvReader seam).
+ * Compatibility projection of the CLI's shared process adapter for tests and
+ * callers that only need its colour boolean. `main` constructs and installs the
+ * complete context instead. The flag, NO_COLOR, TTY, and TERM degradation are
+ * therefore decided by the same package capability detector.
  */
 export function resolveColorMode(
   noColorFlag: boolean,
   env: EnvReader = Deno.env,
   isTerminal: () => boolean = () => Deno.stdout.isTerminal(),
 ): boolean {
-  if (noColorFlag) {
-    return false;
-  }
-  const nc = env.get("NO_COLOR");
-  if (nc !== undefined && nc !== "") {
-    return false;
-  }
-  return isTerminal();
+  return resolveTerminalContext({
+    noColor: noColorFlag,
+    env,
+    isTerminal,
+    consoleSize: () => {
+      throw new Error("colour-only resolution does not observe dimensions");
+    },
+  }).color;
 }
 
 /**
- * Thread the one resolved colour decision to every surface that emits colour:
- *  - the standalone Cliffy `colors` chain (the installer + engine `Logger`s, and
- *    the help's own group headings) — `setColorEnabled` makes those a no-op when off;
+ * Thread the one resolved terminal context to every surface that emits colour:
+ *  - package-backed Logger and engine output consume the installed context;
+ *  - the remaining Cliffy `colors` chain (help and later presentation migrations)
+ *    receives the context's colour boolean;
  *  - the `@std/fmt/colors` module-global, for any consumer outside Cliffy's help
  *    generator (the generator saves, forces, and restores that global around each
  *    render, so it is governed by {@link applyHelpColorOption} instead);
- *  - the engine's `colorEnabled()` (the gate/status/desk/coupling output) — via the
- *    process-wide override.
+ *  - the engine's `colorEnabled()` reads the installed context.
  * The root help additionally strips Cliffy's `getHelp()` escapes when off (it honours
  * only `Deno.noColor`); {@link operatorHelp} does that from the `color` argument.
  */
-function applyColorMode(color: boolean): void {
+function applyColorMode(context: TerminalContext): void {
+  const color = context.color;
+  setTerminalContext(context);
   colors.setColorEnabled(color);
   setStdColorEnabled(color);
-  setColorOverride(color);
 }
 
 /**
@@ -1146,10 +1144,11 @@ export async function main(args: string[]): Promise<void> {
     // rather than each path re-deciding and dropping the flag (B32/B36). Done
     // before helper dispatch so a helper's own output (`with-gotchas`' gotchas
     // hint) obeys it too.
-    const color = resolveColorMode(
-      discernArgv.includes(ROOT_GLOBAL_FLAGS.noColor),
-    );
-    applyColorMode(color);
+    const terminal = productionTerminalContext({
+      noColor: discernArgv.includes(ROOT_GLOBAL_FLAGS.noColor),
+    });
+    const color = terminal.color;
+    applyColorMode(terminal);
 
     // Internal helper verbs (remove-worktree-safely, with-gotchas, …): handled
     // before Cliffy so a wrapped command's flags pass through raw. Keyed on the
