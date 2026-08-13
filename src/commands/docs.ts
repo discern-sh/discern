@@ -99,6 +99,7 @@ import {
   canPrompt,
   checkboxPrompt,
   groupedSelectOptions,
+  isPromptCancellation,
   selectPrompt,
 } from "../lib/prompts.ts";
 import {
@@ -803,8 +804,6 @@ async function browse(
       docsHeaderFact(verb, tree.entries.length, display(tree.docsDir, cwd))
     }  ·  type to filter`,
   );
-  let last: string | undefined;
-
   while (true) {
     let choice: string;
     try {
@@ -821,14 +820,13 @@ async function browse(
             label: "Browse",
             items: docsBrowseNavigationChoices(verb, terminal.color),
           },
-        ], (rule) => rule),
+        ]),
         search: true,
-        info: true,
         maxRows: 14,
-        ...(last !== undefined ? { default: last } : {}),
       });
-    } catch {
-      // Cancelled (Ctrl-C / Esc) — a clean exit, not an error.
+    } catch (error) {
+      if (!isPromptCancellation(error)) throw error;
+      // Ctrl-C or end-of-input leaves the browser without changing anything.
       return 0;
     }
     if (choice === QUIT_BROWSE) return 0;
@@ -843,7 +841,6 @@ async function browse(
       }
       continue;
     }
-    last = choice;
     const entry = tree.entries.find((e) => e.path === choice);
     if (!entry) continue;
     observeVerbTarget(canonicalDocTarget(entry));
@@ -1193,8 +1190,9 @@ async function exportDocs(
         })),
         minOptions: 1,
       });
-    } catch {
-      // Cancelled (Ctrl-C / Esc) — do not create or overwrite the output file.
+    } catch (error) {
+      if (!isPromptCancellation(error)) throw error;
+      // Cancellation does not create or overwrite the output file.
       return 0;
     }
 

@@ -34,6 +34,7 @@ import {
   confirmationPrompt,
   groupedSelectOptions,
   inputPrompt,
+  isPromptCancellation,
   selectPrompt,
   type SelectPromptGroup,
   type SelectPromptOptions,
@@ -232,7 +233,8 @@ async function confirmOrNo(
 ): Promise<boolean> {
   try {
     return await confirmationPrompt(message, defaultTo);
-  } catch {
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
     return false;
   }
 }
@@ -482,9 +484,9 @@ async function pickAgentLaunch(
       message: `Choose an agent for ${row.task.name}`,
       options,
       hint: "Use the arrow keys to move and Enter to choose.",
-      info: false,
     });
-  } catch {
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
     return undefined;
   }
   return id === BACK
@@ -527,9 +529,9 @@ async function pickScript(
       hint: search
         ? "Type to filter. Use the arrow keys to move and Enter to choose."
         : "Use the arrow keys to move and Enter to choose.",
-      info: false,
     });
-  } catch {
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
     return undefined;
   }
   return name === BACK
@@ -644,24 +646,10 @@ function renderHeader(
 async function pickRow(
   rows: DeskRow[],
   rootScripts: readonly ProjectScript[],
-  out: Out,
   runtime: DeskRuntime,
 ): Promise<string> {
-  const dim = (s: string): string =>
-    out.color ? `${out.c.dim}${s}${out.c.reset}` : s;
-  const bucketHeading = (bucket: DeskRow["bucket"], count: number): string => {
-    if (!out.color) {
-      return `${bucketTitle(bucket)} · ${count}`;
-    }
-    const color = bucket === "ready"
-      ? out.c.green
-      : bucket === "attention"
-      ? out.c.yellow
-      : out.c.cyan;
-    return `${out.c.bold}${color}${
-      bucketTitle(bucket)
-    } · ${count}${out.c.reset}`;
-  };
+  const bucketHeading = (bucket: DeskRow["bucket"], count: number): string =>
+    `${bucketTitle(bucket)} · ${count}`;
   const nameCounts = new Map<string, number>();
   for (const row of rows) {
     nameCounts.set(row.task.name, (nameCounts.get(row.task.name) ?? 0) + 1);
@@ -678,7 +666,7 @@ async function pickRow(
         ? { plain: row.task.name, rendered: row.task.name }
         : {
           plain: `${row.task.name}  ${disambiguator}`,
-          rendered: `${row.task.name}  ${dim(disambiguator)}`,
+          rendered: `${row.task.name}  ${disambiguator}`,
         },
     );
   }
@@ -703,7 +691,7 @@ async function pickRow(
         return {
           name: `${label.rendered}${
             " ".repeat(labelWidth - label.plain.length)
-          }  ${dim(r.summary)}`,
+          }  ${r.summary}`,
           value: r.entry.path,
         };
       }),
@@ -711,12 +699,10 @@ async function pickRow(
   }
   groups.push({
     id: "desk-actions",
-    label: out.color ? `${out.c.bold}${out.c.cyan}Desk${out.c.reset}` : "Desk",
+    label: "Desk",
     items: [
       {
-        name: out.color
-          ? `${out.c.bold}${out.c.cyan}Start a task${out.c.reset}`
-          : "Start a task",
+        name: "Start a task",
         value: START_TASK,
       },
       ...(rootScripts.length === 0
@@ -727,10 +713,10 @@ async function pickRow(
   });
   groups.push({
     id: "session-actions",
-    label: out.color ? `${out.c.dim}Session${out.c.reset}` : "Session",
+    label: "Session",
     items: [
-      { name: dim("Refresh"), value: REFRESH },
-      { name: dim("Quit"), value: QUIT },
+      { name: "Refresh", value: REFRESH },
+      { name: "Quit", value: QUIT },
     ],
   });
   const options = groupedSelectOptions(groups);
@@ -742,15 +728,15 @@ async function pickRow(
         : "Choose a task or action",
       options,
       search,
-      ...(search ? { searchLabel: dim("filter") } : {}),
+      ...(search ? { searchLabel: "filter" } : {}),
       hint: search
         ? "Type to filter. Use the arrow keys to move and Enter to choose."
         : "Use the arrow keys to move and Enter to choose.",
-      info: false,
       maxRows: 16,
     });
-  } catch {
-    // Cancelled (Ctrl-C / Esc) — a clean exit, not an error.
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
+    // Ctrl-C or end-of-input closes the Desk.
     return QUIT;
   }
 }
@@ -809,7 +795,8 @@ async function startTask(
     answer = await runtime.input(
       "Task name (blank uses a codename)",
     );
-  } catch {
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
     return undefined;
   }
   const name = answer.trim();
@@ -972,7 +959,8 @@ async function dispatchAction(
           typed = await runtime.input(
             `Type the branch name (${row.entry.branch}) to discard it permanently — anything else cancels`,
           );
-        } catch {
+        } catch (error) {
+          if (!isPromptCancellation(error)) throw error;
           typed = "";
         }
         if (typed.trim() !== row.entry.branch) {
@@ -1117,7 +1105,7 @@ async function actOn(
       ...actionGroups(row, config),
       {
         id: "task-navigation",
-        label: out.color ? `${out.c.dim}Task${out.c.reset}` : "Task",
+        label: "Task",
         items: [{ name: "Back", value: BACK }],
       },
     ]);
@@ -1127,9 +1115,9 @@ async function actOn(
         message: "Choose an action",
         options,
         hint: "Use the arrow keys to move and Enter to choose.",
-        info: false,
       });
-    } catch {
+    } catch (error) {
+      if (!isPromptCancellation(error)) throw error;
       return;
     }
     if (action === BACK) {
@@ -1299,7 +1287,7 @@ export async function runDesk(
       : rows.find((row) => row.entry.path === focusPath);
     focusPath = undefined;
     const choice = focused?.entry.path ??
-      await pickRow(rows, rootScripts, out, runtime);
+      await pickRow(rows, rootScripts, runtime);
     if (choice === QUIT) {
       return 0;
     }

@@ -58,6 +58,7 @@ import type {
 import {
   canPrompt,
   groupedSelectOptions,
+  isPromptCancellation,
   selectPrompt,
 } from "../../lib/prompts.ts";
 
@@ -590,11 +591,17 @@ async function interactiveDrilldown(
         ],
       },
     ]);
-    const choice = await selectPrompt({
-      message: "Drill into an area",
-      options,
-      search: false,
-    });
+    let choice: string;
+    try {
+      choice = await selectPrompt({
+        message: "Drill into an area",
+        options,
+        search: false,
+      });
+    } catch (error) {
+      if (!isPromptCancellation(error)) throw error;
+      return;
+    }
     if (choice === DONE) {
       return;
     }

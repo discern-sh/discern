@@ -29,7 +29,7 @@ import {
   retiredCommandMessage,
   retiredCommandSuccessor,
 } from "./shared/vocabulary.ts";
-import { canPrompt, setPlainMode } from "./lib/prompts.ts";
+import { canPrompt, setJsonMode, setPlainMode } from "./lib/prompts.ts";
 import { inDeskSession } from "./engine/desk/session.ts";
 import {
   attachEngineCommands,
@@ -1125,8 +1125,9 @@ export async function main(args: string[]): Promise<void> {
 
   try {
     // One global interaction decision feeds every prompt-capable surface. This
-    // is set before helper/Cliffy dispatch so flag-first forms behave identically.
+    // is set before helper/command dispatch so flag-first forms behave identically.
     setPlainMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.plain));
+    setJsonMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.json));
     // Resolve the ONE colour decision up front (flag + NO_COLOR + isatty) and
     // thread it to every colour-emitting surface, so `--no-color` is honoured
     // uniformly — engine verbs, the installer Loggers, and the root help alike —

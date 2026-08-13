@@ -331,7 +331,6 @@ Deno.test("desk session renders task-first fleet rows from the survey's own proo
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
     select: (options) => {
-      assertEquals(options.info, false);
       assertEquals(options.search, false);
       assertStringIncludes(String(options.hint), "arrow keys");
       optionText.push(JSON.stringify(options.options));
@@ -364,11 +363,11 @@ Deno.test("desk session renders task-first fleet rows from the survey's own proo
   );
   for (
     const section of [
-      "── Ready to land · 1 ──",
-      "── In flight · 1 ──",
-      "── Needs attention · 2 ──",
-      "── Desk ──",
-      "── Session ──",
+      '"kind":"group-heading","id":"tasks-ready","name":"Ready to land · 1"',
+      '"kind":"group-heading","id":"tasks-in_flight","name":"In flight · 1"',
+      '"kind":"group-heading","id":"tasks-attention","name":"Needs attention · 2"',
+      '"kind":"group-heading","id":"desk-actions","name":"Desk"',
+      '"kind":"group-heading","id":"session-actions","name":"Session"',
     ]
   ) {
     assertStringIncludes(options, section);
@@ -523,7 +522,6 @@ Deno.test("desk adds filtering for a large fleet and disambiguates duplicate tas
     select: (options) => {
       assertEquals(options.search, true);
       assertEquals(options.searchLabel, "filter");
-      assertEquals(options.info, false);
       assertStringIncludes(String(options.hint), "Type to filter");
       optionText = JSON.stringify(options.options);
       return QUIT;
@@ -802,10 +800,16 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
   assert(actionMenu !== undefined);
   assert(agentMenu !== undefined);
   assertStringIncludes(actionMenu.options, "Open with an agent");
-  assertStringIncludes(agentMenu.options, "── Claude Code ──");
-  assertStringIncludes(agentMenu.options, "── Task ──");
+  assertStringIncludes(
+    agentMenu.options,
+    '"kind":"group-heading","id":"agent-claude_code","name":"Claude Code"',
+  );
+  assertStringIncludes(
+    agentMenu.options,
+    '"kind":"group-heading","id":"task-navigation","name":"Task"',
+  );
   assert(
-    !agentMenu.options.includes("── Agents ──"),
+    !agentMenu.options.includes('"name":"Agents"'),
     "agent actions should be grouped by provider",
   );
   assertStringIncludes(agentMenu.options, "Open in Claude Code");
@@ -884,11 +888,11 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   const actionMenu = menus.join("\n");
   for (
     const group of [
-      "── Landing ──",
-      "── Work in this task ──",
-      "── Review ──",
-      "── Worktree ──",
-      "── Task ──",
+      '"kind":"group-heading","id":"actions-landing","name":"Landing"',
+      '"kind":"group-heading","id":"actions-work","name":"Work in this task"',
+      '"kind":"group-heading","id":"actions-review","name":"Review"',
+      '"kind":"group-heading","id":"actions-worktree","name":"Worktree"',
+      '"kind":"group-heading","id":"task-navigation","name":"Task"',
     ]
   ) {
     assertStringIncludes(actionMenu, group);
@@ -1039,7 +1043,10 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
   assert(scriptMenu !== undefined);
   assertStringIncludes(scriptMenu.options, "health");
   assertStringIncludes(scriptMenu.options, "check the project");
-  assertStringIncludes(scriptMenu.options, "── Desk ──");
+  assertStringIncludes(
+    scriptMenu.options,
+    '"kind":"group-heading","id":"desk-navigation","name":"Desk"',
+  );
   assertStringIncludes(
     joined(output),
     "discern scripts health  (in project root)",

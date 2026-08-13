@@ -2,13 +2,14 @@
  * Structural guard for discern-managed human output groups.
  *
  * A semantic boundary must be expressed through the shared grouping renderer or
- * grouped-prompt helper. Hand-emitting an empty line or reaching straight for
- * Cliffy's separator recreates the permissive boundary that let composed views
- * collapse into flat lists.
+ * grouped-prompt helper. Hand-emitting an empty line, importing a package prompt
+ * outside the product adapter, or inventing a heading entry recreates the
+ * permissive boundary that let composed views collapse into flat lists.
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { join } from "@std/path";
+import type { TerminalIO } from "discern-design-system/cli/interactive";
 import {
   populatedHumanOutputGroups,
   renderHumanOutputGroups,
@@ -25,34 +26,73 @@ interface BoundaryFinding {
   readonly offset: number;
 }
 
-/** Find every Cliffy prompt call that bypasses the shared leading boundary.
- * Imports define the enrollment set, so a newly used prompt class joins the
- * guard even when it is aliased or has a name this test has never seen. */
-function unboundedPromptFindings(source: string): BoundaryFinding[] {
+const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
+
+/** Find imports that can call a package prompt outside the product adapter.
+ * The public `prompt*` naming convention defines the enrollment set, including
+ * future package entry points and aliases this test has never seen. */
+function directPromptFindings(source: string): BoundaryFinding[] {
   const findings: BoundaryFinding[] = [];
-  const imports = /import\s*{([^}]*)}\s*from\s*(["'])@cliffy\/prompt\2\s*;?/g;
-  for (const imported of source.matchAll(imports)) {
-    const names = imported[1]
-      ?.split(",")
-      .map((part) => part.trim().replace(/^type\s+/, ""))
-      .map((part) => part.split(/\s+as\s+/).at(-1)?.trim() ?? "")
-      .filter((name) => name !== "") ?? [];
-    for (const name of names) {
-      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const call = new RegExp(
-        `\\b${escaped}\\.prompt(?:<[^>]+>)?\\s*\\(\\s*` +
-          `(?!withPromptBoundary\\s*\\()`,
-        "g",
-      );
-      for (const match of source.matchAll(call)) {
+  for (const match of source.matchAll(/(["'])@cliffy\/prompt\1/g)) {
+    findings.push({
+      rule: "legacy-cliffy-prompt-import",
+      offset: match.index ?? 0,
+    });
+  }
+
+  const escapedModule = INTERACTIVE_MODULE.replaceAll("/", "\\/");
+  const named = new RegExp(
+    `(?:import|export)\\s*{([^}]*)}\\s*from\\s*(["'])${escapedModule}\\2`,
+    "g",
+  );
+  for (const imported of source.matchAll(named)) {
+    for (const part of imported[1]?.split(",") ?? []) {
+      const importedName = part.trim().replace(/^type\s+/, "")
+        .split(/\s+as\s+/)[0]?.trim() ?? "";
+      if (/^prompt[A-Z]/.test(importedName)) {
         findings.push({
-          rule: "unbounded-cliffy-prompt",
-          offset: match.index ?? 0,
+          rule: "direct-package-prompt-import",
+          offset: imported.index ?? 0,
         });
       }
     }
   }
+
+  const namespace = new RegExp(
+    `import\\s*\\*\\s*as\\s*([A-Za-z_$][\\w$]*)\\s*from\\s*(["'])${escapedModule}\\2`,
+    "g",
+  );
+  for (const imported of source.matchAll(namespace)) {
+    const local = imported[1];
+    if (local === undefined) continue;
+    const call = new RegExp(`\\b${local}\\.prompt[A-Z][\\w$]*\\s*\\(`, "g");
+    for (const match of source.matchAll(call)) {
+      findings.push({
+        rule: "direct-package-namespace-prompt",
+        offset: match.index ?? 0,
+      });
+    }
+  }
+
+  const dynamicImport = new RegExp(
+    `import\\(\\s*(["'])${escapedModule}\\1\\s*\\)`,
+    "g",
+  );
+  for (const match of source.matchAll(dynamicImport)) {
+    findings.push({
+      rule: "dynamic-interactive-package-import",
+      offset: match.index ?? 0,
+    });
+  }
   return findings;
+}
+
+/** Find a package-shaped heading assembled anywhere but the one adapter. */
+function adHocHeadingFindings(source: string): BoundaryFinding[] {
+  return [...source.matchAll(/(["'])group-heading\1/g)].map((match) => ({
+    rule: "ad-hoc-prompt-heading",
+    offset: match.index ?? 0,
+  }));
 }
 
 const MANUAL_BOUNDARY_RULES: readonly {
@@ -137,14 +177,35 @@ Deno.test("human-output boundary detector rejects unrelated future siblings", ()
   );
 
   const promptSynthetic = [
-    'import { Secret as Orbit, Toggle } from "@cliffy/prompt";',
-    'Orbit.prompt({ message: "Fresh sibling" });',
-    'Toggle.prompt(withPromptBoundary({ message: "Already grouped" }));',
+    'import { Select } from "@cliffy/prompt";',
+    `import { promptSelect as orbit, DenoTerminalIO } from "${INTERACTIVE_MODULE}";`,
+    `import * as interactive from "${INTERACTIVE_MODULE}";`,
+    'orbit({ label: "Fresh sibling", choices: [] });',
+    'interactive.promptFuture({ label: "Future sibling" });',
+    `const future = await import("${INTERACTIVE_MODULE}"); future.promptFuture({});`,
   ].join("\n");
-  assertEquals(unboundedPromptFindings(promptSynthetic), [{
-    rule: "unbounded-cliffy-prompt",
-    offset: promptSynthetic.indexOf("Orbit.prompt"),
-  }]);
+  assertEquals(
+    directPromptFindings(promptSynthetic).map((finding) => finding.rule),
+    [
+      "legacy-cliffy-prompt-import",
+      "direct-package-prompt-import",
+      "direct-package-namespace-prompt",
+      "dynamic-interactive-package-import",
+    ],
+  );
+  assertEquals(
+    directPromptFindings(
+      `import { InlineFramePainter } from "${INTERACTIVE_MODULE}";\n` +
+        "new InlineFramePainter({});",
+    ),
+    [],
+  );
+  assertEquals(
+    adHocHeadingFindings(
+      'const fake = { kind: "group-heading", id: "fake", value: "fake" };',
+    ).map((finding) => finding.rule),
+    ["ad-hoc-prompt-heading"],
+  );
 });
 
 Deno.test("the text grouping surface owns populated boundaries and identities", () => {
@@ -239,32 +300,41 @@ Deno.test("the prompt grouping surface gives every populated group a heading", (
   assertEquals(
     JSON.stringify(options),
     JSON.stringify([
-      { name: "\n  ── Orbit ──" },
+      { kind: "group-heading", id: "orbit", name: "Orbit" },
       { name: "First", value: "first" },
-      { name: "\n  ── Harbor ──" },
+      { kind: "group-heading", id: "harbor", name: "Harbor" },
       { name: "Second", value: "second" },
     ]),
   );
 });
 
 Deno.test("the prompt grouping surface writes one leading boundary", () => {
-  const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
   const writes: string[] = [];
-  const options = withPromptBoundary({
-    message: "Fresh sibling",
-    writer: {
-      writeSync: (data: Uint8Array): number => {
-        writes.push(decoder.decode(data));
-        return data.length;
-      },
-    },
-  });
+  const rawTransitions: boolean[] = [];
+  const target: TerminalIO = {
+    isInteractive: () => true,
+    capabilities: () => ({
+      colorDepth: "none",
+      columns: 60,
+      unicode: true,
+    }),
+    size: () => ({ columns: 60, rows: 24 }),
+    read: () => Promise.resolve(null),
+    setRawMode: (enabled) => rawTransitions.push(enabled),
+    write: (value) => writes.push(value),
+  };
+  const terminal = withPromptBoundary(target);
 
-  options.writer.writeSync(encoder.encode("? Fresh sibling"));
-  options.writer.writeSync(encoder.encode("\n  First option"));
+  terminal.setRawMode(true);
+  terminal.write("? Fresh sibling");
+  terminal.write("\n  First option");
+  terminal.setRawMode(false);
 
   assertEquals(writes, ["\n", "? Fresh sibling", "\n  First option"]);
+  assertEquals(rawTransitions, [true, false]);
+  assertEquals(terminal.isInteractive(), true);
+  assertEquals(terminal.capabilities(), target.capabilities());
+  assertEquals(terminal.size(), target.size());
 });
 
 Deno.test("discern-managed human boundaries use the semantic grouping surface", async () => {
@@ -278,13 +348,21 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
         `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
       );
     }
-    for (const finding of unboundedPromptFindings(source)) {
+    const promptFindings = directPromptFindings(source).filter((finding) =>
+      rel !== "src/lib/prompts.ts" ||
+      finding.rule === "legacy-cliffy-prompt-import"
+    );
+    for (const finding of promptFindings) {
       offenders.push(
         `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
       );
     }
-    if (rel !== "src/lib/prompts.ts" && source.includes("Select.separator(")) {
-      offenders.push(`${rel} (direct-select-separator)`);
+    if (rel !== "src/lib/prompts.ts") {
+      for (const finding of adHocHeadingFindings(source)) {
+        offenders.push(
+          `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
+        );
+      }
     }
   }
 

@@ -67,6 +67,7 @@ import { observeResult } from "../../shared/result_capture.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { sparkline } from "../../lib/text.ts";
+import { isPromptCancellation } from "../../lib/prompts.ts";
 import {
   type TerminalContext,
   terminalContext,
@@ -1843,7 +1844,8 @@ async function confirmLifecycle(
 ): Promise<boolean> {
   try {
     return await confirm(message);
-  } catch {
+  } catch (error) {
+    if (!isPromptCancellation(error)) throw error;
     return false;
   }
 }

@@ -1,13 +1,13 @@
 /**
  * Class guard for every CLI surface that can prompt. The matrix drives the real
  * artifact under pseudo-TTYs with CI / --plain, and with stdin closed, so a new
- * accidental read blocks for five seconds at most and fails by name. A source
- * scan separately makes `src/lib/prompts.ts` the only legal Cliffy prompt choke.
+ * accidental read blocks for five seconds at most and fails by name. The
+ * human-output structural guard separately makes `src/lib/prompts.ts` the only
+ * legal package prompt choke point.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { walk } from "@std/fs";
-import { fromFileUrl, join, relative } from "@std/path";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { fromFileUrl, join } from "@std/path";
 import {
   defaultMapPath,
   engineEnv,
@@ -147,26 +147,4 @@ Deno.test({
       }
     });
   },
-});
-
-Deno.test("all Cliffy prompt calls live behind the central interaction policy", async () => {
-  const owners = new Set<string>();
-  let calls = 0;
-  const pattern =
-    /\b(?:Select|Checkbox|Input|Confirm)\.prompt(?:<[^>]+>)?\s*\(/g;
-  for await (
-    const entry of walk(join(REPO_ROOT, "src"), {
-      exts: [".ts"],
-      includeDirs: false,
-    })
-  ) {
-    const source = await Deno.readTextFile(entry.path);
-    const found = [...source.matchAll(pattern)].length;
-    if (found > 0) {
-      calls += found;
-      owners.add(relative(REPO_ROOT, entry.path));
-    }
-  }
-  assert(calls >= 4, "the guard must see the four Cliffy prompt kinds");
-  assertEquals(owners, new Set(["src/lib/prompts.ts"]));
 });
