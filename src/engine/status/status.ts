@@ -69,7 +69,10 @@ import {
 } from "../../lib/provider_hooks.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
-import { terminalWidth } from "../../lib/text.ts";
+import {
+  type TerminalContext,
+  terminalContext,
+} from "../../lib/terminal.ts";
 import {
   type TrackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifacts,
@@ -167,6 +170,7 @@ export interface StatusOptions {
  * or without it — `--json` and MCP always carry the proof (ADR 0188). */
 export interface StatusRenderOptions {
   verbose?: boolean;
+  terminal?: TerminalContext;
 }
 
 // ── the `data` payload shapes ──────────────────────────────────────────────────
@@ -1357,10 +1361,11 @@ function renderStatusHuman(
     out.error(result.message ?? "status failed.");
     return;
   }
+  const terminal = render.terminal ?? terminalContext();
   out.raw(
     renderStatusDashboard(result.data, result.hints, {
-      width: terminalWidth(),
-      color,
+      terminal,
+      width: terminal.size.columns,
       verbose: render.verbose ?? false,
     }),
   );

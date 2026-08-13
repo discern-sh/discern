@@ -2,7 +2,10 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { displayWidth } from "../src/lib/text.ts";
-import { palette } from "../src/engine/output.ts";
+import {
+  resolveTerminalContext,
+  type TerminalContext,
+} from "../src/lib/terminal.ts";
 import {
   fire,
   type HintDef,
@@ -35,6 +38,11 @@ const NOW = Date.parse("2026-08-03T12:00:00.000Z");
 /** Strip styling while preserving every visible word and glyph. */
 function plain(text: string): string {
   return text.replace(ANSI, "");
+}
+
+/** Compare responsive prose without treating package wrapping as text loss. */
+function squash(text: string): string {
+  return plain(text).replaceAll(/\s+/gu, " ").trim();
 }
 
 /** One ordinary healthy fleet row, patched by a semantic-state case. */
@@ -108,10 +116,42 @@ function render(
   verbose = false,
 ): string {
   return renderStatusDashboard(value, hints, {
+    terminal: terminal(width, color),
     width,
-    color,
     verbose,
     nowMs: NOW,
+  });
+}
+
+/** Explicit process facts for one deterministic package capability mode. */
+function terminal(width: number, color: boolean): TerminalContext {
+  return terminalMode(width, color ? "truecolor" : "no-color");
+}
+
+type TerminalFixtureMode =
+  | "no-color"
+  | "ansi16"
+  | "ansi256"
+  | "truecolor"
+  | "ascii";
+
+/** Resolve every supported package degradation mode from explicit facts. */
+function terminalMode(
+  width: number,
+  mode: TerminalFixtureMode,
+): TerminalContext {
+  const values: Readonly<Record<string, string>> = mode === "ascii"
+    ? { TERM: "dumb", LANG: "C", LC_ALL: "C" }
+    : mode === "ansi16"
+    ? { TERM: "xterm-color", LANG: "en_US.UTF-8" }
+    : mode === "truecolor"
+    ? { TERM: "xterm-256color", COLORTERM: "truecolor", LANG: "en_US.UTF-8" }
+    : { TERM: "xterm-256color", LANG: "en_US.UTF-8" };
+  return resolveTerminalContext({
+    noColor: mode === "no-color" || mode === "ascii",
+    env: { get: (name: string): string | undefined => values[name] },
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: width, rows: 24 }),
   });
 }
 
@@ -124,81 +164,16 @@ function assertLinesFit(
   const budget = Math.min(width, STATUS_REPORT_MAX_WIDTH);
   for (const styled of output.split("\n")) {
     if (displayWidth(styled) <= budget) continue;
-    const line = plain(styled);
-    const identity = overflowIdentities.some((value) => line.includes(value));
-    const carriesField =
-      /(?:Status|Git|Proof|Activity|Landing|Fleet|Paths|Records|Branches|Action|Standards):/u
-        .test(line);
+    const line = plain(styled).trimStart();
+    const identity = overflowIdentities.some((value) =>
+      line === value || line === `Persona: ${value}` ||
+      line === `Branch: ${value}`
+    );
     assert(
-      identity && !carriesField,
+      identity,
       `${budget}-column line is ${displayWidth(styled)} columns: ${line}`,
     );
   }
-}
-
-/** Every dashboard item starts its text beneath the heading text. A glyph may
- * occupy the gutter, and labelled fields may use a deeper hanging continuation.
- * Stored proof Markdown is deliberately verbatim. */
-function assertSectionContentColumns(output: string): void {
-  let section: string | undefined;
-  let contentColumn = 0;
-  let hangingColumn: number | undefined;
-  for (const line of plain(output).split("\n")) {
-    const heading = line.match(/^── (.+)$/u)?.[1];
-    if (heading !== undefined) {
-      section = heading;
-      contentColumn = line.indexOf(heading);
-      hangingColumn = undefined;
-      continue;
-    }
-    if (line === "" || line.startsWith("discern status")) {
-      hangingColumn = undefined;
-      continue;
-    }
-    if (line.startsWith("Main checkout:")) {
-      section = undefined;
-      hangingColumn = undefined;
-      continue;
-    }
-    if (section === undefined || section === "Proofs") continue;
-    const firstVisible = line.search(/\S/u);
-    const content = line.slice(firstVisible);
-    const leadingToken = content.match(/^(\S+) (.+)$/u)?.[1];
-    const isGlyph = leadingToken !== undefined &&
-      !/[\p{L}\p{N}]/u.test(leadingToken);
-    if (isGlyph) {
-      const itemTextColumn = displayWidth(
-        `${line.slice(0, firstVisible)}${leadingToken} `,
-      );
-      assertEquals(
-        itemTextColumn,
-        contentColumn,
-        `${section} marked text starts at column ${itemTextColumn}; expected ${contentColumn}: ${line}`,
-      );
-      hangingColumn = undefined;
-      continue;
-    }
-    if (firstVisible === contentColumn) {
-      const fieldPrefix = content.match(/^([^:]+:) (?:\S|$)/u)?.[1];
-      hangingColumn = fieldPrefix === undefined
-        ? undefined
-        : contentColumn + displayWidth(fieldPrefix) + 1;
-      continue;
-    }
-    assertEquals(
-      firstVisible,
-      hangingColumn,
-      `${section} item text starts at column ${firstVisible}; expected ${contentColumn}: ${line}`,
-    );
-  }
-}
-
-/** Find one required rendered line without allowing two absent values to make
- * a column comparison pass vacuously. */
-function requiredLine(lines: readonly string[], text: string): string {
-  const line = lines.find((candidate) => candidate.includes(text));
-  assert(line !== undefined, `missing rendered line containing ${text}`);
-  return line;
 }
 
 interface StatusCase {
@@ -298,7 +273,7 @@ const STATUS_CASES: Record<FleetRowStatusKind, StatusCase> = {
   idle: { patch: {} },
 };
 
-Deno.test("status dashboard: narrow, ordinary, wide, and capped layouts keep equal color-free facts", () => {
+Deno.test("status dashboard: 39, 80, 104, and capped layouts keep equal color-free package facts", () => {
   const fixture = data([
     mainEntry(),
     entry(),
@@ -309,27 +284,88 @@ Deno.test("status dashboard: narrow, ordinary, wide, and capped layouts keep equ
       last_activity: "2026-08-03T10:00:00.000Z",
     }),
   ]);
-  for (const width of [48, 72, 104]) {
+  for (const width of [39, 80, 104]) {
     const noColor = render(fixture, width);
     const color = render(fixture, width, true);
     assertEquals(plain(color), noColor, `color changed words at ${width}`);
     assertLinesFit(noColor, width);
     assertLinesFit(color, width);
-    assertSectionContentColumns(noColor);
-    assertSectionContentColumns(color);
-    if (width < 92) {
-      assertStringIncludes(noColor, "Status:");
+    assertStringIncludes(noColor, "Fleet");
+    assertStringIncludes(noColor, "Worktrees");
+    assertStringIncludes(noColor, "Active worktrees");
+    assertStringIncludes(squash(noColor), "Configured checks for this status");
+    if (width === 39) {
+      assertStringIncludes(noColor, "Branch: agent/alpha-abc123");
     } else {
-      assertStringIncludes(noColor, "Worktree");
-      assertStringIncludes(noColor, "Activity");
+      assertStringIncludes(noColor, "AGENT");
+      assertStringIncludes(noColor, "BRANCH");
     }
   }
   assertEquals(render(fixture, 400), render(fixture, STATUS_REPORT_MAX_WIDTH));
-  const tokens = palette(true);
-  assert(!render(fixture, 104, true).includes(`${tokens.green}clean`));
+  assertStringIncludes(render(fixture, 400), "agent/alpha-abc123");
 });
 
-Deno.test("status dashboard: marked and unmarked item text shares the heading content column", () => {
+Deno.test("status dashboard: truecolour, 256, 16, no-colour, and ASCII modes retain semantics and inert text", () => {
+  const branch = "agent/evil\u001b[31m\tbell\u0007line\nend";
+  const id = "persona\u009bhidden";
+  const safeBranch = "agent/evil␛[31m␉bell␇line␊end";
+  const safeId = "persona<U+009B>hidden";
+  const fixture = data([
+    mainEntry(),
+    entry({
+      path: `/repo.worktrees/${id}`,
+      branch,
+      id,
+      behind: 2,
+      is_current: true,
+    }),
+  ]);
+  const modes = [
+    "no-color",
+    "ansi16",
+    "ansi256",
+    "truecolor",
+    "ascii",
+  ] as const satisfies readonly TerminalFixtureMode[];
+  const expectedDepth = {
+    "no-color": "none",
+    ansi16: "ansi16",
+    ansi256: "ansi256",
+    truecolor: "truecolor",
+    ascii: "none",
+  } as const;
+  const unicodeBaseline = renderStatusDashboard(fixture, undefined, {
+    terminal: terminalMode(80, "no-color"),
+    width: 80,
+    nowMs: NOW,
+  });
+  for (const mode of modes) {
+    const context = terminalMode(80, mode);
+    assertEquals(context.capabilities.colorDepth, expectedDepth[mode]);
+    const output = renderStatusDashboard(fixture, undefined, {
+      terminal: context,
+      width: 80,
+      nowMs: NOW,
+    });
+    const words = plain(output);
+    assertStringIncludes(words, safeBranch);
+    assertStringIncludes(words, safeId);
+    assertStringIncludes(words, "Behind");
+    assertStringIncludes(words, "current");
+    assert(!words.includes("\u001b[31m"));
+    assert(!words.includes("\u009b"));
+    assert(
+      !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(words),
+      `${mode} left a raw terminal control in package output`,
+    );
+    if (mode !== "ascii") {
+      assertEquals(words, unicodeBaseline, `${mode} changed status facts`);
+    }
+    assertLinesFit(output, 80);
+  }
+});
+
+Deno.test("status dashboard: responsive regions retain status, evidence, and complete actions", () => {
   const branch = "agent/behind-abc123";
   const fixture = data([
     mainEntry({ is_current: false }),
@@ -349,22 +385,19 @@ Deno.test("status dashboard: marked and unmarked item text shares the heading co
       overlap: undefined,
     }),
   ]);
-  for (const width of [48, 72, 104]) {
+  const expectedAction = interactiveHintTexts(hints)[0];
+  assert(expectedAction !== undefined);
+  for (const width of [39, 80, 104, 400]) {
     for (const color of [false, true]) {
       const output = render(fixture, width, color, hints);
-      const lines = plain(output).split("\n");
-      assertSectionContentColumns(output);
-
-      const fleetHeading = requiredLine(lines, "── Fleet");
-      const summary = requiredLine(lines, "Summary:");
-      const identity = requiredLine(lines, branch);
-      const detail = requiredLine(lines, "Behind:");
-      const nextStep = requiredLine(lines, "→");
-      assertEquals(summary.indexOf("Summary:"), fleetHeading.indexOf("Fleet"));
-      assertEquals(identity.indexOf(branch), fleetHeading.indexOf("Fleet"));
-      assertEquals(detail.indexOf("Behind:"), fleetHeading.indexOf("Fleet"));
-      assertEquals(identity.indexOf("!") + 2, fleetHeading.indexOf("Fleet"));
-      assertEquals(nextStep.indexOf("→") + 2, fleetHeading.indexOf("Fleet"));
+      const words = plain(output);
+      assertStringIncludes(words, branch);
+      assertStringIncludes(words, "Behind");
+      assertStringIncludes(words, "Git");
+      assertStringIncludes(words, "Proof");
+      assertStringIncludes(squash(words), expectedAction);
+      assertStringIncludes(words, "current");
+      assertLinesFit(output, width);
     }
   }
 });
@@ -386,18 +419,19 @@ Deno.test("status dashboard: every long or differing identity survives every lay
       id: "detached-def456",
     }),
   ]);
-  for (const width of [48, 72, 104, 400]) {
+  for (const width of [39, 80, 104, 400]) {
     const output = render(fixture, width, true);
     assertStringIncludes(plain(output), branch);
     assertStringIncludes(plain(output), id);
     assertStringIncludes(plain(output), "(detached)");
-    assertStringIncludes(plain(output), `${branch} ← current`);
+    assertStringIncludes(plain(output), "current");
     assertLinesFit(output, width, [branch, id]);
   }
-  const styled = render(fixture, 104, true);
-  const tokens = palette(true);
-  assertStringIncludes(styled, `${tokens.dim}agent/${tokens.reset}`);
-  assertStringIncludes(styled, `${tokens.dim}-abc123${tokens.reset}`);
+  assertEquals(
+    plain(render(fixture, 104, true)),
+    render(fixture, 104),
+    "styling must not alter either operational identity",
+  );
   assertEquals(
     presentFleetRow(entry({ branch: "plain-id", id: "plain-id" }), {
       trunk: "main",
@@ -431,7 +465,6 @@ Deno.test("status dashboard: every typed row status is classified and rendered",
     );
     assertStringIncludes(output, model.label);
     assertLinesFit(output, 72);
-    assertSectionContentColumns(output);
   }
 });
 
@@ -460,7 +493,12 @@ Deno.test("status dashboard: every proof-check state auto-enrols in the human vo
       ...(status === "honored" ? { proof_honored: true } : {}),
     });
     const output = render(data([mainEntry(), row]), 72);
-    assertStringIncludes(output, `Proof: ${PROOF_LABELS[status]}`);
+    assert(
+      plain(output).split("\n").some((line) =>
+        line.includes("Proof") && line.includes(PROOF_LABELS[status])
+      ),
+      `${status} receipt state is absent from the package-backed Proof row`,
+    );
   }
 });
 
@@ -547,26 +585,24 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
     true,
   );
   const words = plain(output);
-  assertStringIncludes(words, "done failed at test");
+  assertStringIncludes(words, "last action done failed at test");
   assertStringIncludes(words, "running done 2m · usually 2m");
-  assertStringIncludes(words, "Git 2 files changed · ↑8 ↓3");
-  assertStringIncludes(words, "Status: In progress · Git 3 files changed");
+  assertStringIncludes(words, "Git: 2 files changed · ↑8 ↓3");
+  assertStringIncludes(words, "Changed: agent/observed-333ccc. In progress");
+  assertStringIncludes(words, "Git: 3 files changed");
+  assertStringIncludes(words, "last action status ok");
   assertStringIncludes(words, "Landing: granted · standing grant for map");
   assertStringIncludes(words, "Landing: needs approval");
   assertStringIncludes(words, "Landing: scope-limited");
   assert(!words.includes("2m of ~2m"));
   assert(!words.includes("0 ahead"));
-  const tokens = palette(true);
-  assertStringIncludes(output, `${tokens.red}Failed${tokens.reset}`);
-  assertStringIncludes(output, `${tokens.yellow}Behind${tokens.reset}`);
-  assertStringIncludes(
-    output,
-    `${tokens.yellow}2 files changed · ↑8 ↓3${tokens.reset}`,
-  );
-  assertStringIncludes(output, `${tokens.green}Ready${tokens.reset}`);
-  assertStringIncludes(
-    output,
-    `${tokens.cyan}running done 2m · usually 2m${tokens.reset}`,
+  assertEquals(
+    words,
+    render(
+      data([mainEntry(), failed, running, observed, granted, approval, scoped]),
+      72,
+    ),
+    "semantic facts must survive without colour",
   );
   assertLinesFit(output, 72);
 });
@@ -629,7 +665,7 @@ Deno.test("status dashboard: removed worktree paths report their current content
     80,
   ));
 
-  assertStringIncludes(output, "── Attention");
+  assertStringIncludes(output, "Attention");
   assertStringIncludes(output, "/repo.worktrees/apollo-11");
   assertStringIncludes(
     output,
@@ -640,7 +676,7 @@ Deno.test("status dashboard: removed worktree paths report their current content
   assertLinesFit(output, 80);
 });
 
-Deno.test("status dashboard: every backticked discern command is cyan without changing its text", () => {
+Deno.test("status dashboard: actionable package commands are accented while stored proof stays verbatim", () => {
   const behind = entry({ behind: 2 });
   const proofUnavailable = entry({
     path: "/repo.worktrees/proof-def456",
@@ -666,22 +702,19 @@ Deno.test("status dashboard: every backticked discern command is cyan without ch
   const color = render(fixture, 104, true, hints, true);
 
   assertEquals(plain(color), noColor);
-  const tokens = palette(true);
-  const commandCount = noColor.split("`discern").length - 1;
-  const highlighted = color.split(`\`${tokens.cyan}discern`).length - 1;
+  const accentDiscern = terminal(104, true).tone("discern", "accent");
+  const highlighted = color.split(`\`${accentDiscern}`).length - 1;
   assert(
-    commandCount >= 4,
-    "fixture must exercise every command text route",
-  );
-  assert(!color.includes("`discern"), color);
-  assertEquals(highlighted, commandCount);
-  assertStringIncludes(
-    color,
-    `\`${tokens.cyan}discern${tokens.reset} ${tokens.cyan}update${tokens.reset}\``,
+    highlighted >= 5,
+    "fixture must exercise every actionable command route",
   );
   assertStringIncludes(
     color,
-    `\`${tokens.cyan}discern${tokens.reset}${tokens.dim} ${tokens.cyan}standards${tokens.reset}${tokens.dim}\``,
+    `\`${accentDiscern} ${terminal(104, true).tone("update", "accent")}\``,
+  );
+  assertStringIncludes(
+    color,
+    "Run `discern standards` to inspect the measurements.",
   );
   assertLinesFit(color, 104);
 });
@@ -717,7 +750,7 @@ Deno.test("status dashboard: collision precedence retains proof readiness and la
     72,
   );
   assertStringIncludes(output, "1 ready");
-  assertStringIncludes(output, "Readiness: ready · landing granted");
+  assertStringIncludes(output, "The branch is ready; landing granted.");
   assertStringIncludes(output, "Landing: granted · standing grant for map");
   assertLinesFit(output, 72);
 });
@@ -727,11 +760,11 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
   const main = data([mainEntry(), current]);
   const mainOutput = render(main, 72);
   assertEquals(mainOutput.match(/Main checkout/gu)?.length, 1);
-  assert(mainOutput.indexOf("── Fleet") < mainOutput.indexOf("Main checkout:"));
-  assert(mainOutput.indexOf("── Fleet") < mainOutput.indexOf("── Checks"));
+  assert(mainOutput.indexOf("Fleet") < mainOutput.indexOf("Main checkout"));
+  assert(mainOutput.indexOf("Fleet") < mainOutput.indexOf("Checks"));
   assertStringIncludes(mainOutput, "voyager");
-  assertStringIncludes(mainOutput, "main ← current");
-  assert(!mainOutput.includes("── Tasks"));
+  assertStringIncludes(mainOutput, "Main checkout main is current.");
+  assert(!mainOutput.includes("Tasks"));
   assert(!mainOutput.includes("plain_reading_grade"));
   assertStringIncludes(mainOutput, "Standards: 2 configured");
 
@@ -759,12 +792,13 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
   });
   const worktreeOutput = render(worktree, 72);
   assertEquals(worktreeOutput.match(/Main checkout/gu)?.length, 1);
-  assertStringIncludes(worktreeOutput, "agent/alpha-abc123 ← current");
+  assertStringIncludes(worktreeOutput, "agent/alpha-abc123");
+  assertStringIncludes(worktreeOutput, "current");
   assertStringIncludes(worktreeOutput, "Changed scopes: web");
   assert(!worktreeOutput.includes("Change: code"));
   assert(!worktreeOutput.includes("previewable"));
-  const checksAt = worktreeOutput.indexOf("── Checks");
-  const environmentAt = worktreeOutput.indexOf("── Local environment");
+  const checksAt = worktreeOutput.indexOf("Checks");
+  const environmentAt = worktreeOutput.indexOf("Local environment");
   assert(checksAt >= 0 && environmentAt > checksAt);
   assert(!worktreeOutput.slice(checksAt, environmentAt).includes("Port:"));
   assertStringIncludes(worktreeOutput.slice(environmentAt), "Port: 17123");
