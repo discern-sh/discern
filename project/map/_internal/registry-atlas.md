@@ -1308,7 +1308,7 @@ The reusable triangle treatments: every pure static frame carries one semantic a
 
 ## `terminal-product-triangle-art` — Product triangle art
 
-Discern-specific triangle compositions: every static figure derives its glyphs and order from the package and carries one matching animation timeline.
+The product-specific triangle compositions: every static figure derives its glyphs and order from the package and carries one matching animation timeline.
 
 - Source: `art/terminal/triangle.ts` — `DISCERN_PRODUCT_TRIANGLE_ART`
 - Members: 2

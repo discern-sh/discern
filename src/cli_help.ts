@@ -15,9 +15,7 @@
  */
 
 import type { Command } from "@cliffy/command";
-import {
-  renderSectionCli,
-} from "discern-design-system/cli";
+import { renderSectionCli } from "discern-design-system/cli";
 import type { EnvReader } from "./shared/env.ts";
 import {
   displayWidth,

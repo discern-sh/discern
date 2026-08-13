@@ -45,6 +45,7 @@ const TRUECOLOR: TerminalCapabilities = {
 
 const STEPS = ["inspect", "plan", "apply", "verify"] as const;
 
+/** Render every reusable specimen directly from its public package function. */
 function packageMotifFrames(
   capabilities: TerminalCapabilities,
 ): Readonly<Record<keyof typeof DISCERN_PACKAGE_TRIANGLE_MOTIFS, string>> {

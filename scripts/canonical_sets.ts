@@ -1262,7 +1262,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "terminal-product-triangle-art",
     title: "Product triangle art",
     what:
-      "Discern-specific triangle compositions: every static figure derives its glyphs and order from the package and carries one matching animation timeline.",
+      "The product-specific triangle compositions: every static figure derives its glyphs and order from the package and carries one matching animation timeline.",
     source: {
       kind: "module",
       module: "art/terminal/triangle.ts",
