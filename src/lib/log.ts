@@ -15,9 +15,7 @@ import {
 } from "../shared/result.ts";
 import { emitResult } from "../shared/emit.ts";
 import { observeResult } from "../shared/result_capture.ts";
-import type { EnvReader } from "../shared/env.ts";
 import {
-  productionTerminalContext,
   type TerminalContext,
   terminalContext,
   terminalContextWithColor,
@@ -37,14 +35,6 @@ export interface LogOptions {
   humanStream?: "stdout" | "stderr";
   /** Explicit package presentation facts for deterministic tests/callers. */
   terminal?: TerminalContext;
-}
-
-/** Resolve whether colour should be used for this run. */
-export function colourEnabled(
-  noColor: boolean,
-  env: EnvReader = Deno.env,
-): boolean {
-  return productionTerminalContext({ noColor, env }).color;
 }
 
 /** A presentation-aware logger shared across a command invocation. */

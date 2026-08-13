@@ -282,23 +282,6 @@ export function resolveTerminalContext(
   );
 }
 
-/** Resolve only colour from injected process facts without observing a console. */
-export function resolveTerminalColor(
-  noColor: boolean,
-  env: EnvReader,
-  isTerminal: () => boolean,
-): boolean {
-  return resolveTerminalContext({
-    noColor,
-    env,
-    isTerminal,
-    consoleSize: () => ({
-      columns: DEFAULT_TERMINAL_COLUMNS,
-      rows: DEFAULT_TERMINAL_ROWS,
-    }),
-  }).color;
-}
-
 /** Construct the production context, with every process effect still injectable. */
 export function productionTerminalContext(
   options: ProductionTerminalOptions = {},

@@ -10,8 +10,8 @@
  * flag) and every engine verb (they resolved colour through a parameterless
  * `colorEnabled()` that never saw `--no-color`). The guard has three layers:
  *
- *  1. Unit — the pure resolver `resolveColorMode` returns the single decision from
- *     its three inputs (flag wins, then NO_COLOR, then isatty).
+ *  1. Unit — the terminal context resolves the single decision from its explicit
+ *     inputs (flag wins, then NO_COLOR, then isatty).
  *  2. Unit — `operatorHelp` renders ZERO escapes when the resolved decision is "no
  *     colour", even though Cliffy's own `getHelp()` coloured the base (it consults
  *     only `Deno.noColor`). This is the exact help member of the class.
@@ -32,15 +32,14 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { buildCli, resolveColorMode } from "../src/main.ts";
+import { buildCli } from "../src/main.ts";
 import { operatorHelp } from "../src/cli_help.ts";
 import { KNOWN_ENGINE_VERBS } from "../src/engine/dispatch.ts";
+import { colorEnabled, makeOut } from "../src/engine/output.ts";
 import {
-  colorEnabled,
-  makeOut,
-  setColorOverride,
-} from "../src/engine/output.ts";
-import { resolveTerminalContext } from "../src/lib/terminal.ts";
+  resolveTerminalContext,
+  setTerminalContext,
+} from "../src/lib/terminal.ts";
 
 /** The ESC byte that opens every ANSI escape (built without a control-char regex). */
 const ESC = String.fromCharCode(27);
@@ -52,30 +51,44 @@ function ansiCount(s: string): number {
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
-Deno.test("resolveColorMode is the single decision: flag beats NO_COLOR beats isatty", () => {
+/** Resolve one colour verdict through the complete explicit context boundary. */
+function resolvedColor(
+  noColor: boolean,
+  environment: Record<string, string>,
+  isTerminal: boolean,
+): boolean {
+  return resolveTerminalContext({
+    noColor,
+    env: fakeEnv(environment),
+    isTerminal: () => isTerminal,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  }).color;
+}
+
+Deno.test("the terminal context is the single decision: flag beats NO_COLOR beats isatty", () => {
   // The flag is the hard off-switch — true regardless of a TTY or an unset NO_COLOR.
   assertEquals(
-    resolveColorMode(true, fakeEnv({}), () => true),
+    resolvedColor(true, {}, true),
     false,
     "--no-color must force colour off even on a TTY",
   );
   // NO_COLOR (set, non-empty) is off, even on a TTY with no flag.
   assertEquals(
-    resolveColorMode(false, fakeEnv({ NO_COLOR: "1" }), () => true),
+    resolvedColor(false, { NO_COLOR: "1" }, true),
     false,
     "a set NO_COLOR must force colour off",
   );
   // An empty NO_COLOR is "not set": defer to isatty.
   assertEquals(
-    resolveColorMode(false, fakeEnv({ NO_COLOR: "" }), () => true),
+    resolvedColor(false, { NO_COLOR: "" }, true),
     true,
   );
   // No flag, no NO_COLOR: the decision follows the terminal. Non-TTY (a pipe, CI,
   // an agent capturing output) is off — the B36 non-TTY member.
-  assertEquals(resolveColorMode(false, fakeEnv({}), () => false), false);
-  assertEquals(resolveColorMode(false, fakeEnv({}), () => true), true);
+  assertEquals(resolvedColor(false, {}, false), false);
+  assertEquals(resolvedColor(false, {}, true), true);
   assertEquals(
-    resolveColorMode(false, fakeEnv({ TERM: "dumb" }), () => true),
+    resolvedColor(false, { TERM: "dumb" }, true),
     false,
   );
 });
@@ -117,30 +130,32 @@ Deno.test("engine narration uses package semantic roles without a raw palette", 
   );
 });
 
-Deno.test("the engine colour choke point obeys the threaded decision, beating its own isatty check", () => {
-  // Every engine verb resolves colour through colorEnabled(); the fix is that the
-  // CLI's resolved decision (setColorOverride) wins over its standalone isatty rule.
-  // Under `deno test` stdout is NOT a terminal, so the standalone rule yields false —
-  // an override of `true` is therefore ONLY observable if the override is consulted.
-  // Pre-fix (isatty alone) this returns false, so this is the discriminating check
-  // for B32: an engine verb honouring --no-color on a TTY works by the same lever.
+Deno.test("the engine colour choke point reads the installed terminal context", () => {
   try {
-    setColorOverride(true);
+    setTerminalContext(resolveTerminalContext({
+      noColor: false,
+      env: fakeEnv({ TERM: "xterm-256color" }),
+      isTerminal: () => true,
+      consoleSize: () => ({ columns: 80, rows: 24 }),
+    }));
     assertEquals(
       colorEnabled(),
       true,
-      "override(true) must beat the isatty check",
+      "the engine must consume the context installed by the CLI",
     );
-    setColorOverride(false);
+    setTerminalContext(resolveTerminalContext({
+      noColor: true,
+      env: fakeEnv({ TERM: "xterm-256color" }),
+      isTerminal: () => true,
+      consoleSize: () => ({ columns: 80, rows: 24 }),
+    }));
     assertEquals(
       colorEnabled(),
       false,
-      "override(false) must force colour off",
+      "the installed --no-color decision must force colour off",
     );
   } finally {
-    // Restore the standalone fallback so this process-global mutation can't leak
-    // into sibling in-process tests.
-    setColorOverride(undefined);
+    setTerminalContext(undefined);
   }
 });
 

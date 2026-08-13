@@ -19,7 +19,6 @@ import {
   ConfigValidationError,
   loadConfig,
 } from "./shared/config_schema.ts";
-import type { EnvReader } from "./shared/env.ts";
 import { findRoot } from "./shared/env.ts";
 import { knownJobList } from "./shared/capabilities.ts";
 import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
@@ -52,7 +51,6 @@ import { runCommandGroup } from "./shared/command_group.ts";
 import { cliJsonResultVerb } from "./shared/result_contracts.ts";
 import {
   productionTerminalContext,
-  resolveTerminalColor,
   setTerminalContext,
   type TerminalContext,
 } from "./lib/terminal.ts";
@@ -69,20 +67,6 @@ export { KNOWN_VERBS };
  */
 function noColorFrom(color: boolean | undefined): boolean {
   return color === false;
-}
-
-/**
- * Compatibility projection of the CLI's shared process adapter for tests and
- * callers that only need its colour boolean. `main` constructs and installs the
- * complete context instead. The flag, NO_COLOR, TTY, and TERM degradation are
- * therefore decided by the same package capability detector.
- */
-export function resolveColorMode(
-  noColorFlag: boolean,
-  env: EnvReader = Deno.env,
-  isTerminal: () => boolean = () => Deno.stdout.isTerminal(),
-): boolean {
-  return resolveTerminalColor(noColorFlag, env, isTerminal);
 }
 
 /**

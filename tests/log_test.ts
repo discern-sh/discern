@@ -1,5 +1,5 @@
 /**
- * Unit tests for the presentation-aware {@link Logger} and {@link colourEnabled}.
+ * Unit tests for the presentation-aware {@link Logger}.
  *
  * These run with colour forced off (no TTY under `deno test`, and `--no-color`
  * passed explicitly), so every human method emits plain, un-painted text. We spy
@@ -9,13 +9,8 @@
  * `jsonResult` speaks.
  */
 
-import {
-  assert,
-  assertEquals,
-  assertExists,
-  assertStringIncludes,
-} from "@std/assert";
-import { colourEnabled, Logger } from "../src/lib/log.ts";
+import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
+import { Logger } from "../src/lib/log.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { fakeEnv } from "./helpers.ts";
 
@@ -173,27 +168,4 @@ Deno.test("JSON mode: jsonResult emits a pretty-printed payload to stdout", asyn
   // Pretty-printed with a two-space indent.
   assertEquals(payload, JSON.stringify({ ok: true, items: ["a"] }, null, 2));
   assertStringIncludes(payload, "\n  ");
-});
-
-Deno.test("colourEnabled(true) is always false (forced off)", () => {
-  assertEquals(colourEnabled(true), false);
-});
-
-Deno.test("colourEnabled(false) is false when NO_COLOR is set and non-empty", () => {
-  assertEquals(colourEnabled(false, fakeEnv({ NO_COLOR: "1" })), false);
-});
-
-Deno.test("colourEnabled(false) ignores an empty NO_COLOR and falls back to the TTY check", () => {
-  // Empty NO_COLOR is not "set"; without a TTY (the test runner) this is false.
-  assertEquals(
-    colourEnabled(false, fakeEnv({ NO_COLOR: "" })),
-    Deno.stdout.isTerminal(),
-  );
-});
-
-Deno.test("colourEnabled(false) defers to the TTY check when NO_COLOR is unset", () => {
-  // Under `deno test` stdout is not a terminal, so this resolves false; the
-  // assertion is written against the live TTY state to stay correct anywhere.
-  assertEquals(colourEnabled(false, fakeEnv()), Deno.stdout.isTerminal());
-  assert(typeof Deno.stdout.isTerminal() === "boolean");
 });

@@ -11,8 +11,6 @@ import {
   type RenderSink,
 } from "../shared/result.ts";
 import {
-  productionTerminalContext,
-  setTerminalContext,
   type TerminalContext,
   terminalContext,
   terminalContextWithColor,
@@ -50,19 +48,6 @@ export function byteWriter(
       n += target.writeSync(b.subarray(n));
     }
   };
-}
-
-/**
- * Compatibility setter for existing tests and direct engine callers. The CLI
- * installs a complete {@link TerminalContext}; this façade projects an injected
- * boolean without reintroducing an independent environment decision.
- */
-export function setColorOverride(color: boolean | undefined): void {
-  setTerminalContext(
-    color === undefined
-      ? undefined
-      : terminalContextWithColor(productionTerminalContext(), color),
-  );
 }
 
 /**
