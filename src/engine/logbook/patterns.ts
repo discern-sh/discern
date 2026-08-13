@@ -24,6 +24,18 @@
 import { agentLabel } from "../../shared/agent_catalogue.ts";
 import { basename, join } from "@std/path";
 import {
+  renderCommandCli,
+  renderFileChangeCli,
+  renderMeterCli,
+  renderProcedureCli,
+  renderReceiptCli,
+  renderResultSummaryCli,
+  renderStatCli,
+  renderTriangleSectionRule,
+  type ResultSummaryCliProps,
+  type TerminalCapabilities,
+} from "discern-design-system/cli";
+import {
   loadConfig,
   resolveConfiguredAgents,
 } from "../../shared/config_schema.ts";
@@ -54,15 +66,9 @@ import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
-import {
-  displayWidth,
-  meter,
-  renderAlignedTable,
-  sparkline,
-  terminalWidth,
-  wrapText,
-} from "../../lib/text.ts";
-import { colorEnabled, makeOut, type Out, type Palette } from "../output.ts";
+import { sparkline } from "../../lib/text.ts";
+import { terminalLine, terminalMultiline } from "../../lib/terminal.ts";
+import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import {
   freshInFlightInvocations,
@@ -375,19 +381,40 @@ export const PATTERNS_FAMILY_SECTIONS = {
   funnel: { heading: "Task funnel: the path to green" },
 } satisfies Record<DetectorFamily, FamilyPresentation>;
 
-type ToneColor = "green" | "dim" | "yellow";
+/** Exhaustive adaptation from advisory tone into package result semantics. */
+export const PATTERNS_TONE_RESULT_STATE = {
+  good: "passed",
+  neutral: "unchanged",
+  attention: "changed",
+} as const satisfies Readonly<
+  Record<PatternFindingTone, ResultSummaryCliProps["state"]>
+>;
 
-interface TonePresentation {
-  glyph: string;
-  color: ToneColor;
+/** Give pure package renderers explicit capabilities from the shared context. */
+function presentationFacts(out: Out): {
+  readonly capabilities: TerminalCapabilities;
+  readonly width: number;
+  readonly theme: Out["terminal"]["themeVariant"];
+} {
+  const width = Math.max(20, Math.min(104, out.terminal.size.columns));
+  return {
+    capabilities: { ...out.terminal.capabilities, columns: width },
+    width,
+    theme: out.terminal.themeVariant,
+  };
 }
 
-/** The compact report's glyphs, exhaustively bound to the canonical tones. */
-export const PATTERNS_TONE_GLYPHS = {
-  good: { glyph: "✓", color: "green" },
-  neutral: { glyph: "·", color: "dim" },
-  attention: { glyph: "!", color: "yellow" },
-} satisfies Record<PatternFindingTone, TonePresentation>;
+/** Preserve the stable human-output group id while the package owns its rule. */
+function renderGroup(out: Out, id: string, label: string): void {
+  const { capabilities, width, theme } = presentationFacts(out);
+  out.group(id);
+  out.raw(`${
+    renderTriangleSectionRule(terminalLine(label), {
+      width,
+      theme,
+    }, capabilities)
+  }\n`);
+}
 
 /** The one human caveat for trajectory series spanning several setups. */
 export const PATTERNS_TRAJECTORY_CAVEAT =
@@ -398,7 +425,6 @@ export const PATTERNS_ATTENTION_HEADING = "Worth your attention";
 export const PATTERNS_ATTENTION_LIMIT = 3;
 
 const PIN_COMMAND = "`discern standards --pin`";
-const ALL_COMMAND = "`discern patterns --all`";
 
 /** Format a count with its singular or supplied plural noun. */
 function plural(
@@ -474,90 +500,30 @@ function preAuthorizedLandingOverview(
   );
 }
 
-/** Wrap prose after a fixed prefix and align every continuation line beneath it. */
-function writeWrapped(
-  out: Out,
-  prefix: string,
-  text: string,
-  width: number,
-  style?: (line: string) => string,
-): void {
-  const prefixWidth = displayWidth(prefix);
-  const lines = wrapText(text, Math.max(1, width - prefixWidth));
-  const continuation = " ".repeat(prefixWidth);
-  for (const [index, line] of lines.entries()) {
-    out.raw(
-      `${index === 0 ? prefix : continuation}${
-        style === undefined ? line : style(line)
-      }\n`,
-    );
-  }
-}
-
-/** Render the canonical glyph and color assigned to a finding tone. */
-function toneGlyph(tone: PatternFindingTone, palette: Palette): string {
-  const presentation = PATTERNS_TONE_GLYPHS[tone];
-  return `${palette[presentation.color]}${presentation.glyph}${palette.reset}`;
-}
-
-interface FindingRow {
-  finding: PatternsFinding;
-  renderedSeries: string;
-}
-
 /** Render the canonical summary first and its concrete observation below. */
 function renderFindingRows(
   out: Out,
   findings: readonly PatternsFinding[],
   width: number,
 ): void {
-  const rows = findings.map((finding) => ({
-    finding,
-    renderedSeries: finding.series === undefined
-      ? ""
-      : sparkline(finding.series),
-  }));
-  const basePrefixes = renderAlignedTable<FindingRow>([
-    {
-      header: "",
-      value: (row) => toneGlyph(row.finding.tone, out.c),
-    },
-    {
-      header: "",
-      value: (row) => row.finding.subject ?? "",
-    },
-    { header: "", value: () => "" },
-  ], rows).slice(1);
-  const seriesPrefixes = renderAlignedTable<FindingRow>([
-    {
-      header: "",
-      value: (row) => toneGlyph(row.finding.tone, out.c),
-    },
-    {
-      header: "",
-      value: (row) => row.finding.subject ?? "",
-    },
-    { header: "", value: (row) => row.renderedSeries },
-    { header: "", value: () => "" },
-  ], rows).slice(1);
-  for (const [index, row] of rows.entries()) {
-    writeWrapped(
-      out,
-      `    ${
-        row.renderedSeries === ""
-          ? basePrefixes[index] ?? ""
-          : seriesPrefixes[index] ?? ""
-      }`,
-      row.finding.summary,
-      width,
-    );
-    writeWrapped(
-      out,
-      "      Evidence: ",
-      row.finding.observed,
-      width,
-      (line) => `${out.c.dim}${line}${out.c.reset}`,
-    );
+  const { capabilities, theme } = presentationFacts(out);
+  for (const finding of findings) {
+    const facts = [
+      finding.summary,
+      ...(finding.subject === undefined ? [] : [`Subject: ${finding.subject}`]),
+      ...(finding.series === undefined
+        ? []
+        : [`Series: ${sparkline(finding.series)}`]),
+      `Evidence: ${finding.observed}`,
+    ];
+    out.raw(`${
+      renderResultSummaryCli({
+        state: PATTERNS_TONE_RESULT_STATE[finding.tone],
+        fact: terminalMultiline(facts.join(" · ")),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
   }
 }
 
@@ -627,40 +593,53 @@ function renderFamily(
   if (familyFindings.length === 0) {
     return;
   }
+  const { capabilities, theme } = presentationFacts(out);
   const groups = findingsByDetector(familyFindings);
   const countById = new Map(data.detectors.map((d) => [d.id, d.findings]));
-  const c = out.c;
-  out.group(`family:${family}`);
-  out.raw(
-    `${c.bold}${PATTERNS_FAMILY_SECTIONS[family].heading}${c.reset}\n`,
+  renderGroup(
+    out,
+    `family:${family}`,
+    PATTERNS_FAMILY_SECTIONS[family].heading,
   );
   for (const [index, [detector, findings]] of [...groups].entries()) {
     if (index > 0) out.group(`family:${family}:detector:${detector}`);
-    writeWrapped(
-      out,
-      "  ",
-      titleById.get(detector) ?? detector,
-      width,
-      (line) => `${c.bold}${line}${c.reset}`,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(
+          `Detector: ${
+            titleById.get(detector) ?? detector
+          } · ${findings.length} shown.`,
+        ),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
     renderFindingRows(out, findings, width);
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalMultiline(
+          `Next action: ${detectorNextStep(findings)}`,
+        ),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
     const elided = (countById.get(detector) ?? findings.length) -
       findings.length;
     if (elided > 0) {
-      writeWrapped(
-        out,
-        "    ",
-        `+${plural(elided, "more finding")} — ${ALL_COMMAND} lists every one.`,
-        width,
-        (line) => `${c.dim}${line}${c.reset}`,
-      );
+      out.raw(`${
+        renderCommandCli({
+          command: terminalLine("discern patterns --all"),
+          explanation: terminalLine(
+            `${plural(elided, "more finding")} remain for this detector.`,
+          ),
+          maxWidth: width,
+          theme,
+        }, { ...capabilities, columns: width })
+      }\n`);
     }
-    writeWrapped(
-      out,
-      `    ${c.cyan}→${c.reset} `,
-      detectorNextStep(findings),
-      width,
-    );
   }
 
   const crossesBoundary = family === "trajectory" &&
@@ -669,13 +648,14 @@ function renderFamily(
     );
   if (crossesBoundary) {
     out.group(`family:${family}:caveat`);
-    writeWrapped(
-      out,
-      "  ",
-      `(${PATTERNS_TRAJECTORY_CAVEAT})`,
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(PATTERNS_TRAJECTORY_CAVEAT),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
   }
 }
 
@@ -694,17 +674,21 @@ function renderAttentionBanner(
     return;
   }
 
-  const c = out.c;
-  out.group("attention");
-  out.raw(`  ${c.bold}${PATTERNS_ATTENTION_HEADING}${c.reset}\n`);
+  const { capabilities, theme } = presentationFacts(out);
+  renderGroup(out, "attention", PATTERNS_ATTENTION_HEADING);
   for (const finding of findings) {
-    const subject = finding.subject === undefined ? "" : `${finding.subject}: `;
-    writeWrapped(
-      out,
-      `    ${toneGlyph(finding.tone, c)} `,
-      `${subject}${finding.summary}`,
-      width,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "changed",
+        fact: terminalLine(
+          finding.subject === undefined
+            ? finding.summary
+            : `${finding.subject}: ${finding.summary}`,
+        ),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
   }
 }
 
@@ -716,41 +700,29 @@ function renderInvestigations(
   width: number,
 ): void {
   if (investigations.length === 0) return;
-  const c = out.c;
-  out.group("investigations");
-  out.raw(`${c.bold}Investigation paths${c.reset}\n`);
+  const { capabilities, theme } = presentationFacts(out);
+  renderGroup(out, "investigations", "Investigation paths");
   for (const [index, investigation] of investigations.entries()) {
     if (index > 0) out.group(`investigation:${investigation.id}`);
     const subject = investigation.subject === undefined
       ? ""
       : ` · ${investigation.subject}`;
-    writeWrapped(
-      out,
-      "  ",
-      `${investigation.title}${subject}`,
-      width,
-      (line) => `${c.bold}${line}${c.reset}`,
-    );
-    writeWrapped(out, "    ", investigation.summary, width);
-    writeWrapped(
-      out,
-      `    ${c.dim}Evidence:${c.reset} `,
-      investigation.observed,
-      width,
-    );
-    writeWrapped(
-      out,
-      `    ${c.cyan}→${c.reset} `,
-      investigation.diagnostic_action,
-      width,
-    );
-    writeWrapped(
-      out,
-      "    Falsifier: ",
-      investigation.falsifier,
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
+    out.raw(`${
+      renderProcedureCli({
+        title: terminalLine(`${investigation.title}${subject}`),
+        description: terminalMultiline(
+          `${investigation.summary}\nEvidence: ${investigation.observed}\nDiagnostic: ${investigation.diagnostic_action}`,
+        ),
+        steps: [{
+          title: terminalLine("Run the diagnostic investigation."),
+          status: "active",
+        }],
+        completionLabel: terminalLine("Falsifier"),
+        completion: terminalMultiline(investigation.falsifier),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
   }
 }
 
@@ -760,96 +732,99 @@ function renderClosingAccount(
   data: PatternsData,
   width: number,
 ): void {
-  const c = out.c;
+  const { capabilities, theme } = presentationFacts(out);
   out.group("closing-account");
   const quiet = data.detectors.filter((d) => d.status === "quiet");
   const young = data.detectors.filter((d) =>
     d.status === "insufficient-evidence"
   );
-  if (quiet.length > 0) {
-    writeWrapped(
-      out,
-      "  No finding: ",
-      `${quiet.map((d) => d.title).join(" · ")}.`,
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
-  }
-  if (young.length > 0) {
-    writeWrapped(
-      out,
-      "  Insufficient evidence: ",
-      `${young.map((d) => d.title).join(" · ")}.`,
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
-  }
-  writeWrapped(
-    out,
-    "  ",
-    "Advisory only. Nothing here fails the Gate. Evidence: `discern patterns --json`.",
-    width,
-    (line) => `${c.dim}${line}${c.reset}`,
-  );
+  out.raw(`${
+    renderResultSummaryCli({
+      state: "unchanged",
+      fact: terminalMultiline([
+        "The report is advisory and does not change the Gate.",
+        ...(quiet.length === 0 ? [] : [
+          `No finding (${quiet.length}): ${
+            quiet.map((detector) => detector.title).join(" · ")
+          }`,
+        ]),
+        ...(young.length === 0 ? [] : [
+          `Insufficient evidence (${young.length}): ${
+            young.map((detector) => detector.title).join(" · ")
+          }`,
+        ]),
+        "Structured data: discern patterns --json",
+      ].join(" · ")),
+      maxWidth: width,
+      theme,
+    }, { ...capabilities, columns: width })
+  }\n`);
 }
 
 /** Render the recurring report for a person. The wire findings stay
  * strength-ranked; this projection groups them by canonical family and
  * collapses repeated detector guidance. */
 function renderReport(out: Out, data: PatternsData, slug: string): void {
-  const c = out.c;
-  const width = terminalWidth();
+  const { capabilities, width, theme } = presentationFacts(out);
   const titleById = new Map(
     data.detectors.map((detector) => [detector.id, detector.title]),
   );
   const archive = data.logbook.source.kind === "archive"
     ? ` · archive ${data.logbook.source.filename}`
     : "";
-  out.heading(`discern patterns${slug ? ` · ${slug}` : ""}${archive}`);
-  writeWrapped(
-    out,
-    "  ",
-    summaryLine(data),
-    width,
-    (line) => `${c.dim}${line}${c.reset}`,
-  );
-  if (data.population.analyzed > 0) {
-    writeWrapped(
-      out,
-      "  ",
-      driversLine(data.population),
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
-  }
-  writeWrapped(
-    out,
-    "  ",
-    scoreboardLine(data),
-    width,
-    (line) => `${c.dim}${line}${c.reset}`,
-  );
+  out.raw(`${
+    out.terminal.role(
+      terminalLine(
+        `discern patterns${slug ? ` · ${slug}` : ""}${archive}`,
+      ),
+      "strong",
+    )
+  }\n`);
+  out.raw(`${
+    renderResultSummaryCli({
+      state: "unchanged",
+      fact: terminalMultiline([
+        summaryLine(data),
+        ...(data.population.analyzed === 0
+          ? []
+          : [`Drivers: ${driversLine(data.population)}`]),
+        `Detectors: ${scoreboardLine(data)}`,
+      ].join(" · ")),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
   const preAuthorized = preAuthorizedLandingOverview(data);
   if (preAuthorized !== undefined) {
-    writeWrapped(
-      out,
-      "  Pre-authorized landings: ",
-      preAuthorized.summary,
-      width,
-      (line) => `${c.dim}${line}${c.reset}`,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: PATTERNS_TONE_RESULT_STATE[preAuthorized.tone],
+        fact: terminalMultiline(
+          `${preAuthorized.summary} · Evidence: ${preAuthorized.observed}`,
+        ),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
   }
   renderAttentionBanner(out, data, width);
   renderInvestigations(out, data.investigations, width);
 
   if (data.logbook.events === 0) {
     out.group("empty-logbook");
-    writeWrapped(
-      out,
-      "  ",
-      "The Logbook is empty. discern records one event per verb run under this repository's Git directory. Nothing leaves the machine. Check back after some use.",
-      width,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(
+          "The Logbook is empty. Privacy: local metadata only; nothing leaves the machine.",
+        ),
+        nextAction: terminalLine(
+          "Check back after discern records local metadata for some verb runs.",
+        ),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
     return;
   }
 
@@ -886,14 +861,12 @@ function percent(part: number, whole: number): string {
   return `${Math.round((part / whole) * 100)}%`;
 }
 
-/** Meter cells on a proportion row — wide enough to read, narrow enough to
- * leave the count and its denominator room on an 80-column card. */
-export const STATS_METER_WIDTH = 18;
+/** Package Meter cap keeps the reading legible without filling wide terminals. */
+export const STATS_METER_WIDTH = 48;
 
-/** A proportion row: a green-filled meter, then the counts it summarizes. */
-function meterRow(c: Palette, fraction: number, text: string): string {
-  const cells = meter(fraction, STATS_METER_WIDTH);
-  return `${c.green}${cells.filled}${c.reset}${c.dim}${cells.track}${c.reset} ${text}`;
+/** A proportion row keeps the explicit denominator beside its percentage. */
+function meterRow(fraction: number, text: string): string {
+  return `${Math.round(fraction * 100)}% · ${text}`;
 }
 
 /** Cadence label beside a sparkline — "accepted per day", or the folded form
@@ -949,13 +922,12 @@ function statsHeaderLine(data: PatternsData, stats: PatternsStats): string {
  * git-style, green and red. */
 function statsAcceptedRows(
   accepted: PatternsStats["accepted"],
-  c: Palette,
 ): string[] {
   if (accepted.count === 0) {
     return ["Nothing accepted yet."];
   }
   const rows = [
-    `${c.bold}${plural(accepted.count, "change")} accepted${c.reset} from ${
+    `${plural(accepted.count, "change")} accepted from ${
       plural(accepted.branches, "branch", "branches")
     }${accepted.commits > 0 ? ` · ${plural(accepted.commits, "commit")}` : ""}`,
   ];
@@ -964,11 +936,9 @@ function statsAcceptedRows(
       ? round1(accepted.insertions / accepted.deletions)
       : undefined;
     rows.push(
-      `${c.green}+${
-        formatHumanNumber(accepted.insertions)
-      }${c.reset} ${c.red}−${
+      `+${formatHumanNumber(accepted.insertions)} −${
         formatHumanNumber(accepted.deletions)
-      }${c.reset} across ${plural(accepted.files, "file")}${
+      } across ${plural(accepted.files, "file")}${
         ratio !== undefined
           ? ` · ${formatHumanNumber(ratio)} ${
             ratio === 1 ? "line" : "lines"
@@ -990,7 +960,7 @@ function statsAcceptedRows(
       rows.push(
         `biggest: ${
           biggest.branch !== undefined ? `\`${biggest.branch}\` · ` : ""
-        }${c.yellow}${plural(biggest.lines, "changed line")}${c.reset} · ${
+        }${plural(biggest.lines, "changed line")} · ${
           plural(biggest.files, "file")
         } (${biggest.day})`,
       );
@@ -998,13 +968,9 @@ function statsAcceptedRows(
     const best = accepted.best_day;
     if (best !== undefined) {
       rows.push(
-        `best day: ${best.day} · ${c.yellow}${
-          formatHumanNumber(best.accepted)
-        } accepted${c.reset}${
+        `best day: ${best.day} · ${formatHumanNumber(best.accepted)} accepted${
           accepted.longest_streak > 1
-            ? ` · longest streak ${c.green}${
-              plural(accepted.longest_streak, "day")
-            }${c.reset}`
+            ? ` · longest streak ${plural(accepted.longest_streak, "day")}`
             : ""
         }`,
       );
@@ -1016,15 +982,14 @@ function statsAcceptedRows(
 /** The gate section: the green share and first-try share as meter rows with
  * their denominators, red runs reframed as the gate's saves, then streaks
  * and check time. Streaks of one stay off the card. */
-function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
+function statsGateRows(gate: PatternsStats["gate"]): string[] {
   if (gate.runs === 0) {
     return ["No `done` runs yet."];
   }
   const rows = [
     meterRow(
-      c,
       gate.greens / gate.runs,
-      `${c.green}${formatHumanNumber(gate.greens)}${c.reset} of ${
+      `${formatHumanNumber(gate.greens)} of ${
         plural(gate.runs, "`done` run")
       } green (${percent(gate.greens, gate.runs)})`,
     ),
@@ -1032,11 +997,8 @@ function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
   if (gate.gated_branches > 0) {
     rows.push(
       meterRow(
-        c,
         gate.first_try_green_branches / gate.gated_branches,
-        `${c.green}${
-          formatHumanNumber(gate.first_try_green_branches)
-        }${c.reset} of ${
+        `${formatHumanNumber(gate.first_try_green_branches)} of ${
           plural(gate.gated_branches, "branch", "branches")
         } green first try (${
           percent(gate.first_try_green_branches, gate.gated_branches)
@@ -1047,22 +1009,18 @@ function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
   const reds = gate.runs - gate.greens;
   if (reds > 0) {
     rows.push(
-      `${c.red}${plural(reds, "red run")}${c.reset} stopped at the Gate`,
+      `${plural(reds, "red run")} stopped at the Gate`,
     );
   }
   const tail: string[] = [];
   if (gate.longest_green_streak > 1) {
     tail.push(
-      `longest green streak ${c.green}${
-        formatHumanNumber(gate.longest_green_streak)
-      }${c.reset}`,
+      `longest green streak ${formatHumanNumber(gate.longest_green_streak)}`,
     );
   }
   if (gate.current_green_streak > 1) {
     tail.push(
-      `current ${c.green}${
-        formatHumanNumber(gate.current_green_streak)
-      }${c.reset}`,
+      `current ${formatHumanNumber(gate.current_green_streak)}`,
     );
   }
   if (gate.check_hours > 0) {
@@ -1088,7 +1046,6 @@ function evidenceShare(part: number, whole: number): string {
  * then eligible identity cohorts with every denominator and remainder. */
 function statsValidationWorkflowRows(
   workflows: PatternsStats["validation_workflows"],
-  c: Palette,
 ): string[] {
   if (workflows.runs.total === 0) {
     return ["No `prepare`, `test`, or `done` runs yet."];
@@ -1096,21 +1053,19 @@ function statsValidationWorkflowRows(
   const rows: string[] = [];
   for (const verb of workflows.runs.by_verb) {
     rows.push(
-      `${c.bold}\`${verb.verb}\`${c.reset}: ${
-        plural(verb.runs, "run")
-      } across ${plural(verb.branches, "branch", "branches")} · ${
-        formatHumanNumber(verb.clean)
-      } clean · ${formatHumanNumber(verb.dirty)} dirty · ${
-        formatHumanNumber(verb.unknown)
-      } unknown · ${formatHumanNumber(verb.successes)} ok · ${
-        formatHumanNumber(verb.failures)
-      } failed · ${plural(verb.retries, "retry", "retries")}`,
+      `\`${verb.verb}\`: ${plural(verb.runs, "run")} across ${
+        plural(verb.branches, "branch", "branches")
+      } · ${formatHumanNumber(verb.clean)} clean · ${
+        formatHumanNumber(verb.dirty)
+      } dirty · ${formatHumanNumber(verb.unknown)} unknown · ${
+        formatHumanNumber(verb.successes)
+      } ok · ${formatHumanNumber(verb.failures)} failed · ${
+        plural(verb.retries, "retry", "retries")
+      }`,
     );
   }
   rows.push(
-    `${c.bold}${
-      plural(workflows.cycles.total, "change cycle")
-    }${c.reset} across ${
+    `${plural(workflows.cycles.total, "change cycle")} across ${
       plural(workflows.cycles.branches, "branch", "branches")
     }`,
   );
@@ -1175,9 +1130,9 @@ function statsValidationWorkflowRows(
     );
     for (const identity of cohorts.identities) {
       rows.push(
-        `${c.bold}${identity.label}${c.reset}: ${
-          plural(identity.cycles, "cycle")
-        } / ${plural(identity.runs, "run")} · test-first ${
+        `${identity.label}: ${plural(identity.cycles, "cycle")} / ${
+          plural(identity.runs, "run")
+        } · test-first ${
           formatHumanNumber(identity.test_first_cycles)
         } · commit-first ${
           formatHumanNumber(identity.commit_first_cycles)
@@ -1216,15 +1171,14 @@ function everyLabel(hours: number): string {
  * are both on record, so the cycle count can sit below the accepted count.
  * Empty before the first measured cycle on a one-day span. The fastest cycle
  * is a record, so it reads in yellow. */
-function statsPaceRows(stats: PatternsStats, c: Palette): string[] {
+function statsPaceRows(stats: PatternsStats): string[] {
   const rows: string[] = [];
   const cycles = stats.cycles;
   if (cycles !== undefined) {
     rows.push(
       meterRow(
-        c,
         cycles.completed / cycles.started,
-        `${c.green}${formatHumanNumber(cycles.completed)}${c.reset} of ${
+        `${formatHumanNumber(cycles.completed)} of ${
           plural(cycles.started, "start")
         } were accepted (${percent(cycles.completed, cycles.started)})`,
       ),
@@ -1239,11 +1193,9 @@ function statsPaceRows(stats: PatternsStats, c: Palette): string[] {
       rows.push(
         `start-to-accept across ${
           plural(cycles.completed, "measured cycle")
-        } · median ${
-          formatHumanNumber(cycles.median_hours)
-        }h · fastest ${c.yellow}${
+        } · median ${formatHumanNumber(cycles.median_hours)}h · fastest ${
           formatHumanNumber(cycles.fastest_hours)
-        }h${c.reset}${
+        }h${
           cycles.under_day > 0
             ? ` · ${formatHumanNumber(cycles.under_day)} inside a day`
             : ""
@@ -1266,7 +1218,6 @@ function statsPaceRows(stats: PatternsStats, c: Palette): string[] {
  * the peak overlap — the most changes in flight at one instant. */
 function statsBreadthRows(
   breadth: PatternsStats["breadth"],
-  c: Palette,
 ): string[] {
   const busiest = breadth.busiest_day;
   const rows = [
@@ -1274,18 +1225,18 @@ function statsBreadthRows(
       formatHumanNumber(breadth.active_days)
     } of ${plural(breadth.span_days, "day")}${
       busiest !== undefined && busiest.branches > 1
-        ? ` · busiest day ${c.yellow}${
+        ? ` · busiest day ${
           plural(busiest.branches, "branch", "branches")
-        }${c.reset} (${busiest.day})`
+        } (${busiest.day})`
         : ""
     }`,
   ];
   const peak = breadth.peak_in_flight;
   if (peak !== undefined && peak.branches > 1) {
     rows.push(
-      `up to ${c.yellow}${
+      `up to ${
         plural(peak.branches, "change")
-      } in flight at once${c.reset} (${peak.day})`,
+      } in flight at once (${peak.day})`,
     );
   }
   return rows;
@@ -1296,7 +1247,6 @@ function statsBreadthRows(
  * like-for-like. */
 function statsStandardsRows(
   ratchet: PatternsStats["ratchet"],
-  c: Palette,
 ): string[] {
   const rows: string[] = [];
   if (ratchet.pins > 0) {
@@ -1311,9 +1261,9 @@ function statsStandardsRows(
     rows.push(
       `most improved: \`${improved.standard}\` ${
         formatHumanNumber(improved.from)
-      } → ${formatHumanNumber(improved.to)} (${c.green}${
+      } → ${formatHumanNumber(improved.to)} (${
         formatHumanNumber(improved.better_percent)
-      }% better${c.reset})`,
+      }% better)`,
     );
   }
   return rows;
@@ -1325,7 +1275,6 @@ function statsStandardsRows(
  * unattributed share is always stated. */
 function statsAgentsRows(
   agents: PatternsStats["agents"],
-  c: Palette,
 ): string[] {
   const below = agents.below_minimum;
   const rows = [
@@ -1337,17 +1286,15 @@ function statsAgentsRows(
   ];
   for (const identity of agents.identities) {
     const spark = identity.per_day !== undefined && identity.per_day.length > 1
-      ? `${c.cyan}${sparkline(identity.per_day)}${c.reset} `
+      ? `${sparkline(identity.per_day)} `
       : "";
     const share = identity.done_runs > 0
-      ? `${c.green}${formatHumanNumber(identity.greens)}${c.reset} of ${
+      ? `${formatHumanNumber(identity.greens)} of ${
         plural(identity.done_runs, "`done` run")
       } green (${percent(identity.greens, identity.done_runs)})`
       : "no `done` runs";
     rows.push(
-      `${spark}${c.bold}${identity.label}${c.reset} · ${
-        plural(identity.runs, "run")
-      } · ${share}`,
+      `${spark}${identity.label} · ${plural(identity.runs, "run")} · ${share}`,
     );
   }
   if (below !== undefined) {
@@ -1370,16 +1317,28 @@ function statsSection(
   rows: readonly string[],
   spark?: StatsSpark | undefined,
 ): void {
-  const c = out.c;
-  out.group(`stats:${label}`);
-  const tail = spark === undefined
-    ? ""
-    : `  ${c.cyan}${
-      sparkline(spark.series)
-    }${c.reset} ${c.dim}${spark.label}${c.reset}`;
-  out.raw(`  ${c.bold}${label}${c.reset}${tail}\n`);
+  const { capabilities, theme } = presentationFacts(out);
+  renderGroup(out, `stats:${label}`, label);
+  out.raw(`${
+    renderStatCli({
+      label: terminalLine(label),
+      value: terminalLine(plural(rows.length, "reading")),
+      ...(spark === undefined ? {} : {
+        context: terminalLine(`${sparkline(spark.series)} ${spark.label}`),
+      }),
+      maxWidth: width,
+      theme,
+    }, { ...capabilities, columns: width })
+  }\n`);
   for (const row of rows) {
-    writeWrapped(out, "    ", row, width);
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalMultiline(row),
+        maxWidth: width,
+        theme,
+      }, { ...capabilities, columns: width })
+    }\n`);
   }
 }
 
@@ -1394,34 +1353,66 @@ function renderStatsReport(
   stats: PatternsStats,
   slug: string,
 ): void {
-  const c = out.c;
-  const width = terminalWidth();
+  const { capabilities, width, theme } = presentationFacts(out);
   const archive = data.logbook.source.kind === "archive"
     ? ` · archive ${data.logbook.source.filename}`
     : "";
-  out.heading(
+  out.heading(terminalLine(
     `discern patterns --stats${slug ? ` · ${slug}` : ""}${archive}`,
-  );
+  ));
   if (data.population.analyzed === 0) {
-    writeWrapped(out, "  ", STATS_EMPTY_MESSAGE, width);
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(STATS_EMPTY_MESSAGE),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
     return;
   }
-  const dim = (line: string): string => `${c.dim}${line}${c.reset}`;
-  writeWrapped(out, "  ", statsHeaderLine(data, stats), width, dim);
-  writeWrapped(out, "  ", STATS_PROVENANCE, width, dim);
+  out.raw(`${
+    renderResultSummaryCli({
+      state: "unchanged",
+      fact: terminalMultiline(
+        `${statsHeaderLine(data, stats)} · Source: ${STATS_PROVENANCE}`,
+      ),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
+  if (stats.gate.runs > 0) {
+    out.raw(`${
+      renderMeterCli({
+        kind: "determinate-progress",
+        label: terminalLine("Green Gate runs"),
+        lifecycle: { status: "active" },
+        completed: stats.gate.greens,
+        total: stats.gate.runs,
+        reading: terminalLine(
+          `${formatHumanNumber(stats.gate.greens)} of ${
+            formatHumanNumber(stats.gate.runs)
+          }`,
+        ),
+        tone: "neutral",
+        width: Math.min(STATS_METER_WIDTH, width),
+        theme,
+      }, capabilities)
+    }\n`);
+  }
   const daysPerPoint = stats.series_days_per_point ?? 1;
   statsSection(
     out,
     width,
     STATS_SECTIONS.accepted,
-    statsAcceptedRows(stats.accepted, c),
+    statsAcceptedRows(stats.accepted),
     statsSpark(stats.accepted.per_day, cadenceLabel("accepted", daysPerPoint)),
   );
   statsSection(
     out,
     width,
     STATS_SECTIONS.gate,
-    statsGateRows(stats.gate, c),
+    statsGateRows(stats.gate),
     statsSpark(
       stats.gate.greens_per_day,
       cadenceLabel("green runs", daysPerPoint),
@@ -1431,13 +1422,13 @@ function renderStatsReport(
     out,
     width,
     STATS_SECTIONS.workflows,
-    statsValidationWorkflowRows(stats.validation_workflows, c),
+    statsValidationWorkflowRows(stats.validation_workflows),
   );
-  const pace = statsPaceRows(stats, c);
+  const pace = statsPaceRows(stats);
   if (pace.length > 0) {
     statsSection(out, width, STATS_SECTIONS.pace, pace);
   }
-  const standards = statsStandardsRows(stats.ratchet, c);
+  const standards = statsStandardsRows(stats.ratchet);
   if (standards.length > 0) {
     // The trend can honestly fall, so unlike the count sparks it shows
     // whenever it moves at all.
@@ -1461,7 +1452,7 @@ function renderStatsReport(
       out,
       width,
       STATS_SECTIONS.agents,
-      statsAgentsRows(stats.agents, c),
+      statsAgentsRows(stats.agents),
       statsSpark(
         stats.agents.per_day,
         cadenceLabel("agent runs", daysPerPoint),
@@ -1472,7 +1463,7 @@ function renderStatsReport(
     out,
     width,
     STATS_SECTIONS.breadth,
-    statsBreadthRows(stats.breadth, c),
+    statsBreadthRows(stats.breadth),
     statsSpark(
       stats.breadth.branches_per_day,
       daysPerPoint <= 1
@@ -1480,13 +1471,16 @@ function renderStatsReport(
         : `peak branches per ${formatHumanNumber(daysPerPoint)} days`,
     ),
   );
-  writeWrapped(
-    out,
-    "  ",
-    "Data: `discern patterns --stats --json`.",
-    width,
-    dim,
-  );
+  out.raw(`${
+    renderCommandCli({
+      command: terminalLine("discern patterns --stats --json"),
+      explanation: terminalLine(
+        "Read the same counted facts as structured data.",
+      ),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
 }
 
 /** Options accepted by the patterns CLI. */
@@ -1711,42 +1705,122 @@ function renderLifecycleFiles(
   out: Out,
   files: readonly LogbookFile[],
 ): void {
+  const { capabilities, width, theme } = presentationFacts(out);
   for (const file of files) {
-    out.raw(`  ${file.file} ${out.c.dim}(${file.bytes} bytes)${out.c.reset}\n`);
+    out.raw(`${
+      renderFileChangeCli({
+        path: terminalLine(file.file),
+        disposition: "unchanged",
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine(
+          `Source file: ${file.file}. Bytes: ${formatHumanNumber(file.bytes)}.`,
+        ),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
   }
 }
 
 /** Render the complete reset scope before preview, refusal, or confirmation. */
 function renderResetScope(out: Out, data: PatternsResetData): void {
-  out.heading("Active Logbook reset");
-  out.raw(
-    `  ${plural(data.events, "event")} · ${lifecycleSpan(data)} · ${
-      plural(data.removed.length, "file")
-    } · ${formatHumanNumber(data.bytes)} bytes\n`,
-  );
-  renderLifecycleFiles(out, data.removed);
-  out.group("impact");
-  out.raw("Evidence restarts for:\n");
+  const { capabilities, width, theme } = presentationFacts(out);
+  out.heading(terminalLine("Active Logbook reset"));
+  out.raw(`${
+    renderReceiptCli({
+      title: terminalLine("Reset scope"),
+      meta: [
+        {
+          label: terminalLine("Events"),
+          value: terminalLine(String(data.events)),
+        },
+        {
+          label: terminalLine("Span"),
+          value: terminalLine(lifecycleSpan(data)),
+        },
+        {
+          label: terminalLine("Files"),
+          value: terminalLine(String(data.removed.length)),
+        },
+        {
+          label: terminalLine("Bytes"),
+          value: terminalLine(formatHumanNumber(data.bytes)),
+        },
+      ],
+      summary: terminalLine(
+        "The active local metadata history will be removed.",
+      ),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
   for (const impact of data.impacts) {
-    out.raw(`  - ${impact.phrase} (${impact.surface})\n`);
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "changed",
+        fact: terminalMultiline(
+          `${impact.surface}: evidence restarts. ${impact.phrase}`,
+        ),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
   }
+  renderLifecycleFiles(out, data.removed);
 }
 
 /** Render the complete archive scope before preview, refusal, or confirmation. */
 function renderArchiveScope(out: Out, data: PatternsArchiveData): void {
-  out.heading("Active Logbook archive");
-  out.raw(
-    `  ${plural(data.events, "event")} · ${lifecycleSpan(data)} · ${
-      plural(data.files.length, "file")
-    } · ${formatHumanNumber(data.source_bytes)} source bytes\n`,
-  );
+  const { capabilities, width, theme } = presentationFacts(out);
+  out.heading(terminalLine("Active Logbook archive"));
+  out.raw(`${
+    renderReceiptCli({
+      title: terminalLine("Archive scope"),
+      meta: [
+        {
+          label: terminalLine("Events"),
+          value: terminalLine(String(data.events)),
+        },
+        {
+          label: terminalLine("Span"),
+          value: terminalLine(lifecycleSpan(data)),
+        },
+        {
+          label: terminalLine("Files"),
+          value: terminalLine(String(data.files.length)),
+        },
+        {
+          label: terminalLine("Source bytes"),
+          value: terminalLine(formatHumanNumber(data.source_bytes)),
+        },
+        {
+          label: terminalLine("Archive bytes"),
+          value: terminalLine(formatHumanNumber(data.archive_bytes)),
+        },
+      ],
+      summary: terminalLine(
+        "epoch.json starts fresh and is not copied into the archive.",
+      ),
+      footer: terminalLine(`Destination: ${data.archive_path}`),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
+  out.raw(`${
+    renderResultSummaryCli({
+      state: "unchanged",
+      fact: terminalLine(`Destination: ${data.archive_path}`),
+      maxWidth: width,
+      theme,
+    }, capabilities)
+  }\n`);
   renderLifecycleFiles(out, data.files);
-  out.raw(
-    `Destination: ${data.archive_path} (${
-      formatHumanNumber(data.archive_bytes)
-    } event bytes)\n`,
-  );
-  out.raw("epoch.json starts fresh and is not copied into the archive.\n");
 }
 
 /** Ask one default-No confirmation, treating prompt cancellation as No. */
@@ -2300,21 +2374,56 @@ export async function runPatternsArchives(
     out.error(result.message ?? "patterns archives failed.");
     return 1;
   }
-  out.heading("Sealed Logbook archives");
+  const { capabilities, width, theme } = presentationFacts(out);
+  out.heading(terminalLine("Sealed Logbook archives"));
   if (result.data.archives.length === 0) {
-    out.raw("  No sealed archives.\n");
+    out.raw(`${
+      renderResultSummaryCli({
+        state: "unchanged",
+        fact: terminalLine("No sealed archives."),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
     return 0;
   }
   for (const archive of result.data.archives) {
-    out.raw(
-      `  ${archive.filename} · ${plural(archive.events, "event")} · ${
-        lifecycleSpan(archive)
-      } · ${formatHumanNumber(archive.bytes)} bytes${
-        archive.unparsed > 0
-          ? ` · ${plural(archive.unparsed, "unparsable line")} skipped`
-          : ""
-      }\n`,
-    );
+    out.raw(`${
+      renderResultSummaryCli({
+        state: archive.unparsed === 0 ? "unchanged" : "changed",
+        fact: terminalLine(`Sealed archive: ${archive.filename}`),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
+    out.raw(`${
+      renderReceiptCli({
+        title: terminalLine("Archive evidence"),
+        meta: [
+          {
+            label: terminalLine("Events"),
+            value: terminalLine(String(archive.events)),
+          },
+          {
+            label: terminalLine("Span"),
+            value: terminalLine(lifecycleSpan(archive)),
+          },
+          {
+            label: terminalLine("Bytes"),
+            value: terminalLine(formatHumanNumber(archive.bytes)),
+          },
+        ],
+        ...(archive.unparsed === 0 ? {} : {
+          checks: [{
+            label: terminalLine("Unparsable lines"),
+            state: "fail" as const,
+            value: terminalLine(String(archive.unparsed)),
+          }],
+        }),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
   }
   return 0;
 }

@@ -10,6 +10,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
+import { stripAnsi } from "discern-design-system/cli";
 import { withTempDir } from "./helpers.ts";
 import {
   gitInit,
@@ -34,18 +35,20 @@ import type {
 import {
   DETECTOR_FAMILIES,
   PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
+  PATTERN_FINDING_TONES,
   PATTERNS_FINDINGS_PER_DETECTOR,
   PATTERNS_SERIES_MAX_POINTS,
 } from "../src/shared/patterns_vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { TIPS } from "../src/shared/tips.ts";
 import { displayWidth, sparkline } from "../src/lib/text.ts";
+import { terminalMultiline } from "../src/lib/terminal.ts";
 import { formatHumanNumber } from "../src/shared/human_number.ts";
 import {
   PATTERNS_ATTENTION_HEADING,
   PATTERNS_ATTENTION_LIMIT,
   PATTERNS_FAMILY_SECTIONS,
-  PATTERNS_TONE_GLYPHS,
+  PATTERNS_TONE_RESULT_STATE,
   PATTERNS_TRAJECTORY_CAVEAT,
   patternsResult,
   STATS_EMPTY_MESSAGE,
@@ -1206,9 +1209,11 @@ Deno.test("patterns: the report keeps each detector's strongest findings and --a
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(
       human.output,
-      `+${branches - PATTERNS_FINDINGS_PER_DETECTOR} more findings — ` +
-        "`discern patterns --all` lists every one.",
+      `${
+        branches - PATTERNS_FINDINGS_PER_DETECTOR
+      } more findings remain for this detector.`,
     );
+    assertStringIncludes(human.output, "$ discern patterns --all");
   });
 });
 
@@ -1622,8 +1627,12 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       card,
       "longest green streak 2 · current 2 · 3h of checks run (`done` · `prepare` · `test`)",
     );
-    assertStringIncludes(card, "█", "the proportion meters render");
-    assertStringIncludes(card, "░");
+    assertStringIncludes(card, "Green Gate runs");
+    assertStringIncludes(
+      card,
+      "[ 66%]",
+      "the package proportion Meter renders",
+    );
     assertStringIncludes(card, "2 of 2 starts were accepted (100%)");
     assertStringIncludes(
       card,
@@ -1811,13 +1820,18 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "discern patterns");
     assertStringIncludes(r.output, "Consecutive red done runs");
-    assertStringIncludes(r.output, "driven by agents");
-    assertStringIncludes(r.output, "Claude Code 1");
-    assertStringIncludes(r.output, "Advisory only");
-    assertStringIncludes(r.output, "→");
+    assertStringIncludes(normalized(r.output), "driven by agents");
+    assertStringIncludes(normalized(r.output), "Claude Code 1");
     assertStringIncludes(
       normalized(r.output),
-      normalized(`! ${thrash.subject ?? ""} ${thrash.summary}`),
+      "The report is advisory and does not change the Gate.",
+    );
+    assertStringIncludes(normalized(r.output), "Next action:");
+    assertStringIncludes(
+      normalized(r.output),
+      normalized(
+        `${thrash.summary} · Subject: ${thrash.subject ?? ""}`,
+      ),
       "a wrapped row must retain its exact subject and canonical summary",
     );
     assertStringIncludes(
@@ -1825,6 +1839,189 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
       normalized(`Evidence: ${thrash.observed}`),
     );
   });
+});
+
+Deno.test("patterns: 39, 80, 104, and capped reports keep hostile Logbook facts inert", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await gitInit(dir);
+    const branch = "agent/測試-evil\u001b[31m\tb\u0007c\nz\u009b";
+    const safeBranch = "agent/測試-evil␛[31m␉b␇c␊z<U+009B>";
+    const logDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(logDir, { recursive: true });
+    await Deno.writeTextFile(
+      join(logDir, "2026-06.jsonl"),
+      `${
+        ["10", "11", "12", "13"].map((hour, index) =>
+          seededEvent(
+            `2026-06-01T${hour}:00:00.000Z`,
+            index === 3 ? "ok" : "failed",
+            branch,
+          )
+        ).join("\n")
+      }\n`,
+    );
+
+    const observed = await patternsResult(dir);
+    assert(observed.ok && observed.data !== undefined);
+    const finding = observed.data.findings.find((candidate) =>
+      candidate.detector === "done-thrash"
+    );
+    assertEquals(finding?.subject, branch);
+
+    const outputs = new Map<number, string>();
+    for (const width of [39, 80, 104, 400]) {
+      const run = await runAgent(dir, ["patterns"], {
+        env: {
+          COLUMNS: String(width),
+          LINES: "24",
+          NO_COLOR: "1",
+          TERM: "xterm-256color",
+          LANG: "en_US.UTF-8",
+        },
+      });
+      assertEquals(run.code, 0, run.output);
+      outputs.set(width, run.stdout);
+      const plain = normalized(run.stdout);
+      assertStringIncludes(run.stdout.replaceAll(/\s+/gu, ""), safeBranch);
+      assertStringIncludes(plain, normalized(finding?.summary ?? ""));
+      assertStringIncludes(
+        run.stdout.replaceAll(/\s+/gu, ""),
+        terminalMultiline(finding?.observed ?? "").replaceAll(/\s+/gu, ""),
+      );
+      assert(!run.stdout.includes("\u001b[31m"));
+      assert(!run.stdout.includes("\u009b"));
+      assert(
+        !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(
+          run.stdout,
+        ),
+        `${width}-column Patterns output contains a raw terminal control`,
+      );
+      const budget = Math.min(width, 104);
+      for (const line of run.stdout.split("\n")) {
+        assert(
+          displayWidth(line) <= budget,
+          `${width}-column Patterns line is ${
+            displayWidth(line)
+          } columns: ${line}`,
+        );
+      }
+    }
+    assertEquals(outputs.get(400), outputs.get(104));
+  });
+});
+
+Deno.test({
+  name:
+    "patterns: truecolour, 256, 16, no-colour, and ASCII modes retain advisory facts",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(dir, "[project]\nlogbook = false\n");
+      await gitInit(dir);
+      await seedLogbook(dir);
+
+      const modes = [
+        {
+          name: "truecolour",
+          env: {
+            TERM: "xterm-256color",
+            COLORTERM: "truecolor",
+            NO_COLOR: "",
+            LANG: "en_US.UTF-8",
+          },
+          marker: "\u001b[38;2;",
+          comparable: true,
+        },
+        {
+          name: "256",
+          env: {
+            TERM: "xterm-256color",
+            COLORTERM: "",
+            NO_COLOR: "",
+            LANG: "en_US.UTF-8",
+          },
+          marker: "\u001b[38;5;",
+          comparable: true,
+        },
+        {
+          name: "16",
+          env: {
+            TERM: "xterm-color",
+            COLORTERM: "",
+            NO_COLOR: "",
+            LANG: "en_US.UTF-8",
+          },
+          marker: "\u001b[",
+          comparable: true,
+        },
+        {
+          name: "no-colour",
+          env: {
+            TERM: "xterm-256color",
+            COLORTERM: "truecolor",
+            NO_COLOR: "1",
+            LANG: "en_US.UTF-8",
+          },
+          marker: "",
+          comparable: true,
+        },
+        {
+          name: "ASCII",
+          env: {
+            TERM: "dumb",
+            COLORTERM: "",
+            NO_COLOR: "1",
+            LANG: "C",
+            LC_ALL: "C",
+          },
+          marker: "",
+          comparable: false,
+        },
+      ] as const;
+      let baseline: string | undefined;
+      for (const mode of modes) {
+        const run = await runAgentPty(dir, ["patterns"], {
+          env: { ...mode.env, COLUMNS: "80", LINES: "24" },
+        });
+        assertEquals(run.code, 0, run.output);
+        const rendered = run.stdout.replaceAll("\r", "");
+        if (mode.marker === "") {
+          assert(!rendered.includes("\u001b["), mode.name);
+        } else {
+          assertStringIncludes(rendered, mode.marker, mode.name);
+        }
+        // BSD script(1) prefixes a closed stdin as `^D` plus two backspaces;
+        // remove that harness framing before auditing the engine's own bytes.
+        const facts = stripAnsi(rendered).replace(/^\^D\u0008\u0008/u, "");
+        assertStringIncludes(facts, "Consecutive red done runs");
+        assertStringIncludes(normalized(facts), "agent/seeded");
+        assertStringIncludes(
+          normalized(facts),
+          "The report is advisory and does not change the Gate.",
+        );
+        const unexpected = [...facts].filter((character) =>
+          /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(
+            character,
+          )
+        );
+        assert(
+          unexpected.length === 0,
+          `${mode.name} left raw terminal controls in Patterns facts: ${
+            unexpected.map((character) =>
+              `U+${character.codePointAt(0)?.toString(16).toUpperCase()}`
+            ).join(", ")
+          }`,
+        );
+        if (mode.comparable) {
+          baseline ??= facts;
+          assertEquals(facts, baseline, `${mode.name} changed advisory facts`);
+        }
+      }
+    });
+  },
 });
 
 Deno.test("patterns: validation relationships preserve structured evidence and compact terminal parity", async () => {
@@ -2034,8 +2231,9 @@ Deno.test("patterns: landing authority findings render in the overview and behav
     const plain = normalized(human.output);
     assertStringIncludes(
       plain,
-      "Pre-authorized landings: Recorded landing authority handled part of this project's landings.",
+      "Recorded landing authority handled part of this project's landings.",
     );
+    assertStringIncludes(plain, "Detector: Pre-authorized landings ·");
     assertStringIncludes(
       plain,
       "Repeated conversational landings in one scope",
@@ -2045,9 +2243,7 @@ Deno.test("patterns: landing authority findings render in the overview and behav
       "Consider adding `map` to `[acceptance].pre_authorized`",
     );
     assertEquals(
-      human.output.trimEnd().split("\n").filter((line) =>
-        line.trim() === "Pre-authorized landings"
-      ).length,
+      occurrences(plain, "Detector: Pre-authorized landings ·"),
       1,
       "the detailed detector block keeps one title",
     );
@@ -2117,7 +2313,7 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       "the fixture needs enough attention findings to prove the cap",
     );
     const bannerStart = lines.findIndex((line) =>
-      line.trim() === PATTERNS_ATTENTION_HEADING
+      line.includes(PATTERNS_ATTENTION_HEADING)
     );
     assert(bannerStart >= 0, "attention findings need a banner");
     const firstSection = lines.findIndex((line) =>
@@ -2125,10 +2321,10 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
     );
     assert(firstSection > bannerStart, "the banner belongs above the sections");
     const bannerLines = lines.slice(bannerStart + 1, firstSection);
-    const bannerGlyphLines = bannerLines.filter((line) =>
-      line.startsWith("    ! ")
+    const bannerDiagnosticLines = bannerLines.filter((line) =>
+      /^(?:\*|◇) Changed:/u.test(line)
     );
-    assertEquals(bannerGlyphLines.length, PATTERNS_ATTENTION_LIMIT);
+    assertEquals(bannerDiagnosticLines.length, PATTERNS_ATTENTION_LIMIT);
     const bannerText = normalized(bannerLines.join("\n"));
     const titleById = new Map(
       data.detectors.map((detector) => [detector.id, detector.title]),
@@ -2140,7 +2336,7 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
         ? ""
         : `${finding.subject}: `;
       const index = bannerText.indexOf(
-        normalized(`! ${subject}${finding.summary}`),
+        normalized(`${subject}${finding.summary}`),
       );
       assert(
         index > previousFinding,
@@ -2148,7 +2344,9 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       );
       previousFinding = index;
       assert(
-        lines.slice(firstSection).some((line) => line.trim() === title),
+        normalized(lines.slice(firstSection).join("\n")).includes(
+          normalized(`Detector: ${title} ·`),
+        ),
         `${title} must also name its full block below`,
       );
     }
@@ -2164,28 +2362,22 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       previousSection = index;
     }
 
-    // Each fired detector becomes one block title, even when it emitted many
-    // rows. Footer titles do not count because only an exact trimmed line is a
-    // block heading.
-    const trimmedLines = lines.map((line) => line.trim());
+    // Each fired detector becomes one package summary, even when it emitted
+    // many rows.
     for (const detector of data.detectors.filter((d) => d.status === "fired")) {
       assertEquals(
-        trimmedLines.filter((line) => line === detector.title).length,
+        occurrences(plain, normalized(`Detector: ${detector.title} ·`)),
         1,
         `${detector.id} must render its title once`,
       );
     }
 
-    // Every finding still has one glyph row. Normalize whitespace so a wrap is
-    // presentation-only, then prove every subject + summary survived.
-    const glyphs = new Set(
-      Object.values(PATTERNS_TONE_GLYPHS).map(({ glyph }) => glyph),
+    // The package-state adapter and every rendered finding auto-enrol from the
+    // closed tone vocabulary. Normalize wrapping to prove no fact disappeared.
+    assertEquals(
+      Object.keys(PATTERNS_TONE_RESULT_STATE).sort(),
+      [...PATTERN_FINDING_TONES].sort(),
     );
-    const glyphRows = lines.filter((line) =>
-      line.startsWith("    ") && glyphs.has(line.slice(4, 5)) &&
-      line.slice(5, 7) === "  "
-    );
-    assertEquals(glyphRows.length, data.findings.length);
     const seriesFindings = data.findings.filter((finding) =>
       finding.series !== undefined
     );
@@ -2199,9 +2391,16 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
     const rowKeys = new Map<string, number>();
     for (const finding of data.findings) {
       const key = normalized(
-        `${finding.subject === undefined ? "" : finding.subject} ${
-          finding.series === undefined ? "" : sparkline(finding.series)
-        } ${finding.summary}`,
+        [
+          finding.summary,
+          ...(finding.subject === undefined
+            ? []
+            : [`Subject: ${finding.subject}`]),
+          ...(finding.series === undefined
+            ? []
+            : [`Series: ${sparkline(finding.series)}`]),
+          `Evidence: ${finding.observed}`,
+        ].join(" · "),
       );
       rowKeys.set(key, (rowKeys.get(key) ?? 0) + 1);
     }
