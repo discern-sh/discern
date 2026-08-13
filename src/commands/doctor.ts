@@ -77,7 +77,11 @@ import {
 } from "../engine/doctor/git_health.ts";
 import { logbookDir } from "../engine/logbook/store.ts";
 import { z } from "@zod/zod";
-import type { DiscernResult } from "../shared/result.ts";
+import {
+  type DiscernResult,
+  type HumanOutputGroup,
+  populatedHumanOutputGroups,
+} from "../shared/result.ts";
 import type {
   Check,
   DoctorData,
@@ -1195,6 +1199,42 @@ function modelWidth(terminal: TerminalContext): number {
 const VERBOSE_HINT_POINTER =
   "Run `discern doctor --verbose` to show hints explaining each execution step.";
 
+/** One deferred write inside a Doctor report group. Keeping writes deferred lets
+ * the ordered collection, rather than an individual Component, own boundaries. */
+export type DoctorHumanGroup = HumanOutputGroup<() => void>;
+
+/** The render callbacks needed to turn an execution model into semantic groups. */
+export interface ExecutionModelGroupWriters<T> {
+  readonly legend: () => void;
+  readonly pointer: (position: "top" | "footer") => void;
+  readonly verb: (plan: T) => void;
+}
+
+/** Derive every execution-model subgroup from the canonical model collection.
+ * Conditional pointers are represented as empty groups, so the same population
+ * helper that owns Doctor's outer composition also owns their omission. */
+export function executionModelHumanGroups<T extends { readonly verb: string }>(
+  model: readonly T[],
+  verbose: boolean,
+  writers: ExecutionModelGroupWriters<T>,
+): DoctorHumanGroup[] {
+  return [
+    { id: "execution-model-legend", items: [writers.legend] },
+    {
+      id: "execution-model-pointer-top",
+      items: verbose ? [] : [(): void => writers.pointer("top")],
+    },
+    ...model.map((plan) => ({
+      id: `execution-model-verb:${plan.verb}`,
+      items: [(): void => writers.verb(plan)],
+    })),
+    {
+      id: "execution-model-pointer-footer",
+      items: verbose ? [] : [(): void => writers.pointer("footer")],
+    },
+  ];
+}
+
 /**
  * Render the execution-model section for the human (non-`--json`) path — what runs,
  * in order, when each verb is called. Wraps to the terminal width with hanging indents
@@ -1211,7 +1251,7 @@ const VERBOSE_HINT_POINTER =
  */
 function renderExecutionModel(
   log: Logger,
-  model: VerbPlan[],
+  model: readonly VerbPlan[],
   verbose: boolean,
   terminal: TerminalContext,
 ): void {
@@ -1221,9 +1261,38 @@ function renderExecutionModel(
   const HINT_COL = 14; // hints nest one notch under the label column
   const labelIndent = " ".repeat(LABEL_COL);
   const hintIndent = " ".repeat(HINT_COL);
-  // The opt-in pointer, emitted at the top and foot of the section when hints are off.
-  const showPointer = (): void => {
-    log.group("execution-model-pointer");
+
+  const showLegend = (): void => {
+    log.humanLine(renderSectionCli(
+      {
+        title: "Execution model",
+        body: "",
+        treatment: "rule",
+        spacing: "none",
+        theme: terminal.themeVariant,
+        width,
+      },
+      capabilities,
+    ));
+    // An aligned legend, rather than one long sentence that would itself wrap.
+    log.humanLine(
+      `  ${terminal.role("What runs when you call each verb:", "muted")}`,
+    );
+    log.humanLine(
+      `    ${terminal.tone(padDisplayEnd("[project]", 9), "success")} ${
+        terminal.role("your configured command", "muted")
+      }`,
+    );
+    log.humanLine(
+      `    ${terminal.tone(padDisplayEnd("[discern]", 9), "accent")} ${
+        terminal.role("a built-in step", "muted")
+      }`,
+    );
+  };
+
+  // The opt-in pointer is the same content at the top and foot. Its position is
+  // carried by the collection identity, not by a second presentation branch.
+  const showPointer = (_position: "top" | "footer"): void => {
     for (
       const [index, line] of wrapText(
         VERBOSE_HINT_POINTER,
@@ -1239,36 +1308,7 @@ function renderExecutionModel(
     }
   };
 
-  log.humanLine(renderSectionCli(
-    {
-      title: "Execution model",
-      body: "",
-      treatment: "rule",
-      spacing: "none",
-      theme: terminal.themeVariant,
-      width,
-    },
-    capabilities,
-  ));
-  // An aligned legend, rather than one long sentence that would itself wrap.
-  log.humanLine(
-    `  ${terminal.role("What runs when you call each verb:", "muted")}`,
-  );
-  log.humanLine(
-    `    ${terminal.tone(padDisplayEnd("[project]", 9), "success")} ${
-      terminal.role("your configured command", "muted")
-    }`,
-  );
-  log.humanLine(
-    `    ${terminal.tone(padDisplayEnd("[discern]", 9), "accent")} ${
-      terminal.role("a built-in step", "muted")
-    }`,
-  );
-  if (!verbose) {
-    showPointer();
-  }
-
-  for (const vp of model) {
+  const showVerb = (vp: VerbPlan): void => {
     log.humanLine(renderSectionCli(
       {
         title: terminalLine(vp.verb),
@@ -1284,7 +1324,7 @@ function renderExecutionModel(
       log.humanLine(
         `  ${terminal.role("(nothing configured)", "muted")}`,
       );
-      continue;
+      return;
     }
     for (const s of vp.steps) {
       const tag = padDisplayEnd(
@@ -1336,13 +1376,16 @@ function renderExecutionModel(
         }
       }
     }
-  }
+  };
 
-  // The model is long; repeat the pointer at the foot so a reader who scrolled past the
-  // top one still sees how to surface the explanations.
-  if (!verbose) {
-    showPointer();
-  }
+  renderDoctorHumanGroups(
+    log,
+    executionModelHumanGroups(model, verbose, {
+      legend: showLegend,
+      pointer: showPointer,
+      verb: showVerb,
+    }),
+  );
 }
 
 /** One terminal-safe projection of a doctor check; the result data stays raw. */
@@ -1462,6 +1505,21 @@ function renderDoctorChecks(
   }
 }
 
+/** Emit the populated top-level Doctor groups through Logger's idempotent semantic
+ * boundary. Empty conditional groups disappear, and a future group added to the
+ * collection receives the same exact boundary without another call-site rule. */
+export function renderDoctorHumanGroups(
+  log: Pick<Logger, "group">,
+  groups: readonly DoctorHumanGroup[],
+): void {
+  for (const group of populatedHumanOutputGroups(groups)) {
+    log.group(group.id, group.label);
+    for (const write of group.items) {
+      write();
+    }
+  }
+}
+
 /** Run `discern doctor`. Returns a process exit code (0 = healthy). */
 export async function runDoctor(options: DoctorOptions): Promise<number> {
   const baseTerminal = terminalContext();
@@ -1487,41 +1545,63 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   const checks = result.data?.checks ?? [];
   const healthy = checks.every((c) => c.status !== "fail");
   const env = result.data?.environment ?? await doctorEnvironment();
-  log.humanLine(renderDoctorHeader(env, terminal));
-  if (env.desk_session === true) {
-    log.detail(
-      "desk session: active — this process was launched by discern desk",
-    );
-  }
   const cfg = await loadModelConfig(destDir);
-  if (cfg !== undefined) {
-    renderExecutionModel(
-      log,
-      buildExecutionModel(cfg),
-      options.verbose,
-      terminal,
-    );
-  }
-  renderDoctorChecks(log, checks, terminal);
-  log.group("doctor-verdict");
-  if (healthy) {
-    const advisories = checks.filter((c) => c.status === "warn").length;
-    log.ok(
-      advisories > 0
-        ? "All checks passed (see the advisory above)."
-        : "All checks passed.",
-    );
-  } else {
-    const failed = checks.filter((c) => !c.ok).length;
-    log.error(
-      `${failed} check${failed === 1 ? "" : "s"} failed — see the fixes above.`,
-    );
-  }
-  // Mid-setup, an unqualified all-clear reads as "setup worked" — the exact
-  // misreading `status` guards against. Qualify the verdict, naming the next step.
-  if (midSetup(cfg)) {
-    log.group("setup-next-step");
-    log.warn(fire(HINTS["setup-unfinished-doctor"]).text);
-  }
+  const groups: DoctorHumanGroup[] = [
+    {
+      id: "environment",
+      items: [
+        (): void => log.humanLine(renderDoctorHeader(env, terminal)),
+        ...(env.desk_session === true
+          ? [(): void =>
+            log.detail(
+              "desk session: active — this process was launched by discern desk",
+            )]
+          : []),
+      ],
+    },
+    {
+      id: "execution-model",
+      items: cfg === undefined ? [] : [(): void =>
+        renderExecutionModel(
+          log,
+          buildExecutionModel(cfg),
+          options.verbose,
+          terminal,
+        )],
+    },
+    {
+      id: "doctor-checks",
+      items: [(): void => renderDoctorChecks(log, checks, terminal)],
+    },
+    {
+      id: "doctor-verdict",
+      items: [(): void => {
+        if (healthy) {
+          const advisories = checks.filter((c) => c.status === "warn").length;
+          log.ok(
+            advisories > 0
+              ? "All checks passed (see the advisory above)."
+              : "All checks passed.",
+          );
+          return;
+        }
+        const failed = checks.filter((c) => !c.ok).length;
+        log.error(
+          `${failed} check${
+            failed === 1 ? "" : "s"
+          } failed — see the fixes above.`,
+        );
+      }],
+    },
+    // Mid-setup, an unqualified all-clear reads as "setup worked" — the exact
+    // misreading `status` guards against. Qualify the verdict, naming the next step.
+    {
+      id: "setup-next-step",
+      items: midSetup(cfg)
+        ? [(): void => log.warn(fire(HINTS["setup-unfinished-doctor"]).text)]
+        : [],
+    },
+  ];
+  renderDoctorHumanGroups(log, groups);
   return healthy ? 0 : 1;
 }

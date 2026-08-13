@@ -28,9 +28,11 @@ import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import {
+  executionModelHumanGroups,
   renderDoctorCheck,
   renderDoctorCheckLine,
   renderDoctorHeader,
+  renderDoctorHumanGroups,
   runChecks,
 } from "../src/commands/doctor.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
@@ -192,6 +194,122 @@ function modelVerb(payload: DoctorPayload, verb: string): ExecVerb {
     `expected a '${verb}' verb in the execution model`,
   );
   return found;
+}
+
+/** Assert one empty line, neither zero nor two, before each visible group start. */
+function assertDoctorGroupBoundaries(
+  output: string,
+  starts: readonly string[],
+): void {
+  const plain = stripAnsi(output);
+  const boundaryFailures: string[] = [];
+  for (const marker of starts) {
+    const markerAt = plain.indexOf(marker);
+    assert(markerAt >= 0, `doctor should render ${marker}`);
+    const lineStart = plain.lastIndexOf("\n", markerAt) + 1;
+    let precedingNewlines = 0;
+    for (
+      let index = lineStart - 1;
+      index >= 0 && plain[index] === "\n";
+      index -= 1
+    ) {
+      precedingNewlines += 1;
+    }
+    if (precedingNewlines !== 2) {
+      boundaryFailures.push(`${marker}: ${precedingNewlines}`);
+    }
+  }
+
+  assertEquals(
+    boundaryFailures,
+    [],
+    "each populated Doctor group must begin after exactly one blank line " +
+      "(marker: preceding newline count)",
+  );
+  assert(
+    !plain.includes("\n\n\n"),
+    "Doctor must not render doubled blank boundaries",
+  );
+}
+
+/** Locate the package's ruled section line for one title without depending on
+ * Unicode-vs-ASCII glyph selection or on a coincidental mention in body text. */
+function doctorSectionRuleIndex(
+  lines: readonly string[],
+  title: string,
+): number {
+  const marker = ` ${title} `;
+  return lines.findIndex((line) => {
+    const markerAt = line.indexOf(marker);
+    if (markerAt < 0) return false;
+    const frame = `${line.slice(0, markerAt)}${
+      line.slice(markerAt + marker.length)
+    }`;
+    return frame.length > 0 && !/[\p{L}\p{N}\s]/u.test(frame);
+  });
+}
+
+/** Assert exactly one empty line immediately before each indexed subgroup. */
+function assertOneBlankBefore(
+  lines: readonly string[],
+  starts: readonly { readonly id: string; readonly index: number }[],
+): void {
+  const failures: string[] = [];
+  for (const start of starts) {
+    assert(start.index >= 0, `doctor should render ${start.id}`);
+    let blanks = 0;
+    for (
+      let index = start.index - 1;
+      index >= 0 && lines[index] === "";
+      index -= 1
+    ) {
+      blanks += 1;
+    }
+    if (blanks !== 1) failures.push(`${start.id}: ${blanks}`);
+  }
+  assertEquals(
+    failures,
+    [],
+    "each execution-model subgroup must begin after exactly one blank line " +
+      "(group: blank-line count)",
+  );
+}
+
+/** Check boundaries for the legend/pointers and every member of the canonical
+ * execution model returned by the same invocation's machine result. */
+function assertExecutionModelGroupBoundaries(
+  output: string,
+  model: readonly ExecVerb[],
+  verbose: boolean,
+): void {
+  const lines = stripAnsi(output).split("\n");
+  const pointerText =
+    "Run `discern doctor --verbose` to show hints explaining each execution step.";
+  const pointerStarts = lines.flatMap((line, index) =>
+    line.includes(pointerText) ? [{ id: `pointer-${index}`, index }] : []
+  );
+  assertEquals(
+    pointerStarts.length,
+    verbose ? 0 : 2,
+    verbose
+      ? "verbose execution model must omit both opt-in pointers"
+      : "default execution model must render top and footer pointers",
+  );
+  const verbStarts = model.map((verb) => ({
+    id: `verb:${verb.verb}`,
+    index: doctorSectionRuleIndex(lines, verb.verb),
+  }));
+  const orderedStarts = verbose ? verbStarts : (() => {
+    const [top, footer] = pointerStarts;
+    assert(top !== undefined && footer !== undefined);
+    return [top, ...verbStarts, footer];
+  })();
+  assertEquals(
+    orderedStarts.map((start) => start.index),
+    orderedStarts.map((start) => start.index).toSorted((a, b) => a - b),
+    "execution-model subgroups must follow canonical model order",
+  );
+  assertOneBlankBefore(lines, orderedStarts);
 }
 
 /** Append a TOML fragment to the scaffold's config (e.g. a worktree resource). */
@@ -486,6 +604,142 @@ Deno.test("doctor: human output reports advisories separately from failures", as
   });
 });
 
+Deno.test("doctor: every populated top-level human group has one boundary", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const { code, stderr } = await runCli(["doctor", "--no-color"], dir);
+    assertEquals(code, 0);
+
+    assertDoctorGroupBoundaries(stderr, [
+      "Execution model",
+      "Doctor checks",
+      "All checks passed",
+    ]);
+  });
+});
+
+Deno.test("doctor: top-level grouping enrolls empty combinations and a fresh sibling", () => {
+  const events: string[] = [];
+  renderDoctorHumanGroups(
+    {
+      group: (id: string): void => {
+        events.push(`group:${id}`);
+      },
+    },
+    [
+      {
+        id: "orbit",
+        items: [(): void => {
+          events.push("item:orbit");
+        }],
+      },
+      { id: "canopy", items: [] },
+      {
+        id: "fresh-sibling",
+        items: [(): void => {
+          events.push("item:fresh-sibling");
+        }],
+      },
+      { id: "harbor", items: [] },
+      {
+        id: "estuary",
+        items: [(): void => {
+          events.push("item:estuary");
+        }],
+      },
+    ],
+  );
+
+  assertEquals(events, [
+    "group:orbit",
+    "item:orbit",
+    "group:fresh-sibling",
+    "item:fresh-sibling",
+    "group:estuary",
+    "item:estuary",
+  ]);
+});
+
+Deno.test("doctor: execution-model grouping enrolls a fresh canonical member", () => {
+  const events: string[] = [];
+  const model = [
+    { verb: "orbit" },
+    { verb: "fresh sibling" },
+    { verb: "estuary" },
+  ];
+  const groups = executionModelHumanGroups(model, false, {
+    legend: (): void => {
+      events.push("item:legend");
+    },
+    pointer: (position): void => {
+      events.push(`item:pointer:${position}`);
+    },
+    verb: (plan): void => {
+      events.push(`item:verb:${plan.verb}`);
+    },
+  });
+  renderDoctorHumanGroups(
+    {
+      group: (id: string): void => {
+        events.push(`group:${id}`);
+      },
+    },
+    groups,
+  );
+
+  assertEquals(events, [
+    "group:execution-model-legend",
+    "item:legend",
+    "group:execution-model-pointer-top",
+    "item:pointer:top",
+    "group:execution-model-verb:orbit",
+    "item:verb:orbit",
+    "group:execution-model-verb:fresh sibling",
+    "item:verb:fresh sibling",
+    "group:execution-model-verb:estuary",
+    "item:verb:estuary",
+    "group:execution-model-pointer-footer",
+    "item:pointer:footer",
+  ]);
+
+  assertEquals(
+    executionModelHumanGroups(model, true, {
+      legend: (): void => {},
+      pointer: (): void => {},
+      verb: (): void => {},
+    }).filter((group) => group.items.length > 0).map((group) => group.id),
+    [
+      "execution-model-legend",
+      "execution-model-verb:orbit",
+      "execution-model-verb:fresh sibling",
+      "execution-model-verb:estuary",
+    ],
+  );
+});
+
+Deno.test("doctor: execution-model subgroups keep one gap in default and verbose views", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const machine = await runDoctorJson(dir);
+    const model = machine.payload.data.execution_model;
+    assert(
+      model !== undefined,
+      "healthy Doctor should carry its canonical model",
+    );
+
+    const normal = await runCli(["doctor", "--no-color"], dir);
+    assertEquals(normal.code, 0);
+    assertExecutionModelGroupBoundaries(normal.stderr, model, false);
+
+    const verbose = await runCli(
+      ["doctor", "--no-color", "--verbose"],
+      dir,
+    );
+    assertEquals(verbose.code, 0);
+    assertExecutionModelGroupBoundaries(verbose.stderr, model, true);
+  });
+});
+
 Deno.test("doctor: invalid (malformed) discern.toml is flagged with a syntax fix", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
@@ -528,6 +782,10 @@ Deno.test("doctor: human output still prints checks when the execution model can
     assertStringIncludes(stderr, "discern.toml: invalid");
     assertStringIncludes(stderr, "fix: fix the TOML syntax in discern.toml");
     assertStringIncludes(stderr, "1 check failed — see the fixes above.");
+    assertDoctorGroupBoundaries(stderr, [
+      "Doctor checks",
+      "1 check failed",
+    ]);
   });
 });
 
