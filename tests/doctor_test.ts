@@ -13,7 +13,13 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { runCli, withTempDir } from "./helpers.ts";
+import { measureText, stripAnsi } from "discern-design-system/cli";
+import {
+  fakeEnv,
+  runCli,
+  unexpectedTerminalControls,
+  withTempDir,
+} from "./helpers.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { crossedRepoBoundaries } from "../src/shared/env.ts";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
@@ -21,7 +27,12 @@ import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
 import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
-import { runChecks } from "../src/commands/doctor.ts";
+import {
+  renderDoctorCheck,
+  renderDoctorHeader,
+  runChecks,
+} from "../src/commands/doctor.ts";
+import { resolveTerminalContext } from "../src/lib/terminal.ts";
 
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
@@ -66,6 +77,75 @@ interface DoctorPayload {
     execution_model?: ExecVerb[];
   };
 }
+
+Deno.test("doctor terminal Components make dynamic facts inert without mutating result data", () => {
+  const width = 48;
+  const terminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: width, rows: 24 }),
+  });
+  const diagnostic = {
+    name: "repo 👩‍💻\x1b",
+    status: "warn" as const,
+    ok: true,
+    warn: true as const,
+    detail: "bell\x07 C1\u0085 bidi\u202E\r\nnext café",
+    fix: "use safe\x1b path\u2066",
+  };
+  const originalDiagnostic = structuredClone(diagnostic);
+  const environment = {
+    discern: "0.1\x1b\u0085",
+    platform: "café/👩‍💻\u202E\r\nos",
+    git: "git version 2.0\x07",
+  };
+  const originalEnvironment = structuredClone(environment);
+  const check = renderDoctorCheck(diagnostic, terminal);
+  const okCheck = renderDoctorCheck(
+    {
+      name: "ok",
+      status: "ok",
+      ok: true,
+      detail: `long-${"fact".repeat(24)}\x1b\u202E`,
+    },
+    terminal,
+  );
+  const header = renderDoctorHeader(environment, terminal);
+  const okOutput = `✓ ${okCheck.line}`;
+
+  for (const output of [header, check.line, check.fix ?? "", okOutput]) {
+    const plain = stripAnsi(output);
+    assertEquals(unexpectedTerminalControls(plain), []);
+    assert(!/[\p{Cc}\p{Cf}]/u.test(plain.replaceAll("\n", "")));
+    for (const line of plain.split("\n")) {
+      assert(
+        measureText(line) <= width,
+        `doctor output overflowed ${width} columns: ${JSON.stringify(line)}`,
+      );
+    }
+  }
+  const combined = stripAnsi(
+    `${header}\n${check.line}\n${check.fix ?? ""}\n${okOutput}`,
+  );
+  for (
+    const visible of [
+      "<U+200D>",
+      "␛",
+      "␇",
+      "<U+0085>",
+      "<U+202E>",
+      "<U+2066>",
+    ]
+  ) {
+    assertStringIncludes(combined, visible);
+  }
+  assertStringIncludes(combined, "next café");
+  assertEquals(diagnostic, originalDiagnostic);
+  assertEquals(environment, originalEnvironment);
+  assertEquals(JSON.parse(JSON.stringify(diagnostic)), originalDiagnostic);
+  assertEquals(JSON.parse(JSON.stringify(environment)), originalEnvironment);
+});
 
 /** Scaffold a healthy install in `dir`; assert it succeeded. */
 async function setupInstall(dir: string, slug = "doc-demo"): Promise<void> {
@@ -1310,6 +1390,32 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
     assert(lint !== undefined, "finish should run the lint job");
     assertEquals(lint.actor, "project");
     assertEquals(lint.note, "echo lint");
+  });
+});
+
+Deno.test("doctor execution-model human facts are inert while JSON stays exact", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const command = "echo café 👩‍💻\x1b\x07\u0085\u202E";
+    await setCapabilityRaw(dir, "lint", JSON.stringify(command));
+
+    const human = await runCli(
+      ["doctor", "--no-color"],
+      dir,
+      { COLUMNS: "48" },
+    );
+    assertEquals(human.code, 0);
+    assertEquals(unexpectedTerminalControls(human.stderr), []);
+    assert(!/[\p{Cc}\p{Cf}]/u.test(human.stderr.replaceAll("\n", "")));
+    for (const visible of ["<U+200D>", "␛", "␇", "<U+0085>", "<U+202E>"]) {
+      assertStringIncludes(human.stderr, visible);
+    }
+    const machine = await runDoctorJson(dir);
+    const lint = modelVerb(machine.payload, "done").steps.find((step) =>
+      step.label === "lint"
+    );
+    assert(lint !== undefined);
+    assertEquals(lint.note, command);
   });
 });
 

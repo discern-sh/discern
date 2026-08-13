@@ -37,11 +37,13 @@ import {
 } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
-import { displayWidth, padDisplayEnd } from "../lib/text.ts";
+import { displayWidth, padDisplayEnd, wrapText } from "../lib/text.ts";
 import {
   type TerminalContext,
   terminalContext,
   terminalContextWithColor,
+  terminalLine,
+  terminalMultiline,
 } from "../lib/terminal.ts";
 import {
   browserOpenFailureMessage,
@@ -660,7 +662,7 @@ function invalidOptions(
       hints: failureRecoveryHintTexts(verb),
     });
   } else {
-    log.error(message);
+    log.error(terminalLine(message));
   }
   return 1;
 }
@@ -726,7 +728,7 @@ async function present(text: string, noPager: boolean): Promise<void> {
 
 /** The semantic picker label; prompt rendering owns selection-state styling. */
 function optionLabel(e: DocEntry): string {
-  return `${e.relToDocs}  —  ${e.title}`;
+  return terminalLine(`${e.relToDocs}  —  ${e.title}`);
 }
 
 /** The one-line corpus fact kept plain for the interactive prompt seam. */
@@ -735,7 +737,9 @@ function docsHeaderFact(
   count: number,
   directory: string,
 ): string {
-  return `discern ${verb} — ${count} documents in ${directory}`;
+  return terminalLine(
+    `discern ${verb} — ${count} documents in ${directory}`,
+  );
 }
 
 /** Render one exact corpus fact through the package Docs Header Component. */
@@ -748,10 +752,11 @@ export function renderDocsCorpusHeader(
 ): string {
   const fact = docsHeaderFact(verb, count, directory);
   if (!terminal.stdoutIsTerminal) return fact;
+  const safeDirectory = terminalLine(directory);
   return renderDocsHeaderCli(
     {
       brand: `discern ${verb}`,
-      middle: `— ${count} documents in ${directory}`,
+      middle: `— ${count} documents in ${safeDirectory}`,
       theme: terminal.themeVariant,
       maxWidth: width,
     },
@@ -793,9 +798,11 @@ async function browse(
   // Keep the corpus context visible across every re-render of the picker (it
   // redraws each iteration), so the reader always knows which tree they are
   // filtering and how large it is — the same line the static `--list` TOC leads with.
-  const message = `${
-    docsHeaderFact(verb, tree.entries.length, display(tree.docsDir, cwd))
-  }  ·  type to filter`;
+  const message = terminalLine(
+    `${
+      docsHeaderFact(verb, tree.entries.length, display(tree.docsDir, cwd))
+    }  ·  type to filter`,
+  );
   let last: string | undefined;
 
   while (true) {
@@ -829,7 +836,9 @@ async function browse(
       const opened = await openInBrowser(DISCERN_DOCS_URL);
       if (opened.status !== "opened") {
         console.error(
-          browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
+          terminalLine(
+            browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
+          ),
         );
       }
       continue;
@@ -863,7 +872,9 @@ function printToc(
   width: number,
 ): void {
   const labelOf = (e: DocEntry) =>
-    e.section ? e.relToDocs.slice(e.section.length + 1) : e.relToDocs;
+    terminalLine(
+      e.section ? e.relToDocs.slice(e.section.length + 1) : e.relToDocs,
+    );
 
   const groups: HumanOutputGroup<string>[] = [{
     id: "contents-summary",
@@ -878,18 +889,31 @@ function printToc(
   }
   const capabilities = { ...terminal.capabilities, columns: width };
   for (const [section, entries] of sections) {
+    const safeSection = terminalLine(section);
     const colWidth = Math.min(
       32,
       Math.max(...entries.map((entry) => displayWidth(labelOf(entry)))),
     );
-    const rows = entries.map((entry) =>
-      `  ${padDisplayEnd(labelOf(entry), colWidth)}  ${entry.title}`
-    );
+    const rows = entries.map((entry) => {
+      const label = labelOf(entry);
+      const title = terminalLine(entry.title);
+      const aligned = `  ${padDisplayEnd(label, colWidth)}  ${title}`;
+      if (terminal.stdoutIsTerminal || displayWidth(aligned) <= width) {
+        return aligned;
+      }
+      return wrapText(
+        `${label}  ${title}`,
+        Math.max(1, width - 2),
+        "",
+        { breakLongWords: true },
+      ).map((line) => `  ${line}`).join("\n");
+    });
+    const title = `${safeSection === "root" ? "(root)" : safeSection}/`;
     const body = terminal.stdoutIsTerminal
       ? renderSectionCli(
         {
-          title: `${section === "root" ? "(root)" : section}/`,
-          body: rows.join("\n"),
+          title,
+          body: terminalMultiline(rows.join("\n")),
           treatment: "rule",
           spacing: "sm",
           theme: terminal.themeVariant,
@@ -898,7 +922,7 @@ function printToc(
         capabilities,
       )
       : [
-        `${section === "root" ? "(root)" : section}/`,
+        title,
         ...rows,
       ].join("\n");
     groups.push({
@@ -918,9 +942,12 @@ function printMapOverview(
   width: number,
 ): void {
   const capabilities = { ...terminal.capabilities, columns: width };
-  const summary = `discern map — ${regions.length} region${
-    regions.length === 1 ? "" : "s"
-  } in ${display(tree.docsDir, cwd)}`;
+  const directory = terminalLine(display(tree.docsDir, cwd));
+  const summary = terminalLine(
+    `discern map — ${regions.length} region${
+      regions.length === 1 ? "" : "s"
+    } in ${directory}`,
+  );
   const groups: HumanOutputGroup<string>[] = [{
     id: "map-summary",
     items: [
@@ -930,7 +957,7 @@ function printMapOverview(
             brand: "discern map",
             middle: `— ${regions.length} region${
               regions.length === 1 ? "" : "s"
-            } in ${display(tree.docsDir, cwd)}`,
+            } in ${directory}`,
             theme: terminal.themeVariant,
             maxWidth: width,
           },
@@ -940,7 +967,8 @@ function printMapOverview(
     ],
   }];
   for (const [index, region] of regions.entries()) {
-    const details = [region.description];
+    const name = terminalLine(region.name);
+    const details: string[] = [terminalMultiline(region.description)];
     if (
       region.pages_changed_at === undefined ||
       region.code_changes_since === undefined
@@ -958,11 +986,12 @@ function printMapOverview(
         } since`,
       );
     }
+    const safeDetails = terminalMultiline(details.join("\n"));
     const body = terminal.stdoutIsTerminal
       ? renderSectionCli(
         {
-          title: region.name,
-          body: details.join("\n"),
+          title: name,
+          body: safeDetails,
           treatment: "rule",
           spacing: "sm",
           theme: terminal.themeVariant,
@@ -970,7 +999,7 @@ function printMapOverview(
         },
         capabilities,
       )
-      : `${region.name}  ${details.join("\n  ")}`;
+      : `${name}  ${safeDetails.replaceAll("\n", "\n  ")}`;
     groups.push({
       id: `map-region:${index}`,
       items: [body],
@@ -987,11 +1016,13 @@ function printSearchResults(
   width: number,
 ): void {
   const capabilities = { ...terminal.capabilities, columns: width };
-  const query = data.query ?? "";
+  const query = terminalLine(data.query ?? "");
   const results = data.results ?? [];
-  const scope = data.scope === undefined ? "" : ` in ${data.scope}`;
+  const scope = data.scope === undefined
+    ? ""
+    : ` in ${terminalLine(data.scope)}`;
   if (results.length === 0) {
-    console.log(`No ${verb} docs matched "${query}"${scope}.`);
+    console.log(terminalLine(`No ${verb} docs matched "${query}"${scope}.`));
     return;
   }
   const count = data.count ?? results.length;
@@ -1012,23 +1043,28 @@ function printSearchResults(
     ],
   }];
   for (const [index, result] of results.entries()) {
-    const heading = result.heading === undefined ? "" : ` · ${result.heading}`;
+    const heading = result.heading === undefined
+      ? ""
+      : ` · ${terminalLine(result.heading)}`;
     const match = result.match === "complete"
       ? ""
       : result.match === "partial"
       ? " · partial match"
       : " · title or alias match";
-    const items = [`${result.title}${heading}${match}`];
+    const items: string[] = [
+      terminalLine(`${terminalLine(result.title)}${heading}${match}`),
+    ];
     if (result.snippet !== "") {
-      items.push(result.snippet);
+      items.push(terminalMultiline(result.snippet));
     }
+    const target = terminalLine(result.target);
     groups.push({
       id: `search-result:${index}`,
       items: [
         terminal.stdoutIsTerminal
           ? renderSectionCli(
             {
-              body: [result.target, ...items].join("\n"),
+              body: terminalMultiline([target, ...items].join("\n")),
               surface: "sunken",
               spacing: "sm",
               theme: terminal.themeVariant,
@@ -1037,7 +1073,7 @@ function printSearchResults(
             capabilities,
           )
           : [
-            `${result.target}  ${items[0] ?? ""}`,
+            `${target}  ${items[0] ?? ""}`,
             ...items.slice(1).map((item) => `  ${item}`),
           ].join("\n"),
       ],
@@ -1085,7 +1121,7 @@ async function exportDocs(
       includeInternal,
     });
   if (!discovered) {
-    log.error(desc.missingTree(options));
+    log.error(terminalLine(desc.missingTree(options)));
     return 1;
   }
   // `--export public` is an explicitly-published projection for either verb;
@@ -1106,11 +1142,11 @@ async function exportDocs(
       const docsDir = await Deno.realPath(tree.docsDir);
       const canonicalOutput = await canonicalOutputPath(outputPath);
       if (pathIsWithin(docsDir, canonicalOutput)) {
-        log.error(
+        log.error(terminalLine(
           `refusing to write an export inside ${
             display(tree.docsDir, cwd)
           }; choose a path outside the source documentation tree.`,
-        );
+        ));
         return 1;
       }
     }
@@ -1125,9 +1161,9 @@ async function exportDocs(
         pathMatchesPattern(entry.path, pattern)
       );
       if (matches.length === 0) {
-        log.warn(
+        log.warn(terminalLine(
           `scope "${selection.name}" path "${pattern}" matches no map documents.`,
-        );
+        ));
       }
       for (const match of matches) {
         if (!seen.has(match.path)) {
@@ -1140,7 +1176,9 @@ async function exportDocs(
   } else if (selection.scope === "select") {
     const groups = groupDocs(entries);
     if (groups.length === 0) {
-      log.warn(`no Markdown files under ${display(tree.docsDir, cwd)}.`);
+      log.warn(terminalLine(
+        `no Markdown files under ${display(tree.docsDir, cwd)}.`,
+      ));
       return 0;
     }
 
@@ -1149,7 +1187,7 @@ async function exportDocs(
       selected = await checkboxPrompt<string>({
         message: "Include documentation sections",
         options: groups.map((group) => ({
-          name: `${group.name} (${group.entries.length})`,
+          name: terminalLine(`${group.name} (${group.entries.length})`),
           value: group.name,
           checked: !group.internal,
         })),
@@ -1176,7 +1214,9 @@ async function exportDocs(
     markdown = formatDocsExport(sources);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log.error(`could not read every documentation source: ${message}`);
+    log.error(terminalMultiline(
+      `could not read every documentation source: ${message}`,
+    ));
     return 1;
   }
 
@@ -1185,14 +1225,16 @@ async function exportDocs(
       await Deno.writeTextFile(outputPath, markdown);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      log.error(`could not write "${options.output}": ${message}`);
+      log.error(terminalMultiline(
+        `could not write "${options.output}": ${message}`,
+      ));
       return 1;
     }
-    log.ok(
+    log.ok(terminalLine(
       `Exported ${entries.length} document${
         entries.length === 1 ? "" : "s"
       } to ${display(outputPath, cwd)}.`,
-    );
+    ));
     return 0;
   }
 
@@ -1452,19 +1494,19 @@ async function viewTarget(
 
   if (res.kind === "none") {
     const suggestions = suggestDocs(tree, target).map((item) => item.entry);
-    log.error(notFoundMessage(target, suggestions));
+    log.error(terminalLine(notFoundMessage(target, suggestions)));
     for (const label of suggestionLabels(suggestions)) {
-      log.detail(label);
+      log.detail(terminalLine(label));
     }
     log.detail(`list what's available: discern ${verb} --list`);
     return 1;
   }
 
   if (res.kind === "ambiguous") {
-    log.error(
+    log.error(terminalLine(
       `"${target}" matches ${res.entries.length} docs. Qualify it with a section or path:`,
-    );
-    for (const e of res.entries) log.detail(e.path);
+    ));
+    for (const e of res.entries) log.detail(terminalLine(e.path));
     return 1;
   }
 
@@ -1604,7 +1646,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     ? undefined
     : verbTree(desc, discovered, internal);
   if (!tree) {
-    log.error(desc.missingTree(options));
+    log.error(terminalLine(desc.missingTree(options)));
     return 1;
   }
   if (options.search !== undefined && options.search.trim() === "") {
@@ -1614,7 +1656,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   if (tree.entries.length === 0) {
     if (options.search !== undefined) {
       if (options.target !== undefined && options.target !== "") {
-        log.error(notFoundMessage(options.target, []));
+        log.error(terminalLine(notFoundMessage(options.target, [])));
         return 1;
       }
       printSearchResults(
@@ -1625,7 +1667,9 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
       );
       return 0;
     }
-    log.warn(`no Markdown files under ${display(tree.docsDir, cwd)}.`);
+    log.warn(terminalLine(
+      `no Markdown files under ${display(tree.docsDir, cwd)}.`,
+    ));
     return 0;
   }
 
@@ -1642,14 +1686,16 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
         const suggestions = suggestDocs(tree, options.target).map((item) =>
           item.entry
         );
-        log.error(notFoundMessage(options.target, suggestions));
+        log.error(
+          terminalLine(notFoundMessage(options.target, suggestions)),
+        );
         return 1;
       }
       if (resolvedScope.kind === "ambiguous") {
-        log.error(
+        log.error(terminalLine(
           `"${options.target}" matches ${resolvedScope.entries.length} docs. ` +
             "Qualify it with a section or path.",
-        );
+        ));
         return 1;
       }
       searchTree = resolvedScope.tree;

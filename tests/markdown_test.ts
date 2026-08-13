@@ -24,6 +24,7 @@ import {
   renderMarkdownInlineHtml,
 } from "../src/lib/markdown.ts";
 import { terminalPresentationContext } from "../src/lib/terminal.ts";
+import { unexpectedTerminalControls } from "./helpers.ts";
 
 const plain = (md: string, width = 80) =>
   renderMarkdown(md, { width, color: false });
@@ -184,6 +185,53 @@ Deno.test("explicit colour is independent of inherited NO_COLOR", async () => {
 Deno.test("colour mode makes links clickable via OSC-8", () => {
   const out = renderMarkdown("[t](https://example.com)", { color: true });
   assertStringIncludes(out, "\x1b]8;;https://example.com");
+});
+
+Deno.test("terminal Markdown makes source controls visible before Components render", () => {
+  const source = [
+    "# café 👩‍💻\x1b\u0085\u202E",
+    "",
+    "```txt",
+    "first\x07 line",
+    "second line",
+    "```",
+  ].join("\r\n");
+  const width = 48;
+  const rendered = renderMarkdown(source, { color: false, width });
+
+  assertEquals(unexpectedTerminalControls(rendered), []);
+  assert(!/[\p{Cc}\p{Cf}]/u.test(rendered.replaceAll("\n", "")));
+  for (const visible of ["<U+200D>", "␛", "<U+0085>", "<U+202E>", "␇"]) {
+    assertStringIncludes(rendered, visible);
+  }
+  assertStringIncludes(rendered, "first");
+  assertStringIncludes(rendered, "second");
+  for (const line of rendered.split("\n")) {
+    assert(
+      measureText(line) <= width,
+      `safe Markdown overflowed ${width} columns: ${JSON.stringify(line)}`,
+    );
+  }
+});
+
+Deno.test("terminal Markdown owns the only OSC-8 controls around safe link facts", () => {
+  const ESC = "\x1b";
+  const safeUrl = "https://e.test/␛x<U+202E>";
+  const rendered = renderMarkdown(
+    `[café👩‍💻\x07](https://e.test/${ESC}x\u202E)`,
+    { color: true, width: 60 },
+  );
+  const opening = `${ESC}]8;;${safeUrl}${ESC}\\`;
+  const closing = `${ESC}]8;;${ESC}\\`;
+
+  assertStringIncludes(rendered, opening);
+  assertEquals(rendered.split(`${ESC}]8;;`).length - 1, 2);
+  const withoutOwnedControls = stripAnsi(rendered)
+    .replace(opening, "")
+    .replace(closing, "");
+  assertEquals(unexpectedTerminalControls(withoutOwnedControls), []);
+  assert(!/[\p{Cc}\p{Cf}]/u.test(withoutOwnedControls.replaceAll("\n", "")));
+  assertStringIncludes(withoutOwnedControls, "café👩<U+200D>💻␇");
 });
 
 Deno.test("inlineToPlain strips inline markup to bare text", () => {

@@ -33,6 +33,9 @@ import {
 import {
   type TerminalContext,
   terminalContextWithColor,
+  type TerminalLine,
+  terminalLine,
+  terminalMultiline,
   terminalPresentationContext,
 } from "./terminal.ts";
 import { displayWidth, wrapText } from "./text.ts";
@@ -62,7 +65,7 @@ interface Seg extends Style {
 }
 
 /** OSC-8 terminal hyperlink: clickable in modern terminals, inert elsewhere. */
-function osc8(url: string, text: string): string {
+function osc8(url: TerminalLine, text: string): string {
   const ESC = "\x1b";
   return `${ESC}]8;;${url}${ESC}\\${text}${ESC}]8;;${ESC}\\`;
 }
@@ -278,10 +281,11 @@ function styleRun(
   style: Style,
   terminal: TerminalContext,
 ): string {
+  const safeText = terminalLine(text);
   if (!terminal.color) {
     // Keep just enough markup that structure survives without colour.
-    if (style.code) return `\`${text}\``;
-    return text;
+    if (style.code) return `\`${safeText}\``;
+    return safeText;
   }
   const tokenStyle: TerminalTextStyle = {
     ...(style.code ? terminal.theme.typography.annotation : {}),
@@ -296,8 +300,10 @@ function styleRun(
       color: terminal.themeColor("--discern-color-warning-deep"),
     }),
   };
-  const painted = terminal.style(text, tokenStyle);
-  return style.href === undefined ? painted : osc8(style.href, painted);
+  const painted = terminal.style(safeText, tokenStyle);
+  return style.href === undefined
+    ? painted
+    : osc8(terminalLine(style.href), painted);
 }
 
 /**
@@ -654,9 +660,13 @@ export function renderMarkdown(
     size: { ...coloredTerminal.size, columns: width },
   };
 
-  const src = md
+  const normalized = md
     .replace(/\r\n?/g, "\n")
     .replace(/<!--[\s\S]*?-->/g, "");
+  // Markdown parsing stays byte-for-byte on the normalized source above. Only
+  // the terminal projection makes repository-authored controls inert; HTML,
+  // raw, export, JSON, and MCP projections never pass through this adapter.
+  const src = terminalMultiline(normalized);
   const lines = src.split("\n");
   const out: string[] = [];
   const pushBlock = (block: string[]) => {

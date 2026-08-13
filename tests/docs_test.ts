@@ -16,6 +16,7 @@ import {
   readTarget,
   runCli,
   seedConfig,
+  unexpectedTerminalControls,
   withTempDir,
 } from "./helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
@@ -83,6 +84,34 @@ Deno.test("docs headers keep the original one-line fact for pipes", () => {
   );
 });
 
+Deno.test("docs headers make hostile directory facts inert before rendering", () => {
+  const width = 48;
+  const terminal = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: width, rows: 24 }),
+  });
+  const rendered = stripAnsi(
+    renderDocsCorpusHeader(
+      "docs",
+      3,
+      "/tmp/café-👩‍💻\x1b\u0085\u202E\r\nmanual",
+      width,
+      terminal,
+    ),
+  );
+
+  assertEquals(unexpectedTerminalControls(rendered), []);
+  assert(!/[\p{Cc}\p{Cf}]/u.test(rendered.replaceAll("\n", "")));
+  for (const visible of ["<U+200D>", "␛", "<U+0085>", "<U+202E>", "␍", "␊"]) {
+    assertStringIncludes(rendered, visible);
+  }
+  for (const line of rendered.split("\n")) {
+    assert(measureText(line) <= width);
+  }
+});
+
 /**
  * Lay a project that has BOTH its own `docs/` (a decoy `docs` must never show)
  * and a separate "bundled" docs fixture, including internal `_`-prefixed subtrees
@@ -127,6 +156,72 @@ async function makeDocsFixture(
   }
   return docs;
 }
+
+Deno.test("docs terminal facts are inert while machine Markdown stays exact", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const target = `hostile${"long".repeat(18)}\u202E`;
+    const source = "# café 👩‍💻\x1b\u0085\u202E\r\n\r\nbody\x07 control\r\n";
+    await Deno.writeTextFile(
+      join(docs, "00-orientation", `${target}.md`),
+      source,
+    );
+    const env = { DISCERN_DOCS_DIR: docs };
+
+    const human = await runCli(
+      ["docs", target, "--plain", "--no-pager", "--width", "48"],
+      dir,
+      env,
+    );
+    assertEquals(human.code, 0);
+    assertEquals(unexpectedTerminalControls(human.stdout), []);
+    assert(!/[\p{Cc}\p{Cf}]/u.test(human.stdout.replaceAll("\n", "")));
+    for (const visible of ["<U+200D>", "␛", "<U+0085>", "<U+202E>", "␇"]) {
+      assertStringIncludes(human.stdout, visible);
+    }
+    for (const line of human.stdout.trimEnd().split("\n")) {
+      assert(measureText(line) <= 48, JSON.stringify(line));
+    }
+
+    const list = await runCli(
+      ["docs", "--list", "--width", "48"],
+      dir,
+      env,
+    );
+    assertEquals(list.code, 0);
+    assertEquals(unexpectedTerminalControls(list.stdout), []);
+    assertStringIncludes(list.stdout, "hostilelonglong");
+    assertStringIncludes(list.stdout, "<U+202E>");
+    const rows = list.stdout.slice(list.stdout.indexOf("00-orientation/"));
+    for (const line of rows.trimEnd().split("\n")) {
+      assert(
+        measureText(line) <= 48,
+        `plain docs row overflowed: ${JSON.stringify(line)}`,
+      );
+    }
+
+    const search = await runCli(
+      ["docs", "--search", `absent\x1b\u0085\u202E`],
+      dir,
+      env,
+    );
+    assertEquals(search.code, 0);
+    assertEquals(unexpectedTerminalControls(search.stdout), []);
+    assertStringIncludes(search.stdout, "absent␛<U+0085><U+202E>");
+
+    const raw = await runCli(["docs", target, "--raw"], dir, env);
+    assertEquals(raw.code, 0);
+    assertEquals(raw.stdout, source);
+
+    const json = await runCli(["docs", target, "--json"], dir, env);
+    assertEquals(json.code, 0);
+    assertEquals(JSON.parse(json.stdout).data.doc.content, source);
+
+    const exported = await runCli(["docs", "--export", "public"], dir, env);
+    assertEquals(exported.code, 0);
+    assertStringIncludes(exported.stdout, source);
+  });
+});
 
 Deno.test("docs serves the bundled tree, never the project's own docs/", async () => {
   await withTempDir(async (dir) => {
