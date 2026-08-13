@@ -32,7 +32,7 @@ A deterministic rule checks a concrete fact such as whether tests are configured
 
 The catalogue, evaluation, order, score, review questions, Logbook findings, and next action remain facts. The renderer exhaustively maps them to Result summary, Procedure, Diagnostic, Meter, Command, and section Components; package state adds no judgment.
 
-Shared terminal facts cap the report at 104 columns and preserve coaching at 39, 80, 104, and wider widths in every mode. Safe text shows untrusted controls as escapes.
+One terminal snapshot per human invocation caps the report at 104 columns and preserves coaching at 39, 80, 104, and wider widths in every mode. Safe text escapes untrusted controls.
 
 ## Findings from the logbook
 
