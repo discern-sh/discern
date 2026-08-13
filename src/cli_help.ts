@@ -389,8 +389,8 @@ function renderGroupedCommands(
     if (width >= 5) {
       out.push(renderSectionCli(
         {
-          title: group.name,
-          body: `— ${group.note}`,
+          title: terminalLine(group.name),
+          body: terminalMultiline(`— ${group.note}`),
           treatment: "rule",
           spacing: "none",
           theme: terminal.themeVariant,

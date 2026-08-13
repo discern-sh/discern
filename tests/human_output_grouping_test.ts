@@ -14,7 +14,7 @@ import {
   populatedHumanOutputGroups,
   renderHumanOutputGroups,
 } from "../src/shared/result.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 import { makeOut } from "../src/engine/output.ts";
 import {
   groupedSelectOptions,
@@ -381,7 +381,7 @@ Deno.test("the prompt grouping surface writes one leading boundary", () => {
 Deno.test("discern-managed human boundaries use the semantic grouping surface", async () => {
   const offenders: string[] = [];
   for (
-    const rel of AUTHORED_TS_FILES.filter((path) => path.startsWith("src/"))
+    const rel of AUTHORED_DENO_FILES.filter((path) => path.startsWith("src/"))
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const finding of manualBoundaryFindings(source)) {

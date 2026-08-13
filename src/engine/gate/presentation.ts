@@ -302,8 +302,8 @@ function componentCapabilities(
 /** Project the explicit terminal context into package theme props. */
 function componentTheme(
   options: GatePresentationOptions,
-): { readonly theme: TerminalContext["themeVariant"] } {
-  return { theme: options.terminal.themeVariant };
+): TerminalContext["themeVariant"] {
+  return options.terminal.themeVariant;
 }
 
 /** Preserve an empty observed value as an explicit visible fact. */
@@ -401,14 +401,14 @@ function renderJobRun(
     })),
     completion: "Every configured step reaches a final reported state.",
     completionLabel: "Complete when",
-    ...theme,
+    theme,
     maxWidth: capabilities.columns,
   }, capabilities);
   const commands = run.rows.map((row) =>
     renderCommandCli({
       command: safeMultiline(row.command),
       explanation: safeMultiline(`${row.label}: ${jobAction(row)}`),
-      ...theme,
+      theme,
       maxWidth: capabilities.columns,
     }, capabilities)
   );
@@ -426,7 +426,7 @@ export function renderGateJobs(
     return renderResultSummaryCli({
       state: "unchanged",
       fact: "No Gate job is configured, so no project command ran.",
-      ...theme,
+      theme,
       maxWidth: capabilities.columns,
     }, capabilities);
   }
@@ -451,7 +451,7 @@ export function renderGateJobs(
     total: rows.length,
     ...(readingFits ? { reading } : {}),
     tone: failed ? "danger" : cancelled ? "warning" : "neutral",
-    ...theme,
+    theme,
     width: capabilities.columns,
   }, capabilities);
   return [
@@ -583,7 +583,7 @@ function renderPlanPrerequisites(
   return renderPrerequisiteListCli({
     title: occurrence === 1 ? "Gate prerequisites" : "Final checks",
     items,
-    ...componentTheme(options),
+    theme: componentTheme(options),
     maxWidth: capabilities.columns,
   }, capabilities);
 }
@@ -616,12 +616,12 @@ export function renderGatePlan(
   const theme = componentTheme(options);
   const title = renderTriangleSectionRule(safeLine(plan.title), {
     width: capabilities.columns,
-    ...theme,
+    theme,
   }, capabilities);
   const context = plan.details.length === 0 ? [] : [renderResultSummaryCli({
     state: "unchanged",
     fact: safeMultiline(plan.details.join("\n")),
-    ...theme,
+    theme,
     maxWidth: capabilities.columns,
   }, capabilities)];
   if (plan.steps.length === 0) {
@@ -631,7 +631,7 @@ export function renderGatePlan(
       renderResultSummaryCli({
         state: "unchanged",
         fact: "The Gate plan contains no project command.",
-        ...theme,
+        theme,
         maxWidth: capabilities.columns,
       }, capabilities),
     ].join("\n\n");
@@ -703,26 +703,29 @@ export function renderGateStandards(
       counts: [
         {
           label: "Measurement",
-          value: GATE_STANDARD_MEASUREMENT_LABEL[standard.measurement],
+          value: safeLine(
+            GATE_STANDARD_MEASUREMENT_LABEL[standard.measurement],
+          ),
         },
         ...(standard.margin === undefined
           ? []
-          : [{ label: "Margin", value: String(standard.margin) }]),
+          : [{ label: "Margin", value: safeLine(String(standard.margin)) }]),
         ...(standard.pin_eligible === undefined ? [] : [{
           label: "Pin eligible",
-          value: standard.pin_eligible ? "yes" : "no",
+          value: safeLine(standard.pin_eligible ? "yes" : "no"),
         }]),
-        ...(standard.pin_target === undefined
-          ? []
-          : [{ label: "Pin target", value: String(standard.pin_target) }]),
+        ...(standard.pin_target === undefined ? [] : [{
+          label: "Pin target",
+          value: safeLine(String(standard.pin_target)),
+        }]),
       ],
       ...(standard.duration_s === undefined
         ? {}
-        : { duration: fmtDuration(standard.duration_s) }),
+        : { duration: safeLine(fmtDuration(standard.duration_s)) }),
       ...(standard.measurement === "deferred"
         ? { nextAction: "Run discern standards." }
         : {}),
-      ...theme,
+      theme,
       maxWidth: capabilities.columns,
     }, capabilities);
     if (standard.value === undefined) return evidence;
@@ -734,7 +737,7 @@ export function renderGateStandards(
       ...(standard.verdict === undefined
         ? {}
         : { trend: GATE_STANDARD_TREND[standard.verdict] }),
-      ...theme,
+      theme,
       maxWidth: capabilities.columns,
     }, capabilities);
     return `${meter}\n${evidence}`;
@@ -757,8 +760,8 @@ function renderDiagnosticRetry(
   return renderRetryNoticeCli({
     safeToRetry: true,
     reason: diagnosticCorrection(diagnostic),
-    label: `after running ${safeLine(diagnostic.reproduce_cmd)}`,
-    ...componentTheme(options),
+    label: safeLine(`after running ${safeLine(diagnostic.reproduce_cmd)}`),
+    theme: componentTheme(options),
     maxWidth: capabilities.columns,
   }, capabilities);
 }
@@ -778,10 +781,12 @@ function renderDiagnosticOutput(
     : "";
   return renderRawOutputCli({
     output: safeMultiline(`${diagnostic.output}${artifact}`),
-    label: diagnostic.truncated === true
-      ? `${safeLine(diagnostic.tool)} captured output excerpt`
-      : `${safeLine(diagnostic.tool)} captured output`,
-    ...componentTheme(options),
+    label: safeLine(
+      diagnostic.truncated === true
+        ? `${safeLine(diagnostic.tool)} captured output excerpt`
+        : `${safeLine(diagnostic.tool)} captured output`,
+    ),
+    theme: componentTheme(options),
     maxWidth: capabilities.columns,
   }, capabilities);
 }
@@ -819,7 +824,7 @@ export function renderGateDiagnostics(
       ...(diagnostic.line === undefined ? {} : { line: diagnostic.line }),
       ...(diagnostic.col === undefined ? {} : { column: diagnostic.col }),
       reproductionCommand: safeMultiline(diagnostic.reproduce_cmd),
-      ...theme,
+      theme,
       maxWidth: capabilities.columns,
     }, capabilities);
     const retry = renderDiagnosticRetry(diagnostic, options);
@@ -851,7 +856,7 @@ export function renderGateFailureSummary(
         }: ${headline}`
         : `discern ${verb} failed · reproduce: ${firstCommand}`,
     ),
-    ...componentTheme(options),
+    theme: componentTheme(options),
     maxWidth: capabilities.columns,
   }, capabilities);
 }
@@ -885,7 +890,7 @@ export function renderGateStatus(
   return renderResultSummaryCli({
     state: resultState(status),
     fact: safeMultiline(message),
-    ...componentTheme(options),
+    theme: componentTheme(options),
     maxWidth: capabilities.columns,
   }, capabilities);
 }
@@ -930,8 +935,9 @@ export function renderGateProofReceipt(
       { label: "Compared with", value: safeLine(proof.trunk) },
       {
         label: "Change",
-        value:
+        value: safeLine(
           `${proof.files_total} files +${proof.insertions} -${proof.deletions}`,
+        ),
       },
     ],
     checks: [
@@ -943,19 +949,24 @@ export function renderGateProofReceipt(
       {
         label: "Proof record",
         state: state.checkState,
-        stateLabel: state.stateLabel,
+        stateLabel: safeLine(state.stateLabel),
       },
       ...(landingAuthority === undefined ? [] : [{
         label: "Landing authority",
-        ...GATE_LANDING_AUTHORITY_PRESENTATION[landingAuthority.kind],
-        value: landingAuthority.kind === "authorized"
-          ? landingAuthority.source ?? "verified grant"
-          : `${uncovered} uncovered`,
+        state: GATE_LANDING_AUTHORITY_PRESENTATION[landingAuthority.kind].state,
+        stateLabel: safeLine(
+          GATE_LANDING_AUTHORITY_PRESENTATION[landingAuthority.kind].stateLabel,
+        ),
+        value: safeLine(
+          landingAuthority.kind === "authorized"
+            ? landingAuthority.source ?? "verified grant"
+            : `${uncovered} uncovered`,
+        ),
       }]),
     ],
-    summary: `${proofSummary}${landingSummary}`,
+    summary: safeMultiline(`${proofSummary}${landingSummary}`),
     footer: "Full proof: discern status --verbose",
-    ...componentTheme(options),
+    theme: componentTheme(options),
     maxWidth: capabilities.columns,
   }, capabilities);
   return `${receipt}\n\n${safeLine(proof.line)}`;
@@ -989,13 +1000,13 @@ export function renderGateProofCheckReceipt(
     checks: [{
       label: "Proof currency",
       state: state.checkState,
-      stateLabel: state.stateLabel,
+      stateLabel: safeLine(state.stateLabel),
     }],
     summary,
     footer: check.status === "honored"
       ? "The recorded Gate result is authoritative for this tree."
       : "Refresh proof: discern done",
-    ...componentTheme(options),
+    theme: componentTheme(options),
     maxWidth: capabilities.columns,
   }, capabilities);
   return check.proof_line === undefined

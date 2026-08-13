@@ -481,7 +481,7 @@ function renderTable(
   terminal: TerminalContext,
 ): string[] {
   const visibleCell = (value: string | undefined): string => {
-    const plain = inlineToPlain(value ?? "");
+    const plain = terminalLine(inlineToPlain(value ?? ""));
     return plain === "" ? " " : plain;
   };
   const header = (rows[0] ?? [""]).map(visibleCell);
@@ -489,25 +489,27 @@ function renderTable(
     header.map((_, index) => visibleCell(row[index]))
   );
   const minimumWidth = header.length * 4 + 1;
-  const props = width >= minimumWidth
-    ? {
-      columns: header.map((value) => ({ header: value })),
-      rows: body,
-      striped: true,
-      theme: terminal.themeVariant,
-      width,
-    }
-    : {
-      // A terminal too narrow for N framed columns still delegates geometry to
-      // Table: project each source row into one labelled column rather than
-      // inventing a second local cell-layout algorithm.
-      columns: [{ header: header.join(" · ") }],
-      rows: body.map((row) => [row.join(" · ")]),
-      striped: true,
-      theme: terminal.themeVariant,
-      width,
-    };
-  return renderTableCli(props, terminal.capabilities).split("\n");
+  return renderTableCli(
+    width >= minimumWidth
+      ? {
+        columns: header.map((value) => ({ header: value })),
+        rows: body,
+        striped: true,
+        theme: terminal.themeVariant,
+        width,
+      }
+      : {
+        // A terminal too narrow for N framed columns still delegates geometry
+        // to Table: project each source row into one labelled column rather
+        // than inventing a second local cell-layout algorithm.
+        columns: [{ header: header.join(" · ") }],
+        rows: body.map((row) => [row.join(" · ")]),
+        striped: true,
+        theme: terminal.themeVariant,
+        width,
+      },
+    terminal.capabilities,
+  ).split("\n");
 }
 
 /** Style an ATX heading by level (or keep the `#` markers in plain mode). */

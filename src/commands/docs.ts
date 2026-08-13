@@ -756,8 +756,8 @@ export function renderDocsCorpusHeader(
   const safeDirectory = terminalLine(directory);
   return renderDocsHeaderCli(
     {
-      brand: `discern ${verb}`,
-      middle: `— ${count} documents in ${safeDirectory}`,
+      brand: terminalLine(`discern ${verb}`),
+      middle: terminalLine(`— ${count} documents in ${safeDirectory}`),
       theme: terminal.themeVariant,
       maxWidth: width,
     },
@@ -952,9 +952,11 @@ function printMapOverview(
         ? renderDocsHeaderCli(
           {
             brand: "discern map",
-            middle: `— ${regions.length} region${
-              regions.length === 1 ? "" : "s"
-            } in ${directory}`,
+            middle: terminalLine(
+              `— ${regions.length} region${
+                regions.length === 1 ? "" : "s"
+              } in ${directory}`,
+            ),
             theme: terminal.themeVariant,
             maxWidth: width,
           },
@@ -1029,8 +1031,10 @@ function printSearchResults(
       terminal.stdoutIsTerminal
         ? renderDocsHeaderCli(
           {
-            brand: `${count} result${count === 1 ? "" : "s"}`,
-            middle: `for "${query}"${scope}`,
+            brand: terminalLine(
+              `${count} result${count === 1 ? "" : "s"}`,
+            ),
+            middle: terminalLine(`for "${query}"${scope}`),
             theme: terminal.themeVariant,
             maxWidth: width,
           },
