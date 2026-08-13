@@ -69,10 +69,7 @@ import {
 } from "../../lib/provider_hooks.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
-import {
-  type TerminalContext,
-  terminalContext,
-} from "../../lib/terminal.ts";
+import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
   type TrackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifacts,

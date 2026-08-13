@@ -66,15 +66,15 @@ After setup, detectors can add recent Logbook observations to `hints[]`. They in
 
 ## Where it lives in code
 
-| Concern                               | Source                                                                  |
-| ------------------------------------- | ----------------------------------------------------------------------- |
-| Status facts and hints                | [`status.ts`](../../../src/engine/status/status.ts)                     |
-| Pure package-component adaptation     | [`tty.ts`](../../../src/engine/status/tty.ts)                           |
-| Shared terminal facts and safe text   | [`terminal.ts`](../../../src/lib/terminal.ts)                           |
-| Result and Proof schemas              | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)            |
-| Human and machine hint routing        | [`hints.ts`](../../../src/shared/hints.ts)                              |
-| Width, degradation, and state matrix  | [`engine_status_tty_test.ts`](../../../tests/engine_status_tty_test.ts) |
-| End-to-end status behavior            | [`engine_status_test.ts`](../../../tests/engine_status_test.ts)         |
+| Concern                               | Source                                                                              |
+| ------------------------------------- | ----------------------------------------------------------------------------------- |
+| Status facts and hints                | [`status.ts`](../../../src/engine/status/status.ts)                                 |
+| Pure package-component adaptation     | [`tty.ts`](../../../src/engine/status/tty.ts)                                       |
+| Shared terminal facts and safe text   | [`terminal.ts`](../../../src/lib/terminal.ts)                                       |
+| Result and Proof schemas              | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                        |
+| Human and machine hint routing        | [`hints.ts`](../../../src/shared/hints.ts)                                          |
+| Width, degradation, and state matrix  | [`engine_status_tty_test.ts`](../../../tests/engine_status_tty_test.ts)             |
+| End-to-end status behavior            | [`engine_status_test.ts`](../../../tests/engine_status_test.ts)                     |
 | Terminal-observation structural guard | [`terminal_boundary_guard_test.ts`](../../../tests/terminal_boundary_guard_test.ts) |
 
 ## Current state and gotchas

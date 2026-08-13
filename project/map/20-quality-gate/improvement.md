@@ -76,12 +76,12 @@ The result fields and Model Context Protocol wrapper are in [MCP tools & results
 
 ## Where it lives in code
 
-| Concern                                | Source                                                               |
-| -------------------------------------- | -------------------------------------------------------------------- |
-| Category and rule catalog              | [`rules.ts`](../../../src/engine/improve/rules.ts)                   |
-| Rule and report vocabulary             | [`types.ts`](../../../src/engine/improve/types.ts)                   |
-| Scoring, prioritization, and rendering | [`improve.ts`](../../../src/engine/improve/improve.ts)               |
-| Scope and tier routing                 | [`routing.ts`](../../../src/engine/logbook/routing.ts)               |
+| Concern                                | Source                                                                    |
+| -------------------------------------- | ------------------------------------------------------------------------- |
+| Category and rule catalog              | [`rules.ts`](../../../src/engine/improve/rules.ts)                        |
+| Rule and report vocabulary             | [`types.ts`](../../../src/engine/improve/types.ts)                        |
+| Scoring, prioritization, and rendering | [`improve.ts`](../../../src/engine/improve/improve.ts)                    |
+| Scope and tier routing                 | [`routing.ts`](../../../src/engine/logbook/routing.ts)                    |
 | Responsive and closed-set coverage     | [`engine_improvement_test.ts`](../../../tests/engine_improvement_test.ts) |
 
 ## Current state & gotchas
