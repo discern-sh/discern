@@ -208,7 +208,7 @@ Deno.test("the one-way contour study renders accessibly in both fixed themes", (
 
   assertEquals(
     readableText(study.querySelector("h3")?.textContent ?? null),
-    "One-way contour",
+    "Contours",
   );
   assertEquals(study.querySelectorAll(".art-gallery__theme").length, 2);
   assertEquals(

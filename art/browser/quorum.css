@@ -1,0 +1,261 @@
+/* Fig. XII — the quorum. One 24s phrase (20 beats of 1.2s):
+ *
+ *   0–10%     the resolved plate rests: five verdicts in, the rule closed
+ *  10–16%     the verdicts, tally and composite half recede to faint
+ *  16–24%     each witness re-runs its internal test
+ *  24–48%     the verdicts land one at a time, the fourth after the fifth
+ *  49–60%     the quorum rule re-closes across all five
+ *  62–68%     the resting plate returns
+ *  68–92%     the composite takes the accent across its right half
+ *  92–100%    the plate settles
+ *
+ * The tally ticks fade in place rather than scaling: an SVG element with no
+ * transform-box scales about the viewBox origin, which drags a tick clear of
+ * the witness it belongs to.
+ */
+@layer discern.page {
+  .fig-quorum__rest {
+    animation: fig-quorum-recede calc(var(--fig-beat) * 20)
+      var(--fig-ease-drift) infinite;
+  }
+
+  .fig-quorum__verdicts {
+    fill: currentColor;
+    opacity: var(--fig-quiet);
+  }
+
+  .fig-quorum__tally line,
+  .fig-quorum__rule {
+    stroke: currentColor;
+    opacity: var(--fig-quiet);
+  }
+
+  .fig-quorum__tally line {
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-quorum__rule {
+    stroke-width: var(--fig-hairline);
+  }
+
+  .fig-quorum__composite-half {
+    fill: currentColor;
+    opacity: 0.11;
+  }
+
+  .fig-quorum__construction line {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-faint);
+  }
+
+  .fig-quorum__probes polygon {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+    animation: fig-quorum-ink calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite both;
+  }
+
+  .fig-quorum__returns polygon {
+    fill: currentColor;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: fig-quorum-verdict calc(var(--fig-beat) * 20)
+      var(--fig-ease-settle) infinite both;
+  }
+
+  .fig-quorum__marks line {
+    stroke: currentColor;
+    stroke-width: var(--fig-heavy);
+    stroke-linecap: round;
+    opacity: 0;
+    animation: fig-quorum-tally calc(var(--fig-beat) * 20)
+      var(--fig-ease-settle) infinite both;
+  }
+
+  .fig-quorum__rule-ink {
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+    animation: fig-quorum-ink calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite both;
+  }
+
+  .fig-quorum__outlines polygon,
+  .fig-quorum__composite {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    stroke-linejoin: round;
+  }
+
+  .fig-quorum__composite-median {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-faint);
+  }
+
+  .fig-quorum__seal {
+    opacity: 0;
+    animation: fig-quorum-seal calc(var(--fig-beat) * 20) var(--fig-ease-settle)
+      infinite;
+  }
+
+  .fig-quorum__seal-half {
+    fill: var(--fig-accent);
+    opacity: 0.42;
+  }
+
+  .fig-quorum__seal-median {
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+  }
+
+  .fig-quorum__seal-edge {
+    fill: none;
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-heavy);
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+    animation: fig-quorum-seal-edge calc(var(--fig-beat) * 20)
+      var(--fig-ease-draw) infinite;
+  }
+
+  @keyframes fig-quorum-recede {
+    0%,
+    10% {
+      opacity: 1;
+    }
+    16% {
+      opacity: 0.22;
+    }
+    56% {
+      opacity: 0.22;
+    }
+    68%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fig-quorum-ink {
+    0% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    1% {
+      opacity: 1;
+    }
+    11% {
+      stroke-dashoffset: 0;
+    }
+    26% {
+      opacity: 1;
+    }
+    31% {
+      opacity: 0;
+    }
+    31.1%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-quorum-verdict {
+    0% {
+      opacity: 0;
+      transform: scale(0.72);
+    }
+    2% {
+      opacity: 0.8;
+    }
+    7% {
+      transform: scale(1);
+    }
+    26% {
+      opacity: 0.8;
+      transform: scale(1);
+    }
+    31% {
+      opacity: 0;
+      transform: scale(1);
+    }
+    31.1%,
+    100% {
+      opacity: 0;
+      transform: scale(0.72);
+    }
+  }
+
+  @keyframes fig-quorum-tally {
+    0% {
+      opacity: 0;
+    }
+    3% {
+      opacity: 0.9;
+    }
+    26% {
+      opacity: 0.9;
+    }
+    31% {
+      opacity: 0;
+    }
+    31.1%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-quorum-seal {
+    0%,
+    68% {
+      opacity: 0;
+    }
+    73% {
+      opacity: 1;
+    }
+    86% {
+      opacity: 1;
+    }
+    92%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-quorum-seal-edge {
+    0%,
+    67% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    70% {
+      opacity: 1;
+    }
+    80% {
+      stroke-dashoffset: 0;
+    }
+    87% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    92% {
+      opacity: 0;
+    }
+    92.1%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+  }
+}

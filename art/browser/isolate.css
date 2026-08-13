@@ -1,0 +1,197 @@
+/* Fig. XIII — the isolate. One 24s phrase (20 beats of 1.2s):
+ *
+ *   0–9%      the resolved plate rests: three chambers hatched, trunk woven
+ *   9–15%     the hatching recedes to faint
+ *  15–52%     each chamber re-works in turn, at its own angle, in isolation
+ *  46–60%     the walls brighten: the chambers are sealed
+ *  60–74%     the walls dim and the trunk fills with all three angles
+ *  74–89%     the frame takes the accent across its right half
+ *  89–100%    the plate settles
+ */
+@layer discern.page {
+  .fig-isolate__rest {
+    animation: fig-isolate-recede calc(var(--fig-beat) * 20)
+      var(--fig-ease-drift) infinite;
+  }
+
+  .fig-isolate__rest line {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    opacity: 0.36;
+  }
+
+  .fig-isolate__work line,
+  .fig-isolate__weave line {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+
+  .fig-isolate__work line {
+    animation: fig-isolate-work calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite both;
+  }
+
+  .fig-isolate__weave line {
+    animation: fig-isolate-weave calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite both;
+  }
+
+  .fig-isolate__walls {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-heavy);
+    stroke-linejoin: round;
+    opacity: 0.5;
+    animation: fig-isolate-walls calc(var(--fig-beat) * 20)
+      var(--fig-ease-drift) infinite;
+  }
+
+  .fig-isolate__frame {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    stroke-linejoin: round;
+  }
+
+  .fig-isolate__split {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-faint);
+  }
+
+  .fig-isolate__seal {
+    opacity: 0;
+    animation: fig-isolate-seal calc(var(--fig-beat) * 20)
+      var(--fig-ease-settle) infinite;
+  }
+
+  .fig-isolate__seal-half {
+    fill: var(--fig-accent);
+    opacity: 0.13;
+  }
+
+  .fig-isolate__seal-edge {
+    fill: none;
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-line);
+    stroke-linejoin: round;
+  }
+
+  .fig-isolate__seal-median {
+    stroke: var(--fig-accent);
+    stroke-width: var(--fig-hairline);
+  }
+
+  @keyframes fig-isolate-recede {
+    0%,
+    9% {
+      opacity: 1;
+    }
+    15% {
+      opacity: 0.2;
+    }
+    58% {
+      opacity: 0.2;
+    }
+    70%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fig-isolate-work {
+    0% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    2% {
+      opacity: 0.55;
+    }
+    14% {
+      stroke-dashoffset: 0;
+    }
+    30% {
+      opacity: 0.55;
+    }
+    36% {
+      opacity: 0;
+    }
+    36.1%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-isolate-weave {
+    0%,
+    60% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    64% {
+      opacity: 0.6;
+    }
+    72% {
+      stroke-dashoffset: 0;
+    }
+    82% {
+      opacity: 0.6;
+    }
+    88% {
+      opacity: 0;
+    }
+    88.1%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+  }
+
+  /* The walls assert themselves while the chambers work, then give way. */
+  @keyframes fig-isolate-walls {
+    0%,
+    9% {
+      opacity: 0.5;
+    }
+    15% {
+      opacity: 0.22;
+    }
+    46% {
+      opacity: 0.22;
+    }
+    52% {
+      opacity: 1;
+    }
+    60% {
+      opacity: 1;
+    }
+    66% {
+      opacity: 0.16;
+    }
+    74%,
+    100% {
+      opacity: 0.5;
+    }
+  }
+
+  @keyframes fig-isolate-seal {
+    0%,
+    74% {
+      opacity: 0;
+    }
+    78% {
+      opacity: 1;
+    }
+    89% {
+      opacity: 1;
+    }
+    94%,
+    100% {
+      opacity: 0;
+    }
+  }
+}

@@ -380,7 +380,7 @@ export function ContourArtwork(
         role="img"
         aria-labelledby={`${titleId} ${descriptionId}`}
       >
-        <title id={titleId}>One-way contour</title>
+        <title id={titleId}>Contours</title>
         <desc id={descriptionId}>
           {CONTOUR_RINGS.length}{" "}
           softly faceted retained boundaries expand from a shared center around

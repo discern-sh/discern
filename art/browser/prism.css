@@ -1,0 +1,266 @@
+/* Fig. X — the prism. One 24s phrase (20 beats of 1.2s):
+ *
+ *   0–9%      the resolved diagram rests
+ *   9–15%     the diagram recedes to faint
+ *  12–17%     the undeviated guide fades in, before the refraction it measures
+ *  11–24%     the incident beam re-inks
+ *  23–35%     the internal beam crosses, and the right half fills at its pace
+ *  33–58%     the fan opens, one component at a time
+ *  41–85%     every component lights in its own hue: the spectrum holds
+ *  68–100%    the guide clears, the diagram returns, the plate settles
+ *
+ * The two beam segments hold to 62% of their own cycle rather than clearing
+ * with the fan: an exit cannot be lit while its own entry is dark.
+ */
+@layer discern.page {
+  .fig-prism__body-half {
+    fill: currentColor;
+    opacity: 0.07;
+    animation: fig-prism-body calc(var(--fig-beat) * 20) var(--fig-ease-drift)
+      infinite;
+  }
+
+  .fig-prism__tint {
+    opacity: 0;
+    animation: fig-prism-tint calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite;
+  }
+
+  .fig-prism__tint-half {
+    fill: var(--fig-accent);
+    opacity: 0.16;
+  }
+
+  /* The wipe fills the half from the entry face outward, so the tint keeps
+   * pace with the internal beam instead of appearing all at once. */
+  .fig-prism__wipe {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: fig-prism-wipe calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite;
+  }
+
+  .fig-prism__guide {
+    fill: none;
+    stroke: var(--fig-guide);
+    stroke-width: var(--fig-hairline);
+    stroke-dasharray: 0.035 0.03;
+    opacity: 0;
+    animation: fig-prism-guide calc(var(--fig-beat) * 20) var(--fig-ease-drift)
+      infinite;
+  }
+
+  .fig-prism__rest {
+    fill: none;
+    stroke: currentColor;
+    animation: fig-prism-recede calc(var(--fig-beat) * 20) var(--fig-ease-drift)
+      infinite;
+  }
+
+  .fig-prism__beam {
+    stroke-width: var(--fig-line);
+    opacity: 0.75;
+  }
+
+  .fig-prism__ray {
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-quiet);
+  }
+
+  .fig-prism__passage {
+    fill: none;
+    stroke: currentColor;
+    stroke-dasharray: 1;
+  }
+
+  .fig-prism__ink {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+
+  .fig-prism__ink--beam {
+    stroke-width: var(--fig-line);
+    animation: fig-prism-beam calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite both;
+  }
+
+  .fig-prism__ink--ray {
+    stroke-width: var(--fig-hairline);
+    animation: fig-prism-ink calc(var(--fig-beat) * 20) var(--fig-ease-draw)
+      infinite both;
+  }
+
+  .fig-prism__frame {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--fig-line);
+    stroke-linejoin: round;
+  }
+
+  .fig-prism__split {
+    stroke: currentColor;
+    stroke-width: var(--fig-hairline);
+    opacity: var(--fig-faint);
+  }
+
+  /* The spectrum is the one deliberate multi-hue exception in the series. */
+  .fig-prism__spectrum {
+    fill: none;
+    stroke-width: var(--fig-line);
+    opacity: 0;
+    animation: fig-prism-spectrum calc(var(--fig-beat) * 20)
+      var(--fig-ease-settle) infinite;
+  }
+
+  .fig-prism__nodes circle {
+    fill: currentColor;
+  }
+
+  @keyframes fig-prism-recede {
+    0%,
+    9% {
+      opacity: 1;
+    }
+    15% {
+      opacity: var(--fig-faint);
+    }
+    56% {
+      opacity: var(--fig-faint);
+    }
+    68%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fig-prism-beam {
+    0% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    1% {
+      opacity: 1;
+    }
+    11% {
+      stroke-dashoffset: 0;
+    }
+    62% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    68% {
+      opacity: 0;
+    }
+    68.1%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-prism-ink {
+    0% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    1% {
+      opacity: 1;
+    }
+    11% {
+      stroke-dashoffset: 0;
+    }
+    40% {
+      opacity: 1;
+    }
+    46% {
+      opacity: 0;
+    }
+    46.1%,
+    100% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-prism-wipe {
+    0%,
+    23.5% {
+      transform: scaleX(0);
+    }
+    35% {
+      transform: scaleX(1);
+    }
+    95% {
+      transform: scaleX(1);
+    }
+    95.1%,
+    100% {
+      transform: scaleX(0);
+    }
+  }
+
+  @keyframes fig-prism-tint {
+    0%,
+    23% {
+      opacity: 0;
+    }
+    27% {
+      opacity: 1;
+    }
+    88% {
+      opacity: 1;
+    }
+    95%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-prism-guide {
+    0%,
+    12% {
+      opacity: 0;
+    }
+    17% {
+      opacity: 0.3;
+    }
+    86% {
+      opacity: 0.3;
+    }
+    93%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-prism-spectrum {
+    0%,
+    32% {
+      opacity: 0;
+    }
+    41% {
+      opacity: 0.95;
+    }
+    85% {
+      opacity: 0.95;
+    }
+    93%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fig-prism-body {
+    0%,
+    9% {
+      opacity: 0.07;
+    }
+    15% {
+      opacity: 0.02;
+    }
+    68%,
+    100% {
+      opacity: 0.07;
+    }
+  }
+}
