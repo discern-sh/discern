@@ -4,12 +4,11 @@
  * and the executor alone owns cursor state, redraws, and waits.
  */
 
-import {
-  InlineFramePainter,
-  type TerminalIO,
-} from "discern-design-system/cli/interactive";
-import type { TerminalCapabilities } from "discern-design-system/cli";
 import { displayWidth, type TerminalSize } from "./text.ts";
+import {
+  createInlineFramePainter,
+  type InlineFramePainter,
+} from "./terminal_painter.ts";
 
 const MAX_FRAME_MS = 1_000;
 const MAX_FINAL_HOLD_MS = 5_000;
@@ -217,41 +216,6 @@ function playbackStillFits(
   }
 }
 
-/**
- * Adapt Discern's injectable playback port to the package TerminalIO contract.
- * Playback owns no input or raw-mode lifecycle; InlineFramePainter uses only
- * `write` and `size`, while the remaining methods stay inert and deterministic.
- */
-class PlaybackTerminalIO implements TerminalIO {
-  constructor(private readonly port: TerminalPlaybackPort) {}
-
-  isInteractive(): boolean {
-    return true;
-  }
-
-  capabilities(): TerminalCapabilities {
-    return {
-      colorDepth: "none",
-      columns: this.size().columns,
-      unicode: true,
-    };
-  }
-
-  size(): TerminalSize {
-    return this.port.terminalSize();
-  }
-
-  read(): Promise<Uint8Array | null> {
-    return Promise.resolve(null);
-  }
-
-  setRawMode(_enabled: boolean): void {}
-
-  write(value: string): void {
-    this.port.write(value);
-  }
-}
-
 /** Print the stable transcript below the current package-owned inline frame. */
 function settleBelowViewport(
   plan: TerminalPlaybackPlan,
@@ -280,7 +244,15 @@ export async function applyTerminalPlayback(
     throw abortFailure(signal);
   }
 
-  const painter = new InlineFramePainter(new PlaybackTerminalIO(port));
+  const painter = createInlineFramePainter({
+    write: port.write,
+    size: port.terminalSize,
+    capabilities: () => ({
+      colorDepth: "none",
+      columns: port.terminalSize().columns,
+      unicode: true,
+    }),
+  });
   let failure: CapturedFailure | undefined;
   let painterWriteFailed = false;
   let settled = false;

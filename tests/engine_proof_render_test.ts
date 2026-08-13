@@ -415,8 +415,9 @@ Deno.test("gate TTY progress: controller redraws in place and leaves no color SG
     { width: 80, terminal: PLAIN_TERMINAL },
   );
   progress.start(PLAN.groups);
-  assertStringIncludes(writes[0] ?? "", "format");
-  assertStringIncludes(writes[0] ?? "", "pending");
+  assertEquals(writes[0], "\n");
+  assertStringIncludes(writes.at(-1) ?? "", "format");
+  assertStringIncludes(writes.at(-1) ?? "", "pending");
 
   progress.started({ label: "format", command: "deno fmt" });
   await Promise.resolve();

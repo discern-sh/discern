@@ -6,6 +6,7 @@
 
 import { DISCERN_TRIANGLE_SPINNER_ORDER } from "discern-design-system/cli";
 import type { TerminalContext } from "../../lib/terminal.ts";
+import { createInlineFramePainter } from "../../lib/terminal_painter.ts";
 import type { StepResult } from "../../shared/result.ts";
 import type { GateStandard } from "../../shared/result_schemas.ts";
 import type { JobRunObserver } from "../jobs/runner.ts";
@@ -115,12 +116,19 @@ export function createGateTtyProgress(
   const intervalMs = progressInterval(options.intervalMs);
   let groups: readonly JobGroup[] | undefined;
   let visible = new Set<string>();
-  let renderedLines = 0;
   let redrawQueued = false;
   let completed = false;
   let phase = options.initialPhase ?? 0;
   let width = options.width;
   let stopRepeating: (() => void) | undefined;
+  const painter = createInlineFramePainter({
+    write,
+    size: () => ({ columns: width, rows: options.terminal.size.rows }),
+    capabilities: () => ({
+      ...options.terminal.capabilities,
+      columns: width,
+    }),
+  });
 
   const frameOptions = (): GateTtyOptions => ({
     width,
@@ -128,12 +136,8 @@ export function createGateTtyProgress(
   });
 
   const replace = (table: string): void => {
-    if (renderedLines === 0) {
-      write(`\n${table}\n`);
-    } else {
-      write(`\x1b[${renderedLines}A\r\x1b[J${table}\n`);
-    }
-    renderedLines = table.split("\n").length;
+    if (painter.currentFrame === "") write("\n");
+    painter.replace(`${table}\n`);
   };
 
   const redraw = (): void => {
