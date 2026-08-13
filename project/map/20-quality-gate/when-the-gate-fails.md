@@ -15,9 +15,9 @@ _Read the first diagnostic, use its reproduce command, and rerun the Gate after 
 
 Start with the first entry in `diagnostics[]`: the tool or precondition that failed, the problem, and a `reproduce_cmd` for a focused loop. The captured `output` contains the tool's error; if it was too large for the result, `output_path` points to the full normalized capture ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 
-The terminal tail names the failed command: `discern done`, `discern prepare`, or `discern test`. When the live Workflow withheld a command's output, a package RawOutput frame opens the tail with that discern-authored excerpt and any full-capture path. Each normalized finding then uses Diagnostic for impact, location, reproduction, and correction, followed by RetryNotice for the safe retry order. It points back here with `discern docs 20-quality-gate/when-the-gate-fails`. A ResultSummary remains last; when diagnostics exist, its final line keeps the first reproduce command visible even in a shortened log.
+The terminal tail names the failed command: `discern done`, `discern prepare`, or `discern test`. Withheld output appears once in package RawOutput with its capture path. Each normalized finding uses Diagnostic then RetryNotice, with `discern docs 20-quality-gate/when-the-gate-fails` for this reference. ResultSummary stays last and keeps the first reproduce command visible.
 
-These frames do not reinterpret a tool's verdict. The normalized `Diagnostic` and failed stage remain authoritative, and raw child bytes that the runner already streamed are not framed or repeated. Repository, command, and tool text crosses the shared safe-text adapter before it reaches a Component.
+Verdicts and failed stages remain authoritative. Streamed child bytes are not repeated; dynamic text crosses the shared safe-text adapter.
 
 <!-- discern-workflow:result-summary -->
 
