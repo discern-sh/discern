@@ -1,5 +1,7 @@
 # ADR 0149: The project mark is the Unicode glyph ◮
 
+> **Terminal implementation amendment (2026-08-13; [ADR 0278](0278-external-terminal-rendering-crosses-one-process-boundary.md)):** The mark and Discern's wordmark, reveal, pyramid, and gasket compositions remain product authority. The published package now owns the reusable Unicode/ASCII triangle glyph set, weave and spinner orders, motifs, section rules, progress, and painting mechanics. Product compositions derive from those public constants instead of maintaining a second generic triangle vocabulary.
+
 **Status**: accepted
 
 ## Context

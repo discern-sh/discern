@@ -2,6 +2,8 @@
 
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `graduate` → `accept`; the decision and reasoning are unchanged.
 
+> **Interaction amendment (2026-08-13; [ADR 0278](0278-external-terminal-rendering-crosses-one-process-boundary.md)):** The transactional list → pick → act → loop and lifecycle-core authority survive. `src/lib/prompts.ts` now maps the product flow into the published package's interaction graph; the package owns terminal I/O, editing, painting, cancellation, and restoration. Discern still owns prompt admission, decision state, action legality, orchestration, and effects. The shared admission policy includes global `--json` alongside `--plain`, CI, and both stream attachments; the named Desk also refuses its local JSON option before entering that path. The later Desk programme may enrich the product decision model without moving lifecycle truth or reusable terminal mechanics.
+
 **Status**: accepted. Builds on [ADR 0036](0036-unify-setup.md) (the pre-setup redirect), [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope), and [ADR 0027](0027-plan-apply-engine-execution.md) (plan/apply).
 
 ## Context

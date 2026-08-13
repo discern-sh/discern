@@ -22,6 +22,12 @@ Site imports use only that package root and its documented `./runtime` and `./re
 
 When a package defect affects discern, release the fix from the package repository and update this repository to the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
+## CLI-owned integration
+
+The package's `./cli` graph owns pure Components, Token roles, generic terminal text/layout, and reusable triangle motifs. Its `./cli/interactive` graph owns terminal I/O, key decoding, grapheme editing, prompt machines, painting, cancellation, and restoration. [`src/lib/terminal.ts`](../../../src/lib/terminal.ts) remains Discern's process and safe-text boundary; [`src/lib/prompts.ts`](../../../src/lib/prompts.ts) remains its product interaction choke point. Discern owns product facts, action legality, effects, streams, machine schemas, raw child bytes, and product artwork.
+
+Consumer conformance proves both CLI graphs are React-free and resolved from the exact external release. Cliffy's Command package remains a separate parser boundary. Discern has no direct Cliffy presentation dependency or import; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0278](../_adr/0278-external-terminal-rendering-crosses-one-process-boundary.md)).
+
 ## Site-owned integration
 
 [`site/design_system.ts`](../../../site/design_system.ts) contains the complete integration. Its `DESIGN_SYSTEM_BUNDLES` table declares:

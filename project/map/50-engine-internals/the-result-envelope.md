@@ -23,7 +23,7 @@ Plan and result renderers preserve step order. When a `PlanStep.group` value ret
 
 Boundaries mark changes in meaning; a homogeneous list stays one group. Machine protocols, scalar stdout, document bodies, framed tables, and project-owned streams retain their own structure.
 
-The Git-derived [`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing, direct prompt separators, and Cliffy prompt calls that bypass the shared boundary across authored TypeScript. Imported Cliffy classes enroll by structure, including aliases and new prompt kinds. Renderer tests cover recurring plan and result groups. Behavior tests cover plan stages, status regions, desk buckets, and every improvement category.
+[`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing and direct package-prompt bypasses across shipped `src/**` human surfaces. Named, aliased, namespace, and dynamic prompt access enrols structurally. The broader Git-derived [`terminal_boundary_guard_test.ts`](../../../tests/terminal_boundary_guard_test.ts) scans every authored Deno file for interaction and terminal violations. Renderer tests cover recurring plan and result groups; behavior tests cover plan stages, status regions, Desk buckets, and every improvement category.
 
 ## Step-label ownership
 
