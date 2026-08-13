@@ -54,7 +54,7 @@ jobs:
       - name: Install Vale and sync its styles
         run: |
           VALE_VERSION="$(<.vale-version)"
-          curl -sfL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+          curl -sfL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
             | sudo tar -xz -C /usr/local/bin vale
           vale sync
 
@@ -149,7 +149,7 @@ jobs:
       - name: Install Vale and sync its styles
         run: |
           VALE_VERSION="$(<.vale-version)"
-          curl -sfL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+          curl -sfL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
             | sudo tar -xz -C /usr/local/bin vale
           vale sync
 
