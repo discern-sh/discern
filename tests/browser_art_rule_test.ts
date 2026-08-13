@@ -76,12 +76,20 @@ Deno.test("the rule subdivision is capped at three generations of 3, 9, 27", () 
     }
   }
 
-  assertEquals(RULE_BISECTION_ARCS.length, 12);
+  assertEquals(
+    RULE_BISECTION_ARCS.length,
+    6,
+    "only the two outward compass strikes remain on each side",
+  );
   for (let side = 0; side < 3; side += 1) {
     const arcs = RULE_BISECTION_ARCS.filter((arc) => arc.side === side);
-    assertEquals(arcs.length, 4, "four crossing arcs bisect each side");
-    assertEquals(arcs.filter((arc) => arc.anchor === 0).length, 2);
-    assertEquals(arcs.filter((arc) => arc.anchor === 1).length, 2);
+    assertEquals(
+      arcs.length,
+      2,
+      "one external crossing pair bisects each side",
+    );
+    assertEquals(arcs.filter((arc) => arc.anchor === 0).length, 1);
+    assertEquals(arcs.filter((arc) => arc.anchor === 1).length, 1);
   }
   assertEquals(RULE_MIDPOINT_TICKS.length, 3);
 });
@@ -112,8 +120,8 @@ Deno.test("the gallery renders the plate twice with its full ritual cast", () =>
     );
     assert(svg !== null);
 
-    assertEquals(svg.querySelectorAll(".fig-rule__arc").length, 12);
-    assertEquals(svg.querySelectorAll(".fig-rule__arc-ink-path").length, 12);
+    assertEquals(svg.querySelectorAll(".fig-rule__arc").length, 6);
+    assertEquals(svg.querySelectorAll(".fig-rule__arc-ink-path").length, 6);
     assertEquals(svg.querySelectorAll(".fig-rule__tick").length, 3);
     assertEquals(svg.querySelectorAll(".fig-rule__frame").length, 1);
 

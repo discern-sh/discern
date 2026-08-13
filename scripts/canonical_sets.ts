@@ -1281,6 +1281,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/browser_art_delta_test.ts",
       "tests/browser_art_rule_test.ts",
       "tests/browser_art_interference_test.ts",
+      "tests/browser_art_quorum_test.ts",
     ],
     artifacts: [],
     enrolledIn: {

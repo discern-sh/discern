@@ -222,9 +222,9 @@ function arcPath(
 }
 
 /**
- * The Euclidean bisection ghosts: for each outer side, equal compass arcs
- * anchored at both endpoints cross at two points on the perpendicular
- * bisector — one outside the triangle, one inside — four short arcs per side.
+ * The external Euclidean bisection ghosts: for each outer side, equal compass
+ * arcs anchored at both endpoints cross outside the triangle. The matching
+ * inward crossings are omitted so the central subdivided triangle stays clear.
  */
 function buildBisectionArcs(): readonly RuleBisectionArc[] {
   const arcs: RuleBisectionArc[] = [];
@@ -232,24 +232,22 @@ function buildBisectionArcs(): readonly RuleBisectionArc[] {
     const reach = Math.sqrt(
       BISECTION_RADIUS ** 2 - (frame.length / 2) ** 2,
     );
-    for (const direction of [1, -1]) {
-      const crossing = {
-        x: frame.mid.x + frame.normal.x * reach * direction,
-        y: frame.mid.y + frame.normal.y * reach * direction,
-      };
-      frame.ends.forEach((anchorPoint, anchor) => {
-        arcs.push({
-          side,
-          anchor: anchor === 0 ? 0 : 1,
-          d: arcPath(anchorPoint, BISECTION_RADIUS, crossing),
-        });
+    const crossing = {
+      x: frame.mid.x + frame.normal.x * reach,
+      y: frame.mid.y + frame.normal.y * reach,
+    };
+    frame.ends.forEach((anchorPoint, anchor) => {
+      arcs.push({
+        side,
+        anchor: anchor === 0 ? 0 : 1,
+        d: arcPath(anchorPoint, BISECTION_RADIUS, crossing),
       });
-    }
+    });
   });
   return arcs;
 }
 
-/** The twelve short compass arcs — two crossing pairs per outer side. */
+/** The six short compass arcs — one external crossing pair per outer side. */
 export const RULE_BISECTION_ARCS: readonly RuleBisectionArc[] =
   buildBisectionArcs();
 
