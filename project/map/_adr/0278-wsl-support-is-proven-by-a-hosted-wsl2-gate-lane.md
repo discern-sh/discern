@@ -10,7 +10,7 @@ GitHub's hosted Windows runners have carried nested virtualization since their 2
 
 ## Decision
 
-A `wsl-gate` composite action proves the documented Windows path on every release. It provisions WSL 2 Ubuntu on a hosted `windows-2025` runner, copies only `.git` from the Windows checkout onto the WSL ext4 file system, lets git materialize the working tree there (LF, native modes — the tree a WSL user's clone gets), installs Deno with the official installer script the way a WSL user would, installs the pinned Vale, and runs the same `discern done` plus clean-tree assertion the other lanes run.
+A `wsl-gate` composite action proves the documented Windows path on every release. It provisions WSL 2 Ubuntu on a hosted `windows-2025` runner, copies only `.git` from the Windows checkout onto the WSL ext4 file system, lets git materialize the working tree there (LF, native modes — the tree a WSL user's clone gets), installs Deno with the official installer script the way a WSL user would, installs the pinned Vale, and runs the same `discern done` plus clean-tree assertion the other lanes run. The gate runs as an unprivileged user, not the distribution's root default: root ignores file-permission bits, which silently defuses the suite's permission-sabotage tests, and a real WSL user is unprivileged anyway.
 
 The lane's lifecycle mirrors the macOS gate: routine CI once the repository is public, repeated at release. Because Windows has no build row for the gate to ride — WSL users download the Linux binary — the release workflow runs it as a standalone job and the publish job requires it.
 
