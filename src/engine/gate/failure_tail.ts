@@ -1,6 +1,6 @@
 /** Package-backed human failure tail shared by done, prepare, and test. */
 
-import type { Diagnostic } from "../../shared/result.ts";
+import type { Diagnostic, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 import {
   renderGateDiagnosticOutputs,
@@ -38,10 +38,18 @@ export function renderFailureTail(out: Out, opts: {
   verb: string;
   headline: string;
   diagnostics: Diagnostic[];
+  failedStage?: FailedStage;
   gotchas: GotchasFailureTail | undefined;
   outputWithheld: boolean;
 }): void {
-  const { verb, headline, diagnostics, gotchas, outputWithheld } = opts;
+  const {
+    verb,
+    headline,
+    diagnostics,
+    failedStage,
+    gotchas,
+    outputWithheld,
+  } = opts;
   const view = presentation(out);
   if (outputWithheld) {
     const captured = renderGateDiagnosticOutputs(diagnostics, view);
@@ -63,5 +71,15 @@ export function renderFailureTail(out: Out, opts: {
     out.raw(`${findings}\n`);
   }
   out.group("failure-summary");
-  out.raw(`${renderGateFailureSummary(verb, headline, diagnostics, view)}\n`);
+  out.raw(
+    `${
+      renderGateFailureSummary(
+        verb,
+        headline,
+        diagnostics,
+        view,
+        failedStage,
+      )
+    }\n`,
+  );
 }

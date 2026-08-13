@@ -1418,6 +1418,7 @@ function printSuccessTail(
             options,
             result.data?.gate_proof,
             result.steps ?? [],
+            result.data?.landing_authority,
           )
           : renderDoneTtySummary(
             result.steps ?? [],
@@ -1425,6 +1426,7 @@ function printSuccessTail(
             options,
             result.data?.standards ?? [],
             result.data?.gate_proof,
+            result.data?.landing_authority,
           )
       }\n`,
     );
@@ -1690,6 +1692,7 @@ export async function runFinish(
       verb: "done",
       headline,
       diagnostics: result.diagnostics ?? [],
+      failedStage,
       gotchas: gotchasTail,
       // The live table quiets the runner, so the tail carries the output.
       outputWithheld: liveTable,

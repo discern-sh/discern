@@ -205,6 +205,7 @@ export async function runPrepare(
         ? "A regeneration failed."
         : "A check failed.",
       diagnostics: result.diagnostics ?? [],
+      failedStage,
       gotchas: gotchasTail,
       // The live table quiets the runner, so the tail carries the output.
       outputWithheld: liveTable,

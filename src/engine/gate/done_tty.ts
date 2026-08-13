@@ -4,6 +4,7 @@ import type { StepResult } from "../../shared/result.ts";
 import type {
   GateData,
   GateStandard,
+  LandingAuthorityData,
   Proof,
 } from "../../shared/result_schemas.ts";
 import { type GateTtyOptions, renderGateTtyTable } from "./gate_tty.ts";
@@ -17,8 +18,15 @@ export function renderDoneTtyProofPanel(
   options: GateTtyOptions,
   record?: GateProofRecord,
   steps: readonly StepResult[] = [],
+  landingAuthority?: LandingAuthorityData,
 ): string {
-  return renderGateProofReceipt(proof, record, steps, options);
+  return renderGateProofReceipt(
+    proof,
+    record,
+    steps,
+    options,
+    landingAuthority,
+  );
 }
 
 /** Render the complete green TTY tail: workflow, Standards, then Proof receipt. */
@@ -28,8 +36,15 @@ export function renderDoneTtySummary(
   options: GateTtyOptions,
   standards: readonly GateStandard[] = [],
   record?: GateProofRecord,
+  landingAuthority?: LandingAuthorityData,
 ): string {
   return `${renderGateTtyTable(steps, options, standards)}\n\n${
-    renderDoneTtyProofPanel(proof, options, record, steps)
+    renderDoneTtyProofPanel(
+      proof,
+      options,
+      record,
+      steps,
+      landingAuthority,
+    )
   }`;
 }

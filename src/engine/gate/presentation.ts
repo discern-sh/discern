@@ -21,6 +21,7 @@ import {
   renderResultSummaryCli,
   renderRetryNoticeCli,
   renderStandardMeterCli,
+  renderTriangleSectionRule,
   type ResultSummaryCliProps,
   type SequentialStepStatus,
   type StandardMeterCliProps,
@@ -34,6 +35,7 @@ import {
 import {
   type Diagnostic,
   type EnginePlan,
+  type FailedStage,
   type PlanStep,
   STEP_OUTCOMES,
   type StepDisposition,
@@ -41,11 +43,13 @@ import {
   type StepOutcome,
   type StepResult,
 } from "../../shared/result.ts";
+import type { LANDING_AUTHORITY_KINDS } from "../../shared/consent.ts";
 import type {
   GateData,
   GateProofCheckData,
   GateProofCheckStatus,
   GateStandard,
+  LandingAuthorityData,
   Proof,
   StandardMeasurementDisposition,
   StandardVerdictLabel,
@@ -112,6 +116,29 @@ export const GATE_PLAN_STEP_STATUS = {
   run: "pending",
   skip: "cancelled",
 } as const satisfies Readonly<Record<StepDisposition, SequentialStepStatus>>;
+
+/** Exhaustive Gate failure-stage labels for human result composition. */
+export const GATE_FAILED_STAGE_LABEL = {
+  fix: "Fix stage",
+  build: "Build stage",
+  check: "Check stage",
+  test: "Test stage",
+  "check/test": "Check and test stage",
+  scope_gates: "Changed-scope gates",
+  tree_drift: "Tracked-tree currency",
+  generated_drift: "Generated-artifact currency",
+  refresh_drift: "Tracked refresh currency",
+  tracked_artifacts: "Tracked-artifact ownership",
+  guidance: "Agent guidance currency",
+  skills: "Agent Skill currency",
+  skill_frontmatter: "Agent Skill metadata",
+  adr_numbers: "ADR numbering",
+  adr_index: "ADR index currency",
+  map_integrity: "Map integrity",
+  merge: "Trunk integration",
+  standards: "Standard limits",
+  write_access: "discern write access",
+} as const satisfies Readonly<Record<FailedStage, string>>;
 
 /** Exhaustive diagnostic mapping into the package severity vocabulary. */
 export const GATE_DIAGNOSTIC_SEVERITY = {
@@ -236,6 +263,26 @@ export const GATE_PROOF_CHECK_PRESENTATION = {
   },
 } as const satisfies Readonly<
   Record<GateProofCheckStatus, ReceiptPresentationState>
+>;
+
+/** Exhaustive landing-readiness mapping for the Gate receipt. */
+export const GATE_LANDING_AUTHORITY_PRESENTATION = {
+  authorized: {
+    state: "pass",
+    stateLabel: "authorized",
+  },
+  "conversation-required": {
+    state: "skip",
+    stateLabel: "conversation required",
+  },
+} as const satisfies Readonly<
+  Record<
+    (typeof LANDING_AUTHORITY_KINDS)[number],
+    {
+      readonly state: NonNullable<ReceiptCliProps["checks"]>[number]["state"];
+      readonly stateLabel: string;
+    }
+  >
 >;
 
 /** Bound one explicit viewport while retaining the package Component minimum. */
@@ -388,10 +435,10 @@ export function renderGateJobs(
   const cancelled = !failed && rows.some((row) => row.status === "cancelled");
   const lifecycle = failed
     ? { status: "validation-error" as const, message: "A Gate job failed." }
-    : completed === rows.length
-    ? { status: "submitted" as const }
     : cancelled
     ? { status: "cancelled" as const, reason: "The Gate run was cancelled." }
+    : completed === rows.length
+    ? { status: "submitted" as const }
     : { status: "active" as const };
   const reading = `${completed} / ${rows.length} steps settled`;
   const readingFits = `Gate progress  ${reading}`.length <=
@@ -471,7 +518,7 @@ export function liveGateJobs(
           status: "running",
           ...(started === undefined
             ? {}
-            : { elapsedS: Math.max(0, (timeMs - started) / 1000) }),
+            : { elapsedS: Math.max(0, Math.floor((timeMs - started) / 1000)) }),
         };
       }
       return {
@@ -567,6 +614,10 @@ export function renderGatePlan(
 ): string {
   const capabilities = componentCapabilities(options);
   const theme = componentTheme(options);
+  const title = renderTriangleSectionRule(safeLine(plan.title), {
+    width: capabilities.columns,
+    ...theme,
+  }, capabilities);
   const context = plan.details.length === 0 ? [] : [renderResultSummaryCli({
     state: "unchanged",
     fact: safeMultiline(plan.details.join("\n")),
@@ -575,6 +626,7 @@ export function renderGatePlan(
   }, capabilities)];
   if (plan.steps.length === 0) {
     return [
+      title,
       ...context,
       renderResultSummaryCli({
         state: "unchanged",
@@ -596,7 +648,7 @@ export function renderGatePlan(
     }
     return renderPlanJobRun(run, options);
   });
-  return [...context, ...rendered].join("\n\n");
+  return [title, ...context, ...rendered].join("\n\n");
 }
 
 /** Map one Standard reading to a package result-summary state. */
@@ -784,6 +836,7 @@ export function renderGateFailureSummary(
   headline: string,
   diagnostics: readonly Diagnostic[],
   options: GatePresentationOptions,
+  failedStage?: FailedStage,
 ): string {
   const capabilities = componentCapabilities(options);
   const firstCommand = diagnostics[0]?.reproduce_cmd;
@@ -791,7 +844,11 @@ export function renderGateFailureSummary(
     state: "failed",
     fact: safeLine(
       firstCommand === undefined
-        ? `discern ${verb} failed: ${headline}`
+        ? `discern ${verb} failed${
+          failedStage === undefined
+            ? ""
+            : ` (${GATE_FAILED_STAGE_LABEL[failedStage]})`
+        }: ${headline}`
         : `discern ${verb} failed · reproduce: ${firstCommand}`,
     ),
     ...componentTheme(options),
@@ -839,6 +896,7 @@ export function renderGateProofReceipt(
   record: GateProofRecord | undefined,
   steps: readonly StepResult[],
   options: GatePresentationOptions,
+  landingAuthority?: LandingAuthorityData,
 ): string {
   const capabilities = componentCapabilities(options);
   const state: ReceiptPresentationState = record === undefined
@@ -850,9 +908,17 @@ export function renderGateProofReceipt(
   })).filter(({ count }) => count > 0)
     .map(({ label, count }) => `${count} ${label}`)
     .join(", ");
-  const summary = record?.reason === undefined
+  const proofSummary = record?.reason === undefined
     ? state.summary
     : `${state.summary} ${safeMultiline(record.reason)}`;
+  const uncovered = landingAuthority?.uncovered?.length ?? 0;
+  const landingSummary = landingAuthority === undefined
+    ? ""
+    : landingAuthority.kind === "authorized"
+    ? ` Landing is authorized by ${landingAuthority.source ?? "a verified grant"}.`
+    : ` Landing still needs conversation consent; ${uncovered} changed path${
+      uncovered === 1 ? " is" : "s are"
+    } uncovered.`;
   const receipt = renderReceiptCli({
     title: "Gate proof",
     ...(state.stamp === undefined ? {} : { stamp: state.stamp }),
@@ -877,8 +943,17 @@ export function renderGateProofReceipt(
         state: state.checkState,
         stateLabel: state.stateLabel,
       },
+      ...(landingAuthority === undefined
+        ? []
+        : [{
+          label: "Landing authority",
+          ...GATE_LANDING_AUTHORITY_PRESENTATION[landingAuthority.kind],
+          value: landingAuthority.kind === "authorized"
+            ? landingAuthority.source ?? "verified grant"
+            : `${uncovered} uncovered`,
+        }]),
     ],
-    summary,
+    summary: `${proofSummary}${landingSummary}`,
     footer: "Full proof: discern status --verbose",
     ...componentTheme(options),
     maxWidth: capabilities.columns,

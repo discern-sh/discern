@@ -209,6 +209,7 @@ export async function runTestJob(
       verb: "test",
       headline: "Tests failed.",
       diagnostics: result.diagnostics ?? [],
+      failedStage,
       gotchas: gotchasTail,
       // `test` never quiets its human run — the runner narrated the output.
       outputWithheld: false,

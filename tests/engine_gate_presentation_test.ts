@@ -18,8 +18,10 @@ import {
 } from "../src/engine/gate/gate_tty.ts";
 import {
   GATE_DIAGNOSTIC_SEVERITY,
+  GATE_FAILED_STAGE_LABEL,
   GATE_JOB_STATUS_LABEL,
   GATE_JOB_STEP_STATUS,
+  GATE_LANDING_AUTHORITY_PRESENTATION,
   GATE_PLAN_STEP_STATUS,
   GATE_PROOF_CHECK_PRESENTATION,
   GATE_PROOF_RECORD_PRESENTATION,
@@ -27,6 +29,7 @@ import {
   GATE_STANDARD_MEASUREMENT_LABEL,
   GATE_STANDARD_TREND,
   renderGateDiagnostics,
+  renderGateFailureSummary,
   renderGatePlan,
   renderGateProofCheckReceipt,
   renderGateProofReceipt,
@@ -45,6 +48,7 @@ import {
 import {
   type Diagnostic,
   DIAGNOSTIC_SEVERITIES,
+  FAILED_STAGES,
   type EnginePlan,
   STEP_DISPOSITIONS,
   STEP_OUTCOMES,
@@ -59,6 +63,7 @@ import {
   STANDARD_MEASUREMENTS,
   STANDARD_VERDICTS,
 } from "../src/shared/result_schemas.ts";
+import { LANDING_AUTHORITY_KINDS } from "../src/shared/consent.ts";
 import { displayWidth } from "../src/lib/text.ts";
 import { fakeEnv } from "./helpers.ts";
 
@@ -171,11 +176,13 @@ Deno.test("Gate presentation mappings cover every closed typed state", () => {
   assertKeys(GATE_JOB_STEP_STATUS, [...STEP_OUTCOMES, "pending", "running"]);
   assertKeys(GATE_JOB_STATUS_LABEL, [...STEP_OUTCOMES, "pending", "running"]);
   assertKeys(GATE_PLAN_STEP_STATUS, STEP_DISPOSITIONS);
+  assertKeys(GATE_FAILED_STAGE_LABEL, FAILED_STAGES);
   assertKeys(GATE_DIAGNOSTIC_SEVERITY, DIAGNOSTIC_SEVERITIES);
   assertKeys(GATE_STANDARD_DIRECTION, ["up", "down"]);
   assertKeys(GATE_STANDARD_TREND, STANDARD_VERDICTS);
   assertKeys(GATE_STANDARD_MEASUREMENT_LABEL, STANDARD_MEASUREMENTS);
   assertKeys(GATE_PROOF_CHECK_PRESENTATION, GATE_PROOF_CHECK_STATUSES);
+  assertKeys(GATE_LANDING_AUTHORITY_PRESENTATION, LANDING_AUTHORITY_KINDS);
   assertKeys(
     GATE_PROOF_RECORD_PRESENTATION,
     [
@@ -188,6 +195,52 @@ Deno.test("Gate presentation mappings cover every closed typed state", () => {
       "clear_failed",
     ] satisfies GateProofRecord["status"][],
   );
+});
+
+Deno.test("Gate receipt makes landing readiness explicit without claiming consent", () => {
+  const authorized = renderGateProofReceipt(
+    PROOF,
+    { status: "recorded" },
+    PROOF_STEPS,
+    { width: 76, terminal: PLAIN },
+    { kind: "authorized", source: "effort-grant" },
+  );
+  assertStringIncludes(authorized, "Landing authority");
+  assertStringIncludes(authorized, "effort-grant");
+  assertStringIncludes(authorized, "authorized");
+
+  const conversational = renderGateProofReceipt(
+    PROOF,
+    { status: "recorded" },
+    PROOF_STEPS,
+    { width: 76, terminal: PLAIN },
+    {
+      kind: "conversation-required",
+      uncovered: [{ path: "src/gate.ts", scopes: ["engine"] }],
+    },
+  );
+  assertStringIncludes(conversational, "conversation required");
+  assertStringIncludes(conversational, "1 uncovered");
+  assertStringIncludes(
+    conversational.replaceAll(/\s+/gu, " "),
+    "still needs conversation consent",
+  );
+  assertEquals(conversational.includes("Landing is authorized"), false);
+});
+
+Deno.test("Gate presentation renders every failure stage through ResultSummary", () => {
+  for (const stage of FAILED_STAGES) {
+    const rendered = renderGateFailureSummary(
+      "done",
+      "The Gate stopped.",
+      [],
+      { width: 80, terminal: PLAIN },
+      stage,
+    );
+    assertStringIncludes(rendered, "Failed: discern done failed");
+    assertStringIncludes(rendered, GATE_FAILED_STAGE_LABEL[stage]);
+    assertStringIncludes(rendered, "The Gate stopped.");
+  }
 });
 
 Deno.test("Gate progress: a stable 25 percent frame pins Component composition", () => {
@@ -384,6 +437,27 @@ Deno.test("Gate workflow colour depth changes styling only", () => {
     assertEquals(stripAnsi(rendered), plain);
     assertWithinWidth(rendered, 80);
   }
+});
+
+Deno.test("Gate workflow TERM=dumb degrades through the shared context", () => {
+  const dumb = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({ TERM: "dumb", LANG: "en_GB.UTF-8" }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 48, rows: 24 }),
+  });
+  assertEquals(dumb.capabilities.colorDepth, "none");
+  assertEquals(dumb.capabilities.unicode, false);
+  const rendered = renderGateTtyProgressTable(
+    [GROUP],
+    new Set(["lint"]),
+    new Map<string, JobResult>(),
+    { width: 48, terminal: dumb },
+    0,
+  );
+  assertStringIncludes(rendered, "[>] lint [running]");
+  assertStringIncludes(rendered, ". format [pending]");
+  assertEquals(rendered.includes("\x1b["), false);
 });
 
 Deno.test("Gate plan preserves prerequisite and configured-job group boundaries", () => {
@@ -616,4 +690,21 @@ Deno.test("Gate completed workflow renders all result outcomes and Standards", (
   }
   assertStringIncludes(rendered, "coverage · flat");
   assertStringIncludes(rendered, "A Gate job failed.");
+});
+
+Deno.test("Gate cancellation never earns the completed lifecycle", () => {
+  const rendered = renderGateTtyTable([{
+    step: {
+      kind: "job",
+      label: verbatimStepLabel("test"),
+      disposition: "run",
+      note: "deno task test",
+      group: "Test",
+    },
+    outcome: "cancelled",
+    durationS: 1,
+  }], { width: 60, terminal: PLAIN });
+  assertStringIncludes(rendered, "The Gate run was cancelled.");
+  assertStringIncludes(rendered, "test [cancelled]");
+  assertEquals(rendered.includes("✓ Complete"), false);
 });
