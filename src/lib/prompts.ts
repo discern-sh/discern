@@ -300,6 +300,7 @@ interface AdaptedChoices<T> {
 /** Validate product identity and map it once into the package choice contract. */
 function adaptChoices<T>(
   entries: readonly SelectPromptEntry<T>[],
+  rejectNullishValues = false,
 ): AdaptedChoices<T> {
   const values: T[] = [];
   const productIds = new Set<string>();
@@ -332,6 +333,13 @@ function adaptChoices<T>(
       };
     }
 
+    if (
+      rejectNullishValues && (entry.value === null || entry.value === undefined)
+    ) {
+      throw new TypeError(
+        "A single-select prompt choice cannot use null or undefined as its value.",
+      );
+    }
     if (values.some((value) => sameValue(value, entry.value))) {
       throw new TypeError(
         `prompt choice ${index + 1} repeats a selectable value`,
@@ -427,29 +435,78 @@ function packageValidator<T>(
   };
 }
 
+interface PackagePromptSession {
+  readonly runtime: PackagePromptRuntime;
+  /** End a frame whose unexpected exception bypassed the package's finish. */
+  readonly terminateUnexpectedFrame: () => void;
+}
+
 /** Construct one package runtime after policy has allowed interaction. */
-function packageRuntime(runtime: DiscernPromptRuntime): PackagePromptRuntime {
+function packageRuntime(runtime: DiscernPromptRuntime): PackagePromptSession {
+  let target: TerminalIO;
+  let theme: PackagePromptRuntime["theme"];
   if (runtime.io !== undefined) {
-    return { io: withPromptBoundary(runtime.io) };
+    target = runtime.io;
+  } else {
+    const terminal = terminalContext();
+    target = new DenoTerminalIO({
+      environment: terminal.environment,
+    });
+    theme = terminal.themeVariant;
   }
-  const terminal = terminalContext();
-  const io = new DenoTerminalIO({
-    environment: terminal.environment,
-  });
+
+  const boundary = withPromptBoundary(target);
+  let wrote = false;
+  const io: TerminalIO = {
+    isInteractive: () => boundary.isInteractive(),
+    capabilities: () => boundary.capabilities(),
+    size: () => boundary.size(),
+    read: () => boundary.read(),
+    setRawMode: (enabled) => boundary.setRawMode(enabled),
+    write: (value): void => {
+      boundary.write(value);
+      if (value.length > 0) wrote = true;
+    },
+  };
   return {
-    io: withPromptBoundary(io),
-    theme: terminal.themeVariant,
+    runtime: {
+      io,
+      ...(theme === undefined ? {} : { theme }),
+    },
+    terminateUnexpectedFrame: (): void => {
+      if (!wrote) return;
+      try {
+        // The public driver restores raw mode and the cursor on every exception,
+        // but only its submitted/cancelled paths finish the painter. This
+        // semantic newline leaves an unexpected-error frame complete without
+        // entering the painter's replaceable-frame cursor accounting.
+        target.write("\n");
+      } catch {
+        // The original prompt fault remains authoritative over cleanup failure.
+      }
+    },
   };
 }
 
-/** Normalize only the package's public Ctrl+C/EOF cancellation signal. */
-async function productPrompt<T>(operation: () => Promise<T>): Promise<T> {
+type PackagePromptOperation<Options, Value> = (
+  options: Options,
+  runtime: PackagePromptRuntime,
+) => Promise<Value>;
+
+/** Run every public prompt through one cancellation and restoration boundary. */
+async function productPrompt<Options, Value>(
+  operation: PackagePromptOperation<Options, Value>,
+  options: Options,
+  runtime: DiscernPromptRuntime,
+): Promise<Value> {
+  const session = packageRuntime(runtime);
   try {
-    return await operation();
+    return await operation(options, session.runtime);
   } catch (error) {
     if (error instanceof PackagePromptCancelled) {
       throw new PromptCancellation();
     }
+    session.terminateUnexpectedFrame();
     throw error;
   }
 }
@@ -465,7 +522,7 @@ export async function selectPrompt<T>(
       "A search prompt cannot restore an initial selection with the published interaction API.",
     );
   }
-  const choices = adaptChoices(options.options);
+  const choices = adaptChoices(options.options, true);
   const validate = packageValidator(options.validate);
   const required = typeof options.required === "string"
     ? terminalLine(options.required)
@@ -481,35 +538,33 @@ export async function selectPrompt<T>(
     }),
     ...(options.maxRows === undefined ? {} : { visibleCount: options.maxRows }),
   };
-  const value = await productPrompt(async () =>
-    options.search === true
-      ? await packagePromptSearch({
-        label: shared.label,
-        search: (query) => filterChoices(choices.entries, query),
-        ...(shared.hint === undefined ? {} : { hint: shared.hint }),
-        ...(shared.required === undefined ? {} : { required: shared.required }),
-        ...(shared.validate === undefined ? {} : { validate: shared.validate }),
-        ...(shared.visibleCount === undefined
-          ? {}
-          : { visibleCount: shared.visibleCount }),
-        ...(options.searchLabel === undefined
-          ? {}
-          : { placeholder: terminalLine(options.searchLabel) }),
-      }, packageRuntime(runtime))
-      : await packagePromptSelect({
-        ...shared,
-        ...((): { readonly initialId?: string } => {
-          if (options.default === undefined) return {};
-          const initialId = choices.idFor(options.default);
-          if (initialId === undefined) {
-            throw new TypeError(
-              "A select default does not name a prompt choice.",
-            );
-          }
-          return { initialId };
-        })(),
-      }, packageRuntime(runtime))
-  );
+  const value = options.search === true
+    ? await productPrompt(packagePromptSearch<T>, {
+      label: shared.label,
+      search: (query) => filterChoices(choices.entries, query),
+      ...(shared.hint === undefined ? {} : { hint: shared.hint }),
+      ...(shared.required === undefined ? {} : { required: shared.required }),
+      ...(shared.validate === undefined ? {} : { validate: shared.validate }),
+      ...(shared.visibleCount === undefined
+        ? {}
+        : { visibleCount: shared.visibleCount }),
+      ...(options.searchLabel === undefined
+        ? {}
+        : { placeholder: terminalLine(options.searchLabel) }),
+    }, runtime)
+    : await productPrompt(packagePromptSelect<T>, {
+      ...shared,
+      ...((): { readonly initialId?: string } => {
+        if (options.default === undefined) return {};
+        const initialId = choices.idFor(options.default);
+        if (initialId === undefined) {
+          throw new TypeError(
+            "A select default does not name a prompt choice.",
+          );
+        }
+        return { initialId };
+      })(),
+    }, runtime);
   if (value === undefined) {
     throw new PromptCancellation();
   }
@@ -551,20 +606,14 @@ export async function checkboxPrompt<T>(
     }
     return await callerValidator?.(values);
   };
-  const values = await productPrompt(() =>
-    packagePromptMultiselect({
-      label: terminalLine(options.message),
-      choices: choices.entries,
-      initialIds: [...initialIds],
-      ...(options.hint === undefined
-        ? {}
-        : { hint: terminalLine(options.hint) }),
-      validate,
-      ...(options.maxRows === undefined
-        ? {}
-        : { visibleCount: options.maxRows }),
-    }, packageRuntime(runtime))
-  );
+  const values = await productPrompt(packagePromptMultiselect<T>, {
+    label: terminalLine(options.message),
+    choices: choices.entries,
+    initialIds: [...initialIds],
+    ...(options.hint === undefined ? {} : { hint: terminalLine(options.hint) }),
+    validate,
+    ...(options.maxRows === undefined ? {} : { visibleCount: options.maxRows }),
+  }, runtime);
   return [...values];
 }
 
@@ -579,22 +628,20 @@ export async function inputPrompt(
   const required = typeof settings.required === "string"
     ? terminalLine(settings.required)
     : settings.required;
-  return await productPrompt(() =>
-    packagePromptText({
-      label: terminalLine(settings.message),
-      ...(settings.default === undefined
-        ? {}
-        : { initialValue: settings.default }),
-      ...(settings.hint === undefined
-        ? {}
-        : { hint: terminalLine(settings.hint) }),
-      ...(settings.placeholder === undefined
-        ? {}
-        : { placeholder: terminalLine(settings.placeholder) }),
-      ...(required === undefined ? {} : { required }),
-      ...(validate === undefined ? {} : { validate }),
-    }, packageRuntime(runtime))
-  );
+  return await productPrompt(packagePromptText, {
+    label: terminalLine(settings.message),
+    ...(settings.default === undefined
+      ? {}
+      : { initialValue: settings.default }),
+    ...(settings.hint === undefined
+      ? {}
+      : { hint: terminalLine(settings.hint) }),
+    ...(settings.placeholder === undefined
+      ? {}
+      : { placeholder: terminalLine(settings.placeholder) }),
+    ...(required === undefined ? {} : { required }),
+    ...(validate === undefined ? {} : { validate }),
+  }, runtime);
 }
 
 /** Guard policy before asking a package-backed yes-or-no question. */
@@ -604,14 +651,10 @@ export async function confirmationPrompt(
   runtime: DiscernPromptRuntime = {},
 ): Promise<boolean> {
   requireInteraction("this confirmation", runtime);
-  return await productPrompt(() =>
-    packagePromptConfirm({
-      label: terminalLine(message),
-      initialValue: defaultTo,
-    }, {
-      ...packageRuntime(runtime),
-    })
-  );
+  return await productPrompt(packagePromptConfirm, {
+    label: terminalLine(message),
+    initialValue: defaultTo,
+  }, runtime);
 }
 
 /**

@@ -47,13 +47,39 @@ function directPromptFindings(source: string): BoundaryFinding[] {
   );
   for (const imported of source.matchAll(named)) {
     for (const part of imported[1]?.split(",") ?? []) {
-      const importedName = part.trim().replace(/^type\s+/, "")
-        .split(/\s+as\s+/)[0]?.trim() ?? "";
+      const names = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/);
+      const importedName = names[0]?.trim() ?? "";
       if (/^prompt[A-Z]/.test(importedName)) {
         findings.push({
           rule: "direct-package-prompt-import",
           offset: imported.index ?? 0,
         });
+        const localName = names.at(-1)?.trim() ?? importedName;
+        const escaped = localName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const directCall = new RegExp(
+          `\\b${escaped}(?:<[^>]+>)?\\s*\\(`,
+          "g",
+        );
+        for (const call of source.matchAll(directCall)) {
+          findings.push({
+            rule: "direct-package-prompt-call",
+            offset: call.index ?? 0,
+          });
+        }
+        const identifier = new RegExp(`\\b${escaped}\\b`, "g");
+        const importStart = imported.index ?? 0;
+        const importEnd = importStart + imported[0].length;
+        for (const use of source.matchAll(identifier)) {
+          const offset = use.index ?? 0;
+          if (offset >= importStart && offset < importEnd) continue;
+          const prefix = source.slice(0, offset);
+          if (!/(?:^|[^\w$.])productPrompt\s*\(\s*$/u.test(prefix)) {
+            findings.push({
+              rule: "unmediated-package-prompt-use",
+              offset,
+            });
+          }
+        }
       }
     }
   }
@@ -181,6 +207,9 @@ Deno.test("human-output boundary detector rejects unrelated future siblings", ()
     `import { promptSelect as orbit, DenoTerminalIO } from "${INTERACTIVE_MODULE}";`,
     `import * as interactive from "${INTERACTIVE_MODULE}";`,
     'orbit({ label: "Fresh sibling", choices: [] });',
+    'relay(orbit, { label: "Helper bypass", choices: [] });',
+    'notproductPrompt(orbit, { label: "Near miss", choices: [] });',
+    'adapter.productPrompt(orbit, { label: "Qualified near miss", choices: [] });',
     'interactive.promptFuture({ label: "Future sibling" });',
     `const future = await import("${INTERACTIVE_MODULE}"); future.promptFuture({});`,
   ].join("\n");
@@ -189,9 +218,21 @@ Deno.test("human-output boundary detector rejects unrelated future siblings", ()
     [
       "legacy-cliffy-prompt-import",
       "direct-package-prompt-import",
+      "direct-package-prompt-call",
+      "unmediated-package-prompt-use",
+      "unmediated-package-prompt-use",
+      "unmediated-package-prompt-use",
+      "unmediated-package-prompt-use",
       "direct-package-namespace-prompt",
       "dynamic-interactive-package-import",
     ],
+  );
+  assertEquals(
+    directPromptFindings(
+      `import { promptSelect as orbit } from "${INTERACTIVE_MODULE}";\n` +
+        "productPrompt(orbit, options, runtime);",
+    ).map((finding) => finding.rule),
+    ["direct-package-prompt-import"],
   );
   assertEquals(
     directPromptFindings(
@@ -349,8 +390,8 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
       );
     }
     const promptFindings = directPromptFindings(source).filter((finding) =>
-      rel !== "src/lib/prompts.ts" ||
-      finding.rule === "legacy-cliffy-prompt-import"
+      !(rel === "src/lib/prompts.ts" &&
+        finding.rule === "direct-package-prompt-import")
     );
     for (const finding of promptFindings) {
       offenders.push(

@@ -340,6 +340,31 @@ Deno.test("choice identity rejects duplicate values, ids, and implicit object id
   }
 });
 
+Deno.test("single-select rejects nullish values that collide with no-selection", async () => {
+  for (const value of [null, undefined]) {
+    const io = new ScriptedTerminal(["\r"]);
+    await assertRejects(
+      () =>
+        selectPrompt<unknown>({
+          message: "Choose",
+          options: [{ id: "nullish", name: "Nullish", value }],
+        }, scriptedRuntime(io)),
+      TypeError,
+      "cannot use null or undefined",
+    );
+    assertEquals(io.rawTransitions, []);
+  }
+
+  const multiple = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await checkboxPrompt<null>({
+      message: "Choose",
+      options: [{ id: "null", name: "Null", value: null, checked: true }],
+    }, scriptedRuntime(multiple)),
+    [null],
+  );
+});
+
 Deno.test("search preserves matching groups, order, identity, and returned value", async () => {
   const io = new ScriptedTerminal(["Beta", "\x1b[B", "\r"]);
   const value = await selectPrompt({
@@ -524,6 +549,28 @@ Deno.test("text validation stays distinct from normalized Ctrl-C and EOF cancell
     assertEquals(cancelled.rawTransitions, [true, false]);
     assertEquals(cancelled.writes[0], "\n");
   }
+});
+
+Deno.test("an unexpected in-frame error restores and terminates the prompt terminal", async () => {
+  const io = new ScriptedTerminal(["\r"]);
+  const failure = new Error("synthetic validator fault");
+  await assertRejects(
+    () =>
+      inputPrompt({
+        message: "Value",
+        validate: () => {
+          throw failure;
+        },
+      }, scriptedRuntime(io)),
+    Error,
+    failure.message,
+  );
+  assertEquals(io.rawTransitions, [true, false]);
+  assertEquals(
+    io.writes.at(-1),
+    "\n",
+    "the restored cursor must be followed by a semantic frame terminator",
+  );
 });
 
 // ---- promptAllowed: no interactive prompt is reachable under --json (B53) ---
