@@ -24,6 +24,7 @@ import {
   animateDiscernStamp,
   type DiscernArtAnimation,
 } from "./animation.ts";
+import type { TerminalCapabilities } from "discern-design-system/cli";
 
 export type { DiscernArtAnimation } from "./animation.ts";
 
@@ -33,8 +34,10 @@ export type DiscernArtCharset = "ascii" | "unicode";
 /** One discoverable renderer and the character repertoire its output uses. */
 export interface DiscernArtVariant {
   readonly charset: DiscernArtCharset;
-  readonly render: () => string;
-  readonly animate: () => DiscernArtAnimation;
+  readonly render: (capabilities?: TerminalCapabilities) => string;
+  readonly animate: (
+    capabilities?: TerminalCapabilities,
+  ) => DiscernArtAnimation;
 }
 
 /** Join authored rows without adding the trailing newline the caller owns. */

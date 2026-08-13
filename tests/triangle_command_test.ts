@@ -13,7 +13,7 @@ import {
   triangleResult,
 } from "../src/commands/triangle.ts";
 import { DISCERN_MARK, DISCERN_WORDMARK } from "../src/shared/brand.ts";
-import { DISCERN_TRIANGLE_MOTIFS } from "../art/terminal/triangle.ts";
+import { DISCERN_PRODUCT_TRIANGLE_ART } from "../art/terminal/triangle.ts";
 import type { TerminalAnimationEnvironment } from "../src/lib/terminal_animation.ts";
 
 const CAPABLE_TERMINAL: TerminalAnimationEnvironment = {
@@ -22,6 +22,7 @@ const CAPABLE_TERMINAL: TerminalAnimationEnvironment = {
   term: "xterm-256color",
   terminalColumns: 80,
   terminalRows: 24,
+  capabilities: { colorDepth: "none", columns: 80, unicode: true },
 };
 
 Deno.test("triangleResult carries the mark and the composed terminal art", () => {
@@ -59,7 +60,10 @@ Deno.test("triangle planning keeps motion off non-interactive surfaces", () => {
     const plan = planTriangleCommand(environment, { plain: false });
     assertEquals(plan.mode, "static");
     assert(plan.mode === "static");
-    assertEquals(plan.output, `${renderTriangleArt()}\n`);
+    assertEquals(
+      plan.output,
+      `${renderTriangleArt(environment.capabilities)}\n`,
+    );
   }
   const plainPlan = planTriangleCommand(CAPABLE_TERMINAL, { plain: true });
   assertEquals(plainPlan.mode, "static");
@@ -68,10 +72,15 @@ Deno.test("triangle planning keeps motion off non-interactive surfaces", () => {
 Deno.test("the animated reveal reuses the gasket motif and settles on the art", () => {
   const plan = planTriangleCommand(CAPABLE_TERMINAL, { plain: false });
   assert(plan.mode === "animate");
-  assertEquals(plan.playback.finalTranscript, renderTriangleArt());
+  assertEquals(
+    plan.playback.finalTranscript,
+    renderTriangleArt(CAPABLE_TERMINAL.capabilities),
+  );
   assertEquals(plan.playback.scenes.length, 1);
 
-  const motif = DISCERN_TRIANGLE_MOTIFS.gasket.animate();
+  const motif = DISCERN_PRODUCT_TRIANGLE_ART.gasket.animate(
+    CAPABLE_TERMINAL.capabilities,
+  );
   const scene = plan.playback.scenes[0];
   assert(scene !== undefined);
   assertEquals(scene.frameMs, motif.frameMs);

@@ -1230,13 +1230,13 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   },
   {
     id: "terminal-triangle-motifs",
-    title: "Terminal triangle motifs",
+    title: "Package triangle motifs",
     what:
       "The reusable triangle treatments: every pure static frame carries one semantic animation timeline and enters both maintainer gallery projections.",
     source: {
       kind: "module",
       module: "art/terminal/triangle.ts",
-      exportName: "DISCERN_TRIANGLE_MOTIFS",
+      exportName: "DISCERN_PACKAGE_TRIANGLE_MOTIFS",
     },
     guards: [
       "tests/triangle_art_test.ts",
@@ -1255,7 +1255,37 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     members: async () =>
       Object.keys(
         (await import("../art/terminal/triangle.ts"))
-          .DISCERN_TRIANGLE_MOTIFS,
+          .DISCERN_PACKAGE_TRIANGLE_MOTIFS,
+      ),
+  },
+  {
+    id: "terminal-product-triangle-art",
+    title: "Product triangle art",
+    what:
+      "Discern-specific triangle compositions: every static figure derives its glyphs and order from the package and carries one matching animation timeline.",
+    source: {
+      kind: "module",
+      module: "art/terminal/triangle.ts",
+      exportName: "DISCERN_PRODUCT_TRIANGLE_ART",
+    },
+    guards: [
+      "tests/triangle_art_test.ts",
+      "tests/art_gallery_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent: "the terminal-art gallery owns these product composition names",
+      },
+      featureCanon: {
+        absent:
+          "the existing terminal surfaces consume these product compositions and maintainer previews",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../art/terminal/triangle.ts"))
+          .DISCERN_PRODUCT_TRIANGLE_ART,
       ),
   },
   {

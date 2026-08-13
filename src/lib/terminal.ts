@@ -167,7 +167,14 @@ function environmentSnapshot(
 ): Record<string, string | undefined> {
   const snapshot: Record<string, string | undefined> = {};
   for (const name of keys) {
-    const value = env.get(name);
+    let value: string | undefined;
+    try {
+      value = env.get(name);
+    } catch {
+      // Sandboxed commands may grant only a subset of terminal variables. An
+      // unavailable fact degrades exactly like an unset one at this boundary.
+      value = undefined;
+    }
     if (value !== undefined && (name !== "NO_COLOR" || value !== "")) {
       snapshot[name] = value;
     }

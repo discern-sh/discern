@@ -10,7 +10,12 @@ import {
   type TerminalPlaybackPlan,
   type TerminalPlaybackPort,
 } from "./terminal_playback.ts";
-import { terminalSize } from "./text.ts";
+import type { TerminalCapabilities } from "discern-design-system/cli";
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalSize,
+} from "./terminal.ts";
 import {
   INTERRUPT_SIGNALS,
   reraiseInterrupt,
@@ -23,6 +28,7 @@ export interface TerminalAnimationEnvironment {
   readonly term: string | undefined;
   readonly terminalColumns: number;
   readonly terminalRows: number;
+  readonly capabilities: TerminalCapabilities;
 }
 
 /** Interpret the conventional CI marker used by discern's static TTY policy. */
@@ -40,25 +46,23 @@ export function terminalAnimationAllowed(
     environment.term?.trim().toLowerCase() !== "dumb";
 }
 
-/** Read one narrowly permitted environment value without making imports effectful. */
-function readEnvironment(name: string): string | undefined {
-  try {
-    return Deno.env.get(name);
-  } catch {
-    return undefined;
-  }
+/** Project one shared process context into the animation planner's pure facts. */
+export function terminalAnimationEnvironment(
+  terminal: TerminalContext,
+): TerminalAnimationEnvironment {
+  return {
+    stdoutIsTerminal: terminal.stdoutIsTerminal,
+    ci: terminal.environment.CI,
+    term: terminal.environment.TERM,
+    terminalColumns: terminal.size.columns,
+    terminalRows: terminal.size.rows,
+    capabilities: terminal.capabilities,
+  };
 }
 
-/** Observe the live terminal inputs after a command's static code has loaded. */
+/** Observe the process once through Discern's sole terminal adapter. */
 export function observeTerminalAnimationEnvironment(): TerminalAnimationEnvironment {
-  const dimensions = terminalSize();
-  return {
-    stdoutIsTerminal: Deno.stdout.isTerminal(),
-    ci: readEnvironment("CI"),
-    term: readEnvironment("TERM"),
-    terminalColumns: dimensions.columns,
-    terminalRows: dimensions.rows,
-  };
+  return terminalAnimationEnvironment(terminalContext());
 }
 
 /** Wait for one frame and reject promptly when playback is interrupted. */

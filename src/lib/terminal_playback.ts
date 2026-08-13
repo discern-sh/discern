@@ -4,6 +4,11 @@
  * and the executor alone owns cursor state, redraws, and waits.
  */
 
+import {
+  InlineFramePainter,
+  type TerminalIO,
+} from "discern-design-system/cli/interactive";
+import type { TerminalCapabilities } from "discern-design-system/cli";
 import { displayWidth, type TerminalSize } from "./text.ts";
 
 const MAX_FRAME_MS = 1_000;
@@ -181,29 +186,11 @@ function hasPlaybackRoom(
     Number.isInteger(size.rows) && size.rows > maxHeight;
 }
 
-/** Return the cursor sequence that replaces the currently visible viewport. */
-function clearViewport(lines: number): string {
-  return `\x1b[${lines}A\r\x1b[J`;
-}
-
 /** Turn an aborted signal into a stable Error even when its reason is absent. */
 function abortFailure(signal: AbortSignal): Error {
   return signal.reason instanceof Error
     ? signal.reason
     : new DOMException("Terminal playback was interrupted", "AbortError");
-}
-
-/** Attempt a cleanup write without letting it replace an earlier failure. */
-function captureWriteFailure(
-  write: (value: string) => void,
-  value: string,
-): CapturedFailure | undefined {
-  try {
-    write(value);
-    return undefined;
-  } catch (error) {
-    return { error };
-  }
 }
 
 /** Throw a captured non-Error value through a stable Error boundary. */
@@ -230,13 +217,50 @@ function playbackStillFits(
   }
 }
 
-/** Print the stable transcript below a viewport whose physical rows are unknown. */
+/**
+ * Adapt Discern's injectable playback port to the package TerminalIO contract.
+ * Playback owns no input or raw-mode lifecycle; InlineFramePainter uses only
+ * `write` and `size`, while the remaining methods stay inert and deterministic.
+ */
+class PlaybackTerminalIO implements TerminalIO {
+  constructor(private readonly port: TerminalPlaybackPort) {}
+
+  isInteractive(): boolean {
+    return true;
+  }
+
+  capabilities(): TerminalCapabilities {
+    return {
+      colorDepth: "none",
+      columns: this.size().columns,
+      unicode: true,
+    };
+  }
+
+  size(): TerminalSize {
+    return this.port.terminalSize();
+  }
+
+  read(): Promise<Uint8Array | null> {
+    return Promise.resolve(null);
+  }
+
+  setRawMode(_enabled: boolean): void {}
+
+  write(value: string): void {
+    this.port.write(value);
+  }
+}
+
+/** Print the stable transcript below the current package-owned inline frame. */
 function settleBelowViewport(
   plan: TerminalPlaybackPlan,
   port: TerminalPlaybackPort,
-  hasLiveViewport: boolean,
+  painter: InlineFramePainter,
+  paint: (effect: () => void) => void,
 ): void {
-  port.write(`${hasLiveViewport ? "\n" : ""}${plan.finalTranscript}\n`);
+  paint(() => painter.finish());
+  port.write(`${plan.finalTranscript}\n`);
 }
 
 /**
@@ -256,9 +280,21 @@ export async function applyTerminalPlayback(
     throw abortFailure(signal);
   }
 
-  let visibleLines = 0;
+  const painter = new InlineFramePainter(new PlaybackTerminalIO(port));
   let failure: CapturedFailure | undefined;
+  let painterWriteFailed = false;
   let settled = false;
+  const paint = (effect: () => void): void => {
+    try {
+      effect();
+    } catch (error) {
+      // The package emits a replacement prefix and frame as one write. Once a
+      // write fails, its physical cursor position is unknowable; never attempt
+      // a second cursor-up cleanup that could move above the reserved region.
+      painterWriteFailed = true;
+      throw error;
+    }
+  };
   try {
     port.write("\n");
     scenes: for (const scene of plan.scenes) {
@@ -267,19 +303,11 @@ export async function applyTerminalPlayback(
           throw abortFailure(signal);
         }
         if (!playbackStillFits(plan, port)) {
-          const hadLiveViewport = visibleLines > 0;
-          visibleLines = 0;
-          settleBelowViewport(plan, port, hadLiveViewport);
+          settleBelowViewport(plan, port, painter, paint);
           settled = true;
           break scenes;
         }
-        if (visibleLines > 0) {
-          const linesToClear = visibleLines;
-          visibleLines = 0;
-          port.write(clearViewport(linesToClear));
-        }
-        port.write(`${viewport}\n`);
-        visibleLines = viewportHeight(viewport);
+        paint(() => painter.replace(viewport));
         if (frameIndex < scene.viewports.length - 1) {
           await port.wait(scene.frameMs, signal);
         }
@@ -293,14 +321,10 @@ export async function applyTerminalPlayback(
     }
     if (!settled) {
       if (!playbackStillFits(plan, port)) {
-        const hadLiveViewport = visibleLines > 0;
-        visibleLines = 0;
-        settleBelowViewport(plan, port, hadLiveViewport);
+        settleBelowViewport(plan, port, painter, paint);
         settled = true;
-      } else if (visibleLines > 0) {
-        const linesToClear = visibleLines;
-        visibleLines = 0;
-        port.write(clearViewport(linesToClear));
+      } else {
+        paint(() => painter.clear());
       }
     }
     if (!settled) {
@@ -308,10 +332,15 @@ export async function applyTerminalPlayback(
     }
   } catch (error) {
     failure = { error };
-    if (visibleLines > 0 && playbackStillFits(plan, port)) {
-      const linesToClear = visibleLines;
-      visibleLines = 0;
-      captureWriteFailure(port.write, clearViewport(linesToClear));
+    if (
+      !painterWriteFailed && painter.currentFrame !== "" &&
+      playbackStillFits(plan, port)
+    ) {
+      try {
+        painter.clear();
+      } catch {
+        // Cleanup is best effort and never replaces the original failure.
+      }
     }
   }
 

@@ -15,7 +15,10 @@ import {
   planArtCommand,
   renderArtGallery,
 } from "../scripts/art.ts";
-import { DISCERN_TRIANGLE_MOTIFS } from "../art/terminal/triangle.ts";
+import {
+  DISCERN_PACKAGE_TRIANGLE_MOTIFS,
+  DISCERN_PRODUCT_TRIANGLE_ART,
+} from "../art/terminal/triangle.ts";
 import { DISCERN_ART_VARIANTS } from "../art/terminal/brand.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
@@ -26,10 +29,17 @@ const ANIMATED_ENVIRONMENT: ArtCommandEnvironment = {
   term: "xterm-256color",
   terminalColumns: 80,
   terminalRows: 24,
+  capabilities: { colorDepth: "none", columns: 80, unicode: true },
+};
+const PIPED_CAPABILITIES = {
+  colorDepth: "none" as const,
+  columns: 80,
+  unicode: false,
 };
 const EXPECTED_ENTRIES = [
   ...Object.entries(DISCERN_ART_VARIANTS),
-  ...Object.entries(DISCERN_TRIANGLE_MOTIFS),
+  ...Object.entries(DISCERN_PACKAGE_TRIANGLE_MOTIFS),
+  ...Object.entries(DISCERN_PRODUCT_TRIANGLE_ART),
 ];
 
 Deno.test("the art gallery enrolls both registries in stable order", () => {
@@ -154,7 +164,10 @@ Deno.test("animated command playback settles on the exact static gallery", async
   assertEquals(code, 0);
   assertEquals(stderr, []);
   assertEquals(stdout[0], "\n");
-  assertEquals(stdout.at(-1), `${renderArtGallery()}\n`);
+  assertEquals(
+    stdout.at(-1),
+    `${renderArtGallery(ANIMATED_ENVIRONMENT.capabilities)}\n`,
+  );
   assert(!stdout.some((value) => value.includes("\x1b[?")));
   assert(waits.length > artAnimationScenes().length);
 });
@@ -169,7 +182,10 @@ Deno.test("deno task art prints the complete plain-text gallery", async () => {
   const stderr = DECODER.decode(result.stderr);
 
   assertEquals(result.code, 0, stderr);
-  assertEquals(DECODER.decode(result.stdout), `${renderArtGallery()}\n`);
+  assertEquals(
+    DECODER.decode(result.stdout),
+    `${renderArtGallery(PIPED_CAPABILITIES)}\n`,
+  );
 });
 
 Deno.test("piped deno task art --animate falls back to the static gallery", async () => {
@@ -183,6 +199,6 @@ Deno.test("piped deno task art --animate falls back to the static gallery", asyn
   const stdout = DECODER.decode(result.stdout);
 
   assertEquals(result.code, 0, stderr);
-  assertEquals(stdout, `${renderArtGallery()}\n`);
+  assertEquals(stdout, `${renderArtGallery(PIPED_CAPABILITIES)}\n`);
   assert(!stdout.includes("\x1b"));
 });

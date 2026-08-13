@@ -11,7 +11,9 @@ import { Logger } from "../lib/log.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { TriangleData } from "../shared/result_schemas.ts";
 import { DISCERN_MARK, DISCERN_WORDMARK } from "../shared/brand.ts";
-import { DISCERN_TRIANGLE_MOTIFS } from "../../art/terminal/triangle.ts";
+import { DISCERN_PRODUCT_TRIANGLE_ART } from "../../art/terminal/triangle.ts";
+import { TRIANGLE_GALLERY_CAPABILITIES } from "../../art/terminal/triangle.ts";
+import type { TerminalCapabilities } from "discern-design-system/cli";
 import {
   planTerminalPlayback,
   type TerminalPlaybackPlan,
@@ -39,7 +41,7 @@ export type TriangleCommandPlan =
   | { readonly mode: "animate"; readonly playback: TerminalPlaybackPlan };
 
 /** The one figure this surface draws, owned by the curated motif registry. */
-const FIGURE = DISCERN_TRIANGLE_MOTIFS.gasket;
+const FIGURE = DISCERN_PRODUCT_TRIANGLE_ART.gasket;
 
 /** Center a line under the figure's base without adding trailing padding. */
 function centerUnderFigure(line: string): string {
@@ -51,8 +53,12 @@ function centerUnderFigure(line: string): string {
 }
 
 /** Compose the resting art: the figure signed with the wordmark at its base. */
-export function renderTriangleArt(): string {
-  return `${FIGURE.render()}\n\n${centerUnderFigure(DISCERN_WORDMARK)}`;
+export function renderTriangleArt(
+  capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
+): string {
+  return `${FIGURE.render(capabilities)}\n\n${
+    centerUnderFigure(DISCERN_WORDMARK)
+  }`;
 }
 
 /** Build the `triangle` result envelope (the core `--json` serializes). */
@@ -75,12 +81,12 @@ export function planTriangleCommand(
   environment: TerminalAnimationEnvironment,
   options: { readonly plain: boolean },
 ): TriangleCommandPlan {
-  const art = renderTriangleArt();
+  const art = renderTriangleArt(environment.capabilities);
   const staticPlan = { mode: "static", output: `${art}\n` } as const;
   if (options.plain || !terminalAnimationAllowed(environment)) {
     return staticPlan;
   }
-  const animation = FIGURE.animate();
+  const animation = FIGURE.animate(environment.capabilities);
   const playback = planTerminalPlayback(
     [{
       label: centerUnderFigure(DISCERN_WORDMARK),
