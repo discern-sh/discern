@@ -267,6 +267,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0275 — Validation workflows use stream-bounded change cycles](0275-validation-workflows-use-stream-bounded-change-cycles.md)
 - [0276 — Patterns recommendations require project-local decision evidence](0276-patterns-recommendations-require-project-local-decision-evidence.md)
 - [0277 — Patterns investigations preserve source findings](0277-patterns-investigations-preserve-source-findings.md)
+- [0278 — WSL support is proven by a hosted WSL 2 gate lane that publication requires](0278-wsl-support-is-proven-by-a-hosted-wsl2-gate-lane.md)
 
 <!-- END GENERATED: current ADR records -->
 
