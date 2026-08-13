@@ -6,33 +6,27 @@
  * `.group()` groups OPTIONS, not commands, and the built-in help generator
  * renders every subcommand in one flat, registration-ordered "Commands:" block.
  * That generator is not exported, so it cannot be subclassed to teach it command
- * groups. So we let Cliffy render its canonical help — header, usage, options,
- * examples, all byte-identical to every subcommand's own `--help` — then rewrite
- * just its "Commands:" section into named, ordered groups read from
- * {@link COMMAND_GROUPS}. Cliffy remains the command-fact/parser authority; the
- * published design-system CLI owns text measurement, wrapping, Tokens, and the
- * visible grouped treatment. (ADR 0066.)
+ * groups. Cliffy remains the command-fact/parser authority through its public
+ * getters; the published design-system CLI owns text measurement, wrapping,
+ * Tokens, and the complete visible root-help treatment. (ADR 0066.)
  */
 
-import type { Command } from "@cliffy/command";
+import type { Command, Example, Option } from "@cliffy/command";
 import { renderSectionCli } from "discern-design-system/cli";
 import type { EnvReader } from "./shared/env.ts";
-import {
-  displayWidth,
-  padDisplayEnd,
-  stripAnsi,
-  wrapText,
-} from "./lib/text.ts";
+import { displayWidth, padDisplayEnd, wrapText } from "./lib/text.ts";
 import {
   productionTerminalContext,
   type TerminalContext,
   terminalContext,
   terminalContextWithColor,
+  terminalLine,
+  terminalMultiline,
 } from "./lib/terminal.ts";
 
 /** Ambient inputs that callers may pin for deterministic help rendering. */
 export interface OperatorHelpOptions {
-  /** Lay out the grouped command list to this width, bypassing the terminal. */
+  /** Lay out the whole root-help artifact to this width. */
   readonly width?: number;
   /** Environment source used by terminal-width fallback (chiefly `$COLUMNS`). */
   readonly env?: EnvReader;
@@ -129,17 +123,6 @@ export function groupedCommandNames(): Set<string> {
 }
 
 /**
- * A column-0 line carrying `${label}:` — a help section heading. Cliffy renders
- * a heading as `bold("Label:")`, so under colour the line opens with an escape
- * (not a space) and the literal `Label:` survives contiguously inside it; under
- * no-colour it is the bare word. Content rows are always indented, so the
- * not-indented test separates a heading from a row that merely mentions the word.
- */
-function isHeading(line: string, label: string): boolean {
-  return !line.startsWith(" ") && line.includes(`${label}:`);
-}
-
-/**
  * Resolve one presentation snapshot for the whole help render. An injected width
  * alters only the immutable snapshot used here; it never re-observes the process.
  */
@@ -169,6 +152,165 @@ function helpPresentation(options: OperatorHelpOptions): {
   };
 }
 
+/** Paint one root-help section heading through package Token roles. */
+function helpHeading(text: string, terminal: TerminalContext): string {
+  return terminal.tone(text, "accent", "strong");
+}
+
+/**
+ * Wrap one fact within an indented help row. Long tokens break only at
+ * package-owned grapheme boundaries, so every emitted line remains bounded.
+ */
+function wrapHelpFact(
+  text: string,
+  width: number,
+  indent: string,
+): string[] {
+  const contentWidth = Math.max(1, width - displayWidth(indent));
+  return wrapText(text, contentWidth, "", { breakLongWords: true })
+    .map((line) => `${indent}${line}`.trimEnd());
+}
+
+/** Render one label + body row, stacking when a narrow terminal needs it. */
+function renderHelpRow(
+  label: string,
+  body: string,
+  terminal: TerminalContext,
+  width: number,
+  labelWidth: number,
+): string[] {
+  const rowIndent = "  ";
+  const gutter = 2;
+  const bodyStart = displayWidth(rowIndent) + labelWidth + gutter;
+  const stacked = width - bodyStart < 24;
+  const safeLabel = terminalLine(label.trimEnd());
+  const safeBody = terminalMultiline(body.trim());
+  if (stacked) {
+    return [
+      `${rowIndent}${terminal.tone(safeLabel, "accent", "strong")}`.trimEnd(),
+      ...wrapHelpFact(safeBody, width, "    ").map((line) =>
+        terminal.role(line, "muted").trimEnd()
+      ),
+    ];
+  }
+  const labelCell = terminal.tone(
+    padDisplayEnd(safeLabel, labelWidth),
+    "accent",
+    "strong",
+  );
+  const firstPrefix = `${rowIndent}${labelCell}${" ".repeat(gutter)}`;
+  const continuation = " ".repeat(bodyStart);
+  const wrapped = wrapText(safeBody, Math.max(1, width - bodyStart), "", {
+    breakLongWords: true,
+  });
+  return [
+    `${firstPrefix}${terminal.role(wrapped[0] ?? "", "muted")}`.trimEnd(),
+    ...wrapped.slice(1).map((line) =>
+      `${continuation}${terminal.role(line, "muted")}`.trimEnd()
+    ),
+  ];
+}
+
+/** Canonical public Cliffy option label: aliases plus any argument definition. */
+function optionLabel(option: Option): string {
+  const flags = option.flags.join(", ");
+  return option.typeDefinition === undefined || option.typeDefinition === ""
+    ? flags
+    : `${flags} ${option.typeDefinition}`;
+}
+
+/** Render the parser-owned root usage from public Cliffy command facts. */
+function renderUsage(
+  root: Command,
+  terminal: TerminalContext,
+  width: number,
+): string[] {
+  const usage = terminalLine(root.getUsage());
+  const path = terminalLine(root.getPath());
+  const value = `${path}${usage === "" ? "" : ` ${usage}`}`;
+  const label = "Usage:";
+  const inlinePrefix = `${label}   `;
+  if (displayWidth(inlinePrefix) + displayWidth(value) <= width) {
+    return [
+      `${helpHeading(label, terminal)}   ${terminal.tone(value, "accent")}`,
+    ];
+  }
+  return [
+    helpHeading(label, terminal),
+    ...wrapHelpFact(value, width, "  ").map((line) =>
+      terminal.tone(line, "accent").trimEnd()
+    ),
+  ];
+}
+
+/** Render one prose section with its facts retained and safely width-bounded. */
+function renderProseSection(
+  heading: string,
+  content: string,
+  terminal: TerminalContext,
+  width: number,
+): string[] {
+  return [
+    helpHeading(`${heading}:`, terminal),
+    "",
+    ...wrapHelpFact(terminalMultiline(content), width, "  "),
+  ];
+}
+
+/** Render public Cliffy option facts with adaptive hanging indents. */
+function renderOptions(
+  options: readonly Option[],
+  terminal: TerminalContext,
+  width: number,
+): string[] {
+  const labels = options.map(optionLabel);
+  const labelWidth = Math.min(
+    28,
+    Math.max(0, ...labels.map((label) => displayWidth(terminalLine(label)))),
+  );
+  return [
+    helpHeading("Options:", terminal),
+    "",
+    ...options.flatMap((option, index) =>
+      renderHelpRow(
+        labels[index] ?? "",
+        `- ${option.description}`,
+        terminal,
+        width,
+        labelWidth,
+      )
+    ),
+  ];
+}
+
+/** Render public Cliffy example facts in their declared order. */
+function renderExamples(
+  examples: readonly Example[],
+  terminal: TerminalContext,
+  width: number,
+): string[] {
+  const labelWidth = Math.min(
+    28,
+    Math.max(
+      0,
+      ...examples.map((example) => displayWidth(terminalLine(example.name))),
+    ),
+  );
+  return [
+    helpHeading("Examples:", terminal),
+    "",
+    ...examples.flatMap((example) =>
+      renderHelpRow(
+        example.name,
+        example.description,
+        terminal,
+        width,
+        labelWidth,
+      )
+    ),
+  ];
+}
+
 /**
  * Render the grouped "Commands:" section from the live command tree. Reads the
  * authoritative name + one-line description straight off each visible command
@@ -182,10 +324,17 @@ function renderGroupedCommands(
   terminal: TerminalContext,
   width: number,
 ): string {
-  const visible = root.getCommands(false);
-  const byName = new Map(visible.map((c) => [c.getName(), c]));
+  const visible = root.getCommands(false).map((command) => {
+    const rawName = command.getName();
+    return {
+      rawName,
+      name: terminalLine(rawName),
+      description: terminalMultiline(command.getShortDescription()),
+    };
+  });
+  const byName = new Map(visible.map((entry) => [entry.rawName, entry]));
   const nameCol = Math.min(
-    Math.max(0, ...visible.map((c) => displayWidth(c.getName()))),
+    Math.max(0, ...visible.map((entry) => displayWidth(entry.name))),
     20,
   );
   // The description column begins after `    <name padded>  `; its continuation
@@ -201,27 +350,27 @@ function renderGroupedCommands(
   const name = (text: string): string =>
     terminal.tone(text, "accent", "strong");
   const desc = (text: string): string => terminal.role(text, "muted");
-  const rowLines = (c: Command): string[] => {
+  const rowLines = (entry: (typeof visible)[number]): string[] => {
     if (stacked) {
       const indent = "      ";
       const wrapped = wrapText(
-        c.getShortDescription(),
+        entry.description,
         Math.max(1, width - displayWidth(indent)),
         "",
         { breakLongWords: true },
       );
       return [
-        `    ${name(c.getName())}`,
+        `    ${name(entry.name)}`,
         ...wrapped.map((line) => `${indent}${desc(line)}`),
       ];
     }
     const wrapped = wrapText(
-      c.getShortDescription(),
+      entry.description,
       descWidth,
       "",
       { breakLongWords: true },
     );
-    const first = `    ${name(padDisplayEnd(c.getName(), nameCol))}  ${
+    const first = `    ${name(padDisplayEnd(entry.name, nameCol))}  ${
       desc(wrapped[0] ?? "")
     }`;
     return [first, ...wrapped.slice(1).map((l) => `${descIndent}${desc(l)}`)];
@@ -232,7 +381,9 @@ function renderGroupedCommands(
   for (const group of COMMAND_GROUPS) {
     const members = group.commands
       .map((n) => byName.get(n))
-      .filter((c): c is Command => c !== undefined);
+      .filter((entry): entry is (typeof visible)[number] =>
+        entry !== undefined
+      );
     if (members.length === 0) {
       continue;
     }
@@ -251,9 +402,9 @@ function renderGroupedCommands(
     } else {
       out.push(heading(group.name), desc(`— ${group.note}`));
     }
-    for (const c of members) {
-      out.push(...rowLines(c));
-      seen.add(c.getName());
+    for (const entry of members) {
+      out.push(...rowLines(entry));
+      seen.add(entry.rawName);
     }
     out.push("");
   }
@@ -261,11 +412,11 @@ function renderGroupedCommands(
   // Defence in depth: a visible command with no declared group still shows, so a
   // missing assignment is loud rather than a vanished verb. The guard test keeps
   // this list empty; rendering it is the belt to that test's braces.
-  const ungrouped = visible.filter((c) => !seen.has(c.getName()));
+  const ungrouped = visible.filter((entry) => !seen.has(entry.rawName));
   if (ungrouped.length > 0) {
     out.push(`  ${heading("Other")}`);
-    for (const c of ungrouped) {
-      out.push(...rowLines(c));
+    for (const entry of ungrouped) {
+      out.push(...rowLines(entry));
     }
     out.push("");
   }
@@ -276,75 +427,54 @@ function renderGroupedCommands(
   return out.join("\n");
 }
 
-/** Drop Cliffy's header `Version:` row — `--version` still reports it, so the
- * row is pure noise in an operator's map. A column-0 line only; the `--version`
- * option row is indented and survives. */
-function dropVersionRow(lines: string[]): string[] {
-  return lines.filter((l) => !isHeading(l, "Version"));
-}
-
 /**
- * Render the operator-oriented root help: Cliffy's canonical help with its flat
- * command list rewritten into {@link COMMAND_GROUPS} and a "see per-command help"
- * footer. Pass the fully-built root command; this calls its default `getHelp()`
- * (no custom handler is installed, so there is no recursion) and transforms the
- * string.
+ * Render the operator-oriented root help from Cliffy's public command facts.
+ * `getHelp()` first registers the framework's built-in help/version options; its
+ * rendered bytes are discarded so one package-backed width and Token context
+ * governs the complete artifact. Cliffy remains the parser and fact authority.
  */
 export function operatorHelp(
   root: Command,
   options: OperatorHelpOptions = {},
 ): string {
   const presentation = helpPresentation(options);
-  // Cliffy remains the parser/fact source, never the ANSI source: strip its
-  // presentation unconditionally, then style semantic headings and groups from
-  // the one package context above.
-  const base = stripAnsi(root.getHelp());
-  const lines = dropVersionRow(base.split("\n"));
-
-  const ci = lines.findIndex((l) => isHeading(l, "Commands"));
-  if (ci === -1) {
-    // No command list (degenerate tree) — nothing to regroup.
-    return appendFooter(base, presentation.terminal);
+  root.getHelp({ colors: false, width: presentation.width });
+  const terminal = presentation.terminal;
+  const width = presentation.width;
+  const sections: string[][] = [renderUsage(root, terminal, width)];
+  if (root.getDescription() !== "") {
+    sections.push(
+      renderProseSection("Description", root.getDescription(), terminal, width),
+    );
   }
-  // The command list runs until the next heading. We always register an example
-  // (see buildCli), so "Examples:" reliably bounds it; fall back to end-of-help.
-  let end = lines.findIndex((l, i) => i > ci && isHeading(l, "Examples"));
-  if (end === -1) {
-    end = lines.length;
+  const registeredOptions = root.getOptions(false);
+  if (registeredOptions.length > 0) {
+    sections.push(renderOptions(registeredOptions, terminal, width));
   }
-  const before = styleScaffoldHeadings(
-    lines.slice(0, ci),
-    presentation.terminal,
-  );
-  const after = styleScaffoldHeadings(
-    lines.slice(end),
-    presentation.terminal,
-  );
-  const grouped = renderGroupedCommands(
-    root,
-    presentation.terminal,
-    presentation.width,
-  ).split("\n");
-  const rebuilt = [...before, ...grouped, "", ...after].join("\n");
-  return appendFooter(rebuilt, presentation.terminal);
-}
-
-/** Restyle Cliffy's plain structural headings through package Token roles. */
-function styleScaffoldHeadings(
-  lines: readonly string[],
-  terminal: TerminalContext,
-): string[] {
-  return lines.map((line) =>
-    ["Usage", "Options", "Examples"].some((label) => isHeading(line, label))
-      ? terminal.tone(line, "accent", "strong")
-      : line
-  );
+  if (root.getCommands(false).length > 0) {
+    sections.push(renderGroupedCommands(root, terminal, width).split("\n"));
+  }
+  const examples = root.getExamples();
+  if (examples.length > 0) {
+    sections.push(renderExamples(examples, terminal, width));
+  }
+  const rebuilt = sections.flatMap((section, index) =>
+    index === 0 ? section : ["", ...section]
+  ).map((line) => line.trimEnd()).join("\n");
+  return appendFooter(rebuilt, terminal, width);
 }
 
 /** Append the "drill into any command" pointer as a trailing footer line, set
  * off by a blank line from the examples above it. */
-function appendFooter(help: string, terminal: TerminalContext): string {
+function appendFooter(
+  help: string,
+  terminal: TerminalContext,
+  width: number,
+): string {
   const note = "Run `discern <command> --help` for detail on any command.";
   const body = help.replace(/\n+$/, "");
-  return `${body}\n\n${terminal.role(note, "muted")}\n`;
+  const footer = wrapText(note, width, "", { breakLongWords: true })
+    .map((line) => terminal.role(line, "muted").trimEnd())
+    .join("\n");
+  return `${body}\n\n${footer}\n`;
 }
