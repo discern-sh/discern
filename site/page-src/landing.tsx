@@ -13,7 +13,6 @@ import {
   SiteHeader,
   SkipLink,
   Terminal,
-  Window,
 } from "discern-design-system/react";
 import { providerBrandSilhouette, PROVIDERS } from "../../src/lib/providers.ts";
 import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
@@ -25,6 +24,7 @@ import {
   LANDING_TITLE,
 } from "../brand.ts";
 import { pageDocument } from "./document.ts";
+import { ProjectInMotion } from "./project-in-motion.tsx";
 import { CompactStandardTrajectory } from "./specimens.tsx";
 
 const GITHUB = "https://github.com/jackwh/discern";
@@ -224,193 +224,34 @@ function Masthead({ archived = false }: { readonly archived?: boolean }) {
   );
 }
 
-/** The hero's authentic project-state specimen. */
-function ProjectInMotion() {
-  const stages = [
-    ["brief", "Brief"],
-    ["work", "Work"],
-    ["proof", "Evidence"],
-    ["decision", "Decision"],
-  ] as const;
+/** Compact product foundations used at different points in each hero edition. */
+function HeroFacts() {
   return (
-    <div
-      className="landing-project-preview"
-      data-project-preview
-      data-preview-stage="decision"
-      aria-labelledby="project-preview-title"
-      data-site-prose-exclude
-    >
-      <header className="landing-project-preview__caption">
-        <span>Illustrative project state</span>
-        <strong id="project-preview-title">
-          One ambition, returned ready for a decision
-        </strong>
-      </header>
-      <Window
-        className="landing-project-preview__window"
-        title={
-          <code className="landing-project-preview__title">
-            discern desk · booking-platform
-          </code>
-        }
-        actions={
-          <Badge className="landing-project-preview__badge" tone="success" dot>
-            practice active
-          </Badge>
-        }
-        variant="showcase"
-      >
-        <div
-          className="landing-project-preview__controls"
-          hidden
-          data-preview-controls
-        >
-          <span>Follow the work</span>
-          <div role="group" aria-label="Illustrative project stages">
-            {stages.map(([stage, label]) => (
-              <button
-                type="button"
-                data-preview-control={stage}
-                aria-pressed={stage === "decision" ? "true" : "false"}
-                key={stage}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p
-            className="landing-sr-status"
-            role="status"
-            aria-live="polite"
-            data-preview-status
-          >
-          </p>
-        </div>
-        <div className="landing-project-preview__body">
-          <article className="landing-preview-brief" data-preview-item="brief">
-            <span className="landing-artifact-label">Human intention</span>
-            <blockquote>
-              Let customers reschedule a booking without calling us.
-            </blockquote>
-            <dl>
-              <div>
-                <dt>Preserve</dt>
-                <dd>The original confirmation trail</dd>
-              </div>
-              <div>
-                <dt>Decide</dt>
-                <dd>Who may override the 24-hour window</dd>
-              </div>
-            </dl>
-          </article>
-
-          <section
-            className="landing-preview-work"
-            data-preview-item="work"
-            aria-label="Work in motion"
-          >
-            <header>
-              <span className="landing-artifact-label">Prepared work</span>
-              <span>3 efforts</span>
-            </header>
-            <ol>
-              <li>
-                <span className="landing-state landing-state--moving" />
-                <div>
-                  <code>agent/booking-rules</code>
-                  <strong>Booking rules</strong>
-                </div>
-                <Badge className="landing-preview-work__badge" tone="success">
-                  Gate passed
-                </Badge>
-              </li>
-              <li>
-                <span className="landing-state landing-state--moving" />
-                <div>
-                  <code>agent/customer-flow</code>
-                  <strong>Customer flow</strong>
-                </div>
-                <Badge className="landing-preview-work__badge" tone="accent">
-                  Reviewing
-                </Badge>
-              </li>
-              <li>
-                <span className="landing-state landing-state--waiting" />
-                <div>
-                  <code>agent/notifications</code>
-                  <strong>Notifications</strong>
-                </div>
-                <Badge className="landing-preview-work__badge" tone="neutral">
-                  Waiting on rules
-                </Badge>
-              </li>
-            </ol>
-          </section>
-
-          <article className="landing-preview-proof" data-preview-item="proof">
-            <header>
-              <span className="landing-artifact-label">Project conditions</span>
-              <Badge tone="success" dot>passed</Badge>
-            </header>
-            <ul>
-              <li>
-                <span>format</span>
-                <strong>passed</strong>
-              </li>
-              <li>
-                <span>types</span>
-                <strong>passed</strong>
-              </li>
-              <li>
-                <span>tests</span>
-                <strong>passed</strong>
-              </li>
-              <li>
-                <span>Standards</span>
-                <strong>held</strong>
-              </li>
-            </ul>
-            <code className="landing-preview-proof__line">
-              Proof · 41d9a8f · clean committed tree
-            </code>
-          </article>
-
-          <article
-            className="landing-preview-decision"
-            data-preview-item="decision"
-          >
-            <span className="landing-artifact-label">
-              Ready for your decision
-            </span>
-            <h2>Customer rescheduling</h2>
-            <p>Preview available · Proof valid · 14 files changed</p>
-            <div
-              className="landing-preview-decision__actions"
-              aria-label="Available decisions"
-            >
-              <span>Inspect</span>
-              <span>Revise</span>
-              <strong>Accept</strong>
-            </div>
-            <small>
-              Passing prepares the change. Your authority decides what lands.
-            </small>
-          </article>
-        </div>
-      </Window>
-    </div>
+    <ul className="landing-hero__facts" aria-label="Product foundations">
+      <li>
+        <span aria-hidden="true">✓</span> One connected practice
+      </li>
+      <li>
+        <span aria-hidden="true">✓</span> One local binary
+      </li>
+      <li>
+        <span aria-hidden="true">✓</span> No model or API key
+      </li>
+    </ul>
   );
 }
 
 /** Ambition-led opening with a direct commissioning path. */
-function Hero() {
+function Hero({ archived = false }: { readonly archived?: boolean }) {
   return (
     <HeroBlock
-      className="landing-hero"
+      className={archived
+        ? "landing-hero"
+        : "landing-hero landing-hero--current"}
       aria-labelledby="hero-title"
       eyebrow={
         <span className="landing-hero__signature">
-          <span aria-hidden="true">{DISCERN_MARK}</span>
+          {archived ? <span aria-hidden="true">{DISCERN_MARK}</span> : null}
           For people who take their software seriously
         </span>
       }
@@ -427,9 +268,13 @@ function Hero() {
             evidence, so you can take the software further with confidence in
             what comes back.
           </p>
-          <p className="landing-hero__category">
-            An engineering practice for agent-built software.
-          </p>
+          {archived
+            ? (
+              <p className="landing-hero__category">
+                An engineering practice for agent-built software.
+              </p>
+            )
+            : <HeroFacts />}
         </>
       }
       actions={
@@ -459,24 +304,18 @@ function Hero() {
             id="hero-copy-prompt"
             label="Already working with a coding agent? Copy this into the conversation."
           />
-          <ul className="landing-hero__facts" aria-label="Product foundations">
-            <li>
-              <span aria-hidden="true">✓</span> One connected practice
-            </li>
-            <li>
-              <span aria-hidden="true">✓</span> One local binary
-            </li>
-            <li>
-              <span aria-hidden="true">✓</span> No model or API key
-            </li>
-          </ul>
+          {archived ? <HeroFacts /> : null}
         </>
       }
       visual={
         <>
-          <div id="project-preview">
-            <ProjectInMotion />
-          </div>
+          {archived
+            ? (
+              <div id="project-preview">
+                <ProjectInMotion />
+              </div>
+            )
+            : null}
           <ProviderStrip />
         </>
       }
@@ -1251,7 +1090,7 @@ function OldLandingPage() {
   return (
     <LandingShell archived>
       <>
-        <Hero />
+        <Hero archived />
         <PossibilitySection />
         <DelegationSection />
         <CommissioningSection />

@@ -122,6 +122,14 @@
 
   /* Hero */
 
+  .landing-hero--current .discern-hero-block__content {
+    gap: var(--discern-space-8);
+  }
+
+  .landing-hero--current .landing-hero__facts {
+    margin-block-start: var(--discern-space-8);
+  }
+
   .landing-hero__halo {
     position: absolute;
     z-index: -1;
