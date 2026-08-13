@@ -47,30 +47,30 @@ const STEPS = ["inspect", "plan", "apply", "verify"] as const;
 
 /** Render every reusable specimen directly from its public package function. */
 function packageMotifFrames(
-  capabilities: TerminalCapabilities,
+  terminalFacts: TerminalCapabilities,
 ): Readonly<Record<keyof typeof DISCERN_PACKAGE_TRIANGLE_MOTIFS, string>> {
   const spinner = PACKAGE_SPINNER_ORDER.map((_, phase) =>
-    renderPackageSpinner(phase, capabilities)
+    renderPackageSpinner(phase, terminalFacts)
   ).join(" -> ");
   return {
-    divider: renderPackagePattern({ length: 32 }, capabilities),
+    divider: renderPackagePattern({ length: 32 }, terminalFacts),
     ribbon: renderPackagePattern(
       { length: 24, thickness: 3 },
-      capabilities,
+      terminalFacts,
     ),
     weave: renderPackagePattern(
       { length: 8, orientation: "vertical", thickness: 4 },
-      capabilities,
+      terminalFacts,
     ),
     spinner: `${spinner} -> (repeat)`,
     progress: renderPackageProgress(
       { completed: 25, total: 100, width: 40 },
-      capabilities,
+      terminalFacts,
     ),
     "section-rule": renderPackageSectionRule(
       "quality gate",
       { width: 30 },
-      capabilities,
+      terminalFacts,
     ),
     stepper: renderPackageStepper(
       STEPS.map((label, index) => ({
@@ -78,11 +78,11 @@ function packageMotifFrames(
         status: index < 3 ? "complete" as const : "active" as const,
         phase: index,
       })),
-      capabilities,
+      terminalFacts,
     ),
     beacon: renderPackageBeacon(
       { width: 32, phase: 14 },
-      capabilities,
+      terminalFacts,
     ),
   };
 }
@@ -95,33 +95,37 @@ Deno.test("Discern re-exports the published triangle vocabulary by identity", ()
 });
 
 Deno.test("every reusable motif is byte-for-byte its public package API", () => {
-  for (const capabilities of [UNICODE, ASCII, TRUECOLOR]) {
-    const expected = packageMotifFrames(capabilities);
+  for (const terminalFacts of [UNICODE, ASCII, TRUECOLOR]) {
+    const expected = packageMotifFrames(terminalFacts);
     for (
       const [name, variant] of Object.entries(
         DISCERN_PACKAGE_TRIANGLE_MOTIFS,
       )
     ) {
       assertEquals(
-        variant.render(capabilities),
+        variant.render(terminalFacts),
         expected[name as keyof typeof expected],
-        `${name} at ${capabilities.colorDepth}/${capabilities.unicode}`,
+        `${name} at ${terminalFacts.colorDepth}/${terminalFacts.unicode}`,
       );
     }
   }
 });
 
 Deno.test("package motif animation uses package frames and ends at static", () => {
-  for (const capabilities of [UNICODE, ASCII]) {
+  for (const terminalFacts of [UNICODE, ASCII]) {
     for (
       const [name, variant] of Object.entries(
         DISCERN_PACKAGE_TRIANGLE_MOTIFS,
       )
     ) {
-      const animation = variant.animate(capabilities);
+      const animation = variant.animate(terminalFacts);
       assert(animation.frames.length > 1, `${name} needs visible motion`);
-      assertEquals(animation.frames.at(-1), variant.render(capabilities), name);
-      assertEquals(animation, variant.animate(capabilities), name);
+      assertEquals(
+        animation.frames.at(-1),
+        variant.render(terminalFacts),
+        name,
+      );
+      assertEquals(animation, variant.animate(terminalFacts), name);
       for (const frame of animation.frames) {
         assert(frame !== "", `${name} has an empty frame`);
         assert(!frame.endsWith("\n"), `${name} owns a final newline`);
@@ -195,16 +199,16 @@ Deno.test("product-only compositions keep deterministic static and final frames"
     "pyramid",
     "gasket",
   ]);
-  for (const capabilities of [UNICODE, ASCII]) {
+  for (const terminalFacts of [UNICODE, ASCII]) {
     for (
       const [name, variant] of Object.entries(
         DISCERN_PRODUCT_TRIANGLE_ART,
       )
     ) {
-      const staticArt = variant.render(capabilities);
-      const animation = variant.animate(capabilities);
+      const staticArt = variant.render(terminalFacts);
+      const animation = variant.animate(terminalFacts);
       assertEquals(animation.frames.at(-1), staticArt, name);
-      assertEquals(animation, variant.animate(capabilities), name);
+      assertEquals(animation, variant.animate(terminalFacts), name);
       assert(!staticArt.endsWith("\n"));
       for (const line of staticArt.split("\n")) {
         assert(!/\s$/u.test(line), `${name} has trailing whitespace`);
