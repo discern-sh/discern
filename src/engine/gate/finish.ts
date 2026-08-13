@@ -96,6 +96,7 @@ import {
 } from "./generated_drift.ts";
 import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 import { renderFailureTail } from "./failure_tail.ts";
+import { renderGatePlan } from "./presentation.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
@@ -108,7 +109,6 @@ import {
   type DiscernResult,
   type FailedStage,
   previewResult,
-  renderPlan,
 } from "../../shared/result.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -487,7 +487,7 @@ async function runGate(
   const progress = compactTty && presentation.liveWidth !== undefined
     ? createGateTtyProgress(out.raw, {
       width: presentation.liveWidth,
-      color: out.color,
+      terminal: out.terminal,
     })
     : undefined;
   if (progress !== undefined) {
@@ -497,7 +497,9 @@ async function runGate(
       buildGatePlan(cfg, plannedChanged, dryRunStandardJobs(cfg)).groups,
     );
   }
-  const runOut = compactTty ? makeOut(out.color, { quiet: true }) : out;
+  const runOut = compactTty
+    ? makeOut(out.color, { quiet: true, terminal: out.terminal })
+    : out;
 
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;
@@ -1243,7 +1245,7 @@ async function runGate(
       completeValidationEvidence(validation, result.steps),
     );
   }
-  progress?.complete(result.steps ?? []);
+  progress?.complete(result.steps ?? [], result.data?.standards ?? []);
   return {
     result,
     failedStage,
@@ -1405,14 +1407,25 @@ function printSuccessTail(
     }
     const options = {
       width: ttyWidth,
-      color: out.color,
+      terminal: out.terminal,
     };
     out.group("gate-summary");
     out.raw(
       `${
         tableAlreadyRendered
-          ? renderDoneTtyProofPanel(proof, options)
-          : renderDoneTtySummary(result.steps ?? [], proof, options)
+          ? renderDoneTtyProofPanel(
+            proof,
+            options,
+            result.data?.gate_proof,
+            result.steps ?? [],
+          )
+          : renderDoneTtySummary(
+            result.steps ?? [],
+            proof,
+            options,
+            result.data?.standards ?? [],
+            result.data?.gate_proof,
+          )
       }\n`,
     );
     renderSlotWait(out, result.waitedMs);
@@ -1425,8 +1438,8 @@ function printSuccessTail(
       `${
         renderGateTtyTable(result.steps ?? [], {
           width: ttyWidth,
-          color: out.color,
-        })
+          terminal: out.terminal,
+        }, result.data?.standards ?? [])
       }\n`,
     );
   }
@@ -1478,7 +1491,14 @@ async function dryRunGate(
     emitResult(previewResult("done", engine));
     return 0;
   }
-  renderPlan(outSink(makeOut(colorEnabled())), engine);
+  const out = makeOut(colorEnabled());
+  out.group("gate-plan");
+  out.raw(`${
+    renderGatePlan(engine, {
+      terminal: out.terminal,
+      width: out.terminal.size.columns,
+    })
+  }\n`);
   return 0;
 }
 
@@ -1597,8 +1617,8 @@ export async function finishResult(
       `${
         renderGateTtyTable(gate.result.steps ?? [], {
           width: ttyWidth,
-          color: gate.out.color,
-        })
+          terminal: gate.out.terminal,
+        }, gate.result.data?.standards ?? [])
       }\n`,
     );
   }

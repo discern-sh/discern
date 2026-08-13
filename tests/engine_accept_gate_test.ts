@@ -438,7 +438,7 @@ Deno.test("accept TTY: a proofless validation shows the full gate moving live", 
     const validation = accepted.stdout.indexOf(
       "Validating the branch against the full gate",
     );
-    const initialTable = accepted.stdout.indexOf("JOB", validation);
+    const initialTable = accepted.stdout.indexOf("Gate progress", validation);
     const firstRedraw = accepted.stdout.indexOf(CSI, initialTable);
     const passed = accepted.stdout.indexOf(
       "Gate passed against the tree to be landed",
@@ -458,7 +458,7 @@ Deno.test("accept TTY: a proofless validation shows the full gate moving live", 
     );
     assertStringIncludes(accepted.output, "format");
     assertStringIncludes(accepted.output, "sleep 1");
-    assertStringIncludes(accepted.output, "ok · 1s");
+    assertStringIncludes(accepted.output, "passed in 1s");
   });
 });
 

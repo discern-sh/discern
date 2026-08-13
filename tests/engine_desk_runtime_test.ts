@@ -20,7 +20,7 @@ import type {
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import { Logger } from "../src/lib/log.ts";
-import type { Out, Palette } from "../src/engine/output.ts";
+import { makeOut, type Out, type Palette } from "../src/engine/output.ts";
 import {
   type DeskRuntime,
   runDesk,
@@ -86,6 +86,7 @@ function transcript(): Transcript {
     out: {
       c: PLAIN,
       color: false,
+      terminal: makeOut(false).terminal,
       info: (message) => stdout.push(`info:${message}`),
       ok: (message) => stdout.push(`ok:${message}`),
       warn: (message) => stderr.push(`warn:${message}`),

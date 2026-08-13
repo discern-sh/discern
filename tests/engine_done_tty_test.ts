@@ -93,13 +93,12 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
       timeoutMs: 15_000,
     });
     assertEquals(tty.code, 0, tty.output);
-    assertStringIncludes(tty.output, "JOB");
-    assertStringIncludes(tty.output, "COMMAND");
-    assertStringIncludes(tty.output, "RESULT");
+    assertStringIncludes(tty.output, "Gate progress");
+    assertStringIncludes(tty.output, "Steps");
     assertStringIncludes(tty.output, "format");
     assertStringIncludes(tty.output, "sleep 1");
     assertStringIncludes(tty.output, "test");
-    assertStringIncludes(tty.output, "ok · 1s");
+    assertStringIncludes(tty.output, "passed in 1s");
     const firstRedraw = tty.stdout.indexOf(CSI);
     assert(firstRedraw > 0, tty.output);
     const firstFrame = tty.stdout.slice(0, firstRedraw);
@@ -112,6 +111,7 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
       tty.output,
       "Proof: gate passed on agent/tty-proof",
     );
+    assertStringIncludes(tty.output, "Receipt: Gate proof");
     assertEquals(tty.output.includes("### Proof"), false);
     assertEquals(tty.output.includes("| ran | command | result |"), false);
     assertEquals(
@@ -141,7 +141,7 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
       "pending",
     );
     assertStringIncludes(failing.stdout.slice(failingFirstRedraw), "running");
-    assertStringIncludes(failing.output, "failed · <1s");
+    assertStringIncludes(failing.output, "failed in <1s");
     assertStringIncludes(failing.output, "skipped");
     assertEquals(failing.output.includes("Proof: gate passed"), false);
 
@@ -165,7 +165,8 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
         timeoutMs: 15_000,
       });
       assertEquals(staticTty.code, 0, staticTty.output);
-      assertStringIncludes(staticTty.output, "JOB");
+      assertStringIncludes(staticTty.output, "Gate progress");
+      assertStringIncludes(staticTty.output, "Receipt: Gate proof");
       assertStringIncludes(staticTty.output, "Proof: gate passed");
       assertEquals(staticTty.output.includes("pending"), false);
       assertEquals(staticTty.output.includes("running"), false);
@@ -207,6 +208,6 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
     assertEquals(envelope.ok, true);
     assertEquals(envelope.verb, "done");
     assertEquals(json.output.includes("Running gate checks"), false);
-    assertEquals(json.output.includes("JOB"), false);
+    assertEquals(json.output.includes("Gate progress"), false);
   });
 });

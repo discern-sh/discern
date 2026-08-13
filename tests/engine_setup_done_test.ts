@@ -96,11 +96,11 @@ Deno.test("setup done TTY shows live tables for both completion gates", async ()
     });
     assertEquals(done.code, 0, done.output);
 
-    const mainTable = done.stdout.indexOf("JOB");
+    const mainTable = done.stdout.indexOf("Gate progress");
     const probeLead = done.stdout.indexOf(
       "Proving your project runs inside a worktree",
     );
-    const probeTable = done.stdout.indexOf("JOB", probeLead);
+    const probeTable = done.stdout.indexOf("Gate progress", probeLead);
     assert(
       mainTable >= 0 && probeLead > mainTable && probeTable > probeLead,
       done.output,
@@ -117,7 +117,7 @@ Deno.test("setup done TTY shows live tables for both completion gates", async ()
       assertStringIncludes(transcript.slice(0, redraw), "pending");
       assertStringIncludes(transcript.slice(redraw), "running");
       assertStringIncludes(transcript, "sleep 1");
-      assertStringIncludes(transcript, "ok · 1s");
+      assertStringIncludes(transcript, "passed in 1s");
     }
   });
 });

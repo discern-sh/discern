@@ -50,6 +50,9 @@ const SGR_GLOBAL = new RegExp(
   `${String.fromCharCode(27)}\\[[0-9;]*m`,
   "gu",
 );
+const stripSgr = (value: string): string => value.replaceAll(SGR_GLOBAL, "");
+const PLAIN_TERMINAL = makeOut(false).terminal;
+const COLOR_TERMINAL = makeOut(true).terminal;
 
 const FACTS: ProofFacts = {
   branch: "agent/upload-retry",
@@ -283,33 +286,41 @@ Deno.test("proof render: a no-op gate is stated honestly", () => {
   );
 });
 
-Deno.test("done TTY render: fixed steps pin the plain 80-column summary", () => {
+Deno.test("done TTY render: the package workflow leads into a truthful receipt", () => {
   const proof: Proof = {
     ...FACTS,
     line: renderProofLine(FACTS),
     markdown: renderProofMarkdown(FACTS, STEPS),
   };
-  const expected = [
-    "  JOB                 COMMAND                                    RESULT",
-    "  ──────────────────────────────────────────────────────────────────────────────",
-    "  format              deno fmt                                   ok · 1s",
-    "  ──────────────────────────────────────────────────────────────────────────────",
-    "  lint                deno lint                                  ok · <1s",
-    "  ──────────────────────────────────────────────────────────────────────────────",
-    "  test                deno task test                             ok · 41s",
-    "  ──────────────────────────────────────────────────────────────────────────────",
-    "  scope:web           scope unchanged                            skipped",
-    "  ──────────────────────────────────────────────────────────────────────────────",
-    "",
-    "  │  ",
-    "  │  Proof: gate passed on agent/upload-retry @ abc1234def01 · 2 files +42 −7",
-    "  │  vs main · full proof: discern status --verbose",
-    "  │  ",
-  ].join("\n");
-  assertEquals(
-    renderDoneTtySummary(STEPS, proof, { width: 80, color: false }),
-    expected,
+  const rendered = renderDoneTtySummary(
+    STEPS,
+    proof,
+    { width: 80, terminal: PLAIN_TERMINAL },
+    [],
+    { status: "recorded" },
   );
+  for (
+    const fact of [
+      "Gate progress  4 / 4 steps settled",
+      "[100%]",
+      "✓ Complete",
+      "format [passed]",
+      "$ deno fmt",
+      "passed in 1s",
+      "lint [passed]",
+      "test [passed]",
+      "scope:web [skipped]",
+      "Receipt: Gate proof",
+      "[PASS]",
+      "3 passed, 1 skipped",
+      "Proof record",
+      "recorded",
+    ]
+  ) {
+    assertStringIncludes(rendered, fact);
+  }
+  assertEquals(rendered.split("\n").at(-1), proof.line);
+  assert(rendered.indexOf("Gate progress") < rendered.indexOf("Receipt"));
 });
 
 Deno.test("done TTY render: color paints success and the proof without widening lines", () => {
@@ -318,13 +329,31 @@ Deno.test("done TTY render: color paints success and the proof without widening 
     line: renderProofLine(FACTS),
     markdown: renderProofMarkdown(FACTS, STEPS),
   };
-  const rendered = renderDoneTtySummary(STEPS, proof, {
-    width: 80,
-    color: true,
-  });
-  assertStringIncludes(rendered, "\x1b[38;2;52;211;121mok");
-  assertStringIncludes(rendered, "\x1b[48;2;12;29;27m");
-  for (const line of rendered.split("\n")) {
+  const rendered = renderDoneTtySummary(
+    STEPS,
+    proof,
+    {
+      width: 80,
+      terminal: COLOR_TERMINAL,
+    },
+    [],
+    { status: "recorded" },
+  );
+  const plain = renderDoneTtySummary(
+    STEPS,
+    proof,
+    {
+      width: 80,
+      terminal: PLAIN_TERMINAL,
+    },
+    [],
+    { status: "recorded" },
+  );
+  assert(SGR.test(rendered));
+  assertEquals(stripSgr(rendered), plain);
+  for (
+    const line of rendered.split("\n").filter((line) => line !== proof.line)
+  ) {
     assert(
       displayWidth(line) <= 80,
       `TTY line is ${displayWidth(line)} columns: ${line}`,
@@ -332,14 +361,16 @@ Deno.test("done TTY render: color paints success and the proof without widening 
   }
 });
 
-Deno.test("gate TTY render: a narrow terminal stacks commands below each result", () => {
+Deno.test("gate TTY render: a narrow terminal wraps commands without losing facts", () => {
   const rendered = renderGateTtyTable(STEPS, {
     width: 40,
-    color: false,
+    terminal: PLAIN_TERMINAL,
   });
-  assertStringIncludes(rendered, "JOB / RESULT");
-  assertStringIncludes(rendered, "format  ok · 1s");
-  assertStringIncludes(rendered, "    deno fmt");
+  assertStringIncludes(rendered, "Gate progress  4 / 4 steps settled");
+  assertStringIncludes(rendered, "format [passed]");
+  assertStringIncludes(rendered, "$ deno fmt");
+  assertStringIncludes(rendered, "passed\nin 1s");
+  assertStringIncludes(rendered, "scope:web [skipped]");
   assertEquals(rendered.includes("\x1b["), false);
 });
 
@@ -348,7 +379,7 @@ Deno.test("gate TTY progress: planned rows move from pending through running to 
     PLAN.groups,
     new Set(),
     new Map(),
-    { width: 80, color: false },
+    { width: 80, terminal: PLAIN_TERMINAL },
   );
   assertStringIncludes(initial, "format");
   assertStringIncludes(initial, "deno fmt");
@@ -369,9 +400,9 @@ Deno.test("gate TTY progress: planned rows move from pending through running to 
     PLAN.groups,
     new Set(["lint"]),
     new Map([["format", result]]),
-    { width: 80, color: false },
+    { width: 80, terminal: PLAIN_TERMINAL },
   );
-  assertStringIncludes(updated, "ok · 1s");
+  assertStringIncludes(updated, "passed in 1s");
   assertStringIncludes(updated, "running");
   assertStringIncludes(updated, "test");
   assertStringIncludes(updated, "pending");
@@ -381,7 +412,7 @@ Deno.test("gate TTY progress: controller redraws in place and leaves no color SG
   const writes: string[] = [];
   const progress = createGateTtyProgress(
     (value) => writes.push(value),
-    { width: 80, color: false },
+    { width: 80, terminal: PLAIN_TERMINAL },
   );
   progress.start(PLAN.groups);
   assertStringIncludes(writes[0] ?? "", "format");
@@ -401,7 +432,7 @@ Deno.test("gate TTY progress: controller redraws in place and leaves no color SG
     errorLikeLines: 0,
   });
   await Promise.resolve();
-  assertStringIncludes(writes[writes.length - 1] ?? "", "ok · 1s");
+  assertStringIncludes(writes[writes.length - 1] ?? "", "passed in 1s");
   assertEquals(SGR.test(writes.join("")), false);
 
   progress.complete(STEPS);
@@ -434,7 +465,7 @@ Deno.test("gate TTY render: color changes styling only and every line stays with
       durationS: 0.1,
     },
   ];
-  const options = { width: 52, color: false };
+  const options = { width: 52, terminal: PLAIN_TERMINAL };
   const plain = `${renderGateTtyTable(outcomes, options)}\n${
     renderGateTtyStatus(
       "Fix and check stages passed. Build and test stages did not run.",
@@ -443,19 +474,18 @@ Deno.test("gate TTY render: color changes styling only and every line stays with
     )
   }`;
   const colored = `${
-    renderGateTtyTable(outcomes, { ...options, color: true })
+    renderGateTtyTable(outcomes, { ...options, terminal: COLOR_TERMINAL })
   }\n${
     renderGateTtyStatus(
       "Fix and check stages passed. Build and test stages did not run.",
       "ok",
-      { ...options, color: true },
+      { ...options, terminal: COLOR_TERMINAL },
     )
   }`;
-  const stripSgr = (value: string): string => value.replaceAll(SGR_GLOBAL, "");
-  const tokens = palette(true);
   assertEquals(stripSgr(colored), plain);
-  assertStringIncludes(colored, `${tokens.red}failed`);
-  assertStringIncludes(colored, `${tokens.yellow}cancelled`);
+  assert(SGR.test(colored));
+  assertStringIncludes(stripSgr(colored), "types [failed]");
+  assertStringIncludes(stripSgr(colored), "lint#2 [cancelled]");
   for (const line of colored.split("\n")) {
     assert(
       displayWidth(line) <= options.width,

@@ -77,14 +77,16 @@ async function runPrepareGate(
   const progress = compactTty && presentation.liveWidth !== undefined
     ? createGateTtyProgress(out.raw, {
       width: presentation.liveWidth,
-      color: out.color,
+      terminal: out.terminal,
     })
     : undefined;
   if (progress !== undefined) {
     runOpts.observer = progress;
     progress.start(groups);
   }
-  const runOut = compactTty ? makeOut(out.color, { quiet: true }) : out;
+  const runOut = compactTty
+    ? makeOut(out.color, { quiet: true, terminal: out.terminal })
+    : out;
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
@@ -189,7 +191,7 @@ export async function runPrepare(
       `${
         renderGateTtyTable(result.steps ?? [], {
           width: ttyWidth,
-          color: out.color,
+          terminal: out.terminal,
         })
       }\n`,
     );
@@ -225,7 +227,7 @@ export async function runPrepare(
       `${
         renderGateTtyStatus(success, "ok", {
           width: ttyWidth,
-          color: out.color,
+          terminal: out.terminal,
         })
       }\n`,
     );

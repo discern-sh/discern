@@ -1,52 +1,35 @@
-/** The proof treatment that follows `discern done`'s shared gate-job table. */
+/** Package-backed Proof receipt following the shared Gate workflow. */
 
-import { padDisplayEnd, wrapText } from "../../lib/text.ts";
 import type { StepResult } from "../../shared/result.ts";
-import type { Proof } from "../../shared/result_schemas.ts";
-import {
-  GATE_TTY_SUCCESS,
-  gateReportWidth,
-  type GateTtyOptions,
-  renderGateTtyTable,
-} from "./gate_tty.ts";
+import type {
+  GateData,
+  GateStandard,
+  Proof,
+} from "../../shared/result_schemas.ts";
+import { type GateTtyOptions, renderGateTtyTable } from "./gate_tty.ts";
+import { renderGateProofReceipt } from "./presentation.ts";
 
-const INDENT = "  ";
-const SUCCESS_BACKGROUND = "\x1b[48;2;12;29;27m";
-const PROOF_TEXT = "\x1b[38;2;238;239;244m";
+type GateProofRecord = NonNullable<GateData["gate_proof"]>;
 
-/** Show the commit-bound gate proof and its validity window after success. */
-function renderProofPanel(
-  line: string,
-  options: GateTtyOptions,
-): string {
-  const width = gateReportWidth(options.width);
-  const textWidth = Math.max(1, width - 5);
-  const lines = ["", ...wrapText(line, textWidth), ""];
-  if (!options.color) {
-    return lines.map((value) => `${INDENT}│  ${value}`).join("\n");
-  }
-  return lines.map((value) =>
-    `${INDENT}${GATE_TTY_SUCCESS}▌\x1b[0m${SUCCESS_BACKGROUND}${PROOF_TEXT}  ${
-      padDisplayEnd(value, textWidth)
-    }  \x1b[0m`
-  ).join("\n");
-}
-
-/** Render the highlighted proof panel that follows a completed live table. */
+/** Render the truthful Proof receipt and exact one-line relay. */
 export function renderDoneTtyProofPanel(
   proof: Proof,
   options: GateTtyOptions,
+  record?: GateProofRecord,
+  steps: readonly StepResult[] = [],
 ): string {
-  return renderProofPanel(proof.line, options);
+  return renderGateProofReceipt(proof, record, steps, options);
 }
 
-/** Render the complete green TTY tail: shared job table, then proof panel. */
+/** Render the complete green TTY tail: workflow, Standards, then Proof receipt. */
 export function renderDoneTtySummary(
   steps: readonly StepResult[],
   proof: Proof,
   options: GateTtyOptions,
+  standards: readonly GateStandard[] = [],
+  record?: GateProofRecord,
 ): string {
-  return `${renderGateTtyTable(steps, options)}\n\n${
-    renderDoneTtyProofPanel(proof, options)
+  return `${renderGateTtyTable(steps, options, standards)}\n\n${
+    renderDoneTtyProofPanel(proof, options, record, steps)
   }`;
 }

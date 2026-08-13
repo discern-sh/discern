@@ -116,6 +116,8 @@ export function colorEnabled(): boolean {
 export interface Out {
   c: Palette;
   color: boolean;
+  /** The explicit package presentation context shared by feature renderers. */
+  terminal: TerminalContext;
   info(m: string): void;
   ok(m: string): void;
   warn(m: string): void;
@@ -147,15 +149,17 @@ export function makeOut(
     terminal?: TerminalContext;
   } = {},
 ): Out {
-  const c = palette(
-    color,
+  const terminal = terminalContextWithColor(
     opts.terminal ?? terminalPresentationContext(color),
+    color,
   );
+  const c = palette(color, terminal);
   if (opts.quiet ?? false) {
     const noop = (): void => {};
     return {
       c,
       color,
+      terminal,
       info: noop,
       ok: noop,
       warn: noop,
@@ -188,6 +192,7 @@ export function makeOut(
   return {
     c,
     color,
+    terminal,
     info: (m: string): void => stdout(`${c.cyan}→${c.reset} ${m}\n`),
     ok: (m: string): void => stdout(`${c.green}✓${c.reset} ${m}\n`),
     warn: (m: string): void => stderr(`${c.yellow}!${c.reset} ${m}\n`),
