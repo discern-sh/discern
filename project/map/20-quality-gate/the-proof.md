@@ -17,7 +17,9 @@ _A clean green Gate records what ran and identifies the exact branch state ready
 - **The line** (`data.proof.line`): one sentence naming the branch, validated commit, diffstat, Standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_proof.proof_line`; `accept` derives its line from it and appends the recorded consent source.
 - **The page** (`data.proof.markdown`): Standards, declared jobs and scope gates, then the diff command. `status --verbose` prints a valid Proof. Git owns commit and per-file lists; `Inspect:` names the command.
 
-`done` and `prepare` share the TTY job table: rows move from `pending` through `running` to outcomes and durations. `done` adds its Proof. `prepare` reports omitted build jobs and tests without review evidence. When `accept` or `setup done` runs the full Gate internally, it uses the same job projection; setup shows it for the main checkout and the temporary-worktree verification. `[gate].stream = true` streams output. `--plain` is static. Pipes get the `done` Proof page. `--json` and MCP runs emit no table. `--no-color` removes styling.
+`done` and `prepare` share the package Workflow: a Meter reports settled work, Procedures preserve stage groups, triangle activity marks running jobs, and Commands retain the exact configured command and duration. `done` follows it with a Receipt that names the branch, commit, diff, Gate outcomes, recording state, and landing readiness. Only `recorded` earns a pass stamp; skipped, unavailable, failed, cleared, or conversation-required states remain explicit. The copyable Proof line stays byte-for-byte outside the Receipt as the relay protocol. `prepare` reports omitted build jobs and tests without review evidence.
+
+When `accept` or `setup done` runs the full Gate internally, it uses the same projection; setup shows it for the main checkout and the temporary-worktree verification. `[gate].stream = true` streams raw project output on its existing channel. `--plain` and CI use a static Workflow. Pipes get the `done` Proof page. `--json` and MCP runs emit no human Components. `--no-color`, a dumb terminal, or an ASCII locale select the package's plain degradation through the shared terminal context.
 
 Capped-run waits remain live `waited_ms` telemetry; the Proof line, page, and durable record omit them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
@@ -69,7 +71,8 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 | Marker identity and validation | [`proof.ts`](../../../src/engine/gate/proof.ts)                |
 | Write-authority probe          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts) |
 | Proof facts and markdown       | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts)  |
-| Shared gate-job TTY projection | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)          |
+| Pure human presentation        | [`presentation.ts`](../../../src/engine/gate/presentation.ts)  |
+| Live TTY effects and resizing  | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)          |
 | `done` proof panel             | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)          |
 | `done` integration             | [`finish.ts`](../../../src/engine/gate/finish.ts)              |
 | `prepare` integration          | [`prepare.ts`](../../../src/engine/gate/prepare.ts)            |
