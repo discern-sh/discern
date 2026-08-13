@@ -15,7 +15,7 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.12.1"
+"discern-design-system": "jsr:@discern-sh/design-system@0.12.2"
 ```
 
 Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI consumer additionally uses the documented `./cli` and `./cli/interactive` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
@@ -24,7 +24,7 @@ When a package defect affects discern, release the fix from the package reposito
 
 ## CLI-owned integration
 
-The package's `./cli` graph owns pure Components, Token roles, generic terminal text/layout, and reusable triangle motifs. Its `./cli/interactive` graph owns terminal I/O, key decoding, grapheme editing, prompt machines, painting, cancellation, and restoration. [`src/lib/terminal.ts`](../../../src/lib/terminal.ts) remains discern's process and safe-text boundary; [`src/lib/prompts.ts`](../../../src/lib/prompts.ts) remains its product interaction choke point. Product facts, action legality, effects, streams, machine schemas, raw child bytes, and product artwork remain under discern's authority.
+The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, prompts, and safe repaint refusal. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`prompts.ts`](../../../src/lib/prompts.ts).
 
 Consumer conformance proves both CLI graphs are React-free and resolved from the exact external release. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
 

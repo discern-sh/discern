@@ -51,7 +51,18 @@ const LIVE_CONFIG = CONFIG.replace(
 );
 const FAILING_CONFIG = CONFIG.replace(
   'format = "true"',
-  'format = "false"\ntest = "true"',
+  'format = "echo $((40+2))-ONE-OFF; false"\ntest = "true"',
+);
+const OVERSIZED_CONFIG = CONFIG.replace(
+  'format = "true"',
+  [
+    'format = "sleep 1"',
+    'build = "true"',
+    'lint = "true"',
+    'typecheck = "true"',
+    'test = "true"',
+    'smoke = "true"',
+  ].join("\n"),
 );
 
 Deno.test("an in-process full gate must declare its output surface", () => {
@@ -174,6 +185,13 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
     assertStringIncludes(failing.stdout.slice(failingFirstRedraw), "running");
     assertStringIncludes(failing.output, "failed in <1s");
     assertStringIncludes(failing.output, "skipped");
+    assertStringIncludes(failing.output, "Failure guide:");
+    assertEquals(failing.output.match(/42-ONE-OFF/gu)?.length, 1);
+    assert(
+      failing.stdout.indexOf("Failure guide:") >
+        failing.stdout.lastIndexOf(CSI),
+      failing.output,
+    );
     assertEquals(failing.output.includes("Proof: gate passed"), false);
 
     for (
@@ -240,5 +258,40 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
     assertEquals(envelope.verb, "done");
     assertEquals(json.output.includes("Running gate checks"), false);
     assertEquals(json.output.includes("Gate progress"), false);
+  });
+});
+
+Deno.test("done TTY: a Gate taller than the viewport stays static and scrollable", async () => {
+  await withTempDir(async (main) => {
+    await scaffoldEngine(main, { agents: [] });
+    await writeConfig(main, CONFIG);
+    await gitInit(main);
+    const worktree = await committedWorktree(
+      main,
+      "oversized-gate",
+      OVERSIZED_CONFIG,
+    );
+
+    const result = await runAgentPty(worktree, ["done"], {
+      env: { COLUMNS: "80", LINES: "24", NO_COLOR: "1", CI: "false" },
+      timeoutMs: 20_000,
+    });
+
+    assertEquals(result.code, 0, result.output);
+    assertStringIncludes(result.output, "Applying fixers");
+    assertStringIncludes(result.output, "Checking and testing");
+    assertStringIncludes(result.output, "Gate progress");
+    assertStringIncludes(result.output, "format [passed]");
+    assertStringIncludes(result.output, "smoke [passed]");
+    assertEquals(result.output.match(/Gate progress/gu)?.length, 1);
+    assertEquals(result.output.match(/format \[passed\]/gu)?.length, 1);
+    assertEquals(result.output.match(/smoke \[passed\]/gu)?.length, 1);
+    assertEquals(
+      result.stdout.includes(CSI),
+      false,
+      "an oversized Gate must not emit cursor-up repaint controls",
+    );
+    assertEquals(result.output.includes("pending"), false);
+    assertEquals(result.output.includes("running for"), false);
   });
 });

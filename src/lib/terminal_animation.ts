@@ -25,7 +25,6 @@ import {
 export interface TerminalAnimationEnvironment {
   readonly stdoutIsTerminal: boolean;
   readonly ci: string | undefined;
-  readonly term: string | undefined;
   readonly terminalColumns: number;
   readonly terminalRows: number;
   readonly capabilities: TerminalCapabilities;
@@ -43,7 +42,7 @@ export function terminalAnimationAllowed(
 ): boolean {
   return environment.stdoutIsTerminal &&
     !ciRequestsStatic(environment.ci) &&
-    environment.term?.trim().toLowerCase() !== "dumb";
+    environment.capabilities.ansiControl !== false;
 }
 
 /** Project one shared process context into the animation planner's pure facts. */
@@ -53,7 +52,6 @@ export function terminalAnimationEnvironment(
   return {
     stdoutIsTerminal: terminal.stdoutIsTerminal,
     ci: terminal.environment.CI,
-    term: terminal.environment.TERM,
     terminalColumns: terminal.size.columns,
     terminalRows: terminal.size.rows,
     capabilities: terminal.capabilities,
@@ -95,7 +93,13 @@ export function abortableWait(
 export function terminalPlaybackPort(
   write: (value: string) => void,
 ): TerminalPlaybackPort {
-  return { write, wait: abortableWait, terminalSize };
+  const capabilities = terminalContext().capabilities;
+  return {
+    write,
+    wait: abortableWait,
+    terminalSize,
+    terminalCapabilities: () => capabilities,
+  };
 }
 
 /** Re-throw an unknown execution failure through a stable Error boundary. */

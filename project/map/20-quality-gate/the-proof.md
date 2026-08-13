@@ -17,15 +17,15 @@ _A clean green Gate records what ran and identifies the exact branch state ready
 - **The line** (`data.proof.line`): one sentence naming the branch, validated commit, diffstat, Standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_proof.proof_line`; `accept` derives its line from it and appends the recorded consent source.
 - **The page** (`data.proof.markdown`): Standards, declared jobs and scope gates, then the diff command. `status --verbose` prints a valid Proof. Git owns commit and per-file lists; `Inspect:` names the command.
 
-`done` and `prepare` share the package Workflow: a Meter reports progress, grouped Procedures show jobs, triangle activity marks running work, and Commands retain configured commands and durations. `done` adds a Proof panel for the branch, commit, diff, outcomes, recording state, and landing readiness. Only `recorded` passes; every other Proof state stays explicit. The relay line remains byte-for-byte outside. `prepare` reports omitted work without review evidence.
+`done` and `prepare` share package progress, grouped jobs, activity, and commands. `done` adds review, recording, and readiness facts; only `recorded` passes. `prepare` names omitted work. The byte-exact relay stays separate.
 
-`accept` and `setup done` reuse the projection. Streaming preserves raw project output; CI and `--plain` use a static Workflow; pipes get the Proof page; JSON and MCP emit no Components. Shared terminal context controls no-colour, dumb-terminal, and ASCII degradation.
+`accept` and `setup done` reuse it. Streaming stays raw. CI, `--plain`, oversized, or cursor-ineligible terminals stay static; pipes receive Proof; JSON and MCP omit Components. UTF-8 retains Unicode under `TERM=dumb` and no colour; exact `C` or `POSIX` uses ASCII.
 
-Capped-run waits remain live `waited_ms` telemetry; the Proof line, page, and durable record omit them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
+`waited_ms` reports capped-run waits; durable Proof omits them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
-The Proof pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
+The Proof pins a reviewable `HEAD` even if trunk advances. Without a verified grant, the agent reports and waits. `discern accept --confirmed` records conversation consent; standing and effort grants need no flag. Landing returns the final line.
 
-A qualifying Proof may carry one `Logbook:` advisory from `hints[]`. `discern patterns` holds its evidence and next step. The advisory changes neither the stored Proof, `ok`, nor acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+A Proof may carry one `Logbook:` advisory from `hints[]`. `discern patterns` owns its evidence and next step. The advisory changes neither stored Proof, `ok`, nor acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
 ## When a Proof is recorded
 
@@ -72,7 +72,7 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 | Write-authority probe          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts) |
 | Proof facts and markdown       | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts)  |
 | Pure human presentation        | [`presentation.ts`](../../../src/engine/gate/presentation.ts)  |
-| Live TTY effects and resizing  | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)          |
+| Live TTY effects and viewport  | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)          |
 | `done` proof panel             | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)          |
 | `done` integration             | [`finish.ts`](../../../src/engine/gate/finish.ts)              |
 | `prepare` integration          | [`prepare.ts`](../../../src/engine/gate/prepare.ts)            |

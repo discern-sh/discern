@@ -43,6 +43,7 @@ import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
   createGateTtyProgress,
   gateTtyPresentation,
+  gateTtyProgressCanRepaint,
   renderGateTtyStatus,
   renderGateTtyTable,
 } from "./gate_tty.ts";
@@ -69,21 +70,26 @@ async function runPrepareGate(
     cfg: DiscernConfig;
     gotchasTail: GotchasFailureTail | undefined;
     liveTable: boolean;
+    outputWithheld: boolean;
   }
 > {
   const cfg = await loadConfig(root);
   const groups = preparePlanGroups(cfg);
-  const compactTty = presentation.liveWidth !== undefined && !json &&
-    !cfg.gate.stream;
+  const liveOptions = presentation.liveWidth === undefined ||
+      presentation.terminal === undefined
+    ? undefined
+    : { width: presentation.liveWidth, terminal: presentation.terminal };
+  const compactTty = liveOptions !== undefined && !json && !cfg.gate.stream &&
+    gateTtyProgressCanRepaint(groups, liveOptions);
   const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal, {
     quietHumanRun: compactTty,
     ...(presentation.terminal === undefined
       ? {}
       : { terminal: presentation.terminal }),
   });
-  const progress = compactTty && presentation.liveWidth !== undefined
+  const progress = compactTty && liveOptions !== undefined
     ? createGateTtyProgress(out.raw, {
-      width: presentation.liveWidth,
+      width: liveOptions.width,
       terminal: out.terminal,
     })
     : undefined;
@@ -150,7 +156,8 @@ async function runPrepareGate(
     out,
     cfg,
     gotchasTail,
-    liveTable: progress !== undefined,
+    liveTable: progress?.renderedFinal() ?? false,
+    outputWithheld: compactTty,
   };
 }
 
@@ -185,13 +192,20 @@ export async function runPrepare(
     opts.plain ?? false,
     terminal,
   );
-  const { result, failedStage, out, cfg, gotchasTail, liveTable } =
-    await runPrepareGate(
-      root,
-      false,
-      undefined,
-      { terminal, ...(liveWidth === undefined ? {} : { liveWidth }) },
-    );
+  const {
+    result,
+    failedStage,
+    out,
+    cfg,
+    gotchasTail,
+    liveTable,
+    outputWithheld,
+  } = await runPrepareGate(
+    root,
+    false,
+    undefined,
+    { terminal, ...(liveWidth === undefined ? {} : { liveWidth }) },
+  );
   observeResult(result); // the logbook recorder lifts step timings from it
   const ttyTable = ttyWidth !== undefined && !cfg.gate.stream;
   if (ttyTable && !liveTable && ttyWidth !== undefined) {
@@ -217,7 +231,7 @@ export async function runPrepare(
       failedStage,
       gotchas: gotchasTail,
       // The live table quiets the runner, so the tail carries the output.
-      outputWithheld: liveTable,
+      outputWithheld,
     });
     return 1;
   }

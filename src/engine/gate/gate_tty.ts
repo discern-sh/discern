@@ -5,7 +5,7 @@
  */
 
 import { DISCERN_TRIANGLE_SPINNER_ORDER } from "discern-design-system/cli";
-import type { TerminalContext } from "../../lib/terminal.ts";
+import type { TerminalContext, TerminalSize } from "../../lib/terminal.ts";
 import { createInlineFramePainter } from "../../lib/terminal_painter.ts";
 import type { StepResult } from "../../shared/result.ts";
 import type { GateStandard } from "../../shared/result_schemas.ts";
@@ -56,6 +56,31 @@ export function renderGateTtyProgressTable(
   );
 }
 
+/** Whether the package painter accepts the initial Gate frame for replacement. */
+export function gateTtyProgressCanRepaint(
+  groups: readonly JobGroup[],
+  options: GateTtyOptions,
+): boolean {
+  const painter = createInlineFramePainter({
+    write: () => {},
+    size: () => options.terminal.size,
+    capabilities: () => ({
+      ...options.terminal.capabilities,
+      columns: options.width,
+    }),
+  });
+  return painter.replace(
+    `${
+      renderGateTtyProgressTable(
+        groups,
+        new Set(),
+        new Map(),
+        options,
+      )
+    }\n`,
+  ).status !== "refused";
+}
+
 /** Injectable repeating scheduler for deterministic activity-frame tests. */
 export interface GateProgressScheduler {
   repeat(callback: () => void, intervalMs: number): () => void;
@@ -72,12 +97,14 @@ const systemProgressScheduler: GateProgressScheduler = {
 export interface GateTtyProgress extends JobRunObserver {
   start(groups: readonly JobGroup[]): void;
   replaceGroups(groups: readonly JobGroup[]): void;
-  /** Update the explicit viewport before the next repaint. */
-  resize(width: number): void;
+  /** Update an explicitly observed viewport before the next repaint. */
+  resize(size: TerminalSize): void;
   complete(
     steps: readonly StepResult[],
     standards?: readonly GateStandard[],
   ): void;
+  /** Whether completion successfully left one final Gate frame visible. */
+  renderedFinal(): boolean;
 }
 
 /** Controller-only options. Pure view functions never receive the scheduler. */
@@ -118,30 +145,92 @@ export function createGateTtyProgress(
   let visible = new Set<string>();
   let redrawQueued = false;
   let completed = false;
+  let repainting = true;
+  let paintFailed = false;
+  let finalRendered = false;
   let phase = options.initialPhase ?? 0;
-  let width = options.width;
+  let viewport: TerminalSize = {
+    columns: options.width,
+    rows: options.terminal.size.rows,
+  };
   let stopRepeating: (() => void) | undefined;
   const painter = createInlineFramePainter({
     write,
-    size: () => ({ columns: width, rows: options.terminal.size.rows }),
+    size: () => viewport,
     capabilities: () => ({
       ...options.terminal.capabilities,
-      columns: width,
+      columns: viewport.columns,
     }),
   });
 
   const frameOptions = (): GateTtyOptions => ({
-    width,
+    width: viewport.columns,
     terminal: options.terminal,
   });
 
-  const replace = (table: string): void => {
-    if (painter.currentFrame === "") write("\n");
-    painter.replace(`${table}\n`);
+  const stopTicker = (): void => {
+    try {
+      stopRepeating?.();
+    } catch {
+      // Presentation cleanup cannot change the Gate's scheduler result.
+    }
+    stopRepeating = undefined;
+  };
+
+  const abandonPaint = (): void => {
+    paintFailed = true;
+    repainting = false;
+    stopTicker();
+  };
+
+  const attemptWrite = (effect: () => void): boolean => {
+    if (paintFailed) return false;
+    try {
+      effect();
+      return true;
+    } catch {
+      // Once a write fails, the physical cursor position is unknowable. Never
+      // issue a compensating erase or let presentation mask the Gate result.
+      abandonPaint();
+      return false;
+    }
+  };
+
+  const replace = (table: string, final = false): void => {
+    if (paintFailed) return;
+    if (!repainting) {
+      if (final) {
+        finalRendered = attemptWrite(() => write(`${table}\n`));
+      }
+      return;
+    }
+    if (
+      painter.currentFrame === "" && !attemptWrite(() => write("\n"))
+    ) return;
+    let result: ReturnType<typeof painter.replace>;
+    try {
+      result = painter.replace(`${table}\n`);
+    } catch {
+      abandonPaint();
+      return;
+    }
+    if (result.status !== "refused") {
+      if (final) finalRendered = true;
+      return;
+    }
+    if (
+      painter.currentFrame !== "" &&
+      !attemptWrite(() => painter.clear())
+    ) return;
+    repainting = false;
+    stopTicker();
+    if (final) {
+      finalRendered = attemptWrite(() => write(`${table}\n`));
+    }
   };
 
   const redraw = (): void => {
-    if (groups === undefined || completed) return;
+    if (groups === undefined || completed || paintFailed || !repainting) return;
     replace(
       renderGateTtyProgressTable(
         groups,
@@ -156,21 +245,20 @@ export function createGateTtyProgress(
   };
 
   const queueRedraw = (): void => {
-    if (redrawQueued || completed) return;
+    if (redrawQueued || completed || paintFailed || !repainting) return;
     redrawQueued = true;
     queueMicrotask(() => {
       redrawQueued = false;
-      redraw();
+      try {
+        redraw();
+      } catch {
+        abandonPaint();
+      }
     });
   };
 
-  const stopTicker = (): void => {
-    stopRepeating?.();
-    stopRepeating = undefined;
-  };
-
   const syncTicker = (): void => {
-    if (completed || running.size === 0) {
+    if (completed || paintFailed || !repainting || running.size === 0) {
       stopTicker();
       return;
     }
@@ -191,17 +279,35 @@ export function createGateTtyProgress(
   return {
     start: (next): void => {
       setGroups(next);
-      redraw();
+      try {
+        redraw();
+      } catch {
+        abandonPaint();
+      }
     },
     replaceGroups: (next): void => {
       if (completed) return;
       setGroups(next);
-      redraw();
+      try {
+        redraw();
+      } catch {
+        abandonPaint();
+      }
     },
-    resize: (nextWidth): void => {
-      if (!Number.isFinite(nextWidth) || nextWidth < 1) return;
-      width = Math.floor(nextWidth);
-      redraw();
+    resize: (next): void => {
+      if (
+        !Number.isFinite(next.columns) || next.columns < 1 ||
+        !Number.isFinite(next.rows) || next.rows < 1
+      ) return;
+      viewport = {
+        columns: Math.floor(next.columns),
+        rows: Math.floor(next.rows),
+      };
+      try {
+        redraw();
+      } catch {
+        abandonPaint();
+      }
     },
     started: (job: Job): void => {
       if (!visible.has(job.label) || completed) return;
@@ -221,8 +327,14 @@ export function createGateTtyProgress(
     complete: (steps, standards = []): void => {
       completed = true;
       stopTicker();
-      replace(renderGateTtyTable(steps, frameOptions(), standards));
+      if (paintFailed) return;
+      try {
+        replace(renderGateTtyTable(steps, frameOptions(), standards), true);
+      } catch {
+        abandonPaint();
+      }
     },
+    renderedFinal: (): boolean => finalRendered,
   };
 }
 
@@ -251,6 +363,9 @@ export function gateTtyPresentation(
   const width = terminal.size.columns;
   return {
     ttyWidth: width,
-    ...(plain || terminal.ciRequestsStaticOutput ? {} : { liveWidth: width }),
+    ...(plain || terminal.ciRequestsStaticOutput ||
+        terminal.capabilities.ansiControl === false
+      ? {}
+      : { liveWidth: width }),
   };
 }

@@ -324,7 +324,12 @@ export function terminalPresentationContext(
   color: boolean,
 ): TerminalContext {
   const base = activeTerminalContext ?? contextFromFacts(
-    { colorDepth: "none", columns: DEFAULT_TERMINAL_COLUMNS, unicode: true },
+    {
+      ansiControl: false,
+      colorDepth: "none",
+      columns: DEFAULT_TERMINAL_COLUMNS,
+      unicode: true,
+    },
     { columns: DEFAULT_TERMINAL_COLUMNS, rows: DEFAULT_TERMINAL_ROWS },
     {},
     "dark",

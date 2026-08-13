@@ -151,6 +151,32 @@ Deno.test("terminal playback applies the complete plan and settles on static out
   ]);
 });
 
+Deno.test("terminal playback settles immediately when the package refuses control", async () => {
+  const writes: string[] = [];
+  const waits: number[] = [];
+  await applyTerminalPlayback(
+    fixturePlan(),
+    {
+      write: (value) => writes.push(value),
+      wait: (milliseconds) => {
+        waits.push(milliseconds);
+        return Promise.resolve();
+      },
+      terminalSize: STABLE_TERMINAL_SIZE,
+      terminalCapabilities: () => ({
+        ansiControl: false,
+        colorDepth: "none",
+        columns: 80,
+        unicode: true,
+      }),
+    },
+    new AbortController().signal,
+  );
+
+  assertEquals(writes, ["\n", "static\n"]);
+  assertEquals(waits, []);
+});
+
 Deno.test("terminal playback abort clears the partial viewport without persistent cursor state", async () => {
   const writes: string[] = [];
   const controller = new AbortController();

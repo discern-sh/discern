@@ -15,14 +15,23 @@ import {
 import { DISCERN_MARK, DISCERN_WORDMARK } from "../src/shared/brand.ts";
 import { DISCERN_PRODUCT_TRIANGLE_ART } from "../art/terminal/triangle.ts";
 import type { TerminalAnimationEnvironment } from "../src/lib/terminal_animation.ts";
+import { runAgentPty } from "./engine_helpers.ts";
+import { fromFileUrl } from "@std/path";
+
+const ROOT = fromFileUrl(new URL("../", import.meta.url));
+const CSI = `${String.fromCharCode(27)}[`;
 
 const CAPABLE_TERMINAL: TerminalAnimationEnvironment = {
   stdoutIsTerminal: true,
   ci: undefined,
-  term: "xterm-256color",
   terminalColumns: 80,
   terminalRows: 24,
-  capabilities: { colorDepth: "none", columns: 80, unicode: true },
+  capabilities: {
+    ansiControl: true,
+    colorDepth: "none",
+    columns: 80,
+    unicode: true,
+  },
 };
 
 Deno.test("triangleResult carries the mark and the composed terminal art", () => {
@@ -52,7 +61,13 @@ Deno.test("triangle planning keeps motion off non-interactive surfaces", () => {
   const staticEnvironments: readonly TerminalAnimationEnvironment[] = [
     { ...CAPABLE_TERMINAL, stdoutIsTerminal: false },
     { ...CAPABLE_TERMINAL, ci: "true" },
-    { ...CAPABLE_TERMINAL, term: "dumb" },
+    {
+      ...CAPABLE_TERMINAL,
+      capabilities: {
+        ...CAPABLE_TERMINAL.capabilities,
+        ansiControl: false,
+      },
+    },
     { ...CAPABLE_TERMINAL, terminalColumns: 10 },
     { ...CAPABLE_TERMINAL, terminalRows: 4 },
   ];
@@ -116,4 +131,21 @@ Deno.test("triangle --json emits one faithful result envelope and exits 0", asyn
   assertEquals(envelope.verb, "triangle");
   assertEquals(envelope.data.mark, DISCERN_MARK);
   assertEquals(envelope.data.art, renderTriangleArt());
+});
+
+Deno.test("triangle keeps Unicode in a Codex-style dumb UTF-8 terminal", async () => {
+  const result = await runAgentPty(ROOT, ["triangle"], {
+    env: {
+      TERM: "dumb",
+      NO_COLOR: "1",
+      LC_ALL: "C.UTF-8",
+      LANG: "C.UTF-8",
+    },
+  });
+  assertEquals(result.code, 0, result.output);
+  assertStringIncludes(result.output, `       ${DISCERN_MARK}`);
+  assertStringIncludes(result.output, `      ${DISCERN_MARK} ◭`);
+  assertStringIncludes(result.output, DISCERN_WORDMARK);
+  assertEquals(result.output.includes("> ^"), false);
+  assertEquals(result.output.includes(CSI), false);
 });

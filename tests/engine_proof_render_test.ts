@@ -53,6 +53,14 @@ const SGR_GLOBAL = new RegExp(
 const stripSgr = (value: string): string => value.replaceAll(SGR_GLOBAL, "");
 const PLAIN_TERMINAL = makeOut(false).terminal;
 const COLOR_TERMINAL = makeOut(true).terminal;
+const LARGE_PLAIN_TERMINAL = {
+  ...PLAIN_TERMINAL,
+  capabilities: {
+    ...PLAIN_TERMINAL.capabilities,
+    ansiControl: true,
+  },
+  size: { columns: 80, rows: 200 },
+};
 
 const FACTS: ProofFacts = {
   branch: "agent/upload-retry",
@@ -412,7 +420,7 @@ Deno.test("gate TTY progress: controller redraws in place and leaves no color SG
   const writes: string[] = [];
   const progress = createGateTtyProgress(
     (value) => writes.push(value),
-    { width: 80, terminal: PLAIN_TERMINAL },
+    { width: 80, terminal: LARGE_PLAIN_TERMINAL },
   );
   progress.start(PLAN.groups);
   assertEquals(writes[0], "\n");

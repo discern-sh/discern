@@ -26,10 +26,14 @@ const DECODER = new TextDecoder();
 const ANIMATED_ENVIRONMENT: ArtCommandEnvironment = {
   stdoutIsTerminal: true,
   ci: undefined,
-  term: "xterm-256color",
   terminalColumns: 80,
   terminalRows: 24,
-  capabilities: { colorDepth: "none", columns: 80, unicode: true },
+  capabilities: {
+    ansiControl: true,
+    colorDepth: "none",
+    columns: 80,
+    unicode: true,
+  },
 };
 const PIPED_CAPABILITIES = {
   colorDepth: "none" as const,
@@ -103,7 +107,13 @@ Deno.test("art command planning keeps motion opt-in and terminal-safe", () => {
     const environment of [
       { ...ANIMATED_ENVIRONMENT, stdoutIsTerminal: false },
       { ...ANIMATED_ENVIRONMENT, ci: "1" },
-      { ...ANIMATED_ENVIRONMENT, term: "dumb" },
+      {
+        ...ANIMATED_ENVIRONMENT,
+        capabilities: {
+          ...ANIMATED_ENVIRONMENT.capabilities,
+          ansiControl: false,
+        },
+      },
       {
         ...ANIMATED_ENVIRONMENT,
         terminalColumns: roomyPlan.playback.maxWidth,

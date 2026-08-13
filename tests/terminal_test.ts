@@ -41,6 +41,7 @@ Deno.test("terminal context snapshots process facts and observes dimensions once
   assertEquals(attachmentObservations, 1);
   assertEquals(context.size, { columns: 101, rows: 51 });
   assertEquals(context.capabilities, {
+    ansiControl: true,
     colorDepth: "truecolor",
     columns: 101,
     unicode: true,
@@ -63,6 +64,7 @@ Deno.test("flag-forced no-colour is visible to package capability detection", ()
   });
   assertEquals(context.environment.NO_COLOR, "1");
   assertEquals(context.capabilities.colorDepth, "none");
+  assertEquals(context.capabilities.ansiControl, true);
   assertEquals(context.capabilities.unicode, true);
   assertEquals(context.tone("Done", "success"), "Done");
 });
@@ -87,9 +89,10 @@ Deno.test("empty NO_COLOR, non-TTY, dumb TERM, and C locale degrade distinctly",
     consoleSize: throwsConsoleSize,
   });
   assertEquals(nonTerminal.capabilities, {
+    ansiControl: false,
     colorDepth: "none",
     columns: 80,
-    unicode: false,
+    unicode: true,
   });
   assertEquals(nonTerminal.stdoutIsTerminal, false);
   assertEquals(nonTerminal.ciRequestsStaticOutput, false);
@@ -101,7 +104,8 @@ Deno.test("empty NO_COLOR, non-TTY, dumb TERM, and C locale degrade distinctly",
     consoleSize: throwsConsoleSize,
   });
   assertEquals(dumb.capabilities.colorDepth, "none");
-  assertEquals(dumb.capabilities.unicode, false);
+  assertEquals(dumb.capabilities.ansiControl, false);
+  assertEquals(dumb.capabilities.unicode, true);
 
   const ascii = resolveTerminalContext({
     noColor: false,
@@ -110,7 +114,25 @@ Deno.test("empty NO_COLOR, non-TTY, dumb TERM, and C locale degrade distinctly",
     consoleSize: throwsConsoleSize,
   });
   assertEquals(ascii.capabilities.colorDepth, "ansi16");
+  assertEquals(ascii.capabilities.ansiControl, true);
   assertEquals(ascii.capabilities.unicode, false);
+});
+
+Deno.test("Codex and Claude dumb terminals retain their UTF-8 repertoire", () => {
+  for (const locale of ["C.UTF-8", "C.utf8"]) {
+    const context = resolveTerminalContext({
+      noColor: false,
+      env: fakeEnv({ TERM: "dumb", NO_COLOR: "1", LC_ALL: locale }),
+      isTerminal: () => true,
+      consoleSize: () => ({ columns: 80, rows: 24 }),
+    });
+    assertEquals(context.capabilities, {
+      ansiControl: false,
+      colorDepth: "none",
+      columns: 80,
+      unicode: true,
+    });
+  }
 });
 
 Deno.test("production constructor retains environment and dimension fallbacks", () => {

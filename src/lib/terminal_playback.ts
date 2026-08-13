@@ -4,6 +4,7 @@
  * and the executor alone owns cursor state, redraws, and waits.
  */
 
+import type { TerminalCapabilities } from "discern-design-system/cli";
 import { displayWidth, type TerminalSize } from "./text.ts";
 import {
   createInlineFramePainter,
@@ -41,6 +42,8 @@ export interface TerminalPlaybackPort {
   readonly write: (value: string) => void;
   readonly wait: (milliseconds: number, signal: AbortSignal) => Promise<void>;
   readonly terminalSize: () => TerminalSize;
+  /** Explicit control facts; omission preserves the legacy capable test seam. */
+  readonly terminalCapabilities?: () => TerminalCapabilities;
 }
 
 /** A captured cleanup failure that preserves thrown values of any type. */
@@ -247,18 +250,23 @@ export async function applyTerminalPlayback(
   const painter = createInlineFramePainter({
     write: port.write,
     size: port.terminalSize,
-    capabilities: () => ({
-      colorDepth: "none",
-      columns: port.terminalSize().columns,
-      unicode: true,
-    }),
+    capabilities: () => {
+      const size = port.terminalSize();
+      const capabilities = port.terminalCapabilities?.() ?? {
+        ansiControl: true,
+        colorDepth: "none" as const,
+        columns: size.columns,
+        unicode: true,
+      };
+      return { ...capabilities, columns: size.columns };
+    },
   });
   let failure: CapturedFailure | undefined;
   let painterWriteFailed = false;
   let settled = false;
-  const paint = (effect: () => void): void => {
+  const paint = <T>(effect: () => T): T => {
     try {
-      effect();
+      return effect();
     } catch (error) {
       // The package emits a replacement prefix and frame as one write. Once a
       // write fails, its physical cursor position is unknowable; never attempt
@@ -279,7 +287,12 @@ export async function applyTerminalPlayback(
           settled = true;
           break scenes;
         }
-        paint(() => painter.replace(viewport));
+        const result = paint(() => painter.replace(viewport));
+        if (result.status === "refused") {
+          settleBelowViewport(plan, port, painter, paint);
+          settled = true;
+          break scenes;
+        }
         if (frameIndex < scene.viewports.length - 1) {
           await port.wait(scene.frameMs, signal);
         }

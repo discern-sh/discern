@@ -98,9 +98,11 @@ Deno.test("prepare TTY: a narrow terminal wraps every command fact", async () =>
     });
     assertEquals(result.code, 0, result.output);
     assertStringIncludes(result.output, "Gate progress");
-    assertStringIncludes(result.output, "format [pending]");
+    assertStringIncludes(result.output, "format [passed]");
     assertStringIncludes(result.output, "$ true");
     assertStringIncludes(result.output, "a-check-command-with-detail");
+    assertEquals(result.output.includes("pending"), false);
+    assertEquals(result.output.includes(CSI), false);
     assertEquals(result.output.includes("JOB                 COMMAND"), false);
   });
 });

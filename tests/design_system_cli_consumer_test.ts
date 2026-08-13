@@ -6,9 +6,11 @@ import { packageManifest } from "discern-design-system";
 import {
   renderBadgeCli,
   renderFleetCli,
+  renderTriangleWorkflowStepper,
   type TerminalCapabilities,
 } from "discern-design-system/cli";
 import {
+  InlineFramePainter,
   type PromptChoiceEntry,
   promptSelect,
   type TerminalIO,
@@ -16,11 +18,15 @@ import {
 } from "discern-design-system/cli/interactive";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.12.1";
+const SELECTED_VERSION = "0.12.2";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
 const encoder = new TextEncoder();
+const ANSI_PATTERN = new RegExp(
+  `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
+  "gu",
+);
 
 interface DenoConfig {
   readonly imports: Readonly<Record<string, string>>;
@@ -31,8 +37,25 @@ interface DenoLock {
   readonly jsr: Readonly<Record<string, unknown>>;
 }
 
+interface DenoInfoResolution {
+  readonly specifier: string;
+}
+
+interface DenoInfoDependency {
+  readonly specifier: string;
+  readonly code?: DenoInfoResolution;
+  readonly type?: DenoInfoResolution;
+}
+
+interface DenoInfoModule {
+  readonly specifier?: string;
+  readonly dependencies?: readonly DenoInfoDependency[];
+}
+
 interface DenoInfo {
-  readonly modules?: readonly { readonly specifier?: string }[];
+  readonly roots?: readonly string[];
+  readonly redirects?: Readonly<Record<string, string>>;
+  readonly modules?: readonly DenoInfoModule[];
 }
 
 /** Select React runtime modules while ignoring configured type declarations. */
@@ -48,9 +71,22 @@ class ConsumerTerminal implements TerminalIO {
   readonly writes: string[] = [];
   readonly rawTransitions: boolean[] = [];
   readonly #chunks: Uint8Array[];
+  readonly #capabilities: TerminalCapabilities;
+  readonly #size: TerminalSize;
 
-  constructor(chunks: readonly string[]) {
+  constructor(
+    chunks: readonly string[],
+    capabilities: TerminalCapabilities = {
+      ansiControl: true,
+      colorDepth: "none",
+      columns: 60,
+      unicode: true,
+    },
+    size: TerminalSize = { columns: 60, rows: 24 },
+  ) {
     this.#chunks = chunks.map((chunk) => encoder.encode(chunk));
+    this.#capabilities = capabilities;
+    this.#size = size;
   }
 
   isInteractive(): boolean {
@@ -58,11 +94,11 @@ class ConsumerTerminal implements TerminalIO {
   }
 
   capabilities(): TerminalCapabilities {
-    return { colorDepth: "none", columns: 60, unicode: true };
+    return this.#capabilities;
   }
 
   size(): TerminalSize {
-    return { columns: 60, rows: 24 };
+    return this.#size;
   }
 
   read(): Promise<Uint8Array | null> {
@@ -79,7 +115,7 @@ class ConsumerTerminal implements TerminalIO {
 }
 
 /** Read one resolved Deno graph as external-consumer evidence. */
-async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
+async function moduleGraph(entrypoint: string): Promise<DenoInfo> {
   const output = await new Deno.Command(Deno.execPath(), {
     args: ["info", "--json", entrypoint],
     cwd: ROOT,
@@ -89,10 +125,12 @@ async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
   if (!output.success) {
     throw new Error(new TextDecoder().decode(output.stderr));
   }
-  const info = JSON.parse(new TextDecoder().decode(output.stdout)) as DenoInfo;
-  return (info.modules ?? []).flatMap((module) =>
-    module.specifier === undefined ? [] : [module.specifier]
-  );
+  return JSON.parse(new TextDecoder().decode(output.stdout)) as DenoInfo;
+}
+
+/** Resolve a graph edge through Deno's package-export redirect table. */
+function resolvedEdge(info: DenoInfo, specifier: string): string {
+  return info.redirects?.[specifier] ?? specifier;
 }
 
 Deno.test("the selected release exposes all three public consumer graphs", async () => {
@@ -110,6 +148,7 @@ Deno.test("the selected release exposes all three public consumer graphs", async
   assert(packageManifest.components.length > 0);
 
   const capabilities: TerminalCapabilities = {
+    ansiControl: true,
     colorDepth: "none",
     columns: 60,
     unicode: true,
@@ -144,11 +183,73 @@ Deno.test("the selected release exposes all three public consumer graphs", async
   const terminalOutput = io.writes.join("");
   assertStringIncludes(terminalOutput, "Primary");
   assertStringIncludes(terminalOutput, "Secondary");
+
+  const choiceFrames = io.writes.filter((write) =>
+    write.includes("One") && write.includes("Two")
+  );
+  assert(choiceFrames.length >= 2);
+  for (const frame of choiceFrames) {
+    const lines = frame.replaceAll(ANSI_PATTERN, "").split("\n");
+    const one = lines.find((line) => line.includes("One"));
+    const two = lines.find((line) => line.includes("Two"));
+    assert(one !== undefined);
+    assert(two !== undefined);
+    assertEquals(one.indexOf("One"), two.indexOf("Two"));
+  }
+
+  const workflow = renderTriangleWorkflowStepper([
+    { label: "Pending", status: "pending" },
+    { label: "Running", status: "active", phase: 0 },
+    { label: "Passed", status: "complete" },
+  ], capabilities);
+  const labelColumns = workflow.split("\n")
+    .filter((_, index) => index % 2 === 0)
+    .map((line) => {
+      const plain = line.replaceAll(ANSI_PATTERN, "");
+      return Math.max(
+        plain.indexOf("Pending"),
+        plain.indexOf("Running"),
+        plain.indexOf("Passed"),
+      );
+    });
+  assertEquals(labelColumns, [4, 4, 4]);
+
+  const staticIo = new ConsumerTerminal([], {
+    ansiControl: false,
+    colorDepth: "none",
+    columns: 60,
+    unicode: true,
+  });
+  const staticPainter = new InlineFramePainter(staticIo);
+  assertEquals(staticPainter.replace("one\ntwo"), {
+    status: "refused",
+    reason: "ansi-control-unavailable",
+    frameLines: 2,
+    previousFrameLines: 0,
+    viewportRows: 24,
+  });
+  assertEquals(staticIo.writes, []);
+
+  const shortIo = new ConsumerTerminal([], capabilities, {
+    columns: 60,
+    rows: 2,
+  });
+  const shortPainter = new InlineFramePainter(shortIo);
+  assertEquals(shortPainter.replace("one\ntwo\nthree"), {
+    status: "refused",
+    reason: "frame-exceeds-viewport",
+    frameLines: 3,
+    previousFrameLines: 0,
+    viewportRows: 2,
+  });
+  assertEquals(shortIo.writes, []);
 });
 
 Deno.test("CLI-only design-system graphs stay external, exact, and React-free", async () => {
-  const modules = await moduleSpecifiers(
-    join(ROOT, "tests/fixtures/design_system_cli_graph.ts"),
+  const entrypoint = join(ROOT, "tests/fixtures/design_system_cli_graph.ts");
+  const info = await moduleGraph(entrypoint);
+  const modules = (info.modules ?? []).flatMap((module) =>
+    module.specifier === undefined ? [] : [module.specifier]
   );
   const packageModules = modules.filter((specifier) =>
     specifier.includes("/@discern-sh/design-system/")
@@ -161,6 +262,52 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
   }));
   assertEquals([...resolvedVersions], [SELECTED_VERSION]);
 
+  const moduleBySpecifier = new Map(
+    (info.modules ?? []).flatMap((module) =>
+      module.specifier === undefined
+        ? []
+        : [[module.specifier, module] as const]
+    ),
+  );
+  const rootSpecifier = info.roots?.[0];
+  assert(rootSpecifier !== undefined);
+  const root = moduleBySpecifier.get(rootSpecifier);
+  assert(root !== undefined);
+  const packageRoots = (root.dependencies ?? [])
+    .filter((dependency) =>
+      dependency.specifier.startsWith("discern-design-system/cli")
+    )
+    .flatMap((dependency) =>
+      dependency.code === undefined
+        ? []
+        : [resolvedEdge(info, dependency.code.specifier)]
+    );
+  assertEquals(packageRoots.length, 2);
+  const allowedOrigin =
+    `https://jsr.io/@discern-sh/design-system/${SELECTED_VERSION}/`;
+  const pending = [...packageRoots];
+  const packageClosure = new Set<string>();
+  while (pending.length > 0) {
+    const specifier = pending.pop();
+    assert(specifier !== undefined);
+    if (packageClosure.has(specifier)) continue;
+    assert(
+      specifier.startsWith(allowedOrigin),
+      `design-system CLI graph escaped ${allowedOrigin}: ${specifier}`,
+    );
+    packageClosure.add(specifier);
+    const module = moduleBySpecifier.get(specifier);
+    assert(module !== undefined, `missing resolved module ${specifier}`);
+    for (const dependency of module.dependencies ?? []) {
+      for (const resolution of [dependency.code, dependency.type]) {
+        if (resolution !== undefined) {
+          pending.push(resolvedEdge(info, resolution.specifier));
+        }
+      }
+    }
+  }
+  assert(packageClosure.size > packageRoots.length);
+
   assertEquals(
     reactRuntimeModules([
       "npm:/@types/react@18.3.12",
@@ -169,9 +316,7 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
     ["npm:/react-dom@18.3.1/server"],
   );
   const forbidden = modules.filter((specifier) =>
-    reactRuntimeModules([specifier]).length > 0 ||
-    specifier.includes("/Users/jack/Sites/discern-design-system/") ||
-    specifier.includes("discern-design-system/src/")
+    reactRuntimeModules([specifier]).length > 0
   );
   assertEquals(forbidden, []);
 });

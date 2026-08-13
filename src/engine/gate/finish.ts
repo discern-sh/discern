@@ -25,7 +25,9 @@ import {
   buildGateResultWithHints,
   checkTestGroups,
   composeGatePlan,
+  gateLiveAdmissionGroups,
   gatePlanToEngine,
+  type JobGroup,
   planScopeGates,
   preCheckpointGroups,
   scopeGatesGroup,
@@ -63,6 +65,7 @@ import { renderDoneTtyProofPanel, renderDoneTtySummary } from "./done_tty.ts";
 import {
   createGateTtyProgress,
   gateTtyPresentation,
+  gateTtyProgressCanRepaint,
   renderGateTtyTable,
 } from "./gate_tty.ts";
 import { cmdsInStage } from "./stages.ts";
@@ -464,6 +467,7 @@ async function runGate(
     changed: string[];
     gotchasTail: GotchasFailureTail | undefined;
     liveTable: boolean;
+    outputWithheld: boolean;
   }
 > {
   // Pin the tree identity FIRST — before any precondition or job reads it. A green
@@ -476,8 +480,28 @@ async function runGate(
   await sweepDueTempArtifacts(root);
   const cfg = await loadConfig(root);
   const generatedGroups = resolveGeneratedGroups(cfg);
-  const compactTty = presentation.liveWidth !== undefined && !json &&
-    !cfg.gate.stream;
+  let liveGroups: readonly JobGroup[] | undefined;
+  if (
+    presentation.liveWidth !== undefined &&
+    presentation.terminal !== undefined &&
+    !json &&
+    !cfg.gate.stream
+  ) {
+    // Admission must remain pure so the merge check below is still the first
+    // repository observation. Include every declared scope gate in the fit
+    // candidate; the authoritative post-fixer classification replaces these
+    // stage-only groups immediately before any scope gate can run.
+    const admission = gateLiveAdmissionGroups(cfg, dryRunStandardJobs(cfg));
+    if (
+      gateTtyProgressCanRepaint(admission.maximumGroups, {
+        width: presentation.liveWidth,
+        terminal: presentation.terminal,
+      })
+    ) {
+      liveGroups = admission.initialGroups;
+    }
+  }
+  const compactTty = liveGroups !== undefined;
   // A regular human run narrates jobs to stdout. The compact done TTY withholds
   // routine logs while its table observes scheduler events; explicit
   // [gate].stream keeps the command-output path. --json silences both the runner
@@ -497,10 +521,7 @@ async function runGate(
     : undefined;
   if (progress !== undefined) {
     runOpts.observer = progress;
-    const plannedChanged = await classifyScopes(root, cfg);
-    progress.start(
-      buildGatePlan(cfg, plannedChanged, dryRunStandardJobs(cfg)).groups,
-    );
+    progress.start(liveGroups ?? []);
   }
   const runOut = compactTty
     ? makeOut(out.color, { quiet: true, terminal: out.terminal })
@@ -1258,7 +1279,8 @@ async function runGate(
     out,
     changed,
     gotchasTail,
-    liveTable: progress !== undefined,
+    liveTable: progress?.renderedFinal() ?? false,
+    outputWithheld: compactTty,
   };
 }
 
@@ -1705,7 +1727,15 @@ export async function runFinish(
       ...(liveWidth !== undefined ? { liveWidth } : {}),
     });
   const gate = await gateRun();
-  const { result, failedStage, cfg, out, gotchasTail, liveTable } = gate;
+  const {
+    result,
+    failedStage,
+    cfg,
+    out,
+    gotchasTail,
+    liveTable,
+    outputWithheld,
+  } = gate;
   observeResult(result); // the logbook recorder lifts step timings from it
   if (opts.json) {
     emitResult(result);
@@ -1721,7 +1751,7 @@ export async function runFinish(
       failedStage,
       gotchas: gotchasTail,
       // The live table quiets the runner, so the tail carries the output.
-      outputWithheld: liveTable,
+      outputWithheld,
     });
     renderSlotWait(out, result.waitedMs);
     return 1;
