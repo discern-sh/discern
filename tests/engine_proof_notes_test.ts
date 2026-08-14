@@ -12,11 +12,12 @@ import { HINTS } from "../src/shared/hints.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import {
   type AcceptData,
-  type GateData,
+  type GateWireData,
   type Proof,
   ProofNotePayloadSchema,
   ProofNoteSchema,
   ProofSchema,
+  ProofSummarySchema,
   type RefreshData,
 } from "../src/shared/result_schemas.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "../src/shared/public_schemas.ts";
@@ -66,6 +67,12 @@ interface Landing {
   readonly result: DiscernResult<AcceptData>;
 }
 
+/** Match the compact Proof carried by JSON/MCP while retaining the durable page elsewhere. */
+function proofWireSummary(proof: Proof): Omit<Proof, "markdown"> {
+  const { markdown: _markdown, ...summary } = proof;
+  return summary;
+}
+
 /** Create, gate, and accept one branch, returning both its target commit and parsed proof. */
 async function land(
   main: string,
@@ -92,10 +99,11 @@ async function land(
   const target = await gitOut(worktree, "rev-parse", "HEAD");
   const done = await runAgent(worktree, ["done", "--json"], { env });
   assertEquals(done.code, 0, done.output);
-  const doneResult = JSON.parse(done.stdout) as DiscernResult<GateData>;
-  const proof = ProofSchema.parse(doneResult.data?.proof);
+  const doneResult = JSON.parse(done.stdout) as DiscernResult<GateWireData>;
+  const proofSummary = ProofSummarySchema.parse(doneResult.data?.proof);
   const marker = await inspectGateProof(worktree);
-  assertEquals(marker.proof_data, proof);
+  const proof = ProofSchema.parse(marker.proof_data);
+  assertEquals(proofSummary, proofWireSummary(proof));
   const accepted = await runAgent(
     worktree,
     ["accept", "--confirmed", "--json"],
@@ -223,7 +231,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
       commit: second.target,
       commit_at: await gitOut(dir, "show", "-s", "--format=%cI", second.target),
       ref: PROOF_NOTES_REF,
-      proof: second.proof,
+      proof: proofWireSummary(second.proof),
     });
     assertEquals(statusResult.data.landed_proof_unsupported, undefined);
 
@@ -448,7 +456,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
     );
     assertEquals(
       fetchedStatusResult.data.landed_proof.proof,
-      fetchedLanding.proof,
+      proofWireSummary(fetchedLanding.proof),
     );
 
     await git(dir, "update-ref", "-d", trackingRef);

@@ -17,31 +17,36 @@ import type { DiscernResult } from "./result.ts";
 import { serializeResult } from "./result_serialization.ts";
 import { observeResult } from "./result_capture.ts";
 import { withFailureRecoveryHint } from "./hints.ts";
+import {
+  renderResultMarkdown,
+  type ResultMarkdownPresenter,
+} from "./result_markdown.ts";
 
 /** The two quiet CLI projections owned by this emission boundary. */
 export type ResultOutputFormat = "json" | "markdown";
 
 let activeResultOutputFormat: ResultOutputFormat = "json";
 
-/** The CLI entrypoint supplies the authored presenter without pulling its
- * schema registry into every engine module that emits a result. */
-export type ResultMarkdownRenderer = (
-  result: Readonly<Record<string, unknown>>,
+/** The CLI entrypoint supplies presenter selection without pulling its schema
+ * registry into every engine module that emits a result. */
+export type ResultMarkdownPresenterResolver = (
   verb: string,
-) => string;
+) => ResultMarkdownPresenter;
 
-let resultMarkdownRenderer: ResultMarkdownRenderer | undefined;
+let resultMarkdownPresenterResolver:
+  | ResultMarkdownPresenterResolver
+  | undefined;
 
 /** Select the projection the next quiet CLI result emits. */
 export function setResultOutputFormat(format: ResultOutputFormat): void {
   activeResultOutputFormat = format;
 }
 
-/** Install the Markdown surface at the outer CLI composition boundary. */
-export function setResultMarkdownRenderer(
-  renderer: ResultMarkdownRenderer,
+/** Install contract-aware presenter selection at the outer CLI boundary. */
+export function setResultMarkdownPresenterResolver(
+  resolver: ResultMarkdownPresenterResolver,
 ): void {
-  resultMarkdownRenderer = renderer;
+  resultMarkdownPresenterResolver = resolver;
 }
 
 /** Write a verb's selected quiet result to stdout. Also feeds the
@@ -51,13 +56,16 @@ export function emitResult(result: DiscernResult): void {
   const prepared = withFailureRecoveryHint(result);
   observeResult(prepared);
   const serialized = serializeResult(prepared);
-  const output = activeResultOutputFormat === "markdown"
-    ? resultMarkdownRenderer?.(serialized, prepared.verb).trimEnd()
-    : JSON.stringify(serialized);
-  if (output === undefined) {
+  const presenter = activeResultOutputFormat === "markdown"
+    ? resultMarkdownPresenterResolver?.(prepared.verb)
+    : undefined;
+  if (activeResultOutputFormat === "markdown" && presenter === undefined) {
     throw new Error(
-      "internal result invariant: Markdown renderer is not installed",
+      "internal result invariant: Markdown presenter resolver is not installed",
     );
   }
+  const output = presenter === undefined
+    ? JSON.stringify(serialized)
+    : renderResultMarkdown(serialized, presenter).trimEnd();
   console.log(output);
 }

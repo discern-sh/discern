@@ -14,11 +14,10 @@ import { operatorHelp } from "./cli_help.ts";
 import { Logger } from "./lib/log.ts";
 import {
   emitResult,
-  setResultMarkdownRenderer,
+  setResultMarkdownPresenterResolver,
   setResultOutputFormat,
 } from "./shared/emit.ts";
 import { resultPresenterForVerb } from "./shared/result_contracts.ts";
-import { renderResultMarkdown } from "./shared/result_markdown.ts";
 import { observeVerbTarget } from "./shared/result_capture.ts";
 import {
   AGENT_NAMES,
@@ -1163,9 +1162,7 @@ export async function main(args: string[]): Promise<void> {
     // One global interaction decision feeds every input-capable surface. This
     // is set before helper/command dispatch so flag-first forms behave identically.
     setPlainMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.plain));
-    setResultMarkdownRenderer((result, resultVerb) =>
-      renderResultMarkdown(result, resultPresenterForVerb(resultVerb))
-    );
+    setResultMarkdownPresenterResolver(resultPresenterForVerb);
     setResultOutputFormat(
       markdownRequested && !jsonRequested ? "markdown" : "json",
     );
