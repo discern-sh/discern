@@ -60,6 +60,10 @@ const LARGE_PLAIN_TERMINAL = {
     ansiControl: true,
   },
   size: { columns: 80, rows: 200 },
+  observeViewport: () => ({
+    sample: () => ({ columns: 80, rows: 200 }),
+    close: () => {},
+  }),
 };
 
 const FACTS: ProofFacts = {
@@ -309,7 +313,7 @@ Deno.test("done TTY render: the package workflow leads into a truthful receipt",
   );
   for (
     const fact of [
-      "Gate progress  4 / 4 steps settled",
+      "Gate progress",
       "[100%]",
       "✓ Complete",
       "format [passed]",
@@ -374,7 +378,9 @@ Deno.test("gate TTY render: a narrow terminal wraps commands without losing fact
     width: 40,
     terminal: PLAIN_TERMINAL,
   });
-  assertStringIncludes(rendered, "Gate progress  4 / 4 steps settled");
+  assertStringIncludes(rendered, "Gate progress");
+  assertStringIncludes(rendered, "[100%]");
+  assertStringIncludes(rendered, "✓ Complete");
   assertStringIncludes(rendered, "format [passed]");
   assertStringIncludes(rendered, "$ deno fmt");
   assertStringIncludes(rendered, "passed\nin 1s");
@@ -416,7 +422,7 @@ Deno.test("gate TTY progress: planned rows move from pending through running to 
   assertStringIncludes(updated, "pending");
 });
 
-Deno.test("gate TTY progress: controller redraws in place and leaves no color SGR in no-color mode", async () => {
+Deno.test("gate TTY progress: controller redraws in place and finishes with bounded state", async () => {
   const writes: string[] = [];
   const progress = createGateTtyProgress(
     (value) => writes.push(value),
@@ -444,8 +450,14 @@ Deno.test("gate TTY progress: controller redraws in place and leaves no color SG
   assertStringIncludes(writes[writes.length - 1] ?? "", "passed in 1s");
   assertEquals(SGR.test(writes.join("")), false);
 
+  const beforeComplete = writes.length;
   progress.complete(STEPS);
-  assertStringIncludes(writes[writes.length - 1] ?? "", "scope unchanged");
+  const final = writes.slice(beforeComplete).join("");
+  assertStringIncludes(final, "Gate complete");
+  assertStringIncludes(final, "4 / 4 jobs settled");
+  assertStringIncludes(final, "Remaining: 0");
+  assertEquals(final.includes("scope unchanged"), false);
+  assertEquals(progress.renderedFinal(), true);
 });
 
 Deno.test("gate TTY render: color changes styling only and every line stays within budget", () => {
