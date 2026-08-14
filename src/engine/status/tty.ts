@@ -715,6 +715,7 @@ function renderWorktrees(
   width: number,
   terminal: TerminalContext,
   ownershipCaption: boolean,
+  expanded: boolean,
 ): StatusSectionLine[] {
   const capabilities = capabilitiesAtWidth(terminal, width);
   const fleet = renderFleetCli({
@@ -735,7 +736,7 @@ function renderWorktrees(
     theme: terminal.themeVariant,
   }, capabilities);
   const lines: StatusSectionLine[] = [{ verbatim: fleet }];
-  for (const row of rows) {
+  for (const row of expanded ? rows : []) {
     const proofValue = row.proof.detail === undefined
       ? row.proof.label
       : `${row.proof.label} · ${row.proof.detail}`;
@@ -1331,6 +1332,8 @@ export function renderStatusDashboard(
   const contentWidth = sectionContentWidth(width);
   const nowMs = options.nowMs;
   const c = options.terminal;
+  const compactFleet = data.location === "main" && data.fleet !== undefined &&
+    options.verbose !== true;
   const project = terminalLine(
     data.project ?? (basename(data.root) || data.root),
   );
@@ -1378,9 +1381,11 @@ export function renderStatusDashboard(
       ),
     );
   }
-  const attention = renderAttention(shownRows, data, contentWidth, c, nowMs);
-  if (attention.length > 0) {
-    blocks.push(section("Attention", attention, c, width));
+  if (!compactFleet) {
+    const attention = renderAttention(shownRows, data, contentWidth, c, nowMs);
+    if (attention.length > 0) {
+      blocks.push(section("Attention", attention, c, width));
+    }
   }
   if (fleetRows.length > 0) {
     blocks.push(
@@ -1392,6 +1397,7 @@ export function renderStatusDashboard(
           c,
           data.location === "worktree" &&
             fleetRows.some((row) => !row.entry.is_current),
+          !compactFleet,
         ),
         c,
         width,
@@ -1415,7 +1421,7 @@ export function renderStatusDashboard(
     blocks.push(
       section(
         "Current worktree",
-        renderWorktrees(localRows, contentWidth, c, false),
+        renderWorktrees(localRows, contentWidth, c, false, true),
         c,
         width,
       ),
@@ -1451,14 +1457,16 @@ export function renderStatusDashboard(
   if (next.at(-1) === "") next.pop();
   if (next.length > 0) blocks.push(section("Next steps", next, c, width));
 
-  const checks = renderChecks(data, contentWidth, c);
-  if (checks.length > 0) blocks.push(section("Checks", checks, c, width));
-  const environment = renderLocalEnvironment(data, contentWidth, c);
-  if (environment.length > 0) {
-    blocks.push(section("Local environment", environment, c, width));
+  if (!compactFleet) {
+    const checks = renderChecks(data, contentWidth, c);
+    if (checks.length > 0) blocks.push(section("Checks", checks, c, width));
+    const environment = renderLocalEnvironment(data, contentWidth, c);
+    if (environment.length > 0) {
+      blocks.push(section("Local environment", environment, c, width));
+    }
+    const landing = renderLastLanding(data, contentWidth, c, nowMs);
+    if (landing.length > 0) blocks.push(section("Landing", landing, c, width));
   }
-  const landing = renderLastLanding(data, contentWidth, c, nowMs);
-  if (landing.length > 0) blocks.push(section("Landing", landing, c, width));
 
   if (options.verbose === true) {
     const proofs = renderVerboseProofs(data, shownRows, c);

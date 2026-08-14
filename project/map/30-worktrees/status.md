@@ -13,11 +13,13 @@ aliases:
 
 _`discern status` reports what is true now and what deserves attention next. It runs no Gate job, test, Standard measurement, or setup action._
 
-Run it when a session starts or the next move is unclear. Human, JSON, and Model Context Protocol (MCP) forms share one result ([ADR 0255](../_adr/0255-status-is-a-measured-responsive-dashboard.md)).
+Run it when a session starts or the next move is unclear. Human, JSON, Markdown, and Model Context Protocol (MCP) forms share one result ([ADR 0255](../_adr/0255-status-is-a-measured-responsive-dashboard.md), [ADR 0281](../_adr/0281-main-fleet-status-is-a-decision-brief.md)).
 
 ## Human dashboard
 
-Worktrees default to a local view. Main leads with the fleet summary, attention, and worktrees. `--all` adds the fleet from a worktree; `--local` suppresses it. The flags conflict.
+Worktrees default to a local view. From the main checkout, the default is a decision brief: the fleet summary, one row per worktree, the main checkout state, and the valid next actions. It does not repeat an attention card and a Proof card for every row. `--verbose` expands the same facts into fleet attention, per-worktree evidence, configured checks, local environment, landing history, and complete stored Proof pages.
+
+`--all` explicitly adds the fleet to a worktree's detailed local view; `--local` suppresses it. The flags conflict.
 
 `statusResult` owns status observation. One invocation clock feeds collection, hints, and rendering; one terminal snapshot builds human output. The pure dashboard receives only facts, time, width, and verbosity. Fleet and Components own layout.
 
@@ -34,29 +36,31 @@ The other fields explain that status:
 
 Text and glyphs classify every state; color does not. Exhaustive adapters preserve status and Proof precedence through every terminal mode. `--no-color` changes no facts.
 
-The supervisor view reports main once and shows collision paths. Recent changes remain normal work in progress; failures, stale or behind work, collisions, unreadable state, ready Proofs, and removed worktree paths that exist again receive attention. A reappeared path shows when discern removed its worktree, a bounded content sample, and any reason prune must keep it.
+The supervisor brief reports main once and classifies failures, stale or behind work, collisions, unreadable state, ready Proofs, and removed worktree paths that exist again in its summary and row states. `--verbose` shows the corresponding attention cards and collision paths. A verbose reappeared-path card shows when discern removed its worktree, a bounded content sample, and any reason prune must keep it.
 
-Checks show configured changed scopes, planned Gate jobs, and a Standards count. Derived `code` and `previewable` markers stay machine-only. Port and resources sit under **Local environment**. Landing shows pass, branch, files changed, diff size, commit, and age. `--verbose` adds stored Proof Markdown.
+In the expanded view, **Checks** shows configured changed scopes, planned Gate jobs, and a Standards count. Derived `code` and `previewable` markers stay machine-only. Port and resources sit under **Local environment**. **Landing** shows pass, branch, files changed, diff size, commit, and age. **Proofs** contains stored Proof Markdown.
 
 ```sh
 discern status
 discern status --all
 discern status --local
 discern status --verbose
+discern status --markdown
+discern status --json
 discern status --no-color
 ```
 
 ## Structured result
 
-`discern status --json` and `discern_status` return one `DiscernResult`, unaffected by layout. `data.project`, `location`, `root`, `worktree`, and `git` locate it; local results can add scopes, jobs, currency, resources, standards, proof, and [landing authority](landing-authority.md).
+`discern status --json` and MCP `structuredContent` return the compact structured `DiscernResult`, unaffected by layout. `discern status --markdown` and MCP `content` return its authored agent presentation. That presentation leads with local state, selects bounded evidence, states landing authority, and closes with the immediate action. `data.project`, `location`, `root`, `worktree`, and `git` locate the structured result; local results can add scopes, jobs, currency, resources, Standards, Proof, and [landing authority](landing-authority.md).
 
 `data.pending_tracked_refresh` lists tracked paths an ordinary refresh would change. `data.tracked_refresh_plan_errors` lists problems that prevent the plan from being derived. `stale_generated`, `stale_materialized`, `stale_integrations`, and `stale_adr_index` remain compatibility projections of the same plan.
 
-Fleet retains the main row for compatibility. Each readable worktree carries identity, Git state, divergence, activity, full `gate_proof`, and authority. Honored-only proof fields remain. `landed_proof.commit_at` supplies landing age when Git can read it.
+Fleet retains the main row. Each readable worktree carries identity, Git state, divergence, activity, one `gate_proof`, and authority. `gate_proof` always carries its inspection status. A current honored marker adds compact Proof facts and the one-line rendering; an older marker may add only `proof_line`. The agent wire result omits rendered Proof pages and the earlier `proof_honored`, `proof`, and `proof_line` compatibility copies at fleet-row level. Status authority keeps the exact decision plus at most six uncovered-path examples and `uncovered_total`. `landed_proof.proof` is compact, and `landed_proof.commit_at` supplies landing age when Git can read it.
 
 `last_action` records the newest completion. `running` records a recent start with no matching completion, and `last_activity` takes the later Git or Logbook time. Disabling the Logbook removes the action fields; Git activity remains available ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
 
-`fleet_collisions` pairs branches sharing changed files. `adr_collisions` includes duplicate record claims from branches without worktrees. Human output shows paths; machine hints retain field references. Stored Proofs remain in JSON and MCP regardless of `--verbose` ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)). Dirty, behind, and missing-proof states remain `ok: true`; operational refusals do not.
+`fleet_collisions` pairs branches sharing changed files and retains the shared-file count; `adr_collisions` retains each contested number and its claimant branches, including branches without worktrees. Their path lists stay out of the agent wire result. Human `--verbose` shows those paths, and a later `update` result names the shared paths that need re-reading. Full stored Proof pages appear only through human `--verbose`; JSON, Markdown, the status resource, and MCP carry the compact Proof claim regardless of `--verbose` ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)). Dirty, behind, and missing-Proof states remain `ok: true`; operational refusals do not.
 
 `reappeared_worktree_paths` lists paths removed through discern's worktree lifecycle that currently exist without a live Git registration. Each row carries `path`, `removed_at`, `kind`, `entries`, a bounded `contents` sample, and `cleanup_blocked_reason` when prune must preserve it. The related hint points to `discern worktree prune --dry-run`; status remains read-only ([ADR 0265](../_adr/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup.md)).
 
@@ -82,4 +86,4 @@ After setup, detectors can add recent Logbook observations to `hints[]`. They in
 - `status` never runs the Gate. A valid Proof is evidence from an earlier `done` run on the current clean `HEAD`.
 - Fleet worktrees belong to separate efforts. A clean sibling remains occupied until its owner lands or discards it.
 - A reappeared worktree path is no longer an active fleet member. Review its contents and close any program still writing there before confirmed prune.
-- The dashboard is a projection. Use JSON or MCP when automation needs every structured field.
+- The dashboard and Markdown result are projections. Use JSON or MCP `structuredContent` when automation needs structured fields.

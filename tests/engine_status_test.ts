@@ -35,7 +35,6 @@ import { KNOWN_JOBS, type KnownJob } from "../src/shared/capabilities.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
-import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { configEpoch } from "../src/engine/logbook/epoch.ts";
 import { appendEvent } from "../src/engine/logbook/store.ts";
@@ -178,13 +177,17 @@ Deno.test("status: the fleet view surfaces cross-worktree file collisions", asyn
       Array.isArray(collisions) && collisions.length === 1,
       `expected exactly one collision pair: ${r.stdout}`,
     );
-    assertEquals(collisions[0].overlap, ["shared.txt"]);
+    assertEquals(collisions[0].overlap, undefined);
     assertEquals(collisions[0].total, 1);
     const [first, second] = collisions[0].branches;
     assertHasHint(obj, HINTS["status-fleet-collisions"], {
       total: 1,
       pairs: [`${first} ↔ ${second}`],
     });
+
+    const verbose = await runAgent(dir, ["status", "--verbose"]);
+    assertEquals(verbose.code, 0, verbose.output);
+    assertStringIncludes(verbose.output, "shared.txt");
   });
 });
 
@@ -222,10 +225,7 @@ Deno.test("status: in-flight branches claiming one ADR number are surfaced — e
     );
     assertEquals(collisions[0].number, "0007");
     assertEquals(collisions[0].branches, ["agent/alpha", "agent/beta"]);
-    assertEquals(collisions[0].paths, [
-      `${SOURCE_PATHS.map.defaultPath}_adr/0007-alpha-take.md`,
-      `${SOURCE_PATHS.map.defaultPath}_adr/0007-beta-take.md`,
-    ]);
+    assertEquals(collisions[0].paths, undefined);
     assertHasHint(obj, HINTS["status-adr-number-collisions"], {
       total: 1,
       claims: ["0007 (agent/alpha ↔ agent/beta)"],
@@ -427,7 +427,7 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
     });
     assertEquals(beta.running, undefined);
 
-    const human = await runAgent(dir, ["status"]);
+    const human = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(human.output, "running done 2m · usually 4m");
     assertStringIncludes(human.output, "done failed at test");
@@ -738,7 +738,7 @@ Deno.test("status fleet: ownership stays available without repeating in a routin
   });
 });
 
-Deno.test("status fleet (human): the wide projection is bounded and merges task identity", async () => {
+Deno.test("status fleet (human): the wide brief is bounded and defers row evidence to verbose", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -748,9 +748,11 @@ Deno.test("status fleet (human): the wide projection is bounded and merges task 
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "WORKTREES");
     assertStringIncludes(r.output, "STATE");
-    assertStringIncludes(r.output, "Git");
-    assertStringIncludes(r.output, "Proof");
-    assertStringIncludes(r.output, "Activity");
+    assert(!r.output.includes("ATTENTION"), r.output);
+    assert(!r.output.includes("Receipt:"), r.output);
+    assertEquals(r.output.match(/Git:/gu)?.length, 1);
+    assert(!r.output.includes("Proof"), r.output);
+    assert(!r.output.includes("Activity"), r.output);
     assertStringIncludes(r.output, "agent/alpha");
     assertEquals(r.output.match(/main checkout/giu)?.length, 1);
     assert(!r.output.includes("AHEAD/BEHIND"), r.output);
@@ -760,6 +762,14 @@ Deno.test("status fleet (human): the wide projection is bounded and merges task 
         `capped wide dashboard line exceeded 104 columns: ${line}`,
       );
     }
+
+    const verbose = await runAgent(dir, ["status", "--verbose"], {
+      env: { COLUMNS: "120" },
+    });
+    assertEquals(verbose.code, 0, verbose.output);
+    assertStringIncludes(verbose.output, "Git:");
+    assertStringIncludes(verbose.output, "Proof");
+    assertStringIncludes(verbose.output, "Activity");
   });
 });
 
@@ -1012,7 +1022,7 @@ Deno.test("status: an untracked project file makes local and fleet status dirty"
     assertEquals(row.clean, false);
     assertEquals(row.changed_files, 1);
 
-    const human = await runAgent(dir, ["status"]);
+    const human = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(human.output, "agent/scratch");
     assertStringIncludes(human.output, "1 file changed");
@@ -1110,11 +1120,10 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     assertEquals(obj.data.git.ahead_trunk, 1);
     assertEquals(obj.data.git.behind_trunk, 0);
     assertEquals(obj.data.gate_proof.status, "honored");
-    // The honored record carries the stored proof page, and the one-line form
-    // the review-ready hint tells the agent to end its report with.
-    assertStringIncludes(obj.data.gate_proof.proof, "### Proof");
+    // The agent wire carries compact Proof facts and the one-line form the
+    // review-ready hint tells the agent to end its report with.
     assertStringIncludes(
-      obj.data.gate_proof.proof_line,
+      obj.data.gate_proof.proof.line,
       "Proof: gate passed on agent/alpha @ ",
     );
     assertHasHint(obj, HINTS["status-ready-for-review"], {
@@ -1139,7 +1148,7 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
 
     // From the main checkout, the fleet's review-ready hint names the same
     // inspection command, so the owner can look at the work from where they sit —
-    // and the ready row carries the proof itself, page and line.
+    // and the ready row carries the compact Proof claim.
     const fleet = await runAgent(dir, ["status", "--json"]);
     assertEquals(fleet.code, 0, fleet.output);
     const fleetObj = parseStatus(fleet.stdout);
@@ -1152,10 +1161,8 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
       (e: { branch: string }) => e.branch === "agent/alpha",
     );
     assertEquals(row.gate_proof.status, "honored");
-    assertEquals(row.proof_honored, true);
-    assertStringIncludes(row.proof, "### Proof — `agent/alpha`");
     assertStringIncludes(
-      row.proof_line,
+      row.gate_proof.proof.line,
       "Proof: gate passed on agent/alpha @ ",
     );
 
