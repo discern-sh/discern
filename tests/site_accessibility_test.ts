@@ -230,7 +230,6 @@ Deno.test("navigation restores its position and keeps the current page visible",
 
 Deno.test("deep links expose page and heading context without competing claims", async () => {
   const route = "/docs/quality-gate/when-the-gate-fails";
-  const hash = "#match-the-failure-to-the-fix";
   const html = await (await get(route)).text();
   const client = await Deno.readTextFile(
     new URL("../site/pages/assets/docs.js", import.meta.url),
@@ -240,7 +239,7 @@ Deno.test("deep links expose page and heading context without competing claims",
   );
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
-    url: `https://discern.sh${route}${hash}`,
+    url: `https://discern.sh${route}`,
   });
   Object.defineProperty(dom.window, "matchMedia", {
     value: () => ({ matches: false, addEventListener: () => undefined }),
@@ -251,15 +250,24 @@ Deno.test("deep links expose page and heading context without competing claims",
       return 1;
     },
   });
+  const document = dom.window.document;
+  const leftNav = document.querySelector("#docs-nav");
+  const contentsNav = document.querySelector(".docs-toc");
+  const headingLinks = [
+    ...document.querySelectorAll<HTMLAnchorElement>('.docs-toc a[href^="#"]'),
+  ];
+  const [initialHeading, nextHeading] = headingLinks;
+  if (!initialHeading || !nextHeading) {
+    throw new Error("deep-link fixture needs two headings");
+  }
+  const hash = initialHeading.hash;
+  dom.window.history.replaceState(null, "", hash);
   dom.window.eval(
     `${tocClient.replace("export function", "function")}\n${
       client.replace(/^import .*?;\n/gm, "")
     }`,
   );
 
-  const document = dom.window.document;
-  const leftNav = document.querySelector("#docs-nav");
-  const contentsNav = document.querySelector(".docs-toc");
   const initial = {
     page: [...leftNav?.querySelectorAll('[aria-current="page"]') ?? []]
       .map((link) => link.getAttribute("href")),
@@ -268,10 +276,6 @@ Deno.test("deep links expose page and heading context without competing claims",
     ]
       .map((link) => link.getAttribute("href")),
   };
-  const nextHeading = document.querySelector<HTMLAnchorElement>(
-    '.docs-toc a[href="#give-the-result-to-an-agent"]',
-  );
-  if (!nextHeading) throw new Error("deep-link fixture has no second heading");
   const nextHash = nextHeading.hash;
   dom.window.location.hash = nextHash;
   dom.window.dispatchEvent(new dom.window.HashChangeEvent("hashchange"));
