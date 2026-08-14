@@ -1,7 +1,7 @@
 ---
 title: Temp files & retention
 description: What discern writes to your OS temp directory, how long each file lives, where the self-shim resolves, and how everything leaves with the tool.
-order: 130
+order: 140
 publish: true
 aliases:
   - temp files

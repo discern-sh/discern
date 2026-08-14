@@ -1,7 +1,7 @@
 ---
 title: The Logbook
 description: What discern records about its own verb runs, where the files live, and how to read, archive, reset, or disable them.
-order: 80
+order: 90
 aliases:
   - logbook
   - usage recording

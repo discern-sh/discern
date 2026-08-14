@@ -1,7 +1,7 @@
 ---
 title: Logbook lifecycle
 description: How owners preview and confirm archive or reset, how sealed history stays recoverable, and how reports select it.
-order: 140
+order: 150
 aliases:
   - logbook archive
   - logbook reset

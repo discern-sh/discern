@@ -1,7 +1,7 @@
 ---
 title: Crash reports
 description: How discern reports unexpected internal errors across the CLI and MCP, where it saves local evidence, and what to attach to an issue.
-order: 90
+order: 100
 aliases:
   - crash
   - crashes

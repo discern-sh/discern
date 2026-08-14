@@ -78,7 +78,7 @@ export function renderEnvironmentVariableReferenceDoc(
     "---",
     "title: Environment variables",
     "description: Every public DISCERN_* environment variable, grouped by purpose, with defaults and activation behavior.",
-    "order: 100",
+    "order: 110",
     "publish: true",
     "aliases:",
     "  - environment variables",
