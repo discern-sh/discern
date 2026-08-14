@@ -576,8 +576,12 @@ Deno.test("the repository's habitual and targeted test commands stay queue-wrapp
     await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
   ) as { tasks?: Record<string, string> };
   assertEquals(
+    denoConfig.tasks?.["test:preflight"],
+    "deno run --allow-net=127.0.0.1 scripts/test_preflight.ts",
+  );
+  assertEquals(
     denoConfig.tasks?.test,
-    "discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
+    "deno task test:preflight && discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
   );
 
   const testingGuide = await Deno.readTextFile(

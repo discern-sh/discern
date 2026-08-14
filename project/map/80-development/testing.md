@@ -22,7 +22,7 @@ deno task test tests/upgrade_migrations_test.ts  # a single file while iterating
 deno task test --filter "convergence"            # a filtered subset by test name
 ```
 
-`deno task test` runs the suite with `--parallel` and `--allow-read --allow-write --allow-env --allow-run`. It enters the fleet cap through `discern queue`; Deno appends a file or `--filter` argument to the wrapped command. Local discern Gates use the JUnit report format for structured diagnostics. Hosted Gates and bare tasks use Deno's pretty reporter. Both run the same tests. The suite invokes the Engine through `deno run src/main.ts` and shells out to Git. Deno runs test modules in parallel; tests inside one module remain serial.
+`deno task test` first opens and closes a temporary `127.0.0.1` listener, then runs the suite with `--parallel` and `--allow-read --allow-write --allow-env --allow-run`. The local network probe exercises the same capability as the suite's process-interruption and site journeys; a sandbox denial therefore stops before the suite starts. The task then enters the fleet cap through `discern queue`; Deno appends a file or `--filter` argument to the wrapped command. Local discern Gates use the JUnit report format for structured diagnostics. Hosted Gates and bare tasks use Deno's pretty reporter. Both run the same tests. The suite invokes the Engine through `deno run src/main.ts` and shells out to Git. Deno runs test modules in parallel; tests inside one module remain serial.
 
 This repository sets `[gate].concurrent_test_runs = 2`. Across the main checkout and every linked worktree, no more than two `done`, `test`, or measuring `standards` test-stage groups run at once. The cap schedules whole runs. Deno's worker parallelism inside each run is unchanged.
 
