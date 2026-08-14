@@ -37,6 +37,7 @@ import {
   type HumanOutputGroup,
   populatedHumanOutputGroups,
 } from "../shared/result.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { terminalContext, terminalLine, terminalSize } from "./terminal.ts";
 
 /** Process-wide CLI choice set once by `main` from the global `--plain` flag. */
@@ -261,6 +262,97 @@ export function groupedSelectionEntries<T>(
   });
 }
 
+/**
+ * Diagnostics: when the registered trace variable names a file, every request
+ * appends one JSON line of sizing evidence — the viewport at open, each height
+ * reading the package driver sampled, each write's line count, the derived row
+ * budget, and the outcome. Observation only: every terminal fact and byte
+ * passes through unchanged, and a trace fault never disturbs the interaction.
+ */
+function interactionTraceTarget(): string | undefined {
+  try {
+    const path = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.interactionTrace);
+    return path === undefined || path === "" ? undefined : path;
+  } catch {
+    return undefined;
+  }
+}
+
+interface InteractionTraceWrite {
+  readonly lines: number;
+  readonly control?: true;
+}
+
+interface InteractionTraceBudget {
+  readonly rows: number;
+  readonly reserved: number;
+  readonly maxRows?: number;
+  readonly derived: number;
+}
+
+interface InteractionTrace {
+  readonly io: TerminalIO;
+  readonly settle: (outcome: string) => void;
+}
+
+/** Bound each recorded sequence so a long session cannot grow one record. */
+const INTERACTION_TRACE_LIMIT = 500;
+
+/** The last derived budget, joined onto the next request's trace record. */
+let pendingBudgetTrace: InteractionTraceBudget | undefined;
+
+function traceInteractionIo(target: string, io: TerminalIO): InteractionTrace {
+  const opened = io.size();
+  const sizeRows: number[] = [];
+  const writes: InteractionTraceWrite[] = [];
+  const budget = pendingBudgetTrace;
+  pendingBudgetTrace = undefined;
+  return {
+    io: {
+      isInteractive: () => io.isInteractive(),
+      capabilities: () => io.capabilities(),
+      size: (): { columns: number; rows: number } => {
+        const size = io.size();
+        if (sizeRows.length < INTERACTION_TRACE_LIMIT) {
+          sizeRows.push(size.rows);
+        }
+        return size;
+      },
+      read: () => io.read(),
+      setRawMode: (enabled) => io.setRawMode(enabled),
+      write: (value): void => {
+        io.write(value);
+        if (writes.length < INTERACTION_TRACE_LIMIT) {
+          writes.push({
+            lines: value.split("\n").length - 1,
+            ...(value.charCodeAt(0) === 27 ? { control: true as const } : {}),
+          });
+        }
+      },
+    },
+    settle: (outcome): void => {
+      try {
+        Deno.writeTextFileSync(
+          target,
+          `${
+            JSON.stringify({
+              at: new Date().toISOString(),
+              opened,
+              ...(budget === undefined ? {} : { budget }),
+              sizeRows,
+              writes,
+              outcome,
+            })
+          }\n`,
+          { append: true },
+        );
+      } catch {
+        // Tracing is best-effort; the interaction outcome stays authoritative.
+      }
+    },
+  };
+}
+
 /** Never derive a visible-row budget narrower than the package's own default
  * window, so a mis-measured composition can only widen a menu, not crush it. */
 const MINIMUM_DERIVED_INTERACTION_ROWS = 5;
@@ -292,9 +384,18 @@ function visibleRowBudget(
     MINIMUM_DERIVED_INTERACTION_ROWS,
     rows - reserved - INTERACTION_BOUNDARY_ROWS,
   );
-  return options.maxRows === undefined
+  const budget = options.maxRows === undefined
     ? derived
     : Math.min(options.maxRows, derived);
+  if (interactionTraceTarget() !== undefined) {
+    pendingBudgetTrace = {
+      rows,
+      reserved,
+      ...(options.maxRows === undefined ? {} : { maxRows: options.maxRows }),
+      derived: budget,
+    };
+  }
+  return budget;
 }
 
 /** Refuse a named interaction unless terminal input and output are available. */
@@ -486,6 +587,8 @@ interface PackageInteractionSession {
   readonly runtime: PackageInteractionRuntime;
   /** End a frame whose unexpected exception bypassed the package's finish. */
   readonly terminateUnexpectedFrame: () => void;
+  /** Flush this request's diagnostic trace record, when tracing is active. */
+  readonly settleTrace?: (outcome: string) => void;
 }
 
 /** Construct one package runtime after policy has allowed interaction. */
@@ -517,11 +620,16 @@ function packageInteractionRuntime(
       if (value.length > 0) wrote = true;
     },
   };
+  const tracePath = interactionTraceTarget();
+  const trace = tracePath === undefined
+    ? undefined
+    : traceInteractionIo(tracePath, io);
   return {
     runtime: {
-      io,
+      io: trace?.io ?? io,
       ...(theme === undefined ? {} : { theme }),
     },
+    ...(trace === undefined ? {} : { settleTrace: trace.settle }),
     terminateUnexpectedFrame: (): void => {
       if (!wrote) return;
       try {
@@ -549,14 +657,19 @@ async function runInteractionRequest<Options, Value>(
   runtime: TerminalInteractionRuntime,
 ): Promise<Value> {
   const session = packageInteractionRuntime(runtime);
+  let outcome = "value";
   try {
     return await operation(options, session.runtime);
   } catch (error) {
     if (error instanceof PackageInteractionCancelled) {
+      outcome = "cancelled";
       throw new InteractionCancelled();
     }
+    outcome = "error";
     session.terminateUnexpectedFrame();
     throw error;
+  } finally {
+    session.settleTrace?.(outcome);
   }
 }
 

@@ -494,6 +494,52 @@ Deno.test("a short terminal degrades through package fitting, never overflowing"
   }
 });
 
+Deno.test("the interaction trace records sizing evidence only when enabled", async () => {
+  await withTempDir(async (dir) => {
+    const tracePath = join(dir, "interaction-trace.jsonl");
+    Deno.env.set("DISCERN_INTERACTION_TRACE", tracePath);
+    try {
+      await requestSelection({
+        message: "Choose",
+        options: manyChoices(),
+        reservedRows: 30,
+      }, scriptedRuntime(
+        new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 }),
+      ));
+    } finally {
+      Deno.env.delete("DISCERN_INTERACTION_TRACE");
+    }
+    const lines = (await Deno.readTextFile(tracePath)).trim().split("\n");
+    assertEquals(lines.length, 1);
+    const record = JSON.parse(lines[0] ?? "") as {
+      opened: { rows: number };
+      budget?: { rows: number; reserved: number; derived: number };
+      sizeRows: number[];
+      writes: { lines: number }[];
+      outcome: string;
+    };
+    assertEquals(record.opened.rows, 40);
+    assertEquals(record.budget, { rows: 40, reserved: 30, derived: 9 });
+    assertEquals(record.sizeRows.length > 0, true);
+    assertEquals(record.writes.length > 0, true);
+    assertEquals(record.outcome, "value");
+
+    const silent = new ScriptedTerminal(["\r"], undefined, {
+      columns: 60,
+      rows: 40,
+    });
+    await requestSelection({
+      message: "Choose",
+      options: manyChoices(),
+    }, scriptedRuntime(silent));
+    assertEquals(
+      (await Deno.readTextFile(tracePath)).trim().split("\n").length,
+      1,
+      "tracing must stay inert once the variable is cleared",
+    );
+  });
+});
+
 Deno.test("the multi-selection window derives from the viewport and reservation", async () => {
   const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 });
   await requestSelections({
