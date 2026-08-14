@@ -106,13 +106,15 @@ function normalized(text: string): string {
 
 /** Find one package section rule without pinning its capability-specific glyphs. */
 function sectionRuleLine(output: string, label: string): string {
-  const marker = ` ${label} `;
+  const marker = ` ${label.toUpperCase()} `;
   const line = output.split("\n").find((candidate) => {
     const markerAt = candidate.indexOf(marker);
     if (markerAt < 1) return false;
     const left = candidate.slice(0, markerAt);
     const right = candidate.slice(markerAt + marker.length);
-    return right.length > 0 && !/\s/u.test(`${left}${right}`);
+    const decoration = `${left}${right}`.replaceAll("v", "");
+    return left.trim().length > 0 && right.trim().length > 0 &&
+      !/[\p{L}\p{N}]/u.test(decoration);
   });
   assert(
     line !== undefined,
@@ -139,11 +141,11 @@ Deno.test("status assertions accept either package glyph repertoire", () => {
   const triangles = DISCERN_TRIANGLE_GLYPHS;
   const unicodeRule =
     `${triangles.upRight}${triangles.downRight}${triangles.upLeft} ` +
-    `Current worktree ` +
+    `CURRENT WORKTREE ` +
     `${triangles.upLeft}${triangles.downRight}${triangles.upRight}`;
   assertEquals(
-    sectionRuleLine(">v<> Current worktree v><^", "Current worktree"),
-    ">v<> Current worktree v><^",
+    sectionRuleLine(">v<> CURRENT WORKTREE v><^", "Current worktree"),
+    ">v<> CURRENT WORKTREE v><^",
   );
   assertEquals(
     sectionRuleLine(unicodeRule, "Current worktree"),
@@ -744,13 +746,13 @@ Deno.test("status fleet (human): the wide projection is bounded and merges task 
 
     const r = await runAgent(dir, ["status"], { env: { COLUMNS: "120" } });
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "Worktree");
-    assertStringIncludes(r.output, "Status");
+    assertStringIncludes(r.output, "WORKTREES");
+    assertStringIncludes(r.output, "STATE");
     assertStringIncludes(r.output, "Git");
     assertStringIncludes(r.output, "Proof");
     assertStringIncludes(r.output, "Activity");
     assertStringIncludes(r.output, "agent/alpha");
-    assertEquals(r.output.match(/Main checkout/gu)?.length, 1);
+    assertEquals(r.output.match(/main checkout/giu)?.length, 1);
     assert(!r.output.includes("AHEAD/BEHIND"), r.output);
     for (const line of r.output.trimEnd().split("\n")) {
       assert(
@@ -879,7 +881,7 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
       !localHuman.output.slice(checksAt, environmentAt).includes("Port:"),
       localHuman.output,
     );
-    assert(!localHuman.output.includes(" Fleet "), localHuman.output);
+    assert(!localHuman.output.includes(" FLEET "), localHuman.output);
     assert(localHuman.output.indexOf(currentSection) >= 0);
 
     // --all from a worktree keeps the local blocks AND adds the fleet survey.

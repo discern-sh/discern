@@ -611,7 +611,7 @@ Deno.test({
       ], { env: { COLUMNS: "80", NO_COLOR: "1" } });
       assertEquals(historicalStats.code, 0, historicalStats.output);
       assertStringIncludes(historicalStats.output, `archive ${filename}`);
-      assertStringIncludes(historicalStats.output, "Validation workflows");
+      assertStringIncludes(historicalStats.output, "VALIDATION WORKFLOWS");
 
       const terminal = await runAgent(dir, [
         "patterns",

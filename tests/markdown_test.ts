@@ -159,7 +159,7 @@ Deno.test("colour mode emits ANSI and a heading underline rule", () => {
   assertEquals(
     out,
     renderHeadingCli(
-      { text: "Title", level: 1, maxWidth: 40 },
+      { text: "Title", level: 1, maxWidth: 40, leadingBlankLines: 0 },
       { colorDepth: "ansi16", columns: 40, unicode: true },
     ),
   );
@@ -372,7 +372,7 @@ Deno.test("headings above level 1 are styled by level in colour mode", () => {
     assertEquals(
       renderMarkdown(`${"#".repeat(level)} ${text}`, { color: true }),
       renderHeadingCli(
-        { text, level, maxWidth: 80 },
+        { text, level, maxWidth: 80, leadingBlankLines: 0 },
         { colorDepth: "ansi16", columns: 80, unicode: true },
       ),
     );

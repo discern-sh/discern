@@ -152,12 +152,6 @@ const TRIANGLE_WEAVE = [
   DISCERN_TRIANGLE_GLYPHS.upLeft,
   DISCERN_TRIANGLE_GLYPHS.downLeft,
 ].join("");
-const TRIANGLE_RULE_TAIL = [
-  DISCERN_TRIANGLE_GLYPHS.downRight,
-  DISCERN_TRIANGLE_GLYPHS.upRight,
-  DISCERN_TRIANGLE_GLYPHS.downLeft,
-  DISCERN_TRIANGLE_GLYPHS.upLeft,
-].join("");
 
 const GROUP: JobGroup = {
   stage: "check",
@@ -361,10 +355,8 @@ Deno.test("Gate progress: a stable 25 percent frame pins Component composition",
     "",
     "Check",
     "",
-    `${TRIANGLE_WEAVE.repeat(5)}${TRIANGLE_WEAVE.slice(0, 2)} Steps ${
-      TRIANGLE_RULE_TAIL.repeat(5)
-    }${TRIANGLE_RULE_TAIL.slice(0, 3)}`,
-    ` ${DISCERN_TRIANGLE_GLYPHS.upRight}  format [passed]`,
+    "━━ ◮ STEPS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    ` ${DISCERN_TRIANGLE_GLYPHS.upLeft}  format [passed]`,
     " │",
     " ·  lint [pending]",
     " │",
@@ -375,16 +367,16 @@ Deno.test("Gate progress: a stable 25 percent frame pins Component composition",
     "Complete when: Every configured step reaches a final",
     "               reported state.",
     "",
-    "$ run format",
+    "Run: run format",
     "format: Configured known job passed in 1s.",
     "",
-    "$ run lint",
+    "Run: run lint",
     "lint: Configured known job pending.",
     "",
-    "$ run types",
+    "Run: run types",
     "types: Configured known job pending.",
     "",
-    "$ run test",
+    "Run: run test",
     "test: Configured known job pending.",
   ].join("\n");
   assertEquals(actual, expected);
@@ -1010,7 +1002,7 @@ Deno.test("Gate plan preserves prerequisite and configured-job group boundaries"
   assertStringIncludes(rendered, "Gate prerequisites");
   assertStringIncludes(rendered, "main is already merged");
   assertStringIncludes(rendered, "Fix");
-  assertStringIncludes(rendered, "$ deno fmt");
+  assertStringIncludes(rendered, "Run: deno fmt");
   assertStringIncludes(rendered, "scope:map [skipped]");
   assertStringIncludes(rendered, "Final checks");
   assertStringIncludes(rendered, "refresh has no pending effect");

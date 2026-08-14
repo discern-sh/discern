@@ -291,8 +291,8 @@ Deno.test("status dashboard: 39, 80, 104, and capped layouts keep equal color-fr
     assertEquals(plain(color), noColor, `color changed words at ${width}`);
     assertLinesFit(noColor, width);
     assertLinesFit(color, width);
-    assertStringIncludes(noColor, "Fleet");
-    assertStringIncludes(noColor, "Worktrees");
+    assertStringIncludes(noColor, "FLEET");
+    assertStringIncludes(noColor, "WORKTREES");
     assertStringIncludes(noColor, "Active worktrees");
     assertStringIncludes(squash(noColor), "Configured checks for this status");
     if (width === 39) {
@@ -666,7 +666,7 @@ Deno.test("status dashboard: removed worktree paths report their current content
     80,
   ));
 
-  assertStringIncludes(output, "Attention");
+  assertStringIncludes(output, "ATTENTION");
   assertStringIncludes(output, "/repo.worktrees/apollo-11");
   assertStringIncludes(
     output,
@@ -761,8 +761,8 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
   const main = data([mainEntry(), current]);
   const mainOutput = render(main, 72);
   assertEquals(mainOutput.match(/Main checkout/gu)?.length, 1);
-  assert(mainOutput.indexOf("Fleet") < mainOutput.indexOf("Main checkout"));
-  assert(mainOutput.indexOf("Fleet") < mainOutput.indexOf("Checks"));
+  assert(mainOutput.indexOf("FLEET") < mainOutput.indexOf("Main checkout"));
+  assert(mainOutput.indexOf("FLEET") < mainOutput.indexOf("CHECKS"));
   assertStringIncludes(mainOutput, "voyager");
   assertStringIncludes(mainOutput, "Main checkout main is current.");
   assert(!mainOutput.includes("Tasks"));
@@ -792,14 +792,14 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
     },
   });
   const worktreeOutput = render(worktree, 72);
-  assertEquals(worktreeOutput.match(/Main checkout/gu)?.length, 1);
+  assertEquals(worktreeOutput.match(/ MAIN CHECKOUT /gu)?.length, 1);
   assertStringIncludes(worktreeOutput, "agent/alpha-abc123");
   assertStringIncludes(worktreeOutput, "current");
   assertStringIncludes(worktreeOutput, "Changed scopes: web");
   assert(!worktreeOutput.includes("Change: code"));
   assert(!worktreeOutput.includes("previewable"));
-  const checksAt = worktreeOutput.indexOf("Checks");
-  const environmentAt = worktreeOutput.indexOf("Local environment");
+  const checksAt = worktreeOutput.indexOf("CHECKS");
+  const environmentAt = worktreeOutput.indexOf("LOCAL ENVIRONMENT");
   assert(checksAt >= 0 && environmentAt > checksAt);
   assert(!worktreeOutput.slice(checksAt, environmentAt).includes("Port:"));
   assertStringIncludes(worktreeOutput.slice(environmentAt), "Port: 17123");

@@ -136,7 +136,7 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
     });
     assertEquals(tty.code, 0, tty.output);
     assertStringIncludes(tty.output, "Gate progress");
-    assertStringIncludes(tty.output, "Steps");
+    assertStringIncludes(tty.output, "STEPS");
     assertStringIncludes(tty.output, "format");
     assertStringIncludes(tty.output, "sleep 1");
     assertStringIncludes(tty.output, "test");

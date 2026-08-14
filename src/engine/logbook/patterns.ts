@@ -30,9 +30,11 @@ import {
   renderProcedureCli,
   renderReceiptCli,
   renderResultSummaryCli,
+  renderResultSummaryGroupCli,
   renderStatCli,
   renderTriangleSectionRule,
   type ResultSummaryCliProps,
+  type ResultSummaryGroupCliItem,
   type TerminalCapabilities,
 } from "discern-design-system/cli";
 import {
@@ -510,15 +512,12 @@ function preAuthorizedLandingOverview(
   );
 }
 
-/** Render the canonical summary first and its concrete observation below. */
-function renderFindingRows(
-  out: Out,
+/** Adapt findings into one package-owned alignment group. */
+function findingResultItems(
   findings: readonly PatternsFinding[],
-  width: number,
-): void {
-  const { capabilities, theme } = presentationFacts(out);
-  for (const finding of findings) {
-    const facts = [
+): ResultSummaryGroupCliItem[] {
+  return findings.map((finding) => {
+    const facts: string[] = [
       finding.summary,
       ...(finding.subject === undefined ? [] : [`Subject: ${finding.subject}`]),
       ...(finding.series === undefined
@@ -526,15 +525,11 @@ function renderFindingRows(
         : [`Series: ${sparkline(finding.series)}`]),
       `Evidence: ${finding.observed}`,
     ];
-    out.raw(`${
-      renderResultSummaryCli({
-        state: PATTERNS_TONE_RESULT_STATE[finding.tone],
-        fact: terminalMultiline(facts.join(" · ")),
-        maxWidth: width,
-        theme,
-      }, { ...capabilities, columns: width })
-    }\n`);
-  }
+    return {
+      state: PATTERNS_TONE_RESULT_STATE[finding.tone],
+      fact: terminalMultiline(facts.join(" · ")),
+    };
+  });
 }
 
 /** Deduplicate next actions and combine compatible standard-pin findings. */
@@ -613,25 +608,34 @@ function renderFamily(
   );
   for (const [index, [detector, findings]] of [...groups].entries()) {
     if (index > 0) out.group(`family:${family}:detector:${detector}`);
-    out.raw(`${
-      renderResultSummaryCli({
+    const summaries: ResultSummaryGroupCliItem[] = [
+      {
         state: "unchanged",
         fact: terminalLine(
           `Detector: ${
             titleById.get(detector) ?? detector
           } · ${findings.length} shown.`,
         ),
-        maxWidth: width,
-        theme,
-      }, { ...capabilities, columns: width })
-    }\n`);
-    renderFindingRows(out, findings, width);
-    out.raw(`${
-      renderResultSummaryCli({
+      },
+      ...findingResultItems(findings),
+      {
         state: "unchanged",
         fact: terminalMultiline(
           `Next action: ${detectorNextStep(findings)}`,
         ),
+      },
+    ];
+    out.raw(`${
+      renderResultSummaryGroupCli({
+        // Re-adapt at the package boundary so the structural safety guard can
+        // prove every member of this mixed-state alignment group.
+        items: summaries.map((summary) => ({
+          state: summary.state,
+          fact: terminalMultiline(summary.fact),
+          ...(summary.nextAction === undefined
+            ? {}
+            : { nextAction: terminalMultiline(summary.nextAction) }),
+        })),
         maxWidth: width,
         theme,
       }, { ...capabilities, columns: width })
@@ -782,6 +786,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
   const archive = data.logbook.source.kind === "archive"
     ? ` · archive ${data.logbook.source.filename}`
     : "";
+  const preAuthorized = preAuthorizedLandingOverview(data);
   out.raw(`${
     out.terminal.role(
       terminalLine(
@@ -791,32 +796,29 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     )
   }\n`);
   out.raw(`${
-    renderResultSummaryCli({
-      state: "unchanged",
-      fact: terminalMultiline([
-        summaryLine(data),
-        ...(data.population.analyzed === 0
-          ? []
-          : [`Drivers: ${driversLine(data.population)}`]),
-        `Detectors: ${scoreboardLine(data)}`,
-      ].join(" · ")),
+    renderResultSummaryGroupCli({
+      items: [
+        {
+          state: "unchanged",
+          fact: terminalMultiline([
+            summaryLine(data),
+            ...(data.population.analyzed === 0
+              ? []
+              : [`Drivers: ${driversLine(data.population)}`]),
+            `Detectors: ${scoreboardLine(data)}`,
+          ].join(" · ")),
+        },
+        ...(preAuthorized === undefined ? [] : [{
+          state: PATTERNS_TONE_RESULT_STATE[preAuthorized.tone],
+          fact: terminalMultiline(
+            `${preAuthorized.summary} · Evidence: ${preAuthorized.observed}`,
+          ),
+        }]),
+      ],
       maxWidth: width,
       theme,
     }, capabilities)
   }\n`);
-  const preAuthorized = preAuthorizedLandingOverview(data);
-  if (preAuthorized !== undefined) {
-    out.raw(`${
-      renderResultSummaryCli({
-        state: PATTERNS_TONE_RESULT_STATE[preAuthorized.tone],
-        fact: terminalMultiline(
-          `${preAuthorized.summary} · Evidence: ${preAuthorized.observed}`,
-        ),
-        maxWidth: width,
-        theme,
-      }, capabilities)
-    }\n`);
-  }
   renderAttentionBanner(out, data, width);
   renderInvestigations(out, data.investigations, width);
 

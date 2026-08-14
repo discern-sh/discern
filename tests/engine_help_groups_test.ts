@@ -107,7 +107,7 @@ Deno.test("operator help renders the groups in order, the human's desk first", (
   // position catches both a missing heading — indexOf -1 — and a reorder).
   let prev = -1;
   for (const group of COMMAND_GROUPS) {
-    const at = help.indexOf(group.name);
+    const at = help.indexOf(group.name.toUpperCase());
     assert(
       at > prev,
       `the "${group.name}" group heading is missing or out of order in the help`,
@@ -117,7 +117,7 @@ Deno.test("operator help renders the groups in order, the human's desk first", (
 
   // The daily loop must lead the setup/maintenance verbs (the operator-first promise).
   assert(
-    help.indexOf("Agentic loop") < help.indexOf("Setup & maintenance"),
+    help.indexOf("AGENTIC LOOP") < help.indexOf("SETUP & MAINTENANCE"),
     "the daily-loop group must precede setup/maintenance in the help",
   );
 
@@ -395,7 +395,7 @@ Deno.test("the complete root help follows narrow, wide, and ASCII package capabi
       );
     }
     for (const group of COMMAND_GROUPS) {
-      assertStringIncludes(plain(rendered), group.name);
+      assertStringIncludes(plain(rendered), group.name.toUpperCase());
     }
   }
 
@@ -406,7 +406,7 @@ Deno.test("the complete root help follows narrow, wide, and ASCII package capabi
   for (const glyph of Object.values(DISCERN_TRIANGLE_GLYPHS)) {
     assert(!ascii.includes(glyph), `Unicode package glyph leaked: ${glyph}`);
   }
-  assertStringIncludes(ascii, "Your desk");
+  assertStringIncludes(ascii, "YOUR DESK");
   assertStringIncludes(ascii, "discern <command> --help");
 });
 

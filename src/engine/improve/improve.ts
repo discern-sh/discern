@@ -22,8 +22,10 @@ import {
   renderMeterCli,
   renderProcedureCli,
   renderResultSummaryCli,
+  renderResultSummaryGroupCli,
   renderTriangleSectionRule,
   type ResultSummaryCliProps,
+  type ResultSummaryGroupCliItem,
   type TerminalCapabilities,
 } from "discern-design-system/cli";
 import type { DiscernResult } from "../../shared/result.ts";
@@ -510,9 +512,31 @@ function renderCategory(out: Out, cat: CategoryResult): void {
     `category:${cat.name}`,
     `${cat.title} · ${cat.score}/100`,
   );
+  let summaries: ResultSummaryGroupCliItem[] = [];
+  const flushSummaries = (): void => {
+    if (summaries.length === 0) return;
+    out.raw(`${
+      renderResultSummaryGroupCli({
+        // Keep every product string visibly enrolled in the terminal-safety
+        // guard at the package call, even though the queue already stores only
+        // adapted values.
+        items: summaries.map((summary) => ({
+          state: summary.state,
+          fact: terminalMultiline(summary.fact),
+          ...(summary.nextAction === undefined
+            ? {}
+            : { nextAction: terminalMultiline(summary.nextAction) }),
+        })),
+        maxWidth: width,
+        theme,
+      }, capabilities)
+    }\n`);
+    summaries = [];
+  };
   for (const r of cat.rules) {
     const state = IMPROVEMENT_RULE_RESULT_STATE[r.status];
     if (r.status === "fail") {
+      flushSummaries();
       out.raw(`${
         renderDiagnosticCli({
           title: terminalLine(r.title),
@@ -526,18 +550,15 @@ function renderCategory(out: Out, cat: CategoryResult): void {
       }\n`);
       continue;
     }
-    out.raw(`${
-      renderResultSummaryCli({
-        state,
-        fact: terminalMultiline(`${r.title}: ${r.detail}`),
-        ...(r.status === "pass" || r.fix === undefined
-          ? {}
-          : { nextAction: terminalMultiline(`${r.fix} ${r.teach}`) }),
-        maxWidth: width,
-        theme,
-      }, capabilities)
-    }\n`);
+    summaries.push({
+      state,
+      fact: terminalMultiline(`${r.title}: ${r.detail}`),
+      ...(r.status === "pass" || r.fix === undefined
+        ? {}
+        : { nextAction: terminalMultiline(`${r.fix} ${r.teach}`) }),
+    });
   }
+  flushSummaries();
   for (const rv of cat.reviews) {
     renderReviewUnit(out, rv);
   }

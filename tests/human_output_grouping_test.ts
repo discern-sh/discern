@@ -27,6 +27,7 @@ interface BoundaryFinding {
 }
 
 const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
+const STATIC_CLI_MODULE = "discern-design-system/cli";
 
 /** Find imports that can call a package prompt outside the product adapter.
  * The public `prompt*` naming convention defines the enrollment set, including
@@ -119,6 +120,115 @@ function adHocHeadingFindings(source: string): BoundaryFinding[] {
     rule: "ad-hoc-prompt-heading",
     offset: match.index ?? 0,
   }));
+}
+
+/** Return one complete call expression, ignoring delimiters inside literals and
+ * comments. The detector needs only the call's options, not a TypeScript AST. */
+function callExpressionAt(
+  source: string,
+  callOffset: number,
+  openOffset: number,
+): string {
+  let depth = 0;
+  let quote: '"' | "'" | "`" | undefined;
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+  for (let index = openOffset; index < source.length; index++) {
+    const character = source[index] ?? "";
+    const next = source[index + 1] ?? "";
+    if (lineComment) {
+      if (character === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (character === "*" && next === "/") {
+        blockComment = false;
+        index++;
+      }
+      continue;
+    }
+    if (quote !== undefined) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+    if (character === "/" && next === "/") {
+      lineComment = true;
+      index++;
+      continue;
+    }
+    if (character === "/" && next === "*") {
+      blockComment = true;
+      index++;
+      continue;
+    }
+    if (character === '"' || character === "'" || character === "`") {
+      quote = character;
+      continue;
+    }
+    if (character === "(") depth++;
+    if (character !== ")") continue;
+    depth--;
+    if (depth === 0) return source.slice(callOffset, index + 1);
+  }
+  return source.slice(callOffset);
+}
+
+/** Package Heading calls nested in an existing composer must opt out of the
+ * default leading line. Direct calls retain the package's top-level default. */
+function packageHeadingBoundaryFindings(source: string): BoundaryFinding[] {
+  const findings: BoundaryFinding[] = [];
+  const escapedModule = STATIC_CLI_MODULE.replaceAll("/", "\\/");
+  const named = new RegExp(
+    `import\\s*{([^}]*)}\\s*from\\s*(["'])${escapedModule}\\2`,
+    "g",
+  );
+  const localNames: string[] = [];
+  for (const imported of source.matchAll(named)) {
+    for (const part of imported[1]?.split(",") ?? []) {
+      const names = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/u);
+      const importedName = names[0]?.trim() ?? "";
+      if (!/^render(?:[A-Z][\w$]*)?HeadingCli$/u.test(importedName)) continue;
+      localNames.push(names.at(-1)?.trim() ?? importedName);
+    }
+  }
+
+  for (const localName of localNames) {
+    const escaped = localName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const calls = new RegExp(`\\b${escaped}\\s*\\(`, "g");
+    for (const match of source.matchAll(calls)) {
+      const offset = match.index ?? 0;
+      const openOffset = offset + match[0].lastIndexOf("(");
+      const call = callExpressionAt(source, offset, openOffset);
+      const leading = /\bleadingBlankLines\s*:\s*([^,}\n]+)/u.exec(call);
+      if (leading !== null) {
+        if (leading[1]?.trim() !== "0") {
+          findings.push({
+            rule: "package-heading-nonembedded-override",
+            offset,
+          });
+        }
+        continue;
+      }
+      const prefix = source.slice(Math.max(0, offset - 600), offset);
+      const nested =
+        /(?:\.(?:raw|line)\(\s*|\breturn\s*\[[^\]]*|\bitems\s*:\s*\[[^\]]*|renderHumanOutputGroups\([^)]*|\.group\([^;]*\);\s*\w+\.(?:raw|line)\(\s*)$/su
+          .test(prefix);
+      if (nested) {
+        findings.push({
+          rule: "package-heading-default-inside-owned-boundary",
+          offset,
+        });
+      }
+    }
+  }
+  return findings;
 }
 
 const MANUAL_BOUNDARY_RULES: readonly {
@@ -246,6 +356,24 @@ Deno.test("human-output boundary detector rejects unrelated future siblings", ()
       'const fake = { kind: "group-heading", id: "fake", value: "fake" };',
     ).map((finding) => finding.rule),
     ["ad-hoc-prompt-heading"],
+  );
+
+  const headingImport =
+    `import { renderOrbitHeadingCli as future } from "${STATIC_CLI_MODULE}";\n`;
+  assertEquals(
+    packageHeadingBoundaryFindings(
+      headingImport +
+        'function grouped(out: Out, caps: Caps) { out.group("next"); out.raw(future({ text: "Next" }, caps)); }\n' +
+        'function composed(caps: Caps) { return [future({ text: "Inside" }, caps)]; }\n' +
+        'function top(caps: Caps) { return future({ text: "Top" }, caps); }\n' +
+        'function embedded(caps: Caps) { return [future({ text: "Inside", leadingBlankLines: 0 }, caps)]; }\n' +
+        'function custom(caps: Caps) { return future({ text: "Custom", leadingBlankLines: 2 }, caps); }',
+    ).map((finding) => finding.rule),
+    [
+      "package-heading-default-inside-owned-boundary",
+      "package-heading-default-inside-owned-boundary",
+      "package-heading-nonembedded-override",
+    ],
   );
 });
 
@@ -433,6 +561,11 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
           `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
         );
       }
+    }
+    for (const finding of packageHeadingBoundaryFindings(source)) {
+      offenders.push(
+        `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
+      );
     }
   }
 

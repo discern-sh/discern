@@ -142,7 +142,13 @@ Deno.test({
             testCase.code,
             `${label}\n${result.output}`,
           );
-          assertStringIncludes(result.output, testCase.output, label);
+          // This class guard checks fallback meaning across TTY and pipe
+          // renderers. Calm terminal headings own case; pipe prose does not.
+          assertStringIncludes(
+            result.output.toLocaleLowerCase(),
+            testCase.output.toLocaleLowerCase(),
+            label,
+          );
         }
       }
     });

@@ -1213,7 +1213,7 @@ Deno.test("patterns: the report keeps each detector's strongest findings and --a
         branches - PATTERNS_FINDINGS_PER_DETECTOR
       } more findings remain for this detector.`,
     );
-    assertStringIncludes(human.output, "$ discern patterns --all");
+    assertStringIncludes(human.output, "Run: discern patterns --all");
   });
 });
 
@@ -1392,7 +1392,7 @@ Deno.test("patterns: Standard variance investigations retain raw findings across
       env: { COLUMNS: "60", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "Investigation paths");
+    assertStringIncludes(human.output, "INVESTIGATION PATHS");
     assertStringIncludes(human.output, "Standard variance · coverage");
     assertStringIncludes(human.output, "comparable readings are unstable");
     assertStringIncludes(human.output, "Evidence:");
@@ -1589,7 +1589,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     assertStringIncludes(card, "discern patterns --stats");
     assertStringIncludes(card, STATS_PROVENANCE);
     for (const label of Object.values(STATS_SECTIONS)) {
-      assertStringIncludes(card, label);
+      assertStringIncludes(card, label.toUpperCase());
     }
     assertStringIncludes(
       card,
@@ -1657,7 +1657,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       "a peak of one stays off the card",
     );
     assert(
-      !card.includes(PATTERNS_ATTENTION_HEADING),
+      !card.includes(PATTERNS_ATTENTION_HEADING.toUpperCase()),
       "the card replaces the detector report, never interleaves it",
     );
     for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
@@ -2193,7 +2193,7 @@ Deno.test("patterns: a 200-reading standard stays bounded on the wire and render
     assert(!human.output.includes("\x1b["), "NO_COLOR must emit no ANSI");
     assertStringIncludes(human.output, sparkline(trajectory.series));
     assert(
-      !human.output.includes(PATTERNS_ATTENTION_HEADING),
+      !human.output.includes(PATTERNS_ATTENTION_HEADING.toUpperCase()),
       "a neutral trajectory must not grow an empty attention banner",
     );
     for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
@@ -2311,11 +2311,11 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       "the fixture needs enough attention findings to prove the cap",
     );
     const bannerStart = lines.findIndex((line) =>
-      line.includes(PATTERNS_ATTENTION_HEADING)
+      line.includes(PATTERNS_ATTENTION_HEADING.toUpperCase())
     );
     assert(bannerStart >= 0, "attention findings need a banner");
     const firstSection = lines.findIndex((line) =>
-      line.includes(PATTERNS_FAMILY_SECTIONS.trajectory.heading)
+      line.includes(PATTERNS_FAMILY_SECTIONS.trajectory.heading.toUpperCase())
     );
     assert(firstSection > bannerStart, "the banner belongs above the sections");
     const bannerLines = lines.slice(bannerStart + 1, firstSection);
@@ -2354,11 +2354,31 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
     let previousSection = -1;
     for (const family of DETECTOR_FAMILIES) {
       const heading = PATTERNS_FAMILY_SECTIONS[family].heading;
-      const index = human.output.indexOf(heading);
+      const index = human.output.indexOf(heading.toUpperCase());
       assert(index > previousSection, `${family} is out of canonical order`);
-      assertEquals(occurrences(human.output, heading), 1);
+      assertEquals(occurrences(human.output, heading.toUpperCase()), 1);
       previousSection = index;
     }
+
+    // A detector block owns one mixed-state Result-summary collection. Its
+    // semantic state labels vary in width, but every fact begins in the same
+    // package-computed column.
+    const mixedGroup = human.output.split("\n\n").find((block) =>
+      block.includes("Detector:") &&
+      (block.includes("◇ Changed:") || block.includes("✓ Passed:"))
+    );
+    assert(mixedGroup !== undefined, "the fixture needs a mixed-state group");
+    const prefix = /^(?:= Unchanged:|◇ Changed:|✓ Passed:)(\s+)(?=\S)/u;
+    const summaryLines = mixedGroup.split("\n").flatMap((line) => {
+      const match = prefix.exec(line);
+      return match === null ? [] : [{ line, factColumn: match[0].length }];
+    });
+    assert(summaryLines.length >= 2);
+    assertEquals(
+      new Set(summaryLines.map((line) => line.factColumn)).size,
+      1,
+      summaryLines.map((line) => line.line).join("\n"),
+    );
 
     // Each fired detector becomes one package summary, even when it emitted
     // many rows.

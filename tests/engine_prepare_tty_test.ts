@@ -57,7 +57,7 @@ Deno.test("prepare TTY: an 80-column live table moves every job through executio
     });
     assertEquals(result.code, 0, result.output);
     assertStringIncludes(result.output, "Gate progress");
-    assertStringIncludes(result.output, "Steps");
+    assertStringIncludes(result.output, "STEPS");
     assertStringIncludes(result.output, "format");
     assertStringIncludes(result.output, "sleep 1");
     assertStringIncludes(result.output, "lint");
@@ -99,7 +99,7 @@ Deno.test("prepare TTY: a narrow terminal wraps every command fact", async () =>
     assertEquals(result.code, 0, result.output);
     assertStringIncludes(result.output, "Gate progress");
     assertStringIncludes(result.output, "format [passed]");
-    assertStringIncludes(result.output, "$ true");
+    assertStringIncludes(result.output, "Run: true");
     assertStringIncludes(result.output, "a-check-command-with-detail");
     assertEquals(result.output.includes("pending"), false);
     assertStringIncludes(result.output, "Gate active");
@@ -179,7 +179,7 @@ Deno.test("prepare TTY: --plain and CI render a static final table", async () =>
       });
       assertEquals(result.code, 0, `${label}: ${result.output}`);
       assertStringIncludes(result.output, "Gate progress");
-      assertStringIncludes(result.output, "Steps");
+      assertStringIncludes(result.output, "STEPS");
       assertStringIncludes(result.output, "passed in <1s");
       assertEquals(result.output.includes("pending"), false, label);
       assertEquals(result.output.includes("running"), false, label);

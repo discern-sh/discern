@@ -6,6 +6,7 @@ import {
   DISCERN_TRIANGLE_GLYPHS as PACKAGE_GLYPHS,
   DISCERN_TRIANGLE_SPINNER_ORDER as PACKAGE_SPINNER_ORDER,
   DISCERN_TRIANGLE_WEAVE_ORDER as PACKAGE_WEAVE_ORDER,
+  renderTimelineCli as renderPackageTimeline,
   renderTriangleActivityBeacon as renderPackageBeacon,
   renderTrianglePattern as renderPackagePattern,
   renderTriangleProgressFrame as renderPackageProgress,
@@ -92,6 +93,43 @@ Deno.test("Discern re-exports the published triangle vocabulary by identity", ()
   assert(DISCERN_TRIANGLE_GLYPHS === PACKAGE_GLYPHS);
   assert(DISCERN_TRIANGLE_WEAVE_ORDER === PACKAGE_WEAVE_ORDER);
   assert(DISCERN_TRIANGLE_SPINNER_ORDER === PACKAGE_SPINNER_ORDER);
+});
+
+Deno.test("vertical timeline triangles follow status rather than list position", () => {
+  for (const terminalFacts of [UNICODE, ASCII]) {
+    const glyphs = terminalFacts.unicode
+      ? PACKAGE_GLYPHS
+      : PACKAGE_ASCII_GLYPHS;
+    for (const completeFirst of [true, false]) {
+      const complete = {
+        date: "Now",
+        title: "Complete",
+        description: "Finished evidence.",
+        status: "complete" as const,
+      };
+      const incomplete = {
+        date: "Later",
+        title: "Incomplete",
+        description: "Evidence remains.",
+        status: "upcoming" as const,
+      };
+      const rendered = stripAnsi(renderPackageTimeline({
+        title: "Status direction",
+        items: completeFirst ? [complete, incomplete] : [incomplete, complete],
+        maxWidth: 80,
+      }, terminalFacts));
+      const completeLine = rendered.split("\n").find((line) =>
+        line.includes("Complete [complete]")
+      );
+      const incompleteLine = rendered.split("\n").find((line) =>
+        line.includes("Incomplete [upcoming]")
+      );
+      assert(completeLine !== undefined);
+      assert(incompleteLine !== undefined);
+      assertEquals(completeLine.at(0), glyphs.upLeft);
+      assertEquals(incompleteLine.at(0), glyphs.downRight);
+    }
+  }
 });
 
 Deno.test("every reusable motif is byte-for-byte its public package API", () => {

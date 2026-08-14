@@ -10,7 +10,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
-import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { runAgent, runAgentPty, scaffoldEngine } from "./engine_helpers.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 
 const DESK_SESSION = { [DESK_SESSION_ENV]: "1" };
@@ -69,6 +69,29 @@ Deno.test("desk without a TTY: refuses with a pointer at status", async () => {
   });
 });
 
+Deno.test({
+  name: "discern desk opens its production grouped prompt on a real PTY",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      const r = await runAgentPty(dir, ["desk"], {
+        // The empty fleet exposes Start, docs, Refresh, and Quit. Select's End
+        // navigation reaches the final semantic option without counting group
+        // headings as choices.
+        input: "\x1b[F\r",
+        timeoutMs: 8_000,
+      });
+      assertEquals(r.code, 0, r.output);
+      assertStringIncludes(r.output, "Choose a desk action");
+      assertStringIncludes(r.output, "DESK");
+      assertStringIncludes(r.output, "SESSION");
+      assertStringIncludes(r.output, "› [●] Quit");
+      assertStringIncludes(r.output, "\x1b[?25h");
+    });
+  },
+});
+
 Deno.test("desk pre-setup: the setup redirect fires before the surface", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
@@ -87,7 +110,7 @@ Deno.test("bare discern without a TTY: help, exactly as before the desk existed"
     assertStringIncludes(r.stdout, "Commands:");
     // The desk is advertised in the help map (its group leads), but piped
     // output must never BE the desk — no prompt, no picker, a clean exit.
-    assertStringIncludes(r.stdout, "Your desk");
+    assertStringIncludes(r.stdout, "YOUR DESK");
     assert(
       !r.stdout.includes("Pick an effort"),
       "piped bare discern must never open the interactive picker",

@@ -529,6 +529,10 @@ function renderHeading(
       level: headingLevel,
       theme: terminal.themeVariant,
       maxWidth: width,
+      // Markdown's block composer owns the boundary between adjacent blocks.
+      // This Heading is embedded in that composition, so it must not add the
+      // package's default top-level leading line as a second owner.
+      leadingBlankLines: 0,
     },
     terminal.capabilities,
   )];
