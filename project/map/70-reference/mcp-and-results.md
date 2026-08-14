@@ -36,21 +36,7 @@ aliases:
 
 _Model Context Protocol (MCP) tools and quiet CLI results share one prepared `DiscernResult`. Structured and Markdown projections serve different callers without changing the underlying verdict._
 
-## Choose a result surface
-
-| Surface               | Result                                                                                      |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| Human CLI             | Interactive or static terminal rendering.                                                   |
-| CLI with `--markdown` | One authored agent presentation on stdout.                                                  |
-| CLI with `--json`     | One compact structured `DiscernResult` on stdout.                                           |
-| MCP tool              | Authored Markdown in `content`, the compact envelope in `structuredContent`, and `isError`. |
-| MCP resource          | A live compact payload or requested Markdown document, without an envelope.                 |
-
-Human, JSON, Markdown, and MCP tool forms share one prepared result. MCP delivers both agent representations because supported hosts expose the channels differently. Either `content[0].text` or `structuredContent` is sufficient to understand the current state and choose the next action. A host that delivers both receives complementary representations instead of pretty and compact copies of the same JSON.
-
-Use `--markdown` when an agent will read the result directly. Use `--json` for field access, scripts, validation, or durable integration. The flags are mutually exclusive. Both suppress terminal decoration and subprocess narration around the result. `--md` is not an alias.
-
-An authored Markdown presentation selects facts from the registered result contract. It does not dump every JSON field. When present, sections occur in this order: current state, bounded evidence, authority and boundaries, then the next action. If several future actions matter, the immediate one closes the document. Requested map/manual pages and setup guidance remain intact inside the evidence section.
+Choose among human, Markdown, JSON, and MCP delivery through [Agent result surfaces](result-surfaces.md). Each projects the same prepared result for a distinct reader.
 
 ## Model Context Protocol tools
 
