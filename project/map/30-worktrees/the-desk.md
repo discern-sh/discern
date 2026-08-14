@@ -19,13 +19,13 @@ Agents use Model Context Protocol (MCP) tools and JSON results to operate their 
 
 The root menu keeps project actions under **Desk** and refresh or quit under **Session**. `Start a task` is always present. `Run a Project Script` appears when the main checkout has executable Project Scripts. `Read discern's docs` opens [discern.sh/docs](https://discern.sh/docs) in the system browser.
 
-Every Desk menu derives its visible rows from the terminal height when it opens, after reserving the rows its own header or task preamble occupies ([`src/lib/terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts)). A tall terminal shows every entry; a short terminal scrolls inside the design system's fitted window.
+Menus derive their visible rows from the live terminal height, minus what their header or preamble occupies.
 
-`Start a task` asks for an optional name and runs the same lifecycle core as `discern start`. discern normalizes a supplied name into the worktree id and branch. A blank answer uses a random codename. It creates and sets up the worktree before the Desk continues.
+`Start a task` asks for an optional name and runs the `discern start` lifecycle core: a supplied name becomes the worktree id and branch; a blank answer draws a random codename. It creates and sets up the worktree before the Desk continues.
 
-After creation, the desk opens the new row's action menu immediately. Open its shell or a configured coding agent without finding and selecting the new branch first.
+After creation, the desk opens the new row's action menu immediately; its shell and configured coding agents are one selection away.
 
-`Refresh` runs a new status survey, including a new `git worktree list`. A worktree created outside the Desk appears on the next root menu.
+`Refresh` runs a new status survey, `git worktree list` included; a worktree created outside the Desk appears on the next root menu.
 
 ## Read the decision order
 
@@ -39,7 +39,7 @@ The Desk builds its rows from `discern status` and the recorded Gate Proofs. It 
 
 Every task group, including the first, has a ruled label; **Desk** and **Session** have their own. Within groups, recent worktrees appear first.
 
-The root heading is `◮ discern | <project>`. The main status and tip sit together below it, with no blank row between them. The `Tip` label is yellow; its text stays secondary and wraps at the terminal width. Unlanded branches, reclaimed stages, and removed worktree paths that exist again follow as separate groups when present. The reappearance notice points to `discern worktree prune --dry-run`; cleanup stays in the confirmed prune flow. [Desk tips](desk-tips.md) covers selection, seen-state, and the Logbook record.
+The root heading is `◮ discern | <project>`. The main status and tip sit directly below it. The `Tip` label is yellow; its text stays secondary and wraps at the terminal width. Unlanded branches, reclaimed stages, and removed worktree paths that exist again follow as separate groups when present. The reappearance notice points to `discern worktree prune --dry-run`; cleanup stays in the confirmed prune flow. [Desk tips](desk-tips.md) covers selection, seen-state, and the Logbook record.
 
 Each row starts with the task name supplied to `discern start`. The state puts the next action or problem first, followed by the relevant Git counts and last activity. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
 
