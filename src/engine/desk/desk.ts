@@ -548,7 +548,9 @@ async function pickScript(
 const TIP_PREFIX = "  ✦ Tip  ";
 
 /** The desk header: project identity, the main checkout's state, the
- * otherwise-invisible unlanded branches, and the session's one tip line. */
+ * otherwise-invisible unlanded branches, and the session's one tip line.
+ * Returns the terminal rows it wrote, so the board menu can reserve them
+ * out of its viewport-derived row budget. */
 function renderHeader(
   out: Out,
   config: DiscernConfig,
@@ -557,7 +559,7 @@ function renderHeader(
   rows: readonly DeskRow[],
   tip: string | undefined,
   width: number,
-): void {
+): number {
   const project = config.project.slug === ""
     ? basename(root)
     : config.project.slug;
@@ -667,12 +669,20 @@ function renderHeader(
     { id: "reappeared-worktree-paths", items: reappearedLines },
   ], { leadingBoundary: true });
   if (rendered !== "") out.raw(`${rendered}\n`);
+  const headingRows = 2;
+  const renderedRows = rendered === ""
+    ? 0
+    : (rendered.match(/\n/g)?.length ?? 0) + 1;
+  return headingRows + renderedRows;
 }
 
-/** Offer the fleet as a grouped picker; resolves to a row path or a sentinel. */
+/** Offer the fleet as a grouped picker; resolves to a row path or a sentinel.
+ * `headerRows` is what the board header above this menu occupies, reserved out
+ * of the menu's viewport-derived row budget so the board stays visible. */
 async function pickRow(
   rows: DeskRow[],
   rootScripts: readonly ProjectScript[],
+  headerRows: number,
   runtime: DeskRuntime,
 ): Promise<string> {
   const bucketHeading = (bucket: DeskRow["bucket"], count: number): string =>
@@ -759,7 +769,7 @@ async function pickRow(
       hint: search
         ? "Type to filter. Use the arrow keys to move and Enter to choose."
         : "Use the arrow keys to move and Enter to choose.",
-      maxRows: 16,
+      reservedRows: headerRows,
     });
   } catch (error) {
     if (!isInteractionCancelled(error)) throw error;
@@ -1115,6 +1125,10 @@ async function dispatchAction(
   }
 }
 
+/** Rows the action menu's own preamble occupies: the task heading (two rows)
+ * plus the summary and branch lines written directly below it. */
+const ACTION_MENU_PREAMBLE_ROWS = 4;
+
 /** The per-row action menu; loops until the row is left or the state changed. */
 async function actOn(
   out: Out,
@@ -1151,6 +1165,7 @@ async function actOn(
         message: "Choose an action",
         options,
         hint: "Use the arrow keys to move and Enter to choose.",
+        reservedRows: ACTION_MENU_PREAMBLE_ROWS,
       });
     } catch (error) {
       if (!isInteractionCancelled(error)) throw error;
@@ -1316,14 +1331,22 @@ export async function runDesk(
       agentLaunchesByPath,
       runtime.now(),
     );
-    renderHeader(out, config, root, data, rows, tipLine, runtime.width());
+    const headerRows = renderHeader(
+      out,
+      config,
+      root,
+      data,
+      rows,
+      tipLine,
+      runtime.width(),
+    );
 
     const focused = focusPath === undefined
       ? undefined
       : rows.find((row) => row.entry.path === focusPath);
     focusPath = undefined;
     const choice = focused?.entry.path ??
-      await pickRow(rows, rootScripts, runtime);
+      await pickRow(rows, rootScripts, headerRows, runtime);
     if (choice === QUIT) {
       return 0;
     }

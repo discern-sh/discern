@@ -17,6 +17,7 @@ import {
 import {
   DenoTerminalIO,
   requestTextarea,
+  type TerminalIO,
 } from "discern-design-system/cli/interactive";
 import {
   productionTerminalContext,
@@ -33,6 +34,7 @@ export type InteractiveTtyScenario =
   | "search"
   | "search-default"
   | "repeated-viewport"
+  | "composed-viewport-cycles"
   | "textarea-tall"
   | "multiselect"
   | "multiselect-default"
@@ -72,8 +74,15 @@ interface HarnessOptions {
   readonly noColor: boolean;
   readonly initialSize?: TerminalDimensions;
   readonly resize?: TerminalDimensions & { readonly delayMs: number };
+  readonly interactionStartDelayMs?: number;
   /** Make a literal VEOF produce a zero-byte PTY read while output stays open. */
-  readonly canonicalEofAfterMs?: number;
+  readonly canonicalEof: boolean;
+}
+
+interface CanonicalEofBoundary {
+  readonly io: TerminalIO;
+  readonly firstReadRequested: Promise<void>;
+  readonly allowCanonicalRead: () => void;
 }
 
 const LONG_ALPHA =
@@ -102,7 +111,7 @@ function parseOptions(args: readonly string[]): HarnessOptions {
   const initialSize = dimensions(argument(args, "--size"));
   const resizeSize = dimensions(argument(args, "--resize"));
   const resizeDelay = Number(argument(args, "--resize-after") ?? "100");
-  const canonicalEofAfter = argument(args, "--canonical-eof-after");
+  const interactionStartDelay = argument(args, "--interaction-start-delay");
   return {
     scenario,
     resultPath,
@@ -111,9 +120,44 @@ function parseOptions(args: readonly string[]): HarnessOptions {
     ...(resizeSize === undefined
       ? {}
       : { resize: { ...resizeSize, delayMs: resizeDelay } }),
-    ...(canonicalEofAfter === undefined
+    ...(interactionStartDelay === undefined
       ? {}
-      : { canonicalEofAfterMs: Number(canonicalEofAfter) }),
+      : { interactionStartDelayMs: Number(interactionStartDelay) }),
+    canonicalEof: args.includes("--canonical-eof"),
+  };
+}
+
+/** Hold the first terminal read until the harness has made it canonical. */
+function canonicalEofBoundary(): CanonicalEofBoundary {
+  const target = new DenoTerminalIO({});
+  let resolveReadRequest: (() => void) | undefined;
+  const firstReadRequested = new Promise<void>((resolve) => {
+    resolveReadRequest = resolve;
+  });
+  let resolveCanonicalRead: (() => void) | undefined;
+  const canonicalReadAllowed = new Promise<void>((resolve) => {
+    resolveCanonicalRead = resolve;
+  });
+  let firstRead = true;
+  const io: TerminalIO = {
+    isInteractive: () => target.isInteractive(),
+    capabilities: () => target.capabilities(),
+    size: () => target.size(),
+    read: async (): Promise<Uint8Array | null> => {
+      if (firstRead) {
+        firstRead = false;
+        resolveReadRequest?.();
+        await canonicalReadAllowed;
+      }
+      return await target.read();
+    },
+    setRawMode: (enabled) => target.setRawMode(enabled),
+    write: (value) => target.write(value),
+  };
+  return {
+    io,
+    firstReadRequested,
+    allowCanonicalRead: () => resolveCanonicalRead?.(),
   };
 }
 
@@ -148,7 +192,10 @@ function lineModeRestored(before: string, after: string): boolean {
   );
 }
 
-async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
+async function runScenario(
+  scenario: InteractiveTtyScenario,
+  io?: TerminalIO,
+): Promise<unknown> {
   switch (scenario) {
     case "text":
       return await requestText({
@@ -295,6 +342,103 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         }),
       ];
     }
+    case "composed-viewport-cycles": {
+      // A board-shaped composition: each cycle clears the screen, paints a
+      // header, opens a grouped board menu that reserves the header's rows,
+      // then clears again for a preamble and a grouped action menu. The
+      // parent test asserts every window's painted height stays full and
+      // constant across cycles.
+      const encoder = new TextEncoder();
+      const raw = (value: string): void => {
+        const bytes = encoder.encode(value);
+        let offset = 0;
+        while (offset < bytes.length) {
+          offset += Deno.stdout.writeSync(bytes.subarray(offset));
+        }
+      };
+      const boardOptions = groupedSelectionEntries([
+        {
+          id: "tasks",
+          label: "Tasks · 6",
+          items: Array.from({ length: 6 }, (_, index) => ({
+            id: `task-${index}`,
+            name: `task-${index}  ahead ${index} · clean`,
+            value: `task-${index}`,
+          })),
+        },
+        {
+          id: "board-actions",
+          label: "Board",
+          items: [
+            { id: "start", name: "Start a task", value: "start" },
+            { id: "scripts", name: "Run a script", value: "scripts" },
+            { id: "docs", name: "Read the docs", value: "docs" },
+          ],
+        },
+        {
+          id: "session-actions",
+          label: "Session",
+          items: [
+            { id: "refresh", name: "Refresh", value: "refresh" },
+            { id: "quit", name: "Quit", value: "quit" },
+          ],
+        },
+      ]);
+      const actionOptions = groupedSelectionEntries([
+        {
+          id: "work",
+          label: "Work",
+          items: [
+            { id: "agent", name: "Open with an agent", value: "agent" },
+            { id: "shell", name: "Open a shell", value: "shell" },
+            { id: "gate", name: "Run the gate", value: "gate" },
+          ],
+        },
+        {
+          id: "landing",
+          label: "Landing",
+          items: [
+            { id: "accept", name: "Accept onto main", value: "accept" },
+            { id: "drop", name: "Drop this task", value: "drop" },
+          ],
+        },
+        {
+          id: "navigation",
+          label: "Task",
+          items: [{ id: "back", name: "Back", value: "back" }],
+        },
+      ]);
+      const values: unknown[] = [];
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        raw("\x1b[2J\x1b[H");
+        raw(`board | cycle ${cycle}\n`);
+        raw("  6 tasks  ·  main clean\n");
+        raw("  ✦ Tip  A header line the board menu must keep visible.\n");
+        raw("         Its continuation hangs under the tip label.\n");
+        raw("\n");
+        values.push(
+          await requestSelection({
+            message: "Choose a task or action",
+            options: boardOptions,
+            hint: "Use the arrow keys to move and Enter to choose.",
+            reservedRows: 6,
+          }),
+        );
+        raw("\x1b[2J\x1b[H");
+        raw("task-1\n");
+        raw("  ahead 1 · clean\n");
+        raw("  Branch agent/task-1\n");
+        values.push(
+          await requestSelection({
+            message: "Choose an action",
+            options: actionOptions,
+            hint: "Use the arrow keys to move and Enter to choose.",
+            reservedRows: 4,
+          }),
+        );
+      }
+      return values;
+    }
     case "textarea-tall": {
       const initialValue = Array.from(
         { length: 8 },
@@ -354,7 +498,10 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         },
       });
     case "cancellation":
-      return await requestText("Cancel this question");
+      return await requestText(
+        "Cancel this question",
+        io === undefined ? {} : { io },
+      );
   }
 }
 
@@ -371,6 +518,9 @@ async function main(args: readonly string[]): Promise<void> {
   const beforeDescription = await stty(["-a"]);
   const initialSize = consoleSize();
   setTerminalContext(productionTerminalContext({ noColor: options.noColor }));
+  const eofBoundary = options.canonicalEof
+    ? canonicalEofBoundary()
+    : undefined;
 
   let resizedSize: TerminalDimensions | undefined;
   const resize = options.resize === undefined
@@ -384,25 +534,29 @@ async function main(args: readonly string[]): Promise<void> {
       resizedSize = consoleSize();
       console.log("[resize-ready]");
     })();
-  const canonicalEof = options.canonicalEofAfterMs === undefined
+  const canonicalEof = eofBoundary === undefined
     ? undefined
     : (async (): Promise<void> => {
-      await new Promise((resolve) =>
-        setTimeout(resolve, options.canonicalEofAfterMs)
-      );
+      await eofBoundary.firstReadRequested;
       // A PTY master cannot be half-closed while its transcript remains
       // readable. Canonical VEOF is the system-level equivalent: the next ^D
       // makes the production DenoTerminalIO read return end-of-input.
       await stty(["icanon"]);
+      eofBoundary.allowCanonicalRead();
       console.log("[canonical-eof-ready]");
     })();
 
   let result: Omit<InteractiveTtyResult, "terminal">;
   try {
+    if ((options.interactionStartDelayMs ?? 0) > 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, options.interactionStartDelayMs)
+      );
+    }
     result = {
       scenario: options.scenario,
       outcome: "value",
-      value: await runScenario(options.scenario),
+      value: await runScenario(options.scenario, eofBoundary?.io),
     };
   } catch (error) {
     result = isInteractionCancelled(error)

@@ -823,7 +823,6 @@ async function browse(
           },
         ]),
         search: true,
-        maxRows: 14,
         ...(rememberedDocument === undefined
           ? {}
           : { default: rememberedDocument }),
