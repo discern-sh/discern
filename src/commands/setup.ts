@@ -1160,7 +1160,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
           data: { already_set_up: true, message },
         });
       } else {
-        log.info(message);
+        log.line(message);
       }
       return 0;
     }

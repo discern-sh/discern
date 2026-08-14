@@ -90,7 +90,9 @@ Deno.test("renderPlan writes the heading to stderr and one padded row per op to 
   const { err, out } = await capture(() =>
     renderPlan(plainLogger(), p, "Dry run — would write:")
   );
-  assertEquals(err, ["\nDry run — would write:"]);
+  // The sink owns the heading's leading blank: a separate line write with
+  // the same physical bytes.
+  assertEquals(err, ["", "Dry run — would write:"]);
   assertEquals(out.length, 2);
   const [row0, row1] = out;
   assertExists(row0);
@@ -130,7 +132,7 @@ Deno.test("renderPlan on an empty plan prints only the heading, no rows", async 
   const { err, out } = await capture(() =>
     renderPlan(plainLogger(), plan([]), "Nothing to do")
   );
-  assertEquals(err, ["\nNothing to do"]);
+  assertEquals(err, ["", "Nothing to do"]);
   assertEquals(out, []);
 });
 
@@ -138,8 +140,8 @@ Deno.test("renderPlan makes a caller-supplied heading inert", async () => {
   const { err } = await capture(() =>
     renderPlan(plainLogger(), plan([]), "preset\x1b[31m\nname")
   );
-  assertEquals(err, ["\npreset␛[31m␊name"]);
-  assertEquals(err[0]?.includes("\x1b"), false);
+  assertEquals(err, ["", "preset␛[31m␊name"]);
+  assertEquals(err[1]?.includes("\x1b"), false);
 });
 
 // ---------------------------------------------------------------------------
