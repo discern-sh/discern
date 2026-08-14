@@ -1,5 +1,5 @@
 /**
- * Public agent result contracts for quiet CLI output and MCP tool results.
+ * Public result contracts for quiet CLI output and MCP tool results.
  *
  * `result_schemas.ts` owns the runtime Zod shapes. This registry is the published
  * surface index: each result-emitting command path points at its schema and
@@ -103,7 +103,7 @@ export interface CliJsonPredicateContract {
 export interface ResultContract {
   /** Stable id used for generated `$defs` and TypeScript type names. */
   id: string;
-  /** Human CLI command paths that emit this result shape. */
+  /** CLI command paths that emit this result shape. */
   commands: readonly string[];
   /** The verb literal carried in the serialized envelope. */
   verb: string;
@@ -120,7 +120,7 @@ export interface ResultContract {
 export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
   {
     // Deliberately contracted, not excluded: bare `discern --json` emits a real
-    // DiscernResult on stdout — the machine-mode command-required refusal — so
+    // DiscernResult on stdout — the formatted command-required refusal — so
     // the one-result protocol genuinely owns that stdout, and the generated
     // type documents the envelope a tool consumer actually receives. The
     // excluded paths (`help`, `mcp`, the hook namespace) hand stdout to some

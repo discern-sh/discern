@@ -42,7 +42,7 @@ import { terminalContext, terminalLine, terminalSize } from "./terminal.ts";
 
 /** Process-wide CLI choice set once by `main` from the global `--plain` flag. */
 let plainMode = false;
-/** Process-wide machine-output choice set once by `main` from global `--json`. */
+/** Process-wide quiet-result choice set once by `main` from a result-format flag. */
 let jsonMode = false;
 
 /** Thread the global static-output choice into every interaction choke point. */
@@ -50,7 +50,7 @@ export function setPlainMode(enabled: boolean): void {
   plainMode = enabled;
 }
 
-/** Thread the global machine-output choice into every interaction choke point. */
+/** Thread the global quiet-result choice into every interaction choke point. */
 export function setJsonMode(enabled: boolean): void {
   jsonMode = enabled;
 }
@@ -60,7 +60,7 @@ export function plainModeEnabled(): boolean {
   return plainMode;
 }
 
-/** Whether the global CLI requested the JSON machine protocol. */
+/** Whether the global CLI requested a quiet result format. */
 export function jsonModeEnabled(): boolean {
   return jsonMode;
 }
@@ -948,7 +948,7 @@ export async function resolveSetupConfig(
 
 /**
  * Whether a confirmation interaction may actually be shown. `--json` forbids it
- * outright — evaluated BEFORE the interaction check, so machine mode is
+ * outright — evaluated BEFORE the interaction check, so quiet result mode is
  * off-limits to the interaction even when a TTY is attached — then the shared
  * `--yes` / `--plain` / CI / stream policy applies. The gate is
  * injectable purely so this decision is testable without a real terminal.

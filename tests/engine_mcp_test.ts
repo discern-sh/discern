@@ -1298,7 +1298,7 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
     assertEquals(miss.result.isError, true);
     assertEquals(miss.result.structuredContent.error, "not_found");
 
-    // Search returns a bounded agent result with a canonical follow-up target.
+    // Search returns a bounded result with a canonical follow-up target.
     await mcp.send({
       jsonrpc: "2.0",
       id: 5,
@@ -3401,7 +3401,7 @@ Deno.test("discern mcp: status carries project identity and compact fleet proof 
     assertEquals(alpha.gate_proof?.status, "missing");
     assert(
       !("proof_honored" in alpha),
-      "agent wire rows must not retain the honored-only compatibility copy",
+      "compact rows must not retain the honored-only compatibility copy",
     );
   });
 });

@@ -46,7 +46,7 @@ const beginRecordedVerbs = new Set<string>();
  * The CLI's raw driver signals — evidence for the who-drove-this question,
  * gathered here because only the surface knows them: the parent process id (a
  * session grouping hint — one conversation's invocations share a parent even
- * when every task shares a branch), which agent result format was requested,
+ * when every task shares a branch), which result format was requested,
  * whether stdout is a terminal, whether the conventional CI marker is set,
  * and every advisory identity marker the shared catalogue recognizes. Facts
  * only; marker values never land, and scoring them into an is-this-an-agent

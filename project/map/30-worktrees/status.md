@@ -13,7 +13,7 @@ aliases:
 
 _`discern status` reports what is true now and what deserves attention next. It runs no Gate job, test, Standard measurement, or setup action._
 
-Run it when a session starts or the next move is unclear. Human, JSON, Markdown, and Model Context Protocol (MCP) forms share one result ([ADR 0255](../_adr/0255-status-is-a-measured-responsive-dashboard.md), [ADR 0281](../_adr/0281-main-fleet-status-is-a-decision-brief.md)).
+Run it when a session starts or the next move is unclear. Terminal, JSON, Markdown, and Model Context Protocol (MCP) forms share one result ([ADR 0255](../_adr/0255-status-is-a-measured-responsive-dashboard.md), [ADR 0281](../_adr/0281-main-fleet-status-is-a-decision-brief.md)).
 
 ## Human dashboard
 
@@ -21,7 +21,7 @@ Worktrees default to a local view. From the main checkout, the default is a deci
 
 `--all` explicitly adds the fleet to a worktree's detailed local view; `--local` suppresses it. The flags conflict.
 
-`statusResult` owns status observation. One invocation clock feeds collection, hints, and rendering; one terminal snapshot builds human output. The pure dashboard receives only facts, time, width, and verbosity. Fleet and Components own layout.
+`statusResult` owns status observation. One invocation clock feeds collection, hints, and rendering; one terminal snapshot builds the terminal presentation. The pure dashboard receives only facts, time, width, and verbosity. Fleet and Components own layout.
 
 Fleet's lossless mode caps at 104 columns, stacking at 39 or when its table cannot fit. It never truncates or hashes branch and worktree text. Current and detached markers plus secondary facts stay labelled.
 
@@ -52,15 +52,15 @@ discern status --no-color
 
 ## Structured result
 
-`discern status --json` and MCP `structuredContent` return the compact structured `DiscernResult`, unaffected by layout. `discern status --markdown` and MCP `content` return its authored agent presentation. That presentation leads with local state, selects bounded evidence, states landing authority, and closes with the immediate action. `data.project`, `location`, `root`, `worktree`, and `git` locate the structured result; local results can add scopes, jobs, currency, resources, Standards, Proof, and [landing authority](landing-authority.md).
+`discern status --json` and MCP `structuredContent` return the compact structured `DiscernResult`, unaffected by layout. `discern status --markdown` and MCP `content` return its authored Markdown presentation. That presentation leads with local state, selects bounded evidence, states landing authority, and closes with the immediate action. `data.project`, `location`, `root`, `worktree`, and `git` locate the structured result; local results can add scopes, jobs, currency, resources, Standards, Proof, and [landing authority](landing-authority.md).
 
 `data.pending_tracked_refresh` lists tracked paths an ordinary refresh would change. `data.tracked_refresh_plan_errors` lists problems that prevent the plan from being derived. `stale_generated`, `stale_materialized`, `stale_integrations`, and `stale_adr_index` remain compatibility projections of the same plan.
 
-Fleet retains the main row. Each readable worktree carries identity, Git state, divergence, activity, one `gate_proof`, and authority. `gate_proof` always carries its inspection status. A current honored marker adds compact Proof facts and the one-line rendering; an older marker may add only `proof_line`. The agent wire result omits rendered Proof pages and the earlier `proof_honored`, `proof`, and `proof_line` compatibility copies at fleet-row level. Status authority keeps the exact decision plus at most six uncovered-path examples and `uncovered_total`. `landed_proof.proof` is compact, and `landed_proof.commit_at` supplies landing age when Git can read it.
+Fleet retains the main row. Each readable worktree carries identity, Git state, divergence, activity, one `gate_proof`, and authority. `gate_proof` always carries its inspection status. A current honored marker adds compact Proof facts and the one-line rendering; an older marker may add only `proof_line`. The compact result omits rendered Proof pages and the earlier `proof_honored`, `proof`, and `proof_line` compatibility copies at fleet-row level. Status authority keeps the exact decision plus at most six uncovered-path examples and `uncovered_total`. `landed_proof.proof` is compact, and `landed_proof.commit_at` supplies landing age when Git can read it.
 
 `last_action` records the newest completion. `running` records a recent start with no matching completion, and `last_activity` takes the later Git or Logbook time. Disabling the Logbook removes the action fields; Git activity remains available ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
 
-`fleet_collisions` pairs branches sharing changed files and retains the shared-file count; `adr_collisions` retains each contested number and its claimant branches, including branches without worktrees. Their path lists stay out of the agent wire result. Human `--verbose` shows those paths, and a later `update` result names the shared paths that need re-reading. Full stored Proof pages appear only through human `--verbose`; JSON, Markdown, the status resource, and MCP carry the compact Proof claim regardless of `--verbose` ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)). Dirty, behind, and missing-Proof states remain `ok: true`; operational refusals do not.
+`fleet_collisions` pairs branches sharing changed files and retains the shared-file count; `adr_collisions` retains each contested number and its claimant branches, including branches without worktrees. Their path lists stay out of the compact result. Terminal `--verbose` shows those paths, and a later `update` result names the shared paths that need re-reading. Full stored Proof pages appear only through terminal `--verbose`; JSON, Markdown, the status resource, and MCP carry the compact Proof claim regardless of `--verbose` ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)). Dirty, behind, and missing-Proof states remain `ok: true`; operational refusals do not.
 
 `reappeared_worktree_paths` lists paths removed through discern's worktree lifecycle that currently exist without a live Git registration. Each row carries `path`, `removed_at`, `kind`, `entries`, a bounded `contents` sample, and `cleanup_blocked_reason` when prune must preserve it. The related hint points to `discern worktree prune --dry-run`; status remains read-only ([ADR 0265](../_adr/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup.md)).
 

@@ -7,7 +7,7 @@
  * and terminal attachment before Logger chooses semantic Token roles. The
  * rendering itself — glyphs, ruled group labels, blank-line boundaries — lives
  * in the shared narration authority (`./narration.ts`); Logger is its
- * installer-stream configuration plus the machine-result channel.
+ * installer-stream configuration plus the quiet-result channel.
  */
 
 import type { DiscernResult, RenderSink } from "../shared/result.ts";
@@ -30,13 +30,13 @@ import {
 
 /** How a command should present its results. */
 export interface LogOptions {
-  /** Emit machine-readable JSON instead of human text. */
+  /** Suppress terminal narration for an explicit result format. */
   json: boolean;
   /** Force colour off regardless of TTY (set by --no-color / NO_COLOR). */
   noColor: boolean;
   /**
    * Which stream info/ok/heading/detail go to. "stderr" (the default) suits the
-   * installer (machine JSON on stdout); the engine passes "stdout" (info/ok/
+   * installer (the selected result stays on stdout); the engine passes "stdout" (info/ok/
    * heading → stdout, warn/error → stderr).
    */
   humanStream?: "stdout" | "stderr";
@@ -52,7 +52,7 @@ export class Logger {
   /**
    * Which stream human (non-JSON) narration (info/ok/heading/detail) goes to:
    * `"stdout"` for an interactive verb, `"stderr"` when the parent reserves its
-   * stdout for a machine result (the `worktree create` hook returns the worktree
+   * stdout for a structured result (the `worktree create` hook returns the worktree
    * path there). Project-supplied commands route independently of this — they are
    * captured and surfaced only on failure (`engine/worktree/shell.ts`), so a chatty
    * command never lands on either narration channel regardless of this setting.
@@ -73,8 +73,8 @@ export class Logger {
       ? terminalContextWithColor(terminal, false)
       : terminal;
     this.humanStream = options.humanStream ?? "stderr";
-    // The shared narration authority renders every human line; JSON mode gets
-    // the silent sink so the result envelope stays the entire output.
+    // The shared narration authority renders every terminal line; quiet result
+    // mode gets the silent sink so one selected result stays the entire output.
     this.#sink = this.json ? silentOutputSink() : makeOutputSink({
       kind: "line",
       stdout: (line: string): void => console.log(line),
@@ -135,7 +135,7 @@ export class Logger {
    * test). Single capturable values (`config get`) bypass the logger with a direct
    * `console.log`. Suppressed in JSON mode.
    *
-   * Corollary for a caller that reserves stdout for its OWN machine result — the
+   * Corollary for a caller that reserves stdout for its OWN structured result — the
    * `worktree create` hook returns the worktree path there: it must NOT narrate via
    * `line()` on that path. It routes its setup commands' output to stderr (see
    * `engine/worktree/shell.ts`) and the hook test asserts stdout stays the path.

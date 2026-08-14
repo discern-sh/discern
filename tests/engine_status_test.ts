@@ -1120,7 +1120,7 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     assertEquals(obj.data.git.ahead_trunk, 1);
     assertEquals(obj.data.git.behind_trunk, 0);
     assertEquals(obj.data.gate_proof.status, "honored");
-    // The agent wire carries compact Proof facts and the one-line form the
+    // The compact result carries Proof facts and the one-line form the
     // review-ready hint tells the agent to end its report with.
     assertStringIncludes(
       obj.data.gate_proof.proof.line,

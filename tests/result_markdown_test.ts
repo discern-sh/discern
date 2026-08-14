@@ -182,7 +182,7 @@ Deno.test("status wire and Markdown remove repeated Proof pages within a combine
   assert(!markdown.includes("`main`: clean"), markdown);
   assert(
     structured.length + markdown.length < 8_000,
-    `combined agent result used ${
+    `combined serialized result used ${
       structured.length + markdown.length
     } characters`,
   );

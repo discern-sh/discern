@@ -1473,7 +1473,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "status",
         title: "Status",
         what:
-          "`discern status` projects one read-only result as a width-capped human dashboard or a structured JSON and MCP envelope. The main-checkout dashboard leads with the fleet's derived attention states, complete identities, Proof evidence, activity, divergence, collisions, and concrete next steps.",
+          "`discern status` projects one read-only result as a width-capped terminal dashboard, authored Markdown, or a structured JSON and MCP envelope. The main-checkout dashboard leads with the fleet's derived attention states, complete identities, Proof evidence, activity, divergence, collisions, and concrete next steps.",
         why:
           "Orientation is one cheap read-only call, for agents and humans alike.",
         agent:
@@ -1582,7 +1582,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         why:
           "Advice stays current mechanically, and whether advice gets followed is measurable.",
         agent:
-          "A hint is delivered inside the result of the verb that made it relevant, at the moment it applies. `audience` marks entries whose instruction only an agent can execute: every envelope carries them, and interactive human rendering alone drops them, through one registry projection every renderer uses.",
+          "A hint is delivered inside the result of the verb that made it relevant, at the moment it applies. `audience` marks entries whose instruction only an agent can execute: every serialized representation carries them, and the interactive terminal presentation alone drops them, through one registry projection every renderer uses.",
         plain: {
           title: "Registered advice notes",
           what:
@@ -1656,7 +1656,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "relay-messages",
         title: "Ready-to-relay messages",
         what:
-          "At the consent and completion moments, setup serves the message to forward to the human — first-person prose, with each fact that must survive as its own list item — rather than instructions about a message. The identical text is carried in the human render and in the JSON envelope's guidance field.",
+          "At the consent and completion moments, setup serves the message to forward to the human — first-person prose, with each fact that must survive as its own list item — rather than instructions about a message. The identical text is carried in every result representation, including the structured envelope's guidance field.",
         why:
           "Forwarding the authored message preserves every required fact and its intended tone.",
         agent:
@@ -1817,15 +1817,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     id: "interfaces",
     title: "Interfaces and contracts",
     what:
-      "Every verb speaks human and machine: one result envelope, a first-class MCP surface, and published schemas for both config and results.",
+      "Every verb projects one result envelope into terminal, JSON, Markdown, and MCP presentations, with published schemas for both config and results.",
     why:
-      "Agents integrate against typed contracts, and the human output is a rendering of the same object the machine gets.",
+      "People, coding agents, scripts, and tools can choose the representation that suits the task without changing the underlying verdict.",
     plain: {
       title: "Ways to use discern and consistent results",
       what:
-        "Every instruction speaks to people and to tools alike. There is one consistent result package, a first-class connection for coding agents, and a published exact description of both the settings and the results.",
+        "Every instruction can present one consistent result package in the terminal, as JSON or Markdown, or through a first-class coding-agent connection, with a published exact description of both the settings and the results.",
       why:
-        "Coding agents build on precise, agreed shapes, and what a person sees is a readable rendering of the same result the machine gets.",
+        "People, coding agents, scripts, and tools can choose the form that suits their task without changing what discern decided.",
     },
     surfaces: ["verb:mcp"],
     children: [
@@ -1833,15 +1833,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "result-envelope",
         title: "One result envelope",
         what:
-          "A verb returns one structured result — status, message, steps, data, hints, diagnostics — and `--json` serializes it; the human renderer draws from the same envelope, so no surface carries prose another lacks.",
+          "A verb returns one structured result — status, message, steps, data, hints, diagnostics. `--json` serializes it, `--markdown` presents it as prioritized prose, and the terminal and MCP renderers draw from the same envelope.",
         agent:
-          "Behavioral guidance is carried as one verbatim prose string in the JSON lane rather than decomposed into fields, because field-decomposed instructions weaken under summarization — the agent receives the same message a human reader would, at full strength.",
+          "Behavioral guidance remains one verbatim prose unit instead of being decomposed into fields, because field-decomposed instructions weaken under summarization. JSON retains the unit and Markdown presents it intact.",
         plain: {
           title: "One consistent result package",
           what:
-            "Every instruction returns one structured result — whether it succeeded, a message, suggested steps, useful facts, advice notes, and failure details — and `--json` writes it in a widely understood tool-readable form. The person-facing view draws from the same package, so no way of using discern carries wording another lacks.",
+            "Every instruction returns one structured result — whether it succeeded, a message, suggested steps, useful facts, advice notes, and failure details. JSON writes its exact fields, Markdown presents prioritized prose, and the terminal and coding-agent connection draw from the same package.",
           agent:
-            "Advice about how to behave travels as one complete passage of writing in the tool-readable result, not split across little boxes — split-up instructions weaken when a result is later summarized, and one passage reaches the coding agent at the same full strength a person would read.",
+            "Advice about how to behave travels as one complete passage of writing in every result form. Split-up instructions weaken when a result is later summarized; JSON retains the passage and Markdown presents it intact.",
         },
       },
       {
@@ -3343,7 +3343,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         value:
           "A project can automate or extend discern without scraping terminal prose or depending on hidden internal state. The same structured result can support humans, agents, scripts, and custom tooling.",
         whyItFollows:
-          "One result envelope backs human output, `--json`, and MCP tools; generated schemas and TypeScript declarations publish from the build; project scripts receive a declared environment; output follows automation conventions; and local commands expose configuration and license facts.",
+          "One result envelope backs terminal, JSON, Markdown, and MCP presentations; generated schemas and TypeScript declarations publish from the build; project scripts receive a declared environment; output follows automation conventions; and local commands expose configuration and license facts.",
         drawsOn: [
           "interfaces",
           "result-envelope",

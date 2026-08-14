@@ -34,9 +34,9 @@ aliases:
 
 # Model Context Protocol tools and result contracts
 
-_Model Context Protocol (MCP) tools and quiet CLI results share one prepared `DiscernResult`. Structured and Markdown projections serve different callers without changing the underlying verdict._
+_Model Context Protocol (MCP) tools and quiet CLI results share one prepared `DiscernResult`. Structured and Markdown projections support different modes of consumption without changing the underlying verdict._
 
-Choose among human, Markdown, JSON, and MCP delivery through [Agent result surfaces](result-surfaces.md). Each projects the same prepared result for a distinct reader.
+Choose among terminal, Markdown, JSON, and MCP delivery through [Result formats and delivery](result-surfaces.md). Each projects the same prepared result in a different form; none is reserved for a particular reader.
 
 ## Model Context Protocol tools
 
@@ -99,20 +99,20 @@ Map search includes `publish: false`. Docs search covers the public manual. Both
 | `diagnostics` | Failures      | Failure details and reproduce command.                                             |
 | `data`        | Verb-specific | The verb's payload.                                                                |
 | `hints`       | Advisory      | Next actions for the current surface. Failures carry one. Hints never change `ok`. |
-| `error`       | Refusals      | Machine-readable slug.                                                             |
-| `message`     | Refusals      | Human-readable refusal.                                                            |
+| `error`       | Refusals      | Stable refusal slug.                                                               |
+| `message`     | Refusals      | Explanatory refusal.                                                               |
 
 Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`.
 
 A failed JSON, Markdown, or MCP result always includes a registered next action. JSON and `structuredContent` carry it in `hints`; Markdown places it at the end of the presentation. When `message` or the first `diagnostics` entry explains the correction, the hint points there. When recovery depends on a choice or reported state, the hint names the relevant state and action. Consent, partial operations, incomplete setup, document lookup, and improvement thresholds use these specific instructions. A caller therefore does not have to infer whether to retry, review, choose, or complete cleanup ([ADR 0266](../_adr/0266-public-failure-recovery-is-classified-by-error-family.md)).
 
-`setup begin` and `accept` check for the required permission before changing anything. Without permission, they return `awaiting_consent` and leave the project unchanged. The result names what needs review and gives the confirmed command that continues the operation. `setup begin` provides this contract in human and JSON CLI output. `accept` also provides it through MCP. Dry runs need no permission because they only show the plan.
+`setup begin` and `accept` check for the required permission before changing anything. Without permission, they return `awaiting_consent` and leave the project unchanged. The result names what needs review and gives the confirmed command that continues the operation. `setup begin` provides this contract in terminal, JSON, and Markdown CLI output. `accept` also provides it through MCP. Dry runs need no permission because they only show the plan.
 
-`start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered-path evidence, and warnings. Status and done agent results bound uncovered paths to six examples and retain `uncovered_total`; `start` grants are prospective. An absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
+`start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered-path evidence, and warnings. Compact status and done results bound uncovered paths to six examples and retain `uncovered_total`; `start` grants are prospective. An absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
 
-`status` identifies the project in `data.project`. Every readable non-main `data.fleet` row carries one `gate_proof`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored current-format marker carries a compact `proof` with branch, trunk, validated commit, diff counts, and line. An older marker may carry `proof_line` alone. Rendered Proof pages and the earlier honored-only compatibility fields do not cross the agent wire boundary. Status landing authority retains at most six uncovered-path examples plus `uncovered_total`. Collision rows retain identities and shared-path counts; human `--verbose` holds their path lists. `data.landed_proof.proof` uses the same compact shape, and `commit_at` carries its committer timestamp when Git can read it. See [Status and session hints](../30-worktrees/status.md) for the dashboard and projections.
+`status` identifies the project in `data.project`. Every readable non-main `data.fleet` row carries one `gate_proof`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored current-format marker carries a compact `proof` with branch, trunk, validated commit, diff counts, and line. An older marker may carry `proof_line` alone. Rendered Proof pages and the earlier honored-only compatibility fields do not cross the compact-result boundary. Status landing authority retains at most six uncovered-path examples plus `uncovered_total`. Collision rows retain identities and shared-path counts; terminal `--verbose` holds their path lists. `data.landed_proof.proof` uses the same compact shape, and `commit_at` carries its committer timestamp when Git can read it. See [Status and session hints](../30-worktrees/status.md) for the dashboard and projections.
 
-A green `done` result uses the same compact `data.proof`. A successful `accept` carries only its consent-qualified `data.proof_line`; the paste-ready review page remains available through human `discern status --verbose`. These projections remove repeated renderings while preserving the claim an agent must report.
+A green `done` result uses the same compact `data.proof`. A successful `accept` carries only its consent-qualified `data.proof_line`; the paste-ready review page remains available through terminal `discern status --verbose`. These projections remove repeated renderings while preserving the claim needed to report the result.
 
 A successful `accept` reports the permission it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. The terminal proof line and `data.proof_line` repeat that evidence.
 

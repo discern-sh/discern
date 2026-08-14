@@ -17,8 +17,9 @@
  * items and prune inter-list prose and middle bullets, so every must-survive fact gets
  * its own list item (or the headline), one thought apiece.
  *
- * Each builder returns ONE plain prose string carried verbatim on every surface (the
- * human render, the `--json` `guidance` field, the `awaiting_consent` refusal). It is
+ * Each builder returns ONE plain prose string carried verbatim in every result
+ * representation (including the structured `guidance` field and the
+ * `awaiting_consent` refusal). It is
  * never decomposed into structured fields — ADR 0078's two-lane finding is that
  * field-ized behavioral instructions get summarized and weakened; only prose is
  * followed. The novice-calibrated vocabulary ("isolated working copies (git

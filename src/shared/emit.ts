@@ -7,8 +7,8 @@
  * engine verb route through it, so JSON and Markdown each have one stdout
  * owner rather than a dozen hand-rolled sites that could drift.
  *
- * Pairs with the one silence rule (the engine `Out`/runner go quiet in agent
- * result mode): together they guarantee that either projection is the only
+ * Pairs with the one silence rule (the engine `Out`/runner go quiet in result
+ * mode): together they guarantee that either projection is the only
  * result on stdout. The architectural guard test asserts `serializeResult` is
  * called only here and in the MCP renderer.
  */
@@ -21,9 +21,7 @@ import {
   renderResultMarkdown,
   type ResultMarkdownPresenter,
 } from "./result_markdown.ts";
-
-/** The two quiet CLI projections owned by this emission boundary. */
-export type ResultOutputFormat = "json" | "markdown";
+import type { ResultOutputFormat } from "./result_formats.ts";
 
 let activeResultOutputFormat: ResultOutputFormat = "json";
 

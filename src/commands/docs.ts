@@ -12,7 +12,7 @@
  *    pick. The tree is growing, so search is the primary way in.
  *  - **An agent or a script** gets non-interactive surfaces it can consume: a
  *    target to render straight to stdout, `--raw` for the pristine Markdown
- *    source, `--json` for a machine-readable index (or a single doc's record),
+ *    source, `--json` for a structured index (or a single doc's record),
  *    `--list` for a plain table of contents, and `--export` for one concatenated
  *    Markdown stream. It never blocks on terminal input when stdin/stdout are not a
  *    TTY.
@@ -445,7 +445,7 @@ export interface DocsOptions {
 /** Agent-facing search results stay compact even when the corpus is large. */
 const SEARCH_RESULT_LIMIT = 5;
 
-/** The machine-readable record for one doc (sans content). Frontmatter values
+/** The structured record for one doc (sans content). Frontmatter values
  * travel here as structured fields — never inside `content` — and only when
  * they say something: `publish` appears only when false (a `map` reader
  * seeing what publishing withholds), the rest only when present. */
@@ -1249,7 +1249,7 @@ async function exportDocs(
 }
 
 /**
- * Compute a map or docs {@link DiscernResult} — the machine-readable index, or a
+ * Compute a map or docs {@link DiscernResult} — the structured index, or a
  * single doc's record + content when `target` is given. The ONE source the CLI's
  * `--json` paths and the MCP server both render; the human, raw, and interactive
  * renderings live in {@link runTree} / {@link viewTarget}. Mirrors the human
@@ -1621,7 +1621,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     );
   }
 
-  // `--json`: the entire machine-readable surface (index, single doc, or error)
+  // `--json`: the entire structured surface (index, single doc, or error)
   // is {@link treeResult} — the one shape the MCP server also renders. The human,
   // raw, and interactive renderings below never run under `--json`.
   if (options.json) {

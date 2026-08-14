@@ -1042,7 +1042,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // In the main checkout with worktrees on, the agent may be beginning a new
   // effort or returning to one whose client/tool root reset between turns. Lead
   // with the continuity decision before the conditional `discern start` action.
-  // Agent channel only: the human renderer filters this out (a person here is
+  // Agent channel only: the terminal renderer filters this out (a person here is
   // supervising their fleet), so it never nags the CLI. Suppressed while setup is
   // unfinished: setup runs in the main checkout (on the `discern-setup` branch),
   // so worktree entry advice would contradict the lead "finish setup here" hint.

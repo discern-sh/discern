@@ -23,7 +23,7 @@ The brief does not render the attention section, the detailed card beneath every
 
 `discern status --verbose` expands the same observed result with attention diagnostics, collision and ADR paths, per-worktree Git, Proof, activity and authority evidence, configured checks, local environment, landing history, and complete stored Proof pages. It performs no second collection. `--verbose` is the investigation and copy-ready evidence surface, not a compatibility mode.
 
-The detailed local worktree view remains the default outside the main checkout. `--all` continues to add the fleet to that view without silently changing its local-detail contract. JSON, Markdown, MCP, and the status resource are governed by the agent-result projection contract in [ADR 0280](0280-authored-markdown-result-presentations.md), not by terminal verbosity.
+The detailed local worktree view remains the default outside the main checkout. `--all` continues to add the fleet to that view without silently changing its local-detail contract. JSON, Markdown, MCP, and the status resource are governed by the result-format projection contract in [ADR 0280](0280-authored-markdown-result-presentations.md), not by terminal verbosity.
 
 ## Consequences
 

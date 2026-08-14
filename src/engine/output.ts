@@ -80,14 +80,14 @@ export interface Out {
 }
 
 /**
- * Build the output surface. In human mode info/ok/heading/raw go to stdout
+ * Build the output surface. In terminal mode info/ok/heading/raw go to stdout
  * and warn/error to stderr — one stream policy configuring the shared
  * narration authority (`src/lib/narration.ts`), whose sink owns every group
  * boundary. In `quiet` mode —
- * used under `--json`, where the result envelope is the ENTIRE program output
+ * used under `--json` or `--markdown`, where one result is the ENTIRE program output
  * (ADR 0030) — the sink swallows everything, so nothing a verb narrates
  * reaches stdout OR stderr. This mirrors the installer `Logger`, which
- * silences its human methods in JSON mode: one silence rule, both halves of
+ * silences its narration in quiet result mode: one silence rule, both halves of
  * the binary.
  */
 export function makeOut(

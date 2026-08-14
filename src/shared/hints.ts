@@ -59,12 +59,12 @@ const OWNER_STATUS_VERBOSE = ownerDiscernCommand("status", flag("verbose"));
 export type HintCategory = "next-step" | "guardrail" | "notice";
 
 /**
- * A suppression flag for interactive human surfaces, not a targeting field:
- * every entry rides the `--json`/MCP envelope regardless of audience. `all`
- * also renders on the interactive human surfaces; `agent` marks entries whose
- * instruction only an agent can execute — relaying to an owner, re-rooting a
- * session — which the interactive human renderers drop. The drop keys on this
- * field, not on reconstructing the rendered string.
+ * A suppression flag for the interactive terminal presentation, not a format
+ * targeting field: every entry rides JSON, Markdown, and MCP results regardless
+ * of audience. `all` also renders in the interactive terminal; `agent` marks
+ * entries whose instruction only an agent can execute — relaying to an owner,
+ * re-rooting a session — which the terminal renderer drops. The drop keys on
+ * this field, not on reconstructing the rendered string.
  */
 export type HintAudience = "all" | "agent";
 
@@ -116,9 +116,9 @@ export interface HintDef<P = undefined> {
   readonly example: P;
   /** Renders the hint from named, compiler-checked parameters. */
   readonly template: (params: P) => string;
-  /** Optional interactive-human wording for the same facts. The wire keeps the
-   * canonical template; human renderers use this projection when machine field
-   * names would make the instruction less useful at a terminal. */
+  /** Optional interactive-terminal wording for the same facts. Serialized
+   * results keep the canonical template; terminal renderers use this projection
+   * when structured field names would make the instruction less useful there. */
   readonly interactiveTemplate?: ((params: P) => string) | undefined;
 }
 
@@ -3683,9 +3683,9 @@ export function hintHasAudience(
 }
 
 /**
- * The fired entries an interactive human renderer prints: agent-audience
- * entries drop, everything else passes in order. The single projection every
- * human surface uses — the wire envelope always carries the full channel.
+ * The fired entries the interactive terminal presentation prints: agent-audience
+ * entries drop, everything else passes in order. The wire result always carries
+ * the full channel.
  */
 export function interactiveHints(
   fired: readonly FiredHint[],
@@ -3700,7 +3700,7 @@ export function interactiveHints(
 }
 
 /**
- * Project a result's wire hints for an interactive human renderer. Entries
+ * Project a result's wire hints for an interactive terminal presentation. Entries
  * whose recovered in-process identity is agent-audience drop; texts with no
  * identity pass through unchanged. Pass the envelope's own `hints` array —
  * identity recovery keys on the exact array object, so a copy loses it.

@@ -1234,7 +1234,7 @@ async function runGate(
   const deferredStandards = standardsData
     .filter((o) => o.measurement === "deferred")
     .map((o) => o.name);
-  // On failure, the stage remedy leads the envelope: the human renderer and
+  // On failure, the stage remedy leads the envelope: the terminal renderer and
   // accept both read that first hint as their headline.
   const leadingFailureHints = failedStage !== null ? jobOutputHints : [];
   const trailingJobHints = failedStage === null ? jobOutputHints : [];

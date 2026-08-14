@@ -321,7 +321,7 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Build integrations against published contracts
 
 - **Value:** A project can automate or extend discern without scraping terminal prose or depending on hidden internal state. The same structured result can support humans, agents, scripts, and custom tooling.
-- **Mechanism:** One result envelope backs human output, `--json`, and MCP tools; generated schemas and TypeScript declarations publish from the build; project scripts receive a declared environment; output follows automation conventions; and local commands expose configuration and license facts.
+- **Mechanism:** One result envelope backs terminal, JSON, Markdown, and MCP presentations; generated schemas and TypeScript declarations publish from the build; project scripts receive a declared environment; output follows automation conventions; and local commands expose configuration and license facts.
 - **Product basis:** Interfaces and contracts · One result envelope · Published contracts · Project scripts · Terminal discipline · Config without a parser · Licenses and notices.
 
 ### Choose when to upgrade

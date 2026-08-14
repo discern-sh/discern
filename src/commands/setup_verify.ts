@@ -140,10 +140,11 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
 
   const conflicts = buildConflicts(git, identity, existingInstructions);
   // The consent conversation as ONE ready-to-relay prose block, built once and rendered
-  // identically on both surfaces — never split into structured fields, which agents
+  // identically in every result representation — never split into fields, which agents
   // summarize and weaken (ADR 0078). discern ships the script, not stage directions
-  // (ADR 0086). The human render leads with it; `--json` carries it verbatim under
-  // `guidance`; a flag-less fresh `begin` re-serves the same string.
+  // (ADR 0086). Terminal and Markdown presentations lead with it; the structured
+  // result carries it verbatim under `guidance`; a flag-less fresh `begin`
+  // re-serves the same string.
   const guidance = consentMessage({
     worktreePath,
     docsExists,
@@ -177,8 +178,8 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
         worktree_path: worktreePath,
       },
       conflicts,
-      // The consent conversation rides the prose lane the agent relays verbatim,
-      // identical to the human render — the parity the JSON surface broke before.
+      // The consent conversation rides the prose field the agent relays verbatim,
+      // identical in every presentation.
       guidance,
       // Carry the --model flag in the funnel so the model that runs setup is recorded
       // as provenance — substitute your own id, or omit it if you don't know it (the

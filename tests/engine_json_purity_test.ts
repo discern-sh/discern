@@ -1,6 +1,6 @@
 /**
  * The `--json` purity guard (ADR 0030): the regression net that keeps every
- * public command path's machine output to one result envelope and nothing else.
+ * public command path's structured output to one result envelope and nothing else.
  *
  * Two layers:
  *  1. **Behavioural** — run each `--json` verb against a config whose commands print

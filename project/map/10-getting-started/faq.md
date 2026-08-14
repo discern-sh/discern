@@ -39,7 +39,7 @@ Restart the coding-agent session first. Model Context Protocol (MCP) servers and
 
 If the tools remain unavailable, run `discern doctor`. Codex, Gemini, Cursor, and GitHub Copilot may keep committed integration settings inactive until you trust the folder. The diagnostic names the provider-specific action.
 
-Use the CLI with `--markdown` for a result an agent will read directly, or `--json` when a script needs structured fields. Every discern MCP tool has a CLI verb behind it.
+Use `--markdown` for concise, prioritized prose or `--json` for exact structured fields. People, coding agents, and scripts can choose either representation to fit the task. Every discern MCP tool has a CLI verb behind it. See [Result formats and delivery](../70-reference/result-surfaces.md).
 
 ## The session has left the workflow
 

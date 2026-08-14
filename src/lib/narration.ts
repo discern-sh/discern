@@ -133,7 +133,7 @@ export function silentOutputSink(): OutputSink {
 
 /** Which stream each narration channel reaches — the sink configuration that
  * distinguishes the engine (narration on stdout) from the installer (narration
- * on stderr, keeping stdout for machine results and content). */
+ * on stderr, keeping stdout for structured results and content). */
 export interface NarrationStreams {
   /** info/ok/heading/detail and verbatim narration lines. */
   readonly narration: OutputStream;

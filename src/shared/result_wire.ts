@@ -1,5 +1,5 @@
 /**
- * Compact, schema-backed projections for agent result surfaces.
+ * Compact, schema-backed projections for serialized result surfaces.
  *
  * Verb cores keep the complete in-process data their terminal renderers need.
  * CLI JSON and MCP cross this boundary once, where rendered artifacts that
@@ -230,7 +230,7 @@ export const projectAcceptResult: ResultWireProjector = (
     };
   });
 
-/** The closed set of verbs whose agent wire drops redundant presentation data. */
+/** The closed set of verbs whose compact form drops redundant presentation data. */
 const RESULT_WIRE_PROJECTORS: Readonly<Record<string, ResultWireProjector>> =
   Object.freeze({
     done: projectGateResult,

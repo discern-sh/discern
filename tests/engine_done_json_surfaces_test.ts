@@ -528,7 +528,7 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
 
-    // Agent wire data keeps the compact claim and omits the review-page rendering.
+    // Compact data keeps the claim and omits the review-page rendering.
     const proof = obj.data.proof;
     assert(proof !== undefined, `expected data.proof: ${r.stdout}`);
     assertEquals(proof.branch, "agent/alpha");

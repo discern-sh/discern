@@ -164,7 +164,7 @@ import {
 } from "../shared/setup_machinery_evidence.ts";
 
 /**
- * The AUDIENCE of each setup command path's human render: agent-addressed
+ * The AUDIENCE of each setup command path's terminal presentation: agent-addressed
  * surfaces carry the human off-ramp ({@link humanOffRampLines}); the rest are
  * named exceptions with the reason a human can read them directly. Total over
  * the setup-family command paths in the public result-contract registry — the

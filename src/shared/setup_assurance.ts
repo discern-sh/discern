@@ -7,7 +7,7 @@
  * no build step at all. That is correct — but "the gate is proven" must not read to a
  * novice as "every protection is running." So at `done` we classify each known
  * job into one of three honest states and roll them into an overall verdict,
- * which the human output and the `--json` envelope both render. This keeps
+ * which terminal, JSON, and Markdown presentations all render. This keeps
  * "setup is complete" cleanly distinct from "the full recommended gate is active."
  *
  * The classification is DERIVED from the known names under `[jobs]` — unfakeable

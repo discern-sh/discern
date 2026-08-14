@@ -269,7 +269,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0277 — Patterns investigations preserve source findings](0277-patterns-investigations-preserve-source-findings.md)
 - [0278 — WSL support is proven by a hosted WSL 2 gate lane that publication requires](0278-wsl-support-is-proven-by-a-hosted-wsl2-gate-lane.md)
 - [0279 — External terminal rendering crosses one Discern-owned process boundary](0279-external-terminal-rendering-crosses-one-process-boundary.md)
-- [0280 — Agent results have one structured contract and an authored Markdown projection](0280-authored-markdown-result-presentations.md)
+- [0280 — Results pair one structured contract with authored Markdown](0280-authored-markdown-result-presentations.md)
 - [0281 — Main fleet status is a decision brief](0281-main-fleet-status-is-a-decision-brief.md)
 
 <!-- END GENERATED: current ADR records -->

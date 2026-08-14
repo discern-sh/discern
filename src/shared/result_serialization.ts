@@ -17,10 +17,10 @@ import { type DiscernResult, planToJson, stepResultToJson } from "./result.ts";
 import { resultWireProjectorForVerb } from "./result_wire.ts";
 
 /**
- * Prepare a {@link DiscernResult} as the single agent-wire object shared by
+ * Prepare a {@link DiscernResult} as the single compact object shared by
  * JSON, Markdown, and MCP. Failed envelopes must already carry a registered
  * `next-step` hint: the boundary refuses silent or merely descriptive failures
- * before any public agent surface can emit one.
+ * before any serialized result surface can emit one.
  */
 export function serializeResult(r: DiscernResult): Record<string, unknown> {
   if (

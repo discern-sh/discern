@@ -64,6 +64,7 @@ import {
   setTerminalContext,
   type TerminalContext,
 } from "./lib/terminal.ts";
+import { CLI_RESULT_FORMATS } from "./shared/result_formats.ts";
 
 // The full built-in verb vocabulary (installer + engine) is defined once in the
 // dispatcher and re-exported here as the CLI's
@@ -131,8 +132,8 @@ function globalFlags(options: unknown): { json: boolean; noColor: boolean } {
 
 /** Root-global flag spellings, shared by early routing and Cliffy registration. */
 export const ROOT_GLOBAL_FLAGS = {
-  json: "--json",
-  markdown: "--markdown",
+  json: CLI_RESULT_FORMATS.json.flag,
+  markdown: CLI_RESULT_FORMATS.markdown.flag,
   noColor: "--no-color",
   plain: "--plain",
 } as const;
@@ -151,13 +152,13 @@ export const CLI_CHILD_BOUNDARIES = {
 let activeDiscernArgv: readonly string[] = Deno.args;
 
 /** Whether one discern-owned argv asks for either quiet result projection. */
-function machineOutputRequested(argv: readonly string[]): boolean {
+function quietResultRequested(argv: readonly string[]): boolean {
   return argv.includes(ROOT_GLOBAL_FLAGS.json) ||
     argv.includes(ROOT_GLOBAL_FLAGS.markdown);
 }
 
-/** Emit the machine-mode refusal for a bare root invocation. */
-function emitRootMachineRefusal(argv: readonly string[]): void {
+/** Emit the selected-format refusal for a bare root invocation. */
+function emitRootResultRefusal(argv: readonly string[]): void {
   const flag = argv.includes(ROOT_GLOBAL_FLAGS.markdown)
     ? ROOT_GLOBAL_FLAGS.markdown
     : ROOT_GLOBAL_FLAGS.json;
@@ -218,11 +219,11 @@ export function buildCli(
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.json,
-      "Emit machine-readable JSON instead of human output.",
+      CLI_RESULT_FORMATS.json.description,
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.markdown,
-      "Emit agent-readable Markdown instead of human output.",
+      CLI_RESULT_FORMATS.markdown.description,
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.noColor,
@@ -235,7 +236,7 @@ export function buildCli(
     .error((error, command) => {
       if (
         !(error instanceof ValidationError) ||
-        !machineOutputRequested(activeDiscernArgv)
+        !quietResultRequested(activeDiscernArgv)
       ) {
         return;
       }
@@ -255,7 +256,7 @@ export function buildCli(
     })
     .action(function (options): void {
       if (globalFlags(options).json) {
-        emitRootMachineRefusal(activeDiscernArgv);
+        emitRootResultRefusal(activeDiscernArgv);
         return;
       }
       // No subcommand: show the grouped, operator-oriented help.
@@ -1142,7 +1143,7 @@ export async function main(args: string[]): Promise<void> {
   activeDiscernArgv = discernArgv;
   const jsonRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.json);
   const markdownRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.markdown);
-  const machineOutput = jsonRequested || markdownRequested;
+  const quietResult = jsonRequested || markdownRequested;
   if (markdownRequested) {
     // Every command already treats its `json` option as the quiet result-path
     // switch. Normalize only discern-owned tokens to that internal switch;
@@ -1166,7 +1167,7 @@ export async function main(args: string[]): Promise<void> {
     setResultOutputFormat(
       markdownRequested && !jsonRequested ? "markdown" : "json",
     );
-    setJsonMode(machineOutput);
+    setJsonMode(quietResult);
     if (jsonRequested && markdownRequested) {
       emitResult({
         ok: false,
@@ -1224,12 +1225,12 @@ export async function main(args: string[]): Promise<void> {
     // both readers and funnels the agent into the staged handshake (ADR 0075).
     // It writes nothing, so it shows even in a non-git directory (leading with
     // the git-init step). Once the project is set up, an interactive terminal
-    // gets the operator's desk — the bare invocation is the human's surface
+    // gets the operator's desk — the bare invocation is its terminal surface
     // (ADR 0119); the shared `canInteract` policy additionally honors --plain and
-    // CI, so pipes, harnesses, and machine modes fall through to static help.
+    // CI, so pipes, harnesses, and quiet result modes fall through to static help.
     if (verb === undefined) {
-      if (machineOutput) {
-        emitRootMachineRefusal(discernArgv);
+      if (quietResult) {
+        emitRootResultRefusal(discernArgv);
         Deno.exit(1);
         return;
       }
@@ -1239,13 +1240,13 @@ export async function main(args: string[]): Promise<void> {
         );
         Deno.exit(
           await runSetupWelcome({
-            json: machineOutput,
+            json: quietResult,
             noColor: !color,
           }),
         );
       }
       if (inProject && configOk && bootstrapped) {
-        const json = machineOutput;
+        const json = quietResult;
         if (inDeskSession() || (!json && canInteract(false))) {
           const { runDesk } = await import("./engine/desk/desk.ts");
           // The bare invocation IS the desk, so it records through the same
@@ -1276,7 +1277,7 @@ export async function main(args: string[]): Promise<void> {
     const successor = retiredCommandSuccessor(retiredCommand);
     if (successor !== undefined) {
       const message = retiredCommandMessage(retiredCommand, successor);
-      if (machineOutput) {
+      if (quietResult) {
         emitResult({
           ok: false,
           verb: retiredCommand,
@@ -1340,7 +1341,7 @@ export async function main(args: string[]): Promise<void> {
     if (
       inProject && configOk && !bootstrapped && verbNeedsSetup(verb)
     ) {
-      if (machineOutput) {
+      if (quietResult) {
         emitResult({
           ok: false,
           verb,
@@ -1372,7 +1373,7 @@ export async function main(args: string[]): Promise<void> {
             "cli",
             async () =>
               await runProjectScript(script.name, script.args, {
-                json: machineOutput,
+                json: quietResult,
               }),
           ),
         );
@@ -1385,7 +1386,7 @@ export async function main(args: string[]): Promise<void> {
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
       Deno.exit(
         await reportUnknownOrSuggest(verb, {
-          json: machineOutput,
+          json: quietResult,
         }),
       );
     }
@@ -1402,9 +1403,9 @@ export async function main(args: string[]): Promise<void> {
       err instanceof ConfigParseError || err instanceof ConfigValidationError
     ) {
       const isValidation = err instanceof ConfigValidationError;
-      if (machineOutput) {
+      if (quietResult) {
         // Route through the one envelope/chokepoint (ADR 0030) so even a
-        // pre-verb config error is the uniform DiscernResult an agent expects —
+        // pre-verb config error is the uniform DiscernResult a consumer expects —
         // carrying the attempted verb, with the per-issue list under `data`.
         emitResult({
           ok: false,
@@ -1421,7 +1422,7 @@ export async function main(args: string[]): Promise<void> {
     await exitWithCrashFrame(
       verb,
       err,
-      machineOutput,
+      quietResult,
     );
   }
 }
@@ -1472,7 +1473,7 @@ if (import.meta.main) {
     void exitWithCrashFrame(
       undefined,
       event.reason,
-      machineOutputRequested(activeDiscernArgv),
+      quietResultRequested(activeDiscernArgv),
     );
   });
   globalThis.addEventListener("error", (event) => {
@@ -1480,7 +1481,7 @@ if (import.meta.main) {
     void exitWithCrashFrame(
       undefined,
       event.error ?? event.message,
-      machineOutputRequested(activeDiscernArgv),
+      quietResultRequested(activeDiscernArgv),
     );
   });
   await main(Deno.args);

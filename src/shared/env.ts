@@ -50,7 +50,7 @@ export const NO_PROJECT_MESSAGE =
   "Discern could not find a project: this directory and its parents have no discern.toml. " +
   "Run `discern setup` to create one here, or move into an existing discern project.";
 
-/** The machine slug a `--json` consumer branches on when root discovery fails. */
+/** The stable slug a structured consumer branches on when root discovery fails. */
 export const NOT_INITIALIZED = "not_initialized";
 
 /**

@@ -14,7 +14,7 @@ The public reference tier for discern's commands, configuration, environment var
 | `cli-reference.md`         | Generated command, subcommand, flag, and command-alias reference.                                                 |
 | `config-reference.md`      | Generated `discern.toml` section, key, type, default, and key-alias reference.                                    |
 | `environment-variables.md` | Generated public `DISCERN_*` names, grouped purpose, and short descriptions.                                      |
-| `result-surfaces.md`       | Human, Markdown, JSON, and MCP projections of one prepared result.                                                |
+| `result-surfaces.md`       | Terminal, Markdown, JSON, and MCP projections of one prepared result.                                             |
 | `mcp-and-results.md`       | Public MCP tools, resources, result-envelope wrapper, published schemas, and CLI exit codes.                      |
 | `artifact-ownership.md`    | Approved Files and ownership exemplar; preserve its register and update only required links or location metadata. |
 | `platforms-and-prereqs.md` | Supported release targets, required tools, identity selectors, and tokens.                                        |

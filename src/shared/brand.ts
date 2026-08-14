@@ -1,6 +1,6 @@
 import { discernAttributionEnabled, type EnvReader } from "./env.ts";
 
-/** The product name used in machine-readable and generated-file identity. */
+/** The product name used in protocol and generated-file identity. */
 export const DISCERN_NAME = "discern";
 
 /** The canonical product URL used in generated-file identity. */

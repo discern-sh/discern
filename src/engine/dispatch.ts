@@ -147,7 +147,7 @@ function displayName(name: string): string {
   return name;
 }
 
-/** Logger for engine human output — info/ok/heading → stdout; NO_COLOR /
+/** Logger for engine terminal output — info/ok/heading → stdout; NO_COLOR /
  * non-TTY honoured by Logger. */
 function makeLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
@@ -155,9 +155,9 @@ function makeLogger(): Logger {
 
 /**
  * Resolve the project root, or refuse and exit 1. The refusal is the engine's
- * ONE not-initialized chokepoint: under either agent result format it emits the uniform
- * `not_initialized` envelope on stdout — the machine slug an agent branches on —
- * and in human mode the canonical stderr line. Every engine verb that needs a
+ * ONE not-initialized chokepoint: under either quiet result format it emits the
+ * uniform `not_initialized` envelope on stdout — including the stable slug a
+ * caller branches on — and in terminal mode the canonical stderr line. Every engine verb that needs a
  * project passes its verb name and json flag here, so a new verb inherits the
  * structured refusal for free (`tests/engine_not_initialized_test.ts` holds the
  * whole verb surface to it).
@@ -192,7 +192,7 @@ function handleWorktreeError(
 
 /**
  * Build a lifecycle context and run a worktree operation, mapping errors to codes.
- * In agent result mode the human narration is suppressed (Logger json mode) so
+ * In quiet result mode terminal narration is suppressed (Logger json mode) so
  * stdout carries only the selected projection, and a thrown worktree error is emitted as a
  * `DiscernResult` (`{ok:false, verb, error, message}`) rather than a (suppressed)
  * human line — a precondition slug in `error`, the human sentence in `message`.
@@ -458,8 +458,8 @@ export function attachEngineCommands(
       const json = o.json ?? false;
       const root = await requireRoot("refresh", json);
       const { refreshResult } = await import("./guidelines.ts");
-      // --json: narration → stderr, the result envelope → stdout. Human: narrate
-      // to stdout via the default logger.
+      // Quiet result: narration → stderr, the selected result → stdout.
+      // Terminal presentation narrates to stdout via the default logger.
       const log = json
         ? new Logger({ json: true, noColor: false, humanStream: "stderr" })
         : new Logger({ json: false, noColor: false, humanStream: "stdout" });
@@ -707,8 +707,8 @@ export function attachEngineCommands(
     .option(
       "--verbose",
       "Expand fleet attention, per-worktree evidence, configured checks, landing " +
-        "history, and full Proof pages. Interactive output only; agent results " +
-        "carry compact facts.",
+        "history, and full Proof pages. This affects the terminal presentation " +
+        "only; JSON and Markdown results remain compact.",
     )
     .option(
       "--json",
@@ -750,7 +750,7 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "Emit a machine-readable (plan, result) object on stdout (data.path is the new worktree).",
+      "Emit one JSON result on stdout (data.path is the new worktree).",
     )
     .option("--dry-run", "Show the start plan; touch nothing.")
     .option(
@@ -789,7 +789,7 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "Emit a machine-readable (plan, results) object on stdout.",
+      "Emit one JSON result on stdout.",
     )
     .option("--dry-run", "Show the acceptance plan; touch nothing.")
     .option(
@@ -823,7 +823,7 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "Emit a machine-readable (plan, results) object on stdout.",
+      "Emit one JSON result on stdout.",
     )
     .option("--dry-run", "Show the update plan; touch nothing.")
     .option(
@@ -958,7 +958,7 @@ export function attachEngineCommands(
     .description("Set up or re-sync the current worktree.")
     .option(
       "--json",
-      "Emit a machine-readable (plan, results) object on stdout.",
+      "Emit one JSON result on stdout.",
     )
     .option("--dry-run", "Show the setup plan; touch nothing.")
     .action(recordedExit("worktree setup", async (o) => {

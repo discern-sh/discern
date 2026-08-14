@@ -286,11 +286,10 @@ export const ProofSchema = z.strictObject(PROOF_FIELDS).meta({
 });
 export type Proof = z.infer<typeof ProofSchema>;
 
-/** The agent-wire Proof: every compact claim, without the rendered review page. */
+/** The compact Proof: every claim, without the rendered review page. */
 export const ProofSummarySchema = z.strictObject(PROOF_SUMMARY_FIELDS).meta({
   id: "DiscernProofSummary",
-  description:
-    "The compact Proof claim delivered to agents: branch, trunk, validated " +
+  description: "The compact Proof claim: branch, trunk, validated " +
     "commit, whole-diff statistics, and the one-line rendered proof.",
 });
 export type ProofSummary = z.infer<typeof ProofSummarySchema>;
@@ -573,7 +572,7 @@ export const LandingAuthorityDataSchema = z.strictObject({
 });
 export type LandingAuthorityData = z.infer<typeof LandingAuthorityDataSchema>;
 
-/** Agent-wire authority retains the decision and a bounded changed-path sample. */
+/** Compact authority retains the decision and a bounded changed-path sample. */
 const LandingAuthoritySummarySchema = LandingAuthorityDataSchema.omit({
   uncovered: true,
 }).extend({
@@ -612,7 +611,7 @@ export const GateDataSchema = z.strictObject({
 });
 export type GateData = z.infer<typeof GateDataSchema>;
 
-/** `done` on agent wire surfaces: the same gate state with a compact Proof. */
+/** Compact `done`: the same gate state with a compact Proof. */
 export const GateWireDataSchema = GateDataSchema.omit({
   proof: true,
   landing_authority: true,
@@ -951,7 +950,7 @@ export const AcceptDataSchema = z.strictObject({
 });
 export type AcceptData = z.infer<typeof AcceptDataSchema>;
 
-/** `accept` on agent wire surfaces: landing state plus its bounded Proof line. */
+/** Compact `accept`: landing state plus its bounded Proof line. */
 const AcceptWireDataSchema = AcceptDataSchema.omit({
   proof: true,
   gate_validation: true,
@@ -1265,7 +1264,7 @@ export const StatusDataSchema = z.strictObject({
 });
 export type StatusData = z.infer<typeof StatusDataSchema>;
 
-/** `status` on agent wire surfaces: live state without nested Proof pages. */
+/** Compact `status`: live state without nested Proof pages. */
 export const StatusWireDataSchema = StatusDataSchema.omit({
   gate_proof: true,
   landed_proof: true,
@@ -1554,7 +1553,7 @@ export type DocsData = z.infer<typeof DocsDataSchema>;
 // setup step ──────────────────────────────────────────────────────────────────
 
 /**
- * The machine-readable **spine** of one setup page (ADR 0078) — navigation and
+ * The structured **spine** of one setup page (ADR 0078) — navigation and
  * completion-proof rails ONLY. The warm behavioral/consent guidance stays in the
  * prose `guidance` field, never flattened into these terse fields (the two-lane
  * rule: structured fields get summarized and weakened; prose gets followed). The
@@ -1573,9 +1572,9 @@ export const SetupPageSpineSchema = z.strictObject({
 export type SetupPageSpine = z.infer<typeof SetupPageSpineSchema>;
 
 /**
- * `setup step` — one numbered setup page: the machine `spine` plus the warm prose
- * `guidance` the agent follows verbatim. `setup step <n> --json` carries BOTH
- * lanes; the human rendering leads with the prose (ADR 0078).
+ * `setup step` — one numbered setup page: the structured `spine` plus the warm
+ * prose `guidance` the agent follows verbatim. Every result representation carries
+ * both; terminal and Markdown presentations lead with the prose (ADR 0078).
  */
 export const SetupStepDataSchema = z.strictObject({
   step: z.number(),
@@ -1702,11 +1701,10 @@ export const SetupDoneLandingSchema = z.strictObject({
 });
 
 /**
- * `setup done` — the completion payload (ADR 0065/0078/0086). The structured pieces
- * (assurance / landing / reactivation / coach) are the machine lane; the `guidance`
- * prose is the ready-to-relay completion message a courier agent hands its human —
- * carried verbatim and identical to the human render, never flattened into fields
- * (ADR 0086, the two-lane rule).
+ * `setup done` — the completion payload (ADR 0065/0078/0086). The structured fields
+ * carry assurance, landing, reactivation, and coach facts. The `guidance` prose is
+ * the ready-to-relay completion message a courier agent hands its human — carried
+ * verbatim in every representation, never flattened into fields (ADR 0086).
  */
 export const SetupDoneDataSchema = z.strictObject({
   bootstrapped: z.literal(true),

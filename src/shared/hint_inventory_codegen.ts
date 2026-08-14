@@ -63,7 +63,7 @@ export function renderHintInventoryDoc(): string {
     "",
     "Entries follow id order. Emitting context states when an entry fires. Each example renders the template with its registered example parameters. An interactive example appears when the terminal uses different wording for the same facts.",
     "",
-    "Audience `all` renders on every surface. Audience `agent` marks an instruction only an agent can execute: interactive human renderers drop it, while the `--json` and Model Context Protocol (MCP) envelopes always carry it.",
+    "Audience `all` renders on every surface. Audience `agent` marks an instruction only an agent can execute: the interactive terminal presentation drops it, while JSON, Markdown, and Model Context Protocol (MCP) results always carry it.",
     "",
     entries.map(renderEntry).join("\n\n"),
     "",

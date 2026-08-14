@@ -25,7 +25,7 @@ discern skills list
 discern skills list --json
 ```
 
-The human listing marks each Skill as built-in, yours, an override, or excluded. JSON returns the same catalog under `data.skills`, with `source`, `overridesBundled`, `hasBundled`, and `excluded` on each row. Excluded Skills remain visible in the listing so a missing playbook has an explanation.
+The terminal listing marks each Skill as built-in, yours, an override, or excluded. JSON returns the same catalog under `data.skills`, with `source`, `overridesBundled`, `hasBundled`, and `excluded` on each row. Excluded Skills remain visible in the listing so a missing playbook has an explanation.
 
 ## Choose the right home
 

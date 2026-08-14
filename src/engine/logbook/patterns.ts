@@ -1699,7 +1699,7 @@ function confirmationRefusal<T>(
     error: "confirmation_required",
     message:
       `${verb} apply requires terminal stdin and stdout, non-CI operation, non-plain output, and an explicit Yes. ` +
-      "Use --dry-run for a noninteractive, machine-readable plan.",
+      "Use --dry-run to inspect the complete plan without changing anything.",
     data,
     hints: hintTexts([fire(HINTS["patterns-lifecycle-confirmation"])]),
   };

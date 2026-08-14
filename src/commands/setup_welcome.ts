@@ -93,7 +93,7 @@ export function resolveWelcomeStyle(
  * The instructional substance the welcome carries to a JSON-consuming agent, so it
  * is not handed a colder, thinner welcome than one reading the dual-addressed human
  * text (ADR 0075). The human blocks below say the same things in prose; these are
- * the machine-readable mirror, kept in step with them by the welcome JSON tests.
+ * the structured mirror, kept in step with them by the welcome JSON tests.
  */
 const FRESH_AGENT_GUIDANCE =
   "You are discern's configuration engine for this project — the capable agent already in the loop, here to set discern up for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done), not a status to relay back and stop on; discern only guides you, and nothing is written until you run `discern setup begin`. Your next action now: run `discern setup verify` yourself to preview the plan and open the consent conversation — don't hand the welcome back as a report. It hands you the exact message to relay to your human (what discern is, what it will do and cost, and the points to confirm) — relay that, wait for their answers, then run `begin`.";
@@ -177,9 +177,9 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
         phase,
         complete: phase === "done",
         next_action: next,
-        // The same instructional substance the human render carries, so the agent
-        // funnel reads the same warmth and "you drive this; nothing until begin"
-        // framing on the JSON path as on the human one (ADR 0075 dual-addressing).
+        // The same instructional substance every presentation carries. The named
+        // agent and human fields preserve their real audiences independently of
+        // whether the caller chooses terminal, JSON, or Markdown delivery.
         ...(phase === "fresh"
           ? {
             agent_guidance: FRESH_AGENT_GUIDANCE,
@@ -277,7 +277,7 @@ const PLAIN_FRESH_WELCOME: readonly string[] = [
   "",
   "  Your next action, now — preview the plan and open the consent conversation:",
   "",
-  "      discern setup verify        (read-only; add --json for machine output)",
+  "      discern setup verify        (read-only; --json/--markdown emit one result)",
   "",
   "  Run it yourself: it hands you the exact message to relay to your human, then",
   "  points you at the next step. Don't hand this back as a report — carry it through.",
@@ -415,7 +415,7 @@ function styledFreshWelcome(
     renderCommandCli(
       {
         command: "discern setup verify",
-        explanation: "(read-only; add --json for machine output)",
+        explanation: "(read-only; --json/--markdown emit one result)",
         theme,
         maxWidth: innerWidth,
       },

@@ -14,9 +14,9 @@ aliases:
 
 _One narration authority, one boundary-owning sink, one aligned-listing policy, one error form. Copy these patterns; the guards reject every other spelling._
 
-[`narration.ts`](../../../src/lib/narration.ts) renders every small human output verb once: the glyph lines (`→` info, `✓` success, `!` warning, `✗` danger), the strong heading, the `──` ruled group label, and the blank-line boundary between semantic groups ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)). Its sink tracks the trailing blank state of everything written, so a block declares "one blank line before me" and receives it mechanically. No caller writes a boundary newline; the sink owns them all.
+[`narration.ts`](../../../src/lib/narration.ts) renders every small terminal-output verb once: the glyph lines (`→` info, `✓` success, `!` warning, `✗` danger), the strong heading, the `──` ruled group label, and the blank-line boundary between semantic groups ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)). Its sink tracks the trailing blank state of everything written, so a block declares "one blank line before me" and receives it mechanically. No caller writes a boundary newline; the sink owns them all.
 
-`Out` and `Logger` are its stream configurations. The engine's `Out` ([`output.ts`](../../../src/engine/output.ts)) narrates on stdout with warnings and errors on stderr, plus a raw stdout channel. The installer's `Logger` ([`log.ts`](../../../src/lib/log.ts)) narrates on stderr (stdout stays machine-readable), keeps `line()` as the always-stdout content channel, and owns the `--json` result channel. Both fall silent in machine mode: the envelope is the entire output ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
+`Out` and `Logger` are its stream configurations. The engine's `Out` ([`output.ts`](../../../src/engine/output.ts)) narrates on stdout with warnings and errors on stderr, plus a raw stdout channel. The installer's `Logger` ([`log.ts`](../../../src/lib/log.ts)) narrates on stderr when stdout is reserved for a result and keeps `line()` as the always-stdout content channel. Both fall silent in quiet result mode: the selected JSON or Markdown result is the entire output ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
 ## A narration line
 

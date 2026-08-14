@@ -31,13 +31,14 @@ import {
 import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { CLI_RESULT_FORMATS } from "../src/shared/result_formats.ts";
 
 /** Every global flag token, straight from the Cliffy registration. */
 const GLOBAL_FLAGS: readonly string[] = [
   ...globalFlagTokens(buildCli(false) as unknown as Command),
 ].sort();
 
-Deno.test("the global-flag registration includes both agent result formats", () => {
+Deno.test("the global-flag registration includes both explicit result formats", () => {
   // The matrices below iterate this set — an empty derivation would make
   // every flag-first case silently vacuous.
   assert(GLOBAL_FLAGS.length > 0, "no global flags derived from the root");
@@ -45,6 +46,23 @@ Deno.test("the global-flag registration includes both agent result formats", () 
   assert(GLOBAL_FLAGS.includes("--markdown"), GLOBAL_FLAGS.join(", "));
   assert(!GLOBAL_FLAGS.includes("--md"), GLOBAL_FLAGS.join(", "));
   assertEquals([...ROOT_GLOBAL_FLAG_TOKENS].sort(), GLOBAL_FLAGS);
+});
+
+Deno.test("result-format help names representations without assigning audiences", () => {
+  const options = (buildCli(false) as unknown as Command).getOptions(true);
+  for (const format of Object.values(CLI_RESULT_FORMATS)) {
+    const option = options.find((candidate) =>
+      candidate.flags.includes(format.flag)
+    );
+    assert(option !== undefined, `missing ${format.flag}`);
+    assertEquals(option.description, format.description);
+    assert(
+      !/\b(?:agent|human|machine)[- ](?:readable|output)\b/i.test(
+        option.description,
+      ),
+      `${format.flag} assigns its format to an audience: ${option.description}`,
+    );
+  }
 });
 
 Deno.test("raw child boundaries exclude every global-looking child flag", () => {

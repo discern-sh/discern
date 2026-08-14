@@ -116,7 +116,8 @@ const PROBES = {
     await freshRepo(dir);
     const json = await runAgent(dir, ["setup", "begin", "--json"]);
     const env = parseJson(json.stdout);
-    const human = await runAgent(dir, ["setup", "begin"]);
+    const markdown = await runAgent(dir, ["setup", "begin", "--markdown"]);
+    const terminal = await runAgent(dir, ["setup", "begin"]);
     // Mutated iff the fresh scaffold wrote its config.
     const mutated = await exists(join(dir, "discern.toml"));
     return {
@@ -134,7 +135,14 @@ const PROBES = {
             env.error === AWAITING_CONSENT_SLUG,
           evidence: [env.message, env.data.guidance, env.data.command],
         },
-        human: { refused: human.code === 1, evidence: [human.output] },
+        markdown: {
+          refused: markdown.code === 1,
+          evidence: [markdown.stdout],
+        },
+        terminal: {
+          refused: terminal.code === 1,
+          evidence: [terminal.output],
+        },
       },
     };
   },
@@ -142,7 +150,8 @@ const PROBES = {
     const wt = await worktreeReadyToLand(dir);
     const json = await runAgent(wt, ["accept", "--json"]);
     const env = parseJson(json.stdout);
-    const human = await runAgent(wt, ["accept"]);
+    const markdown = await runAgent(wt, ["accept", "--markdown"]);
+    const terminal = await runAgent(wt, ["accept"]);
     const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
     assert(
       tool !== undefined,
@@ -175,7 +184,14 @@ const PROBES = {
             env.error === AWAITING_CONSENT_SLUG,
           evidence: [env.message, ...(env.hints ?? [])],
         },
-        human: { refused: human.code === 1, evidence: [human.output] },
+        markdown: {
+          refused: markdown.code === 1,
+          evidence: [markdown.stdout],
+        },
+        terminal: {
+          refused: terminal.code === 1,
+          evidence: [terminal.output],
+        },
         mcp: {
           refused: mcp.isError === true &&
             mcpEnv.error === AWAITING_CONSENT_SLUG,
@@ -235,7 +251,7 @@ Deno.test("consent class: every consent-gated verb refuses without its attestati
           );
         }
       }
-      // The machine envelope also names the shared attestation vocabulary.
+      // The JSON envelope also names the shared attestation vocabulary.
       assertStringIncludes(
         JSON.stringify(env),
         verb.flag,
@@ -266,12 +282,15 @@ Deno.test("accept: refuses without --confirmed, re-serving the review moment (sl
       "no work may land without the attestation",
     );
 
-    // The human render carries the relay message too (dual-addressed), and is
+    // The terminal presentation carries the relay message too, and is
     // equally mutation-free.
-    const human = await runAgent(wt, ["accept"]);
-    assertEquals(human.code, 1, human.output);
-    assertStringIncludes(human.output, env.message);
-    assert(await exists(wt), "the human refusal must not touch the worktree");
+    const terminal = await runAgent(wt, ["accept"]);
+    assertEquals(terminal.code, 1, terminal.output);
+    assertStringIncludes(terminal.output, env.message);
+    assert(
+      await exists(wt),
+      "the terminal refusal must not touch the worktree",
+    );
   });
 });
 
@@ -299,7 +318,7 @@ Deno.test("accept: --confirmed preserves the conversation-consent landing path",
   });
 });
 
-Deno.test("accept: human success reports the same conversation-consent evidence", async () => {
+Deno.test("accept: terminal success reports the same conversation-consent evidence", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeReadyToLand(dir);
 

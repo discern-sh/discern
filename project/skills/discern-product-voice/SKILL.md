@@ -176,8 +176,8 @@ The name is always written **discern**, entirely lower-case, on every surface an
 Once a product term exists, use it identically across:
 
 - CLI;
-- human rendering;
-- JSON/MCP results;
+- terminal presentations;
+- JSON/Markdown/MCP results;
 - documentation;
 - tips;
 - hints;

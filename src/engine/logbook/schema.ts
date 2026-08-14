@@ -132,8 +132,8 @@ const crashSignatureSchema = z.looseObject({
  *    events, the parent process id for `cli` events. Groups one conversation's
  *    invocations even when every task shares a branch; ids recycle across
  *    reboots, so readers group within a day, never globally;
- *  - `json`: structured agent output was requested with `--json`;
- *  - `markdown`: agent-readable output was requested with `--markdown`;
+ *  - `json`: JSON output was requested with `--json`;
+ *  - `markdown`: Markdown output was requested with `--markdown`;
  *  - `tty` — stdout was an interactive terminal;
  *  - `ci` — the conventional CI environment marker was set, so automation
  *    noise is filterable from interactive history;
@@ -315,7 +315,7 @@ export const verbEventSchema = z.looseObject({
   /** The ref a `start` forked from (composition below the trunk, recorded). */
   from: z.string().optional(),
   /** Flag NAMES the invocation passed (registry-shaped, never values; the two
-   * agent result formats and `--dry-run` ride their own fields). `--force`
+   * explicit result formats and `--dry-run` ride their own fields). `--force`
    * usage is a signal. */
   flags: z.array(z.string()).optional(),
   /** Scale of the change acted on ({@link ChangeScale}). */

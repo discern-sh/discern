@@ -1,5 +1,5 @@
 /**
- * Authored agent presentations for serialized Discern results.
+ * Authored Markdown presentations for serialized Discern results.
  *
  * The contract presenter selects the facts that matter. This shared renderer
  * adds bounded envelope evidence and registered hints, then enforces the order

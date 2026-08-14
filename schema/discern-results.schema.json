@@ -18110,7 +18110,7 @@
         "deletions",
         "line"
       ],
-      "description": "The compact Proof claim delivered to agents: branch, trunk, validated commit, whole-diff statistics, and the one-line rendered proof."
+      "description": "The compact Proof claim: branch, trunk, validated commit, whole-diff statistics, and the one-line rendered proof."
     },
     "DiscernDoctorMcpToolResult": {
       "title": "DiscernDoctorMcpToolResult",

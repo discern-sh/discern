@@ -33,7 +33,7 @@ The controller samples viewport size and switches modes while safe. Unsafe shrin
 
 Transcript, final table, result tail, diagnostics, remedies, and Proof appear once below live progress. JSON and Model Context Protocol calls bypass it.
 
-For the JSON fields and agent-facing tool contract, use [MCP tools & results](../70-reference/mcp-and-results.md).
+For JSON fields, the Markdown presentation, and the MCP tool contract, use [MCP tools & results](../70-reference/mcp-and-results.md).
 
 [`presentation.ts`](../../../src/engine/gate/presentation.ts) receives facts, time, and viewport. [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) selects live mode; [`terminal.ts`](../../../src/lib/terminal.ts) observes the process.
 

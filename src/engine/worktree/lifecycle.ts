@@ -272,11 +272,11 @@ export async function lifecycleContext(
   return { root, config: await loadConfig(root), log, cwd };
 }
 
-/** Flags shared by every effectful worktree verb: preview-only and machine output. */
+/** Flags shared by every effectful worktree verb: preview and quiet result output. */
 export interface WorktreeOpOptions {
   /** Show the plan and touch nothing. */
   dryRun?: boolean;
-  /** Emit a machine-readable (plan, results) object on stdout. */
+  /** Emit one structured result on stdout. */
   json?: boolean;
   /** Render the human apply summary (internal protocol callers may reserve stdout). */
   humanApplySummary?: boolean;
@@ -4423,7 +4423,7 @@ export interface WorktreePruneOptions {
   assumeYes?: boolean;
   /** Report what would be removed/reclaimed without acting. */
   dryRun?: boolean;
-  /** Emit a machine-readable (plan, results) object on stdout. */
+  /** Emit one structured result on stdout. */
   json?: boolean;
   /** The explicit opt-in to reclaim CONTAINED worktrees — checkouts whose
    * committed work is fully contained in another live branch. Off, the group
@@ -4859,7 +4859,7 @@ function pruneResults(
   });
   // The contained group is always REPORTED: reclaimed rows under the opt-in,
   // and every kept row as an explicit skip — the offer stays visible in the
-  // machine result exactly as it does in the human output.
+  // structured result exactly as it does in the terminal presentation.
   const contained: StepResult[] = plan.reclaimContained
     ? [
       ...reclaim.reclaimed.map((c) =>

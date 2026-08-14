@@ -101,11 +101,14 @@ const LOGBOOK_READER_MODULES = [
 ] as const;
 
 /** Schema members a reader deliberately does not consume, each with its
- * reason. Empty today: every live event kind and driver signal is read. */
+ * reason. */
 const DELIBERATELY_UNREAD_EVENT_KINDS: Readonly<Record<string, string>> = {};
 const DELIBERATELY_UNREAD_DRIVER_SIGNALS: Readonly<
   Record<string, string>
-> = {};
+> = {
+  json: "A requested format is not evidence of the caller's identity.",
+  markdown: "A requested format is not evidence of the caller's identity.",
+};
 
 /** Quote event and driver field names before scanning reader source. */
 function escapeRegExp(value: string): string {
@@ -3639,15 +3642,17 @@ Deno.test("patterns driver scoring: every signal source behaves per its classifi
   }
 });
 
-Deno.test("patterns driver scoring: either agent result format marks a CLI agent", () => {
-  assertEquals(
-    driverKind(verb({ driver: { json: true, tty: false, ci: false } })),
-    "agent",
-  );
-  assertEquals(
-    driverKind(verb({ driver: { markdown: true, tty: false, ci: false } })),
-    "agent",
-  );
+Deno.test("patterns driver scoring: a result format does not determine who invoked the CLI", () => {
+  for (const format of [{ json: true }, { markdown: true }]) {
+    assertEquals(
+      driverKind(verb({ driver: { ...format, tty: false, ci: false } })),
+      "unknown",
+    );
+    assertEquals(
+      driverKind(verb({ driver: { ...format, tty: true, ci: false } })),
+      "human",
+    );
+  }
 });
 
 Deno.test("patterns driver attribution: one identity names the driver; disagreement or ambient-only evidence names nothing", () => {

@@ -407,15 +407,15 @@ export const ERROR_SLUGS = [
 export type ErrorSlug = (typeof ERROR_SLUGS)[number];
 
 /**
- * The uniform result every `discern` verb returns. An agent can rely on `ok`,
- * `verb`, `error`, and `diagnostics` being present on EVERY verb; the structural
+ * The uniform result every `discern` verb returns. Every consumer can rely on
+ * `ok`, `verb`, `error`, and `diagnostics` being present on EVERY verb; the structural
  * `plan`/`steps` carry the verbs that have steps (finish, worktree, standards,
  * accept), and `data` carries each verb's own payload (doctor's checks, schema migration data
  * schema versions, init's written-files list).
  *
- * `result_serialization.ts` prepares its agent-wire data; the human and agent
- * presentations read the same envelope, so they cannot disagree on what
- * happened, while each may select advice suited to its reader.
+ * `result_serialization.ts` prepares its compact data; terminal, JSON,
+ * Markdown, and MCP presentations read the same envelope, so they cannot
+ * disagree on what happened while each can suit its form of consumption.
  *
  * Generic over its `data` payload (`TData`, default `unknown`): a verb core narrows
  * it to its own schema-backed type (`DiscernResult<StatusData>`, `<GateData>`, …) so
