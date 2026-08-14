@@ -146,7 +146,7 @@ function scriptedRuntime(
   });
   const data = statusData([main]);
   return {
-    canPrompt: () => true,
+    canInteract: () => true,
     inDeskSession: () => false,
     findRoot: () => ROOT,
     loadConfig: () => CONFIG,
@@ -688,7 +688,7 @@ Deno.test("desk starts a named task and focuses its ready worktree immediately",
   );
 });
 
-Deno.test("desk leaves the start name unset when the optional prompt is blank", async () => {
+Deno.test("desk leaves the start name unset when the optional request is blank", async () => {
   const output = transcript();
   const main = fleetEntry("main", ROOT, {
     is_main: true,

@@ -4,7 +4,7 @@
  *
  * The interactive picker needs a TTY, so it is not exercised here; the
  * subprocess runs are all non-interactive (piped stdio), which is exactly the
- * agent/script path the command must serve without ever blocking on a prompt.
+ * agent/script path the command must serve without blocking on terminal input.
  */
 
 import {

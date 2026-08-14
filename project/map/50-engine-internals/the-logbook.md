@@ -26,7 +26,7 @@ The substrate's constraints:
 
 Schemas, readers, detectors, statistics, investigations, and lifecycle plans own Logbook facts. One terminal snapshot per human invocation builds output. Presentation observes nothing and maps results to result-summary, stat, meter, procedure, Proof, file-change, command, and section Components. JSON and MCP match.
 
-Patterns retains order, families, its advisory boundary, evidence, actions, quiet-detector account, and falsifiers. Statistics retain exact counts and provenance. Archive and reset retain exact file, byte, and destination facts. Confirmation stays on the shared default-No prompt boundary.
+Patterns retains order, families, its advisory boundary, evidence, actions, quiet-detector account, and falsifiers. Statistics retain exact counts and provenance. Archive and reset retain exact file, byte, and destination facts. Confirmation stays on the shared default-No interaction boundary.
 
 At 39, 80, 104, and wider widths in every mode, safe text shows controls. Components add no payload, prompt, output, or network access; the metadata-only, offline contract remains unchanged.
 

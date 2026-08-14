@@ -30,7 +30,7 @@ import { resolveConfigPath } from "../lib/paths.ts";
 import { DEFAULTS, type SetupConfig, tokensFromConfig } from "../lib/config.ts";
 import { applyPlan, buildPlan } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
-import { canPrompt, confirmProceed } from "../lib/prompts.ts";
+import { canInteract, confirmProceed } from "../lib/terminal_interaction.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import {
   applyConfigDoc,
@@ -276,7 +276,7 @@ export async function runPreset(
     }
     log.group("confirmation");
   }
-  if (!options.yes && !options.json && !canPrompt(false)) {
+  if (!options.yes && !options.json && !canInteract(false)) {
     log.error(
       `Applying preset "${name}" needs confirmation. Review the plan above, then re-run with --yes in CI, under --plain, or without terminal input.`,
     );

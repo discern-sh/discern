@@ -21,7 +21,7 @@ import {
   type DiscernConfigDoc,
   toCommandList,
 } from "../shared/config_schema.ts";
-import type { InitFlags } from "./prompts.ts";
+import type { InitFlags } from "./terminal_interaction.ts";
 import { TomlEditor } from "./toml_edit.ts";
 
 // The document's shape, its major version, and its editor JSON Schema all derive

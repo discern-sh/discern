@@ -1,21 +1,21 @@
 /**
  * The `setup` wizard: resolve a complete `SetupConfig` from CLI flags and, when
- * interactive, from prompts. Every prompt has a flag equivalent so the whole
- * wizard is skippable for CI/agent runs (`--yes` + flags). Prompts are only
- * ever reached on a TTY with `--yes` absent.
+ * interactive, from terminal requests. Every requested value has a flag
+ * equivalent, so the whole wizard is skippable for CI/agent runs (`--yes` +
+ * flags). Requests are only reached on a TTY with `--yes` absent.
  */
 
 import {
   DenoTerminalIO,
-  type MultiselectPromptOptions as PackageMultiselectPromptOptions,
-  PromptCancelled as PackagePromptCancelled,
-  type PromptChoiceEntry,
-  promptConfirm as packagePromptConfirm,
-  promptMultiselect as packagePromptMultiselect,
-  type PromptRuntime as PackagePromptRuntime,
-  promptSearch as packagePromptSearch,
-  promptSelect as packagePromptSelect,
-  promptText as packagePromptText,
+  InteractionCancelled as PackageInteractionCancelled,
+  type InteractionEntry,
+  type InteractionRuntime as PackageInteractionRuntime,
+  requestConfirmation as packageRequestConfirmation,
+  requestSearch as packageRequestSearch,
+  requestSelection as packageRequestSelection,
+  requestSelections as packageRequestSelections,
+  requestText as packageRequestText,
+  type SelectionsRequestOptions as PackageSelectionsRequestOptions,
   type TerminalIO,
 } from "discern-design-system/cli/interactive";
 import {
@@ -44,12 +44,12 @@ let plainMode = false;
 /** Process-wide machine-output choice set once by `main` from global `--json`. */
 let jsonMode = false;
 
-/** Thread the global static-output choice into every prompt choke point. */
+/** Thread the global static-output choice into every interaction choke point. */
 export function setPlainMode(enabled: boolean): void {
   plainMode = enabled;
 }
 
-/** Thread the global machine-output choice into every prompt choke point. */
+/** Thread the global machine-output choice into every interaction choke point. */
 export function setJsonMode(enabled: boolean): void {
   jsonMode = enabled;
 }
@@ -91,12 +91,12 @@ export async function resolveBrief(value: string): Promise<string> {
 }
 
 /**
- * Whether interactive prompts may be shown. `--yes`, global `--plain`, global
+ * Whether interactive input may be requested. `--yes`, global `--plain`, global
  * `--json`, CI, and either non-terminal stream independently veto interaction.
  * The environment and stream probe are injectable so the whole decision is
  * testable without manufacturing a terminal.
  */
-export function canPrompt(
+export function canInteract(
   yes: boolean,
   env: EnvReader = Deno.env,
   streams: () => { stdin: boolean; stdout: boolean } = () => ({
@@ -127,10 +127,10 @@ export function interactionAllowed(
 }
 
 type MaybePromise<T> = T | Promise<T>;
-type PromptValidation = true | string;
+type InteractionValidation = true | string;
 
 /** One framework-neutral product choice. `id` is required for non-primitives. */
-export interface SelectPromptOption<T> {
+export interface SelectionOption<T> {
   readonly kind?: "choice";
   readonly id?: string;
   readonly name: string;
@@ -141,82 +141,84 @@ export interface SelectPromptOption<T> {
 }
 
 /** One first-class semantic heading. It carries no selectable value. */
-export interface SelectPromptHeading {
+export interface SelectionHeading {
   readonly kind: "group-heading";
   readonly id: string;
   readonly name: string;
 }
 
-/** Choices and structural headings accepted by the product prompt adapter. */
-export type SelectPromptEntry<T> = SelectPromptOption<T> | SelectPromptHeading;
+/** Choices and structural headings accepted by the product interaction adapter. */
+export type SelectionEntry<T> = SelectionOption<T> | SelectionHeading;
 
-/** Framework-neutral options for a product single-choice prompt. */
-export interface SelectPromptOptions<T> {
+/** Framework-neutral options for one product selection request. */
+export interface SelectionRequestOptions<T> {
   readonly message: string;
-  readonly options: readonly SelectPromptEntry<T>[];
+  readonly options: readonly SelectionEntry<T>[];
   readonly default?: T;
   readonly hint?: string;
   readonly required?: boolean | string;
-  readonly validate?: (value: T) => MaybePromise<PromptValidation>;
-  /** Use the package search prompt rather than a static select prompt. */
+  readonly validate?: (value: T) => MaybePromise<InteractionValidation>;
+  /** Use the package search request rather than a static selection request. */
   readonly search?: boolean;
   readonly searchLabel?: string;
   readonly maxRows?: number;
 }
 
-/** Framework-neutral options for a product multiple-choice prompt. */
-export interface CheckboxPromptOptions<T> {
+/** Framework-neutral options for one product multi-selection request. */
+export interface SelectionsRequestOptions<T> {
   readonly message: string;
-  readonly options: readonly SelectPromptEntry<T>[];
+  readonly options: readonly SelectionEntry<T>[];
   readonly default?: readonly T[];
   readonly hint?: string;
   readonly minOptions?: number;
-  readonly validate?: (value: readonly T[]) => MaybePromise<PromptValidation>;
+  readonly validate?: (
+    value: readonly T[],
+  ) => MaybePromise<InteractionValidation>;
   readonly maxRows?: number;
 }
 
-/** Framework-neutral options for a product text prompt. */
-export interface InputPromptSettings {
+/** Framework-neutral options for one product text request. */
+export interface TextRequestSettings {
   readonly message: string;
   readonly default?: string;
   readonly hint?: string;
   readonly placeholder?: string;
   readonly required?: boolean | string;
-  readonly validate?: (value: string) => MaybePromise<PromptValidation>;
+  readonly validate?: (value: string) => MaybePromise<InteractionValidation>;
 }
 
-export type InputPromptOptions = string | InputPromptSettings;
+export type TextRequestOptions = string | TextRequestSettings;
 
-export type SelectPromptGroup<T> =
-  & HumanOutputGroup<SelectPromptOption<T>>
+export type SelectionGroup<T> =
+  & HumanOutputGroup<SelectionOption<T>>
   & { label: string };
 
-/** Injectable prompt runtime used by focused tests and real-terminal harnesses. */
-export interface DiscernPromptRuntime {
+/** Injectable interaction runtime used by focused tests and terminal harnesses. */
+export interface TerminalInteractionRuntime {
   readonly io?: TerminalIO;
   readonly interactive?: (yes: boolean) => boolean;
 }
 
 /** Product cancellation meaning for Ctrl+C and terminal end-of-input. */
-export class PromptCancellation extends Error {
-  override readonly name = "PromptCancellation";
+export class InteractionCancelled extends Error {
+  override readonly name = "InteractionCancelled";
 
   constructor() {
-    super("Prompt cancelled.");
+    super("Interaction cancelled.");
   }
 }
 
-/** Test whether an error is the product's normalized prompt cancellation. */
-export function isPromptCancellation(
+/** Test whether an error is the product's normalized interaction cancellation. */
+export function isInteractionCancelled(
   error: unknown,
-): error is PromptCancellation {
-  return error instanceof PromptCancellation;
+): error is InteractionCancelled {
+  return error instanceof InteractionCancelled;
 }
 
-/** Give one package prompt a leading semantic boundary outside its frame.
+/** Give one package interaction a leading semantic boundary outside its frame.
  * Every terminal fact and effect delegates unchanged; only the first nonempty
- * write receives the one newline that separates the prompt from prior output. */
-export function withPromptBoundary(target: TerminalIO): TerminalIO {
+ * write receives the one newline that separates it from prior output. */
+export function withInteractionBoundary(target: TerminalIO): TerminalIO {
   let boundaryPending = true;
   return {
     isInteractive: () => target.isInteractive(),
@@ -235,13 +237,13 @@ export function withPromptBoundary(target: TerminalIO): TerminalIO {
 }
 
 /** Build first-class package headings from named semantic groups. */
-export function groupedSelectOptions<T>(
-  groups: readonly SelectPromptGroup<T>[],
-): SelectPromptEntry<T>[] {
+export function groupedSelectionEntries<T>(
+  groups: readonly SelectionGroup<T>[],
+): SelectionEntry<T>[] {
   return populatedHumanOutputGroups(groups).flatMap((group) => {
     if (group.label === undefined) {
       throw new TypeError(
-        `prompt group ${JSON.stringify(group.id)} needs a label`,
+        `selection group ${JSON.stringify(group.id)} needs a label`,
       );
     }
     return [
@@ -251,17 +253,17 @@ export function groupedSelectOptions<T>(
   });
 }
 
-/** Refuse a named prompt unless terminal input and output are available. */
+/** Refuse a named interaction unless terminal input and output are available. */
 function requireInteraction(
   name: string,
-  runtime: DiscernPromptRuntime,
+  runtime: TerminalInteractionRuntime,
 ): void {
   if (plainMode || jsonMode) {
     throw new Error(
       `${name} needs an interactive terminal; remove --plain and --json, leave CI, and attach terminal stdin and stdout.`,
     );
   }
-  if (!(runtime.interactive ?? canPrompt)(false)) {
+  if (!(runtime.interactive ?? canInteract)(false)) {
     throw new Error(
       `${name} needs an interactive terminal; remove --plain and --json, leave CI, and attach terminal stdin and stdout.`,
     );
@@ -294,13 +296,13 @@ function encodedIdentity(value: string): string {
 }
 
 interface AdaptedChoices<T> {
-  readonly entries: readonly PromptChoiceEntry<T>[];
+  readonly entries: readonly InteractionEntry<T>[];
   readonly idFor: (value: T) => string | undefined;
 }
 
 /** Validate product identity and map it once into the package choice contract. */
 function adaptChoices<T>(
-  entries: readonly SelectPromptEntry<T>[],
+  entries: readonly SelectionEntry<T>[],
   rejectNullishValues = false,
 ): AdaptedChoices<T> {
   const values: T[] = [];
@@ -308,20 +310,20 @@ function adaptChoices<T>(
   const groupIds = new Set<string>();
   const explicitIds = new Set<string>();
   const valueIds: Array<{ readonly value: T; readonly id: string }> = [];
-  const adapted = entries.map((entry, index): PromptChoiceEntry<T> => {
+  const adapted = entries.map((entry, index): InteractionEntry<T> => {
     if (entry.kind === "group-heading") {
       if (entry.id.trim() === "") {
-        throw new TypeError(`prompt group ${index + 1} has a blank id`);
+        throw new TypeError(`selection group ${index + 1} has a blank id`);
       }
       if (groupIds.has(entry.id)) {
         throw new TypeError(
-          `prompt group id ${JSON.stringify(entry.id)} is repeated`,
+          `selection group id ${JSON.stringify(entry.id)} is repeated`,
         );
       }
       const label = terminalLine(entry.name);
       if (label.trim() === "") {
         throw new TypeError(
-          `prompt group ${JSON.stringify(entry.id)} has a blank label`,
+          `selection group ${JSON.stringify(entry.id)} has a blank label`,
         );
       }
       groupIds.add(entry.id);
@@ -338,30 +340,30 @@ function adaptChoices<T>(
       rejectNullishValues && (entry.value === null || entry.value === undefined)
     ) {
       throw new TypeError(
-        "A single-select prompt choice cannot use null or undefined as its value.",
+        "A single-selection choice cannot use null or undefined as its value.",
       );
     }
     if (values.some((value) => sameValue(value, entry.value))) {
       throw new TypeError(
-        `prompt choice ${index + 1} repeats a selectable value`,
+        `selection choice ${index + 1} repeats a selectable value`,
       );
     }
     values.push(entry.value);
     const implicit = primitiveChoiceId(entry.value);
     if (entry.id === undefined && implicit === undefined) {
       throw new TypeError(
-        `prompt choice ${
+        `selection choice ${
           index + 1
         } needs an explicit id because its value is not a supported primitive`,
       );
     }
     if (entry.id !== undefined) {
       if (entry.id.trim() === "") {
-        throw new TypeError(`prompt choice ${index + 1} has a blank id`);
+        throw new TypeError(`selection choice ${index + 1} has a blank id`);
       }
       if (explicitIds.has(entry.id)) {
         throw new TypeError(
-          `prompt choice id ${JSON.stringify(entry.id)} is repeated`,
+          `selection choice id ${JSON.stringify(entry.id)} is repeated`,
         );
       }
       explicitIds.add(entry.id);
@@ -371,7 +373,7 @@ function adaptChoices<T>(
       : `id:${encodedIdentity(entry.id)}`;
     if (productIds.has(productId)) {
       throw new TypeError(
-        `prompt choice id ${JSON.stringify(entry.id)} is repeated`,
+        `selection choice id ${JSON.stringify(entry.id)} is repeated`,
       );
     }
     productIds.add(productId);
@@ -393,14 +395,14 @@ function adaptChoices<T>(
 
 /** Keep a semantic heading only when its group has a matching choice. */
 function filterChoices<T>(
-  entries: readonly PromptChoiceEntry<T>[],
+  entries: readonly InteractionEntry<T>[],
   query: string,
-): readonly PromptChoiceEntry<T>[] {
+): readonly InteractionEntry<T>[] {
   const needle = query.toLowerCase();
   if (needle === "") return entries;
   const matches = (label: string): boolean =>
     label.toLowerCase().includes(needle);
-  const filtered: PromptChoiceEntry<T>[] = [];
+  const filtered: InteractionEntry<T>[] = [];
   for (let index = 0; index < entries.length;) {
     const entry = entries[index];
     if (entry?.kind !== "group-heading") {
@@ -408,7 +410,7 @@ function filterChoices<T>(
       index += 1;
       continue;
     }
-    const choices: PromptChoiceEntry<T>[] = [];
+    const choices: InteractionEntry<T>[] = [];
     let next = index + 1;
     while (next < entries.length && entries[next]?.kind !== "group-heading") {
       const choice = entries[next];
@@ -427,7 +429,7 @@ function filterChoices<T>(
 
 /** Adapt the product validator's true/string convention to the package. */
 function packageValidator<T>(
-  validate: ((value: T) => MaybePromise<PromptValidation>) | undefined,
+  validate: ((value: T) => MaybePromise<InteractionValidation>) | undefined,
 ): ((value: T) => Promise<string | undefined>) | undefined {
   if (validate === undefined) return undefined;
   return async (value): Promise<string | undefined> => {
@@ -436,16 +438,18 @@ function packageValidator<T>(
   };
 }
 
-interface PackagePromptSession {
-  readonly runtime: PackagePromptRuntime;
+interface PackageInteractionSession {
+  readonly runtime: PackageInteractionRuntime;
   /** End a frame whose unexpected exception bypassed the package's finish. */
   readonly terminateUnexpectedFrame: () => void;
 }
 
 /** Construct one package runtime after policy has allowed interaction. */
-function packageRuntime(runtime: DiscernPromptRuntime): PackagePromptSession {
+function packageInteractionRuntime(
+  runtime: TerminalInteractionRuntime,
+): PackageInteractionSession {
   let target: TerminalIO;
-  let theme: PackagePromptRuntime["theme"];
+  let theme: PackageInteractionRuntime["theme"];
   if (runtime.io !== undefined) {
     target = runtime.io;
   } else {
@@ -456,7 +460,7 @@ function packageRuntime(runtime: DiscernPromptRuntime): PackagePromptSession {
     theme = terminal.themeVariant;
   }
 
-  const boundary = withPromptBoundary(target);
+  const boundary = withInteractionBoundary(target);
   let wrote = false;
   const io: TerminalIO = {
     isInteractive: () => boundary.isInteractive(),
@@ -483,39 +487,39 @@ function packageRuntime(runtime: DiscernPromptRuntime): PackagePromptSession {
         // entering the painter's replaceable-frame cursor accounting.
         target.write("\n");
       } catch {
-        // The original prompt fault remains authoritative over cleanup failure.
+        // The original interaction fault remains authoritative over cleanup failure.
       }
     },
   };
 }
 
-type PackagePromptOperation<Options, Value> = (
+type PackageInteractionOperation<Options, Value> = (
   options: Options,
-  runtime: PackagePromptRuntime,
+  runtime: PackageInteractionRuntime,
 ) => Promise<Value>;
 
-/** Run every public prompt through one cancellation and restoration boundary. */
-async function productPrompt<Options, Value>(
-  operation: PackagePromptOperation<Options, Value>,
+/** Run every public request through one cancellation and restoration boundary. */
+async function runInteractionRequest<Options, Value>(
+  operation: PackageInteractionOperation<Options, Value>,
   options: Options,
-  runtime: DiscernPromptRuntime,
+  runtime: TerminalInteractionRuntime,
 ): Promise<Value> {
-  const session = packageRuntime(runtime);
+  const session = packageInteractionRuntime(runtime);
   try {
     return await operation(options, session.runtime);
   } catch (error) {
-    if (error instanceof PackagePromptCancelled) {
-      throw new PromptCancellation();
+    if (error instanceof PackageInteractionCancelled) {
+      throw new InteractionCancelled();
     }
     session.terminateUnexpectedFrame();
     throw error;
   }
 }
 
-/** Guard policy before delegating to the package single-choice/search prompt. */
-export async function selectPrompt<T>(
-  options: SelectPromptOptions<T>,
-  runtime: DiscernPromptRuntime = {},
+/** Guard policy before delegating to the package selection or search request. */
+export async function requestSelection<T>(
+  options: SelectionRequestOptions<T>,
+  runtime: TerminalInteractionRuntime = {},
 ): Promise<T> {
   requireInteraction("this selection", runtime);
   const choices = adaptChoices(options.options, true);
@@ -526,7 +530,7 @@ export async function selectPrompt<T>(
     throw new TypeError(
       `A ${
         options.search === true ? "search" : "select"
-      } default does not name a prompt choice.`,
+      } default does not name a selection choice.`,
     );
   }
   const validate = packageValidator(options.validate);
@@ -545,7 +549,7 @@ export async function selectPrompt<T>(
     ...(options.maxRows === undefined ? {} : { visibleCount: options.maxRows }),
   };
   const value = options.search === true
-    ? await productPrompt(packagePromptSearch<T>, {
+    ? await runInteractionRequest(packageRequestSearch<T>, {
       label: shared.label,
       search: (query) => filterChoices(choices.entries, query),
       ...(shared.hint === undefined ? {} : { hint: shared.hint }),
@@ -559,20 +563,20 @@ export async function selectPrompt<T>(
         : { placeholder: terminalLine(options.searchLabel) }),
       ...(initialId === undefined ? {} : { initialId }),
     }, runtime)
-    : await productPrompt(packagePromptSelect<T>, {
+    : await runInteractionRequest(packageRequestSelection<T>, {
       ...shared,
       ...(initialId === undefined ? {} : { initialId }),
     }, runtime);
   if (value === undefined) {
-    throw new PromptCancellation();
+    throw new InteractionCancelled();
   }
   return value;
 }
 
-/** Guard policy before delegating to the package multiple-choice prompt. */
-export async function checkboxPrompt<T>(
-  options: CheckboxPromptOptions<T>,
-  runtime: DiscernPromptRuntime = {},
+/** Guard policy before delegating to the package multi-selection request. */
+export async function requestSelections<T>(
+  options: SelectionsRequestOptions<T>,
+  runtime: TerminalInteractionRuntime = {},
 ): Promise<T[]> {
   requireInteraction("this selection", runtime);
   const choices = adaptChoices(options.options);
@@ -587,13 +591,13 @@ export async function checkboxPrompt<T>(
     const id = choices.idFor(value);
     if (id === undefined) {
       throw new TypeError(
-        "A multi-select default does not name a prompt choice.",
+        "A multi-selection default does not name a selection choice.",
       );
     }
     initialIds.add(id);
   }
   const callerValidator = packageValidator(options.validate);
-  const validate: PackageMultiselectPromptOptions<T>["validate"] = async (
+  const validate: PackageSelectionsRequestOptions<T>["validate"] = async (
     values,
   ): Promise<string | undefined> => {
     if (
@@ -604,7 +608,7 @@ export async function checkboxPrompt<T>(
     }
     return await callerValidator?.(values);
   };
-  const values = await productPrompt(packagePromptMultiselect<T>, {
+  const values = await runInteractionRequest(packageRequestSelections<T>, {
     label: terminalLine(options.message),
     choices: choices.entries,
     initialIds: [...initialIds],
@@ -616,9 +620,9 @@ export async function checkboxPrompt<T>(
 }
 
 /** Guard policy before asking for package-backed free-form text. */
-export async function inputPrompt(
-  options: InputPromptOptions,
-  runtime: DiscernPromptRuntime = {},
+export async function requestText(
+  options: TextRequestOptions,
+  runtime: TerminalInteractionRuntime = {},
 ): Promise<string> {
   requireInteraction("this question", runtime);
   const settings = typeof options === "string" ? { message: options } : options;
@@ -626,7 +630,7 @@ export async function inputPrompt(
   const required = typeof settings.required === "string"
     ? terminalLine(settings.required)
     : settings.required;
-  return await productPrompt(packagePromptText, {
+  return await runInteractionRequest(packageRequestText, {
     label: terminalLine(settings.message),
     ...(settings.default === undefined
       ? {}
@@ -643,13 +647,13 @@ export async function inputPrompt(
 }
 
 /** Guard policy before asking a package-backed yes-or-no question. */
-export async function confirmationPrompt(
+export async function requestConfirmation(
   message: string,
   defaultTo: boolean,
-  runtime: DiscernPromptRuntime = {},
+  runtime: TerminalInteractionRuntime = {},
 ): Promise<boolean> {
   requireInteraction("this confirmation", runtime);
-  return await productPrompt(packagePromptConfirm, {
+  return await runInteractionRequest(packageRequestConfirmation, {
     label: terminalLine(message),
     initialValue: defaultTo,
   }, runtime);
@@ -657,7 +661,7 @@ export async function confirmationPrompt(
 
 /**
  * Resolve the full `SetupConfig`. In non-interactive mode every value comes from
- * a flag or its default; in interactive mode unset values are prompted, seeded
+ * a flag or its default; in interactive mode unset values are requested, seeded
  * with those same defaults. Throws on an invalid `--slug` flag (no silent
  * coercion of an explicit choice).
  */
@@ -665,12 +669,12 @@ export async function resolveSetupConfig(
   flags: InitFlags,
   log: Logger,
 ): Promise<SetupConfig> {
-  const interactive = canPrompt(flags.yes ?? false);
+  const interactive = canInteract(flags.yes ?? false);
 
   // 1. Project name.
   let projectName = flags.name?.trim() ?? "";
   if (!projectName && interactive) {
-    projectName = (await inputPrompt({
+    projectName = (await requestText({
       message: "Project name",
       default: defaultNameFromCwd(),
     })).trim();
@@ -688,7 +692,7 @@ export async function resolveSetupConfig(
       throw new Error(`invalid --slug "${slug}": ${SLUG_RULE}`);
     }
   } else if (interactive) {
-    slug = (await inputPrompt({
+    slug = (await requestText({
       message: "Slug",
       default: defaultSlug,
       validate: (value) =>
@@ -701,7 +705,7 @@ export async function resolveSetupConfig(
   // 3. Branch prefix.
   let branchPrefix = flags.branchPrefix?.trim();
   if (branchPrefix === undefined && interactive) {
-    branchPrefix = (await inputPrompt({
+    branchPrefix = (await requestText({
       message: "Branch prefix for worktrees",
       default: DEFAULTS.branchPrefix,
     })).trim();
@@ -715,7 +719,7 @@ export async function resolveSetupConfig(
   if (flags.sourceGlobs !== undefined) {
     sourceGlobs = parseSourceGlobs(flags.sourceGlobs);
   } else if (interactive) {
-    const answer = await inputPrompt({
+    const answer = await requestText({
       message: "Primary source globs (comma-separated)",
       default: DEFAULTS.sourceGlobs.join(", "),
     });
@@ -732,7 +736,7 @@ export async function resolveSetupConfig(
   if (flags.brief !== undefined) {
     brief = await resolveBrief(flags.brief);
   } else if (interactive) {
-    brief = await inputPrompt({
+    brief = await requestText({
       message: "What are you building? (one or two sentences)",
       default: "",
     });
@@ -754,7 +758,7 @@ export async function resolveSetupConfig(
       ? parsed
       : [...DEFAULTS.agents];
   } else if (interactive) {
-    agents = await checkboxPrompt({
+    agents = await requestSelections({
       message: "Which agent instruction files should be emitted?",
       options: KNOWN_AGENTS.map((a) => ({
         name: `${PROVIDERS[a].label} (${PROVIDERS[a].guidanceFile.path})`,
@@ -781,16 +785,16 @@ export async function resolveSetupConfig(
 }
 
 /**
- * Whether a confirmation prompt may actually be shown. `--json` forbids it
+ * Whether a confirmation interaction may actually be shown. `--json` forbids it
  * outright — evaluated BEFORE the interaction check, so machine mode is
- * off-limits to the prompt even when a TTY is attached — then the shared
+ * off-limits to the interaction even when a TTY is attached — then the shared
  * `--yes` / `--plain` / CI / stream policy applies. The gate is
  * injectable purely so this decision is testable without a real terminal.
  */
-export function promptAllowed(
+export function confirmationAllowed(
   yes: boolean,
   json: boolean,
-  interactive: (yes: boolean) => boolean = canPrompt,
+  interactive: (yes: boolean) => boolean = canInteract,
 ): boolean {
   if (json) {
     return false;
@@ -799,8 +803,8 @@ export function promptAllowed(
 }
 
 /**
- * A friendly confirmation prompt. At this low-level seam a suppressed prompt
- * returns true; effectful callers first require their explicit `--yes` when the
+ * A friendly confirmation request. At this low-level seam a suppressed
+ * interaction returns true; effectful callers first require explicit `--yes` when the
  * shared policy forbids interaction, while `--json` callers keep their existing
  * machine-authorized path. The `json` guard is load-bearing: an interactive
  * confirmation renders to stdout and blocks on input, so reaching it under `--json`
@@ -813,13 +817,13 @@ export async function confirmProceed(
   yes: boolean,
   json = false,
 ): Promise<boolean> {
-  if (!promptAllowed(yes, json)) {
+  if (!confirmationAllowed(yes, json)) {
     return true;
   }
   try {
-    return await confirmationPrompt(message, true);
+    return await requestConfirmation(message, true);
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return false;
   }
 }

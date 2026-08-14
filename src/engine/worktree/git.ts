@@ -2929,7 +2929,7 @@ export function renderGitWorktreePruneScan(
 
 /**
  * Re-validate one planned worktree removal against LIVE state. The plan may
- * have waited at a confirmation prompt while an agent re-entered the worktree,
+ * have waited at a confirmation interaction while an agent re-entered the worktree,
  * so apply re-runs the scan's own eligibility predicate
  * ({@link worktreeKeepReasons}) just before removing — the same apply-time
  * discipline as `deleteBranchSafe`'s merged-ness re-check and

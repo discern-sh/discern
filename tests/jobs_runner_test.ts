@@ -173,7 +173,7 @@ Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () =
   const elapsed = performance.now() - start;
   assertEquals(r.ok, false);
   assertEquals(r.results.find((x) => x.label === "fail")?.code, 3);
-  assert(elapsed < 10_000, `expected prompt cancel, took ${elapsed}ms`);
+  assert(elapsed < 10_000, `expected interaction cancel, took ${elapsed}ms`);
 });
 
 Deno.test("runParallel: without fail-fast every job runs to completion", async () => {
@@ -501,7 +501,7 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
       const job = r.results.find((x) => x.label === label);
       assertEquals(job?.cancelled, true, JSON.stringify(job));
     }
-    assert(elapsed < 10_000, `expected prompt abort, took ${elapsed}ms`);
+    assert(elapsed < 10_000, `expected interaction abort, took ${elapsed}ms`);
     // The grandchild (the backgrounded inner sh) must be dead too.
     const innerPid = Number(
       (await Deno.readTextFile(join(dir, "inner.pid"))).trim(),

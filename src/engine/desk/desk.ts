@@ -30,15 +30,15 @@ import {
 } from "../../lib/detect_agents.ts";
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
 import {
-  canPrompt,
-  confirmationPrompt,
-  groupedSelectOptions,
-  inputPrompt,
-  isPromptCancellation,
-  selectPrompt,
-  type SelectPromptGroup,
-  type SelectPromptOptions,
-} from "../../lib/prompts.ts";
+  canInteract,
+  groupedSelectionEntries,
+  isInteractionCancelled,
+  requestConfirmation,
+  requestSelection,
+  requestText,
+  type SelectionGroup,
+  type SelectionRequestOptions,
+} from "../../lib/terminal_interaction.ts";
 import { Logger } from "../../lib/log.ts";
 import {
   browserOpenFailureMessage,
@@ -110,7 +110,7 @@ export interface DeskOptions {
   json?: boolean;
 }
 
-type DeskSelectOptions = SelectPromptOptions<string>;
+type DeskSelectOptions = SelectionRequestOptions<string>;
 type DeskMaybePromise<T> = T | Promise<T>;
 
 /** The terminal and effect boundary behind the desk's interactive session.
@@ -118,7 +118,7 @@ type DeskMaybePromise<T> = T | Promise<T>;
  * runtime so every supervisory path is exercised without pretending a pipe is
  * a terminal or touching a real worktree. */
 export interface DeskRuntime {
-  canPrompt(): boolean;
+  canInteract(): boolean;
   inDeskSession(): boolean;
   findRoot(): DeskMaybePromise<string | undefined>;
   loadConfig(root: string): DeskMaybePromise<DiscernConfig>;
@@ -229,15 +229,15 @@ async function awaitEnter(out: Out): Promise<void> {
   await Deno.stdin.read(buf);
 }
 
-/** A Confirm that treats a cancelled prompt (Ctrl-C / Esc) as "no". */
+/** A confirmation that treats a cancelled interaction (Ctrl-C / Esc) as "no". */
 async function confirmOrNo(
   message: string,
   defaultTo: boolean,
 ): Promise<boolean> {
   try {
-    return await confirmationPrompt(message, defaultTo);
+    return await requestConfirmation(message, defaultTo);
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return false;
   }
 }
@@ -280,7 +280,7 @@ export async function runDeskProjectScript(
  * makes the whole interactive surface scriptable while the CLI still calls the
  * same functions with the same options. */
 const DEFAULT_DESK_RUNTIME: DeskRuntime = {
-  canPrompt: () => canPrompt(false),
+  canInteract: () => canInteract(false),
   inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
   loadConfig: (root) => loadConfig(root),
@@ -290,9 +290,9 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => makeOut(colorEnabled()),
   error: (message) => console.error(message),
-  select: (options) => selectPrompt<string>(options),
+  select: (options) => requestSelection<string>(options),
   confirm: (message, defaultTo) => confirmOrNo(message, defaultTo),
-  input: (message) => inputPrompt({ message }),
+  input: (message) => requestText({ message }),
   pause: (out) => awaitEnter(out),
   lifecycle: (root) => lifecycleContext(root, deskLogger()),
   accept: (ctx, opts) => accept(ctx, opts),
@@ -435,7 +435,7 @@ const DESK_ACTION_GROUPS: readonly {
 function actionGroups(
   row: DeskRow,
   config: DiscernConfig,
-): SelectPromptGroup<string>[] {
+): SelectionGroup<string>[] {
   return DESK_ACTION_GROUPS.map((group) => ({
     id: `actions-${group.id}`,
     label: group.label,
@@ -457,7 +457,7 @@ async function pickAgentLaunch(
   row: DeskRow,
   runtime: DeskRuntime,
 ): Promise<DeskAgentLaunch | undefined> {
-  const agentGroups: SelectPromptGroup<string>[] = [];
+  const agentGroups: SelectionGroup<string>[] = [];
   for (const launch of row.agentLaunches) {
     if (
       agentGroups.some((candidate) => candidate.id === `agent-${launch.agent}`)
@@ -475,7 +475,7 @@ async function pickAgentLaunch(
         })),
     });
   }
-  const options = groupedSelectOptions<string>([
+  const options = groupedSelectionEntries<string>([
     ...agentGroups,
     {
       id: "task-navigation",
@@ -491,7 +491,7 @@ async function pickAgentLaunch(
       hint: "Use the arrow keys to move and Enter to choose.",
     });
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return undefined;
   }
   return id === BACK
@@ -506,7 +506,7 @@ async function pickScript(
   navigationLabel: "Desk" | "Task",
   runtime: DeskRuntime,
 ): Promise<ProjectScript | undefined> {
-  const options = groupedSelectOptions<string>([
+  const options = groupedSelectionEntries<string>([
     {
       id: "project-scripts",
       label: "Project Scripts",
@@ -536,7 +536,7 @@ async function pickScript(
         : "Use the arrow keys to move and Enter to choose.",
     });
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return undefined;
   }
   return name === BACK
@@ -701,7 +701,7 @@ async function pickRow(
     0,
     ...[...labels.values()].map((v) => v.plain.length),
   );
-  const groups: SelectPromptGroup<string>[] = [];
+  const groups: SelectionGroup<string>[] = [];
   for (const bucket of DESK_BUCKETS) {
     const members = rows.filter((r) => r.bucket === bucket);
     if (members.length === 0) {
@@ -746,7 +746,7 @@ async function pickRow(
       { name: "Quit", value: QUIT },
     ],
   });
-  const options = groupedSelectOptions(groups);
+  const options = groupedSelectionEntries(groups);
   const search = rows.length > FILTER_THRESHOLD;
   try {
     return await runtime.select({
@@ -762,7 +762,7 @@ async function pickRow(
       maxRows: 16,
     });
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     // Ctrl-C or end-of-input closes the Desk.
     return QUIT;
   }
@@ -808,7 +808,7 @@ async function openOnlineDocs(
   await runtime.pause(out);
 }
 
-/** Prompt for an optional task name and create it through the same core as
+/** Request an optional task name and create it through the same core as
  * `discern start`. Returns the new path so the next board pass can open its
  * action menu immediately. */
 async function startTask(
@@ -823,7 +823,7 @@ async function startTask(
       "Task name (blank uses a codename)",
     );
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return undefined;
   }
   const name = answer.trim();
@@ -865,7 +865,7 @@ async function dispatchAction(
       ) {
         return false;
       }
-      // The human just accepted the landing at this interactive prompt, so pass
+      // The human just accepted the landing in this interaction, so pass
       // the consent attestation in — the desk's confirm IS the acceptance, and
       // accept must not double-refuse for a consent it already collected (ADR 0134).
       await runtime.accept(ctx, { confirmed: true });
@@ -987,7 +987,7 @@ async function dispatchAction(
             `Type the branch name (${row.entry.branch}) to discard it permanently — anything else cancels`,
           );
         } catch (error) {
-          if (!isPromptCancellation(error)) throw error;
+          if (!isInteractionCancelled(error)) throw error;
           typed = "";
         }
         if (typed.trim() !== row.entry.branch) {
@@ -1137,7 +1137,7 @@ async function actOn(
     }\n`,
   );
   while (true) {
-    const options = groupedSelectOptions<string>([
+    const options = groupedSelectionEntries<string>([
       ...actionGroups(row, config),
       {
         id: "task-navigation",
@@ -1153,7 +1153,7 @@ async function actOn(
         hint: "Use the arrow keys to move and Enter to choose.",
       });
     } catch (error) {
-      if (!isPromptCancellation(error)) throw error;
+      if (!isInteractionCancelled(error)) throw error;
       return;
     }
     if (action === BACK) {
@@ -1217,7 +1217,7 @@ export async function runDesk(
     });
     return 1;
   }
-  if (!runtime.canPrompt()) {
+  if (!runtime.canInteract()) {
     runtime.error(
       "discern desk needs an interactive terminal (stdin and stdout TTYs) — in a pipe or script use `discern status`.",
     );

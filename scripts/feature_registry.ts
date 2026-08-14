@@ -1943,7 +1943,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "output-discipline",
         title: "Terminal discipline",
         what:
-          "`--no-color` and `NO_COLOR` are honored, non-TTY output drops decoration, `--plain` suppresses prompts and paging for CI, and the pager respects `PAGER`.",
+          "`--no-color` and `NO_COLOR` are honored, non-TTY output drops decoration, `--plain` suppresses interactive input and paging for CI, and the pager respects `PAGER`.",
         plain: {
           title: "Clean behavior in the command window",
           what:

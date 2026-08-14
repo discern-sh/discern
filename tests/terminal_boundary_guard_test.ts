@@ -18,7 +18,7 @@ const RUNTIME_TS_FILES = AUTHORED_TS_FILES.filter((rel) =>
 const RUNTIME_DENO_FILES = AUTHORED_DENO_FILES.filter((rel) =>
   !rel.startsWith("tests/")
 );
-const PROMPT_AUTHORITY = "src/lib/prompts.ts";
+const INTERACTION_AUTHORITY = "src/lib/terminal_interaction.ts";
 const PAINTER_AUTHORITY = "src/lib/terminal_painter.ts";
 const LIVE_VIEWPORT_CONTROLLER = "src/engine/gate/gate_tty.ts";
 const CLI_MODULE = "discern-design-system/cli";
@@ -467,7 +467,7 @@ function cliffyImportFindings(rel: string, source: string): Finding[] {
 }
 
 /**
- * Text-bearing leaves in the published 0.13.0 `*CliProps` contracts and their
+ * Text-bearing leaves in the published 0.14.0 `*CliProps` contracts and their
  * exported nested row shapes. Generic future renderer names deliberately
  * inherit this vocabulary; a package upgrade must re-audit the public types.
  */
@@ -908,7 +908,7 @@ function inspectableComponentProps(node: Deno.lint.Node): boolean {
 
 /**
  * Parse language-agnostic terminal boundaries through Deno's AST: package
- * prompt/painter ownership, process probes, local control literals, palette
+ * interaction/painter ownership, process probes, local control literals, palette
  * shapes, and statically provable Component safe-text bypasses.
  */
 function structuralTerminalFindings(rel: string, source: string): Finding[] {
@@ -967,9 +967,10 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   const imported = propertyName(entry.imported);
                   if (imported === undefined) continue;
                   if (
-                    /^prompt[A-Z]/u.test(imported) && rel !== PROMPT_AUTHORITY
+                    /^request[A-Z]/u.test(imported) &&
+                    rel !== INTERACTION_AUTHORITY
                   ) {
-                    add(`package-prompt-import:${imported}`, node);
+                    add(`package-request-import:${imported}`, node);
                   }
                   if (imported === "InlineFramePainter") {
                     add("package-inline-painter-import", node);
@@ -1359,20 +1360,19 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
       "The retained dimension facade delegates its default observation here.",
   },
   {
-    file: PROMPT_AUTHORITY,
+    file: INTERACTION_AUTHORITY,
     rule: "process-stream-terminal-probe",
-    authority: "canPrompt",
+    authority: "canInteract",
     count: 2,
     reason:
-      "The product prompt choke point alone admits interactive stdin/stdout.",
+      "The product interaction choke point alone admits interactive stdin/stdout.",
   },
   {
-    file: PROMPT_AUTHORITY,
+    file: INTERACTION_AUTHORITY,
     rule: "process-terminal-environment-probe",
     authority: "interactionAllowed",
     count: 1,
-    reason:
-      "The product prompt choke point alone applies the CI interaction veto.",
+    reason: "The product interaction choke point alone applies the CI veto.",
   },
   {
     file: "src/engine/owned_child.ts",
@@ -1420,12 +1420,12 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
       "Logbook records the MCP driver's raw CI fact without terminal presentation.",
   },
   {
-    file: PROMPT_AUTHORITY,
+    file: INTERACTION_AUTHORITY,
     rule: "package-terminal-io-import",
     authority: "<module>",
     count: 1,
     reason:
-      "The product prompt choke point owns the package prompt IO lifecycle.",
+      "The product interaction choke point owns the package IO lifecycle.",
   },
   {
     file: PAINTER_AUTHORITY,
@@ -1588,6 +1588,24 @@ function presentationProbeFindings(
 
 const LEGACY_PALETTE_PATTERN =
   /\b(?:out\.c|c)\.(?:reset|bold|dim|red|green|yellow|cyan)\b/gu;
+
+Deno.test("terminal interaction reserves prompt vocabulary for agent instructions", async () => {
+  const reservedTerm = "pro" + "mpt";
+  const pattern = new RegExp(reservedTerm, "iu");
+  const source = await Deno.readTextFile(
+    join(REPO_ROOT, INTERACTION_AUTHORITY),
+  );
+  const offenders = [
+    ...(pattern.test(INTERACTION_AUTHORITY) ? ["filename"] : []),
+    ...(pattern.test(source) ? ["source"] : []),
+  ];
+  assertEquals(
+    offenders,
+    [],
+    "Terminal interaction uses request*/Interaction* vocabulary; the reserved term names coding-agent instructions.",
+  );
+});
+
 Deno.test("terminal boundary detectors reject unrelated future source", () => {
   assertEquals(
     authorityFindings(
@@ -1817,11 +1835,11 @@ Deno.test("the 84-use legacy palette census reached permanent zero", async () =>
 Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and safe-text bypasses", () => {
   const source = [
     'import { Table } from "@cliffy/table";',
-    `import { InlineFramePainter, type TerminalIO, promptFuture as ask } from "${INTERACTIVE_MODULE}";`,
+    `import { InlineFramePainter, type TerminalIO, requestFuture as ask } from "${INTERACTIVE_MODULE}";`,
     'import { renderOrbitCli as future, renderResultSummaryCli as draw } from "discern-design-system/cli";',
     'import { terminalLine as safe } from "../../lib/terminal.ts";',
     'const dynamic = import("@cliffy/prompt");',
-    `const interactive = await import("${INTERACTIVE_MODULE}"); interactive.promptFuture({});`,
+    `const interactive = await import("${INTERACTIVE_MODULE}"); interactive.requestFuture({});`,
     `const cli = await import("${CLI_MODULE}"); cli.renderResultSummaryCli({ fact: row.path }, {});`,
     'const term = Deno.env.get("TERM");',
     'const noColor = Deno.env.get("NO_COLOR");',
@@ -1866,7 +1884,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "retired-cliffy-import:@cliffy/prompt",
       "package-inline-painter-import",
       "package-terminal-io-import",
-      "package-prompt-import:promptFuture",
+      "package-request-import:requestFuture",
       "dynamic-interactive-package-import",
       "dynamic-cli-package-import",
       "direct-inline-painter-construction",

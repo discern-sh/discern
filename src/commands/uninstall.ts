@@ -74,7 +74,7 @@ import {
   resolveCommonGitDir,
 } from "../engine/worktree/git.ts";
 import { listEntries } from "../engine/worktree/resources.ts";
-import { canPrompt, confirmProceed } from "../lib/prompts.ts";
+import { canInteract, confirmProceed } from "../lib/terminal_interaction.ts";
 
 /** Options accepted by the `uninstall` command. */
 export interface UninstallOptions {
@@ -691,7 +691,7 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
   // (an uncommitted generated file, the runtime records under .git).
   // Non-interactive callers must say --yes.
   if (!options.json && (plan.ops.length > 0 || plan.gitAdminDirs.length > 0)) {
-    if (!options.yes && !canPrompt(false)) {
+    if (!options.yes && !canInteract(false)) {
       renderPlan(log, plan, false);
       log.error(
         "Uninstall needs confirmation. Review the plan above, then re-run with --yes in CI, under --plain, or without terminal input.",

@@ -1,5 +1,5 @@
 /**
- * Product-policy and deterministic package-adapter tests for prompts.
+ * Product-policy and deterministic package-adapter tests for terminal interaction.
  */
 
 import {
@@ -15,26 +15,26 @@ import type {
   TerminalSize,
 } from "discern-design-system/cli/interactive";
 import {
-  canPrompt,
-  checkboxPrompt,
-  groupedSelectOptions,
-  inputPrompt,
+  canInteract,
+  confirmationAllowed,
+  groupedSelectionEntries,
   interactionAllowed,
-  isPromptCancellation,
-  promptAllowed,
+  isInteractionCancelled,
+  requestSelection,
+  requestSelections,
+  requestText,
   resolveBrief,
   resolveSetupConfig,
-  selectPrompt,
   setJsonMode,
   setPlainMode,
-} from "../src/lib/prompts.ts";
+} from "../src/lib/terminal_interaction.ts";
 import { DEFAULTS } from "../src/lib/config.ts";
 import { Logger } from "../src/lib/log.ts";
 import { withTempDir } from "./helpers.ts";
 
 const encoder = new TextEncoder();
 
-/** Scripted package terminal that still runs the production prompt wrappers. */
+/** Scripted package terminal that still runs the production request wrappers. */
 class ScriptedTerminal implements TerminalIO {
   readonly writes: string[] = [];
   readonly rawTransitions: boolean[] = [];
@@ -136,14 +136,14 @@ Deno.test("resolveBrief throws a clear error for a missing @path", async () => {
   });
 });
 
-// ---- canPrompt -------------------------------------------------------------
+// ---- canInteract -------------------------------------------------------------
 
-Deno.test("canPrompt(true) is false — --yes always suppresses prompts", () => {
+Deno.test("canInteract(true) is false — --yes suppresses interaction", () => {
   // `--yes` short-circuits before any TTY check, so this holds in CI too.
-  assertEquals(canPrompt(true), false);
+  assertEquals(canInteract(true), false);
 });
 
-Deno.test("interaction policy independently honors every prompt veto", () => {
+Deno.test("interaction policy independently honors every veto", () => {
   const env = (CI?: string) => ({
     get: (key: string) => key === "CI" ? CI : undefined,
   });
@@ -220,7 +220,7 @@ Deno.test("a veto refuses before constructing or touching terminal effects", asy
   };
   await assertRejects(
     () =>
-      selectPrompt({
+      requestSelection({
         message: "Choose",
         options: [{ name: "One", value: "one" }],
       }, { io, interactive: () => false }),
@@ -236,7 +236,7 @@ Deno.test("global JSON and plain vetoes outrank an injected interactive runtime"
     setJsonMode(true);
     await assertRejects(
       () =>
-        selectPrompt({
+        requestSelection({
           message: "Choose",
           options: [{ name: "One", value: "one" }],
         }, scriptedRuntime(io)),
@@ -247,7 +247,7 @@ Deno.test("global JSON and plain vetoes outrank an injected interactive runtime"
     setPlainMode(true);
     await assertRejects(
       () =>
-        selectPrompt({
+        requestSelection({
           message: "Choose",
           options: [{ name: "One", value: "one" }],
         }, scriptedRuntime(io)),
@@ -262,7 +262,7 @@ Deno.test("global JSON and plain vetoes outrank an injected interactive runtime"
 });
 
 Deno.test("grouped select keeps headings structural and ids stable across reorder", async () => {
-  const groups = groupedSelectOptions([
+  const groups = groupedSelectionEntries([
     {
       id: "first",
       label: "First group",
@@ -276,7 +276,7 @@ Deno.test("grouped select keeps headings structural and ids stable across reorde
   ]);
   const first = new ScriptedTerminal(["\r"]);
   assertEquals(
-    await selectPrompt({
+    await requestSelection({
       message: "Choose",
       options: groups,
       default: "beta",
@@ -288,9 +288,9 @@ Deno.test("grouped select keeps headings structural and ids stable across reorde
 
   const reordered = new ScriptedTerminal(["\r"]);
   assertEquals(
-    await selectPrompt({
+    await requestSelection({
       message: "Choose",
-      options: groupedSelectOptions([
+      options: groupedSelectionEntries([
         {
           id: "second",
           label: "Second group",
@@ -330,7 +330,7 @@ Deno.test("choice identity rejects duplicate values, ids, and implicit object id
     const io = new ScriptedTerminal(["\r"]);
     await assertRejects(
       () =>
-        selectPrompt<unknown>(
+        requestSelection<unknown>(
           { message: "Choose", options },
           scriptedRuntime(io),
         ),
@@ -345,7 +345,7 @@ Deno.test("single-select rejects nullish values that collide with no-selection",
     const io = new ScriptedTerminal(["\r"]);
     await assertRejects(
       () =>
-        selectPrompt<unknown>({
+        requestSelection<unknown>({
           message: "Choose",
           options: [{ id: "nullish", name: "Nullish", value }],
         }, scriptedRuntime(io)),
@@ -357,7 +357,7 @@ Deno.test("single-select rejects nullish values that collide with no-selection",
 
   const multiple = new ScriptedTerminal(["\r"]);
   assertEquals(
-    await checkboxPrompt<null>({
+    await requestSelections<null>({
       message: "Choose",
       options: [{ id: "null", name: "Null", value: null, checked: true }],
     }, scriptedRuntime(multiple)),
@@ -367,11 +367,11 @@ Deno.test("single-select rejects nullish values that collide with no-selection",
 
 Deno.test("search preserves matching groups, order, identity, and returned value", async () => {
   const io = new ScriptedTerminal(["Beta", "\x1b[B", "\r"]);
-  const value = await selectPrompt({
+  const value = await requestSelection({
     message: "Browse",
     search: true,
     searchLabel: "filter",
-    options: groupedSelectOptions([
+    options: groupedSelectionEntries([
       {
         id: "documents",
         label: "Documents",
@@ -396,11 +396,11 @@ Deno.test("search preserves matching groups, order, identity, and returned value
 Deno.test("search restores a stable initial choice through duplicate labels", async () => {
   const io = new ScriptedTerminal(["\r"]);
   assertEquals(
-    await selectPrompt({
+    await requestSelection({
       message: "Browse",
       search: true,
       default: "beta",
-      options: groupedSelectOptions([
+      options: groupedSelectionEntries([
         {
           id: "first",
           label: "First group",
@@ -422,40 +422,40 @@ Deno.test("unknown select, search, and multi-select defaults fail before raw mod
   const single = new ScriptedTerminal(["\r"]);
   await assertRejects(
     () =>
-      selectPrompt({
+      requestSelection({
         message: "Choose",
         default: "missing",
         options: [{ name: "Present", value: "present" }],
       }, scriptedRuntime(single)),
     TypeError,
-    "does not name a prompt choice",
+    "does not name a selection choice",
   );
   assertEquals(single.rawTransitions, []);
 
   const search = new ScriptedTerminal(["\r"]);
   await assertRejects(
     () =>
-      selectPrompt({
+      requestSelection({
         message: "Search",
         search: true,
         default: "missing",
         options: [{ name: "Present", value: "present" }],
       }, scriptedRuntime(search)),
     TypeError,
-    "does not name a prompt choice",
+    "does not name a selection choice",
   );
   assertEquals(search.rawTransitions, []);
 
   const multiple = new ScriptedTerminal(["\r"]);
   await assertRejects(
     () =>
-      checkboxPrompt({
+      requestSelections({
         message: "Choose",
         default: ["missing"],
         options: [{ name: "Present", value: "present" }],
       }, scriptedRuntime(multiple)),
     TypeError,
-    "does not name a prompt choice",
+    "does not name a selection choice",
   );
   assertEquals(multiple.rawTransitions, []);
 });
@@ -464,10 +464,10 @@ Deno.test("component text is inert while submitted values remain exact", async (
   const rawValue = "\x1b[31mvalue";
   const io = new ScriptedTerminal(["\r"]);
   assertEquals(
-    await selectPrompt({
+    await requestSelection({
       message: "Choose\x1bmessage",
       hint: "Hint\nnext",
-      options: groupedSelectOptions([{
+      options: groupedSelectionEntries([{
         id: "hostile-group",
         label: "Group\tname",
         items: [{
@@ -497,7 +497,7 @@ Deno.test("component text is inert while submitted values remain exact", async (
     "good\r",
   ]);
   assertEquals(
-    await inputPrompt({
+    await requestText({
       message: "Value\tlabel",
       hint: "Use\rletters",
       placeholder: "Type\nhere",
@@ -527,7 +527,7 @@ Deno.test("multiselect composes minimum and caller validation in source order", 
     " ",
     "\r",
   ]);
-  const values = await checkboxPrompt({
+  const values = await requestSelections({
     message: "Choose",
     options: [
       { id: "alpha", name: "Alpha", value: "alpha" },
@@ -550,7 +550,7 @@ Deno.test("text validation stays distinct from normalized Ctrl-C and EOF cancell
     "good\r",
   ]);
   assertEquals(
-    await inputPrompt({
+    await requestText({
       message: "Value",
       validate: (value) => value === "good" || "Enter good.",
     }, scriptedRuntime(validation)),
@@ -562,24 +562,24 @@ Deno.test("text validation stays distinct from normalized Ctrl-C and EOF cancell
     const cancelled = new ScriptedTerminal(chunks);
     const error = await (async (): Promise<unknown> => {
       try {
-        await inputPrompt("Value", scriptedRuntime(cancelled));
+        await requestText("Value", scriptedRuntime(cancelled));
         return undefined;
       } catch (caught) {
         return caught;
       }
     })();
-    assertEquals(isPromptCancellation(error), true);
+    assertEquals(isInteractionCancelled(error), true);
     assertEquals(cancelled.rawTransitions, [true, false]);
     assertEquals(cancelled.writes[0], "\n");
   }
 });
 
-Deno.test("an unexpected in-frame error restores and terminates the prompt terminal", async () => {
+Deno.test("an unexpected in-frame error restores and terminates the interaction", async () => {
   const io = new ScriptedTerminal(["\r"]);
   const failure = new Error("synthetic validator fault");
   await assertRejects(
     () =>
-      inputPrompt({
+      requestText({
         message: "Value",
         validate: () => {
           throw failure;
@@ -596,32 +596,32 @@ Deno.test("an unexpected in-frame error restores and terminates the prompt termi
   );
 });
 
-// ---- promptAllowed: no interactive prompt is reachable under --json (B53) ---
+// ---- confirmationAllowed: no interaction is reachable under --json (B53) ---
 //
-// The class: a blocking interactive prompt reachable while `--json` is the output
+// The class: blocking terminal input reachable while `--json` is the output
 // contract — it would render to stdout and hang a machine caller that holds a
-// TTY. The cure forbids prompting in json mode BEFORE the TTY check, at the one
+// TTY. The cure forbids interaction in JSON mode BEFORE the TTY check, at the one
 // choke `confirmProceed` routes through. The interactive gate is injected here
 // as "a TTY is present" (`() => true`) so the json veto is proven independent of
 // the test process's own (absent) terminal — pre-fix, json was ignored and this
 // returned true.
 
-Deno.test("promptAllowed forbids prompting under --json even with a TTY present", () => {
+Deno.test("confirmationAllowed forbids interaction under --json even with a TTY present", () => {
   const ttyPresent = (_yes: boolean): boolean => true;
-  // json wins regardless of --yes or the interactive gate: never prompt.
-  assertEquals(promptAllowed(false, true, ttyPresent), false);
-  assertEquals(promptAllowed(true, true, ttyPresent), false);
+  // JSON wins regardless of --yes or the interactive gate.
+  assertEquals(confirmationAllowed(false, true, ttyPresent), false);
+  assertEquals(confirmationAllowed(true, true, ttyPresent), false);
 });
 
-Deno.test("promptAllowed defers to the interactive gate when not --json", () => {
+Deno.test("confirmationAllowed defers to the interactive gate when not --json", () => {
   const ttyPresent = (_yes: boolean): boolean => true;
   const noTty = (_yes: boolean): boolean => false;
   // Outside json mode the ordinary interactive decision stands.
-  assertEquals(promptAllowed(false, false, ttyPresent), true);
-  assertEquals(promptAllowed(false, false, noTty), false);
+  assertEquals(confirmationAllowed(false, false, ttyPresent), true);
+  assertEquals(confirmationAllowed(false, false, noTty), false);
 });
 
-// ---- resolveSetupConfig (prompts suppressed via flags.yes) ------------------
+// ---- resolveSetupConfig (interaction suppressed via flags.yes) --------------
 
 Deno.test("resolveSetupConfig warns on an unknown agent, drops it, keeps the known one", async () => {
   await captureStderr(async (lines) => {
@@ -697,7 +697,7 @@ Deno.test("resolveSetupConfig honours explicit base flags non-interactively", as
   assertEquals(config.branchPrefix, "wt/");
   assertEquals(config.sourceGlobs, ["lib/**", "pkg/**"]);
   assertEquals(config.brief, "a literal brief");
-  // No agents flag → the default set, with prompts suppressed.
+  // No agents flag → the default set, with interaction suppressed.
   assertEquals(config.agents, [...DEFAULTS.agents]);
 });
 

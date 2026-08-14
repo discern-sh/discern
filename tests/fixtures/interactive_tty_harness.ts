@@ -1,22 +1,22 @@
 /**
- * Production-wrapper child for real-terminal prompt integration tests.
+ * Production-wrapper child for real-terminal request integration tests.
  *
  * Decoration stays on the PTY. The submitted value and lifecycle evidence are
  * written to the separate result path supplied by the parent test.
  */
 
 import {
-  checkboxPrompt,
-  confirmationPrompt,
-  groupedSelectOptions,
-  inputPrompt,
-  isPromptCancellation,
-  selectPrompt,
-  withPromptBoundary,
-} from "../../src/lib/prompts.ts";
+  requestSelections,
+  requestConfirmation,
+  groupedSelectionEntries,
+  requestText,
+  isInteractionCancelled,
+  requestSelection,
+  withInteractionBoundary,
+} from "../../src/lib/terminal_interaction.ts";
 import {
   DenoTerminalIO,
-  promptTextarea,
+  requestTextarea,
 } from "discern-design-system/cli/interactive";
 import {
   productionTerminalContext,
@@ -63,8 +63,8 @@ export interface InteractiveTtyResult {
   };
 }
 
-export const POST_PROMPT_DIAGNOSTIC =
-  "Harness diagnostic begins after the restored prompt frame.";
+export const POST_INTERACTION_DIAGNOSTIC =
+  "Harness diagnostic begins after the restored interaction frame.";
 
 interface HarnessOptions {
   readonly scenario: InteractiveTtyScenario;
@@ -151,19 +151,19 @@ function lineModeRestored(before: string, after: string): boolean {
 async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
   switch (scenario) {
     case "text":
-      return await inputPrompt({
+      return await requestText({
         message: "Edit a Unicode value",
         hint: "Cursor movement and deletion preserve graphemes.",
       });
     case "text-default":
-      return await inputPrompt({
+      return await requestText({
         message: "Keep or edit the default",
         default: "remembered-value",
       });
     case "confirm-default-no":
-      return await confirmationPrompt("Apply the destructive action?", false);
+      return await requestConfirmation("Apply the destructive action?", false);
     case "select":
-      return await selectPrompt({
+      return await requestSelection({
         message: "Choose a value",
         options: [
           { id: "alpha", name: "Alpha", value: "alpha" },
@@ -172,7 +172,7 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         ],
       });
     case "select-default":
-      return await selectPrompt({
+      return await requestSelection({
         message: "Choose the remembered value",
         default: "beta",
         options: [
@@ -182,10 +182,10 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         ],
       });
     case "grouped-select":
-      return await selectPrompt({
+      return await requestSelection({
         message: "Choose from semantic groups",
         maxRows: 4,
-        options: groupedSelectOptions([
+        options: groupedSelectionEntries([
           {
             id: "primary",
             label: "Primary",
@@ -216,11 +216,11 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         ]),
       });
     case "search":
-      return await selectPrompt({
+      return await requestSelection({
         message: "Filter grouped documents",
         search: true,
         searchLabel: "filter",
-        options: groupedSelectOptions([
+        options: groupedSelectionEntries([
           {
             id: "documents",
             label: "Documents",
@@ -237,11 +237,11 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         ]),
       });
     case "search-default":
-      return await selectPrompt({
+      return await requestSelection({
         message: "Restore a remembered searchable document",
         search: true,
         default: "beta",
-        options: groupedSelectOptions([
+        options: groupedSelectionEntries([
           {
             id: "documents",
             label: "Documents",
@@ -253,7 +253,7 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         ]),
       });
     case "repeated-viewport": {
-      const deskOptions = groupedSelectOptions([{
+      const deskOptions = groupedSelectionEntries([{
         id: "desk-actions",
         label: "Desk",
         items: Array.from({ length: 24 }, (_, index) => ({
@@ -262,7 +262,7 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
           value: `desk-${index}`,
         })),
       }]);
-      const docsOptions = groupedSelectOptions([{
+      const docsOptions = groupedSelectionEntries([{
         id: "documents",
         label: "Documents",
         items: Array.from({ length: 24 }, (_, index) => ({
@@ -272,21 +272,21 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         })),
       }]);
       return [
-        await selectPrompt({
+        await requestSelection({
           message: "Choose a desk action",
           options: deskOptions,
           search: true,
           searchLabel: "filter",
           maxRows: 16,
         }),
-        await selectPrompt({
+        await requestSelection({
           message: "Browse docs",
           options: docsOptions,
           search: true,
           default: "doc-12",
           maxRows: 14,
         }),
-        await selectPrompt({
+        await requestSelection({
           message: "Choose a desk action again",
           options: deskOptions,
           search: true,
@@ -300,20 +300,20 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         { length: 8 },
         (_, index) => `remembered line ${index + 1}`,
       ).join("\n");
-      return await promptTextarea({
+      return await requestTextarea({
         label: "Edit tall notes",
         initialValue,
         rows: 12,
       }, {
-        io: withPromptBoundary(new DenoTerminalIO({})),
+        io: withInteractionBoundary(new DenoTerminalIO({})),
       });
     }
     case "multiselect":
-      return await checkboxPrompt({
+      return await requestSelections({
         message: "Choose at least two values",
         minOptions: 2,
         maxRows: 4,
-        options: groupedSelectOptions([
+        options: groupedSelectionEntries([
           {
             id: "values",
             label: "Values",
@@ -332,7 +332,7 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         ]),
       });
     case "multiselect-default":
-      return await checkboxPrompt({
+      return await requestSelections({
         message: "Keep the selected values",
         minOptions: 2,
         default: ["gamma"],
@@ -342,19 +342,19 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         ],
       });
     case "validation":
-      return await inputPrompt({
+      return await requestText({
         message: "Type valid",
         validate: (value) => value === "valid" || "Enter valid.",
       });
     case "error":
-      return await inputPrompt({
+      return await requestText({
         message: "Trigger an unexpected validator fault",
         validate: () => {
           throw new Error("synthetic validator fault");
         },
       });
     case "cancellation":
-      return await inputPrompt("Cancel this question");
+      return await requestText("Cancel this question");
   }
 }
 
@@ -403,15 +403,15 @@ async function main(args: readonly string[]): Promise<void> {
       value: await runScenario(options.scenario),
     };
   } catch (error) {
-    result = isPromptCancellation(error)
+    result = isInteractionCancelled(error)
       ? { scenario: options.scenario, outcome: "cancelled" }
       : {
         scenario: options.scenario,
         outcome: "error",
         error: errorRecord(error),
       };
-    if (!isPromptCancellation(error)) {
-      console.error(POST_PROMPT_DIAGNOSTIC);
+    if (!isInteractionCancelled(error)) {
+      console.error(POST_INTERACTION_DIAGNOSTIC);
     }
   }
   await resize;

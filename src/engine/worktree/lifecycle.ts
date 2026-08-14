@@ -27,10 +27,10 @@ import {
 import { type Logger, loggerSink } from "../../lib/log.ts";
 import { adrIndexState } from "../../lib/adr_index.ts";
 import {
-  canPrompt,
+  canInteract,
   confirmProceed,
   plainModeEnabled,
-} from "../../lib/prompts.ts";
+} from "../../lib/terminal_interaction.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
@@ -4419,7 +4419,7 @@ async function realPathOrLifecycle(raw: string, cwd: string): Promise<string> {
 
 /** Options for {@link worktreePrune}. */
 export interface WorktreePruneOptions {
-  /** Proceed without prompting for the destructive prune candidate list. */
+  /** Proceed without requesting confirmation for the destructive prune candidates. */
   assumeYes?: boolean;
   /** Report what would be removed/reclaimed without acting. */
   dryRun?: boolean;
@@ -4559,7 +4559,7 @@ export async function worktreePrune(
   if (!prunePlanIsEmpty(plan) && !(opts.assumeYes ?? false)) {
     const message =
       "Confirmation required for `discern worktree prune`; review the candidates and re-run with `--yes`.";
-    if (!canPrompt(false)) {
+    if (!canInteract(false)) {
       if (!json) {
         renderPlan(loggerSink(ctx.log), enginePlan);
       }
@@ -4680,7 +4680,7 @@ interface ContainedReclaimResult {
  *
  * Apply re-validates EACH candidate against live state immediately before
  * acting on it (the same per-candidate discipline as the stale-worktree
- * removal's re-check): the plan waited at a confirmation prompt, and every
+ * removal's re-check): the plan waited at a confirmation interaction, and every
  * earlier candidate's resource teardown buys time for an agent to re-enter a
  * later one. A candidate that fails the predicate by its turn — new commits,
  * a dirty tree, fresh activity, a different containing branch than the one

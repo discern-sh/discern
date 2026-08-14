@@ -4,7 +4,7 @@
  * Combines mechanical scaffolding and agent-driven authoring in a single command
  * (ADR 0036). The user installs the binary and
  * tells their coding agent to "run discern"; bare `discern` (pre-setup) and the
- * explicit `discern setup` both land here. There are no wizard prompts and no
+ * explicit `discern setup` both land here. There are no wizard questions and no
  * decisions for the user to make at the CLI — setup is always non-interactive:
  *
  *   1. Scaffold discern's machinery (a fresh install, or a `--force` refresh):
@@ -39,7 +39,7 @@ import {
   type InitFlags,
   plainModeEnabled,
   resolveSetupConfig,
-} from "../lib/prompts.ts";
+} from "../lib/terminal_interaction.ts";
 import {
   applyConfigDoc,
   type DiscernConfigDoc,
@@ -596,7 +596,7 @@ function scaffoldCategorySummary(scaffold: ScaffoldOutcome): string {
 
 /**
  * Phase 1 — Scaffold discern's machinery into `destDir`. Resolves the config
- * non-interactively (flags + `--config` + defaults; never prompts), assembles and
+ * non-interactively (flags + `--config` + defaults; never requests terminal input), assembles and
  * applies the seed plan, then compiles guidance / materializes skills / wires MCP.
  * Returns the outcome, or `undefined` when an error was already emitted (caller
  * returns exit 1) or when `--dry-run` short-circuited (the plan was printed).
@@ -628,7 +628,7 @@ async function scaffoldHarness(
   }
 
   // Setup is always non-interactive: resolve from flags + the --config file +
-  // defaults, never prompting. The user makes no decisions at the CLI.
+  // defaults, without terminal interaction. The user makes no decisions at the CLI.
   const effectiveFlags = mergeDocIntoFlags(opts, fileAnswers);
   effectiveFlags.yes = true;
 

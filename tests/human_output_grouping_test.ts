@@ -2,7 +2,7 @@
  * Structural guard for discern-managed human output groups.
  *
  * A semantic boundary must be expressed through the shared grouping renderer or
- * grouped-prompt helper. Hand-emitting an empty line, importing a package prompt
+ * grouped-selection helper. Hand-emitting an empty line, importing a package request
  * outside the product adapter, or inventing a heading entry recreates the
  * permissive boundary that let composed views collapse into flat lists.
  */
@@ -17,9 +17,9 @@ import {
 import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 import { makeOut } from "../src/engine/output.ts";
 import {
-  groupedSelectOptions,
-  withPromptBoundary,
-} from "../src/lib/prompts.ts";
+  groupedSelectionEntries,
+  withInteractionBoundary,
+} from "../src/lib/terminal_interaction.ts";
 
 interface BoundaryFinding {
   readonly rule: string;
@@ -29,10 +29,10 @@ interface BoundaryFinding {
 const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
 const STATIC_CLI_MODULE = "discern-design-system/cli";
 
-/** Find imports that can call a package prompt outside the product adapter.
- * The public `prompt*` naming convention defines the enrollment set, including
+/** Find imports that can call a package request outside the product adapter.
+ * The public `request*` naming convention defines the enrollment set, including
  * future package entry points and aliases this test has never seen. */
-function directPromptFindings(source: string): BoundaryFinding[] {
+function directRequestFindings(source: string): BoundaryFinding[] {
   const findings: BoundaryFinding[] = [];
   for (const match of source.matchAll(/(["'])@cliffy\/prompt\1/g)) {
     findings.push({
@@ -50,9 +50,9 @@ function directPromptFindings(source: string): BoundaryFinding[] {
     for (const part of imported[1]?.split(",") ?? []) {
       const names = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/);
       const importedName = names[0]?.trim() ?? "";
-      if (/^prompt[A-Z]/.test(importedName)) {
+      if (/^request[A-Z]/.test(importedName)) {
         findings.push({
-          rule: "direct-package-prompt-import",
+          rule: "direct-package-request-import",
           offset: imported.index ?? 0,
         });
         const localName = names.at(-1)?.trim() ?? importedName;
@@ -63,7 +63,7 @@ function directPromptFindings(source: string): BoundaryFinding[] {
         );
         for (const call of source.matchAll(directCall)) {
           findings.push({
-            rule: "direct-package-prompt-call",
+            rule: "direct-package-request-call",
             offset: call.index ?? 0,
           });
         }
@@ -74,9 +74,9 @@ function directPromptFindings(source: string): BoundaryFinding[] {
           const offset = use.index ?? 0;
           if (offset >= importStart && offset < importEnd) continue;
           const prefix = source.slice(0, offset);
-          if (!/(?:^|[^\w$.])productPrompt\s*\(\s*$/u.test(prefix)) {
+          if (!/(?:^|[^\w$.])runInteractionRequest\s*\(\s*$/u.test(prefix)) {
             findings.push({
-              rule: "unmediated-package-prompt-use",
+              rule: "unmediated-package-request-use",
               offset,
             });
           }
@@ -92,10 +92,10 @@ function directPromptFindings(source: string): BoundaryFinding[] {
   for (const imported of source.matchAll(namespace)) {
     const local = imported[1];
     if (local === undefined) continue;
-    const call = new RegExp(`\\b${local}\\.prompt[A-Z][\\w$]*\\s*\\(`, "g");
+    const call = new RegExp(`\\b${local}\\.request[A-Z][\\w$]*\\s*\\(`, "g");
     for (const match of source.matchAll(call)) {
       findings.push({
-        rule: "direct-package-namespace-prompt",
+        rule: "direct-package-namespace-request",
         offset: match.index ?? 0,
       });
     }
@@ -117,7 +117,7 @@ function directPromptFindings(source: string): BoundaryFinding[] {
 /** Find a package-shaped heading assembled anywhere but the one adapter. */
 function adHocHeadingFindings(source: string): BoundaryFinding[] {
   return [...source.matchAll(/(["'])group-heading\1/g)].map((match) => ({
-    rule: "ad-hoc-prompt-heading",
+    rule: "ad-hoc-selection-heading",
     offset: match.index ?? 0,
   }));
 }
@@ -312,40 +312,40 @@ Deno.test("human-output boundary detector rejects unrelated future siblings", ()
     ],
   );
 
-  const promptSynthetic = [
+  const requestSynthetic = [
     'import { Select } from "@cliffy/prompt";',
-    `import { promptSelect as orbit, DenoTerminalIO } from "${INTERACTIVE_MODULE}";`,
+    `import { requestSelection as orbit, DenoTerminalIO } from "${INTERACTIVE_MODULE}";`,
     `import * as interactive from "${INTERACTIVE_MODULE}";`,
     'orbit({ label: "Fresh sibling", choices: [] });',
     'relay(orbit, { label: "Helper bypass", choices: [] });',
-    'notproductPrompt(orbit, { label: "Near miss", choices: [] });',
-    'adapter.productPrompt(orbit, { label: "Qualified near miss", choices: [] });',
-    'interactive.promptFuture({ label: "Future sibling" });',
-    `const future = await import("${INTERACTIVE_MODULE}"); future.promptFuture({});`,
+    'notRunInteractionRequest(orbit, { label: "Near miss", choices: [] });',
+    'adapter.runInteractionRequest(orbit, { label: "Qualified near miss", choices: [] });',
+    'interactive.requestFuture({ label: "Future sibling" });',
+    `const future = await import("${INTERACTIVE_MODULE}"); future.requestFuture({});`,
   ].join("\n");
   assertEquals(
-    directPromptFindings(promptSynthetic).map((finding) => finding.rule),
+    directRequestFindings(requestSynthetic).map((finding) => finding.rule),
     [
       "legacy-cliffy-prompt-import",
-      "direct-package-prompt-import",
-      "direct-package-prompt-call",
-      "unmediated-package-prompt-use",
-      "unmediated-package-prompt-use",
-      "unmediated-package-prompt-use",
-      "unmediated-package-prompt-use",
-      "direct-package-namespace-prompt",
+      "direct-package-request-import",
+      "direct-package-request-call",
+      "unmediated-package-request-use",
+      "unmediated-package-request-use",
+      "unmediated-package-request-use",
+      "unmediated-package-request-use",
+      "direct-package-namespace-request",
       "dynamic-interactive-package-import",
     ],
   );
   assertEquals(
-    directPromptFindings(
-      `import { promptSelect as orbit } from "${INTERACTIVE_MODULE}";\n` +
-        "productPrompt(orbit, options, runtime);",
+    directRequestFindings(
+      `import { requestSelection as orbit } from "${INTERACTIVE_MODULE}";\n` +
+        "runInteractionRequest(orbit, options, runtime);",
     ).map((finding) => finding.rule),
-    ["direct-package-prompt-import"],
+    ["direct-package-request-import"],
   );
   assertEquals(
-    directPromptFindings(
+    directRequestFindings(
       `import { InlineFramePainter } from "${INTERACTIVE_MODULE}";\n` +
         "new InlineFramePainter({});",
     ),
@@ -355,7 +355,7 @@ Deno.test("human-output boundary detector rejects unrelated future siblings", ()
     adHocHeadingFindings(
       'const fake = { kind: "group-heading", id: "fake", value: "fake" };',
     ).map((finding) => finding.rule),
-    ["ad-hoc-prompt-heading"],
+    ["ad-hoc-selection-heading"],
   );
 
   const headingImport =
@@ -480,8 +480,8 @@ Deno.test("the live narration surface makes hostile caller facts inert but keeps
   assertEquals(chunks.at(-1), hostile);
 });
 
-Deno.test("the prompt grouping surface gives every populated group a heading", () => {
-  const options = groupedSelectOptions<string>([
+Deno.test("the selection grouping surface gives every populated group a heading", () => {
+  const options = groupedSelectionEntries<string>([
     {
       id: "orbit",
       label: "Orbit",
@@ -506,7 +506,7 @@ Deno.test("the prompt grouping surface gives every populated group a heading", (
   );
 });
 
-Deno.test("the prompt grouping surface writes one leading boundary", () => {
+Deno.test("the interaction grouping surface writes one leading boundary", () => {
   const writes: string[] = [];
   const rawTransitions: boolean[] = [];
   const target: TerminalIO = {
@@ -521,7 +521,7 @@ Deno.test("the prompt grouping surface writes one leading boundary", () => {
     setRawMode: (enabled) => rawTransitions.push(enabled),
     write: (value) => writes.push(value),
   };
-  const terminal = withPromptBoundary(target);
+  const terminal = withInteractionBoundary(target);
 
   terminal.setRawMode(true);
   terminal.write("? Fresh sibling");
@@ -546,16 +546,16 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
         `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
       );
     }
-    const promptFindings = directPromptFindings(source).filter((finding) =>
-      !(rel === "src/lib/prompts.ts" &&
-        finding.rule === "direct-package-prompt-import")
+    const requestFindings = directRequestFindings(source).filter((finding) =>
+      !(rel === "src/lib/terminal_interaction.ts" &&
+        finding.rule === "direct-package-request-import")
     );
-    for (const finding of promptFindings) {
+    for (const finding of requestFindings) {
       offenders.push(
         `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
       );
     }
-    if (rel !== "src/lib/prompts.ts") {
+    if (rel !== "src/lib/terminal_interaction.ts") {
       for (const finding of adHocHeadingFindings(source)) {
         offenders.push(
           `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
@@ -571,7 +571,7 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
 
   assert(
     offenders.length === 0,
-    "Human output groups must go through the shared text/prompt grouping surfaces; " +
+    "Human output groups must go through the shared text/interaction grouping surfaces; " +
       `found:\n${offenders.join("\n")}`,
   );
 });

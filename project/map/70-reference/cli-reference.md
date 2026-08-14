@@ -71,11 +71,11 @@ Use this page to look up the exact syntax and flags for every visible `discern` 
 
 These options are inherited unless a command's entry says otherwise. Tokens beyond an exec-style child boundary are never discern options.
 
-| Option       | Description                                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------- |
-| `--json`     | Emit machine-readable JSON instead of human output.                                           |
-| `--no-color` | Disable colour (also honours NO_COLOR and non-TTY output).                                    |
-| `--plain`    | Disable prompts and paging; use static output. CI and non-terminal input imply this behavior. |
+| Option       | Description                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------- |
+| `--json`     | Emit machine-readable JSON instead of human output.                                                     |
+| `--no-color` | Disable colour (also honours NO_COLOR and non-TTY output).                                              |
+| `--plain`    | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior. |
 
 ## Your desk
 
@@ -267,7 +267,7 @@ Usage: `discern worktree prune [options]`
 
 | Option        | Description                                                                                                                               |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `-y, --yes`   | Non-interactive: skip the confirm prompt.                                                                                                 |
+| `-y, --yes`   | Non-interactive: skip confirmation.                                                                                                       |
 | `--contained` | Also reclaim contained worktrees — checkouts whose committed work is fully contained in another live branch. Branch refs are always kept. |
 | `--dry-run`   | Report what would be removed/reclaimed without acting.                                                                                    |
 | `--json`      | Emit the result as a JSON DiscernResult object on stdout.                                                                                 |
@@ -530,7 +530,7 @@ Usage: `discern uninstall [options]`
 | Option      | Description                                             |
 | ----------- | ------------------------------------------------------- |
 | `--dry-run` | Preview what would be removed and kept; change nothing. |
-| `-y, --yes` | Skip the confirmation prompt.                           |
+| `-y, --yes` | Skip the confirmation.                                  |
 
 ## Inspect & explore
 
@@ -637,10 +637,10 @@ Permanently remove the active Logbook after terminal confirmation. Sealed archiv
 
 Usage: `discern patterns reset [options]`
 
-| Option      | Description                                                       |
-| ----------- | ----------------------------------------------------------------- |
-| `--json`    | Preview as one JSON DiscernResult; apply is refused in JSON mode. |
-| `--dry-run` | Render the complete plan without prompting or changing files.     |
+| Option      | Description                                                                 |
+| ----------- | --------------------------------------------------------------------------- |
+| `--json`    | Preview as one JSON DiscernResult; apply is refused in JSON mode.           |
+| `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
 
 #### `discern patterns archive`
 
@@ -648,10 +648,10 @@ Seal the active event history into a timestamped archive and begin a fresh activ
 
 Usage: `discern patterns archive [options]`
 
-| Option      | Description                                                       |
-| ----------- | ----------------------------------------------------------------- |
-| `--json`    | Preview as one JSON DiscernResult; apply is refused in JSON mode. |
-| `--dry-run` | Render the complete plan without prompting or changing files.     |
+| Option      | Description                                                                 |
+| ----------- | --------------------------------------------------------------------------- |
+| `--json`    | Preview as one JSON DiscernResult; apply is refused in JSON mode.           |
+| `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
 
 ### `discern map`
 

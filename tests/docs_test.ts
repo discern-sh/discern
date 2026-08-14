@@ -181,7 +181,7 @@ Deno.test({
         cwd: dir,
         env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1" },
         input: [
-          // A search prompt starts without a highlighted choice. Select the
+          // A search interaction starts without a highlighted choice. Select the
           // first document, then submit the remembered highlight unchanged.
           { delayMs: 450, bytes: "\x1b[B\r" },
           { delayMs: 750, bytes: "\r" },
@@ -208,7 +208,7 @@ Deno.test({
 
 Deno.test({
   name:
-    "map browser selects and leaves the production prompt through a real PTY",
+    "map browser selects and leaves the production interaction through a real PTY",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {

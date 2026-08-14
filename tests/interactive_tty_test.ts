@@ -1,4 +1,4 @@
-/** Real-PTY proof for Discern's exported production prompt wrappers. */
+/** Real-PTY proof for Discern's exported production interaction wrappers. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
@@ -6,7 +6,7 @@ import { detectTerminalCapabilities } from "discern-design-system/cli";
 import {
   type InteractiveTtyResult,
   type InteractiveTtyScenario,
-  POST_PROMPT_DIAGNOSTIC,
+  POST_INTERACTION_DIAGNOSTIC,
 } from "./fixtures/interactive_tty_harness.ts";
 import {
   type PtyInputStep,
@@ -56,7 +56,7 @@ function sizeArgument(size: { columns: number; rows: number }): string {
   return `${size.columns}x${size.rows}`;
 }
 
-/** Run one production prompt scenario inside a real pseudo-terminal. */
+/** Run one production interaction scenario inside a real pseudo-terminal. */
 async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
   const resultPath = await Deno.makeTempFile({
     prefix: "discern-interactive-result-",
@@ -107,7 +107,7 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
   }
 }
 
-/** Schedule one prompt input chunk after the child reaches raw mode. */
+/** Schedule one interaction input chunk after the child reaches raw mode. */
 function keys(bytes: string, delayMs = READY_DELAY_MS): PtyInputStep[] {
   return [{ delayMs, bytes }];
 }
@@ -205,7 +205,7 @@ Deno.test({
     assert(
       run.process.transcript.startsWith(`\n${HIDE_CURSOR}`) ||
         run.process.transcript.startsWith(`\r\n${HIDE_CURSOR}`),
-      `the prompt needs exactly one leading semantic boundary:\n${run.process.transcript}`,
+      `the interaction needs exactly one leading semantic boundary:\n${run.process.transcript}`,
     );
   },
 });
@@ -330,7 +330,8 @@ Deno.test({
 });
 
 Deno.test({
-  name: "Desk and docs viewport budgets survive repeated 16-row prompt cycles",
+  name:
+    "Desk and docs viewport budgets survive repeated 16-row interaction cycles",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const run = await runHarness({
@@ -578,7 +579,9 @@ Deno.test({
       message: "synthetic validator fault",
     });
     assertRestored(run);
-    const diagnosticAt = run.process.transcript.indexOf(POST_PROMPT_DIAGNOSTIC);
+    const diagnosticAt = run.process.transcript.indexOf(
+      POST_INTERACTION_DIAGNOSTIC,
+    );
     assert(diagnosticAt >= 0, run.process.transcript);
     assert(
       /\r?\n$/u.test(run.process.transcript.slice(0, diagnosticAt)),

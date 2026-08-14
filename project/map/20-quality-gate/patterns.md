@@ -113,7 +113,7 @@ discern patterns reset
 discern patterns archive
 ```
 
-Both lifecycle actions are CLI-only owner operations. Their `--dry-run` forms render the complete event count, date span, source-file list, bytes, and destination or deletion scope without prompting or changing files; add `--json` for the same machine-readable plan. Apply requires terminal stdin and stdout, operation outside CI and global `--plain`, and an explicit Yes to a confirmation that defaults to No. Pipes and `--json` apply refuse. There is no confirmation flag or environment bypass. This supersedes the earlier unattended-reset choice ([ADR 0272](../_adr/0272-logbook-lifecycle-actions-require-terminal-confirmation.md)).
+Both lifecycle actions are CLI-only owner operations. Their `--dry-run` forms render the complete event count, date span, source-file list, bytes, and destination or deletion scope without requesting confirmation or changing files; add `--json` for the same machine-readable plan. Apply requires terminal stdin and stdout, operation outside CI and global `--plain`, and an explicit Yes to a confirmation that defaults to No. Pipes and `--json` apply refuse. There is no confirmation flag or environment bypass. This supersedes the earlier unattended-reset choice ([ADR 0272](../_adr/0272-logbook-lifecycle-actions-require-terminal-confirmation.md)).
 
 Reset removes only active history. Archive seals it and starts a fresh active Logbook. [Logbook lifecycle](../70-reference/logbook-lifecycle.md) specifies the transaction, recovery path, recorder boundary, and historical-read commands. Recording starts again after either action unless `[project].logbook = false`.
 

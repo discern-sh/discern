@@ -14,7 +14,7 @@
  *    target to render straight to stdout, `--raw` for the pristine Markdown
  *    source, `--json` for a machine-readable index (or a single doc's record),
  *    `--list` for a plain table of contents, and `--export` for one concatenated
- *    Markdown stream. It never blocks on a prompt when stdin/stdout are not a
+ *    Markdown stream. It never blocks on terminal input when stdin/stdout are not a
  *    TTY.
  *
  * Rendering is handled by {@link renderMarkdown}; discovery and resolution by
@@ -96,12 +96,12 @@ import type {
   DocSearchResult,
 } from "../shared/result_schemas.ts";
 import {
-  canPrompt,
-  checkboxPrompt,
-  groupedSelectOptions,
-  isPromptCancellation,
-  selectPrompt,
-} from "../lib/prompts.ts";
+  canInteract,
+  groupedSelectionEntries,
+  isInteractionCancelled,
+  requestSelection,
+  requestSelections,
+} from "../lib/terminal_interaction.ts";
 import {
   ageSince,
   buildMapOverview,
@@ -721,18 +721,18 @@ async function pageThrough(text: string): Promise<boolean> {
 
 /** Show rendered text: paged on an interactive terminal, else straight to stdout. */
 async function present(text: string, noPager: boolean): Promise<void> {
-  if (!noPager && canPrompt(false)) {
+  if (!noPager && canInteract(false)) {
     if (await pageThrough(text)) return;
   }
   console.log(text);
 }
 
-/** The semantic picker label; prompt rendering owns selection-state styling. */
+/** The semantic picker label; interaction rendering owns selection-state styling. */
 function optionLabel(e: DocEntry): string {
   return terminalLine(`${e.relToDocs}  —  ${e.title}`);
 }
 
-/** The one-line corpus fact kept plain for the interactive prompt seam. */
+/** The one-line corpus fact kept plain for the interaction seam. */
 function docsHeaderFact(
   verb: string,
   count: number,
@@ -808,9 +808,9 @@ async function browse(
   while (true) {
     let choice: string;
     try {
-      choice = await selectPrompt({
+      choice = await requestSelection({
         message,
-        options: groupedSelectOptions([
+        options: groupedSelectionEntries([
           {
             id: "documents",
             label: "Documents",
@@ -829,7 +829,7 @@ async function browse(
           : { default: rememberedDocument }),
       });
     } catch (error) {
-      if (!isPromptCancellation(error)) throw error;
+      if (!isInteractionCancelled(error)) throw error;
       // Ctrl-C or end-of-input leaves the browser without changing anything.
       return 0;
     }
@@ -1190,7 +1190,7 @@ async function exportDocs(
 
     let selected: string[];
     try {
-      selected = await checkboxPrompt<string>({
+      selected = await requestSelections<string>({
         message: "Include documentation sections",
         options: groups.map((group) => ({
           name: terminalLine(`${group.name} (${group.entries.length})`),
@@ -1200,7 +1200,7 @@ async function exportDocs(
         minOptions: 1,
       });
     } catch (error) {
-      if (!isPromptCancellation(error)) throw error;
+      if (!isInteractionCancelled(error)) throw error;
       // Cancellation does not create or overwrite the output file.
       return 0;
     }
@@ -1594,7 +1594,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
           "--export select requires --output <path>.",
         );
       }
-      if (!canPrompt(false)) {
+      if (!canInteract(false)) {
         return invalidOptions(
           log,
           desc.verb,
@@ -1751,7 +1751,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
 
   // 3. `map` earns its name with a region overview before any drill-in. A pipe
   // gets the overview alone; a TTY continues into the existing picker.
-  const interactive = !options.list && canPrompt(false);
+  const interactive = !options.list && canInteract(false);
   if (desc.verb === "map" && !options.list) {
     const regions = await buildMapOverview(tree);
     printMapOverview(

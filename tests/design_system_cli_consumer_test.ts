@@ -18,14 +18,14 @@ import {
 } from "discern-design-system/cli";
 import {
   InlineFramePainter,
-  type PromptChoiceEntry,
-  promptSelect,
+  type InteractionEntry,
+  requestSelection,
   type TerminalIO,
   type TerminalSize,
 } from "discern-design-system/cli/interactive";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.13.0";
+const SELECTED_VERSION = "0.14.0";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
@@ -180,10 +180,10 @@ Deno.test("the selected release exposes all three public consumer graphs", async
     { id: "one", label: "One", value: "one" },
     { kind: "group-heading", id: "secondary", label: "Secondary" },
     { id: "two", label: "Two", value: "two" },
-  ] as const satisfies readonly PromptChoiceEntry<string>[];
+  ] as const satisfies readonly InteractionEntry<string>[];
   const io = new ConsumerTerminal(["\x1b[B\r"]);
   assertEquals(
-    await promptSelect({ label: "Pick", choices }, { io }),
+    await requestSelection({ label: "Pick", choices }, { io }),
     "two",
   );
   assertEquals(io.rawTransitions, [true, false]);

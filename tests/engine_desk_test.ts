@@ -70,7 +70,7 @@ Deno.test("desk without a TTY: refuses with a pointer at status", async () => {
 });
 
 Deno.test({
-  name: "discern desk opens its production grouped prompt on a real PTY",
+  name: "discern desk opens its production grouped interaction on a real PTY",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -109,7 +109,7 @@ Deno.test("bare discern without a TTY: help, exactly as before the desk existed"
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Commands:");
     // The desk is advertised in the help map (its group leads), but piped
-    // output must never BE the desk — no prompt, no picker, a clean exit.
+    // output must never BE the desk — no interaction, no picker, a clean exit.
     assertStringIncludes(r.stdout, "YOUR DESK");
     assert(
       !r.stdout.includes("Pick an effort"),

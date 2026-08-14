@@ -28,7 +28,11 @@ import {
   retiredCommandMessage,
   retiredCommandSuccessor,
 } from "./shared/vocabulary.ts";
-import { canPrompt, setJsonMode, setPlainMode } from "./lib/prompts.ts";
+import {
+  canInteract,
+  setJsonMode,
+  setPlainMode,
+} from "./lib/terminal_interaction.ts";
 import { inDeskSession } from "./engine/desk/session.ts";
 import {
   attachEngineCommands,
@@ -197,7 +201,7 @@ export function buildCli(
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.plain,
-      "Disable prompts and paging; use static output. CI and non-terminal input imply this behavior.",
+      "Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.",
     )
     .error((error, command) => {
       if (
@@ -447,7 +451,7 @@ export function buildCli(
       "--dry-run",
       "Preview what would be removed and kept; change nothing.",
     )
-    .option("-y, --yes", "Skip the confirmation prompt.")
+    .option("-y, --yes", "Skip the confirmation.")
     .action(recordedExit("uninstall", async (options) => {
       const { json, noColor } = globalFlags(options);
       const { runUninstall } = await import("./commands/uninstall.ts");
@@ -511,7 +515,7 @@ export function buildCli(
     .description(
       "Overlay a reference preset from presets/<name>/ (ships none by default).",
     )
-    .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
+    .option("-y, --yes", "Non-interactive: skip confirmation.")
     .option("--dry-run", "Print the plan and write nothing.")
     .action(
       recordedExit(
@@ -1108,7 +1112,7 @@ export async function main(args: string[]): Promise<void> {
   let verb = argv[0];
 
   try {
-    // One global interaction decision feeds every prompt-capable surface. This
+    // One global interaction decision feeds every input-capable surface. This
     // is set before helper/command dispatch so flag-first forms behave identically.
     setPlainMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.plain));
     setJsonMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.json));
@@ -1159,7 +1163,7 @@ export async function main(args: string[]): Promise<void> {
     // It writes nothing, so it shows even in a non-git directory (leading with
     // the git-init step). Once the project is set up, an interactive terminal
     // gets the operator's desk — the bare invocation is the human's surface
-    // (ADR 0119); the shared `canPrompt` policy additionally honors --plain and
+    // (ADR 0119); the shared `canInteract` policy additionally honors --plain and
     // CI, so pipes, harnesses, and machine modes fall through to static help.
     if (verb === undefined) {
       if (discernArgv.includes(ROOT_GLOBAL_FLAGS.json)) {
@@ -1180,7 +1184,7 @@ export async function main(args: string[]): Promise<void> {
       }
       if (inProject && configOk && bootstrapped) {
         const json = discernArgv.includes(ROOT_GLOBAL_FLAGS.json);
-        if (inDeskSession() || (!json && canPrompt(false))) {
+        if (inDeskSession() || (!json && canInteract(false))) {
           const { runDesk } = await import("./engine/desk/desk.ts");
           // The bare invocation IS the desk, so it records through the same
           // interceptor as `discern desk`: the session's begin/verb pair and

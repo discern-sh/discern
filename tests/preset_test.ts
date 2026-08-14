@@ -89,12 +89,12 @@ Deno.test("preset overlays the example preset's files and config fills", async (
 
 Deno.test("preset --json without --yes emits exactly one envelope and applies (no confirm hang)", async () => {
   // The confirm is auto-answered under --json (B53): the machine stream carries
-  // one parseable envelope, never a prompt, and the overlay still lands.
+  // one parseable envelope, never an interaction, and the overlay still lands.
   await withTempDir(async (dir) => {
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     const r = await runCli(["preset", "example", "--json"], dir, PRESET_ENV);
     assertEquals(r.code, 0, r.stderr);
-    // Exactly one envelope line on stdout, and nothing prompt-like leaked.
+    // Exactly one envelope line on stdout, and no interaction output leaked.
     const line = r.stdout.trim();
     assert(
       line.length > 0 && !line.includes("\n"),

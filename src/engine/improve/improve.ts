@@ -58,11 +58,11 @@ import type {
   RuleStatus,
 } from "./types.ts";
 import {
-  canPrompt,
-  groupedSelectOptions,
-  isPromptCancellation,
-  selectPrompt,
-} from "../../lib/prompts.ts";
+  canInteract,
+  groupedSelectionEntries,
+  isInteractionCancelled,
+  requestSelection,
+} from "../../lib/terminal_interaction.ts";
 
 // ── evaluation ──────────────────────────────────────────────────────────────
 
@@ -593,7 +593,7 @@ async function interactiveDrilldown(
   const ALL = "\u0000all";
   const DONE = "\u0000done";
   for (;;) {
-    const options = groupedSelectOptions<string>([
+    const options = groupedSelectionEntries<string>([
       {
         id: "areas",
         label: "Areas",
@@ -614,13 +614,13 @@ async function interactiveDrilldown(
     ]);
     let choice: string;
     try {
-      choice = await selectPrompt({
+      choice = await requestSelection({
         message: "Drill into an area",
         options,
         search: false,
       });
     } catch (error) {
-      if (!isPromptCancellation(error)) throw error;
+      if (!isInteractionCancelled(error)) throw error;
       return;
     }
     if (choice === DONE) {
@@ -726,12 +726,12 @@ export async function runImprovement(
     }
   } else {
     renderSummary(out, report, config.project.slug);
-    const interactive = canPrompt(false);
+    const interactive = canInteract(false);
     if (interactive) {
       await interactiveDrilldown(out, report);
     } else {
       // Non-interactive (pipe, --plain, CI): print every detail so
-      // nothing is hidden behind a prompt that will never be answered.
+      // nothing is hidden behind an interaction that will never be answered.
       for (const cat of report.categories) {
         renderCategory(out, cat);
       }

@@ -154,7 +154,7 @@ Deno.test("skillsDirsForAgents: dedupes Codex+Gemini onto the shared .agents/ski
   assertEquals(skillsDirsForAgents(["nope"]), []);
 });
 
-Deno.test("every agent renders a distinct `<label> (<file>)` choice — the init prompt's display", () => {
+Deno.test("every agent renders a distinct `<label> (<file>)` setup choice", () => {
   // The `setup` agent-files Checkbox derives each option's display from the
   // registry: `${label} (${guidanceFile.path})`. The label and path must be
   // 1:1 with the agent, or two agents render identically and one is silently

@@ -1848,7 +1848,7 @@ class LifecycleConfirmationFault extends Error {
   }
 }
 
-/** Ask one injected boolean confirmation without knowing its prompt source. */
+/** Ask one injected boolean confirmation without knowing its interaction source. */
 async function confirmLifecycle(
   message: string,
   confirm: LifecycleConfirmation,

@@ -50,7 +50,7 @@ import {
 import { readLogbookStream } from "../src/engine/logbook/read.ts";
 import { runPatternsLifecycle } from "../src/engine/logbook/patterns.ts";
 import { logbookLifecycleConfirmation } from "../src/engine/dispatch.ts";
-import { PromptCancellation } from "../src/lib/prompts.ts";
+import { InteractionCancelled } from "../src/lib/terminal_interaction.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 
 /** One well-formed recorded completion line. */
@@ -342,7 +342,7 @@ Deno.test("Logbook dispatch maps only product cancellation to default No", async
       "Confirm",
       (_message, defaultTo) => {
         observedDefault = defaultTo;
-        return Promise.reject(new PromptCancellation());
+        return Promise.reject(new InteractionCancelled());
       },
     ),
     false,

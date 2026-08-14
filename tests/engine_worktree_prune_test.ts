@@ -609,7 +609,7 @@ Deno.test("worktree prune refuses to run from inside a linked worktree", async (
 // re-reads the gitdir pointer) must hold for the worktree removal too: each
 // candidate is re-validated against LIVE state just before removal and skipped
 // when it changed since the plan was built. These tests drive the apply
-// function directly with the scan a waiting prompt would have held.
+// function directly with the scan a waiting interaction would have held.
 
 /** A logger with all output suppressed (json mode) — these direct-call tests
  * assert on returned results and disk state, not narration. */
@@ -619,7 +619,7 @@ function quietLog(): Logger {
 
 /**
  * A clean, fully-merged linked worktree plus the prune scan that classified it
- * REMOVE — the plan `worktree prune` holds while its confirmation prompt
+ * REMOVE — the plan `worktree prune` holds while its confirmation interaction
  * waits. The candidate carries the path exactly as the production scan records
  * it: git's own worktree listing.
  */
@@ -654,7 +654,7 @@ async function staleRemovalScan(
 
 /**
  * Post-scan mutations — the work an agent could do in a worktree while the
- * already-built plan waits at the confirmation prompt. Each must disqualify
+ * already-built plan waits at the confirmation interaction. Each must disqualify
  * the candidate at apply time. The `undefined` control row pins the other
  * direction: an unchanged candidate is still removed, so the re-check can
  * never dead-end an honest prune.

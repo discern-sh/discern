@@ -21,7 +21,7 @@ Composition below the trunk ([ADR 0110](../_adr/0110-the-landing-model.md)) leav
 
 ## The reclaim
 
-Reclaiming requires a fresh, explicit confirmation through `discern worktree prune --contained` and its prompt, or through the Desk action. A reclaim destroys the checkout and its per-worktree state, including the Gate Proof, so `discern await --green <stage>` then refuses and points at the containing branch. The reclaim tears resources down through the same lifecycle path acceptance uses. The branch ref survives the reclaim as its recovery path (`discern start --from <branch>`). Ordinary prune removes that ref after the composed branch lands. Until then, `status` and the Desk list the kept ref beside its container; refs with no container warn as abandoned.
+Reclaiming requires a fresh, explicit confirmation through `discern worktree prune --contained` and its terminal interaction, or through the Desk action. A reclaim destroys the checkout and its per-worktree state, including the Gate Proof, so `discern await --green <stage>` then refuses and points at the containing branch. The reclaim tears resources down through the same lifecycle path acceptance uses. The branch ref survives the reclaim as its recovery path (`discern start --from <branch>`). Ordinary prune removes that ref after the composed branch lands. Until then, `status` and the Desk list the kept ref beside its container; refs with no container warn as abandoned.
 
 ## Where it lives in code
 

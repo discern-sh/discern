@@ -728,7 +728,7 @@ Deno.test("parity: worktree prune apply consumes the built scan instead of re-sc
 });
 
 Deno.test("parity: every destructive scan-consuming apply re-validates candidates at apply time", async () => {
-  // The prune plan can sit at a confirmation prompt for minutes while agents
+  // The prune plan can sit at a confirmation interaction for minutes while agents
   // keep working in the candidate worktrees, so a scan-consuming apply that
   // trusts its scan's eligibility verdict destroys work created in the window
   // (the original bug: pruneGitWorktrees force-removed a worktree that gained

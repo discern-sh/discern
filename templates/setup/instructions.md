@@ -20,7 +20,7 @@
 
 ## How to work with the user — you are the engine; transparency, not interrogation
 
-You are configuring a project for someone who may be newer to shipping reliable software: building through coding agents, but without the background that keeps a codebase holding together. They can be unsettled by an agent that changes things silently. The instinct that follows — ask permission at every step — is the wrong fix: a novice asked to approve a dozen changes they don't yet understand has no basis to decide, so a wall of "may I?" prompts is its own kind of black box. **Zero configuration means _you_ do the work; their job is to watch and trust.** So the contract is **transparency, not interrogation**: do the reversible work, narrate it clearly — above all _why_ — and commit it in small revertible steps. The user stays informed and in control without answering for each one.
+You are configuring a project for someone who may be newer to shipping reliable software: building through coding agents, but without the background that keeps a codebase holding together. They can be unsettled by an agent that changes things silently. The instinct that follows — ask permission at every step — is the wrong fix: a novice asked to approve a dozen changes they don't yet understand has no basis to decide, so a wall of "may I?" requests is its own kind of black box. **Zero configuration means _you_ do the work; their job is to watch and trust.** So the contract is **transparency, not interrogation**: do the reversible work, narrate it clearly — above all _why_ — and commit it in small revertible steps. The user stays informed and in control without answering for each one.
 
 **Ask a real question only at a genuine decision** — one that is yours to escalate, not yours to make:
 
@@ -45,7 +45,7 @@ Reserve the full five beats for genuine additions and forks. The obvious jobs a 
 
 You can use your own words when narrating progress, just make sure your narration covers: what you're adding, why it matters, how discern will enforce it, how it can be reverted, and what you did.
 
-**Narration is not completion.** Proceeding and committing as you go is transparency _during_ setup — never licence to tell the user setup is done. Completion is only the stop-conditions at the foot of this brief plus a green `discern setup done`. (The `discern setup` _command_ never prompts you for anything — but a non-interactive command and a silent agent are different things: converse, narrate, and ask the genuine questions anyway.)
+**Narration is not completion.** Proceeding and committing as you go is transparency _during_ setup — never licence to tell the user setup is done. Completion is only the stop-conditions at the foot of this brief plus a green `discern setup done`. (The `discern setup` _command_ never requests terminal input — but a non-interactive command and a silent agent are different things: converse, narrate, and ask the genuine questions anyway.)
 
 ---
 

@@ -44,11 +44,11 @@ import type {
 } from "../shared/result_schemas.ts";
 import { Logger } from "../lib/log.ts";
 import {
-  canPrompt,
-  confirmationPrompt,
-  isPromptCancellation,
+  canInteract,
+  isInteractionCancelled,
   plainModeEnabled,
-} from "../lib/prompts.ts";
+  requestConfirmation,
+} from "../lib/terminal_interaction.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
 import type { LifecycleContext } from "./worktree/lifecycle.ts";
 import { colorEnabled } from "./output.ts";
@@ -80,12 +80,12 @@ type ConfirmationOperation = (
 /** Supply the Logbook core a boolean default-No contract at dispatch time. */
 export async function logbookLifecycleConfirmation(
   message: string,
-  operation: ConfirmationOperation = confirmationPrompt,
+  operation: ConfirmationOperation = requestConfirmation,
 ): Promise<boolean> {
   try {
     return await operation(message, false);
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return false;
   }
 }
@@ -662,7 +662,7 @@ export function attachEngineCommands(
         )
         .option(
           "--dry-run",
-          "Render the complete plan without prompting or changing files.",
+          "Render the complete plan without requesting confirmation or changing files.",
         )
         .action(
           recordedExit(invocation, async (o) => {
@@ -675,7 +675,7 @@ export function attachEngineCommands(
               {
                 json: o.json ?? false,
                 dryRun: o.dryRun ?? false,
-                interactive: canPrompt(false),
+                interactive: canInteract(false),
                 confirm: logbookLifecycleConfirmation,
               },
             );
@@ -1063,7 +1063,7 @@ export function attachEngineCommands(
         .description(
           "Sweep stale worktrees, fully-merged branches, reappeared worktree paths, and orphaned resources.",
         )
-        .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
+        .option("-y, --yes", "Non-interactive: skip confirmation.")
         .option(
           "--contained",
           "Also reclaim contained worktrees — checkouts whose committed work is " +
