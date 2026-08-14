@@ -55,6 +55,57 @@ Deno.test("terminal context snapshots process facts and observes dimensions once
   assertEquals(stripAnsi(context.tone("Done", "success")), "Done");
 });
 
+Deno.test("terminal viewport observation samples live dimensions and closes permanently", () => {
+  let size = { columns: 80, rows: 24 };
+  let observations = 0;
+  const context = resolveTerminalContext({
+    noColor: true,
+    env: fakeEnv({ TERM: "xterm", LANG: "en_GB.UTF-8" }),
+    isTerminal: () => true,
+    consoleSize: () => {
+      observations += 1;
+      return size;
+    },
+  });
+  assertEquals(
+    observations,
+    1,
+    "context construction takes the initial snapshot",
+  );
+
+  const viewport = context.observeViewport();
+  size = { columns: 96, rows: 40 };
+  assertEquals(viewport.sample(), size);
+  assertEquals(observations, 2);
+
+  viewport.close();
+  size = { columns: 32, rows: 6 };
+  assertEquals(
+    viewport.sample(),
+    { columns: 96, rows: 40 },
+    "a closed observation never calls the process reader again",
+  );
+  assertEquals(observations, 2);
+});
+
+Deno.test("unsupported live viewport observation retains the initial snapshot", () => {
+  let observations = 0;
+  const context = resolveTerminalContext({
+    noColor: true,
+    env: fakeEnv({ COLUMNS: "73", LINES: "29" }),
+    isTerminal: () => true,
+    consoleSize: () => {
+      observations += 1;
+      throw new Error("console size unavailable");
+    },
+  });
+  const viewport = context.observeViewport();
+  assertEquals(context.size, { columns: 73, rows: 29 });
+  assertEquals(viewport.sample(), context.size);
+  assertEquals(observations, 2);
+  viewport.close();
+});
+
 Deno.test("flag-forced no-colour is visible to package capability detection", () => {
   const context = resolveTerminalContext({
     noColor: true,

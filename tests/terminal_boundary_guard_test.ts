@@ -20,6 +20,7 @@ const RUNTIME_DENO_FILES = AUTHORED_DENO_FILES.filter((rel) =>
 );
 const PROMPT_AUTHORITY = "src/lib/prompts.ts";
 const PAINTER_AUTHORITY = "src/lib/terminal_painter.ts";
+const LIVE_VIEWPORT_CONTROLLER = "src/engine/gate/gate_tty.ts";
 const CLI_MODULE = "discern-design-system/cli";
 const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
 
@@ -399,6 +400,12 @@ function authorityFindings(rel: string, source: string): Finding[] {
     ) {
       findings.push({ file: rel, rule: "CLI-namespace-import" });
     }
+  }
+  if (
+    rel !== TERMINAL_AUTHORITY && rel !== LIVE_VIEWPORT_CONTROLLER &&
+    /\.\s*observeViewport\s*\(/u.test(code)
+  ) {
+    findings.push({ file: rel, rule: "feature-local-viewport-observer" });
   }
   for (const imported of publicCliImports(code)) {
     if (rel !== TERMINAL_AUTHORITY && TERMINAL_ONLY_IMPORTS.has(imported)) {
@@ -1588,15 +1595,25 @@ Deno.test("terminal boundary detectors reject unrelated future source", () => {
         'import { detectTerminalCapabilities, measureText } from "discern-design-system/cli";',
         'const term = Deno.env.get("TERM");',
         "const size = Deno.consoleSize();",
+        "const live = context.observeViewport();",
       ].join("\n"),
     ).map((finding) => finding.rule).toSorted(),
     [
       "Deno-console-size",
+      "feature-local-viewport-observer",
       "package-capability-detector",
       "terminal-environment-read",
       "terminal-import:detectTerminalCapabilities",
       "text-import:measureText",
     ],
+  );
+  assertEquals(
+    authorityFindings(
+      LIVE_VIEWPORT_CONTROLLER,
+      "const live = context.observeViewport();",
+    ),
+    [],
+    "the one shared Gate controller owns live observation",
   );
   assertEquals(
     packageSourceImportFindings(

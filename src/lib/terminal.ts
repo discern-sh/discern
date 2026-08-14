@@ -58,6 +58,14 @@ export interface TerminalSize {
   readonly rows: number;
 }
 
+/** A bounded live viewport observation owned by one command invocation. */
+export interface TerminalViewportObservation {
+  /** Sample the current terminal dimensions, or the last supported reading. */
+  sample(): TerminalSize;
+  /** Permanently detach this observation from its process reader. */
+  close(): void;
+}
+
 /** Fully explicit process inputs for deterministic terminal adaptation. */
 export interface TerminalProcessInput {
   readonly noColor: boolean;
@@ -111,6 +119,8 @@ export interface TerminalContext {
   readonly size: TerminalSize;
   readonly theme: TerminalTheme;
   readonly themeVariant: TerminalThemeVariant;
+  /** Open one command-owned live viewport observation. Pure views never call it. */
+  observeViewport(): TerminalViewportObservation;
   /** Apply one explicit package text style under these resolved capabilities. */
   style(text: string, style: TerminalTextStyle): string;
   /** Resolve one package Token colour for a Component prop. */
@@ -126,6 +136,43 @@ export interface TerminalContext {
     token: TerminalColorTokenName,
     role?: TerminalTextRole,
   ): string;
+}
+
+/** Normalize one observed dimension without consulting mutable environment state. */
+function observedDimension(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0
+    ? Math.max(1, Math.floor(value))
+    : fallback;
+}
+
+/**
+ * Bind a live reader to one initial snapshot. Sampling owns no timer or signal;
+ * the command controller decides when to sample and always closes the handle.
+ */
+function viewportObservation(
+  initial: TerminalSize,
+  consoleSize: () => TerminalSize,
+): TerminalViewportObservation {
+  let current = initial;
+  let closed = false;
+  return {
+    sample: (): TerminalSize => {
+      if (closed) return current;
+      try {
+        const observed = consoleSize();
+        current = {
+          columns: observedDimension(observed.columns, current.columns),
+          rows: observedDimension(observed.rows, current.rows),
+        };
+      } catch {
+        // A platform without live size support retains its stable snapshot.
+      }
+      return current;
+    },
+    close: (): void => {
+      closed = true;
+    },
+  };
 }
 
 /** Interpret the conventional process marker once at the shared boundary. */
@@ -214,6 +261,7 @@ function contextFromFacts(
   environment: Readonly<Record<string, string | undefined>>,
   themeVariant: TerminalThemeVariant,
   stdoutIsTerminal: boolean,
+  observeViewport: () => TerminalViewportObservation,
 ): TerminalContext {
   const theme = terminalThemes[themeVariant];
   const styled = (
@@ -229,6 +277,7 @@ function contextFromFacts(
     size,
     theme,
     themeVariant,
+    observeViewport,
     style: styled,
     themeColor: (token: TerminalColorTokenName): TerminalColor =>
       terminalThemeColor(theme, token),
@@ -279,6 +328,7 @@ export function resolveTerminalContext(
     environment,
     input.theme ?? "dark",
     stdoutIsTerminal,
+    () => viewportObservation(size, input.consoleSize),
   );
 }
 
@@ -334,6 +384,14 @@ export function terminalPresentationContext(
     {},
     "dark",
     false,
+    () =>
+      viewportObservation(
+        { columns: DEFAULT_TERMINAL_COLUMNS, rows: DEFAULT_TERMINAL_ROWS },
+        () => ({
+          columns: DEFAULT_TERMINAL_COLUMNS,
+          rows: DEFAULT_TERMINAL_ROWS,
+        }),
+      ),
   );
   return terminalContextWithColor(base, color);
 }
@@ -358,6 +416,7 @@ export function terminalContextWithColor(
     context.environment,
     context.themeVariant,
     context.stdoutIsTerminal,
+    context.observeViewport,
   );
 }
 
