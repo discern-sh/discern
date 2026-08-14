@@ -4,8 +4,15 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { packageManifest } from "discern-design-system";
 import {
+  measureText,
   renderBadgeCli,
+  renderCommandCli,
   renderFleetCli,
+  renderHeadingCli,
+  renderRadioCli,
+  renderResultSummaryGroupCli,
+  renderSwitchCli,
+  renderTextareaCli,
   renderTriangleWorkflowStepper,
   type TerminalCapabilities,
 } from "discern-design-system/cli";
@@ -18,7 +25,7 @@ import {
 } from "discern-design-system/cli/interactive";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.12.2";
+const SELECTED_VERSION = "0.13.0";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
@@ -181,8 +188,8 @@ Deno.test("the selected release exposes all three public consumer graphs", async
   );
   assertEquals(io.rawTransitions, [true, false]);
   const terminalOutput = io.writes.join("");
-  assertStringIncludes(terminalOutput, "Primary");
-  assertStringIncludes(terminalOutput, "Secondary");
+  assertStringIncludes(terminalOutput, "PRIMARY");
+  assertStringIncludes(terminalOutput, "SECONDARY");
 
   const choiceFrames = io.writes.filter((write) =>
     write.includes("One") && write.includes("Two")
@@ -245,6 +252,111 @@ Deno.test("the selected release exposes all three public consumer graphs", async
   assertEquals(shortIo.writes, []);
 });
 
+Deno.test("the selected release supplies Discern's revised static contracts", () => {
+  const capabilities: TerminalCapabilities = {
+    ansiControl: true,
+    colorDepth: "none",
+    columns: 40,
+    unicode: true,
+  };
+
+  assertEquals(
+    renderHeadingCli({ text: "Calm title", level: 2 }, capabilities),
+    "\n## Calm title",
+  );
+  assertEquals(
+    renderHeadingCli({
+      text: "Calm title",
+      level: 2,
+      leadingBlankLines: 0,
+    }, capabilities),
+    "## Calm title",
+  );
+
+  const command = renderCommandCli({
+    command: "discern status",
+    explanation: "See the current state.",
+  }, capabilities);
+  assertEquals(command, "Run: discern status\nSee the current state.");
+  assert(!command.includes("$ "), "a suggestion must not resemble prior input");
+
+  const confirm = (value: boolean): string =>
+    renderSwitchCli({
+      kind: "confirm",
+      label: "Proceed",
+      lifecycle: { status: "active" },
+      value,
+      yesLabel: "Deploy now",
+      noLabel: "Keep waiting",
+      width: 40,
+    }, capabilities);
+  assertEquals(
+    confirm(false),
+    "Proceed [active]\n" +
+      "┌──────────────────────────────────────┐\n" +
+      "│› Keep waiting ●──○ Deploy now        │\n" +
+      "└──────────────────────────────────────┘",
+  );
+  assertEquals(
+    confirm(true),
+    "Proceed [active]\n" +
+      "┌──────────────────────────────────────┐\n" +
+      "│› Keep waiting ○──● Deploy now        │\n" +
+      "└──────────────────────────────────────┘",
+  );
+  for (const value of [false, true]) {
+    const frame = confirm(value).split("\n").slice(1);
+    assertEquals(frame.map(measureText), [40, 40, 40]);
+  }
+
+  assertEquals(
+    renderRadioCli({
+      kind: "select",
+      label: "Pick",
+      lifecycle: { status: "active" },
+      options: [
+        { id: "one", label: "One" },
+        { id: "two", label: "Two" },
+      ],
+      highlightedIndex: 0,
+      selectedId: "two",
+      width: 40,
+    }, capabilities),
+    "Pick [active]\n" +
+      "┌──────────────────────────────────────┐\n" +
+      "│› ○ One                               │\n" +
+      "│  ◉ Two                               │\n" +
+      "└──────────────────────────────────────┘",
+  );
+
+  const resultGroup = renderResultSummaryGroupCli({
+    items: [
+      { state: "passed", fact: "short" },
+      { state: "changed", fact: "longer" },
+    ],
+  }, capabilities);
+  assertEquals(resultGroup, "✓ Passed:  short\n◇ Changed: longer");
+  const [passed = "", changed = ""] = resultGroup.split("\n");
+  assertEquals(passed.indexOf("short"), changed.indexOf("longer"));
+
+  const text = Array.from({ length: 12 }, (_, index) => `line ${index + 1}`)
+    .join("\n");
+  const textarea = renderTextareaCli({
+    kind: "textarea",
+    label: "Notes",
+    lifecycle: { status: "active" },
+    value: text,
+    cursor: text.length,
+    rows: 12,
+    width: 40,
+  }, capabilities);
+  const textareaLines = textarea.split("\n");
+  assertEquals(textareaLines.length, 15);
+  assertEquals(textareaLines.slice(1).map(measureText), Array(14).fill(40));
+  assertStringIncludes(textarea, "line 1");
+  assertStringIncludes(textarea, "line 12");
+});
+
 Deno.test("CLI-only design-system graphs stay external, exact, and React-free", async () => {
   const entrypoint = join(ROOT, "tests/fixtures/design_system_cli_graph.ts");
   const info = await moduleGraph(entrypoint);
@@ -273,40 +385,53 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
   assert(rootSpecifier !== undefined);
   const root = moduleBySpecifier.get(rootSpecifier);
   assert(root !== undefined);
-  const packageRoots = (root.dependencies ?? [])
-    .filter((dependency) =>
-      dependency.specifier.startsWith("discern-design-system/cli")
-    )
-    .flatMap((dependency) =>
-      dependency.code === undefined
-        ? []
-        : [resolvedEdge(info, dependency.code.specifier)]
-    );
-  assertEquals(packageRoots.length, 2);
+  const packageRoots = new Map(
+    (root.dependencies ?? [])
+      .filter((dependency) =>
+        dependency.specifier === "discern-design-system" ||
+        dependency.specifier === "discern-design-system/cli" ||
+        dependency.specifier === "discern-design-system/cli/interactive"
+      )
+      .flatMap((dependency) =>
+        dependency.code === undefined ? [] : [
+          [
+            dependency.specifier,
+            resolvedEdge(info, dependency.code.specifier),
+          ] as const,
+        ]
+      ),
+  );
+  assertEquals([...packageRoots.keys()], [
+    "discern-design-system",
+    "discern-design-system/cli",
+    "discern-design-system/cli/interactive",
+  ]);
   const allowedOrigin =
     `https://jsr.io/@discern-sh/design-system/${SELECTED_VERSION}/`;
-  const pending = [...packageRoots];
-  const packageClosure = new Set<string>();
-  while (pending.length > 0) {
-    const specifier = pending.pop();
-    assert(specifier !== undefined);
-    if (packageClosure.has(specifier)) continue;
-    assert(
-      specifier.startsWith(allowedOrigin),
-      `design-system CLI graph escaped ${allowedOrigin}: ${specifier}`,
-    );
-    packageClosure.add(specifier);
-    const module = moduleBySpecifier.get(specifier);
-    assert(module !== undefined, `missing resolved module ${specifier}`);
-    for (const dependency of module.dependencies ?? []) {
-      for (const resolution of [dependency.code, dependency.type]) {
-        if (resolution !== undefined) {
-          pending.push(resolvedEdge(info, resolution.specifier));
+  for (const [publicRoot, resolvedRoot] of packageRoots) {
+    const pending = [resolvedRoot];
+    const packageClosure = new Set<string>();
+    while (pending.length > 0) {
+      const specifier = pending.pop();
+      assert(specifier !== undefined);
+      if (packageClosure.has(specifier)) continue;
+      assert(
+        specifier.startsWith(allowedOrigin),
+        `${publicRoot} graph escaped ${allowedOrigin}: ${specifier}`,
+      );
+      packageClosure.add(specifier);
+      const module = moduleBySpecifier.get(specifier);
+      assert(module !== undefined, `missing resolved module ${specifier}`);
+      for (const dependency of module.dependencies ?? []) {
+        for (const resolution of [dependency.code, dependency.type]) {
+          if (resolution !== undefined) {
+            pending.push(resolvedEdge(info, resolution.specifier));
+          }
         }
       }
     }
+    assert(packageClosure.size > 1, `${publicRoot} closure was not traversed`);
   }
-  assert(packageClosure.size > packageRoots.length);
 
   assertEquals(
     reactRuntimeModules([
