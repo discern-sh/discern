@@ -14,12 +14,6 @@ import {
   type ResultMarkdownPresenter,
 } from "./result_markdown.ts";
 import {
-  projectAcceptResult,
-  projectGateResult,
-  projectStatusResult,
-  type ResultWireProjector,
-} from "./result_wire.ts";
-import {
   AcceptOutputSchema,
   AwaitOutputSchema,
   ConfigOutputSchema,
@@ -117,8 +111,6 @@ export interface ResultContract {
   schema: z.ZodType;
   /** Authored Markdown projection for CLI and MCP text delivery. */
   presenter: ResultMarkdownPresenter;
-  /** Optional compaction applied before either agent representation renders. */
-  wireProjector?: ResultWireProjector | undefined;
   /** MCP tool name when this same result is exposed over MCP. */
   mcpTool?: string | undefined;
   /** Additional predicate invocations selected inside one command path. */
@@ -263,7 +255,6 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     verb: "done",
     schema: FinishOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.gate,
-    wireProjector: projectGateResult,
     mcpTool: "discern_done",
   },
   {
@@ -386,7 +377,6 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     verb: "status",
     schema: StatusOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.status,
-    wireProjector: projectStatusResult,
     mcpTool: "discern_status",
   },
   {
@@ -403,7 +393,6 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     verb: "accept",
     schema: AcceptOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.accept,
-    wireProjector: projectAcceptResult,
     mcpTool: "discern_accept",
   },
   {

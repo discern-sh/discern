@@ -65,7 +65,7 @@ Deno.test("status flags a configless worktree as broken, with the drop hint", as
     });
 
     // The human row carries the derived broken state and its concrete action.
-    const human = await runAgent(dir, ["status"]);
+    const human = await runAgent(dir, ["status", "--verbose"]);
     assertStringIncludes(humanWords(human.output), "agent/crashed: Broken");
     assertStringIncludes(
       humanWords(human.output),
@@ -137,7 +137,7 @@ Deno.test("a failed worktree status read stays unreadable through status and the
       });
 
       // Both fleet and local projections retain the derived unreadable state.
-      const human = await runAgent(dir, ["status"]);
+      const human = await runAgent(dir, ["status", "--verbose"]);
       assertStringIncludes(
         humanWords(human.output),
         "agent/damaged: Unreadable",

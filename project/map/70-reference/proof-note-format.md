@@ -1,7 +1,7 @@
 ---
 title: Proof note format
 description: The DSSE-compatible envelope attached to a landed commit, including its payload, signature boundary, and reading rules.
-order: 40
+order: 50
 aliases:
   - proof format
   - proof note schema

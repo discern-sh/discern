@@ -10,6 +10,10 @@ import {
 import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
 import { projectStatusResult } from "../src/shared/result_wire.ts";
 import { StatusOutputSchema } from "../src/shared/result_schemas.ts";
+import {
+  confirmedBeginCommand,
+  confirmedBeginCommandReference,
+} from "../src/shared/setup_messages.ts";
 
 const PROOF_SENTINEL = "FULL-PROOF-PAGE".repeat(8_000);
 const UNCOVERED = Array.from(
@@ -221,8 +225,10 @@ Deno.test("requested documentation remains intact in the Markdown projection", (
 
 Deno.test("setup consent keeps the consent exchange ahead of its confirmed command", () => {
   const guidance = "Ask the owner which checks must block completion.";
-  const command = "discern setup begin --confirmed";
-  const consent = fire(HINTS["setup-awaiting-confirmation"], { command });
+  const command = confirmedBeginCommand();
+  const consent = fire(HINTS["setup-awaiting-confirmation"], {
+    command: confirmedBeginCommandReference(),
+  });
   const rendered = renderResultMarkdown(
     {
       ok: false,

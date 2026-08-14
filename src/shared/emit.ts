@@ -17,17 +17,31 @@ import type { DiscernResult } from "./result.ts";
 import { serializeResult } from "./result_serialization.ts";
 import { observeResult } from "./result_capture.ts";
 import { withFailureRecoveryHint } from "./hints.ts";
-import { resultPresenterForVerb } from "./result_contracts.ts";
-import { renderResultMarkdown } from "./result_markdown.ts";
 
 /** The two quiet CLI projections owned by this emission boundary. */
 export type ResultOutputFormat = "json" | "markdown";
 
 let activeResultOutputFormat: ResultOutputFormat = "json";
 
+/** The CLI entrypoint supplies the authored presenter without pulling its
+ * schema registry into every engine module that emits a result. */
+export type ResultMarkdownRenderer = (
+  result: Readonly<Record<string, unknown>>,
+  verb: string,
+) => string;
+
+let resultMarkdownRenderer: ResultMarkdownRenderer | undefined;
+
 /** Select the projection the next quiet CLI result emits. */
 export function setResultOutputFormat(format: ResultOutputFormat): void {
   activeResultOutputFormat = format;
+}
+
+/** Install the Markdown surface at the outer CLI composition boundary. */
+export function setResultMarkdownRenderer(
+  renderer: ResultMarkdownRenderer,
+): void {
+  resultMarkdownRenderer = renderer;
 }
 
 /** Write a verb's selected quiet result to stdout. Also feeds the
@@ -37,14 +51,13 @@ export function emitResult(result: DiscernResult): void {
   const prepared = withFailureRecoveryHint(result);
   observeResult(prepared);
   const serialized = serializeResult(prepared);
-  if (activeResultOutputFormat === "markdown") {
-    console.log(
-      renderResultMarkdown(
-        serialized,
-        resultPresenterForVerb(prepared.verb),
-      ).trimEnd(),
+  const output = activeResultOutputFormat === "markdown"
+    ? resultMarkdownRenderer?.(serialized, prepared.verb).trimEnd()
+    : JSON.stringify(serialized);
+  if (output === undefined) {
+    throw new Error(
+      "internal result invariant: Markdown renderer is not installed",
     );
-    return;
   }
-  console.log(JSON.stringify(serialized));
+  console.log(output);
 }

@@ -14,6 +14,7 @@ The public reference tier for discern's commands, configuration, environment var
 | `cli-reference.md`         | Generated command, subcommand, flag, and command-alias reference.                                                 |
 | `config-reference.md`      | Generated `discern.toml` section, key, type, default, and key-alias reference.                                    |
 | `environment-variables.md` | Generated public `DISCERN_*` names, grouped purpose, and short descriptions.                                      |
+| `result-surfaces.md`       | Human, Markdown, JSON, and MCP projections of one prepared result.                                                |
 | `mcp-and-results.md`       | Public MCP tools, resources, result-envelope wrapper, published schemas, and CLI exit codes.                      |
 | `artifact-ownership.md`    | Approved Files and ownership exemplar; preserve its register and update only required links or location metadata. |
 | `platforms-and-prereqs.md` | Supported release targets, required tools, identity selectors, and tokens.                                        |
@@ -22,7 +23,7 @@ The public reference tier for discern's commands, configuration, environment var
 
 - `src/shared/cli_reference_codegen.ts`, `src/shared/config_codegen.ts`, `src/shared/environment_variables.ts`, and `scripts/codegen.ts` (generated references)
 - `tests/cli_reference_codegen_test.ts`, `tests/config_codegen_test.ts`, and `tests/environment_variables_codegen_test.ts` (generated-output guards)
-- `src/engine/mcp/server.ts`, `src/shared/result.ts`, and `src/shared/result_contracts.ts` (public MCP/result interface)
+- `src/engine/mcp/server.ts`, `src/shared/result.ts`, `src/shared/result_contracts.ts`, `src/shared/result_markdown.ts`, and `src/shared/result_wire.ts` (public MCP/result interface)
 - `schema/discern-results.schema.json` and `types/discern-json.d.ts` (published result contracts)
 - `install.sh`, `scripts/build.ts`, and `src/commands/doctor.ts` (platforms and prerequisites)
 - `src/shared/env.ts`, `src/engine/worktree/identity.ts`, `src/engine/worktree/tokens.ts`, and `src/engine/worktree/resources.ts` (environment and identity contract)

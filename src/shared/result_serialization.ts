@@ -14,7 +14,7 @@ import {
 } from "./hints.ts";
 import { containsCommandRefTokens } from "./command_reference.ts";
 import { type DiscernResult, planToJson, stepResultToJson } from "./result.ts";
-import { resultContractForVerb } from "./result_contracts.ts";
+import { resultWireProjectorForVerb } from "./result_wire.ts";
 
 /**
  * Prepare a {@link DiscernResult} as the single agent-wire object shared by
@@ -78,5 +78,5 @@ export function serializeResult(r: DiscernResult): Record<string, unknown> {
   if (r.message !== undefined) {
     out.message = r.message;
   }
-  return resultContractForVerb(r.verb)?.wireProjector?.(out) ?? out;
+  return resultWireProjectorForVerb(r.verb)?.(out) ?? out;
 }

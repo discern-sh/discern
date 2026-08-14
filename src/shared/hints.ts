@@ -2819,7 +2819,8 @@ export const HINTS = {
     when: "`accept` lands successfully and returns a one-line landing Proof.",
     example: undefined,
     template: (): string =>
-      "Report the landing in your own words, then end your response with `data.proof_line` verbatim. Retrieve the full review page with `discern status --verbose` if a PR body needs it.",
+      "Report the landing in your own words, then end your response with `data.proof_line` verbatim. " +
+      `Retrieve the full review page with ${OWNER_STATUS_VERBOSE} if a PR body needs it.`,
   }),
 
   /** Fetch transport is enabled, but publication stays an explicit owner-side
@@ -3074,18 +3075,22 @@ export const HINTS = {
 
   /** A flag-less setup begin re-serves the full consent exchange and exact
    * attested continuation in structured fields. */
-  "setup-awaiting-confirmation": defineHint<{ command: string }>({
+  "setup-awaiting-confirmation": defineHint<{ command: CommandRef }>({
     id: "setup-awaiting-confirmation",
     category: "next-step",
     audience: "all",
     when: "`setup begin` has no conversation-consent attestation.",
     family: "setup-consent",
-    example: { command: "discern setup begin --confirmed" },
+    example: {
+      command: discernCommand(
+        "setup begin",
+        flag("model", '"<your-model-id>"'),
+        flag("confirmed"),
+      ),
+    },
     template: ({ command }): string =>
       "Present the setup guidance in this result to the owner, wait for their " +
-      `answers, then run ${
-        markdownCodeSpan(command)
-      }; its \`--confirmed\` flag attests ` +
+      `answers, then run ${command}; its \`--confirmed\` flag attests ` +
       "only to that conversation.",
     interactiveTemplate: (): string =>
       "Review the setup guidance and answer its questions, then run the " +

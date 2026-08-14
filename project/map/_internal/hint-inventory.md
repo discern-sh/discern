@@ -1116,7 +1116,7 @@ Rendered example:
 
 Rendered example:
 
-> Present the setup guidance in this result to the owner, wait for their answers, then run `discern setup begin --confirmed`; its `--confirmed` flag attests only to that conversation.
+> Present the setup guidance in this result to the owner, wait for their answers, then run `discern setup begin --model "<your-model-id>" --confirmed`; its `--confirmed` flag attests only to that conversation.
 
 Interactive example:
 

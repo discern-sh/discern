@@ -1,7 +1,7 @@
 ---
 title: MCP tools & results
 description: The public MCP tools, resources, DiscernResult envelope, generated schemas, and command exit-code contract.
-order: 30
+order: 40
 publish: true
 aliases:
   - MCP

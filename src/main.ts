@@ -12,7 +12,13 @@ import { setColorEnabled as setStdColorEnabled } from "@std/fmt/colors";
 import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
 import { Logger } from "./lib/log.ts";
-import { emitResult, setResultOutputFormat } from "./shared/emit.ts";
+import {
+  emitResult,
+  setResultMarkdownRenderer,
+  setResultOutputFormat,
+} from "./shared/emit.ts";
+import { resultPresenterForVerb } from "./shared/result_contracts.ts";
+import { renderResultMarkdown } from "./shared/result_markdown.ts";
 import { observeVerbTarget } from "./shared/result_capture.ts";
 import {
   AGENT_NAMES,
@@ -1157,6 +1163,9 @@ export async function main(args: string[]): Promise<void> {
     // One global interaction decision feeds every input-capable surface. This
     // is set before helper/command dispatch so flag-first forms behave identically.
     setPlainMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.plain));
+    setResultMarkdownRenderer((result, resultVerb) =>
+      renderResultMarkdown(result, resultPresenterForVerb(resultVerb))
+    );
     setResultOutputFormat(
       markdownRequested && !jsonRequested ? "markdown" : "json",
     );

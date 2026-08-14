@@ -613,13 +613,14 @@ export const GateDataSchema = z.strictObject({
 export type GateData = z.infer<typeof GateDataSchema>;
 
 /** `done` on agent wire surfaces: the same gate state with a compact Proof. */
-const GateWireDataSchema = GateDataSchema.omit({
+export const GateWireDataSchema = GateDataSchema.omit({
   proof: true,
   landing_authority: true,
 }).extend({
   proof: ProofSummarySchema.optional(),
   landing_authority: LandingAuthoritySummarySchema.optional(),
 });
+export type GateWireData = z.infer<typeof GateWireDataSchema>;
 
 /** How a recorded proof stands against the current worktree and HEAD.
  * `proof` and `proof_line` are present only when the marker is honored; the

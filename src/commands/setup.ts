@@ -140,6 +140,7 @@ import {
 import {
   completionMessage,
   confirmedBeginCommand,
+  confirmedBeginCommandReference,
   consentMessage,
   deriveConsentContext,
   humanOffRampLines,
@@ -2711,7 +2712,9 @@ async function emitAwaitingConsent(
       message,
       data: { guidance, command },
       hints: hintTexts([
-        fire(HINTS["setup-awaiting-confirmation"], { command }),
+        fire(HINTS["setup-awaiting-confirmation"], {
+          command: confirmedBeginCommandReference(),
+        }),
       ]),
     });
   } else {

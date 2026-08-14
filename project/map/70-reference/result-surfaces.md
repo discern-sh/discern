@@ -1,7 +1,7 @@
 ---
 title: Agent result surfaces
 description: Choose human, Markdown, JSON, or MCP delivery for one prepared DiscernResult.
-order: 25
+order: 30
 aliases:
   - Markdown result
   - --markdown

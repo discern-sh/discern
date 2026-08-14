@@ -229,3 +229,18 @@ export const projectAcceptResult: ResultWireProjector = (
       },
     };
   });
+
+/** The closed set of verbs whose agent wire drops redundant presentation data. */
+const RESULT_WIRE_PROJECTORS: Readonly<Record<string, ResultWireProjector>> =
+  Object.freeze({
+    done: projectGateResult,
+    status: projectStatusResult,
+    accept: projectAcceptResult,
+  });
+
+/** Resolve the compacting projection for one result discriminator. */
+export function resultWireProjectorForVerb(
+  verb: string,
+): ResultWireProjector | undefined {
+  return RESULT_WIRE_PROJECTORS[verb];
+}

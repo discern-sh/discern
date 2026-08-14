@@ -30,6 +30,7 @@ import { basename, dirname, join } from "@std/path";
 import type { SetupAssurance } from "./setup_assurance.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
+import { type CommandRef, discernCommand, flag } from "./command_reference.ts";
 
 /** The conventional home of a project's own documentation, probed so the consent
  * message can reassure that discern never touches it — the map is a separate,
@@ -93,8 +94,23 @@ export async function deriveConsentContext(
  * a `--map` flag: the map's home is a default, and a placeholder here would push
  * agents to pass one.
  */
+const CONFIRMED_BEGIN_WORDS = "setup begin";
+const CONFIRMED_BEGIN_MODEL_FLAG = "model";
+const CONFIRMED_BEGIN_MODEL = '"<your-model-id>"';
+const CONFIRMED_BEGIN_ATTESTATION_FLAG = "confirmed";
+
+/** Render the consent-attested continuation as a plain shell command. */
 export function confirmedBeginCommand(): string {
-  return 'discern setup begin --model "<your-model-id>" --confirmed';
+  return `discern ${CONFIRMED_BEGIN_WORDS} --${CONFIRMED_BEGIN_MODEL_FLAG} ${CONFIRMED_BEGIN_MODEL} --${CONFIRMED_BEGIN_ATTESTATION_FLAG}`;
+}
+
+/** The same continuation as a surface-aware reference for result hints. */
+export function confirmedBeginCommandReference(): CommandRef {
+  return discernCommand(
+    CONFIRMED_BEGIN_WORDS,
+    flag(CONFIRMED_BEGIN_MODEL_FLAG, CONFIRMED_BEGIN_MODEL),
+    flag(CONFIRMED_BEGIN_ATTESTATION_FLAG),
+  );
 }
 
 /**

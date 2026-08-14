@@ -389,13 +389,13 @@ export const TOOLS: McpTool[] = orderTools([
     description:
       "Start here: call discern_status. It is a read-only account of current project, Git, " +
       "worktree, and fleet state; it runs no gate, tests, standards, or setup " +
-      "effects. data.location is main or worktree, data.project identifies the " +
+      'effects. data.location is "main" or "worktree", data.project identifies the ' +
       "project, and data.git carries cleanliness, changed-file count, trunk " +
       "divergence, and incoming_overlap when both sides changed the same paths. " +
       "data.gate lists checks that would run. data.gate_proof carries its inspection " +
       "status and, when honored, compact Proof facts plus the report line; retrieve " +
       "the full review page with `discern status --verbose`. data.worktree carries " +
-      "identity and resources. Main-checkout results add data.fleet with one row per " +
+      "identity and resources. Results from the main checkout add data.fleet with one row per " +
       "worktree, activity, compact gate_proof, and any landing_authority. Treat every " +
       "other row as somebody's separate effort even when clean. Fleet collisions, " +
       "unlanded branches, and reappeared_worktree_paths remain explicit evidence. " +

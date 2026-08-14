@@ -474,7 +474,7 @@ const presentSetup: ResultMarkdownPresenter = (result) => {
         ? undefined
         : listFact("Pending setup markers", strings(progress.pending_markers)),
       listFact("Written files", strings(data.written)),
-      listFact("Compiled agent files", strings(data.compiled)),
+      listFact("Agent files", strings(data.compiled)),
     ]),
     supportingMarkdown: guidance,
     action: action === undefined ? [] : [action],
