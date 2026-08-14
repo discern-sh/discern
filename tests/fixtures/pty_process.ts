@@ -3,10 +3,16 @@
 const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
 
-/** One delayed input write. Omitting bytes leaves only the delay before EOF. */
+/** One input write relative to an observed-ready phase. */
 export interface PtyInputStep {
-  readonly delayMs: number;
+  readonly delayMs?: number;
   readonly bytes?: string | Uint8Array;
+}
+
+/** Input that cannot begin until the child has rendered a named marker. */
+export interface PtyInputPhase {
+  readonly waitFor: string | readonly [string, ...string[]];
+  readonly steps: readonly [PtyInputStep, ...PtyInputStep[]];
 }
 
 /** A command whose standard streams are attached to one pseudo-terminal. */
@@ -15,7 +21,7 @@ export interface PtyProcessOptions {
   readonly args: readonly string[];
   readonly cwd: string;
   readonly env?: Readonly<Record<string, string>>;
-  readonly input?: readonly PtyInputStep[];
+  readonly input?: readonly PtyInputPhase[];
   /** Keep the PTY input side open until a non-interactive child exits. */
   readonly keepInputOpen?: boolean;
   readonly timeoutMs?: number;
@@ -27,6 +33,11 @@ export interface PtyProcessResult {
   readonly stdout: string;
   readonly stderr: string;
   readonly transcript: string;
+}
+
+interface OutputCursor {
+  readonly stdout: number;
+  readonly stderr: number;
 }
 
 function shellQuote(value: string): string {
@@ -67,25 +78,82 @@ export async function runPtyProcess(
   });
   const process = child.spawn();
   const heldWriter = keepInputOpen ? process.stdin.getWriter() : undefined;
-  const inputSteps = options.input;
-  const input = inputSteps === undefined
+
+  let observedStdout = "";
+  let observedStderr = "";
+  let outputFinished = false;
+  let outputWaiters: Array<() => void> = [];
+  const notifyOutput = (): void => {
+    const waiters = outputWaiters;
+    outputWaiters = [];
+    for (const resolve of waiters) resolve();
+  };
+  const stdoutBytes = collectOutput(process.stdout, (text) => {
+    observedStdout += text;
+    notifyOutput();
+  });
+  const stderrBytes = collectOutput(process.stderr, (text) => {
+    observedStderr += text;
+    notifyOutput();
+  });
+  const outputComplete = Promise.all([stdoutBytes, stderrBytes]).then(() => {
+    outputFinished = true;
+    notifyOutput();
+  });
+  const waitForOutput = async (
+    requestedMarkers: string | readonly [string, ...string[]],
+    cursor: OutputCursor,
+  ): Promise<void> => {
+    const markers = typeof requestedMarkers === "string"
+      ? [requestedMarkers]
+      : requestedMarkers;
+    if (markers.some((marker) => marker.length === 0)) {
+      throw new TypeError("PTY input readiness marker must not be empty");
+    }
+    while (
+      !containsSequence(observedStdout, cursor.stdout, markers) &&
+      !containsSequence(observedStderr, cursor.stderr, markers)
+    ) {
+      if (outputFinished) {
+        throw new Error(
+          `pseudo-terminal command exited before rendering input markers ${JSON.stringify(markers)}`,
+        );
+      }
+      await new Promise<void>((resolve) => outputWaiters.push(resolve));
+    }
+  };
+  const inputPhases = options.input;
+  const input = inputPhases === undefined
     ? undefined
     : (async (): Promise<void> => {
       const writer = process.stdin.getWriter();
+      let cursor: OutputCursor = { stdout: 0, stderr: 0 };
       try {
-        for (const step of inputSteps) {
-          if (step.delayMs > 0) await delay(step.delayMs);
-          if (step.bytes !== undefined) {
-            const bytes = typeof step.bytes === "string"
-              ? ENCODER.encode(step.bytes)
-              : step.bytes;
-            if (bytes.length > 0) await writer.write(bytes);
+        for (const phase of inputPhases) {
+          await waitForOutput(phase.waitFor, cursor);
+          const nextCursor: OutputCursor = {
+            stdout: observedStdout.length,
+            stderr: observedStderr.length,
+          };
+          for (const step of phase.steps) {
+            const delayMs = step.delayMs ?? 0;
+            if (delayMs > 0) await delay(delayMs);
+            if (step.bytes !== undefined) {
+              const bytes = typeof step.bytes === "string"
+                ? ENCODER.encode(step.bytes)
+                : step.bytes;
+              if (bytes.length > 0) await writer.write(bytes);
+            }
           }
+          cursor = nextCursor;
         }
       } finally {
-        await writer.close();
+        await writer.close().catch(() => undefined);
       }
-    })();
+    })().then(
+      () => undefined,
+      (error: unknown) => error,
+    );
 
   let timedOut = false;
   const timeoutMs = options.timeoutMs ?? 5_000;
@@ -97,23 +165,72 @@ export async function runPtyProcess(
       // The child finished between the timer and signal delivery.
     }
   }, timeoutMs);
-  const output = await process.output();
+  const status = await process.status;
   clearTimeout(timer);
   await heldWriter?.close().catch(() => undefined);
-  await input?.catch(() => undefined);
-  const stdout = DECODER.decode(output.stdout);
-  const stderr = DECODER.decode(output.stderr);
+  await outputComplete;
+  const [stdoutOutput, stderrOutput] = await Promise.all([
+    stdoutBytes,
+    stderrBytes,
+  ]);
+  const stdout = DECODER.decode(stdoutOutput);
+  const stderr = DECODER.decode(stderrOutput);
   if (timedOut) {
     throw new Error(
       `pseudo-terminal command exceeded ${timeoutMs}ms:\n${stdout}${stderr}`,
     );
   }
+  const inputError = await input;
+  if (inputError !== undefined) {
+    const message = inputError instanceof Error
+      ? inputError.message
+      : String(inputError);
+    throw new Error(`${message}:\n${stdout}${stderr}`, { cause: inputError });
+  }
   return {
-    code: output.code,
+    code: status.code,
     stdout,
     stderr,
     transcript: stdout + stderr,
   };
+}
+
+function containsSequence(
+  output: string,
+  from: number,
+  markers: readonly string[],
+): boolean {
+  let cursor = from;
+  for (const marker of markers) {
+    const found = output.indexOf(marker, cursor);
+    if (found < 0) return false;
+    cursor = found + marker.length;
+  }
+  return true;
+}
+
+async function collectOutput(
+  stream: ReadableStream<Uint8Array>,
+  observe: (text: string) => void,
+): Promise<Uint8Array> {
+  const decoder = new TextDecoder();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+    length += chunk.length;
+    const text = decoder.decode(chunk, { stream: true });
+    if (text.length > 0) observe(text);
+  }
+  const tail = decoder.decode();
+  if (tail.length > 0) observe(tail);
+  const output = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return output;
 }
 
 function delay(milliseconds: number): Promise<void> {

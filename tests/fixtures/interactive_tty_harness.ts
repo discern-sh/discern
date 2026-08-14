@@ -382,6 +382,7 @@ async function main(args: readonly string[]): Promise<void> {
       if (options.resize === undefined) return;
       await setSize(options.resize);
       resizedSize = consoleSize();
+      console.log("[resize-ready]");
     })();
   const canonicalEof = options.canonicalEofAfterMs === undefined
     ? undefined
@@ -393,6 +394,7 @@ async function main(args: readonly string[]): Promise<void> {
       // readable. Canonical VEOF is the system-level equivalent: the next ^D
       // makes the production DenoTerminalIO read return end-of-input.
       await stty(["icanon"]);
+      console.log("[canonical-eof-ready]");
     })();
 
   let result: Omit<InteractiveTtyResult, "terminal">;

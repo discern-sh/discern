@@ -9,7 +9,7 @@ import {
   POST_INTERACTION_DIAGNOSTIC,
 } from "./fixtures/interactive_tty_harness.ts";
 import {
-  type PtyInputStep,
+  type PtyInputPhase,
   type PtyProcessResult,
   runPtyProcess,
 } from "./fixtures/pty_process.ts";
@@ -29,7 +29,6 @@ const SGR_PARAMETERS = /^[0-9;]*m/u;
 const TRUECOLOUR_PARAMETERS = /^[0-9;]*38;2;/u;
 const ANSI_256_PARAMETERS = /^[0-9;]*38;5;/u;
 const CSI_SEQUENCE = /^[0-?]*[ -/]*[@-~]/u;
-const READY_DELAY_MS = 350;
 
 interface HarnessRun {
   readonly process: PtyProcessResult;
@@ -38,7 +37,7 @@ interface HarnessRun {
 
 interface HarnessRunOptions {
   readonly scenario: InteractiveTtyScenario;
-  readonly input?: readonly PtyInputStep[];
+  readonly input?: readonly PtyInputPhase[];
   readonly env?: Readonly<Record<string, string>>;
   readonly size?: { readonly columns: number; readonly rows: number };
   readonly resize?: {
@@ -93,7 +92,7 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
       args,
       cwd: REPO_ROOT,
       ...(options.env === undefined ? {} : { env: options.env }),
-      input: options.input ?? [{ delayMs: READY_DELAY_MS, bytes: "\r" }],
+      input: options.input ?? keys("\r"),
       timeoutMs: options.timeoutMs ?? 8_000,
     });
     const raw = await Deno.readTextFile(resultPath);
@@ -107,9 +106,9 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
   }
 }
 
-/** Schedule one interaction input chunk after the child reaches raw mode. */
-function keys(bytes: string, delayMs = READY_DELAY_MS): PtyInputStep[] {
-  return [{ delayMs, bytes }];
+/** Send one input chunk only after the child renders its active interaction. */
+function keys(bytes: string, delayMs = 0): PtyInputPhase[] {
+  return [{ waitFor: "[active]", steps: [{ delayMs, bytes }] }];
 }
 
 /** Assert process, line-mode, cursor, and final-frame restoration under the
@@ -189,16 +188,21 @@ Deno.test({
     const run = await runHarness({
       scenario: "text",
       input: [
-        { delayMs: READY_DELAY_MS, bytes: "A" },
-        { delayMs: 5, bytes: emoji.slice(0, 3) },
-        { delayMs: 5, bytes: emoji.slice(3) },
-        { delayMs: 5, bytes: "B" },
-        { delayMs: 5, bytes: "\x1b" },
-        { delayMs: 5, bytes: "[" },
-        { delayMs: 5, bytes: "D" },
-        { delayMs: 5, bytes: "\x7f" },
-        { delayMs: 5, bytes: "é" },
-        { delayMs: 5, bytes: "\x1b[HΩ\x1b[F!\r" },
+        {
+          waitFor: "[active]",
+          steps: [
+            { bytes: "A" },
+            { delayMs: 5, bytes: emoji.slice(0, 3) },
+            { delayMs: 5, bytes: emoji.slice(3) },
+            { delayMs: 5, bytes: "B" },
+            { delayMs: 5, bytes: "\x1b" },
+            { delayMs: 5, bytes: "[" },
+            { delayMs: 5, bytes: "D" },
+            { delayMs: 5, bytes: "\x7f" },
+            { delayMs: 5, bytes: "é" },
+            { delayMs: 5, bytes: "\x1b[HΩ\x1b[F!\r" },
+          ],
+        },
       ],
     });
     assertValue(run, "ΩAéB!");
@@ -338,9 +342,15 @@ Deno.test({
       scenario: "repeated-viewport",
       size: { columns: 80, rows: 16 },
       input: [
-        { delayMs: READY_DELAY_MS, bytes: "\x1b[B\r" },
-        { delayMs: 180, bytes: "\r" },
-        { delayMs: 180, bytes: "\x1b[B\r" },
+        {
+          waitFor: ["Choose a desk action", "[active]"],
+          steps: [{ bytes: "\x1b[B\r" }],
+        },
+        { waitFor: ["Browse docs", "[active]"], steps: [{ bytes: "\r" }] },
+        {
+          waitFor: ["Choose a desk action again", "[active]"],
+          steps: [{ bytes: "\x1b[B\r" }],
+        },
       ],
     });
     assertValue(run, ["desk-0", "doc-12", "desk-0"]);
@@ -410,11 +420,12 @@ Deno.test({
         scenario: "cancellation",
         canonicalEofAfterMs: 180,
         input: [
-          { delayMs: 450, bytes: "\x04" },
-          // If a read began just before canonical mode changed, the first VEOF
-          // can complete that raw read. A later VEOF then reaches a fresh
-          // canonical read and produces the required zero-byte result.
-          { delayMs: 75, bytes: "\x04" },
+          {
+            waitFor: "[canonical-eof-ready]",
+            // The fixture marker proves canonical mode is active before its
+            // single VEOF; no speculative second write can race process exit.
+            steps: [{ bytes: "\x04" }],
+          },
         ],
       }),
     ]);
@@ -442,9 +453,14 @@ Deno.test({
       size: { columns: 32, rows: 10 },
       resize: { columns: 100, rows: 30, afterMs: 180 },
       input: [
-        { delayMs: 450, bytes: "\x1b[B" },
-        { delayMs: 75, bytes: "\x1b[H" },
-        { delayMs: 75, bytes: "\r" },
+        {
+          waitFor: "[resize-ready]",
+          steps: [
+            { bytes: "\x1b[B" },
+            { delayMs: 75, bytes: "\x1b[H" },
+            { delayMs: 75, bytes: "\r" },
+          ],
+        },
       ],
     });
     assertValue(run, "alpha");

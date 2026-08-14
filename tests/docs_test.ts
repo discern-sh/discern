@@ -183,12 +183,18 @@ Deno.test({
         input: [
           // A search interaction starts without a highlighted choice. Select the
           // first document, then submit the remembered highlight unchanged.
-          { delayMs: 450, bytes: "\x1b[B\r" },
-          { delayMs: 750, bytes: "\r" },
+          { waitFor: "○ Quit", steps: [{ bytes: "\x1b[B\r" }] },
+          {
+            waitFor: ["Welcome.", "○ Quit"],
+            steps: [{ bytes: "\r" }],
+          },
           // Leave the third browse iteration through its final navigation item.
           // Search reserves End for its query editor, so walk the six selectable
           // items explicitly; semantic headings are never part of this count.
-          { delayMs: 750, bytes: "\x1b[B".repeat(5) + "\r" },
+          {
+            waitFor: ["Welcome.", "○ Quit"],
+            steps: [{ bytes: "\x1b[B".repeat(5) + "\r" }],
+          },
         ],
         timeoutMs: 8_000,
       });
@@ -228,9 +234,12 @@ Deno.test({
         cwd: dir,
         env: { NO_COLOR: "1" },
         input: [
-          { delayMs: 450, bytes: "\x1b[B\r" },
+          { waitFor: "○ Quit", steps: [{ bytes: "\x1b[B\r" }] },
           // The remembered document is first; Quit is the next selectable row.
-          { delayMs: 750, bytes: "\x1b[B\r" },
+          {
+            waitFor: ["The project's own docs.", "○ Quit"],
+            steps: [{ bytes: "\x1b[B\r" }],
+          },
         ],
         timeoutMs: 8_000,
       });
