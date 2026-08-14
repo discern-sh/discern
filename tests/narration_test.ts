@@ -11,7 +11,11 @@ import {
   reportFailure,
   silentOutputSink,
 } from "../src/lib/narration.ts";
-import { terminalContext } from "../src/lib/terminal.ts";
+import {
+  resolveTerminalContext,
+  terminalContext,
+} from "../src/lib/terminal.ts";
+import { fakeEnv } from "./helpers.ts";
 
 /** A raw-writer sink capturing the exact bytes per stream. */
 function rawCapture(): {
@@ -117,8 +121,38 @@ Deno.test("the narrator renders the one glyph grammar over the sink", () => {
   narration.warn("careful");
   narration.error("failed");
   narration.detail("fine print");
-  assertEquals(stdout.join(""), "→ step\n✓ done\n\nSection\n  fine print\n");
-  assertEquals(stderr.join(""), "! careful\n✗ failed\n");
+  assertEquals(stdout.join(""), "◮ step\n✓ done\n\nSection\n  fine print\n");
+  assertEquals(stderr.join(""), "! careful\n✕ failed\n");
+});
+
+Deno.test("the narrator inherits package Unicode and ASCII degradation", () => {
+  const render = (lang: string): { stdout: string; stderr: string } => {
+    const { sink, stdout, stderr } = rawCapture();
+    const terminal = resolveTerminalContext({
+      noColor: true,
+      env: fakeEnv({ LANG: lang, TERM: "xterm" }),
+      isTerminal: () => true,
+      consoleSize: () => ({ columns: 80, rows: 24 }),
+    });
+    const narration = makeNarration(sink, terminal, {
+      narration: "stdout",
+      alerts: "stderr",
+    });
+    narration.info("step");
+    narration.ok("done");
+    narration.warn("careful");
+    narration.error("failed");
+    return { stdout: stdout.join(""), stderr: stderr.join("") };
+  };
+
+  assertEquals(render("en_GB.UTF-8"), {
+    stdout: "◮ step\n✓ done\n",
+    stderr: "! careful\n✕ failed\n",
+  });
+  assertEquals(render("C"), {
+    stdout: "> step\n+ done\n",
+    stderr: "! careful\nx failed\n",
+  });
 });
 
 Deno.test("the one failure form is a danger line with one recovery group", () => {
@@ -131,7 +165,7 @@ Deno.test("the one failure form is a danger line with one recovery group", () =>
     "Run: discern --help",
   ]);
   assertEquals(stderr, [
-    "✗ the input is malformed",
+    "✕ the input is malformed",
     "",
     "  Run: discern --help",
   ]);
@@ -144,5 +178,5 @@ Deno.test("a failure whose message carries its next step stays one line", () => 
     alerts: "stderr",
   });
   reportFailure(narration, "nothing to land; commit first");
-  assertEquals(stderr, ["✗ nothing to land; commit first"]);
+  assertEquals(stderr, ["✕ nothing to land; commit first"]);
 });

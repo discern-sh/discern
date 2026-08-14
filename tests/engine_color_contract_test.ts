@@ -119,14 +119,14 @@ Deno.test("engine narration uses package semantic roles without a raw palette", 
   assertEquals("c" in out, false);
   assertEquals(
     stdout,
-    `${terminal.tone("→", "accent")} Info\n` +
-      `${terminal.tone("✓", "success")} Done\n` +
+    `${terminal.presenter.note("Info")}\n` +
+      `${terminal.presenter.success("Done")}\n` +
       `\n${terminal.role("Heading", "strong")}\n`,
   );
   assertEquals(
     stderr,
-    `${terminal.tone("!", "warning")} Warning\n` +
-      `${terminal.tone("✗", "danger")} Danger\n`,
+    `${terminal.presenter.warning("Warning")}\n` +
+      `${terminal.presenter.failure("Danger")}\n`,
   );
 });
 

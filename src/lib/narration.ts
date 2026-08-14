@@ -173,28 +173,28 @@ export function makeNarration(
   return {
     info: (message: string): void =>
       sink.line(
-        `${terminal.tone("→", "accent")} ${terminalLine(message)}`,
+        terminal.presenter.note(terminalLine(message)),
         streams.narration,
       ),
     ok: (message: string): void =>
       sink.line(
-        `${terminal.tone("✓", "success")} ${terminalLine(message)}`,
+        terminal.presenter.success(terminalLine(message)),
         streams.narration,
       ),
     warn: (message: string): void =>
       sink.line(
-        `${terminal.tone("!", "warning")} ${terminalLine(message)}`,
+        terminal.presenter.warning(terminalLine(message)),
         streams.alerts,
       ),
     error: (message: string): void =>
       sink.line(
-        `${terminal.tone("✗", "danger")} ${terminalLine(message)}`,
+        terminal.presenter.failure(terminalLine(message)),
         streams.alerts,
       ),
     heading: (text: string): void => {
       sink.boundary({ evenAtStart: true, stream: streams.narration });
       sink.line(
-        terminal.role(terminalLine(text), "strong"),
+        terminal.presenter.style(terminalLine(text), { role: "strong" }),
         streams.narration,
       );
     },
@@ -204,8 +204,8 @@ export function makeNarration(
       sink.boundary();
       if (label !== undefined) {
         sink.line(
-          `  ${terminal.role("──", "muted")} ${
-            terminal.role(terminalLine(label), "strong")
+          `  ${terminal.presenter.style("──", { role: "muted" })} ${
+            terminal.presenter.style(terminalLine(label), { role: "strong" })
           }`,
           sink.lastStream(),
         );
@@ -213,12 +213,15 @@ export function makeNarration(
     },
     detail: (text: string): void =>
       sink.line(
-        `  ${terminal.role(terminalLine(text), "muted")}`,
+        `  ${terminal.presenter.style(terminalLine(text), { role: "muted" })}`,
         streams.narration,
       ),
     humanLine: (text: string): void => sink.line(text, streams.narration),
-    terminalSafeMultilineError: (message: TerminalMultiline): void =>
-      sink.line(`${terminal.tone("✗", "danger")} ${message}`, streams.alerts),
+    terminalSafeMultilineError: (message: TerminalMultiline): void => {
+      const [first = "", ...continuation] = message.split("\n");
+      const failure = terminal.presenter.failure(first);
+      sink.line([failure, ...continuation].join("\n"), streams.alerts);
+    },
   };
 }
 

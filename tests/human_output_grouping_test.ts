@@ -256,8 +256,11 @@ const OUTPUT_IDIOM_RULES: readonly {
   // Alignment belongs to renderAlignedRows (display-width aware); padding by
   // code units drifts on styled or wide text.
   { id: "padEnd-alignment", pattern: /\.padEnd\(/g },
-  // The narration authority owns the glyph grammar (→ ✓ ✗ line prefixes).
-  { id: "narration-glyph-literal", pattern: /(["'`])(?:→|✓|✗) /g },
+  // The narration authority owns both retired and current line-prefix glyphs.
+  {
+    id: "narration-glyph-literal",
+    pattern: /(["'`])(?:→|◮|✓|✗|✕) /g,
+  },
   // Human presentation writes through the authority; console is protocol-only.
   {
     id: "direct-console-presentation",
@@ -608,7 +611,7 @@ Deno.test("the live output grouping surface writes exactly one complete boundary
 
   assertEquals(
     chunks.join(""),
-    "first\n\nsecond\n\n→ third\n\n  ── Fourth\nfourth\n",
+    "first\n\nsecond\n\n◮ third\n\n  ── Fourth\nfourth\n",
   );
 
   out.error("failure");
@@ -616,7 +619,7 @@ Deno.test("the live output grouping surface writes exactly one complete boundary
   out.warn("fix it");
   assertEquals(
     errors.join(""),
-    "✗ failure\n\n  ── Recovery\n! fix it\n",
+    "✕ failure\n\n  ── Recovery\n! fix it\n",
   );
 });
 
@@ -641,9 +644,9 @@ Deno.test("the live narration surface makes hostile caller facts inert but keeps
 
   assertEquals(
     chunks.join(""),
-    `→ ${safe}\n✓ ${safe}\n\n${safe}\n\n  ── ${safeLabel}\n`,
+    `◮ ${safe}\n✓ ${safe}\n\n${safe}\n\n  ── ${safeLabel}\n`,
   );
-  assertEquals(errors.join(""), `! ${safe}\n✗ ${safe}\n`);
+  assertEquals(errors.join(""), `! ${safe}\n✕ ${safe}\n`);
 
   out.raw(hostile);
   assertEquals(chunks.at(-1), hostile);

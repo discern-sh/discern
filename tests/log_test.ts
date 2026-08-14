@@ -51,10 +51,10 @@ Deno.test("human methods write to stderr with their prefix glyphs (no colour)", 
   });
   assertEquals(out, []); // none of these touch stdout
   assertEquals(err.length, 5);
-  assertEquals(err[0], "→ starting");
+  assertEquals(err[0], "◮ starting");
   assertEquals(err[1], "✓ done");
   assertEquals(err[2], "! careful");
-  assertEquals(err[3], "✗ oops");
+  assertEquals(err[3], "✕ oops");
   assertEquals(err[4], "  a detail");
 });
 
@@ -78,7 +78,7 @@ Deno.test("heading collapses onto an existing group boundary", async () => {
   assertEquals(out, []);
   // One blank line before each heading, never two — the boundary after "first"
   // and the heading's own leading line are the same sink-owned transition.
-  assertEquals(err, ["→ first", "", "Section", "", "Adjacent"]);
+  assertEquals(err, ["◮ first", "", "Section", "", "Adjacent"]);
 });
 
 Deno.test("line writes plain text to stdout", async () => {
@@ -102,7 +102,7 @@ Deno.test("group writes exactly one boundary between populated groups", async ()
     log.info("third");
   });
   assertEquals(out, []);
-  assertEquals(err, ["→ first", "", "→ second", "", "  ── Third", "→ third"]);
+  assertEquals(err, ["◮ first", "", "◮ second", "", "  ── Third", "◮ third"]);
 });
 
 Deno.test("Logger exposes package presentation facts without inline style wrappers", () => {
@@ -136,10 +136,10 @@ Deno.test("Logger narration styles come from injected package Token roles", asyn
     log.detail("detail");
   });
   assertEquals(err, [
-    `${terminal.tone("→", "accent")} starting`,
-    `${terminal.tone("✓", "success")} done`,
-    `${terminal.tone("!", "warning")} careful`,
-    `${terminal.tone("✗", "danger")} oops`,
+    terminal.presenter.note("starting"),
+    terminal.presenter.success("done"),
+    terminal.presenter.warning("careful"),
+    terminal.presenter.failure("oops"),
     "",
     terminal.role("Section", "strong"),
     `  ${terminal.role("detail", "muted")}`,
@@ -164,10 +164,10 @@ Deno.test("Logger narration makes hostile caller facts inert at the shared bound
 
   assertEquals(out, []);
   assertEquals(err, [
-    `→ ${safe}`,
+    `◮ ${safe}`,
     `✓ ${safe}`,
     `! ${safe}`,
-    `✗ ${safe}`,
+    `✕ ${safe}`,
     "",
     safe,
     `  ${safe}`,
@@ -201,7 +201,7 @@ Deno.test("Logger pre-composed package frames honor color mode and keep content 
   });
   assertStringIncludes(coloredFrame, "\x1b[");
   assertEquals(plainFrame.includes("\x1b["), false);
-  assertEquals(err, [coloredFrame, plainFrame, "✗ safe\nwrapped"]);
+  assertEquals(err, [coloredFrame, plainFrame, "✕ safe\nwrapped"]);
   assertEquals(out, ["content\nrow"]);
 });
 
