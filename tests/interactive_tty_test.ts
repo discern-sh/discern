@@ -46,7 +46,8 @@ interface HarnessRunOptions {
     readonly afterMs: number;
   };
   readonly noColor?: boolean;
-  readonly canonicalEofAfterMs?: number;
+  readonly canonicalEof?: boolean;
+  readonly interactionStartDelayMs?: number;
   readonly timeoutMs?: number;
 }
 
@@ -83,9 +84,11 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
         "--resize-after",
         String(options.resize.afterMs),
       ]),
-      ...(options.canonicalEofAfterMs === undefined
-        ? []
-        : ["--canonical-eof-after", String(options.canonicalEofAfterMs)]),
+      ...(options.canonicalEof === true ? ["--canonical-eof"] : []),
+      ...(options.interactionStartDelayMs === undefined ? [] : [
+        "--interaction-start-delay",
+        String(options.interactionStartDelayMs),
+      ]),
     ];
     const process = await runPtyProcess({
       command: Deno.execPath(),
@@ -516,12 +519,13 @@ Deno.test({
       runHarness({ scenario: "cancellation", input: keys("\x15\x03") }),
       runHarness({
         scenario: "cancellation",
-        canonicalEofAfterMs: 180,
+        canonicalEof: true,
+        // The terminal transition waits for a real read boundary even when
+        // parallel suite load delays interaction startup beyond old timers.
+        interactionStartDelayMs: 600,
         input: [
           {
             waitFor: "[canonical-eof-ready]",
-            // The fixture marker proves canonical mode is active before its
-            // single VEOF; no speculative second write can race process exit.
             steps: [{ bytes: "\x04" }],
           },
         ],

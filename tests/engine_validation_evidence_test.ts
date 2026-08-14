@@ -194,21 +194,35 @@ Deno.test("a stalled validation dependency cannot delay or replace the Gate verd
     await scaffoldEngine(dir);
     await writeConfig(dir, `[jobs]\ntest = "false"\n`);
     await gitInit(dir);
+    const cfg = await loadConfig(dir);
+    const validationCaptureOptions = {
+      limits: { timeMs: 20 },
+      keyProvider: () => new Promise<never>(() => {}),
+    };
     const started = performance.now();
-    const result = await finishResult(dir, {
-      surface: { kind: "quiet" },
-      confirmed: true,
-      validationCaptureOptions: {
-        limits: { timeMs: 20 },
-        keyProvider: () => new Promise(() => {}),
-      },
-    });
-    assertEquals(result.ok, false);
-    assertEquals(result.data?.failed_stage, "check/test");
+    const directCapture = await captureValidationStart(
+      dir,
+      cfg,
+      VALIDATION_RUNS.done,
+      checkTestGroups(cfg),
+      validationCaptureOptions,
+    );
     assert(
       performance.now() - started < 3_000,
       "validation recording must not impose its own five-second host stall",
     );
+    assert(
+      directCapture.state.incomplete?.some((entry) =>
+        entry.category === "budget" && entry.reason === "time-limit"
+      ),
+    );
+    const result = await finishResult(dir, {
+      surface: { kind: "quiet" },
+      confirmed: true,
+      validationCaptureOptions,
+    });
+    assertEquals(result.ok, false);
+    assertEquals(result.data?.failed_stage, "check/test");
     const validation = validationEvidence(result);
     assert(validation !== undefined);
     assertEquals(validation.state.complete, false);

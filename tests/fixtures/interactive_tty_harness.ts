@@ -17,6 +17,7 @@ import {
 import {
   DenoTerminalIO,
   requestTextarea,
+  type TerminalIO,
 } from "discern-design-system/cli/interactive";
 import {
   productionTerminalContext,
@@ -73,8 +74,15 @@ interface HarnessOptions {
   readonly noColor: boolean;
   readonly initialSize?: TerminalDimensions;
   readonly resize?: TerminalDimensions & { readonly delayMs: number };
+  readonly interactionStartDelayMs?: number;
   /** Make a literal VEOF produce a zero-byte PTY read while output stays open. */
-  readonly canonicalEofAfterMs?: number;
+  readonly canonicalEof: boolean;
+}
+
+interface CanonicalEofBoundary {
+  readonly io: TerminalIO;
+  readonly firstReadRequested: Promise<void>;
+  readonly allowCanonicalRead: () => void;
 }
 
 const LONG_ALPHA =
@@ -103,7 +111,7 @@ function parseOptions(args: readonly string[]): HarnessOptions {
   const initialSize = dimensions(argument(args, "--size"));
   const resizeSize = dimensions(argument(args, "--resize"));
   const resizeDelay = Number(argument(args, "--resize-after") ?? "100");
-  const canonicalEofAfter = argument(args, "--canonical-eof-after");
+  const interactionStartDelay = argument(args, "--interaction-start-delay");
   return {
     scenario,
     resultPath,
@@ -112,9 +120,44 @@ function parseOptions(args: readonly string[]): HarnessOptions {
     ...(resizeSize === undefined
       ? {}
       : { resize: { ...resizeSize, delayMs: resizeDelay } }),
-    ...(canonicalEofAfter === undefined
+    ...(interactionStartDelay === undefined
       ? {}
-      : { canonicalEofAfterMs: Number(canonicalEofAfter) }),
+      : { interactionStartDelayMs: Number(interactionStartDelay) }),
+    canonicalEof: args.includes("--canonical-eof"),
+  };
+}
+
+/** Hold the first terminal read until the harness has made it canonical. */
+function canonicalEofBoundary(): CanonicalEofBoundary {
+  const target = new DenoTerminalIO({});
+  let resolveReadRequest: (() => void) | undefined;
+  const firstReadRequested = new Promise<void>((resolve) => {
+    resolveReadRequest = resolve;
+  });
+  let resolveCanonicalRead: (() => void) | undefined;
+  const canonicalReadAllowed = new Promise<void>((resolve) => {
+    resolveCanonicalRead = resolve;
+  });
+  let firstRead = true;
+  const io: TerminalIO = {
+    isInteractive: () => target.isInteractive(),
+    capabilities: () => target.capabilities(),
+    size: () => target.size(),
+    read: async (): Promise<Uint8Array | null> => {
+      if (firstRead) {
+        firstRead = false;
+        resolveReadRequest?.();
+        await canonicalReadAllowed;
+      }
+      return await target.read();
+    },
+    setRawMode: (enabled) => target.setRawMode(enabled),
+    write: (value) => target.write(value),
+  };
+  return {
+    io,
+    firstReadRequested,
+    allowCanonicalRead: () => resolveCanonicalRead?.(),
   };
 }
 
@@ -149,7 +192,10 @@ function lineModeRestored(before: string, after: string): boolean {
   );
 }
 
-async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
+async function runScenario(
+  scenario: InteractiveTtyScenario,
+  io?: TerminalIO,
+): Promise<unknown> {
   switch (scenario) {
     case "text":
       return await requestText({
@@ -452,7 +498,10 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
         },
       });
     case "cancellation":
-      return await requestText("Cancel this question");
+      return await requestText(
+        "Cancel this question",
+        io === undefined ? {} : { io },
+      );
   }
 }
 
@@ -469,6 +518,9 @@ async function main(args: readonly string[]): Promise<void> {
   const beforeDescription = await stty(["-a"]);
   const initialSize = consoleSize();
   setTerminalContext(productionTerminalContext({ noColor: options.noColor }));
+  const eofBoundary = options.canonicalEof
+    ? canonicalEofBoundary()
+    : undefined;
 
   let resizedSize: TerminalDimensions | undefined;
   const resize = options.resize === undefined
@@ -482,25 +534,29 @@ async function main(args: readonly string[]): Promise<void> {
       resizedSize = consoleSize();
       console.log("[resize-ready]");
     })();
-  const canonicalEof = options.canonicalEofAfterMs === undefined
+  const canonicalEof = eofBoundary === undefined
     ? undefined
     : (async (): Promise<void> => {
-      await new Promise((resolve) =>
-        setTimeout(resolve, options.canonicalEofAfterMs)
-      );
+      await eofBoundary.firstReadRequested;
       // A PTY master cannot be half-closed while its transcript remains
       // readable. Canonical VEOF is the system-level equivalent: the next ^D
       // makes the production DenoTerminalIO read return end-of-input.
       await stty(["icanon"]);
+      eofBoundary.allowCanonicalRead();
       console.log("[canonical-eof-ready]");
     })();
 
   let result: Omit<InteractiveTtyResult, "terminal">;
   try {
+    if ((options.interactionStartDelayMs ?? 0) > 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, options.interactionStartDelayMs)
+      );
+    }
     result = {
       scenario: options.scenario,
       outcome: "value",
-      value: await runScenario(options.scenario),
+      value: await runScenario(options.scenario, eofBoundary?.io),
     };
   } catch (error) {
     result = isInteractionCancelled(error)
