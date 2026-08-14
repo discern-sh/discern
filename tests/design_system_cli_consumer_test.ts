@@ -23,9 +23,10 @@ import {
   type TerminalIO,
   type TerminalSize,
 } from "discern-design-system/cli/interactive";
+import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.14.0";
+const SELECTED_VERSION = "0.15.0";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
@@ -140,7 +141,7 @@ function resolvedEdge(info: DenoInfo, specifier: string): string {
   return info.redirects?.[specifier] ?? specifier;
 }
 
-Deno.test("the selected release exposes all three public consumer graphs", async () => {
+Deno.test("the selected release exposes all four public consumer graphs", async () => {
   const config = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.json")),
   ) as DenoConfig;
@@ -163,6 +164,10 @@ Deno.test("the selected release exposes all three public consumer graphs", async
   assertEquals(
     renderBadgeCli({ label: "Published", tone: "success" }, capabilities),
     "[Published]",
+  );
+  assertStringIncludes(
+    projectTerminalHtml("\x1b[1mPublished\x1b[0m"),
+    "font-weight:700",
   );
 
   const persona = "Terminal contract audit with complete identity";
@@ -295,17 +300,17 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
     "Proceed [active]\n" +
       "┌──────────────────────────────────────┐\n" +
       "│› Keep waiting ●──○ Deploy now        │\n" +
-      "└──────────────────────────────────────┘",
+      "└──────────────────────────────────────┘\n",
   );
   assertEquals(
     confirm(true),
     "Proceed [active]\n" +
       "┌──────────────────────────────────────┐\n" +
       "│› Keep waiting ○──● Deploy now        │\n" +
-      "└──────────────────────────────────────┘",
+      "└──────────────────────────────────────┘\n",
   );
   for (const value of [false, true]) {
-    const frame = confirm(value).split("\n").slice(1);
+    const frame = confirm(value).split("\n").slice(1, -1);
     assertEquals(frame.map(measureText), [40, 40, 40]);
   }
 
@@ -326,7 +331,7 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
       "┌──────────────────────────────────────┐\n" +
       "│› ○ One                               │\n" +
       "│  ◉ Two                               │\n" +
-      "└──────────────────────────────────────┘",
+      "└──────────────────────────────────────┘\n",
   );
 
   const resultGroup = renderResultSummaryGroupCli({
@@ -351,8 +356,12 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
     width: 40,
   }, capabilities);
   const textareaLines = textarea.split("\n");
-  assertEquals(textareaLines.length, 15);
-  assertEquals(textareaLines.slice(1).map(measureText), Array(14).fill(40));
+  assertEquals(textareaLines.length, 16);
+  assertEquals(textareaLines[textareaLines.length - 1], "");
+  assertEquals(
+    textareaLines.slice(1, -1).map(measureText),
+    Array(14).fill(40),
+  );
   assertStringIncludes(textarea, "line 1");
   assertStringIncludes(textarea, "line 12");
 });
@@ -390,7 +399,8 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
       .filter((dependency) =>
         dependency.specifier === "discern-design-system" ||
         dependency.specifier === "discern-design-system/cli" ||
-        dependency.specifier === "discern-design-system/cli/interactive"
+        dependency.specifier === "discern-design-system/cli/interactive" ||
+        dependency.specifier === "discern-design-system/cli/projection"
       )
       .flatMap((dependency) =>
         dependency.code === undefined ? [] : [
@@ -405,6 +415,7 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
     "discern-design-system",
     "discern-design-system/cli",
     "discern-design-system/cli/interactive",
+    "discern-design-system/cli/projection",
   ]);
   const allowedOrigin =
     `https://jsr.io/@discern-sh/design-system/${SELECTED_VERSION}/`;

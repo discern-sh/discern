@@ -30,7 +30,11 @@ import { JSDOM } from "jsdom";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
-const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.14.0";
+const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.15.0";
+// Release 0.15.0 adds Activity Log to the package-wide Component catalogue,
+// while the selected browser-runtime registry remains the pre-existing set.
+// Keep that observed difference exact so another omission cannot ride along.
+const NON_RUNTIME_COMPONENTS = new Set(["activity-log"]);
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -191,8 +195,8 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
   const lock = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   ) as DenoLock;
-  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.14.0");
-  assert("@discern-sh/design-system@0.14.0" in lock.jsr);
+  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.15.0");
+  assert("@discern-sh/design-system@0.15.0" in lock.jsr);
 
   const sourceFiles = (await walk(SITE_ROOT)).filter((path) =>
     /\.[cm]?[jt]sx?$/.test(path)
@@ -241,7 +245,15 @@ Deno.test("each emitted bundle is the dependency closure of the site selection",
     const runtime = await bundleManifest(name);
     const resolved = resolvedSelection(name);
     assertEquals(runtime.package, packageManifest.package);
-    assertEquals(runtime.groups, packageManifest.groups);
+    assertEquals(
+      runtime.groups,
+      packageManifest.groups.map((group) => ({
+        ...group,
+        components: group.components.filter((id) =>
+          !NON_RUNTIME_COMPONENTS.has(id)
+        ),
+      })),
+    );
     assertEquals(
       runtime.components,
       resolved.map((id) => {
