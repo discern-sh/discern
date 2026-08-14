@@ -418,6 +418,94 @@ Deno.test("search restores a stable initial choice through duplicate labels", as
   assertEquals(io.rawTransitions, [true, false]);
 });
 
+/** Twenty zero-padded choices, so window edges are visible as exact labels. */
+function manyChoices(): { name: string; value: string }[] {
+  return Array.from({ length: 20 }, (_, index) => ({
+    name: `Choice ${String(index).padStart(2, "0")}`,
+    value: `choice-${index}`,
+  }));
+}
+
+Deno.test("a tall terminal fills the choice window instead of the package default", async () => {
+  const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 });
+  const value = await requestSelection({
+    message: "Choose",
+    options: manyChoices(),
+  }, scriptedRuntime(io));
+  assertEquals(value, "choice-0");
+  const transcript = io.writes.join("");
+  assertStringIncludes(transcript, "Choice 00");
+  assertStringIncludes(transcript, "Choice 19");
+});
+
+Deno.test("reservedRows subtracts the caller's composition from the derived budget", async () => {
+  const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 });
+  await requestSelection({
+    message: "Choose",
+    options: manyChoices(),
+    reservedRows: 30,
+  }, scriptedRuntime(io));
+  const transcript = io.writes.join("");
+  // 40 rows - 30 reserved - 1 boundary row = a nine-row window.
+  assertStringIncludes(transcript, "Choice 08");
+  assertEquals(transcript.includes("Choice 09"), false);
+});
+
+Deno.test("maxRows stays a hard ceiling below the derived budget", async () => {
+  const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 });
+  await requestSelection({
+    message: "Choose",
+    options: manyChoices(),
+    maxRows: 3,
+  }, scriptedRuntime(io));
+  const transcript = io.writes.join("");
+  assertStringIncludes(transcript, "Choice 02");
+  assertEquals(transcript.includes("Choice 03"), false);
+});
+
+Deno.test("over-reserved compositions keep at least the minimum derived window", async () => {
+  const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 });
+  await requestSelection({
+    message: "Choose",
+    options: manyChoices(),
+    reservedRows: 90,
+  }, scriptedRuntime(io));
+  const transcript = io.writes.join("");
+  assertStringIncludes(transcript, "Choice 04");
+  assertEquals(transcript.includes("Choice 05"), false);
+});
+
+Deno.test("a short terminal degrades through package fitting, never overflowing", async () => {
+  const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 8 });
+  const value = await requestSelection({
+    message: "Choose",
+    options: manyChoices(),
+    hint: "Use the arrow keys to move and Enter to choose.",
+  }, scriptedRuntime(io));
+  assertEquals(value, "choice-0");
+  for (const write of io.writes) {
+    const painted = write.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "");
+    const lines = painted === "" ? 0 : painted.split("\n").length;
+    assertEquals(
+      lines <= 8,
+      true,
+      `a painted frame must fit the 8-row terminal:\n${JSON.stringify(write)}`,
+    );
+  }
+});
+
+Deno.test("the multi-selection window derives from the viewport and reservation", async () => {
+  const io = new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 });
+  await requestSelections({
+    message: "Choose",
+    options: manyChoices(),
+    reservedRows: 30,
+  }, scriptedRuntime(io));
+  const transcript = io.writes.join("");
+  assertStringIncludes(transcript, "Choice 08");
+  assertEquals(transcript.includes("Choice 09"), false);
+});
+
 Deno.test("unknown select, search, and multi-select defaults fail before raw mode", async () => {
   const single = new ScriptedTerminal(["\r"]);
   await assertRejects(

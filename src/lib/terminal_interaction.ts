@@ -37,7 +37,7 @@ import {
   type HumanOutputGroup,
   populatedHumanOutputGroups,
 } from "../shared/result.ts";
-import { terminalContext, terminalLine } from "./terminal.ts";
+import { terminalContext, terminalLine, terminalSize } from "./terminal.ts";
 
 /** Process-wide CLI choice set once by `main` from the global `--plain` flag. */
 let plainMode = false;
@@ -161,7 +161,11 @@ export interface SelectionRequestOptions<T> {
   /** Use the package search request rather than a static selection request. */
   readonly search?: boolean;
   readonly searchLabel?: string;
+  /** Hard ceiling on visible choice rows, below the viewport-derived budget. */
   readonly maxRows?: number;
+  /** Rows the caller's own composition occupies above this request; the
+   * derived visible-row budget subtracts them from the live terminal height. */
+  readonly reservedRows?: number;
 }
 
 /** Framework-neutral options for one product multi-selection request. */
@@ -174,7 +178,11 @@ export interface SelectionsRequestOptions<T> {
   readonly validate?: (
     value: readonly T[],
   ) => MaybePromise<InteractionValidation>;
+  /** Hard ceiling on visible choice rows, below the viewport-derived budget. */
   readonly maxRows?: number;
+  /** Rows the caller's own composition occupies above this request; the
+   * derived visible-row budget subtracts them from the live terminal height. */
+  readonly reservedRows?: number;
 }
 
 /** Framework-neutral options for one product text request. */
@@ -251,6 +259,42 @@ export function groupedSelectionEntries<T>(
       ...group.items,
     ];
   });
+}
+
+/** Never derive a visible-row budget narrower than the package's own default
+ * window, so a mis-measured composition can only widen a menu, not crush it. */
+const MINIMUM_DERIVED_INTERACTION_ROWS = 5;
+
+/** The one leading boundary row {@link withInteractionBoundary} writes. */
+const INTERACTION_BOUNDARY_ROWS = 1;
+
+/**
+ * Resolve the visible-row budget for one choice request from the live terminal
+ * height at request time: the injected interaction io when a harness supplies
+ * one, otherwise the shared process adapter. The caller's `maxRows` remains a
+ * hard ceiling and keeps its package validation; `reservedRows` subtracts the
+ * caller's own composition rows so a tall terminal fills with choices while a
+ * short one degrades exactly as the package's per-frame fitting provides.
+ */
+function visibleRowBudget(
+  options: { readonly maxRows?: number; readonly reservedRows?: number },
+  runtime: TerminalInteractionRuntime,
+): number {
+  const injected = runtime.io?.size().rows;
+  const rows = Number.isFinite(injected) && (injected ?? 0) > 0
+    ? Math.floor(injected as number)
+    : terminalSize().rows;
+  const reserved =
+    Number.isFinite(options.reservedRows) && (options.reservedRows ?? 0) > 0
+      ? Math.floor(options.reservedRows as number)
+      : 0;
+  const derived = Math.max(
+    MINIMUM_DERIVED_INTERACTION_ROWS,
+    rows - reserved - INTERACTION_BOUNDARY_ROWS,
+  );
+  return options.maxRows === undefined
+    ? derived
+    : Math.min(options.maxRows, derived);
 }
 
 /** Refuse a named interaction unless terminal input and output are available. */
@@ -546,7 +590,7 @@ export async function requestSelection<T>(
       validate: async (value: T | undefined): Promise<string | undefined> =>
         value === undefined ? undefined : await validate(value),
     }),
-    ...(options.maxRows === undefined ? {} : { visibleCount: options.maxRows }),
+    visibleCount: visibleRowBudget(options, runtime),
   };
   const value = options.search === true
     ? await runInteractionRequest(packageRequestSearch<T>, {
@@ -555,9 +599,7 @@ export async function requestSelection<T>(
       ...(shared.hint === undefined ? {} : { hint: shared.hint }),
       ...(shared.required === undefined ? {} : { required: shared.required }),
       ...(shared.validate === undefined ? {} : { validate: shared.validate }),
-      ...(shared.visibleCount === undefined
-        ? {}
-        : { visibleCount: shared.visibleCount }),
+      visibleCount: shared.visibleCount,
       ...(options.searchLabel === undefined
         ? {}
         : { placeholder: terminalLine(options.searchLabel) }),
@@ -614,7 +656,7 @@ export async function requestSelections<T>(
     initialIds: [...initialIds],
     ...(options.hint === undefined ? {} : { hint: terminalLine(options.hint) }),
     validate,
-    ...(options.maxRows === undefined ? {} : { visibleCount: options.maxRows }),
+    visibleCount: visibleRowBudget(options, runtime),
   }, runtime);
   return [...values];
 }
