@@ -361,6 +361,97 @@ Deno.test({
   },
 });
 
+const CLEAR_SEQUENCE = `${CSI}2J${CSI}H`;
+
+/** Painted box-body heights of every active frame, one list per cleared screen. */
+function activeWindowHeights(transcript: string): number[][] {
+  return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) =>
+    screen.split(`${CSI}1G`).flatMap((frame) => {
+      if (!frame.includes("[active]")) return [];
+      return [
+        stripCsiSequences(frame)
+          .split(/\r?\n/u)
+          .filter((line) => line.startsWith("│"))
+          .length,
+      ];
+    })
+  );
+}
+
+const COMPOSED_CYCLE_INPUT: PtyInputPhase[] = Array.from(
+  { length: 3 },
+  (): PtyInputPhase[] => [
+    {
+      waitFor: ["Choose a task or action", "[active]"],
+      steps: [{ bytes: "\x1b[B" }, { delayMs: 20, bytes: "\r" }],
+    },
+    {
+      waitFor: ["Choose an action", "[active]"],
+      steps: [{ bytes: "\x1b[F" }, { delayMs: 20, bytes: "\r" }],
+    },
+  ],
+).flat();
+
+const COMPOSED_CYCLE_VALUES = ["task-1", "back", "task-1", "back", "task-1", "back"];
+
+Deno.test({
+  name:
+    "a tall terminal keeps every composed menu window full across repeated cycles",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const run = await runHarness({
+      scenario: "composed-viewport-cycles",
+      size: { columns: 80, rows: 44 },
+      input: COMPOSED_CYCLE_INPUT,
+      timeoutMs: 15_000,
+    });
+    assertValue(run, COMPOSED_CYCLE_VALUES);
+    const heights = activeWindowHeights(run.process.transcript);
+    assertEquals(heights.length, 6, run.process.transcript);
+    for (const [screen, frames] of heights.entries()) {
+      const expected = screen % 2 === 0 ? 14 : 9;
+      for (const height of frames) {
+        assertEquals(
+          height,
+          expected,
+          `screen ${screen + 1} painted a ${height}-row window where the ` +
+            `full ${expected}-entry list fits the 44-row terminal:\n` +
+            `heights=${JSON.stringify(heights)}`,
+        );
+      }
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "a short terminal degrades composed menus once and holds them across cycles",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const run = await runHarness({
+      scenario: "composed-viewport-cycles",
+      size: { columns: 80, rows: 12 },
+      input: COMPOSED_CYCLE_INPUT,
+      timeoutMs: 15_000,
+    });
+    assertValue(run, COMPOSED_CYCLE_VALUES);
+    const heights = activeWindowHeights(run.process.transcript);
+    assertEquals(heights.length, 6, run.process.transcript);
+    const boardCycles = [heights[0], heights[2], heights[4]];
+    const actionCycles = [heights[1], heights[3], heights[5]];
+    for (const cycles of [boardCycles, actionCycles]) {
+      for (const frames of cycles) {
+        assertEquals(
+          JSON.stringify(frames),
+          JSON.stringify(cycles[0]),
+          `repeated cycles must paint identical window heights:\n` +
+            `heights=${JSON.stringify(heights)}`,
+        );
+      }
+    }
+  },
+});
+
 Deno.test({
   name:
     "a tall Textarea fits the real 16-row viewport and restores the terminal",

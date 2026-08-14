@@ -1589,6 +1589,21 @@ function presentationProbeFindings(
 const LEGACY_PALETTE_PATTERN =
   /\b(?:out\.c|c)\.(?:reset|bold|dim|red|green|yellow|cyan)\b/gu;
 
+/**
+ * A compile-time numeric row budget on an interaction request sizes a menu
+ * for no terminal in particular — the class behind the crushed board windows.
+ * The interaction authority derives every budget from the live viewport at
+ * request time; callers reserve their own composition rows via reservedRows
+ * and may only ceiling with a derived value. A budget routed through a named
+ * numeric constant escapes this text detector; the real-PTY window journey in
+ * interactive_tty_test.ts is the behavioral backstop for that residual.
+ */
+function constantRowBudgetFindings(rel: string, source: string): Finding[] {
+  return /\bmaxRows\s*:\s*\d/u.test(codeOnly(source))
+    ? [{ file: rel, rule: "constant-interaction-row-budget" }]
+    : [];
+}
+
 Deno.test("terminal interaction reserves prompt vocabulary for agent instructions", async () => {
   const reservedTerm = "pro" + "mpt";
   const pattern = new RegExp(reservedTerm, "iu");
@@ -1660,6 +1675,22 @@ Deno.test("terminal boundary detectors reject unrelated future source", () => {
         "const pictograph = /Extended_Pictographic/u;",
     ).map((finding) => finding.rule).toSorted(),
     ["Intl-Segmenter", "extended-pictographic", "local-grapheme-width"],
+  );
+  assertEquals(
+    constantRowBudgetFindings(
+      "src/engine/orbit/view.ts",
+      "const flavor = await requestFlavor({ label, maxRows: 12 });",
+    ).map((finding) => finding.rule),
+    ["constant-interaction-row-budget"],
+    "an unrelated future request with a literal row budget must be rejected",
+  );
+  assertEquals(
+    constantRowBudgetFindings(
+      "src/engine/orbit/view.ts",
+      "const flavor = await requestFlavor({ label, reservedRows: header });",
+    ),
+    [],
+    "a reservation derived from the caller's own composition stays legal",
   );
 });
 
@@ -2101,10 +2132,11 @@ Deno.test("authored terminal outlaw is zero and exceptions remain exact", async 
     );
   }
   for (const rel of RUNTIME_TS_FILES) {
-    findings.push(...legacyTypeApiFindings(
-      rel,
-      await Deno.readTextFile(join(REPO_ROOT, rel)),
-    ));
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    findings.push(
+      ...legacyTypeApiFindings(rel, source),
+      ...constantRowBudgetFindings(rel, source),
+    );
   }
   assertEquals(unappliedOutlawFindings(findings), []);
 

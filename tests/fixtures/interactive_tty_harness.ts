@@ -33,6 +33,7 @@ export type InteractiveTtyScenario =
   | "search"
   | "search-default"
   | "repeated-viewport"
+  | "composed-viewport-cycles"
   | "textarea-tall"
   | "multiselect"
   | "multiselect-default"
@@ -294,6 +295,103 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
           maxRows: 16,
         }),
       ];
+    }
+    case "composed-viewport-cycles": {
+      // A board-shaped composition: each cycle clears the screen, paints a
+      // header, opens a grouped board menu that reserves the header's rows,
+      // then clears again for a preamble and a grouped action menu. The
+      // parent test asserts every window's painted height stays full and
+      // constant across cycles.
+      const encoder = new TextEncoder();
+      const raw = (value: string): void => {
+        const bytes = encoder.encode(value);
+        let offset = 0;
+        while (offset < bytes.length) {
+          offset += Deno.stdout.writeSync(bytes.subarray(offset));
+        }
+      };
+      const boardOptions = groupedSelectionEntries([
+        {
+          id: "tasks",
+          label: "Tasks · 6",
+          items: Array.from({ length: 6 }, (_, index) => ({
+            id: `task-${index}`,
+            name: `task-${index}  ahead ${index} · clean`,
+            value: `task-${index}`,
+          })),
+        },
+        {
+          id: "board-actions",
+          label: "Board",
+          items: [
+            { id: "start", name: "Start a task", value: "start" },
+            { id: "scripts", name: "Run a script", value: "scripts" },
+            { id: "docs", name: "Read the docs", value: "docs" },
+          ],
+        },
+        {
+          id: "session-actions",
+          label: "Session",
+          items: [
+            { id: "refresh", name: "Refresh", value: "refresh" },
+            { id: "quit", name: "Quit", value: "quit" },
+          ],
+        },
+      ]);
+      const actionOptions = groupedSelectionEntries([
+        {
+          id: "work",
+          label: "Work",
+          items: [
+            { id: "agent", name: "Open with an agent", value: "agent" },
+            { id: "shell", name: "Open a shell", value: "shell" },
+            { id: "gate", name: "Run the gate", value: "gate" },
+          ],
+        },
+        {
+          id: "landing",
+          label: "Landing",
+          items: [
+            { id: "accept", name: "Accept onto main", value: "accept" },
+            { id: "drop", name: "Drop this task", value: "drop" },
+          ],
+        },
+        {
+          id: "navigation",
+          label: "Task",
+          items: [{ id: "back", name: "Back", value: "back" }],
+        },
+      ]);
+      const values: unknown[] = [];
+      for (let cycle = 1; cycle <= 3; cycle += 1) {
+        raw("\x1b[2J\x1b[H");
+        raw(`board | cycle ${cycle}\n`);
+        raw("  6 tasks  ·  main clean\n");
+        raw("  ✦ Tip  A header line the board menu must keep visible.\n");
+        raw("         Its continuation hangs under the tip label.\n");
+        raw("\n");
+        values.push(
+          await requestSelection({
+            message: "Choose a task or action",
+            options: boardOptions,
+            hint: "Use the arrow keys to move and Enter to choose.",
+            reservedRows: 6,
+          }),
+        );
+        raw("\x1b[2J\x1b[H");
+        raw("task-1\n");
+        raw("  ahead 1 · clean\n");
+        raw("  Branch agent/task-1\n");
+        values.push(
+          await requestSelection({
+            message: "Choose an action",
+            options: actionOptions,
+            hint: "Use the arrow keys to move and Enter to choose.",
+            reservedRows: 4,
+          }),
+        );
+      }
+      return values;
     }
     case "textarea-tall": {
       const initialValue = Array.from(
