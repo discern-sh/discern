@@ -468,6 +468,7 @@ async function runGate(
     gotchasTail: GotchasFailureTail | undefined;
     liveTable: boolean;
     outputWithheld: boolean;
+    presentationWritable: boolean;
   }
 > {
   // Pin the tree identity FIRST — before any precondition or job reads it. A green
@@ -487,13 +488,12 @@ async function runGate(
     !json &&
     !cfg.gate.stream
   ) {
-    // Admission must remain pure so the merge check below is still the first
-    // repository observation. Include every declared scope gate in the fit
-    // candidate; the authoritative post-fixer classification replaces these
-    // stage-only groups immediately before any scope gate can run.
+    // Admission remains pure so the merge check below is still the first
+    // repository observation. Later groups and viewport changes re-enter the
+    // same full/compact/continuous policy through the controller.
     const admission = gateLiveAdmissionGroups(cfg, dryRunStandardJobs(cfg));
     if (
-      gateTtyProgressCanRepaint(admission.maximumGroups, {
+      gateTtyProgressCanRepaint(admission.initialGroups, {
         width: presentation.liveWidth,
         terminal: presentation.terminal,
       })
@@ -502,17 +502,23 @@ async function runGate(
     }
   }
   const compactTty = liveGroups !== undefined;
-  // A regular human run narrates jobs to stdout. The compact done TTY withholds
-  // routine logs while its table observes scheduler events; explicit
+  // A regular human run narrates jobs to stdout. A live done TTY defers the
+  // ordinary transcript until its replaceable region is finished; explicit
   // [gate].stream keeps the command-output path. --json silences both the runner
   // and Out because the envelope is the entire output (ADR 0030). The shared run
   // context is also the one `prepare`/`test` use.
-  const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal, {
-    quietHumanRun: compactTty,
-    ...(presentation.terminal === undefined
-      ? {}
-      : { terminal: presentation.terminal }),
-  });
+  const { runOpts, out, runOut, flushDeferredOutput, slots } = gateRunContext(
+    root,
+    cfg,
+    json,
+    signal,
+    {
+      deferHumanRun: compactTty,
+      ...(presentation.terminal === undefined
+        ? {}
+        : { terminal: presentation.terminal }),
+    },
+  );
   const progress = compactTty && presentation.liveWidth !== undefined
     ? createGateTtyProgress(out.raw, {
       width: presentation.liveWidth,
@@ -523,10 +529,6 @@ async function runGate(
     runOpts.observer = progress;
     progress.start(liveGroups ?? []);
   }
-  const runOut = compactTty
-    ? makeOut(out.color, { quiet: true, terminal: out.terminal })
-    : out;
-
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;
   let writeAuthority: AdminStateWriteAuthority | undefined;
@@ -1271,7 +1273,9 @@ async function runGate(
       completeValidationEvidence(validation, result.steps),
     );
   }
-  progress?.complete(result.steps ?? [], result.data?.standards ?? []);
+  progress?.complete(result.steps ?? []);
+  const liveWriteFailed = progress?.writeFailed() ?? false;
+  const deferredOutputFlushed = liveWriteFailed ? false : flushDeferredOutput();
   return {
     result,
     failedStage,
@@ -1279,8 +1283,11 @@ async function runGate(
     out,
     changed,
     gotchasTail,
-    liveTable: progress?.renderedFinal() ?? false,
-    outputWithheld: compactTty,
+    // The live region is intentionally compact at completion. The detailed
+    // final table is always rendered once below it by the human caller.
+    liveTable: false,
+    outputWithheld: compactTty && !deferredOutputFlushed,
+    presentationWritable: !liveWriteFailed && deferredOutputFlushed,
   };
 }
 
@@ -1657,7 +1664,8 @@ export async function finishResult(
       : {}),
   });
   if (
-    ttyWidth !== undefined && !gate.liveTable && !gate.cfg.gate.stream
+    gate.presentationWritable && ttyWidth !== undefined && !gate.liveTable &&
+    !gate.cfg.gate.stream
   ) {
     gate.out.group("gate-results");
     gate.out.raw(
@@ -1735,11 +1743,25 @@ export async function runFinish(
     gotchasTail,
     liveTable,
     outputWithheld,
+    presentationWritable,
   } = gate;
   observeResult(result); // the logbook recorder lifts step timings from it
   if (opts.json) {
     emitResult(result);
     return failedStage === null ? 0 : 1;
+  }
+  if (!presentationWritable) return failedStage === null ? 0 : 1;
+  const finalTableRendered = ttyWidth !== undefined && !cfg.gate.stream;
+  if (finalTableRendered && ttyWidth !== undefined) {
+    out.group("gate-results");
+    out.raw(
+      `${
+        renderGateTtyTable(result.steps ?? [], {
+          width: ttyWidth,
+          terminal: out.terminal,
+        }, result.data?.standards ?? [])
+      }\n`,
+    );
   }
   if (failedStage !== null) {
     const headline = interactiveHintTexts(result.hints)[0] ??
@@ -1750,7 +1772,7 @@ export async function runFinish(
       diagnostics: result.diagnostics ?? [],
       failedStage,
       gotchas: gotchasTail,
-      // The live table quiets the runner, so the tail carries the output.
+      // A failed deferred flush lets the diagnostic retain the captured output.
       outputWithheld,
     });
     renderSlotWait(out, result.waitedMs);
@@ -1761,7 +1783,7 @@ export async function runFinish(
     out,
     result,
     ttyWidth,
-    liveTable,
+    finalTableRendered || liveTable,
   );
   return 0;
 }

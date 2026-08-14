@@ -76,7 +76,7 @@ export type GateJobPresentationStatus =
   | "running";
 
 /** One job fact after Discern has decided its meaning. */
-interface GateJobPresentation {
+export interface GateJobPresentation {
   readonly group: string;
   readonly label: string;
   readonly command: string;
@@ -86,6 +86,39 @@ interface GateJobPresentation {
   /** Explicit live duration supplied by the effectful controller. */
   readonly elapsedS?: number;
 }
+
+/** Product grammar sharing one live dashboard without conflating Gate and test. */
+export type GateLiveDashboardKind = "gate" | "test";
+
+/** Exhaustive aggregate states shown by full, compact, and continuous views. */
+export type GateLiveDashboardState =
+  | "active"
+  | "failed"
+  | "cancelled"
+  | "complete";
+
+/** Pure scheduler projection consumed by every live presentation mode. */
+export interface GateLiveDashboard {
+  readonly kind: GateLiveDashboardKind;
+  readonly state: GateLiveDashboardState;
+  readonly jobs: readonly GateJobPresentation[];
+  readonly running: readonly GateJobPresentation[];
+  readonly completed: number;
+  readonly failed: number;
+  readonly cancelled: number;
+  readonly remaining: number;
+  readonly total: number;
+  readonly elapsedS: number;
+}
+
+const LIVE_DASHBOARD_RESULT_STATE = {
+  active: "changed",
+  failed: "failed",
+  cancelled: "blocked",
+  complete: "passed",
+} as const satisfies Readonly<
+  Record<GateLiveDashboardState, ResultSummaryCliProps["state"]>
+>;
 
 /** Exhaustive status mapping into the package workflow vocabulary. */
 export const GATE_JOB_STEP_STATUS = {
@@ -414,49 +447,169 @@ function renderJobRun(
   return [procedure, ...commands].join("\n\n");
 }
 
+/** Build aggregate dashboard facts from an already-projected job collection. */
+export function gateLiveDashboard(
+  jobs: readonly GateJobPresentation[],
+  kind: GateLiveDashboardKind,
+  elapsedS: number,
+): GateLiveDashboard {
+  const completed = jobs.filter((row) => statusSettled(row.status)).length;
+  const failed = jobs.filter((row) => row.status === "failed").length;
+  const cancelled = jobs.filter((row) => row.status === "cancelled").length;
+  const remaining = jobs.length - completed;
+  const state: GateLiveDashboardState = failed > 0
+    ? "failed"
+    : cancelled > 0
+    ? "cancelled"
+    : remaining === 0
+    ? "complete"
+    : "active";
+  return {
+    kind,
+    state,
+    jobs,
+    running: jobs.filter((row) => row.status === "running"),
+    completed,
+    failed,
+    cancelled,
+    remaining,
+    total: jobs.length,
+    elapsedS: Math.max(0, Math.floor(elapsedS)),
+  };
+}
+
+/** The product noun and meter label for one shared live grammar. */
+function dashboardSubject(kind: GateLiveDashboardKind): {
+  readonly noun: string;
+  readonly label: string;
+  readonly empty: string;
+} {
+  return kind === "test"
+    ? {
+      noun: "Test",
+      label: "Test progress",
+      empty: "No test job is configured, so no project command ran.",
+    }
+    : {
+      noun: "Gate",
+      label: "Gate progress",
+      empty: "No Gate job is configured, so no project command ran.",
+    };
+}
+
 /** Render aggregate progress and every ordered job fact through package Components. */
-export function renderGateJobs(
-  rows: readonly GateJobPresentation[],
+export function renderGateFullDashboard(
+  dashboard: GateLiveDashboard,
   options: GatePresentationOptions,
 ): string {
   const capabilities = componentCapabilities(options);
   const theme = componentTheme(options);
-  if (rows.length === 0) {
+  const subject = dashboardSubject(dashboard.kind);
+  if (dashboard.jobs.length === 0) {
     return renderResultSummaryCli({
       state: "unchanged",
-      fact: "No Gate job is configured, so no project command ran.",
+      fact: safeLine(subject.empty),
       theme,
       maxWidth: capabilities.columns,
     }, capabilities);
   }
-  const completed = rows.filter((row) => statusSettled(row.status)).length;
-  const failed = rows.some((row) => row.status === "failed");
-  const cancelled = !failed && rows.some((row) => row.status === "cancelled");
-  const lifecycle = failed
-    ? { status: "validation-error" as const, message: "A Gate job failed." }
-    : cancelled
-    ? { status: "cancelled" as const, reason: "The Gate run was cancelled." }
-    : completed === rows.length
+  const lifecycle = dashboard.state === "failed"
+    ? {
+      status: "validation-error" as const,
+      message: safeLine(
+        dashboard.kind === "test" ? "Tests failed." : "A Gate job failed.",
+      ),
+    }
+    : dashboard.state === "cancelled"
+    ? {
+      status: "cancelled" as const,
+      reason: safeLine(
+        dashboard.kind === "test"
+          ? "The test run was cancelled."
+          : "The Gate run was cancelled.",
+      ),
+    }
+    : dashboard.state === "complete"
     ? { status: "submitted" as const }
     : { status: "active" as const };
-  const reading = `${completed} / ${rows.length} steps settled`;
-  const readingFits = `Gate progress  ${reading}`.length <=
-    capabilities.columns;
   const progress = renderMeterCli({
     kind: "determinate-progress",
-    label: "Gate progress",
+    label: safeLine(subject.label),
     lifecycle,
-    completed,
-    total: rows.length,
-    ...(readingFits ? { reading: safeLine(reading) } : {}),
-    tone: failed ? "danger" : cancelled ? "warning" : "neutral",
+    completed: dashboard.completed,
+    total: dashboard.total,
+    tone: dashboard.state === "failed"
+      ? "danger"
+      : dashboard.state === "cancelled"
+      ? "warning"
+      : "neutral",
     theme,
     width: capabilities.columns,
   }, capabilities);
   return [
     progress,
-    ...jobRuns(rows).map((run) => renderJobRun(run, options)),
+    ...jobRuns(dashboard.jobs).map((run) => renderJobRun(run, options)),
   ].join("\n\n");
+}
+
+/** Render the intentionally small live view: aggregate facts plus active jobs. */
+export function renderGateCompactDashboard(
+  dashboard: GateLiveDashboard,
+  options: GatePresentationOptions,
+): string {
+  const capabilities = componentCapabilities(options);
+  const subject = dashboardSubject(dashboard.kind);
+  if (dashboard.total === 0) {
+    return renderResultSummaryCli({
+      state: "unchanged",
+      fact: safeLine(subject.empty),
+      theme: componentTheme(options),
+      maxWidth: capabilities.columns,
+    }, capabilities);
+  }
+  const running = dashboard.running.map((row) => row.label);
+  const activity = running.length === 0
+    ? dashboard.state === "active"
+      ? "Waiting for the next job to start."
+      : `The ${subject.noun.toLowerCase()} has no running job.`
+    : running.length === 1
+    ? `Running: ${running[0] ?? "(unknown)"}.`
+    : `Running concurrently: ${running.join(", ")}.`;
+  const status = dashboard.state === "active"
+    ? "active"
+    : dashboard.state === "failed"
+    ? "failed"
+    : dashboard.state === "cancelled"
+    ? "cancelled"
+    : "complete";
+  return renderResultSummaryCli({
+    state: LIVE_DASHBOARD_RESULT_STATE[dashboard.state],
+    fact: safeLine(
+      `${subject.noun} ${status} · ${dashboard.completed} / ${dashboard.total} jobs settled. ${activity}`,
+    ),
+    counts: [
+      { label: "Completed", value: safeLine(String(dashboard.completed)) },
+      { label: "Failed", value: safeLine(String(dashboard.failed)) },
+      { label: "Cancelled", value: safeLine(String(dashboard.cancelled)) },
+      { label: "Remaining", value: safeLine(String(dashboard.remaining)) },
+    ],
+    duration: safeLine(fmtDuration(dashboard.elapsedS)),
+    theme: componentTheme(options),
+    maxWidth: capabilities.columns,
+  }, capabilities);
+}
+
+/** Compatibility projection for completed and static Gate job tables. */
+export function renderGateJobs(
+  rows: readonly GateJobPresentation[],
+  options: GatePresentationOptions,
+  kind: GateLiveDashboardKind = "gate",
+  elapsedS = 0,
+): string {
+  return renderGateFullDashboard(
+    gateLiveDashboard(rows, kind, elapsedS),
+    options,
+  );
 }
 
 /** Project completed envelope steps without re-deciding any outcome. */

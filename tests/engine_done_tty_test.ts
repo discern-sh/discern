@@ -261,7 +261,7 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
   });
 });
 
-Deno.test("done TTY: a Gate taller than the viewport stays static and scrollable", async () => {
+Deno.test("done TTY: a Gate taller than the viewport uses the compact live frame", async () => {
   await withTempDir(async (main) => {
     await scaffoldEngine(main, { agents: [] });
     await writeConfig(main, CONFIG);
@@ -286,11 +286,8 @@ Deno.test("done TTY: a Gate taller than the viewport stays static and scrollable
     assertEquals(result.output.match(/Gate progress/gu)?.length, 1);
     assertEquals(result.output.match(/format \[passed\]/gu)?.length, 1);
     assertEquals(result.output.match(/smoke \[passed\]/gu)?.length, 1);
-    assertEquals(
-      result.stdout.includes(CSI),
-      false,
-      "an oversized Gate must not emit cursor-up repaint controls",
-    );
+    assertStringIncludes(result.output, "Gate active");
+    assert(result.stdout.includes(CSI), "the admitted compact frame repaints");
     assertEquals(result.output.includes("pending"), false);
     assertEquals(result.output.includes("running for"), false);
   });

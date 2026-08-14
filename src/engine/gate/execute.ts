@@ -25,6 +25,52 @@ import {
 } from "./test_slots.ts";
 import { TEST_RUN_SLOT_ENV, TEST_RUN_SLOT_VALUE } from "../test_run_slots.ts";
 
+const ENCODER = new TextEncoder();
+
+/** Buffered human transcript held while a replaceable live frame owns stdout. */
+interface DeferredHumanRun {
+  readonly out: Out;
+  readonly write: (chunk: Uint8Array) => void;
+  /** Flush once below the live region; a failed write is latched and reported. */
+  flush(): boolean;
+}
+
+/** Preserve ordinary headings, banners, and raw child bytes until finalization. */
+function deferredHumanRun(
+  color: boolean,
+  terminal: TerminalContext,
+): DeferredHumanRun {
+  const chunks: Uint8Array[] = [];
+  const destination = byteWriter("stdout");
+  let flushed = false;
+  const appendBytes = (chunk: Uint8Array): void => {
+    if (flushed || chunk.length === 0) return;
+    chunks.push(chunk.slice());
+  };
+  const appendText = (text: string): void => appendBytes(ENCODER.encode(text));
+  return {
+    out: makeOut(color, {
+      terminal,
+      stdout: appendText,
+      stderr: appendText,
+    }),
+    write: appendBytes,
+    flush: (): boolean => {
+      if (flushed) return true;
+      flushed = true;
+      try {
+        for (const chunk of chunks) destination(chunk);
+        return true;
+      } catch {
+        // Human presentation failure cannot alter the scheduler or result.
+        return false;
+      } finally {
+        chunks.length = 0;
+      }
+    },
+  };
+}
+
 /** A post-settle verdict for one gate job, keyed by label — how a standard's
  * measurement rewrites its job result from the captured output (see
  * {@link import("../jobs/types.ts").Job.evaluate}). */
@@ -156,10 +202,10 @@ export async function runJobGroups(
  * config, and JSON flag. The root is carried as the runner's required cwd: a nested
  * CLI invocation or long-lived MCP server must never leak its process cwd into the
  * project's commands. Human runs normally stream banners + job output to stdout.
- * A compact presentation may quiet that runner while retaining the human
- * {@link Out} for its final summary. `--json`/MCP quiet both — the result envelope
- * is the entire output (ADR 0030) — while a failure's output remains captured for
- * its diagnostic. An optional `signal` rides into the RunOptions so an external
+ * A live presentation defers that ordinary transcript until it has left the
+ * replaceable region. `--json`/MCP quiet both — the result envelope is the entire
+ * output (ADR 0030) — while a failure's output remains captured for its diagnostic.
+ * An optional `signal` rides into the RunOptions so an external
  * caller (an MCP client cancelling its request, the server shutting down) can
  * tree-kill the in-flight jobs.
  *
@@ -174,13 +220,23 @@ export function gateRunContext(
   json: boolean,
   signal?: AbortSignal,
   presentation: {
-    quietHumanRun?: boolean;
+    /** Buffer the ordinary transcript while a live frame owns stdout. */
+    deferHumanRun?: boolean;
     terminal?: TerminalContext;
   } = {},
-): { runOpts: RunOptions; out: Out; slots: TestRunSlots | undefined } {
+): {
+  runOpts: RunOptions;
+  out: Out;
+  runOut: Out;
+  flushDeferredOutput: () => boolean;
+  slots: TestRunSlots | undefined;
+} {
   const terminal = presentation.terminal ?? terminalContext();
   const color = terminal.color;
-  const quietRun = json || (presentation.quietHumanRun ?? false);
+  const deferred = !json && (presentation.deferHumanRun ?? false)
+    ? deferredHumanRun(color, terminal)
+    : undefined;
+  const out = makeOut(color, { quiet: json, terminal });
   return {
     runOpts: {
       cwd: root,
@@ -190,10 +246,12 @@ export function gateRunContext(
       ...(signal !== undefined ? { signal } : {}),
       color,
       terminal,
-      write: byteWriter("stdout"),
-      quiet: quietRun,
+      write: deferred?.write ?? byteWriter("stdout"),
+      quiet: json,
     },
-    out: makeOut(color, { quiet: json, terminal }),
+    out,
+    runOut: deferred?.out ?? out,
+    flushDeferredOutput: deferred?.flush ?? (() => true),
     slots: buildTestRunSlots(root, cfg),
   };
 }

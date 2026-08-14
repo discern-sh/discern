@@ -70,8 +70,8 @@ Deno.test("prepare TTY: an 80-column live table moves every job through executio
     assertStringIncludes(firstFrame, "lint");
     assertStringIncludes(firstFrame, "pending");
     assertStringIncludes(result.stdout.slice(firstRedraw), "running");
-    assertEquals(result.output.includes("Applying fixers"), false);
-    assertEquals(result.output.includes("── format"), false);
+    assertStringIncludes(result.output, "Applying fixers");
+    assertStringIncludes(result.output, "── format");
 
     const passed = result.stdout.lastIndexOf(
       "Fix and check stages passed. Build and test stages did not run.",
@@ -102,7 +102,8 @@ Deno.test("prepare TTY: a narrow terminal wraps every command fact", async () =>
     assertStringIncludes(result.output, "$ true");
     assertStringIncludes(result.output, "a-check-command-with-detail");
     assertEquals(result.output.includes("pending"), false);
-    assertEquals(result.output.includes(CSI), false);
+    assertStringIncludes(result.output, "Gate active");
+    assert(result.output.includes(CSI), "the compact frame repaints in place");
     assertEquals(result.output.includes("JOB                 COMMAND"), false);
   });
 });

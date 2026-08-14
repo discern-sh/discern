@@ -16,6 +16,8 @@ import {
   type GateProgressScheduler,
   gateTtyPresentation,
   gateTtyProgressCanRepaint,
+  gateTtyProgressMode,
+  renderGateTtyCompactProgress,
   renderGateTtyProgressTable,
   renderGateTtyTable,
 } from "../src/engine/gate/gate_tty.ts";
@@ -99,6 +101,47 @@ function terminal(options: {
     isTerminal: () => options.stdoutIsTerminal ?? true,
     consoleSize: () => ({ columns, rows: options.rows ?? 24 }),
   });
+}
+
+/** Mutable injected viewport with explicit sampling and cleanup evidence. */
+function observedTerminal(
+  initial: { readonly columns: number; readonly rows: number },
+): {
+  readonly terminal: TerminalContext;
+  readonly set: (
+    next: { readonly columns: number; readonly rows: number },
+  ) => void;
+  readonly samples: () => number;
+  readonly closes: () => number;
+} {
+  let size = initial;
+  let sampleCount = 0;
+  let closeCount = 0;
+  const base = terminal(initial);
+  return {
+    terminal: {
+      ...base,
+      observeViewport: () => {
+        let closed = false;
+        return {
+          sample: () => {
+            if (!closed) sampleCount += 1;
+            return size;
+          },
+          close: () => {
+            if (closed) return;
+            closed = true;
+            closeCount += 1;
+          },
+        };
+      },
+    },
+    set: (next): void => {
+      size = next;
+    },
+    samples: (): number => sampleCount,
+    closes: (): number => closeCount,
+  };
 }
 
 const PLAIN = terminal();
@@ -311,7 +354,7 @@ Deno.test("Gate progress: a stable 25 percent frame pins Component composition",
     { width: 54, terminal: PLAIN },
   );
   const expected = [
-    "Gate progress  1 / 4 steps settled",
+    "Gate progress",
     `[ 25%] ${TRIANGLE_WEAVE.repeat(2)}${
       TRIANGLE_WEAVE.slice(0, 3)
     }..................................`,
@@ -399,9 +442,10 @@ Deno.test("Gate progress controller injects time, resize, cancellation, and sche
     },
   };
   const writes: string[] = [];
+  const viewport = observedTerminal({ columns: 54, rows: 200 });
   const progress = createGateTtyProgress((value) => writes.push(value), {
     width: 54,
-    terminal: terminal({ columns: 54, rows: 200 }),
+    terminal: viewport.terminal,
     scheduler,
     intervalMs: 50,
     clock: () => now,
@@ -417,7 +461,9 @@ Deno.test("Gate progress controller injects time, resize, cancellation, and sche
   await Promise.resolve();
   assertStringIncludes(writes.at(-1) ?? "", "running for 2s");
 
-  progress.resize({ columns: 34, rows: 200 });
+  viewport.set({ columns: 34, rows: 200 });
+  callback?.();
+  await Promise.resolve();
   assertStringIncludes(writes.at(-1) ?? "", "run lint");
   const frame = (writes.at(-1) ?? "").split("\x1b[J").at(-1) ?? "";
   assertWithinWidth(frame.trimEnd(), 34);
@@ -432,23 +478,22 @@ Deno.test("Gate progress controller injects time, resize, cancellation, and sche
     cancelled: true,
   });
   await Promise.resolve();
-  assertEquals(stops, 1);
+  assertEquals(stops, 0, "overall elapsed time keeps ticking between jobs");
   assertStringIncludes(writes.at(-1) ?? "", "cancelled");
 
   progress.complete(PROOF_STEPS);
   assertEquals(stops, 1);
-  const completedFrame = writes.at(-1) ?? "";
-  assertStringIncludes(completedFrame, "scope:site [skipped]");
-  assert(completedFrame.endsWith("\n"));
-  assertEquals(completedFrame.endsWith("\x1b[J"), false);
+  assertEquals(viewport.closes(), 1);
+  assertStringIncludes(writes.join(""), "Gate complete");
+  assertEquals(progress.renderedFinal(), true);
   const completedWriteCount = writes.length;
   callback?.();
-  progress.resize({ columns: 20, rows: 200 });
+  viewport.set({ columns: 20, rows: 200 });
   await Promise.resolve();
   assertEquals(
     writes.length,
     completedWriteCount,
-    "ticks and resizes must not erase or replace the completed static frame",
+    "ticks and observations must not touch the completed live region",
   );
   assertThrows(
     () =>
@@ -462,95 +507,166 @@ Deno.test("Gate progress controller injects time, resize, cancellation, and sche
   );
 });
 
-Deno.test("Gate progress never repaints a frame taller than its viewport", async () => {
-  let tick: (() => void) | undefined;
-  let stops = 0;
-  const writes: string[] = [];
-  const progress = createGateTtyProgress((value) => writes.push(value), {
-    width: 54,
-    terminal: terminal({ columns: 54, rows: 12 }),
-    scheduler: {
-      repeat(callback): () => void {
-        tick = callback;
-        return (): void => {
-          stops += 1;
-        };
-      },
-    },
-  });
-
-  progress.start(CURRENT_GATE_GROUPS);
-  const lint = CURRENT_GATE_GROUPS.flatMap((group) => group.jobs).find((job) =>
-    job.label === "lint"
+Deno.test("Gate live policy selects full, compact, then continuous from rendered frames", () => {
+  const width = 54;
+  const full = renderGateTtyProgressTable(
+    CURRENT_GATE_GROUPS,
+    new Set(),
+    new Map(),
+    { width, terminal: terminal({ columns: width, rows: 200 }) },
   );
-  assert(lint !== undefined);
-  progress.started(lint);
-  await Promise.resolve();
-  tick?.();
-  await Promise.resolve();
+  const compact = renderGateTtyCompactProgress(
+    CURRENT_GATE_GROUPS,
+    new Set(),
+    new Map(),
+    { width, terminal: terminal({ columns: width, rows: 200 }) },
+  );
+  const fullRows = `${full}\n`.split("\n").length;
+  const compactRows = `${compact}\n`.split("\n").length;
+  assert(
+    compactRows < fullRows,
+    "compact must stay smaller than the job table",
+  );
+  assertEquals(compact.includes("$ "), false);
+  assertEquals(compact.includes("[pending]"), false);
 
   assertEquals(
-    writes.some((value) => value.includes("\x1b[")),
-    false,
-    "an unaddressable frame must never enter cursor-up repainting",
+    gateTtyProgressMode(CURRENT_GATE_GROUPS, {
+      width,
+      terminal: terminal({ columns: width, rows: fullRows }),
+    }),
+    "full",
   );
   assertEquals(
-    tick,
-    undefined,
-    "static fallback never starts an activity ticker",
+    gateTtyProgressMode(CURRENT_GATE_GROUPS, {
+      width,
+      terminal: terminal({ columns: width, rows: fullRows - 1 }),
+    }),
+    "compact",
   );
-  assertEquals(stops, 0);
-
-  progress.complete(PROOF_STEPS);
   assertEquals(
-    writes.filter((value) => value.includes("Gate progress")).length,
-    1,
-    "the completed Gate is emitted once as static output",
+    gateTtyProgressMode(CURRENT_GATE_GROUPS, {
+      width,
+      terminal: terminal({ columns: width, rows: compactRows - 1 }),
+    }),
+    "continuous",
   );
-  assertStringIncludes(writes.at(-1) ?? "", "scope:site [skipped]");
-  assertEquals(writes.at(-1)?.includes("\x1b["), false);
 });
 
-Deno.test("Gate repaint admission counts the production trailing-newline row", () => {
+Deno.test("compact dashboard reports concurrent jobs, elapsed time, and every job state", () => {
+  const labels = [
+    "passed",
+    "failed",
+    "cancelled",
+    "running-a",
+    "running-b",
+    "pending",
+    "skipped",
+  ];
+  const group: JobGroup = {
+    ...GROUP,
+    jobs: labels.map((label) => ({
+      label,
+      command: `run ${label}`,
+      kind: "known" as const,
+      reportStage: "test" as const,
+      willRun: label !== "skipped",
+    })),
+  };
+  const results = new Map<string, JobResult>([
+    ["passed", { ...OK_FORMAT, label: "passed" }],
+    [
+      "failed",
+      {
+        ...OK_FORMAT,
+        label: "failed",
+        status: "failed",
+        code: 1,
+      },
+    ],
+    [
+      "cancelled",
+      {
+        ...OK_FORMAT,
+        label: "cancelled",
+        status: "failed",
+        code: 1,
+        cancelled: true,
+      },
+    ],
+  ]);
+  const rendered = renderGateTtyCompactProgress(
+    [group],
+    new Set(["running-a", "running-b"]),
+    results,
+    { width: 72, terminal: terminal({ columns: 72, rows: 40 }) },
+    new Map([["running-a", 2_000], ["running-b", 4_000]]),
+    12_000,
+    2_000,
+  );
+  assertStringIncludes(rendered, "Failed: Gate failed");
+  assertStringIncludes(rendered, "4 / 7 jobs settled");
+  assertStringIncludes(rendered, "Running concurrently:");
+  assertStringIncludes(rendered, "running-a, running-b");
+  assertStringIncludes(rendered, "Completed: 4");
+  assertStringIncludes(rendered, "Failed: 1");
+  assertStringIncludes(rendered, "Cancelled: 1");
+  assertStringIncludes(rendered, "Remaining: 3");
+  assertStringIncludes(rendered, "Duration: 10s");
+  assertEquals(rendered.includes("run pending"), false);
+
+  const testRendered = renderGateTtyCompactProgress(
+    [group],
+    new Set(["running-a", "running-b"]),
+    results,
+    { width: 72, terminal: terminal({ columns: 72, rows: 40 }) },
+    new Map(),
+    12_000,
+    2_000,
+    "test",
+  );
+  assertStringIncludes(testRendered, "Test failed");
+  assertEquals(testRendered.includes("Gate failed"), false);
+});
+
+Deno.test("Gate continuous fallback never starts a ticker or emits cursor movement", () => {
   const width = 54;
-  const rendered = renderGateTtyProgressTable(
-    [GROUP],
+  const rendered = renderGateTtyCompactProgress(
+    CURRENT_GATE_GROUPS,
     new Set(),
     new Map(),
     { width, terminal: terminal({ columns: width, rows: 200 }) },
   );
   const frameRows = `${rendered}\n`.split("\n").length;
-  assertEquals(
-    gateTtyProgressCanRepaint([GROUP], {
-      width,
-      terminal: terminal({ columns: width, rows: frameRows }),
-    }),
-    true,
-  );
-  assertEquals(
-    gateTtyProgressCanRepaint([GROUP], {
-      width,
-      terminal: terminal({ columns: width, rows: frameRows - 1 }),
-    }),
-    false,
-  );
-
+  let tickerStarts = 0;
   const writes: string[] = [];
   const progress = createGateTtyProgress((value) => writes.push(value), {
     width,
     terminal: terminal({ columns: width, rows: frameRows - 1 }),
+    scheduler: {
+      repeat(): () => void {
+        tickerStarts += 1;
+        return (): void => {};
+      },
+    },
   });
-  progress.start([GROUP]);
-  assertEquals(writes, ["\n"]);
+  progress.start(CURRENT_GATE_GROUPS);
+  assertEquals(progress.mode(), "continuous");
+  assertEquals(tickerStarts, 0);
+  assertEquals(writes.some((value) => value.includes("\x1b[")), false);
+  assertStringIncludes(writes.join(""), "Gate active");
+  progress.complete(PROOF_STEPS);
+  assertEquals(writes.some((value) => value.includes("\x1b[")), false);
 });
 
-Deno.test("Gate progress abandons repainting after an injected viewport shrink", async () => {
+Deno.test("Gate progress honors an unsafe-shrink refusal without cursor cleanup", async () => {
   let tick: (() => void) | undefined;
   let stops = 0;
   const writes: string[] = [];
+  const viewport = observedTerminal({ columns: 54, rows: 200 });
   const progress = createGateTtyProgress((value) => writes.push(value), {
     width: 54,
-    terminal: terminal({ columns: 54, rows: 200 }),
+    terminal: viewport.terminal,
     scheduler: {
       repeat(callback): () => void {
         tick = callback;
@@ -568,31 +684,49 @@ Deno.test("Gate progress abandons repainting after an injected viewport shrink",
   await Promise.resolve();
   assert(tick !== undefined);
 
-  progress.resize({ columns: 54, rows: 12 });
-  const afterShrink = writes.length;
+  const beforeShrink = writes.length;
+  viewport.set({ columns: 54, rows: 2 });
   tick?.();
   await Promise.resolve();
   assertEquals(stops, 1);
+  assertEquals(viewport.closes(), 1);
+  assertEquals(progress.mode(), "continuous");
+  const shrinkWrites = writes.slice(beforeShrink);
+  assertStringIncludes(shrinkWrites.join(""), "Gate active");
   assertEquals(
-    writes.length,
-    afterShrink,
-    "activity ticks must stay stopped after the package refuses a repaint",
+    shrinkWrites.some((value) => value.includes("\x1b[")),
+    false,
+    "the refusal is followed only by append-only status",
   );
+  const afterShrink = writes.length;
+  tick?.();
+  await Promise.resolve();
+  assertEquals(writes.length, afterShrink);
 
   progress.complete(PROOF_STEPS);
-  assertStringIncludes(writes.at(-1) ?? "", "scope:site [skipped]");
+  assertStringIncludes(writes.slice(afterShrink).join(""), "Gate complete");
   assertEquals(
     writes.slice(afterShrink).some((value) => value.includes("\x1b[")),
     false,
-    "the final static Gate must not resume cursor replacement",
+    "completion must not make a second cleanup attempt",
   );
 });
 
 Deno.test("Gate progress delegates initial and growing frame safety to the package painter", async () => {
-  const context = terminal({ columns: 54, rows: 32 });
+  const width = 54;
+  const fullRows = `${
+    renderGateTtyProgressTable(
+      [GROUP],
+      new Set(),
+      new Map(),
+      { width, terminal: terminal({ columns: width, rows: 200 }) },
+    )
+  }\n`.split("\n").length;
+  const context = terminal({ columns: width, rows: fullRows });
   const options = { width: 54, terminal: context };
-  assertEquals(gateTtyProgressCanRepaint([GROUP], options), true);
-  assertEquals(gateTtyProgressCanRepaint(CURRENT_GATE_GROUPS, options), false);
+  assertEquals(gateTtyProgressMode([GROUP], options), "full");
+  assertEquals(gateTtyProgressMode(CURRENT_GATE_GROUPS, options), "compact");
+  assertEquals(gateTtyProgressCanRepaint(CURRENT_GATE_GROUPS, options), true);
 
   let stops = 0;
   const writes: string[] = [];
@@ -612,18 +746,53 @@ Deno.test("Gate progress delegates initial and growing frame safety to the packa
   progress.started(lint);
   progress.replaceGroups(CURRENT_GATE_GROUPS);
   await Promise.resolve();
-  assertEquals(stops, 1);
+  assertEquals(progress.mode(), "compact");
+  assertEquals(stops, 0);
 
   progress.complete(PROOF_STEPS);
+  assertEquals(stops, 1);
   assertEquals(progress.renderedFinal(), true);
-  assertEquals(
-    writes.filter((value) => value.includes("scope:site [skipped]")).length,
-    1,
-    "one static completion follows the abandoned growing frame",
-  );
+  assertStringIncludes(writes.join(""), "Gate complete");
 });
 
-Deno.test("Gate progress prints an oversized final result once after stopping repaint", () => {
+Deno.test("Gate progress upgrades compact to full after an observed growth", async () => {
+  const width = 54;
+  const fullRows = `${
+    renderGateTtyProgressTable(
+      [GROUP],
+      new Set(),
+      new Map(),
+      { width, terminal: terminal({ columns: width, rows: 200 }) },
+    )
+  }\n`.split("\n").length;
+  let tick: (() => void) | undefined;
+  const writes: string[] = [];
+  const viewport = observedTerminal({ columns: width, rows: fullRows - 1 });
+  const progress = createGateTtyProgress((value) => writes.push(value), {
+    width,
+    terminal: viewport.terminal,
+    scheduler: {
+      repeat(callback): () => void {
+        tick = callback;
+        return (): void => {};
+      },
+    },
+  });
+  progress.start([GROUP]);
+  assertEquals(progress.mode(), "compact");
+
+  viewport.set({ columns: width, rows: fullRows });
+  tick?.();
+  await Promise.resolve();
+  assertEquals(progress.mode(), "full");
+  assert(
+    writes.some((value) => value.includes("\x1b[")),
+    "the package painter replaces compact with the admitted full frame",
+  );
+  progress.complete(PROOF_STEPS);
+});
+
+Deno.test("Gate live completion stays compact and leaves detail to the final result", () => {
   const context = terminal({ columns: 54, rows: 32 });
   let stops = 0;
   const writes: string[] = [];
@@ -656,9 +825,11 @@ Deno.test("Gate progress prints an oversized final result once after stopping re
   progress.complete(oversized);
   assertEquals(stops, 1);
   assertEquals(progress.renderedFinal(), true);
+  assertStringIncludes(writes.join(""), "Gate complete");
+  assertStringIncludes(writes.join(""), "Completed: 12");
   assertEquals(
-    writes.filter((value) => value.includes("final-11 [passed]")).length,
-    1,
+    writes.some((value) => value.includes("final-11 [passed]")),
+    false,
   );
 });
 
@@ -667,20 +838,23 @@ Deno.test("Gate progress latches every painter write failure without a cleanup r
     { name: "initial boundary", failAt: 1, run: "start" },
     { name: "initial paint", failAt: 2, run: "start" },
     { name: "replacement", failAt: 3, run: "replacement" },
-    { name: "refusal cleanup", failAt: 3, run: "cleanup" },
+    { name: "refusal append", failAt: 3, run: "refusal" },
     { name: "final static", failAt: 4, run: "final" },
   ] as const;
   for (const scenario of scenarios) {
     let attempts = 0;
     let stops = 0;
+    let tick: (() => void) | undefined;
+    const viewport = observedTerminal({ columns: 54, rows: 200 });
     const progress = createGateTtyProgress(() => {
       attempts += 1;
       if (attempts === scenario.failAt) throw new Error(scenario.name);
     }, {
       width: 54,
-      terminal: terminal({ columns: 54, rows: 200 }),
+      terminal: viewport.terminal,
       scheduler: {
-        repeat(): () => void {
+        repeat(callback): () => void {
+          tick = callback;
           return (): void => {
             stops += 1;
           };
@@ -694,19 +868,18 @@ Deno.test("Gate progress latches every painter write failure without a cleanup r
     if (scenario.run === "replacement") {
       progress.started(lint);
       await Promise.resolve();
-    } else if (scenario.run === "cleanup") {
+    } else if (scenario.run === "refusal") {
       progress.started(lint);
-      progress.resize({ columns: 54, rows: 2 });
+      viewport.set({ columns: 54, rows: 2 });
+      tick?.();
       await Promise.resolve();
     } else if (scenario.run === "final") {
       progress.started(lint);
-      progress.resize({ columns: 54, rows: 2 });
       progress.complete(PROOF_STEPS);
       await Promise.resolve();
     }
 
     const attemptsAfterFailure = attempts;
-    progress.resize({ columns: 20, rows: 1 });
     progress.complete(PROOF_STEPS);
     await Promise.resolve();
     assertEquals(
@@ -714,6 +887,7 @@ Deno.test("Gate progress latches every painter write failure without a cleanup r
       attemptsAfterFailure,
       `${scenario.name} must not trigger a second cleanup or control write`,
     );
+    assertEquals(progress.writeFailed(), true, scenario.name);
     assertEquals(progress.renderedFinal(), false, scenario.name);
     if (scenario.run !== "start") assertEquals(stops, 1, scenario.name);
   }

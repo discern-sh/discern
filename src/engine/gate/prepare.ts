@@ -38,7 +38,7 @@ import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
-import { makeOut, type Out } from "../output.ts";
+import type { Out } from "../output.ts";
 import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
   createGateTtyProgress,
@@ -71,6 +71,7 @@ async function runPrepareGate(
     gotchasTail: GotchasFailureTail | undefined;
     liveTable: boolean;
     outputWithheld: boolean;
+    presentationWritable: boolean;
   }
 > {
   const cfg = await loadConfig(root);
@@ -81,12 +82,18 @@ async function runPrepareGate(
     : { width: presentation.liveWidth, terminal: presentation.terminal };
   const compactTty = liveOptions !== undefined && !json && !cfg.gate.stream &&
     gateTtyProgressCanRepaint(groups, liveOptions);
-  const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal, {
-    quietHumanRun: compactTty,
-    ...(presentation.terminal === undefined
-      ? {}
-      : { terminal: presentation.terminal }),
-  });
+  const { runOpts, out, runOut, flushDeferredOutput, slots } = gateRunContext(
+    root,
+    cfg,
+    json,
+    signal,
+    {
+      deferHumanRun: compactTty,
+      ...(presentation.terminal === undefined
+        ? {}
+        : { terminal: presentation.terminal }),
+    },
+  );
   const progress = compactTty && liveOptions !== undefined
     ? createGateTtyProgress(out.raw, {
       width: liveOptions.width,
@@ -97,9 +104,6 @@ async function runPrepareGate(
     runOpts.observer = progress;
     progress.start(groups);
   }
-  const runOut = compactTty
-    ? makeOut(out.color, { quiet: true, terminal: out.terminal })
-    : out;
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
@@ -150,14 +154,17 @@ async function runPrepareGate(
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
   };
   progress?.complete(result.steps ?? []);
+  const liveWriteFailed = progress?.writeFailed() ?? false;
+  const deferredOutputFlushed = liveWriteFailed ? false : flushDeferredOutput();
   return {
     result,
     failedStage,
     out,
     cfg,
     gotchasTail,
-    liveTable: progress?.renderedFinal() ?? false,
-    outputWithheld: compactTty,
+    liveTable: false,
+    outputWithheld: compactTty && !deferredOutputFlushed,
+    presentationWritable: !liveWriteFailed && deferredOutputFlushed,
   };
 }
 
@@ -200,6 +207,7 @@ export async function runPrepare(
     gotchasTail,
     liveTable,
     outputWithheld,
+    presentationWritable,
   } = await runPrepareGate(
     root,
     false,
@@ -207,6 +215,7 @@ export async function runPrepare(
     { terminal, ...(liveWidth === undefined ? {} : { liveWidth }) },
   );
   observeResult(result); // the logbook recorder lifts step timings from it
+  if (!presentationWritable) return failedStage === null ? 0 : 1;
   const ttyTable = ttyWidth !== undefined && !cfg.gate.stream;
   if (ttyTable && !liveTable && ttyWidth !== undefined) {
     out.group("prepare-results");
@@ -230,7 +239,7 @@ export async function runPrepare(
       diagnostics: result.diagnostics ?? [],
       failedStage,
       gotchas: gotchasTail,
-      // The live table quiets the runner, so the tail carries the output.
+      // A failed deferred flush lets the diagnostic retain the captured output.
       outputWithheld,
     });
     return 1;

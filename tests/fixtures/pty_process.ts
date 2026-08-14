@@ -16,6 +16,8 @@ export interface PtyProcessOptions {
   readonly cwd: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly input?: readonly PtyInputStep[];
+  /** Keep the PTY input side open until a non-interactive child exits. */
+  readonly keepInputOpen?: boolean;
   readonly timeoutMs?: number;
 }
 
@@ -39,6 +41,10 @@ export async function runPtyProcess(
     throw new Error("the interactive PTY harness requires script(1)");
   }
   const command = [options.command, ...options.args];
+  const keepInputOpen = options.keepInputOpen === true;
+  if (keepInputOpen && options.input !== undefined) {
+    throw new TypeError("keepInputOpen and input are mutually exclusive");
+  }
   const scriptArgs = Deno.build.os === "darwin"
     ? ["-q", "/dev/null", ...command]
     : ["-q", "-e", "-c", command.map(shellQuote).join(" "), "/dev/null"];
@@ -55,27 +61,31 @@ export async function runPtyProcess(
       FORCE_COLOR: "",
       ...options.env,
     },
-    stdin: "piped",
+    stdin: keepInputOpen || options.input !== undefined ? "piped" : "null",
     stdout: "piped",
     stderr: "piped",
   });
   const process = child.spawn();
-  const input = (async (): Promise<void> => {
-    const writer = process.stdin.getWriter();
-    try {
-      for (const step of options.input ?? []) {
-        if (step.delayMs > 0) await delay(step.delayMs);
-        if (step.bytes !== undefined) {
-          const bytes = typeof step.bytes === "string"
-            ? ENCODER.encode(step.bytes)
-            : step.bytes;
-          if (bytes.length > 0) await writer.write(bytes);
+  const heldWriter = keepInputOpen ? process.stdin.getWriter() : undefined;
+  const inputSteps = options.input;
+  const input = inputSteps === undefined
+    ? undefined
+    : (async (): Promise<void> => {
+      const writer = process.stdin.getWriter();
+      try {
+        for (const step of inputSteps) {
+          if (step.delayMs > 0) await delay(step.delayMs);
+          if (step.bytes !== undefined) {
+            const bytes = typeof step.bytes === "string"
+              ? ENCODER.encode(step.bytes)
+              : step.bytes;
+            if (bytes.length > 0) await writer.write(bytes);
+          }
         }
+      } finally {
+        await writer.close();
       }
-    } finally {
-      await writer.close();
-    }
-  })();
+    })();
 
   let timedOut = false;
   const timeoutMs = options.timeoutMs ?? 5_000;
@@ -89,7 +99,8 @@ export async function runPtyProcess(
   }, timeoutMs);
   const output = await process.output();
   clearTimeout(timer);
-  await input.catch(() => undefined);
+  await heldWriter?.close().catch(() => undefined);
+  await input?.catch(() => undefined);
   const stdout = DECODER.decode(output.stdout);
   const stderr = DECODER.decode(output.stderr);
   if (timedOut) {

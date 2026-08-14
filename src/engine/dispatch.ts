@@ -314,6 +314,7 @@ export function attachEngineCommands(
         const { runTestJob } = await import("./gate/test.ts");
         return await runTestJob(await requireRoot("test", o.json ?? false), {
           json: o.json ?? false,
+          plain: plainModeEnabled(),
         });
       }),
     );
