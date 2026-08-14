@@ -289,7 +289,7 @@ for (const state of BAD_PROJECT_STATES) {
         // drill-in footer both present (a truncated help would be missing the
         // footer at the end of the generated help).
         assertStringIncludes(out, "Commands:");
-        assertStringIncludes(out, "Agentic loop");
+        assertStringIncludes(out, "AGENTIC LOOP");
         assertStringIncludes(out, "discern <command> --help");
         // No raw crash leaked into the help.
         assert(

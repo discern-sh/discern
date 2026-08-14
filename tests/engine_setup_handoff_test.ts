@@ -35,7 +35,7 @@ import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 /** The H1 of the printed brief — the boundary the footer must come AFTER. */
 const INSTRUCTIONS_H1 = "# Set up discern";
 
-/** Find one package section rule without pinning its Unicode/ASCII glyph choice. */
+/** Find one package section rule without pinning its Unicode/ASCII ornaments. */
 function sectionRuleLine(output: string, label: string): string | undefined {
   const marker = ` ${label} `;
   return output.split("\n").find((candidate) => {
@@ -43,7 +43,8 @@ function sectionRuleLine(output: string, label: string): string | undefined {
     if (markerAt < 1) return false;
     const left = candidate.slice(0, markerAt);
     const right = candidate.slice(markerAt + marker.length);
-    return right.length > 0 && !/\s/u.test(`${left}${right}`);
+    const ornaments = `${left}${right}`.replaceAll(" ", "");
+    return ornaments.length > 0 && !/[\p{L}\p{N}\s]/u.test(ornaments);
   });
 }
 
@@ -219,7 +220,7 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
     // Human view: a leading semantic section, not a buried hint.
     const human = await runAgent(dir, ["status"]);
     assertStringIncludes(human.stdout, "Setup is not finished");
-    const setupSection = sectionRuleLine(human.stdout, "Setup");
+    const setupSection = sectionRuleLine(human.stdout, "SETUP");
     assert(setupSection !== undefined, human.stdout);
     assert(
       human.stdout.indexOf(setupSection) <

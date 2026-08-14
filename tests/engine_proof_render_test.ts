@@ -317,7 +317,7 @@ Deno.test("done TTY render: the package workflow leads into a truthful receipt",
       "[100%]",
       "✓ Complete",
       "format [passed]",
-      "$ deno fmt",
+      "Run: deno fmt",
       "passed in 1s",
       "lint [passed]",
       "test [passed]",
@@ -382,7 +382,7 @@ Deno.test("gate TTY render: a narrow terminal wraps commands without losing fact
   assertStringIncludes(rendered, "[100%]");
   assertStringIncludes(rendered, "✓ Complete");
   assertStringIncludes(rendered, "format [passed]");
-  assertStringIncludes(rendered, "$ deno fmt");
+  assertStringIncludes(rendered, "Run: deno fmt");
   assertStringIncludes(rendered, "passed\nin 1s");
   assertStringIncludes(rendered, "scope:web [skipped]");
   assertEquals(rendered.includes("\x1b["), false);

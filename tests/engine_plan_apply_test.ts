@@ -54,7 +54,7 @@ Deno.test("done --dry-run lists the gate plan and runs nothing", async () => {
 
     const r = await runAgent(dir, ["done", "--dry-run"]);
     assertEquals(r.code, 0, r.output); // dry-run never fails on a job
-    assertStringIncludes(r.stdout, "Gate plan");
+    assertStringIncludes(r.stdout, "GATE PLAN");
     assertStringIncludes(r.stdout, "lint");
   });
 });
