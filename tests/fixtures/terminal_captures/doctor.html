@@ -1,0 +1,158 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>doctor — 80×24</title>
+<pre style="margin:0;padding:1em;background-color:rgb(33 33 42);color:rgb(231 231 240);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:0.875em;line-height:1.45;overflow-x:auto"><span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">DISCERN DOCTOR</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+discern 0.0.0 · &lt;PLATFORM&gt; · git 0.00.0
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">EXECUTION MODEL</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+  <span style="opacity:0.68">What runs when you call each verb:</span>
+    <span style="color:rgb(175 215 175)">[project]</span> <span style="opacity:0.68">your configured command</span>
+    <span style="color:rgb(135 215 255)">[discern]</span> <span style="opacity:0.68">a built-in step</span>
+
+  <span style="color:rgb(135 215 255)">→</span> <span style="font-weight:700">Run `discern doctor --verbose` to show hints explaining each execution step.</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">DONE</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+Before you call a change done — the full gate.
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">merge-check</span> — verify this branch contains the trunk — the shared
+            landing branch — before running the gate (no-op in the main
+            checkout)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">standards-limits-check</span> — verify no [standards] limit loosened or
+            vanished versus the trunk (vacuous when none are configured)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">tracked-artifacts-check</span> — verify discern-managed ignored artifacts
+            are not tracked by Git (`git rm --cached` if tracked)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">guidance-check</span> — verify the agent files match their sources
+            (`discern refresh` if stale)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">skills-check</span> — verify the materialized skills match the effective
+            set (`discern refresh` if stale)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">tracked-refresh-check</span> — verify `discern refresh` has no pending
+            effect on tracked files (run refresh, review, and commit if it does)
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">format</span> — true
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">build</span> — true
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">lint</span> — true
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">typecheck</span> — true
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">test</span> — true
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">smoke</span> — true
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">tracked-refresh-check-proof-boundary</span> — repeat the tracked refresh
+            plan after every gate job, immediately before issuing the result and
+            proof
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">PREPARE</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+The fast inner loop while you iterate (fix, regenerate, then check; no build
+jobs, no tests).
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">format</span> — true
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">lint</span> — true
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">typecheck</span> — true
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">TEST</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+The test suite on its own, outside the full gate.
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">test</span> — true
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">smoke</span> — true
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">STANDARDS</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+On demand — the full standalone measurement pass (always measures, never
+replays): deferred standards, pinning a gain, CI. The gate already measures the
+rest on every `discern done`.
+  <span style="opacity:0.68">(nothing configured)</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">TIDY</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+Directly, or when the project&#39;s format job invokes it during the gate.
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">configured-markdown</span> (when Markdown is selected and a target would
+            change)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">root-discern-toml</span> (when TOML is selected and the root config would
+            change)
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">START</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+When you begin a new line of work — create a fresh isolated worktree and set it
+up (also the WorktreeCreate hook&#39;s path).
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">add-worktree</span> — create the linked worktree on its agent/ branch
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">ensure-branch</span> — put the worktree on a named branch
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">complete-refresh</span> — run the complete refresh reconciliation for
+            shared files and checkout-local Agent artifacts
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">WORKTREE ENSURE</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+On every linked-worktree session start — reconcile any resource declaring an
+`ensure`, then re-run checkout-shared and worktree-only convergence. Idempotent
+and a no-op in the main checkout.
+  <span style="opacity:0.68">(nothing configured)</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">UPDATE</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+When bringing the trunk (or an explicit --from ref) into this branch. If there
+is nothing to merge, the complete refresh and convergence tail still runs.
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">merge</span> — merge main into the worktree branch (only when the branch
+            does not already contain the source)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">auto-resolve-generated-conflicts</span> — take the incoming side of
+            generated conflicts before regeneration (after a real merge, before
+            regeneration)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">complete-refresh</span> — run the complete refresh reconciliation for
+            shared files and checkout-local Agent artifacts
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">commit-regenerated-artifacts</span> — after a merge, commit successfully
+            re-derived tracked paths whose bytes changed; without a merge,
+            report changed tracked refresh paths for review and an intentional
+            commit
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">ACCEPT</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+When the work is done and updated — prove the exact tree by a valid Proof or a
+full gate rerun, recheck tracked refresh convergence with the current engine,
+then fast-forward the trunk and clean up.
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">tracked-refresh-check-landing-boundary</span> — after proof or gate
+            validation, verify the current engine&#39;s refresh plan has no pending
+            tracked-file effect
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">fast-forward-trunk</span> — main → the worktree branch in the trunk
+            checkout
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">reconcile-proof-note-fetch</span> — remove only proof-note fetch mappings
+            discern previously managed
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">write-proof-note</span> — attach the landed proof under refs/notes/discern
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">materialize-local-agent-artifacts</span> — materialize only ignored/local
+            Agent artifacts in the trunk checkout
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">smoke</span> — true
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">check-trunk-checkout</span> — report tracked dirt present immediately after
+            landing or introduced by ensure/smoke convergence
+  <span style="color:rgb(175 215 175)">[project]</span> <span style="font-weight:700">teardown-resources</span> — no configured resource destroy command (skipped
+            for this configuration)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">remove-worktree</span> — the worktree directory
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">delete-branch</span> — the worktree branch (merged into main)
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">WORKTREE PRUNE</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+Housekeeping — sweep stale worktrees and reclaim resources orphaned by a
+worktree that vanished without a clean teardown.
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">remove-worktree</span> (for each stale worktree git no longer tracks)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">delete-branch</span> (for each fully-merged dangling branch)
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">reclaim-orphan-dir</span> (for each orphan gitlinked directory)
+
+  <span style="color:rgb(135 215 255)">→</span> <span style="font-weight:700">Run `discern doctor --verbose` to show hints explaining each execution step.</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">DOCTOR CHECKS</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span style="color:rgb(175 215 175)">✓</span> discern.toml: present and valid TOML
+<span style="color:rgb(175 215 175)">✓</span> schema version: schema 1 (current)
+<span style="color:rgb(175 215 175)">✓</span> config schema: all sections and keys recognized
+<span style="color:rgb(175 215 175)">✓</span> known jobs: wired: format, build, lint, typecheck, test, smoke; no custom jobs
+<span style="color:rgb(175 215 175)">✓</span> tidy format job: not in the format job (the project has opted out of automatic
+formatting for discern surfaces)
+<span style="color:rgb(175 215 175)">✓</span> job commands: each command&#39;s leading binary resolves on PATH
+<span style="color:rgb(175 215 175)">✓</span> script contract: no project scripts to check
+<span style="color:rgb(175 215 175)">✓</span> sh: present on PATH
+<span style="color:rgb(175 215 175)">✓</span> git: 0.00.0
+<span style="color:rgb(175 215 175)">✓</span> repository ownership: Git accepts this repository for the current account
+<span style="color:rgb(175 215 175)">✓</span> Git recovery: 2 checkout(s); reflogs are enabled and configured retention
+meets discern&#39;s recovery floor
+<span style="color:rgb(175 215 175)">✓</span> commit identity: author and committer identity resolve from configured
+user.name and user.email in 2 checkout(s)
+<span style="color:rgb(175 215 175)">✓</span> commit signing: commit.gpgSign is off in every checkout
+<span style="color:rgb(175 215 175)">✓</span> index visibility: 2 checkout(s); no assume-unchanged, stray skip-worktree,
+sparse-checkout, or core.ignoreStat visibility override
+<span style="color:rgb(175 215 175)">✓</span> worktree Git config: extensions.worktreeConfig is enabled for 1 linked
+worktree(s), with no checkout-specific settings in the common config
+<span style="color:rgb(175 215 175)">✓</span> repository shape: project root is the repository root, with commit history
+<span style="color:rgb(255 215 135)">┌──────────────────────────────────────────────────────────────────────────────┐</span>
+<span style="color:rgb(255 215 135)">│</span> logbook: recording is off ([project].logbook = false) — discern keeps no     <span style="color:rgb(255 215 135)">│</span>
+<span style="color:rgb(255 215 135)">│</span> memory of how it is driven                                                   <span style="color:rgb(255 215 135)">│</span>
+<span style="color:rgb(255 215 135)">└──────────────────────────────────────────────────────────────────────────────┘</span>
+<span style="color:rgb(208 208 208);opacity:0.68">fix: consider re-enabling it: gate thrash, flaky tests, and guidance gaps only
+become visible in this local history, it never leaves the machine, and it cannot
+be recorded retroactively</span>
+<span style="color:rgb(175 215 175)">✓</span> guidance sources: no source files match [guidance].sources yet (built-in
+guidance still compiles)
+<span style="color:rgb(175 215 175)">✓</span> skills: no authored skills in discern/skills/ yet (built-ins still apply)
+
+<span style="color:rgb(175 215 175)">✓</span> All checks passed (see the advisory above).
+</pre>
