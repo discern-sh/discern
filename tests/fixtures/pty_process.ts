@@ -12,7 +12,15 @@ export interface PtyInputStep {
 /** Input that cannot begin until the child has rendered a named marker. */
 export interface PtyInputPhase {
   readonly waitFor: string | readonly [string, ...string[]];
+  /** Save the rendered transcript when this phase becomes ready. */
+  readonly captureAs?: string;
   readonly steps: readonly [PtyInputStep, ...PtyInputStep[]];
+}
+
+/** Terminal dimensions applied before the target command starts. */
+export interface PtyGeometry {
+  readonly columns: number;
+  readonly rows: number;
 }
 
 /** A command whose standard streams are attached to one pseudo-terminal. */
@@ -21,6 +29,7 @@ export interface PtyProcessOptions {
   readonly args: readonly string[];
   readonly cwd: string;
   readonly env?: Readonly<Record<string, string>>;
+  readonly geometry?: PtyGeometry;
   readonly input?: readonly PtyInputPhase[];
   /** Keep the PTY input side open until a non-interactive child exits. */
   readonly keepInputOpen?: boolean;
@@ -33,6 +42,7 @@ export interface PtyProcessResult {
   readonly stdout: string;
   readonly stderr: string;
   readonly transcript: string;
+  readonly keyframes: Readonly<Record<string, string>>;
 }
 
 interface OutputCursor {
@@ -51,7 +61,26 @@ export async function runPtyProcess(
   if (Deno.build.os === "windows") {
     throw new Error("the interactive PTY harness requires script(1)");
   }
-  const command = [options.command, ...options.args];
+  const geometry = options.geometry;
+  if (
+    geometry !== undefined &&
+    (!Number.isSafeInteger(geometry.columns) || geometry.columns <= 0 ||
+      !Number.isSafeInteger(geometry.rows) || geometry.rows <= 0)
+  ) {
+    throw new TypeError("PTY geometry must use positive integer dimensions");
+  }
+  const command = geometry === undefined
+    ? [options.command, ...options.args]
+    : [
+      "sh",
+      "-c",
+      'stty cols "$1" rows "$2"; shift 2; exec "$@"',
+      "discern-pty-geometry",
+      String(geometry.columns),
+      String(geometry.rows),
+      options.command,
+      ...options.args,
+    ];
   const keepInputOpen = options.keepInputOpen === true;
   if (keepInputOpen && options.input !== undefined) {
     throw new TypeError("keepInputOpen and input are mutually exclusive");
@@ -70,6 +99,12 @@ export async function runPtyProcess(
       CI: "false",
       NO_COLOR: "",
       FORCE_COLOR: "",
+      ...(geometry === undefined
+        ? {}
+        : {
+          COLUMNS: String(geometry.columns),
+          LINES: String(geometry.rows),
+        }),
       ...options.env,
     },
     stdin: keepInputOpen || options.input !== undefined ? "piped" : "null",
@@ -81,6 +116,7 @@ export async function runPtyProcess(
 
   let observedStdout = "";
   let observedStderr = "";
+  const keyframes: Record<string, string> = {};
   let outputFinished = false;
   let outputWaiters: Array<() => void> = [];
   const notifyOutput = (): void => {
@@ -131,6 +167,17 @@ export async function runPtyProcess(
       try {
         for (const phase of inputPhases) {
           await waitForOutput(phase.waitFor, cursor);
+          if (phase.captureAs !== undefined) {
+            if (phase.captureAs.length === 0) {
+              throw new TypeError("PTY keyframe name must not be empty");
+            }
+            if (Object.hasOwn(keyframes, phase.captureAs)) {
+              throw new TypeError(
+                `PTY keyframe name must be unique: ${phase.captureAs}`,
+              );
+            }
+            keyframes[phase.captureAs] = observedStdout + observedStderr;
+          }
           const nextCursor: OutputCursor = {
             stdout: observedStdout.length,
             stderr: observedStderr.length,
@@ -192,6 +239,7 @@ export async function runPtyProcess(
     stdout,
     stderr,
     transcript: stdout + stderr,
+    keyframes,
   };
 }
 
