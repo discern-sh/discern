@@ -430,14 +430,6 @@ Deno.test({
             waitFor: "[canonical-eof-ready]",
             steps: [{ bytes: "\x04" }],
           },
-          {
-            waitFor: "[canonical-read-ready]",
-            // Linux can complete the already-pending raw read with the first
-            // VEOF. A fresh canonical read requests this fallback; platforms
-            // where the first VEOF ends input exit before the phase is needed.
-            steps: [{ bytes: "\x04" }],
-            skipIfExited: true,
-          },
         ],
       }),
     ]);

@@ -80,8 +80,8 @@ interface HarnessOptions {
 
 interface CanonicalEofBoundary {
   readonly io: TerminalIO;
-  readonly firstReadStarted: Promise<void>;
-  readonly markCanonical: () => void;
+  readonly firstReadRequested: Promise<void>;
+  readonly allowCanonicalRead: () => void;
 }
 
 const LONG_ALPHA =
@@ -126,15 +126,18 @@ function parseOptions(args: readonly string[]): HarnessOptions {
   };
 }
 
-/** Expose the exact read boundaries around a raw-to-canonical transition. */
+/** Hold the first terminal read until the harness has made it canonical. */
 function canonicalEofBoundary(): CanonicalEofBoundary {
   const target = new DenoTerminalIO({});
-  let resolveFirstRead: (() => void) | undefined;
-  const firstReadStarted = new Promise<void>((resolve) => {
-    resolveFirstRead = resolve;
+  let resolveReadRequest: (() => void) | undefined;
+  const firstReadRequested = new Promise<void>((resolve) => {
+    resolveReadRequest = resolve;
+  });
+  let resolveCanonicalRead: (() => void) | undefined;
+  const canonicalReadAllowed = new Promise<void>((resolve) => {
+    resolveCanonicalRead = resolve;
   });
   let firstRead = true;
-  let canonical = false;
   const io: TerminalIO = {
     isInteractive: () => target.isInteractive(),
     capabilities: () => target.capabilities(),
@@ -142,9 +145,8 @@ function canonicalEofBoundary(): CanonicalEofBoundary {
     read: async (): Promise<Uint8Array | null> => {
       if (firstRead) {
         firstRead = false;
-        resolveFirstRead?.();
-      } else if (canonical) {
-        console.log("[canonical-read-ready]");
+        resolveReadRequest?.();
+        await canonicalReadAllowed;
       }
       return await target.read();
     },
@@ -153,10 +155,8 @@ function canonicalEofBoundary(): CanonicalEofBoundary {
   };
   return {
     io,
-    firstReadStarted,
-    markCanonical: (): void => {
-      canonical = true;
-    },
+    firstReadRequested,
+    allowCanonicalRead: () => resolveCanonicalRead?.(),
   };
 }
 
@@ -439,12 +439,12 @@ async function main(args: readonly string[]): Promise<void> {
   const canonicalEof = eofBoundary === undefined
     ? undefined
     : (async (): Promise<void> => {
-      await eofBoundary.firstReadStarted;
+      await eofBoundary.firstReadRequested;
       // A PTY master cannot be half-closed while its transcript remains
       // readable. Canonical VEOF is the system-level equivalent: the next ^D
       // makes the production DenoTerminalIO read return end-of-input.
       await stty(["icanon"]);
-      eofBoundary.markCanonical();
+      eofBoundary.allowCanonicalRead();
       console.log("[canonical-eof-ready]");
     })();
 
