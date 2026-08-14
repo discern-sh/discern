@@ -41,6 +41,7 @@ import {
   resolveSetupConfig,
 } from "../lib/terminal_interaction.ts";
 import { terminalLine } from "../lib/terminal.ts";
+import { alignedLabelWidth, padDisplayEnd } from "../lib/text.ts";
 import {
   applyConfigDoc,
   type DiscernConfigDoc,
@@ -2156,9 +2157,9 @@ function verdictSentence(a: SetupAssurance): string {
 /** The aligned known-job assurance lines (A12) — each known job and its honest
  * state (enforced / housekeeping [self-supplied] / deferred [+reason] / absent). */
 function assuranceLines(a: SetupAssurance): string[] {
-  const width = Math.max(...a.known_jobs.map((job) => job.name.length));
+  const width = alignedLabelWidth(a.known_jobs.map((job) => job.name));
   return a.known_jobs.map((c) => {
-    const name = c.name.padEnd(width);
+    const name = padDisplayEnd(c.name, width);
     const mark = c.state === "enforced"
       ? "✓"
       : c.self_supplied === true

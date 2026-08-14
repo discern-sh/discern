@@ -5,6 +5,11 @@
  * grouped-selection helper. Hand-emitting an empty line, importing a package request
  * outside the product adapter, or inventing a heading entry recreates the
  * permissive boundary that let composed views collapse into flat lists.
+ *
+ * The consolidated-output outlaw extends the same claim to the residue idioms:
+ * `padEnd` alignment, narration glyphs outside the authority, direct console
+ * presentation, and hand-emitted boundary newlines are illegal in shipped
+ * `src/**` human surfaces, with exact named exceptions for protocol surfaces.
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
@@ -229,6 +234,170 @@ function packageHeadingBoundaryFindings(source: string): BoundaryFinding[] {
     }
   }
   return findings;
+}
+
+// ── consolidated-output outlaw (ADR 0250, sink-ownership amendment) ──────────
+// The narration authority (`src/lib/narration.ts`) and the aligned-listing
+// policy (`renderAlignedRows`) are the only legal spellings for their jobs;
+// these rules reject the residue idioms, with exact named exceptions for the
+// protocol surfaces that legitimately stay bare.
+
+/** Blank comments in place (offsets preserved) so prose cannot self-match. */
+function codeOnly(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//gu, (match) => match.replace(/[^\n]/gu, " "))
+    .replace(/\/\/[^\n]*/gu, (match) => " ".repeat(match.length));
+}
+
+const OUTPUT_IDIOM_RULES: readonly {
+  readonly id: string;
+  readonly pattern: RegExp;
+}[] = [
+  // Alignment belongs to renderAlignedRows (display-width aware); padding by
+  // code units drifts on styled or wide text.
+  { id: "padEnd-alignment", pattern: /\.padEnd\(/g },
+  // The narration authority owns the glyph grammar (→ ✓ ✗ line prefixes).
+  { id: "narration-glyph-literal", pattern: /(["'`])(?:→|✓|✗) /g },
+  // Human presentation writes through the authority; console is protocol-only.
+  {
+    id: "direct-console-presentation",
+    pattern: /console\.(?:log|error|warn)\(/g,
+  },
+  // The sink owns every boundary newline.
+  { id: "boundary-newline-repeat", pattern: /(["'`])\\n\1\.repeat\(/g },
+  {
+    id: "writer-leading-newline",
+    pattern: /\b(?:writeStdout|writeStderr)\(\s*(?:["']\\n|`\\n)/g,
+  },
+];
+
+interface OutputIdiomException {
+  readonly file: string;
+  readonly rule: string;
+  readonly count: number;
+  readonly reason: string;
+}
+
+/** Protocol and document surfaces that legitimately bypass the authority.
+ * Exact counts: a stale, moved, or grown population fails. */
+const OUTPUT_IDIOM_EXCEPTIONS: readonly OutputIdiomException[] = [
+  {
+    file: "src/shared/emit.ts",
+    rule: "direct-console-presentation",
+    count: 1,
+    reason: "The machine envelope chokepoint prints the one JSON result.",
+  },
+  {
+    file: "src/lib/log.ts",
+    rule: "direct-console-presentation",
+    count: 3,
+    reason:
+      "The authority's console-backed line writers and the JSON result channel.",
+  },
+  {
+    file: "src/main.ts",
+    rule: "direct-console-presentation",
+    count: 1,
+    reason: "The last-resort crash frame stays free of narration dependencies.",
+  },
+  {
+    file: "src/engine/dispatch.ts",
+    rule: "direct-console-presentation",
+    count: 4,
+    reason: "Scalar identity and config values for shell capture.",
+  },
+  {
+    file: "src/engine/queue.ts",
+    rule: "direct-console-presentation",
+    count: 1,
+    reason: "The wrapped child owns both streams; slot hints ride stderr raw.",
+  },
+  {
+    file: "src/engine/scopes/scopes.ts",
+    rule: "direct-console-presentation",
+    count: 1,
+    reason: "Scalar scope names for shell capture.",
+  },
+  {
+    file: "src/commands/docs.ts",
+    rule: "direct-console-presentation",
+    count: 1,
+    reason: "An unpaged rendered document body is a raw stdout stream.",
+  },
+  {
+    file: "src/shared/third_party_codegen.ts",
+    rule: "padEnd-alignment",
+    count: 2,
+    reason: "Generated NOTICE document columns over ASCII names and versions.",
+  },
+  {
+    file: "src/shared/result.ts",
+    rule: "padEnd-alignment",
+    count: 2,
+    reason:
+      "Fixed ASCII disposition/outcome vocabulary, width-safe by construction.",
+  },
+  {
+    file: "src/lib/artifact_ownership.ts",
+    rule: "padEnd-alignment",
+    count: 1,
+    reason: "Generated Markdown table cells in a committed document.",
+  },
+  {
+    file: "src/engine/desk/desk.ts",
+    rule: "narration-glyph-literal",
+    count: 1,
+    reason: "The desk's muted command echo reuses the accent arrow glyph.",
+  },
+];
+
+/** Locate outlawed output idioms in comment-stripped source. */
+function outputIdiomFindings(source: string): BoundaryFinding[] {
+  const code = codeOnly(source);
+  return OUTPUT_IDIOM_RULES.flatMap(({ id, pattern }) => {
+    pattern.lastIndex = 0;
+    return [...code.matchAll(pattern)].map((match) => ({
+      rule: id,
+      offset: match.index ?? 0,
+    }));
+  });
+}
+
+/** One located idiom finding, ready for the offender report. */
+interface LocatedIdiomFinding {
+  readonly rule: string;
+  readonly line: number;
+}
+
+/** Apply the exact exception table to per-file idiom findings; return the
+ * uncovered residue. A count mismatch (stale, moved, or grown) fails here. */
+function unappliedIdiomFindings(
+  byFile: ReadonlyMap<string, readonly LocatedIdiomFinding[]>,
+): string[] {
+  const residue: string[] = [];
+  const covered = new Set<string>();
+  for (const entry of OUTPUT_IDIOM_EXCEPTIONS) {
+    assert(
+      entry.reason.trim() !== "",
+      `${entry.file} exception needs a reason`,
+    );
+    const matched = (byFile.get(entry.file) ?? []).filter((finding) =>
+      finding.rule === entry.rule
+    ).length;
+    assertEquals(
+      matched,
+      entry.count,
+      `${entry.file} ${entry.rule} exception moved, became stale, or changed count`,
+    );
+    covered.add(`${entry.file} ${entry.rule}`);
+  }
+  for (const [file, findings] of byFile) {
+    for (const finding of findings) {
+      if (covered.has(`${file} ${finding.rule}`)) continue;
+      residue.push(`${file}:${finding.line} (${finding.rule})`);
+    }
+  }
+  return residue;
 }
 
 const MANUAL_BOUNDARY_RULES: readonly {
@@ -537,6 +706,7 @@ Deno.test("the interaction grouping surface writes one leading boundary", () => 
 
 Deno.test("discern-managed human boundaries use the semantic grouping surface", async () => {
   const offenders: string[] = [];
+  const idiomFindings = new Map<string, LocatedIdiomFinding[]>();
   for (
     const rel of AUTHORED_DENO_FILES.filter((path) => path.startsWith("src/"))
   ) {
@@ -546,6 +716,11 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
         `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
       );
     }
+    const located = outputIdiomFindings(source).map((finding) => ({
+      rule: finding.rule,
+      line: lineAt(source, finding.offset),
+    }));
+    if (located.length > 0) idiomFindings.set(rel, located);
     const requestFindings = directRequestFindings(source).filter((finding) =>
       !(rel === "src/lib/terminal_interaction.ts" &&
         finding.rule === "direct-package-request-import")
@@ -569,9 +744,44 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
     }
   }
 
+  offenders.push(...unappliedIdiomFindings(idiomFindings));
+
   assert(
     offenders.length === 0,
     "Human output groups must go through the shared text/interaction grouping surfaces; " +
       `found:\n${offenders.join("\n")}`,
+  );
+});
+
+Deno.test("the output-idiom detector rejects unrelated future siblings", () => {
+  const synthetic = [
+    "function orbit(rows: { name: string }[]) {",
+    "  for (const row of rows) console.log(`  ${row.name.padEnd(20)}`);",
+    "}",
+    'function canopy() { console.error("✗ the file is missing."); }',
+    'function harbor(out: { raw(s: string): void }) { out.raw("→ next"); }',
+    'function estuary(n: number) { writeStdout("\\n".repeat(n)); }',
+    'function inlet() { writeStderr("\\nSection heading"); }',
+    "// a commented console.log(`✓ done`) never matches",
+  ].join("\n");
+  assertEquals(
+    outputIdiomFindings(synthetic).map((finding) => finding.rule).sort(),
+    [
+      "boundary-newline-repeat",
+      "direct-console-presentation",
+      "direct-console-presentation",
+      "narration-glyph-literal",
+      "narration-glyph-literal",
+      "padEnd-alignment",
+      "writer-leading-newline",
+      "writer-leading-newline",
+    ],
+  );
+  assertEquals(
+    outputIdiomFindings(
+      'const mark = "✓";\nlog.error("state the condition");\n',
+    ),
+    [],
+    "a bare data glyph and an authority call stay legal",
   );
 });
