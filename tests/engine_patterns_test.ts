@@ -62,7 +62,7 @@ import {
 import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
-/** One synthetic seeded verb-event line (agent-shaped, on its own branch). */
+/** One synthetic format-selected CLI event on its own branch. */
 function seededEvent(
   at: string,
   outcome: "ok" | "failed",
@@ -1115,11 +1115,13 @@ Deno.test("patterns: a seeded logbook yields two-layer findings that validate", 
       "the torn line is counted, not fatal",
     );
 
-    // The driver split states the segmentation, and identity attribution
-    // honours only the invocation-scoped signal — never the ambient one.
+    // The driver split states the segmentation. A result format is not caller
+    // identity evidence, so the four format-only calls remain unknown; only
+    // the invocation-scoped Claude signal attributes the fifth call.
     assertEquals(data.population.analyzed, 5);
-    assertEquals(data.population.agent, 5);
+    assertEquals(data.population.agent, 1);
     assertEquals(data.population.human, 0);
+    assertEquals(data.population.unknown, 4);
     assertEquals(data.population.identities, [
       { agent: "claude", label: "Claude Code", runs: 1 },
     ]);

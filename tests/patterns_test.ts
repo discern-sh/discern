@@ -261,7 +261,7 @@ function t(hours: number): string {
     .toISOString();
 }
 
-/** One synthetic verb event with agent-shaped defaults; override what matters. */
+/** One synthetic analyzable CLI event with non-interactive defaults. */
 function verb(over: Partial<VerbEvent>): VerbEvent {
   return {
     schema: LOGBOOK_SCHEMA_VERSION,
