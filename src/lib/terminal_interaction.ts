@@ -206,6 +206,8 @@ export type SelectionGroup<T> =
 export interface TerminalInteractionRuntime {
   readonly io?: TerminalIO;
   readonly interactive?: (yes: boolean) => boolean;
+  /** Environment read for the diagnostics trace lookup; defaults to the process. */
+  readonly env?: EnvReader;
 }
 
 /** Product cancellation meaning for Ctrl+C and terminal end-of-input. */
@@ -269,9 +271,13 @@ export function groupedSelectionEntries<T>(
  * budget, and the outcome. Observation only: every terminal fact and byte
  * passes through unchanged, and a trace fault never disturbs the interaction.
  */
-function interactionTraceTarget(): string | undefined {
+function interactionTraceTarget(
+  env: EnvReader | undefined,
+): string | undefined {
   try {
-    const path = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.interactionTrace);
+    const path = (env ?? Deno.env).get(
+      DISCERN_ENVIRONMENT_VARIABLES.interactionTrace,
+    );
     return path === undefined || path === "" ? undefined : path;
   } catch {
     return undefined;
@@ -333,11 +339,11 @@ function traceInteractionIo(target: string, io: TerminalIO): InteractionTrace {
     },
     settle: (outcome): void => {
       try {
+        // Records carry no clock: append order is the diagnostic timeline.
         Deno.writeTextFileSync(
           target,
           `${
             JSON.stringify({
-              at: new Date().toISOString(),
               opened,
               ...(budget === undefined ? {} : { budget }),
               sizeRows,
@@ -388,7 +394,7 @@ function visibleRowBudget(
   const budget = options.maxRows === undefined
     ? derived
     : Math.min(options.maxRows, derived);
-  if (interactionTraceTarget() !== undefined) {
+  if (interactionTraceTarget(runtime.env) !== undefined) {
     pendingBudgetTrace = {
       rows,
       reserved,
@@ -621,7 +627,7 @@ function packageInteractionRuntime(
       if (value.length > 0) wrote = true;
     },
   };
-  const tracePath = interactionTraceTarget();
+  const tracePath = interactionTraceTarget(runtime.env);
   const trace = tracePath === undefined
     ? undefined
     : traceInteractionIo(tracePath, io);

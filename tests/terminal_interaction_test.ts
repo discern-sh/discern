@@ -497,21 +497,23 @@ Deno.test("a short terminal degrades through package fitting, never overflowing"
 Deno.test("the interaction trace records sizing evidence only when enabled", async () => {
   await withTempDir(async (dir) => {
     const tracePath = join(dir, "interaction-trace.jsonl");
-    Deno.env.set("DISCERN_INTERACTION_TRACE", tracePath);
-    try {
-      await requestSelection(
-        {
-          message: "Choose",
-          options: manyChoices(),
-          reservedRows: 30,
-        },
-        scriptedRuntime(
+    const tracingEnv = {
+      get: (name: string) =>
+        name === "DISCERN_INTERACTION_TRACE" ? tracePath : undefined,
+    };
+    await requestSelection(
+      {
+        message: "Choose",
+        options: manyChoices(),
+        reservedRows: 30,
+      },
+      {
+        ...scriptedRuntime(
           new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 }),
         ),
-      );
-    } finally {
-      Deno.env.delete("DISCERN_INTERACTION_TRACE");
-    }
+        env: tracingEnv,
+      },
+    );
     const lines = (await Deno.readTextFile(tracePath)).trim().split("\n");
     assertEquals(lines.length, 1);
     const record = JSON.parse(lines[0] ?? "") as {
@@ -534,11 +536,14 @@ Deno.test("the interaction trace records sizing evidence only when enabled", asy
     await requestSelection({
       message: "Choose",
       options: manyChoices(),
-    }, scriptedRuntime(silent));
+    }, {
+      ...scriptedRuntime(silent),
+      env: { get: () => undefined },
+    });
     assertEquals(
       (await Deno.readTextFile(tracePath)).trim().split("\n").length,
       1,
-      "tracing must stay inert once the variable is cleared",
+      "tracing must stay inert without the variable",
     );
   });
 });
