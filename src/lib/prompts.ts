@@ -518,12 +518,17 @@ export async function selectPrompt<T>(
   runtime: DiscernPromptRuntime = {},
 ): Promise<T> {
   requireInteraction("this selection", runtime);
-  if (options.search === true && options.default !== undefined) {
+  const choices = adaptChoices(options.options, true);
+  const initialId = options.default === undefined
+    ? undefined
+    : choices.idFor(options.default);
+  if (options.default !== undefined && initialId === undefined) {
     throw new TypeError(
-      "A search prompt cannot restore an initial selection with the published interaction API.",
+      `A ${
+        options.search === true ? "search" : "select"
+      } default does not name a prompt choice.`,
     );
   }
-  const choices = adaptChoices(options.options, true);
   const validate = packageValidator(options.validate);
   const required = typeof options.required === "string"
     ? terminalLine(options.required)
@@ -552,19 +557,11 @@ export async function selectPrompt<T>(
       ...(options.searchLabel === undefined
         ? {}
         : { placeholder: terminalLine(options.searchLabel) }),
+      ...(initialId === undefined ? {} : { initialId }),
     }, runtime)
     : await productPrompt(packagePromptSelect<T>, {
       ...shared,
-      ...((): { readonly initialId?: string } => {
-        if (options.default === undefined) return {};
-        const initialId = choices.idFor(options.default);
-        if (initialId === undefined) {
-          throw new TypeError(
-            "A select default does not name a prompt choice.",
-          );
-        }
-        return { initialId };
-      })(),
+      ...(initialId === undefined ? {} : { initialId }),
     }, runtime);
   if (value === undefined) {
     throw new PromptCancellation();

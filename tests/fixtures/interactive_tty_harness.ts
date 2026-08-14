@@ -12,7 +12,12 @@ import {
   inputPrompt,
   isPromptCancellation,
   selectPrompt,
+  withPromptBoundary,
 } from "../../src/lib/prompts.ts";
+import {
+  DenoTerminalIO,
+  promptTextarea,
+} from "discern-design-system/cli/interactive";
 import {
   productionTerminalContext,
   setTerminalContext,
@@ -26,6 +31,9 @@ export type InteractiveTtyScenario =
   | "select-default"
   | "grouped-select"
   | "search"
+  | "search-default"
+  | "repeated-viewport"
+  | "textarea-tall"
   | "multiselect"
   | "multiselect-default"
   | "validation"
@@ -228,6 +236,78 @@ async function runScenario(scenario: InteractiveTtyScenario): Promise<unknown> {
           },
         ]),
       });
+    case "search-default":
+      return await selectPrompt({
+        message: "Restore a remembered searchable document",
+        search: true,
+        default: "beta",
+        options: groupedSelectOptions([
+          {
+            id: "documents",
+            label: "Documents",
+            items: [
+              { id: "alpha", name: "Duplicate guide", value: "alpha" },
+              { id: "beta", name: "Duplicate guide", value: "beta" },
+            ],
+          },
+        ]),
+      });
+    case "repeated-viewport": {
+      const deskOptions = groupedSelectOptions([{
+        id: "desk-actions",
+        label: "Desk",
+        items: Array.from({ length: 24 }, (_, index) => ({
+          id: `desk-${index}`,
+          name: `Desk task ${index}`,
+          value: `desk-${index}`,
+        })),
+      }]);
+      const docsOptions = groupedSelectOptions([{
+        id: "documents",
+        label: "Documents",
+        items: Array.from({ length: 24 }, (_, index) => ({
+          id: `doc-${index}`,
+          name: `Document ${index}`,
+          value: `doc-${index}`,
+        })),
+      }]);
+      return [
+        await selectPrompt({
+          message: "Choose a desk action",
+          options: deskOptions,
+          search: true,
+          searchLabel: "filter",
+          maxRows: 16,
+        }),
+        await selectPrompt({
+          message: "Browse docs",
+          options: docsOptions,
+          search: true,
+          default: "doc-12",
+          maxRows: 14,
+        }),
+        await selectPrompt({
+          message: "Choose a desk action again",
+          options: deskOptions,
+          search: true,
+          searchLabel: "filter",
+          maxRows: 16,
+        }),
+      ];
+    }
+    case "textarea-tall": {
+      const initialValue = Array.from(
+        { length: 8 },
+        (_, index) => `remembered line ${index + 1}`,
+      ).join("\n");
+      return await promptTextarea({
+        label: "Edit tall notes",
+        initialValue,
+        rows: 12,
+      }, {
+        io: withPromptBoundary(new DenoTerminalIO({})),
+      });
+    }
     case "multiselect":
       return await checkboxPrompt({
         message: "Choose at least two values",

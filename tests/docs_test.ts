@@ -30,9 +30,12 @@ import {
   renderDocsCorpusHeader,
 } from "../src/commands/docs.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
+import { runPtyProcess } from "./fixtures/pty_process.ts";
 
 /** This repo's root — used by the dogfood test to resolve discern's real docs. */
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
+const DENO_JSON = join(REPO_ROOT, "deno.json");
+const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
 
 Deno.test("docs browser offers its online manual without adding it to map", () => {
   assertEquals(
@@ -63,7 +66,7 @@ Deno.test("docs headers preserve exact facts at narrow and wide TTY widths", () 
         `${width}-column docs header overflowed: ${JSON.stringify(line)}`,
       );
     }
-    assertStringIncludes(rendered, "discern docs");
+    assertStringIncludes(rendered, "DISCERN DOCS");
     assertEquals(
       rendered.split("\n").slice(1).join("").replaceAll(/\s+/gu, ""),
       `— 17 documents in ${directory}`.replaceAll(/\s+/gu, ""),
@@ -156,6 +159,90 @@ async function makeDocsFixture(
   }
   return docs;
 }
+
+Deno.test({
+  name: "docs browser restores the remembered document through the real PTY",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      const docs = await makeDocsFixture(dir);
+      const process = await runPtyProcess({
+        command: Deno.execPath(),
+        args: [
+          "run",
+          "--no-check",
+          "--config",
+          DENO_JSON,
+          "-A",
+          MAIN_TS,
+          "docs",
+          "--no-pager",
+        ],
+        cwd: dir,
+        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1" },
+        input: [
+          // A search prompt starts without a highlighted choice. Select the
+          // first document, then submit the remembered highlight unchanged.
+          { delayMs: 450, bytes: "\x1b[B\r" },
+          { delayMs: 250, bytes: "\r" },
+          // Leave the third browse iteration through its final navigation item.
+          // Search reserves End for its query editor, so walk the six selectable
+          // items explicitly; semantic headings are never part of this count.
+          { delayMs: 250, bytes: "\x1b[B".repeat(5) + "\r" },
+        ],
+        timeoutMs: 8_000,
+      });
+
+      assertEquals(process.code, 0, process.transcript);
+      assertEquals(process.stderr, "", process.transcript);
+      assertEquals(
+        process.transcript.match(/Welcome\./gu)?.length,
+        2,
+        process.transcript,
+      );
+      assertStringIncludes(process.transcript, "discern docs — 4 documents");
+      assertStringIncludes(process.transcript, "Quit");
+    });
+  },
+});
+
+Deno.test({
+  name:
+    "map browser selects and leaves the production prompt through a real PTY",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await makeDocsFixture(dir);
+      const process = await runPtyProcess({
+        command: Deno.execPath(),
+        args: [
+          "run",
+          "--no-check",
+          "--config",
+          DENO_JSON,
+          "-A",
+          MAIN_TS,
+          "map",
+          "--no-pager",
+        ],
+        cwd: dir,
+        env: { NO_COLOR: "1" },
+        input: [
+          { delayMs: 450, bytes: "\x1b[B\r" },
+          // The remembered document is first; Quit is the next selectable row.
+          { delayMs: 250, bytes: "\x1b[B\r" },
+        ],
+        timeoutMs: 8_000,
+      });
+
+      assertEquals(process.code, 0, process.transcript);
+      assertEquals(process.stderr, "", process.transcript);
+      assertStringIncludes(process.transcript, "discern map — 1 document");
+      assertStringIncludes(process.transcript, "The project's own docs.");
+      assertStringIncludes(process.transcript, "◉ Quit");
+    });
+  },
+});
 
 Deno.test("docs terminal facts are inert while machine Markdown stays exact", async () => {
   await withTempDir(async (dir) => {

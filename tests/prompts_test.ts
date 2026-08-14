@@ -283,8 +283,8 @@ Deno.test("grouped select keeps headings structural and ids stable across reorde
     }, scriptedRuntime(first)),
     "beta",
   );
-  assertStringIncludes(first.writes.join(""), "First group");
-  assertStringIncludes(first.writes.join(""), "Second group");
+  assertStringIncludes(first.writes.join(""), "FIRST GROUP");
+  assertStringIncludes(first.writes.join(""), "SECOND GROUP");
 
   const reordered = new ScriptedTerminal(["\r"]);
   assertEquals(
@@ -389,27 +389,36 @@ Deno.test("search preserves matching groups, order, identity, and returned value
   }, scriptedRuntime(io));
   assertEquals(value, "beta");
   const transcript = io.writes.join("");
-  assertStringIncludes(transcript, "Documents");
+  assertStringIncludes(transcript, "DOCUMENTS");
   assertStringIncludes(transcript, "Beta guide");
 });
 
-Deno.test("search rejects an initial selection the released API cannot restore", async () => {
+Deno.test("search restores a stable initial choice through duplicate labels", async () => {
   const io = new ScriptedTerminal(["\r"]);
-  await assertRejects(
-    () =>
-      selectPrompt({
-        message: "Browse",
-        search: true,
-        default: "alpha",
-        options: [{ name: "Alpha", value: "alpha" }],
-      }, scriptedRuntime(io)),
-    TypeError,
-    "cannot restore an initial selection",
+  assertEquals(
+    await selectPrompt({
+      message: "Browse",
+      search: true,
+      default: "beta",
+      options: groupedSelectOptions([
+        {
+          id: "first",
+          label: "First group",
+          items: [{ id: "alpha", name: "Duplicate label", value: "alpha" }],
+        },
+        {
+          id: "second",
+          label: "Second group",
+          items: [{ id: "beta", name: "Duplicate label", value: "beta" }],
+        },
+      ]),
+    }, scriptedRuntime(io)),
+    "beta",
   );
-  assertEquals(io.rawTransitions, []);
+  assertEquals(io.rawTransitions, [true, false]);
 });
 
-Deno.test("unknown single- and multi-select defaults fail before raw mode", async () => {
+Deno.test("unknown select, search, and multi-select defaults fail before raw mode", async () => {
   const single = new ScriptedTerminal(["\r"]);
   await assertRejects(
     () =>
@@ -422,6 +431,20 @@ Deno.test("unknown single- and multi-select defaults fail before raw mode", asyn
     "does not name a prompt choice",
   );
   assertEquals(single.rawTransitions, []);
+
+  const search = new ScriptedTerminal(["\r"]);
+  await assertRejects(
+    () =>
+      selectPrompt({
+        message: "Search",
+        search: true,
+        default: "missing",
+        options: [{ name: "Present", value: "present" }],
+      }, scriptedRuntime(search)),
+    TypeError,
+    "does not name a prompt choice",
+  );
+  assertEquals(search.rawTransitions, []);
 
   const multiple = new ScriptedTerminal(["\r"]);
   await assertRejects(
@@ -461,7 +484,7 @@ Deno.test("component text is inert while submitted values remain exact", async (
     const visible of [
       "Choose␛message",
       "Hint␊next",
-      "Group␉name",
+      "GROUP␉NAME",
       "Choice␍name",
     ]
   ) {

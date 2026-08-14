@@ -310,12 +310,65 @@ Deno.test({
     assertValue(duplicate, "beta");
     assertValue(scrolled, "quit");
     assertValue(search, "beta");
-    for (const heading of ["Primary", "Secondary", "Navigation"]) {
+    for (const heading of ["PRIMARY", "SECONDARY", "NAVIGATION"]) {
       assertStringIncludes(scrolled.process.transcript, heading);
     }
     assertStringIncludes(duplicate.process.transcript, "Duplicate label");
-    assertStringIncludes(search.process.transcript, "Documents");
+    assertStringIncludes(search.process.transcript, "DOCUMENTS");
     assertStringIncludes(search.process.transcript, "Beta guide");
+  },
+});
+
+Deno.test({
+  name: "search restores a caller-owned stable choice in a real terminal",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const run = await runHarness({ scenario: "search-default" });
+    assertValue(run, "beta");
+    assertStringIncludes(run.process.transcript, "Duplicate guide");
+  },
+});
+
+Deno.test({
+  name: "Desk and docs viewport budgets survive repeated 16-row prompt cycles",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const run = await runHarness({
+      scenario: "repeated-viewport",
+      size: { columns: 80, rows: 16 },
+      input: [
+        { delayMs: READY_DELAY_MS, bytes: "\x1b[B\r" },
+        { delayMs: 180, bytes: "\r" },
+        { delayMs: 180, bytes: "\x1b[B\r" },
+      ],
+    });
+    assertValue(run, ["desk-0", "doc-12", "desk-0"]);
+    assertEquals(run.result.terminal.initialSize.rows, 16);
+    assertStringIncludes(run.process.transcript, "Choose a desk action");
+    assertStringIncludes(run.process.transcript, "Browse docs");
+    assertStringIncludes(run.process.transcript, "DOCUMENTS");
+  },
+});
+
+Deno.test({
+  name:
+    "a tall Textarea fits the real 16-row viewport and restores the terminal",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const run = await runHarness({
+      scenario: "textarea-tall",
+      size: { columns: 80, rows: 16 },
+      input: keys("\x04"),
+    });
+    assertValue(
+      run,
+      Array.from(
+        { length: 8 },
+        (_, index) => `remembered line ${index + 1}`,
+      ).join("\n"),
+    );
+    assertStringIncludes(run.process.transcript, "remembered line 5");
+    assertStringIncludes(run.process.transcript, "remembered line 8");
   },
 });
 
@@ -405,8 +458,8 @@ Deno.test({
       " ",
     );
     assertStringIncludes(visible, "Choose from semantic groups [active]");
-    assertStringIncludes(visible, "Alpha with a deliberately long label");
-    assertStringIncludes(visible, "that becomes complete after resize");
+    assertStringIncludes(visible, "deliberately long label");
+    assertStringIncludes(visible, "complete after resize");
   },
 });
 

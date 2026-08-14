@@ -804,6 +804,7 @@ async function browse(
       docsHeaderFact(verb, tree.entries.length, display(tree.docsDir, cwd))
     }  ·  type to filter`,
   );
+  let rememberedDocument: string | undefined;
   while (true) {
     let choice: string;
     try {
@@ -823,6 +824,9 @@ async function browse(
         ]),
         search: true,
         maxRows: 14,
+        ...(rememberedDocument === undefined
+          ? {}
+          : { default: rememberedDocument }),
       });
     } catch (error) {
       if (!isPromptCancellation(error)) throw error;
@@ -843,6 +847,7 @@ async function browse(
     }
     const entry = tree.entries.find((e) => e.path === choice);
     if (!entry) continue;
+    rememberedDocument = entry.path;
     observeVerbTarget(canonicalDocTarget(entry));
     const content = terminalBody(
       desc,
