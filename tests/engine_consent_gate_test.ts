@@ -289,13 +289,13 @@ Deno.test("accept: --confirmed preserves the conversation-consent landing path",
       env.data.proof_line,
       "landed with conversation consent",
     );
-    // The landing happened: worktree gone, branch work on the trunk, proof carried.
+    // The landing happened: worktree gone, branch work on the trunk, proof line carried.
     assertEquals(await exists(wt), false, `should have landed\n${r.output}`);
     assert(
       await exists(join(dir, "feature.txt")),
       "branch work should be on the trunk",
     );
-    assertStringIncludes(env.data.proof, "### Proof");
+    assertEquals(env.data.proof, undefined);
   });
 });
 

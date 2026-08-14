@@ -17,8 +17,8 @@
  *
  * The per-invocation envelope (steps, diagnostics) arrives through the
  * observed-result seam (`shared/result_capture.ts`): `emitResult` feeds it on
- * every `--json` run and the gate entry points feed it in human mode. A verb
- * that surfaces no envelope still records a minimal event.
+ * every quiet result run and the gate entry points feed it in human mode. A
+ * verb that surfaces no envelope still records a minimal event.
  */
 
 import {
@@ -46,12 +46,11 @@ const beginRecordedVerbs = new Set<string>();
  * The CLI's raw driver signals — evidence for the who-drove-this question,
  * gathered here because only the surface knows them: the parent process id (a
  * session grouping hint — one conversation's invocations share a parent even
- * when every task shares a branch), whether `--json` was requested (agents
- * pass it per the guidance; humans rarely do), whether stdout is a terminal,
- * whether the conventional CI marker is set, and every advisory identity marker
- * the shared catalogue recognizes. Facts only; marker values never land, and
- * scoring them into an is-this-an-agent inference is reader work, revisable over
- * all history.
+ * when every task shares a branch), which agent result format was requested,
+ * whether stdout is a terminal, whether the conventional CI marker is set,
+ * and every advisory identity marker the shared catalogue recognizes. Facts
+ * only; marker values never land, and scoring them into an is-this-an-agent
+ * inference is reader work, revisable over all history.
  */
 async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
   let tty = false;
@@ -78,7 +77,12 @@ async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
   }
   return {
     session: `cli:${Deno.ppid}`,
-    ...(scanArgs ? { json: Deno.args.includes("--json") } : {}),
+    ...(scanArgs
+      ? {
+        json: Deno.args.includes("--json"),
+        markdown: Deno.args.includes("--markdown"),
+      }
+      : {}),
     tty,
     ci,
     ...(agentSignals !== undefined && agentSignals.length > 0
@@ -104,7 +108,8 @@ function cliFlagNames(): string[] | undefined {
     const match = /^--([a-z][a-z0-9-]*)(=|$)/.exec(arg);
     const name = match?.[1];
     if (
-      name !== undefined && name !== "json" && name !== "dry-run" &&
+      name !== undefined && name !== "json" && name !== "markdown" &&
+      name !== "dry-run" &&
       !names.includes(name)
     ) {
       names.push(name);

@@ -94,14 +94,10 @@ function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
 }
 
-/** Every successful acceptance path carries the same two-form landing record:
- * the page for a PR body and the system-rendered line an agent relays verbatim. */
+/** Every successful acceptance path carries the bounded line an agent relays. */
 // deno-lint-ignore no-explicit-any
 function assertLandingProofRelay(obj: any, branch: string): void {
-  assertStringIncludes(
-    obj.data.proof,
-    `### Proof — \`agent/${branch}\``,
-  );
+  assertEquals(obj.data.proof, undefined);
   assertEquals(typeof obj.data.proof_line, "string");
   assertStringIncludes(
     obj.data.proof_line,

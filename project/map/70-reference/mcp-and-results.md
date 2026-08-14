@@ -10,6 +10,8 @@ aliases:
   - structuredContent
   - result envelope
   - JSON result
+  - Markdown result
+  - --markdown
   - exit codes
   - discern_status
   - discern_start
@@ -32,18 +34,23 @@ aliases:
 
 # Model Context Protocol tools and result contracts
 
-_Model Context Protocol (MCP) tools and `discern <command> --json` share one caller-visible result contract. The command-line interface (CLI) adds exit statuses around it._
+_Model Context Protocol (MCP) tools and quiet CLI results share one prepared `DiscernResult`. Structured and Markdown projections serve different callers without changing the underlying verdict._
 
 ## Choose a result surface
 
-| Surface           | Result                                                                     |
-| ----------------- | -------------------------------------------------------------------------- |
-| Human CLI         | Terminal rendering.                                                        |
-| CLI with `--json` | One `DiscernResult` on stdout.                                             |
-| MCP tool          | The envelope in `content` and `structuredContent`; `isError` mirrors `ok`. |
-| MCP resource      | Live payload or Markdown, without an envelope.                             |
+| Surface               | Result                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| Human CLI             | Interactive or static terminal rendering.                                                   |
+| CLI with `--markdown` | One authored agent presentation on stdout.                                                  |
+| CLI with `--json`     | One compact structured `DiscernResult` on stdout.                                           |
+| MCP tool              | Authored Markdown in `content`, the compact envelope in `structuredContent`, and `isError`. |
+| MCP resource          | A live compact payload or requested Markdown document, without an envelope.                 |
 
-Human, JSON, and MCP tool forms share one result. `structuredContent` is machine-readable; `content[0].text` is its JSON text.
+Human, JSON, Markdown, and MCP tool forms share one prepared result. MCP delivers both agent representations because supported hosts expose the channels differently. Either `content[0].text` or `structuredContent` is sufficient to understand the current state and choose the next action. A host that delivers both receives complementary representations instead of pretty and compact copies of the same JSON.
+
+Use `--markdown` when an agent will read the result directly. Use `--json` for field access, scripts, validation, or durable integration. The flags are mutually exclusive. Both suppress terminal decoration and subprocess narration around the result. `--md` is not an alias.
+
+An authored Markdown presentation selects facts from the registered result contract. It does not dump every JSON field. When present, sections occur in this order: current state, bounded evidence, authority and boundaries, then the next action. If several future actions matter, the immediate one closes the document. Requested map/manual pages and setup guidance remain intact inside the evidence section.
 
 ## Model Context Protocol tools
 
@@ -111,13 +118,15 @@ Map search includes `publish: false`. Docs search covers the public manual. Both
 
 Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`.
 
-A failed CLI JSON or MCP result always includes a next action in `hints`. When `message` or the first `diagnostics` entry explains the correction, the hint points there. When recovery depends on a choice or reported state, the hint names the relevant state and action. Consent, partial operations, incomplete setup, document lookup, and improvement thresholds use these specific instructions. A caller therefore does not have to infer whether to retry, review, choose, or complete cleanup ([ADR 0266](../_adr/0266-public-failure-recovery-is-classified-by-error-family.md)).
+A failed JSON, Markdown, or MCP result always includes a registered next action. JSON and `structuredContent` carry it in `hints`; Markdown places it at the end of the presentation. When `message` or the first `diagnostics` entry explains the correction, the hint points there. When recovery depends on a choice or reported state, the hint names the relevant state and action. Consent, partial operations, incomplete setup, document lookup, and improvement thresholds use these specific instructions. A caller therefore does not have to infer whether to retry, review, choose, or complete cleanup ([ADR 0266](../_adr/0266-public-failure-recovery-is-classified-by-error-family.md)).
 
 `setup begin` and `accept` check for the required permission before changing anything. Without permission, they return `awaiting_consent` and leave the project unchanged. The result names what needs review and gives the confirmed command that continues the operation. `setup begin` provides this contract in human and JSON CLI output. `accept` also provides it through MCP. Dry runs need no permission because they only show the plan.
 
-`start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered paths, and warnings. `start` grants are prospective. An absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
+`start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered-path evidence, and warnings. Status and done agent results bound uncovered paths to six examples and retain `uncovered_total`; `start` grants are prospective. An absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
 
-`status` identifies the project in `data.project`. Every readable non-main `data.fleet` row carries `gate_proof`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. Honored rows retain the earlier `proof_honored`, `proof`, and `proof_line` fields. When Git can read the latest landed Proof's subject, `data.landed_proof.commit_at` carries its committer timestamp. See [Status and session hints](../30-worktrees/status.md) for the human dashboard and structured result projections.
+`status` identifies the project in `data.project`. Every readable non-main `data.fleet` row carries one `gate_proof`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored current-format marker carries a compact `proof` with branch, trunk, validated commit, diff counts, and line. An older marker may carry `proof_line` alone. Rendered Proof pages and the earlier honored-only compatibility fields do not cross the agent wire boundary. Status landing authority retains at most six uncovered-path examples plus `uncovered_total`. Collision rows retain identities and shared-path counts; human `--verbose` holds their path lists. `data.landed_proof.proof` uses the same compact shape, and `commit_at` carries its committer timestamp when Git can read it. See [Status and session hints](../30-worktrees/status.md) for the dashboard and projections.
+
+A green `done` result uses the same compact `data.proof`. A successful `accept` carries only its consent-qualified `data.proof_line`; the paste-ready review page remains available through human `discern status --verbose`. These projections remove repeated renderings while preserving the claim an agent must report.
 
 A successful `accept` reports the permission it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. The terminal proof line and `data.proof_line` repeat that evidence.
 
@@ -151,7 +160,7 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 
 | URI                                             | Payload                                        |
 | ----------------------------------------------- | ---------------------------------------------- |
-| `discern://status`                              | Live status data.                              |
+| `discern://status`                              | Live compact status data.                      |
 | `discern://impact`                              | Current scope-impact data.                     |
 | `discern://config`                              | Resolved `discern.toml` data.                  |
 | `discern://docs` and `discern://docs/{+target}` | The manual index or one manual page.           |
@@ -169,7 +178,7 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 | Project Script's own code    | `discern scripts <name>` passes through the script's exit code because the script owns its result contract.  |
 | Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.           |
 
-Published JSON maps exit `0` to `ok: true` and controlled nonzero to `ok: false`. JSON predicates always exit `0`; their boolean is in `data`. Bare `config has` and `impact --has` stay silent, exiting `0` or `1`. `identity` and config reads are bare unless `--json` requests envelopes.
+Quiet result modes map exit `0` to `ok: true` and controlled nonzero to `ok: false`. Predicates using `--json` or `--markdown` always exit `0`; their boolean is in `data`. Bare `config has` and `impact --has` stay silent, exiting `0` or `1`. `identity` and config reads are bare unless `--json` or `--markdown` requests a result.
 
 ## Published schemas and types
 

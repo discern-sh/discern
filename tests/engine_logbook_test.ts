@@ -172,6 +172,22 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
   });
 });
 
+Deno.test("logbook: Markdown is a first-class agent output signal", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const result = await runAgent(dir, ["status", "--local", "--markdown"]);
+    assertEquals(result.code, 0, result.output);
+
+    const [event] = verbEvents(await readEvents(dir));
+    assert(event !== undefined);
+    assertEquals(event.driver?.json, false);
+    assertEquals(event.driver?.markdown, true);
+    assertEquals(event.flags, ["local"]);
+  });
+});
+
 Deno.test("logbook: an effectful verb pairs begin and completion by invocation id", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

@@ -1,8 +1,9 @@
 /**
  * The engine's **result & plan vocabulary** — the single source of truth for what
  * every `discern` verb returns. A verb computes a pure {@link DiscernResult}; its
- * human text, its `--json`, and (the MCP server's) tool result are all renderings
- * of that one object, never re-derived in parallel (ADR 0027, ADR 0028).
+ * human text, its quiet CLI projections, and the MCP tool result are all
+ * renderings of that one object, never re-derived in parallel (ADR 0027, ADR
+ * 0028).
  *
  * This module is the base layer — pure data and pure functions, zero internal
  * imports — so both halves of the binary (the `src/engine/**` engine and the
@@ -412,8 +413,9 @@ export type ErrorSlug = (typeof ERROR_SLUGS)[number];
  * accept), and `data` carries each verb's own payload (doctor's checks, schema migration data
  * schema versions, init's written-files list).
  *
- * `result_serialization.ts` renders it to `--json`; the human path renders the same fields
- * (so the two can never disagree on WHAT happened) and may add verb-specific advice.
+ * `result_serialization.ts` prepares its agent-wire data; the human and agent
+ * presentations read the same envelope, so they cannot disagree on what
+ * happened, while each may select advice suited to its reader.
  *
  * Generic over its `data` payload (`TData`, default `unknown`): a verb core narrows
  * it to its own schema-backed type (`DiscernResult<StatusData>`, `<GateData>`, …) so

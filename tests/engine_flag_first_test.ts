@@ -3,7 +3,7 @@
  * pre-Cliffy routing decision in `main()` keys on `argv[0]` while Cliffy
  * itself accepts the global flags BEFORE the subcommand. Any such decision
  * must key on the RESOLVED verb (the first non-global-flag token), or a
- * leading `--json`/`--no-color` smuggles the invocation past the router:
+ * leading result-format or `--no-color` flag smuggles the invocation past the router:
  * the ADR 0036 setup redirect, the operator help, the root JSON refusal,
  * and project script dispatch all diverge.
  *
@@ -37,11 +37,13 @@ const GLOBAL_FLAGS: readonly string[] = [
   ...globalFlagTokens(buildCli(false) as unknown as Command),
 ].sort();
 
-Deno.test("the global-flag registration is non-empty and includes --json", () => {
+Deno.test("the global-flag registration includes both agent result formats", () => {
   // The matrices below iterate this set — an empty derivation would make
   // every flag-first case silently vacuous.
   assert(GLOBAL_FLAGS.length > 0, "no global flags derived from the root");
   assert(GLOBAL_FLAGS.includes("--json"), GLOBAL_FLAGS.join(", "));
+  assert(GLOBAL_FLAGS.includes("--markdown"), GLOBAL_FLAGS.join(", "));
+  assert(!GLOBAL_FLAGS.includes("--md"), GLOBAL_FLAGS.join(", "));
   assertEquals([...ROOT_GLOBAL_FLAG_TOKENS].sort(), GLOBAL_FLAGS);
 });
 
@@ -114,12 +116,19 @@ Deno.test("pre-setup: the redirect fires for every global flag before every gate
     for (const flag of GLOBAL_FLAGS) {
       for (const verb of SETUP_GATED_VERBS) {
         const args = [flag, verb];
-        if (!args.includes("--json")) {
+        const markdown = args.includes("--markdown");
+        if (!args.includes("--json") && !markdown) {
           args.push("--json");
         }
         const r = await runAgent(dir, args);
         const label = `discern ${args.join(" ")}`;
         assertEquals(r.code, 1, `${label}: ${r.output}`);
+        if (markdown) {
+          assertStringIncludes(r.stdout, `# \`discern ${verb}\``);
+          assertStringIncludes(r.stdout, "## Current state");
+          assertStringIncludes(r.stdout, "isn't set up");
+          continue;
+        }
         const res = JSON.parse(r.stdout);
         assertEquals(
           res.error,
@@ -145,12 +154,54 @@ Deno.test("pre-setup: a flags-only JSON invocation returns the root refusal", as
   });
 });
 
+Deno.test("pre-setup: a flags-only Markdown invocation returns the same root refusal", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    const r = await runAgent(dir, ["--markdown"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.stdout, "# `discern`");
+    assertStringIncludes(r.stdout, "discern --markdown needs a command");
+    assertStringIncludes(r.stdout, "## Next action");
+  });
+});
+
+Deno.test("JSON and Markdown result formats are mutually exclusive", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const r = await runAgent(dir, ["status", "--json", "--markdown"]);
+    assertEquals(r.code, 1, r.output);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.error, "invalid_arguments");
+    assertStringIncludes(result.message, "cannot be combined");
+  });
+});
+
+Deno.test("--md is not an alias for --markdown", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const result = await runAgent(dir, ["status", "--md"]);
+    assertEquals(result.code, 2, result.output);
+    assertStringIncludes(result.output, 'Unknown option "--md"');
+  });
+});
+
 Deno.test("flag-first --help renders the operator help with the scripts command", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["--no-color", "--help"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "scripts");
+  });
+});
+
+Deno.test("flag-first --markdown selects the authored result projection", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const r = await runAgent(dir, ["--markdown", "status"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, "# `discern status`");
+    assertStringIncludes(r.stdout, "## Current state");
+    assert(!r.stdout.trimStart().startsWith("{"), r.stdout);
   });
 });
 
@@ -164,5 +215,18 @@ Deno.test("a project script dispatches with a global flag placed first", async (
     const r = await runAgent(dir, ["--no-color", "scripts", "hello"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "HELLO-FROM-PROJECT");
+  });
+});
+
+Deno.test("a Project Script owns a child --markdown flag", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeExecutable(
+      join(dir, "discern/scripts/relay"),
+      "#!/usr/bin/env sh\nprintf '%s\\n' \"$1\"\n",
+    );
+    const r = await runAgent(dir, ["scripts", "relay", "--markdown"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(r.stdout, "--markdown\n");
   });
 });

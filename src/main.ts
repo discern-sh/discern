@@ -1,7 +1,7 @@
 /**
  * `discern` — the CLI entrypoint.
  *
- * Wires the Cliffy command tree, threads the global flags (`--json`,
+ * Wires the Cliffy command tree, threads the global flags (`--json`, `--markdown`,
  * `--no-color`, `--help`, `--version`) into ordinary subcommands, and maps
  * each command's exit code onto the process. Each subcommand's logic lives in
  * `src/commands/*`; this file is routing only.
@@ -12,7 +12,7 @@ import { setColorEnabled as setStdColorEnabled } from "@std/fmt/colors";
 import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
 import { Logger } from "./lib/log.ts";
-import { emitResult } from "./shared/emit.ts";
+import { emitResult, setResultOutputFormat } from "./shared/emit.ts";
 import { observeVerbTarget } from "./shared/result_capture.ts";
 import {
   AGENT_NAMES,
@@ -107,19 +107,27 @@ function applyHelpColorOption(root: Command, color: boolean): void {
 }
 
 /**
- * Extract the global `--json` / `--no-color` flags. They reach every command at
+ * Extract the global result-format and `--no-color` flags. They reach every command at
  * runtime via root's `globalOption`, but a standalone subcommand instance (the
  * `config` group) doesn't carry them in its inferred option type, so we read them
  * through a narrow cast.
  */
 function globalFlags(options: unknown): { json: boolean; noColor: boolean } {
-  const o = options as { json?: boolean; color?: boolean };
-  return { json: o.json ?? false, noColor: noColorFrom(o.color) };
+  const o = options as {
+    json?: boolean;
+    markdown?: boolean;
+    color?: boolean;
+  };
+  return {
+    json: (o.json ?? false) || (o.markdown ?? false),
+    noColor: noColorFrom(o.color),
+  };
 }
 
 /** Root-global flag spellings, shared by early routing and Cliffy registration. */
 export const ROOT_GLOBAL_FLAGS = {
   json: "--json",
+  markdown: "--markdown",
   noColor: "--no-color",
   plain: "--plain",
 } as const;
@@ -137,26 +145,37 @@ export const CLI_CHILD_BOUNDARIES = {
 
 let activeDiscernArgv: readonly string[] = Deno.args;
 
+/** Whether one discern-owned argv asks for either quiet result projection. */
+function machineOutputRequested(argv: readonly string[]): boolean {
+  return argv.includes(ROOT_GLOBAL_FLAGS.json) ||
+    argv.includes(ROOT_GLOBAL_FLAGS.markdown);
+}
+
 /** Emit the machine-mode refusal for a bare root invocation. */
-function emitRootJsonRefusal(): void {
+function emitRootMachineRefusal(argv: readonly string[]): void {
+  const flag = argv.includes(ROOT_GLOBAL_FLAGS.markdown)
+    ? ROOT_GLOBAL_FLAGS.markdown
+    : ROOT_GLOBAL_FLAGS.json;
   emitResult({
     ok: false,
     verb: "discern",
     error: "invalid_arguments",
     message:
-      "discern --json needs a command. Run `discern --help` to list the available commands.",
+      `discern ${flag} needs a command. Run \`discern --help\` to list the available commands.`,
   });
 }
 
 /**
- * The type of `buildCli`'s root command. Cliffy threads the three `globalOption`
+ * The type of `buildCli`'s root command. Cliffy threads the four `globalOption`
  * declarations into the command's generics, so the concrete type is impractical
  * to write by hand. We name it from a type-only `declare` (no runtime value is
  * emitted) whose chain mirrors the real root built in `buildCli`.
  */
 declare function rootShape(): ReturnType<
   ReturnType<
-    ReturnType<Command<void, void, void, []>["globalOption"]>["globalOption"]
+    ReturnType<
+      ReturnType<Command<void, void, void, []>["globalOption"]>["globalOption"]
+    >["globalOption"]
   >["globalOption"]
 >;
 type RootCommand = ReturnType<typeof rootShape>;
@@ -197,6 +216,10 @@ export function buildCli(
       "Emit machine-readable JSON instead of human output.",
     )
     .globalOption(
+      ROOT_GLOBAL_FLAGS.markdown,
+      "Emit agent-readable Markdown instead of human output.",
+    )
+    .globalOption(
       ROOT_GLOBAL_FLAGS.noColor,
       "Disable colour (also honours NO_COLOR and non-TTY output).",
     )
@@ -207,7 +230,7 @@ export function buildCli(
     .error((error, command) => {
       if (
         !(error instanceof ValidationError) ||
-        !activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.json)
+        !machineOutputRequested(activeDiscernArgv)
       ) {
         return;
       }
@@ -226,8 +249,8 @@ export function buildCli(
       Deno.exit(error.exitCode);
     })
     .action(function (options): void {
-      if ((options as { json?: boolean } | undefined)?.json ?? false) {
-        emitRootJsonRefusal();
+      if (globalFlags(options).json) {
+        emitRootMachineRefusal(activeDiscernArgv);
         return;
       }
       // No subcommand: show the grouped, operator-oriented help.
@@ -1112,6 +1135,20 @@ export async function main(args: string[]): Promise<void> {
   let argv = args;
   const discernArgv = discernOwnedArgv(argv, ROOT_GLOBAL_FLAG_TOKENS);
   activeDiscernArgv = discernArgv;
+  const jsonRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.json);
+  const markdownRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.markdown);
+  const machineOutput = jsonRequested || markdownRequested;
+  if (markdownRequested) {
+    // Every command already treats its `json` option as the quiet result-path
+    // switch. Normalize only discern-owned tokens to that internal switch;
+    // `emitResult` still selects Markdown, and child arguments after queue's
+    // delimiter or a Project Script name remain byte-for-byte unchanged.
+    argv = argv.map((token, index) =>
+      index < discernArgv.length && token === ROOT_GLOBAL_FLAGS.markdown
+        ? ROOT_GLOBAL_FLAGS.json
+        : token
+    );
+  }
   // The raw first token — helper dispatch below is deliberately positional,
   // and it names the attempted verb in a pre-resolution config error.
   let verb = argv[0];
@@ -1120,7 +1157,21 @@ export async function main(args: string[]): Promise<void> {
     // One global interaction decision feeds every input-capable surface. This
     // is set before helper/command dispatch so flag-first forms behave identically.
     setPlainMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.plain));
-    setJsonMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.json));
+    setResultOutputFormat(
+      markdownRequested && !jsonRequested ? "markdown" : "json",
+    );
+    setJsonMode(machineOutput);
+    if (jsonRequested && markdownRequested) {
+      emitResult({
+        ok: false,
+        verb: "discern",
+        error: "invalid_arguments",
+        message:
+          "`--json` and `--markdown` cannot be combined. Choose one result format.",
+      });
+      Deno.exit(1);
+      return;
+    }
     // Resolve the ONE colour decision up front (flag + NO_COLOR + isatty) and
     // thread it to every colour-emitting surface, so `--no-color` is honoured
     // uniformly — engine verbs, the installer Loggers, and the root help alike —
@@ -1171,8 +1222,8 @@ export async function main(args: string[]): Promise<void> {
     // (ADR 0119); the shared `canInteract` policy additionally honors --plain and
     // CI, so pipes, harnesses, and machine modes fall through to static help.
     if (verb === undefined) {
-      if (discernArgv.includes(ROOT_GLOBAL_FLAGS.json)) {
-        emitRootJsonRefusal();
+      if (machineOutput) {
+        emitRootMachineRefusal(discernArgv);
         Deno.exit(1);
         return;
       }
@@ -1182,13 +1233,13 @@ export async function main(args: string[]): Promise<void> {
         );
         Deno.exit(
           await runSetupWelcome({
-            json: discernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+            json: machineOutput,
             noColor: !color,
           }),
         );
       }
       if (inProject && configOk && bootstrapped) {
-        const json = discernArgv.includes(ROOT_GLOBAL_FLAGS.json);
+        const json = machineOutput;
         if (inDeskSession() || (!json && canInteract(false))) {
           const { runDesk } = await import("./engine/desk/desk.ts");
           // The bare invocation IS the desk, so it records through the same
@@ -1219,7 +1270,7 @@ export async function main(args: string[]): Promise<void> {
     const successor = retiredCommandSuccessor(retiredCommand);
     if (successor !== undefined) {
       const message = retiredCommandMessage(retiredCommand, successor);
-      if (discernArgv.includes(ROOT_GLOBAL_FLAGS.json)) {
+      if (machineOutput) {
         emitResult({
           ok: false,
           verb: retiredCommand,
@@ -1283,7 +1334,7 @@ export async function main(args: string[]): Promise<void> {
     if (
       inProject && configOk && !bootstrapped && verbNeedsSetup(verb)
     ) {
-      if (discernArgv.includes(ROOT_GLOBAL_FLAGS.json)) {
+      if (machineOutput) {
         emitResult({
           ok: false,
           verb,
@@ -1315,7 +1366,7 @@ export async function main(args: string[]): Promise<void> {
             "cli",
             async () =>
               await runProjectScript(script.name, script.args, {
-                json: discernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+                json: machineOutput,
               }),
           ),
         );
@@ -1328,7 +1379,7 @@ export async function main(args: string[]): Promise<void> {
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
       Deno.exit(
         await reportUnknownOrSuggest(verb, {
-          json: discernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+          json: machineOutput,
         }),
       );
     }
@@ -1345,7 +1396,7 @@ export async function main(args: string[]): Promise<void> {
       err instanceof ConfigParseError || err instanceof ConfigValidationError
     ) {
       const isValidation = err instanceof ConfigValidationError;
-      if (discernArgv.includes(ROOT_GLOBAL_FLAGS.json)) {
+      if (machineOutput) {
         // Route through the one envelope/chokepoint (ADR 0030) so even a
         // pre-verb config error is the uniform DiscernResult an agent expects —
         // carrying the attempted verb, with the per-issue list under `data`.
@@ -1364,7 +1415,7 @@ export async function main(args: string[]): Promise<void> {
     await exitWithCrashFrame(
       verb,
       err,
-      discernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+      machineOutput,
     );
   }
 }
@@ -1415,7 +1466,7 @@ if (import.meta.main) {
     void exitWithCrashFrame(
       undefined,
       event.reason,
-      activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+      machineOutputRequested(activeDiscernArgv),
     );
   });
   globalThis.addEventListener("error", (event) => {
@@ -1423,7 +1474,7 @@ if (import.meta.main) {
     void exitWithCrashFrame(
       undefined,
       event.error ?? event.message,
-      activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+      machineOutputRequested(activeDiscernArgv),
     );
   });
   await main(Deno.args);

@@ -513,13 +513,7 @@ const PROOF_CONFIG = [
   "",
 ].join("\n");
 
-/** Strip the duration fragments (`· 3s`) — the one part of a proof allowed to
- * differ between runs of the same tree. */
-function stripDurations(md: string): string {
-  return md.replaceAll(/ · \d+s/g, "");
-}
-
-Deno.test("done --json: a green worktree gate emits the proof in data and stores it in the marker", async () => {
+Deno.test("done --json: a green worktree gate emits a compact proof and stores the full page in the marker", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, PROOF_CONFIG);
@@ -534,7 +528,7 @@ Deno.test("done --json: a green worktree gate emits the proof in data and stores
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
 
-    // The structured proof: git facts + the two renderings, one derivation.
+    // Agent wire data keeps the compact claim and omits the review-page rendering.
     const proof = obj.data.proof;
     assert(proof !== undefined, `expected data.proof: ${r.stdout}`);
     assertEquals(proof.branch, "agent/alpha");
@@ -551,15 +545,7 @@ Deno.test("done --json: a green worktree gate emits the proof in data and stores
       proof.line,
       "full proof: discern status --verbose",
     );
-    assertStringIncludes(proof.markdown, "### Proof — `agent/alpha`");
-    assertStringIncludes(
-      proof.markdown,
-      "| test | `echo proof-gate-ok` | ok",
-    );
-    assertStringIncludes(
-      proof.markdown,
-      "Inspect: `git diff main...agent/alpha`",
-    );
+    assertEquals(proof.markdown, undefined);
 
     // The relay affordance rides the envelope's hints, led by the
     // prove-before-claiming guardrail that replaced the prove-it-works skill.
@@ -577,16 +563,12 @@ Deno.test("done --json: a green worktree gate emits the proof in data and stores
     );
     assertStringIncludes(marker, "\n\n### Proof");
 
-    // Deterministic: the same tree and result render the same proof (durations
-    // excepted). The unchanged tree makes this a rerun, so it carries the
-    // attestation the rerun precondition requires.
+    // Deterministic: the same tree emits the same compact Proof. The unchanged
+    // tree makes this a rerun, so it carries the required attestation.
     const again = parseJson(
       (await runAgent(wt, ["done", "--confirmed", "--json"])).stdout,
     );
-    assertEquals(
-      stripDurations(again.data.proof.markdown),
-      stripDurations(proof.markdown),
-    );
+    assertEquals(again.data.proof, proof);
   });
 });
 

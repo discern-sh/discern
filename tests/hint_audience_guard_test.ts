@@ -81,9 +81,6 @@ const AGENT_VOCABULARY: readonly { label: string; pattern: RegExp }[] = [
  * - "agent session" / "MCP": the setup-unfinished guardrails state a fact a
  *   supervising human needs too, and the restart/reactivate family instructs
  *   an action the human often performs (restarting their own agent session).
- * - "data.<field>": `data` is discern's documented envelope vocabulary on
- *   every surface; a payload pointer beside rendered output is jargon, not
- *   misdirection.
  */
 const ALLOWED_AGENT_VOCABULARY: Record<string, readonly string[]> = {
   "setup-unfinished-doctor": ["agent session"],
@@ -93,21 +90,6 @@ const ALLOWED_AGENT_VOCABULARY: Record<string, readonly string[]> = {
   "refresh-mcp-first-install": ["agent session", "MCP"],
   "upgrade-restart-session": ["agent session", "MCP"],
   "mcp-version-mismatch": ["agent session", "MCP"],
-  "improvement-follow-next-action": ["data.<field>"],
-  "skills-eject-finish-materialization": ["data.<field>"],
-  "accept-review-via-status": ["data.<field>"],
-  "accept-reconcile-partial-effects": ["data.<field>"],
-  "setup-awaiting-confirmation": ["data.<field>"],
-  "setup-finish-incomplete": ["data.<field>"],
-  "docs-choose-candidate": ["data.<field>"],
-  "docs-find-target": ["data.<field>"],
-  "coupling-evidence-summary": ["data.<field>"],
-  "coupling-evidence-more": ["data.<field>"],
-  "standards-pinnable-slack": ["data.<field>"],
-  "status-fleet-member-ready": ["data.<field>"],
-  "status-fleet-member-stale": ["data.<field>"],
-  "status-fleet-collisions": ["data.<field>"],
-  "status-adr-number-collisions": ["data.<field>"],
 };
 
 Deno.test("all-audience templates carry agent vocabulary only by allowlisted decision", () => {

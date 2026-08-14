@@ -723,6 +723,38 @@ Deno.test("every swept --json verb emits ONLY the envelope (no human or subproce
   });
 });
 
+Deno.test("done --markdown emits one authored document with no subprocess leak", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, NOISY_CONFIG);
+    await gitInit(dir);
+    const result = await runAgent(dir, ["done", "--markdown"]);
+    assertEquals(result.code, 0, result.output);
+    assertEquals(result.stderr, "", result.output);
+    assertStringIncludes(result.stdout, "# `discern done`");
+    assertStringIncludes(result.stdout, "## Current state");
+    assertStringIncludes(result.stdout, "## Evidence");
+    assertEquals(result.stdout.match(/^# /gm)?.length, 1, result.stdout);
+    for (
+      const noise of [
+        "FMT-OUT",
+        "FMT-ERR",
+        "LINT-OUT",
+        "LINT-ERR",
+        "TC-OUT",
+        "TEST-OUT",
+        "TEST-ERR",
+        "STANDARD-NOISE",
+      ]
+    ) {
+      assert(
+        !result.output.includes(noise),
+        `${noise} leaked around the Markdown result:\n${result.output}`,
+      );
+    }
+  });
+});
+
 Deno.test("worktree lifecycle --json: start/update/accept/setup/teardown/drop/prune emit only the envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -865,6 +897,32 @@ Deno.test("serializeResult reaches stdout ONLY through the emitResult chokepoint
     [],
     `serializeResult must only be emitted via emitResult (src/shared/emit.ts) or the MCP renderer.\n` +
       `Hand-rolled envelope emission found in:\n  ${offenders.join("\n  ")}`,
+  );
+});
+
+Deno.test("authored Markdown reaches agents only through the CLI and MCP result boundaries", async () => {
+  const allowed = new Set([
+    join("src", "shared", "result_markdown.ts"),
+    join("src", "shared", "emit.ts"),
+    join("src", "engine", "mcp", "server.ts"),
+  ]);
+  const offenders: string[] = [];
+  for await (const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })) {
+    const rel = relative(REPO_ROOT, entry.path);
+    if (allowed.has(rel)) {
+      continue;
+    }
+    const source = await Deno.readTextFile(entry.path);
+    if (/renderResultMarkdown\s*\(/.test(source)) {
+      offenders.push(rel);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `Markdown result rendering bypassed the shared boundaries:\n  ${
+      offenders.join("\n  ")
+    }`,
   );
 });
 

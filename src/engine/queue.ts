@@ -40,7 +40,7 @@ export type QueueInvocation =
 /**
  * Split the queue command at its required `--` boundary. Root-global flags may
  * precede the boundary because Cliffy permits them on either side of a verb;
- * `--json` remains unsupported because the child owns both output streams.
+ * Quiet result formats remain unsupported because the child owns both output streams.
  */
 export function parseQueueInvocation(
   argsWithoutVerb: readonly string[],
@@ -59,11 +59,14 @@ export function parseQueueInvocation(
   if (args.length === 1 && (args[0] === "-h" || args[0] === "--help")) {
     return { kind: "help" };
   }
-  if (wrapperFlags.includes("--json")) {
+  const resultFlag = wrapperFlags.find((flag) =>
+    flag === "--json" || flag === "--markdown"
+  );
+  if (resultFlag !== undefined) {
     return {
       kind: "error",
       message:
-        "queue has no `--json` mode because the wrapped command owns stdout and stderr.",
+        "queue has no `--json` or `--markdown` mode because the wrapped command owns stdout and stderr.",
     };
   }
   if (args[0] !== "--") {

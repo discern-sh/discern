@@ -74,6 +74,7 @@ These options are inherited unless a command's entry says otherwise. Tokens beyo
 | Option       | Description                                                                                             |
 | ------------ | ------------------------------------------------------------------------------------------------------- |
 | `--json`     | Emit machine-readable JSON instead of human output.                                                     |
+| `--markdown` | Emit agent-readable Markdown instead of human output.                                                   |
 | `--no-color` | Disable colour (also honours NO_COLOR and non-TTY output).                                              |
 | `--plain`    | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior. |
 
@@ -87,9 +88,9 @@ Open the interactive task list: start a task, open its worktree, update it, land
 
 Usage: `discern desk [options]`
 
-| Option   | Description                                                               |
-| -------- | ------------------------------------------------------------------------- |
-| `--json` | The desk is interactive only; use `status --json` to list every worktree. |
+| Option   | Description                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------ |
+| `--json` | The desk is interactive only; use `status --markdown` or `status --json` to list every worktree. |
 
 ## Agentic loop
 
@@ -101,12 +102,12 @@ Show what's true right now and what to do next (read-only; does not run the gate
 
 Usage: `discern status [options]`
 
-| Option      | Description                                                                                                                                |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--all`     | Include every worktree even when called from one (local view plus all worktrees).                                                          |
-| `--local`   | Show only this checkout, even in the main checkout.                                                                                        |
-| `--verbose` | Also print the full proof page for an honored branch (and each ready fleet row). Interactive output only; --json always carries the proof. |
-| `--json`    | Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).                                                              |
+| Option      | Description                                                                                                                                                          |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--all`     | Include every worktree even when called from one (local view plus all worktrees).                                                                                    |
+| `--local`   | Show only this checkout, even in the main checkout.                                                                                                                  |
+| `--verbose` | Expand fleet attention, per-worktree evidence, configured checks, landing history, and full Proof pages. Interactive output only; agent results carry compact facts. |
+| `--json`    | Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).                                                                                        |
 
 ### `discern prepare`
 
@@ -142,7 +143,7 @@ Usage: `discern test [options]`
 
 ### `discern queue`
 
-Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead. This command has no `--json` mode; tokens after `--` belong to the child.
+Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead. This command has no `--json` or `--markdown` mode; tokens after `--` belong to the child.
 
 Usage: `discern queue -- <command> [args...]`
 
@@ -639,7 +640,7 @@ Usage: `discern patterns reset [options]`
 
 | Option      | Description                                                                 |
 | ----------- | --------------------------------------------------------------------------- |
-| `--json`    | Preview as one JSON DiscernResult; apply is refused in JSON mode.           |
+| `--json`    | Preview as one result; apply is refused with `--json` or `--markdown`.      |
 | `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
 
 #### `discern patterns archive`
@@ -650,7 +651,7 @@ Usage: `discern patterns archive [options]`
 
 | Option      | Description                                                                 |
 | ----------- | --------------------------------------------------------------------------- |
-| `--json`    | Preview as one JSON DiscernResult; apply is refused in JSON mode.           |
+| `--json`    | Preview as one result; apply is refused with `--json` or `--markdown`.      |
 | `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
 
 ### `discern map`

@@ -9,7 +9,7 @@
  * guidance into one block.
  *
  * Like every verb it computes one {@link DiscernResult}; the human report, the
- * `--json`, and the MCP tool are three renderings of the same object.
+ * quiet CLI projections, and the MCP tool are renderings of the same object.
  * {@link patternsResult} is the unrendered core the MCP server calls;
  * {@link runPatterns} is the CLI. `--stats` asks the same read for the
  * practice's stats (`stats.ts` computes them; `data.stats` carries them) and

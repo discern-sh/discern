@@ -173,7 +173,7 @@ Deno.test("failure recovery never fabricates a command from the result verb", ()
 Deno.test("proof relay hints require the system-rendered line verbatim", () => {
   const relayFields = [
     ["gate-relay-proof", "data.proof.line"],
-    ["status-ready-for-review", "data.gate_proof.proof_line"],
+    ["status-ready-for-review", "data.gate_proof.proof.line"],
     ["accept-relay-landing-proof", "data.proof_line"],
   ] as const;
   for (const [id, field] of relayFields) {

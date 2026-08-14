@@ -1,15 +1,24 @@
 /**
- * Public JSON result contracts for `discern <command> --json` and MCP tool
- * `structuredContent`.
+ * Public agent result contracts for quiet CLI output and MCP tool results.
  *
  * `result_schemas.ts` owns the runtime Zod shapes. This registry is the published
- * surface index: each JSON-emitting command path points at its schema, and MCP tools
- * name the same schema because the server returns the same serialized
- * `DiscernResult` object in `structuredContent`.
+ * surface index: each result-emitting command path points at its schema and
+ * authored Markdown presenter. MCP tools name the same schema because the
+ * server returns the serialized `DiscernResult` in `structuredContent`.
  */
 
 import type { z } from "@zod/zod";
 import type { Command } from "@cliffy/command";
+import {
+  RESULT_MARKDOWN_PRESENTERS,
+  type ResultMarkdownPresenter,
+} from "./result_markdown.ts";
+import {
+  projectAcceptResult,
+  projectGateResult,
+  projectStatusResult,
+  type ResultWireProjector,
+} from "./result_wire.ts";
 import {
   AcceptOutputSchema,
   AwaitOutputSchema,
@@ -106,6 +115,10 @@ export interface ResultContract {
   verb: string;
   /** Runtime schema for the serialized `DiscernResult`. */
   schema: z.ZodType;
+  /** Authored Markdown projection for CLI and MCP text delivery. */
+  presenter: ResultMarkdownPresenter;
+  /** Optional compaction applied before either agent representation renders. */
+  wireProjector?: ResultWireProjector | undefined;
   /** MCP tool name when this same result is exposed over MCP. */
   mcpTool?: string | undefined;
   /** Additional predicate invocations selected inside one command path. */
@@ -124,54 +137,63 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["discern"],
     verb: "discern",
     schema: DiscernOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "setup",
     commands: ["setup", "setup begin"],
     verb: "setup",
     schema: SetupOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.setup,
   },
   {
     id: "setupVerify",
     commands: ["setup verify"],
     verb: "setup verify",
     schema: SetupVerifyOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.setupVerify,
   },
   {
     id: "setupStep",
     commands: ["setup step"],
     verb: "setup step",
     schema: SetupStepOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.setupStep,
   },
   {
     id: "setupDone",
     commands: ["setup done"],
     verb: "setup done",
     schema: SetupDoneOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.setupDone,
   },
   {
     id: "setupAccept",
     commands: ["setup accept"],
     verb: "setup accept",
     schema: SetupAcceptOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.setupAccept,
   },
   {
     id: "upgrade",
     commands: ["upgrade"],
     verb: "upgrade",
     schema: UpgradeOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.upgrade,
   },
   {
     id: "uninstall",
     commands: ["uninstall"],
     verb: "uninstall",
     schema: UninstallOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.uninstall,
   },
   {
     id: "doctor",
     commands: ["doctor"],
     verb: "doctor",
     schema: DoctorOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.doctor,
     mcpTool: "discern_doctor",
   },
   {
@@ -179,24 +201,28 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["licenses"],
     verb: "licenses",
     schema: LicensesOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.inventory,
   },
   {
     id: "triangle",
     commands: ["triangle"],
     verb: "triangle",
     schema: TriangleOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.inventory,
   },
   {
     id: "preset",
     commands: ["preset"],
     verb: "preset",
     schema: PresetOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.inventory,
   },
   {
     id: "map",
     commands: ["map"],
     verb: "map",
     schema: MapOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.docs,
     mcpTool: "discern_map",
   },
   {
@@ -204,6 +230,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["docs"],
     verb: "docs",
     schema: DocsOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.docs,
     mcpTool: "discern_docs",
   },
   {
@@ -222,6 +249,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     ],
     verb: "config",
     schema: ConfigOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.config,
     predicates: [{
       id: "configHas",
       command: "config has",
@@ -234,6 +262,8 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["done"],
     verb: "done",
     schema: FinishOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.gate,
+    wireProjector: projectGateResult,
     mcpTool: "discern_done",
   },
   {
@@ -241,6 +271,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["prepare"],
     verb: "prepare",
     schema: PrepareOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.gate,
     mcpTool: "discern_prepare",
   },
   {
@@ -248,6 +279,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["test"],
     verb: "test",
     schema: TestOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.gate,
     mcpTool: "discern_test",
   },
   {
@@ -255,6 +287,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["improvement"],
     verb: "improvement",
     schema: ImprovementOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.improvement,
     mcpTool: "discern_improvement",
   },
   {
@@ -262,6 +295,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["standards"],
     verb: "standards",
     schema: StandardsOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.standards,
     mcpTool: "discern_standards",
   },
   {
@@ -269,6 +303,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["refresh"],
     verb: "refresh",
     schema: RefreshOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.refresh,
     mcpTool: "discern_refresh",
   },
   {
@@ -276,12 +311,14 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["tidy"],
     verb: "tidy",
     schema: TidyOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "impact",
     commands: ["impact"],
     verb: "impact",
     schema: ImpactOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.impact,
     mcpTool: "discern_impact",
     predicates: [{
       id: "impactHas",
@@ -296,6 +333,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["coupling"],
     verb: "coupling",
     schema: CouplingOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.coupling,
     mcpTool: "discern_coupling",
   },
   {
@@ -303,6 +341,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["await"],
     verb: "await",
     schema: AwaitOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.await,
     mcpTool: "discern_await",
   },
   {
@@ -310,6 +349,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["patterns"],
     verb: "patterns",
     schema: PatternsOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.patterns,
     mcpTool: "discern_patterns",
   },
   {
@@ -317,30 +357,36 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["patterns reset"],
     verb: "patterns reset",
     schema: PatternsResetOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.patternsLifecycle,
   },
   {
     id: "patternsArchive",
     commands: ["patterns archive"],
     verb: "patterns archive",
     schema: PatternsArchiveOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.patternsLifecycle,
   },
   {
     id: "patternsArchives",
     commands: ["patterns archives"],
     verb: "patterns archives",
     schema: PatternsArchivesOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.patternsLifecycle,
   },
   {
     id: "desk",
     commands: ["desk"],
     verb: "desk",
     schema: DeskOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "status",
     commands: ["status"],
     verb: "status",
     schema: StatusOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.status,
+    wireProjector: projectStatusResult,
     mcpTool: "discern_status",
   },
   {
@@ -348,6 +394,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["start"],
     verb: "start",
     schema: StartOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.start,
     mcpTool: "discern_start",
   },
   {
@@ -355,6 +402,8 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["accept"],
     verb: "accept",
     schema: AcceptOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.accept,
+    wireProjector: projectAcceptResult,
     mcpTool: "discern_accept",
   },
   {
@@ -362,6 +411,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["update"],
     verb: "update",
     schema: UpdateOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.update,
     mcpTool: "discern_update",
   },
   {
@@ -369,60 +419,70 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["identity"],
     verb: "identity",
     schema: IdentityOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.identity,
   },
   {
     id: "scripts",
     commands: ["scripts"],
     verb: "scripts",
     schema: ScriptsOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.scripts,
   },
   {
     id: "worktree",
     commands: ["worktree"],
     verb: "worktree",
     schema: WorktreeOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "worktreeSetup",
     commands: ["worktree setup"],
     verb: "worktree setup",
     schema: WorktreeSetupOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "worktreeTeardown",
     commands: ["worktree teardown"],
     verb: "worktree teardown",
     schema: WorktreeTeardownOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "worktreeDrop",
     commands: ["worktree drop"],
     verb: "worktree drop",
     schema: WorktreeDropOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "worktreePrune",
     commands: ["worktree prune"],
     verb: "worktree prune",
     schema: WorktreePruneOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "skills",
     commands: ["skills"],
     verb: "skills",
     schema: SkillsOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "skillsList",
     commands: ["skills list"],
     verb: "skills list",
     schema: SkillsListOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.skillsList,
   },
   {
     id: "skillsEject",
     commands: ["skills eject"],
     verb: "skills eject",
     schema: SkillsEjectOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.skillsEject,
   },
 ] as const;
 
@@ -574,6 +634,19 @@ export function cliJsonResultVerb(commandPath: string): string | undefined {
   return CLI_JSON_RESULT_CONTRACTS.find((contract) =>
     contract.commands.includes(commandPath)
   )?.verb;
+}
+
+/** The registered result contract for one serialized envelope discriminator. */
+export function resultContractForVerb(
+  verb: string,
+): ResultContract | undefined {
+  return CLI_JSON_RESULT_CONTRACTS.find((contract) => contract.verb === verb);
+}
+
+/** The authored presenter for a public verb, with a controlled router fallback. */
+export function resultPresenterForVerb(verb: string): ResultMarkdownPresenter {
+  return resultContractForVerb(verb)?.presenter ??
+    RESULT_MARKDOWN_PRESENTERS.envelope;
 }
 
 /**

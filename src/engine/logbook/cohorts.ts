@@ -48,19 +48,20 @@ function invocationSignals(e: VerbEvent): EffectiveAgentSignal[] {
 /**
  * Who plausibly drove one invocation, scored from the raw driver signals the
  * recorder stored as evidence: the MCP surface is an agent by construction;
- * `--json` on the CLI is the guidance-taught agent marker; an invocation-scoped
- * identity signal without a terminal is an agent that skipped `--json`. An
- * interactive terminal normally reads as a human at the keyboard — but when it
- * carries an invocation-scoped signal the two disagree (environments leak into
- * shells opened inside agent sessions), so the verdict is revoked to unknown
- * rather than claimed either way. Everything unresolved stays IN the analysis
- * population — excluding it would blind the detectors to unmarked CLI agents.
+ * `--json` and `--markdown` on the CLI are guidance-taught agent markers; an
+ * invocation-scoped identity signal without a terminal is an agent that
+ * skipped both. An interactive terminal normally reads as a human at the
+ * keyboard, but when it carries an invocation-scoped signal the two disagree
+ * (environments leak into shells opened inside agent sessions), so the verdict
+ * is revoked to unknown rather than claimed either way. Everything unresolved
+ * stays in the analysis population. Excluding it would blind the detectors to
+ * unmarked CLI agents.
  */
 export function driverKind(e: VerbEvent): "agent" | "human" | "unknown" {
   if (e.surface === "mcp") {
     return "agent";
   }
-  if (e.driver?.json === true) {
+  if (e.driver?.json === true || e.driver?.markdown === true) {
     return "agent";
   }
   if (invocationSignals(e).length > 0) {

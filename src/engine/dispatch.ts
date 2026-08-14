@@ -155,7 +155,7 @@ function makeLogger(): Logger {
 
 /**
  * Resolve the project root, or refuse and exit 1. The refusal is the engine's
- * ONE not-initialized chokepoint: under `--json` it emits the uniform
+ * ONE not-initialized chokepoint: under either agent result format it emits the uniform
  * `not_initialized` envelope on stdout — the machine slug an agent branches on —
  * and in human mode the canonical stderr line. Every engine verb that needs a
  * project passes its verb name and json flag here, so a new verb inherits the
@@ -192,8 +192,8 @@ function handleWorktreeError(
 
 /**
  * Build a lifecycle context and run a worktree operation, mapping errors to codes.
- * In `--json` mode the human narration is suppressed (Logger json mode) so stdout
- * carries only the verb's JSON object, and a thrown worktree error is emitted as a
+ * In agent result mode the human narration is suppressed (Logger json mode) so
+ * stdout carries only the selected projection, and a thrown worktree error is emitted as a
  * `DiscernResult` (`{ok:false, verb, error, message}`) rather than a (suppressed)
  * human line — a precondition slug in `error`, the human sentence in `message`.
  */
@@ -328,7 +328,7 @@ export function attachEngineCommands(
     .description(
       "Run a command while holding one configured concurrent test-run slot. " +
         "Use `discern await` to watch a fleet condition instead. " +
-        "This command has no `--json` mode; tokens after `--` belong to the child.",
+        "This command has no `--json` or `--markdown` mode; tokens after `--` belong to the child.",
     );
 
   root
@@ -660,7 +660,7 @@ export function attachEngineCommands(
         .description(action.description)
         .option(
           "--json",
-          "Preview as one JSON DiscernResult; apply is refused in JSON mode.",
+          "Preview as one result; apply is refused with `--json` or `--markdown`.",
         )
         .option(
           "--dry-run",
@@ -706,8 +706,9 @@ export function attachEngineCommands(
     )
     .option(
       "--verbose",
-      "Also print the full proof page for an honored branch (and each ready " +
-        "fleet row). Interactive output only; --json always carries the proof.",
+      "Expand fleet attention, per-worktree evidence, configured checks, landing " +
+        "history, and full Proof pages. Interactive output only; agent results " +
+        "carry compact facts.",
     )
     .option(
       "--json",
@@ -731,7 +732,7 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "The desk is interactive only; use `status --json` to list every worktree.",
+      "The desk is interactive only; use `status --markdown` or `status --json` to list every worktree.",
     )
     .action(
       recordedExit("desk", async (o) => {

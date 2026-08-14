@@ -11,7 +11,7 @@ This project uses **discern**, a stack-neutral agent-development system. Everyth
 - **`discern_done` is the bar for "done".** Call work finished only after its full gate passes. Iterate with **`discern_prepare`** (fast fix/regenerate/check) or **`discern_test`** (tests); fix failures from `diagnostics[]`. With a positive `[gate].concurrent_test_runs`, run direct tests through **`discern queue -- <command>`**.
 - **`discern_docs`** explains how discern works; **`discern_doctor`** diagnoses a misconfigured install.
 
-**Troubleshooting**: MCP tools unreachable? Tell the user, use the **`discern` CLI** with `--json` meanwhile. Read each result whole — never `tail` it, `grep` it, or filter it through a script; a subset drops the hints and remedies. Offer `discern doctor` afterwards. CLI not on PATH? Stop and tell the user: they choose between installing it (`curl discern.sh` explains how) and continuing without discern's protections.
+**Troubleshooting**: MCP tools unreachable? Tell the user, use the **`discern` CLI** with `--markdown` for an agent-readable result or `--json` when you need structured fields. Read each result whole; never `tail` it, `grep` it, or filter it through a script, because a subset drops hints and remedies. Offer `discern doctor` afterwards. CLI not on PATH? Stop and tell the user: they choose between installing it (`curl discern.sh` explains how) and continuing without discern's protections.
 
 ## Generated files — don't hand-edit
 

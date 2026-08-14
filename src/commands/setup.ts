@@ -2710,7 +2710,9 @@ async function emitAwaitingConsent(
       error: AWAITING_CONSENT_SLUG,
       message,
       data: { guidance, command },
-      hints: hintTexts([fire(HINTS["setup-awaiting-confirmation"])]),
+      hints: hintTexts([
+        fire(HINTS["setup-awaiting-confirmation"], { command }),
+      ]),
     });
   } else {
     // Everything on stdout — the channel the agent reads — so the served message it

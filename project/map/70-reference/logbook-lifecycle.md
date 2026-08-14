@@ -21,9 +21,9 @@ discern patterns archive
 discern patterns reset
 ```
 
-The previews report the event count, date span, source files, bytes, and archive destination or deletion scope. They remain read-only under pipes, CI, `--plain`, and `--json`.
+The previews report the event count, date span, source files, bytes, and archive destination or deletion scope. They remain read-only under pipes, CI, `--plain`, `--json`, and `--markdown`.
 
-Apply is a CLI-only owner action. It requires terminal input and output, operation outside CI and global `--plain`, and an explicit Yes to a confirmation that defaults to No. Pipes and `--json` apply refuse, and no flag or environment bypass exists. Declining changes no file or lifecycle state. Both actions refuse while active history contains another fresh unmatched invocation ([ADR 0272](../_adr/0272-logbook-lifecycle-actions-require-terminal-confirmation.md)).
+Apply is a CLI-only owner action. It requires terminal input and output, operation outside CI and global `--plain`, and an explicit Yes to a confirmation that defaults to No. Pipes, `--json`, and `--markdown` apply refuse, and no flag or environment bypass exists. Declining changes no file or lifecycle state. Both actions refuse while active history contains another fresh unmatched invocation ([ADR 0272](../_adr/0272-logbook-lifecycle-actions-require-terminal-confirmation.md)).
 
 ## Archive boundary and recovery
 

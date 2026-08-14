@@ -790,35 +790,42 @@ Deno.test("queue usage errors require the delimiter and a non-empty command", as
       );
     }
 
-    const marker = join(dir, "must-not-run");
-    const json = await runAgent(dir, [
-      "--json",
-      "queue",
-      "--",
-      "sh",
-      "-c",
-      `touch ${marker}`,
-    ]);
-    assertEquals(json.code, 2, json.output);
-    assertStringIncludes(json.stderr, "queue has no `--json` mode");
-    assertEquals(await pathExists(marker), false);
+    for (const flag of ["--json", "--markdown"]) {
+      const marker = join(dir, `must-not-run-${flag.slice(2)}`);
+      const result = await runAgent(dir, [
+        flag,
+        "queue",
+        "--",
+        "sh",
+        "-c",
+        `touch ${marker}`,
+      ]);
+      assertEquals(result.code, 2, result.output);
+      assertStringIncludes(
+        result.stderr,
+        "queue has no `--json` or `--markdown` mode",
+      );
+      assertEquals(await pathExists(marker), false);
+    }
   });
 });
 
 Deno.test("queue child flags cannot select discern global modes", async () => {
   await withTempDir(async (dir) => {
     await writeConfig(dir, "[project\n");
-    const result = await runAgent(dir, [
-      "queue",
-      "--",
-      "sh",
-      "-c",
-      "exit 0",
-      "--json",
-    ]);
-    assertEquals(result.code, 1, result.output);
-    assertEquals(result.stdout, "");
-    assertStringIncludes(result.stderr, "syntax error near line 1");
+    for (const flag of ["--json", "--markdown"]) {
+      const result = await runAgent(dir, [
+        "queue",
+        "--",
+        "sh",
+        "-c",
+        "exit 0",
+        flag,
+      ]);
+      assertEquals(result.code, 1, result.output);
+      assertEquals(result.stdout, "");
+      assertStringIncludes(result.stderr, "syntax error near line 1");
+    }
   });
 });
 

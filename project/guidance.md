@@ -54,7 +54,7 @@ One vocabulary **is** gated, because it's structural rather than open-ended: **i
 
 ## Running discern from source
 
-Use **`discern <cmd> --json`** — here, it points to a local-dev wrapper, not a binary, and runs the nearest discern engine it finds. So from a worktree it will run _that worktree's_ in-progress engine. It's the closest thing to what an end user runs, so the generic `discern` guidance above applies verbatim. (One exception: `discern mcp` always runs from the **main** checkout only.)
+Use **`discern <cmd> --markdown`** for a result you will read directly, or **`discern <cmd> --json`** when you need to inspect structured fields. Here, `discern` points to a local-dev wrapper, not a binary, and runs the nearest discern engine it finds. From a worktree it therefore runs _that worktree's_ in-progress engine. It is the closest thing to what an end user runs, so the generic `discern` guidance above applies verbatim. (One exception: `discern mcp` always runs from the **main** checkout only.)
 
 `deno task dev <cmd> --json` is a fallback — reach for it only if you specifically need to. (If you do: don't put `--` before the subcommand — `deno task dev -- upgrade` makes the CLI parser print help, a `deno task` quirk the wrapper doesn't share.)
 
@@ -62,7 +62,7 @@ Use **`discern <cmd> --json`** — here, it points to a local-dev wrapper, not a
 
 The MCP `discern_*` tools are a separately-spawned, long-lived server running the **main** checkout's engine, not your worktree's — so for branch-only changes (a bundled skill, guidance, or engine edit not yet on `main`) they can report stale results against main, not your branch. Trust the engine run from source — `discern done` — over the MCP `discern_*` tools whenever they disagree.
 
-Everything supports discern's own **`--json`** flag; always pass it for optimised machine-readable output. It reaches the underlying `discern <cmd>` exactly as an end user would, so discern's full range is open to you too.
+Every result command supports discern's own **`--markdown`** and **`--json`** flags. Pass one so human terminal decoration stays out of agent context. Both reach the underlying `discern <cmd>` exactly as an end user would, so discern's full range is open to you too.
 
 ## Testing
 
@@ -79,8 +79,8 @@ Everything supports discern's own **`--json`** flag; always pass it for optimise
 
 ## Adding or changing a verb
 
-- **Plan/apply.** Every effectful verb computes a pure, read-only plan, then a thin executor applies it (ADR 0027) — that split is what gives `--dry-run` (render the plan, change nothing) and `--json` for free.
-- **One result envelope.** A verb returns a single `DiscernResult` ([`src/shared/result.ts`](../src/shared/result.ts)); `--json` serializes it and the human output renders from it (ADR 0028). Don't `console.log` ad-hoc output from a verb.
+- **Plan/apply.** Every effectful verb computes a pure, read-only plan, then a thin executor applies it (ADR 0027) — that split is what gives `--dry-run` (render the plan, change nothing) and agent result projections for free.
+- **One result envelope.** A verb returns a single `DiscernResult` ([`src/shared/result.ts`](../src/shared/result.ts)); compact JSON, authored Markdown, MCP, and human output project from it (ADR 0028). Don't `console.log` ad-hoc output from a verb.
 - **MCP is a first-class surface.** Each tool in [`src/engine/mcp/server.ts`](../src/engine/mcp/server.ts) is backed by a `*Result(root, …)` core the CLI shares; the verb-parity guard (`tests/engine_verb_parity_test.ts`) ties the `TOOLS` table back to the CLI verb list. Exposing a read/run verb means extracting that core first (ADR 0045/0041).
 
 ## Fix the class, not the instance

@@ -3639,6 +3639,17 @@ Deno.test("patterns driver scoring: every signal source behaves per its classifi
   }
 });
 
+Deno.test("patterns driver scoring: either agent result format marks a CLI agent", () => {
+  assertEquals(
+    driverKind(verb({ driver: { json: true, tty: false, ci: false } })),
+    "agent",
+  );
+  assertEquals(
+    driverKind(verb({ driver: { markdown: true, tty: false, ci: false } })),
+    "agent",
+  );
+});
+
 Deno.test("patterns driver attribution: one identity names the driver; disagreement or ambient-only evidence names nothing", () => {
   const corroborated = verb({
     driver: {

@@ -39,6 +39,8 @@ import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
+import { resultPresenterForVerb } from "../src/shared/result_contracts.ts";
+import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
 import {
   AWAIT_WATCH_POLICY,
   OPERATING_POLICIES,
@@ -768,8 +770,14 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(finish.verb, "done");
     assertEquals(finish.dry_run, true); // the uniform preview signal, over MCP too
     assertEquals(finish.plan.title, "Gate plan"); // a preview carries the plan
-    // The text content mirrors the structured content (same serialized object).
-    assert(call.result.content[0].text.includes('"verb": "done"'));
+    // Text is the authored Markdown projection of the same prepared result.
+    assertStringIncludes(call.result.content[0].text, "# `discern done`");
+    assertStringIncludes(call.result.content[0].text, "## Current state");
+    assertStringIncludes(call.result.content[0].text, "Gate plan");
+    assert(
+      !call.result.content[0].text.includes('"verb": "done"'),
+      call.result.content[0].text,
+    );
 
     // tools/call discern_impact → its DiscernResult.
     await mcp.send({
@@ -3314,7 +3322,7 @@ Deno.test("discern mcp: accept requires the verbatim landing proof line", () => 
   assertStringIncludes(accept.description, "data.proof_line verbatim");
   assertStringIncludes(
     accept.description,
-    "data.proof is the full landing record",
+    "full review page remains available through `discern status --verbose`",
   );
 });
 
@@ -3337,6 +3345,10 @@ Deno.test("discern mcp: discern_status documents its actionable data fields", as
       (list.result.tools as { name: string; description: string }[])
         .find((t) => t.name === "discern_status");
     assert(status !== undefined, "discern_status should be listed");
+    assert(
+      new TextEncoder().encode(status.description).length < 1_500,
+      `discern_status description exceeded its 1.5KB context budget:\n${status.description}`,
+    );
 
     // What the agent SEES (the tool description) must name every actionable advisory
     // field status DOES emit — each tells the agent to run a command (`discern
@@ -3366,7 +3378,7 @@ Deno.test("discern mcp: discern_status documents its actionable data fields", as
   });
 });
 
-Deno.test("discern mcp: status carries project identity and complete fleet proof checks", async () => {
+Deno.test("discern mcp: status carries project identity and compact fleet proof checks", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -3387,7 +3399,29 @@ Deno.test("discern mcp: status carries project identity and complete fleet proof
     );
     assertExists(alpha);
     assertEquals(alpha.gate_proof?.status, "missing");
-    assertEquals(alpha.proof_honored, undefined);
+    assert(
+      !("proof_honored" in alpha),
+      "agent wire rows must not retain the honored-only compatibility copy",
+    );
+  });
+});
+
+Deno.test("discern mcp: text content is the CLI Markdown projection of structuredContent", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const status = TOOLS.find((tool) => tool.name === "discern_status");
+    assertExists(status);
+
+    const result = await runTool(status, new WorkingRoot(dir), {});
+    const expected = renderResultMarkdown(
+      result.structuredContent,
+      resultPresenterForVerb("status"),
+    );
+    assertEquals(result.content, [{ type: "text", text: expected }]);
+    assertStringIncludes(expected, "## Current state");
+    assertStringIncludes(expected, "## Next action");
+    assert(!expected.trimStart().startsWith("{"), expected);
   });
 });
 
