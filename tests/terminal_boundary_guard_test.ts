@@ -1347,7 +1347,8 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
     rule: "process-console-size-probe",
     authority: "productionTerminalContext",
     count: 1,
-    reason: "The production terminal adapter snapshots the viewport once.",
+    reason:
+      "The production terminal adapter owns the initial viewport and its injectable live reader.",
   },
   {
     file: TERMINAL_AUTHORITY,

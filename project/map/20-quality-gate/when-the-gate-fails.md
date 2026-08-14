@@ -15,7 +15,7 @@ _Read the first diagnostic, use its reproduce command, and rerun the Gate after 
 
 Start with the first entry in `diagnostics[]`: the tool or precondition that failed, the problem, and a `reproduce_cmd` for a focused loop. The captured `output` contains the tool's error; if it was too large for the result, `output_path` points to the full normalized capture ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 
-The terminal tail names the failed command: `discern done`, `discern prepare`, or `discern test`. Withheld output appears once in package RawOutput with its capture path. Each normalized finding uses Diagnostic then RetryNotice, with `discern docs 20-quality-gate/when-the-gate-fails` for this reference. ResultSummary stays last and keeps the first reproduce command visible.
+The terminal tail names the failed command: `discern done`, `discern prepare`, or `discern test`. Live progress ends before the deferred transcript and final table; the failure tail then appears once. Append-only fallback never removes child output, diagnostics, or remedies. Withheld output appears once in package RawOutput with its capture path. Each normalized finding uses Diagnostic then RetryNotice, with `discern docs 20-quality-gate/when-the-gate-fails` for this reference. ResultSummary stays last and keeps the first reproduce command visible.
 
 Verdicts and failed stages remain authoritative. Streamed child bytes are not repeated; dynamic text crosses the shared safe-text adapter.
 
