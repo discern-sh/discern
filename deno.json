@@ -38,6 +38,7 @@
     "dev": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts",
     "build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build.ts",
     "art": "deno run --allow-env=CI,TERM,COLUMNS,LINES scripts/art.ts",
+    "terminal:capture": "deno run --allow-read --allow-write --allow-env --allow-run scripts/terminal_capture.ts",
     "test": "discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
     "fmt": "deno fmt",
     "lint": "deno lint",
