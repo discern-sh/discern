@@ -17,6 +17,7 @@
  */
 
 import { emitResult } from "../shared/emit.ts";
+import { Logger } from "../lib/log.ts";
 import { DISCERN_WORDMARK } from "../shared/brand.ts";
 import { renderDiscernArt } from "../../art/terminal/brand.ts";
 import {
@@ -150,7 +151,9 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
       });
       return 0;
     }
-    console.log(renderHumanOutputGroups(abandonedSetupWelcomeGroups()));
+    new Logger({ json: false, noColor: false }).line(
+      renderHumanOutputGroups(abandonedSetupWelcomeGroups()),
+    );
     return 0;
   }
 
@@ -210,17 +213,18 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
     terminal,
   });
 
+  const log = new Logger({ json: false, noColor: false });
   switch (phase) {
     case "fresh":
-      console.log(
+      log.line(
         renderHumanOutputGroups(freshWelcomeGroups(style, { gitRepo })),
       );
       break;
     case "in_progress":
-      console.log(renderHumanOutputGroups(inProgressWelcomeGroups(progress)));
+      log.line(renderHumanOutputGroups(inProgressWelcomeGroups(progress)));
       break;
     case "done":
-      console.log(
+      log.line(
         "discern is already set up here. Run `discern status` to orient.",
       );
       break;

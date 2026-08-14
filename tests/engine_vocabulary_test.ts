@@ -40,7 +40,7 @@ Deno.test("retired command spellings hard-error with their canonical successor",
       assertEquals(result.code, 1, result.output);
       assertEquals(
         result.stderr,
-        `discern: ${retiredCommandMessage(retired, successor)}\n`,
+        `✗ ${retiredCommandMessage(retired, successor)}\n`,
       );
 
       const json = await runAgent(dir, [...retiredTokens, "--json"]);

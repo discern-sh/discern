@@ -11,6 +11,7 @@ import { Command, ValidationError } from "@cliffy/command";
 import { setColorEnabled as setStdColorEnabled } from "@std/fmt/colors";
 import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
+import { Logger } from "./lib/log.ts";
 import { emitResult } from "./shared/emit.ts";
 import { observeVerbTarget } from "./shared/result_capture.ts";
 import {
@@ -230,7 +231,9 @@ export function buildCli(
         return;
       }
       // No subcommand: show the grouped, operator-oriented help.
-      console.log(operatorHelp(this as unknown as Command));
+      new Logger({ json: false, noColor: false }).line(
+        operatorHelp(this as unknown as Command),
+      );
     });
 
   // `setup` — the staged, zero-config project setup (ADR 0036, staged by ADR 0075).
@@ -652,7 +655,9 @@ export function buildCli(
       command?: string,
     ): number {
       if (command === undefined || command === "") {
-        console.log(operatorHelp(root as unknown as Command));
+        new Logger({ json: false, noColor: false }).line(
+          operatorHelp(root as unknown as Command),
+        );
         return 0;
       }
       const sub = root.getCommand(command, true);
@@ -662,8 +667,8 @@ export function buildCli(
       }
       const successor = retiredCommandSuccessor(command);
       if (successor !== undefined) {
-        console.error(
-          `discern: ${retiredCommandMessage(command, successor)}`,
+        new Logger({ json: false, noColor: false }).error(
+          retiredCommandMessage(command, successor),
         );
         return 1;
       }
@@ -1194,7 +1199,9 @@ export async function main(args: string[]): Promise<void> {
           );
         }
       }
-      console.log(operatorHelp(cli as unknown as Command, { color }));
+      new Logger({ json: false, noColor: false }).line(
+        operatorHelp(cli as unknown as Command, { color }),
+      );
       Deno.exit(0);
       return;
     }
@@ -1220,7 +1227,7 @@ export async function main(args: string[]): Promise<void> {
           message,
         });
       } else {
-        console.error(`discern: ${message}`);
+        new Logger({ json: false, noColor: false }).error(message);
       }
       Deno.exit(1);
     }
@@ -1239,7 +1246,9 @@ export async function main(args: string[]): Promise<void> {
 
     // Explicit help: the grouped Cliffy help.
     if (verb === "-h" || verb === "--help") {
-      console.log(operatorHelp(cli as unknown as Command, { color }));
+      new Logger({ json: false, noColor: false }).line(
+        operatorHelp(cli as unknown as Command, { color }),
+      );
       Deno.exit(0);
     }
 
@@ -1282,7 +1291,7 @@ export async function main(args: string[]): Promise<void> {
           message: NOT_SET_UP_MESSAGE,
         });
       } else {
-        console.error(`discern: ${NOT_SET_UP_MESSAGE}`);
+        new Logger({ json: false, noColor: false }).error(NOT_SET_UP_MESSAGE);
       }
       Deno.exit(1);
     }
@@ -1348,7 +1357,7 @@ export async function main(args: string[]): Promise<void> {
           ...(isValidation ? { data: { issues: err.issues } } : {}),
         });
       } else {
-        console.error(`discern: ${err.message}`);
+        new Logger({ json: false, noColor: false }).error(err.message);
       }
       Deno.exit(1);
     }

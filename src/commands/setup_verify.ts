@@ -98,7 +98,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
     if (opts.json) {
       log.result({ ok: true, verb: "setup verify", data: redirect });
     } else {
-      console.log(message);
+      log.line(message);
     }
     return 0;
   }
@@ -117,7 +117,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
     if (opts.json) {
       log.result({ ok: true, verb: "setup verify", data: redirect });
     } else {
-      console.log(message);
+      log.line(message);
     }
     return 0;
   }
@@ -323,7 +323,9 @@ function printPreflight(p: {
     { id: "consent-guidance", items: [p.guidance] },
   );
 
-  console.log(renderHumanOutputGroups(groups));
+  new Logger({ json: false, noColor: false }).line(
+    renderHumanOutputGroups(groups),
+  );
 }
 
 /** A one-line git-state summary for the human findings list. */

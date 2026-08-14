@@ -40,6 +40,7 @@ import {
   plainModeEnabled,
   resolveSetupConfig,
 } from "../lib/terminal_interaction.ts";
+import { terminalLine } from "../lib/terminal.ts";
 import {
   applyConfigDoc,
   type DiscernConfigDoc,
@@ -1159,7 +1160,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
           data: { already_set_up: true, message },
         });
       } else {
-        console.log(`discern: ${message}`);
+        log.info(message);
       }
       return 0;
     }
@@ -1507,7 +1508,9 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       ],
     },
   ];
-  console.log(renderHumanOutputGroups(groups));
+  new Logger({ json: false, noColor: false }).line(
+    renderHumanOutputGroups(groups),
+  );
   return 0;
 }
 
@@ -1854,7 +1857,7 @@ export async function runSetupStep(
         message,
       });
     } else {
-      console.error(`discern: ${message}`);
+      new Logger({ json: false, noColor: false }).error(message);
     }
     return 1;
   }
@@ -1869,7 +1872,7 @@ export async function runSetupStep(
         message,
       });
     } else {
-      console.error(`discern: ${message}`);
+      new Logger({ json: false, noColor: false }).error(message);
     }
     return 1;
   }
@@ -1879,7 +1882,7 @@ export async function runSetupStep(
   } else {
     // Human: the off-ramp first (the page below is addressed to the agent), then
     // the prose leads with the spine's rails bracketing it (renderSetupPage).
-    console.log(renderHumanOutputGroups([
+    new Logger({ json: false, noColor: false }).line(renderHumanOutputGroups([
       { id: "audience-off-ramp", items: humanOffRampLines() },
       { id: "setup-page", items: [renderSetupPage(page)] },
     ]));
@@ -1983,26 +1986,19 @@ function emitSetupIncomplete(
     });
     return;
   }
-  console.error(renderHumanOutputGroups([
-    { id: "failure", items: [`discern: ${message}`] },
-    {
-      id: "unfinished-items",
-      items: [
-        ...leftover.map((file) =>
-          `         • ${file} (skeleton marker remains)`
-        ),
-        ...unmet.map((check) =>
-          `         • Step ${check.step} — ${check.describe}`
-        ),
-      ],
-    },
-    {
-      id: "recovery",
-      items: [
-        "       Fill them and re-run, or pass --force to mark complete anyway.",
-      ],
-    },
-  ]));
+  const log = new Logger({ json: false, noColor: false });
+  log.error(message);
+  log.group("unfinished-items");
+  for (const file of leftover) {
+    log.humanLine(`  • ${terminalLine(file)} (skeleton marker remains)`);
+  }
+  for (const check of unmet) {
+    log.humanLine(`  • Step ${check.step} — ${terminalLine(check.describe)}`);
+  }
+  log.group("recovery");
+  log.humanLine(
+    "  Fill them and re-run, or pass --force to mark complete anyway.",
+  );
 }
 
 /**
@@ -2073,20 +2069,19 @@ function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
     });
     return;
   }
-  console.error(renderHumanOutputGroups([
-    { id: "failure", items: [`discern: ${message}`] },
-    {
-      id: "uncommitted-items",
-      items: uncommitted.map((item) => `         • ${item}`),
-    },
-    {
-      id: "recovery",
-      items: [
-        "       The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
-        "       (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
-      ],
-    },
-  ]));
+  const log = new Logger({ json: false, noColor: false });
+  log.error(message);
+  log.group("uncommitted-items");
+  for (const item of uncommitted) {
+    log.humanLine(`  • ${terminalLine(item)}`);
+  }
+  log.group("recovery");
+  log.humanLine(
+    "  The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
+  );
+  log.humanLine(
+    "  (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
+  );
 }
 
 /** The view `printDoneSuccess` renders — the celebrate/assure/land/onboard pieces of a
@@ -2296,7 +2291,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
 
   // The ready-to-relay completion message, carried verbatim (identical to the `--json`
   // `guidance` field) so a courier agent can hand the human a warm close (ADR 0086).
-  console.log(renderHumanOutputGroups([
+  new Logger({ json: false, noColor: false }).line(renderHumanOutputGroups([
     { id: "completion", items: completionLines },
     { id: "assurance", items: assuranceGroupLines },
     { id: "worktree-proof", items: worktreeLines },
@@ -2649,7 +2644,7 @@ function emitDoneUnreadableConfig(json: boolean, detail: string): void {
       message,
     });
   } else {
-    console.error(`discern: ${message}`);
+    new Logger({ json: false, noColor: false }).error(message);
   }
 }
 
@@ -2673,21 +2668,16 @@ function emitDoneGateFailure(
       data: { stage },
     });
   } else {
-    console.error(renderHumanOutputGroups([
-      { id: "failure", items: [`discern: ${message}`] },
-      {
-        id: "proof-context",
-        items: [
-          `       (\`discern setup done\`'s completion proof is refresh → doctor → done, then a worktree probe; the ${stage} step failed.)`,
-        ],
-      },
-      {
-        id: "recovery",
-        items: [
-          "       Fix it and re-run, or pass --force to record completion without the proof.",
-        ],
-      },
-    ]));
+    const log = new Logger({ json: false, noColor: false });
+    log.error(message);
+    log.group("proof-context");
+    log.humanLine(
+      `  (\`discern setup done\`'s completion proof is refresh → doctor → done, then a worktree probe; the ${stage} step failed.)`,
+    );
+    log.group("recovery");
+    log.humanLine(
+      "  Fix it and re-run, or pass --force to record completion without the proof.",
+    );
   }
   return 1;
 }
@@ -2724,7 +2714,7 @@ async function emitAwaitingConsent(
   } else {
     // Everything on stdout — the channel the agent reads — so the served message it
     // relays and the command it runs after both land where it is looking.
-    console.log(renderHumanOutputGroups([
+    new Logger({ json: false, noColor: false }).line(renderHumanOutputGroups([
       { id: "consent-required", items: [message] },
       { id: "consent-guidance", items: [guidance] },
     ]));
@@ -2766,7 +2756,7 @@ async function rootOrError(
         message: NO_PROJECT_MESSAGE,
       });
     } else {
-      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+      new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }
   }
   return root;

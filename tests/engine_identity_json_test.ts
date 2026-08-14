@@ -72,7 +72,7 @@ Deno.test("identity JSON failures distinguish resolution from malformed argument
     assert(humanResolution.code !== 0, humanResolution.output);
     assertEquals(humanResolution.stdout, "");
     assert(
-      humanResolution.stderr.startsWith("discern: "),
+      humanResolution.stderr.startsWith("✗ "),
       humanResolution.output,
     );
 
@@ -96,7 +96,7 @@ Deno.test("identity JSON failures distinguish resolution from malformed argument
     assertEquals(humanMalformed.code, 1, humanMalformed.output);
     assertEquals(humanMalformed.stdout, "");
     assert(
-      humanMalformed.stderr.startsWith("discern: "),
+      humanMalformed.stderr.startsWith("✗ "),
       humanMalformed.output,
     );
 

@@ -10,7 +10,8 @@
 
 import { loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
-import { renderHumanOutputGroups } from "../shared/result.ts";
+import { Logger } from "../lib/log.ts";
+import { reportFailure } from "../lib/narration.ts";
 import { recordedRun } from "./logbook/cli.ts";
 import { reraiseInterrupt } from "./process_signals.ts";
 import { runOwnedChild } from "./owned_child.ts";
@@ -83,10 +84,11 @@ export function parseQueueInvocation(
 
 /** Render one queue failure and its canonical recovery form to stderr. */
 function writeQueueError(message: string): void {
-  console.error(renderHumanOutputGroups([
-    { id: "failure", items: [`discern: ${message}`] },
-    { id: "recovery", items: [`       Run: ${QUEUE_USAGE}`] },
-  ]));
+  reportFailure(
+    new Logger({ json: false, noColor: false }),
+    message,
+    [`Run: ${QUEUE_USAGE}`],
+  );
 }
 
 /** Report a malformed queue invocation with the conventional usage exit code. */

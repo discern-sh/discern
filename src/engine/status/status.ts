@@ -67,6 +67,7 @@ import {
   checkProviderHooksCurrent,
   type ProviderHookDriftEntry,
 } from "../../lib/provider_hooks.ts";
+import { Logger } from "../../lib/log.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
@@ -1335,7 +1336,7 @@ export async function runStatus(
     if (opts.json) {
       emitResult(notInitializedResult("status"));
     } else {
-      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+      new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }
     return 1;
   }

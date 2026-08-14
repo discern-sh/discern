@@ -837,10 +837,8 @@ async function browse(
     if (choice === READ_DOCS_ONLINE) {
       const opened = await openInBrowser(DISCERN_DOCS_URL);
       if (opened.status !== "opened") {
-        console.error(
-          terminalLine(
-            browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
-          ),
+        new Logger({ json: false, noColor: false }).error(
+          browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
         );
       }
       continue;
@@ -1001,7 +999,9 @@ function printMapOverview(
       items: [body],
     });
   }
-  console.log(renderHumanOutputGroups(groups));
+  new Logger({ json: false, noColor: false }).line(
+    renderHumanOutputGroups(groups),
+  );
 }
 
 /** Print compact ranked hits with their reusable targets and context. */
@@ -1018,7 +1018,9 @@ function printSearchResults(
     ? ""
     : ` in ${terminalLine(data.scope)}`;
   if (results.length === 0) {
-    console.log(terminalLine(`No ${verb} docs matched "${query}"${scope}.`));
+    new Logger({ json: false, noColor: false }).line(
+      terminalLine(`No ${verb} docs matched "${query}"${scope}.`),
+    );
     return;
   }
   const count = data.count ?? results.length;
@@ -1090,7 +1092,9 @@ function printSearchResults(
       ],
     });
   }
-  console.log(renderHumanOutputGroups(groups));
+  new Logger({ json: false, noColor: false }).line(
+    renderHumanOutputGroups(groups),
+  );
 }
 
 /**

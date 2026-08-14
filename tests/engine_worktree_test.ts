@@ -1055,7 +1055,7 @@ Deno.test("update: refuses (non-destructively) when the worktree is dirty", asyn
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(
       r.output,
-      "discern: This worktree has uncommitted tracked changes",
+      "✗ This worktree has uncommitted tracked changes",
     );
     assertStringIncludes(r.output, "Commit or stash");
     // The tree is untouched: the dirty file stays, and main was NOT merged in.

@@ -289,7 +289,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   grantEffort: (path, branch) => grantEffort(path, branch),
   clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => makeOut(colorEnabled()),
-  error: (message) => console.error(message),
+  error: (message) => deskLogger().error(message),
   select: (options) => requestSelection<string>(options),
   confirm: (message, defaultTo) => confirmOrNo(message, defaultTo),
   input: (message) => requestText({ message }),
@@ -1203,7 +1203,7 @@ export async function runDesk(
         message,
       });
     } else {
-      runtime.error(`discern: ${message}`);
+      runtime.error(message);
     }
     return 1;
   }
@@ -1225,7 +1225,7 @@ export async function runDesk(
   }
   const root = await runtime.findRoot();
   if (root === undefined) {
-    runtime.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    runtime.error(NO_PROJECT_MESSAGE);
     return 1;
   }
   const out = runtime.makeOut();

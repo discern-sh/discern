@@ -168,7 +168,7 @@ async function requireRoot(verb: string, json: boolean): Promise<string> {
     if (json) {
       emitResult(notInitializedResult(verb));
     } else {
-      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+      new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }
     Deno.exit(1);
   }
@@ -184,7 +184,7 @@ function handleWorktreeError(
   lc: Pick<LifecycleModule, "WorktreeGitError" | "IdentityError">,
 ): number {
   if (e instanceof lc.WorktreeGitError || e instanceof lc.IdentityError) {
-    log.error(`discern: ${e.message}`);
+    log.error(e.message);
     return 1;
   }
   throw e;
@@ -897,7 +897,7 @@ export function attachEngineCommands(
             message,
           });
         } else {
-          console.error(`discern: ${message}`);
+          new Logger({ json: false, noColor: false }).error(message);
         }
         return 1;
       }
@@ -945,7 +945,7 @@ export function attachEngineCommands(
               message: e.message,
             });
           } else {
-            console.error(`discern: ${e.message}`);
+            new Logger({ json: false, noColor: false }).error(e.message);
           }
           return e.code;
         }
@@ -1455,7 +1455,9 @@ export async function dispatchHelper(
 async function helperRemoveWorktree(args: string[]): Promise<number> {
   const target = args[0];
   if (target === undefined) {
-    console.error("remove-worktree-safely: a path argument is required.");
+    new Logger({ json: false, noColor: false }).error(
+      "remove-worktree-safely: a path argument is required.",
+    );
     return 1;
   }
   const log = makeLogger();
@@ -1473,7 +1475,7 @@ async function helperRemoveWorktree(args: string[]): Promise<number> {
 async function helperInheritEnv(): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     return 1;
   }
   const log = makeLogger();
@@ -1498,7 +1500,9 @@ async function helperInheritEnv(): Promise<number> {
 async function helperWithGotchas(args: string[]): Promise<number> {
   const [command, ...rest] = args;
   if (command === undefined) {
-    console.error("with-gotchas: no command given.");
+    new Logger({ json: false, noColor: false }).error(
+      "with-gotchas: no command given.",
+    );
     return 1;
   }
   const child = await runOwnedChild(command, {
@@ -1530,7 +1534,7 @@ export async function runConfigRead(
     if (opts.json ?? false) {
       emitResult(notInitializedResult("config"));
     } else {
-      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+      new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }
     return 1;
   }
