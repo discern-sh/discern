@@ -429,6 +429,17 @@ export function terminalContextWithColor(
   );
 }
 
+/** Rebind only the live viewport column for package painters that resize after
+ * the process presenter was constructed. Component renderers use the bound
+ * presenter and explicit width props instead. */
+export function terminalCapabilitiesAtWidth(
+  capabilities: TerminalCapabilities,
+  width: number,
+): TerminalCapabilities {
+  const finite = Number.isFinite(width) ? Math.floor(width) : 1;
+  return { ...capabilities, columns: Math.max(1, finite) };
+}
+
 /** Resolve both dimensions through the shared process adapter. */
 export function terminalSize(
   options: TerminalSizeOptions = {},

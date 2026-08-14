@@ -371,8 +371,6 @@ function styledFreshWelcome(
   const capabilities = terminal.capabilities;
   const width = Math.min(TTY_MAX_BOX_WIDTH, capabilities.columns);
   const innerWidth = width - 4;
-  const innerCapabilities = { ...capabilities, columns: innerWidth };
-  const theme = terminal.themeVariant;
   const mark = renderDiscernArt(capabilities.unicode ? "split" : "stamp");
   const action = terminal.tone(
     '"Run `discern setup` in this project."',
@@ -380,18 +378,14 @@ function styledFreshWelcome(
     "strong",
   );
   const humans = joinVertical([
-    renderSectionCli(
-      {
-        title: "FOR HUMANS",
-        body:
-          "Welcome! discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo — tailored to YOUR codebase by your own coding agent.",
-        treatment: "rule",
-        spacing: "sm",
-        theme,
-        width: innerWidth,
-      },
-      innerCapabilities,
-    ),
+    terminal.presenter.present(renderSectionCli, {
+      title: "FOR HUMANS",
+      body:
+        "Welcome! discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo — tailored to YOUR codebase by your own coding agent.",
+      treatment: "rule",
+      spacing: "sm",
+      width: innerWidth,
+    }),
     "quality gate   isolated git worktrees   shared agent instructions",
     "To get started, tell your coding agent:",
     action,
@@ -399,28 +393,20 @@ function styledFreshWelcome(
     "Point your MOST CAPABLE model at it: setup is a one-time, high-leverage step, and discern is only as good as the model that configured it. Expect roughly 20–40 minutes and a meaningful number of tokens.",
   ], { spacing: 1 });
   const agents = joinVertical([
-    renderSectionCli(
-      {
-        title: "FOR CODING AGENTS",
-        body:
-          "You are discern's configuration engine here: the capable agent already in the loop, set to configure discern for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done) — not a status to relay back and stop on. discern guides each step; NOTHING is written until you explicitly run `begin`.",
-        treatment: "rule",
-        spacing: "sm",
-        theme,
-        width: innerWidth,
-      },
-      innerCapabilities,
-    ),
+    terminal.presenter.present(renderSectionCli, {
+      title: "FOR CODING AGENTS",
+      body:
+        "You are discern's configuration engine here: the capable agent already in the loop, set to configure discern for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done) — not a status to relay back and stop on. discern guides each step; NOTHING is written until you explicitly run `begin`.",
+      treatment: "rule",
+      spacing: "sm",
+      width: innerWidth,
+    }),
     "Your next action, now — preview the plan and open the consent conversation:",
-    renderCommandCli(
-      {
-        command: "discern setup verify",
-        explanation: "(read-only; --json/--markdown emit one result)",
-        theme,
-        maxWidth: innerWidth,
-      },
-      innerCapabilities,
-    ),
+    terminal.presenter.present(renderCommandCli, {
+      command: "discern setup verify",
+      explanation: "(read-only; --json/--markdown emit one result)",
+      maxWidth: innerWidth,
+    }),
     terminal.role(
       "Run it yourself: it hands you the exact message to relay to your human, then points you at the next step. Don't hand this back as a report — carry it through.",
       "muted",
@@ -452,7 +438,7 @@ function styledFreshWelcome(
         color: terminal.themeColor("--discern-color-accent-700"),
       },
     },
-    capabilities,
+    terminal.presenter.capabilities,
   ).split("\n");
   // The package box intentionally normalizes indentation while wrapping. Keep
   // Discern's product-owned art outside it so those accepted rows remain exact.

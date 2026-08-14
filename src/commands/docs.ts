@@ -754,15 +754,11 @@ export function renderDocsCorpusHeader(
   const fact = docsHeaderFact(verb, count, directory);
   if (!terminal.stdoutIsTerminal) return fact;
   const safeDirectory = terminalLine(directory);
-  return renderDocsHeaderCli(
-    {
-      brand: terminalLine(`discern ${verb}`),
-      middle: terminalLine(`— ${count} documents in ${safeDirectory}`),
-      theme: terminal.themeVariant,
-      maxWidth: width,
-    },
-    { ...terminal.capabilities, columns: width },
-  );
+  return terminal.presenter.present(renderDocsHeaderCli, {
+    brand: terminalLine(`discern ${verb}`),
+    middle: terminalLine(`— ${count} documents in ${safeDirectory}`),
+    maxWidth: width,
+  });
 }
 
 /** Adapt a discovered tree to the pure corpus-header renderer. */
@@ -887,7 +883,6 @@ function printToc(
     entries.push(e);
     sections.set(section, entries);
   }
-  const capabilities = { ...terminal.capabilities, columns: width };
   for (const [section, entries] of sections) {
     const safeSection = terminalLine(section);
     const rows = renderAlignedRows(
@@ -901,17 +896,13 @@ function printToc(
     );
     const title = `${safeSection === "root" ? "(root)" : safeSection}/`;
     const body = terminal.stdoutIsTerminal
-      ? renderSectionCli(
-        {
-          title: terminalLine(title),
-          body: terminalMultiline(rows.join("\n")),
-          treatment: "rule",
-          spacing: "sm",
-          theme: terminal.themeVariant,
-          width,
-        },
-        capabilities,
-      )
+      ? terminal.presenter.present(renderSectionCli, {
+        title: terminalLine(title),
+        body: terminalMultiline(rows.join("\n")),
+        treatment: "rule",
+        spacing: "sm",
+        width,
+      })
       : [
         title,
         ...rows,
@@ -932,7 +923,6 @@ function printMapOverview(
   terminal: TerminalContext,
   width: number,
 ): void {
-  const capabilities = { ...terminal.capabilities, columns: width };
   const directory = terminalLine(display(tree.docsDir, cwd));
   const summary = terminalLine(
     `discern map — ${regions.length} region${
@@ -943,19 +933,15 @@ function printMapOverview(
     id: "map-summary",
     items: [
       terminal.stdoutIsTerminal
-        ? renderDocsHeaderCli(
-          {
-            brand: "discern map",
-            middle: terminalLine(
-              `— ${regions.length} region${
-                regions.length === 1 ? "" : "s"
-              } in ${directory}`,
-            ),
-            theme: terminal.themeVariant,
-            maxWidth: width,
-          },
-          capabilities,
-        )
+        ? terminal.presenter.present(renderDocsHeaderCli, {
+          brand: "discern map",
+          middle: terminalLine(
+            `— ${regions.length} region${
+              regions.length === 1 ? "" : "s"
+            } in ${directory}`,
+          ),
+          maxWidth: width,
+        })
         : summary,
     ],
   }];
@@ -981,17 +967,13 @@ function printMapOverview(
     }
     const safeDetails = terminalMultiline(details.join("\n"));
     const body = terminal.stdoutIsTerminal
-      ? renderSectionCli(
-        {
-          title: terminalLine(name),
-          body: terminalMultiline(safeDetails),
-          treatment: "rule",
-          spacing: "sm",
-          theme: terminal.themeVariant,
-          width,
-        },
-        capabilities,
-      )
+      ? terminal.presenter.present(renderSectionCli, {
+        title: terminalLine(name),
+        body: terminalMultiline(safeDetails),
+        treatment: "rule",
+        spacing: "sm",
+        width,
+      })
       : `${name}  ${safeDetails.replaceAll("\n", "\n  ")}`;
     groups.push({
       id: `map-region:${index}`,
@@ -1010,7 +992,6 @@ function printSearchResults(
   terminal: TerminalContext,
   width: number,
 ): void {
-  const capabilities = { ...terminal.capabilities, columns: width };
   const query = terminalLine(data.query ?? "");
   const results = data.results ?? [];
   const scope = data.scope === undefined
@@ -1027,17 +1008,13 @@ function printSearchResults(
     id: "search-summary",
     items: [
       terminal.stdoutIsTerminal
-        ? renderDocsHeaderCli(
-          {
-            brand: terminalLine(
-              `${count} result${count === 1 ? "" : "s"}`,
-            ),
-            middle: terminalLine(`for "${query}"${scope}`),
-            theme: terminal.themeVariant,
-            maxWidth: width,
-          },
-          capabilities,
-        )
+        ? terminal.presenter.present(renderDocsHeaderCli, {
+          brand: terminalLine(
+            `${count} result${count === 1 ? "" : "s"}`,
+          ),
+          middle: terminalLine(`for "${query}"${scope}`),
+          maxWidth: width,
+        })
         : `${count} result${count === 1 ? "" : "s"} for "${query}"${scope}`,
     ],
   }];
@@ -1061,16 +1038,12 @@ function printSearchResults(
       id: `search-result:${index}`,
       items: [
         terminal.stdoutIsTerminal
-          ? renderSectionCli(
-            {
-              body: terminalMultiline([target, ...items].join("\n")),
-              surface: "sunken",
-              spacing: "sm",
-              theme: terminal.themeVariant,
-              width,
-            },
-            capabilities,
-          )
+          ? terminal.presenter.present(renderSectionCli, {
+            body: terminalMultiline([target, ...items].join("\n")),
+            surface: "sunken",
+            spacing: "sm",
+            width,
+          })
           : [
             `${target}  ${items[0] ?? ""}`,
             ...items.slice(1).map((item) => `  ${item}`),

@@ -147,11 +147,7 @@ function helpPresentation(options: OperatorHelpOptions): {
     options.color ?? base.color,
   );
   return {
-    terminal: {
-      ...colored,
-      capabilities: { ...colored.capabilities, columns: width },
-      size: { ...colored.size, columns: width },
-    },
+    terminal: colored,
     width,
   };
 }
@@ -337,17 +333,13 @@ function renderGroupedCommands(
       continue;
     }
     if (width >= 5) {
-      out.push(renderSectionCli(
-        {
-          title: terminalLine(group.name),
-          body: terminalMultiline(`— ${group.note}`),
-          treatment: "rule",
-          spacing: "none",
-          theme: terminal.themeVariant,
-          width,
-        },
-        terminal.capabilities,
-      ));
+      out.push(terminal.presenter.present(renderSectionCli, {
+        title: terminalLine(group.name),
+        body: terminalMultiline(`— ${group.note}`),
+        treatment: "rule",
+        spacing: "none",
+        width,
+      }));
     } else {
       out.push(heading(group.name), desc(`— ${group.note}`));
     }

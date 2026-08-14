@@ -26,7 +26,6 @@ import {
   renderTriangleSectionRule,
   type ResultSummaryCliProps,
   type ResultSummaryGroupCliItem,
-  type TerminalCapabilities,
 } from "discern-design-system/cli";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { ImprovementData } from "../../shared/result_schemas.ts";
@@ -350,15 +349,13 @@ export async function improvementResult(
 
 /** Give package renderers one explicit, bounded view of the shared context. */
 function presentationFacts(out: Out): {
-  readonly capabilities: TerminalCapabilities;
+  readonly presenter: Out["terminal"]["presenter"];
   readonly width: number;
-  readonly theme: Out["terminal"]["themeVariant"];
 } {
   const width = Math.max(20, Math.min(104, out.terminal.size.columns));
   return {
-    capabilities: { ...out.terminal.capabilities, columns: width },
+    presenter: out.terminal.presenter,
     width,
-    theme: out.terminal.themeVariant,
   };
 }
 
@@ -373,13 +370,12 @@ export const IMPROVEMENT_RULE_RESULT_STATE = {
 
 /** Preserve the stable human-output group id while the package owns its rule. */
 function renderGroup(out: Out, id: string, label: string): void {
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   out.group(id);
   out.raw(`${
     renderTriangleSectionRule(terminalLine(label), {
       width,
-      theme,
-    }, capabilities)
+    }, presenter.capabilities)
   }\n`);
 }
 
@@ -393,12 +389,12 @@ function renderReviewUnit(
     against?: ReviewResult["against"];
   },
 ): void {
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   const evidence = review.against === undefined
     ? undefined
     : `${review.against.source}: ${review.against.excerpt}`;
   out.raw(`${
-    renderProcedureCli({
+    presenter.present(renderProcedureCli, {
       title: terminalLine(review.title),
       description: terminalMultiline(
         `${review.teach}${
@@ -412,8 +408,7 @@ function renderReviewUnit(
       completion: terminalMultiline(review.ask),
       completionLabel: terminalLine("Review question"),
       maxWidth: width,
-      theme,
-    }, capabilities)
+    })
   }\n`);
 }
 
@@ -423,11 +418,11 @@ function renderSummary(
   report: ImprovementReport,
   slug: string,
 ): void {
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   out.heading(terminalLine(`discern improvement${slug ? ` · ${slug}` : ""}`));
   renderGroup(out, "health", "Health");
   out.raw(`${
-    renderMeterCli({
+    presenter.present(renderMeterCli, {
       kind: "determinate-progress",
       label: terminalLine("Automated practice health"),
       lifecycle: { status: "active" },
@@ -436,11 +431,10 @@ function renderSummary(
       reading: terminalLine(`${report.score}/100`),
       tone: "neutral",
       width: Math.min(48, width),
-      theme,
-    }, capabilities)
+    })
   }\n`);
   out.raw(`${
-    renderResultSummaryCli({
+    presenter.present(renderResultSummaryCli, {
       state: "unchanged",
       fact: terminalLine("The score covers objective rules only."),
       counts: [
@@ -454,8 +448,7 @@ function renderSummary(
         },
       ],
       maxWidth: width,
-      theme,
-    }, capabilities)
+    })
   }\n`);
   renderGroup(out, "next-action", "Next action");
   if (report.nextAction.kind === "review") {
@@ -469,7 +462,7 @@ function renderSummary(
     });
   } else {
     out.raw(`${
-      renderProcedureCli({
+      presenter.present(renderProcedureCli, {
         title: terminalLine(report.nextAction.title),
         description: terminalMultiline(report.nextAction.why),
         steps: [{
@@ -479,14 +472,13 @@ function renderSummary(
         completion: terminalMultiline(report.nextAction.action),
         completionLabel: terminalLine("Do"),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
   }
   renderGroup(out, "category-summary", "Areas");
   for (const cat of report.categories) {
     out.raw(`${
-      renderMeterCli({
+      presenter.present(renderMeterCli, {
         kind: "determinate-progress",
         label: terminalLine(cat.title),
         lifecycle: { status: "active" },
@@ -497,8 +489,7 @@ function renderSummary(
         ),
         tone: "neutral",
         width: Math.min(48, width),
-        theme,
-      }, capabilities)
+      })
     }\n`);
   }
 }
@@ -506,7 +497,7 @@ function renderSummary(
 /** Render one category in full: each deterministic rule (with fix + teach when not
  * passing) and each subjective review item (ask + evidence + teach). */
 function renderCategory(out: Out, cat: CategoryResult): void {
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   renderGroup(
     out,
     `category:${cat.name}`,
@@ -516,7 +507,7 @@ function renderCategory(out: Out, cat: CategoryResult): void {
   const flushSummaries = (): void => {
     if (summaries.length === 0) return;
     out.raw(`${
-      renderResultSummaryGroupCli({
+      presenter.present(renderResultSummaryGroupCli, {
         // Keep every product string visibly enrolled in the terminal-safety
         // guard at the package call, even though the queue already stores only
         // adapted values.
@@ -528,8 +519,7 @@ function renderCategory(out: Out, cat: CategoryResult): void {
             : { nextAction: terminalMultiline(summary.nextAction) }),
         })),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
     summaries = [];
   };
@@ -538,15 +528,14 @@ function renderCategory(out: Out, cat: CategoryResult): void {
     if (r.status === "fail") {
       flushSummaries();
       out.raw(`${
-        renderDiagnosticCli({
+        presenter.present(renderDiagnosticCli, {
           title: terminalLine(r.title),
           impact: terminalMultiline(r.detail),
           correction: terminalMultiline(r.fix ?? r.title),
           evidence: terminalMultiline(r.teach),
           severity: "failure",
           maxWidth: width,
-          theme,
-        }, capabilities)
+        })
       }\n`);
       continue;
     }
@@ -569,17 +558,16 @@ function renderHistory(out: Out, findings: PatternsFinding[]): void {
   if (findings.length === 0) {
     return;
   }
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   renderGroup(out, "history", "From the logbook");
   for (const finding of findings) {
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: terminalMultiline(`${finding.detector}: ${finding.observed}`),
         nextAction: terminalMultiline(finding.next_step),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
   }
 }
@@ -646,38 +634,35 @@ function renderFooter(
   filtered: boolean,
 ): void {
   if (report.reviews === 0 && filtered) return;
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   renderGroup(out, "report-actions", "Commands");
   if (report.reviews > 0) {
     out.raw(`${
-      renderCommandCli({
+      presenter.present(renderCommandCli, {
         command: terminalLine("discern improvement --json"),
         explanation: terminalLine(
           "Give an agent the cited review evidence in the structured result.",
         ),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
   }
   if (!filtered) {
     out.raw(`${
-      renderCommandCli({
+      presenter.present(renderCommandCli, {
         command: terminalLine("discern improvement --category <name>"),
         explanation: terminalLine("Focus the report on one catalogue area."),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
     out.raw(`${
-      renderCommandCli({
+      presenter.present(renderCommandCli, {
         command: terminalLine("discern improvement --min-score <n>"),
         explanation: terminalLine(
           "Require an automated-practice-health floor for this run.",
         ),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
   }
 }
@@ -739,17 +724,16 @@ export async function runImprovement(
   }
   renderHistory(out, historicalFindings);
   if (!config.project.logbook) {
-    const { capabilities, width, theme } = presentationFacts(out);
+    const { presenter, width } = presentationFacts(out);
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: terminalLine("Logbook coaching is unavailable."),
         nextAction: terminalMultiline(
           fire(HINTS["improvement-logbook-off"]).text,
         ),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
   }
   renderFooter(out, report, filtered);

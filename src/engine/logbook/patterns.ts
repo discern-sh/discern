@@ -35,7 +35,6 @@ import {
   renderTriangleSectionRule,
   type ResultSummaryCliProps,
   type ResultSummaryGroupCliItem,
-  type TerminalCapabilities,
 } from "discern-design-system/cli";
 import {
   loadConfig,
@@ -402,29 +401,26 @@ export const PATTERNS_TONE_RESULT_STATE = {
   Record<PatternFindingTone, ResultSummaryCliProps["state"]>
 >;
 
-/** Give pure package renderers explicit capabilities from the shared context. */
+/** Give package renderers one explicit measure from the shared presenter. */
 function presentationFacts(out: Out): {
-  readonly capabilities: TerminalCapabilities;
+  readonly presenter: Out["terminal"]["presenter"];
   readonly width: number;
-  readonly theme: Out["terminal"]["themeVariant"];
 } {
   const width = Math.max(20, Math.min(104, out.terminal.size.columns));
   return {
-    capabilities: { ...out.terminal.capabilities, columns: width },
+    presenter: out.terminal.presenter,
     width,
-    theme: out.terminal.themeVariant,
   };
 }
 
 /** Preserve the stable human-output group id while the package owns its rule. */
 function renderGroup(out: Out, id: string, label: string): void {
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   out.group(id);
   out.raw(`${
     renderTriangleSectionRule(terminalLine(label), {
       width,
-      theme,
-    }, capabilities)
+    }, presenter.capabilities)
   }\n`);
 }
 
@@ -598,7 +594,7 @@ function renderFamily(
   if (familyFindings.length === 0) {
     return;
   }
-  const { capabilities, theme } = presentationFacts(out);
+  const { presenter } = presentationFacts(out);
   const groups = findingsByDetector(familyFindings);
   const countById = new Map(data.detectors.map((d) => [d.id, d.findings]));
   renderGroup(
@@ -626,7 +622,7 @@ function renderFamily(
       },
     ];
     out.raw(`${
-      renderResultSummaryGroupCli({
+      presenter.present(renderResultSummaryGroupCli, {
         // Re-adapt at the package boundary so the structural safety guard can
         // prove every member of this mixed-state alignment group.
         items: summaries.map((summary) => ({
@@ -637,21 +633,19 @@ function renderFamily(
             : { nextAction: terminalMultiline(summary.nextAction) }),
         })),
         maxWidth: width,
-        theme,
-      }, { ...capabilities, columns: width })
+      })
     }\n`);
     const elided = (countById.get(detector) ?? findings.length) -
       findings.length;
     if (elided > 0) {
       out.raw(`${
-        renderCommandCli({
+        presenter.present(renderCommandCli, {
           command: terminalLine("discern patterns --all"),
           explanation: terminalLine(
             `${plural(elided, "more finding")} remain for this detector.`,
           ),
           maxWidth: width,
-          theme,
-        }, { ...capabilities, columns: width })
+        })
       }\n`);
     }
   }
@@ -663,12 +657,11 @@ function renderFamily(
   if (crossesBoundary) {
     out.group(`family:${family}:caveat`);
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: terminalLine(PATTERNS_TRAJECTORY_CAVEAT),
         maxWidth: width,
-        theme,
-      }, { ...capabilities, columns: width })
+      })
     }\n`);
   }
 }
@@ -688,11 +681,11 @@ function renderAttentionBanner(
     return;
   }
 
-  const { capabilities, theme } = presentationFacts(out);
+  const { presenter } = presentationFacts(out);
   renderGroup(out, "attention", PATTERNS_ATTENTION_HEADING);
   for (const finding of findings) {
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "changed",
         fact: terminalLine(
           finding.subject === undefined
@@ -700,8 +693,7 @@ function renderAttentionBanner(
             : `${finding.subject}: ${finding.summary}`,
         ),
         maxWidth: width,
-        theme,
-      }, { ...capabilities, columns: width })
+      })
     }\n`);
   }
 }
@@ -714,7 +706,7 @@ function renderInvestigations(
   width: number,
 ): void {
   if (investigations.length === 0) return;
-  const { capabilities, theme } = presentationFacts(out);
+  const { presenter } = presentationFacts(out);
   renderGroup(out, "investigations", "Investigation paths");
   for (const [index, investigation] of investigations.entries()) {
     if (index > 0) out.group(`investigation:${investigation.id}`);
@@ -722,7 +714,7 @@ function renderInvestigations(
       ? ""
       : ` · ${investigation.subject}`;
     out.raw(`${
-      renderProcedureCli({
+      presenter.present(renderProcedureCli, {
         title: terminalLine(`${investigation.title}${subject}`),
         description: terminalMultiline(
           `${investigation.summary}\nEvidence: ${investigation.observed}\nDiagnostic: ${investigation.diagnostic_action}`,
@@ -734,8 +726,7 @@ function renderInvestigations(
         completionLabel: terminalLine("Falsifier"),
         completion: terminalMultiline(investigation.falsifier),
         maxWidth: width,
-        theme,
-      }, { ...capabilities, columns: width })
+      })
     }\n`);
   }
 }
@@ -746,14 +737,14 @@ function renderClosingAccount(
   data: PatternsData,
   width: number,
 ): void {
-  const { capabilities, theme } = presentationFacts(out);
+  const { presenter } = presentationFacts(out);
   out.group("closing-account");
   const quiet = data.detectors.filter((d) => d.status === "quiet");
   const young = data.detectors.filter((d) =>
     d.status === "insufficient-evidence"
   );
   out.raw(`${
-    renderResultSummaryCli({
+    presenter.present(renderResultSummaryCli, {
       state: "unchanged",
       fact: terminalMultiline([
         "The report is advisory and does not change the Gate.",
@@ -770,8 +761,7 @@ function renderClosingAccount(
         "Structured data: discern patterns --json",
       ].join(" · ")),
       maxWidth: width,
-      theme,
-    }, { ...capabilities, columns: width })
+    })
   }\n`);
 }
 
@@ -779,7 +769,7 @@ function renderClosingAccount(
  * strength-ranked; this projection groups them by canonical family and
  * collapses repeated detector guidance. */
 function renderReport(out: Out, data: PatternsData, slug: string): void {
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   const titleById = new Map(
     data.detectors.map((detector) => [detector.id, detector.title]),
   );
@@ -796,7 +786,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     )
   }\n`);
   out.raw(`${
-    renderResultSummaryGroupCli({
+    presenter.present(renderResultSummaryGroupCli, {
       items: [
         {
           state: "unchanged",
@@ -816,8 +806,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
         }]),
       ],
       maxWidth: width,
-      theme,
-    }, capabilities)
+    })
   }\n`);
   renderAttentionBanner(out, data, width);
   renderInvestigations(out, data.investigations, width);
@@ -825,7 +814,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
   if (data.logbook.events === 0) {
     out.group("empty-logbook");
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: terminalLine(
           "The Logbook is empty. Privacy: local metadata only; nothing leaves the machine.",
@@ -834,8 +823,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
           "Check back after discern records local metadata for some verb runs.",
         ),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
     return;
   }
@@ -1329,27 +1317,25 @@ function statsSection(
   rows: readonly string[],
   spark?: StatsSpark | undefined,
 ): void {
-  const { capabilities, theme } = presentationFacts(out);
+  const { presenter } = presentationFacts(out);
   renderGroup(out, `stats:${label}`, label);
   out.raw(`${
-    renderStatCli({
+    presenter.present(renderStatCli, {
       label: terminalLine(label),
       value: terminalLine(plural(rows.length, "reading")),
       ...(spark === undefined ? {} : {
         context: terminalLine(`${sparkline(spark.series)} ${spark.label}`),
       }),
       maxWidth: width,
-      theme,
-    }, { ...capabilities, columns: width })
+    })
   }\n`);
   for (const row of rows) {
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: terminalMultiline(row),
         maxWidth: width,
-        theme,
-      }, { ...capabilities, columns: width })
+      })
     }\n`);
   }
 }
@@ -1365,7 +1351,7 @@ function renderStatsReport(
   stats: PatternsStats,
   slug: string,
 ): void {
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   const archive = data.logbook.source.kind === "archive"
     ? ` · archive ${data.logbook.source.filename}`
     : "";
@@ -1374,28 +1360,26 @@ function renderStatsReport(
   ));
   if (data.population.analyzed === 0) {
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: terminalLine(STATS_EMPTY_MESSAGE),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
     return;
   }
   out.raw(`${
-    renderResultSummaryCli({
+    presenter.present(renderResultSummaryCli, {
       state: "unchanged",
       fact: terminalMultiline(
         `${statsHeaderLine(data, stats)} · Source: ${STATS_PROVENANCE}`,
       ),
       maxWidth: width,
-      theme,
-    }, capabilities)
+    })
   }\n`);
   if (stats.gate.runs > 0) {
     out.raw(`${
-      renderMeterCli({
+      presenter.present(renderMeterCli, {
         kind: "determinate-progress",
         label: terminalLine("Green Gate runs"),
         lifecycle: { status: "active" },
@@ -1408,8 +1392,7 @@ function renderStatsReport(
         ),
         tone: "neutral",
         width: Math.min(STATS_METER_WIDTH, width),
-        theme,
-      }, capabilities)
+      })
     }\n`);
   }
   const daysPerPoint = stats.series_days_per_point ?? 1;
@@ -1484,14 +1467,13 @@ function renderStatsReport(
     ),
   );
   out.raw(`${
-    renderCommandCli({
+    presenter.present(renderCommandCli, {
       command: terminalLine("discern patterns --stats --json"),
       explanation: terminalLine(
         "Read the same counted facts as structured data.",
       ),
       maxWidth: width,
-      theme,
-    }, capabilities)
+    })
   }\n`);
 }
 
@@ -1720,35 +1702,33 @@ function renderLifecycleFiles(
   out: Out,
   files: readonly LogbookFile[],
 ): void {
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   for (const file of files) {
     out.raw(`${
-      renderFileChangeCli({
+      presenter.present(renderFileChangeCli, {
         path: terminalLine(file.file),
         disposition: "unchanged",
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: terminalLine(
           `Source file: ${file.file}. Bytes: ${formatHumanNumber(file.bytes)}.`,
         ),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
   }
 }
 
 /** Render the complete reset scope before preview, refusal, or confirmation. */
 function renderResetScope(out: Out, data: PatternsResetData): void {
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   out.heading(terminalLine("Active Logbook reset"));
   out.raw(`${
-    renderReceiptCli({
+    presenter.present(renderReceiptCli, {
       title: terminalLine("Reset scope"),
       meta: [
         {
@@ -1772,19 +1752,17 @@ function renderResetScope(out: Out, data: PatternsResetData): void {
         "The active local metadata history will be removed.",
       ),
       maxWidth: width,
-      theme,
-    }, capabilities)
+    })
   }\n`);
   for (const impact of data.impacts) {
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "changed",
         fact: terminalMultiline(
           `${impact.surface}: evidence restarts. ${impact.phrase}`,
         ),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
   }
   renderLifecycleFiles(out, data.removed);
@@ -1792,10 +1770,10 @@ function renderResetScope(out: Out, data: PatternsResetData): void {
 
 /** Render the complete archive scope before preview, refusal, or confirmation. */
 function renderArchiveScope(out: Out, data: PatternsArchiveData): void {
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   out.heading(terminalLine("Active Logbook archive"));
   out.raw(`${
-    renderReceiptCli({
+    presenter.present(renderReceiptCli, {
       title: terminalLine("Archive scope"),
       meta: [
         {
@@ -1824,16 +1802,14 @@ function renderArchiveScope(out: Out, data: PatternsArchiveData): void {
       ),
       footer: terminalLine(`Destination: ${data.archive_path}`),
       maxWidth: width,
-      theme,
-    }, capabilities)
+    })
   }\n`);
   out.raw(`${
-    renderResultSummaryCli({
+    presenter.present(renderResultSummaryCli, {
       state: "unchanged",
       fact: terminalLine(`Destination: ${data.archive_path}`),
       maxWidth: width,
-      theme,
-    }, capabilities)
+    })
   }\n`);
   renderLifecycleFiles(out, data.files);
 }
@@ -2450,30 +2426,28 @@ export async function runPatternsArchives(
     out.error(result.message ?? "patterns archives failed.");
     return 1;
   }
-  const { capabilities, width, theme } = presentationFacts(out);
+  const { presenter, width } = presentationFacts(out);
   out.heading(terminalLine("Sealed Logbook archives"));
   if (result.data.archives.length === 0) {
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: terminalLine("No sealed archives."),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
     return 0;
   }
   for (const archive of result.data.archives) {
     out.raw(`${
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: archive.unparsed === 0 ? "unchanged" : "changed",
         fact: terminalLine(`Sealed archive: ${archive.filename}`),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
     out.raw(`${
-      renderReceiptCli({
+      presenter.present(renderReceiptCli, {
         title: terminalLine("Archive evidence"),
         meta: [
           {
@@ -2497,8 +2471,7 @@ export async function runPatternsArchives(
           }],
         }),
         maxWidth: width,
-        theme,
-      }, capabilities)
+      })
     }\n`);
   }
   return 0;

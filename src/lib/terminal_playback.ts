@@ -6,6 +6,7 @@
 
 import type { TerminalCapabilities } from "discern-design-system/cli";
 import { displayWidth, type TerminalSize } from "./text.ts";
+import { terminalCapabilitiesAtWidth } from "./terminal.ts";
 import {
   createInlineFramePainter,
   type InlineFramePainter,
@@ -258,7 +259,7 @@ export async function applyTerminalPlayback(
         columns: size.columns,
         unicode: true,
       };
-      return { ...capabilities, columns: size.columns };
+      return terminalCapabilitiesAtWidth(capabilities, size.columns);
     },
   });
   let failure: CapturedFailure | undefined;

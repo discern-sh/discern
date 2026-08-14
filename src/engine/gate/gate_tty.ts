@@ -159,10 +159,8 @@ export function gateTtyProgressMode(
     const painter = createInlineFramePainter({
       write: () => {},
       size: () => options.terminal.size,
-      capabilities: () => ({
-        ...options.terminal.capabilities,
-        columns: options.width,
-      }),
+      capabilities: () =>
+        options.terminal.presenter.with({ width: options.width }).capabilities,
     });
     if (painter.replace(frames[mode]).status !== "refused") return mode;
   }
@@ -260,10 +258,8 @@ export function createGateTtyProgress(
   const painter = createInlineFramePainter({
     write,
     size: () => viewport,
-    capabilities: () => ({
-      ...options.terminal.capabilities,
-      columns: viewport.columns,
-    }),
+    capabilities: () =>
+      options.terminal.presenter.with({ width: viewport.columns }).capabilities,
   });
 
   const frameOptions = (): GateTtyOptions => ({
