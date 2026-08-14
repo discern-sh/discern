@@ -1169,8 +1169,10 @@ If a correctness-critical runtime assumption, working root, authority boundary, 
           title: "Treat context as a budget",
           body: `Every line competes with the work itself.
 
-- Put the immediate state and action first.
-- Keep bounded evidence inline.
+- Put the immediate state first.
+- Follow it with the bounded evidence needed to interpret that state.
+- Place any authority or stop boundary after the evidence.
+- End with the next valid action when no later qualification is required.
 - Point to complete evidence by stable path or target.
 - Return a small ranked result rather than an unbounded index.
 - Remove background explanation already guaranteed by the project guidance.
@@ -1322,12 +1324,12 @@ Recommended shape:
 
 \`\`\`text
 <Observed state>.
+<Bounded evidence needed to interpret that state>.
+<Authority, stop condition, or costly wrong alternative>.
 <Run or do this next>.
-<Do not do the plausible wrong alternative>.
-<Boundary or stop condition>.
 \`\`\`
 
-Use the prohibition only when the wrong alternative is likely and costly. Do not turn every message into a contrast formula.
+Omit a line when the result has no fact for it. Keep the next valid action last when it remains correct without a later qualification. Use the prohibition only when the wrong alternative is likely and costly. Do not turn every message into a contrast formula.
 
 ### Setup step
 
