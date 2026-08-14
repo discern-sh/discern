@@ -8,6 +8,8 @@
  */
 
 import {
+  type CliPresenter,
+  createCliPresenter,
   detectTerminalCapabilities,
   styleText,
   type TerminalCapabilities,
@@ -110,6 +112,8 @@ export interface TerminalWidthOptions {
  */
 export interface TerminalContext {
   readonly capabilities: TerminalCapabilities;
+  /** Package renderer bound to this process snapshot's capabilities and theme. */
+  readonly presenter: CliPresenter;
   readonly color: boolean;
   /** Whether stdout was attached when this process snapshot was resolved. */
   readonly stdoutIsTerminal: boolean;
@@ -264,12 +268,17 @@ function contextFromFacts(
   observeViewport: () => TerminalViewportObservation,
 ): TerminalContext {
   const theme = terminalThemes[themeVariant];
+  const presenter = createCliPresenter(capabilities, {
+    theme: themeVariant,
+    width: size.columns,
+  });
   const styled = (
     text: string,
     style: TerminalTextStyle,
   ): string => styleText(text, style, capabilities);
   return {
     capabilities,
+    presenter,
     color: capabilities.colorDepth !== "none",
     stdoutIsTerminal,
     ciRequestsStaticOutput: enabledEnvironmentMarker(environment.CI),
