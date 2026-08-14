@@ -26,6 +26,7 @@ import {
 } from "../shared/command_reference.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
+import { Logger } from "../lib/log.ts";
 import { discernMergeArgs, runGit } from "../shared/subprocess.ts";
 import { SETUP_BRANCH } from "../shared/setup_state.ts";
 import { type ErrorSlug, renderHumanOutputGroups } from "../shared/result.ts";
@@ -148,6 +149,7 @@ function emitAccept(
 export async function runSetupAccept(
   opts: SetupAcceptOptions,
 ): Promise<number> {
+  const log = new Logger({ json: opts.json, noColor: opts.noColor });
   const root = await findRoot();
   if (root === undefined) {
     return emitAccept(opts, {
@@ -260,7 +262,7 @@ export async function runSetupAccept(
         },
       });
     } else {
-      console.log(renderHumanOutputGroups([
+      log.line(renderHumanOutputGroups([
         {
           id: "accept-plan",
           items: [
@@ -333,16 +335,16 @@ export async function runSetupAccept(
     });
     return 0;
   }
-  console.log(
+  log.ok(
     fastForward
       ? `Setup landed — fast-forwarded ${target} to ${branch}.`
       : `Setup landed — merged ${branch} into ${target}.`,
   );
-  console.log(`You are now on ${target} with discern set up.`);
+  log.info(`You are now on ${target} with discern set up.`);
   if (branchDeleted) {
-    console.log(`Deleted the merged ${branch} branch.`);
+    log.info(`Deleted the merged ${branch} branch.`);
   } else {
-    console.log(
+    log.info(
       `Left the ${branch} branch in place (it is fully merged; delete it with \`git branch -d ${branch}\` when ready).`,
     );
   }

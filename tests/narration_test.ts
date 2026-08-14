@@ -90,7 +90,11 @@ Deno.test("a line-oriented sink writes console lines and refuses raw text", () =
   sink.line("next", "stderr");
   assertEquals(stdout, ["row", ""]);
   assertEquals(stderr, ["next"]);
-  assertThrows(() => sink.write("partial", "stdout"), TypeError, "line-oriented");
+  assertThrows(
+    () => sink.write("partial", "stdout"),
+    TypeError,
+    "line-oriented",
+  );
 });
 
 Deno.test("the silent sink swallows everything and reports nothing written", () => {

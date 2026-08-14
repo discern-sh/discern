@@ -37,7 +37,7 @@ import {
 } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
-import { displayWidth, padDisplayEnd, wrapText } from "../lib/text.ts";
+import { renderAlignedRows } from "../lib/text.ts";
 import {
   type TerminalContext,
   terminalContext,
@@ -870,6 +870,7 @@ function printToc(
   verb: string,
   tree: DocsTree,
   cwd: string,
+  log: Logger,
   terminal: TerminalContext,
   width: number,
 ): void {
@@ -892,24 +893,15 @@ function printToc(
   const capabilities = { ...terminal.capabilities, columns: width };
   for (const [section, entries] of sections) {
     const safeSection = terminalLine(section);
-    const colWidth = Math.min(
-      32,
-      Math.max(...entries.map((entry) => displayWidth(labelOf(entry)))),
+    const rows = renderAlignedRows(
+      entries.map((entry) => ({
+        label: labelOf(entry),
+        body: terminalLine(entry.title),
+      })),
+      // A TTY keeps every row on one aligned line and lets the terminal handle
+      // rare overflow; piped output wraps titles under the shared column.
+      terminal.stdoutIsTerminal ? {} : { width },
     );
-    const rows = entries.map((entry) => {
-      const label = labelOf(entry);
-      const title = terminalLine(entry.title);
-      const aligned = `  ${padDisplayEnd(label, colWidth)}  ${title}`;
-      if (terminal.stdoutIsTerminal || displayWidth(aligned) <= width) {
-        return aligned;
-      }
-      return wrapText(
-        `${label}  ${title}`,
-        Math.max(1, width - 2),
-        "",
-        { breakLongWords: true },
-      ).map((line) => `  ${line}`).join("\n");
-    });
     const title = `${safeSection === "root" ? "(root)" : safeSection}/`;
     const body = terminal.stdoutIsTerminal
       ? renderSectionCli(
@@ -932,7 +924,7 @@ function printToc(
       items: [body],
     });
   }
-  console.log(renderHumanOutputGroups(groups));
+  log.line(renderHumanOutputGroups(groups));
 }
 
 /** Render the map's top-level regions and their Git-only freshness facts. */
@@ -1729,6 +1721,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
         desc.verb,
         { ...tree, entries: region.entries },
         cwd,
+        log,
         terminal,
         width,
       );
@@ -1770,7 +1763,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   }
 
   // 5. Otherwise (docs off a TTY, or explicit `--list`) → a plain TOC.
-  printToc(desc.verb, tree, cwd, terminal, width);
+  printToc(desc.verb, tree, cwd, log, terminal, width);
   return 0;
 }
 

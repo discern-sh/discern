@@ -43,6 +43,8 @@ import type {
   SkillsEjectData,
 } from "../shared/result_schemas.ts";
 import { Logger } from "../lib/log.ts";
+import { renderAlignedRows } from "../lib/text.ts";
+import { terminalLine } from "../lib/terminal.ts";
 import {
   canInteract,
   isInteractionCancelled,
@@ -1196,18 +1198,23 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
     return 0;
   }
   const rows = await listSkills(root, cfg);
+  const log = makeLogger();
   if (rows.length === 0) {
-    console.log("No skills (none bundled, none authored).");
+    log.line("No skills (none bundled, none authored).");
     return 0;
   }
-  console.log("Effective skills:");
-  for (const r of rows) {
-    const base = r.source === "authored"
-      ? (r.overridesBundled ? "yours (overrides built-in)" : "yours")
-      : "built-in";
-    const tag = r.excluded ? `${base} — excluded ([skills].exclude)` : base;
-    console.log(`  ${r.name.padEnd(24)} ${tag}`);
-  }
+  log.line("Effective skills:");
+  for (
+    const row of renderAlignedRows(rows.map((r) => {
+      const base = r.source === "authored"
+        ? (r.overridesBundled ? "yours (overrides built-in)" : "yours")
+        : "built-in";
+      return {
+        label: terminalLine(r.name),
+        body: r.excluded ? `${base} — excluded ([skills].exclude)` : base,
+      };
+    }))
+  ) log.line(row);
   return 0;
 }
 

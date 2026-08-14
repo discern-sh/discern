@@ -84,7 +84,8 @@ export class Logger {
       narration: this.humanStream,
       alerts: "stderr",
     });
-    this.terminalSafeMultilineError = this.#narration.terminalSafeMultilineError;
+    this.terminalSafeMultilineError =
+      this.#narration.terminalSafeMultilineError;
   }
 
   /** Informational step (accent arrow). Suppressed in JSON mode. */

@@ -14,7 +14,12 @@
 import type { Command, Example, Option } from "@cliffy/command";
 import { renderSectionCli } from "discern-design-system/cli";
 import type { EnvReader } from "./shared/env.ts";
-import { displayWidth, padDisplayEnd, wrapText } from "./lib/text.ts";
+import {
+  alignedLabelWidth,
+  displayWidth,
+  renderAlignedRows,
+  wrapText,
+} from "./lib/text.ts";
 import {
   productionTerminalContext,
   type TerminalContext,
@@ -170,44 +175,26 @@ function wrapHelpFact(
     .map((line) => `${indent}${line}`.trimEnd());
 }
 
-/** Render one label + body row, stacking when a narrow terminal needs it. */
-function renderHelpRow(
-  label: string,
-  body: string,
+/** Render one section's label + body rows through the shared aligned-listing
+ * authority: accent labels, muted bodies, stacking on narrow terminals. */
+function renderHelpRows(
+  rows: readonly { label: string; body: string }[],
   terminal: TerminalContext,
   width: number,
-  labelWidth: number,
+  labelCap: number,
 ): string[] {
-  const rowIndent = "  ";
-  const gutter = 2;
-  const bodyStart = displayWidth(rowIndent) + labelWidth + gutter;
-  const stacked = width - bodyStart < 24;
-  const safeLabel = terminalLine(label.trimEnd());
-  const safeBody = terminalMultiline(body.trim());
-  if (stacked) {
-    return [
-      `${rowIndent}${terminal.tone(safeLabel, "accent", "strong")}`.trimEnd(),
-      ...wrapHelpFact(safeBody, width, "    ").map((line) =>
-        terminal.role(line, "muted").trimEnd()
-      ),
-    ];
-  }
-  const labelCell = terminal.tone(
-    padDisplayEnd(safeLabel, labelWidth),
-    "accent",
-    "strong",
+  return renderAlignedRows(
+    rows.map((row) => ({
+      label: terminalLine(row.label.trimEnd()),
+      body: terminalMultiline(row.body.trim()),
+    })),
+    {
+      labelCap,
+      width,
+      styleLabel: (cell) => terminal.tone(cell, "accent", "strong"),
+      styleBody: (line) => terminal.role(line, "muted"),
+    },
   );
-  const firstPrefix = `${rowIndent}${labelCell}${" ".repeat(gutter)}`;
-  const continuation = " ".repeat(bodyStart);
-  const wrapped = wrapText(safeBody, Math.max(1, width - bodyStart), "", {
-    breakLongWords: true,
-  });
-  return [
-    `${firstPrefix}${terminal.role(wrapped[0] ?? "", "muted")}`.trimEnd(),
-    ...wrapped.slice(1).map((line) =>
-      `${continuation}${terminal.role(line, "muted")}`.trimEnd()
-    ),
-  ];
 }
 
 /** Canonical public Cliffy option label: aliases plus any argument definition. */
@@ -262,22 +249,17 @@ function renderOptions(
   terminal: TerminalContext,
   width: number,
 ): string[] {
-  const labels = options.map(optionLabel);
-  const labelWidth = Math.min(
-    28,
-    Math.max(0, ...labels.map((label) => displayWidth(terminalLine(label)))),
-  );
   return [
     helpHeading("Options:", terminal),
     "",
-    ...options.flatMap((option, index) =>
-      renderHelpRow(
-        labels[index] ?? "",
-        `- ${option.description}`,
-        terminal,
-        width,
-        labelWidth,
-      )
+    ...renderHelpRows(
+      options.map((option) => ({
+        label: optionLabel(option),
+        body: `- ${option.description}`,
+      })),
+      terminal,
+      width,
+      28,
     ),
   ];
 }
@@ -288,24 +270,17 @@ function renderExamples(
   terminal: TerminalContext,
   width: number,
 ): string[] {
-  const labelWidth = Math.min(
-    28,
-    Math.max(
-      0,
-      ...examples.map((example) => displayWidth(terminalLine(example.name))),
-    ),
-  );
   return [
     helpHeading("Examples:", terminal),
     "",
-    ...examples.flatMap((example) =>
-      renderHelpRow(
-        example.name,
-        example.description,
-        terminal,
-        width,
-        labelWidth,
-      )
+    ...renderHelpRows(
+      examples.map((example) => ({
+        label: example.name,
+        body: example.description,
+      })),
+      terminal,
+      width,
+      28,
     ),
   ];
 }
@@ -332,48 +307,23 @@ function renderGroupedCommands(
     };
   });
   const byName = new Map(visible.map((entry) => [entry.rawName, entry]));
-  const nameCol = Math.min(
-    Math.max(0, ...visible.map((entry) => displayWidth(entry.name))),
-    20,
-  );
-  // The description column begins after `    <name padded>  `; its continuation
-  // lines hang-indent to the same column. A floor keeps the wrap sane if the
-  // terminal is unusually narrow.
-  const descStart = 4 + nameCol + 2;
-  const descWidth = Math.max(1, width - descStart);
-  const descIndent = " ".repeat(descStart);
-  const stacked = descWidth < 24;
+  // One shared name column across every group, so the whole Commands section
+  // aligns; the shared authority owns the gutter, wrap, and narrow stacking.
+  const nameCol = alignedLabelWidth(visible.map((entry) => entry.name), 20);
 
   const heading = (text: string): string =>
     terminal.tone(text, "accent", "strong");
   const name = (text: string): string =>
     terminal.tone(text, "accent", "strong");
   const desc = (text: string): string => terminal.role(text, "muted");
-  const rowLines = (entry: (typeof visible)[number]): string[] => {
-    if (stacked) {
-      const indent = "      ";
-      const wrapped = wrapText(
-        entry.description,
-        Math.max(1, width - displayWidth(indent)),
-        "",
-        { breakLongWords: true },
-      );
-      return [
-        `    ${name(entry.name)}`,
-        ...wrapped.map((line) => `${indent}${desc(line)}`),
-      ];
-    }
-    const wrapped = wrapText(
-      entry.description,
-      descWidth,
-      "",
-      { breakLongWords: true },
-    );
-    const first = `    ${name(padDisplayEnd(entry.name, nameCol))}  ${
-      desc(wrapped[0] ?? "")
-    }`;
-    return [first, ...wrapped.slice(1).map((l) => `${descIndent}${desc(l)}`)];
-  };
+  const rowLines = (entry: (typeof visible)[number]): string[] =>
+    renderAlignedRows([{ label: entry.name, body: entry.description }], {
+      labelWidth: nameCol,
+      indent: "    ",
+      width,
+      styleLabel: name,
+      styleBody: desc,
+    });
 
   const out: string[] = ["Commands:", ""];
   const seen = new Set<string>();
