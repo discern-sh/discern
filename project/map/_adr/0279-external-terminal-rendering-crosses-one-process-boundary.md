@@ -2,6 +2,8 @@
 
 > **Amended 2026-08-14:** `TerminalContext` now exposes command-owned viewport observation. A frame made unsafe by shrink is never erased with guessed cursor geometry.
 
+> **Component-contract amendment (2026-08-14):** Discern now consumes the immutable 0.13.0 release. Search defaults cross the boundary as stable IDs; prompt height, Heading leading lines, Confirm geometry, choice markers, step triangles, Result-summary alignment, and Command suggestion grammar remain package contracts.
+
 **Status**: accepted. Extends the independent package boundary in [ADR 0139](0139-the-design-system-is-an-independent-package.md) and the semantic grouping contract in [ADR 0250](0250-discern-managed-human-output-declares-semantic-groups.md).
 
 ## Context
@@ -14,7 +16,7 @@ Consuming a sibling checkout would make an unpublished tree look like package ev
 
 ## Decision
 
-Discern consumes the exact published `@discern-sh/design-system@0.12.2` release through its configured alias. Consumer tests exercise the root, `./cli`, and `./cli/interactive` exports and inspect Deno's resolved graph. They require the configured pin, lock entry, and resolved package modules to name the same version; the CLI-only graph may contain neither a React runtime nor a package checkout filesystem path. A local path, cache substitution, or unpublished tag is never predecessor evidence.
+Discern consumes the exact published `@discern-sh/design-system@0.13.0` release through its configured alias. Consumer tests exercise the root, `./cli`, and `./cli/interactive` exports and inspect Deno's resolved graph. They require the configured pin, lock entry, and every module in each public closure to name the same immutable JSR origin and version; the CLI-only graph may contain neither a React runtime nor a package checkout filesystem path. A local path, workspace override, source import, mixed-version graph, cache substitution, or unpublished tag is never predecessor evidence.
 
 The package owns reusable Component rendering, generic ANSI stripping, grapheme measurement, truncation, padding and wrapping, terminal themes and semantic Token roles, and reusable interaction machinery. A generic gap is fixed and released upstream rather than copied into Discern.
 
@@ -26,7 +28,9 @@ Character repertoire, ANSI styling, and ANSI cursor control are independent capa
 
 The shared `done` and `prepare` controller tries full, compact, then append-only output; `test` uses the same grammar with Test facts. Growth can restore full mode. Shrink re-evaluates immediately. If the current frame exceeds the viewport, refusal latches append-only output with no erase. The deferred transcript, final table, result tail, and Proof follow once. Write failure stops presentation without changing the result.
 
-[`src/lib/text.ts`](../../../src/lib/text.ts) is the product convenience façade over public package text functions. Discern retains only behavior the package does not own: hanging indents, its explicit long-token overflow policy, content-shaped aligned reports, terminal-size convenience calls, sparklines, and meter data projection. [`src/lib/prompts.ts`](../../../src/lib/prompts.ts) is the sole interactive product choke point and maps Discern policy and semantic groups into the public package prompts.
+[`src/lib/text.ts`](../../../src/lib/text.ts) is the product convenience façade over public package text functions. Discern retains only behavior the package does not own: hanging indents, its explicit long-token overflow policy, content-shaped aligned reports, terminal-size convenience calls, sparklines, and meter data projection. [`src/lib/prompts.ts`](../../../src/lib/prompts.ts) is the sole interactive product choke point and maps Discern policy and semantic groups into the public package prompts. Prompt viewports respond to observed terminal height; the caller's row budget remains a ceiling. For searchable defaults, the adapter maps a caller-owned value through the existing stable-choice-ID authority, rejects an unmatched value, and passes the public `initialId`. The docs browser owns one remembered document only for the lifetime of its browse loop.
+
+Static Component contracts cross the same boundary without local replicas. Calm Heading owns one leading line by default; an embedded use asks for zero and lets Discern's semantic output layer own the transition ([ADR 0250](0250-discern-managed-human-output-declares-semantic-groups.md)). Confirm geometry does not shift with state, selected choices carry the package marker, and completed and incomplete workflow steps use the package's upward and downward status directions. Mixed Result summaries use the package group compositor for aligned fact columns. Command suggestions retain their command value but render with `Run:` and no shell-prompt prefix.
 
 Discern owns product semantics, safe untrusted-data adaptation, effect and stream routing, JSON and Model Context Protocol contracts, child lifecycle, and composition. `Out` and `Logger` are channel/group/effect adapters, not palette authorities. `@cliffy/command` remains the sole direct Cliffy root and the command parser. Discern has no direct `@cliffy/prompt`, `@cliffy/ansi/colors`, or `@cliffy/table` alias or authored import. Command 1.2.1 owns a transitive Table 1.2.1 node, so its lock, license-cache, and notice records remain only inside the graph-derived command closure.
 

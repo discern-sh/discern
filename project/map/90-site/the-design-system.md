@@ -15,7 +15,7 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.12.2"
+"discern-design-system": "jsr:@discern-sh/design-system@0.13.0"
 ```
 
 Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI consumer additionally uses the documented `./cli` and `./cli/interactive` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
@@ -26,7 +26,15 @@ When a package defect affects discern, release the fix from the package reposito
 
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, prompts, and safe repaint refusal. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`prompts.ts`](../../../src/lib/prompts.ts).
 
-Consumer conformance proves both CLI graphs are React-free and resolved from the exact external release. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves the package root and both CLI graphs are React-free where required and that every module in each closure resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.13.0/` origin. A local path, workspace override, source import, mixed version, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+
+## Release 0.13.0 terminal contracts
+
+Release 0.13.0 is the first immutable release after 0.12.2 that carries the reviewed terminal polish. Prompt frames derive their usable viewport from the current terminal height on every render; a caller's visible-count value is a ceiling, so short terminals reduce the list instead of painting beyond the viewport. Search prompts accept an initial stable choice ID. [`prompts.ts`](../../../src/lib/prompts.ts) maps the caller's product value through its existing stable-ID authority, rejects a value that names no choice, and sends only the resulting ID to the package. The docs browser retains its highlighted document within one browse loop. It does not persist state between command runs.
+
+The same release makes the calm Heading the package default and gives it a configurable leading-line count. Top-level package headings normally keep their one-line default; a heading embedded in a discern-owned composition requests zero so the surrounding semantic group owns the boundary. Confirm keeps fixed frame geometry while its state changes, and selected choices use a distinct selected marker rather than highlight alone. Workflow steps direct their triangle by status: completed steps point upward and incomplete steps point downward.
+
+Mixed Result summaries compose through the package's group renderer, which aligns fact columns across different state prefixes. Patterns and improvement therefore carry no local prefix-padding calculation. Command suggestions render as `Run: <command>` without a `$` prompt, preserving the underlying command while keeping suggested future action visually distinct from previously typed shell input.
 
 ## Site-owned integration
 

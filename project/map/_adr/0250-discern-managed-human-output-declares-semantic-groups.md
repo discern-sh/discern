@@ -2,6 +2,8 @@
 
 > **Interaction implementation amendment (2026-08-13; [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md)):** The semantic grouping decision survives. `groupedSelectOptions` now maps each populated group to a first-class, non-selectable package heading through the sole product prompt choke point; it no longer encodes a fake blank choice or a framework separator. The grouping guard scans shipped `src/**` human surfaces, while the broader Git-derived terminal outlaw rejects direct package-prompt bypasses in every authored Deno source.
 
+> **Heading-boundary amendment (2026-08-14):** Package Heading now owns one leading line by default. A top-level Heading keeps that default; an embedded Heading requests zero; an unlabeled semantic group keeps its explicit output-layer boundary. Exactly one layer owns the transition.
+
 **Status**: accepted
 
 ## Context
@@ -24,11 +26,13 @@ The shared vocabulary lives in [`src/shared/result.ts`](../../../src/shared/resu
 
 The two effectful presentation adapters expose the imperative form. `Out.group(id, label?)` and `Logger.group(id, label?)` add only the missing newline count, so leading and repeated blank boundaries cannot accumulate gaps. Supplying a label draws a ruled heading on the narration stream. A blank boundary is enough when the following block identifies itself; a long report whose contents do not name the group supplies the label. Callers use this form for live narration whose contents cannot be composed before effects run.
 
+Package Heading follows the same ownership rule. A top-level Heading normally uses the package default of one leading line. A Heading nested inside `renderHumanOutputGroups`, an `Out.group` or `Logger.group` run, Markdown, or another populated block passes `leadingBlankLines: 0`; the containing group or document composer supplies the one transition. An unlabeled group has no visible heading to own spacing, so the output layer retains its explicit boundary. Package section rules and status headings are embedded labels and likewise rely on their surrounding group. No caller compensates with a second blank line.
+
 Interactive option lists use `groupedSelectOptions`. It consumes the same group vocabulary and puts a ruled heading before every populated group, including the first. One empty display row before each heading separates it from the prompt question or preceding option. Task buckets, actions, navigation, docs, scripts, and improvement choices therefore cannot collapse into one framework-owned list.
 
 Existing composed reports use their own semantic data as the authority for membership. Status declares Setup, Checkout, Change, Gate, Landing, Tasks, and Next regions. The desk derives task groups from `DESK_BUCKETS` and keeps desk actions separate. Improvement renders Health, Next action, Areas, each catalog category, logbook findings, and Commands as ruled sections. Setup and docs views name their authored regions; repeated search results and map regions enroll through the collection being rendered.
 
-[`tests/human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) is the class guard. It scans the Git-derived authored TypeScript universe and rejects hand-emitted empty output lines, escaped or doubled-newline writes, joined-line console reports, and direct Cliffy separators outside the shared prompt helper. Its synthetic unrelated functions prove that a new source tree is caught. Shared-renderer tests pin identity validation, boundary counts, and the empty row above ruled headings. Behavior tests pin plan groups, status regions, every desk bucket, and every improvement category returned by the result envelope.
+[`tests/human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) is the class guard. It scans the Git-derived authored TypeScript universe and rejects hand-emitted empty output lines, escaped or doubled-newline writes, joined-line console reports, and direct Cliffy separators outside the shared prompt helper. It also enrolls every imported package Heading alias: an embedded call must request zero leading lines, a nonzero override is illegal, and a direct top-level return may use the default. Its synthetic unrelated functions prove that a new source tree and a future Heading renderer are caught. Shared-renderer tests pin identity validation, boundary counts, and the empty row above ruled headings. Behavior tests pin plan groups, status regions, every desk bucket, and every improvement category returned by the result envelope.
 
 The contract excludes:
 
