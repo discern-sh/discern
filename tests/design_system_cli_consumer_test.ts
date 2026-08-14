@@ -4,13 +4,16 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { packageManifest } from "discern-design-system";
 import {
+  createCliPresenter,
   measureText,
   renderBadgeCli,
   renderCommandCli,
   renderFleetCli,
   renderHeadingCli,
+  renderNoteLine,
   renderRadioCli,
   renderResultSummaryGroupCli,
+  renderSuccessLine,
   renderSwitchCli,
   renderTextareaCli,
   renderTriangleWorkflowStepper,
@@ -25,7 +28,7 @@ import {
 } from "discern-design-system/cli/interactive";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.14.0";
+const SELECTED_VERSION = "0.15.0";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
@@ -260,6 +263,37 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
     unicode: true,
   };
 
+  const presenter = createCliPresenter(capabilities, {
+    theme: "dark",
+    width: 32,
+  });
+  const effectiveCapabilities = { ...capabilities, columns: 32 };
+  assertEquals(
+    presenter.present(renderBadgeCli, {
+      label: "Published",
+      tone: "success",
+    }),
+    renderBadgeCli({
+      label: "Published",
+      theme: "dark",
+      tone: "success",
+    }, effectiveCapabilities),
+  );
+  assertEquals(
+    presenter.success("Package ready."),
+    renderSuccessLine(
+      { text: "Package ready.", theme: "dark" },
+      effectiveCapabilities,
+    ),
+  );
+  assertEquals(
+    presenter.note("Inspect the render."),
+    renderNoteLine(
+      { text: "Inspect the render.", theme: "dark" },
+      effectiveCapabilities,
+    ),
+  );
+
   assertEquals(
     renderHeadingCli({ text: "Calm title", level: 2 }, capabilities),
     "\n## Calm title",
@@ -295,18 +329,19 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
     "Proceed [active]\n" +
       "┌──────────────────────────────────────┐\n" +
       "│› Keep waiting ●──○ Deploy now        │\n" +
-      "└──────────────────────────────────────┘",
+      "└──────────────────────────────────────┘\n",
   );
   assertEquals(
     confirm(true),
     "Proceed [active]\n" +
       "┌──────────────────────────────────────┐\n" +
       "│› Keep waiting ○──● Deploy now        │\n" +
-      "└──────────────────────────────────────┘",
+      "└──────────────────────────────────────┘\n",
   );
   for (const value of [false, true]) {
     const frame = confirm(value).split("\n").slice(1);
-    assertEquals(frame.map(measureText), [40, 40, 40]);
+    assertEquals(frame.at(-1), "");
+    assertEquals(frame.slice(0, -1).map(measureText), [40, 40, 40]);
   }
 
   assertEquals(
@@ -326,7 +361,7 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
       "┌──────────────────────────────────────┐\n" +
       "│› ○ One                               │\n" +
       "│  ◉ Two                               │\n" +
-      "└──────────────────────────────────────┘",
+      "└──────────────────────────────────────┘\n",
   );
 
   const resultGroup = renderResultSummaryGroupCli({
@@ -351,8 +386,12 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
     width: 40,
   }, capabilities);
   const textareaLines = textarea.split("\n");
-  assertEquals(textareaLines.length, 15);
-  assertEquals(textareaLines.slice(1).map(measureText), Array(14).fill(40));
+  assertEquals(textareaLines.length, 16);
+  assertEquals(textareaLines.at(-1), "");
+  assertEquals(
+    textareaLines.slice(1, -1).map(measureText),
+    Array(14).fill(40),
+  );
   assertStringIncludes(textarea, "line 1");
   assertStringIncludes(textarea, "line 12");
 });

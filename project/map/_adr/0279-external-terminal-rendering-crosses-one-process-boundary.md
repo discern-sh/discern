@@ -2,7 +2,9 @@
 
 > **Amended 2026-08-14:** `TerminalContext` now exposes command-owned viewport observation. A frame made unsafe by shrink is never erased with guessed cursor geometry.
 
-> **Component-contract amendment (2026-08-14):** Discern now consumes the immutable 0.14.0 release. Search defaults cross the boundary as stable IDs; interaction height, Heading leading lines, Confirm geometry, choice markers, step triangles, Result-summary alignment, and Command suggestion grammar remain package contracts. Terminal value operations use `request*`; their shared contracts use `Interaction*`.
+> **Presenter-contract amendment (2026-08-15):** Discern now consumes the immutable 0.15.0 release. One bound presenter carries capabilities, theme, and default width from the process boundary to every package renderer. The package's narration verbs own the line markers and semantic tones. Per-call widths remain explicit props, and Discern retains stream routing and boundary accounting.
+
+> **Component-contract amendment (2026-08-14):** Search defaults cross the boundary as stable IDs; interaction height, Heading leading lines, Confirm geometry, choice markers, step triangles, Result-summary alignment, and Command suggestion grammar remain package contracts. Terminal value operations use `request*`; their shared contracts use `Interaction*`.
 
 **Status**: accepted. Extends the independent package boundary in [ADR 0139](0139-the-design-system-is-an-independent-package.md) and the semantic grouping contract in [ADR 0250](0250-discern-managed-human-output-declares-semantic-groups.md).
 
@@ -16,7 +18,7 @@ Consuming a sibling checkout would make an unpublished tree look like package ev
 
 ## Decision
 
-Discern consumes the exact published `@discern-sh/design-system@0.14.0` release through its configured alias. Consumer tests exercise the root, `./cli`, and `./cli/interactive` exports and inspect Deno's resolved graph. They require the configured pin, lock entry, and every module in each public closure to name the same immutable JSR origin and version; the CLI-only graph may contain neither a React runtime nor a package checkout filesystem path. A local path, workspace override, source import, mixed-version graph, cache substitution, or unpublished tag is never predecessor evidence.
+Discern consumes the exact published `@discern-sh/design-system@0.15.0` release through its configured alias. Consumer tests exercise the root, `./cli`, and `./cli/interactive` exports and inspect Deno's resolved graph. They require the configured pin, lock entry, and every module in each public closure to name the same immutable JSR origin and version; the CLI-only graph may contain neither a React runtime nor a package checkout filesystem path. A local path, workspace override, source import, mixed-version graph, cache substitution, or unpublished tag is never predecessor evidence.
 
 The package owns reusable Component rendering, generic ANSI stripping, grapheme measurement, truncation, padding and wrapping, terminal themes and semantic Token roles, and reusable interaction machinery. A generic gap is fixed and released upstream rather than copied into Discern.
 
