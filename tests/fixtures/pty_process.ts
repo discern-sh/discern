@@ -13,6 +13,8 @@ export interface PtyInputStep {
 export interface PtyInputPhase {
   readonly waitFor: string | readonly [string, ...string[]];
   readonly steps: readonly [PtyInputStep, ...PtyInputStep[]];
+  /** Skip this fallback phase when the child exits before requesting it. */
+  readonly skipIfExited?: boolean;
 }
 
 /** A command whose standard streams are attached to one pseudo-terminal. */
@@ -103,7 +105,8 @@ export async function runPtyProcess(
   const waitForOutput = async (
     requestedMarkers: string | readonly [string, ...string[]],
     cursor: OutputCursor,
-  ): Promise<void> => {
+    skipIfExited: boolean,
+  ): Promise<boolean> => {
     const markers = typeof requestedMarkers === "string"
       ? [requestedMarkers]
       : requestedMarkers;
@@ -115,12 +118,14 @@ export async function runPtyProcess(
       !containsSequence(observedStderr, cursor.stderr, markers)
     ) {
       if (outputFinished) {
+        if (skipIfExited) return false;
         throw new Error(
           `pseudo-terminal command exited before rendering input markers ${JSON.stringify(markers)}`,
         );
       }
       await new Promise<void>((resolve) => outputWaiters.push(resolve));
     }
+    return true;
   };
   const inputPhases = options.input;
   const input = inputPhases === undefined
@@ -129,20 +134,48 @@ export async function runPtyProcess(
       const writer = process.stdin.getWriter();
       let cursor: OutputCursor = { stdout: 0, stderr: 0 };
       try {
+        inputLoop:
         for (const phase of inputPhases) {
-          await waitForOutput(phase.waitFor, cursor);
+          const skipIfExited = phase.skipIfExited === true;
+          const ready = await waitForOutput(
+            phase.waitFor,
+            cursor,
+            skipIfExited,
+          );
+          if (!ready) break;
           const nextCursor: OutputCursor = {
             stdout: observedStdout.length,
             stderr: observedStderr.length,
           };
           for (const step of phase.steps) {
             const delayMs = step.delayMs ?? 0;
-            if (delayMs > 0) await delay(delayMs);
+            if (delayMs > 0) {
+              if (skipIfExited) {
+                const exited = await Promise.race([
+                  delay(delayMs).then(() => false),
+                  outputComplete.then(() => true),
+                ]);
+                if (exited) break inputLoop;
+              } else {
+                await delay(delayMs);
+              }
+            }
+            if (skipIfExited && outputFinished) break inputLoop;
             if (step.bytes !== undefined) {
               const bytes = typeof step.bytes === "string"
                 ? ENCODER.encode(step.bytes)
                 : step.bytes;
-              if (bytes.length > 0) await writer.write(bytes);
+              if (bytes.length > 0) {
+                try {
+                  await writer.write(bytes);
+                } catch (error) {
+                  if (!skipIfExited) throw error;
+                  // A fallback write may race the child that made it needless.
+                  // If the child remains stuck, the process timeout still wins.
+                  await outputComplete;
+                  break inputLoop;
+                }
+              }
             }
           }
           cursor = nextCursor;
