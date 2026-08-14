@@ -39,7 +39,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
 | [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 13      | —                | —                           |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
-| [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 11      | —                | —                           |
+| [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 12      | —                | —                           |
 | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
 | [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 17      | —                | —                           |
 | [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                  | `scripts/brand/claims.ts#CLAIMS`                                                  | 20      | —                | —                           |
@@ -862,7 +862,7 @@ The agent providers discern writes files for, each with a compact mark and horiz
 The classified behavior dimensions of the researched coding agents. The operational-internal cross-agent reference compiles from typed cells that require every dimension to cover every researched agent.
 
 - Source: `scripts/cross_agent_registry.ts` — `BEHAVIOUR_DIMENSIONS`
-- Members: 11
+- Members: 12
   - `pre-exec-interception`
   - `input-rewriting`
   - `native-sandbox`
@@ -873,6 +873,7 @@ The classified behavior dimensions of the researched coding agents. The operatio
   - `integration-surfaces`
   - `committable-config`
   - `mcp-schema-discovery`
+  - `mcp-result-channel-delivery`
   - `mcp-call-duration`
 - Guards: `tests/cross_agent_reference_codegen_test.ts`
 - Artifacts: `project/map/_internal/cross-agent-behaviour-reference.md`
