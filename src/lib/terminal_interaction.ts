@@ -301,6 +301,7 @@ const INTERACTION_TRACE_LIMIT = 500;
 /** The last derived budget, joined onto the next request's trace record. */
 let pendingBudgetTrace: InteractionTraceBudget | undefined;
 
+/** Wrap one request's io so its sizing evidence can be flushed at settle. */
 function traceInteractionIo(target: string, io: TerminalIO): InteractionTrace {
   const opened = io.size();
   const sizeRows: number[] = [];

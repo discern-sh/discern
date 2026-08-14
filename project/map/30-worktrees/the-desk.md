@@ -19,7 +19,7 @@ Agents use Model Context Protocol (MCP) tools and JSON results to operate their 
 
 The root menu keeps project actions under **Desk** and refresh or quit under **Session**. `Start a task` is always present. `Run a Project Script` appears when the main checkout has executable Project Scripts. `Read discern's docs` opens [discern.sh/docs](https://discern.sh/docs) in the system browser.
 
-Every Desk menu derives its visible rows from the terminal height when it opens, after reserving the rows its own header or task preamble occupies ([`src/lib/terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts)). A tall terminal shows the whole list; a short terminal scrolls inside the design system's fitted window.
+Every Desk menu derives its visible rows from the terminal height when it opens, after reserving the rows its own header or task preamble occupies ([`src/lib/terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts)). A tall terminal shows every entry; a short terminal scrolls inside the design system's fitted window.
 
 `Start a task` asks for an optional name and runs the same lifecycle core as `discern start`. discern normalizes a supplied name into the worktree id and branch. A blank answer uses a random codename. It creates and sets up the worktree before the Desk continues.
 

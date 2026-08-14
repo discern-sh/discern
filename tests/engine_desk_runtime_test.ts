@@ -746,7 +746,11 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
     "claude_code:continue",
     QUIT,
   ];
-  const menus: Array<{ message: string; options: string }> = [];
+  const menus: Array<{
+    message: string;
+    options: string;
+    reservedRows: number | undefined;
+  }> = [];
   const launches: Array<{
     command: string;
     args: readonly string[];
@@ -764,6 +768,7 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
       menus.push({
         message: String(options.message),
         options: JSON.stringify(options.options),
+        reservedRows: options.reservedRows,
       });
       return choices.shift() ?? QUIT;
     },
@@ -792,8 +797,21 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
   const agentMenu = menus.find((menu) =>
     menu.message.startsWith("Choose an agent for Agents")
   );
+  const boardMenu = menus.find((menu) =>
+    menu.message === "Choose a task or action"
+  );
   assert(actionMenu !== undefined);
   assert(agentMenu !== undefined);
+  assert(boardMenu !== undefined);
+  assert(
+    (boardMenu.reservedRows ?? 0) >= 4,
+    "the board menu must reserve the header rows the desk wrote above it",
+  );
+  assertEquals(
+    actionMenu.reservedRows,
+    4,
+    "the action menu must reserve its task preamble rows",
+  );
   assertStringIncludes(actionMenu.options, "Open with an agent");
   assertStringIncludes(
     agentMenu.options,

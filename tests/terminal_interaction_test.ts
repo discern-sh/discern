@@ -484,10 +484,10 @@ Deno.test("a short terminal degrades through package fitting, never overflowing"
   }, scriptedRuntime(io));
   assertEquals(value, "choice-0");
   for (const write of io.writes) {
-    const painted = write.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "");
-    const lines = painted === "" ? 0 : painted.split("\n").length;
+    // Control sequences carry no newlines, so the raw newline count is the
+    // painted row count without any stripping.
     assertEquals(
-      lines <= 8,
+      write.split("\n").length <= 8,
       true,
       `a painted frame must fit the 8-row terminal:\n${JSON.stringify(write)}`,
     );
@@ -499,13 +499,16 @@ Deno.test("the interaction trace records sizing evidence only when enabled", asy
     const tracePath = join(dir, "interaction-trace.jsonl");
     Deno.env.set("DISCERN_INTERACTION_TRACE", tracePath);
     try {
-      await requestSelection({
-        message: "Choose",
-        options: manyChoices(),
-        reservedRows: 30,
-      }, scriptedRuntime(
-        new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 }),
-      ));
+      await requestSelection(
+        {
+          message: "Choose",
+          options: manyChoices(),
+          reservedRows: 30,
+        },
+        scriptedRuntime(
+          new ScriptedTerminal(["\r"], undefined, { columns: 60, rows: 40 }),
+        ),
+      );
     } finally {
       Deno.env.delete("DISCERN_INTERACTION_TRACE");
     }

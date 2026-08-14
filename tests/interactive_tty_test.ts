@@ -392,7 +392,14 @@ const COMPOSED_CYCLE_INPUT: PtyInputPhase[] = Array.from(
   ],
 ).flat();
 
-const COMPOSED_CYCLE_VALUES = ["task-1", "back", "task-1", "back", "task-1", "back"];
+const COMPOSED_CYCLE_VALUES = [
+  "task-1",
+  "back",
+  "task-1",
+  "back",
+  "task-1",
+  "back",
+];
 
 Deno.test({
   name:
