@@ -2,14 +2,17 @@
  * Token-aware human output shared by engine renderers. Semantic accent, success,
  * warning, and danger roles come from the installed package terminal context.
  * Routing remains unchanged: narration uses its declared stdout/stderr owner and
- * JSON mode stays silent outside the single result object.
+ * JSON mode stays silent outside the single result object. The rendering itself
+ * is the shared narration authority (`src/lib/narration.ts`); `Out` is its
+ * engine-stream configuration plus the raw stdout channel.
  */
 
+import type { RenderSink } from "../shared/result.ts";
 import {
-  assertHumanOutputGroupId,
-  assertHumanOutputGroupLabel,
-  type RenderSink,
-} from "../shared/result.ts";
+  makeNarration,
+  makeOutputSink,
+  silentOutputSink,
+} from "../lib/narration.ts";
 import {
   type TerminalContext,
   terminalContext,
@@ -78,11 +81,14 @@ export interface Out {
 
 /**
  * Build the output surface. In human mode info/ok/heading/raw go to stdout
- * and warn/error to stderr. In `quiet` mode —
+ * and warn/error to stderr — one stream policy configuring the shared
+ * narration authority (`src/lib/narration.ts`), whose sink owns every group
+ * boundary. In `quiet` mode —
  * used under `--json`, where the result envelope is the ENTIRE program output
- * (ADR 0030) — every method is a no-op, so nothing a verb narrates reaches
- * stdout OR stderr. This mirrors the installer `Logger`, which already silences
- * its human methods in JSON mode: one silence rule, both halves of the binary.
+ * (ADR 0030) — the sink swallows everything, so nothing a verb narrates
+ * reaches stdout OR stderr. This mirrors the installer `Logger`, which
+ * silences its human methods in JSON mode: one silence rule, both halves of
+ * the binary.
  */
 export function makeOut(
   color: boolean,
@@ -100,69 +106,25 @@ export function makeOut(
     opts.terminal ?? terminalPresentationContext(color),
     color,
   );
-  if (opts.quiet ?? false) {
-    const noop = (): void => {};
-    return {
-      color,
-      terminal,
-      info: noop,
-      ok: noop,
-      warn: noop,
-      error: noop,
-      heading: noop,
-      group: (id: string, label?: string): void => {
-        assertHumanOutputGroupId(id);
-        if (label !== undefined) assertHumanOutputGroupLabel(id, label);
-      },
-      raw: noop,
-    };
-  }
-  const writeHumanStdout = opts.stdout ?? writeStdout;
-  const writeHumanStderr = opts.stderr ?? writeStderr;
-  let wroteHuman = false;
-  let trailingNewlines = 0;
-  let lastStream: "stdout" | "stderr" = "stdout";
-  const writeHuman = (text: string, stream: "stdout" | "stderr"): void => {
-    if (text === "") return;
-    (stream === "stdout" ? writeHumanStdout : writeHumanStderr)(text);
-    wroteHuman = true;
-    lastStream = stream;
-    const suffix = text.match(/\n+$/)?.[0] ?? "";
-    trailingNewlines = suffix.length === text.length
-      ? Math.min(2, trailingNewlines + suffix.length)
-      : Math.min(2, suffix.length);
-  };
-  const stdout = (text: string): void => writeHuman(text, "stdout");
-  const stderr = (text: string): void => writeHuman(text, "stderr");
+  const sink = (opts.quiet ?? false) ? silentOutputSink() : makeOutputSink({
+    kind: "raw",
+    stdout: opts.stdout ?? writeStdout,
+    stderr: opts.stderr ?? writeStderr,
+  });
+  const narration = makeNarration(sink, terminal, {
+    narration: "stdout",
+    alerts: "stderr",
+  });
   return {
     color,
     terminal,
-    info: (m: string): void =>
-      stdout(`${terminal.tone("→", "accent")} ${terminalLine(m)}\n`),
-    ok: (m: string): void =>
-      stdout(`${terminal.tone("✓", "success")} ${terminalLine(m)}\n`),
-    warn: (m: string): void =>
-      stderr(`${terminal.tone("!", "warning")} ${terminalLine(m)}\n`),
-    error: (m: string): void =>
-      stderr(`${terminal.tone("✗", "danger")} ${terminalLine(m)}\n`),
-    heading: (m: string): void =>
-      stdout(`\n${terminal.role(terminalLine(m), "strong")}\n`),
-    group: (id: string, label?: string): void => {
-      assertHumanOutputGroupId(id);
-      if (label !== undefined) assertHumanOutputGroupLabel(id, label);
-      if (wroteHuman && trailingNewlines < 2) {
-        writeHuman("\n".repeat(2 - trailingNewlines), lastStream);
-      }
-      if (label !== undefined) {
-        writeHuman(
-          `  ${terminal.role("──", "muted")} ${
-            terminal.role(terminalLine(label), "strong")
-          }\n`,
-          lastStream,
-        );
-      }
-    },
-    raw: (s: string): void => stdout(s),
+    info: narration.info,
+    ok: narration.ok,
+    warn: narration.warn,
+    error: narration.error,
+    heading: narration.heading,
+    group: narration.group,
+    raw: (s: string): void => sink.write(s, "stdout"),
   };
 }
 

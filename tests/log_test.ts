@@ -62,9 +62,23 @@ Deno.test("heading writes a blank-line-prefixed banner to stderr", async () => {
   const log = new Logger({ json: false, noColor: true });
   const { err, out } = await capture(() => log.heading("Section"));
   assertEquals(out, []);
-  assertEquals(err.length, 1);
-  // console.error gets the raw "\nSection"; the joiner keeps the leading newline.
-  assertEquals(err[0], "\nSection");
+  // The sink owns the heading's leading boundary: one separate blank line, then
+  // the banner — the same bytes as before, in two line writes.
+  assertEquals(err, ["", "Section"]);
+});
+
+Deno.test("heading collapses onto an existing group boundary", async () => {
+  const log = new Logger({ json: false, noColor: true });
+  const { err, out } = await capture(() => {
+    log.info("first");
+    log.group("next");
+    log.heading("Section");
+    log.heading("Adjacent");
+  });
+  assertEquals(out, []);
+  // One blank line before each heading, never two — the boundary after "first"
+  // and the heading's own leading line are the same sink-owned transition.
+  assertEquals(err, ["→ first", "", "Section", "", "Adjacent"]);
 });
 
 Deno.test("line writes plain text to stdout", async () => {
@@ -126,7 +140,8 @@ Deno.test("Logger narration styles come from injected package Token roles", asyn
     `${terminal.tone("✓", "success")} done`,
     `${terminal.tone("!", "warning")} careful`,
     `${terminal.tone("✗", "danger")} oops`,
-    `\n${terminal.role("Section", "strong")}`,
+    "",
+    terminal.role("Section", "strong"),
     `  ${terminal.role("detail", "muted")}`,
   ]);
 });
@@ -153,7 +168,8 @@ Deno.test("Logger narration makes hostile caller facts inert at the shared bound
     `✓ ${safe}`,
     `! ${safe}`,
     `✗ ${safe}`,
-    `\n${safe}`,
+    "",
+    safe,
     `  ${safe}`,
     "",
     `  ── ${safeLabel}`,

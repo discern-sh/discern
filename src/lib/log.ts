@@ -4,17 +4,22 @@
  * A single `Logger` instance holds the run's presentation mode (package terminal
  * context plus JSON mode) so every command emits consistently. The process
  * adapter has already resolved `--no-color`, NO_COLOR, TERM, locale, dimensions,
- * and terminal attachment before Logger chooses semantic Token roles.
+ * and terminal attachment before Logger chooses semantic Token roles. The
+ * rendering itself — glyphs, ruled group labels, blank-line boundaries — lives
+ * in the shared narration authority (`./narration.ts`); Logger is its
+ * installer-stream configuration plus the machine-result channel.
  */
 
-import {
-  assertHumanOutputGroupId,
-  assertHumanOutputGroupLabel,
-  type DiscernResult,
-  type RenderSink,
-} from "../shared/result.ts";
+import type { DiscernResult, RenderSink } from "../shared/result.ts";
 import { emitResult } from "../shared/emit.ts";
 import { observeResult } from "../shared/result_capture.ts";
+import {
+  makeNarration,
+  makeOutputSink,
+  type Narration,
+  type OutputSink,
+  silentOutputSink,
+} from "./narration.ts";
 import {
   type TerminalContext,
   terminalContext,
@@ -53,8 +58,12 @@ export class Logger {
    * command never lands on either narration channel regardless of this setting.
    */
   readonly humanStream: "stdout" | "stderr";
-  private wroteHuman = false;
-  private atGroupBoundary = false;
+  readonly #sink: OutputSink;
+  readonly #narration: Narration;
+  /** Emit branded terminal-safe multiline text as one semantic error block.
+   * Bound from the shared narration authority, whose signature requires the
+   * `TerminalMultiline` brand. Suppressed in JSON mode. */
+  readonly terminalSafeMultilineError: (message: TerminalMultiline) => void;
 
   /** Build a logger from the resolved run options. */
   constructor(options: LogOptions) {
@@ -64,96 +73,54 @@ export class Logger {
       ? terminalContextWithColor(terminal, false)
       : terminal;
     this.humanStream = options.humanStream ?? "stderr";
-  }
-
-  /** Write a human line to the configured stream (stderr by default). */
-  private writeHuman(line: string): void {
-    if (this.humanStream === "stdout") {
-      console.log(line);
-    } else {
-      console.error(line);
-    }
-    this.wroteHuman = true;
-    this.atGroupBoundary = line === "" || line.endsWith("\n\n");
+    // The shared narration authority renders every human line; JSON mode gets
+    // the silent sink so the result envelope stays the entire output.
+    this.#sink = this.json ? silentOutputSink() : makeOutputSink({
+      kind: "line",
+      stdout: (line: string): void => console.log(line),
+      stderr: (line: string): void => console.error(line),
+    });
+    this.#narration = makeNarration(this.#sink, this.terminal, {
+      narration: this.humanStream,
+      alerts: "stderr",
+    });
+    this.terminalSafeMultilineError = this.#narration.terminalSafeMultilineError;
   }
 
   /** Informational step (accent arrow). Suppressed in JSON mode. */
   info(message: string): void {
-    if (this.json) {
-      return;
-    }
-    this.writeHuman(
-      `${this.terminal.tone("→", "accent")} ${terminalLine(message)}`,
-    );
+    this.#narration.info(message);
   }
 
   /** Success line (semantic success check). Suppressed in JSON mode. */
   ok(message: string): void {
-    if (this.json) {
-      return;
-    }
-    this.writeHuman(
-      `${this.terminal.tone("✓", "success")} ${terminalLine(message)}`,
-    );
+    this.#narration.ok(message);
   }
 
   /** Non-fatal warning (semantic warning bang) to stderr. */
   warn(message: string): void {
-    if (this.json) {
-      return;
-    }
-    console.error(
-      `${this.terminal.tone("!", "warning")} ${terminalLine(message)}`,
-    );
-    this.wroteHuman = true;
-    this.atGroupBoundary = false;
+    this.#narration.warn(message);
   }
 
   /** Error line (semantic danger cross) to stderr. Does not exit. */
   error(message: string): void {
-    if (this.json) {
-      return;
-    }
-    console.error(
-      `${this.terminal.tone("✗", "danger")} ${terminalLine(message)}`,
-    );
-    this.wroteHuman = true;
-    this.atGroupBoundary = false;
+    this.#narration.error(message);
   }
 
-  /** A bold section banner. Suppressed in JSON mode. */
+  /** A bold section banner owning one leading blank line. Suppressed in JSON
+   * mode. */
   heading(text: string): void {
-    if (this.json) {
-      return;
-    }
-    this.writeHuman(
-      `\n${this.terminal.role(terminalLine(text), "strong")}`,
-    );
+    this.#narration.heading(text);
   }
 
   /** Start a semantic group and optionally give it a visible ruled label. */
   group(id: string, label?: string): void {
-    assertHumanOutputGroupId(id);
-    if (label !== undefined) assertHumanOutputGroupLabel(id, label);
-    if (this.json) return;
-    if (this.wroteHuman && !this.atGroupBoundary) {
-      this.writeHuman("");
-    }
-    if (label !== undefined) {
-      this.writeHuman(
-        `  ${this.terminal.role("──", "muted")} ${
-          this.terminal.role(terminalLine(label), "strong")
-        }`,
-      );
-    }
+    this.#narration.group(id, label);
   }
 
   /** A dimmed detail line, indented under a heading. Suppressed in JSON mode. */
   detail(text: string): void {
-    if (this.json) {
-      return;
-    }
-    this.writeHuman(`  ${this.terminal.role(terminalLine(text), "muted")}`);
+    this.#narration.detail(text);
   }
 
   /**
@@ -173,12 +140,7 @@ export class Logger {
    * `engine/worktree/shell.ts`) and the hook test asserts stdout stays the path.
    */
   line(text: string): void {
-    if (this.json) {
-      return;
-    }
-    console.log(text);
-    this.wroteHuman = true;
-    this.atGroupBoundary = text === "" || text.endsWith("\n\n");
+    this.#sink.line(text, "stdout");
   }
 
   /** Emit a final JSON payload to stdout. Only does anything in JSON mode. */
@@ -212,20 +174,7 @@ export class Logger {
    * is suppressed in JSON mode, like the rest of the narration.
    */
   humanLine(text: string): void {
-    if (this.json) {
-      return;
-    }
-    this.writeHuman(text);
-  }
-
-  /** Emit branded terminal-safe multiline text as one semantic error block. */
-  terminalSafeMultilineError(message: TerminalMultiline): void {
-    if (this.json) {
-      return;
-    }
-    console.error(`${this.terminal.tone("✗", "danger")} ${message}`);
-    this.wroteHuman = true;
-    this.atGroupBoundary = false;
+    this.#narration.humanLine(text);
   }
 }
 
