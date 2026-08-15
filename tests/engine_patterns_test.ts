@@ -11,7 +11,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { stripAnsi } from "discern-design-system/cli";
-import { unexpectedTerminalControls, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  unexpectedTerminalControls,
+  withTempDir,
+} from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -1212,13 +1216,13 @@ Deno.test("patterns: the report keeps each detector's strongest findings and --a
       env: { COLUMNS: "200", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.output,
       `${
         branches - PATTERNS_FINDINGS_PER_DETECTOR
       } more findings remain for this detector.`,
     );
-    assertStringIncludes(human.output, "Run: discern patterns --all");
+    assertTerminalTextIncludes(human.output, "Run: discern patterns --all");
   });
 });
 
@@ -1397,11 +1401,14 @@ Deno.test("patterns: Standard variance investigations retain raw findings across
       env: { COLUMNS: "60", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "INVESTIGATION PATHS");
-    assertStringIncludes(human.output, "Standard variance · coverage");
-    assertStringIncludes(human.output, "comparable readings are unstable");
+    assertTerminalTextIncludes(human.output, "INVESTIGATION PATHS");
+    assertTerminalTextIncludes(human.output, "Standard variance · coverage");
+    assertTerminalTextIncludes(
+      human.output,
+      "comparable readings are unstable",
+    );
     assertStringIncludes(human.output, "Evidence:");
-    assertStringIncludes(normalized(human.output), "5 readings");
+    assertTerminalTextIncludes(normalized(human.output), "5 readings");
     assertStringIncludes(human.output, "Falsifier:");
     for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
       assert(
@@ -1754,7 +1761,7 @@ Deno.test("patterns: seeded hint episodes report raw outcomes through JSON and t
       env: { COLUMNS: "80", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "Hint follow-through by family");
+    assertTerminalTextIncludes(human.output, "Hint follow-through by family");
     for (const family of Object.keys(expected)) {
       assertStringIncludes(human.output, family);
     }
@@ -1806,7 +1813,7 @@ Deno.test("patterns: seeded tip episodes report cross-surface adoption and favor
       env: { COLUMNS: "80", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "Tip adoption by tip");
+    assertTerminalTextIncludes(human.output, "Tip adoption by tip");
     assertStringIncludes(human.output, ids.attention);
     assertStringIncludes(human.output, ids.good);
   });
@@ -1826,15 +1833,15 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
     assertEquals(thrash.series, undefined);
     const r = await runAgent(dir, ["patterns"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "discern patterns");
-    assertStringIncludes(r.output, "Consecutive red done runs");
-    assertStringIncludes(normalized(r.output), "driven by agents");
-    assertStringIncludes(normalized(r.output), "Claude Code 1");
-    assertStringIncludes(
+    assertTerminalTextIncludes(r.output, "discern patterns");
+    assertTerminalTextIncludes(r.output, "Consecutive red done runs");
+    assertTerminalTextIncludes(normalized(r.output), "driven by agents");
+    assertTerminalTextIncludes(normalized(r.output), "Claude Code 1");
+    assertTerminalTextIncludes(
       normalized(r.output),
       "The report is advisory and does not change the Gate.",
     );
-    assertStringIncludes(normalized(r.output), "Next action:");
+    assertTerminalTextIncludes(normalized(r.output), "Next action:");
     assertStringIncludes(
       normalized(r.output),
       normalized(
@@ -2071,11 +2078,11 @@ Deno.test("patterns: validation relationships preserve structured evidence and c
       env: { COLUMNS: "80", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.output,
       "Divergent outcomes under matched recorded conditions",
     );
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.output,
       "Divergent outcomes between recorded execution contexts",
     );
@@ -2140,7 +2147,7 @@ Deno.test("patterns: high-cardinality validation contexts stay bounded and discl
     });
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(human.output, "bounded-context-test");
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.output,
       "Divergent outcomes between recorded execution contexts",
     );
@@ -2569,7 +2576,7 @@ Deno.test("patterns reset: preview is read-only and terminal apply removes exact
       input: "y\n",
     });
     assertEquals(apply.code, 0, apply.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       normalized(apply.output),
       "Removed the active Logbook",
     );

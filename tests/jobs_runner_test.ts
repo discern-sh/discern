@@ -14,7 +14,7 @@ import {
   normalizeCapturedOutput,
 } from "../src/shared/result.ts";
 import type { Job } from "../src/engine/jobs/types.ts";
-import { escapedDaemonCommand } from "./helpers.ts";
+import { assertTerminalTextIncludes, escapedDaemonCommand } from "./helpers.ts";
 
 const CWD = Deno.cwd();
 
@@ -384,7 +384,7 @@ Deno.test("stream-mode failed jobs retain a capped head and tail for diagnostics
   assert(fail?.output !== undefined, "streamed failure should carry output");
   assertStringIncludes(fail.output, "STREAM-HEAD");
   assertStringIncludes(fail.output, "STREAM-TAIL");
-  assertStringIncludes(fail.output, "bytes elided");
+  assertTerminalTextIncludes(fail.output, "bytes elided");
   assertMatch(fail.output, /\d+ bytes elided/);
   assert(
     fail.output.length < 1_200_000,

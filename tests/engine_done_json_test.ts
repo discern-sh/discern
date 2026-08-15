@@ -12,7 +12,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { gateProofHonored } from "../src/engine/gate/proof.ts";
@@ -323,7 +323,7 @@ Deno.test("done --json: a fix-stage failure skips later check/test jobs and scop
 
     const prepare = await runAgent(dir, ["prepare"]);
     assertEquals(prepare.code, 1, prepare.output);
-    assertStringIncludes(prepare.output, "A fixer failed.");
+    assertTerminalTextIncludes(prepare.output, "A fixer failed.");
   });
 });
 
@@ -373,7 +373,7 @@ Deno.test("done --json: Tier-0 diagnostic output is normalized, bounded, and off
     assert(!diag.output.includes("\x1b"), diag.output);
     assert(!diag.output.includes("\r"), diag.output);
     assert(!hasDroppedC0Control(diag.output), diag.output);
-    assertStringIncludes(diag.output, "progress done");
+    assertTerminalTextIncludes(diag.output, "progress done");
     assert(!diag.output.includes("progress 10%"), diag.output);
     assert(
       diag.output.length <= CAPTURE_CAP,

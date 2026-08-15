@@ -9,7 +9,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, runAgentPty, scaffoldEngine } from "./engine_helpers.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 
@@ -52,7 +52,7 @@ Deno.test("bare discern refuses inside a desk-owned child before interaction pol
     await scaffoldEngine(dir);
     const r = await runAgent(dir, [], { env: DESK_SESSION });
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "already active");
+    assertTerminalTextIncludes(r.output, "already active");
     assertStringIncludes(r.output, "exit");
     assert(!r.output.includes("Pick an effort"));
     assert(!r.output.includes("Commands:"));
@@ -64,8 +64,8 @@ Deno.test("desk without a TTY: refuses with a pointer at status", async () => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["desk"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "interactive terminal");
-    assertStringIncludes(r.stderr, "discern status");
+    assertTerminalTextIncludes(r.stderr, "interactive terminal");
+    assertTerminalTextIncludes(r.stderr, "discern status");
   });
 });
 
@@ -83,10 +83,10 @@ Deno.test({
         timeoutMs: 8_000,
       });
       assertEquals(r.code, 0, r.output);
-      assertStringIncludes(r.output, "Choose a desk action");
+      assertTerminalTextIncludes(r.output, "Choose a desk action");
       assertStringIncludes(r.output, "DESK");
       assertStringIncludes(r.output, "SESSION");
-      assertStringIncludes(r.output, "› [●] Quit");
+      assertTerminalTextIncludes(r.output, "› [●] Quit");
       assertStringIncludes(r.output, "\x1b[?25h");
     });
   },
@@ -110,7 +110,7 @@ Deno.test("bare discern without a TTY: help, exactly as before the desk existed"
     assertStringIncludes(r.stdout, "Commands:");
     // The desk is advertised in the help map (its group leads), but piped
     // output must never BE the desk — no interaction, no picker, a clean exit.
-    assertStringIncludes(r.stdout, "YOUR DESK");
+    assertTerminalTextIncludes(r.stdout, "YOUR DESK");
     assert(
       !r.stdout.includes("Pick an effort"),
       "piped bare discern must never open the interactive picker",

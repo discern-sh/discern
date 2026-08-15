@@ -269,7 +269,10 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
       await exists(join(dir, ".claude/skills/discern-write-adr/SKILL.md")),
       `.claude/skills/discern-write-adr must hold a SKILL.md\n${r.output}`,
     );
-    assertStringIncludes(r.stdout, "skills materialized into .claude/skills/");
+    assertTerminalTextIncludes(
+      r.stdout,
+      "skills materialized into .claude/skills/",
+    );
   });
 });
 

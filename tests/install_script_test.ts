@@ -1,5 +1,6 @@
 /** The remote installer must fail closed and leave a directly usable command. */
 
+import { assertTerminalTextIncludes } from "./helpers.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 
@@ -189,7 +190,7 @@ Deno.test("a bad checksum preserves the existing installation", async () => {
   const run = await runInstaller(downloader, { badChecksum: true });
   try {
     assert(!run.success, "a checksum mismatch must stop installation");
-    assertStringIncludes(run.stderr, "checksum verification failed");
+    assertTerminalTextIncludes(run.stderr, "checksum verification failed");
     assertEquals(
       await Deno.readTextFile(run.target),
       "existing installation\n",
@@ -206,7 +207,7 @@ Deno.test("next-step output appears only when discern resolves on PATH", async (
   try {
     assert(offPath.success);
     assert(!offPath.stdout.includes("Next:"));
-    assertStringIncludes(offPath.stderr, "shell profile");
+    assertTerminalTextIncludes(offPath.stderr, "shell profile");
     const onPath = await runInstaller(downloader, { binOnPath: true });
     try {
       assert(onPath.success);

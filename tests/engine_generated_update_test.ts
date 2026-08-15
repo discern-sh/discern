@@ -16,7 +16,7 @@ import {
   type UpdateData,
   UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -262,8 +262,8 @@ Deno.test("an up-to-date update renders generated convergence in human mode", as
     const result = await runAgent(wt, ["update"]);
 
     assertEquals(result.code, 0, result.output);
-    assertStringIncludes(result.stdout, "Update results");
-    assertStringIncludes(result.stdout, "Generated artifacts");
+    assertTerminalTextIncludes(result.stdout, "Update results");
+    assertTerminalTextIncludes(result.stdout, "Generated artifacts");
     assertStringIncludes(result.stdout, `generated:${GROUP_NAME}`);
     assertEquals(await gitOut(wt, "status", "--porcelain"), "");
   });

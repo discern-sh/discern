@@ -19,7 +19,11 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  REAL_TEMPLATES,
+  withTempDir,
+} from "./helpers.ts";
 import {
   addWorktree,
   gitInit,
@@ -56,16 +60,19 @@ Deno.test("setup output can't be mistaken for completion: banner leads, footer s
 
     // A loud, non-success banner LEADS — the scaffold succeeding is not the task
     // succeeding, and the headline must not read as "done".
-    assertStringIncludes(r.stdout, "SETUP STARTED — NOT FINISHED");
+    assertTerminalTextIncludes(r.stdout, "SETUP STARTED — NOT FINISHED");
     // No green success check on the scaffold line (the ✓ that read as "done").
     assert(!r.stdout.includes("✓"), "setup must not print a success check");
 
     // The footer is tail-survivable: even if the top is chopped to save context,
     // the LAST lines still carry "not done", how to reprint the brief, and how to
     // finish. Assert all three, and that they land AFTER the brief's H1.
-    assertStringIncludes(r.stdout, "You are NOT done");
-    assertStringIncludes(r.stdout, "discern setup done");
-    assertStringIncludes(r.stdout, "Re-run `discern setup begin` to reprint");
+    assertTerminalTextIncludes(r.stdout, "You are NOT done");
+    assertTerminalTextIncludes(r.stdout, "discern setup done");
+    assertTerminalTextIncludes(
+      r.stdout,
+      "Re-run `discern setup begin` to reprint",
+    );
     const h1At = r.stdout.indexOf(INSTRUCTIONS_H1);
     const footerAt = r.stdout.indexOf("You are NOT done");
     assert(
@@ -99,8 +106,8 @@ Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes s
     // Human view: the verdict is qualified — a healthy install is not a finished
     // setup, and doctor must not contradict status's incomplete-state message.
     const human = await runAgent(dir, ["doctor"]);
-    assertStringIncludes(human.output, "Setup is incomplete");
-    assertStringIncludes(human.output, "discern setup done");
+    assertTerminalTextIncludes(human.output, "Setup is incomplete");
+    assertTerminalTextIncludes(human.output, "discern setup done");
 
     // Machine view: the same qualifier rides the hints.
     const j = JSON.parse((await runAgent(dir, ["doctor", "--json"])).stdout);
@@ -200,7 +207,7 @@ for (const [path, audience] of Object.entries(SETUP_HUMAN_AUDIENCES)) {
         assertEquals(r.code, driver.code, r.output);
         if (audience.offRamp) {
           assertStringIncludes(r.stdout, OFF_RAMP_PROMPT);
-          assertStringIncludes(r.stdout, "Run `discern setup`");
+          assertTerminalTextIncludes(r.stdout, "Run `discern setup`");
         } else {
           assert(
             !r.output.includes(OFF_RAMP_PROMPT),
@@ -219,7 +226,7 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
 
     // Human view: a leading semantic section, not a buried hint.
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.stdout, "Setup is not finished");
+    assertTerminalTextIncludes(human.stdout, "Setup is not finished");
     const setupSection = sectionRuleLine(human.stdout, "SETUP");
     assert(setupSection !== undefined, human.stdout);
     assert(
@@ -277,7 +284,7 @@ Deno.test("worktree ensure reminds on session start while setup is unfinished, t
 
     const before = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(before.code, 0, before.output);
-    assertStringIncludes(before.stdout, "Setup is incomplete");
+    assertTerminalTextIncludes(before.stdout, "Setup is incomplete");
 
     await runAgent(dir, ["setup", "done", "--force"]);
     const after = await runAgent(dir, ["worktree", "ensure"]);

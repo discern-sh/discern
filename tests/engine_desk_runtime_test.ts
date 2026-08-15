@@ -47,7 +47,7 @@ import {
 import { renderTipCli, TIPS } from "../src/shared/tips.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { displayWidth, wrapText } from "../src/lib/text.ts";
-import { fakeEnv, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 
 const ROOT = "/project";
@@ -339,11 +339,11 @@ Deno.test("desk session renders task-first fleet rows from the survey's own proo
   assertStringIncludes(text, "4 tasks");
   assertStringIncludes(text, "main has 1 uncommitted change");
   assertStringIncludes(text, "1 branch has no worktree: agent/orphan");
-  assertStringIncludes(
+  assertTerminalTextIncludes(
     output.stdout.join(""),
     "main has 1 uncommitted change\n  ✦ Tip",
   );
-  assertStringIncludes(
+  assertTerminalTextIncludes(
     output.stdout.join(""),
     "\n\n  1 branch has no worktree",
   );
@@ -1345,7 +1345,7 @@ Deno.test("desk renders the Tip label in yellow", async () => {
   const output = transcript(terminal);
 
   assertEquals(await runDesk({}, scriptedRuntime(output)), 0);
-  assertStringIncludes(
+  assertTerminalTextIncludes(
     output.stdout.join(""),
     `${terminal.role("  ✦ ", "muted")}${terminal.tone("Tip", "warning")}`,
   );

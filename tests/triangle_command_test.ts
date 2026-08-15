@@ -5,6 +5,7 @@
  * timeline before settling on the exact static art.
  */
 
+import { assertTerminalTextIncludes } from "./helpers.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   planTriangleCommand,
@@ -146,8 +147,8 @@ Deno.test("triangle keeps Unicode in a Codex-style dumb UTF-8 terminal", async (
     },
   });
   assertEquals(result.code, 0, result.output);
-  assertStringIncludes(result.output, `       ${DISCERN_MARK}`);
-  assertStringIncludes(
+  assertTerminalTextIncludes(result.output, `       ${DISCERN_MARK}`);
+  assertTerminalTextIncludes(
     result.output,
     `      ${DISCERN_MARK} ${DISCERN_TRIANGLE_GLYPHS.upLeft}`,
   );

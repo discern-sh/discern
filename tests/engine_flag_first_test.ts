@@ -18,7 +18,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import type { Command } from "@cliffy/command";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import {
   buildCli,
@@ -142,9 +142,9 @@ Deno.test("pre-setup: the redirect fires for every global flag before every gate
         const label = `discern ${args.join(" ")}`;
         assertEquals(r.code, 1, `${label}: ${r.output}`);
         if (markdown) {
-          assertStringIncludes(r.stdout, `# \`discern ${verb}\``);
-          assertStringIncludes(r.stdout, "## Current state");
-          assertStringIncludes(r.stdout, "isn't set up");
+          assertTerminalTextIncludes(r.stdout, `# \`discern ${verb}\``);
+          assertTerminalTextIncludes(r.stdout, "## Current state");
+          assertTerminalTextIncludes(r.stdout, "isn't set up");
           continue;
         }
         const res = JSON.parse(r.stdout);
@@ -177,9 +177,9 @@ Deno.test("pre-setup: a flags-only Markdown invocation returns the same root ref
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["--markdown"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stdout, "# `discern`");
-    assertStringIncludes(r.stdout, "discern --markdown needs a command");
-    assertStringIncludes(r.stdout, "## Next action");
+    assertTerminalTextIncludes(r.stdout, "# `discern`");
+    assertTerminalTextIncludes(r.stdout, "discern --markdown needs a command");
+    assertTerminalTextIncludes(r.stdout, "## Next action");
   });
 });
 
@@ -199,7 +199,7 @@ Deno.test("--md is not an alias for --markdown", async () => {
     await scaffoldEngine(dir);
     const result = await runAgent(dir, ["status", "--md"]);
     assertEquals(result.code, 2, result.output);
-    assertStringIncludes(result.output, 'Unknown option "--md"');
+    assertTerminalTextIncludes(result.output, 'Unknown option "--md"');
   });
 });
 
@@ -217,8 +217,8 @@ Deno.test("flag-first --markdown selects the authored result projection", async 
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["--markdown", "status"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "# `discern status`");
-    assertStringIncludes(r.stdout, "## Current state");
+    assertTerminalTextIncludes(r.stdout, "# `discern status`");
+    assertTerminalTextIncludes(r.stdout, "## Current state");
     assert(!r.stdout.trimStart().startsWith("{"), r.stdout);
   });
 });

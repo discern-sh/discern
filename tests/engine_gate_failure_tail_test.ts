@@ -10,7 +10,11 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  REAL_TEMPLATES,
+  withTempDir,
+} from "./helpers.ts";
 import {
   engineEnv,
   gitInit,
@@ -230,7 +234,7 @@ Deno.test("done: a failing gate ends on the actionable recap, surviving `2>&1 | 
     );
     const help = await runPrintedCommand(dir, helpCommand);
     assertEquals(help.code, 0, help.stderr);
-    assertStringIncludes(help.stdout, "When the Gate fails");
+    assertTerminalTextIncludes(help.stdout, "When the Gate fails");
   });
 });
 
@@ -346,7 +350,7 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
     assertEquals(human.code, 1, human.output);
     const safeEnvelopeHint = terminalMultiline(envelopeHint);
     assertStringIncludes(human.stderr, safeEnvelopeHint);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.stderr,
       "Authored first line\nAuthored second line ␛[31mstill text",
     );

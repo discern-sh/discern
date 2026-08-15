@@ -1259,8 +1259,8 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       listFact("Landed scopes", strings(data.scopes_changed)),
       landing === undefined
         ? undefined
-        : `Trunk moved: ${
-          boolean(landing.trunk_moved) === true ? "yes" : "no"
+        : `Trunk landed: ${
+          boolean(landing.trunk_landed) === true ? "yes" : "no"
         }; worktree removed: ${
           boolean(landing.worktree_removed) === true ? "yes" : "no"
         }; branch deleted: ${

@@ -287,9 +287,9 @@ Deno.test({
               );
             }
           } else {
-            assertStringIncludes(result.output, "Events: 1", label);
+            assertTerminalTextIncludes(result.output, "Events: 1", label);
             assertStringIncludes(result.output, "2026-08.jsonl", label);
-            assertStringIncludes(result.output, "Preview only", label);
+            assertTerminalTextIncludes(result.output, "Preview only", label);
           }
           assertEquals(
             await Deno.readTextFile(active),
@@ -318,7 +318,10 @@ Deno.test({
             input,
           });
           assertEquals(result.code, 0, `${action}\n${result.output}`);
-          assertStringIncludes(result.output, "Aborted. Nothing changed.");
+          assertTerminalTextIncludes(
+            result.output,
+            "Aborted. Nothing changed.",
+          );
           assertEquals(await Deno.readTextFile(active), before);
           assertEquals(
             await exists(join(dir, ".git", "discern", "logbook-archives")),
@@ -456,8 +459,8 @@ Deno.test({
         input: "y\n",
       });
       assertEquals(archived.code, 0, archived.output);
-      assertStringIncludes(archived.output, "Events: 3");
-      assertStringIncludes(archived.output, "2026-07-31 → 2026-08-11");
+      assertTerminalTextIncludes(archived.output, "Events: 3");
+      assertTerminalTextIncludes(archived.output, "2026-07-31 → 2026-08-11");
       assertStringIncludes(archived.output, "2026-07.jsonl");
       assertStringIncludes(archived.output, "2026-08.jsonl");
       assertStringIncludes(archived.output, "epoch.json");
@@ -475,7 +478,7 @@ Deno.test({
       assert(filename !== undefined);
       const archivePath = join(archiveDir, filename);
       assertEquals(await Deno.readTextFile(archivePath), expectedArchive);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         archived.output,
         `discern patterns --logbook-file ${filename}`,
       );
@@ -508,7 +511,7 @@ Deno.test({
       const humanListing = await runAgent(dir, ["patterns", "archives"]);
       assertEquals(humanListing.code, 0, humanListing.output);
       assertStringIncludes(humanListing.output, filename);
-      assertStringIncludes(humanListing.output, "Events: 3");
+      assertTerminalTextIncludes(humanListing.output, "Events: 3");
       assertReceiptCheckSemantics(humanListing.output, {
         label: "Unparsable lines",
         value: "2",
@@ -610,8 +613,11 @@ Deno.test({
         filename,
       ], { env: { COLUMNS: "80", NO_COLOR: "1" } });
       assertEquals(historicalStats.code, 0, historicalStats.output);
-      assertStringIncludes(historicalStats.output, `archive ${filename}`);
-      assertStringIncludes(historicalStats.output, "VALIDATION WORKFLOWS");
+      assertTerminalTextIncludes(historicalStats.output, `archive ${filename}`);
+      assertTerminalTextIncludes(
+        historicalStats.output,
+        "VALIDATION WORKFLOWS",
+      );
 
       const terminal = await runAgent(dir, [
         "patterns",
@@ -619,7 +625,7 @@ Deno.test({
         filename,
       ]);
       assertEquals(terminal.code, 0, terminal.output);
-      assertStringIncludes(terminal.output, `archive ${filename}`);
+      assertTerminalTextIncludes(terminal.output, `archive ${filename}`);
       assertEquals(await Deno.readFile(archivePath), sealedBeforeReads);
 
       // The lifecycle command itself is absent from both sides of the cut. The

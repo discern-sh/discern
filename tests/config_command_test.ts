@@ -290,7 +290,7 @@ Deno.test("config set-job forbids --stage on a known name", async () => {
       dir,
     );
     assertEquals(r.code, 1);
-    assertStringIncludes(JSON.parse(r.stdout).message, "derives stage");
+    assertTerminalTextIncludes(JSON.parse(r.stdout).message, "derives stage");
   });
 });
 
@@ -444,7 +444,7 @@ Deno.test("config set-standard requires a --direction", async () => {
       dir,
     );
     assertEquals(r.code, 2);
-    assertStringIncludes(r.stderr, "Missing required option");
+    assertTerminalTextIncludes(r.stderr, "Missing required option");
     assertStringIncludes(r.stderr, "--direction");
   });
 });
@@ -625,7 +625,7 @@ Deno.test("config errors to stderr (not JSON) when not initialized", async () =>
     const r = await runCli(["config", "set", "project.slug", "x"], dir);
     assertEquals(r.code, 1);
     assertEquals(r.stdout, "");
-    assertStringIncludes(r.stderr, "no discern install here");
+    assertTerminalTextIncludes(r.stderr, "no discern install here");
   });
 });
 
@@ -680,7 +680,7 @@ Deno.test("config set-scope: Cliffy rejects zero globs before the handler", asyn
     // handler's own globs.length===0 guard can run — see findings.
     const r = await runCli(["config", "set-scope", "native"], dir);
     assertEquals(r.code, 2);
-    assertStringIncludes(r.stderr, "Missing argument");
+    assertTerminalTextIncludes(r.stderr, "Missing argument");
   });
 });
 
@@ -874,8 +874,8 @@ Deno.test("config set prints a human success line without --json", async () => {
     );
     assertEquals(r.code, 0, r.stderr);
     // Non-JSON path: the green summary goes to stderr; the edit line to stdout.
-    assertStringIncludes(r.stderr, "Set repository.trunk.");
-    assertStringIncludes(r.stdout, 'repository.trunk = "trunk"');
+    assertTerminalTextIncludes(r.stderr, "Set repository.trunk.");
+    assertTerminalTextIncludes(r.stdout, 'repository.trunk = "trunk"');
     assertStringIncludes(await readToml(dir), 'trunk = "trunk"');
   });
 });
@@ -891,8 +891,8 @@ Deno.test("config --dry-run prints the edit without --json and writes nothing", 
     assertEquals(r.code, 0, r.stderr);
     // Human dry-run path: the "Dry run" notice goes to stderr (log.info), the
     // would-be edit line to stdout (log.line).
-    assertStringIncludes(r.stderr, "Dry run");
-    assertStringIncludes(r.stdout, 'repository.trunk = "trunk"');
+    assertTerminalTextIncludes(r.stderr, "Dry run");
+    assertTerminalTextIncludes(r.stdout, 'repository.trunk = "trunk"');
     assertEquals(await readToml(dir), before); // unchanged
   });
 });

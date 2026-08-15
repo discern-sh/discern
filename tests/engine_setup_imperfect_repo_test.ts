@@ -16,7 +16,7 @@ import {
 } from "@std/assert";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   git,
   gitInit,
@@ -228,14 +228,14 @@ Deno.test("bare `discern` in a non-git directory shows the welcome (leading with
     const r = await runAgent(dir, []);
     assertEquals(r.code, 0, r.output);
     // The curated first contact, dual-addressed — not the operator help.
-    assertStringIncludes(r.stdout, "FOR HUMANS");
-    assertStringIncludes(r.stdout, "FOR CODING AGENTS");
+    assertTerminalTextIncludes(r.stdout, "FOR HUMANS");
+    assertTerminalTextIncludes(r.stdout, "FOR CODING AGENTS");
     assert(
       !r.stdout.includes("Usage:"),
       `raw CLI help must not be the no-git first contact:\n${r.stdout}`,
     );
     // …and it leads with the git-init step (there is no isolation without git).
-    assertStringIncludes(r.stdout, "git init");
+    assertTerminalTextIncludes(r.stdout, "git init");
     // The welcome writes nothing, in a stray dir least of all.
     assert(!(await exists(join(dir, "discern.toml"))));
   });
@@ -246,7 +246,7 @@ Deno.test("the fresh welcome carries the git-init note only in a non-git directo
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     // Non-git: the note rides both surfaces.
     const nonGit = await runAgent(dir, ["setup"]);
-    assertStringIncludes(nonGit.stdout, "isn't a git repository yet");
+    assertTerminalTextIncludes(nonGit.stdout, "isn't a git repository yet");
     const nonGitJson = JSON.parse(
       (await runAgent(dir, ["setup", "--json"])).stdout,
     ).data;
@@ -396,7 +396,7 @@ Deno.test("a failed completion-marker commit explains itself instead of misattri
     // this as "could not prove that was the only discern.toml change".
     const human = await runAgent(dir, ["setup", "done", "--force"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.stdout, "Git said:");
+    assertTerminalTextIncludes(human.stdout, "Git said:");
     assert(
       !human.stdout.includes("could not prove"),
       `a failed commit must not be misattributed:\n${human.stdout}`,

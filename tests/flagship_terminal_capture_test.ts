@@ -43,6 +43,7 @@ Deno.test("flagship normalizers replace facts without hiding visible structure",
       "version-strings",
       "runtime-platform",
       "commit-identifiers",
+      "trailing-whitespace",
     ],
   );
   assertStringIncludes(normalized, "At: <PROJECT_PATH>");

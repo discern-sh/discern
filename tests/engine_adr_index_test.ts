@@ -11,7 +11,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   defaultMapPath,
@@ -174,7 +174,7 @@ Deno.test("engine adr-index: a record the derivation cannot title fails the gate
     );
     assert(diag !== undefined, `expected an adr-index diagnostic: ${r.stdout}`);
     assertStringIncludes(diag.output, "0001-first-choice.md");
-    assertStringIncludes(diag.output, "first heading");
+    assertTerminalTextIncludes(diag.output, "first heading");
   });
 });
 
@@ -199,8 +199,11 @@ Deno.test("engine adr-index: a marker pair missing its end marker points the rem
     );
     assert(diag !== undefined, `expected an adr-index diagnostic: ${r.stdout}`);
     assertStringIncludes(diag.message, ADR_README_REL);
-    assertStringIncludes(diag.output, "END GENERATED: current ADR records");
-    assertStringIncludes(
+    assertTerminalTextIncludes(
+      diag.output,
+      "END GENERATED: current ADR records",
+    );
+    assertTerminalTextIncludes(
       diag.output,
       `Repair the marker pair in ${ADR_README_REL}`,
     );

@@ -13,7 +13,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import {
   parseLogbookLine,
@@ -321,11 +321,11 @@ Deno.test("CLI crash: exit 70, the stderr frame, a saved report, and a signed lo
     });
 
     assertEquals(run.code, CRASH_EXIT_CODE, run.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       run.stderr,
       `discern ${KIT_VERSION} crashed while running \`status\`.`,
     );
-    assertStringIncludes(run.stderr, "Synthetic crash requested");
+    assertTerminalTextIncludes(run.stderr, "Synthetic crash requested");
     assertStringIncludes(run.stderr, ISSUES_URL);
 
     // The report file exists where the frame says it is.
@@ -385,6 +385,6 @@ Deno.test("CLI crash in --json mode: stdout is one uniform internal_error envelo
     assertExists(reportName);
     assertStringIncludes(envelope.message, reportName);
     // The human frame still lands on stderr for anyone watching a log.
-    assertStringIncludes(run.stderr, "crashed while running");
+    assertTerminalTextIncludes(run.stderr, "crashed while running");
   });
 });

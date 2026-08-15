@@ -11,11 +11,8 @@ import {
   reportFailure,
   silentOutputSink,
 } from "../src/lib/narration.ts";
-import {
-  resolveTerminalContext,
-  terminalContext,
-} from "../src/lib/terminal.ts";
-import { fakeEnv } from "./helpers.ts";
+import { resolveTerminalContext } from "../src/lib/terminal.ts";
+import { fakeEnv, pinnedTerminal } from "./helpers.ts";
 
 /** A raw-writer sink capturing the exact bytes per stream. */
 function rawCapture(): {
@@ -111,7 +108,7 @@ Deno.test("the silent sink swallows everything and reports nothing written", () 
 
 Deno.test("the narrator renders the one glyph grammar over the sink", () => {
   const { sink, stdout, stderr } = rawCapture();
-  const narration = makeNarration(sink, terminalContext(), {
+  const narration = makeNarration(sink, pinnedTerminal(), {
     narration: "stdout",
     alerts: "stderr",
   });
@@ -175,7 +172,7 @@ Deno.test("the narrator delegates hanging-indent wrapping to the package", () =>
 
 Deno.test("the one failure form is a danger line with one recovery group", () => {
   const { sink, stderr } = lineCapture();
-  const narration = makeNarration(sink, terminalContext(), {
+  const narration = makeNarration(sink, pinnedTerminal(), {
     narration: "stderr",
     alerts: "stderr",
   });
@@ -191,7 +188,7 @@ Deno.test("the one failure form is a danger line with one recovery group", () =>
 
 Deno.test("a failure whose message carries its next step stays one line", () => {
   const { sink, stderr } = lineCapture();
-  const narration = makeNarration(sink, terminalContext(), {
+  const narration = makeNarration(sink, pinnedTerminal(), {
     narration: "stderr",
     alerts: "stderr",
   });

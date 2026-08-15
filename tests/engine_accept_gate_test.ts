@@ -17,7 +17,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -368,7 +368,7 @@ Deno.test("accept: refuses an update that merges cleanly but breaks the gate (th
     // Accepting MUST refuse — the merged tree was never validated, and it fails the gate.
     const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 1, grad.output);
-    assertStringIncludes(grad.output, "does not pass");
+    assertTerminalTextIncludes(grad.output, "does not pass");
     // Non-destructive: the worktree survives and the branch's work never reached the trunk.
     assertEquals(
       await exists(wt),
@@ -398,7 +398,7 @@ Deno.test("accept: an update that still passes the gate lands normally", async (
     const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 0, grad.output);
     // The proof was stale (merge commit), so accept validated the merged tree itself…
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       grad.output,
       "Validating the branch against the full gate",
     );
@@ -453,8 +453,8 @@ Deno.test("accept TTY: a proofless validation shows the full gate moving live", 
       "running",
     );
     assertStringIncludes(accepted.output, "format");
-    assertStringIncludes(accepted.output, "sleep 1");
-    assertStringIncludes(accepted.output, "passed in 1s");
+    assertTerminalTextIncludes(accepted.output, "sleep 1");
+    assertTerminalTextIncludes(accepted.output, "passed in 1s");
   });
 });
 
@@ -520,7 +520,7 @@ Deno.test("accept: a legacy proof cannot bypass tracked refresh convergence", as
 
     assertEquals(accepted.code, 1, accepted.output);
     assertStringIncludes(accepted.output, ".mcp.json");
-    assertStringIncludes(accepted.output, "discern refresh");
+    assertTerminalTextIncludes(accepted.output, "discern refresh");
     assertEquals(await exists(wt), true, "the refused worktree must survive");
     assertEquals(
       await exists(join(dir, "feature.txt")),
@@ -579,7 +579,7 @@ Deno.test("accept: refuses to land a commit that appeared while its validation g
     // at the branch tip is not the tree the gate read.
     const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 1, grad.output);
-    assertStringIncludes(grad.output, "moved while this acceptance");
+    assertTerminalTextIncludes(grad.output, "moved while this acceptance");
     // Non-destructive: the worktree survives and nothing reached the trunk.
     assertEquals(
       await exists(wt),
@@ -613,7 +613,7 @@ Deno.test("accept: a commit made after `done` invalidates the proof (gate re-run
 
     const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 0, grad.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       grad.output,
       "Validating the branch against the full gate",
     );

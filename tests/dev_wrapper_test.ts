@@ -12,7 +12,7 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { renderShim } from "../scripts/cli_install.ts";
 
 /** Absolute path to the wrapper under test. */
@@ -166,7 +166,7 @@ Deno.test("wrapper: a look-alike Deno project is not mistaken for a checkout", a
       // No DISCERN_HOME: with the look-alike rejected there is nothing to run.
     });
     assertEquals(run.code, 1);
-    assertStringIncludes(run.stderr, "no discern checkout");
+    assertTerminalTextIncludes(run.stderr, "no discern checkout");
     assert(
       !run.stdout.includes(f.lookalikeMain),
       "must not exec the look-alike project's src/main.ts",
@@ -200,7 +200,7 @@ Deno.test("wrapper: a DISCERN_HOME pointing at a non-discern project is rejected
       discernHome: f.lookalike,
     });
     assertEquals(run.code, 1);
-    assertStringIncludes(run.stderr, "no discern checkout");
+    assertTerminalTextIncludes(run.stderr, "no discern checkout");
   });
 });
 

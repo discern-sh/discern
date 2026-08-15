@@ -8,7 +8,7 @@ import { join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   DENO_JSON,
@@ -770,8 +770,8 @@ Deno.test("queue mirrors exit codes and reports an unspawnable command as 127", 
       "discern-command-that-does-not-exist-queue",
     ]);
     assertEquals(missing.code, 127, missing.output);
-    assertStringIncludes(missing.stderr, "couldn't run");
-    assertStringIncludes(
+    assertTerminalTextIncludes(missing.stderr, "couldn't run");
+    assertTerminalTextIncludes(
       missing.stderr,
       "Run: discern queue -- <command> [args...]",
     );
@@ -788,7 +788,7 @@ Deno.test("queue usage errors require the delimiter and a non-empty command", as
     ) {
       const result = await runAgent(dir, args);
       assertEquals(result.code, 2, result.output);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         result.stderr,
         "Run: discern queue -- <command> [args...]",
       );
@@ -805,7 +805,7 @@ Deno.test("queue usage errors require the delimiter and a non-empty command", as
         `touch ${marker}`,
       ]);
       assertEquals(result.code, 2, result.output);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         result.stderr,
         "queue has no `--json` or `--markdown` mode",
       );
@@ -828,7 +828,7 @@ Deno.test("queue child flags cannot select discern global modes", async () => {
       ]);
       assertEquals(result.code, 1, result.output);
       assertEquals(result.stdout, "");
-      assertStringIncludes(result.stderr, "syntax error near line 1");
+      assertTerminalTextIncludes(result.stderr, "syntax error near line 1");
     }
   });
 });
@@ -839,8 +839,8 @@ Deno.test("queue and await help cross-reference their distinct wait surfaces", a
     await gitInit(dir);
     const queueHelp = await runAgent(dir, ["queue", "--help"]);
     assertEquals(queueHelp.code, 0, queueHelp.output);
-    assertStringIncludes(queueHelp.stdout, "discern await");
-    assertStringIncludes(
+    assertTerminalTextIncludes(queueHelp.stdout, "discern await");
+    assertTerminalTextIncludes(
       queueHelp.stdout,
       "discern queue -- <command> [args...]",
     );
@@ -851,7 +851,7 @@ Deno.test("queue and await help cross-reference their distinct wait surfaces", a
 
     const awaitHelp = await runAgent(dir, ["await", "--help"]);
     assertEquals(awaitHelp.code, 0, awaitHelp.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       awaitHelp.stdout,
       "discern queue -- <command> [args...]",
     );

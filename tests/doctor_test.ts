@@ -15,6 +15,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { measureText, stripAnsi } from "discern-design-system/cli";
 import {
+  assertTerminalTextIncludes,
   fakeEnv,
   runCli,
   unexpectedTerminalControls,
@@ -520,8 +521,8 @@ Deno.test("doctor reports when it runs inside a desk-owned child session", async
 
     const human = await runCli(["doctor"], dir, env);
     assertEquals(human.code, 0);
-    assertStringIncludes(human.stderr, "desk session: active");
-    assertStringIncludes(human.stderr, "launched by discern desk");
+    assertTerminalTextIncludes(human.stderr, "desk session: active");
+    assertTerminalTextIncludes(human.stderr, "launched by discern desk");
   });
 });
 

@@ -8,7 +8,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 const CSI = "\x1b[";
 const REPAINT = `${CSI}1G`;
@@ -159,15 +159,15 @@ Deno.test({
           1,
           `${testCase.label}: ${result.output}`,
         );
-        assertStringIncludes(result.output, "Running tests");
-        assertStringIncludes(result.output, "Tests passed.");
+        assertTerminalTextIncludes(result.output, "Running tests");
+        assertTerminalTextIncludes(result.output, "Tests passed.");
         assertEquals(result.output.includes("[pending]"), false);
         assertEquals(result.output.includes("[running]"), false);
         if (testCase.stream) {
           assertEquals(result.output.includes("Test progress"), false);
         } else {
-          assertStringIncludes(result.output, "Test progress");
-          assertStringIncludes(result.output, "test [passed]");
+          assertTerminalTextIncludes(result.output, "Test progress");
+          assertTerminalTextIncludes(result.output, "test [passed]");
         }
         if (testCase.ascii) {
           const product = testOutput(result.output);
@@ -208,7 +208,7 @@ Deno.test({
       for (const result of [noColor, color]) {
         assertEquals(result.code, 0, result.output);
         assert(testOutput(result.stdout).includes(CSI), result.output);
-        assertStringIncludes(result.output, "Tests passed.");
+        assertTerminalTextIncludes(result.output, "Tests passed.");
       }
       assertEquals(SGR.test(testOutput(noColor.stdout)), false, noColor.output);
       assert(SGR.test(testOutput(color.stdout)), color.output);

@@ -20,7 +20,7 @@ import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -126,7 +126,7 @@ Deno.test("pin: tightens an up-standard floor to the measured value and commits"
 
     const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "pinned floor 80 → 95");
+    assertTerminalTextIncludes(r.stdout, "pinned floor 80 → 95");
 
     // The limit is now the measured value, and the guiding comment survived.
     const cfg = await readConfig(dir);
@@ -200,7 +200,7 @@ Deno.test("pin: tightens a down-standard ceiling to the measured value", async (
     await gitInit(dir);
     const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "pinned ceiling 100 → 50");
+    assertTerminalTextIncludes(r.stdout, "pinned ceiling 100 → 50");
     assertEquals(limitOf(await readConfig(dir), "bundle"), "50");
   });
 });
@@ -291,7 +291,7 @@ Deno.test("pin: a `per` rate standard pins to the measured rate", async () => {
     await gitInit(dir);
     const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "pinned ceiling 40 → 30");
+    assertTerminalTextIncludes(r.stdout, "pinned ceiling 40 → 30");
     assertEquals(limitOf(await readConfig(dir), "warnings"), "30");
   });
 });
@@ -358,7 +358,7 @@ Deno.test("pin: an unknown standard name fails loudly and pins nothing", async (
     const before = await gitOut(dir, "rev-parse", "HEAD");
     const r = await runAgent(dir, ["standards", "--pin", "nope"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "no standard named nope");
+    assertTerminalTextIncludes(r.stderr, "no standard named nope");
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
   });
 });
@@ -378,7 +378,7 @@ Deno.test("pin: standard names without --pin are a clear error, not silently ign
     await gitInit(dir);
     const r = await runAgent(dir, ["standards", "coverage"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "only apply with --pin");
+    assertTerminalTextIncludes(r.stderr, "only apply with --pin");
   });
 });
 
@@ -490,7 +490,7 @@ Deno.test("pin: refuses a dirty worktree (it commits the change alone)", async (
 
     const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "clean worktree");
+    assertTerminalTextIncludes(r.stderr, "clean worktree");
     assertEquals(limitOf(await readConfig(dir), "coverage"), "80", "no edit");
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before, "no commit");
   });
@@ -516,9 +516,9 @@ Deno.test("pin: refuses when HEAD moves during measurement and writes nothing", 
     const r = await runAgent(dir, ["standards", "--pin"]);
 
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "HEAD moved");
+    assertTerminalTextIncludes(r.stderr, "HEAD moved");
     assertStringIncludes(r.stderr, beforeHead);
-    assertStringIncludes(r.stderr, "re-run `discern standards --pin`");
+    assertTerminalTextIncludes(r.stderr, "re-run `discern standards --pin`");
     assertEquals(
       await gitOut(dir, "log", "-1", "--format=%s"),
       "mid-measure",
@@ -556,9 +556,9 @@ Deno.test("pin: refuses when measurement dirties the worktree and writes nothing
     const r = await runAgent(dir, ["standards", "--pin"]);
 
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "worktree changed");
+    assertTerminalTextIncludes(r.stderr, "worktree changed");
     assertStringIncludes(r.stderr, "mid-measure.txt");
-    assertStringIncludes(r.stderr, "re-run `discern standards --pin`");
+    assertTerminalTextIncludes(r.stderr, "re-run `discern standards --pin`");
     assertEquals(
       await gitOut(dir, "rev-parse", "HEAD"),
       beforeHead,
@@ -600,7 +600,7 @@ Deno.test("pin --dry-run: renders the pin plan and measures NOTHING", async () =
     // The plan names the standard and the pin semantics, but no measured value —
     // nothing ran, so there is none to show.
     assertStringIncludes(r.stdout, "coverage");
-    assertStringIncludes(r.stdout, "would measure");
+    assertTerminalTextIncludes(r.stdout, "would measure");
     assert(
       !r.stdout.includes("95"),
       `a dry-run must not know the measured value:\n${r.stdout}`,
@@ -895,7 +895,7 @@ Deno.test("pin: a failed commit rolls discern.toml back to HEAD (the retry is ne
     // The pin measures fine but the commit is rejected: it fails, reporting why.
     const failed = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(failed.code, 1, failed.output);
-    assertStringIncludes(failed.stderr, "could not commit the re-pin");
+    assertTerminalTextIncludes(failed.stderr, "could not commit the re-pin");
 
     // Crucially, it left NO trace: discern.toml is byte-identical to HEAD and the
     // tree is clean — not the modified+staged state that stranded the old retry.
@@ -915,7 +915,7 @@ Deno.test("pin: a failed commit rolls discern.toml back to HEAD (the retry is ne
     await Deno.remove(hook);
     const retry = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(retry.code, 0, retry.output);
-    assertStringIncludes(retry.stdout, "pinned floor 80 → 95");
+    assertTerminalTextIncludes(retry.stdout, "pinned floor 80 → 95");
     assertEquals(limitOf(await readConfig(dir), "coverage"), "95");
   });
 });

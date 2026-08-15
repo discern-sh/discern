@@ -15,7 +15,7 @@ import {
   type ViewportRunResult,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 const CSI = "\x1b[";
 const REPAINT = `${CSI}1G`;
@@ -272,7 +272,7 @@ Deno.test({
         assertEquals(result.code, 0, result.output);
         assertInitialMode("done", "full", result);
         assertEquals(result.terminal.resizedSize, { columns: 40, rows: 29 });
-        assertStringIncludes(result.output, "Gate");
+        assertTerminalTextIncludes(result.output, "Gate");
         assertFinalRegionOnce("done", result);
       }, RESIZE_CONFIG),
       withVerbFixture("prepare", async (root, args) => {

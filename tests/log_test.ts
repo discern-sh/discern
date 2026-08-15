@@ -15,7 +15,13 @@ import {
   resolveTerminalContext,
   terminalMultiline,
 } from "../src/lib/terminal.ts";
-import { fakeEnv } from "./helpers.ts";
+import { fakeEnv, pinnedTerminal } from "./helpers.ts";
+
+/** A human-mode Logger whose terminal context is pinned, so glyph capability
+ * comes from the test instead of the ambient locale. */
+function plainLogger(): Logger {
+  return new Logger({ json: false, noColor: true, terminal: pinnedTerminal() });
+}
 
 /** Capture everything written to console.error / console.log while `fn` runs. */
 async function capture(
@@ -41,7 +47,7 @@ async function capture(
 }
 
 Deno.test("human methods write to stderr with their prefix glyphs (no colour)", async () => {
-  const log = new Logger({ json: false, noColor: true });
+  const log = plainLogger();
   const { err, out } = await capture(() => {
     log.info("starting");
     log.ok("done");
@@ -59,7 +65,7 @@ Deno.test("human methods write to stderr with their prefix glyphs (no colour)", 
 });
 
 Deno.test("heading writes a blank-line-prefixed banner to stderr", async () => {
-  const log = new Logger({ json: false, noColor: true });
+  const log = plainLogger();
   const { err, out } = await capture(() => log.heading("Section"));
   assertEquals(out, []);
   // The sink owns the heading's leading boundary: one separate blank line, then
@@ -68,7 +74,7 @@ Deno.test("heading writes a blank-line-prefixed banner to stderr", async () => {
 });
 
 Deno.test("heading collapses onto an existing group boundary", async () => {
-  const log = new Logger({ json: false, noColor: true });
+  const log = plainLogger();
   const { err, out } = await capture(() => {
     log.info("first");
     log.group("next");
@@ -82,7 +88,7 @@ Deno.test("heading collapses onto an existing group boundary", async () => {
 });
 
 Deno.test("line writes plain text to stdout", async () => {
-  const log = new Logger({ json: false, noColor: true });
+  const log = plainLogger();
   const { err, out } = await capture(() => {
     log.line("hello");
   });
@@ -91,7 +97,7 @@ Deno.test("line writes plain text to stdout", async () => {
 });
 
 Deno.test("group writes exactly one boundary between populated groups", async () => {
-  const log = new Logger({ json: false, noColor: true });
+  const log = plainLogger();
   const { err, out } = await capture(() => {
     log.group("leading-group");
     log.info("first");
@@ -106,7 +112,7 @@ Deno.test("group writes exactly one boundary between populated groups", async ()
 });
 
 Deno.test("Logger exposes package presentation facts without inline style wrappers", () => {
-  const log = new Logger({ json: false, noColor: true });
+  const log = plainLogger();
   assertEquals(log.terminal.role("x", "strong"), "x");
   assertEquals(log.terminal.role("y", "muted"), "y");
   assertEquals("bold" in log, false);
@@ -147,7 +153,7 @@ Deno.test("Logger narration styles come from injected package Token roles", asyn
 });
 
 Deno.test("Logger narration makes hostile caller facts inert at the shared boundary", async () => {
-  const log = new Logger({ json: false, noColor: true });
+  const log = plainLogger();
   const hostile = "repo\x1b[31m\nbranch\x00\u0085\u202E";
   const safe = "repo␛[31m␊branch␀<U+0085><U+202E>";
   const hostileLabel = "repo\x1b[31m\x00\u0085\u202E";
@@ -214,7 +220,7 @@ Deno.test("Logger multiline errors require the branded safe-text boundary", () =
 });
 
 Deno.test("jsonResult does nothing in human mode", async () => {
-  const log = new Logger({ json: false, noColor: true });
+  const log = plainLogger();
   const { err, out } = await capture(() => log.jsonResult({ a: 1 }));
   assertEquals(err, []);
   assertEquals(out, []);
@@ -222,7 +228,7 @@ Deno.test("jsonResult does nothing in human mode", async () => {
 
 Deno.test("the json flag is exposed on the logger", () => {
   assertEquals(new Logger({ json: true, noColor: true }).json, true);
-  assertEquals(new Logger({ json: false, noColor: true }).json, false);
+  assertEquals(plainLogger().json, false);
 });
 
 Deno.test("JSON mode silences every human method", async () => {

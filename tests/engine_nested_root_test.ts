@@ -25,7 +25,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   convergeFixtureGitattributes,
@@ -93,8 +93,8 @@ Deno.test("nested root: loosening a standard limit vs main still fails", async (
 
     const r = await runAgent(app, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "floor 80 -> 70");
-    assertStringIncludes(r.stderr, "only rises");
+    assertTerminalTextIncludes(r.stderr, "floor 80 -> 70");
+    assertTerminalTextIncludes(r.stderr, "only rises");
   });
 });
 
@@ -103,7 +103,7 @@ Deno.test("nested root: a held standard still measures and passes", async () => 
     const app = await scaffoldNested(repo, floorConfig("80", "85"));
     const r = await runAgent(app, ["standards"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "meets the floor");
+    assertTerminalTextIncludes(r.stdout, "meets the floor");
   });
 });
 
@@ -343,7 +343,7 @@ Deno.test("nested root: start refuses with the actionable repository-shape messa
     const r = await runAgent(app, ["start", "--json"]);
     assert(r.code !== 0, `start must refuse under a nested root: ${r.output}`);
     assertStringIncludes(r.output, "repository");
-    assertStringIncludes(r.output, "move discern.toml");
+    assertTerminalTextIncludes(r.output, "move discern.toml");
   });
 });
 
@@ -395,8 +395,8 @@ Deno.test("nested root: accept refuses before a standing grant can hide sibling 
       refused.code !== 0,
       `accept must refuse the unsupported repository shape: ${refused.output}`,
     );
-    assertStringIncludes(refused.output, "git repository's root");
-    assertStringIncludes(refused.output, "move discern.toml");
+    assertTerminalTextIncludes(refused.output, "git repository's root");
+    assertTerminalTextIncludes(refused.output, "move discern.toml");
     assertEquals(await gitOut(repo, "rev-parse", "main"), mainBefore);
     assertEquals(app, join(repo, "app"));
   });

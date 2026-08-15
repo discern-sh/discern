@@ -12,6 +12,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { measureText, stripAnsi } from "discern-design-system/cli";
 import {
+  assertTerminalTextIncludes,
   fakeEnv,
   readTarget,
   runCli,
@@ -474,7 +475,7 @@ Deno.test("docs terminal render strips inline citations into a related-decisions
     );
     assertEquals(rendered.code, 0);
     assert(!rendered.stdout.includes("[ADR 0001]"));
-    assertStringIncludes(rendered.stdout, "## Related decisions");
+    assertTerminalTextIncludes(rendered.stdout, "## Related decisions");
     assertStringIncludes(
       rendered.stdout,
       "https://discern.sh/docs/decisions/0001-first",
@@ -1014,7 +1015,7 @@ Deno.test("help <target> teaches for retired spellings and synonyms", async () =
     ) {
       const r = await runCli(["help", retired], dir, env);
       assertEquals(r.code, 1, r.stdout + r.stderr);
-      assertStringIncludes(r.stderr, "was renamed");
+      assertTerminalTextIncludes(r.stderr, "was renamed");
       assertStringIncludes(r.stderr, successor);
     }
     for (
@@ -1022,8 +1023,8 @@ Deno.test("help <target> teaches for retired spellings and synonyms", async () =
     ) {
       const r = await runCli(["help", synonym], dir, env);
       assertEquals(r.code, 1, r.stdout + r.stderr);
-      assertStringIncludes(r.stderr, `unknown command "${synonym}"`);
-      assertStringIncludes(r.stderr, `discern ${canonical}`);
+      assertTerminalTextIncludes(r.stderr, `unknown command "${synonym}"`);
+      assertTerminalTextIncludes(r.stderr, `discern ${canonical}`);
     }
   });
 });

@@ -87,7 +87,7 @@ Deno.test("done (human): a failure prints a structured Failures block with repro
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Failures");
     assertStringIncludes(r.output, "reproduce:");
-    assertStringIncludes(r.output, "exit 7");
+    assertTerminalTextIncludes(r.output, "exit 7");
   });
 });
 
@@ -209,7 +209,7 @@ Deno.test("done --json: a STALE agent file fails the guidance check; refresh fix
     assertEquals(diag.reproduce_cmd, "discern refresh");
     assertStringIncludes(diag.output, "CLAUDE.md");
     assertStringIncludes(diag.output, "[guidance].sources"); // the redirect
-    assertStringIncludes(diag.output, "stray hand edit"); // the diff shows the loss
+    assertTerminalTextIncludes(diag.output, "stray hand edit"); // the diff shows the loss
 
     // Regenerating satisfies the check — the gate passes again.
     await runAgent(dir, ["refresh"]);
@@ -273,8 +273,8 @@ Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatte
       `expected a skill-frontmatter diagnostic: ${r.stdout}`,
     );
     assertStringIncludes(diag.message, "label-the-jars");
-    assertStringIncludes(diag.output, "nested mapping"); // what YAML reads
-    assertStringIncludes(diag.output, "must be quoted"); // the remedy
+    assertTerminalTextIncludes(diag.output, "nested mapping"); // what YAML reads
+    assertTerminalTextIncludes(diag.output, "must be quoted"); // the remedy
 
     // Folding the value onto one quoted line satisfies every parser.
     await Deno.writeTextFile(
@@ -317,7 +317,7 @@ Deno.test("done --json: two ADR records claiming one number fail the adr_numbers
     assertStringIncludes(diag.message, "0007");
     assertStringIncludes(diag.output, "0007-first.md");
     assertStringIncludes(diag.output, "0007-second.md");
-    assertStringIncludes(diag.output, "next free"); // the remedy
+    assertTerminalTextIncludes(diag.output, "next free"); // the remedy
     assertHasHint(obj, HINTS["gate-failure-adr-numbers"]);
 
     // Renumbering the newer record clears the check.
@@ -454,11 +454,11 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
       `expected tracked-artifacts diagnostic: ${r.stdout}`,
     );
     assertStringIncludes(diag.reproduce_cmd, "git ls-files --");
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       diag.output,
       "git rm -r --cached -- .claude/settings.local.json",
     );
-    assertStringIncludes(diag.output, "discern refresh");
+    assertTerminalTextIncludes(diag.output, "discern refresh");
     assertEquals(diagFor(obj, "guidance"), undefined);
   });
 });
