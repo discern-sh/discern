@@ -95,7 +95,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** When work is not ready, the agent receives a focused failure, the relevant output, and a reproducing command as early as the pipeline can provide them. Shorter feedback loops mean less time waiting on doomed runs and less context lost to diagnosis.
 - **Mechanism:** `discern prepare` supplies the fast fix-and-check loop; staging, cancellation, time budgets, strand detection, write preflight, captured diagnostics, live output, focused tests, and attested reruns stop or explain failed work at the earliest reliable point.
-- **Product basis:** The fast inner loop · Tests on their own · The staged pipeline · Fail-fast cancellation · Job time budgets · The capture environment · Live or grouped output · Strand detection · Normalized diagnostics · A rerun on an unchanged tree is attested · Write authority proven first.
+- **Product basis:** The fast inner loop · Tests on their own · The staged pipeline · Fail-fast cancellation · Job time budgets · The capture environment · Live frame and static transcript · Strand detection · Normalized diagnostics · A rerun on an unchanged tree is attested · Write authority proven first.
 
 ### Catch related files before the change closes
 

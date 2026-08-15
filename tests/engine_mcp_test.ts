@@ -1614,6 +1614,55 @@ Deno.test("discern mcp: pre-setup gates map but not the gate proof verbs or docs
   });
 });
 
+Deno.test("discern mcp: noisy Gate output stays inside the result under both stream settings", async () => {
+  for (const stream of [false, true]) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir, { agents: [] });
+      await writeConfig(
+        dir,
+        [
+          "[project]",
+          'slug = "mcp-gate-silence"',
+          "agents = []",
+          "",
+          "[guidance]",
+          "sources = []",
+          "",
+          "[jobs]",
+          `format = "printf 'MCP-GATE-NOISE\\n'; exit 7"`,
+          "",
+          "[gate]",
+          `stream = ${stream}`,
+          "",
+        ].join("\n"),
+      );
+      await gitInit(dir);
+      await using mcp = await spawnMcp(dir);
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: initParams(),
+      });
+      await mcp.recv();
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "discern_done", arguments: {} },
+      });
+      const response = await mcp.recv();
+      assertEquals(response.result.structuredContent.ok, false);
+      assertEquals(response.result.structuredContent.verb, "done");
+      assertStringIncludes(
+        JSON.stringify(response.result.structuredContent.diagnostics),
+        "MCP-GATE-NOISE",
+      );
+      assertEquals(await mcp.close(), 0);
+    });
+  }
+});
+
 Deno.test("discern mcp: discern_accept previews an acceptance from inside a worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

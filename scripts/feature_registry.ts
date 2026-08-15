@@ -316,13 +316,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           },
           {
             id: "gate-streaming",
-            title: "Live or grouped output",
+            title: "Live frame and static transcript",
             what:
-              "`[gate].stream` switches between grouped per-job output (the default) and live line-prefixed streaming for watching a slow build.",
+              "A live-capable terminal always combines stable Gate progress with a bounded job-output tail. On static surfaces, `[gate].stream` switches between grouped per-job output (the default) and line-prefixed streaming.",
             plain: {
-              title: "Results shown live or kept together",
+              title: "Live progress with a bounded output tail",
               what:
-                "`[gate].stream` chooses between keeping each piece's output together (the usual choice) and showing every new line as it happens, labeled with the piece's name — useful when watching a slow preparation step.",
+                "A live terminal shows what is running and what it is saying together. For CI, pipes, plain output, or terminals without cursor control, `[gate].stream` chooses whether output appears immediately with labels or stays grouped by job.",
             },
           },
           {
