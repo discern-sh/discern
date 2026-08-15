@@ -122,7 +122,13 @@ function scorePopulation(facts: StreamFacts): PatternsPopulation {
   const kinds = { agent: 0, human: 0, automation: 0, unknown: 0 };
   const identityRuns = new Map<string, number>();
   for (const e of facts.verbs) {
-    kinds[driverKind(e)] += 1;
+    const kind = driverKind(e);
+    kinds[kind] += 1;
+    if (kind === "automation") {
+      // Inherited markers on a gate child identify the outer session, not a
+      // decision — the automation count carries this volume instead.
+      continue;
+    }
     const identity = driverAgent(e);
     if (identity !== undefined) {
       identityRuns.set(identity, (identityRuns.get(identity) ?? 0) + 1);

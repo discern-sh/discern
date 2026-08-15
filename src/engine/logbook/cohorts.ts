@@ -154,12 +154,18 @@ export interface CohortSplit<T> {
  * exactly-one rule lifted to the unit level: events naming nothing don't void
  * a unit (absence is not disagreement), but events naming two different
  * identities do — a branch two agents drove belongs to neither cohort.
+ * Automation events attribute nothing: a gate child inherits the outer
+ * session's markers, so letting it vote would both credit plumbing and void
+ * units where a different agent's session happened to run the gate.
  */
 export function attributedIdentity(
   events: readonly VerbEvent[],
 ): string | undefined {
   const ids = new Set<string>();
   for (const e of events) {
+    if (driverKind(e) === "automation") {
+      continue;
+    }
     const id = driverAgent(e);
     if (id !== undefined) {
       ids.add(id);
@@ -183,17 +189,26 @@ export function splitByCohort<T>(
   let unattributedUnits = 0;
   let unattributedRuns = 0;
   for (const unit of units) {
-    const events = eventsOf(unit);
-    const id = attributedIdentity(events);
+    // Cohorts compare decisions, so automation events — gate children and CI
+    // runs — join neither a cohort's runs nor the unattributed remainder; the
+    // population account reports that volume (ADR 0282). A unit with no
+    // decision events carries nothing to compare and drops out entirely.
+    const decisions = eventsOf(unit).filter(
+      (e) => driverKind(e) !== "automation",
+    );
+    if (decisions.length === 0) {
+      continue;
+    }
+    const id = attributedIdentity(decisions);
     if (id === undefined) {
       unattributedUnits += 1;
-      unattributedRuns += events.length;
+      unattributedRuns += decisions.length;
       continue;
     }
     const cohort = byId.get(id) ??
       { agent: id, label: agentLabel(id), units: [], runs: 0 };
     cohort.units.push(unit);
-    cohort.runs += events.length;
+    cohort.runs += decisions.length;
     byId.set(id, cohort);
   }
   const cohorts = [...byId.values()].sort((a, b) =>

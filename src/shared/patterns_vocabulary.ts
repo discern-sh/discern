@@ -365,8 +365,9 @@ const patternsLogbookSchema = z.strictObject({
  * driver evidence — never stored, so a smarter release re-scores all history.
  * `analyzed` counts the analysis population (CI and previews excluded);
  * `agent`/`human`/`automation`/`unknown` partition it — `automation` is
- * discern's own gate children plus conventional-CI runs. `identities` counts the runs whose
- * invocation-scoped evidence names exactly one agent, by stable catalogue id
+ * discern's own gate children plus conventional-CI runs. `identities` counts the
+ * non-automation runs whose invocation-scoped evidence names exactly one
+ * agent, by stable catalogue id
  * with its display label — ambient host state and conflicting evidence
  * attribute nothing, so the identity counts can sum below `agent`. */
 const patternsPopulationSchema = z.strictObject({
