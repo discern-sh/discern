@@ -153,7 +153,7 @@ Deno.test("Markdown orders state, evidence, boundary, and the immediate action a
   assert(boundaryAt < actionAt, rendered);
   assertStringIncludes(rendered, notice.text);
   assertStringIncludes(rendered, guardrail.text);
-  assertStringIncludes(rendered, `Later: ${later.text}`);
+  assertStringIncludes(rendered, `Later:\n\n- ${later.text}`);
   assert(
     rendered.trimEnd().endsWith(immediate.text),
     `the immediate action must close the context:\n${rendered}`,
@@ -339,4 +339,56 @@ Deno.test("overflow sentences render only through the shared omitted() helper", 
   // (identifier uses are excluded). A new hand-rolled "N additional things
   // omitted." line must route through omitted() so count and noun agree.
   assertEquals(occurrences.length, 2, "route overflow lines through omitted()");
+});
+
+Deno.test("later actions group one hint family under its first item", () => {
+  const header = fire(HINTS["coupling-diff-header"]);
+  const partner = fire(HINTS["coupling-diff-partner"], {
+    from: "src/main.ts",
+    path: "tests/main_test.ts",
+    cochanges: 4,
+    of: 4,
+    confidence: 1,
+  });
+  const strongPair = fire(HINTS["coupling-strong-pair"], {
+    from: "src/main.ts",
+    path: "tests/main_test.ts",
+  });
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "coupling",
+      data: {},
+      hints: hintTexts([header, partner, strongPair]),
+    },
+    resultPresenterForVerb("coupling"),
+  );
+  assertStringIncludes(
+    rendered,
+    `Later:\n\n- ${partner.text}\n  - ${strongPair.text}`,
+  );
+  assert(rendered.trimEnd().endsWith(header.text), rendered);
+});
+
+Deno.test("non-ok steps nest beneath the steps summary", () => {
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "done",
+      data: { scopes_changed: ["code"] },
+      steps: [
+        { label: "format", outcome: "ok" },
+        { label: "standard:coverage", outcome: "skipped" },
+        { label: "standard:binary_size", outcome: "skipped" },
+      ],
+    },
+    resultPresenterForVerb("done"),
+  );
+  assertStringIncludes(
+    rendered,
+    "- Steps: 1 ok, 2 skipped.\n" +
+      "  - `standard:coverage`: skipped.\n" +
+      "  - `standard:binary_size`: skipped.",
+  );
+  assert(!rendered.includes("ended"), rendered);
 });

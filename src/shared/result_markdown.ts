@@ -226,24 +226,23 @@ function envelopeEvidence(
   if (plan !== undefined) {
     const steps = records(plan.steps);
     const title = text(plan.title) ?? "Plan";
-    facts.push(`${title}: ${plural(steps.length, "step")}.`);
     const details = strings(plan.details).slice(0, MAX_LIST_ITEMS);
     if (details.length > 0) {
       facts.push(...details);
     }
-    for (const step of steps.slice(0, MAX_LIST_ITEMS)) {
-      const label = text(step.label) ?? "unnamed step";
-      const disposition = text(step.disposition) ?? "planned";
-      const note = text(step.note);
-      facts.push(
-        `${code(label)}: ${disposition}${
+    facts.push(withDetails(
+      `${title}: ${plural(steps.length, "step")}.`,
+      steps.slice(0, MAX_LIST_ITEMS).map((step) => {
+        const label = text(step.label) ?? "unnamed step";
+        const disposition = text(step.disposition) ?? "planned";
+        const note = text(step.note);
+        return `${code(label)}: ${disposition}${
           note === undefined ? "" : `, ${note}`
-        }.`,
-      );
-    }
-    if (steps.length > MAX_LIST_ITEMS) {
-      facts.push(omitted(steps.length - MAX_LIST_ITEMS, "plan step"));
-    }
+        }.`;
+      }),
+      steps.length - MAX_LIST_ITEMS,
+      "plan step",
+    ));
   }
 
   const stepResults = records(result.steps);
@@ -253,27 +252,23 @@ function envelopeEvidence(
       const outcome = text(step.outcome) ?? "unknown";
       counts.set(outcome, (counts.get(outcome) ?? 0) + 1);
     }
-    facts.push(
+    const notable = stepResults.filter((entry) => entry.outcome !== "ok");
+    facts.push(withDetails(
       `Steps: ${
         [...counts.entries()].map(([outcome, count]) => `${count} ${outcome}`)
           .join(", ")
       }.`,
-    );
-    for (
-      const step of stepResults.filter((entry) => entry.outcome !== "ok").slice(
-        0,
-        MAX_LIST_ITEMS,
-      )
-    ) {
-      const label = text(step.label) ?? "unnamed step";
-      const outcome = text(step.outcome) ?? "unknown";
-      const outputPath = text(step.output_path);
-      facts.push(
-        `${code(label)} ended ${code(outcome)}${
+      notable.slice(0, MAX_LIST_ITEMS).map((step) => {
+        const label = text(step.label) ?? "unnamed step";
+        const outcome = text(step.outcome) ?? "unknown";
+        const outputPath = text(step.output_path);
+        return `${code(label)}: ${outcome}${
           outputPath === undefined ? "" : `; full output: ${code(outputPath)}`
-        }.`,
-      );
-    }
+        }.`;
+      }),
+      notable.length - MAX_LIST_ITEMS,
+      "step",
+    ));
   }
 
   const waitedMs = number(result.waited_ms);
@@ -335,30 +330,43 @@ function fencedText(value: string): string {
   return `${fence}text\n${value}\n${fence}`;
 }
 
+/** One action item beside the hint family that groups its variants. */
+interface ActionItem {
+  text: string;
+  family: string | undefined;
+}
+
 /** Sort fired hint prose into evidence, boundary, and action channels. */
 function hintSections(
   result: Readonly<Record<string, unknown>>,
-): { evidence: string[]; boundary: string[]; action: string[] } {
+): { evidence: string[]; boundary: string[]; action: ActionItem[] } {
   const hintTexts = strings(result.hints);
   const fired = firedHintsFromTexts(
     Array.isArray(result.hints) ? result.hints as string[] : undefined,
   );
-  const categoryByText = new Map<string, HintCategory>();
-  const defs = new Map<string, HintCategory>();
+  const defs = new Map<
+    string,
+    { category: HintCategory; family: string | undefined }
+  >();
   for (const def of Object.values(HINTS)) {
-    defs.set(def.id, def.category);
+    defs.set(def.id, { category: def.category, family: def.family });
   }
+  const byText = new Map<
+    string,
+    { category: HintCategory; family: string | undefined }
+  >();
   for (const hint of fired) {
-    const category = defs.get(hint.id);
-    if (category !== undefined) {
-      categoryByText.set(hint.text, category);
+    const def = defs.get(hint.id);
+    if (def !== undefined) {
+      byText.set(hint.text, def);
     }
   }
   const evidence: string[] = [];
   const boundary: string[] = [];
-  const action: string[] = [];
+  const action: ActionItem[] = [];
   for (const hint of hintTexts) {
-    switch (categoryByText.get(hint)) {
+    const def = byText.get(hint);
+    switch (def?.category) {
       case "notice":
         evidence.push(hint);
         break;
@@ -366,15 +374,20 @@ function hintSections(
         boundary.push(hint);
         break;
       case "next-step":
-        action.push(hint);
+        action.push({ text: hint, family: def?.family });
         break;
       default:
         // An unregistered string cannot disappear from a text-only host. Put it
         // at the action boundary, the safest interpretation of advisory prose.
-        action.push(hint);
+        action.push({ text: hint, family: undefined });
     }
   }
   return { evidence, boundary, action };
+}
+
+/** Indent a multi-line item's continuation lines one list level deeper. */
+function indented(item: string, depth: number): string {
+  return item.replaceAll("\n", `\n${"  ".repeat(depth)}`);
 }
 
 /** Render one or several ordered presentation items. */
@@ -382,20 +395,54 @@ function renderItems(items: readonly string[]): string {
   if (items.length === 1) {
     return items[0] ?? "";
   }
-  return items.map((item) => `- ${item.replaceAll("\n", "\n  ")}`).join("\n");
+  return items.map((item) => `- ${indented(item, 1)}`).join("\n");
 }
 
-/** Keep the immediate action at the context tail; later work stays visible first. */
-function renderActions(items: readonly string[]): string {
+/** Render a summary fact with its detail rows nested beneath it. */
+function withDetails(
+  summary: string,
+  details: readonly string[],
+  overflow: number,
+  noun: string,
+): string {
+  const rows = [
+    ...details,
+    ...(overflow > 0 ? [omitted(overflow, noun)] : []),
+  ];
+  return [summary, ...rows.map((row) => `- ${indented(row, 1)}`)].join("\n");
+}
+
+/** Keep the immediate action at the context tail; later work stays visible
+ * first, with each hint family's variants nested under its first item. */
+function renderActions(items: readonly ActionItem[]): string {
   const [primary, ...later] = items;
   if (primary === undefined) {
     return "";
   }
   if (later.length === 0) {
-    return primary;
+    return primary.text;
   }
-  const deferred = renderItems(later.map((item) => `Later: ${item}`));
-  return `${deferred}\n\n**Do this next:** ${primary}`;
+  const groups: { text: string; children: string[] }[] = [];
+  const byFamily = new Map<string, { text: string; children: string[] }>();
+  for (const { text, family } of later) {
+    const head = family === undefined ? undefined : byFamily.get(family);
+    if (head !== undefined) {
+      head.children.push(text);
+      continue;
+    }
+    const group = { text, children: [] as string[] };
+    if (family !== undefined) {
+      byFamily.set(family, group);
+    }
+    groups.push(group);
+  }
+  const deferred = groups.map((group) =>
+    [
+      `- ${indented(group.text, 1)}`,
+      ...group.children.map((child) => `  - ${indented(child, 2)}`),
+    ].join("\n")
+  ).join("\n");
+  return `Later:\n\n${deferred}\n\n**Do this next:** ${primary.text}`;
 }
 
 /** Render one contract's authored projection in the fixed agent-reading order. */
@@ -419,10 +466,24 @@ export function renderResultMarkdown(
     ...(presented.boundary ?? []),
     ...hints.boundary,
   ]);
-  const action = unique([
-    ...(presented.action ?? []),
-    ...hints.action,
-  ]);
+  const seenActions = new Set<string>();
+  const action: ActionItem[] = [];
+  for (
+    const item of [
+      ...(presented.action ?? []).map((text) => ({
+        text,
+        family: undefined,
+      })),
+      ...hints.action,
+    ]
+  ) {
+    const trimmed = item.text.trim();
+    if (trimmed === "" || seenActions.has(trimmed)) {
+      continue;
+    }
+    seenActions.add(trimmed);
+    action.push({ text: trimmed, family: item.family });
+  }
   const sections = [
     `# ${code(commandName(result))}`,
     `## Current state\n\n${presented.state.trim()}`,
