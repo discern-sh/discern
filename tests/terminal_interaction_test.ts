@@ -18,9 +18,11 @@ import {
   canInteract,
   confirmationAllowed,
   confirmDestructiveAction,
+  confirmDialogAction,
   groupedSelectionEntries,
   interactionAllowed,
   isInteractionCancelled,
+  renderConfirmationDialog,
   renderDestructiveConfirmation,
   requestSelection,
   requestSelections,
@@ -837,6 +839,52 @@ Deno.test("destructive confirmation presents only on the interactive human path"
   assertEquals(presented.length, 1);
   assertStringIncludes(presented[0] ?? "", "Scope: /tmp/project");
   assertEquals(requests, ["Continue with removal?:true"]);
+});
+
+const DIALOG_COPY = {
+  label: "Overlay preset example?",
+  scope: "/tmp/project",
+  consequence:
+    "Two missing files will be created. Existing files stay unchanged.",
+  continuation: "Overlay the preset now?",
+} as const;
+
+Deno.test("neutral confirmation renders and requests the same bounded act", async () => {
+  const rendered = renderConfirmationDialog(
+    DIALOG_COPY,
+    confirmationTerminal(),
+  );
+  assertStringIncludes(rendered, "Confirm");
+  assertStringIncludes(rendered, DIALOG_COPY.label);
+  assertStringIncludes(rendered, "Scope: /tmp/project");
+  assertStringIncludes(rendered, "Consequence: Two missing files");
+  assertStringIncludes(rendered, "[Cancel]  [Continue]");
+
+  const presented: string[] = [];
+  const requests: string[] = [];
+  assertEquals(
+    await confirmDialogAction(
+      DIALOG_COPY,
+      {
+        yes: false,
+        json: false,
+        terminal: confirmationTerminal(),
+        present: (frame: string): void => {
+          presented.push(frame);
+        },
+      },
+      {
+        interactive: () => true,
+        request: (message, defaultTo) => {
+          requests.push(`${message}:${defaultTo}`);
+          return Promise.resolve(true);
+        },
+      },
+    ),
+    true,
+  );
+  assertEquals(presented.length, 1);
+  assertEquals(requests, ["Overlay the preset now?:true"]);
 });
 
 // ---- resolveSetupConfig (interaction suppressed via flags.yes) --------------

@@ -5,7 +5,10 @@
  * flags). Requests are only reached on a TTY with `--yes` absent.
  */
 
-import { renderDestructiveActionNoticeCli } from "discern-design-system/cli";
+import {
+  renderDestructiveActionNoticeCli,
+  renderDialogCli,
+} from "discern-design-system/cli";
 import {
   DenoTerminalIO,
   InteractionCancelled as PackageInteractionCancelled,
@@ -988,11 +991,23 @@ export interface DestructiveConfirmationCopy {
 }
 
 /** Human delivery facts kept separate from the semantic confirmation copy. */
-export interface DestructiveConfirmationOptions {
+export interface ConfirmationPresentationOptions {
   readonly yes: boolean;
   readonly json: boolean;
   readonly terminal: TerminalContext;
   readonly present: (frame: string) => void;
+}
+
+/** Product facts required before a person authorizes a bounded, reversible act. */
+export interface ConfirmationDialogCopy {
+  /** Imperative name for the act being authorized. */
+  readonly label: string;
+  /** Exact object or bounded set the action can change. */
+  readonly scope: string;
+  /** Consequence of continuing. */
+  readonly consequence: string;
+  /** The final yes-or-no continuation request. */
+  readonly continuation: string;
 }
 
 /** Injectable confirmation effects used to prove suppression and ordering. */
@@ -1018,6 +1033,22 @@ export function renderDestructiveConfirmation(
       ? {}
       : { authority: terminalMultiline(copy.authority) }),
     tone: "danger",
+  });
+}
+
+/** Render one package-owned neutral review from terminal-safe product facts. */
+export function renderConfirmationDialog(
+  copy: ConfirmationDialogCopy,
+  terminal: TerminalContext,
+): string {
+  return terminal.presenter.present(renderDialogCli, {
+    kicker: terminalLine("Confirm"),
+    title: terminalLine(copy.label),
+    body: terminalMultiline(
+      `Scope: ${copy.scope}\nConsequence: ${copy.consequence}`,
+    ),
+    actions: [terminalLine("Cancel"), terminalLine("Continue")],
+    status: "open",
   });
 }
 
@@ -1062,7 +1093,7 @@ export async function confirmProceed(
  */
 export async function confirmDestructiveAction(
   copy: DestructiveConfirmationCopy,
-  options: DestructiveConfirmationOptions,
+  options: ConfirmationPresentationOptions,
   runtime: ConfirmationRequestRuntime = {},
 ): Promise<boolean> {
   const interactive = runtime.interactive ?? canInteract;
@@ -1070,6 +1101,26 @@ export async function confirmDestructiveAction(
     return true;
   }
   options.present(renderDestructiveConfirmation(copy, options.terminal));
+  return await requestProceed(
+    copy.continuation,
+    runtime.request ?? requestConfirmation,
+  );
+}
+
+/**
+ * Present a neutral act, scope, and consequence immediately before a bounded
+ * confirmation. Suppressed interactions present nothing.
+ */
+export async function confirmDialogAction(
+  copy: ConfirmationDialogCopy,
+  options: ConfirmationPresentationOptions,
+  runtime: ConfirmationRequestRuntime = {},
+): Promise<boolean> {
+  const interactive = runtime.interactive ?? canInteract;
+  if (!confirmationAllowed(options.yes, options.json, interactive)) {
+    return true;
+  }
+  options.present(renderConfirmationDialog(copy, options.terminal));
   return await requestProceed(
     copy.continuation,
     runtime.request ?? requestConfirmation,

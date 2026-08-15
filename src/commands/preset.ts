@@ -30,7 +30,10 @@ import { resolveConfigPath } from "../lib/paths.ts";
 import { DEFAULTS, type SetupConfig, tokensFromConfig } from "../lib/config.ts";
 import { applyPlan, buildPlan } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
-import { canInteract, confirmProceed } from "../lib/terminal_interaction.ts";
+import {
+  canInteract,
+  confirmDialogAction,
+} from "../lib/terminal_interaction.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import {
   applyConfigDoc,
@@ -282,11 +285,27 @@ export async function runPreset(
     );
     return 1;
   }
+  const plannedFileChanges =
+    plan.ops.filter((op) => op.disposition !== "skip").length;
+  const plannedConfigFills = fillReport?.filled.length ?? 0;
   if (
-    !(await confirmProceed(
-      `Overlay preset "${name}" now?`,
-      options.yes,
-      options.json,
+    !(await confirmDialogAction(
+      {
+        label: `Overlay preset "${name}"?`,
+        scope: destDir,
+        consequence: `${plannedFileChanges} file change${
+          plannedFileChanges === 1 ? "" : "s"
+        } and ${plannedConfigFills} config fill${
+          plannedConfigFills === 1 ? "" : "s"
+        } will be applied. Existing files and config values stay unchanged.`,
+        continuation: `Overlay preset "${name}" now?`,
+      },
+      {
+        yes: options.yes,
+        json: options.json,
+        terminal: log.terminal,
+        present: (frame: string): void => log.humanLine(frame),
+      },
     ))
   ) {
     log.info("Aborted; nothing was written.");
