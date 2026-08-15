@@ -1,37 +1,43 @@
-# ADR 0283: The shipped skeletons seed the adoption record
+# ADR 0283: Seed the decision to adopt discern as the first ADR
 
 **Status**: accepted
 
 ## Context
 
-The `_adr/` skeleton shipped a format guide and a copy-paste template, and nothing else. Every adopting project's decision corpus therefore cold-started at zero: the convention arrived with no instance, the first real record was written unguided by whatever future session happened to need one, and the adoption of discern itself — a hard-to-reverse choice a future contributor will absolutely wonder about — went unrecorded. A template teaches a record's form; only an instance teaches its register: length, tone, how much context, what honest consequences look like. Agents pattern-match on instances.
+New discern installations receive an ADR guide and template. Their decision history begins empty, without a worked example. It also omits a consequential choice: adopting discern changes how the project prepares agent work, verifies changes, maintains shared knowledge, and decides what lands.
 
-A seed stamped in by the tool alone would not close the gap: a record that could describe any project records nothing about this one. discern is positioned to do better, because its setup model already makes the coding agent the configuration engine: by the time the map is authored, the agent has surveyed the repository, wired the gate's jobs, and written the design principles. It holds everything a true adoption record needs.
+Setup is the right point to complete that record. Before completing the Map, the configuring agent has surveyed the repository and wired the project's Gate jobs. The agent has also written the project's guidance and design principles. It can explain the project's reasons and consequences from repository evidence and the setup conversation. Fixed tokens can state names and commands. Capturing the reasoning requires the configuring agent.
 
-There was also a commercial wish: the record is a legitimate, tasteful place for discern's name to live in adopting repositories. That wish is in tension with the exemplar role — the format guide's own rule says a record listing only upsides is not trustworthy, and the first record is the one every later record imitates.
+The seed gives discern a named, linked presence in adopting repositories. A future contributor may encounter this record before any other discern surface. Its value to the project must justify that presence: the record needs to be specific, balanced, and clear about its provenance.
 
 ## Decision
 
-Both shipped `_adr/` skeletons — `discern setup`'s and the `discern-write-adr` skill's, already held byte-identical by the gate — seed `0001-adopt-discern.md`: a mostly-written record of adopting discern, completed by the configuring agent. The pre-written prose states the discipline (done means the gate, isolated worktrees, recorded decisions) and honest generic consequences, costs first. `setup fills this` markers hold the three slots only the agent can fill truthfully: this project's context, what the gate actually runs, and project-specific consequences. Setup's Step 6 and the skill's lay-the-home step instruct the completion; the existing marker walk refuses `setup done` while the record is unfilled.
+The `_adr/` skeleton used by `discern setup` and the skeleton carried by the `discern-write-adr` skill include an identical project-owned record at `0001-adopt-discern.md`. A parity guard keeps the files byte-identical.
 
-The brand payload is the record's substance, not an advert: one link, in context, where the practice is named — plus a provenance sentence stating the record was seeded and then completed by the configuring agent. The provenance disclosure is the marketing; nothing else is.
+The pre-written sections introduce discern as an engineering practice for software built with coding agents. They describe commitments shared by discern installations and the consequences those commitments bring. The configuring agent replaces marked sections with:
 
-The explicit *no*s:
+- the project's reason for adopting the practice;
+- the jobs its Gate runs; and
+- consequences specific to the project.
 
-- **No tool-side template substitution.** The stub carries no `{{…}}` tokens; substitution would produce a form letter and would break the skill path, which copies the skeleton verbatim. The agent is the instantiation mechanism.
-- **No derived completion predicate.** The record stays in Step 6's marker-gated, self-verified family; the brief carries the quality bar.
-- **No further tool-authored records.** `0001` is the only ADR discern ever seeds. Upgrades and refreshes never author decisions; a corpus of tool-written entries would corrupt the register the seed exists to start.
-- **The citation guard bends by exactly one number.** The seeded record may cite its own number in its own file, and its path joins `0000-template` as a legal numbered `_adr/` path in shipped text. Foreign numbers in the seeded record, and every other numbered reference in shipped surfaces, still fail.
+The first mention of discern links to its site. A provenance sentence states that discern seeded the record and the configuring agent completed it. `discern setup done` refuses to finish while a marked section remains. When the skill creates an ADR home outside setup, the skill instructs the agent to complete the record before writing another ADR.
+
+The seed contains no `{{…}}` tokens. The configuring agent authors the project-specific sections, and the skill can copy the skeleton without a separate rendering path.
+
+discern seeds no later ADRs. Upgrades and refreshes leave the project's decision history to the project.
+
+The shipped-copy guard permits the seeded file to cite `ADR 0001` in its title and permits its path in shipped instructions. Other numbered ADR citations remain excluded from shipped surfaces.
 
 ## Consequences
 
-- Every adopting project's corpus starts with one true, project-specific record — the exemplar in place before the first ordinary record is written, and the answer to "who decided this project works this way, and why" on the record from day one.
-- The record must be completed honestly to pass setup, so the cost of the feature falls on the configuring agent's session, where the knowledge already is. In the skill's post-hoc path no marker gate exists; the skill's instruction is the only enforcement there.
-- The shipped surface now carries a sanctioned numbered citation, held to its narrow shape by positive controls; loosening it further is a guard edit with this record to answer to.
-- The seeded prose is brand-adjacent copy inside user repositories. Its trustworthiness now depends on the honest-costs framing surviving future edits — a promotional rewrite would violate the format guide sitting beside it and cheapen every record patterned on it.
+- A completed setup begins with a project-specific adoption record and an example for later ADRs.
+- Setup gains another authored artifact. The work happens while the configuring agent has the repository evidence and decisions from setup in view.
+- The skill path has no setup marker check. Completion there depends on the skill instruction.
+- Future edits to the seed affect technical documentation and a brand surface inside user repositories. They require product accuracy, balanced consequences, and brand review.
+- The citation guard carries a narrow exception for the seeded file and path.
 
 ## Alternatives considered
 
-- **Tool-side template replacement** (project name, stack, dates stamped by the binary). Rejected: it yields a generic artifact that records no real reasoning, and the setup architecture already provides a better instantiation mechanism — the agent in the loop.
-- **Not seeding; teaching by README alone.** Rejected: that was the status quo, and it leaves the adoption unrecorded, the corpus empty, and the first record's register to chance.
-- **A provenance footer outside the record's body.** Rejected by the owner: a footer reads as an afterthought or a smuggled namedrop; woven into the decision's own prose, the same sentence carries substance.
+- **Fill the record with tool-side tokens.** Project names and commands would produce a generic artifact without the reasoning behind the adoption decision.
+- **Leave the ADR history empty.** The adoption decision would remain unrecorded, and the first later ADR would have no worked example.
+- **Put provenance in a footer.** A separate branded element would detach attribution from the history it explains. The inline sentence identifies who created the record where authorship matters.

@@ -272,7 +272,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0280 — Results pair one structured contract with authored Markdown](0280-authored-markdown-result-presentations.md)
 - [0281 — Main fleet status is a decision brief](0281-main-fleet-status-is-a-decision-brief.md)
 - [0282 — Self-invocations carry recorded provenance](0282-self-invocations-carry-recorded-provenance.md)
-- [0283 — The shipped skeletons seed the adoption record](0283-skeletons-seed-the-adoption-record.md)
+- [0283 — Seed the decision to adopt discern as the first ADR](0283-skeletons-seed-the-adoption-record.md)
 
 <!-- END GENERATED: current ADR records -->
 
