@@ -94,6 +94,38 @@ Deno.test("runParallel: observer sees starts up front and settlements in real co
   }
 });
 
+Deno.test("buffered capture feeds complete and partial text to a separate live observer", async () => {
+  const events: string[] = [];
+  const result = await runParallel([{
+    label: "chatty",
+    command: "printf 'first\\npar'; sleep 0.05; printf 'tial\\n'; exit 1",
+  }], {
+    cwd: CWD,
+    stream: false,
+    failFast: false,
+    color: false,
+    quiet: true,
+    outputObserver: {
+      output: (event): void => {
+        events.push(`${event.kind}:${event.label}:${event.text}`);
+      },
+    },
+  });
+
+  assertEquals(result.ok, false);
+  assert(events.includes("line:chatty:first"), events.join("\n"));
+  assert(events.includes("partial:chatty:par"), events.join("\n"));
+  assert(events.includes("line:chatty:partial"), events.join("\n"));
+  const failure = result.results[0];
+  assertEquals(failure?.output, "first\npartial\n");
+  assertEquals(failure?.outputLines, 2);
+  assert(failure?.outputPath !== undefined);
+  assertEquals(
+    await Deno.readTextFile(failure.outputPath),
+    "first\npartial\n",
+  );
+});
+
 Deno.test("runParallel: every job executes in its required cwd", async () => {
   const dir = await Deno.makeTempDir({ prefix: "discern-job-cwd-" });
   try {

@@ -12,7 +12,7 @@
 
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { activeInvocationId } from "../logbook/invocation_context.ts";
-import type { Job, JobResult } from "./types.ts";
+import type { Job, JobOutputObserver, JobResult } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
 import { selfShimPath } from "../../shared/self_shim.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
@@ -46,6 +46,8 @@ export interface SpawnOptions {
   /** Attach the captured output to the result even on a CLEAN exit — for a job
    * whose verdict is judged from its output rather than its exit code. */
   keepOutput?: boolean;
+  /** Observe decoded child text without changing capture or static streaming. */
+  outputObserver?: JobOutputObserver;
 }
 
 /** A finished job: its result plus captured output (buffered mode only). */
@@ -173,6 +175,50 @@ async function streamPrefixed(
 }
 
 /**
+ * Decode the combined child-byte arrival order into presentation-only complete
+ * and partial lines. Capture keeps the original bytes and never depends on this
+ * observer path.
+ */
+class JobOutputFeed {
+  private readonly decoder = new TextDecoder();
+  private pending = "";
+
+  constructor(
+    private readonly label: string,
+    private readonly observer: JobOutputObserver | undefined,
+  ) {}
+
+  write(chunk: Uint8Array): void {
+    this.observe(this.decoder.decode(chunk, { stream: true }));
+  }
+
+  finish(): void {
+    this.observe(this.decoder.decode());
+    if (this.pending !== "") this.emit("partial", this.pending);
+  }
+
+  private observe(text: string): void {
+    if (text === "") return;
+    this.pending += text;
+    let newline = this.pending.indexOf("\n");
+    while (newline >= 0) {
+      this.emit("line", this.pending.slice(0, newline));
+      this.pending = this.pending.slice(newline + 1);
+      newline = this.pending.indexOf("\n");
+    }
+    this.emit("partial", this.pending);
+  }
+
+  private emit(kind: "line" | "partial", text: string): void {
+    try {
+      this.observer?.output({ kind, label: this.label, text });
+    } catch {
+      // Presentation failure cannot change child capture or the job verdict.
+    }
+  }
+}
+
+/**
  * Run one job to completion. An empty command becomes the `:` no-op (exit 0).
  * A command that calls `exit N` exits its own
  * `sh -c` shell, so the recorded code is N — not a runner failure.
@@ -293,17 +339,24 @@ export async function spawnJob(
     }`;
   };
   const drain = async (s: ReadableStream<Uint8Array>): Promise<void> => {
+    const outputFeed = new JobOutputFeed(job.label, opts.outputObserver);
     const source = readChunks(s, readers);
-    if (opts.stream) {
-      await streamPrefixed(source, job.label, opts.write, async (chunk) => {
-        retainCapped(chunk);
-        await outputRecorder.write(chunk);
-      });
-    } else {
-      for await (const c of source) {
-        chunks.push(c);
-        await outputRecorder.write(c);
+    try {
+      if (opts.stream) {
+        await streamPrefixed(source, job.label, opts.write, async (chunk) => {
+          outputFeed.write(chunk);
+          retainCapped(chunk);
+          await outputRecorder.write(chunk);
+        });
+      } else {
+        for await (const c of source) {
+          outputFeed.write(c);
+          chunks.push(c);
+          await outputRecorder.write(c);
+        }
       }
+    } finally {
+      outputFeed.finish();
     }
   };
   await Promise.all([drain(child.stdout), drain(child.stderr)]);
