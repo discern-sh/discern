@@ -1,12 +1,12 @@
-# ADR 0283: Seed the decision to adopt discern as the first ADR
+# ADR 0283: Seed the adoption record in the shipped skeletons
 
 **Status**: accepted
 
 ## Context
 
-New discern installations receive an ADR guide and template. Their decision history begins empty, without a worked example. It also omits a consequential choice: adopting discern changes how the project prepares agent work, verifies changes, maintains shared knowledge, and decides what lands.
+New discern installations receive an ADR guide and template. The project's decision history therefore begins empty: later records have no worked example, and the adoption of discern itself goes unrecorded, even though it changes how the project prepares agent work, verifies changes, maintains shared knowledge, and decides what lands.
 
-Setup is the right point to complete that record. Before completing the Map, the configuring agent has surveyed the repository and wired the project's Gate jobs. The agent has also written the project's guidance and design principles. It can explain the project's reasons and consequences from repository evidence and the setup conversation. Fixed tokens can state names and commands. Capturing the reasoning requires the configuring agent.
+Setup is the right point to write that record. By the time the Map is authored, the configuring agent has surveyed the repository, wired the Gate's jobs, and written the project's guidance and design principles, so it can explain the adoption's reasons and consequences from repository evidence and the setup conversation. Fixed tokens can state names and commands; the reasoning requires the agent.
 
 The seed gives discern a named, linked presence in adopting repositories. A future contributor may encounter this record before any other discern surface. Its value to the project must justify that presence: the record needs to be specific, balanced, and clear about its provenance.
 
@@ -26,7 +26,7 @@ The seed contains no `{{…}}` tokens. The configuring agent authors the project
 
 discern seeds no later ADRs. Upgrades and refreshes leave the project's decision history to the project.
 
-The shipped-copy guard permits the seeded file to cite `ADR 0001` in its title and permits its path in shipped instructions. Other numbered ADR citations remain excluded from shipped surfaces.
+The shipped-copy guard permits the seeded file to cite its own number and shipped instructions to reference its path. Other numbered ADR citations remain excluded from shipped surfaces.
 
 ## Consequences
 
