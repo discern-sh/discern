@@ -72,4 +72,4 @@ Interactive input goes through [`terminal_interaction.ts`](../../../src/lib/term
 
 Outside the authority there are only protocol surfaces: the machine envelope chokepoint ([`emit.ts`](../../../src/shared/emit.ts)), scalar stdout values for shell capture, raw document bodies, the crash frame, and project-owned child streams. [`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) names each one with an exact count; a new direct `console.log`, a hand-emitted boundary newline, a narration glyph outside the authority, or `padEnd` alignment in a shipped human surface fails the gate.
 
-A change to human terminal output also follows the [terminal-output review loop](../80-development/reviewing-terminal-output.md): capture the real command before and after, inspect the package-projected HTML, and attach the rendered artifact path to the handoff.
+A change to human terminal output also follows the [terminal-output review loop](../80-development/reviewing-terminal-output.md): capture the real command before and after, inspect the visual browser rendering, and attach the HTML artifact path to the handoff.
