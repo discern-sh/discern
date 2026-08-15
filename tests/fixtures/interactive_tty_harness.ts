@@ -20,8 +20,8 @@ import {
   type TerminalIO,
 } from "discern-design-system/cli/interactive";
 import {
-  productionTerminalContext,
   setTerminalContext,
+  terminalProcessContext,
 } from "../../src/lib/terminal.ts";
 
 export type InteractiveTtyScenario =
@@ -346,8 +346,8 @@ async function runScenario(
       // A board-shaped composition: each cycle clears the screen, paints a
       // header, opens a grouped board menu that reserves the header's rows,
       // then clears again for a preamble and a grouped action menu. The
-      // parent test asserts every window's painted height stays full and
-      // constant across cycles.
+      // parent test asserts every header stays reserved and every window's
+      // painted height stays full and constant across cycles.
       const encoder = new TextEncoder();
       const raw = (value: string): void => {
         const bytes = encoder.encode(value);
@@ -517,7 +517,7 @@ async function main(args: readonly string[]): Promise<void> {
   const before = await stty(["-g"]);
   const beforeDescription = await stty(["-a"]);
   const initialSize = consoleSize();
-  setTerminalContext(productionTerminalContext({ noColor: options.noColor }));
+  setTerminalContext(terminalProcessContext({ noColor: options.noColor }));
   const eofBoundary = options.canonicalEof
     ? canonicalEofBoundary()
     : undefined;

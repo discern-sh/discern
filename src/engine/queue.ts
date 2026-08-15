@@ -45,15 +45,21 @@ export type QueueInvocation =
 export function parseQueueInvocation(
   argsWithoutVerb: readonly string[],
   globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string> = new Set(),
 ): QueueInvocation {
   let index = 0;
   const wrapperFlags: string[] = [];
-  while (
-    index < argsWithoutVerb.length &&
-    globalFlags.has(argsWithoutVerb[index] ?? "")
-  ) {
-    wrapperFlags.push(argsWithoutVerb[index] ?? "");
-    index++;
+  while (index < argsWithoutVerb.length) {
+    const token = argsWithoutVerb[index] ?? "";
+    const equals = token.indexOf("=");
+    const flag = globalFlags.has(token)
+      ? token
+      : equals > 0 && valueFlags.has(token.slice(0, equals))
+      ? token.slice(0, equals)
+      : undefined;
+    if (flag === undefined) break;
+    wrapperFlags.push(flag);
+    index += equals > 0 || !valueFlags.has(flag) ? 1 : 2;
   }
   const args = argsWithoutVerb.slice(index);
   if (args.length === 1 && (args[0] === "-h" || args[0] === "--help")) {

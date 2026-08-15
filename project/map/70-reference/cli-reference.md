@@ -71,12 +71,13 @@ Use this page to look up the exact syntax and flags for every visible `discern` 
 
 These options are inherited unless a command's entry says otherwise. Tokens beyond an exec-style child boundary are never discern options.
 
-| Option       | Description                                                                                             |
-| ------------ | ------------------------------------------------------------------------------------------------------- |
-| `--json`     | Emit one JSON result on stdout.                                                                         |
-| `--markdown` | Emit one Markdown result on stdout.                                                                     |
-| `--no-color` | Disable colour (also honours NO_COLOR and non-TTY output).                                              |
-| `--plain`    | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior. |
+| Option            | Description                                                                                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`          | Emit one JSON result on stdout.                                                                                                                                                  |
+| `--markdown`      | Emit one Markdown result on stdout.                                                                                                                                              |
+| `--no-color`      | Disable colour (also honours NO_COLOR and non-TTY output).                                                                                                                       |
+| `--plain`         | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.                                                                          |
+| `--theme <theme>` | Set the terminal theme. `auto` senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing. `light` and `dark` still force that variant. Default: `auto`. |
 
 ## Your desk
 

@@ -369,12 +369,12 @@ const PROCESS_CAPABILITY_RULES = [
   {
     id: "terminal-environment-read",
     pattern:
-      /\b(?:Deno\.)?env\.get\(\s*["'](?:TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)["']/u,
+      /\b(?:Deno\.)?env\.get\(\s*["'](?:TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES|COLORFGBG)["']/u,
   },
   {
     id: "Node-terminal-environment-read",
     pattern:
-      /\bprocess\.env(?:\.|\[\s*["'])(?:TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)\b/u,
+      /\bprocess\.env(?:\.|\[\s*["'])(?:TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES|COLORFGBG)\b/u,
   },
 ] as const;
 
@@ -956,6 +956,8 @@ function inspectableComponentProps(node: Deno.lint.Node): boolean {
 function structuralTerminalFindings(rel: string, source: string): Finding[] {
   const findings: Finding[] = [];
   const renderers = new Map<string, string>();
+  const backgroundSensors = new Set<string>();
+  const terminalIoConstructors = new Set<string>();
   const sanitizers = new Set<string>();
   const multilineSanitizers = new Set<string>();
   const capabilityBindings = new Set<string>([
@@ -1027,6 +1029,13 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   }
                   if (imported === "TerminalIO") {
                     add("package-terminal-io-import", node);
+                  }
+                  if (imported === "DenoTerminalIO") {
+                    terminalIoConstructors.add(entry.local.name);
+                  }
+                  if (imported === "senseTerminalBackground") {
+                    backgroundSensors.add(entry.local.name);
+                    add("package-background-sensor-import", node);
                   }
                 }
               }
@@ -1134,9 +1143,17 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                 node.callee.type === "Identifier" &&
                 node.callee.name === "InlineFramePainter"
               ) add("direct-inline-painter-construction", node);
+              if (
+                node.callee.type === "Identifier" &&
+                terminalIoConstructors.has(node.callee.name)
+              ) add("package-terminal-io-construction", node);
             },
             CallExpression(node): void {
               const callee = context.sourceCode.getText(node.callee);
+              if (
+                node.callee.type === "Identifier" &&
+                backgroundSensors.has(node.callee.name)
+              ) add("package-background-sensing-call", node);
               if (
                 node.callee.type === "MemberExpression" &&
                 propertyName(node.callee.property) ===
@@ -1160,7 +1177,7 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                 node.arguments.some((argument) =>
                   argument.type === "Literal" &&
                   typeof argument.value === "string" &&
-                  /^(?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)$/u
+                  /^(?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES|COLORFGBG)$/u
                     .test(argument.value)
                 )
               ) add("process-terminal-environment-probe", node);
@@ -1435,17 +1452,34 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
   {
     file: TERMINAL_AUTHORITY,
     rule: "process-stream-terminal-probe",
-    authority: "productionTerminalContext",
+    authority: "createProductionTerminalContextResolver",
+    count: 2,
+    reason:
+      "The production terminal adapter snapshots stdout and stdin attachment before sensing.",
+  },
+  {
+    file: TERMINAL_AUTHORITY,
+    rule: "process-stream-terminal-probe",
+    authority: "terminalProcessContext",
     count: 1,
-    reason: "The production terminal adapter snapshots stdout attachment once.",
+    reason:
+      "The synchronous fallback snapshots stdout without running the background sensor.",
   },
   {
     file: TERMINAL_AUTHORITY,
     rule: "process-console-size-probe",
-    authority: "productionTerminalContext",
+    authority: "createProductionTerminalContextResolver",
     count: 1,
     reason:
       "The production terminal adapter owns the initial viewport and its injectable live reader.",
+  },
+  {
+    file: TERMINAL_AUTHORITY,
+    rule: "process-console-size-probe",
+    authority: "terminalProcessContext",
+    count: 1,
+    reason:
+      "The synchronous fallback owns its injectable initial viewport observation.",
   },
   {
     file: TERMINAL_AUTHORITY,
@@ -1454,6 +1488,45 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
     count: 1,
     reason:
       "The retained dimension facade delegates its default observation here.",
+  },
+  {
+    file: TERMINAL_AUTHORITY,
+    rule: "package-background-sensor-import",
+    authority: "<module>",
+    count: 1,
+    reason:
+      "The process adapter is the sole caller of the package background sensor.",
+  },
+  {
+    file: TERMINAL_AUTHORITY,
+    rule: "package-background-sensing-call",
+    authority: "packageBackgroundSensor",
+    count: 1,
+    reason:
+      "One package call owns background sensing before the process caches its verdict.",
+  },
+  {
+    file: TERMINAL_AUTHORITY,
+    rule: "package-terminal-io-construction",
+    authority: "createPackageTerminalIo",
+    count: 1,
+    reason:
+      "The process adapter owns the package terminal IO shared by sensing and interaction.",
+  },
+  {
+    file: "src/main.ts",
+    rule: "direct-theme-threading",
+    authority: "<module>",
+    count: 1,
+    reason: "The root-global flag registry owns the `--theme` spelling.",
+  },
+  {
+    file: "src/main.ts",
+    rule: "direct-theme-threading",
+    authority: "main",
+    count: 1,
+    reason:
+      "The root flag hands one user-selected theme mode to the process adapter.",
   },
   {
     file: INTERACTION_AUTHORITY,
@@ -1545,7 +1618,7 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
     authority: "<module>",
     count: 1,
     reason:
-      "The product interaction choke point owns the package IO lifecycle.",
+      "The product interaction choke point types requests while the process adapter owns IO lifecycle.",
   },
   {
     file: PAINTER_AUTHORITY,
@@ -1673,9 +1746,9 @@ function presentationProbeFindings(
   for (const match of code.matchAll(/\bDeno\.env\.get\s*\(([^)]*)\)/gu)) {
     const argument = match[1] ?? "";
     if (
-      /["'](?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)["']/u
+      /["'](?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES|COLORFGBG)["']/u
         .test(argument) ||
-      /\b(?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)\b/u
+      /\b(?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES|COLORFGBG)\b/u
         .test(argument)
     ) {
       findings.push({ file: rel, rule: "direct-terminal-environment-probe" });
@@ -2012,7 +2085,7 @@ Deno.test("the 84-use legacy palette census reached permanent zero", async () =>
 Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and safe-text bypasses", () => {
   const source = [
     'import { Table } from "@cliffy/table";',
-    `import { InlineFramePainter, type TerminalIO, requestFuture as ask } from "${INTERACTIVE_MODULE}";`,
+    `import { DenoTerminalIO as GroundChannel, InlineFramePainter, type TerminalIO, requestFuture as ask, senseTerminalBackground as detectGround } from "${INTERACTIVE_MODULE}";`,
     'import { renderOrbitCli as future, renderResultSummaryCli as draw } from "discern-design-system/cli";',
     'import { terminalLine as safe } from "../../lib/terminal.ts";',
     'const dynamic = import("@cliffy/prompt");',
@@ -2027,7 +2100,9 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     'const cycle = ["◢", "◣", "◤", "◥"];',
     'function orbitPalette() { return { reset: "", red: "", green: "", cyan: "" }; }',
     "new InlineFramePainter({} as TerminalIO);",
+    "new GroundChannel({});",
     'ask({ label: "Future" });',
+    "await detectGround({});",
     "draw({ fact: row.path, counts: [{ label: meta.name, value: `${meta.value}` }] }, {});",
     "const alias = draw;",
     "const fact = row.path;",
@@ -2064,6 +2139,9 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "package-inline-painter-import",
       "package-terminal-io-import",
       "package-request-import:requestFuture",
+      "package-background-sensor-import",
+      "package-background-sensing-call",
+      "package-terminal-io-construction",
       "dynamic-interactive-package-import",
       "dynamic-cli-package-import",
       "direct-inline-painter-construction",
