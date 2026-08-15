@@ -879,7 +879,7 @@
       "properties": {
         "stream": {
           "default": false,
-          "description": "Choose transcript timing on static terminal surfaces (CI, pipes, --plain, and terminals without cursor control). True streams each job's output line-prefixed; false buffers complete per-job output and prints it grouped. A live-capable terminal always shows a bounded output tail inside the Gate frame, regardless of this setting. Off by default (static grouped).",
+          "description": "Controls static terminal transcripts only: false groups complete per-job output; true streams prefixed lines. Live-capable terminals always show the Gate frame's bounded tail. CI, pipes, --plain, and no-cursor terminals are static. Off by default.",
           "type": "boolean"
         },
         "fail_fast": {

@@ -746,10 +746,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 [gate]
-  # Choose transcript timing on static surfaces: CI, pipes, --plain, and terminals
-  # without cursor control. True streams line-prefixed job output; false buffers
-  # complete per-job output and prints it grouped. A live-capable terminal always
-  # shows a bounded output tail inside the Gate frame. Off by default (grouped).
+  # Controls static terminal transcripts only: false groups complete per-job output;
+  # true streams prefixed lines. Live-capable terminals always show the Gate frame's
+  # bounded tail. CI, pipes, --plain, and no-cursor terminals are static. Off by default.
   stream = false
 
   # Cancel the in-flight sibling commands the moment one fails, instead of running
