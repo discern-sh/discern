@@ -2,11 +2,14 @@
 
 const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
+const ESCAPE_BYTE = 0x1b;
 
 /** One input write relative to an observed-ready phase. */
 export interface PtyInputStep {
   readonly delayMs?: number;
   readonly bytes?: string | Uint8Array;
+  /** Allow an intentional lone Escape key press before later scripted input. */
+  readonly allowLoneEscape?: boolean;
 }
 
 /** Input that cannot begin until the child has rendered a named marker. */
@@ -58,6 +61,7 @@ function shellQuote(value: string): string {
 export async function runPtyProcess(
   options: PtyProcessOptions,
 ): Promise<PtyProcessResult> {
+  validateInput(options.input);
   if (Deno.build.os === "windows") {
     throw new Error("the interactive PTY harness requires script(1)");
   }
@@ -185,11 +189,9 @@ export async function runPtyProcess(
           for (const step of phase.steps) {
             const delayMs = step.delayMs ?? 0;
             if (delayMs > 0) await delay(delayMs);
-            if (step.bytes !== undefined) {
-              const bytes = typeof step.bytes === "string"
-                ? ENCODER.encode(step.bytes)
-                : step.bytes;
-              if (bytes.length > 0) await writer.write(bytes);
+            const bytes = inputBytes(step);
+            if (bytes !== undefined && bytes.length > 0) {
+              await writer.write(bytes);
             }
           }
           cursor = nextCursor;
@@ -241,6 +243,35 @@ export async function runPtyProcess(
     transcript: stdout + stderr,
     keyframes,
   };
+}
+
+function validateInput(
+  phases: readonly PtyInputPhase[] | undefined,
+): void {
+  if (phases === undefined) return;
+  let pendingLoneEscape = false;
+  for (const phase of phases) {
+    for (const step of phase.steps) {
+      const bytes = inputBytes(step);
+      if (bytes === undefined || bytes.length === 0) continue;
+      if (pendingLoneEscape) {
+        throw new TypeError(
+          "PTY input must not leave a lone Escape byte before later input; " +
+            "join Escape to its first continuation byte in one step, or set " +
+            "allowLoneEscape for an intentional Escape key press",
+        );
+      }
+      pendingLoneEscape = bytes[bytes.length - 1] === ESCAPE_BYTE &&
+        step.allowLoneEscape !== true;
+    }
+  }
+}
+
+function inputBytes(step: PtyInputStep): Uint8Array | undefined {
+  if (step.bytes === undefined) return undefined;
+  return typeof step.bytes === "string"
+    ? ENCODER.encode(step.bytes)
+    : step.bytes;
 }
 
 function containsSequence(
