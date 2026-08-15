@@ -26,7 +26,7 @@ The list above maintains itself: `discern refresh` rewrites everything between t
 
 Scan this directory for the highest existing number and add one. Numbers are **continuous and never reused** — even a superseded ADR keeps its number and stays in the directory (it is marked superseded, not deleted). The number is a stable identifier other docs and commit messages can cite.
 
-`0000-template.md` is the copy-paste template and is not itself a decision. discern seeds `0001` with the decision to adopt the practice. The configuring agent completes it with this project's context, Gate, and consequences.
+`0000-template.md` is the copy-paste template and is not itself a decision. discern seeds `0001` with the decision to adopt the practice, and the agent configuring the project completes its project-specific sections.
 
 ## Status
 
