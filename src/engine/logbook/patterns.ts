@@ -25,6 +25,8 @@ import { agentLabel } from "../../shared/agent_catalogue.ts";
 import { basename, join } from "@std/path";
 import {
   renderCommandCli,
+  renderDiffstatCli,
+  renderEmptyStateCli,
   renderFileChangeCli,
   renderMeterCli,
   renderProcedureCli,
@@ -814,15 +816,15 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
   if (data.logbook.events === 0) {
     out.group("empty-logbook");
     out.raw(`${
-      presenter.present(renderResultSummaryCli, {
-        state: "unchanged",
-        fact: terminalLine(
-          "The Logbook is empty. Privacy: local metadata only; nothing leaves the machine.",
+      presenter.present(renderEmptyStateCli, {
+        title: terminalLine("The Logbook is empty"),
+        description: terminalLine(
+          "Privacy: local metadata only; nothing leaves the machine.",
         ),
-        nextAction: terminalLine(
+        action: terminalLine(
           "Check back after discern records local metadata for some verb runs.",
         ),
-        maxWidth: width,
+        width,
       })
     }\n`);
     return;
@@ -836,9 +838,12 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
 
 // ── practice stats ─────────────────────────────────────────────────────────
 
-/** The empty-state line for a stats card with no analyzed runs behind it. */
-export const STATS_EMPTY_MESSAGE =
-  "No stats yet: the Logbook holds no analyzed runs. Check back after some use.";
+/** Empty-state title for a stats card with no analyzed runs behind it. */
+export const STATS_EMPTY_TITLE = "No stats yet";
+
+/** Empty-state explanation for a stats card with no analyzed runs behind it. */
+export const STATS_EMPTY_DESCRIPTION =
+  "The Logbook holds no analyzed runs. Check back after some use.";
 
 /** The card's provenance line — where every number comes from, and how far
  * it travels. */
@@ -915,6 +920,14 @@ function statsHeaderLine(data: PatternsData, stats: PatternsStats): string {
   return parts.join(" · ");
 }
 
+interface StatsDiffstatReading {
+  readonly kind: "diffstat";
+  readonly added: number;
+  readonly removed: number;
+}
+
+type StatsReading = string | StatsDiffstatReading;
+
 /** The accepted section: changes accepted and their recorded scale. A single
  * accepted change keeps the card quiet about "biggest" and "best day" — with
  * one member, both would restate the change itself. Records read in yellow;
@@ -922,11 +935,11 @@ function statsHeaderLine(data: PatternsData, stats: PatternsStats): string {
  * git-style, green and red. */
 function statsAcceptedRows(
   accepted: PatternsStats["accepted"],
-): string[] {
+): StatsReading[] {
   if (accepted.count === 0) {
     return ["Nothing accepted yet."];
   }
-  const rows = [
+  const rows: StatsReading[] = [
     `${plural(accepted.count, "change")} accepted from ${
       plural(accepted.branches, "branch", "branches")
     }${accepted.commits > 0 ? ` · ${plural(accepted.commits, "commit")}` : ""}`,
@@ -935,16 +948,18 @@ function statsAcceptedRows(
     const ratio = accepted.deletions > 0
       ? round1(accepted.insertions / accepted.deletions)
       : undefined;
+    const ratioText = ratio === undefined
+      ? ""
+      : ` · ${formatHumanNumber(ratio)} ${
+        ratio === 1 ? "line" : "lines"
+      } added per line removed`;
     rows.push(
-      `+${formatHumanNumber(accepted.insertions)} −${
-        formatHumanNumber(accepted.deletions)
-      } across ${plural(accepted.files, "file")}${
-        ratio !== undefined
-          ? ` · ${formatHumanNumber(ratio)} ${
-            ratio === 1 ? "line" : "lines"
-          } added per line removed`
-          : ""
-      }`,
+      {
+        kind: "diffstat",
+        added: accepted.insertions,
+        removed: accepted.deletions,
+      },
+      `${plural(accepted.files, "file")}${ratioText}`,
     );
   }
   if (accepted.cleanups > 0) {
@@ -1314,7 +1329,7 @@ function statsSection(
   out: Out,
   width: number,
   label: string,
-  rows: readonly string[],
+  rows: readonly StatsReading[],
   spark?: StatsSpark | undefined,
 ): void {
   const { presenter } = presentationFacts(out);
@@ -1330,13 +1345,18 @@ function statsSection(
     })
   }\n`);
   for (const row of rows) {
-    out.raw(`${
-      presenter.present(renderResultSummaryCli, {
+    const rendered = typeof row === "string"
+      ? presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: terminalMultiline(row),
         maxWidth: width,
       })
-    }\n`);
+      : presenter.present(renderDiffstatCli, {
+        added: row.added,
+        removed: row.removed,
+        maxWidth: width,
+      });
+    out.raw(`${rendered}\n`);
   }
 }
 
@@ -1360,10 +1380,10 @@ function renderStatsReport(
   ));
   if (data.population.analyzed === 0) {
     out.raw(`${
-      presenter.present(renderResultSummaryCli, {
-        state: "unchanged",
-        fact: terminalLine(STATS_EMPTY_MESSAGE),
-        maxWidth: width,
+      presenter.present(renderEmptyStateCli, {
+        title: terminalLine(STATS_EMPTY_TITLE),
+        description: terminalLine(STATS_EMPTY_DESCRIPTION),
+        width,
       })
     }\n`);
     return;

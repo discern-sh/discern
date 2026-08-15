@@ -11,6 +11,8 @@ import { basename } from "@std/path";
 import {
   type FleetCliProps,
   renderDiagnosticCli,
+  renderDiffstatCli,
+  renderEmptyStateCli,
   renderFleetCli,
   renderRawOutputCli,
   renderReceiptCli,
@@ -1172,7 +1174,7 @@ function renderLastLanding(
   if (data.landed_proof !== undefined) {
     const proof = data.landed_proof.proof;
     const age = relativeAge(data.landed_proof.commit_at, nowMs);
-    return [{
+    const receipt: StatusSectionLine = {
       verbatim: c.presenter.present(renderReceiptCli, {
         title: terminalLine("Last landing"),
         stamp: "pass",
@@ -1186,15 +1188,22 @@ function renderLastLanding(
         checks: [{
           label: terminalLine("Files"),
           state: "pass",
-          value: terminalLine(
-            `${
-              fileCount(proof.files_total)
-            } · +${proof.insertions} −${proof.deletions}`,
-          ),
+          value: terminalLine(fileCount(proof.files_total)),
         }],
         maxWidth: width,
       }),
-    }];
+    };
+    const changedLines = proof.insertions + proof.deletions;
+    return [
+      receipt,
+      ...(changedLines === 0 ? [] : [{
+        verbatim: c.presenter.present(renderDiffstatCli, {
+          added: proof.insertions,
+          removed: proof.deletions,
+          maxWidth: width,
+        }),
+      }]),
+    ];
   }
   if (data.landed_proof_unsupported !== undefined) {
     return [{
@@ -1373,10 +1382,9 @@ export function renderStatusDashboard(
     blocks.push(section(
       "Worktrees",
       [{
-        verbatim: c.presenter.present(renderResultSummaryCli, {
-          state: "unchanged",
-          fact: terminalLine("No active worktrees."),
-          maxWidth: contentWidth,
+        verbatim: c.presenter.present(renderEmptyStateCli, {
+          title: terminalLine("No active worktrees"),
+          width: contentWidth,
         }),
       }],
       c,

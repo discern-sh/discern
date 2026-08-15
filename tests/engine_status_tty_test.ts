@@ -891,6 +891,7 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
   assertStringIncludes(output, "Per-worktree actions aren't available");
   assertStringIncludes(output, "6 files changed");
   assertStringIncludes(output, "+20 −4");
+  assert(!squash(output).includes("6 files changed · +20 −4"));
   assertStringIncludes(output, "1h ago");
   assert(!output.includes("refs/notes/discern"));
   assert(!output.includes("data.fleet"));
@@ -909,6 +910,13 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
     true,
   );
   assertStringIncludes(verbose, "| ran | result |");
+});
+
+Deno.test("status dashboard: an empty fleet uses the package EmptyState", () => {
+  const output = render(data([mainEntry()]), 72);
+  assertStringIncludes(output, "Empty");
+  assertStringIncludes(output, "No active worktrees");
+  assertLinesFit(output, 72);
 });
 
 Deno.test("status dashboard: every interactive status hint avoids machine-field directions", () => {

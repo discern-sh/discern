@@ -51,7 +51,8 @@ import {
   PATTERNS_TONE_RESULT_STATE,
   PATTERNS_TRAJECTORY_CAVEAT,
   patternsResult,
-  STATS_EMPTY_MESSAGE,
+  STATS_EMPTY_DESCRIPTION,
+  STATS_EMPTY_TITLE,
   STATS_PROVENANCE,
   STATS_SECTIONS,
 } from "../src/engine/logbook/patterns.ts";
@@ -1599,8 +1600,9 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
     assertStringIncludes(
       card,
-      "+130 −30 across 3 files · 4.3 lines added per line removed",
+      "+130 −30",
     );
+    assertStringIncludes(card, "3 files · 4.3 lines added per line removed");
     assertStringIncludes(
       card,
       "biggest: `agent/b1` · 150 changed lines · 2 files (2026-07-01)",
@@ -1683,7 +1685,9 @@ Deno.test("patterns --stats: an empty logbook renders the empty state, and the w
       env: { COLUMNS: "100", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(normalized(human.output), STATS_EMPTY_MESSAGE);
+    const empty = normalized(human.output);
+    assertStringIncludes(empty, STATS_EMPTY_TITLE);
+    assertStringIncludes(empty, STATS_EMPTY_DESCRIPTION);
 
     const json = await runAgent(dir, ["patterns", "--stats", "--json"]);
     assertEquals(json.code, 0, json.output);
