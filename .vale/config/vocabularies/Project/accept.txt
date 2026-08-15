@@ -142,7 +142,6 @@ Netlify
 noglob
 npm
 Nx
-Nygard's?
 OAuth
 onboarding
 orgs?
