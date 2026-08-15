@@ -10,7 +10,6 @@ import {
   renderDialogCli,
 } from "discern-design-system/cli";
 import {
-  DenoTerminalIO,
   InteractionCancelled as PackageInteractionCancelled,
   type InteractionEntry,
   type InteractionRuntime as PackageInteractionRuntime,
@@ -46,6 +45,7 @@ import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.t
 import {
   type TerminalContext,
   terminalContext,
+  terminalInteractionIo,
   terminalLine,
   terminalMultiline,
   terminalSize,
@@ -621,9 +621,7 @@ function packageInteractionRuntime(
     target = runtime.io;
   } else {
     const terminal = terminalContext();
-    target = new DenoTerminalIO({
-      environment: terminal.environment,
-    });
+    target = terminalInteractionIo(terminal);
     theme = terminal.themeVariant;
   }
 

@@ -2,12 +2,16 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { renderBadgeCli, stripAnsi } from "discern-design-system/cli";
-import type { TerminalBackgroundReading } from "discern-design-system/cli/interactive";
+import type {
+  TerminalBackgroundReading,
+  TerminalIO,
+} from "discern-design-system/cli/interactive";
 import {
   createProductionTerminalContextResolver,
   productionTerminalContext,
   resolveTerminalContext,
   TERMINAL_BACKGROUND_TIMEOUT_MS,
+  terminalInteractionIo,
   terminalLine,
   terminalMultiline,
   terminalSize,
@@ -322,6 +326,34 @@ Deno.test("adaptive production sensing is cached once per process resolver", asy
   assertEquals(calls, 1);
 });
 
+Deno.test("background sensing and later interactions share one process IO", async () => {
+  const io: TerminalIO = {
+    isInteractive: () => true,
+    capabilities: () => ({
+      ansiControl: true,
+      colorDepth: "ansi256",
+      columns: 80,
+      unicode: true,
+    }),
+    size: () => ({ columns: 80, rows: 24 }),
+    read: () => Promise.resolve(null),
+    setRawMode: () => {},
+    write: () => {},
+  };
+  let sensedIo: TerminalIO | undefined;
+  const resolve = createProductionTerminalContextResolver((options) => {
+    sensedIo = options.io;
+    return Promise.resolve({
+      ground: "dark",
+      evidence: { source: "environment-hint", value: "15;0" },
+    });
+  });
+  const context = await resolve({ ...adaptiveProcess, backgroundIo: io });
+  assert(sensedIo === io);
+  assert(terminalInteractionIo(context) === sensedIo);
+  assert(terminalInteractionIo(context) === io);
+});
+
 Deno.test("non-TTY and result-projection contexts never invoke background sensing", async () => {
   let calls = 0;
   let inputChecks = 0;
@@ -352,7 +384,7 @@ Deno.test("non-TTY and result-projection contexts never invoke background sensin
   assertEquals(calls, 0);
 });
 
-Deno.test("theme overrides skip sensing while no-color auto mode still resolves a variant", async () => {
+Deno.test("theme overrides survive no-color while colorless auto mode skips sensing", async () => {
   let calls = 0;
   let inputChecks = 0;
   const resolve = createProductionTerminalContextResolver(() => {
@@ -386,10 +418,40 @@ Deno.test("theme overrides skip sensing while no-color auto mode still resolves 
       return true;
     },
   });
-  assertEquals(automatic.themeVariant, "light");
+  assertEquals(automatic.themeVariant, "dark");
   assertEquals(automatic.color, false);
-  assertEquals(inputChecks, 1);
-  assertEquals(calls, 1);
+  assertEquals(inputChecks, 0);
+  assertEquals(calls, 0);
+});
+
+Deno.test("NO_COLOR and CI static output skip auto background sensing", async () => {
+  for (
+    const environment of [
+      { TERM: "xterm-256color", NO_COLOR: "1" },
+      { TERM: "xterm-256color", CI: "1" },
+    ]
+  ) {
+    let calls = 0;
+    let inputChecks = 0;
+    const resolve = createProductionTerminalContextResolver(() => {
+      calls += 1;
+      return Promise.resolve({
+        ground: "light",
+        evidence: { source: "environment-hint", value: "0;15" },
+      });
+    });
+    const context = await resolve({
+      ...adaptiveProcess,
+      env: fakeEnv(environment),
+      inputIsTerminal: () => {
+        inputChecks += 1;
+        return true;
+      },
+    });
+    assertEquals(context.themeVariant, "dark");
+    assertEquals(inputChecks, 0);
+    assertEquals(calls, 0);
+  }
 });
 
 Deno.test("terminal-size compatibility reads only dimension facts", () => {

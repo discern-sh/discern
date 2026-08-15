@@ -257,7 +257,7 @@ export function buildCli(
     )
     .globalOption(
       `${ROOT_GLOBAL_FLAGS.theme} <theme:string>`,
-      "Set the terminal theme. `auto` senses the background; `light` and `dark` force that variant. Default: `auto`. `--no-color` and `NO_COLOR` still disable colour.",
+      "Set the terminal theme. `auto` senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing. `light` and `dark` still force that variant. Default: `auto`.",
       {
         default: DEFAULT_TERMINAL_THEME_MODE,
         value: terminalThemeValue,
@@ -1174,6 +1174,7 @@ export function backgroundSensingRequested(
   argv: readonly string[],
 ): boolean {
   if (quietResultRequested(argv)) return false;
+  if (argv.includes(ROOT_GLOBAL_FLAGS.noColor)) return false;
   const invocation = resolveInvocation(
     argv,
     ROOT_GLOBAL_FLAG_TOKENS,

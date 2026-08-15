@@ -957,6 +957,7 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
   const findings: Finding[] = [];
   const renderers = new Map<string, string>();
   const backgroundSensors = new Set<string>();
+  const terminalIoConstructors = new Set<string>();
   const sanitizers = new Set<string>();
   const multilineSanitizers = new Set<string>();
   const capabilityBindings = new Set<string>([
@@ -1028,6 +1029,9 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   }
                   if (imported === "TerminalIO") {
                     add("package-terminal-io-import", node);
+                  }
+                  if (imported === "DenoTerminalIO") {
+                    terminalIoConstructors.add(entry.local.name);
                   }
                   if (imported === "senseTerminalBackground") {
                     backgroundSensors.add(entry.local.name);
@@ -1139,6 +1143,10 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                 node.callee.type === "Identifier" &&
                 node.callee.name === "InlineFramePainter"
               ) add("direct-inline-painter-construction", node);
+              if (
+                node.callee.type === "Identifier" &&
+                terminalIoConstructors.has(node.callee.name)
+              ) add("package-terminal-io-construction", node);
             },
             CallExpression(node): void {
               const callee = context.sourceCode.getText(node.callee);
@@ -1498,6 +1506,14 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
       "One package call owns background sensing before the process caches its verdict.",
   },
   {
+    file: TERMINAL_AUTHORITY,
+    rule: "package-terminal-io-construction",
+    authority: "createPackageTerminalIo",
+    count: 1,
+    reason:
+      "The process adapter owns the package terminal IO shared by sensing and interaction.",
+  },
+  {
     file: "src/main.ts",
     rule: "direct-theme-threading",
     authority: "<module>",
@@ -1602,7 +1618,7 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
     authority: "<module>",
     count: 1,
     reason:
-      "The product interaction choke point owns the package IO lifecycle.",
+      "The product interaction choke point types requests while the process adapter owns IO lifecycle.",
   },
   {
     file: PAINTER_AUTHORITY,
@@ -2069,7 +2085,7 @@ Deno.test("the 84-use legacy palette census reached permanent zero", async () =>
 Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and safe-text bypasses", () => {
   const source = [
     'import { Table } from "@cliffy/table";',
-    `import { InlineFramePainter, type TerminalIO, requestFuture as ask, senseTerminalBackground as detectGround } from "${INTERACTIVE_MODULE}";`,
+    `import { DenoTerminalIO as GroundChannel, InlineFramePainter, type TerminalIO, requestFuture as ask, senseTerminalBackground as detectGround } from "${INTERACTIVE_MODULE}";`,
     'import { renderOrbitCli as future, renderResultSummaryCli as draw } from "discern-design-system/cli";',
     'import { terminalLine as safe } from "../../lib/terminal.ts";',
     'const dynamic = import("@cliffy/prompt");',
@@ -2084,6 +2100,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     'const cycle = ["◢", "◣", "◤", "◥"];',
     'function orbitPalette() { return { reset: "", red: "", green: "", cyan: "" }; }',
     "new InlineFramePainter({} as TerminalIO);",
+    "new GroundChannel({});",
     'ask({ label: "Future" });',
     "await detectGround({});",
     "draw({ fact: row.path, counts: [{ label: meta.name, value: `${meta.value}` }] }, {});",
@@ -2124,6 +2141,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "package-request-import:requestFuture",
       "package-background-sensor-import",
       "package-background-sensing-call",
+      "package-terminal-io-construction",
       "dynamic-interactive-package-import",
       "dynamic-cli-package-import",
       "direct-inline-painter-construction",

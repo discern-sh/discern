@@ -124,6 +124,7 @@ export interface ProductionTerminalOptions {
 export type TerminalBackgroundSensor = (
   options: TerminalBackgroundOptions,
 ) => Promise<TerminalBackgroundReading>;
+type TerminalIo = TerminalBackgroundOptions["io"];
 
 /** Injectable boundaries retained by the terminal-size compatibility facade. */
 export interface TerminalSizeOptions {
@@ -176,6 +177,12 @@ export interface TerminalContext {
     role?: TerminalTextRole,
   ): string;
 }
+
+/** Lazily-bound terminal IO retained privately for each presentation context. */
+const interactionIoByContext = new WeakMap<
+  TerminalContext,
+  () => TerminalIo
+>();
 
 /** Normalize one observed dimension without consulting mutable environment state. */
 function observedDimension(value: number, fallback: number): number {
@@ -301,6 +308,7 @@ function contextFromFacts(
   themeVariant: TerminalThemeVariant,
   stdoutIsTerminal: boolean,
   observeViewport: () => TerminalViewportObservation,
+  interactionIo?: () => TerminalIo,
 ): TerminalContext {
   const theme = terminalThemes[themeVariant];
   const presenter = createCliPresenter(capabilities, {
@@ -311,7 +319,7 @@ function contextFromFacts(
     text: string,
     style: TerminalTextStyle,
   ): string => styleText(text, style, capabilities);
-  return {
+  const context: TerminalContext = {
     capabilities,
     presenter,
     color: capabilities.colorDepth !== "none",
@@ -346,6 +354,10 @@ function contextFromFacts(
         color: terminalThemeColor(theme, token),
       }),
   };
+  if (interactionIo !== undefined) {
+    interactionIoByContext.set(context, interactionIo);
+  }
+  return context;
 }
 
 interface ResolvedTerminalFacts {
@@ -386,6 +398,7 @@ function resolveTerminalFacts(
 function contextFromResolvedFacts(
   facts: ResolvedTerminalFacts,
   theme: TerminalThemeVariant,
+  interactionIo?: () => TerminalIo,
 ): TerminalContext {
   return contextFromFacts(
     facts.capabilities,
@@ -394,6 +407,7 @@ function contextFromResolvedFacts(
     theme,
     facts.stdoutIsTerminal,
     () => viewportObservation(facts.size, facts.consoleSize),
+    interactionIo,
   );
 }
 
@@ -448,6 +462,13 @@ function themeFromBackground(
   return reading.ground === "light" ? "light" : "dark";
 }
 
+/** Construct package terminal IO only at Discern's process-effects boundary. */
+function createPackageTerminalIo(
+  environment: Readonly<Record<string, string | undefined>>,
+): TerminalIo {
+  return new DenoTerminalIO({ environment });
+}
+
 /**
  * Build an adaptive constructor whose first eligible sensing verdict is reused
  * for the process. Explicit variants and non-rendering/non-TTY modes never fill
@@ -457,6 +478,7 @@ export function createProductionTerminalContextResolver(
   sensor: TerminalBackgroundSensor,
 ): (options?: ProductionTerminalOptions) => Promise<TerminalContext> {
   let sensedTheme: Promise<TerminalThemeVariant> | undefined;
+  let processIo: TerminalIo | undefined;
   return async (
     options: ProductionTerminalOptions = {},
   ): Promise<TerminalContext> => {
@@ -473,20 +495,30 @@ export function createProductionTerminalContextResolver(
         : { fallbackRows: options.fallbackRows }),
     });
     const mode = options.theme ?? DEFAULT_TERMINAL_THEME_MODE;
-    if (mode !== "auto") return contextFromResolvedFacts(facts, mode);
+    const interactionIo = (): TerminalIo => {
+      processIo ??= options.backgroundIo ??
+        createPackageTerminalIo(facts.environment);
+      return processIo;
+    };
+    if (mode !== "auto") {
+      return contextFromResolvedFacts(facts, mode, interactionIo);
+    }
 
     const maySense = options.backgroundSensing !== false &&
       facts.stdoutIsTerminal &&
+      facts.capabilities.colorDepth !== "none" &&
+      !enabledEnvironmentMarker(facts.environment.CI) &&
       (options.inputIsTerminal ?? (() => Deno.stdin.isTerminal()))();
-    if (!maySense) return contextFromResolvedFacts(facts, "dark");
+    if (!maySense) {
+      return contextFromResolvedFacts(facts, "dark", interactionIo);
+    }
 
     sensedTheme ??= sensor({
-      io: options.backgroundIo ??
-        new DenoTerminalIO({ environment: facts.environment }),
+      io: interactionIo(),
       environment: facts.environment,
       timeoutMs: TERMINAL_BACKGROUND_TIMEOUT_MS,
     }).then(themeFromBackground, () => "dark");
-    return contextFromResolvedFacts(facts, await sensedTheme);
+    return contextFromResolvedFacts(facts, await sensedTheme, interactionIo);
   };
 }
 
@@ -512,6 +544,22 @@ export function setTerminalContext(
 /** Return the process context, constructing a stable fallback for direct calls. */
 export function terminalContext(): TerminalContext {
   return activeTerminalContext ?? terminalProcessContext();
+}
+
+/** Return the IO identity shared by background sensing and package requests. */
+export function terminalInteractionIo(
+  context: TerminalContext = terminalContext(),
+): TerminalIo {
+  let resolveIo = interactionIoByContext.get(context);
+  if (resolveIo === undefined) {
+    let io: TerminalIo | undefined;
+    resolveIo = (): TerminalIo => {
+      io ??= createPackageTerminalIo(context.environment);
+      return io;
+    };
+    interactionIoByContext.set(context, resolveIo);
+  }
+  return resolveIo();
 }
 
 /**
