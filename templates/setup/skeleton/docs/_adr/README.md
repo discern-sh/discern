@@ -26,7 +26,7 @@ The list above maintains itself: `discern refresh` rewrites everything between t
 
 Scan this directory for the highest existing number and add one. Numbers are **continuous and never reused** — even a superseded ADR keeps its number and stays in the directory (it is marked superseded, not deleted). The number is a stable identifier other docs and commit messages can cite.
 
-`0000-template.md` is the copy-paste template and is not itself a decision; the first real ADR is `0001`.
+`0000-template.md` is the copy-paste template and is not itself a decision. `0001` ships with the practice — the record of adopting discern itself, seeded alongside this guide and completed by the agent that configured discern into the project.
 
 ## Status
 

@@ -2,7 +2,7 @@
 
 <!--
   Copy this file beside the template as NNNN-short-slug.md, where NNNN is one
-  higher than the highest existing ADR number (the first real ADR is 0001).
+  higher than the highest existing ADR number (0000 is only this template).
   See README.md in this directory for the format and when to write one.
   State the DECISION in the title, not the problem. Delete these comments.
 -->

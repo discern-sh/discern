@@ -15,6 +15,11 @@
  * copy must talk about ADRs as a concept — and so does the skeleton's
  * `_adr/0000-template.md`, which is part of that shipped discipline.
  *
+ * One numbered citation is sanctioned: the skeletons seed the adopting
+ * project's first record, `0001-adopt-discern.md`, and that file cites its
+ * own number in its title. The exemption is that file citing THAT number —
+ * a foreign number pasted into it is still a leak.
+ *
  * The replacement: keep the citation, move it to a code comment beside the
  * string (or to `docs/`), and let the shipped copy carry only the explanation
  * users can act on.
@@ -56,6 +61,22 @@ function citationsIn(text: string): string[] {
   ];
 }
 
+/** The seeded first record both shipped skeletons carry. */
+const SEEDED_ADR_BASENAME = "0001-adopt-discern.md";
+
+/** True for the one sanctioned self-reference: the seeded record's own number. */
+function isSeededSelfCitation(hit: string): boolean {
+  return hit.replace(/[\s-]/g, "").toLowerCase() === "adr0001";
+}
+
+/** Citations that leak from a shipped file — the seeded record may cite its
+ * own number (its title does); every other numbered reference is a leak. */
+function shippedOffendersIn(rel: string, text: string): string[] {
+  const hits = citationsIn(text);
+  if (!rel.endsWith(`/${SEEDED_ADR_BASENAME}`)) return hits;
+  return hits.filter((hit) => !isSeededSelfCitation(hit));
+}
+
 Deno.test("src/ string literals never cite ADR numbers", async () => {
   const offenders: string[] = [];
   for await (
@@ -89,7 +110,7 @@ Deno.test("shipped templates/ never cite ADR numbers", async () => {
       continue; // non-text / unreadable → nothing to leak
     }
     const rel = relative(REPO_ROOT, entry.path);
-    for (const hit of citationsIn(text)) {
+    for (const hit of shippedOffendersIn(rel, text)) {
       offenders.push(`${rel} contains "${hit}"`);
     }
   }
@@ -183,6 +204,22 @@ Deno.test("adr guard: sanctioned forms stay legal", () => {
   ].join("\n");
   const hits = stringLiterals(legal).flatMap((l) => citationsIn(l.text));
   assertEquals(hits, []);
+});
+
+Deno.test("adr guard: the seeded record may cite its own number, nothing else, nowhere else", () => {
+  const seeded = "templates/setup/skeleton/docs/_adr/0001-adopt-discern.md";
+  assertEquals(
+    shippedOffendersIn(seeded, "# ADR 0001: Adopt discern as the practice"),
+    [],
+  );
+  assertEquals(
+    shippedOffendersIn(seeded, "kept for parity (ADR 0034)"),
+    ["ADR 0034"],
+  );
+  assertEquals(
+    shippedOffendersIn("templates/guidance/base.md", "see ADR 0001"),
+    ["ADR 0001"],
+  );
 });
 
 Deno.test("adr guard: template interpolation and regex hazards don't desync the lexer", () => {
