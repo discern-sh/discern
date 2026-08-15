@@ -306,3 +306,37 @@ Deno.test("unregistered router results use the bounded envelope presenter", () =
   assertStringIncludes(rendered, "That command has moved.");
   assert(!rendered.includes("undefined"), rendered);
 });
+
+Deno.test("bounded-list overflow lines agree with their counts", () => {
+  const fleetOf = (rows: number) =>
+    Array.from({ length: rows }, (_, index) => ({
+      path: `/workspace/project.worktrees/row-${index}`,
+      is_main: false,
+      is_current: false,
+      branch: `agent/row-${index}`,
+      clean: true,
+      changed_files: 0,
+      ahead: 0,
+      behind: 0,
+    }));
+  const statusWith = (rows: number) =>
+    renderResultMarkdown(
+      {
+        ok: true,
+        verb: "status",
+        data: { location: "main", project: "example", fleet: fleetOf(rows) },
+      },
+      resultPresenterForVerb("status"),
+    );
+  assertStringIncludes(statusWith(7), "1 additional fleet row omitted.");
+  assertStringIncludes(statusWith(8), "2 additional fleet rows omitted.");
+});
+
+Deno.test("overflow sentences render only through the shared omitted() helper", async () => {
+  const source = await Deno.readTextFile("src/shared/result_markdown.ts");
+  const occurrences = source.match(/omitted(?!\()/g) ?? [];
+  // The helper body and the capText marker are the two sanctioned spellings
+  // (identifier uses are excluded). A new hand-rolled "N additional things
+  // omitted." line must route through omitted() so count and noun agree.
+  assertEquals(occurrences.length, 2, "route overflow lines through omitted()");
+});

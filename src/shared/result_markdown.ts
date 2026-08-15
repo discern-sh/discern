@@ -97,6 +97,11 @@ function plural(count: number, one: string, many = `${one}s`): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
+/** The one bounded-list overflow sentence, so every count agrees with its noun. */
+function omitted(count: number, noun: string): string {
+  return `${plural(count, `additional ${noun}`)} omitted.`;
+}
+
 /** Remove blank and duplicate presentation items without reordering them. */
 function unique(items: readonly (string | undefined)[]): string[] {
   const seen = new Set<string>();
@@ -237,9 +242,7 @@ function envelopeEvidence(
       );
     }
     if (steps.length > MAX_LIST_ITEMS) {
-      facts.push(
-        `${steps.length - MAX_LIST_ITEMS} additional plan steps omitted.`,
-      );
+      facts.push(omitted(steps.length - MAX_LIST_ITEMS, "plan step"));
     }
   }
 
@@ -297,9 +300,7 @@ function envelopeEvidence(
     );
   }
   if (diagnostics.length > MAX_DIAGNOSTICS) {
-    facts.push(
-      `${diagnostics.length - MAX_DIAGNOSTICS} additional diagnostics omitted.`,
-    );
+    facts.push(omitted(diagnostics.length - MAX_DIAGNOSTICS, "diagnostic"));
   }
   const firstOutput = text(diagnostics[0]?.output);
   if (firstOutput !== undefined) {
@@ -317,7 +318,9 @@ function capText(value: string, limit: number): string {
   if (value.length <= limit) {
     return value;
   }
-  const marker = `\n... ${value.length - limit} characters omitted ...\n`;
+  const marker = `\n... ${
+    plural(value.length - limit, "character")
+  } omitted ...\n`;
   const remaining = limit - marker.length;
   const head = Math.max(0, Math.floor(remaining * 0.6));
   const tail = Math.max(0, remaining - head);
@@ -580,7 +583,7 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
         }: ${describe}`;
       }),
       unmet.length > MAX_LIST_ITEMS
-        ? `${unmet.length - MAX_LIST_ITEMS} additional setup checks omitted.`
+        ? omitted(unmet.length - MAX_LIST_ITEMS, "setup check")
         : undefined,
     ]),
     supportingMarkdown: text(data.guidance) === undefined
@@ -741,9 +744,7 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
         }.`;
       }),
       suggestions.length > MAX_LIST_ITEMS
-        ? `${
-          suggestions.length - MAX_LIST_ITEMS
-        } additional suggestions omitted.`
+        ? omitted(suggestions.length - MAX_LIST_ITEMS, "suggestion")
         : undefined,
       ...results.slice(0, MAX_LIST_ITEMS).map((entry) => {
         const target = text(entry.target) ?? "unknown";
@@ -865,7 +866,7 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
         }.`;
       }),
       standards.length > MAX_LIST_ITEMS
-        ? `${standards.length - MAX_LIST_ITEMS} additional standards omitted.`
+        ? omitted(standards.length - MAX_LIST_ITEMS, "standard")
         : undefined,
     ]),
   };
@@ -941,7 +942,7 @@ const presentCoupling: ResultMarkdownPresenter = (result) => {
         }: ${subject}`;
       }),
       commits.length > MAX_LIST_ITEMS
-        ? `${commits.length - MAX_LIST_ITEMS} additional commits omitted.`
+        ? omitted(commits.length - MAX_LIST_ITEMS, "commit")
         : undefined,
     ]),
   };
@@ -1079,7 +1080,7 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
         : `Fleet: ${plural(fleet.length, "active worktree")}.`,
       ...fleetFacts,
       fleet.length > MAX_LIST_ITEMS
-        ? `${fleet.length - MAX_LIST_ITEMS} additional fleet rows omitted.`
+        ? omitted(fleet.length - MAX_LIST_ITEMS, "fleet row")
         : undefined,
       records(data.fleet_collisions).length === 0
         ? undefined
@@ -1243,7 +1244,7 @@ const presentSkillsList: ResultMarkdownPresenter = (result) => {
         return `${code(name)}: ${source}.`;
       }),
       skills.length > MAX_LIST_ITEMS
-        ? `${skills.length - MAX_LIST_ITEMS} additional skills omitted.`
+        ? omitted(skills.length - MAX_LIST_ITEMS, "skill")
         : undefined,
     ]),
   };
