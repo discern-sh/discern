@@ -16,7 +16,6 @@ import {
   renderSuccessLine,
   renderSwitchCli,
   renderTextareaCli,
-  renderTriangleWorkflowStepper,
   type TerminalCapabilities,
 } from "discern-design-system/cli";
 import {
@@ -30,7 +29,7 @@ import {
 import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.16.0";
+const SELECTED_VERSION = "0.17.0";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
@@ -213,23 +212,6 @@ Deno.test("the selected release exposes all four public consumer graphs", async 
     assertEquals(one.indexOf("One"), two.indexOf("Two"));
   }
 
-  const workflow = renderTriangleWorkflowStepper([
-    { label: "Pending", status: "pending" },
-    { label: "Running", status: "active", phase: 0 },
-    { label: "Passed", status: "complete" },
-  ], capabilities);
-  const labelColumns = workflow.split("\n")
-    .filter((_, index) => index % 2 === 0)
-    .map((line) => {
-      const plain = line.replaceAll(ANSI_PATTERN, "");
-      return Math.max(
-        plain.indexOf("Pending"),
-        plain.indexOf("Running"),
-        plain.indexOf("Passed"),
-      );
-    });
-  assertEquals(labelColumns, [4, 4, 4]);
-
   const staticIo = new ConsumerTerminal([], {
     ansiControl: false,
     colorDepth: "none",
@@ -318,6 +300,43 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
       effectiveCapabilities,
     ),
   );
+
+  const box = presenter.box({ body: "Ready", title: "Status", width: 32 });
+  assertEquals(box.split("\n").map(measureText), [32, 32, 32]);
+  assert(presenter.triangleSpinnerFrame(0).length > 0);
+  const section = presenter.triangleSectionRule("Status", { width: 32 });
+  assertStringIncludes(section, "STATUS");
+  assertEquals(measureText(section), 32);
+  const workflow = presenter.triangleWorkflowStepper([
+    { label: "Pending", status: "pending" },
+    { label: "Running", status: "active", phase: 0 },
+    { label: "Passed", status: "complete" },
+  ]);
+  const labelColumns = workflow.split("\n")
+    .filter((_, index) => index % 2 === 0)
+    .map((line) => {
+      const plain = line.replaceAll(ANSI_PATTERN, "");
+      return Math.max(
+        plain.indexOf("Pending"),
+        plain.indexOf("Running"),
+        plain.indexOf("Passed"),
+      );
+    });
+  assertEquals(labelColumns, [4, 4, 4]);
+
+  const colorCapabilities: TerminalCapabilities = {
+    ...capabilities,
+    colorDepth: "truecolor",
+  };
+  const lightSection = createCliPresenter(colorCapabilities, {
+    theme: "light",
+    width: 32,
+  }).triangleSectionRule("Status", { width: 32 });
+  const darkSection = createCliPresenter(colorCapabilities, {
+    theme: "dark",
+    width: 32,
+  }).triangleSectionRule("Status", { width: 32 });
+  assert(lightSection !== darkSection, "the presenter must bind motif theme");
 
   assertEquals(
     renderHeadingCli({ text: "Calm title", level: 2 }, capabilities),

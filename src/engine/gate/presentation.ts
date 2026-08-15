@@ -20,7 +20,6 @@ import {
   renderResultSummaryCli,
   renderRetryNoticeCli,
   renderStandardMeterCli,
-  renderTriangleSectionRule,
   type ResultSummaryCliProps,
   type SequentialStepStatus,
   type StandardMeterCliProps,
@@ -743,9 +742,9 @@ export function renderGatePlan(
 ): string {
   const width = presentationWidth(options.width);
   const presenter = options.terminal.presenter;
-  const title = renderTriangleSectionRule(safeLine(plan.title), {
+  const title = presenter.triangleSectionRule(safeLine(plan.title), {
     width,
-  }, presenter.capabilities);
+  });
   const context = plan.details.length === 0
     ? []
     : [presenter.present(renderResultSummaryCli, {

@@ -71,6 +71,7 @@ function terminal(options: {
   readonly rows?: number;
   readonly stdoutIsTerminal?: boolean;
   readonly ci?: string;
+  readonly theme?: "light" | "dark";
 } = {}): TerminalContext {
   const color = options.color ?? "none";
   const unicode = options.unicode ?? true;
@@ -88,6 +89,7 @@ function terminal(options: {
     env: fakeEnv(env),
     isTerminal: () => options.stdoutIsTerminal ?? true,
     consoleSize: () => ({ columns, rows: options.rows ?? 24 }),
+    ...(options.theme === undefined ? {} : { theme: options.theme }),
   });
 }
 
@@ -592,6 +594,24 @@ Deno.test("Gate plan preserves prerequisite and configured-job group boundaries"
   assert(rendered.indexOf("Gate prerequisites") < rendered.indexOf("Fix"));
   assert(rendered.indexOf("Fix") < rendered.indexOf("Scope gates"));
   assert(rendered.indexOf("Scope gates") < rendered.indexOf("Final checks"));
+});
+
+Deno.test("Gate plan section rules inherit the bound terminal theme", () => {
+  const plan: EnginePlan = {
+    title: "Gate plan",
+    details: [],
+    steps: [],
+  };
+  const light = renderGatePlan(plan, {
+    width: 62,
+    terminal: terminal({ color: "truecolor", theme: "light" }),
+  });
+  const dark = renderGatePlan(plan, {
+    width: 62,
+    terminal: terminal({ color: "truecolor", theme: "dark" }),
+  });
+  assertEquals(stripAnsi(light), stripAnsi(dark));
+  assert(light !== dark, "light and dark section-rule styling must differ");
 });
 
 Deno.test("Gate Standards render every measurement and verdict without invented values", () => {

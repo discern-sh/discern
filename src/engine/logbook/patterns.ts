@@ -34,7 +34,6 @@ import {
   renderResultSummaryCli,
   renderResultSummaryGroupCli,
   renderStatCli,
-  renderTriangleSectionRule,
   type ResultSummaryCliProps,
   type ResultSummaryGroupCliItem,
 } from "discern-design-system/cli";
@@ -426,9 +425,9 @@ function renderGroup(out: Out, id: string, label: string): void {
   const { presenter, width } = presentationFacts(out);
   out.group(id);
   out.raw(`${
-    renderTriangleSectionRule(terminalLine(label), {
+    presenter.triangleSectionRule(terminalLine(label), {
       width,
-    }, presenter.capabilities)
+    })
   }\n`);
 }
 

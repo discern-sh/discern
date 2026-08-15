@@ -17,7 +17,6 @@ import {
   renderRawOutputCli,
   renderReceiptCli,
   renderResultSummaryCli,
-  renderTriangleSectionRule,
 } from "discern-design-system/cli";
 import { interactiveHintTexts } from "../../shared/hints.ts";
 import type {
@@ -656,9 +655,9 @@ function section(
   width: number,
 ): string {
   return [
-    renderTriangleSectionRule(terminalLine(label), {
+    terminal.presenter.triangleSectionRule(terminalLine(label), {
       width,
-    }, terminal.presenter.capabilities),
+    }),
     ...lines.map(renderSectionLine),
   ].join("\n");
 }

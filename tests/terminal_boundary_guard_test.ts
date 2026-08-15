@@ -21,8 +21,17 @@ const RUNTIME_DENO_FILES = AUTHORED_DENO_FILES.filter((rel) =>
 const INTERACTION_AUTHORITY = "src/lib/terminal_interaction.ts";
 const PAINTER_AUTHORITY = "src/lib/terminal_painter.ts";
 const LIVE_VIEWPORT_CONTROLLER = "src/engine/gate/gate_tty.ts";
+const TRIANGLE_ART_AUTHORITY = "art/terminal/triangle.ts";
 const CLI_MODULE = "discern-design-system/cli";
 const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
+
+/** Raw foundations are presenter-owned except inside the package-motif adapter. */
+const PRESENTER_FOUNDATION_RENDERERS = new Set([
+  "renderBox",
+  "renderTriangleSectionRule",
+  "renderTriangleSpinnerFrame",
+  "renderTriangleWorkflowStepper",
+]);
 
 /**
  * The web build owns a separate site-theme model, not terminal presentation.
@@ -477,7 +486,7 @@ function cliffyImportFindings(rel: string, source: string): Finding[] {
 }
 
 /**
- * Text-bearing leaves in the published 0.16.0 `*CliProps` contracts and their
+ * Text-bearing leaves in the published 0.17.0 `*CliProps` contracts and their
  * exported nested row shapes. Generic future renderer names deliberately
  * inherit this vocabulary; a package upgrade must re-audit the public types.
  */
@@ -1003,6 +1012,13 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   if (entry.type !== "ImportSpecifier") continue;
                   const imported = propertyName(entry.imported);
                   if (imported === undefined) continue;
+                  if (
+                    PRESENTER_FOUNDATION_RENDERERS.has(imported) &&
+                    (imported === "renderBox" ||
+                      rel !== TRIANGLE_ART_AUTHORITY)
+                  ) {
+                    add(`presenter-foundation-import:${imported}`, node);
+                  }
                   if (/^render[A-Z].*Cli$/u.test(imported)) {
                     renderers.set(entry.local.name, imported);
                   }
@@ -2086,7 +2102,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
   const source = [
     'import { Table } from "@cliffy/table";',
     `import { DenoTerminalIO as GroundChannel, InlineFramePainter, type TerminalIO, requestFuture as ask, senseTerminalBackground as detectGround } from "${INTERACTIVE_MODULE}";`,
-    'import { renderOrbitCli as future, renderResultSummaryCli as draw } from "discern-design-system/cli";',
+    'import { renderBox as frame, renderOrbitCli as future, renderResultSummaryCli as draw, renderTriangleSectionRule as section, renderTriangleSpinnerFrame as spinner, renderTriangleWorkflowStepper as workflow } from "discern-design-system/cli";',
     'import { terminalLine as safe } from "../../lib/terminal.ts";',
     'const dynamic = import("@cliffy/prompt");',
     `const interactive = await import("${INTERACTIVE_MODULE}"); interactive.requestFuture({});`,
@@ -2144,6 +2160,10 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "package-terminal-io-construction",
       "dynamic-interactive-package-import",
       "dynamic-cli-package-import",
+      "presenter-foundation-import:renderBox",
+      "presenter-foundation-import:renderTriangleSectionRule",
+      "presenter-foundation-import:renderTriangleSpinnerFrame",
+      "presenter-foundation-import:renderTriangleWorkflowStepper",
       "direct-inline-painter-construction",
       "process-terminal-environment-probe",
       "process-console-size-probe",
@@ -2207,6 +2227,18 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     rules.filter((rule) => rule === "direct-theme-threading").length,
     1,
     "a package renderer cannot receive a feature-local theme",
+  );
+
+  const motifAdapterRules = structuralTerminalFindings(
+    TRIANGLE_ART_AUTHORITY,
+    'import { renderBox, renderTriangleSectionRule, renderTriangleSpinnerFrame, renderTriangleWorkflowStepper } from "discern-design-system/cli";',
+  ).map((finding) => finding.rule).filter((rule) =>
+    rule.startsWith("presenter-foundation-import:")
+  );
+  assertEquals(
+    motifAdapterRules,
+    ["presenter-foundation-import:renderBox"],
+    "only raw triangle motifs belong to the product artwork adapter",
   );
 
   assertEquals(

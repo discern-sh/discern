@@ -22,7 +22,6 @@ import { DISCERN_WORDMARK } from "../shared/brand.ts";
 import { renderDiscernArt } from "../../art/terminal/brand.ts";
 import {
   joinVertical,
-  renderBox,
   renderCommandCli,
   renderSectionCli,
 } from "discern-design-system/cli";
@@ -428,18 +427,15 @@ function styledFreshWelcome(
     humans,
     agents,
   ], { spacing: 1 });
-  const frame = renderBox(
-    {
-      body,
-      width,
-      padding: 1,
-      borderStyle: {
-        ...terminal.theme.typography.muted,
-        color: terminal.themeColor("--discern-color-accent-700"),
-      },
+  const frame = terminal.presenter.box({
+    body,
+    width,
+    padding: 1,
+    borderStyle: {
+      ...terminal.theme.typography.muted,
+      color: terminal.themeColor("--discern-color-accent-700"),
     },
-    terminal.presenter.capabilities,
-  ).split("\n");
+  }).split("\n");
   // The package box intentionally normalizes indentation while wrapping. Keep
   // Discern's product-owned art outside it so those accepted rows remain exact.
   return [...header, "", ...frame];

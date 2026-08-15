@@ -15,7 +15,7 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.16.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.17.0"
 ```
 
 Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI consumer additionally uses the documented `./cli`, `./cli/interactive`, and `./cli/projection` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
@@ -26,7 +26,11 @@ When a package defect affects discern, release the fix from the package reposito
 
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts).
 
-Consumer conformance proves the package root and all three CLI graphs are React-free where required and that every module in each closure resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.16.0/` origin. A local path, workspace override, source import, mixed version, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves the package root and all three CLI graphs are React-free where required and that every module in each closure resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.17.0/` origin. A local path, workspace override, source import, mixed version, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+
+## Release 0.17.0 presenter foundation contracts
+
+Release 0.17.0 binds box, triangle-spinner, triangle-section-rule, and triangle-workflow rendering into the CLI presenter alongside Components and narration. Feature renderers in discern therefore pass only content and local measures; the process boundary supplies capabilities and theme once. Section rules now inherit the selected light or dark terminal theme. [`art/terminal/triangle.ts`](../../../art/terminal/triangle.ts) retains explicit capability inputs for the maintainer gallery's package-motif projections; it does not render CLI features.
 
 ## Release 0.16.0 choice contracts
 
