@@ -23,6 +23,14 @@ interface CaptureTaskOptions {
   readonly theme: "dark" | "light";
 }
 
+export const TERMINAL_REVIEW_GUIDE =
+  "project/map/80-development/reviewing-terminal-output.md";
+
+/** Keep the artifact path first, then route the reviewer to the full workflow. */
+export function terminalCaptureHandoff(output: string): string {
+  return `${output}\nReview: ${TERMINAL_REVIEW_GUIDE}`;
+}
+
 const HELP = `Capture a Discern command from a real PTY and project it to HTML.
 
 Usage:
@@ -170,7 +178,7 @@ async function main(args: readonly string[]): Promise<void> {
       options.output,
       renderTerminalCaptureHtml(capture, { theme: options.theme }),
     );
-    console.log(options.output);
+    console.log(terminalCaptureHandoff(options.output));
     if (capture.exitCode !== 0) Deno.exitCode = capture.exitCode;
   } finally {
     await Deno.remove(temp, { recursive: true }).catch(() => undefined);

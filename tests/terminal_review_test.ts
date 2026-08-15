@@ -1,9 +1,24 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
+import {
+  TERMINAL_REVIEW_GUIDE,
+  terminalCaptureHandoff,
+} from "../scripts/terminal_capture.ts";
 import { terminalReviewResponse } from "../scripts/terminal_review.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const HTML = "<!doctype html><title>Status</title><pre>Status</pre>";
+
+Deno.test("terminal capture hands reviewers to the rendered-review workflow", () => {
+  assertEquals(
+    terminalCaptureHandoff("/tmp/after-status.html"),
+    `/tmp/after-status.html\nReview: ${TERMINAL_REVIEW_GUIDE}`,
+  );
+  assertEquals(
+    TERMINAL_REVIEW_GUIDE,
+    "project/map/80-development/reviewing-terminal-output.md",
+  );
+});
 
 Deno.test("terminal review serves one self-contained artifact at the root", async () => {
   const response = terminalReviewResponse(
