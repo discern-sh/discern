@@ -16,7 +16,9 @@ The project's ADRs live in the configured documentation tree, at `{{map_dir}}_ad
 
 ## 0. Ensure the ADR home exists
 
-ADRs live in `{{map_dir}}_adr/`. If that directory doesn't exist yet — a project that hasn't run `discern setup` — create it from this skill's skeleton before writing: copy this skill's own `skeleton/docs/_adr/` directory (the canonical `README.md` format guide, `0000-template.md`, and the seeded first record `0001-adopt-discern.md`) to `{{map_dir}}_adr/`. Then complete the seeded record before the one you came to write: it documents the adoption of discern itself, and its `setup fills this` markers ask for this project's real context, what the gate actually runs, and honest project-specific consequences. Keep the sentence noting the record's own provenance — it is part of the history the record preserves. If the directory already exists, skip all of this.
+ADRs live in `{{map_dir}}_adr/`. If that directory does not exist, copy this skill's `skeleton/docs/_adr/` directory there before writing. The skeleton contains the canonical `README.md` format guide, `0000-template.md`, and the seeded adoption record `0001-adopt-discern.md`.
+
+Complete the seeded record before the ADR you came to write. Replace its `setup fills this` markers with the project's reason for adopting discern, the jobs its Gate runs, and project-specific consequences. Keep the provenance sentence. It identifies discern as the source of the seed and the configuring agent as the writer of its project-specific material. If the ADR directory already exists, skip this step.
 
 ---
 

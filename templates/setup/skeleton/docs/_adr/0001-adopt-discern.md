@@ -1,4 +1,4 @@
-# ADR 0001: Adopt discern as the engineering practice
+# ADR 0001: Adopt discern for development with coding agents
 
 **Status**: accepted
 
@@ -7,51 +7,50 @@
 <!-- setup fills this -->
 
 <!--
-  Completed by the agent that configured discern into this project. Replace
-  this comment block with the real context, in a few honest sentences:
+  Completed by the agent that configured discern for this project. Replace
+  this comment block with 2 or 3 project-specific paragraphs:
 
-  - How quality was held before: the checks, review habits, and conventions
-    that existed — and where they lived (a CI config, people's heads,
-    scattered docs).
-  - What made enforcement worth adopting now. For many projects it is that
-    more of the work now flows through coding agents, so consistency has to
-    come from the system rather than from anyone's vigilance.
+  - How the project coordinated and verified changes before discern, including
+    any existing use of coding agents.
+  - What about the project's current scale, intended future, or use of agents
+    made a shared practice worth adopting now.
+  - Which repository evidence and setup decisions support that account.
 
-  Stay specific to this project. A reader should feel why "carry on as we
-  were" stopped being good enough.
+  Describe the previous approach without inventing failures or blaming people
+  or agents. Give a future reader enough context to understand the choice.
 -->
 
 ## Decision
 
-This project adopts [discern](https://discern.sh) as its engineering practice. Three standing rules come into force with it:
+This project adopts [discern](https://discern.sh), an engineering practice for software built with coding agents. The repository holds the project-specific parts of that practice: guidance, declared checks, reusable agent playbooks called Skills, and decision records.
 
-- **"Done" means the gate passed.** No change is finished on anyone's word: `discern done` must run green on the final tree, and what it checks is wired into `discern.toml` for anyone to read.
-- **Work happens in isolated worktrees.** Each effort gets its own linked worktree and branch; nothing lands on the trunk until its gate passes, so parallel work cannot trample the mainline or each other.
-- **Significant decisions are recorded.** Choices that are hard to reverse and surprising without context are written down in this directory, so the reasoning survives the people and sessions that produced it. This record is itself the first of them — seeded by discern when the practice was adopted, then completed by the agent that configured it into this project. Every record after it is written the ordinary way, starting from [the template](0000-template.md).
+- Project-specific guidance and significant decisions stay with the code. Future configured agents begin from the same maintained account of the project.
+- Each effort receives a separate Git worktree and branch. Concurrent tasks do not share a mutable checkout. Overlapping source changes still require integration before landing.
+- `discern done` runs the project's final quality check, called the Gate. `discern.toml` declares its jobs and configured quality measures, called Standards. Together they give the project a shared definition of technical completion.
+- A green Gate over a clean, committed tree can produce evidence tied to that tree, called Proof. Landing remains a separate acceptance decision with its own authority check.
 
 <!-- setup fills this -->
 
 <!--
-  Replace this comment block with a short paragraph naming what the gate
-  actually runs in this project — the real jobs wired into `discern.toml`
-  during setup (the build, the checks, the test suite) — so a reader of this
-  record knows concretely what "done" verifies and catches.
+  Replace this comment block with a short paragraph naming the jobs this
+  project's Gate runs and what those jobs establish. Use the real commands
+  wired into `discern.toml`. Keep every claim within what those checks support.
 -->
+
+discern seeded this record during setup. The configuring agent completed it with this project's context, Gate, and consequences. Later decisions begin from [the template](0000-template.md).
 
 ## Consequences
 
-Good and bad, stated plainly — a record that lists only upsides is not trustworthy:
-
-- **Finishing gets stricter.** A change is complete when the gate says so, which is slower than declaring victory and firmer than habit. That is the trade: friction at the finish line, regressions caught before they land.
-- **Some files stop being hand-editable.** The agent instruction files (`AGENTS.md`, `CLAUDE.md`, …) are compiled from authored sources; edits to the compiled copies are overwritten. Changes go to the source, which is recompiled for every agent at once.
-- **The project commits to upkeep.** The map — the maintained account of how this codebase fits together — must stay current with the code, and a stale page is treated as a defect. Quality limits, once set, only tighten; a change cannot pass by quietly loosening one.
-- **A tool joins the development loop.** discern runs in every working session and the project depends on it to enforce all of the above. It can be removed, but the rules above stop being enforced the moment it goes.
-- **What becomes easy:** parallel efforts stop colliding, "is this actually done?" has one answer, and future sessions inherit the project's reasoning from the map and these records instead of re-deriving it.
+- Future configured agents inherit the project's guidance and maintained documentation, called the Map. The project keeps that account current as the code changes.
+- Separate worktrees prevent concurrent efforts from overwriting the same checkout. discern manages their lifecycle. Source overlap still requires integration before landing.
+- The Gate adds verification time to technical completion. The project maintains its jobs and chooses what its Standards measure. A branch cannot loosen a configured Standard; changing a limit remains a project decision.
+- Agent instruction files and materialized Skills come from authored sources. Contributors edit those sources and run `discern refresh`; edits to generated copies are overwritten.
+- The project depends on discern for this workflow. Uninstalling discern retains the authored guidance and Map. The project must replace any removed enforcement and lifecycle behavior it still needs.
 
 <!-- setup fills this -->
 
 <!--
-  Add one to three consequences specific to this project — for example, what
-  the gate's runtime means for iteration speed here, or which existing habit
-  this changes the most. Then delete this comment block.
+  Add 1 to 3 consequences specific to this project. Name a real benefit, cost,
+  or changed habit without repeating the generic consequences above. Then
+  delete this comment block.
 -->
