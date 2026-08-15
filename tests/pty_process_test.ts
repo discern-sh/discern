@@ -28,6 +28,7 @@ Deno.test({
       cwd: REPO_ROOT,
       input: [{
         waitFor: "fresh sibling ready",
+        captureAs: "ready",
         steps: [{ bytes: "\x03" }],
       }],
       timeoutMs: 2_000,
@@ -35,5 +36,24 @@ Deno.test({
 
     assertEquals(result.code, 0, result.transcript);
     assertStringIncludes(result.transcript, "observed:3");
+    assertStringIncludes(result.keyframes.ready ?? "", "fresh sibling ready");
+    assertEquals(result.keyframes.ready?.includes("observed:3"), false);
+  },
+});
+
+Deno.test({
+  name: "PTY process applies scripted terminal geometry",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const result = await runPtyProcess({
+      command: "sh",
+      args: ["-c", "stty size"],
+      cwd: REPO_ROOT,
+      geometry: { columns: 97, rows: 31 },
+      keepInputOpen: true,
+    });
+
+    assertEquals(result.code, 0, result.transcript);
+    assertStringIncludes(result.transcript, "31 97");
   },
 });
