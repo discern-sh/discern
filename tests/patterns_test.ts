@@ -4743,3 +4743,44 @@ Deno.test("patterns red-rate history counts partial effects in live and rotated 
     `live partial effects must remain red: ${finding.observed}`,
   );
 });
+
+Deno.test("patterns driver scoring: provenance and CI classify automation", () => {
+  assertEquals(
+    driverKind(verb({
+      driver: {
+        json: true,
+        tty: false,
+        ci: true,
+        spawned_by: "11111111-2222-4333-8444-555555555555",
+      },
+    })),
+    "automation",
+    "an explicit spawned_by marker is discern's own job runner",
+  );
+  assertEquals(
+    driverKind(verb({
+      driver: {
+        json: true,
+        tty: false,
+        ci: true,
+        agent_signals: [{
+          agent: "codex",
+          source: "process-environment",
+          markers: ["CODEX_THREAD_ID"],
+        }],
+      },
+    })),
+    "automation",
+    "inherited identity markers do not outrank the automation evidence",
+  );
+  assertEquals(
+    driverKind(verb({ driver: { json: true, tty: false, ci: true } })),
+    "automation",
+    "the conventional CI marker is the fallback for unmarked history",
+  );
+  assertEquals(
+    driverKind(verb({ driver: { tty: true, ci: false } })),
+    "human",
+    "a terminal without automation or identity evidence stays human",
+  );
+});

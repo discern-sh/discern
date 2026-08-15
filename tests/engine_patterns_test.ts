@@ -1086,6 +1086,7 @@ Deno.test("patterns: an empty logbook is a first-class state with a helpful mess
       analyzed: 0,
       agent: 0,
       human: 0,
+      automation: 0,
       unknown: 0,
       identities: [],
     });
@@ -1121,6 +1122,7 @@ Deno.test("patterns: a seeded logbook yields two-layer findings that validate", 
     assertEquals(data.population.analyzed, 5);
     assertEquals(data.population.agent, 1);
     assertEquals(data.population.human, 0);
+    assertEquals(data.population.automation, 0);
     assertEquals(data.population.unknown, 4);
     assertEquals(data.population.identities, [
       { agent: "claude", label: "Claude Code", runs: 1 },
@@ -2283,7 +2285,8 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       );
     }
     assertEquals(
-      data.population.agent + data.population.human + data.population.unknown,
+      data.population.agent + data.population.human +
+        data.population.automation + data.population.unknown,
       data.population.analyzed,
       "the named driver partition must reconcile to analyzed runs",
     );

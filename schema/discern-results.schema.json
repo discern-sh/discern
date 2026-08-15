@@ -10166,6 +10166,11 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "automation": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "unknown": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -10200,6 +10205,7 @@
                     "analyzed",
                     "agent",
                     "human",
+                    "automation",
                     "unknown",
                     "identities"
                   ]

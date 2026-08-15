@@ -3160,6 +3160,7 @@ export type DiscernPatternsResult = {
       analyzed: number;
       agent: number;
       human: number;
+      automation: number;
       unknown: number;
       identities: Array<{
         agent: string;

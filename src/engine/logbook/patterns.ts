@@ -119,7 +119,7 @@ import { synthesizeInvestigations } from "./investigations.ts";
  * segmentation the detectors rely on is never a silent filter.
  */
 function scorePopulation(facts: StreamFacts): PatternsPopulation {
-  const kinds = { agent: 0, human: 0, unknown: 0 };
+  const kinds = { agent: 0, human: 0, automation: 0, unknown: 0 };
   const identityRuns = new Map<string, number>();
   for (const e of facts.verbs) {
     kinds[driverKind(e)] += 1;
@@ -476,7 +476,7 @@ function summaryLine(data: PatternsData): string {
   return parts.join(" · ");
 }
 
-/** "1,670 analyzed runs · driven by agents 1,421 (identified: Claude Code 757 · Codex 528) · humans 66 · unknown 183" */
+/** "1,670 analyzed runs · driven by agents 1,421 (identified: Claude Code 757 · Codex 528) · humans 66 · automation 96 · unknown 87" */
 function driversLine(population: PatternsPopulation): string {
   const identities = population.identities
     .map((identity) => `${identity.label} ${formatHumanNumber(identity.runs)}`)
@@ -485,7 +485,9 @@ function driversLine(population: PatternsPopulation): string {
     formatHumanNumber(population.agent)
   }${identities !== "" ? ` (identified: ${identities})` : ""} · humans ${
     formatHumanNumber(population.human)
-  } · unknown ${formatHumanNumber(population.unknown)}`;
+  } · automation ${formatHumanNumber(population.automation)} · unknown ${
+    formatHumanNumber(population.unknown)
+  }`;
 }
 
 /** Summarize fired, quiet, and evidence-limited detectors in one report line. */
