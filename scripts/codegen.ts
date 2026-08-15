@@ -40,6 +40,10 @@ import {
   renderFeatureCanonDoc,
   renderFeatureCanonPlainDoc,
 } from "./feature_registry.ts";
+import {
+  PRACTICE_CANON_PAGE_REL,
+  renderPracticeCanonDoc,
+} from "./practice_registry.ts";
 import { buildCli } from "../src/main.ts";
 import {
   renderProofNoteJsonSchema,
@@ -138,6 +142,10 @@ const featureCanonPlain = relative(
 const featureCanonBenefits = relative(
   repoRoot,
   join(mapDir, FEATURE_CANON_BENEFITS_PAGE_REL),
+);
+const practiceCanon = relative(
+  repoRoot,
+  join(mapDir, PRACTICE_CANON_PAGE_REL),
 );
 const installSurface = relative(
   repoRoot,
@@ -260,6 +268,10 @@ console.log(
 await write(featureCanon, renderFeatureCanonDoc());
 await write(featureCanonPlain, renderFeatureCanonPlainDoc());
 await write(featureCanonBenefits, renderFeatureCanonBenefitsDoc());
+console.log(
+  "Regenerating the practice canon from scripts/practice_registry.ts:",
+);
+await write(practiceCanon, renderPracticeCanonDoc());
 console.log(
   "Regenerating the registry atlas from scripts/canonical_sets.ts:",
 );

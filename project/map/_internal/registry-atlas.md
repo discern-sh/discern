@@ -64,9 +64,10 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 35      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 40      | —                | node `glossary-canon`       |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 41      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 128     | —                | —                           |
 | [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 44      | —                | —                           |
+| [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 10      | "Practice"       | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 44      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
@@ -78,7 +79,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 273     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 274     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 22      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -91,9 +92,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 80      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 81      | —                | node `canonical-sets`       |
 
-80 sets · 125 guard tests · 53 committed artifacts.
+81 sets · 126 guard tests · 54 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -200,6 +201,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/paths_sentinel_render_test.ts`              | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/paths_write_surface_test.ts`                | [`source-paths`](#source-paths--source-paths), [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                           |
 | `tests/patterns_test.ts`                           | [`hints`](#hints--hints), [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                           |
+| `tests/practice_canon_enrolment_test.ts`           | [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/providers_test.ts`                          | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/public_doc_parity_test.ts`                  | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/public_schema_compatibility_guard_test.ts`  | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                    |
@@ -267,6 +269,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `project/map/_internal/feature-canon-plain.md`             | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                                  |
 | `project/map/_internal/feature-canon.md`                   | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                                  |
 | `project/map/_internal/hint-inventory.md`                  | generated file   | [`hints`](#hints--hints)                                                                                          |
+| `project/map/_internal/practice-canon.md`                  | generated file   | [`practice-tenets`](#practice-tenets--practice-canon)                                                             |
 | `project/map/_internal/registry-atlas.md`                  | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                               |
 | `project/map/_internal/tip-inventory.md`                   | generated file   | [`tips`](#tips--tips)                                                                                             |
 | `project/map/_internal/voice-enforcement-coverage.md`      | generated file   | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                          |
@@ -1587,7 +1590,7 @@ The improvement catalog's categories, in display order. The runner ranks them we
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans. Each entry also carries the term's plain-register rendering, so the vocabulary and its plain translation are one record.
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
-- Members: 40
+- Members: 41
   - `Accept`
   - `Advisory`
   - `discern version`
@@ -1612,6 +1615,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Namespace`
   - `Patterns`
   - `Placement is consent`
+  - `Practice`
   - `Preset`
   - `Project script`
   - `Proof`
@@ -1826,6 +1830,27 @@ The commercially ordered transposition of the feature registry: human value and 
 - Artifacts: `project/map/_internal/feature-canon-benefits.md`
 - Glossary: not enrolled — this maintainer registry supplies the benefit canon's data
 - Feature canon: not enrolled — the benefit canon is the feature canon's own transposition; its entries cite feature nodes rather than claim surfaces
+
+## `practice-tenets` — Practice canon
+
+The practice registry behind the practice canon: the obligations the engine holds and the bundled skills teach, each tenet citing its feature-canon mechanisms, its benefit-canon yields, and the project-inventory items it maintains.
+
+- Source: `scripts/practice_registry.ts` — `PRACTICE_CANON`
+- Members: 10
+  - `arrive-knowing`
+  - `one-task-one-place`
+  - `hand-over-whole-pieces`
+  - `done-is-deterministic`
+  - `only-better`
+  - `proof-binds-to-the-change`
+  - `you-decide-what-lands`
+  - `the-project-remembers`
+  - `cure-the-class`
+  - `write-it-once`
+- Guards: `tests/practice_canon_enrolment_test.ts`
+- Artifacts: `project/map/_internal/practice-canon.md`
+- Glossary: the "Practice" entry carries the concept
+- Feature canon: not enrolled — the tenets are obligations the feature nodes implement; each cites its mechanisms rather than claiming surfaces
 
 ## `result-contracts` — Result contracts
 
@@ -2090,7 +2115,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 273
+- Members: 274
   - `0003`
   - `0005`
   - `0006`
@@ -2346,6 +2371,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0281`
   - `0282`
   - `0283`
+  - `0284`
   - `0001`
   - `0002`
   - `0004`
@@ -2641,7 +2667,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 80
+- Members: 81
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2697,6 +2723,7 @@ This meta-registry: the closed set of closed sets.
   - `glossary-terms`
   - `feature-canon`
   - `benefit-canon`
+  - `practice-tenets`
   - `result-contracts`
   - `result-contract-reference-fields`
   - `cli-json-predicates`

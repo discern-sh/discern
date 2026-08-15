@@ -1694,6 +1694,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "practice-tenets",
+    title: "Practice canon",
+    what:
+      "The practice registry behind the practice canon: the obligations the engine holds and the bundled skills teach, each tenet citing its feature-canon mechanisms, its benefit-canon yields, and the project-inventory items it maintains.",
+    source: {
+      kind: "module",
+      module: "scripts/practice_registry.ts",
+      exportName: "PRACTICE_CANON",
+    },
+    guards: ["tests/practice_canon_enrolment_test.ts"],
+    artifacts: [
+      {
+        path: "project/map/_internal/practice-canon.md",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: { term: "Practice" },
+      featureCanon: {
+        absent:
+          "the tenets are obligations the feature nodes implement; each cites its mechanisms rather than claiming surfaces",
+      },
+    },
+    members: async () =>
+      (await import("./practice_registry.ts")).PRACTICE_CANON.map(
+        (tenet) => tenet.id,
+      ),
+  },
+  {
     id: "result-contracts",
     title: "Result contracts",
     what:
