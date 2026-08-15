@@ -215,10 +215,13 @@ function gateActivityProducer(
       if (!visible.has(event.label)) return;
       const prefix = `${terminalLine(event.label)} ${rail}`;
       produce(() => {
-        if (event.kind === "line") log.append(`${prefix} ${event.text}`);
-        else {log.updatePartial(
+        if (event.kind === "line") {
+          log.append(`${prefix} ${event.text}`);
+        } else {
+          log.updatePartial(
             event.text === "" ? "" : `${prefix} ${event.text}`,
-          );}
+          );
+        }
       });
     },
     complete: async (_steps): Promise<void> => {

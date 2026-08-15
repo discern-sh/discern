@@ -210,7 +210,9 @@ async function runTestGate(
     cfg,
     policy,
     gotchasTail,
-    outputWithheld: gateOutputIsLive(policy) && !deferredOutputFlushed,
+    // The package tail disappears at completion; failures retain the durable
+    // diagnostic excerpt and full-artifact route below the restored frame.
+    outputWithheld: gateOutputIsLive(policy),
     presentationWritable: !liveWriteFailed && deferredOutputFlushed,
   };
 }

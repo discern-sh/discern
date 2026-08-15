@@ -1268,7 +1268,10 @@ async function runGate(
     out,
     changed,
     gotchasTail,
-    outputWithheld: gateOutputIsLive(policy) && !deferredOutputFlushed,
+    // A live tail is bounded and transient. Even when the deferred headings
+    // flushed successfully, a failure still needs its durable diagnostic
+    // excerpt and full-artifact route below the restored frame.
+    outputWithheld: gateOutputIsLive(policy),
     presentationWritable: !liveWriteFailed && deferredOutputFlushed,
   };
 }

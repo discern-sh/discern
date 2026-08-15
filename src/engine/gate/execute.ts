@@ -111,14 +111,6 @@ export function gateOutputIsLive(policy: GateRunPolicy): boolean {
   return policy.output.kind === "live-frame";
 }
 
-/** Grouped and live modes leave the detailed table before the final tail. */
-export function gateOutputRendersTableBeforeTail(
-  policy: GateRunPolicy,
-): boolean {
-  return policy.output.kind === "live-frame" ||
-    policy.output.kind === "static-grouped";
-}
-
 /** Buffered human transcript held while a replaceable live frame owns stdout. */
 interface DeferredHumanRun {
   readonly out: Out;
