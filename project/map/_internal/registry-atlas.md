@@ -94,7 +94,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 81      | —                | node `canonical-sets`       |
 
-81 sets · 126 guard tests · 54 committed artifacts.
+81 sets · 126 guard tests · 55 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -249,6 +249,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `.vale/DiscernProduct/ProductName.yml`                     | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
 | `THIRD_PARTY_NOTICES`                                      | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          |
 | `project/map/00-orientation/glossary.md`                   | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                               |
+| `project/map/00-orientation/the-practice.md`               | generated file   | [`practice-tenets`](#practice-tenets--practice-canon)                                                             |
 | `project/map/70-reference/artifact-ownership.md`           | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      |
 | `project/map/70-reference/cli-reference.md`                | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                                |
 | `project/map/70-reference/config-reference.md`             | generated file   | [`config-tables`](#config-tables--config-tables)                                                                  |
@@ -1848,7 +1849,7 @@ The practice registry behind the practice canon: the obligations the engine hold
   - `cure-the-class`
   - `write-it-once`
 - Guards: `tests/practice_canon_enrolment_test.ts`
-- Artifacts: `project/map/_internal/practice-canon.md`
+- Artifacts: `project/map/_internal/practice-canon.md`, `project/map/00-orientation/the-practice.md`
 - Glossary: the "Practice" entry carries the concept
 - Feature canon: not enrolled — the tenets are obligations the feature nodes implement; each cites its mechanisms rather than claiming surfaces
 

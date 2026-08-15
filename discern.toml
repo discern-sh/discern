@@ -235,6 +235,7 @@
   [scopes.canon]
     paths = [
       "${map.dir}00-orientation/glossary.md",
+      "${map.dir}00-orientation/the-practice.md",
       "${map.dir}_internal/feature-canon.md",
       "${map.dir}70-reference/config-reference.md",
       "${map.dir}70-reference/cli-reference.md",
@@ -292,6 +293,7 @@
       "schema/discern-proof-note.schema.json",
       "types/discern-json.d.ts",
       "${map.dir}00-orientation/glossary.md",
+      "${map.dir}00-orientation/the-practice.md",
       "${map.dir}70-reference/cli-reference.md",
       "${map.dir}70-reference/config-reference.md",
       "${map.dir}70-reference/environment-variables.md",

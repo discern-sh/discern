@@ -11,7 +11,7 @@ _The practice, enumerated: the obligations discern holds for every change, state
 The tenets operate inside one relationship:
 
 - **The human** — You set the direction, make the calls only you can make, and hold the authority over what becomes shared.
-- **The agents** — Coding agents operate the practice day to day: they inherit the project's guidance, carry the work, and answer to its checks.
+- **The agents** — Coding agents operate the practice: they inherit the project's guidance, carry the work, and answer to its checks.
 - **The project** — The repository carries the practice — its guidance, its working conditions, its checks, its evidence, and its decisions — across sessions, agents, and providers.
 
 ## The tenets
@@ -22,7 +22,7 @@ Numbered by position; `loop` tenets govern how work moves, `craft` tenets govern
 
 > Every session starts with the project's guidance, understanding, and methods already in hand.
 
-One authored guidance body compiles into every configured agent's instruction file, the map carries the account of the project agents work from, and skills put the proven procedures where a session finds them. A fresh agent orients with one read-only call instead of an interrogation of the codebase.
+One authored guidance body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.
 
 - **Arc:** loop
 - **Held:** by the engine (`refresh`, `[guidance]`)
@@ -32,9 +32,9 @@ One authored guidance body compiles into every configured agent's instruction fi
 
 ### 2. One task, one place
 
-> Every effort works in its own isolated place: a separate checkout with its own identity, environment, and declared resources.
+> Every effort works in its own place: a separate checkout with its own identity, environment, and resources.
 
-Each effort forks from the trunk into a linked worktree with a deterministic identity — its own branch, port, environment values, and resources. Parallel agents cannot overwrite one another's tree, and the fleet view names cross-effort file collisions before either change lands.
+Each effort forks from the trunk into a linked worktree with its own branch, port, environment values, and resources. Parallel agents cannot overwrite one another's tree, and the fleet view names file collisions before either change lands.
 
 - **Arc:** loop
 - **Held:** by the engine (`start`, `worktree`, `[worktree]`)
@@ -46,7 +46,7 @@ Each effort forks from the trunk into a linked worktree with a deterministic ide
 
 > Work is delegated as complete, bounded briefs with declared dependencies, and the project carries status between tasks.
 
-The delegate-work skill turns discussed work into self-contained briefs (a purpose, a boundary, a definition of ready), each dispatched to its own worktree. A dependent task blocks on the repository's own state and composes below the trunk from the commit it needs, so nobody relays readiness between sessions.
+The delegate-work skill turns discussed work into self-contained briefs (a purpose, a boundary, a definition of ready), each dispatched to its own worktree. A dependent task blocks on the repository's own state and composes below the trunk, so nobody relays readiness between sessions.
 
 - **Arc:** loop
 - **Held:** by the engine (`await`); taught (`discern-delegate-work`, `discern-await-the-fleet`)
@@ -58,7 +58,7 @@ The delegate-work skill turns discussed work into self-contained briefs (a purpo
 
 > The project's declared checks decide when work is done; an agent's confidence stays advisory.
 
-The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. The verdict is recomputed on every run, and a failure carries the command that produced it, so the fix starts at the cause.
+The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. Every verdict is recomputed, and a failure carries the command that produced it, so the fix starts at the cause.
 
 - **Arc:** loop
 - **Held:** by the engine (`done`, `prepare`, `[jobs]`, `[gate]`)
@@ -68,9 +68,9 @@ The gate runs the project's full declared check: the jobs by stage, the scope ga
 
 ### 5. Only better
 
-> Measured quality limits never loosen, captured gains become the new baseline, and the local record shows where to improve next.
+> Measured limits never loosen, gains become the new baseline, and the local record shows the next improvement.
 
-Standards hold each configured number at a limit compared against the trunk: a floor may only rise, a ceiling may only fall, and a branch that loosens either fails the gate. A pin captures an improvement as the new limit, while the advisory readers mine the local logbook for the next gain worth taking.
+Standards hold each measured number at a limit compared against the trunk: a floor may only rise, a ceiling may only fall, and a branch that loosens either fails the gate. A pin captures a gain as the new limit; the advisory readers mine the local logbook for the next one.
 
 - **Arc:** loop
 - **Held:** by the engine (`standards`, `[standards]`); taught (`discern-set-the-standard`, `discern-clear-the-decks`)
@@ -80,9 +80,9 @@ Standards hold each configured number at a limit compared against the trunk: a f
 
 ### 6. Proof binds to the change
 
-> Finished work returns with evidence naming the exact committed tree it vouches for; any later edit expires it.
+> Finished work returns with evidence naming the exact committed tree; any later edit expires it.
 
-A green gate over a clean, committed tree mints proof: the branch, the pinned commit, the changed files, the check results, and the held standards. Acceptance writes it to the landed commit as a durable note, so the evidence outlives the worktree that produced it.
+A green gate over a clean, committed tree mints proof: the pinned commit, the changed files, the check results, the held standards. Acceptance writes it to the landed commit as a durable note, so the evidence outlives the worktree.
 
 - **Arc:** loop
 - **Held:** by the engine (`done`, `[repository]`)
@@ -92,9 +92,9 @@ A green gate over a clean, committed tree mints proof: the branch, the pinned co
 
 ### 7. You decide what lands
 
-> A green gate makes a change eligible; landing takes fresh consent or a grant you recorded, checked against the exact changed paths.
+> A green gate makes a change eligible; landing takes fresh consent or a recorded grant, checked against the changed paths.
 
-Acceptance resolves its authority per invocation (a conversation attestation, a standing scope grant, or a one-shot effort grant) and refuses without one. What lands is the tree the gate validated, fast-forwarded onto the trunk with nothing of the task left behind.
+Acceptance resolves its authority per invocation (a conversation attestation, a standing scope grant, or a one-shot effort grant) and refuses without one. What lands is the tree the gate validated, fast-forwarded onto the trunk.
 
 - **Arc:** loop
 - **Held:** by the engine (`accept`, `[acceptance]`)
@@ -106,7 +106,7 @@ Acceptance resolves its authority per invocation (a conversation attestation, a 
 
 > Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.
 
-A correction becomes guidance, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from — its substance checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
+A correction becomes guidance, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
 
 - **Arc:** loop
 - **Held:** by the engine (`[map]`); taught (`discern-teach-the-project`, `discern-write-adr`, `discern-document-subsystem`)
@@ -116,9 +116,9 @@ A correction becomes guidance, a decision becomes a record with its reasons, a p
 
 ### 9. Cure the class
 
-> A bug is fixed at its class, with a proven cause and a permanent guard, so the same defect cannot return unnoticed.
+> A bug is fixed at its class, with a proven cause and a permanent guard, so it cannot return unnoticed.
 
-The cure-a-bug skill requires the cause proven before the fix, the fix applied to every member of the class, and a guard driven from the class's single source left in the gate — so a future member enrols in the protection the moment it exists.
+The cure-a-bug skill requires the cause proven, the fix applied to every member of the class, and a guard driven from the class's single source left in the gate, so a future member enrols the moment it exists.
 
 - **Arc:** craft
 - **Held:** taught (`discern-cure-a-bug`)
@@ -130,7 +130,7 @@ The cure-a-bug skill requires the cause proven before the fix, the fix applied t
 
 > Every shared fact has one authority; copies are generated from it, and drift fails the gate.
 
-The write-it-once skill carries the construction discipline discern builds itself with: one source per fact with bound consumers, guards that enrol future members, and effects planned before they run. Declared generated artifacts regenerate from their sources, and the gate fails a copy that drifted.
+The write-it-once skill carries the discipline discern builds itself with: one authority per fact with bound consumers, guards that enrol future members, effects planned before they run. Generated artifacts regenerate from their sources, and the gate fails a copy that drifted.
 
 - **Arc:** craft
 - **Held:** by the engine (`[generated]`); taught (`discern-write-it-once`)

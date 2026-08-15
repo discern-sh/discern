@@ -166,7 +166,7 @@ The rule deciding what discern and its agents may write: a file at its namespace
 
 ### Practice
 
-The connected way of working discern installs and the project carries, enumerated as tenets in the practice canon — the maintainer registry beside the feature canon ([ADR 0284](../_adr/0284-the-practice-canon-enumerates-the-tenets.md)). The engine holds the loop: one [worktree](#worktree) per effort, the [gate](#gate)'s deterministic meaning of done, [standards](#standard) that only tighten, [proof](#proof) bound to the exact change, and [landing authority](#landing-authority) that stays human. The bundled [skills](#skill) teach the rest: work handed over whole, lessons the [map](#map) keeps, bug classes cured over instances, one authority per fact. The human owns the practice; agents operate it.
+The connected way of working discern installs and the project carries, enumerated as tenets in the practice canon ([ADR 0284](../_adr/0284-the-practice-canon-enumerates-the-tenets.md)). The engine holds the loop: one [worktree](#worktree) per effort, a deterministic [gate](#gate) verdict, [standards](#standard) that only tighten, [proof](#proof) bound to the exact change, [landing authority](#landing-authority) that stays human. The bundled [skills](#skill) teach the rest: whole delegated pieces, retained lessons, cured bug classes, one authority per fact. The human owns the practice; agents operate it. Covered in [the practice](the-practice.md).
 
 ### Preset
 

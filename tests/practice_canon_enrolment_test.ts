@@ -28,8 +28,10 @@ import {
   PRACTICE_DELIBERATELY_ABSENT,
   PRACTICE_FRAME,
   PRACTICE_PROPERTIES,
+  PRACTICE_PUBLIC_PAGE_REL,
   PROJECT_INVENTORY,
   renderPracticeCanonDoc,
+  renderPracticePublicDoc,
   tenetHolds,
 } from "../scripts/practice_registry.ts";
 import { allFeatureNodes, BENEFIT_CANON } from "../scripts/feature_registry.ts";
@@ -54,6 +56,18 @@ Deno.test("the configured map's practice canon matches the generator (run `deno 
     await canonicalGeneratedMarkdown(path, renderPracticeCanonDoc()),
     `${
       join(REPO_AUTHORED_PATHS.mapRel, PRACTICE_CANON_PAGE_REL)
+    } is stale — run \`deno task codegen\``,
+  );
+});
+
+Deno.test("the configured map's public practice page matches the generator (run `deno task codegen`)", async () => {
+  const path = join(REPO_AUTHORED_PATHS.map, PRACTICE_PUBLIC_PAGE_REL);
+  const committed = await Deno.readTextFile(path);
+  assertEquals(
+    committed,
+    await canonicalGeneratedMarkdown(path, renderPracticePublicDoc()),
+    `${
+      join(REPO_AUTHORED_PATHS.mapRel, PRACTICE_PUBLIC_PAGE_REL)
     } is stale — run \`deno task codegen\``,
   );
 });
