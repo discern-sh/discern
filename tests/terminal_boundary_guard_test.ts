@@ -26,8 +26,9 @@ const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
 
 /**
  * The web build owns a separate site-theme model, not terminal presentation.
- * Every other authored runtime tree is enrolled so a future script or source
- * root cannot reconstruct the CLI presenter's bound facts.
+ * The capture task's HTML-document theme is admitted only by exact exceptions
+ * below. Every other authored runtime tree is enrolled so a future script or
+ * source root cannot reconstruct the CLI presenter's bound facts.
  */
 function terminalPlumbingLawApplies(rel: string): boolean {
   return !rel.startsWith("site/");
@@ -1476,6 +1477,22 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
     count: 1,
     reason:
       "The effectful package request graph accepts a theme but cannot use the pure CLI presenter.",
+  },
+  {
+    file: "scripts/terminal_capture.ts",
+    rule: "direct-theme-threading",
+    authority: "parseOptions",
+    count: 1,
+    reason:
+      "The review task selects an HTML artifact theme, not a live terminal theme.",
+  },
+  {
+    file: "scripts/terminal_capture.ts",
+    rule: "direct-theme-threading",
+    authority: "main",
+    count: 1,
+    reason:
+      "The review task forwards its HTML artifact theme into package projection.",
   },
   {
     file: "src/engine/owned_child.ts",
