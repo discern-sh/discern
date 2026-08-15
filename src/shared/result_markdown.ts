@@ -6,6 +6,7 @@
  * current state -> evidence -> authority boundary -> next action.
  */
 
+import { format as formatBytes } from "@std/fmt/bytes";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { markdownCodeSpan } from "./markdown_code.ts";
 
@@ -100,6 +101,24 @@ function plural(count: number, one: string, many = `${one}s`): string {
 /** The one bounded-list overflow sentence, so every count agrees with its noun. */
 function omitted(count: number, noun: string): string {
   return `${plural(count, `additional ${noun}`)} omitted.`;
+}
+
+/** Render one elapsed span at a readable unit instead of raw milliseconds. */
+function duration(ms: number): string {
+  if (ms < 1_000) {
+    return `${Math.round(ms)} ms`;
+  }
+  const seconds = ms / 1_000;
+  if (seconds < 90) {
+    return `${
+      seconds >= 10 ? Math.round(seconds) : Math.round(seconds * 10) / 10
+    } s`;
+  }
+  const minutes = seconds / 60;
+  if (minutes < 90) {
+    return `${Math.round(minutes)} min`;
+  }
+  return `${Math.round(minutes / 60 * 10) / 10} h`;
 }
 
 /** Remove blank and duplicate presentation items without reordering them. */
@@ -306,7 +325,7 @@ function envelopeEvidence(
 
   const waitedMs = number(result.waited_ms);
   if (waitedMs !== undefined && waitedMs > 0) {
-    facts.push(`Waited ${Math.round(waitedMs)} ms for an execution slot.`);
+    facts.push(`Waited ${duration(waitedMs)} for an execution slot.`);
   }
 
   const diagnostics = records(result.diagnostics);
@@ -1056,7 +1075,7 @@ const presentAwait: ResultMarkdownPresenter = (result) => {
       } the ${code(condition)} condition.`,
     ),
     evidence: unique([
-      `Waited ${number(data.waited_ms) ?? 0} ms.`,
+      `Waited ${duration(number(data.waited_ms) ?? 0)}.`,
       text(observed.proof_status) === undefined
         ? undefined
         : `Proof status: ${code(observed.proof_status)}.`,
@@ -1112,7 +1131,7 @@ const presentPatternsLifecycle: ResultMarkdownPresenter = (result) => {
         : `Events: ${number(data.events)}.`,
       number(data.bytes) === undefined
         ? undefined
-        : `Bytes: ${number(data.bytes)}.`,
+        : `Size: ${formatBytes(number(data.bytes) ?? 0)}.`,
       archives.length === 0 ? undefined : `Archives: ${archives.length}.`,
       text(data.recovery_path) === undefined
         ? undefined

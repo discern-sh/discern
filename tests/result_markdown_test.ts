@@ -461,3 +461,49 @@ Deno.test("no recorded grant keeps the boundary to the conversation sentence", (
   assert(!rendered.includes("src/a.ts"), rendered);
   assert(!rendered.includes("also touches"), rendered);
 });
+
+Deno.test("every presenter renders clean prose for empty and failed envelopes", () => {
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    const empty = renderResultMarkdown(
+      { ok: true, verb: contract.verb, data: {} },
+      contract.presenter,
+    );
+    const failed = renderResultMarkdown(
+      {
+        ok: false,
+        verb: contract.verb,
+        error: "apply_failed",
+        message: "The operation could not finish.",
+      },
+      contract.presenter,
+    );
+    for (const rendered of [empty, failed]) {
+      assert(rendered.startsWith("# `discern"), `${contract.id}: ${rendered}`);
+      assert(!rendered.includes("undefined"), `${contract.id}: ${rendered}`);
+      assert(!rendered.includes("NaN"), `${contract.id}: ${rendered}`);
+      assert(!rendered.includes("[object"), `${contract.id}: ${rendered}`);
+    }
+  }
+});
+
+Deno.test("durations and byte sizes render at readable units", () => {
+  const awaited = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "await",
+      data: { met: false, condition: "green", waited_ms: 60_000 },
+    },
+    resultPresenterForVerb("await"),
+  );
+  assertStringIncludes(awaited, "Waited 60 s.");
+  const archive = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "patterns archive",
+      data: { events: 14783, bytes: 16_000_000 },
+    },
+    resultPresenterForVerb("patterns archive"),
+  );
+  assertStringIncludes(archive, "Size: 16 MB.");
+  assert(!archive.includes("16000000"), archive);
+});
