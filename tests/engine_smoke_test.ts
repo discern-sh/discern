@@ -6,7 +6,7 @@
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 
 Deno.test("engine smoke: discern --help lists commands and exits 0", async () => {
@@ -31,7 +31,7 @@ Deno.test("engine smoke: done on a fresh embedded-only gate passes", async () =>
     const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "format");
-    assertStringIncludes(r.stdout, "Tidy results");
+    assertTerminalTextIncludes(r.stdout, "Tidy results");
   });
 });
 
@@ -56,8 +56,11 @@ Deno.test("engine smoke: an unknown word exits 1 and teaches the next step", asy
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["definitely-not-a-script"]);
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, 'unknown command "definitely-not-a-script"');
-    assertStringIncludes(r.stderr, "discern docs");
+    assertTerminalTextIncludes(
+      r.stderr,
+      'unknown command "definitely-not-a-script"',
+    );
+    assertTerminalTextIncludes(r.stderr, "discern docs");
   });
 });
 

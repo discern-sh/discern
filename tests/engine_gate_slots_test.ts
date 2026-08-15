@@ -557,7 +557,7 @@ Deno.test("gate slots: a contended done displays slot wait beside run timings", 
       const output = `${out}${err}`;
       assertMatch(
         output,
-        /^→ Waited [1-9][0-9]*(?:h|m|s)(?: [0-9]+(?:m|s))* for a test-run slot\.$/mu,
+        /^\S Waited [1-9][0-9]*(?:h|m|s)(?: [0-9]+(?:m|s))* for a test-run slot\.$/mu,
       );
       assertEquals(
         output.split("\n").some((line) =>

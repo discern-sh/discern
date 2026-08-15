@@ -38,6 +38,10 @@ Deno.test("the project mark is U+25EE and the README opens with its wordmark", a
 const GOLDEN_FRAME_TESTS = [
   "tests/brand_animation_test.ts",
   "tests/brand_art_test.ts",
+  "tests/engine_gate_presentation_test.ts", // exact package-composed TTY frame
+  "tests/human_output_grouping_test.ts", // exact narration boundary frames
+  "tests/log_test.ts", // exact Logger narration frames
+  "tests/narration_test.ts", // exact package narration frames
   "tests/triangle_art_test.ts",
 ];
 

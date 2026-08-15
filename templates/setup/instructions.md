@@ -20,7 +20,7 @@
 
 ## How to work with the user — you are the engine; transparency, not interrogation
 
-You are configuring a project for someone who may be newer to shipping reliable software: building through coding agents, but without the background that keeps a codebase holding together. They can be unsettled by an agent that changes things silently. The instinct that follows — ask permission at every step — is the wrong fix: a novice asked to approve a dozen changes they don't yet understand has no basis to decide, so a wall of "may I?" prompts is its own kind of black box. **Zero configuration means _you_ do the work; their job is to watch and trust.** So the contract is **transparency, not interrogation**: do the reversible work, narrate it clearly — above all _why_ — and commit it in small revertible steps. The user stays informed and in control without answering for each one.
+You are configuring a project for someone who may be newer to shipping reliable software: building through coding agents, but without the background that keeps a codebase holding together. They can be unsettled by an agent that changes things silently. The instinct that follows — ask permission at every step — is the wrong fix: a novice asked to approve a dozen changes they don't yet understand has no basis to decide, so a wall of "may I?" requests is its own kind of black box. **Zero configuration means _you_ do the work; their job is to watch and trust.** So the contract is **transparency, not interrogation**: do the reversible work, narrate it clearly — above all _why_ — and commit it in small revertible steps. The user stays informed and in control without answering for each one.
 
 **Ask a real question only at a genuine decision** — one that is yours to escalate, not yours to make:
 
@@ -45,7 +45,7 @@ Reserve the full five beats for genuine additions and forks. The obvious jobs a 
 
 You can use your own words when narrating progress, just make sure your narration covers: what you're adding, why it matters, how discern will enforce it, how it can be reverted, and what you did.
 
-**Narration is not completion.** Proceeding and committing as you go is transparency _during_ setup — never licence to tell the user setup is done. Completion is only the stop-conditions at the foot of this brief plus a green `discern setup done`. (The `discern setup` _command_ never prompts you for anything — but a non-interactive command and a silent agent are different things: converse, narrate, and ask the genuine questions anyway.)
+**Narration is not completion.** Proceeding and committing as you go is transparency _during_ setup — never licence to tell the user setup is done. Completion is only the stop-conditions at the foot of this brief plus a green `discern setup done`. (The `discern setup` _command_ never requests terminal input — but a non-interactive command and a silent agent are different things: converse, narrate, and ask the genuine questions anyway.)
 
 ---
 
@@ -288,20 +288,23 @@ Open **`{{guidance_path}}`** (the configured `[guidance].sources` seed). This fi
 ## Step 6 — Seed the map's orientation pages
 
 ```toml
-intent = "Seed the map's three orientation pages from what you learned, using one consistent set of canonical nouns."
+intent = "Seed the map's three orientation pages from what you learned, using one consistent set of canonical nouns, and complete the seeded first decision record."
 files_to_read = [
   "{{map_dir}}00-orientation/concepts.md",
   "{{map_dir}}00-orientation/glossary.md",
   "{{map_dir}}00-orientation/system-map.md",
+  "{{map_dir}}_adr/0001-adopt-discern.md",
 ]
 must_do = [
   "Fill concepts (the narrative tour), glossary (each canonical noun defined once), and system-map (an ASCII diagram).",
+  "Complete the seeded first ADR with project-specific context, the Gate's real jobs, and balanced consequences.",
   "Clear the stale \"starts as a skeleton\" notes once each page is real.",
 ]
 what_not_to_do = [
   "Do not introduce synonyms for the canonical nouns — use the same capitalised terms everywhere.",
+  "Do not invent failures or blame people and agents when describing the project's previous approach.",
 ]
-completion_check = "concepts, glossary, and system-map are seeded, and their skeleton notes are cleared."
+completion_check = "concepts, glossary, system-map, and the first ADR contain project-specific content with their skeleton notes cleared."
 next_action = "Once the orientation pages read true, pull the next page: `discern setup step 7`."
 ```
 
@@ -312,6 +315,14 @@ Fill the three orientation skeletons from what you learned in Step 1, removing t
 - **`{{map_dir}}00-orientation/system-map.md`** — an **ASCII** diagram of the real components and the flow between them, plus the "where each piece runs" notes.
 
 Use the same capitalised canonical nouns across all three (and everywhere else). Don't introduce synonyms.
+
+Next, complete **`{{map_dir}}_adr/0001-adopt-discern.md`**, the seeded record of this project's decision to adopt discern. The shared commitments and consequences are already present. Replace the `<!-- setup fills this -->` markers with project-specific material:
+
+- **Context:** use Step 1's evidence to describe how the project coordinated and verified changes before discern. Explain why its current scale, intended future, or use of agents makes a shared practice useful now.
+- **What the Gate runs:** use Step 2's wiring to name the real jobs and what they establish. Keep every claim within what those checks support.
+- **Consequences:** add 1 to 3 consequences specific to this project. Include a benefit, cost, or changed habit without repeating the shared list.
+
+Future contributors and agents use this record to understand why the practice is here, and later ADRs use it as an example. Keep the provenance sentence. It identifies discern as the source of the seed and the configuring agent as the writer of its project-specific material.
 
 Then clear the stale "starts as a skeleton" notes so the filled tree doesn't still announce itself as empty: the blockquote at the top of **`{{map_dir}}00-orientation/README.md`** and the one-line skeleton blockquote atop each page you just filled. Once a page is real, a note telling the reader it is empty is worse than no note.
 
@@ -458,6 +469,7 @@ These are stop-conditions to **verify for yourself before you finish** — not a
 - `{{guidance_path}}` has a real pitch and Conventions section.
 - If `begin` imported existing instructions, they are folded into `{{guidance_path}}` and **reconciled** — no leftover rule contradicts discern's standing disciplines (e.g. no surviving "don't use worktrees").
 - The orientation pages (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
+- The seeded first ADR (`0001-adopt-discern.md`) contains project-specific context, the Gate's real jobs, and balanced consequences, with its provenance sentence kept and no markers left.
 - No stale "starts as a skeleton / run `discern setup`" notes remain — the `{{map_dir}}README.md` and `{{map_dir}}00-orientation/README.md` intros describe the filled tree, not an empty one.
 - `discern.toml` job fills are **recommended, narrated, and committed** for every detected stack you were confident in — each its own revertible commit — with any genuine fork left for the user to decide and recorded in `{{todo_path}}`; and `discern done` is **green** with whatever was activated.
 - The project **runs in a worktree** — you wired `[worktree]` for whatever a fresh copy needs (env files, dependencies, resources), and a probe worktree's `discern done` is green — or the unresolved gap is recorded in `{{todo_path}}` (Step 8).

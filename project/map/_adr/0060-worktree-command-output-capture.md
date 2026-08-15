@@ -31,7 +31,7 @@ A welcome consequence: the `worktree create` hook's stdout reservation is now **
 
 - **The Vale leak is gone.** A successful `vale sync` at session start is silent, so it never enters agent context; a failed one surfaces on stderr.
 - **One convention across discern.** Automated commands — gate jobs and worktree commands alike — are quiet on success and loud on failure.
-- **Interactive setup loses live progress.** `discern worktree setup`/`start` no longer streams a long `npm ci`/`vale sync` line-by-line; it is silent until the command finishes or fails. The pre-run `→ Setup step: …` / `→ Ensure step: …` narration still says what is running. This matches the gate, which is also silent on success. A future opt-in (honouring `[gate].stream`, or a `--verbose`) could restore live output.
+- **Interactive setup loses live progress.** `discern worktree setup`/`start` no longer streams a long `npm ci`/`vale sync` line-by-line; it is silent until the command finishes or fails. The pre-run `◮ Setup step: …` / `◮ Ensure step: …` narration still says what is running. This matches the gate, which is also silent on success. A future opt-in (honouring `[gate].stream`, or a `--verbose`) could restore live output.
 - **`shell.ts` decouples from narration routing.** The command runner depends only on `log.json` now, not `humanStream` — a smaller surface.
 
 ## Alternatives considered

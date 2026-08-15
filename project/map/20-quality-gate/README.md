@@ -13,15 +13,21 @@ _Start with the current failure, then follow the Gate from fast feedback to fina
 
 If `discern done` failed, go to [When the Gate fails](when-the-gate-fails.md). Each precondition or job failure includes a specific next action, the command, and its captured output.
 
-The repository's final quality check (the Gate) defines done. It checks that the branch contains the latest trunk, Standards did not weaken, [generated artifacts](../00-orientation/glossary.md#generated-artifact) are current, and the Map and guidance agree. Dead links, stale `discern` examples, unreadable metadata, internal-tree links from published pages, and missing Skills fail the integrity check ([ADR 0202](../_adr/0202-the-gate-ships-the-map-integrity-preflight.md)). The Gate then runs fix serially, build in parallel, check and test with Standard measurements, and gates for changed scopes. Build also runs every declared `generated:<name>` job. Drift or output outside the declared paths fails and names what to regenerate ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)). A stage that changes a tracked file that was clean at the starting commit also fails ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).
+The Gate defines done. It requires latest trunk, non-weakened Standards, current [generated artifacts](../00-orientation/glossary.md#generated-artifact), and consistent Map and guidance. Its integrity check rejects broken references, metadata, and Skills ([ADR 0202](../_adr/0202-the-gate-ships-the-map-integrity-preflight.md)). It runs fix serially; build, check, test, Standards, and changed-scope gates follow. Undeclared generated output fails ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)), as does changing a tracked file that began clean ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).
 
-Use `discern prepare` while you work, and once more before your final commit, so the mutating stages have nothing left to rewrite. It runs the fix jobs, regenerates every declared `generated:<name>` job, then runs the checks. Its package Workflow tracks aggregate progress and each job's state. An injected spinner phase and elapsed time keep the view pure. `--plain` and CI make it static. Streams and pipes keep their transcript. A successful result names omitted build jobs and tests, including an empty fix or check configuration.
+Use `discern prepare` before the final commit. It runs fix, every `generated:<name>` job, and check, then names omitted jobs.
 
 Use `discern done` on the intended final commit. A green run on a clean branch ahead of trunk records a Proof for review ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).
 
-For the JSON fields and agent-facing tool contract, use [MCP tools & results](../70-reference/mcp-and-results.md).
+## Live terminal presentation
 
-Human Gate views live in [`presentation.ts`](../../../src/engine/gate/presentation.ts). Pure functions map typed facts and the shared context's attachment, CI policy, and width into package Components. Plans use Procedure and PrerequisiteList; execution uses Meter and Command. Collection, scheduling, result envelopes, raw child bytes, and Proof authority stay in discern.
+On a cursor-controlled terminal, `done`, `prepare`, `test`, and human composite Gate runs share the package activity frame: lifecycle facts stay pinned; complete and partial subprocess lines feed a bounded tail. `[gate].stream` never gates this frame.
+
+The package fits full, then compact, then append-only output. Resizes retain the same producer feed; interrupts restore the cursor. Success leaves stable facts without replaying the tail. Failure follows them with diagnostics and the full-output-artifact route.
+
+CI, pipes, `--plain`, and terminals without cursor control remain static: `stream = false` groups complete per-job output; `true` streams prefixed lines. JSON, Markdown, and MCP omit human job output.
+
+[`execute.ts`](../../../src/engine/gate/execute.ts) resolves presentation separately from capture. [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) feeds the package; [`command.ts`](../../../src/engine/jobs/command.ts) retains raw evidence. For result contracts, see [MCP tools & results](../70-reference/mcp-and-results.md).
 
 | Read next                                                   | What it helps you do                                                             |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |

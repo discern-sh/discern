@@ -14,12 +14,13 @@ import {
 } from "./hints.ts";
 import { containsCommandRefTokens } from "./command_reference.ts";
 import { type DiscernResult, planToJson, stepResultToJson } from "./result.ts";
+import { resultWireProjectorForVerb } from "./result_wire.ts";
 
 /**
- * Serialize a {@link DiscernResult} to the single object shared by `--json` and
- * MCP. Failed envelopes must already carry a registered `next-step` hint: the
- * boundary refuses silent or merely descriptive failures before either public
- * surface can emit one.
+ * Prepare a {@link DiscernResult} as the single compact object shared by
+ * JSON, Markdown, and MCP. Failed envelopes must already carry a registered
+ * `next-step` hint: the boundary refuses silent or merely descriptive failures
+ * before any serialized result surface can emit one.
  */
 export function serializeResult(r: DiscernResult): Record<string, unknown> {
   if (
@@ -77,5 +78,5 @@ export function serializeResult(r: DiscernResult): Record<string, unknown> {
   if (r.message !== undefined) {
     out.message = r.message;
   }
-  return out;
+  return resultWireProjectorForVerb(r.verb)?.(out) ?? out;
 }

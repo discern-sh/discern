@@ -43,12 +43,14 @@ import type {
   SkillsEjectData,
 } from "../shared/result_schemas.ts";
 import { Logger } from "../lib/log.ts";
+import { renderAlignedRows } from "../lib/text.ts";
+import { terminalLine } from "../lib/terminal.ts";
 import {
-  canPrompt,
-  confirmationPrompt,
-  isPromptCancellation,
+  canInteract,
+  isInteractionCancelled,
   plainModeEnabled,
-} from "../lib/prompts.ts";
+  requestConfirmation,
+} from "../lib/terminal_interaction.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
 import type { LifecycleContext } from "./worktree/lifecycle.ts";
 import { colorEnabled } from "./output.ts";
@@ -80,12 +82,12 @@ type ConfirmationOperation = (
 /** Supply the Logbook core a boolean default-No contract at dispatch time. */
 export async function logbookLifecycleConfirmation(
   message: string,
-  operation: ConfirmationOperation = confirmationPrompt,
+  operation: ConfirmationOperation = requestConfirmation,
 ): Promise<boolean> {
   try {
     return await operation(message, false);
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return false;
   }
 }
@@ -145,7 +147,7 @@ function displayName(name: string): string {
   return name;
 }
 
-/** Logger for engine human output — info/ok/heading → stdout; NO_COLOR /
+/** Logger for engine terminal output — info/ok/heading → stdout; NO_COLOR /
  * non-TTY honoured by Logger. */
 function makeLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
@@ -153,9 +155,9 @@ function makeLogger(): Logger {
 
 /**
  * Resolve the project root, or refuse and exit 1. The refusal is the engine's
- * ONE not-initialized chokepoint: under `--json` it emits the uniform
- * `not_initialized` envelope on stdout — the machine slug an agent branches on —
- * and in human mode the canonical stderr line. Every engine verb that needs a
+ * ONE not-initialized chokepoint: under either quiet result format it emits the
+ * uniform `not_initialized` envelope on stdout — including the stable slug a
+ * caller branches on — and in terminal mode the canonical stderr line. Every engine verb that needs a
  * project passes its verb name and json flag here, so a new verb inherits the
  * structured refusal for free (`tests/engine_not_initialized_test.ts` holds the
  * whole verb surface to it).
@@ -166,7 +168,7 @@ async function requireRoot(verb: string, json: boolean): Promise<string> {
     if (json) {
       emitResult(notInitializedResult(verb));
     } else {
-      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+      new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }
     Deno.exit(1);
   }
@@ -182,7 +184,7 @@ function handleWorktreeError(
   lc: Pick<LifecycleModule, "WorktreeGitError" | "IdentityError">,
 ): number {
   if (e instanceof lc.WorktreeGitError || e instanceof lc.IdentityError) {
-    log.error(`discern: ${e.message}`);
+    log.error(e.message);
     return 1;
   }
   throw e;
@@ -190,8 +192,8 @@ function handleWorktreeError(
 
 /**
  * Build a lifecycle context and run a worktree operation, mapping errors to codes.
- * In `--json` mode the human narration is suppressed (Logger json mode) so stdout
- * carries only the verb's JSON object, and a thrown worktree error is emitted as a
+ * In quiet result mode terminal narration is suppressed (Logger json mode) so
+ * stdout carries only the selected projection, and a thrown worktree error is emitted as a
  * `DiscernResult` (`{ok:false, verb, error, message}`) rather than a (suppressed)
  * human line — a precondition slug in `error`, the human sentence in `message`.
  */
@@ -314,6 +316,7 @@ export function attachEngineCommands(
         const { runTestJob } = await import("./gate/test.ts");
         return await runTestJob(await requireRoot("test", o.json ?? false), {
           json: o.json ?? false,
+          plain: plainModeEnabled(),
         });
       }),
     );
@@ -325,7 +328,7 @@ export function attachEngineCommands(
     .description(
       "Run a command while holding one configured concurrent test-run slot. " +
         "Use `discern await` to watch a fleet condition instead. " +
-        "This command has no `--json` mode; tokens after `--` belong to the child.",
+        "This command has no `--json` or `--markdown` mode; tokens after `--` belong to the child.",
     );
 
   root
@@ -455,8 +458,8 @@ export function attachEngineCommands(
       const json = o.json ?? false;
       const root = await requireRoot("refresh", json);
       const { refreshResult } = await import("./guidelines.ts");
-      // --json: narration → stderr, the result envelope → stdout. Human: narrate
-      // to stdout via the default logger.
+      // Quiet result: narration → stderr, the selected result → stdout.
+      // Terminal presentation narrates to stdout via the default logger.
       const log = json
         ? new Logger({ json: true, noColor: false, humanStream: "stderr" })
         : new Logger({ json: false, noColor: false, humanStream: "stdout" });
@@ -657,11 +660,11 @@ export function attachEngineCommands(
         .description(action.description)
         .option(
           "--json",
-          "Preview as one JSON DiscernResult; apply is refused in JSON mode.",
+          "Preview as one result; apply is refused with `--json` or `--markdown`.",
         )
         .option(
           "--dry-run",
-          "Render the complete plan without prompting or changing files.",
+          "Render the complete plan without requesting confirmation or changing files.",
         )
         .action(
           recordedExit(invocation, async (o) => {
@@ -674,7 +677,7 @@ export function attachEngineCommands(
               {
                 json: o.json ?? false,
                 dryRun: o.dryRun ?? false,
-                interactive: canPrompt(false),
+                interactive: canInteract(false),
                 confirm: logbookLifecycleConfirmation,
               },
             );
@@ -703,8 +706,9 @@ export function attachEngineCommands(
     )
     .option(
       "--verbose",
-      "Also print the full proof page for an honored branch (and each ready " +
-        "fleet row). Interactive output only; --json always carries the proof.",
+      "Expand fleet attention, per-worktree evidence, configured checks, landing " +
+        "history, and full Proof pages. This affects the terminal presentation " +
+        "only; JSON and Markdown results remain compact.",
     )
     .option(
       "--json",
@@ -728,7 +732,7 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "The desk is interactive only; use `status --json` to list every worktree.",
+      "The desk is interactive only; use `status --markdown` or `status --json` to list every worktree.",
     )
     .action(
       recordedExit("desk", async (o) => {
@@ -746,7 +750,7 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "Emit a machine-readable (plan, result) object on stdout (data.path is the new worktree).",
+      "Emit one JSON result on stdout (data.path is the new worktree).",
     )
     .option("--dry-run", "Show the start plan; touch nothing.")
     .option(
@@ -785,7 +789,7 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "Emit a machine-readable (plan, results) object on stdout.",
+      "Emit one JSON result on stdout.",
     )
     .option("--dry-run", "Show the acceptance plan; touch nothing.")
     .option(
@@ -819,7 +823,7 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "Emit a machine-readable (plan, results) object on stdout.",
+      "Emit one JSON result on stdout.",
     )
     .option("--dry-run", "Show the update plan; touch nothing.")
     .option(
@@ -894,7 +898,7 @@ export function attachEngineCommands(
             message,
           });
         } else {
-          console.error(`discern: ${message}`);
+          new Logger({ json: false, noColor: false }).error(message);
         }
         return 1;
       }
@@ -942,7 +946,7 @@ export function attachEngineCommands(
               message: e.message,
             });
           } else {
-            console.error(`discern: ${e.message}`);
+            new Logger({ json: false, noColor: false }).error(e.message);
           }
           return e.code;
         }
@@ -954,7 +958,7 @@ export function attachEngineCommands(
     .description("Set up or re-sync the current worktree.")
     .option(
       "--json",
-      "Emit a machine-readable (plan, results) object on stdout.",
+      "Emit one JSON result on stdout.",
     )
     .option("--dry-run", "Show the setup plan; touch nothing.")
     .action(recordedExit("worktree setup", async (o) => {
@@ -1062,7 +1066,7 @@ export function attachEngineCommands(
         .description(
           "Sweep stale worktrees, fully-merged branches, reappeared worktree paths, and orphaned resources.",
         )
-        .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
+        .option("-y, --yes", "Non-interactive: skip confirmation.")
         .option(
           "--contained",
           "Also reclaim contained worktrees — checkouts whose committed work is " +
@@ -1195,18 +1199,23 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
     return 0;
   }
   const rows = await listSkills(root, cfg);
+  const log = makeLogger();
   if (rows.length === 0) {
-    console.log("No skills (none bundled, none authored).");
+    log.line("No skills (none bundled, none authored).");
     return 0;
   }
-  console.log("Effective skills:");
-  for (const r of rows) {
-    const base = r.source === "authored"
-      ? (r.overridesBundled ? "yours (overrides built-in)" : "yours")
-      : "built-in";
-    const tag = r.excluded ? `${base} — excluded ([skills].exclude)` : base;
-    console.log(`  ${r.name.padEnd(24)} ${tag}`);
-  }
+  log.line("Effective skills:");
+  for (
+    const row of renderAlignedRows(rows.map((r) => {
+      const base = r.source === "authored"
+        ? (r.overridesBundled ? "yours (overrides built-in)" : "yours")
+        : "built-in";
+      return {
+        label: terminalLine(r.name),
+        body: r.excluded ? `${base} — excluded ([skills].exclude)` : base,
+      };
+    }))
+  ) log.line(row);
   return 0;
 }
 
@@ -1447,7 +1456,9 @@ export async function dispatchHelper(
 async function helperRemoveWorktree(args: string[]): Promise<number> {
   const target = args[0];
   if (target === undefined) {
-    console.error("remove-worktree-safely: a path argument is required.");
+    new Logger({ json: false, noColor: false }).error(
+      "remove-worktree-safely: a path argument is required.",
+    );
     return 1;
   }
   const log = makeLogger();
@@ -1465,7 +1476,7 @@ async function helperRemoveWorktree(args: string[]): Promise<number> {
 async function helperInheritEnv(): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     return 1;
   }
   const log = makeLogger();
@@ -1490,7 +1501,9 @@ async function helperInheritEnv(): Promise<number> {
 async function helperWithGotchas(args: string[]): Promise<number> {
   const [command, ...rest] = args;
   if (command === undefined) {
-    console.error("with-gotchas: no command given.");
+    new Logger({ json: false, noColor: false }).error(
+      "with-gotchas: no command given.",
+    );
     return 1;
   }
   const child = await runOwnedChild(command, {
@@ -1522,7 +1535,7 @@ export async function runConfigRead(
     if (opts.json ?? false) {
       emitResult(notInitializedResult("config"));
     } else {
-      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+      new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }
     return 1;
   }

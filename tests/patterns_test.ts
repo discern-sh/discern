@@ -35,6 +35,7 @@ import {
   denominatorClause,
   driverAgent,
   driverKind,
+  splitByCohort,
 } from "../src/engine/logbook/cohorts.ts";
 import {
   buildStreamFacts,
@@ -101,11 +102,14 @@ const LOGBOOK_READER_MODULES = [
 ] as const;
 
 /** Schema members a reader deliberately does not consume, each with its
- * reason. Empty today: every live event kind and driver signal is read. */
+ * reason. */
 const DELIBERATELY_UNREAD_EVENT_KINDS: Readonly<Record<string, string>> = {};
 const DELIBERATELY_UNREAD_DRIVER_SIGNALS: Readonly<
   Record<string, string>
-> = {};
+> = {
+  json: "A requested format is not evidence of the caller's identity.",
+  markdown: "A requested format is not evidence of the caller's identity.",
+};
 
 /** Quote event and driver field names before scanning reader source. */
 function escapeRegExp(value: string): string {
@@ -258,7 +262,7 @@ function t(hours: number): string {
     .toISOString();
 }
 
-/** One synthetic verb event with agent-shaped defaults; override what matters. */
+/** One synthetic analyzable CLI event with non-interactive defaults. */
 function verb(over: Partial<VerbEvent>): VerbEvent {
   return {
     schema: LOGBOOK_SCHEMA_VERSION,
@@ -3639,6 +3643,19 @@ Deno.test("patterns driver scoring: every signal source behaves per its classifi
   }
 });
 
+Deno.test("patterns driver scoring: a result format does not determine who invoked the CLI", () => {
+  for (const format of [{ json: true }, { markdown: true }]) {
+    assertEquals(
+      driverKind(verb({ driver: { ...format, tty: false, ci: false } })),
+      "unknown",
+    );
+    assertEquals(
+      driverKind(verb({ driver: { ...format, tty: true, ci: false } })),
+      "human",
+    );
+  }
+});
+
 Deno.test("patterns driver attribution: one identity names the driver; disagreement or ambient-only evidence names nothing", () => {
   const corroborated = verb({
     driver: {
@@ -4725,5 +4742,90 @@ Deno.test("patterns red-rate history counts partial effects in live and rotated 
   assert(
     finding.observed.includes("2026-06 50%"),
     `live partial effects must remain red: ${finding.observed}`,
+  );
+});
+
+Deno.test("patterns driver scoring: provenance and CI classify automation", () => {
+  assertEquals(
+    driverKind(verb({
+      driver: {
+        json: true,
+        tty: false,
+        ci: true,
+        spawned_by: "11111111-2222-4333-8444-555555555555",
+      },
+    })),
+    "automation",
+    "an explicit spawned_by marker is discern's own job runner",
+  );
+  assertEquals(
+    driverKind(verb({
+      driver: {
+        json: true,
+        tty: false,
+        ci: true,
+        agent_signals: [{
+          agent: "codex",
+          source: "process-environment",
+          markers: ["CODEX_THREAD_ID"],
+        }],
+      },
+    })),
+    "automation",
+    "inherited identity markers do not outrank the automation evidence",
+  );
+  assertEquals(
+    driverKind(verb({ driver: { json: true, tty: false, ci: true } })),
+    "automation",
+    "the conventional CI marker is the fallback for unmarked history",
+  );
+  assertEquals(
+    driverKind(verb({ driver: { tty: true, ci: false } })),
+    "human",
+    "a terminal without automation or identity evidence stays human",
+  );
+});
+
+Deno.test("cohort seam: automation events join no cohort and no remainder", () => {
+  const claudeDecision = verb({
+    driver: {
+      json: true,
+      tty: false,
+      ci: false,
+      agent_signals: [{
+        agent: "claude",
+        source: "process-environment",
+        markers: ["CLAUDECODE"],
+      }],
+    },
+  });
+  const codexMarkedChild = verb({
+    driver: {
+      json: true,
+      tty: false,
+      ci: true,
+      spawned_by: "11111111-2222-4333-8444-555555555555",
+      agent_signals: [{
+        agent: "codex",
+        source: "process-environment",
+        markers: ["CODEX_THREAD_ID"],
+      }],
+    },
+  });
+  const mixed = { events: [claudeDecision, codexMarkedChild] };
+  const plumbingOnly = { events: [codexMarkedChild] };
+  const split = splitByCohort([mixed, plumbingOnly], (unit) => unit.events);
+  assertEquals(split.speaking.length, 0, "one run sits below the minimums");
+  assertEquals(split.belowMinimum.map((c) => c.agent), ["claude"]);
+  assertEquals(
+    split.belowMinimum[0]?.runs,
+    1,
+    "the gate child neither counts for claude nor votes codex against it",
+  );
+  assertEquals(split.unattributedUnits, 0);
+  assertEquals(
+    split.unattributedRuns,
+    0,
+    "an automation-only unit carries no decisions to compare",
   );
 });

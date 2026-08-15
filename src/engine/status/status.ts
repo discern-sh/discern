@@ -67,6 +67,7 @@ import {
   checkProviderHooksCurrent,
   type ProviderHookDriftEntry,
 } from "../../lib/provider_hooks.ts";
+import { Logger } from "../../lib/log.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
@@ -125,7 +126,6 @@ import {
   inspectLandingAuthority,
   landingAuthorityProjection,
   type LandingAuthorityResolution,
-  uncoveredLandingAuthorityDetails,
 } from "../worktree/landing_authority.ts";
 import { configEpoch } from "../logbook/epoch.ts";
 import {
@@ -1041,7 +1041,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // In the main checkout with worktrees on, the agent may be beginning a new
   // effort or returning to one whose client/tool root reset between turns. Lead
   // with the continuity decision before the conditional `discern start` action.
-  // Agent channel only: the human renderer filters this out (a person here is
+  // Agent channel only: the terminal renderer filters this out (a person here is
   // supervising their fleet), so it never nags the CLI. Suppressed while setup is
   // unfinished: setup runs in the main checkout (on the `discern-setup` branch),
   // so worktree entry advice would contradict the lead "finish setup here" hint.
@@ -1127,10 +1127,6 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
         ) {
           hints.push(
             fire(HINTS["status-ready-uncovered-authority"], {
-              uncovered: uncoveredLandingAuthorityDetails(
-                ctx.landingAuthority,
-              ),
-              warnings: ctx.landingAuthority.warnings,
               trunk: main,
               branch: g.branch,
             }),
@@ -1335,7 +1331,7 @@ export async function runStatus(
     if (opts.json) {
       emitResult(notInitializedResult("status"));
     } else {
-      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+      new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }
     return 1;
   }

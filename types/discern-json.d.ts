@@ -66,7 +66,7 @@ export type DiscernKnownErrorSlug =
   | "unknown_standard"
   | "write_access";
 
-export type DiscernProof = {
+export type DiscernProofSummary = {
   branch: string;
   trunk: string;
   head: string;
@@ -74,7 +74,6 @@ export type DiscernProof = {
   insertions: number;
   deletions: number;
   line: string;
-  markdown: string;
 };
 
 export type DiscernDiscernResult = {
@@ -2002,18 +2001,6 @@ export type DiscernDoneResult = {
       trunk: string;
       reason?: string;
     };
-    landing_authority?: {
-      kind: "authorized" | "conversation-required";
-      source?: "conversation" | "standing-grant" | "effort-grant";
-      scopes?: Array<string>;
-      standing_scopes?: Array<string>;
-      uncovered?: Array<{
-        path: string;
-        scopes: Array<string>;
-      }>;
-      warnings?: Array<string>;
-    };
-    proof?: DiscernProof;
     gate_proof?: {
       status:
         | "recorded"
@@ -2025,6 +2012,23 @@ export type DiscernDoneResult = {
         | "clear_failed";
       path?: string;
       reason?: string;
+    };
+    proof?: DiscernProofSummary;
+    landing_authority?: {
+      kind: "authorized" | "conversation-required";
+      source?: "conversation" | "standing-grant" | "effort-grant";
+      scopes?: Array<string>;
+      standing_scopes?: Array<string>;
+      uncovered_scopes?: Array<string>;
+      uncovered_unscoped_total?: number;
+      uncovered_generated_total?: number;
+      warnings?: Array<string>;
+      uncovered?: Array<{
+        path: string;
+        scopes: Array<string>;
+        generated?: boolean;
+      }>;
+      uncovered_total?: number;
     };
   } | {
     issues: Array<{
@@ -3156,6 +3160,7 @@ export type DiscernPatternsResult = {
       analyzed: number;
       agent: number;
       human: number;
+      automation: number;
       unknown: number;
       identities: Array<{
         agent: string;
@@ -3952,49 +3957,10 @@ export type DiscernStatusResult = {
       scope_gates: Array<string>;
     };
     standards: Array<string>;
-    gate_proof?: {
-      status:
-        | "honored"
-        | "missing"
-        | "stale"
-        | "dirty"
-        | "unavailable"
-        | "read_failed";
-      path?: string;
-      recorded?: string;
-      head?: string;
-      reason?: string;
-      proof?: string;
-      proof_line?: string;
-      proof_data?: DiscernProof;
-    };
-    landed_proof?: {
-      commit: string;
-      commit_at?: string;
-      ref: string;
-      proof: DiscernProof;
-      issuer?: {
-        name?: string;
-        email?: string;
-        key?: string;
-      };
-      brief?: string;
-    };
     landed_proof_unsupported?: {
       commit: string;
       ref: string;
       format: string;
-    };
-    landing_authority?: {
-      kind: "authorized" | "conversation-required";
-      source?: "conversation" | "standing-grant" | "effort-grant";
-      scopes?: Array<string>;
-      standing_scopes?: Array<string>;
-      uncovered?: Array<{
-        path: string;
-        scopes: Array<string>;
-      }>;
-      warnings?: Array<string>;
     };
     stale_generated?: Array<string>;
     stale_materialized?: Array<string>;
@@ -4024,6 +3990,49 @@ export type DiscernStatusResult = {
       entries: number;
       cleanup_blocked_reason?: string;
     }>;
+    gate_proof?: {
+      status:
+        | "honored"
+        | "missing"
+        | "stale"
+        | "dirty"
+        | "unavailable"
+        | "read_failed";
+      path?: string;
+      recorded?: string;
+      head?: string;
+      reason?: string;
+      proof?: DiscernProofSummary;
+      proof_line?: string;
+    };
+    landed_proof?: {
+      commit: string;
+      commit_at?: string;
+      ref: string;
+      proof: DiscernProofSummary;
+      issuer?: {
+        name?: string;
+        email?: string;
+        key?: string;
+      };
+      brief?: string;
+    };
+    landing_authority?: {
+      kind: "authorized" | "conversation-required";
+      source?: "conversation" | "standing-grant" | "effort-grant";
+      scopes?: Array<string>;
+      standing_scopes?: Array<string>;
+      uncovered_scopes?: Array<string>;
+      uncovered_unscoped_total?: number;
+      uncovered_generated_total?: number;
+      warnings?: Array<string>;
+      uncovered?: Array<{
+        path: string;
+        scopes: Array<string>;
+        generated?: boolean;
+      }>;
+      uncovered_total?: number;
+    };
     fleet?: Array<{
       path: string;
       is_main: boolean;
@@ -4051,9 +4060,6 @@ export type DiscernStatusResult = {
       id?: string;
       port?: number;
       broken?: boolean;
-      proof_honored?: boolean;
-      proof?: string;
-      proof_line?: string;
       gate_proof?: {
         status:
           | "honored"
@@ -4066,31 +4072,33 @@ export type DiscernStatusResult = {
         recorded?: string;
         head?: string;
         reason?: string;
-        proof?: string;
+        proof?: DiscernProofSummary;
         proof_line?: string;
-        proof_data?: DiscernProof;
       };
       landing_authority?: {
         kind: "authorized" | "conversation-required";
         source?: "conversation" | "standing-grant" | "effort-grant";
         scopes?: Array<string>;
         standing_scopes?: Array<string>;
+        uncovered_scopes?: Array<string>;
+        uncovered_unscoped_total?: number;
+        uncovered_generated_total?: number;
+        warnings?: Array<string>;
         uncovered?: Array<{
           path: string;
           scopes: Array<string>;
+          generated?: boolean;
         }>;
-        warnings?: Array<string>;
+        uncovered_total?: number;
       };
     }>;
     fleet_collisions?: Array<{
       branches: unknown;
-      overlap: Array<string>;
       total: number;
     }>;
     adr_collisions?: Array<{
       number: string;
       branches: Array<string>;
-      paths: Array<string>;
     }>;
   } | {
     issues: Array<{
@@ -4197,7 +4205,11 @@ export type DiscernStartResult = {
       uncovered?: Array<{
         path: string;
         scopes: Array<string>;
+        generated?: boolean;
       }>;
+      uncovered_scopes?: Array<string>;
+      uncovered_unscoped_total?: number;
+      uncovered_generated_total?: number;
       warnings?: Array<string>;
     };
   } | {
@@ -4305,26 +4317,6 @@ export type DiscernAcceptResult = {
       branch_deleted: boolean;
     };
     authority_warnings?: Array<string>;
-    gate_validation?: {
-      mode: "proof" | "rerun";
-      proof: {
-        status:
-          | "honored"
-          | "missing"
-          | "stale"
-          | "dirty"
-          | "unavailable"
-          | "read_failed";
-        path?: string;
-        recorded?: string;
-        head?: string;
-        reason?: string;
-        proof?: string;
-        proof_line?: string;
-        proof_data?: DiscernProof;
-      };
-    };
-    proof?: string;
     proof_line?: string;
     proof_note?: {
       fetch: {
@@ -4357,6 +4349,24 @@ export type DiscernAcceptResult = {
       changed_roots: Array<string>;
       changed_total: number;
       truncated: boolean;
+    };
+    gate_validation?: {
+      mode: "proof" | "rerun";
+      proof: {
+        status:
+          | "honored"
+          | "missing"
+          | "stale"
+          | "dirty"
+          | "unavailable"
+          | "read_failed";
+        path?: string;
+        recorded?: string;
+        head?: string;
+        reason?: string;
+        proof?: DiscernProofSummary;
+        proof_line?: string;
+      };
     };
   } | {
     issues: Array<{
@@ -5585,11 +5595,14 @@ export interface DiscernResultByCommand {
 
 export interface DiscernMcpTextContent {
   type: "text";
+  /** An independently sufficient, contract-authored Markdown projection. */
   text: string;
 }
 
 export interface DiscernMcpToolResult<TStructuredContent> {
+  /** Authored Markdown for text-only and model-facing hosts. */
   content: DiscernMcpTextContent[];
+  /** Compact structured data for structured-first hosts and integrations. */
   structuredContent: TStructuredContent;
   isError: boolean;
 }

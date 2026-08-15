@@ -350,7 +350,7 @@ const GATE: Category = {
         "exit status? A report written only to a file does not reach discern's " +
         "structured normalization.",
       teach:
-        "On a failed job, discern turns recognized machine output into one diagnostic " +
+        "On a failed job, discern turns recognized tool output into one diagnostic " +
         "per finding or failing test. Prefer a supported reporter the tool already " +
         "offers. Unrecognized output remains available as one raw diagnostic.",
       against: diagnosticJobExcerpt,

@@ -1,5 +1,9 @@
+import { packageManifest } from "discern-design-system";
 import { renderBadgeCli } from "discern-design-system/cli";
-import { promptSelect } from "discern-design-system/cli/interactive";
+import { requestSelection } from "discern-design-system/cli/interactive";
+import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
+void packageManifest;
 void renderBadgeCli;
-void promptSelect;
+void requestSelection;
+void projectTerminalHtml;

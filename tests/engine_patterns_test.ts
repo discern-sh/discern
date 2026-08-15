@@ -11,7 +11,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { stripAnsi } from "discern-design-system/cli";
-import { unexpectedTerminalControls, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  unexpectedTerminalControls,
+  withTempDir,
+} from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -51,7 +55,8 @@ import {
   PATTERNS_TONE_RESULT_STATE,
   PATTERNS_TRAJECTORY_CAVEAT,
   patternsResult,
-  STATS_EMPTY_MESSAGE,
+  STATS_EMPTY_DESCRIPTION,
+  STATS_EMPTY_TITLE,
   STATS_PROVENANCE,
   STATS_SECTIONS,
 } from "../src/engine/logbook/patterns.ts";
@@ -62,7 +67,7 @@ import {
 import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
-/** One synthetic seeded verb-event line (agent-shaped, on its own branch). */
+/** One synthetic format-selected CLI event on its own branch. */
 function seededEvent(
   at: string,
   outcome: "ok" | "failed",
@@ -1086,6 +1091,7 @@ Deno.test("patterns: an empty logbook is a first-class state with a helpful mess
       analyzed: 0,
       agent: 0,
       human: 0,
+      automation: 0,
       unknown: 0,
       identities: [],
     });
@@ -1115,11 +1121,14 @@ Deno.test("patterns: a seeded logbook yields two-layer findings that validate", 
       "the torn line is counted, not fatal",
     );
 
-    // The driver split states the segmentation, and identity attribution
-    // honours only the invocation-scoped signal — never the ambient one.
+    // The driver split states the segmentation. A result format is not caller
+    // identity evidence, so the four format-only calls remain unknown; only
+    // the invocation-scoped Claude signal attributes the fifth call.
     assertEquals(data.population.analyzed, 5);
-    assertEquals(data.population.agent, 5);
+    assertEquals(data.population.agent, 1);
     assertEquals(data.population.human, 0);
+    assertEquals(data.population.automation, 0);
+    assertEquals(data.population.unknown, 4);
     assertEquals(data.population.identities, [
       { agent: "claude", label: "Claude Code", runs: 1 },
     ]);
@@ -1207,13 +1216,13 @@ Deno.test("patterns: the report keeps each detector's strongest findings and --a
       env: { COLUMNS: "200", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.output,
       `${
         branches - PATTERNS_FINDINGS_PER_DETECTOR
       } more findings remain for this detector.`,
     );
-    assertStringIncludes(human.output, "$ discern patterns --all");
+    assertTerminalTextIncludes(human.output, "Run: discern patterns --all");
   });
 });
 
@@ -1392,11 +1401,14 @@ Deno.test("patterns: Standard variance investigations retain raw findings across
       env: { COLUMNS: "60", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "Investigation paths");
-    assertStringIncludes(human.output, "Standard variance · coverage");
-    assertStringIncludes(human.output, "comparable readings are unstable");
+    assertTerminalTextIncludes(human.output, "INVESTIGATION PATHS");
+    assertTerminalTextIncludes(human.output, "Standard variance · coverage");
+    assertTerminalTextIncludes(
+      human.output,
+      "comparable readings are unstable",
+    );
     assertStringIncludes(human.output, "Evidence:");
-    assertStringIncludes(normalized(human.output), "5 readings");
+    assertTerminalTextIncludes(normalized(human.output), "5 readings");
     assertStringIncludes(human.output, "Falsifier:");
     for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
       assert(
@@ -1589,7 +1601,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     assertStringIncludes(card, "discern patterns --stats");
     assertStringIncludes(card, STATS_PROVENANCE);
     for (const label of Object.values(STATS_SECTIONS)) {
-      assertStringIncludes(card, label);
+      assertStringIncludes(card, label.toUpperCase());
     }
     assertStringIncludes(
       card,
@@ -1597,8 +1609,9 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
     assertStringIncludes(
       card,
-      "+130 −30 across 3 files · 4.3 lines added per line removed",
+      "+130 −30",
     );
+    assertStringIncludes(card, "3 files · 4.3 lines added per line removed");
     assertStringIncludes(
       card,
       "biggest: `agent/b1` · 150 changed lines · 2 files (2026-07-01)",
@@ -1657,7 +1670,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       "a peak of one stays off the card",
     );
     assert(
-      !card.includes(PATTERNS_ATTENTION_HEADING),
+      !card.includes(PATTERNS_ATTENTION_HEADING.toUpperCase()),
       "the card replaces the detector report, never interleaves it",
     );
     for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
@@ -1681,7 +1694,9 @@ Deno.test("patterns --stats: an empty logbook renders the empty state, and the w
       env: { COLUMNS: "100", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(normalized(human.output), STATS_EMPTY_MESSAGE);
+    const empty = normalized(human.output);
+    assertStringIncludes(empty, STATS_EMPTY_TITLE);
+    assertStringIncludes(empty, STATS_EMPTY_DESCRIPTION);
 
     const json = await runAgent(dir, ["patterns", "--stats", "--json"]);
     assertEquals(json.code, 0, json.output);
@@ -1746,7 +1761,7 @@ Deno.test("patterns: seeded hint episodes report raw outcomes through JSON and t
       env: { COLUMNS: "80", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "Hint follow-through by family");
+    assertTerminalTextIncludes(human.output, "Hint follow-through by family");
     for (const family of Object.keys(expected)) {
       assertStringIncludes(human.output, family);
     }
@@ -1798,7 +1813,7 @@ Deno.test("patterns: seeded tip episodes report cross-surface adoption and favor
       env: { COLUMNS: "80", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "Tip adoption by tip");
+    assertTerminalTextIncludes(human.output, "Tip adoption by tip");
     assertStringIncludes(human.output, ids.attention);
     assertStringIncludes(human.output, ids.good);
   });
@@ -1818,15 +1833,15 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
     assertEquals(thrash.series, undefined);
     const r = await runAgent(dir, ["patterns"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "discern patterns");
-    assertStringIncludes(r.output, "Consecutive red done runs");
-    assertStringIncludes(normalized(r.output), "driven by agents");
-    assertStringIncludes(normalized(r.output), "Claude Code 1");
-    assertStringIncludes(
+    assertTerminalTextIncludes(r.output, "discern patterns");
+    assertTerminalTextIncludes(r.output, "Consecutive red done runs");
+    assertTerminalTextIncludes(normalized(r.output), "driven by agents");
+    assertTerminalTextIncludes(normalized(r.output), "Claude Code 1");
+    assertTerminalTextIncludes(
       normalized(r.output),
       "The report is advisory and does not change the Gate.",
     );
-    assertStringIncludes(normalized(r.output), "Next action:");
+    assertTerminalTextIncludes(normalized(r.output), "Next action:");
     assertStringIncludes(
       normalized(r.output),
       normalized(
@@ -2063,11 +2078,11 @@ Deno.test("patterns: validation relationships preserve structured evidence and c
       env: { COLUMNS: "80", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.output,
       "Divergent outcomes under matched recorded conditions",
     );
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.output,
       "Divergent outcomes between recorded execution contexts",
     );
@@ -2132,7 +2147,7 @@ Deno.test("patterns: high-cardinality validation contexts stay bounded and discl
     });
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(human.output, "bounded-context-test");
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.output,
       "Divergent outcomes between recorded execution contexts",
     );
@@ -2193,7 +2208,7 @@ Deno.test("patterns: a 200-reading standard stays bounded on the wire and render
     assert(!human.output.includes("\x1b["), "NO_COLOR must emit no ANSI");
     assertStringIncludes(human.output, sparkline(trajectory.series));
     assert(
-      !human.output.includes(PATTERNS_ATTENTION_HEADING),
+      !human.output.includes(PATTERNS_ATTENTION_HEADING.toUpperCase()),
       "a neutral trajectory must not grow an empty attention banner",
     );
     for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
@@ -2281,7 +2296,8 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       );
     }
     assertEquals(
-      data.population.agent + data.population.human + data.population.unknown,
+      data.population.agent + data.population.human +
+        data.population.automation + data.population.unknown,
       data.population.analyzed,
       "the named driver partition must reconcile to analyzed runs",
     );
@@ -2311,11 +2327,11 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       "the fixture needs enough attention findings to prove the cap",
     );
     const bannerStart = lines.findIndex((line) =>
-      line.includes(PATTERNS_ATTENTION_HEADING)
+      line.includes(PATTERNS_ATTENTION_HEADING.toUpperCase())
     );
     assert(bannerStart >= 0, "attention findings need a banner");
     const firstSection = lines.findIndex((line) =>
-      line.includes(PATTERNS_FAMILY_SECTIONS.trajectory.heading)
+      line.includes(PATTERNS_FAMILY_SECTIONS.trajectory.heading.toUpperCase())
     );
     assert(firstSection > bannerStart, "the banner belongs above the sections");
     const bannerLines = lines.slice(bannerStart + 1, firstSection);
@@ -2354,11 +2370,31 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
     let previousSection = -1;
     for (const family of DETECTOR_FAMILIES) {
       const heading = PATTERNS_FAMILY_SECTIONS[family].heading;
-      const index = human.output.indexOf(heading);
+      const index = human.output.indexOf(heading.toUpperCase());
       assert(index > previousSection, `${family} is out of canonical order`);
-      assertEquals(occurrences(human.output, heading), 1);
+      assertEquals(occurrences(human.output, heading.toUpperCase()), 1);
       previousSection = index;
     }
+
+    // A detector block owns one mixed-state Result-summary collection. Its
+    // semantic state labels vary in width, but every fact begins in the same
+    // package-computed column.
+    const mixedGroup = human.output.split("\n\n").find((block) =>
+      block.includes("Detector:") &&
+      (block.includes("◇ Changed:") || block.includes("✓ Passed:"))
+    );
+    assert(mixedGroup !== undefined, "the fixture needs a mixed-state group");
+    const prefix = /^(?:= Unchanged:|◇ Changed:|✓ Passed:)(\s+)(?=\S)/u;
+    const summaryLines = mixedGroup.split("\n").flatMap((line) => {
+      const match = prefix.exec(line);
+      return match === null ? [] : [{ line, factColumn: match[0].length }];
+    });
+    assert(summaryLines.length >= 2);
+    assertEquals(
+      new Set(summaryLines.map((line) => line.factColumn)).size,
+      1,
+      summaryLines.map((line) => line.line).join("\n"),
+    );
 
     // Each fired detector becomes one package summary, even when it emitted
     // many rows.
@@ -2540,7 +2576,7 @@ Deno.test("patterns reset: preview is read-only and terminal apply removes exact
       input: "y\n",
     });
     assertEquals(apply.code, 0, apply.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       normalized(apply.output),
       "Removed the active Logbook",
     );

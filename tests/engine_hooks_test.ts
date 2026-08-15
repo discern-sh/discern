@@ -15,7 +15,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   engineEnv,
@@ -211,7 +211,7 @@ Deno.test("hook WorktreeCreate: a failed create never deletes a pre-existing bra
     });
     assertEquals(r.code, 1, r.stderr);
     assertStringIncludes(r.stderr, "agent/fix-login");
-    assertStringIncludes(r.stderr, "already exists");
+    assertTerminalTextIncludes(r.stderr, "already exists");
     assertEquals(
       await gitOut(dir, "rev-parse", "agent/fix-login"),
       tip,
@@ -247,7 +247,7 @@ Deno.test("hook WorktreeCreate: warns when the caller-named worktree's port coll
       cwd: dir,
     });
     assertEquals(r.code, 0, r.stderr);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       r.stderr,
       "already claimed by a live sibling",
       `the collision must be explained\n${r.stderr}`,
@@ -386,7 +386,7 @@ Deno.test("hook WorktreeCreate: a FAILING setup step surfaces its output for deb
     assertEquals(r.stdout, "");
     // The step's own OUTPUT is surfaced on stderr, beside the failure narration.
     assertStringIncludes(r.stderr, "FAIL_42_Z");
-    assertStringIncludes(r.stderr, "worktree setup step failed");
+    assertTerminalTextIncludes(r.stderr, "worktree setup step failed");
   });
 });
 

@@ -13,7 +13,7 @@ import {
   UPDATE_CHANNEL,
 } from "../src/lib/version.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { runCli, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
 /** Fresh install in `dir`. */
@@ -120,7 +120,7 @@ Deno.test("upgrade --check (human) confirms an up-to-date install and exits zero
     await setup(dir);
     const r = await runCli(["upgrade", "--check"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertStringIncludes(r.stderr, "up to date");
+    assertTerminalTextIncludes(r.stderr, "up to date");
   });
 });
 
@@ -132,10 +132,10 @@ Deno.test("upgrade --check on a current install tells the truth: version, channe
     // never an implied network poll (discern makes no network requests).
     const human = await runCli(["upgrade", "--check"], dir);
     assertEquals(human.code, 0, human.stderr);
-    assertStringIncludes(human.stderr, `discern ${KIT_VERSION}`);
-    assertStringIncludes(human.stderr, `schema ${SCHEMA_VERSION}`);
-    assertStringIncludes(human.stderr, UPDATE_CHANNEL);
-    assertStringIncludes(human.stderr, "never checks the network");
+    assertTerminalTextIncludes(human.stderr, `discern ${KIT_VERSION}`);
+    assertTerminalTextIncludes(human.stderr, `schema ${SCHEMA_VERSION}`);
+    assertTerminalTextIncludes(human.stderr, UPDATE_CHANNEL);
+    assertTerminalTextIncludes(human.stderr, "never checks the network");
 
     // JSON surface: the same facts ride the envelope.
     const json = await runCli(["upgrade", "--check", "--json"], dir);
@@ -145,6 +145,6 @@ Deno.test("upgrade --check on a current install tells the truth: version, channe
     const expected = assertHasHint(res, HINTS["upgrade-newer-discern"], {
       updateChannel: UPDATE_CHANNEL,
     });
-    assertStringIncludes(human.stderr, expected);
+    assertTerminalTextIncludes(human.stderr, expected);
   });
 });

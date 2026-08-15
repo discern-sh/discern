@@ -32,7 +32,15 @@ import {
   preCheckpointGroups,
   scopeGatesGroup,
 } from "./plan.ts";
-import { gateRunContext, runGroup } from "./execute.ts";
+import {
+  gateOutputIsLive,
+  type GateOutputSurface,
+  gateOutputTtyWidth,
+  gateRunContext,
+  type GateRunPolicy,
+  resolveGateRunPolicy,
+  runGroup,
+} from "./execute.ts";
 import {
   type AdminStateWriteAuthority,
   clearStandardMeasurements,
@@ -62,12 +70,7 @@ import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import { buildGateProof } from "./proof_render.ts";
 import { renderSlotWait } from "./slot_wait_render.ts";
 import { renderDoneTtyProofPanel, renderDoneTtySummary } from "./done_tty.ts";
-import {
-  createGateTtyProgress,
-  gateTtyPresentation,
-  gateTtyProgressCanRepaint,
-  renderGateTtyTable,
-} from "./gate_tty.ts";
+import { createGateTtyProgress, renderGateTtyTable } from "./gate_tty.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
 import {
@@ -141,7 +144,6 @@ import {
   inspectLandingAuthority,
   landingAuthorityProjection,
   type LandingAuthorityResolution,
-  uncoveredLandingAuthorityDetails,
 } from "../worktree/landing_authority.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
@@ -451,11 +453,9 @@ async function trackedArtifactsDiagnostic(
 /** Run the gate once: plan, apply, build the result. */
 async function runGate(
   root: string,
-  json: boolean,
+  surface: GateOutputSurface,
   signal?: AbortSignal,
   presentation: {
-    liveWidth?: number;
-    terminal?: TerminalContext;
     validationCaptureOptions?: ValidationCaptureOptions;
   } = {},
 ): Promise<
@@ -463,11 +463,12 @@ async function runGate(
     result: DiscernResult<GateData>;
     failedStage: FailedStage | null;
     cfg: DiscernConfig;
+    policy: GateRunPolicy;
     out: Out;
     changed: string[];
     gotchasTail: GotchasFailureTail | undefined;
-    liveTable: boolean;
     outputWithheld: boolean;
+    presentationWritable: boolean;
   }
 > {
   // Pin the tree identity FIRST — before any precondition or job reads it. A green
@@ -479,54 +480,39 @@ async function runGate(
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
   const cfg = await loadConfig(root);
+  const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
   const generatedGroups = resolveGeneratedGroups(cfg);
   let liveGroups: readonly JobGroup[] | undefined;
-  if (
-    presentation.liveWidth !== undefined &&
-    presentation.terminal !== undefined &&
-    !json &&
-    !cfg.gate.stream
-  ) {
-    // Admission must remain pure so the merge check below is still the first
-    // repository observation. Include every declared scope gate in the fit
-    // candidate; the authoritative post-fixer classification replaces these
-    // stage-only groups immediately before any scope gate can run.
+  if (gateOutputIsLive(policy)) {
+    // Admission remains pure so the merge check below is still the first
+    // repository observation. The package fits this initial fact set and owns
+    // every later resize or append-only degradation without changing policy.
     const admission = gateLiveAdmissionGroups(cfg, dryRunStandardJobs(cfg));
-    if (
-      gateTtyProgressCanRepaint(admission.maximumGroups, {
-        width: presentation.liveWidth,
-        terminal: presentation.terminal,
-      })
-    ) {
-      liveGroups = admission.initialGroups;
-    }
+    liveGroups = admission.initialGroups;
   }
-  const compactTty = liveGroups !== undefined;
-  // A regular human run narrates jobs to stdout. The compact done TTY withholds
-  // routine logs while its table observes scheduler events; explicit
-  // [gate].stream keeps the command-output path. --json silences both the runner
-  // and Out because the envelope is the entire output (ADR 0030). The shared run
-  // context is also the one `prepare`/`test` use.
-  const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal, {
-    quietHumanRun: compactTty,
-    ...(presentation.terminal === undefined
-      ? {}
-      : { terminal: presentation.terminal }),
-  });
-  const progress = compactTty && presentation.liveWidth !== undefined
-    ? createGateTtyProgress(out.raw, {
-      width: presentation.liveWidth,
+  // A regular human run follows the configured static transcript policy. A live
+  // frame keeps complete capture while its package producer owns child text.
+  // Quiet result surfaces silence both runner and Out because the envelope is the
+  // entire output (ADR 0030). prepare and test consume this same policy seam.
+  const { runOpts, out, runOut, flushDeferredOutput, slots } = gateRunContext(
+    root,
+    cfg,
+    policy,
+    signal,
+  );
+  const liveOutput = policy.output.kind === "live-frame"
+    ? policy.output
+    : undefined;
+  const progress = liveGroups !== undefined && liveOutput !== undefined
+    ? await createGateTtyProgress(out.raw, liveGroups, {
+      width: liveOutput.ttyWidth,
       terminal: out.terminal,
     })
     : undefined;
   if (progress !== undefined) {
     runOpts.observer = progress;
-    progress.start(liveGroups ?? []);
+    runOpts.outputObserver = progress;
   }
-  const runOut = compactTty
-    ? makeOut(out.color, { quiet: true, terminal: out.terminal })
-    : out;
-
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;
   let writeAuthority: AdminStateWriteAuthority | undefined;
@@ -1232,7 +1218,7 @@ async function runGate(
   const deferredStandards = standardsData
     .filter((o) => o.measurement === "deferred")
     .map((o) => o.name);
-  // On failure, the stage remedy leads the envelope: the human renderer and
+  // On failure, the stage remedy leads the envelope: the terminal renderer and
   // accept both read that first hint as their headline.
   const leadingFailureHints = failedStage !== null ? jobOutputHints : [];
   const trailingJobHints = failedStage === null ? jobOutputHints : [];
@@ -1271,16 +1257,22 @@ async function runGate(
       completeValidationEvidence(validation, result.steps),
     );
   }
-  progress?.complete(result.steps ?? [], result.data?.standards ?? []);
+  await progress?.complete(result.steps ?? []);
+  const liveWriteFailed = progress?.writeFailed() ?? false;
+  const deferredOutputFlushed = liveWriteFailed ? false : flushDeferredOutput();
   return {
     result,
     failedStage,
     cfg,
+    policy,
     out,
     changed,
     gotchasTail,
-    liveTable: progress?.renderedFinal() ?? false,
-    outputWithheld: compactTty,
+    // A live tail is bounded and transient. Even when the deferred headings
+    // flushed successfully, a failure still needs its durable diagnostic
+    // excerpt and full-artifact route below the restored frame.
+    outputWithheld: gateOutputIsLive(policy),
+    presentationWritable: !liveWriteFailed && deferredOutputFlushed,
   };
 }
 
@@ -1351,10 +1343,7 @@ function buildGateHints(
     })
     : landingAuthority !== undefined &&
         landingAuthorityProjection(landingAuthority) !== undefined
-    ? fire(HINTS["gate-relay-uncovered-authority"], {
-      uncovered: uncoveredLandingAuthorityDetails(landingAuthority),
-      warnings: landingAuthority.warnings,
-    })
+    ? fire(HINTS["gate-relay-uncovered-authority"])
     : fire(HINTS["gate-relay-proof"]);
   const hints = proofEmitted
     ? [
@@ -1637,27 +1626,31 @@ export async function finishResult(
     return refusal;
   }
   if (opts.surface.kind === "quiet") {
-    return (await runGate(root, true, opts.signal, {
+    return (await runGate(root, { kind: "quiet-result" }, opts.signal, {
       ...(opts.validationCaptureOptions !== undefined
         ? { validationCaptureOptions: opts.validationCaptureOptions }
         : {}),
     })).result;
   }
   const terminal = terminalContext();
-  const { ttyWidth, liveWidth } = gateTtyPresentation(
-    false,
-    opts.surface.plain,
-    terminal,
+  const gate = await runGate(
+    root,
+    {
+      kind: "human",
+      plain: opts.surface.plain,
+      terminal,
+    },
+    opts.signal,
+    {
+      ...(opts.validationCaptureOptions !== undefined
+        ? { validationCaptureOptions: opts.validationCaptureOptions }
+        : {}),
+    },
   );
-  const gate = await runGate(root, false, opts.signal, {
-    terminal,
-    ...(liveWidth !== undefined ? { liveWidth } : {}),
-    ...(opts.validationCaptureOptions !== undefined
-      ? { validationCaptureOptions: opts.validationCaptureOptions }
-      : {}),
-  });
+  const ttyWidth = gateOutputTtyWidth(gate.policy);
   if (
-    ttyWidth !== undefined && !gate.liveTable && !gate.cfg.gate.stream
+    gate.presentationWritable && ttyWidth !== undefined &&
+    gate.policy.output.kind === "static-grouped"
   ) {
     gate.out.group("gate-results");
     gate.out.raw(
@@ -1716,30 +1709,43 @@ export async function runFinish(
     return 1;
   }
   const terminal = terminalContext();
-  const { ttyWidth, liveWidth } = gateTtyPresentation(
-    opts.json,
-    opts.plain ?? false,
-    terminal,
-  );
   const gateRun = (): ReturnType<typeof runGate> =>
-    runGate(root, opts.json, undefined, {
-      terminal,
-      ...(liveWidth !== undefined ? { liveWidth } : {}),
-    });
+    runGate(
+      root,
+      opts.json
+        ? { kind: "quiet-result", terminal }
+        : { kind: "human", plain: opts.plain ?? false, terminal },
+    );
   const gate = await gateRun();
   const {
     result,
     failedStage,
     cfg,
+    policy,
     out,
     gotchasTail,
-    liveTable,
     outputWithheld,
+    presentationWritable,
   } = gate;
   observeResult(result); // the logbook recorder lifts step timings from it
   if (opts.json) {
     emitResult(result);
     return failedStage === null ? 0 : 1;
+  }
+  if (!presentationWritable) return failedStage === null ? 0 : 1;
+  const ttyWidth = gateOutputTtyWidth(policy);
+  const staticTableRendered = ttyWidth !== undefined &&
+    policy.output.kind === "static-grouped";
+  if (staticTableRendered && ttyWidth !== undefined) {
+    out.group("gate-results");
+    out.raw(
+      `${
+        renderGateTtyTable(result.steps ?? [], {
+          width: ttyWidth,
+          terminal: out.terminal,
+        }, result.data?.standards ?? [])
+      }\n`,
+    );
   }
   if (failedStage !== null) {
     const headline = interactiveHintTexts(result.hints)[0] ??
@@ -1750,7 +1756,7 @@ export async function runFinish(
       diagnostics: result.diagnostics ?? [],
       failedStage,
       gotchas: gotchasTail,
-      // The live table quiets the runner, so the tail carries the output.
+      // A failed deferred flush lets the diagnostic retain the captured output.
       outputWithheld,
     });
     renderSlotWait(out, result.waitedMs);
@@ -1761,7 +1767,7 @@ export async function runFinish(
     out,
     result,
     ttyWidth,
-    liveTable,
+    staticTableRendered || gateOutputIsLive(policy),
   );
   return 0;
 }

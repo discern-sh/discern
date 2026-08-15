@@ -27,7 +27,9 @@ export function renderPlan(log: Logger, plan: Plan, heading: string): void {
     const note = op.note
       ? log.terminal.role(terminalLine(` — ${op.note}`), "muted")
       : "";
-    log.line(`  ${label.padEnd(9)} ${terminalLine(op.targetRel)}${note}`);
+    log.line(
+      `  ${padDisplayEnd(label, 9)} ${terminalLine(op.targetRel)}${note}`,
+    );
   }
 }
 

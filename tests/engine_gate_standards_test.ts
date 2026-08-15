@@ -473,10 +473,9 @@ Deno.test("the proof renders the standards section and the limits-verified line"
     await git(dir, "add", "work.txt");
     await git(dir, "commit", "-qm", "work", "--no-gpg-sign");
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseGateJson(r.stdout);
-    const markdown = obj.data?.proof?.markdown ?? "";
+    const markdown = r.output;
     assertStringIncludes(markdown, "Standards (limits verified against");
     assertStringIncludes(markdown, "cov 90 (floor 80, improved)");
   });

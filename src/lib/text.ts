@@ -239,41 +239,116 @@ export function wrapText(
   );
 }
 
-/** One column in a content-sized aligned table. */
-export interface AlignedColumn<Row> {
-  readonly header: string;
-  readonly value: (row: Row) => string;
-}
-
 /** Pad one styled line through the package's display-width authority. */
 export function padDisplayEnd(text: string, width: number): string {
   return padText(text, width, "start");
 }
 
+/** One label + body row of an aligned listing. */
+export interface AlignedRow {
+  readonly label: string;
+  readonly body: string;
+}
+
+/** Layout inputs for {@link renderAlignedRows}. */
+export interface AlignedRowsOptions {
+  /** Ceiling on the label column, in display cells. */
+  readonly labelCap?: number;
+  /** Exact label-column width — for a multi-section listing that computed one
+   * shared width with {@link alignedLabelWidth} so its sections align. */
+  readonly labelWidth?: number;
+  /** Leading indent on every emitted line. */
+  readonly indent?: string;
+  /** Total display width; bodies wrap with a hanging indent to the body
+   * column. Omitted, each row stays on one unwrapped line. */
+  readonly width?: number;
+  /** Style one padded label cell after its geometry is fixed. */
+  readonly styleLabel?: (cell: string) => string;
+  /** Style one body line after its geometry is fixed. */
+  readonly styleBody?: (line: string) => string;
+}
+
+const ALIGNED_LABEL_CAP = 32;
+const ALIGNED_GUTTER = 2;
+const ALIGNED_MIN_BODY = 24;
+
+/** The label-column width the aligned-listing policy assigns: the widest label,
+ * capped. Exposed for multi-section listings that share one column. */
+export function alignedLabelWidth(
+  labels: readonly string[],
+  cap = ALIGNED_LABEL_CAP,
+): number {
+  return Math.min(cap, Math.max(...labels.map((label) => measureText(label))));
+}
+
 /**
- * Render a content-shaped table. Discern owns the row projection and two-cell
- * gutter; package measurement and padding own all generic cell geometry.
+ * The one column policy for aligned label + body listings (command tables,
+ * script and skill inventories, tables of contents, help rows): the label
+ * column is the widest label capped at `labelCap`, a two-cell gutter follows,
+ * and — when a `width` is supplied — bodies wrap with a hanging indent to the
+ * body column. When the body column would fall under 24 cells, rows stack:
+ * the label on its own line, the body wrapped beneath a two-cell-deeper
+ * indent. A width-bounded listing also stacks any single row whose label
+ * exceeds the column, hard-breaking the label so every emitted line stays
+ * bounded; without a width, rows stay on one unwrapped line. Geometry uses
+ * package display-width measurement throughout; callers own safety (sanitize
+ * dynamic labels and bodies first) and styling.
  */
-export function renderAlignedTable<Row>(
-  columns: readonly AlignedColumn<Row>[],
-  rows: readonly Row[],
+export function renderAlignedRows(
+  rows: readonly AlignedRow[],
+  options: AlignedRowsOptions = {},
 ): string[] {
-  if (columns.length === 0) return [];
-  const cells = rows.map((row) => columns.map((column) => column.value(row)));
-  const widths = columns.map((column, index) =>
-    Math.max(
-      measureText(column.header),
-      ...cells.map((row) => measureText(row[index] ?? "")),
-    )
+  if (rows.length === 0) return [];
+  const indent = options.indent ?? "  ";
+  const styleLabel = options.styleLabel ?? ((cell: string): string => cell);
+  const styleBody = options.styleBody ?? ((line: string): string => line);
+  const labelWidth = options.labelWidth ?? alignedLabelWidth(
+    rows.map((row) => row.label),
+    options.labelCap,
   );
-  const line = (values: readonly string[]): string =>
-    values.map((value, index) =>
-      index === values.length - 1
-        ? value
-        : padText(value, widths[index] ?? 0, "start")
-    ).join("  ");
-  return [
-    line(columns.map((column) => column.header)),
-    ...cells.map(line),
-  ];
+  const bodyStart = measureText(indent) + labelWidth + ALIGNED_GUTTER;
+  const bodyWidth = options.width === undefined
+    ? undefined
+    : Math.max(1, options.width - bodyStart);
+  // One row on its own lines: the label first (hard-wrapped when a width
+  // bounds the listing), then the body under a two-cell-deeper indent.
+  const stackRow = (row: AlignedRow): string[] => {
+    const stackIndent = `${indent}  `;
+    const labelLines = options.width === undefined ? [row.label] : wrapText(
+      row.label,
+      Math.max(1, options.width - measureText(indent)),
+      "",
+      { breakLongWords: true },
+    );
+    const stackWidth = Math.max(
+      1,
+      (options.width ?? 1) - measureText(stackIndent),
+    );
+    return [
+      ...labelLines.map((line) => `${indent}${styleLabel(line)}`.trimEnd()),
+      ...(row.body === ""
+        ? []
+        : wrapText(row.body, stackWidth, "", { breakLongWords: true })
+          .map((line) => `${stackIndent}${styleBody(line)}`.trimEnd())),
+    ];
+  };
+  if (bodyWidth !== undefined && bodyWidth < ALIGNED_MIN_BODY) {
+    return rows.flatMap(stackRow);
+  }
+  const continuation = " ".repeat(bodyStart);
+  return rows.flatMap((row) => {
+    if (bodyWidth !== undefined && measureText(row.label) > labelWidth) {
+      return stackRow(row);
+    }
+    const cell = styleLabel(padDisplayEnd(row.label, labelWidth));
+    const bodyLines = bodyWidth === undefined
+      ? [row.body]
+      : wrapText(row.body, bodyWidth, "", { breakLongWords: true });
+    return [
+      `${indent}${cell}  ${styleBody(bodyLines[0] ?? "")}`.trimEnd(),
+      ...bodyLines.slice(1).map((line) =>
+        `${continuation}${styleBody(line)}`.trimEnd()
+      ),
+    ];
+  });
 }

@@ -12,6 +12,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { measureText, stripAnsi } from "discern-design-system/cli";
 import {
+  assertTerminalTextIncludes,
   fakeEnv,
   readTarget,
   runCli,
@@ -28,11 +29,15 @@ import { stageBundledDocs } from "../scripts/build.ts";
 import {
   docsBrowseNavigationChoices,
   renderDocsCorpusHeader,
+  renderExternalDecisionsNotice,
 } from "../src/commands/docs.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
+import { runPtyProcess } from "./fixtures/pty_process.ts";
 
 /** This repo's root — used by the dogfood test to resolve discern's real docs. */
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
+const DENO_JSON = join(REPO_ROOT, "deno.json");
+const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
 
 Deno.test("docs browser offers its online manual without adding it to map", () => {
   assertEquals(
@@ -63,7 +68,7 @@ Deno.test("docs headers preserve exact facts at narrow and wide TTY widths", () 
         `${width}-column docs header overflowed: ${JSON.stringify(line)}`,
       );
     }
-    assertStringIncludes(rendered, "discern docs");
+    assertStringIncludes(rendered, "DISCERN DOCS");
     assertEquals(
       rendered.split("\n").slice(1).join("").replaceAll(/\s+/gu, ""),
       `— 17 documents in ${directory}`.replaceAll(/\s+/gu, ""),
@@ -112,6 +117,31 @@ Deno.test("docs headers make hostile directory facts inert before rendering", ()
   }
 });
 
+Deno.test("installed decision redirects use a TTY Callout and one pipe-safe line", () => {
+  const width = 56;
+  const tty = resolveTerminalContext({
+    noColor: true,
+    env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: width, rows: 24 }),
+  });
+  const rendered = renderExternalDecisionsNotice(tty, width);
+  assertStringIncludes(rendered, "Decision records live online");
+  assertStringIncludes(rendered, "https://discern.sh/docs/decisions");
+  for (const line of rendered.split("\n")) assert(measureText(line) <= width);
+
+  const pipe = resolveTerminalContext({
+    noColor: true,
+    env: fakeEnv({}),
+    isTerminal: () => false,
+    consoleSize: () => ({ columns: width, rows: 24 }),
+  });
+  const plain = renderExternalDecisionsNotice(pipe, width);
+  assert(!plain.includes("Decision records live online"));
+  assertStringIncludes(plain, "not bundled with installed binaries");
+  assertStringIncludes(plain, "https://discern.sh/docs/decisions");
+});
+
 /**
  * Lay a project that has BOTH its own `docs/` (a decoy `docs` must never show)
  * and a separate "bundled" docs fixture, including internal `_`-prefixed subtrees
@@ -156,6 +186,99 @@ async function makeDocsFixture(
   }
   return docs;
 }
+
+Deno.test({
+  name: "docs browser restores the remembered document through the real PTY",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      const docs = await makeDocsFixture(dir);
+      const process = await runPtyProcess({
+        command: Deno.execPath(),
+        args: [
+          "run",
+          "--no-check",
+          "--config",
+          DENO_JSON,
+          "-A",
+          MAIN_TS,
+          "docs",
+          "--no-pager",
+        ],
+        cwd: dir,
+        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1" },
+        input: [
+          // A search interaction starts without a highlighted choice. Select the
+          // first document, then submit the remembered highlight unchanged.
+          { waitFor: "○ Quit", steps: [{ bytes: "\x1b[B\r" }] },
+          {
+            waitFor: ["Welcome.", "○ Quit"],
+            steps: [{ bytes: "\r" }],
+          },
+          // Leave the third browse iteration through its final navigation item.
+          // Search reserves End for its query editor, so walk the six selectable
+          // items explicitly; semantic headings are never part of this count.
+          {
+            waitFor: ["Welcome.", "○ Quit"],
+            steps: [{ bytes: "\x1b[B".repeat(5) + "\r" }],
+          },
+        ],
+        timeoutMs: 8_000,
+      });
+
+      assertEquals(process.code, 0, process.transcript);
+      assertEquals(process.stderr, "", process.transcript);
+      assertEquals(
+        process.transcript.match(/Welcome\./gu)?.length,
+        2,
+        process.transcript,
+      );
+      assertStringIncludes(process.transcript, "discern docs — 4 documents");
+      assertStringIncludes(process.transcript, "Quit");
+    });
+  },
+});
+
+Deno.test({
+  name:
+    "map browser selects and leaves the production interaction through a real PTY",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await makeDocsFixture(dir);
+      const process = await runPtyProcess({
+        command: Deno.execPath(),
+        args: [
+          "run",
+          "--no-check",
+          "--config",
+          DENO_JSON,
+          "-A",
+          MAIN_TS,
+          "map",
+          "--no-pager",
+        ],
+        cwd: dir,
+        env: { NO_COLOR: "1" },
+        input: [
+          { waitFor: "○ Quit", steps: [{ bytes: "\x1b[B\r" }] },
+          // The remembered document is first; Quit is the next selectable row.
+          {
+            waitFor: ["The project's own docs.", "○ Quit"],
+            steps: [{ bytes: "\x1b[B\r" }],
+          },
+        ],
+        timeoutMs: 8_000,
+      });
+
+      assertEquals(process.code, 0, process.transcript);
+      assertEquals(process.stderr, "", process.transcript);
+      assertStringIncludes(process.transcript, "discern map — 1 document");
+      assertStringIncludes(process.transcript, "The project's own docs.");
+      assertStringIncludes(process.transcript, "◉ Quit");
+    });
+  },
+});
 
 Deno.test("docs terminal facts are inert while machine Markdown stays exact", async () => {
   await withTempDir(async (dir) => {
@@ -352,7 +475,7 @@ Deno.test("docs terminal render strips inline citations into a related-decisions
     );
     assertEquals(rendered.code, 0);
     assert(!rendered.stdout.includes("[ADR 0001]"));
-    assertStringIncludes(rendered.stdout, "## Related decisions");
+    assertTerminalTextIncludes(rendered.stdout, "## Related decisions");
     assertStringIncludes(
       rendered.stdout,
       "https://discern.sh/docs/decisions/0001-first",
@@ -892,7 +1015,7 @@ Deno.test("help <target> teaches for retired spellings and synonyms", async () =
     ) {
       const r = await runCli(["help", retired], dir, env);
       assertEquals(r.code, 1, r.stdout + r.stderr);
-      assertStringIncludes(r.stderr, "was renamed");
+      assertTerminalTextIncludes(r.stderr, "was renamed");
       assertStringIncludes(r.stderr, successor);
     }
     for (
@@ -900,8 +1023,8 @@ Deno.test("help <target> teaches for retired spellings and synonyms", async () =
     ) {
       const r = await runCli(["help", synonym], dir, env);
       assertEquals(r.code, 1, r.stdout + r.stderr);
-      assertStringIncludes(r.stderr, `unknown command "${synonym}"`);
-      assertStringIncludes(r.stderr, `discern ${canonical}`);
+      assertTerminalTextIncludes(r.stderr, `unknown command "${synonym}"`);
+      assertTerminalTextIncludes(r.stderr, `discern ${canonical}`);
     }
   });
 });

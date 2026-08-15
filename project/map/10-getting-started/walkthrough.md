@@ -10,9 +10,7 @@ aliases:
 
 # Walkthrough: watch one change from setup to landing
 
-_The [quickstart](quickstart.md) gives you the commands. This tour explains the handoffs you see while your coding agent does the work._
-
-Use this page after the quickstart when you want to understand why the flow pauses, changes branches, or asks you to restart a session.
+_The [quickstart](quickstart.md) gives you the commands. This tour explains the handoffs: why the flow pauses, changes branches, or asks you to restart a session._
 
 ## Setup asks before it writes
 
@@ -32,7 +30,7 @@ The agent attests that consent happened when it begins. A fresh interactive setu
 
 ## Setup builds on its own branch
 
-`discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent first wires the project's real format, lint, build, typecheck, test, and smoke commands into `discern.toml`. It then fills the project guidance and initial map pages while those checks are live.
+`discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent first wires the project's real format, lint, build, typecheck, test, and smoke commands into `discern.toml`. It then fills the project guidance and initial map pages while those checks are live, including the seeded record of the adoption decision.
 
 discern commits the wiring it scaffolds before the handoff and the completion marker after setup passes. Those machine-composed commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. The agent's authoring commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
 

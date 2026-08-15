@@ -132,8 +132,8 @@ const crashSignatureSchema = z.looseObject({
  *    events, the parent process id for `cli` events. Groups one conversation's
  *    invocations even when every task shares a branch; ids recycle across
  *    reboots, so readers group within a day, never globally;
- *  - `json` — machine output was requested (agents pass `--json` per the
- *    guidance; humans rarely do);
+ *  - `json`: JSON output was requested with `--json`;
+ *  - `markdown`: Markdown output was requested with `--markdown`;
  *  - `tty` — stdout was an interactive terminal;
  *  - `ci` — the conventional CI environment marker was set, so automation
  *    noise is filterable from interactive history;
@@ -142,7 +142,10 @@ const crashSignatureSchema = z.looseObject({
  *    a winner or confidence score;
  *  - `mcp_client` — the bounded raw `clientInfo` declaration when the call came
  *    over MCP. It identifies the client implementation, not necessarily the
- *    model or agent behind it.
+ *    model or agent behind it;
+ *  - `spawned_by` — the parent invocation id when discern itself spawned this
+ *    run (the gate's job runner stamps it), so readers can classify
+ *    self-invocations as automation and join them to the run that caused them.
  */
 const agentSignalSchema = z.looseObject({
   agent: z.string(),
@@ -159,10 +162,12 @@ const mcpClientSchema = z.looseObject({
 const driverSchema = z.looseObject({
   session: z.string().optional(),
   json: z.boolean().optional(),
+  markdown: z.boolean().optional(),
   tty: z.boolean().optional(),
   ci: z.boolean().optional(),
   agent_signals: z.array(agentSignalSchema).optional(),
   mcp_client: mcpClientSchema.optional(),
+  spawned_by: z.string().optional(),
 });
 /** One recorded driver-signal bundle. */
 export type DriverFacts = z.infer<typeof driverSchema>;
@@ -313,8 +318,9 @@ export const verbEventSchema = z.looseObject({
   target: z.string().optional(),
   /** The ref a `start` forked from (composition below the trunk, recorded). */
   from: z.string().optional(),
-  /** Flag NAMES the invocation passed (registry-shaped, never values; `--json`
-   * and `--dry-run` ride their own fields). `--force` usage is a signal. */
+  /** Flag NAMES the invocation passed (registry-shaped, never values; the two
+   * explicit result formats and `--dry-run` ride their own fields). `--force`
+   * usage is a signal. */
   flags: z.array(z.string()).optional(),
   /** Scale of the change acted on ({@link ChangeScale}). */
   change: changeScaleSchema.optional(),

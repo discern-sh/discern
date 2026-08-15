@@ -53,7 +53,7 @@ export const DISCERN_ENVIRONMENT_VARIABLE_GROUPS = [
     id: "diagnostics",
     title: "Diagnostics",
     description:
-      "Fault-injection controls for testing discern's failure reporting.",
+      "Fault-injection and fault-capture controls for diagnosing discern's behavior.",
   },
   {
     id: "repository-development",
@@ -278,6 +278,16 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
       reason: "Injects deterministic failures for discern's crash-path tests.",
     },
   },
+  interactionTrace: {
+    name: "DISCERN_INTERACTION_TRACE",
+    group: "diagnostics",
+    lifecycle: "live",
+    documentation: {
+      public: false,
+      reason:
+        "Appends per-request terminal-interaction sizing evidence to the named file for viewport-fault diagnosis.",
+    },
+  },
 
   home: {
     name: "DISCERN_HOME",
@@ -344,6 +354,16 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
       public: false,
       reason:
         "Marks a child process whose test-run concurrency slot is already accounted for.",
+    },
+  },
+  spawnedBy: {
+    name: "DISCERN_SPAWNED_BY",
+    group: "process-internals",
+    lifecycle: "live",
+    documentation: {
+      public: false,
+      reason:
+        "Carries the parent invocation id into a discern child the gate's job runner spawns, so the Logbook records the run as a self-invocation.",
     },
   },
   setupDeno: {

@@ -8,7 +8,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
@@ -19,7 +19,7 @@ Deno.test("discern skills list shows the built-ins, and --json emits structured 
 
     const human = await runAgent(dir, ["skills", "list"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.stdout, "Effective skills:");
+    assertTerminalTextIncludes(human.stdout, "Effective skills:");
     assertStringIncludes(human.stdout, "discern-write-adr");
     assertStringIncludes(human.stdout, "built-in");
 
@@ -53,7 +53,7 @@ Deno.test("discern skills eject copies a built-in and the effective set then pre
     );
     // The ejected copy now overrides the built-in in the listing.
     const list = await runAgent(dir, ["skills", "list"]);
-    assertStringIncludes(list.stdout, "yours (overrides built-in)");
+    assertTerminalTextIncludes(list.stdout, "yours (overrides built-in)");
     // And it materialized as a symlink under .claude/skills/.
     assert(
       (await Deno.lstat(join(dir, ".claude/skills/discern-write-adr")))
@@ -158,7 +158,10 @@ Deno.test("discern skills eject rejects an unknown skill", async () => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["skills", "eject", "does-not-exist"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, 'no bundled skill named "does-not-exist"');
+    assertTerminalTextIncludes(
+      r.stderr,
+      'no bundled skill named "does-not-exist"',
+    );
   });
 });
 

@@ -12,11 +12,12 @@ import { HINTS } from "../src/shared/hints.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import {
   type AcceptData,
-  type GateData,
+  type GateWireData,
   type Proof,
   ProofNotePayloadSchema,
   ProofNoteSchema,
   ProofSchema,
+  ProofSummarySchema,
   type RefreshData,
 } from "../src/shared/result_schemas.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "../src/shared/public_schemas.ts";
@@ -41,7 +42,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 /** Render a minimal project configured for local or fetched proof-note discovery. */
 function proofConfig(mode: "local" | "fetch"): string {
@@ -64,6 +65,12 @@ interface Landing {
   readonly target: string;
   readonly proof: Proof;
   readonly result: DiscernResult<AcceptData>;
+}
+
+/** Match the compact Proof carried by JSON/MCP while retaining the durable page elsewhere. */
+function proofWireSummary(proof: Proof): Omit<Proof, "markdown"> {
+  const { markdown: _markdown, ...summary } = proof;
+  return summary;
 }
 
 /** Create, gate, and accept one branch, returning both its target commit and parsed proof. */
@@ -92,10 +99,11 @@ async function land(
   const target = await gitOut(worktree, "rev-parse", "HEAD");
   const done = await runAgent(worktree, ["done", "--json"], { env });
   assertEquals(done.code, 0, done.output);
-  const doneResult = JSON.parse(done.stdout) as DiscernResult<GateData>;
-  const proof = ProofSchema.parse(doneResult.data?.proof);
+  const doneResult = JSON.parse(done.stdout) as DiscernResult<GateWireData>;
+  const proofSummary = ProofSummarySchema.parse(doneResult.data?.proof);
   const marker = await inspectGateProof(worktree);
-  assertEquals(marker.proof_data, proof);
+  const proof = ProofSchema.parse(marker.proof_data);
+  assertEquals(proofSummary, proofWireSummary(proof));
   const accepted = await runAgent(
     worktree,
     ["accept", "--confirmed", "--json"],
@@ -223,7 +231,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
       commit: second.target,
       commit_at: await gitOut(dir, "show", "-s", "--format=%cI", second.target),
       ref: PROOF_NOTES_REF,
-      proof: second.proof,
+      proof: proofWireSummary(second.proof),
     });
     assertEquals(statusResult.data.landed_proof_unsupported, undefined);
 
@@ -266,7 +274,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
     });
     const unreadHuman = await runAgent(dir, ["status", "--plain"]);
     assertEquals(unreadHuman.code, 0, unreadHuman.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       unreadHuman.stdout.replaceAll(/\s+/gu, ""),
       `proof unavailable in this discern version (${newerFormat})`.replaceAll(
         /\s+/gu,
@@ -448,7 +456,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
     );
     assertEquals(
       fetchedStatusResult.data.landed_proof.proof,
-      fetchedLanding.proof,
+      proofWireSummary(fetchedLanding.proof),
     );
 
     await git(dir, "update-ref", "-d", trackingRef);
@@ -618,7 +626,7 @@ Deno.test("proof-note fetch reconciliation migrates managed exact mappings and e
 
     const failedFetch = await runGit(["fetch", "origin"], { cwd: dir });
     assertEquals(failedFetch.success, false);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       failedFetch.stderr,
       "couldn't find remote ref refs/notes/discern",
     );

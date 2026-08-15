@@ -11,12 +11,12 @@ import { basename } from "@std/path";
 import {
   type FleetCliProps,
   renderDiagnosticCli,
+  renderDiffstatCli,
+  renderEmptyStateCli,
   renderFleetCli,
   renderRawOutputCli,
   renderReceiptCli,
   renderResultSummaryCli,
-  renderTriangleSectionRule,
-  type TerminalCapabilities,
 } from "discern-design-system/cli";
 import { interactiveHintTexts } from "../../shared/hints.ts";
 import type {
@@ -207,14 +207,6 @@ export interface StatusDashboardOptions {
   width: number;
   verbose?: boolean;
   nowMs: number;
-}
-
-/** Give one pure package renderer the report's already-resolved width. */
-function capabilitiesAtWidth(
-  terminal: TerminalContext,
-  width: number,
-): TerminalCapabilities {
-  return { ...terminal.capabilities, columns: Math.max(1, width) };
 }
 
 /** Whole days since an ISO timestamp, or undefined when absent/unparseable. */
@@ -662,12 +654,10 @@ function section(
   terminal: TerminalContext,
   width: number,
 ): string {
-  const capabilities = capabilitiesAtWidth(terminal, width);
   return [
-    renderTriangleSectionRule(terminalLine(label), {
+    terminal.presenter.triangleSectionRule(terminalLine(label), {
       width,
-      theme: terminal.themeVariant,
-    }, capabilities),
+    }),
     ...lines.map(renderSectionLine),
   ].join("\n");
 }
@@ -715,9 +705,9 @@ function renderWorktrees(
   width: number,
   terminal: TerminalContext,
   ownershipCaption: boolean,
+  expanded: boolean,
 ): StatusSectionLine[] {
-  const capabilities = capabilitiesAtWidth(terminal, width);
-  const fleet = renderFleetCli({
+  const fleet = terminal.presenter.present(renderFleetCli, {
     label: terminalLine("Active worktrees"),
     identityMode: "lossless",
     maxWidth: width,
@@ -732,14 +722,13 @@ function renderWorktrees(
       ...(row.entry.behind === undefined ? {} : { behind: row.entry.behind }),
       ...(row.kind === "running" ? { beaconPhase: 0 } : {}),
     })),
-    theme: terminal.themeVariant,
-  }, capabilities);
+  });
   const lines: StatusSectionLine[] = [{ verbatim: fleet }];
-  for (const row of rows) {
+  for (const row of expanded ? rows : []) {
     const proofValue = row.proof.detail === undefined
       ? row.proof.label
       : `${row.proof.label} · ${row.proof.detail}`;
-    const summary = renderResultSummaryCli({
+    const summary = terminal.presenter.present(renderResultSummaryCli, {
       state: FLEET_ROW_RESULT_STATE[row.kind],
       fact: terminalLine(
         `${row.identity.primary}${
@@ -754,8 +743,7 @@ function renderWorktrees(
         ? {}
         : { nextAction: terminalMultiline(row.attention) }),
       maxWidth: width,
-      theme: terminal.themeVariant,
-    }, capabilities);
+    });
     const meta = [
       ...(row.authority === undefined ? [] : [{
         label: terminalLine("Landing"),
@@ -778,7 +766,7 @@ function renderWorktrees(
         ),
       })),
     ];
-    const receipt = renderReceiptCli({
+    const receipt = terminal.presenter.present(renderReceiptCli, {
       title: terminalLine(`${row.identity.primary} Proof`),
       checks: [{
         label: terminalLine("Proof"),
@@ -795,8 +783,7 @@ function renderWorktrees(
         })),
       }),
       maxWidth: width,
-      theme: terminal.themeVariant,
-    }, capabilities);
+    });
     lines.push(
       "",
       { verbatim: styledDiscernCommands(summary, terminal) },
@@ -807,14 +794,13 @@ function renderWorktrees(
     lines.push(
       "",
       {
-        verbatim: renderResultSummaryCli({
+        verbatim: terminal.presenter.present(renderResultSummaryCli, {
           state: "unchanged",
           fact: terminalLine(
             "Worktrees stay with the effort that created them.",
           ),
           maxWidth: width,
-          theme: terminal.themeVariant,
-        }, capabilities),
+        }),
       },
     );
   }
@@ -841,12 +827,11 @@ function renderFleetSummary(
     ...(active === 0 ? [] : [`${active} in progress`]),
   ].join(" · ");
   return [{
-    verbatim: renderResultSummaryCli({
+    verbatim: c.presenter.present(renderResultSummaryCli, {
       state: attention > 0 ? "blocked" : active > 0 ? "changed" : "unchanged",
       fact: terminalLine(summary),
       maxWidth: width,
-      theme: c.themeVariant,
-    }, capabilitiesAtWidth(c, width)),
+    }),
   }];
 }
 
@@ -859,10 +844,9 @@ function renderAttention(
   nowMs: number,
 ): StatusSectionLine[] {
   const lines: StatusSectionLine[] = [];
-  const capabilities = capabilitiesAtWidth(c, width);
   for (const row of rows) {
     if (row.attention === undefined) continue;
-    const diagnostic = renderDiagnosticCli({
+    const diagnostic = c.presenter.present(renderDiagnosticCli, {
       title: terminalLine(
         `${row.identity.primary}: ${row.label}${
           row.entry.is_current ? " (current)" : ""
@@ -875,8 +859,7 @@ function renderAttention(
       severity: row.tone === "red" ? "failure" : "attention",
       path: terminalLine(row.entry.path),
       maxWidth: width,
-      theme: c.themeVariant,
-    }, capabilities);
+    });
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
       {
@@ -889,14 +872,13 @@ function renderAttention(
     ) {
       lines.push(
         {
-          verbatim: renderResultSummaryCli({
+          verbatim: c.presenter.present(renderResultSummaryCli, {
             state: "passed",
             fact: terminalLine(
               `The branch is ready; landing ${row.authority.label}.`,
             ),
             maxWidth: width,
-            theme: c.themeVariant,
-          }, capabilities),
+          }),
         },
       );
     }
@@ -917,7 +899,7 @@ function renderAttention(
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
       {
-        verbatim: renderDiagnosticCli({
+        verbatim: c.presenter.present(renderDiagnosticCli, {
           title: terminalLine(path.path),
           impact: terminalLine(
             `discern removed the worktree ${
@@ -928,13 +910,12 @@ function renderAttention(
           severity: "attention",
           path: terminalLine(path.path),
           maxWidth: width,
-          theme: c.themeVariant,
-        }, capabilities),
+        }),
       },
     );
   }
   for (const collision of data.fleet_collisions ?? []) {
-    const diagnostic = renderDiagnosticCli({
+    const diagnostic = c.presenter.present(renderDiagnosticCli, {
       title: terminalLine("Fleet collision"),
       impact: terminalLine(
         `${collision.branches.join(" ↔ ")} change the same ${
@@ -947,8 +928,7 @@ function renderAttention(
       ),
       severity: "attention",
       maxWidth: width,
-      theme: c.themeVariant,
-    }, capabilities);
+    });
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
       { verbatim: styledDiscernCommands(diagnostic, c) },
@@ -958,7 +938,7 @@ function renderAttention(
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
       {
-        verbatim: renderDiagnosticCli({
+        verbatim: c.presenter.present(renderDiagnosticCli, {
           title: terminalLine(
             `ADR ${collision.number} has multiple claims`,
           ),
@@ -971,8 +951,7 @@ function renderAttention(
           ),
           severity: "attention",
           maxWidth: width,
-          theme: c.themeVariant,
-        }, capabilities),
+        }),
       },
     );
   }
@@ -980,7 +959,7 @@ function renderAttention(
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
       {
-        verbatim: renderDiagnosticCli({
+        verbatim: c.presenter.present(renderDiagnosticCli, {
           title: terminalLine("Incoming overlap"),
           impact: terminalLine(
             "The worktree and incoming trunk commits change the same paths.",
@@ -991,8 +970,7 @@ function renderAttention(
           ),
           severity: "attention",
           maxWidth: width,
-          theme: c.themeVariant,
-        }, capabilities),
+        }),
       },
     );
   }
@@ -1049,15 +1027,13 @@ function mainCheckoutLine(
   width: number,
   c: TerminalContext,
 ): string {
-  const capabilities = capabilitiesAtWidth(c, width);
   const git = data.git;
   if (git === null) {
-    return renderResultSummaryCli({
+    return c.presenter.present(renderResultSummaryCli, {
       state: "failed",
       fact: terminalLine("The main checkout is unreadable."),
       maxWidth: width,
-      theme: c.themeVariant,
-    }, capabilities);
+    });
   }
   const state = git.clean ? "clean" : fileCount(git.changed_files);
   const counts = divergence(
@@ -1065,7 +1041,7 @@ function mainCheckoutLine(
     git.behind_trunk === null ? undefined : git.behind_trunk,
   );
   const branch = git.branch === "" ? "(detached)" : git.branch;
-  return renderResultSummaryCli({
+  return c.presenter.present(renderResultSummaryCli, {
     state: git.clean ? "unchanged" : "changed",
     fact: terminalLine(`Main checkout ${branch} is current.`),
     counts: [
@@ -1075,8 +1051,7 @@ function mainCheckoutLine(
         : [{ label: terminalLine("Drift"), value: terminalLine(counts) }]),
     ],
     maxWidth: width,
-    theme: c.themeVariant,
-  }, capabilities);
+  });
 }
 
 /** Render the main checkout outside the worktree list for `--all` worktree views. */
@@ -1094,7 +1069,7 @@ function surveyedMainCheckout(
   const counts = divergence(entry.ahead, entry.behind);
   const activity = relativeAge(entry.last_activity, nowMs);
   return [{
-    verbatim: renderResultSummaryCli({
+    verbatim: c.presenter.present(renderResultSummaryCli, {
       state: entry.git_unavailable === true
         ? "failed"
         : entry.clean === true
@@ -1112,8 +1087,7 @@ function surveyedMainCheckout(
         }]),
       ],
       maxWidth: width,
-      theme: c.themeVariant,
-    }, capabilitiesAtWidth(c, width)),
+    }),
   }];
 }
 
@@ -1144,7 +1118,7 @@ function renderChecks(
     value: `${data.standards.length} configured`,
   });
   return [{
-    verbatim: renderResultSummaryCli({
+    verbatim: c.presenter.present(renderResultSummaryCli, {
       state: changedScopes.length > 0 ? "changed" : "unchanged",
       fact: terminalLine("Configured checks for this status result."),
       counts: counts.map((count) => ({
@@ -1152,8 +1126,7 @@ function renderChecks(
         value: terminalLine(count.value),
       })),
       maxWidth: width,
-      theme: c.themeVariant,
-    }, capabilitiesAtWidth(c, width)),
+    }),
   }];
 }
 
@@ -1166,7 +1139,7 @@ function renderLocalEnvironment(
   if (data.worktree !== null) {
     const resources = Object.entries(data.worktree.resources);
     return [{
-      verbatim: renderResultSummaryCli({
+      verbatim: c.presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: terminalLine(
           `${data.worktree.id} has a provisioned local environment.`,
@@ -1184,8 +1157,7 @@ function renderLocalEnvironment(
           }]),
         ],
         maxWidth: width,
-        theme: c.themeVariant,
-      }, capabilitiesAtWidth(c, width)),
+      }),
     }];
   }
   return [];
@@ -1201,8 +1173,8 @@ function renderLastLanding(
   if (data.landed_proof !== undefined) {
     const proof = data.landed_proof.proof;
     const age = relativeAge(data.landed_proof.commit_at, nowMs);
-    return [{
-      verbatim: renderReceiptCli({
+    const receipt: StatusSectionLine = {
+      verbatim: c.presenter.present(renderReceiptCli, {
         title: terminalLine("Last landing"),
         stamp: "pass",
         meta: [
@@ -1215,20 +1187,26 @@ function renderLastLanding(
         checks: [{
           label: terminalLine("Files"),
           state: "pass",
-          value: terminalLine(
-            `${
-              fileCount(proof.files_total)
-            } · +${proof.insertions} −${proof.deletions}`,
-          ),
+          value: terminalLine(fileCount(proof.files_total)),
         }],
         maxWidth: width,
-        theme: c.themeVariant,
-      }, capabilitiesAtWidth(c, width)),
-    }];
+      }),
+    };
+    const changedLines = proof.insertions + proof.deletions;
+    return [
+      receipt,
+      ...(changedLines === 0 ? [] : [{
+        verbatim: c.presenter.present(renderDiffstatCli, {
+          added: proof.insertions,
+          removed: proof.deletions,
+          maxWidth: width,
+        }),
+      }]),
+    ];
   }
   if (data.landed_proof_unsupported !== undefined) {
     return [{
-      verbatim: renderResultSummaryCli({
+      verbatim: c.presenter.present(renderResultSummaryCli, {
         state: "blocked",
         fact: terminalLine(
           `proof unavailable in this discern version (${data.landed_proof_unsupported.format}). Commit: ${
@@ -1236,8 +1214,7 @@ function renderLastLanding(
           }.`,
         ),
         maxWidth: width,
-        theme: c.themeVariant,
-      }, capabilitiesAtWidth(c, width)),
+      }),
     }];
   }
   return [];
@@ -1266,7 +1243,7 @@ function renderSetup(
     }.`,
   ].join(" ");
   return [{
-    verbatim: renderDiagnosticCli({
+    verbatim: c.presenter.present(renderDiagnosticCli, {
       title: terminalLine("Setup is not finished"),
       impact: terminalLine(impact),
       correction: terminalMultiline(
@@ -1274,8 +1251,7 @@ function renderSetup(
       ),
       severity: "attention",
       maxWidth: width,
-      theme: c.themeVariant,
-    }, capabilitiesAtWidth(c, width)),
+    }),
   }];
 }
 
@@ -1291,13 +1267,12 @@ function renderVerboseProofs(
     blocks.push(
       ...(blocks.length === 0 ? [] : [""]),
       {
-        verbatim: renderRawOutputCli({
+        verbatim: c.presenter.present(renderRawOutputCli, {
           label: terminalLine(label),
           output: terminalMultiline(page),
           expanded: true,
           maxWidth: STATUS_REPORT_MAX_WIDTH,
-          theme: c.themeVariant,
-        }, capabilitiesAtWidth(c, STATUS_REPORT_MAX_WIDTH)),
+        }),
       },
     );
   };
@@ -1331,6 +1306,8 @@ export function renderStatusDashboard(
   const contentWidth = sectionContentWidth(width);
   const nowMs = options.nowMs;
   const c = options.terminal;
+  const compactFleet = data.location === "main" && data.fleet !== undefined &&
+    options.verbose !== true;
   const project = terminalLine(
     data.project ?? (basename(data.root) || data.root),
   );
@@ -1378,9 +1355,11 @@ export function renderStatusDashboard(
       ),
     );
   }
-  const attention = renderAttention(shownRows, data, contentWidth, c, nowMs);
-  if (attention.length > 0) {
-    blocks.push(section("Attention", attention, c, width));
+  if (!compactFleet) {
+    const attention = renderAttention(shownRows, data, contentWidth, c, nowMs);
+    if (attention.length > 0) {
+      blocks.push(section("Attention", attention, c, width));
+    }
   }
   if (fleetRows.length > 0) {
     blocks.push(
@@ -1392,6 +1371,7 @@ export function renderStatusDashboard(
           c,
           data.location === "worktree" &&
             fleetRows.some((row) => !row.entry.is_current),
+          !compactFleet,
         ),
         c,
         width,
@@ -1401,12 +1381,10 @@ export function renderStatusDashboard(
     blocks.push(section(
       "Worktrees",
       [{
-        verbatim: renderResultSummaryCli({
-          state: "unchanged",
-          fact: terminalLine("No active worktrees."),
-          maxWidth: contentWidth,
-          theme: c.themeVariant,
-        }, capabilitiesAtWidth(c, contentWidth)),
+        verbatim: c.presenter.present(renderEmptyStateCli, {
+          title: terminalLine("No active worktrees"),
+          width: contentWidth,
+        }),
       }],
       c,
       width,
@@ -1415,7 +1393,7 @@ export function renderStatusDashboard(
     blocks.push(
       section(
         "Current worktree",
-        renderWorktrees(localRows, contentWidth, c, false),
+        renderWorktrees(localRows, contentWidth, c, false, true),
         c,
         width,
       ),
@@ -1439,26 +1417,27 @@ export function renderStatusDashboard(
   }
 
   const next = interactiveHintTexts(hints).flatMap((hint) => {
-    const result = renderResultSummaryCli({
+    const result = c.presenter.present(renderResultSummaryCli, {
       state: "blocked",
       fact: terminalLine("Status recommends an action."),
       nextAction: terminalMultiline(hint),
       maxWidth: contentWidth,
-      theme: c.themeVariant,
-    }, capabilitiesAtWidth(c, contentWidth));
+    });
     return [{ verbatim: styledDiscernCommands(result, c) }, ""];
   });
   if (next.at(-1) === "") next.pop();
   if (next.length > 0) blocks.push(section("Next steps", next, c, width));
 
-  const checks = renderChecks(data, contentWidth, c);
-  if (checks.length > 0) blocks.push(section("Checks", checks, c, width));
-  const environment = renderLocalEnvironment(data, contentWidth, c);
-  if (environment.length > 0) {
-    blocks.push(section("Local environment", environment, c, width));
+  if (!compactFleet) {
+    const checks = renderChecks(data, contentWidth, c);
+    if (checks.length > 0) blocks.push(section("Checks", checks, c, width));
+    const environment = renderLocalEnvironment(data, contentWidth, c);
+    if (environment.length > 0) {
+      blocks.push(section("Local environment", environment, c, width));
+    }
+    const landing = renderLastLanding(data, contentWidth, c, nowMs);
+    if (landing.length > 0) blocks.push(section("Landing", landing, c, width));
   }
-  const landing = renderLastLanding(data, contentWidth, c, nowMs);
-  if (landing.length > 0) blocks.push(section("Landing", landing, c, width));
 
   if (options.verbose === true) {
     const proofs = renderVerboseProofs(data, shownRows, c);

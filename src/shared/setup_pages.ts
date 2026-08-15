@@ -3,14 +3,14 @@
  *
  * `templates/setup/instructions.md` is authored as a preamble (the operating
  * principles), a sequence of numbered `## Step <n>` **pages**, and a closing
- * stop-conditions epilogue. Each page carries a machine-readable **spine** — a
+ * stop-conditions epilogue. Each page carries a structured **spine** — a
  * fenced ` ```toml ` block immediately after its heading ({@link SetupPageSpine}:
  * `intent` / `files_to_read` / `must_do` / `what_not_to_do` / `completion_check` /
  * `next_action`) — followed by the warm prose the agent follows verbatim.
  *
  * This module is the ONE place that structure is read back out: `setup begin`
  * serves the preamble + the first page, `setup step <n>` serves one page, and both
- * the human renderer and the `--json` envelope project the same {@link SetupPage}.
+ * terminal, JSON, and Markdown presentations project the same {@link SetupPage}.
  * It is pure text→struct (no engine deps), and validates every spine against
  * {@link SetupPageSpineSchema} so a malformed block fails LOUDLY at parse time
  * rather than silently serving half a page.

@@ -20,7 +20,7 @@ Use this section when you need the current contract rather than a guided workflo
 
 The command, configuration, and environment-variable pages come from the same registries the binary uses. A changed verb, flag, section, configuration key, or environment contract updates its reference through `deno task codegen`. Committed-output tests report any generated page that differs from its registry. Search aliases come from those registries too, so command paths, dotted configuration keys, and environment-variable names remain searchable as their sets grow.
 
-The authored pages cover contracts that need explanation. MCP tools share the same `DiscernResult` payload as CLI `--json`, wrapped in the protocol's text and structured channels. Files and ownership separates project-owned, Shared, Generated, tracked, and ignored artifacts. Licenses for project payloads explains the Apache-2.0 boundary for discern-authored material. Platforms and prerequisites records the release targets, required executables, identity selectors, and command-template tokens verified against the installer and runtime checks.
+The authored pages cover contracts that need explanation. MCP tools share the same prepared `DiscernResult` as CLI quiet modes: `structuredContent` uses the `--json` projection, while text `content` uses the `--markdown` presenter. Files and ownership separates project-owned, Shared, Generated, tracked, and ignored artifacts. Licenses for project payloads explains the Apache-2.0 boundary for discern-authored material. Platforms and prerequisites records the release targets, required executables, identity selectors, and command-template tokens verified against the installer and runtime checks.
 
 For setup and first-use steps, start in [Getting started](../10-getting-started/). For behavior and failure recovery, use [The quality Gate](../20-quality-gate/) or [Worktrees](../30-worktrees/). Reference remains organized for lookup.
 
@@ -28,6 +28,7 @@ For setup and first-use steps, start in [Getting started](../10-getting-started/
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | [CLI reference](cli-reference.md)                                         | Find every visible command, subcommand, positional argument, and flag.                   |
 | [`discern.toml` reference](config-reference.md)                           | Find every section, key, type, default, and repeatable named table.                      |
+| [Result formats & delivery](result-surfaces.md)                           | Choose terminal, Markdown, JSON, or MCP delivery for one prepared result.                |
 | [MCP tools & results](mcp-and-results.md#compatibility-by-schema-version) | Integrate with tools, resources, result envelopes, schemas, and exit codes.              |
 | [Proof note format](proof-note-format.md)                                 | Consume the durable Proof record attached to each landed commit.                         |
 | [Files & ownership](artifact-ownership.md)                                | See what discern writes, who may edit or overwrite it, Git treatment, and removal rules. |

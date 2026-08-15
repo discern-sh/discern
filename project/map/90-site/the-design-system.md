@@ -15,10 +15,10 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.12.2"
+"discern-design-system": "jsr:@discern-sh/design-system@0.17.0"
 ```
 
-Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI consumer additionally uses the documented `./cli` and `./cli/interactive` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
+Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI consumer additionally uses the documented `./cli`, `./cli/interactive`, and `./cli/projection` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
 
 When a package defect affects discern, release the fix from the package repository and update this repository to the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
@@ -44,9 +44,31 @@ discern scripts site-design-system -- --build-only /absolute/path/to/design-syst
 
 ## CLI-owned integration
 
-The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, prompts, and safe repaint refusal. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`prompts.ts`](../../../src/lib/prompts.ts).
+The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts).
 
-Consumer conformance proves both CLI graphs are React-free and resolved from the exact external release. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves the package root and all three CLI graphs are React-free where required and that every module in each closure resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.17.0/` origin. A local path, workspace override, source import, mixed version, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+
+## Release 0.17.0 presenter foundation contracts
+
+Release 0.17.0 binds box, triangle-spinner, triangle-section-rule, and triangle-workflow rendering into the CLI presenter alongside Components and narration. Feature renderers in discern therefore pass only content and local measures; the process boundary supplies capabilities and theme once. Section rules now inherit the selected light or dark terminal theme. [`art/terminal/triangle.ts`](../../../art/terminal/triangle.ts) retains explicit capability inputs for the maintainer gallery's package-motif projections; it does not render CLI features.
+
+## Release 0.16.0 choice contracts
+
+Release 0.16.0 makes scrolling Select, Checkbox, and Radio frames consume the available terminal width unless a caller requests a narrower frame. Wrapped choice labels retain one pointer-and-marker prefix as the highlight moves. Every semantic group heading has one framed blank row above it, and a fitted window states its hidden choices in the lower border, such as `↑ 2 more · ↓ 7 more`. The product adapter supplies only values, semantic groups, visible-row ceilings, and caller reservations, so Desk, map and documentation browsers, improve, and setup inherit the same geometry without command-specific width or overflow code.
+
+## Release 0.15.0 review contracts
+
+Release 0.15.0 publishes `./cli/projection`. It accepts only the style and hyperlink repertoire emitted by the package, returns typed spans, and renders those spans as self-contained HTML under the package terminal theme. Cursor movement, erasure, unsupported controls, and foreign byte streams fail rather than receiving an approximation. This repository owns command capture and volatile-fact normalisation, while the package remains the only terminal-style decoder.
+
+## Release 0.15.0 terminal contracts
+
+Release 0.15.0 carries forward the reviewed terminal behavior from 0.14.0 and adds the bound presenter, narration verbs, truthful validation lifecycle, transform-before-validation requests, terminal-background sensing, and terminal-output projection. One presenter binds capabilities, theme, and default width at the process boundary. Package render calls then carry their content props and any narrower per-call width. The package's interactive graph owns the bounded background query and environment-hint fallback; discern decides when to sense and which theme to select from the reading. Small narration lines use the presenter's semantic success, note, warning, failure, and lead forms while discern continues to own stream routing and group boundaries.
+
+Value operations use `request*`, operation options use `*RequestOptions`, and shared lifecycle contracts use `Interaction*`; “prompt” remains available for coding-agent instructions. The product adapter in discern follows the same names and ships no compatibility aliases. Interaction frames derive their usable viewport from the current terminal height on every render; a caller's visible-count value is a ceiling, so short terminals reduce the list instead of painting beyond the viewport. A caller may also reserve rows above the request. The fitter subtracts that reservation before it measures the complete frame, which prevents a full-budget list from scrolling a composed header away. Search requests accept an initial stable choice ID. [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts) maps the caller's product value through its existing stable-ID authority, rejects a value that names no choice, and sends only the resulting ID to the package. The docs browser retains its highlighted document within one browse loop. It does not persist state between command runs.
+
+The same release makes the calm Heading the package default and gives it a configurable leading-line count. Top-level package headings normally keep their one-line default; a heading embedded in a discern-owned composition requests zero so the surrounding semantic group owns the boundary. Confirm keeps fixed frame geometry while its state changes, and selected choices use a distinct selected marker rather than highlight alone. Workflow steps direct their triangle by status: completed steps point upward and incomplete steps point downward.
+
+Mixed Result summaries compose through the package's group renderer, which aligns fact columns across different state prefixes. Patterns and improvement therefore carry no local prefix-padding calculation. Command suggestions render as `Run: <command>` without a shell prefix, preserving the underlying command while keeping suggested future action visually distinct from previously typed shell input.
 
 ## Site-owned integration
 

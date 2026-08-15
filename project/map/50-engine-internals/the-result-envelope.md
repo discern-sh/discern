@@ -13,21 +13,23 @@ aliases:
 
 _Every verb builds one result object. Types, runtime validation, generated contracts, and protocol adapters converge on it._
 
-[`result.ts`](../../../src/shared/result.ts) defines plans, executed steps, diagnostics, and `DiscernResult<TData>`. Human output, `--json`, and the Model Context Protocol (MCP) render that one object ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
+[`result.ts`](../../../src/shared/result.ts) defines plans, executed steps, diagnostics, and `DiscernResult<TData>`. Terminal, JSON, Markdown, and Model Context Protocol (MCP) presentations render that one object ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
 ## Human CLI groups
 
-Human views declare stable `HumanOutputGroup<T>` ids. `renderHumanOutputGroups` omits empty groups and separates populated ones; plans use `PlanStep.group`, live output uses `Out.group` or `Logger.group`, and labels draw headings. discern owns picker groups: `groupedSelectOptions` gives every populated group, including the first, a non-selectable package heading. The package owns terminal I/O, editing, frames, and restoration; `withPromptBoundary` adds one blank outside redraw accounting ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)).
+Human views declare stable `HumanOutputGroup<T>` ids. `renderHumanOutputGroups` omits empty groups and separates populated ones; plans use `PlanStep.group`, live output uses `Out.group` or `Logger.group`, and labels draw headings. A top-level package Heading keeps its default leading line; an embedded Heading requests zero; an unlabeled semantic group keeps the output-layer boundary. Mixed Result summaries use the package group compositor so different state prefixes share one fact column. discern owns picker groups: `groupedSelectionEntries` gives every populated group, including the first, a non-selectable package heading. The package owns terminal I/O, editing, frames, and restoration; `withInteractionBoundary` adds one blank outside redraw accounting ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)).
 
 Plan and result renderers preserve step order. When a `PlanStep.group` value returns after another group, the renderer opens another visible run and qualifies its non-rendered ID by occurrence. Directly authored `HumanOutputGroup` IDs reject duplicates.
 
 Boundaries mark changes in meaning; a homogeneous list stays one group. Machine protocols, scalar stdout, document bodies, framed tables, and project-owned streams retain their own structure.
 
-[`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing and direct package-prompt bypasses across shipped `src/**` human surfaces. Named, aliased, namespace, and dynamic prompt access enrols structurally. The broader Git-derived [`terminal_boundary_guard_test.ts`](../../../tests/terminal_boundary_guard_test.ts) scans every authored Deno file for interaction and terminal violations. Renderer tests cover recurring plan and result groups; behavior tests cover plan stages, status regions, Desk buckets, and every improvement category.
+Gate-family dashboards project scheduler facts, injected time, and viewport without changing `DiscernResult`. Full, compact, and append-only terminal modes build the same steps, diagnostics, timing, and Proof. `--json`, `--markdown`, and MCP bypass terminal presentation.
+
+[`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing and direct package-request bypasses across shipped `src/**` human surfaces. Named, aliased, namespace, and dynamic request access enrols structurally. The broader Git-derived [`terminal_boundary_guard_test.ts`](../../../tests/terminal_boundary_guard_test.ts) scans every authored Deno file for interaction and terminal violations. Renderer tests cover recurring plan and result groups; behavior tests cover plan stages, status regions, Desk buckets, and every improvement category.
 
 ## Step-label ownership
 
-[`BUILT_IN_STEP_LABELS`](../../../src/shared/result.ts) owns the stable labels for operations discern performs. Its values use kebab-case. Human output, JSON, MCP results, the Logbook, and the execution model consume those same values.
+[`BUILT_IN_STEP_LABELS`](../../../src/shared/result.ts) owns the stable labels for operations discern performs. Its values use kebab-case. Terminal, JSON, Markdown, and MCP results, the Logbook, and the execution model consume those same values.
 
 Configured job, scope, standard, resource, command, and path identifiers stay outside the registry. `verbatimStepLabel` marks that boundary in TypeScript and preserves the configured spelling on every output surface.
 
@@ -77,7 +79,7 @@ The MCP instructions render the policies required on that surface from the opera
 | Concern                           | Source                                                                                                                                                                                                            |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Result and renderer vocabulary    | [`result.ts`](../../../src/shared/result.ts)                                                                                                                                                                      |
-| Human output adapters             | [`output.ts`](../../../src/engine/output.ts), [`log.ts`](../../../src/lib/log.ts), [`prompts.ts`](../../../src/lib/prompts.ts)                                                                                    |
+| Terminal presentation adapters    | [`output.ts`](../../../src/engine/output.ts), [`log.ts`](../../../src/lib/log.ts), [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts)                                                          |
 | Envelope serialization            | [`result_serialization.ts`](../../../src/shared/result_serialization.ts)                                                                                                                                          |
 | Command references and renderers  | [`command_reference.ts`](../../../src/shared/command_reference.ts), guarded by [`hint_surface_rendering_test.ts`](../../../tests/hint_surface_rendering_test.ts)                                                  |
 | Strict runtime schemas            | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                                                                                                                                                      |

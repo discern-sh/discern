@@ -11,7 +11,7 @@
 import { assert, assertEquals, assertExists } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import { fakeEnv, withTempDir } from "./helpers.ts";
+import { fakeEnv, pinnedTerminal, withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { Logger } from "../src/lib/log.ts";
 import { loadConfig, parseConfigOrThrow } from "../src/shared/config_schema.ts";
@@ -47,9 +47,15 @@ import {
   worktreeGitKey,
 } from "../src/engine/worktree/git.ts";
 
-/** A logger that doesn't clutter test output (writes to stderr, colour off). */
+/** A logger that doesn't clutter test output (writes to stderr, colour off),
+ * with a pinned terminal context so nothing floats with the ambient locale. */
 function quietLog(): Logger {
-  return new Logger({ json: false, noColor: true, humanStream: "stderr" });
+  return new Logger({
+    json: false,
+    noColor: true,
+    humanStream: "stderr",
+    terminal: pinnedTerminal(),
+  });
 }
 
 // ── identity handles: deterministic, unique, project-namespaced ───────────────

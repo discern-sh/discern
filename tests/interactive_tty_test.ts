@@ -1,4 +1,4 @@
-/** Real-PTY proof for Discern's exported production prompt wrappers. */
+/** Real-PTY proof for Discern's exported production interaction wrappers. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
@@ -6,10 +6,10 @@ import { detectTerminalCapabilities } from "discern-design-system/cli";
 import {
   type InteractiveTtyResult,
   type InteractiveTtyScenario,
-  POST_PROMPT_DIAGNOSTIC,
+  POST_INTERACTION_DIAGNOSTIC,
 } from "./fixtures/interactive_tty_harness.ts";
 import {
-  type PtyInputStep,
+  type PtyInputPhase,
   type PtyProcessResult,
   runPtyProcess,
 } from "./fixtures/pty_process.ts";
@@ -29,7 +29,6 @@ const SGR_PARAMETERS = /^[0-9;]*m/u;
 const TRUECOLOUR_PARAMETERS = /^[0-9;]*38;2;/u;
 const ANSI_256_PARAMETERS = /^[0-9;]*38;5;/u;
 const CSI_SEQUENCE = /^[0-?]*[ -/]*[@-~]/u;
-const READY_DELAY_MS = 350;
 
 interface HarnessRun {
   readonly process: PtyProcessResult;
@@ -38,7 +37,7 @@ interface HarnessRun {
 
 interface HarnessRunOptions {
   readonly scenario: InteractiveTtyScenario;
-  readonly input?: readonly PtyInputStep[];
+  readonly input?: readonly PtyInputPhase[];
   readonly env?: Readonly<Record<string, string>>;
   readonly size?: { readonly columns: number; readonly rows: number };
   readonly resize?: {
@@ -47,7 +46,8 @@ interface HarnessRunOptions {
     readonly afterMs: number;
   };
   readonly noColor?: boolean;
-  readonly canonicalEofAfterMs?: number;
+  readonly canonicalEof?: boolean;
+  readonly interactionStartDelayMs?: number;
   readonly timeoutMs?: number;
 }
 
@@ -56,7 +56,7 @@ function sizeArgument(size: { columns: number; rows: number }): string {
   return `${size.columns}x${size.rows}`;
 }
 
-/** Run one production prompt scenario inside a real pseudo-terminal. */
+/** Run one production interaction scenario inside a real pseudo-terminal. */
 async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
   const resultPath = await Deno.makeTempFile({
     prefix: "discern-interactive-result-",
@@ -84,16 +84,18 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
         "--resize-after",
         String(options.resize.afterMs),
       ]),
-      ...(options.canonicalEofAfterMs === undefined
-        ? []
-        : ["--canonical-eof-after", String(options.canonicalEofAfterMs)]),
+      ...(options.canonicalEof === true ? ["--canonical-eof"] : []),
+      ...(options.interactionStartDelayMs === undefined ? [] : [
+        "--interaction-start-delay",
+        String(options.interactionStartDelayMs),
+      ]),
     ];
     const process = await runPtyProcess({
       command: Deno.execPath(),
       args,
       cwd: REPO_ROOT,
       ...(options.env === undefined ? {} : { env: options.env }),
-      input: options.input ?? [{ delayMs: READY_DELAY_MS, bytes: "\r" }],
+      input: options.input ?? keys("\r"),
       timeoutMs: options.timeoutMs ?? 8_000,
     });
     const raw = await Deno.readTextFile(resultPath);
@@ -107,9 +109,9 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
   }
 }
 
-/** Schedule one prompt input chunk after the child reaches raw mode. */
-function keys(bytes: string, delayMs = READY_DELAY_MS): PtyInputStep[] {
-  return [{ delayMs, bytes }];
+/** Send one input chunk only after the child renders its active interaction. */
+function keys(bytes: string, delayMs = 0): PtyInputPhase[] {
+  return [{ waitFor: "[active]", steps: [{ delayMs, bytes }] }];
 }
 
 /** Assert process, line-mode, cursor, and final-frame restoration under the
@@ -189,23 +191,27 @@ Deno.test({
     const run = await runHarness({
       scenario: "text",
       input: [
-        { delayMs: READY_DELAY_MS, bytes: "A" },
-        { delayMs: 5, bytes: emoji.slice(0, 3) },
-        { delayMs: 5, bytes: emoji.slice(3) },
-        { delayMs: 5, bytes: "B" },
-        { delayMs: 5, bytes: "\x1b" },
-        { delayMs: 5, bytes: "[" },
-        { delayMs: 5, bytes: "D" },
-        { delayMs: 5, bytes: "\x7f" },
-        { delayMs: 5, bytes: "é" },
-        { delayMs: 5, bytes: "\x1b[HΩ\x1b[F!\r" },
+        {
+          waitFor: "[active]",
+          steps: [
+            { bytes: "A" },
+            { delayMs: 5, bytes: emoji.slice(0, 3) },
+            { delayMs: 5, bytes: emoji.slice(3) },
+            { delayMs: 5, bytes: "B" },
+            { delayMs: 5, bytes: "\x1b[" },
+            { delayMs: 5, bytes: "D" },
+            { delayMs: 5, bytes: "\x7f" },
+            { delayMs: 5, bytes: "é" },
+            { delayMs: 5, bytes: "\x1b[HΩ\x1b[F!\r" },
+          ],
+        },
       ],
     });
     assertValue(run, "ΩAéB!");
     assert(
       run.process.transcript.startsWith(`\n${HIDE_CURSOR}`) ||
         run.process.transcript.startsWith(`\r\n${HIDE_CURSOR}`),
-      `the prompt needs exactly one leading semantic boundary:\n${run.process.transcript}`,
+      `the interaction needs exactly one leading semantic boundary:\n${run.process.transcript}`,
     );
   },
 });
@@ -310,12 +316,218 @@ Deno.test({
     assertValue(duplicate, "beta");
     assertValue(scrolled, "quit");
     assertValue(search, "beta");
-    for (const heading of ["Primary", "Secondary", "Navigation"]) {
+    for (const heading of ["PRIMARY", "SECONDARY", "NAVIGATION"]) {
       assertStringIncludes(scrolled.process.transcript, heading);
     }
     assertStringIncludes(duplicate.process.transcript, "Duplicate label");
-    assertStringIncludes(search.process.transcript, "Documents");
+    assertStringIncludes(search.process.transcript, "DOCUMENTS");
     assertStringIncludes(search.process.transcript, "Beta guide");
+  },
+});
+
+Deno.test({
+  name: "search restores a caller-owned stable choice in a real terminal",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const run = await runHarness({ scenario: "search-default" });
+    assertValue(run, "beta");
+    assertStringIncludes(run.process.transcript, "Duplicate guide");
+  },
+});
+
+Deno.test({
+  name:
+    "Desk and docs viewport budgets survive repeated 16-row interaction cycles",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const run = await runHarness({
+      scenario: "repeated-viewport",
+      size: { columns: 80, rows: 16 },
+      input: [
+        {
+          waitFor: ["Choose a desk action", "[active]"],
+          steps: [{ bytes: "\x1b[B\r" }],
+        },
+        { waitFor: ["Browse docs", "[active]"], steps: [{ bytes: "\r" }] },
+        {
+          waitFor: ["Choose a desk action again", "[active]"],
+          steps: [{ bytes: "\x1b[B\r" }],
+        },
+      ],
+    });
+    assertValue(run, ["desk-0", "doc-12", "desk-0"]);
+    assertEquals(run.result.terminal.initialSize.rows, 16);
+    assertStringIncludes(run.process.transcript, "Choose a desk action");
+    assertStringIncludes(run.process.transcript, "Browse docs");
+    assertStringIncludes(run.process.transcript, "DOCUMENTS");
+  },
+});
+
+const CLEAR_SEQUENCE = `${CSI}2J${CSI}H`;
+
+/** Painted box-body heights of every active frame, one list per cleared screen. */
+function activeWindowHeights(transcript: string): number[][] {
+  return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) =>
+    screen.split(`${CSI}1G`).flatMap((frame) => {
+      if (!frame.includes("[active]")) return [];
+      return [
+        stripCsiSequences(frame)
+          .split(/\r?\n/u)
+          .filter((line) => line.startsWith("│"))
+          .length,
+      ];
+    })
+  );
+}
+
+/** Complete painted heights of every active frame, one list per cleared screen. */
+function activeFrameHeights(transcript: string): number[][] {
+  return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) =>
+    screen.split(`${CSI}1G`).flatMap((frame) => {
+      if (!frame.includes("[active]")) return [];
+      const lines = stripCsiSequences(frame).split(/\r?\n/u);
+      const start = lines.findIndex((line) => line.includes("[active]"));
+      if (start < 0) return [];
+      let end = lines.length - 1;
+      while (end >= start && lines[end]?.trim() === "") end -= 1;
+      return [end - start + 1];
+    })
+  );
+}
+
+/** Caller-owned rows painted before the first active frame on each screen. */
+function reservedHeaderHeights(transcript: string): number[] {
+  return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) => {
+    const activeAt = screen.indexOf("[active]");
+    assert(activeAt >= 0, screen);
+    return stripCsiSequences(screen.slice(0, activeAt)).split("\n").length - 1;
+  });
+}
+
+const COMPOSED_CYCLE_INPUT: PtyInputPhase[] = Array.from(
+  { length: 3 },
+  (): PtyInputPhase[] => [
+    {
+      waitFor: ["Choose a task or action", "[active]"],
+      steps: [{ bytes: "\x1b[B" }, { delayMs: 20, bytes: "\r" }],
+    },
+    {
+      waitFor: ["Choose an action", "[active]"],
+      steps: [{ bytes: "\x1b[F" }, { delayMs: 20, bytes: "\r" }],
+    },
+  ],
+).flat();
+
+const COMPOSED_CYCLE_VALUES = [
+  "task-1",
+  "back",
+  "task-1",
+  "back",
+  "task-1",
+  "back",
+];
+
+Deno.test({
+  name:
+    "a tall terminal keeps every composed menu window full across repeated cycles",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const run = await runHarness({
+      scenario: "composed-viewport-cycles",
+      size: { columns: 80, rows: 44 },
+      input: COMPOSED_CYCLE_INPUT,
+      timeoutMs: 15_000,
+    });
+    assertValue(run, COMPOSED_CYCLE_VALUES);
+    const heights = activeWindowHeights(run.process.transcript);
+    assertEquals(heights.length, 6, run.process.transcript);
+    for (const [screen, frames] of heights.entries()) {
+      const entries = screen % 2 === 0 ? 14 : 9;
+      const groupBreathingRows = 3;
+      const expected = entries + groupBreathingRows;
+      for (const height of frames) {
+        assertEquals(
+          height,
+          expected,
+          `screen ${screen + 1} painted a ${height}-row window where the ` +
+            `full ${entries}-entry list and ${groupBreathingRows} group ` +
+            `breathing rows fit the 44-row terminal:\n` +
+            `heights=${JSON.stringify(heights)}`,
+        );
+      }
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "a short terminal keeps each reserved header while frames fit the remainder",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const run = await runHarness({
+      scenario: "composed-viewport-cycles",
+      size: { columns: 80, rows: 13 },
+      input: COMPOSED_CYCLE_INPUT,
+      timeoutMs: 15_000,
+    });
+    assertValue(run, COMPOSED_CYCLE_VALUES);
+    const heights = activeWindowHeights(run.process.transcript);
+    const frameHeights = activeFrameHeights(run.process.transcript);
+    const headerHeights = reservedHeaderHeights(run.process.transcript);
+    assertEquals(heights.length, 6, run.process.transcript);
+    assertEquals(frameHeights.length, 6, run.process.transcript);
+    assertEquals(headerHeights, [6, 4, 6, 4, 6, 4]);
+    for (const [screen, frames] of frameHeights.entries()) {
+      const budget = screen % 2 === 0 ? 7 : 9;
+      assert(frames.length > 0, run.process.transcript);
+      assert(
+        frames.includes(budget),
+        `screen ${screen + 1} never used its ${budget}-row frame budget:\n` +
+          `frameHeights=${JSON.stringify(frameHeights)}`,
+      );
+      for (const height of frames) {
+        assert(
+          height <= budget,
+          `screen ${screen + 1} must keep its ${13 - budget}-row reserved ` +
+            `header while fitting within the ${budget}-row remainder:\n` +
+            `frameHeights=${JSON.stringify(frameHeights)}`,
+        );
+      }
+    }
+    const boardCycles = [heights[0], heights[2], heights[4]];
+    const actionCycles = [heights[1], heights[3], heights[5]];
+    for (const cycles of [boardCycles, actionCycles]) {
+      for (const frames of cycles) {
+        assertEquals(
+          JSON.stringify(frames),
+          JSON.stringify(cycles[0]),
+          `repeated cycles must paint identical window heights:\n` +
+            `heights=${JSON.stringify(heights)}`,
+        );
+      }
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "a tall Textarea fits the real 16-row viewport and restores the terminal",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const run = await runHarness({
+      scenario: "textarea-tall",
+      size: { columns: 80, rows: 16 },
+      input: keys("\x04"),
+    });
+    assertValue(
+      run,
+      Array.from(
+        { length: 8 },
+        (_, index) => `remembered line ${index + 1}`,
+      ).join("\n"),
+    );
+    assertStringIncludes(run.process.transcript, "remembered line 5");
+    assertStringIncludes(run.process.transcript, "remembered line 8");
   },
 });
 
@@ -354,13 +566,15 @@ Deno.test({
       runHarness({ scenario: "cancellation", input: keys("\x15\x03") }),
       runHarness({
         scenario: "cancellation",
-        canonicalEofAfterMs: 180,
+        canonicalEof: true,
+        // The terminal transition waits for a real read boundary even when
+        // parallel suite load delays interaction startup beyond old timers.
+        interactionStartDelayMs: 600,
         input: [
-          { delayMs: 450, bytes: "\x04" },
-          // If a read began just before canonical mode changed, the first VEOF
-          // can complete that raw read. A later VEOF then reaches a fresh
-          // canonical read and produces the required zero-byte result.
-          { delayMs: 75, bytes: "\x04" },
+          {
+            waitFor: "[canonical-eof-ready]",
+            steps: [{ bytes: "\x04" }],
+          },
         ],
       }),
     ]);
@@ -388,9 +602,14 @@ Deno.test({
       size: { columns: 32, rows: 10 },
       resize: { columns: 100, rows: 30, afterMs: 180 },
       input: [
-        { delayMs: 450, bytes: "\x1b[B" },
-        { delayMs: 75, bytes: "\x1b[H" },
-        { delayMs: 75, bytes: "\r" },
+        {
+          waitFor: "[resize-ready]",
+          steps: [
+            { bytes: "\x1b[B" },
+            { delayMs: 75, bytes: "\x1b[H" },
+            { delayMs: 75, bytes: "\r" },
+          ],
+        },
       ],
     });
     assertValue(run, "alpha");
@@ -405,8 +624,8 @@ Deno.test({
       " ",
     );
     assertStringIncludes(visible, "Choose from semantic groups [active]");
-    assertStringIncludes(visible, "Alpha with a deliberately long label");
-    assertStringIncludes(visible, "that becomes complete after resize");
+    assertStringIncludes(visible, "deliberately long label");
+    assertStringIncludes(visible, "complete after resize");
   },
 });
 
@@ -525,7 +744,9 @@ Deno.test({
       message: "synthetic validator fault",
     });
     assertRestored(run);
-    const diagnosticAt = run.process.transcript.indexOf(POST_PROMPT_DIAGNOSTIC);
+    const diagnosticAt = run.process.transcript.indexOf(
+      POST_INTERACTION_DIAGNOSTIC,
+    );
     assert(diagnosticAt >= 0, run.process.transcript);
     assert(
       /\r?\n$/u.test(run.process.transcript.slice(0, diagnosticAt)),

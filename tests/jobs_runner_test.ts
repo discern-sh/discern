@@ -1,3 +1,4 @@
+import { setActiveInvocationId } from "../src/engine/logbook/invocation_context.ts";
 import {
   assert,
   assertEquals,
@@ -13,7 +14,7 @@ import {
   normalizeCapturedOutput,
 } from "../src/shared/result.ts";
 import type { Job } from "../src/engine/jobs/types.ts";
-import { escapedDaemonCommand } from "./helpers.ts";
+import { assertTerminalTextIncludes, escapedDaemonCommand } from "./helpers.ts";
 
 const CWD = Deno.cwd();
 
@@ -93,6 +94,38 @@ Deno.test("runParallel: observer sees starts up front and settlements in real co
   }
 });
 
+Deno.test("buffered capture feeds complete and partial text to a separate live observer", async () => {
+  const events: string[] = [];
+  const result = await runParallel([{
+    label: "chatty",
+    command: "printf 'first\\npar'; sleep 0.05; printf 'tial\\n'; exit 1",
+  }], {
+    cwd: CWD,
+    stream: false,
+    failFast: false,
+    color: false,
+    quiet: true,
+    outputObserver: {
+      output: (event): void => {
+        events.push(`${event.kind}:${event.label}:${event.text}`);
+      },
+    },
+  });
+
+  assertEquals(result.ok, false);
+  assert(events.includes("line:chatty:first"), events.join("\n"));
+  assert(events.includes("partial:chatty:par"), events.join("\n"));
+  assert(events.includes("line:chatty:partial"), events.join("\n"));
+  const failure = result.results[0];
+  assertEquals(failure?.output, "first\npartial\n");
+  assertEquals(failure?.outputLines, 2);
+  assert(failure?.outputPath !== undefined);
+  assertEquals(
+    await Deno.readTextFile(failure.outputPath),
+    "first\npartial\n",
+  );
+});
+
 Deno.test("runParallel: every job executes in its required cwd", async () => {
   const dir = await Deno.makeTempDir({ prefix: "discern-job-cwd-" });
   try {
@@ -156,6 +189,36 @@ Deno.test("spawnJob runs captured commands with the non-interactive CI env contr
   }
 });
 
+Deno.test("spawnJob stamps the recording invocation into DISCERN_SPAWNED_BY", async () => {
+  // A `discern` invoked by a job is a self-invocation: the runner passes the
+  // recording invocation's id so the Logbook can attribute the child to the
+  // run that spawned it instead of scoring it as somebody's decision.
+  const dir = await Deno.makeTempDir({ prefix: "discern-job-spawned-" });
+  try {
+    setActiveInvocationId("11111111-2222-4333-8444-555555555555");
+    const sink = makeSink();
+    const result = await runParallel([
+      {
+        label: "spawned",
+        command: "printf '%s' \"$DISCERN_SPAWNED_BY\" > observed.spawned",
+      },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      write: sink.write,
+    });
+    assertEquals(result.ok, true);
+    assertEquals(
+      await Deno.readTextFile(join(dir, "observed.spawned")),
+      "11111111-2222-4333-8444-555555555555",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () => {
   const s = makeSink();
   const start = performance.now();
@@ -173,7 +236,7 @@ Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () =
   const elapsed = performance.now() - start;
   assertEquals(r.ok, false);
   assertEquals(r.results.find((x) => x.label === "fail")?.code, 3);
-  assert(elapsed < 10_000, `expected prompt cancel, took ${elapsed}ms`);
+  assert(elapsed < 10_000, `expected interaction cancel, took ${elapsed}ms`);
 });
 
 Deno.test("runParallel: without fail-fast every job runs to completion", async () => {
@@ -321,7 +384,7 @@ Deno.test("stream-mode failed jobs retain a capped head and tail for diagnostics
   assert(fail?.output !== undefined, "streamed failure should carry output");
   assertStringIncludes(fail.output, "STREAM-HEAD");
   assertStringIncludes(fail.output, "STREAM-TAIL");
-  assertStringIncludes(fail.output, "bytes elided");
+  assertTerminalTextIncludes(fail.output, "bytes elided");
   assertMatch(fail.output, /\d+ bytes elided/);
   assert(
     fail.output.length < 1_200_000,
@@ -501,7 +564,7 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
       const job = r.results.find((x) => x.label === label);
       assertEquals(job?.cancelled, true, JSON.stringify(job));
     }
-    assert(elapsed < 10_000, `expected prompt abort, took ${elapsed}ms`);
+    assert(elapsed < 10_000, `expected interaction abort, took ${elapsed}ms`);
     // The grandchild (the backgrounded inner sh) must be dead too.
     const innerPid = Number(
       (await Deno.readTextFile(join(dir, "inner.pid"))).trim(),

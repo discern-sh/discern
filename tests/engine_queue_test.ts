@@ -7,8 +7,9 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
+import { parseQueueInvocation } from "../src/engine/queue.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   DENO_JSON,
@@ -24,6 +25,27 @@ import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const QUEUED_TEXT = "Tests queued";
 const UNAVAILABLE_TEXT = "The concurrent test-run cap is not enforced";
+
+Deno.test("queue routing consumes required global-option values before its delimiter", () => {
+  const globalFlags = new Set(["--plain", "--theme"]);
+  const valueFlags = new Set(["--theme"]);
+  assertEquals(
+    parseQueueInvocation(
+      ["--theme", "light", "--", "printf", "ok"],
+      globalFlags,
+      valueFlags,
+    ),
+    { kind: "run", command: "printf", args: ["ok"] },
+  );
+  assertEquals(
+    parseQueueInvocation(
+      ["--theme=dark", "--", "printf", "ok"],
+      globalFlags,
+      valueFlags,
+    ),
+    { kind: "run", command: "printf", args: ["ok"] },
+  );
+});
 
 /** Write the minimal configured cap used by queue behavior tests. */
 async function writeCapConfig(dir: string, cap: number): Promise<void> {
@@ -576,8 +598,12 @@ Deno.test("the repository's habitual and targeted test commands stay queue-wrapp
     await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
   ) as { tasks?: Record<string, string> };
   assertEquals(
+    denoConfig.tasks?.["test:preflight"],
+    "deno run --allow-net=127.0.0.1 scripts/test_preflight.ts",
+  );
+  assertEquals(
     denoConfig.tasks?.test,
-    "discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
+    "deno task test:preflight && discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
   );
 
   const testingGuide = await Deno.readTextFile(
@@ -766,8 +792,8 @@ Deno.test("queue mirrors exit codes and reports an unspawnable command as 127", 
       "discern-command-that-does-not-exist-queue",
     ]);
     assertEquals(missing.code, 127, missing.output);
-    assertStringIncludes(missing.stderr, "couldn't run");
-    assertStringIncludes(
+    assertTerminalTextIncludes(missing.stderr, "couldn't run");
+    assertTerminalTextIncludes(
       missing.stderr,
       "Run: discern queue -- <command> [args...]",
     );
@@ -784,41 +810,48 @@ Deno.test("queue usage errors require the delimiter and a non-empty command", as
     ) {
       const result = await runAgent(dir, args);
       assertEquals(result.code, 2, result.output);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         result.stderr,
         "Run: discern queue -- <command> [args...]",
       );
     }
 
-    const marker = join(dir, "must-not-run");
-    const json = await runAgent(dir, [
-      "--json",
-      "queue",
-      "--",
-      "sh",
-      "-c",
-      `touch ${marker}`,
-    ]);
-    assertEquals(json.code, 2, json.output);
-    assertStringIncludes(json.stderr, "queue has no `--json` mode");
-    assertEquals(await pathExists(marker), false);
+    for (const flag of ["--json", "--markdown"]) {
+      const marker = join(dir, `must-not-run-${flag.slice(2)}`);
+      const result = await runAgent(dir, [
+        flag,
+        "queue",
+        "--",
+        "sh",
+        "-c",
+        `touch ${marker}`,
+      ]);
+      assertEquals(result.code, 2, result.output);
+      assertTerminalTextIncludes(
+        result.stderr,
+        "queue has no `--json` or `--markdown` mode",
+      );
+      assertEquals(await pathExists(marker), false);
+    }
   });
 });
 
 Deno.test("queue child flags cannot select discern global modes", async () => {
   await withTempDir(async (dir) => {
     await writeConfig(dir, "[project\n");
-    const result = await runAgent(dir, [
-      "queue",
-      "--",
-      "sh",
-      "-c",
-      "exit 0",
-      "--json",
-    ]);
-    assertEquals(result.code, 1, result.output);
-    assertEquals(result.stdout, "");
-    assertStringIncludes(result.stderr, "syntax error near line 1");
+    for (const flag of ["--json", "--markdown"]) {
+      const result = await runAgent(dir, [
+        "queue",
+        "--",
+        "sh",
+        "-c",
+        "exit 0",
+        flag,
+      ]);
+      assertEquals(result.code, 1, result.output);
+      assertEquals(result.stdout, "");
+      assertTerminalTextIncludes(result.stderr, "syntax error near line 1");
+    }
   });
 });
 
@@ -828,8 +861,8 @@ Deno.test("queue and await help cross-reference their distinct wait surfaces", a
     await gitInit(dir);
     const queueHelp = await runAgent(dir, ["queue", "--help"]);
     assertEquals(queueHelp.code, 0, queueHelp.output);
-    assertStringIncludes(queueHelp.stdout, "discern await");
-    assertStringIncludes(
+    assertTerminalTextIncludes(queueHelp.stdout, "discern await");
+    assertTerminalTextIncludes(
       queueHelp.stdout,
       "discern queue -- <command> [args...]",
     );
@@ -840,7 +873,7 @@ Deno.test("queue and await help cross-reference their distinct wait surfaces", a
 
     const awaitHelp = await runAgent(dir, ["await", "--help"]);
     assertEquals(awaitHelp.code, 0, awaitHelp.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       awaitHelp.stdout,
       "discern queue -- <command> [args...]",
     );

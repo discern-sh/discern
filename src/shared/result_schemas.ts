@@ -267,6 +267,11 @@ const PROOF_PRESENTATION_FIELDS = {
   markdown: z.string(),
 };
 
+const PROOF_SUMMARY_FIELDS = {
+  ...DURABLE_PROOF_FACT_FIELDS,
+  line: z.string(),
+};
+
 const PROOF_FIELDS = {
   ...DURABLE_PROOF_FACT_FIELDS,
   ...PROOF_PRESENTATION_FIELDS,
@@ -280,6 +285,14 @@ export const ProofSchema = z.strictObject(PROOF_FIELDS).meta({
     "whole-diff stats, and the two renderings derived from those facts.",
 });
 export type Proof = z.infer<typeof ProofSchema>;
+
+/** The compact Proof: every claim, without the rendered review page. */
+export const ProofSummarySchema = z.strictObject(PROOF_SUMMARY_FIELDS).meta({
+  id: "DiscernProofSummary",
+  description: "The compact Proof claim: branch, trunk, validated " +
+    "commit, whole-diff statistics, and the one-line rendered proof.",
+});
+export type ProofSummary = z.infer<typeof ProofSummarySchema>;
 
 /** Compatibility readers' view of an earlier or structurally wider proof.
  * Unknown fields remain readable but never enter the strict runtime proof. */
@@ -539,6 +552,13 @@ export const StandardsLimitsSchema = z.strictObject({
 });
 export type StandardsLimitsData = z.infer<typeof StandardsLimitsSchema>;
 
+const landingAuthorityUncoveredSchema = z.strictObject({
+  path: z.string(),
+  scopes: z.array(z.string()),
+  /** Owned by a `[generated.<name>]` group; display evidence only. */
+  generated: z.boolean().optional(),
+});
+
 /** A read-only projection of recorded landing authority at one lifecycle moment. */
 export const LandingAuthorityDataSchema = z.strictObject({
   kind: z.enum(LANDING_AUTHORITY_KINDS),
@@ -549,13 +569,24 @@ export const LandingAuthorityDataSchema = z.strictObject({
   /** Known standing grants when the final tree is not yet or not fully covered. */
   standing_scopes: z.array(z.string()).optional(),
   /** Changed paths that keep this tree on the conversational path. */
-  uncovered: z.array(z.strictObject({
-    path: z.string(),
-    scopes: z.array(z.string()),
-  })).optional(),
+  uncovered: z.array(landingAuthorityUncoveredSchema).optional(),
+  /** Distinct scope names across every uncovered path. */
+  uncovered_scopes: z.array(z.string()).optional(),
+  /** Uncovered paths matching no configured scope. */
+  uncovered_unscoped_total: z.number().int().nonnegative().optional(),
+  /** Uncovered paths owned by a `[generated.<name>]` group. */
+  uncovered_generated_total: z.number().int().nonnegative().optional(),
   warnings: z.array(z.string()).optional(),
 });
 export type LandingAuthorityData = z.infer<typeof LandingAuthorityDataSchema>;
+
+/** Compact authority retains the decision and a bounded changed-path sample. */
+const LandingAuthoritySummarySchema = LandingAuthorityDataSchema.omit({
+  uncovered: true,
+}).extend({
+  uncovered: z.array(landingAuthorityUncoveredSchema).max(6).optional(),
+  uncovered_total: z.number().int().nonnegative().optional(),
+});
 
 /** `done` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
  * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
@@ -588,6 +619,16 @@ export const GateDataSchema = z.strictObject({
 });
 export type GateData = z.infer<typeof GateDataSchema>;
 
+/** Compact `done`: the same gate state with a compact Proof. */
+export const GateWireDataSchema = GateDataSchema.omit({
+  proof: true,
+  landing_authority: true,
+}).extend({
+  proof: ProofSummarySchema.optional(),
+  landing_authority: LandingAuthoritySummarySchema.optional(),
+});
+export type GateWireData = z.infer<typeof GateWireDataSchema>;
+
 /** How a recorded proof stands against the current worktree and HEAD.
  * `proof` and `proof_line` are present only when the marker is honored; the
  * remaining statuses preserve why it is not. Inspection never reruns the gate. */
@@ -615,11 +656,28 @@ export const GateProofCheckSchema = z.strictObject({
 });
 export type GateProofCheckData = z.infer<typeof GateProofCheckSchema>;
 
+/** A marker inspection without its rendered page or duplicate full Proof. */
+const GateProofWireSchema = z.strictObject({
+  status: z.enum(GATE_PROOF_CHECK_STATUSES),
+  path: z.string().optional(),
+  recorded: z.string().optional(),
+  head: z.string().optional(),
+  reason: z.string().optional(),
+  proof: ProofSummarySchema.optional(),
+  /** Legacy marker writers may supply only their bounded one-line rendering. */
+  proof_line: z.string().optional(),
+});
+
 const GateValidationSchema = z.strictObject({
   mode: z.enum(["proof", "rerun"]),
   proof: GateProofCheckSchema,
 });
 export type GateValidationData = z.infer<typeof GateValidationSchema>;
+
+const GateValidationWireSchema = z.strictObject({
+  mode: z.enum(["proof", "rerun"]),
+  proof: GateProofWireSchema,
+});
 
 /** `refresh` — generated guidance, skills, provider integration artifacts, and
  * the maintained ADR index. `adr_index_written` names the ADR README whose
@@ -900,6 +958,14 @@ export const AcceptDataSchema = z.strictObject({
 });
 export type AcceptData = z.infer<typeof AcceptDataSchema>;
 
+/** Compact `accept`: landing state plus its bounded Proof line. */
+const AcceptWireDataSchema = AcceptDataSchema.omit({
+  proof: true,
+  gate_validation: true,
+}).extend({
+  gate_validation: GateValidationWireSchema.optional(),
+});
+
 // update ─────────────────────────────────────────────────────────────────────
 
 /** One commit an integration brought in — {@link branchCommitSchema}, the shape
@@ -1067,6 +1133,18 @@ const statusFleetEntrySchema = z.strictObject({
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
 
+/** A fleet row without the three compatibility copies of its rendered Proof. */
+const statusFleetWireEntrySchema = statusFleetEntrySchema.omit({
+  proof_honored: true,
+  proof: true,
+  proof_line: true,
+  gate_proof: true,
+  landing_authority: true,
+}).extend({
+  gate_proof: GateProofWireSchema.optional(),
+  landing_authority: LandingAuthoritySummarySchema.optional(),
+});
+
 /** One cross-worktree collision: two fleet branches whose fork diffs vs the
  * trunk touch the same paths — a semantic collision in the making even when
  * both merge cleanly. `overlap` is capped; `total` is the true count. */
@@ -1077,6 +1155,10 @@ const statusFleetCollisionSchema = z.strictObject({
 });
 export type StatusFleetCollision = z.infer<typeof statusFleetCollisionSchema>;
 
+const statusFleetCollisionWireSchema = statusFleetCollisionSchema.omit({
+  overlap: true,
+});
+
 /** One in-flight ADR number collision: a record number claimed by files ADDED
  * on two or more in-flight branches — different paths with one number, which
  * the changed-file collision scan can never intersect. */
@@ -1086,6 +1168,10 @@ const statusAdrCollisionSchema = z.strictObject({
   paths: z.array(z.string()),
 });
 export type StatusAdrCollision = z.infer<typeof statusAdrCollisionSchema>;
+
+const statusAdrCollisionWireSchema = statusAdrCollisionSchema.omit({
+  paths: true,
+});
 
 /** One path discern removed with a worktree that currently exists again. */
 const reappearedWorktreePathSchema = z.strictObject({
@@ -1185,6 +1271,31 @@ export const StatusDataSchema = z.strictObject({
   adr_collisions: z.array(statusAdrCollisionSchema).optional(),
 });
 export type StatusData = z.infer<typeof StatusDataSchema>;
+
+/** Compact `status`: live state without nested Proof pages. */
+export const StatusWireDataSchema = StatusDataSchema.omit({
+  gate_proof: true,
+  landed_proof: true,
+  landing_authority: true,
+  fleet: true,
+  fleet_collisions: true,
+  adr_collisions: true,
+}).extend({
+  gate_proof: GateProofWireSchema.optional(),
+  landed_proof: z.strictObject({
+    commit: z.string(),
+    commit_at: z.string().optional(),
+    ref: z.string(),
+    proof: ProofSummarySchema,
+    issuer: ProofIssuerSchema.optional(),
+    brief: z.string().optional(),
+  }).optional(),
+  landing_authority: LandingAuthoritySummarySchema.optional(),
+  fleet: z.array(statusFleetWireEntrySchema).optional(),
+  fleet_collisions: z.array(statusFleetCollisionWireSchema).optional(),
+  adr_collisions: z.array(statusAdrCollisionWireSchema).optional(),
+});
+export type StatusWireData = z.infer<typeof StatusWireDataSchema>;
 
 // doctor ────────────────────────────────────────────────────────────────────
 
@@ -1450,7 +1561,7 @@ export type DocsData = z.infer<typeof DocsDataSchema>;
 // setup step ──────────────────────────────────────────────────────────────────
 
 /**
- * The machine-readable **spine** of one setup page (ADR 0078) — navigation and
+ * The structured **spine** of one setup page (ADR 0078) — navigation and
  * completion-proof rails ONLY. The warm behavioral/consent guidance stays in the
  * prose `guidance` field, never flattened into these terse fields (the two-lane
  * rule: structured fields get summarized and weakened; prose gets followed). The
@@ -1469,9 +1580,9 @@ export const SetupPageSpineSchema = z.strictObject({
 export type SetupPageSpine = z.infer<typeof SetupPageSpineSchema>;
 
 /**
- * `setup step` — one numbered setup page: the machine `spine` plus the warm prose
- * `guidance` the agent follows verbatim. `setup step <n> --json` carries BOTH
- * lanes; the human rendering leads with the prose (ADR 0078).
+ * `setup step` — one numbered setup page: the structured `spine` plus the warm
+ * prose `guidance` the agent follows verbatim. Every result representation carries
+ * both; terminal and Markdown presentations lead with the prose (ADR 0078).
  */
 export const SetupStepDataSchema = z.strictObject({
   step: z.number(),
@@ -1598,11 +1709,10 @@ export const SetupDoneLandingSchema = z.strictObject({
 });
 
 /**
- * `setup done` — the completion payload (ADR 0065/0078/0086). The structured pieces
- * (assurance / landing / reactivation / coach) are the machine lane; the `guidance`
- * prose is the ready-to-relay completion message a courier agent hands its human —
- * carried verbatim and identical to the human render, never flattened into fields
- * (ADR 0086, the two-lane rule).
+ * `setup done` — the completion payload (ADR 0065/0078/0086). The structured fields
+ * carry assurance, landing, reactivation, and coach facts. The `guidance` prose is
+ * the ready-to-relay completion message a courier agent hands its human — carried
+ * verbatim in every representation, never flattened into fields (ADR 0086).
  */
 export const SetupDoneDataSchema = z.strictObject({
   bootstrapped: z.literal(true),
@@ -1963,7 +2073,10 @@ export type SkillsEjectData = z.infer<typeof SkillsEjectDataSchema>;
 export const SetupOutputSchema = resultOutputSchema("setup", SetupDataSchema);
 
 /** `done` output: envelope + the gate's `data`. */
-export const FinishOutputSchema = resultOutputSchema("done", GateDataSchema);
+export const FinishOutputSchema = resultOutputSchema(
+  "done",
+  GateWireDataSchema,
+);
 
 /** `prepare` output: envelope only (except top-level config parse errors). */
 export const PrepareOutputSchema = datalessResultOutputSchema("prepare");
@@ -1993,7 +2106,7 @@ export const TidyOutputSchema = datalessResultOutputSchema("tidy");
 /** `status` output: envelope + the situation `data`. */
 export const StatusOutputSchema = resultOutputSchema(
   "status",
-  StatusDataSchema,
+  StatusWireDataSchema,
 );
 
 /** `doctor` output: envelope + the install-check `data`. */
@@ -2046,7 +2159,7 @@ export const StartOutputSchema = resultOutputSchema("start", StartDataSchema);
  * dry-run preview carries none). */
 export const AcceptOutputSchema = resultOutputSchema(
   "accept",
-  AcceptDataSchema,
+  AcceptWireDataSchema,
 );
 
 /** `update` output: envelope + the "what landed beneath the branch" `data`. */

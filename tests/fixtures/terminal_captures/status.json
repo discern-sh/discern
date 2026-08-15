@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "name": "status",
+  "args": [
+    "status"
+  ],
+  "geometry": {
+    "columns": 80,
+    "rows": 24
+  },
+  "environment": {
+    "color": "on",
+    "locale": "en_US.UTF-8",
+    "mode": "static",
+    "term": "xterm-256color"
+  },
+  "exitCode": 0,
+  "normalizers": [
+    "absolute-paths",
+    "timestamps",
+    "durations",
+    "version-strings",
+    "runtime-platform",
+    "commit-identifiers",
+    "trailing-whitespace"
+  ],
+  "screen": "\u001b[1mdiscern status\u001b[0m \u001b[2m· terminal-capture\u001b[0m\n\n\u001b[38;5;117m━━ ◮ \u001b[0m\u001b[1;38;5;255mATTENTION\u001b[0m \u001b[38;5;117m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\u001b[1;38;5;222mATTENTION: agent/terminal-review: Needs gate (current)\u001b[0m\nWhy: Git clean · ↑1; Proof missing; no activity recorded.\nAt: <PROJECT_PATH>\nFix: This clean branch has committed work and no valid proof. Run `discern\n     done` before review.\n\n\u001b[38;5;117m━━ ◮ \u001b[0m\u001b[1;38;5;255mCURRENT WORKTREE\u001b[0m \u001b[38;5;117m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\u001b[1;38;5;117mActive worktrees\u001b[0m\n\u001b[1;38;5;252mAGENT               BRANCH                             STATE         DRIFT\u001b[0m\nterminal-review     agent/terminal-review              \u001b[1;38;5;222mNeeds gate …\u001b[0m  ↑1 ↓0\n\n\u001b[1;38;5;222m! Blocked: agent/terminal-review is the current worktree. Needs gate.\u001b[0m\nGit: clean · ↑1   Activity: no activity recorded\nNext: This clean branch has committed work and no valid proof. Run `discern\n      done` before review.\n\u001b[38;5;252m┌\u001b[0m\u001b[38;5;252m Receipt: agent/terminal-review Proof \u001b[0m\u001b[38;5;252m──────────────────────────────────────\u001b[0m\u001b[38;5;252m┐\u001b[0m\n\u001b[38;5;252m│\u001b[0m Proof .......................................................... – missing \u001b[38;5;252m│\u001b[0m\n\u001b[38;5;252m└────────────────────────────────────────────────────────────────────────────┘\u001b[0m\n\n\u001b[38;5;117m━━ ◮ \u001b[0m\u001b[1;38;5;255mNEXT STEPS\u001b[0m \u001b[38;5;117m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\u001b[1;38;5;222m! Blocked: Status recommends an action.\u001b[0m\nNext: Run `\u001b[38;5;117mdiscern\u001b[0m \u001b[38;5;117mdone\u001b[0m` before reporting the branch ready for review or a\n      user-requested landing. This clean HEAD is committed and up to date with\n      main, but it has no honored Proof.\n\n\u001b[38;5;117m━━ ◮ \u001b[0m\u001b[1;38;5;255mCHECKS\u001b[0m \u001b[38;5;117m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\u001b[1;38;5;252m= Unchanged: Configured checks for this status result.\u001b[0m\nGate: format, build, lint, typecheck, test, smoke   Standards: 0 configured\n\n\u001b[38;5;117m━━ ◮ \u001b[0m\u001b[1;38;5;255mLOCAL ENVIRONMENT\u001b[0m \u001b[38;5;117m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\n\u001b[1;38;5;252m= Unchanged: terminal-review has a provisioned local environment.\u001b[0m\nPort: 17490\n",
+  "keyframes": {}
+}

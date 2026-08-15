@@ -20,7 +20,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { exists } from "@std/fs";
 import { parse as parseToml } from "@std/toml";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -88,7 +88,7 @@ Deno.test("remove-worktree-safely refuses to delete the main checkout", async ()
     // Point it at the main repo itself: it must refuse, and main must survive.
     const r = await runAgent(dir, ["remove-worktree-safely", dir]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "main checkout");
+    assertTerminalTextIncludes(r.output, "main checkout");
     assert(
       await exists(join(dir, "discern.toml")),
       `main checkout must be left intact\n${r.output}`,
@@ -109,7 +109,7 @@ Deno.test("remove-worktree-safely refuses a path that is not a worktree of this 
 
     const r = await runAgent(dir, ["remove-worktree-safely", bystander]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "not a worktree of this repository");
+    assertTerminalTextIncludes(r.output, "not a worktree of this repository");
     assert(
       await exists(join(bystander, "keep.txt")),
       `a non-worktree directory must NOT be removed\n${r.output}`,
@@ -457,7 +457,7 @@ Deno.test("worktree prune --dry-run reports stale metadata and apply prunes that
 
     const dry = await runAgent(dir, ["worktree", "prune", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
-    assertStringIncludes(dry.stdout, "Stale metadata: 1 entry");
+    assertTerminalTextIncludes(dry.stdout, "Stale metadata: 1 entry");
     assertStringIncludes(dry.stdout, wt);
 
     const dryJson = await runAgent(dir, [
@@ -508,8 +508,8 @@ Deno.test("worktree prune refuses off-TTY without --yes and shows the candidates
     const r = await runAgent(dir, ["worktree", "prune"]);
 
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "Confirmation required");
-    assertStringIncludes(r.output, "re-run with `--yes`");
+    assertTerminalTextIncludes(r.output, "Confirmation required");
+    assertTerminalTextIncludes(r.output, "re-run with `--yes`");
     assertStringIncludes(r.output, "confirm");
     assert(
       await exists(mergedWt),
@@ -554,7 +554,7 @@ Deno.test("worktree prune keeps a dirty orphaned dir at the configured worktree 
       await Deno.readTextFile(join(orphan, "uncommitted.txt")),
       "save me\n",
     );
-    assertStringIncludes(r.output, "dirty 1 status entries");
+    assertTerminalTextIncludes(r.output, "dirty 1 status entries");
   });
 });
 
@@ -594,7 +594,7 @@ Deno.test("worktree prune refuses to run from inside a linked worktree", async (
     const wt = await mainWithWorktree(dir, "from-inside");
     const r = await runAgent(wt, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "main checkout");
+    assertTerminalTextIncludes(r.output, "main checkout");
     assert(await exists(wt), `the worktree must be left intact\n${r.output}`);
   });
 });
@@ -609,7 +609,7 @@ Deno.test("worktree prune refuses to run from inside a linked worktree", async (
 // re-reads the gitdir pointer) must hold for the worktree removal too: each
 // candidate is re-validated against LIVE state just before removal and skipped
 // when it changed since the plan was built. These tests drive the apply
-// function directly with the scan a waiting prompt would have held.
+// function directly with the scan a waiting interaction would have held.
 
 /** A logger with all output suppressed (json mode) — these direct-call tests
  * assert on returned results and disk state, not narration. */
@@ -619,7 +619,7 @@ function quietLog(): Logger {
 
 /**
  * A clean, fully-merged linked worktree plus the prune scan that classified it
- * REMOVE — the plan `worktree prune` holds while its confirmation prompt
+ * REMOVE — the plan `worktree prune` holds while its confirmation interaction
  * waits. The candidate carries the path exactly as the production scan records
  * it: git's own worktree listing.
  */
@@ -654,7 +654,7 @@ async function staleRemovalScan(
 
 /**
  * Post-scan mutations — the work an agent could do in a worktree while the
- * already-built plan waits at the confirmation prompt. Each must disqualify
+ * already-built plan waits at the confirmation interaction. Each must disqualify
  * the candidate at apply time. The `undefined` control row pins the other
  * direction: an unchanged candidate is still removed, so the re-check can
  * never dead-end an honest prune.
@@ -940,7 +940,7 @@ Deno.test("with-gotchas prints the failure pointer and propagates the command's 
     // banner that names a failed gate step.
     const r = await runAgent(dir, ["with-gotchas", "sh", "-c", "exit 3"]);
     assertEquals(r.code, 3, r.output);
-    assertStringIncludes(r.output, "a gate step failed");
+    assertTerminalTextIncludes(r.output, "a gate step failed");
     assertStringIncludes(r.output, "gotchas_doc");
   });
 });
@@ -976,7 +976,7 @@ Deno.test("with-gotchas keeps the configured path when the gotchas doc is outsid
 
     const r = await runAgent(dir, ["with-gotchas", "sh", "-c", "exit 1"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "a gate step failed");
+    assertTerminalTextIncludes(r.output, "a gate step failed");
     assertStringIncludes(r.output, "docs/GOTCHAS.md");
     assert(
       !r.output.includes("discern map"),
@@ -1003,8 +1003,8 @@ Deno.test("with-gotchas prints the canonical map fetch for an in-map doc", async
 
     const r = await runAgent(dir, ["with-gotchas", "sh", "-c", "exit 1"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "a gate step failed");
-    assertStringIncludes(
+    assertTerminalTextIncludes(r.output, "a gate step failed");
+    assertTerminalTextIncludes(
       r.output,
       "`discern map 80-development/gate-notes --json`",
     );

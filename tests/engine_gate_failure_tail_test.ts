@@ -10,7 +10,11 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  REAL_TEMPLATES,
+  withTempDir,
+} from "./helpers.ts";
 import {
   engineEnv,
   gitInit,
@@ -230,7 +234,7 @@ Deno.test("done: a failing gate ends on the actionable recap, surviving `2>&1 | 
     );
     const help = await runPrintedCommand(dir, helpCommand);
     assertEquals(help.code, 0, help.stderr);
-    assertStringIncludes(help.stdout, "When the Gate fails");
+    assertTerminalTextIncludes(help.stdout, "When the Gate fails");
   });
 });
 
@@ -346,7 +350,7 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
     assertEquals(human.code, 1, human.output);
     const safeEnvelopeHint = terminalMultiline(envelopeHint);
     assertStringIncludes(human.stderr, safeEnvelopeHint);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.stderr,
       "Authored first line\nAuthored second line ␛[31mstill text",
     );
@@ -379,6 +383,8 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
 // counts real output, never command echoes.
 const OUTPUT_MARKER = "BROKE-DETAIL";
 const OUTPUT_COMMAND = "echo BROKE-''DETAIL; exit 7";
+const LIVE_REPAINT = "\x1b[1G";
+const SHOW_CURSOR = "\x1b[?25h";
 
 /** Occurrences of `needle` in `haystack`. */
 function countOf(haystack: string, needle: string): number {
@@ -386,14 +392,29 @@ function countOf(haystack: string, needle: string): number {
 }
 
 /**
- * The withheld-output class guard, across every gate verb's human TTY surface: a
- * failed command's captured output must reach the terminal EXACTLY once. `done` and
- * `prepare` quiet the runner behind the live table, so their failure tail must carry
- * the output (zero = the regression where only "failed (exit N)" reached a human);
- * `test` narrates through the runner, so its tail must NOT repeat it (two = the
- * double-print regression).
+ * Keep the final live frame and everything written after cursor restoration.
+ * Earlier repaints are superseded terminal cells, not durable terminal history.
  */
-Deno.test("gate TTY: every verb surfaces a failed command's output exactly once", async () => {
+function durableTerminalOutput(output: string): string {
+  const restored = output.lastIndexOf(SHOW_CURSOR);
+  if (restored === -1) return output;
+  const finalFrame = output.lastIndexOf(LIVE_REPAINT, restored);
+  return finalFrame === -1 ? output : output.slice(finalFrame);
+}
+
+Deno.test("durable Gate output excludes superseded live repaints", () => {
+  const marker = "UNRELATED-FAILURE-TEXT";
+  const output =
+    `old ${marker}${LIVE_REPAINT}stable${SHOW_CURSOR}tail ${marker}`;
+  assertEquals(countOf(durableTerminalOutput(output), marker), 1);
+});
+
+/**
+ * The withheld-output class guard, across every Gate verb's human TTY surface:
+ * a failed command's captured output must remain exactly once after the live
+ * frame is finalized. Zero loses the evidence; two repeats the durable excerpt.
+ */
+Deno.test("gate TTY: every verb leaves failed output exactly once", async () => {
   for (
     const { verb, job } of [
       { verb: "done", job: `lint = "${OUTPUT_COMMAND}"` },
@@ -425,9 +446,9 @@ Deno.test("gate TTY: every verb surfaces a failed command's output exactly once"
       });
       assertEquals(r.code, 1, `${verb}: ${r.output}`);
       assertEquals(
-        countOf(r.output, OUTPUT_MARKER),
+        countOf(durableTerminalOutput(r.output), OUTPUT_MARKER),
         1,
-        `${verb}: a failed command's output must reach the terminal exactly ` +
+        `${verb}: a failed command's output must remain exactly ` +
           `once.\n${r.output}`,
       );
     });

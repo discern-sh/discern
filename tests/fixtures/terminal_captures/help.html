@@ -1,0 +1,149 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>help — 80×24</title>
+<pre style="margin:0;padding:1em;background-color:rgb(33 33 42);color:rgb(231 231 240);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:0.875em;line-height:1.45;overflow-x:auto"><span style="color:rgb(135 215 255);font-weight:700">Usage:</span>   <span style="color:rgb(135 215 255)">discern &lt;command&gt; [options]</span>
+
+<span style="color:rgb(135 215 255);font-weight:700">Description:</span>
+
+  Operate your project&#39;s quality gate (its full quality check) and Git worktrees
+  (a separate checkout and branch for each effort); `discern setup` scaffolds
+  the stack-neutral system the first time.
+
+<span style="color:rgb(135 215 255);font-weight:700">Options:</span>
+
+  <span style="color:rgb(135 215 255);font-weight:700">-h, --help            </span>  <span style="opacity:0.68">- Show this help.</span>
+  <span style="color:rgb(135 215 255);font-weight:700">-V, --version         </span>  <span style="opacity:0.68">- Show the version number for this program.</span>
+  <span style="color:rgb(135 215 255);font-weight:700">--json                </span>  <span style="opacity:0.68">- Emit one JSON result on stdout.</span>
+  <span style="color:rgb(135 215 255);font-weight:700">--markdown            </span>  <span style="opacity:0.68">- Emit one Markdown result on stdout.</span>
+  <span style="color:rgb(135 215 255);font-weight:700">--no-color            </span>  <span style="opacity:0.68">- Disable colour (also honours NO_COLOR and non-TTY</span>
+                          <span style="opacity:0.68">output).</span>
+  <span style="color:rgb(135 215 255);font-weight:700">--plain               </span>  <span style="opacity:0.68">- Disable interactive input and paging; use static</span>
+                          <span style="opacity:0.68">output. CI and non-terminal input imply this behavior.</span>
+  <span style="color:rgb(135 215 255);font-weight:700">--theme &lt;theme:string&gt;</span>  <span style="opacity:0.68">- Set the terminal theme. `auto` senses a coloured</span>
+                          <span style="opacity:0.68">interactive background; `--no-color` and `NO_COLOR`</span>
+                          <span style="opacity:0.68">skip sensing. `light` and `dark` still force that</span>
+                          <span style="opacity:0.68">variant. Default: `auto`.</span>
+
+Commands:
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">YOUR DESK</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+— the human entry point; bare `discern` opens it
+    <span style="color:rgb(135 215 255);font-weight:700">desk       </span>  <span style="opacity:0.68">Open the interactive task list: start a task, open its</span>
+                 <span style="opacity:0.68">worktree, update it, land it, or drop it. Bare `discern` opens</span>
+                 <span style="opacity:0.68">the desk.</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">AGENTIC LOOP</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+— your coding agent runs these as it works
+    <span style="color:rgb(135 215 255);font-weight:700">status     </span>  <span style="opacity:0.68">Show what&#39;s true right now and what to do next (read-only; does</span>
+                 <span style="opacity:0.68">not run the gate, the project&#39;s full quality check).</span>
+    <span style="color:rgb(135 215 255);font-weight:700">prepare    </span>  <span style="opacity:0.68">Fast inner loop: the fixers, the [generated] regenerations,</span>
+                 <span style="opacity:0.68">then the read-only checks (no build jobs, no tests).</span>
+    <span style="color:rgb(135 215 255);font-weight:700">done       </span>  <span style="opacity:0.68">Run finishing steps that may change files, then verify the gate</span>
+                 <span style="opacity:0.68">— the project&#39;s full quality check: format, lint, type-check,</span>
+                 <span style="opacity:0.68">and tests.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">test       </span>  <span style="opacity:0.68">Run the project&#39;s configured tests on their own, outside the</span>
+                 <span style="opacity:0.68">full gate.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">queue      </span>  <span style="opacity:0.68">Run a command while holding one configured concurrent test-run</span>
+                 <span style="opacity:0.68">slot. Use `discern await` to watch a fleet condition instead.</span>
+                 <span style="opacity:0.68">This command has no `--json` or `--markdown` mode; tokens after</span>
+                 <span style="opacity:0.68">`--` belong to the child.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">tidy       </span>  <span style="opacity:0.68">Canonically format discern&#39;s configured Markdown sources and</span>
+                 <span style="opacity:0.68">root discern.toml, and check that fenced box-drawing diagrams</span>
+                 <span style="opacity:0.68">stay aligned. Select `md` or `toml`; omit the type to run both.</span>
+                 <span style="opacity:0.68">A Markdown file whose frontmatter is not valid YAML, or whose</span>
+                 <span style="opacity:0.68">table rows would drop cells when formatted (escape pipes inside</span>
+                 <span style="opacity:0.68">code spans as `\|`), is refused and left unchanged.</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">WORKTREE LIFECYCLE</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+— isolated workspaces your agent drives
+    <span style="color:rgb(135 215 255);font-weight:700">start      </span>  <span style="opacity:0.68">From the main checkout, create a worktree with a separate</span>
+                 <span style="opacity:0.68">checkout and branch for one effort. Base it on the trunk</span>
+                 <span style="opacity:0.68">(`main`), the shared landing branch, then print its path.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">update     </span>  <span style="opacity:0.68">Update this branch: merge the trunk&#39;s latest (`main`) into this</span>
+                 <span style="opacity:0.68">branch and re-run generated groups and refresh Agent artifacts.</span>
+                 <span style="opacity:0.68">The trunk is the shared landing branch. Use `discern upgrade`</span>
+                 <span style="opacity:0.68">for discern itself; use `discern refresh` for agent files</span>
+                 <span style="opacity:0.68">alone.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">await      </span>  <span style="opacity:0.68">Block until a fleet condition holds: a sibling branch is green</span>
+                 <span style="opacity:0.68">(its worktree holds an honored gate proof), a branch&#39;s work has</span>
+                 <span style="opacity:0.68">landed on the trunk, or the trunk has moved. Timing out is not</span>
+                 <span style="opacity:0.68">an error; the result carries a short continuation handle that</span>
+                 <span style="opacity:0.68">preserves the original condition across calls. To wrap a</span>
+                 <span style="opacity:0.68">command behind the concurrent test-run cap, use `discern queue</span>
+                 <span style="opacity:0.68">-- &lt;command&gt; [args...]`.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">accept     </span>  <span style="opacity:0.68">Accept and land this worktree&#39;s finished branch on the trunk</span>
+                 <span style="opacity:0.68">(`main`), the shared landing branch. Tracked refresh artifacts</span>
+                 <span style="opacity:0.68">must already be current. After landing, materialize</span>
+                 <span style="opacity:0.68">checkout-local Agent artifacts, then remove the worktree and</span>
+                 <span style="opacity:0.68">merged branch.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">worktree   </span>  <span style="opacity:0.68">Manage worktrees — separate checkouts and branches for</span>
+                 <span style="opacity:0.68">individual changes.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">identity   </span>  <span style="opacity:0.68">Print stable values that keep each worktree&#39;s branch,</span>
+                 <span style="opacity:0.68">development host, port, database, and external resources</span>
+                 <span style="opacity:0.68">separate.</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">PROJECT SCRIPTS</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+— project-owned automation, listed or run by name
+    <span style="color:rgb(135 215 255);font-weight:700">scripts    </span>  <span style="opacity:0.68">List the project&#39;s executable project scripts, or run one by</span>
+                 <span style="opacity:0.68">name with every following argument forwarded unchanged.</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">SETUP &amp; MAINTENANCE</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+— you or your agent tend the installation
+    <span style="color:rgb(135 215 255);font-weight:700">upgrade    </span>  <span style="opacity:0.68">Upgrade discern itself in this project: migrate its config and</span>
+                 <span style="opacity:0.68">refresh bundled skills and guidance. Use `discern update` for</span>
+                 <span style="opacity:0.68">this branch; use `discern refresh` for agent files alone.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">doctor     </span>  <span style="opacity:0.68">Check the install and Git safety settings, then print each</span>
+                 <span style="opacity:0.68">verb&#39;s execution model.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">config     </span>  <span style="opacity:0.68">Edit (set-*) or read (get/array/has/subsections/keys)</span>
+                 <span style="opacity:0.68">discern.toml.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">refresh    </span>  <span style="opacity:0.68">Refresh the agent files, skills, provider integrations, and the</span>
+                 <span style="opacity:0.68">maintained ADR index. Use `discern update` for this branch; use</span>
+                 <span style="opacity:0.68">`discern upgrade` for discern itself.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">uninstall  </span>  <span style="opacity:0.68">Remove discern&#39;s wiring from this project (keeps your</span>
+                 <span style="opacity:0.68">discern.toml, guidance, and map).</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">INSPECT &amp; EXPLORE</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+— read-only views for you or your agent
+    <span style="color:rgb(135 215 255);font-weight:700">improvement</span>  <span style="opacity:0.68">Find the highest-value next improvement, with the health audit</span>
+                 <span style="opacity:0.68">and open reviews for agent and owner to evaluate together.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">standards  </span>  <span style="opacity:0.68">Measure every quality standard: numbers that can never get</span>
+                 <span style="opacity:0.68">worse. `discern done` already verifies and measures them on</span>
+                 <span style="opacity:0.68">every run. Authoring one? Hold a rate (`per`) for a number that</span>
+                 <span style="opacity:0.68">rises as the project grows, and give a drifting total a</span>
+                 <span style="opacity:0.68">`margin` — a ceiling pinned at today&#39;s value fails the next</span>
+                 <span style="opacity:0.68">legitimate change.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">skills     </span>  <span style="opacity:0.68">Manage skills: list the effective set, or eject a built-in to</span>
+                 <span style="opacity:0.68">customize it.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">impact     </span>  <span style="opacity:0.68">Show which configured scopes the branch and working tree wake</span>
+                 <span style="opacity:0.68">in the quality gate. Scopes are named regions of the repository</span>
+                 <span style="opacity:0.68">with their own gate jobs.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">coupling   </span>  <span style="opacity:0.68">Report files that historically change together as a read-only</span>
+                 <span style="opacity:0.68">advisory. With no args, report likely siblings missing from the</span>
+                 <span style="opacity:0.68">change. With file, report its top partners. Add with to report</span>
+                 <span style="opacity:0.68">commits where both changed.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">patterns   </span>  <span style="opacity:0.68">Report the patterns in this project&#39;s discern use, read from</span>
+                 <span style="opacity:0.68">the local logbook of verb runs: agent behaviour, gate fit, the</span>
+                 <span style="opacity:0.68">task funnel, and each standard&#39;s trajectory. A read-only</span>
+                 <span style="opacity:0.68">advisory.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">map        </span>  <span style="opacity:0.68">Browse and read the project map — its agent-maintained</span>
+                 <span style="opacity:0.68">documentation tree.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">docs       </span>  <span style="opacity:0.68">Browse and read discern&#39;s own documentation.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">help       </span>  <span style="opacity:0.68">Show command-line help.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">licenses   </span>  <span style="opacity:0.68">Print discern&#39;s licenses and bundled third-party software</span>
+                 <span style="opacity:0.68">notices.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">mcp        </span>  <span style="opacity:0.68">The stdio MCP server, exposing the verbs to an agent as tools.</span>
+                 <span style="opacity:0.68">You don&#39;t usually need to run this; agents should connect</span>
+                 <span style="opacity:0.68">automatically.</span>
+
+<span style="color:rgb(135 215 255);font-weight:700">Examples:</span>
+
+  <span style="color:rgb(135 215 255);font-weight:700">Orient yourself            </span>  <span style="opacity:0.68">discern status</span>
+  <span style="color:rgb(135 215 255);font-weight:700">Agent in the main checkout?</span>  <span style="opacity:0.68">discern start → (move into provided worktree...)</span>
+                               <span style="opacity:0.68">→ discern status → (write code...) → discern done</span>
+                               <span style="opacity:0.68">→ report ready for review</span>
+  <span style="color:rgb(135 215 255);font-weight:700">Agent in a worktree?       </span>  <span style="opacity:0.68">(write code...) → discern done → report ready for</span>
+                               <span style="opacity:0.68">review</span>
+
+<span style="opacity:0.68">Run `discern &lt;command&gt; --help` for detail on any command.</span>
+
+</pre>

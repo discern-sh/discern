@@ -1,9 +1,9 @@
 /**
- * Class guard for every CLI surface that can prompt. The matrix drives the real
+ * Class guard for every CLI surface that can request input. The matrix drives the real
  * artifact under pseudo-TTYs with CI / --plain, and with stdin closed, so a new
  * accidental read blocks for five seconds at most and fails by name. The
- * human-output structural guard separately makes `src/lib/prompts.ts` the only
- * legal package prompt choke point.
+ * human-output structural guard separately makes `src/lib/terminal_interaction.ts` the only
+ * legal package interaction choke point.
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
@@ -142,7 +142,13 @@ Deno.test({
             testCase.code,
             `${label}\n${result.output}`,
           );
-          assertStringIncludes(result.output, testCase.output, label);
+          // This class guard checks fallback meaning across TTY and pipe
+          // renderers. Calm terminal headings own case; pipe prose does not.
+          assertStringIncludes(
+            result.output.toLocaleLowerCase(),
+            testCase.output.toLocaleLowerCase(),
+            label,
+          );
         }
       }
     });

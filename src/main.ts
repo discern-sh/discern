@@ -1,17 +1,23 @@
 /**
  * `discern` — the CLI entrypoint.
  *
- * Wires the Cliffy command tree, threads the global flags (`--json`,
- * `--no-color`, `--help`, `--version`) into ordinary subcommands, and maps
- * each command's exit code onto the process. Each subcommand's logic lives in
- * `src/commands/*`; this file is routing only.
+ * Wires the Cliffy command tree, threads the global result, interaction, colour,
+ * and theme flags into ordinary subcommands, and maps each command's exit code
+ * onto the process. Each subcommand's logic lives in `src/commands/*`; this file
+ * is routing only.
  */
 
 import { Command, ValidationError } from "@cliffy/command";
 import { setColorEnabled as setStdColorEnabled } from "@std/fmt/colors";
 import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
-import { emitResult } from "./shared/emit.ts";
+import { Logger } from "./lib/log.ts";
+import {
+  emitResult,
+  setResultMarkdownPresenterResolver,
+  setResultOutputFormat,
+} from "./shared/emit.ts";
+import { resultPresenterForVerb } from "./shared/result_contracts.ts";
 import { observeVerbTarget } from "./shared/result_capture.ts";
 import {
   AGENT_NAMES,
@@ -28,7 +34,11 @@ import {
   retiredCommandMessage,
   retiredCommandSuccessor,
 } from "./shared/vocabulary.ts";
-import { canPrompt, setJsonMode, setPlainMode } from "./lib/prompts.ts";
+import {
+  canInteract,
+  setJsonMode,
+  setPlainMode,
+} from "./lib/terminal_interaction.ts";
 import { inDeskSession } from "./engine/desk/session.ts";
 import {
   attachEngineCommands,
@@ -50,10 +60,15 @@ import {
 import { runCommandGroup } from "./shared/command_group.ts";
 import { cliJsonResultVerb } from "./shared/result_contracts.ts";
 import {
+  DEFAULT_TERMINAL_THEME_MODE,
+  isTerminalThemeMode,
   productionTerminalContext,
   setTerminalContext,
+  TERMINAL_THEME_MODES,
   type TerminalContext,
+  type TerminalThemeMode,
 } from "./lib/terminal.ts";
+import { CLI_RESULT_FORMATS } from "./shared/result_formats.ts";
 
 // The full built-in verb vocabulary (installer + engine) is defined once in the
 // dispatcher and re-exported here as the CLI's
@@ -70,7 +85,8 @@ function noColorFrom(color: boolean | undefined): boolean {
 }
 
 /**
- * Thread the one resolved terminal context to every surface that emits colour:
+ * Thread the one resolved terminal context to every surface that emits colour or
+ * makes a theme-dependent layout choice:
  *  - package-backed Logger and engine output consume the installed context;
  *  - the `@std/fmt/colors` module-global remains synchronized for legacy
  *    consumers outside the package-backed 2C surfaces;
@@ -102,27 +118,48 @@ function applyHelpColorOption(root: Command, color: boolean): void {
 }
 
 /**
- * Extract the global `--json` / `--no-color` flags. They reach every command at
+ * Extract the global result-format and `--no-color` flags. They reach every command at
  * runtime via root's `globalOption`, but a standalone subcommand instance (the
  * `config` group) doesn't carry them in its inferred option type, so we read them
  * through a narrow cast.
  */
 function globalFlags(options: unknown): { json: boolean; noColor: boolean } {
-  const o = options as { json?: boolean; color?: boolean };
-  return { json: o.json ?? false, noColor: noColorFrom(o.color) };
+  const o = options as {
+    json?: boolean;
+    markdown?: boolean;
+    color?: boolean;
+  };
+  return {
+    json: (o.json ?? false) || (o.markdown ?? false),
+    noColor: noColorFrom(o.color),
+  };
+}
+
+/** Validate one root theme value through the terminal boundary's vocabulary. */
+function terminalThemeValue(value: string): TerminalThemeMode {
+  if (isTerminalThemeMode(value)) return value;
+  const modes = TERMINAL_THEME_MODES.map((mode) => `\`${mode}\``).join(", ");
+  throw new ValidationError(`--theme accepts ${modes}.`);
 }
 
 /** Root-global flag spellings, shared by early routing and Cliffy registration. */
 export const ROOT_GLOBAL_FLAGS = {
-  json: "--json",
+  json: CLI_RESULT_FORMATS.json.flag,
+  markdown: CLI_RESULT_FORMATS.markdown.flag,
   noColor: "--no-color",
   plain: "--plain",
+  theme: "--theme",
 } as const;
 
 /** Root-global flag tokens available before the live command tree is built. */
 export const ROOT_GLOBAL_FLAG_TOKENS: ReadonlySet<string> = new Set(
   Object.values(ROOT_GLOBAL_FLAGS),
 );
+
+/** Root-global flags whose following token is their required value. */
+export const ROOT_GLOBAL_VALUE_FLAG_TOKENS: ReadonlySet<string> = new Set([
+  ROOT_GLOBAL_FLAGS.theme,
+]);
 
 /** The CLI routes whose child arguments begin before Cliffy owns the tail. */
 export const CLI_CHILD_BOUNDARIES = {
@@ -132,26 +169,41 @@ export const CLI_CHILD_BOUNDARIES = {
 
 let activeDiscernArgv: readonly string[] = Deno.args;
 
-/** Emit the machine-mode refusal for a bare root invocation. */
-function emitRootJsonRefusal(): void {
+/** Whether one discern-owned argv asks for either quiet result projection. */
+function quietResultRequested(argv: readonly string[]): boolean {
+  return argv.includes(ROOT_GLOBAL_FLAGS.json) ||
+    argv.includes(ROOT_GLOBAL_FLAGS.markdown);
+}
+
+/** Emit the selected-format refusal for a bare root invocation. */
+function emitRootResultRefusal(argv: readonly string[]): void {
+  const flag = argv.includes(ROOT_GLOBAL_FLAGS.markdown)
+    ? ROOT_GLOBAL_FLAGS.markdown
+    : ROOT_GLOBAL_FLAGS.json;
   emitResult({
     ok: false,
     verb: "discern",
     error: "invalid_arguments",
     message:
-      "discern --json needs a command. Run `discern --help` to list the available commands.",
+      `discern ${flag} needs a command. Run \`discern --help\` to list the available commands.`,
   });
 }
 
 /**
- * The type of `buildCli`'s root command. Cliffy threads the three `globalOption`
+ * The type of `buildCli`'s root command. Cliffy threads the five `globalOption`
  * declarations into the command's generics, so the concrete type is impractical
  * to write by hand. We name it from a type-only `declare` (no runtime value is
  * emitted) whose chain mirrors the real root built in `buildCli`.
  */
 declare function rootShape(): ReturnType<
   ReturnType<
-    ReturnType<Command<void, void, void, []>["globalOption"]>["globalOption"]
+    ReturnType<
+      ReturnType<
+        ReturnType<
+          Command<void, void, void, []>["globalOption"]
+        >["globalOption"]
+      >["globalOption"]
+    >["globalOption"]
   >["globalOption"]
 >;
 type RootCommand = ReturnType<typeof rootShape>;
@@ -189,7 +241,11 @@ export function buildCli(
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.json,
-      "Emit machine-readable JSON instead of human output.",
+      CLI_RESULT_FORMATS.json.description,
+    )
+    .globalOption(
+      ROOT_GLOBAL_FLAGS.markdown,
+      CLI_RESULT_FORMATS.markdown.description,
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.noColor,
@@ -197,12 +253,20 @@ export function buildCli(
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.plain,
-      "Disable prompts and paging; use static output. CI and non-terminal input imply this behavior.",
+      "Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.",
+    )
+    .globalOption(
+      `${ROOT_GLOBAL_FLAGS.theme} <theme:string>`,
+      "Set the terminal theme. `auto` senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing. `light` and `dark` still force that variant. Default: `auto`.",
+      {
+        default: DEFAULT_TERMINAL_THEME_MODE,
+        value: terminalThemeValue,
+      },
     )
     .error((error, command) => {
       if (
         !(error instanceof ValidationError) ||
-        !activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.json)
+        !quietResultRequested(activeDiscernArgv)
       ) {
         return;
       }
@@ -221,12 +285,14 @@ export function buildCli(
       Deno.exit(error.exitCode);
     })
     .action(function (options): void {
-      if ((options as { json?: boolean } | undefined)?.json ?? false) {
-        emitRootJsonRefusal();
+      if (globalFlags(options).json) {
+        emitRootResultRefusal(activeDiscernArgv);
         return;
       }
       // No subcommand: show the grouped, operator-oriented help.
-      console.log(operatorHelp(this as unknown as Command));
+      new Logger({ json: false, noColor: false }).line(
+        operatorHelp(this as unknown as Command),
+      );
     });
 
   // `setup` — the staged, zero-config project setup (ADR 0036, staged by ADR 0075).
@@ -447,7 +513,7 @@ export function buildCli(
       "--dry-run",
       "Preview what would be removed and kept; change nothing.",
     )
-    .option("-y, --yes", "Skip the confirmation prompt.")
+    .option("-y, --yes", "Skip the confirmation.")
     .action(recordedExit("uninstall", async (options) => {
       const { json, noColor } = globalFlags(options);
       const { runUninstall } = await import("./commands/uninstall.ts");
@@ -511,7 +577,7 @@ export function buildCli(
     .description(
       "Overlay a reference preset from presets/<name>/ (ships none by default).",
     )
-    .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
+    .option("-y, --yes", "Non-interactive: skip confirmation.")
     .option("--dry-run", "Print the plan and write nothing.")
     .action(
       recordedExit(
@@ -648,7 +714,9 @@ export function buildCli(
       command?: string,
     ): number {
       if (command === undefined || command === "") {
-        console.log(operatorHelp(root as unknown as Command));
+        new Logger({ json: false, noColor: false }).line(
+          operatorHelp(root as unknown as Command),
+        );
         return 0;
       }
       const sub = root.getCommand(command, true);
@@ -658,8 +726,8 @@ export function buildCli(
       }
       const successor = retiredCommandSuccessor(command);
       if (successor !== undefined) {
-        console.error(
-          `discern: ${retiredCommandMessage(command, successor)}`,
+        new Logger({ json: false, noColor: false }).error(
+          retiredCommandMessage(command, successor),
         );
         return 1;
       }
@@ -986,6 +1054,57 @@ export interface CliInvocation {
   argsWithoutVerb: string[];
 }
 
+/** Match one exact global flag or the equals form of a value-taking flag. */
+function globalFlagToken(
+  token: string,
+  globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string>,
+): { readonly flag: string; readonly inlineValue: boolean } | undefined {
+  if (globalFlags.has(token)) return { flag: token, inlineValue: false };
+  const equals = token.indexOf("=");
+  if (equals < 1) return undefined;
+  const flag = token.slice(0, equals);
+  return valueFlags.has(flag) ? { flag, inlineValue: true } : undefined;
+}
+
+/** Skip a run of root-global options, including their required values. */
+function skipGlobalOptions(
+  argv: readonly string[],
+  start: number,
+  globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string>,
+): number {
+  let index = start;
+  while (index < argv.length) {
+    const matched = globalFlagToken(
+      argv[index] ?? "",
+      globalFlags,
+      valueFlags,
+    );
+    if (matched === undefined) break;
+    index += matched.inlineValue || !valueFlags.has(matched.flag) ? 1 : 2;
+  }
+  return Math.min(index, argv.length);
+}
+
+/** Return the last explicit value for one root-global option. */
+function globalOptionValue(
+  argv: readonly string[],
+  flag: string,
+): string | undefined {
+  let value: string | undefined;
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (token === flag) {
+      value = argv[index + 1];
+      index += 1;
+    } else if (token?.startsWith(`${flag}=`) === true) {
+      value = token.slice(flag.length + 1);
+    }
+  }
+  return value;
+}
+
 /**
  * Return only the argv owned by discern's global interaction modes. A
  * delimiter-owned child starts after that token; a named Project Script starts
@@ -994,11 +1113,9 @@ export interface CliInvocation {
 export function discernOwnedArgv(
   argv: readonly string[],
   globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string> = ROOT_GLOBAL_VALUE_FLAG_TOKENS,
 ): string[] {
-  let verbIndex = 0;
-  while (globalFlags.has(argv[verbIndex] ?? "")) {
-    verbIndex++;
-  }
+  const verbIndex = skipGlobalOptions(argv, 0, globalFlags, valueFlags);
   const rawVerb = argv[verbIndex];
   if (rawVerb === undefined) {
     return [...argv];
@@ -1014,10 +1131,12 @@ export function discernOwnedArgv(
     const boundaryIndex = argv.indexOf(boundary.token, verbIndex + 1);
     return boundaryIndex === -1 ? [...argv] : [...argv.slice(0, boundaryIndex)];
   }
-  let childNameIndex = verbIndex + 1;
-  while (globalFlags.has(argv[childNameIndex] ?? "")) {
-    childNameIndex++;
-  }
+  const childNameIndex = skipGlobalOptions(
+    argv,
+    verbIndex + 1,
+    globalFlags,
+    valueFlags,
+  );
   return childNameIndex >= argv.length
     ? [...argv]
     : [...argv.slice(0, childNameIndex + 1)];
@@ -1032,21 +1151,15 @@ export function discernOwnedArgv(
  * dispatch — must key on this resolved verb, never on `argv[0]`, or a leading
  * flag smuggles the invocation past the router and straight into Cliffy.
  *
- * Only KNOWN global flags are skipped: an unknown leading flag stays the
- * "verb" so it falls through to Cliffy, which owns the unknown-option error.
+ * Known value-taking flags skip their following value or accept `--flag=value`.
+ * An unknown leading flag stays the "verb" so Cliffy owns the error.
  */
 export function resolveInvocation(
   argv: readonly string[],
   globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string> = ROOT_GLOBAL_VALUE_FLAG_TOKENS,
 ): CliInvocation {
-  let i = 0;
-  while (i < argv.length) {
-    const token = argv[i];
-    if (token === undefined || !globalFlags.has(token)) {
-      break;
-    }
-    i++;
-  }
+  const i = skipGlobalOptions(argv, 0, globalFlags, valueFlags);
   const verb = argv[i];
   return {
     verb,
@@ -1056,12 +1169,36 @@ export function resolveInvocation(
   };
 }
 
+/** Whether this invocation may pay the one bounded terminal-background query. */
+export function backgroundSensingRequested(
+  argv: readonly string[],
+): boolean {
+  if (quietResultRequested(argv)) return false;
+  if (argv.includes(ROOT_GLOBAL_FLAGS.noColor)) return false;
+  const invocation = resolveInvocation(
+    argv,
+    ROOT_GLOBAL_FLAG_TOKENS,
+    ROOT_GLOBAL_VALUE_FLAG_TOKENS,
+  );
+  if (
+    invocation.verb !== undefined &&
+    normalizeVerbVariant(invocation.verb, KNOWN_VERBS) === "mcp"
+  ) return false;
+
+  const rawTheme = globalOptionValue(argv, ROOT_GLOBAL_FLAGS.theme);
+  const hasThemeOption = argv.some((token) =>
+    token === ROOT_GLOBAL_FLAGS.theme ||
+    token.startsWith(`${ROOT_GLOBAL_FLAGS.theme}=`)
+  );
+  return !hasThemeOption || rawTheme === DEFAULT_TERMINAL_THEME_MODE;
+}
+
 /**
  * The root command's global flag tokens, read from the Cliffy registration
  * itself so {@link resolveInvocation}'s flag-skipping can never drift from
- * what Cliffy actually accepts before a subcommand. Every global flag must be
- * a valueless boolean — a value-taking one would need lookahead here, which
- * `tests/engine_flag_first_test.ts` enforces structurally.
+ * what Cliffy actually accepts before a subcommand. Value arity comes from
+ * {@link globalValueFlagTokens}; `tests/engine_flag_first_test.ts` keeps both
+ * derived sets aligned with the early router.
  */
 export function globalFlagTokens(root: Command): ReadonlySet<string> {
   const tokens = new Set<string>();
@@ -1070,6 +1207,17 @@ export function globalFlagTokens(root: Command): ReadonlySet<string> {
       for (const flag of option.flags) {
         tokens.add(flag);
       }
+    }
+  }
+  return tokens;
+}
+
+/** Value-taking root-global flags, derived from the same Cliffy registration. */
+export function globalValueFlagTokens(root: Command): ReadonlySet<string> {
+  const tokens = new Set<string>();
+  for (const option of root.getOptions(true)) {
+    if (option.global === true && option.args.length > 0) {
+      for (const flag of option.flags) tokens.add(flag);
     }
   }
   return tokens;
@@ -1084,14 +1232,14 @@ export function globalFlagTokens(root: Command): ReadonlySet<string> {
 function splitScriptInvocation(
   argsWithoutVerb: readonly string[],
   globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string>,
 ): { name: string | undefined; args: string[] } {
-  let i = 0;
-  while (
-    i < argsWithoutVerb.length &&
-    globalFlags.has(argsWithoutVerb[i] ?? "")
-  ) {
-    i++;
-  }
+  const i = skipGlobalOptions(
+    argsWithoutVerb,
+    0,
+    globalFlags,
+    valueFlags,
+  );
   return {
     name: argsWithoutVerb[i],
     args: [...argsWithoutVerb.slice(i + 1)],
@@ -1101,25 +1249,64 @@ function splitScriptInvocation(
 /** Parse argv and dispatch. Exported for tests; called below when run directly. */
 export async function main(args: string[]): Promise<void> {
   let argv = args;
-  const discernArgv = discernOwnedArgv(argv, ROOT_GLOBAL_FLAG_TOKENS);
+  const discernArgv = discernOwnedArgv(
+    argv,
+    ROOT_GLOBAL_FLAG_TOKENS,
+    ROOT_GLOBAL_VALUE_FLAG_TOKENS,
+  );
   activeDiscernArgv = discernArgv;
+  const jsonRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.json);
+  const markdownRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.markdown);
+  const quietResult = jsonRequested || markdownRequested;
+  const rawTheme = globalOptionValue(discernArgv, ROOT_GLOBAL_FLAGS.theme);
+  const theme = isTerminalThemeMode(rawTheme)
+    ? rawTheme
+    : DEFAULT_TERMINAL_THEME_MODE;
+  if (markdownRequested) {
+    // Every command already treats its `json` option as the quiet result-path
+    // switch. Normalize only discern-owned tokens to that internal switch;
+    // `emitResult` still selects Markdown, and child arguments after queue's
+    // delimiter or a Project Script name remain byte-for-byte unchanged.
+    argv = argv.map((token, index) =>
+      index < discernArgv.length && token === ROOT_GLOBAL_FLAGS.markdown
+        ? ROOT_GLOBAL_FLAGS.json
+        : token
+    );
+  }
   // The raw first token — helper dispatch below is deliberately positional,
   // and it names the attempted verb in a pre-resolution config error.
   let verb = argv[0];
 
   try {
-    // One global interaction decision feeds every prompt-capable surface. This
+    // One global interaction decision feeds every input-capable surface. This
     // is set before helper/command dispatch so flag-first forms behave identically.
     setPlainMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.plain));
-    setJsonMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.json));
+    setResultMarkdownPresenterResolver(resultPresenterForVerb);
+    setResultOutputFormat(
+      markdownRequested && !jsonRequested ? "markdown" : "json",
+    );
+    setJsonMode(quietResult);
+    if (jsonRequested && markdownRequested) {
+      emitResult({
+        ok: false,
+        verb: "discern",
+        error: "invalid_arguments",
+        message:
+          "`--json` and `--markdown` cannot be combined. Choose one result format.",
+      });
+      Deno.exit(1);
+      return;
+    }
     // Resolve the ONE colour decision up front (flag + NO_COLOR + isatty) and
     // thread it to every colour-emitting surface, so `--no-color` is honoured
     // uniformly — engine verbs, the installer Loggers, and the root help alike —
     // rather than each path re-deciding and dropping the flag (B32/B36). Done
     // before helper dispatch so a helper's own output (`with-gotchas`' gotchas
     // hint) obeys it too.
-    const terminal = productionTerminalContext({
+    const terminal = await productionTerminalContext({
       noColor: discernArgv.includes(ROOT_GLOBAL_FLAGS.noColor),
+      theme,
+      backgroundSensing: backgroundSensingRequested(discernArgv),
     });
     const color = terminal.color;
     applyColorMode(terminal);
@@ -1149,7 +1336,14 @@ export async function main(args: string[]): Promise<void> {
     // `discern --json map` slip past the setup redirect that catches
     // `discern map --json`.
     const globalTokens = globalFlagTokens(cli as unknown as Command);
-    const invocation = resolveInvocation(argv, globalTokens);
+    const globalValueTokens = globalValueFlagTokens(
+      cli as unknown as Command,
+    );
+    const invocation = resolveInvocation(
+      argv,
+      globalTokens,
+      globalValueTokens,
+    );
     verb = invocation.verb;
 
     // No verb (bare `discern`, or global flags alone): pre-setup, this prints
@@ -1158,12 +1352,12 @@ export async function main(args: string[]): Promise<void> {
     // both readers and funnels the agent into the staged handshake (ADR 0075).
     // It writes nothing, so it shows even in a non-git directory (leading with
     // the git-init step). Once the project is set up, an interactive terminal
-    // gets the operator's desk — the bare invocation is the human's surface
-    // (ADR 0119); the shared `canPrompt` policy additionally honors --plain and
-    // CI, so pipes, harnesses, and machine modes fall through to static help.
+    // gets the operator's desk — the bare invocation is its terminal surface
+    // (ADR 0119); the shared `canInteract` policy additionally honors --plain and
+    // CI, so pipes, harnesses, and quiet result modes fall through to static help.
     if (verb === undefined) {
-      if (discernArgv.includes(ROOT_GLOBAL_FLAGS.json)) {
-        emitRootJsonRefusal();
+      if (quietResult) {
+        emitRootResultRefusal(discernArgv);
         Deno.exit(1);
         return;
       }
@@ -1173,14 +1367,14 @@ export async function main(args: string[]): Promise<void> {
         );
         Deno.exit(
           await runSetupWelcome({
-            json: discernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+            json: quietResult,
             noColor: !color,
           }),
         );
       }
       if (inProject && configOk && bootstrapped) {
-        const json = discernArgv.includes(ROOT_GLOBAL_FLAGS.json);
-        if (inDeskSession() || (!json && canPrompt(false))) {
+        const json = quietResult;
+        if (inDeskSession() || (!json && canInteract(false))) {
           const { runDesk } = await import("./engine/desk/desk.ts");
           // The bare invocation IS the desk, so it records through the same
           // interceptor as `discern desk`: the session's begin/verb pair and
@@ -1190,7 +1384,9 @@ export async function main(args: string[]): Promise<void> {
           );
         }
       }
-      console.log(operatorHelp(cli as unknown as Command, { color }));
+      new Logger({ json: false, noColor: false }).line(
+        operatorHelp(cli as unknown as Command, { color }),
+      );
       Deno.exit(0);
       return;
     }
@@ -1208,7 +1404,7 @@ export async function main(args: string[]): Promise<void> {
     const successor = retiredCommandSuccessor(retiredCommand);
     if (successor !== undefined) {
       const message = retiredCommandMessage(retiredCommand, successor);
-      if (discernArgv.includes(ROOT_GLOBAL_FLAGS.json)) {
+      if (quietResult) {
         emitResult({
           ok: false,
           verb: retiredCommand,
@@ -1216,7 +1412,7 @@ export async function main(args: string[]): Promise<void> {
           message,
         });
       } else {
-        console.error(`discern: ${message}`);
+        new Logger({ json: false, noColor: false }).error(message);
       }
       Deno.exit(1);
     }
@@ -1235,7 +1431,9 @@ export async function main(args: string[]): Promise<void> {
 
     // Explicit help: the grouped Cliffy help.
     if (verb === "-h" || verb === "--help") {
-      console.log(operatorHelp(cli as unknown as Command, { color }));
+      new Logger({ json: false, noColor: false }).line(
+        operatorHelp(cli as unknown as Command, { color }),
+      );
       Deno.exit(0);
     }
 
@@ -1250,6 +1448,7 @@ export async function main(args: string[]): Promise<void> {
       const queued = parseQueueInvocation(
         invocation.argsWithoutVerb,
         globalTokens,
+        globalValueTokens,
       );
       if (queued.kind === "error") {
         Deno.exit(reportQueueUsageError(queued.message));
@@ -1270,7 +1469,7 @@ export async function main(args: string[]): Promise<void> {
     if (
       inProject && configOk && !bootstrapped && verbNeedsSetup(verb)
     ) {
-      if (discernArgv.includes(ROOT_GLOBAL_FLAGS.json)) {
+      if (quietResult) {
         emitResult({
           ok: false,
           verb,
@@ -1278,7 +1477,7 @@ export async function main(args: string[]): Promise<void> {
           message: NOT_SET_UP_MESSAGE,
         });
       } else {
-        console.error(`discern: ${NOT_SET_UP_MESSAGE}`);
+        new Logger({ json: false, noColor: false }).error(NOT_SET_UP_MESSAGE);
       }
       Deno.exit(1);
     }
@@ -1290,6 +1489,7 @@ export async function main(args: string[]): Promise<void> {
       const script = splitScriptInvocation(
         invocation.argsWithoutVerb,
         globalTokens,
+        globalValueTokens,
       );
       if (script.name !== "-h" && script.name !== "--help") {
         // Pre-Cliffy dispatch still routes through the one recording point.
@@ -1302,7 +1502,7 @@ export async function main(args: string[]): Promise<void> {
             "cli",
             async () =>
               await runProjectScript(script.name, script.args, {
-                json: discernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+                json: quietResult,
               }),
           ),
         );
@@ -1315,7 +1515,7 @@ export async function main(args: string[]): Promise<void> {
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
       Deno.exit(
         await reportUnknownOrSuggest(verb, {
-          json: discernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+          json: quietResult,
         }),
       );
     }
@@ -1332,9 +1532,9 @@ export async function main(args: string[]): Promise<void> {
       err instanceof ConfigParseError || err instanceof ConfigValidationError
     ) {
       const isValidation = err instanceof ConfigValidationError;
-      if (discernArgv.includes(ROOT_GLOBAL_FLAGS.json)) {
+      if (quietResult) {
         // Route through the one envelope/chokepoint (ADR 0030) so even a
-        // pre-verb config error is the uniform DiscernResult an agent expects —
+        // pre-verb config error is the uniform DiscernResult a consumer expects —
         // carrying the attempted verb, with the per-issue list under `data`.
         emitResult({
           ok: false,
@@ -1344,14 +1544,14 @@ export async function main(args: string[]): Promise<void> {
           ...(isValidation ? { data: { issues: err.issues } } : {}),
         });
       } else {
-        console.error(`discern: ${err.message}`);
+        new Logger({ json: false, noColor: false }).error(err.message);
       }
       Deno.exit(1);
     }
     await exitWithCrashFrame(
       verb,
       err,
-      discernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+      quietResult,
     );
   }
 }
@@ -1402,7 +1602,7 @@ if (import.meta.main) {
     void exitWithCrashFrame(
       undefined,
       event.reason,
-      activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+      quietResultRequested(activeDiscernArgv),
     );
   });
   globalThis.addEventListener("error", (event) => {
@@ -1410,7 +1610,7 @@ if (import.meta.main) {
     void exitWithCrashFrame(
       undefined,
       event.error ?? event.message,
-      activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.json),
+      quietResultRequested(activeDiscernArgv),
     );
   });
   await main(Deno.args);

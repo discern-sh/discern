@@ -1256,24 +1256,19 @@ function renderExecutionModel(
   terminal: TerminalContext,
 ): void {
   const width = modelWidth(terminal);
-  const capabilities = { ...terminal.capabilities, columns: width };
   const LABEL_COL = 12; // 2 (indent) + 9 (padded actor tag) + 1 (space)
   const HINT_COL = 14; // hints nest one notch under the label column
   const labelIndent = " ".repeat(LABEL_COL);
   const hintIndent = " ".repeat(HINT_COL);
 
   const showLegend = (): void => {
-    log.humanLine(renderSectionCli(
-      {
-        title: "Execution model",
-        body: "",
-        treatment: "rule",
-        spacing: "none",
-        theme: terminal.themeVariant,
-        width,
-      },
-      capabilities,
-    ));
+    log.humanLine(terminal.presenter.present(renderSectionCli, {
+      title: "Execution model",
+      body: "",
+      treatment: "rule",
+      spacing: "none",
+      width,
+    }));
     // An aligned legend, rather than one long sentence that would itself wrap.
     log.humanLine(
       `  ${terminal.role("What runs when you call each verb:", "muted")}`,
@@ -1309,17 +1304,13 @@ function renderExecutionModel(
   };
 
   const showVerb = (vp: VerbPlan): void => {
-    log.humanLine(renderSectionCli(
-      {
-        title: terminalLine(vp.verb),
-        body: terminalMultiline(vp.when),
-        treatment: "rule",
-        spacing: "sm",
-        theme: terminal.themeVariant,
-        width,
-      },
-      capabilities,
-    ));
+    log.humanLine(terminal.presenter.present(renderSectionCli, {
+      title: terminalLine(vp.verb),
+      body: terminalMultiline(vp.when),
+      treatment: "rule",
+      spacing: "sm",
+      width,
+    }));
     if (vp.steps.length === 0) {
       log.humanLine(
         `  ${terminal.role("(nothing configured)", "muted")}`,
@@ -1412,16 +1403,14 @@ export function renderDoctorCheck(
 ): DoctorCheckPresentation {
   const width = modelWidth(terminal);
   const message = terminalMultiline(`${check.name}: ${check.detail}`);
-  const fix = check.fix === undefined ? undefined : renderSectionCli(
-    {
+  const fix = check.fix === undefined
+    ? undefined
+    : terminal.presenter.present(renderSectionCli, {
       body: terminalMultiline(`fix: ${check.fix}`),
       surface: "sunken",
       spacing: "none",
-      theme: terminal.themeVariant,
       width,
-    },
-    { ...terminal.capabilities, columns: width },
-  );
+    });
   if (check.status === "ok") {
     const lineWidth = Math.max(1, width - 2);
     const lines = message.split("\n").flatMap((line) =>
@@ -1436,16 +1425,12 @@ export function renderDoctorCheck(
     };
   }
   return {
-    line: renderBannerCli(
-      {
-        title: "",
-        message: terminalMultiline(message),
-        tone: check.status === "warn" ? "warning" : "danger",
-        theme: terminal.themeVariant,
-        width,
-      },
-      { ...terminal.capabilities, columns: width },
-    ),
+    line: terminal.presenter.present(renderBannerCli, {
+      title: "",
+      message: terminalMultiline(message),
+      tone: check.status === "warn" ? "warning" : "danger",
+      width,
+    }),
     status: check.status,
     ...(fix === undefined ? {} : { fix }),
   };
@@ -1464,15 +1449,11 @@ export function renderDoctorHeader(
         : "not found"
     }`,
   );
-  return renderDocsHeaderCli(
-    {
-      brand: "discern doctor",
-      middle: terminalLine(summary),
-      theme: terminal.themeVariant,
-      maxWidth: width,
-    },
-    { ...terminal.capabilities, columns: width },
-  );
+  return terminal.presenter.present(renderDocsHeaderCli, {
+    brand: "discern doctor",
+    middle: terminalLine(summary),
+    maxWidth: width,
+  });
 }
 
 /** Render the actionable install checks for the human (non-`--json`) path. */
@@ -1482,18 +1463,13 @@ function renderDoctorChecks(
   terminal: TerminalContext,
 ): void {
   const width = modelWidth(terminal);
-  const capabilities = { ...terminal.capabilities, columns: width };
-  log.humanLine(renderSectionCli(
-    {
-      title: "Doctor checks",
-      body: "",
-      treatment: "rule",
-      spacing: "none",
-      theme: terminal.themeVariant,
-      width,
-    },
-    capabilities,
-  ));
+  log.humanLine(terminal.presenter.present(renderSectionCli, {
+    title: "Doctor checks",
+    body: "",
+    treatment: "rule",
+    spacing: "none",
+    width,
+  }));
   for (const check of checks) {
     const rendered = renderDoctorCheck(check, terminal);
     // Package renderers own wrapping and SGR here; the dynamic check facts were

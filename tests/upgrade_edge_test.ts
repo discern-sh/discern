@@ -20,7 +20,13 @@ import { join } from "@std/path";
 import { runUpgrade } from "../src/commands/upgrade.ts";
 import type { Migration } from "../src/lib/migrations.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
-import { readTarget, runCli, targetExists, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  readTarget,
+  runCli,
+  targetExists,
+  withTempDir,
+} from "./helpers.ts";
 
 const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
@@ -98,7 +104,7 @@ Deno.test("upgrade with no discern.toml fails as not_initialized (human)", async
   await withTempDir(async (dir) => {
     const r = await runCli(["upgrade"], dir);
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, "discern setup");
+    assertTerminalTextIncludes(r.stderr, "discern setup");
   });
 });
 
@@ -175,8 +181,8 @@ Deno.test("upgrade refuses an absent templates dir before stamping (human)", asy
       DISCERN_TEMPLATES_DIR: join(dir, "no", "such", "templates"),
     });
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, "config template");
-    assertStringIncludes(r.stderr, "schema was not stamped");
+    assertTerminalTextIncludes(r.stderr, "config template");
+    assertTerminalTextIncludes(r.stderr, "schema was not stamped");
   });
 });
 
@@ -232,7 +238,7 @@ Deno.test("upgrade --check (human) confirms an in-sync install and exits zero", 
     const r = await runCli(["upgrade", "--check"], dir);
     assertEquals(r.code, 0, r.stderr);
     // The ok line is the human rendering of `ok: true` (no JSON envelope).
-    assertStringIncludes(r.stderr, "up to date");
+    assertTerminalTextIncludes(r.stderr, "up to date");
   });
 });
 
@@ -263,7 +269,7 @@ Deno.test("upgrade (human) refuses a dirty tree and lists the changed paths", as
     );
     const r = await runCli(["upgrade"], dir);
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, "uncommitted changes");
+    assertTerminalTextIncludes(r.stderr, "uncommitted changes");
     assertStringIncludes(r.stderr, "discern.toml"); // the dirty path is detailed
   });
 });

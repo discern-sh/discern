@@ -21,7 +21,15 @@ import {
   interactiveHintTexts,
 } from "../../shared/hints.ts";
 import { serializeJobSteps, stageGroup } from "./plan.ts";
-import { gateRunContext, runJobGroups } from "./execute.ts";
+import {
+  gateOutputIsLive,
+  type GateOutputSurface,
+  gateOutputTtyWidth,
+  gateRunContext,
+  type GateRunPolicy,
+  resolveGateRunPolicy,
+  runJobGroups,
+} from "./execute.ts";
 import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
@@ -37,6 +45,12 @@ import {
   type ValidationStart,
 } from "../logbook/validation.ts";
 import { captureValidationStart } from "../logbook/validation_state.ts";
+import { terminalContext } from "../../lib/terminal.ts";
+import {
+  createGateTtyProgress,
+  renderGateTtyStatus,
+  renderGateTtyTable,
+} from "./gate_tty.ts";
 
 /**
  * Run the test gate once: build the test stage's group and run it through the shared
@@ -47,7 +61,7 @@ import { captureValidationStart } from "../logbook/validation_state.ts";
  */
 async function runTestGate(
   root: string,
-  json: boolean,
+  surface: GateOutputSurface,
   signal?: AbortSignal,
 ): Promise<
   {
@@ -56,12 +70,24 @@ async function runTestGate(
     out: Out;
     configured: boolean;
     cfg: DiscernConfig;
+    policy: GateRunPolicy;
     gotchasTail: GotchasFailureTail | undefined;
+    outputWithheld: boolean;
+    presentationWritable: boolean;
   }
 > {
   const cfg = await loadConfig(root);
+  const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
   const group = stageGroup(cfg, "test");
-  const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal);
+  const { runOpts, out, runOut, flushDeferredOutput, slots } = gateRunContext(
+    root,
+    cfg,
+    policy,
+    signal,
+  );
+  const liveOutput = policy.output.kind === "live-frame"
+    ? policy.output
+    : undefined;
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): test is
   // un-gated during setup, so a pass here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
@@ -93,8 +119,22 @@ async function runTestGate(
       out,
       configured: false,
       cfg,
+      policy,
       gotchasTail: undefined,
+      outputWithheld: false,
+      presentationWritable: true,
     };
+  }
+  const progress = liveOutput !== undefined
+    ? await createGateTtyProgress(out.raw, [group], {
+      width: liveOutput.ttyWidth,
+      terminal: out.terminal,
+      kind: "test",
+    })
+    : undefined;
+  if (progress !== undefined) {
+    runOpts.observer = progress;
+    runOpts.outputObserver = progress;
   }
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
@@ -113,7 +153,7 @@ async function runTestGate(
   const { results, failedStage } = await runJobGroups(
     [group],
     runOpts,
-    out,
+    runOut,
     slots,
   );
   const { steps, diagnostics, hints } = await serializeJobSteps(
@@ -159,13 +199,21 @@ async function runTestGate(
       completeValidationEvidence(validation, steps),
     );
   }
+  await progress?.complete(result.steps ?? []);
+  const liveWriteFailed = progress?.writeFailed() ?? false;
+  const deferredOutputFlushed = liveWriteFailed ? false : flushDeferredOutput();
   return {
     result,
     failedStage,
     out,
     configured: true,
     cfg,
+    policy,
     gotchasTail,
+    // The package tail disappears at completion; failures retain the durable
+    // diagnostic excerpt and full-artifact route below the restored frame.
+    outputWithheld: gateOutputIsLive(policy),
+    presentationWritable: !liveWriteFailed && deferredOutputFlushed,
   };
 }
 
@@ -180,13 +228,13 @@ export async function testResult(
   root: string,
   signal?: AbortSignal,
 ): Promise<DiscernResult> {
-  return (await runTestGate(root, true, signal)).result;
+  return (await runTestGate(root, { kind: "quiet-result" }, signal)).result;
 }
 
 /** Run `test`. Returns a process exit code. */
 export async function runTestJob(
   root: string,
-  opts: { json?: boolean } = {},
+  opts: { json?: boolean; plain?: boolean } = {},
 ): Promise<number> {
   if (opts.json ?? false) {
     const result = await testResult(root);
@@ -194,15 +242,41 @@ export async function runTestJob(
     return result.ok ? 0 : 1;
   }
 
-  const { result, failedStage, out, configured, gotchasTail } =
-    await runTestGate(
-      root,
-      false,
-    );
+  const terminal = terminalContext();
+  const {
+    result,
+    failedStage,
+    out,
+    configured,
+    policy,
+    gotchasTail,
+    outputWithheld,
+    presentationWritable,
+  } = await runTestGate(
+    root,
+    { kind: "human", plain: opts.plain ?? false, terminal },
+  );
   observeResult(result); // the logbook recorder lifts step timings from it
+  if (!presentationWritable) return failedStage === null ? 0 : 1;
   if (!configured) {
     out.info(fire(HINTS["test-job-not-configured"]).text);
     return 0;
+  }
+  const ttyWidth = gateOutputTtyWidth(policy);
+  const staticGroupedTable = ttyWidth !== undefined &&
+    policy.output.kind === "static-grouped";
+  if (staticGroupedTable && ttyWidth !== undefined) {
+    out.group("test-results");
+    out.raw(
+      `${
+        renderGateTtyTable(
+          result.steps ?? [],
+          { width: ttyWidth, terminal: out.terminal },
+          [],
+          "test",
+        )
+      }\n`,
+    );
   }
   if (failedStage !== null) {
     renderFailureTail(out, {
@@ -211,13 +285,24 @@ export async function runTestJob(
       diagnostics: result.diagnostics ?? [],
       failedStage,
       gotchas: gotchasTail,
-      // `test` never quiets its human run — the runner narrated the output.
-      outputWithheld: false,
+      outputWithheld,
     });
     renderSlotWait(out, result.waitedMs);
     return 1;
   }
-  out.ok("Tests passed.");
+  if (staticGroupedTable && ttyWidth !== undefined) {
+    out.group("test-summary");
+    out.raw(
+      `${
+        renderGateTtyStatus("Tests passed.", "ok", {
+          width: ttyWidth,
+          terminal: out.terminal,
+        })
+      }\n`,
+    );
+  } else {
+    out.ok("Tests passed.");
+  }
   renderSlotWait(out, result.waitedMs);
   const hints = interactiveHintTexts(result.hints);
   if (hints.length > 0) out.group("next");

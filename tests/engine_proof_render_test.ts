@@ -15,8 +15,6 @@ import {
 } from "../src/engine/gate/proof_render.ts";
 import { renderDoneTtySummary } from "../src/engine/gate/done_tty.ts";
 import {
-  createGateTtyProgress,
-  renderGateTtyProgressTable,
   renderGateTtyStatus,
   renderGateTtyTable,
 } from "../src/engine/gate/gate_tty.ts";
@@ -27,8 +25,6 @@ import {
 } from "../src/shared/result.ts";
 import { makeOut, outSink } from "../src/engine/output.ts";
 import { displayWidth } from "../src/lib/text.ts";
-import type { GatePlan } from "../src/engine/gate/plan.ts";
-import type { JobResult } from "../src/engine/jobs/types.ts";
 import type {
   GateStandard,
   Proof,
@@ -53,15 +49,6 @@ const SGR_GLOBAL = new RegExp(
 const stripSgr = (value: string): string => value.replaceAll(SGR_GLOBAL, "");
 const PLAIN_TERMINAL = makeOut(false).terminal;
 const COLOR_TERMINAL = makeOut(true).terminal;
-const LARGE_PLAIN_TERMINAL = {
-  ...PLAIN_TERMINAL,
-  capabilities: {
-    ...PLAIN_TERMINAL.capabilities,
-    ansiControl: true,
-  },
-  size: { columns: 80, rows: 200 },
-};
-
 const FACTS: ProofFacts = {
   branch: "agent/upload-retry",
   trunk: "main",
@@ -117,66 +104,6 @@ const STEPS: StepResult[] = [
     durationS: 0,
   },
 ];
-
-const PLAN: GatePlan = {
-  groups: [
-    {
-      stage: "fix",
-      mode: "serial",
-      heading: "Applying fixers...",
-      display: "Fix",
-      jobs: [{
-        label: "format",
-        command: "deno fmt",
-        kind: "known",
-        reportStage: "fix",
-        willRun: true,
-      }],
-    },
-    {
-      stage: "check/test",
-      mode: "parallel",
-      heading: "Checking and testing...",
-      display: "Check & test",
-      jobs: [
-        {
-          label: "lint",
-          command: "deno lint",
-          kind: "known",
-          reportStage: "check",
-          willRun: true,
-        },
-        {
-          label: "test",
-          command: "deno task test",
-          kind: "known",
-          reportStage: "test",
-          willRun: true,
-        },
-      ],
-    },
-    {
-      stage: "scope_gates",
-      mode: "parallel",
-      heading: "Running gates for changed scopes...",
-      display: "Scope gates",
-      jobs: [{
-        label: "scope:web",
-        command: "deno task web",
-        kind: "scope-gate",
-        reportStage: "scope_gates",
-        willRun: false,
-      }],
-    },
-  ],
-  standardsLimitsCheck: true,
-  guidanceCheck: true,
-  skillsCheck: true,
-  trackedRefreshCheck: true,
-  mergeCheck: true,
-  trackedArtifactsCheck: true,
-  scopesChanged: [],
-};
 
 const HELD: GateStandard = {
   name: "coverage",
@@ -309,11 +236,11 @@ Deno.test("done TTY render: the package workflow leads into a truthful receipt",
   );
   for (
     const fact of [
-      "Gate progress  4 / 4 steps settled",
+      "Gate progress",
       "[100%]",
       "✓ Complete",
       "format [passed]",
-      "$ deno fmt",
+      "Run: deno fmt",
       "passed in 1s",
       "lint [passed]",
       "test [passed]",
@@ -374,78 +301,14 @@ Deno.test("gate TTY render: a narrow terminal wraps commands without losing fact
     width: 40,
     terminal: PLAIN_TERMINAL,
   });
-  assertStringIncludes(rendered, "Gate progress  4 / 4 steps settled");
+  assertStringIncludes(rendered, "Gate progress");
+  assertStringIncludes(rendered, "[100%]");
+  assertStringIncludes(rendered, "✓ Complete");
   assertStringIncludes(rendered, "format [passed]");
-  assertStringIncludes(rendered, "$ deno fmt");
+  assertStringIncludes(rendered, "Run: deno fmt");
   assertStringIncludes(rendered, "passed\nin 1s");
   assertStringIncludes(rendered, "scope:web [skipped]");
   assertEquals(rendered.includes("\x1b["), false);
-});
-
-Deno.test("gate TTY progress: planned rows move from pending through running to settled", () => {
-  const initial = renderGateTtyProgressTable(
-    PLAN.groups,
-    new Set(),
-    new Map(),
-    { width: 80, terminal: PLAIN_TERMINAL },
-  );
-  assertStringIncludes(initial, "format");
-  assertStringIncludes(initial, "deno fmt");
-  assertStringIncludes(initial, "pending");
-  assertStringIncludes(initial, "scope:web");
-  assertStringIncludes(initial, "deno task web");
-  assertStringIncludes(initial, "skipped");
-
-  const result: JobResult = {
-    label: "format",
-    status: "ok",
-    code: 0,
-    durationS: 1,
-    outputLines: 0,
-    errorLikeLines: 0,
-  };
-  const updated = renderGateTtyProgressTable(
-    PLAN.groups,
-    new Set(["lint"]),
-    new Map([["format", result]]),
-    { width: 80, terminal: PLAIN_TERMINAL },
-  );
-  assertStringIncludes(updated, "passed in 1s");
-  assertStringIncludes(updated, "running");
-  assertStringIncludes(updated, "test");
-  assertStringIncludes(updated, "pending");
-});
-
-Deno.test("gate TTY progress: controller redraws in place and leaves no color SGR in no-color mode", async () => {
-  const writes: string[] = [];
-  const progress = createGateTtyProgress(
-    (value) => writes.push(value),
-    { width: 80, terminal: LARGE_PLAIN_TERMINAL },
-  );
-  progress.start(PLAN.groups);
-  assertEquals(writes[0], "\n");
-  assertStringIncludes(writes.at(-1) ?? "", "format");
-  assertStringIncludes(writes.at(-1) ?? "", "pending");
-
-  progress.started({ label: "format", command: "deno fmt" });
-  await Promise.resolve();
-  assertStringIncludes(writes[writes.length - 1] ?? "", "\x1b[");
-  assertStringIncludes(writes[writes.length - 1] ?? "", "running");
-
-  progress.settled({
-    label: "format",
-    status: "ok",
-    code: 0,
-    durationS: 1,
-    outputLines: 0,
-    errorLikeLines: 0,
-  });
-  await Promise.resolve();
-  assertStringIncludes(writes[writes.length - 1] ?? "", "passed in 1s");
-  assertEquals(SGR.test(writes.join("")), false);
-
-  progress.complete(STEPS);
-  assertStringIncludes(writes[writes.length - 1] ?? "", "scope unchanged");
 });
 
 Deno.test("gate TTY render: color changes styling only and every line stays within budget", () => {

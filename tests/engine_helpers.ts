@@ -40,6 +40,12 @@ import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { fakeEnv, REAL_TEMPLATES } from "./helpers.ts";
+import {
+  type PtyInputPhase,
+  type PtyProcessResult,
+  runPtyProcess,
+} from "./fixtures/pty_process.ts";
+import type { TerminalResizeEvidence } from "./fixtures/terminal_resize_harness.ts";
 
 /**
  * Map `items` through `fn` with at most `limit` in flight — the bounded
@@ -103,6 +109,12 @@ const GIT_ISOLATION: Record<string, string> = {
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 export const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
 export const DENO_JSON = join(REPO_ROOT, "deno.json");
+const TERMINAL_RESIZE_HARNESS = join(
+  REPO_ROOT,
+  "tests",
+  "fixtures",
+  "terminal_resize_harness.ts",
+);
 
 /** One path inside the fresh map default, derived from the path registry. */
 export function defaultMapPath(root: string, ...parts: string[]): string {
@@ -170,6 +182,11 @@ export async function engineEnv(
     // A fixture models a normal local invocation unless its test opts into CI.
     // This keeps the harness independent of the environment running the suite.
     CI: "false",
+    // Glyph capability keys off the locale, so pin one UTF-8 locale (and keep
+    // an inherited LC_ALL from outranking it): a suite run from a locale-less
+    // shell must render the same report a developer's terminal gets.
+    LANG: "en_US.UTF-8",
+    LC_ALL: "",
     // FORCE_COLOR flips Deno.noColor false even when NO_COLOR is set; empty
     // means unset, so an inherited value can't recolour spawned output.
     FORCE_COLOR: "",
@@ -409,6 +426,129 @@ export async function runAgentPty(
     );
   }
   return { code, stdout: out, stderr: err, output: out + err };
+}
+
+/**
+ * Run the real engine on a PTY with readiness-gated input phases. Use this for
+ * journeys such as Ctrl-C where input must arrive only after product output
+ * proves the Gate is active; ordinary non-interactive PTY cases use
+ * {@link runAgentPty}.
+ */
+export async function runAgentPtyJourney(
+  dir: string,
+  args: string[],
+  opts: {
+    readonly input: readonly PtyInputPhase[];
+    readonly env?: Record<string, string>;
+    readonly geometry?: { readonly columns: number; readonly rows: number };
+    readonly timeoutMs?: number;
+  },
+): Promise<PtyProcessResult> {
+  if (Deno.build.os === "windows") {
+    throw new Error("runAgentPtyJourney requires the Unix script(1) utility");
+  }
+  return await runPtyProcess({
+    command: Deno.execPath(),
+    args: [
+      "run",
+      "--no-check",
+      "--config",
+      DENO_JSON,
+      "-A",
+      MAIN_TS,
+      ...args,
+    ],
+    cwd: dir,
+    env: await engineEnv({ TERM: "xterm-256color", ...opts.env }),
+    input: opts.input,
+    ...(opts.geometry === undefined ? {} : { geometry: opts.geometry }),
+    timeoutMs: opts.timeoutMs ?? 8_000,
+  });
+}
+
+/** A real-PTY engine result plus kernel-observed viewport evidence. */
+export interface ViewportRunResult extends RunResult {
+  readonly terminal: TerminalResizeEvidence;
+}
+
+/**
+ * Run the engine on a PTY whose actual kernel dimensions are set before the
+ * command starts and, optionally, changed while it is running.
+ */
+export async function runAgentPtyWithViewport(
+  dir: string,
+  args: string[],
+  options: {
+    readonly size: { readonly columns: number; readonly rows: number };
+    readonly resize?: {
+      readonly columns: number;
+      readonly rows: number;
+      readonly afterMs: number;
+      /** Optional job-written path that synchronizes the real resize. */
+      readonly whenPath?: string;
+    };
+    readonly env?: Record<string, string>;
+    readonly timeoutMs?: number;
+  },
+): Promise<ViewportRunResult> {
+  if (Deno.build.os === "windows") {
+    throw new Error("runAgentPtyWithViewport requires script(1) and stty(1)");
+  }
+  const resultPath = await Deno.makeTempFile({
+    dir: await suiteTempDir(),
+    prefix: "discern-viewport-result-",
+    suffix: ".json",
+  });
+  try {
+    const process: PtyProcessResult = await runPtyProcess({
+      command: Deno.execPath(),
+      args: [
+        "run",
+        "--no-check",
+        "--config",
+        DENO_JSON,
+        "-A",
+        TERMINAL_RESIZE_HARNESS,
+        "--result",
+        resultPath,
+        "--size",
+        `${options.size.columns}x${options.size.rows}`,
+        ...(options.resize === undefined ? [] : [
+          "--resize",
+          `${options.resize.columns}x${options.resize.rows}`,
+          "--resize-after",
+          String(options.resize.afterMs),
+          ...(options.resize.whenPath === undefined
+            ? []
+            : ["--resize-when", options.resize.whenPath]),
+        ]),
+        "--",
+        Deno.execPath(),
+        "run",
+        "--no-check",
+        "--config",
+        DENO_JSON,
+        "-A",
+        MAIN_TS,
+        ...args,
+      ],
+      cwd: dir,
+      env: await engineEnv({ TERM: "xterm-256color", ...options.env }),
+      keepInputOpen: true,
+      timeoutMs: options.timeoutMs ?? 8_000,
+    });
+    const raw = await Deno.readTextFile(resultPath);
+    const terminal = JSON.parse(raw) as TerminalResizeEvidence;
+    return {
+      code: process.code,
+      stdout: process.stdout,
+      stderr: process.stderr,
+      output: process.transcript,
+      terminal,
+    };
+  } finally {
+    await Deno.remove(resultPath).catch(() => undefined);
+  }
 }
 
 /**

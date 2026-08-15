@@ -15,6 +15,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { measureText, stripAnsi } from "discern-design-system/cli";
 import {
+  assertTerminalTextIncludes,
   fakeEnv,
   runCli,
   unexpectedTerminalControls,
@@ -204,7 +205,10 @@ function assertDoctorGroupBoundaries(
   const plain = stripAnsi(output);
   const boundaryFailures: string[] = [];
   for (const marker of starts) {
-    const markerAt = plain.indexOf(marker);
+    const renderedMarker = plain.includes(marker)
+      ? marker
+      : marker.toUpperCase();
+    const markerAt = plain.indexOf(renderedMarker);
     assert(markerAt >= 0, `doctor should render ${marker}`);
     const lineStart = plain.lastIndexOf("\n", markerAt) + 1;
     let precedingNewlines = 0;
@@ -238,14 +242,15 @@ function doctorSectionRuleIndex(
   lines: readonly string[],
   title: string,
 ): number {
-  const marker = ` ${title} `;
+  const marker = ` ${title.toUpperCase()} `;
   return lines.findIndex((line) => {
     const markerAt = line.indexOf(marker);
     if (markerAt < 0) return false;
     const frame = `${line.slice(0, markerAt)}${
       line.slice(markerAt + marker.length)
     }`;
-    return frame.length > 0 && !/[\p{L}\p{N}\s]/u.test(frame);
+    return frame.trim().length > 0 &&
+      !/[\p{L}\p{N}]/u.test(frame.replaceAll("v", ""));
   });
 }
 
@@ -516,8 +521,8 @@ Deno.test("doctor reports when it runs inside a desk-owned child session", async
 
     const human = await runCli(["doctor"], dir, env);
     assertEquals(human.code, 0);
-    assertStringIncludes(human.stderr, "desk session: active");
-    assertStringIncludes(human.stderr, "launched by discern desk");
+    assertTerminalTextIncludes(human.stderr, "desk session: active");
+    assertTerminalTextIncludes(human.stderr, "launched by discern desk");
   });
 });
 
@@ -593,8 +598,8 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     assertStringIncludes(stderr, "tidy format job: the format job includes");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed (see the advisory above).");
-    const modelAt = stderr.indexOf("Execution model");
-    const checksAt = stderr.indexOf("Doctor checks");
+    const modelAt = stderr.indexOf("EXECUTION MODEL");
+    const checksAt = stderr.indexOf("DOCTOR CHECKS");
     const firstCheckAt = stderr.indexOf("discern.toml: present and valid TOML");
     const summaryAt = stderr.indexOf("All checks passed");
     assert(modelAt >= 0, "doctor should render the execution model");
@@ -775,10 +780,10 @@ Deno.test("doctor: human output still prints checks when the execution model can
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 1);
     assert(
-      !stderr.includes("Execution model"),
+      !stderr.includes("EXECUTION MODEL"),
       "invalid config should omit the execution model",
     );
-    assertStringIncludes(stderr, "Doctor checks");
+    assertStringIncludes(stderr, "DOCTOR CHECKS");
     assertStringIncludes(stderr, "discern.toml: invalid");
     assertStringIncludes(stderr, "fix: fix the TOML syntax in discern.toml");
     assertStringIncludes(stderr, "1 check failed — see the fixes above.");
@@ -1710,9 +1715,9 @@ Deno.test("doctor: human output prints the execution-model section on stderr", a
     // The human render goes to stderr like the rest of doctor's narration.
     const { code, stderr } = await runCli(["doctor"], dir);
     assertEquals(code, 0);
-    assertStringIncludes(stderr, "Execution model");
+    assertStringIncludes(stderr, "EXECUTION MODEL");
     assertStringIncludes(stderr, "[discern] merge-check");
-    assertStringIncludes(stderr, " accept ");
+    assertStringIncludes(stderr, " ACCEPT ");
   });
 });
 
@@ -1748,10 +1753,10 @@ Deno.test("doctor --verbose: shows every step's hint, undeduplicated, and drops 
     // Hints are shown and never deduplicated: the git hint recurs on every git step
     // within a single verb (accept runs several), so it appears more than
     // once in that one section — the ambiguity a per-verb dedup would introduce.
-    const start = stderr.indexOf(" accept ");
+    const start = stderr.indexOf(" ACCEPT ");
     const section = stderr.slice(
       start,
-      stderr.indexOf(" worktree prune ", start),
+      stderr.indexOf(" WORKTREE PRUNE ", start),
     );
     const gitHints = section.split("A built-in git mutation").length - 1;
     assert(

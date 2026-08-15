@@ -33,14 +33,14 @@ Fresh setup's standing-grant example names `docs`, whose seed contains the Map a
 
 When a grant exists, `data.landing_authority` carries the result:
 
-| Field             | Meaning                                                 |
-| ----------------- | ------------------------------------------------------- |
-| `kind`            | `authorized` or `conversation-required`.                |
-| `source`          | `standing-grant` or `effort-grant`.                     |
-| `scopes`          | Standing scopes covering the tree.                      |
-| `standing_scopes` | Known grants, including prospective or partial matches. |
-| `uncovered`       | Paths that still need conversation review.              |
-| `warnings`        | Untrusted evidence, such as an invalid recorded grant.  |
+| Field             | Meaning                                                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`            | `authorized` or `conversation-required`.                                                                                                          |
+| `source`          | `standing-grant` or `effort-grant`.                                                                                                               |
+| `scopes`          | Standing scopes covering the tree.                                                                                                                |
+| `standing_scopes` | Known grants, including prospective or partial matches.                                                                                           |
+| `uncovered`       | Paths that still need conversation review. `[generated.<name>]`-owned paths carry `generated: true`: counted by authority, collapsed in displays. |
+| `warnings`        | Untrusted evidence, such as an invalid recorded grant.                                                                                            |
 
 Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Proof ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 

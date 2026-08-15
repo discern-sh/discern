@@ -30,15 +30,16 @@ import {
 } from "../../lib/detect_agents.ts";
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
 import {
-  canPrompt,
-  confirmationPrompt,
-  groupedSelectOptions,
-  inputPrompt,
-  isPromptCancellation,
-  selectPrompt,
-  type SelectPromptGroup,
-  type SelectPromptOptions,
-} from "../../lib/prompts.ts";
+  canInteract,
+  groupedSelectionEntries,
+  isInteractionCancelled,
+  requestConfirmation,
+  requestSelection,
+  requestText,
+  type SelectionGroup,
+  type SelectionRequestOptions,
+  type TextRequestOptions,
+} from "../../lib/terminal_interaction.ts";
 import { Logger } from "../../lib/log.ts";
 import {
   browserOpenFailureMessage,
@@ -110,7 +111,7 @@ export interface DeskOptions {
   json?: boolean;
 }
 
-type DeskSelectOptions = SelectPromptOptions<string>;
+type DeskSelectOptions = SelectionRequestOptions<string>;
 type DeskMaybePromise<T> = T | Promise<T>;
 
 /** The terminal and effect boundary behind the desk's interactive session.
@@ -118,7 +119,7 @@ type DeskMaybePromise<T> = T | Promise<T>;
  * runtime so every supervisory path is exercised without pretending a pipe is
  * a terminal or touching a real worktree. */
 export interface DeskRuntime {
-  canPrompt(): boolean;
+  canInteract(): boolean;
   inDeskSession(): boolean;
   findRoot(): DeskMaybePromise<string | undefined>;
   loadConfig(root: string): DeskMaybePromise<DiscernConfig>;
@@ -137,7 +138,7 @@ export interface DeskRuntime {
   error(message: string): void;
   select(options: DeskSelectOptions): DeskMaybePromise<string>;
   confirm(message: string, defaultTo: boolean): DeskMaybePromise<boolean>;
-  input(message: string): DeskMaybePromise<string>;
+  input(options: TextRequestOptions): DeskMaybePromise<string>;
   pause(out: Out): DeskMaybePromise<void>;
   lifecycle(root: string): DeskMaybePromise<LifecycleContext>;
   accept(
@@ -229,15 +230,15 @@ async function awaitEnter(out: Out): Promise<void> {
   await Deno.stdin.read(buf);
 }
 
-/** A Confirm that treats a cancelled prompt (Ctrl-C / Esc) as "no". */
+/** A confirmation that treats a cancelled interaction (Ctrl-C / Esc) as "no". */
 async function confirmOrNo(
   message: string,
   defaultTo: boolean,
 ): Promise<boolean> {
   try {
-    return await confirmationPrompt(message, defaultTo);
+    return await requestConfirmation(message, defaultTo);
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return false;
   }
 }
@@ -280,7 +281,7 @@ export async function runDeskProjectScript(
  * makes the whole interactive surface scriptable while the CLI still calls the
  * same functions with the same options. */
 const DEFAULT_DESK_RUNTIME: DeskRuntime = {
-  canPrompt: () => canPrompt(false),
+  canInteract: () => canInteract(false),
   inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
   loadConfig: (root) => loadConfig(root),
@@ -289,10 +290,10 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   grantEffort: (path, branch) => grantEffort(path, branch),
   clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => makeOut(colorEnabled()),
-  error: (message) => console.error(message),
-  select: (options) => selectPrompt<string>(options),
+  error: (message) => deskLogger().error(message),
+  select: (options) => requestSelection<string>(options),
   confirm: (message, defaultTo) => confirmOrNo(message, defaultTo),
-  input: (message) => inputPrompt({ message }),
+  input: (options) => requestText(options),
   pause: (out) => awaitEnter(out),
   lifecycle: (root) => lifecycleContext(root, deskLogger()),
   accept: (ctx, opts) => accept(ctx, opts),
@@ -435,7 +436,7 @@ const DESK_ACTION_GROUPS: readonly {
 function actionGroups(
   row: DeskRow,
   config: DiscernConfig,
-): SelectPromptGroup<string>[] {
+): SelectionGroup<string>[] {
   return DESK_ACTION_GROUPS.map((group) => ({
     id: `actions-${group.id}`,
     label: group.label,
@@ -457,7 +458,7 @@ async function pickAgentLaunch(
   row: DeskRow,
   runtime: DeskRuntime,
 ): Promise<DeskAgentLaunch | undefined> {
-  const agentGroups: SelectPromptGroup<string>[] = [];
+  const agentGroups: SelectionGroup<string>[] = [];
   for (const launch of row.agentLaunches) {
     if (
       agentGroups.some((candidate) => candidate.id === `agent-${launch.agent}`)
@@ -475,7 +476,7 @@ async function pickAgentLaunch(
         })),
     });
   }
-  const options = groupedSelectOptions<string>([
+  const options = groupedSelectionEntries<string>([
     ...agentGroups,
     {
       id: "task-navigation",
@@ -491,7 +492,7 @@ async function pickAgentLaunch(
       hint: "Use the arrow keys to move and Enter to choose.",
     });
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return undefined;
   }
   return id === BACK
@@ -506,7 +507,7 @@ async function pickScript(
   navigationLabel: "Desk" | "Task",
   runtime: DeskRuntime,
 ): Promise<ProjectScript | undefined> {
-  const options = groupedSelectOptions<string>([
+  const options = groupedSelectionEntries<string>([
     {
       id: "project-scripts",
       label: "Project Scripts",
@@ -536,7 +537,7 @@ async function pickScript(
         : "Use the arrow keys to move and Enter to choose.",
     });
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return undefined;
   }
   return name === BACK
@@ -548,7 +549,9 @@ async function pickScript(
 const TIP_PREFIX = "  ✦ Tip  ";
 
 /** The desk header: project identity, the main checkout's state, the
- * otherwise-invisible unlanded branches, and the session's one tip line. */
+ * otherwise-invisible unlanded branches, and the session's one tip line.
+ * Returns the terminal rows it wrote, so the board menu can reserve them
+ * out of its viewport-derived row budget. */
 function renderHeader(
   out: Out,
   config: DiscernConfig,
@@ -557,7 +560,7 @@ function renderHeader(
   rows: readonly DeskRow[],
   tip: string | undefined,
   width: number,
-): void {
+): number {
   const project = config.project.slug === ""
     ? basename(root)
     : config.project.slug;
@@ -667,12 +670,20 @@ function renderHeader(
     { id: "reappeared-worktree-paths", items: reappearedLines },
   ], { leadingBoundary: true });
   if (rendered !== "") out.raw(`${rendered}\n`);
+  const headingRows = 2;
+  const renderedRows = rendered === ""
+    ? 0
+    : (rendered.match(/\n/g)?.length ?? 0) + 1;
+  return headingRows + renderedRows;
 }
 
-/** Offer the fleet as a grouped picker; resolves to a row path or a sentinel. */
+/** Offer the fleet as a grouped picker; resolves to a row path or a sentinel.
+ * `headerRows` is what the board header above this menu occupies, reserved out
+ * of the menu's viewport-derived row budget so the board stays visible. */
 async function pickRow(
   rows: DeskRow[],
   rootScripts: readonly ProjectScript[],
+  headerRows: number,
   runtime: DeskRuntime,
 ): Promise<string> {
   const bucketHeading = (bucket: DeskRow["bucket"], count: number): string =>
@@ -701,7 +712,7 @@ async function pickRow(
     0,
     ...[...labels.values()].map((v) => v.plain.length),
   );
-  const groups: SelectPromptGroup<string>[] = [];
+  const groups: SelectionGroup<string>[] = [];
   for (const bucket of DESK_BUCKETS) {
     const members = rows.filter((r) => r.bucket === bucket);
     if (members.length === 0) {
@@ -746,7 +757,7 @@ async function pickRow(
       { name: "Quit", value: QUIT },
     ],
   });
-  const options = groupedSelectOptions(groups);
+  const options = groupedSelectionEntries(groups);
   const search = rows.length > FILTER_THRESHOLD;
   try {
     return await runtime.select({
@@ -759,10 +770,10 @@ async function pickRow(
       hint: search
         ? "Type to filter. Use the arrow keys to move and Enter to choose."
         : "Use the arrow keys to move and Enter to choose.",
-      maxRows: 16,
+      reservedRows: headerRows,
     });
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     // Ctrl-C or end-of-input closes the Desk.
     return QUIT;
   }
@@ -808,7 +819,7 @@ async function openOnlineDocs(
   await runtime.pause(out);
 }
 
-/** Prompt for an optional task name and create it through the same core as
+/** Request an optional task name and create it through the same core as
  * `discern start`. Returns the new path so the next board pass can open its
  * action menu immediately. */
 async function startTask(
@@ -819,11 +830,12 @@ async function startTask(
 ): Promise<string | undefined> {
   let answer: string;
   try {
-    answer = await runtime.input(
-      "Task name (blank uses a codename)",
-    );
+    answer = await runtime.input({
+      message: "Task name (blank uses a codename)",
+      transform: (value) => value.trim(),
+    });
   } catch (error) {
-    if (!isPromptCancellation(error)) throw error;
+    if (!isInteractionCancelled(error)) throw error;
     return undefined;
   }
   const name = answer.trim();
@@ -865,7 +877,7 @@ async function dispatchAction(
       ) {
         return false;
       }
-      // The human just accepted the landing at this interactive prompt, so pass
+      // The human just accepted the landing in this interaction, so pass
       // the consent attestation in — the desk's confirm IS the acceptance, and
       // accept must not double-refuse for a consent it already collected (ADR 0134).
       await runtime.accept(ctx, { confirmed: true });
@@ -983,13 +995,17 @@ async function dispatchAction(
         out.warn(e.message);
         let typed: string;
         try {
-          typed = await runtime.input(
-            `Type the branch name (${row.entry.branch}) to discard it permanently — anything else cancels`,
-          );
+          typed = await runtime.input({
+            message:
+              `Type the branch name (${row.entry.branch}) to discard it permanently — anything else cancels`,
+            transform: (value) => value.trim(),
+          });
         } catch (error) {
-          if (!isPromptCancellation(error)) throw error;
+          if (!isInteractionCancelled(error)) throw error;
           typed = "";
         }
+        // A mismatch is the documented cancellation choice, not invalid input
+        // that should trap the operator in a validation retry.
         if (typed.trim() !== row.entry.branch) {
           out.info("Left untouched.");
           return false;
@@ -1115,6 +1131,10 @@ async function dispatchAction(
   }
 }
 
+/** Rows the action menu's own preamble occupies: the task heading (two rows)
+ * plus the summary and branch lines written directly below it. */
+const ACTION_MENU_PREAMBLE_ROWS = 4;
+
 /** The per-row action menu; loops until the row is left or the state changed. */
 async function actOn(
   out: Out,
@@ -1137,7 +1157,7 @@ async function actOn(
     }\n`,
   );
   while (true) {
-    const options = groupedSelectOptions<string>([
+    const options = groupedSelectionEntries<string>([
       ...actionGroups(row, config),
       {
         id: "task-navigation",
@@ -1151,9 +1171,10 @@ async function actOn(
         message: "Choose an action",
         options,
         hint: "Use the arrow keys to move and Enter to choose.",
+        reservedRows: ACTION_MENU_PREAMBLE_ROWS,
       });
     } catch (error) {
-      if (!isPromptCancellation(error)) throw error;
+      if (!isInteractionCancelled(error)) throw error;
       return;
     }
     if (action === BACK) {
@@ -1203,7 +1224,7 @@ export async function runDesk(
         message,
       });
     } else {
-      runtime.error(`discern: ${message}`);
+      runtime.error(message);
     }
     return 1;
   }
@@ -1217,7 +1238,7 @@ export async function runDesk(
     });
     return 1;
   }
-  if (!runtime.canPrompt()) {
+  if (!runtime.canInteract()) {
     runtime.error(
       "discern desk needs an interactive terminal (stdin and stdout TTYs) — in a pipe or script use `discern status`.",
     );
@@ -1225,7 +1246,7 @@ export async function runDesk(
   }
   const root = await runtime.findRoot();
   if (root === undefined) {
-    runtime.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    runtime.error(NO_PROJECT_MESSAGE);
     return 1;
   }
   const out = runtime.makeOut();
@@ -1316,14 +1337,22 @@ export async function runDesk(
       agentLaunchesByPath,
       runtime.now(),
     );
-    renderHeader(out, config, root, data, rows, tipLine, runtime.width());
+    const headerRows = renderHeader(
+      out,
+      config,
+      root,
+      data,
+      rows,
+      tipLine,
+      runtime.width(),
+    );
 
     const focused = focusPath === undefined
       ? undefined
       : rows.find((row) => row.entry.path === focusPath);
     focusPath = undefined;
     const choice = focused?.entry.path ??
-      await pickRow(rows, rootScripts, runtime);
+      await pickRow(rows, rootScripts, headerRows, runtime);
     if (choice === QUIT) {
       return 0;
     }

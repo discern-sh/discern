@@ -17,7 +17,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -39,8 +39,6 @@ import {
 } from "../src/engine/gate/proof.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import type { Proof } from "../src/shared/result_schemas.ts";
-
-const CSI = `${String.fromCharCode(27)}[`;
 
 /** Run the real admin-state preflight and expose its proven write capability to proof tests. */
 async function proofAuthority(
@@ -94,14 +92,10 @@ function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
 }
 
-/** Every successful acceptance path carries the same two-form landing record:
- * the page for a PR body and the system-rendered line an agent relays verbatim. */
+/** Every successful acceptance path carries the bounded line an agent relays. */
 // deno-lint-ignore no-explicit-any
 function assertLandingProofRelay(obj: any, branch: string): void {
-  assertStringIncludes(
-    obj.data.proof,
-    `### Proof — \`agent/${branch}\``,
-  );
+  assertEquals(obj.data.proof, undefined);
   assertEquals(typeof obj.data.proof_line, "string");
   assertStringIncludes(
     obj.data.proof_line,
@@ -111,7 +105,7 @@ function assertLandingProofRelay(obj: any, branch: string): void {
     obj,
     HINTS["accept-relay-landing-proof"],
   );
-  assertStringIncludes(relayHint, "data.proof_line");
+  assertStringIncludes(relayHint, "Proof line");
   assertStringIncludes(relayHint, "verbatim");
 }
 
@@ -372,7 +366,7 @@ Deno.test("accept: refuses an update that merges cleanly but breaks the gate (th
     // Accepting MUST refuse — the merged tree was never validated, and it fails the gate.
     const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 1, grad.output);
-    assertStringIncludes(grad.output, "does not pass");
+    assertTerminalTextIncludes(grad.output, "does not pass");
     // Non-destructive: the worktree survives and the branch's work never reached the trunk.
     assertEquals(
       await exists(wt),
@@ -402,7 +396,7 @@ Deno.test("accept: an update that still passes the gate lands normally", async (
     const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 0, grad.output);
     // The proof was stale (merge commit), so accept validated the merged tree itself…
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       grad.output,
       "Validating the branch against the full gate",
     );
@@ -438,27 +432,24 @@ Deno.test("accept TTY: a proofless validation shows the full gate moving live", 
     const validation = accepted.stdout.indexOf(
       "Validating the branch against the full gate",
     );
-    const initialTable = accepted.stdout.indexOf("Gate progress", validation);
-    const firstRedraw = accepted.stdout.indexOf(CSI, initialTable);
+    const initialFrame = accepted.stdout.indexOf("\x1b[?25l", validation);
+    const firstRedraw = accepted.stdout.indexOf("\x1b[1G", initialFrame);
+    const restored = accepted.stdout.indexOf("\x1b[?25h", firstRedraw);
     const passed = accepted.stdout.indexOf(
       "Gate passed against the tree to be landed",
     );
     assert(
-      validation >= 0 && initialTable > validation &&
-        firstRedraw > initialTable && passed > firstRedraw,
+      validation >= 0 && initialFrame > validation &&
+        firstRedraw > initialFrame && restored > firstRedraw &&
+        passed > restored,
       accepted.output,
     );
-    assertStringIncludes(
-      accepted.stdout.slice(initialTable, firstRedraw),
-      "pending",
-    );
-    assertStringIncludes(
-      accepted.stdout.slice(firstRedraw, passed),
-      "running",
-    );
-    assertStringIncludes(accepted.output, "format");
-    assertStringIncludes(accepted.output, "sleep 1");
-    assertStringIncludes(accepted.output, "passed in 1s");
+    const frame = accepted.stdout.slice(initialFrame, restored);
+    assertTerminalTextIncludes(frame, "format started");
+    assertTerminalTextIncludes(frame, "format passed");
+    assertTerminalTextIncludes(frame, "test started");
+    assertTerminalTextIncludes(frame, "test passed");
+    assertEquals(frame.includes("Gate progress"), false);
   });
 });
 
@@ -524,7 +515,7 @@ Deno.test("accept: a legacy proof cannot bypass tracked refresh convergence", as
 
     assertEquals(accepted.code, 1, accepted.output);
     assertStringIncludes(accepted.output, ".mcp.json");
-    assertStringIncludes(accepted.output, "discern refresh");
+    assertTerminalTextIncludes(accepted.output, "discern refresh");
     assertEquals(await exists(wt), true, "the refused worktree must survive");
     assertEquals(
       await exists(join(dir, "feature.txt")),
@@ -583,7 +574,7 @@ Deno.test("accept: refuses to land a commit that appeared while its validation g
     // at the branch tip is not the tree the gate read.
     const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 1, grad.output);
-    assertStringIncludes(grad.output, "moved while this acceptance");
+    assertTerminalTextIncludes(grad.output, "moved while this acceptance");
     // Non-destructive: the worktree survives and nothing reached the trunk.
     assertEquals(
       await exists(wt),
@@ -617,7 +608,7 @@ Deno.test("accept: a commit made after `done` invalidates the proof (gate re-run
 
     const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 0, grad.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       grad.output,
       "Validating the branch against the full gate",
     );

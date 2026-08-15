@@ -18,13 +18,14 @@ import {
   notInitializedResult,
   scriptEnvVars,
 } from "../shared/env.ts";
+import { Logger } from "../lib/log.ts";
+import { reportFailure } from "../lib/narration.ts";
 import { resolveScriptsDir } from "../lib/paths.ts";
+import { renderAlignedRows } from "../lib/text.ts";
+import { terminalLine } from "../lib/terminal.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
-import {
-  type DiscernResult,
-  renderHumanOutputGroups,
-} from "../shared/result.ts";
+import type { DiscernResult } from "../shared/result.ts";
 import type { ScriptsData } from "../shared/result_schemas.ts";
 
 /** One executable Project Script surfaced by discovery. */
@@ -160,17 +161,20 @@ export async function runProjectScriptAt(
       });
       return 0;
     }
-    console.log(`Project scripts (from ${directory.rel}):`);
+    const log = new Logger({ json: false, noColor: false });
+    log.line(`Project scripts (from ${terminalLine(directory.rel)}):`);
     if (entries.length === 0) {
-      console.log("  No executable scripts found.");
+      log.line("  No executable scripts found.");
       return 0;
     }
-    for (const entry of entries) {
-      const suffix = entry.description === undefined
-        ? ""
-        : ` ${entry.description}`;
-      console.log(`  ${entry.name.padEnd(20)}${suffix}`);
-    }
+    for (
+      const row of renderAlignedRows(entries.map((entry) => ({
+        label: terminalLine(entry.name),
+        body: entry.description === undefined
+          ? ""
+          : terminalLine(entry.description),
+      })))
+    ) log.line(row);
     return 0;
   }
 
@@ -201,18 +205,11 @@ export async function runProjectScriptAt(
   }
 
   if (await pathExists(scriptFile)) {
-    console.error(renderHumanOutputGroups([
-      {
-        id: "failure",
-        items: [
-          `discern: script "${name}" exists but is not executable: ${scriptFile}`,
-        ],
-      },
-      {
-        id: "recovery",
-        items: [`       Run: chmod +x "${scriptFile}"`],
-      },
-    ]));
+    reportFailure(
+      new Logger({ json: false, noColor: false }),
+      `script "${name}" exists but is not executable: ${scriptFile}`,
+      [`Run: chmod +x "${scriptFile}"`],
+    );
     return 1;
   }
 
@@ -231,7 +228,7 @@ export async function runProjectScript(
     if (opts.json ?? false) {
       emitResult(notInitializedResult("scripts"));
     } else {
-      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+      new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }
     return 1;
   }

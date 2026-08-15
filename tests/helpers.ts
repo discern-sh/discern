@@ -4,9 +4,14 @@
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
+import { assertStringIncludes } from "@std/assert";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import type { TokenMap } from "../src/lib/template.ts";
 import type { EnvReader } from "../src/shared/env.ts";
+import {
+  resolveTerminalContext,
+  type TerminalContext,
+} from "../src/lib/terminal.ts";
 
 /** Absolute path to the synthetic fixture templates tree. */
 export const FIXTURE_TEMPLATES = join(
@@ -55,6 +60,20 @@ export interface CliResult {
   code: number;
   stdout: string;
   stderr: string;
+}
+
+/**
+ * Assert semantic terminal content independently of presenter-owned wrapping.
+ * Narration may soft-wrap prose or hard-break a long path at the bound width;
+ * exact layout belongs in renderer tests and reviewed terminal captures.
+ */
+export function assertTerminalTextIncludes(
+  actual: string,
+  expected: string,
+  message?: string,
+): void {
+  const content = (value: string): string => value.replaceAll(/\s+/gu, "");
+  assertStringIncludes(content(actual), content(expected), message);
 }
 
 /**
@@ -226,4 +245,20 @@ export function fakeEnv(
   vars: Record<string, string | undefined> = {},
 ): EnvReader {
   return { get: (key: string): string | undefined => vars[key] };
+}
+
+/**
+ * A deterministic terminal context for human-mode test Loggers: UTF-8 capable,
+ * colour off, non-TTY. Injecting it pins glyph capability to the test instead
+ * of the ambient locale of whatever shell runs the suite — a locale-less shell
+ * (an agent harness, bare CI) would otherwise degrade decoration to ASCII and
+ * fail every assertion written against the Unicode glyphs.
+ */
+export function pinnedTerminal(): TerminalContext {
+  return resolveTerminalContext({
+    noColor: true,
+    env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+    isTerminal: () => false,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  });
 }

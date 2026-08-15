@@ -16,6 +16,7 @@ export interface TerminalPainterPort {
   readonly write: (value: string) => void;
   readonly size: () => TerminalSize;
   readonly capabilities: () => TerminalCapabilities;
+  readonly interactive?: () => boolean;
 }
 
 /** Adapt Discern's explicit port to the package interaction contract. */
@@ -23,7 +24,7 @@ class PainterTerminalIO implements TerminalIO {
   constructor(private readonly port: TerminalPainterPort) {}
 
   isInteractive(): boolean {
-    return true;
+    return this.port.interactive?.() ?? true;
   }
 
   capabilities(): TerminalCapabilities {
@@ -45,11 +46,16 @@ class PainterTerminalIO implements TerminalIO {
   }
 }
 
+/** Construct the shared package TerminalIO adapter for an interactive bracket. */
+export function createTerminalIO(port: TerminalPainterPort): TerminalIO {
+  return new PainterTerminalIO(port);
+}
+
 /** Construct the package painter behind Discern's single terminal IO adapter. */
 export function createInlineFramePainter(
   port: TerminalPainterPort,
 ): InlineFramePainter {
-  return new InlineFramePainter(new PainterTerminalIO(port));
+  return new InlineFramePainter(createTerminalIO(port));
 }
 
 export type { InlineFramePainter };

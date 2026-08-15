@@ -1,11 +1,11 @@
 /**
  * `discern mcp` — expose the verbs to an agent over the Model Context Protocol.
  *
- * This is the THIRD rendering of the one result spine (ADR 0028): where the CLI
- * prints a {@link DiscernResult} as human text or `--json`, the MCP server returns
- * the SAME object as a tool result. Because every verb already computes a
- * DiscernResult, the server is `serializeResult` over stdio — a renderer, not a
- * reimplementation. New tools are a few lines each as their result-returning core
+ * This is the MCP rendering of the one result spine (ADR 0028): the server
+ * returns compact structured data plus an authored Markdown projection of the
+ * same prepared {@link DiscernResult}. Because every verb already computes a
+ * DiscernResult, the server presents that result over stdio instead of
+ * reimplementing the verb. New tools stay small as their result-returning core
  * is factored out.
  *
  * The wire is the official MCP TypeScript SDK (`@modelcontextprotocol/sdk`) over
@@ -17,8 +17,8 @@
  * that off needlessly.
  *
  * Transport: the MCP stdio convention — stdout carries ONLY protocol messages;
- * every verb routes its human narration to stderr (json semantics), so the channel
- * stays clean (the ADR 0030 `--json` purity rule, here over MCP).
+ * every verb routes its human narration to stderr (quiet result semantics), so
+ * the channel stays clean (the ADR 0030 purity rule, here over MCP).
  */
 
 import {
@@ -36,6 +36,9 @@ import {
 } from "../../shared/env.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { serializeResult } from "../../shared/result_serialization.ts";
+import { resultPresenterForVerb } from "../../shared/result_contracts.ts";
+import { renderResultMarkdown } from "../../shared/result_markdown.ts";
+import { projectStatusData } from "../../shared/result_wire.ts";
 import {
   observeResult,
   takeObservedResult,
@@ -384,55 +387,25 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: StatusOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "Start here: call discern_status to report what is true right now and what " +
-      "to do next — pure observation, never runs the gate (the project's full " +
-      "quality check), tests, or standards (quality numbers that can never get " +
-      "worse), and never touches anything. data.location is " +
-      '"worktree" (a separate checkout and branch for one effort) or "main"; ' +
-      "data.project names the configured project; " +
-      "data.git carries branch, Git-clean state, changed-files, and ahead/behind the trunk " +
-      "(`{{main_branch}}`), the shared landing branch — and, when " +
-      "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
-      "`{{main_branch}}` also changed (the hot zone to re-read on updating, since a " +
-      "clean merge can still break them); data.gate " +
-      "lists what the gate WOULD fire (declared jobs and triggered scope " +
-      "gates); data.gate_proof reports whether the proof is honored, missing, " +
-      "stale, dirty, unavailable, or read_failed (when honored, data.gate_proof.proof_line " +
-      "carries the one-line proof you copy verbatim to end your report at the review moment — " +
-      "data.gate_proof.proof is the full page, for your owner to read, never to paste " +
-      "into a message); data.landing_authority is present when a recorded standing " +
-      "or effort grant exists, resolving the exact tree as authorized or naming " +
-      "the uncovered paths that still need conversation consent; " +
-      "data.worktree carries this worktree's id/port/db and provisioned " +
-      "resources; data.standards lists the configured quality standards — numbers " +
-      "that can never get worse. " +
-      "data.stale_generated flags agent files, data.stale_materialized " +
-      "the materialized skills, data.stale_integrations provider integration " +
-      "files, and data.stale_adr_index the maintained ADR index, " +
-      "that have drifted from their sources (call " +
-      "discern_refresh for any of them); data.setup_unfinished is present while the project's " +
-      "one-time setup is still incomplete. From the " +
-      "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
-      "Git-clean state, ahead/behind, last_action naming the newest completed " +
-      "logbook verb, running naming fresh work in flight with elapsed and typical " +
-      "duration, and last_activity taking the later of Git or logbook activity; " +
-      "is_current marks the row this call is rooted in, and broken flags a checkout whose creation never " +
-      "completed; each readable worktree row carries its complete gate_proof check " +
-      "and its landing_authority when a grant exists — " +
-      "every other row is a separate line of work, not a " +
-      "workspace to claim, and a clean tree never means one is free); " +
-      "data.unlanded_branches lists branches holding unlanded work with no " +
-      "worktree; data.fleet_collisions lists pairs of fleet branches whose " +
-      "changes touch the same files — both may merge cleanly and still " +
-      "conflict semantically, so whoever lands second updates with extra " +
-      "care. data.reappeared_worktree_paths lists paths discern previously " +
-      "removed that are present again, with bounded contents and any " +
-      "cleanup_blocked_reason; review them through the read-only " +
-      "`discern worktree prune --dry-run` plan before confirmed cleanup. Set all=true " +
-      "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
-      "advisory next-steps (e.g. run discern_done, ready for owner review, or — when on " +
-      "the trunk — run discern_start to begin in your own isolated worktree) — never " +
-      "an unverified pass/fail.",
+      "Start here: call discern_status. It is a read-only account of current project, Git, " +
+      "worktree, and fleet state; it runs no gate, tests, standards, or setup " +
+      'effects. data.location is "main" or "worktree", data.project identifies the ' +
+      "project, and data.git carries cleanliness, changed-file count, trunk " +
+      "divergence, and incoming_overlap when both sides changed the same paths. " +
+      "data.gate lists checks that would run. data.gate_proof carries its inspection " +
+      "status and, when honored, compact Proof facts plus the report line; retrieve " +
+      "the full review page with `discern status --verbose`. data.worktree carries " +
+      "identity and resources. Results from the main checkout add data.fleet with one row per " +
+      "worktree, activity, compact gate_proof, and any landing_authority. Treat every " +
+      "other row as somebody's separate effort even when clean. Fleet collisions, " +
+      "unlanded branches, and reappeared_worktree_paths remain explicit evidence. " +
+      "data.stale_generated, stale_materialized, stale_integrations, and " +
+      "stale_adr_index identify drift repaired by discern_refresh; " +
+      "data.setup_unfinished marks incomplete " +
+      "setup. landing_authority states whether recorded permission covers the exact " +
+      "tree or conversation consent is still required. Set all=true to include the " +
+      "fleet from a worktree, or local=true to suppress it. Follow hints[] for the " +
+      "next valid action; they never claim an unverified pass.",
     inputSchema: {
       all: z.boolean().optional().describe(
         "Include the fleet survey even from a worktree (default false).",
@@ -481,8 +454,8 @@ export const TOOLS: McpTool[] = orderTools([
       "landing is reported to the owner in your own words and ends with " +
       "data.proof.line verbatim before you wait; a covered landing names the " +
       "verified source and routes straight to discern_accept. Never paste " +
-      "the full page (data.proof.markdown) into a message — your owner pulls it from " +
-      "discern directly. Set dry_run to preview the plan without " +
+      "the full Proof page into a message; your owner retrieves it with " +
+      "`discern status --verbose`. Set dry_run to preview the plan without " +
       "running anything.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
@@ -913,7 +886,7 @@ export const TOOLS: McpTool[] = orderTools([
       "run it rather than reproducing the steps with git; commit the work with a real " +
       "message first so it lands as a proper review commit. After a green landing, " +
       "report it in your own words and end with data.proof_line verbatim; " +
-      "data.proof is the full landing record, pasteable into a PR body. " +
+      "the full review page remains available through `discern status --verbose`. " +
       "Requires this branch already contains the latest `{{main_branch}}`, this worktree " +
       "is clean, and the main checkout is clean and sitting on `{{main_branch}}` " +
       '— refuses (error:"precondition_failed") otherwise, naming the exact next ' +
@@ -1286,19 +1259,25 @@ export function verbOf(toolName: string): string {
   return toolName.replace(/^discern_/, "").replace(/_/g, "-");
 }
 
-/** One MCP tool result: the serialized DiscernResult mirrored across the text and
- * structured channels, with `isError` reflecting the verb's `ok`. */
+/** One MCP tool result: independently sufficient text and structured projections,
+ * with `isError` reflecting the verb's `ok`. */
 interface ToolResult {
   content: { type: "text"; text: string }[];
   structuredContent: Record<string, unknown>;
   isError: boolean;
 }
 
-/** Render a DiscernResult as an MCP tool result (text + structured, isError on !ok). */
+/** Render one prepared result as authored Markdown plus compact structured data. */
 function renderResult(result: DiscernResult): ToolResult {
   const serialized = serializeResult(result);
   return {
-    content: [{ type: "text", text: JSON.stringify(serialized, null, 2) }],
+    content: [{
+      type: "text",
+      text: renderResultMarkdown(
+        serialized,
+        resultPresenterForVerb(result.verb),
+      ),
+    }],
     structuredContent: serialized,
     isError: !result.ok,
   };
@@ -1911,7 +1890,9 @@ function registerResources(
       resourceText(
         uri,
         JSON_MIME,
-        asJson((await statusResult(currentRoot())).data),
+        asJson(
+          projectStatusData((await statusResult(currentRoot())).data ?? {}),
+        ),
       ),
   );
 

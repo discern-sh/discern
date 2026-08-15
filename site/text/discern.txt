@@ -15,6 +15,7 @@ You are reading the machine edition of https://discern.sh, following the llms.tx
 - Work: `discern start` creates an isolated worktree with its own branch, identity, environment values, and declared resources; iterate with `discern prepare` and `discern test`.
 - Prove: commit, then run `discern done` on the clean tree. Green on a clean HEAD is the Proof: evidence bound to the exact committed change. A later commit invalidates it.
 - Accept: passing makes a change eligible for a decision; it does not decide what ships. `discern accept` lands only with fresh consent or a recorded grant, checked against the final changed paths.
+- Retain: what a task teaches is written into the project — guidance, decisions, and reusable methods the next session starts from.
 - Improve: Standards hold measured quality numbers at limits that may only improve, and `discern standards --pin` captures a gain as the new limit; `discern patterns` reads the local Logbook and reports how the practice is behaving.
 
 **Canonical concepts** (one definition per term in the glossary, linked below):

@@ -13,17 +13,19 @@ aliases:
 
 _Bare `discern` starts new work and opens the human view over work in progress (the Desk)._
 
-Agents use Model Context Protocol (MCP) tools and JSON results to operate their own worktree. A person starting or supervising several changes can use a single [fleet](../00-orientation/glossary.md#fleet) view. Run `discern` with no verb, or `discern desk`, from the main checkout to open the interactive picker ([ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md), [ADR 0151](../_adr/0151-the-desk-starts-tasks-and-opens-agents.md)).
+Individual worktree operations are available through Model Context Protocol (MCP) tools and JSON or Markdown CLI results. The desk gives a person starting or supervising several changes one interactive [fleet](../00-orientation/glossary.md#fleet) view. Run `discern` with no verb, or `discern desk`, from the main checkout to open it ([ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md), [ADR 0151](../_adr/0151-the-desk-starts-tasks-and-opens-agents.md)).
 
 ## Start a task
 
-The root menu keeps project actions under **Desk** and refresh or quit under **Session**. `Start a task` is always present. `Run a Project Script` appears when the main checkout has executable Project Scripts. `Read discern's docs` opens [discern.sh/docs](https://discern.sh/docs) in the system browser.
+The root menu groups project actions under **Desk** and refresh or quit under **Session**. It always includes `Start a task`, adds `Run a Project Script` when configured, and opens [discern.sh/docs](https://discern.sh/docs) from `Read discern's docs`.
 
-`Start a task` asks for an optional name and runs the same lifecycle core as `discern start`. discern normalizes a supplied name into the worktree id and branch. A blank answer uses a random codename. It creates and sets up the worktree before the Desk continues.
+Menus pass each header or preamble reservation and live-height choice ceiling to the package, whose fitter measures the remaining frame.
 
-After creation, the desk opens the new row's action menu immediately. Open its shell or a configured coding agent without finding and selecting the new branch first.
+`Start a task` passes an optional name to `discern start`: a value becomes the worktree id and branch; blank draws a random codename. The Desk continues after setup.
 
-`Refresh` runs a new status survey, including a new `git worktree list`. A worktree created outside the Desk appears on the next root menu.
+After creation, the desk opens the new row's action menu immediately; its shell and configured coding agents are one selection away.
+
+`Refresh` runs a new status survey, `git worktree list` included; a worktree created outside the Desk appears on the next root menu.
 
 ## Read the decision order
 
@@ -37,7 +39,7 @@ The Desk builds its rows from `discern status` and the recorded Gate Proofs. It 
 
 Every task group, including the first, has a ruled label; **Desk** and **Session** have their own. Within groups, recent worktrees appear first.
 
-The root heading is `◮ discern | <project>`. The main status and tip sit together below it, with no blank row between them. The `Tip` label is yellow; its text stays secondary and wraps at the terminal width. Unlanded branches, reclaimed stages, and removed worktree paths that exist again follow as separate groups when present. The reappearance notice points to `discern worktree prune --dry-run`; cleanup stays in the confirmed prune flow. [Desk tips](desk-tips.md) covers selection, seen-state, and the Logbook record.
+The root heading is `◮ discern | <project>`. The main status and tip sit directly below it. The `Tip` label is yellow; its text stays secondary and wraps at the terminal width. Unlanded branches, reclaimed stages, and removed worktree paths that exist again follow as separate groups when present. The reappearance notice points to `discern worktree prune --dry-run`; cleanup stays in the confirmed prune flow. [Desk tips](desk-tips.md) covers selection, seen-state, and the Logbook record.
 
 Each row starts with the task name supplied to `discern start`. The state puts the next action or problem first, followed by the relevant Git counts and last activity. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
 

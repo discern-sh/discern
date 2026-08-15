@@ -23,7 +23,7 @@ import { Logger } from "../src/lib/log.ts";
 import type { OpDisposition, Plan, PlanOp } from "../src/lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../src/lib/plan_view.ts";
 import { displayWidth } from "../src/lib/text.ts";
-import { runCli, withTempDir } from "./helpers.ts";
+import { pinnedTerminal, runCli, withTempDir } from "./helpers.ts";
 
 /** Capture everything written to console.error / console.log while `fn` runs. */
 async function capture(
@@ -48,9 +48,10 @@ async function capture(
   return { err, out };
 }
 
-/** A logger with colour forced off, so `bold`/`dim` are identity. */
+/** A logger with colour forced off, so `bold`/`dim` are identity, and a
+ * pinned terminal context so nothing floats with the ambient locale. */
 function plainLogger(): Logger {
-  return new Logger({ json: false, noColor: true });
+  return new Logger({ json: false, noColor: true, terminal: pinnedTerminal() });
 }
 
 /** Build a synthetic `write` PlanOp at `targetRel` with the given disposition. */
@@ -90,7 +91,9 @@ Deno.test("renderPlan writes the heading to stderr and one padded row per op to 
   const { err, out } = await capture(() =>
     renderPlan(plainLogger(), p, "Dry run — would write:")
   );
-  assertEquals(err, ["\nDry run — would write:"]);
+  // The sink owns the heading's leading blank: a separate line write with
+  // the same physical bytes.
+  assertEquals(err, ["", "Dry run — would write:"]);
   assertEquals(out.length, 2);
   const [row0, row1] = out;
   assertExists(row0);
@@ -130,7 +133,7 @@ Deno.test("renderPlan on an empty plan prints only the heading, no rows", async 
   const { err, out } = await capture(() =>
     renderPlan(plainLogger(), plan([]), "Nothing to do")
   );
-  assertEquals(err, ["\nNothing to do"]);
+  assertEquals(err, ["", "Nothing to do"]);
   assertEquals(out, []);
 });
 
@@ -138,8 +141,8 @@ Deno.test("renderPlan makes a caller-supplied heading inert", async () => {
   const { err } = await capture(() =>
     renderPlan(plainLogger(), plan([]), "preset\x1b[31m\nname")
   );
-  assertEquals(err, ["\npreset␛[31m␊name"]);
-  assertEquals(err[0]?.includes("\x1b"), false);
+  assertEquals(err, ["", "preset␛[31m␊name"]);
+  assertEquals(err[1]?.includes("\x1b"), false);
 });
 
 // ---------------------------------------------------------------------------

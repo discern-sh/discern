@@ -27,10 +27,10 @@ import {
 import { type Logger, loggerSink } from "../../lib/log.ts";
 import { adrIndexState } from "../../lib/adr_index.ts";
 import {
-  canPrompt,
-  confirmProceed,
+  canInteract,
+  confirmDestructiveAction,
   plainModeEnabled,
-} from "../../lib/prompts.ts";
+} from "../../lib/terminal_interaction.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
@@ -61,7 +61,11 @@ import {
   planStageJobs,
   serializeJobSteps,
 } from "../gate/plan.ts";
-import { gateRunContext, runJobGroups } from "../gate/execute.ts";
+import {
+  gateRunContext,
+  resolveGateRunPolicy,
+  runJobGroups,
+} from "../gate/execute.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import {
@@ -272,11 +276,11 @@ export async function lifecycleContext(
   return { root, config: await loadConfig(root), log, cwd };
 }
 
-/** Flags shared by every effectful worktree verb: preview-only and machine output. */
+/** Flags shared by every effectful worktree verb: preview and quiet result output. */
 export interface WorktreeOpOptions {
   /** Show the plan and touch nothing. */
   dryRun?: boolean;
-  /** Emit a machine-readable (plan, results) object on stdout. */
+  /** Emit one structured result on stdout. */
   json?: boolean;
   /** Render the human apply summary (internal protocol callers may reserve stdout). */
   humanApplySummary?: boolean;
@@ -1992,7 +1996,10 @@ async function runLandingSmoke(
   // JSON envelope), while serializeJobSteps retains failure output as structured
   // diagnostics exactly as the normal gate does. The smoke group is a
   // test-stage run, so the fleet test-run cap counts it like any other.
-  const { runOpts, out, slots } = gateRunContext(mainRepo, config, true);
+  const policy = resolveGateRunPolicy(config.gate.stream, {
+    kind: "quiet-result",
+  });
+  const { runOpts, out, slots } = gateRunContext(mainRepo, config, policy);
   const { results, failedStage } = await runJobGroups(
     [group],
     runOpts,
@@ -3338,7 +3345,10 @@ async function runUpdateGeneratedGroups(
   }
   ctx.log.info("Regenerating declared artifacts...");
   try {
-    const context = gateRunContext(ctx.root, ctx.config, true);
+    const policy = resolveGateRunPolicy(ctx.config.gate.stream, {
+      kind: "quiet-result",
+    });
+    const context = gateRunContext(ctx.root, ctx.config, policy);
     const run = await runJobGroups(
       [group],
       { ...context.runOpts, failFast: false },
@@ -4419,11 +4429,11 @@ async function realPathOrLifecycle(raw: string, cwd: string): Promise<string> {
 
 /** Options for {@link worktreePrune}. */
 export interface WorktreePruneOptions {
-  /** Proceed without prompting for the destructive prune candidate list. */
+  /** Proceed without requesting confirmation for the destructive prune candidates. */
   assumeYes?: boolean;
   /** Report what would be removed/reclaimed without acting. */
   dryRun?: boolean;
-  /** Emit a machine-readable (plan, results) object on stdout. */
+  /** Emit one structured result on stdout. */
   json?: boolean;
   /** The explicit opt-in to reclaim CONTAINED worktrees — checkouts whose
    * committed work is fully contained in another live branch. Off, the group
@@ -4559,7 +4569,7 @@ export async function worktreePrune(
   if (!prunePlanIsEmpty(plan) && !(opts.assumeYes ?? false)) {
     const message =
       "Confirmation required for `discern worktree prune`; review the candidates and re-run with `--yes`.";
-    if (!canPrompt(false)) {
+    if (!canInteract(false)) {
       if (!json) {
         renderPlan(loggerSink(ctx.log), enginePlan);
       }
@@ -4572,7 +4582,31 @@ export async function worktreePrune(
       });
     }
     renderPlan(loggerSink(ctx.log), enginePlan);
-    if (!(await confirmProceed("Remove the prune candidates above?", false))) {
+    const runCount = enginePlan.steps.filter((step) =>
+      step.disposition === "run"
+    ).length;
+    if (
+      !(await confirmDestructiveAction(
+        {
+          label: "Remove prune candidates",
+          scope: `${runCount} candidate${
+            runCount === 1 ? "" : "s"
+          } in ${ctx.root}`,
+          impact:
+            "Candidates marked run in the reviewed plan will be removed; skipped entries stay.",
+          recovery:
+            "Git-tracked work can be recovered from Git; untracked files and external resources may have no automatic recovery.",
+          authority: "Repository owner after reviewing the candidate plan",
+          continuation: "Remove the prune candidates above?",
+        },
+        {
+          yes: false,
+          json,
+          terminal: ctx.log.terminal,
+          present: (frame: string): void => ctx.log.humanLine(frame),
+        },
+      ))
+    ) {
       throw new WorktreeGitError(
         "Pruning was cancelled, so nothing was removed. Re-run when you are ready, " +
           "or pass `--yes` after reviewing the plan.",
@@ -4680,7 +4714,7 @@ interface ContainedReclaimResult {
  *
  * Apply re-validates EACH candidate against live state immediately before
  * acting on it (the same per-candidate discipline as the stale-worktree
- * removal's re-check): the plan waited at a confirmation prompt, and every
+ * removal's re-check): the plan waited at a confirmation interaction, and every
  * earlier candidate's resource teardown buys time for an agent to re-enter a
  * later one. A candidate that fails the predicate by its turn — new commits,
  * a dirty tree, fresh activity, a different containing branch than the one
@@ -4859,7 +4893,7 @@ function pruneResults(
   });
   // The contained group is always REPORTED: reclaimed rows under the opt-in,
   // and every kept row as an explicit skip — the offer stays visible in the
-  // machine result exactly as it does in the human output.
+  // structured result exactly as it does in the terminal presentation.
   const contained: StepResult[] = plan.reclaimContained
     ? [
       ...reclaim.reclaimed.map((c) =>

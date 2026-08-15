@@ -42,7 +42,7 @@ This group is separate from the static catalogue. It changes no category score, 
 
 ## How the next action is chosen
 
-Objective gaps lead. The coach chooses the fix that recovers the most weighted score; catalog order breaks a tie. Once every deterministic rule passes, the first applicable qualitative review becomes the recommendation. The review's question, source, excerpt, and teaching travel together on human, JSON, and MCP surfaces.
+Objective gaps lead. The coach chooses the fix that recovers the most weighted score; catalog order breaks a tie. Once every deterministic rule passes, the first applicable qualitative review becomes the recommendation. The review's question, source, excerpt, and teaching travel together through terminal, JSON, Markdown, and MCP presentations.
 
 ## Categories
 

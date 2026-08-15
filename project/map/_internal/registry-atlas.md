@@ -17,7 +17,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 22      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
-| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 36      | —                | —                           |
+| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 38      | —                | —                           |
 | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)       | `src/shared/experimental.ts#EXPERIMENTAL_ENVIRONMENT_VARIABLES`                   | 1       | —                | —                           |
 | [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 9       | —                | —                           |
 | [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `cli-help`             |
@@ -39,7 +39,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
 | [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 13      | —                | —                           |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
-| [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 11      | —                | —                           |
+| [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 12      | —                | —                           |
 | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
 | [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 17      | —                | —                           |
 | [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                  | `scripts/brand/claims.ts#CLAIMS`                                                  | 20      | —                | —                           |
@@ -64,9 +64,10 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 35      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 40      | —                | node `glossary-canon`       |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 41      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 128     | —                | —                           |
 | [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 44      | —                | —                           |
+| [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 44      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
@@ -78,7 +79,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 269     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 274     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 22      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -91,9 +92,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 80      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 81      | —                | node `canonical-sets`       |
 
-80 sets · 125 guard tests · 53 committed artifacts.
+81 sets · 126 guard tests · 55 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -200,6 +201,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/paths_sentinel_render_test.ts`              | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/paths_write_surface_test.ts`                | [`source-paths`](#source-paths--source-paths), [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                           |
 | `tests/patterns_test.ts`                           | [`hints`](#hints--hints), [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                           |
+| `tests/practice_canon_enrolment_test.ts`           | [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/providers_test.ts`                          | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/public_doc_parity_test.ts`                  | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/public_schema_compatibility_guard_test.ts`  | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                    |
@@ -247,6 +249,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `.vale/DiscernProduct/ProductName.yml`                     | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
 | `THIRD_PARTY_NOTICES`                                      | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          |
 | `project/map/00-orientation/glossary.md`                   | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                               |
+| `project/map/00-orientation/the-practice.md`               | generated file   | [`practice-tenets`](#practice-tenets--practice-canon)                                                             |
 | `project/map/70-reference/artifact-ownership.md`           | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      |
 | `project/map/70-reference/cli-reference.md`                | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                                |
 | `project/map/70-reference/config-reference.md`             | generated file   | [`config-tables`](#config-tables--config-tables)                                                                  |
@@ -267,6 +270,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `project/map/_internal/feature-canon-plain.md`             | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                                  |
 | `project/map/_internal/feature-canon.md`                   | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                                  |
 | `project/map/_internal/hint-inventory.md`                  | generated file   | [`hints`](#hints--hints)                                                                                          |
+| `project/map/_internal/practice-canon.md`                  | generated file   | [`practice-tenets`](#practice-tenets--practice-canon)                                                             |
 | `project/map/_internal/registry-atlas.md`                  | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                               |
 | `project/map/_internal/tip-inventory.md`                   | generated file   | [`tips`](#tips--tips)                                                                                             |
 | `project/map/_internal/voice-enforcement-coverage.md`      | generated file   | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                          |
@@ -426,7 +430,7 @@ The lifecycle sequence that leads schema-deferred clients through status, Worktr
 Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.
 
 - Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`
-- Members: 36
+- Members: 38
   - `DISCERN_REPO`
   - `DISCERN_VERSION`
   - `DISCERN_BIN_DIR`
@@ -444,6 +448,7 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_RESOURCE_<NAME>`
   - `DISCERN_EXPERIMENTAL_MCP_PRELOAD`
   - `DISCERN_CRASH_PROBE`
+  - `DISCERN_INTERACTION_TRACE`
   - `DISCERN_HOME`
   - `DISCERN_PRESETS_DIR`
   - `DISCERN_TEMPLATES_DIR`
@@ -451,6 +456,7 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_GATE_TEST_REPORTER`
   - `DISCERN_DESK_SESSION`
   - `DISCERN_TEST_SLOT`
+  - `DISCERN_SPAWNED_BY`
   - `DISCERN_SETUP_DENO`
   - `DISCERN_SETUP_CONFIG`
   - `DISCERN_SETUP_MAIN`
@@ -861,7 +867,7 @@ The agent providers discern writes files for, each with a compact mark and horiz
 The classified behavior dimensions of the researched coding agents. The operational-internal cross-agent reference compiles from typed cells that require every dimension to cover every researched agent.
 
 - Source: `scripts/cross_agent_registry.ts` — `BEHAVIOUR_DIMENSIONS`
-- Members: 11
+- Members: 12
   - `pre-exec-interception`
   - `input-rewriting`
   - `native-sandbox`
@@ -872,6 +878,7 @@ The classified behavior dimensions of the researched coding agents. The operatio
   - `integration-surfaces`
   - `committable-config`
   - `mcp-schema-discovery`
+  - `mcp-result-channel-delivery`
   - `mcp-call-duration`
 - Guards: `tests/cross_agent_reference_codegen_test.ts`
 - Artifacts: `project/map/_internal/cross-agent-behaviour-reference.md`
@@ -1584,7 +1591,7 @@ The improvement catalog's categories, in display order. The runner ranks them we
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans. Each entry also carries the term's plain-register rendering, so the vocabulary and its plain translation are one record.
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
-- Members: 40
+- Members: 41
   - `Accept`
   - `Advisory`
   - `discern version`
@@ -1609,6 +1616,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Namespace`
   - `Patterns`
   - `Placement is consent`
+  - `Practice`
   - `Preset`
   - `Project script`
   - `Proof`
@@ -1823,6 +1831,29 @@ The commercially ordered transposition of the feature registry: human value and 
 - Artifacts: `project/map/_internal/feature-canon-benefits.md`
 - Glossary: not enrolled — this maintainer registry supplies the benefit canon's data
 - Feature canon: not enrolled — the benefit canon is the feature canon's own transposition; its entries cite feature nodes rather than claim surfaces
+
+## `practice-tenets` — Practice canon
+
+The practice registry behind the practice canon: the obligations upheld by enforcement, automation, and teaching, each tenet citing its feature-canon mechanisms, its benefit-canon yields, and the project-inventory items it maintains.
+
+- Source: `scripts/practice_registry.ts` — `PRACTICE_CANON`
+- Members: 12
+  - `arrive-knowing`
+  - `one-task-one-place`
+  - `hand-over-whole-pieces`
+  - `done-is-deterministic`
+  - `only-better`
+  - `proof-binds-to-the-change`
+  - `you-decide-what-lands`
+  - `the-project-remembers`
+  - `cure-the-class`
+  - `write-it-once`
+  - `no-dead-ends`
+  - `plan-then-apply`
+- Guards: `tests/practice_canon_enrolment_test.ts`
+- Artifacts: `project/map/_internal/practice-canon.md`, `project/map/00-orientation/the-practice.md`
+- Glossary: the "Practice" entry carries the concept
+- Feature canon: not enrolled — the tenets are obligations the feature nodes implement; each cites its mechanisms rather than claiming surfaces
 
 ## `result-contracts` — Result contracts
 
@@ -2087,7 +2118,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 269
+- Members: 274
   - `0003`
   - `0005`
   - `0006`
@@ -2339,6 +2370,11 @@ The numbered decision records in the Map, including records later superseded.
   - `0277`
   - `0278`
   - `0279`
+  - `0280`
+  - `0281`
+  - `0282`
+  - `0283`
+  - `0284`
   - `0001`
   - `0002`
   - `0004`
@@ -2634,7 +2670,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 80
+- Members: 81
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2690,6 +2726,7 @@ This meta-registry: the closed set of closed sets.
   - `glossary-terms`
   - `feature-canon`
   - `benefit-canon`
+  - `practice-tenets`
   - `result-contracts`
   - `result-contract-reference-fields`
   - `cli-json-predicates`
@@ -2729,6 +2766,8 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 `UNAFFILIATED_GUARDS` records conventionally named guard tests with no member set.
 
 - `tests/terminal_boundary_guard_test.ts` — applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set
+- `tests/logger_ambient_guard_test.ts` — applies a determinism rule across test sources: human-mode Loggers and terminal contexts must be injected, never resolved from the ambient environment
+- `tests/narration_wrap_guard_test.ts` — applies a layout-independence rule across test sources: multi-word phrases asserted on rendered output must compare wrap-insensitively, because narration wraps by content width and platform path lengths shift the break points
 - `tests/result_capture_drain_parity_test.ts` — derives its universe from the module's `take*` exports and checks that both recording points drain every `result_capture` one-slot mailbox
 - `tests/control_byte_guard_test.ts` — applies a byte-level rule across authored text for raw control bytes that Portable Operating System Interface (POSIX) tools read as binary
 - `tests/adr_vocab_guard_test.ts` — applies a vocabulary rule across shipped strings for internal decision citations
@@ -2741,6 +2780,9 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 `UNAFFILIATED_CODEGEN_TARGETS` records these write targets. The write chokepoint in `scripts/codegen.ts` permits only declared artifacts and recorded unaffiliated targets.
 
 - `site/pages/assets/search.js` — copies the single `src/lib/docs_search.js` module into the browser asset
+- `templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md` — copies the authored setup-skeleton ADR template into the write-adr skill
+- `templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md` — copies the authored setup-skeleton adoption record into the write-adr skill
+- `templates/skills/discern-write-adr/skeleton/docs/_adr/README.md` — copies the authored setup-skeleton ADR format guide into the write-adr skill
 
 ### Single-source claims anchoring no set
 

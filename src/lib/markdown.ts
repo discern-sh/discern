@@ -24,6 +24,7 @@
  */
 
 import {
+  renderCalloutCli,
   renderCodeListingCli,
   renderDividerCli,
   renderHeadingCli,
@@ -62,6 +63,42 @@ interface Style {
 /** A run of text with one uniform style. */
 interface Seg extends Style {
   text: string;
+}
+
+const MARKDOWN_CALLOUTS = {
+  NOTE: { title: "Note", tone: "insight" },
+  TIP: { title: "Tip", tone: "insight" },
+  IMPORTANT: { title: "Important", tone: "insight" },
+  WARNING: { title: "Warning", tone: "warning" },
+  CAUTION: { title: "Caution", tone: "warning" },
+} as const;
+
+type MarkdownCalloutName = keyof typeof MARKDOWN_CALLOUTS;
+
+/** Render an explicitly marked GFM admonition; ordinary quotations return undefined. */
+function renderMarkdownCallout(
+  inner: readonly string[],
+  width: number,
+  terminal: TerminalContext,
+): string[] | undefined {
+  const marker = inner[0]?.trim().match(
+    /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/iu,
+  );
+  const name = marker?.[1]?.toUpperCase() as MarkdownCalloutName | undefined;
+  if (name === undefined || !(name in MARKDOWN_CALLOUTS)) return undefined;
+  const body = renderMarkdown(inner.slice(1).join("\n"), {
+    width: Math.max(20, width - 4),
+    color: false,
+    terminal,
+  }).trim();
+  if (body === "") return undefined;
+  const callout = MARKDOWN_CALLOUTS[name];
+  return terminal.presenter.present(renderCalloutCli, {
+    title: terminalLine(callout.title),
+    body: terminalMultiline(body),
+    tone: callout.tone,
+    maxWidth: width,
+  }).split("\n");
 }
 
 /** OSC-8 terminal hyperlink: clickable in modern terminals, inert elsewhere. */
@@ -489,13 +526,13 @@ function renderTable(
     header.map((_, index) => visibleCell(row[index]))
   );
   const minimumWidth = header.length * 4 + 1;
-  return renderTableCli(
+  return terminal.presenter.present(
+    renderTableCli,
     width >= minimumWidth
       ? {
         columns: header.map((value) => ({ header: terminalLine(value) })),
         rows: body.map((row) => row.map((cell) => terminalLine(cell))),
         striped: true,
-        theme: terminal.themeVariant,
         width,
       }
       : {
@@ -505,10 +542,8 @@ function renderTable(
         columns: [{ header: terminalLine(header.join(" · ")) }],
         rows: body.map((row) => [terminalLine(row.join(" · "))]),
         striped: true,
-        theme: terminal.themeVariant,
         width,
       },
-    terminal.capabilities,
   ).split("\n");
 }
 
@@ -523,15 +558,15 @@ function renderHeading(
     return ["#".repeat(level) + " " + inlineToPlain(text)];
   }
   const headingLevel = Math.min(6, Math.max(1, level)) as 1 | 2 | 3 | 4 | 5 | 6;
-  return [renderHeadingCli(
-    {
-      text: terminalLine(inlineToPlain(text)),
-      level: headingLevel,
-      theme: terminal.themeVariant,
-      maxWidth: width,
-    },
-    terminal.capabilities,
-  )];
+  return [terminal.presenter.present(renderHeadingCli, {
+    text: terminalLine(inlineToPlain(text)),
+    level: headingLevel,
+    maxWidth: width,
+    // Markdown's block composer owns the boundary between adjacent blocks.
+    // This Heading is embedded in that composition, so it must not add the
+    // package's default top-level leading line as a second owner.
+    leadingBlankLines: 0,
+  })];
 }
 
 /** Render a fenced code block: a bordered, labelled box (fences kept in plain). */
@@ -544,15 +579,11 @@ function renderCode(
   if (!terminal.color) {
     return ["```" + lang, ...lines, "```"];
   }
-  return renderCodeListingCli(
-    {
-      code: terminalMultiline(lines.join("\n")),
-      ...(lang === "" ? {} : { language: terminalLine(lang) }),
-      theme: terminal.themeVariant,
-      maxWidth: width,
-    },
-    terminal.capabilities,
-  ).split("\n");
+  return terminal.presenter.present(renderCodeListingCli, {
+    code: terminalMultiline(lines.join("\n")),
+    ...(lang === "" ? {} : { language: terminalLine(lang) }),
+    maxWidth: width,
+  }).split("\n");
 }
 
 /** One parsed list item: nesting depth, its marker, and the inline text. */
@@ -656,11 +687,7 @@ export function renderMarkdown(
   const color = options.color ?? false;
   const baseTerminal = options.terminal ?? terminalPresentationContext(color);
   const coloredTerminal = terminalContextWithColor(baseTerminal, color);
-  const terminal: TerminalContext = {
-    ...coloredTerminal,
-    capabilities: { ...coloredTerminal.capabilities, columns: width },
-    size: { ...coloredTerminal.size, columns: width },
-  };
+  const terminal = coloredTerminal;
 
   const normalized = md
     .replace(/\r\n?/g, "\n")
@@ -720,14 +747,10 @@ export function renderMarkdown(
     if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
       pushBlock([
         terminal.color
-          ? renderDividerCli(
-            {
-              treatment: "rule",
-              theme: terminal.themeVariant,
-              width,
-            },
-            terminal.capabilities,
-          )
+          ? terminal.presenter.present(renderDividerCli, {
+            treatment: "rule",
+            width,
+          })
           : (terminal.capabilities.unicode ? "─" : "-").repeat(width),
       ]);
       i++;
@@ -742,6 +765,11 @@ export function renderMarkdown(
         if (cur === undefined || !/^\s*>/.test(cur)) break;
         inner.push(cur.replace(/^\s*>\s?/, ""));
         i++;
+      }
+      const callout = renderMarkdownCallout(inner, width, terminal);
+      if (callout !== undefined) {
+        pushBlock(callout);
+        continue;
       }
       const rendered = renderMarkdown(inner.join("\n"), {
         width: Math.max(20, width - 2),

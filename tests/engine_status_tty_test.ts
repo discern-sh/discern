@@ -274,7 +274,7 @@ const STATUS_CASES: Record<FleetRowStatusKind, StatusCase> = {
   idle: { patch: {} },
 };
 
-Deno.test("status dashboard: 39, 80, 104, and capped layouts keep equal color-free package facts", () => {
+Deno.test("status dashboard: verbose 39, 80, 104, and capped layouts keep equal color-free package facts", () => {
   const fixture = data([
     mainEntry(),
     entry(),
@@ -286,13 +286,13 @@ Deno.test("status dashboard: 39, 80, 104, and capped layouts keep equal color-fr
     }),
   ]);
   for (const width of [39, 80, 104]) {
-    const noColor = render(fixture, width);
-    const color = render(fixture, width, true);
+    const noColor = render(fixture, width, false, undefined, true);
+    const color = render(fixture, width, true, undefined, true);
     assertEquals(plain(color), noColor, `color changed words at ${width}`);
     assertLinesFit(noColor, width);
     assertLinesFit(color, width);
-    assertStringIncludes(noColor, "Fleet");
-    assertStringIncludes(noColor, "Worktrees");
+    assertStringIncludes(noColor, "FLEET");
+    assertStringIncludes(noColor, "WORKTREES");
     assertStringIncludes(noColor, "Active worktrees");
     assertStringIncludes(squash(noColor), "Configured checks for this status");
     if (width === 39) {
@@ -302,8 +302,14 @@ Deno.test("status dashboard: 39, 80, 104, and capped layouts keep equal color-fr
       assertStringIncludes(noColor, "BRANCH");
     }
   }
-  assertEquals(render(fixture, 400), render(fixture, STATUS_REPORT_MAX_WIDTH));
-  assertStringIncludes(render(fixture, 400), "agent/alpha-abc123");
+  assertEquals(
+    render(fixture, 400, false, undefined, true),
+    render(fixture, STATUS_REPORT_MAX_WIDTH, false, undefined, true),
+  );
+  assertStringIncludes(
+    render(fixture, 400, false, undefined, true),
+    "agent/alpha-abc123",
+  );
 });
 
 Deno.test("status dashboard: truecolour, 256, 16, no-colour, and ASCII modes retain semantics and inert text", () => {
@@ -390,7 +396,7 @@ Deno.test("status dashboard: responsive regions retain status, evidence, and com
   assert(expectedAction !== undefined);
   for (const width of [39, 80, 104, 400]) {
     for (const color of [false, true]) {
-      const output = render(fixture, width, color, hints);
+      const output = render(fixture, width, color, hints, true);
       const words = plain(output);
       assertStringIncludes(words, branch);
       assertStringIncludes(words, "Behind");
@@ -463,6 +469,9 @@ Deno.test("status dashboard: every typed row status is classified and rendered",
           : { fleet_collisions: [...testCase.collisions] }),
       }),
       72,
+      false,
+      undefined,
+      true,
     );
     assertStringIncludes(output, model.label);
     assertLinesFit(output, 72);
@@ -493,7 +502,13 @@ Deno.test("status dashboard: every proof-check state auto-enrols in the human vo
       gate_proof: proof,
       ...(status === "honored" ? { proof_honored: true } : {}),
     });
-    const output = render(data([mainEntry(), row]), 72);
+    const output = render(
+      data([mainEntry(), row]),
+      72,
+      false,
+      undefined,
+      true,
+    );
     assert(
       plain(output).split("\n").some((line) =>
         line.includes("Proof") && line.includes(PROOF_LABELS[status])
@@ -584,6 +599,8 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
     data([mainEntry(), failed, running, observed, granted, approval, scoped]),
     72,
     true,
+    undefined,
+    true,
   );
   const words = plain(output);
   assertStringIncludes(words, "last action done failed at test");
@@ -602,13 +619,16 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
     render(
       data([mainEntry(), failed, running, observed, granted, approval, scoped]),
       72,
+      false,
+      undefined,
+      true,
     ),
     "semantic facts must survive without colour",
   );
   assertLinesFit(output, 72);
 });
 
-Deno.test("status dashboard: fleet and ADR collision paths are human-visible without machine-field language", () => {
+Deno.test("status dashboard: the fleet brief defers collision paths to verbose evidence", () => {
   const alpha = entry();
   const beta = entry({
     path: "/repo.worktrees/beta-def456",
@@ -616,23 +636,32 @@ Deno.test("status dashboard: fleet and ADR collision paths are human-visible wit
     id: "beta-def456",
   });
   const longRecord = `project/map/_adr/0253-${"responsive-".repeat(8)}first.md`;
+  const fixture = data([mainEntry(), alpha, beta], {
+    fleet_collisions: [{
+      branches: ["agent/alpha-abc123", "agent/beta-def456"],
+      overlap: ["src/shared/result.ts", "tests/result_test.ts"],
+      total: 2,
+    }],
+    adr_collisions: [{
+      number: "0253",
+      branches: ["agent/alpha-abc123", "agent/beta-def456"],
+      paths: [
+        longRecord,
+        "project/map/_adr/0253-second.md",
+      ],
+    }],
+  });
+  const brief = render(fixture, 60);
+  assertStringIncludes(brief, "Collision");
+  assert(!brief.includes("ATTENTION"), brief);
+  assert(!brief.includes("src/shared/result.ts"), brief);
+
   const output = render(
-    data([mainEntry(), alpha, beta], {
-      fleet_collisions: [{
-        branches: ["agent/alpha-abc123", "agent/beta-def456"],
-        overlap: ["src/shared/result.ts", "tests/result_test.ts"],
-        total: 2,
-      }],
-      adr_collisions: [{
-        number: "0253",
-        branches: ["agent/alpha-abc123", "agent/beta-def456"],
-        paths: [
-          longRecord,
-          "project/map/_adr/0253-second.md",
-        ],
-      }],
-    }),
+    fixture,
     60,
+    false,
+    undefined,
+    true,
   );
   assertStringIncludes(output, "Fleet collision");
   assertStringIncludes(output, "src/shared/result.ts");
@@ -664,9 +693,12 @@ Deno.test("status dashboard: removed worktree paths report their current content
       }],
     }),
     80,
+    false,
+    undefined,
+    true,
   ));
 
-  assertStringIncludes(output, "Attention");
+  assertStringIncludes(output, "ATTENTION");
   assertStringIncludes(output, "/repo.worktrees/apollo-11");
   assertStringIncludes(
     output,
@@ -749,6 +781,9 @@ Deno.test("status dashboard: collision precedence retains proof readiness and la
   const output = render(
     data([mainEntry(), ready], { fleet_collisions: [collision] }),
     72,
+    false,
+    undefined,
+    true,
   );
   assertStringIncludes(output, "1 ready");
   assertStringIncludes(output, "The branch is ready; landing granted.");
@@ -761,13 +796,16 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
   const main = data([mainEntry(), current]);
   const mainOutput = render(main, 72);
   assertEquals(mainOutput.match(/Main checkout/gu)?.length, 1);
-  assert(mainOutput.indexOf("Fleet") < mainOutput.indexOf("Main checkout"));
-  assert(mainOutput.indexOf("Fleet") < mainOutput.indexOf("Checks"));
+  assert(mainOutput.indexOf("FLEET") < mainOutput.indexOf("Main checkout"));
   assertStringIncludes(mainOutput, "voyager");
   assertStringIncludes(mainOutput, "Main checkout main is current.");
   assert(!mainOutput.includes("Tasks"));
   assert(!mainOutput.includes("plain_reading_grade"));
-  assertStringIncludes(mainOutput, "Standards: 2 configured");
+  assert(!mainOutput.includes("CHECKS"), mainOutput);
+  assert(!mainOutput.includes("Standards: 2 configured"), mainOutput);
+  const mainVerbose = render(main, 72, false, undefined, true);
+  assertStringIncludes(mainVerbose, "CHECKS");
+  assertStringIncludes(mainVerbose, "Standards: 2 configured");
 
   const worktree = data([mainEntry({ is_current: false }), current], {
     location: "worktree",
@@ -792,14 +830,14 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
     },
   });
   const worktreeOutput = render(worktree, 72);
-  assertEquals(worktreeOutput.match(/Main checkout/gu)?.length, 1);
+  assertEquals(worktreeOutput.match(/ MAIN CHECKOUT /gu)?.length, 1);
   assertStringIncludes(worktreeOutput, "agent/alpha-abc123");
   assertStringIncludes(worktreeOutput, "current");
   assertStringIncludes(worktreeOutput, "Changed scopes: web");
   assert(!worktreeOutput.includes("Change: code"));
   assert(!worktreeOutput.includes("previewable"));
-  const checksAt = worktreeOutput.indexOf("Checks");
-  const environmentAt = worktreeOutput.indexOf("Local environment");
+  const checksAt = worktreeOutput.indexOf("CHECKS");
+  const environmentAt = worktreeOutput.indexOf("LOCAL ENVIRONMENT");
   assert(checksAt >= 0 && environmentAt > checksAt);
   assert(!worktreeOutput.slice(checksAt, environmentAt).includes("Port:"));
   assertStringIncludes(worktreeOutput.slice(environmentAt), "Port: 17123");
@@ -823,7 +861,8 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
     }),
     fire(HINTS["status-fleet-logbook-disabled"]),
   ]);
-  assertStringIncludes(hints[0] ?? "", "data.fleet");
+  assertStringIncludes(hints[0] ?? "", "git diff main...<branch>");
+  assert(!(hints[0] ?? "").includes("data.fleet"));
   const output = render(
     data([mainEntry(), ready], {
       landed_proof: {
@@ -845,12 +884,14 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
     72,
     false,
     hints,
+    true,
   );
   assertStringIncludes(output, "1 needs attention");
   assertStringIncludes(output, "complete branch beside each worktree");
   assertStringIncludes(output, "Per-worktree actions aren't available");
   assertStringIncludes(output, "6 files changed");
   assertStringIncludes(output, "+20 −4");
+  assert(!squash(output).includes("6 files changed · +20 −4"));
   assertStringIncludes(output, "1h ago");
   assert(!output.includes("refs/notes/discern"));
   assert(!output.includes("data.fleet"));
@@ -869,6 +910,13 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
     true,
   );
   assertStringIncludes(verbose, "| ran | result |");
+});
+
+Deno.test("status dashboard: an empty fleet uses the package EmptyState", () => {
+  const output = render(data([mainEntry()]), 72);
+  assertStringIncludes(output, "Empty");
+  assertStringIncludes(output, "No active worktrees");
+  assertLinesFit(output, 72);
 });
 
 Deno.test("status dashboard: every interactive status hint avoids machine-field directions", () => {

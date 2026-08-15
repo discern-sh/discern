@@ -74,7 +74,10 @@ import {
   resolveCommonGitDir,
 } from "../engine/worktree/git.ts";
 import { listEntries } from "../engine/worktree/resources.ts";
-import { canPrompt, confirmProceed } from "../lib/prompts.ts";
+import {
+  canInteract,
+  confirmDestructiveAction,
+} from "../lib/terminal_interaction.ts";
 
 /** Options accepted by the `uninstall` command. */
 export interface UninstallOptions {
@@ -691,17 +694,49 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
   // (an uncommitted generated file, the runtime records under .git).
   // Non-interactive callers must say --yes.
   if (!options.json && (plan.ops.length > 0 || plan.gitAdminDirs.length > 0)) {
-    if (!options.yes && !canPrompt(false)) {
+    if (!options.yes && !canInteract(false)) {
       renderPlan(log, plan, false);
       log.error(
         "Uninstall needs confirmation. Review the plan above, then re-run with --yes in CI, under --plain, or without terminal input.",
       );
       return 1;
     }
-    const proceed = await confirmProceed(
-      "Remove discern's wiring from this project?",
-      options.yes,
-      options.json,
+    const deleteCount = plan.ops.filter((op) => op.action === "delete").length;
+    const rewriteCount = plan.ops.length - deleteCount;
+    const runtimeCount = plan.gitAdminDirs.length;
+    const effects = [
+      ...(deleteCount === 0 ? [] : [
+        `remove ${deleteCount} discern-owned target${
+          deleteCount === 1 ? "" : "s"
+        }`,
+      ]),
+      ...(rewriteCount === 0 ? [] : [
+        `strip discern's entries from ${rewriteCount} shared file${
+          rewriteCount === 1 ? "" : "s"
+        }`,
+      ]),
+      ...(runtimeCount === 0 ? [] : [
+        `remove ${runtimeCount} runtime-state director${
+          runtimeCount === 1 ? "y" : "ies"
+        } under Git`,
+      ]),
+    ];
+    const proceed = await confirmDestructiveAction(
+      {
+        label: "Remove discern wiring",
+        scope: root,
+        impact: `This will ${effects.join(", ")}. Your authored content stays.`,
+        recovery:
+          "Committed files can be restored with Git; runtime records may have no automatic recovery.",
+        authority: "Project owner after reviewing this bounded plan",
+        continuation: "Remove discern's wiring from this project?",
+      },
+      {
+        yes: options.yes,
+        json: options.json,
+        terminal: log.terminal,
+        present: (frame: string): void => log.humanLine(frame),
+      },
     );
     if (!proceed) {
       log.info("Aborted — nothing was changed.");

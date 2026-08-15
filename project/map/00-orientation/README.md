@@ -21,6 +21,7 @@ The [glossary](glossary.md) defines each product term once, and every page uses 
 | [concepts.md](concepts.md)                   | The mental model in one pass: the gate, worktrees, guidance, ownership.  |
 | [design-principles.md](design-principles.md) | Why discern works this way, with each rule observable in your repo.      |
 | [trust-and-data.md](trust-and-data.md)       | What runs on your machine: no network, no telemetry, your commands only. |
+| [the-practice.md](the-practice.md)           | The tenets discern holds for every change, numbered and citable.         |
 | [system-map.md](system-map.md)               | The architecture as one picture.                                         |
 | [glossary.md](glossary.md)                   | Every discern term, defined once and alphabetized.                       |
 

@@ -17,11 +17,11 @@
  */
 
 import { emitResult } from "../shared/emit.ts";
+import { Logger } from "../lib/log.ts";
 import { DISCERN_WORDMARK } from "../shared/brand.ts";
 import { renderDiscernArt } from "../../art/terminal/brand.ts";
 import {
   joinVertical,
-  renderBox,
   renderCommandCli,
   renderSectionCli,
 } from "discern-design-system/cli";
@@ -92,7 +92,7 @@ export function resolveWelcomeStyle(
  * The instructional substance the welcome carries to a JSON-consuming agent, so it
  * is not handed a colder, thinner welcome than one reading the dual-addressed human
  * text (ADR 0075). The human blocks below say the same things in prose; these are
- * the machine-readable mirror, kept in step with them by the welcome JSON tests.
+ * the structured mirror, kept in step with them by the welcome JSON tests.
  */
 const FRESH_AGENT_GUIDANCE =
   "You are discern's configuration engine for this project — the capable agent already in the loop, here to set discern up for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done), not a status to relay back and stop on; discern only guides you, and nothing is written until you run `discern setup begin`. Your next action now: run `discern setup verify` yourself to preview the plan and open the consent conversation — don't hand the welcome back as a report. It hands you the exact message to relay to your human (what discern is, what it will do and cost, and the points to confirm) — relay that, wait for their answers, then run `begin`.";
@@ -150,7 +150,9 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
       });
       return 0;
     }
-    console.log(renderHumanOutputGroups(abandonedSetupWelcomeGroups()));
+    new Logger({ json: false, noColor: false }).line(
+      renderHumanOutputGroups(abandonedSetupWelcomeGroups()),
+    );
     return 0;
   }
 
@@ -174,9 +176,9 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
         phase,
         complete: phase === "done",
         next_action: next,
-        // The same instructional substance the human render carries, so the agent
-        // funnel reads the same warmth and "you drive this; nothing until begin"
-        // framing on the JSON path as on the human one (ADR 0075 dual-addressing).
+        // The same instructional substance every presentation carries. The named
+        // agent and human fields preserve their real audiences independently of
+        // whether the caller chooses terminal, JSON, or Markdown delivery.
         ...(phase === "fresh"
           ? {
             agent_guidance: FRESH_AGENT_GUIDANCE,
@@ -210,17 +212,18 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
     terminal,
   });
 
+  const log = new Logger({ json: false, noColor: false });
   switch (phase) {
     case "fresh":
-      console.log(
+      log.line(
         renderHumanOutputGroups(freshWelcomeGroups(style, { gitRepo })),
       );
       break;
     case "in_progress":
-      console.log(renderHumanOutputGroups(inProgressWelcomeGroups(progress)));
+      log.line(renderHumanOutputGroups(inProgressWelcomeGroups(progress)));
       break;
     case "done":
-      console.log(
+      log.line(
         "discern is already set up here. Run `discern status` to orient.",
       );
       break;
@@ -273,7 +276,7 @@ const PLAIN_FRESH_WELCOME: readonly string[] = [
   "",
   "  Your next action, now — preview the plan and open the consent conversation:",
   "",
-  "      discern setup verify        (read-only; add --json for machine output)",
+  "      discern setup verify        (read-only; --json/--markdown emit one result)",
   "",
   "  Run it yourself: it hands you the exact message to relay to your human, then",
   "  points you at the next step. Don't hand this back as a report — carry it through.",
@@ -367,8 +370,6 @@ function styledFreshWelcome(
   const capabilities = terminal.capabilities;
   const width = Math.min(TTY_MAX_BOX_WIDTH, capabilities.columns);
   const innerWidth = width - 4;
-  const innerCapabilities = { ...capabilities, columns: innerWidth };
-  const theme = terminal.themeVariant;
   const mark = renderDiscernArt(capabilities.unicode ? "split" : "stamp");
   const action = terminal.tone(
     '"Run `discern setup` in this project."',
@@ -376,18 +377,14 @@ function styledFreshWelcome(
     "strong",
   );
   const humans = joinVertical([
-    renderSectionCli(
-      {
-        title: "FOR HUMANS",
-        body:
-          "Welcome! discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo — tailored to YOUR codebase by your own coding agent.",
-        treatment: "rule",
-        spacing: "sm",
-        theme,
-        width: innerWidth,
-      },
-      innerCapabilities,
-    ),
+    terminal.presenter.present(renderSectionCli, {
+      title: "FOR HUMANS",
+      body:
+        "Welcome! discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo — tailored to YOUR codebase by your own coding agent.",
+      treatment: "rule",
+      spacing: "sm",
+      width: innerWidth,
+    }),
     "quality gate   isolated git worktrees   shared agent instructions",
     "To get started, tell your coding agent:",
     action,
@@ -395,28 +392,20 @@ function styledFreshWelcome(
     "Point your MOST CAPABLE model at it: setup is a one-time, high-leverage step, and discern is only as good as the model that configured it. Expect roughly 20–40 minutes and a meaningful number of tokens.",
   ], { spacing: 1 });
   const agents = joinVertical([
-    renderSectionCli(
-      {
-        title: "FOR CODING AGENTS",
-        body:
-          "You are discern's configuration engine here: the capable agent already in the loop, set to configure discern for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done) — not a status to relay back and stop on. discern guides each step; NOTHING is written until you explicitly run `begin`.",
-        treatment: "rule",
-        spacing: "sm",
-        theme,
-        width: innerWidth,
-      },
-      innerCapabilities,
-    ),
+    terminal.presenter.present(renderSectionCli, {
+      title: "FOR CODING AGENTS",
+      body:
+        "You are discern's configuration engine here: the capable agent already in the loop, set to configure discern for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done) — not a status to relay back and stop on. discern guides each step; NOTHING is written until you explicitly run `begin`.",
+      treatment: "rule",
+      spacing: "sm",
+      width: innerWidth,
+    }),
     "Your next action, now — preview the plan and open the consent conversation:",
-    renderCommandCli(
-      {
-        command: "discern setup verify",
-        explanation: "(read-only; add --json for machine output)",
-        theme,
-        maxWidth: innerWidth,
-      },
-      innerCapabilities,
-    ),
+    terminal.presenter.present(renderCommandCli, {
+      command: "discern setup verify",
+      explanation: "(read-only; --json/--markdown emit one result)",
+      maxWidth: innerWidth,
+    }),
     terminal.role(
       "Run it yourself: it hands you the exact message to relay to your human, then points you at the next step. Don't hand this back as a report — carry it through.",
       "muted",
@@ -438,18 +427,15 @@ function styledFreshWelcome(
     humans,
     agents,
   ], { spacing: 1 });
-  const frame = renderBox(
-    {
-      body,
-      width,
-      padding: 1,
-      borderStyle: {
-        ...terminal.theme.typography.muted,
-        color: terminal.themeColor("--discern-color-accent-700"),
-      },
+  const frame = terminal.presenter.box({
+    body,
+    width,
+    padding: 1,
+    borderStyle: {
+      ...terminal.theme.typography.muted,
+      color: terminal.themeColor("--discern-color-accent-700"),
     },
-    capabilities,
-  ).split("\n");
+  }).split("\n");
   // The package box intentionally normalizes indentation while wrapping. Keep
   // Discern's product-owned art outside it so those accepted rows remain exact.
   return [...header, "", ...frame];

@@ -1,7 +1,7 @@
 ---
 title: Licenses for project payloads
 description: Which discern-authored material enters a project under Apache-2.0, what keeps its existing terms, and what redistribution requires.
-order: 60
+order: 80
 publish: true
 aliases:
   - generated output license

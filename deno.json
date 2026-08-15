@@ -38,7 +38,11 @@
     "dev": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts",
     "build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build.ts",
     "art": "deno run --allow-env=CI,TERM,COLUMNS,LINES scripts/art.ts",
-    "test": "discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
+    "terminal:capture": "deno run --allow-read --allow-write --allow-env --allow-run scripts/terminal_capture.ts",
+    "terminal:capture-fixtures": "deno run --allow-read --allow-write --allow-env --allow-run scripts/terminal_capture_fixtures.ts",
+    "terminal:review": "deno run --allow-read --allow-net=127.0.0.1 scripts/terminal_review.ts",
+    "test:preflight": "deno run --allow-net=127.0.0.1 scripts/test_preflight.ts",
+    "test": "deno task test:preflight && discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
     "fmt": "deno fmt",
     "lint": "deno lint",
     "lint-suppressions": "deno run --allow-read --allow-run=git scripts/lint_suppressions.ts",
@@ -70,6 +74,7 @@
     "zlib": "node:zlib",
     "@zod/zod": "jsr:@zod/zod@^4.4.3",
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
+    "@std/fmt/bytes": "jsr:@std/fmt@^1.0.10/bytes",
     "@std/fmt/colors": "jsr:@std/fmt@^1.0.10/colors",
     "@std/path": "jsr:@std/path@^1.0.8",
     "@std/fs": "jsr:@std/fs@^1.0.13",
@@ -86,7 +91,7 @@
     "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
     "react-dom/client": "npm:react-dom@18.3.1/client",
     "react-dom/server": "npm:react-dom@18.3.1/server",
-    "discern-design-system": "jsr:@discern-sh/design-system@0.12.2"
+    "discern-design-system": "jsr:@discern-sh/design-system@0.17.0"
   },
   "fmt": {
     "proseWrap": "never",

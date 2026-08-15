@@ -1,0 +1,39 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>status — 80×24</title>
+<pre style="margin:0;padding:1em;background-color:rgb(33 33 42);color:rgb(231 231 240);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:0.875em;line-height:1.45;overflow-x:auto"><span style="font-weight:700">discern status</span> <span style="opacity:0.68">· terminal-capture</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">ATTENTION</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span style="color:rgb(255 215 135);font-weight:700">ATTENTION: agent/terminal-review: Needs gate (current)</span>
+Why: Git clean · ↑1; Proof missing; no activity recorded.
+At: &lt;PROJECT_PATH&gt;
+Fix: This clean branch has committed work and no valid proof. Run `discern
+     done` before review.
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">CURRENT WORKTREE</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span style="color:rgb(135 215 255);font-weight:700">Active worktrees</span>
+<span style="color:rgb(208 208 208);font-weight:700">AGENT               BRANCH                             STATE         DRIFT</span>
+terminal-review     agent/terminal-review              <span style="color:rgb(255 215 135);font-weight:700">Needs gate …</span>  ↑1 ↓0
+
+<span style="color:rgb(255 215 135);font-weight:700">! Blocked: agent/terminal-review is the current worktree. Needs gate.</span>
+Git: clean · ↑1   Activity: no activity recorded
+Next: This clean branch has committed work and no valid proof. Run `discern
+      done` before review.
+<span style="color:rgb(208 208 208)">┌ Receipt: agent/terminal-review Proof ──────────────────────────────────────┐</span>
+<span style="color:rgb(208 208 208)">│</span> Proof .......................................................... – missing <span style="color:rgb(208 208 208)">│</span>
+<span style="color:rgb(208 208 208)">└────────────────────────────────────────────────────────────────────────────┘</span>
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">NEXT STEPS</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span style="color:rgb(255 215 135);font-weight:700">! Blocked: Status recommends an action.</span>
+Next: Run `<span style="color:rgb(135 215 255)">discern</span> <span style="color:rgb(135 215 255)">done</span>` before reporting the branch ready for review or a
+      user-requested landing. This clean HEAD is committed and up to date with
+      main, but it has no honored Proof.
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">CHECKS</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span style="color:rgb(208 208 208);font-weight:700">= Unchanged: Configured checks for this status result.</span>
+Gate: format, build, lint, typecheck, test, smoke   Standards: 0 configured
+
+<span style="color:rgb(135 215 255)">━━ ◮ </span><span style="color:rgb(238 238 238);font-weight:700">LOCAL ENVIRONMENT</span> <span style="color:rgb(135 215 255)">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span style="color:rgb(208 208 208);font-weight:700">= Unchanged: terminal-review has a provisioned local environment.</span>
+Port: 17490
+</pre>

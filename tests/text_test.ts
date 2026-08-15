@@ -10,7 +10,7 @@ import {
   displayWidth,
   meter,
   padDisplayEnd,
-  renderAlignedTable,
+  renderAlignedRows,
   sparkline,
   stripAnsi,
   terminalSize,
@@ -208,26 +208,57 @@ Deno.test("terminalSize resolves one console sample, environment, and both fallb
   );
 });
 
-Deno.test("renderAlignedTable sizes styled cells by display width and leaves the last column unpadded", () => {
-  interface FindingRow {
-    tone: string;
-    subject: string;
-  }
+Deno.test("renderAlignedRows sizes the label column by display width under one policy", () => {
   const green = `${ESC}[32mgood${ESC}[0m`;
-  const lines = renderAlignedTable<FindingRow>(
+  const lines = renderAlignedRows([
+    { label: green, body: "coverage" },
+    { label: "attention", body: "gate" },
+    { label: "bare", body: "" },
+  ]);
+  assertEquals(lines, [
+    `  ${green}       coverage`,
+    "  attention  gate",
+    "  bare",
+  ]);
+  assertEquals(renderAlignedRows([]), []);
+});
+
+Deno.test("renderAlignedRows caps the label column and wraps bodies with a hanging indent", () => {
+  const lines = renderAlignedRows(
     [
-      { header: "TONE", value: (row) => row.tone },
-      { header: "FINDING", value: (row) => row.subject },
+      { label: "name", body: "alpha beta gamma delta epsilon zeta eta theta" },
+      { label: "much-longer-name", body: "short" },
     ],
-    [
-      { tone: green, subject: "coverage" },
-      { tone: "attention", subject: "gate" },
-    ],
+    { labelCap: 10, width: 40 },
   );
   assertEquals(lines, [
-    "TONE       FINDING",
-    `${green}       coverage`,
-    "attention  gate",
+    "  name        alpha beta gamma delta",
+    "              epsilon zeta eta theta",
+    // A label wider than the bounded column stacks its row so no line
+    // overflows the listing width.
+    "  much-longer-name",
+    "    short",
   ]);
-  assertEquals(renderAlignedTable([], []), []);
+});
+
+Deno.test("renderAlignedRows hard-breaks an overlong label in a width-bounded listing", () => {
+  const label = `hostile${"x".repeat(33)}`;
+  const lines = renderAlignedRows(
+    [{ label, body: "title" }],
+    { labelCap: 10, width: 24 },
+  );
+  for (const line of lines) {
+    assertEquals(displayWidth(line) <= 24, true, line);
+  }
+});
+
+Deno.test("renderAlignedRows stacks rows when the body column falls under 24 cells", () => {
+  const lines = renderAlignedRows(
+    [{ label: "a-rather-long-label", body: "the body wraps below" }],
+    { labelCap: 32, width: 30, styleLabel: (cell) => `<${cell}>` },
+  );
+  assertEquals(lines, [
+    "  <a-rather-long-label>",
+    "    the body wraps below",
+  ]);
 });

@@ -133,7 +133,7 @@ export function fencedBlocks(md: string): FencedBlock[] {
 }
 
 /** A line inside a fenced block that IS a `discern` invocation (an optional
- * `$ ` prompt, then the word). Output transcripts quoting discern mid-line
+ * `$ ` shell prefix, then the word). Output transcripts quoting discern mid-line
  * don't match. */
 const COMMAND_LINE = /^\s*(?:\$\s+)?(discern(?:\s.*)?)$/;
 

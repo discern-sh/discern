@@ -269,6 +269,11 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0277 — Patterns investigations preserve source findings](0277-patterns-investigations-preserve-source-findings.md)
 - [0278 — WSL support is proven by a hosted WSL 2 gate lane that publication requires](0278-wsl-support-is-proven-by-a-hosted-wsl2-gate-lane.md)
 - [0279 — External terminal rendering crosses one Discern-owned process boundary](0279-external-terminal-rendering-crosses-one-process-boundary.md)
+- [0280 — Results pair one structured contract with authored Markdown](0280-authored-markdown-result-presentations.md)
+- [0281 — Main fleet status is a decision brief](0281-main-fleet-status-is-a-decision-brief.md)
+- [0282 — Self-invocations carry recorded provenance](0282-self-invocations-carry-recorded-provenance.md)
+- [0283 — Seed the adoption record in the shipped skeletons](0283-skeletons-seed-the-adoption-record.md)
+- [0284 — The practice canon enumerates the tenets](0284-the-practice-canon-enumerates-the-tenets.md)
 
 <!-- END GENERATED: current ADR records -->
 

@@ -763,8 +763,8 @@ The name is always written **discern**, entirely lower-case, on every surface an
 Once a product term exists, use it identically across:
 
 - CLI;
-- human rendering;
-- JSON/MCP results;
+- terminal presentations;
+- JSON/Markdown/MCP results;
 - documentation;
 - tips;
 - hints;
@@ -780,6 +780,15 @@ First use may include a plain-language explanation:
 - “evidence for the exact committed change (Proof).”
 
 After introduction, use the canonical term.
+
+### Audiences and gates
+
+Formats and features are described by capability, never by the reader they were designed for:
+
+- **\`--json\` / \`--markdown\`** are result formats. Describe what they emit; never call one agent-facing or human-facing — people, agents, and tools choose either.
+- **terminal** names the decorated rendering a TTY receives.
+- **interactive** names features whose real gate is a terminal (the Desk, lifecycle confirmations, the expanded \`--verbose\` dashboard): "interactive only", never "human only".
+- **human** and **owner** are reserved for genuinely human concepts — consent, review, "report to your owner", the Desk as the human view over work in progress. Do not dilute these to "user" or "CLI" when the human role is the point.
 
 ### Proof
 
@@ -1169,8 +1178,10 @@ If a correctness-critical runtime assumption, working root, authority boundary, 
           title: "Treat context as a budget",
           body: `Every line competes with the work itself.
 
-- Put the immediate state and action first.
-- Keep bounded evidence inline.
+- Put the immediate state first.
+- Follow it with the bounded evidence needed to interpret that state.
+- Place any authority or stop boundary after the evidence.
+- End with the next valid action when no later qualification is required.
 - Point to complete evidence by stable path or target.
 - Return a small ranked result rather than an unbounded index.
 - Remove background explanation already guaranteed by the project guidance.
@@ -1322,12 +1333,12 @@ Recommended shape:
 
 \`\`\`text
 <Observed state>.
+<Bounded evidence needed to interpret that state>.
+<Authority, stop condition, or costly wrong alternative>.
 <Run or do this next>.
-<Do not do the plausible wrong alternative>.
-<Boundary or stop condition>.
 \`\`\`
 
-Use the prohibition only when the wrong alternative is likely and costly. Do not turn every message into a contrast formula.
+Omit a line when the result has no fact for it. Keep the next valid action last when it remains correct without a later qualification. Use the prohibition only when the wrong alternative is likely and costly. Do not turn every message into a contrast formula.
 
 ### Setup step
 

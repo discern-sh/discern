@@ -3,106 +3,170 @@
  * pre-Cliffy routing decision in `main()` keys on `argv[0]` while Cliffy
  * itself accepts the global flags BEFORE the subcommand. Any such decision
  * must key on the RESOLVED verb (the first non-global-flag token), or a
- * leading `--json`/`--no-color` smuggles the invocation past the router:
+ * leading result-format or `--no-color` flag smuggles the invocation past the router:
  * the ADR 0036 setup redirect, the operator help, the root JSON refusal,
  * and project script dispatch all diverge.
  *
  * The matrices derive from the single sources of truth so a new member
- * auto-enrols: the global flags are read from the Cliffy registration itself
- * (`globalFlagTokens(buildCli(...))`), and the gated verbs from
- * `SETUP_GATED_VERBS`. The valueless-global test is the forcing function for
- * the technique: `resolveInvocation` skips global flags token-by-token, which
- * is only sound while every global flag takes no value.
+ * auto-enrols: global flag names and value arity come from the Cliffy
+ * registration, and gated verbs come from `SETUP_GATED_VERBS`. The arity test
+ * holds the early router to the boolean-or-one-required-value grammar it
+ * implements.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import type { Command } from "@cliffy/command";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import {
+  backgroundSensingRequested,
   buildCli,
   CLI_CHILD_BOUNDARIES,
   discernOwnedArgv,
   globalFlagTokens,
+  globalValueFlagTokens,
   resolveInvocation,
   ROOT_GLOBAL_FLAG_TOKENS,
+  ROOT_GLOBAL_FLAGS,
+  ROOT_GLOBAL_VALUE_FLAG_TOKENS,
 } from "../src/main.ts";
 import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { CLI_RESULT_FORMATS } from "../src/shared/result_formats.ts";
 
 /** Every global flag token, straight from the Cliffy registration. */
 const GLOBAL_FLAGS: readonly string[] = [
   ...globalFlagTokens(buildCli(false) as unknown as Command),
 ].sort();
+const GLOBAL_VALUE_FLAGS: readonly string[] = [
+  ...globalValueFlagTokens(buildCli(false) as unknown as Command),
+].sort();
+const GLOBAL_VALUE_SAMPLES: Readonly<Record<string, string>> = {
+  [ROOT_GLOBAL_FLAGS.theme]: "dark",
+};
+const GLOBAL_FLAG_FORMS: readonly {
+  readonly flag: string;
+  readonly tokens: readonly string[];
+}[] = GLOBAL_FLAGS.map((flag) => ({
+  flag,
+  tokens: GLOBAL_VALUE_FLAGS.includes(flag)
+    ? [flag, GLOBAL_VALUE_SAMPLES[flag] ?? ""]
+    : [flag],
+}));
 
-Deno.test("the global-flag registration is non-empty and includes --json", () => {
+Deno.test("the global-flag registration includes both explicit result formats", () => {
   // The matrices below iterate this set — an empty derivation would make
   // every flag-first case silently vacuous.
   assert(GLOBAL_FLAGS.length > 0, "no global flags derived from the root");
   assert(GLOBAL_FLAGS.includes("--json"), GLOBAL_FLAGS.join(", "));
+  assert(GLOBAL_FLAGS.includes("--markdown"), GLOBAL_FLAGS.join(", "));
+  assert(!GLOBAL_FLAGS.includes("--md"), GLOBAL_FLAGS.join(", "));
   assertEquals([...ROOT_GLOBAL_FLAG_TOKENS].sort(), GLOBAL_FLAGS);
+  assertEquals(
+    [...ROOT_GLOBAL_VALUE_FLAG_TOKENS].sort(),
+    GLOBAL_VALUE_FLAGS,
+  );
+  assertEquals(Object.keys(GLOBAL_VALUE_SAMPLES).sort(), GLOBAL_VALUE_FLAGS);
+});
+
+Deno.test("result-format help names representations without assigning audiences", () => {
+  const options = (buildCli(false) as unknown as Command).getOptions(true);
+  for (const format of Object.values(CLI_RESULT_FORMATS)) {
+    const option = options.find((candidate) =>
+      candidate.flags.includes(format.flag)
+    );
+    assert(option !== undefined, `missing ${format.flag}`);
+    assertEquals(option.description, format.description);
+    assert(
+      !/\b(?:agent|human|machine)[- ](?:readable|output)\b/i.test(
+        option.description,
+      ),
+      `${format.flag} assigns its format to an audience: ${option.description}`,
+    );
+  }
 });
 
 Deno.test("raw child boundaries exclude every global-looking child flag", () => {
   for (const [verb, boundary] of Object.entries(CLI_CHILD_BOUNDARIES)) {
-    for (const flag of GLOBAL_FLAGS) {
+    for (const form of GLOBAL_FLAG_FORMS) {
       const argv = boundary.kind === "delimiter"
-        ? [flag, verb, boundary.token, "fresh-relay", flag]
-        : [flag, verb, "fresh-relay", flag];
+        ? [...form.tokens, verb, boundary.token, "fresh-relay", ...form.tokens]
+        : [...form.tokens, verb, "fresh-relay", ...form.tokens];
       const expected = boundary.kind === "delimiter"
-        ? [flag, verb]
-        : [flag, verb, "fresh-relay"];
+        ? [...form.tokens, verb]
+        : [...form.tokens, verb, "fresh-relay"];
       assertEquals(
-        discernOwnedArgv(argv, ROOT_GLOBAL_FLAG_TOKENS),
+        discernOwnedArgv(
+          argv,
+          ROOT_GLOBAL_FLAG_TOKENS,
+          ROOT_GLOBAL_VALUE_FLAG_TOKENS,
+        ),
         expected,
-        `${verb} let child flag ${flag} select a discern global mode`,
+        `${verb} let child flag ${form.flag} select a discern global mode`,
       );
     }
   }
 });
 
-Deno.test("every global flag is valueless, so token-skipping verb resolution stays sound", () => {
+Deno.test("global option arity stays within the early router's supported grammar", () => {
   const root = buildCli(false) as unknown as Command;
   for (const option of root.getOptions(true)) {
     if (option.global !== true) {
       continue;
     }
-    assertEquals(
-      option.typeDefinition ?? "",
-      "",
-      `global flag ${option.flags.join("/")} takes a value — ` +
-        "resolveInvocation skips single tokens only; teach it lookahead " +
-        "before shipping a value-taking global flag.",
+    assert(
+      option.args.length <= 1,
+      `global flag ${option.flags.join("/")} takes more than one value`,
     );
+    const argument = option.args[0];
+    if (argument === undefined) continue;
+    assertEquals(argument.optional, false);
+    assertEquals(argument.variadic, false);
+    assertEquals(argument.list, false);
   }
 });
 
 Deno.test("resolveInvocation finds the verb past any run of global flags", () => {
   const tokens = globalFlagTokens(buildCli(false) as unknown as Command);
+  const valueTokens = globalValueFlagTokens(
+    buildCli(false) as unknown as Command,
+  );
   // Verb-first: the plain path stays the plain path.
   assertEquals(resolveInvocation(["map", "--json"], tokens), {
     verb: "map",
     argsWithoutVerb: ["--json"],
   });
   // Each single global flag placed first.
-  for (const flag of GLOBAL_FLAGS) {
-    assertEquals(resolveInvocation([flag, "map", "x"], tokens), {
-      verb: "map",
-      argsWithoutVerb: [flag, "x"],
-    });
+  for (const form of GLOBAL_FLAG_FORMS) {
+    assertEquals(
+      resolveInvocation(
+        [...form.tokens, "map", "x"],
+        tokens,
+        valueTokens,
+      ),
+      {
+        verb: "map",
+        argsWithoutVerb: [...form.tokens, "x"],
+      },
+    );
   }
   // Every global flag stacked before the verb.
+  const stacked = GLOBAL_FLAG_FORMS.flatMap((form) => form.tokens);
   assertEquals(
-    resolveInvocation([...GLOBAL_FLAGS, "map"], tokens).verb,
+    resolveInvocation([...stacked, "map"], tokens, valueTokens).verb,
     "map",
   );
   // Flags only: no verb at all (routes like bare `discern`).
-  assertEquals(resolveInvocation([...GLOBAL_FLAGS], tokens), {
+  assertEquals(resolveInvocation([...stacked], tokens, valueTokens), {
     verb: undefined,
-    argsWithoutVerb: [...GLOBAL_FLAGS],
+    argsWithoutVerb: [...stacked],
   });
+  assertEquals(
+    resolveInvocation(["--theme=light", "map"], tokens, valueTokens),
+    { verb: "map", argsWithoutVerb: ["--theme=light"] },
+  );
   assertEquals(resolveInvocation([], tokens).verb, undefined);
   // An UNKNOWN leading flag is not skipped — Cliffy owns that error.
   assertEquals(resolveInvocation(["--bogus", "map"], tokens).verb, "--bogus");
@@ -111,15 +175,22 @@ Deno.test("resolveInvocation finds the verb past any run of global flags", () =>
 Deno.test("pre-setup: the redirect fires for every global flag before every gated verb", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    for (const flag of GLOBAL_FLAGS) {
+    for (const form of GLOBAL_FLAG_FORMS) {
       for (const verb of SETUP_GATED_VERBS) {
-        const args = [flag, verb];
-        if (!args.includes("--json")) {
+        const args = [...form.tokens, verb];
+        const markdown = args.includes("--markdown");
+        if (!args.includes("--json") && !markdown) {
           args.push("--json");
         }
         const r = await runAgent(dir, args);
         const label = `discern ${args.join(" ")}`;
         assertEquals(r.code, 1, `${label}: ${r.output}`);
+        if (markdown) {
+          assertTerminalTextIncludes(r.stdout, `# \`discern ${verb}\``);
+          assertTerminalTextIncludes(r.stdout, "## Current state");
+          assertTerminalTextIncludes(r.stdout, "isn't set up");
+          continue;
+        }
         const res = JSON.parse(r.stdout);
         assertEquals(
           res.error,
@@ -145,12 +216,128 @@ Deno.test("pre-setup: a flags-only JSON invocation returns the root refusal", as
   });
 });
 
+Deno.test("pre-setup: a flags-only Markdown invocation returns the same root refusal", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    const r = await runAgent(dir, ["--markdown"]);
+    assertEquals(r.code, 1, r.output);
+    assertTerminalTextIncludes(r.stdout, "# `discern`");
+    assertTerminalTextIncludes(r.stdout, "discern --markdown needs a command");
+    assertTerminalTextIncludes(r.stdout, "## Next action");
+  });
+});
+
+Deno.test("JSON and Markdown result formats are mutually exclusive", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const r = await runAgent(dir, ["status", "--json", "--markdown"]);
+    assertEquals(r.code, 1, r.output);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.error, "invalid_arguments");
+    assertStringIncludes(result.message, "cannot be combined");
+  });
+});
+
+Deno.test("--md is not an alias for --markdown", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const result = await runAgent(dir, ["status", "--md"]);
+    assertEquals(result.code, 2, result.output);
+    assertTerminalTextIncludes(result.output, 'Unknown option "--md"');
+  });
+});
+
+Deno.test("--theme is a documented value-taking global with an auto default", () => {
+  const root = buildCli(false) as unknown as Command;
+  const option = root.getOptions(true).find((candidate) =>
+    candidate.flags.includes(ROOT_GLOBAL_FLAGS.theme)
+  );
+  assert(option !== undefined);
+  assertEquals(option.typeDefinition, "<theme:string>");
+  assertStringIncludes(option.description, "Default: `auto`");
+  assertStringIncludes(option.description, "`--no-color` and `NO_COLOR`");
+  assertStringIncludes(option.description, "skip sensing");
+});
+
+Deno.test("background sensing is limited to auto-themed human terminal modes", () => {
+  for (
+    const argv of [
+      ["status", "--json"],
+      ["--markdown", "status"],
+      ["mcp"],
+      ["--theme", "auto", "mcp"],
+      ["status", "--theme", "light"],
+      ["--theme=dark", "status"],
+      ["status", "--theme", "sepia"],
+      ["status", "--theme"],
+      ["--no-color", "status"],
+    ]
+  ) {
+    assertEquals(backgroundSensingRequested(argv), false, argv.join(" "));
+  }
+  for (
+    const argv of [
+      ["status"],
+      ["status", "--plain"],
+      ["--theme", "auto", "status"],
+      ["status", "--theme=auto"],
+    ]
+  ) {
+    assertEquals(backgroundSensingRequested(argv), true, argv.join(" "));
+  }
+});
+
+Deno.test("theme modes leave a quiet config projection byte-identical", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const command = ["config", "get", "meta.schema_version", "--json"];
+    const baseline = await runAgent(dir, command);
+    assertEquals(baseline.code, 0, baseline.output);
+    for (const mode of ["auto", "light", "dark"] as const) {
+      const themed = await runAgent(dir, ["--theme", mode, ...command]);
+      assertEquals(themed.code, 0, themed.output);
+      assertEquals(themed.stdout, baseline.stdout, mode);
+      assert(!themed.output.includes("\x1b]11;?"), themed.output);
+    }
+    const equalsForm = await runAgent(dir, ["--theme=light", ...command]);
+    assertEquals(equalsForm.code, 0, equalsForm.output);
+    assertEquals(equalsForm.stdout, baseline.stdout);
+  });
+});
+
+Deno.test("an unsupported theme value uses the selected result-format refusal", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const result = await runAgent(dir, [
+      "status",
+      "--theme",
+      "sepia",
+      "--json",
+    ]);
+    assertEquals(result.code, 2, result.output);
+    const parsed = JSON.parse(result.stdout);
+    assertEquals(parsed.error, "invalid_arguments");
+    assertStringIncludes(parsed.message, "--theme accepts");
+  });
+});
+
 Deno.test("flag-first --help renders the operator help with the scripts command", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["--no-color", "--help"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "scripts");
+  });
+});
+
+Deno.test("flag-first --markdown selects the authored result projection", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const r = await runAgent(dir, ["--markdown", "status"]);
+    assertEquals(r.code, 0, r.output);
+    assertTerminalTextIncludes(r.stdout, "# `discern status`");
+    assertTerminalTextIncludes(r.stdout, "## Current state");
+    assert(!r.stdout.trimStart().startsWith("{"), r.stdout);
   });
 });
 
@@ -164,5 +351,18 @@ Deno.test("a project script dispatches with a global flag placed first", async (
     const r = await runAgent(dir, ["--no-color", "scripts", "hello"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "HELLO-FROM-PROJECT");
+  });
+});
+
+Deno.test("a Project Script owns a child --markdown flag", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeExecutable(
+      join(dir, "discern/scripts/relay"),
+      "#!/usr/bin/env sh\nprintf '%s\\n' \"$1\"\n",
+    );
+    const r = await runAgent(dir, ["scripts", "relay", "--markdown"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(r.stdout, "--markdown\n");
   });
 });

@@ -12,9 +12,9 @@
  *    pick. The tree is growing, so search is the primary way in.
  *  - **An agent or a script** gets non-interactive surfaces it can consume: a
  *    target to render straight to stdout, `--raw` for the pristine Markdown
- *    source, `--json` for a machine-readable index (or a single doc's record),
+ *    source, `--json` for a structured index (or a single doc's record),
  *    `--list` for a plain table of contents, and `--export` for one concatenated
- *    Markdown stream. It never blocks on a prompt when stdin/stdout are not a
+ *    Markdown stream. It never blocks on terminal input when stdin/stdout are not a
  *    TTY.
  *
  * Rendering is handled by {@link renderMarkdown}; discovery and resolution by
@@ -23,6 +23,7 @@
  */
 
 import {
+  renderCalloutCli,
   renderDocsHeaderCli,
   renderSectionCli,
 } from "discern-design-system/cli";
@@ -37,7 +38,7 @@ import {
 } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
-import { displayWidth, padDisplayEnd, wrapText } from "../lib/text.ts";
+import { renderAlignedRows } from "../lib/text.ts";
 import {
   type TerminalContext,
   terminalContext,
@@ -96,12 +97,12 @@ import type {
   DocSearchResult,
 } from "../shared/result_schemas.ts";
 import {
-  canPrompt,
-  checkboxPrompt,
-  groupedSelectOptions,
-  isPromptCancellation,
-  selectPrompt,
-} from "../lib/prompts.ts";
+  canInteract,
+  groupedSelectionEntries,
+  isInteractionCancelled,
+  requestSelection,
+  requestSelections,
+} from "../lib/terminal_interaction.ts";
 import {
   ageSince,
   buildMapOverview,
@@ -275,6 +276,22 @@ const EXTERNAL_DECISIONS_MESSAGE =
   "Read them at https://discern.sh/docs/decisions or in the source repository " +
   "at https://github.com/jackwh/discern/tree/main/project/map/_adr.";
 
+/** Render the installed-binary decision redirect as a TTY Callout or pipe-safe line. */
+export function renderExternalDecisionsNotice(
+  terminal: TerminalContext,
+  width: number,
+): string {
+  if (!terminal.stdoutIsTerminal) {
+    return terminalLine(EXTERNAL_DECISIONS_MESSAGE);
+  }
+  return terminal.presenter.present(renderCalloutCli, {
+    title: terminalLine("Decision records live online"),
+    body: terminalMultiline(EXTERNAL_DECISIONS_MESSAGE),
+    tone: "insight",
+    maxWidth: width,
+  });
+}
+
 /** Render an allowed-scope list for an error message ("public, all, or select"). */
 function listScopes(scopes: readonly DocsExportScope[]): string {
   if (scopes.length <= 1) return scopes.join("");
@@ -445,7 +462,7 @@ export interface DocsOptions {
 /** Agent-facing search results stay compact even when the corpus is large. */
 const SEARCH_RESULT_LIMIT = 5;
 
-/** The machine-readable record for one doc (sans content). Frontmatter values
+/** The structured record for one doc (sans content). Frontmatter values
  * travel here as structured fields — never inside `content` — and only when
  * they say something: `publish` appears only when false (a `map` reader
  * seeing what publishing withholds), the rest only when present. */
@@ -721,18 +738,18 @@ async function pageThrough(text: string): Promise<boolean> {
 
 /** Show rendered text: paged on an interactive terminal, else straight to stdout. */
 async function present(text: string, noPager: boolean): Promise<void> {
-  if (!noPager && canPrompt(false)) {
+  if (!noPager && canInteract(false)) {
     if (await pageThrough(text)) return;
   }
   console.log(text);
 }
 
-/** The semantic picker label; prompt rendering owns selection-state styling. */
+/** The semantic picker label; interaction rendering owns selection-state styling. */
 function optionLabel(e: DocEntry): string {
   return terminalLine(`${e.relToDocs}  —  ${e.title}`);
 }
 
-/** The one-line corpus fact kept plain for the interactive prompt seam. */
+/** The one-line corpus fact kept plain for the interaction seam. */
 function docsHeaderFact(
   verb: string,
   count: number,
@@ -754,15 +771,11 @@ export function renderDocsCorpusHeader(
   const fact = docsHeaderFact(verb, count, directory);
   if (!terminal.stdoutIsTerminal) return fact;
   const safeDirectory = terminalLine(directory);
-  return renderDocsHeaderCli(
-    {
-      brand: terminalLine(`discern ${verb}`),
-      middle: terminalLine(`— ${count} documents in ${safeDirectory}`),
-      theme: terminal.themeVariant,
-      maxWidth: width,
-    },
-    { ...terminal.capabilities, columns: width },
-  );
+  return terminal.presenter.present(renderDocsHeaderCli, {
+    brand: terminalLine(`discern ${verb}`),
+    middle: terminalLine(`— ${count} documents in ${safeDirectory}`),
+    maxWidth: width,
+  });
 }
 
 /** Adapt a discovered tree to the pure corpus-header renderer. */
@@ -804,12 +817,13 @@ async function browse(
       docsHeaderFact(verb, tree.entries.length, display(tree.docsDir, cwd))
     }  ·  type to filter`,
   );
+  let rememberedDocument: string | undefined;
   while (true) {
     let choice: string;
     try {
-      choice = await selectPrompt({
+      choice = await requestSelection({
         message,
-        options: groupedSelectOptions([
+        options: groupedSelectionEntries([
           {
             id: "documents",
             label: "Documents",
@@ -822,10 +836,12 @@ async function browse(
           },
         ]),
         search: true,
-        maxRows: 14,
+        ...(rememberedDocument === undefined
+          ? {}
+          : { default: rememberedDocument }),
       });
     } catch (error) {
-      if (!isPromptCancellation(error)) throw error;
+      if (!isInteractionCancelled(error)) throw error;
       // Ctrl-C or end-of-input leaves the browser without changing anything.
       return 0;
     }
@@ -833,16 +849,15 @@ async function browse(
     if (choice === READ_DOCS_ONLINE) {
       const opened = await openInBrowser(DISCERN_DOCS_URL);
       if (opened.status !== "opened") {
-        console.error(
-          terminalLine(
-            browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
-          ),
+        new Logger({ json: false, noColor: false }).error(
+          browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
         );
       }
       continue;
     }
     const entry = tree.entries.find((e) => e.path === choice);
     if (!entry) continue;
+    rememberedDocument = entry.path;
     observeVerbTarget(canonicalDocTarget(entry));
     const content = terminalBody(
       desc,
@@ -865,6 +880,7 @@ function printToc(
   verb: string,
   tree: DocsTree,
   cwd: string,
+  log: Logger,
   terminal: TerminalContext,
   width: number,
 ): void {
@@ -884,40 +900,26 @@ function printToc(
     entries.push(e);
     sections.set(section, entries);
   }
-  const capabilities = { ...terminal.capabilities, columns: width };
   for (const [section, entries] of sections) {
     const safeSection = terminalLine(section);
-    const colWidth = Math.min(
-      32,
-      Math.max(...entries.map((entry) => displayWidth(labelOf(entry)))),
+    const rows = renderAlignedRows(
+      entries.map((entry) => ({
+        label: labelOf(entry),
+        body: terminalLine(entry.title),
+      })),
+      // A TTY keeps every row on one aligned line and lets the terminal handle
+      // rare overflow; piped output wraps titles under the shared column.
+      terminal.stdoutIsTerminal ? {} : { width },
     );
-    const rows = entries.map((entry) => {
-      const label = labelOf(entry);
-      const title = terminalLine(entry.title);
-      const aligned = `  ${padDisplayEnd(label, colWidth)}  ${title}`;
-      if (terminal.stdoutIsTerminal || displayWidth(aligned) <= width) {
-        return aligned;
-      }
-      return wrapText(
-        `${label}  ${title}`,
-        Math.max(1, width - 2),
-        "",
-        { breakLongWords: true },
-      ).map((line) => `  ${line}`).join("\n");
-    });
     const title = `${safeSection === "root" ? "(root)" : safeSection}/`;
     const body = terminal.stdoutIsTerminal
-      ? renderSectionCli(
-        {
-          title: terminalLine(title),
-          body: terminalMultiline(rows.join("\n")),
-          treatment: "rule",
-          spacing: "sm",
-          theme: terminal.themeVariant,
-          width,
-        },
-        capabilities,
-      )
+      ? terminal.presenter.present(renderSectionCli, {
+        title: terminalLine(title),
+        body: terminalMultiline(rows.join("\n")),
+        treatment: "rule",
+        spacing: "sm",
+        width,
+      })
       : [
         title,
         ...rows,
@@ -927,7 +929,7 @@ function printToc(
       items: [body],
     });
   }
-  console.log(renderHumanOutputGroups(groups));
+  log.line(renderHumanOutputGroups(groups));
 }
 
 /** Render the map's top-level regions and their Git-only freshness facts. */
@@ -938,7 +940,6 @@ function printMapOverview(
   terminal: TerminalContext,
   width: number,
 ): void {
-  const capabilities = { ...terminal.capabilities, columns: width };
   const directory = terminalLine(display(tree.docsDir, cwd));
   const summary = terminalLine(
     `discern map — ${regions.length} region${
@@ -949,19 +950,15 @@ function printMapOverview(
     id: "map-summary",
     items: [
       terminal.stdoutIsTerminal
-        ? renderDocsHeaderCli(
-          {
-            brand: "discern map",
-            middle: terminalLine(
-              `— ${regions.length} region${
-                regions.length === 1 ? "" : "s"
-              } in ${directory}`,
-            ),
-            theme: terminal.themeVariant,
-            maxWidth: width,
-          },
-          capabilities,
-        )
+        ? terminal.presenter.present(renderDocsHeaderCli, {
+          brand: "discern map",
+          middle: terminalLine(
+            `— ${regions.length} region${
+              regions.length === 1 ? "" : "s"
+            } in ${directory}`,
+          ),
+          maxWidth: width,
+        })
         : summary,
     ],
   }];
@@ -987,24 +984,22 @@ function printMapOverview(
     }
     const safeDetails = terminalMultiline(details.join("\n"));
     const body = terminal.stdoutIsTerminal
-      ? renderSectionCli(
-        {
-          title: terminalLine(name),
-          body: terminalMultiline(safeDetails),
-          treatment: "rule",
-          spacing: "sm",
-          theme: terminal.themeVariant,
-          width,
-        },
-        capabilities,
-      )
+      ? terminal.presenter.present(renderSectionCli, {
+        title: terminalLine(name),
+        body: terminalMultiline(safeDetails),
+        treatment: "rule",
+        spacing: "sm",
+        width,
+      })
       : `${name}  ${safeDetails.replaceAll("\n", "\n  ")}`;
     groups.push({
       id: `map-region:${index}`,
       items: [body],
     });
   }
-  console.log(renderHumanOutputGroups(groups));
+  new Logger({ json: false, noColor: false }).line(
+    renderHumanOutputGroups(groups),
+  );
 }
 
 /** Print compact ranked hits with their reusable targets and context. */
@@ -1014,14 +1009,15 @@ function printSearchResults(
   terminal: TerminalContext,
   width: number,
 ): void {
-  const capabilities = { ...terminal.capabilities, columns: width };
   const query = terminalLine(data.query ?? "");
   const results = data.results ?? [];
   const scope = data.scope === undefined
     ? ""
     : ` in ${terminalLine(data.scope)}`;
   if (results.length === 0) {
-    console.log(terminalLine(`No ${verb} docs matched "${query}"${scope}.`));
+    new Logger({ json: false, noColor: false }).line(
+      terminalLine(`No ${verb} docs matched "${query}"${scope}.`),
+    );
     return;
   }
   const count = data.count ?? results.length;
@@ -1029,17 +1025,13 @@ function printSearchResults(
     id: "search-summary",
     items: [
       terminal.stdoutIsTerminal
-        ? renderDocsHeaderCli(
-          {
-            brand: terminalLine(
-              `${count} result${count === 1 ? "" : "s"}`,
-            ),
-            middle: terminalLine(`for "${query}"${scope}`),
-            theme: terminal.themeVariant,
-            maxWidth: width,
-          },
-          capabilities,
-        )
+        ? terminal.presenter.present(renderDocsHeaderCli, {
+          brand: terminalLine(
+            `${count} result${count === 1 ? "" : "s"}`,
+          ),
+          middle: terminalLine(`for "${query}"${scope}`),
+          maxWidth: width,
+        })
         : `${count} result${count === 1 ? "" : "s"} for "${query}"${scope}`,
     ],
   }];
@@ -1063,16 +1055,12 @@ function printSearchResults(
       id: `search-result:${index}`,
       items: [
         terminal.stdoutIsTerminal
-          ? renderSectionCli(
-            {
-              body: terminalMultiline([target, ...items].join("\n")),
-              surface: "sunken",
-              spacing: "sm",
-              theme: terminal.themeVariant,
-              width,
-            },
-            capabilities,
-          )
+          ? terminal.presenter.present(renderSectionCli, {
+            body: terminalMultiline([target, ...items].join("\n")),
+            surface: "sunken",
+            spacing: "sm",
+            width,
+          })
           : [
             `${target}  ${items[0] ?? ""}`,
             ...items.slice(1).map((item) => `  ${item}`),
@@ -1093,7 +1081,9 @@ function printSearchResults(
       ],
     });
   }
-  console.log(renderHumanOutputGroups(groups));
+  new Logger({ json: false, noColor: false }).line(
+    renderHumanOutputGroups(groups),
+  );
 }
 
 /**
@@ -1185,7 +1175,7 @@ async function exportDocs(
 
     let selected: string[];
     try {
-      selected = await checkboxPrompt<string>({
+      selected = await requestSelections<string>({
         message: "Include documentation sections",
         options: groups.map((group) => ({
           name: terminalLine(`${group.name} (${group.entries.length})`),
@@ -1195,7 +1185,7 @@ async function exportDocs(
         minOptions: 1,
       });
     } catch (error) {
-      if (!isPromptCancellation(error)) throw error;
+      if (!isInteractionCancelled(error)) throw error;
       // Cancellation does not create or overwrite the output file.
       return 0;
     }
@@ -1249,7 +1239,7 @@ async function exportDocs(
 }
 
 /**
- * Compute a map or docs {@link DiscernResult} — the machine-readable index, or a
+ * Compute a map or docs {@link DiscernResult} — the structured index, or a
  * single doc's record + content when `target` is given. The ONE source the CLI's
  * `--json` paths and the MCP server both render; the human, raw, and interactive
  * renderings live in {@link runTree} / {@link viewTarget}. Mirrors the human
@@ -1589,7 +1579,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
           "--export select requires --output <path>.",
         );
       }
-      if (!canPrompt(false)) {
+      if (!canInteract(false)) {
         return invalidOptions(
           log,
           desc.verb,
@@ -1621,7 +1611,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     );
   }
 
-  // `--json`: the entire machine-readable surface (index, single doc, or error)
+  // `--json`: the entire structured surface (index, single doc, or error)
   // is {@link treeResult} — the one shape the MCP server also renders. The human,
   // raw, and interactive renderings below never run under `--json`.
   if (options.json) {
@@ -1642,7 +1632,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     (options.adr === true || targetNamesAdrSubtree(options.target)) &&
     resolved.kind === "ok" && !(await hasDecisionRecords(resolved.dir))
   ) {
-    log.line(EXTERNAL_DECISIONS_MESSAGE);
+    log.line(renderExternalDecisionsNotice(terminal, width));
     return 0;
   }
   const discovered = resolved.kind === "missing"
@@ -1724,6 +1714,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
         desc.verb,
         { ...tree, entries: region.entries },
         cwd,
+        log,
         terminal,
         width,
       );
@@ -1746,7 +1737,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
 
   // 3. `map` earns its name with a region overview before any drill-in. A pipe
   // gets the overview alone; a TTY continues into the existing picker.
-  const interactive = !options.list && canPrompt(false);
+  const interactive = !options.list && canInteract(false);
   if (desc.verb === "map" && !options.list) {
     const regions = await buildMapOverview(tree);
     printMapOverview(
@@ -1765,7 +1756,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   }
 
   // 5. Otherwise (docs off a TTY, or explicit `--list`) → a plain TOC.
-  printToc(desc.verb, tree, cwd, terminal, width);
+  printToc(desc.verb, tree, cwd, log, terminal, width);
   return 0;
 }
 

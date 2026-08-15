@@ -10,7 +10,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -54,7 +54,7 @@ Deno.test("done --dry-run lists the gate plan and runs nothing", async () => {
 
     const r = await runAgent(dir, ["done", "--dry-run"]);
     assertEquals(r.code, 0, r.output); // dry-run never fails on a job
-    assertStringIncludes(r.stdout, "Gate plan");
+    assertTerminalTextIncludes(r.stdout, "GATE PLAN");
     assertStringIncludes(r.stdout, "lint");
   });
 });
@@ -157,7 +157,7 @@ Deno.test("standards --dry-run lists the standard without measuring it", async (
 
     const r = await runAgent(dir, ["standards", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Standards plan");
+    assertTerminalTextIncludes(r.stdout, "Standards plan");
     assertStringIncludes(r.stdout, "coverage");
 
     const j = await runAgent(dir, ["standards", "--dry-run", "--json"]);
@@ -210,7 +210,7 @@ Deno.test("worktree setup --dry-run shows the setup plan; --json reports the ste
 
     const dry = await runAgent(wt, ["worktree", "setup", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
-    assertStringIncludes(dry.stdout, "Worktree setup plan");
+    assertTerminalTextIncludes(dry.stdout, "Worktree setup plan");
     assertStringIncludes(dry.stdout, "ensure-branch");
     assertStringIncludes(dry.stdout, BUILT_IN_STEP_LABELS.completeRefresh);
 
@@ -246,7 +246,7 @@ Deno.test("worktree teardown --dry-run and --json reflect the ledger", async () 
     // Dry-run lists the resource and destroys nothing.
     const dry = await runAgent(wt, ["worktree", "teardown", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
-    assertStringIncludes(dry.stdout, "Teardown plan");
+    assertTerminalTextIncludes(dry.stdout, "Teardown plan");
     assertStringIncludes(dry.stdout, "thing");
 
     // Real teardown with --json reports the destroyed resource.
@@ -285,7 +285,7 @@ Deno.test("accept --dry-run shows the plan after the preconditions pass", async 
 
     const r = await runAgent(wt, ["accept", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Acceptance plan");
+    assertTerminalTextIncludes(r.stdout, "Acceptance plan");
     assertStringIncludes(r.stdout, "remove-worktree");
     // The worktree must still exist — dry-run mutates nothing.
     assertEquals(

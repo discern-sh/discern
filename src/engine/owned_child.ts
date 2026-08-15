@@ -10,7 +10,7 @@
  * stops and reaps the child's whole tree instead of orphaning it.
  *
  * {@link runOwnedChild} is its inherited-terminal caller: foreground children
- * stay in discern's terminal process group so prompts and terminal-generated
+ * stay in discern's terminal process group so interactions and terminal-generated
  * signals keep their normal behavior; off a terminal, the child leads a process
  * group that discern can stop as one tree. The logger-routed setup runner
  * (worktree/shell.ts) supervises its piped children through the same core.

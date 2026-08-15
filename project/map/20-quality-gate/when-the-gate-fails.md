@@ -15,7 +15,7 @@ _Read the first diagnostic, use its reproduce command, and rerun the Gate after 
 
 Start with the first entry in `diagnostics[]`: the tool or precondition that failed, the problem, and a `reproduce_cmd` for a focused loop. The captured `output` contains the tool's error; if it was too large for the result, `output_path` points to the full normalized capture ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 
-The terminal tail names the failed command: `discern done`, `discern prepare`, or `discern test`. Withheld output appears once in package RawOutput with its capture path. Each normalized finding uses Diagnostic then RetryNotice, with `discern docs 20-quality-gate/when-the-gate-fails` for this reference. ResultSummary stays last and keeps the first reproduce command visible.
+The terminal tail names the failed command: `discern done`, `discern prepare`, or `discern test`. Live progress ends before the deferred transcript and final table; the failure tail then appears once. Append-only fallback never removes child output, diagnostics, or remedies. Withheld output appears once in package RawOutput with its capture path. Each normalized finding uses Diagnostic then RetryNotice, with `discern docs 20-quality-gate/when-the-gate-fails` for this reference. ResultSummary stays last and keeps the first reproduce command visible.
 
 Verdicts and failed stages remain authoritative. Streamed child bytes are not repeated; dynamic text crosses the shared safe-text adapter.
 
@@ -49,9 +49,9 @@ Give the diagnostic to your agent, or work from that focused result yourself. Re
 | The gate left tracked changes                | Review the named diff, commit the gate's output, and rerun on the clean commit ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).                                                                                                                                                                                                                                  |
 | `done` refused an unchanged-tree rerun       | Change the tree by fixing the failure or committing, then rerun. To probe a flaky verdict, run `discern done --confirmed`; discern records the attested probe.                                                                                                                                                                                                                          |
 
-## Give the result to an agent
+## Carry the result across sessions
 
-Run the machine-readable form to hand the failure across sessions:
+Use JSON when the recipient needs exact fields or will pass the result to another tool. Use Markdown when concise, prioritized prose is the better fit. People and coding agents can read either representation.
 
 <!-- discern-workflow:command -->
 
@@ -63,18 +63,20 @@ discern done --json
 
 **Expected result:** One `DiscernResult` object on stdout, with each real failure represented in `diagnostics[]`.
 
-**If this fails:** Read the command's stderr; JSON mode keeps narration out of stdout so the result stream stays machine-readable.
+**If this fails:** Read the command's stderr; JSON mode keeps narration out of stdout so the result remains one valid JSON object.
 
 <!-- /discern-workflow -->
 
 Each failed stage carries its remedy in `hints[]`. A sibling terminated by fail-fast reports `cancelled`; a configured step that was never reached reports `skipped`. The public field contract is in [MCP tools & results](../70-reference/mcp-and-results.md).
+
+For the authored prose presentation of the same prepared result, run `discern done --markdown`.
 
 ## Where it lives in code
 
 | Concern                       | Source                                                              |
 | ----------------------------- | ------------------------------------------------------------------- |
 | Gate order and preconditions  | [`finish.ts`](../../../src/engine/gate/finish.ts)                   |
-| Human failure tail            | [`failure_tail.ts`](../../../src/engine/gate/failure_tail.ts)       |
+| Terminal failure tail         | [`failure_tail.ts`](../../../src/engine/gate/failure_tail.ts)       |
 | Pure diagnostic presentation  | [`presentation.ts`](../../../src/engine/gate/presentation.ts)       |
 | Job-to-diagnostic projection  | [`plan.ts`](../../../src/engine/gate/plan.ts)                       |
 | Generated-artifact drift      | [`generated_drift.ts`](../../../src/engine/gate/generated_drift.ts) |

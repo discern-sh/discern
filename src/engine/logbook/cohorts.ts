@@ -48,20 +48,30 @@ function invocationSignals(e: VerbEvent): EffectiveAgentSignal[] {
 /**
  * Who plausibly drove one invocation, scored from the raw driver signals the
  * recorder stored as evidence: the MCP surface is an agent by construction;
- * `--json` on the CLI is the guidance-taught agent marker; an invocation-scoped
- * identity signal without a terminal is an agent that skipped `--json`. An
- * interactive terminal normally reads as a human at the keyboard — but when it
- * carries an invocation-scoped signal the two disagree (environments leak into
- * shells opened inside agent sessions), so the verdict is revoked to unknown
- * rather than claimed either way. Everything unresolved stays IN the analysis
- * population — excluding it would blind the detectors to unmarked CLI agents.
+ * a `spawned_by` marker is discern's own job runner declaring a
+ * self-invocation, and the conventional CI marker reads as automation too —
+ * the fallback that classifies history recorded before the explicit marker
+ * and genuine external CI alike (ADR 0282). An invocation-scoped identity
+ * signal without a terminal identifies an agent-driven call. JSON and
+ * Markdown are format choices, not identity evidence. An interactive
+ * terminal normally reads as a human at the keyboard, but when it carries an
+ * invocation-scoped signal the two disagree (environments leak into shells
+ * opened inside agent sessions), so the verdict is revoked to unknown rather
+ * than claimed either way. Everything unresolved stays in the analysis
+ * population. Excluding it would blind the detectors to unmarked CLI agents.
  */
-export function driverKind(e: VerbEvent): "agent" | "human" | "unknown" {
+export function driverKind(
+  e: VerbEvent,
+): "agent" | "human" | "automation" | "unknown" {
   if (e.surface === "mcp") {
     return "agent";
   }
-  if (e.driver?.json === true) {
-    return "agent";
+  const spawnedBy = e.driver?.spawned_by;
+  if (typeof spawnedBy === "string" && spawnedBy !== "") {
+    return "automation";
+  }
+  if (e.driver?.ci === true) {
+    return "automation";
   }
   if (invocationSignals(e).length > 0) {
     return e.driver?.tty === true ? "unknown" : "agent";
@@ -144,12 +154,18 @@ export interface CohortSplit<T> {
  * exactly-one rule lifted to the unit level: events naming nothing don't void
  * a unit (absence is not disagreement), but events naming two different
  * identities do — a branch two agents drove belongs to neither cohort.
+ * Automation events attribute nothing: a gate child inherits the outer
+ * session's markers, so letting it vote would both credit plumbing and void
+ * units where a different agent's session happened to run the gate.
  */
 export function attributedIdentity(
   events: readonly VerbEvent[],
 ): string | undefined {
   const ids = new Set<string>();
   for (const e of events) {
+    if (driverKind(e) === "automation") {
+      continue;
+    }
     const id = driverAgent(e);
     if (id !== undefined) {
       ids.add(id);
@@ -173,17 +189,26 @@ export function splitByCohort<T>(
   let unattributedUnits = 0;
   let unattributedRuns = 0;
   for (const unit of units) {
-    const events = eventsOf(unit);
-    const id = attributedIdentity(events);
+    // Cohorts compare decisions, so automation events — gate children and CI
+    // runs — join neither a cohort's runs nor the unattributed remainder; the
+    // population account reports that volume (ADR 0282). A unit with no
+    // decision events carries nothing to compare and drops out entirely.
+    const decisions = eventsOf(unit).filter(
+      (e) => driverKind(e) !== "automation",
+    );
+    if (decisions.length === 0) {
+      continue;
+    }
+    const id = attributedIdentity(decisions);
     if (id === undefined) {
       unattributedUnits += 1;
-      unattributedRuns += events.length;
+      unattributedRuns += decisions.length;
       continue;
     }
     const cohort = byId.get(id) ??
       { agent: id, label: agentLabel(id), units: [], runs: 0 };
     cohort.units.push(unit);
-    cohort.runs += events.length;
+    cohort.runs += decisions.length;
     byId.set(id, cohort);
   }
   const cohorts = [...byId.values()].sort((a, b) =>

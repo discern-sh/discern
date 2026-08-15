@@ -14,12 +14,12 @@
  *    the project tree), falling back to a temp file outside a repository. The
  *    newest {@link MAX_CRASH_FILES} repository reports are kept. Best-effort:
  *    it returns `undefined` rather than ever throwing from a crash path.
- *  - **frame** — {@link renderCrashFrame} is the human stderr block: version,
+ *  - **frame** — {@link renderCrashFrame} is the terminal stderr block: version,
  *    verb, the error, where the report was saved, where to send it.
- *  - **envelope** — {@link internalErrorResult} is the uniform machine result
- *    (`error: "internal_error"`) the CLI's `--json` mode and the MCP server
- *    both emit, so an agent reads a crash as a structured result instead of
- *    a broken stream. It carries no `data`: typed per-verb payload schemas
+ *  - **envelope** — {@link internalErrorResult} is the uniform structured result
+ *    (`error: "internal_error"`) CLI `--json`, CLI `--markdown`, and MCP all
+ *    project, so a caller receives a complete result instead of a broken
+ *    stream. It carries no `data`: typed per-verb payload schemas
  *    stay intact, and a written report's path travels in `message`.
  *  - **signature** — {@link crashSignature} is the logbook-safe reduction
  *    (error class name and one code location, never the message), within the
@@ -382,7 +382,7 @@ export function renderCrashFrame(
 }
 
 /**
- * The uniform machine result for a crash — the one envelope every surface
+ * The uniform structured result for a crash — the one envelope every surface
  * emits when a verb throws unexpectedly, so `--json` consumers and MCP
  * clients read a crash as a structured `internal_error` instead of a broken
  * stream. Carries no `data` (typed per-verb payload schemas stay intact);

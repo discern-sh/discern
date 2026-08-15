@@ -20,11 +20,9 @@ import {
   renderResultSummaryCli,
   renderRetryNoticeCli,
   renderStandardMeterCli,
-  renderTriangleSectionRule,
   type ResultSummaryCliProps,
   type SequentialStepStatus,
   type StandardMeterCliProps,
-  type TerminalCapabilities,
 } from "discern-design-system/cli";
 import {
   type TerminalContext,
@@ -76,7 +74,7 @@ export type GateJobPresentationStatus =
   | "running";
 
 /** One job fact after Discern has decided its meaning. */
-interface GateJobPresentation {
+export interface GateJobPresentation {
   readonly group: string;
   readonly label: string;
   readonly command: string;
@@ -86,6 +84,39 @@ interface GateJobPresentation {
   /** Explicit live duration supplied by the effectful controller. */
   readonly elapsedS?: number;
 }
+
+/** Product grammar sharing one live dashboard without conflating Gate and test. */
+export type GateLiveDashboardKind = "gate" | "test";
+
+/** Exhaustive aggregate states shown by full, compact, and continuous views. */
+export type GateLiveDashboardState =
+  | "active"
+  | "failed"
+  | "cancelled"
+  | "complete";
+
+/** Pure scheduler projection consumed by every live presentation mode. */
+export interface GateLiveDashboard {
+  readonly kind: GateLiveDashboardKind;
+  readonly state: GateLiveDashboardState;
+  readonly jobs: readonly GateJobPresentation[];
+  readonly running: readonly GateJobPresentation[];
+  readonly completed: number;
+  readonly failed: number;
+  readonly cancelled: number;
+  readonly remaining: number;
+  readonly total: number;
+  readonly elapsedS: number;
+}
+
+const LIVE_DASHBOARD_RESULT_STATE = {
+  active: "changed",
+  failed: "failed",
+  cancelled: "blocked",
+  complete: "passed",
+} as const satisfies Readonly<
+  Record<GateLiveDashboardState, ResultSummaryCliProps["state"]>
+>;
 
 /** Exhaustive status mapping into the package workflow vocabulary. */
 export const GATE_JOB_STEP_STATUS = {
@@ -290,21 +321,6 @@ function presentationWidth(width: number): number {
   return Math.max(MIN_COMPONENT_WIDTH, Math.min(MAX_GATE_WIDTH, finite - 2));
 }
 
-/** Derive one capability snapshot from the caller's already-resolved context. */
-function componentCapabilities(
-  options: GatePresentationOptions,
-): TerminalCapabilities {
-  const columns = presentationWidth(options.width);
-  return { ...options.terminal.capabilities, columns };
-}
-
-/** Project the explicit terminal context into package theme props. */
-function componentTheme(
-  options: GatePresentationOptions,
-): TerminalContext["themeVariant"] {
-  return options.terminal.themeVariant;
-}
-
 /** Preserve an empty observed value as an explicit visible fact. */
 function safeLine(value: string, fallback = "(empty)"): string {
   const safe = terminalLine(value);
@@ -386,10 +402,10 @@ function renderJobRun(
   run: GateJobRun,
   options: GatePresentationOptions,
 ): string {
-  const capabilities = componentCapabilities(options);
-  const theme = componentTheme(options);
+  const width = presentationWidth(options.width);
+  const presenter = options.terminal.presenter;
   const phase = options.phase ?? 0;
-  const procedure = renderProcedureCli({
+  const procedure = presenter.present(renderProcedureCli, {
     title: safeLine(run.group),
     steps: run.rows.map((row) => ({
       title: safeLine(
@@ -400,63 +416,178 @@ function renderJobRun(
     })),
     completion: "Every configured step reaches a final reported state.",
     completionLabel: "Complete when",
-    theme,
-    maxWidth: capabilities.columns,
-  }, capabilities);
+    maxWidth: width,
+  });
   const commands = run.rows.map((row) =>
-    renderCommandCli({
+    presenter.present(renderCommandCli, {
       command: safeMultiline(row.command),
       explanation: safeMultiline(`${row.label}: ${jobAction(row)}`),
-      theme,
-      maxWidth: capabilities.columns,
-    }, capabilities)
+      maxWidth: width,
+    })
   );
   return [procedure, ...commands].join("\n\n");
 }
 
+/** Build aggregate dashboard facts from an already-projected job collection. */
+export function gateLiveDashboard(
+  jobs: readonly GateJobPresentation[],
+  kind: GateLiveDashboardKind,
+  elapsedS: number,
+): GateLiveDashboard {
+  const completed = jobs.filter((row) => statusSettled(row.status)).length;
+  const failed = jobs.filter((row) => row.status === "failed").length;
+  const cancelled = jobs.filter((row) => row.status === "cancelled").length;
+  const remaining = jobs.length - completed;
+  const state: GateLiveDashboardState = failed > 0
+    ? "failed"
+    : cancelled > 0
+    ? "cancelled"
+    : remaining === 0
+    ? "complete"
+    : "active";
+  return {
+    kind,
+    state,
+    jobs,
+    running: jobs.filter((row) => row.status === "running"),
+    completed,
+    failed,
+    cancelled,
+    remaining,
+    total: jobs.length,
+    elapsedS: Math.max(0, Math.floor(elapsedS)),
+  };
+}
+
+/** The product noun and meter label for one shared live grammar. */
+function dashboardSubject(kind: GateLiveDashboardKind): {
+  readonly noun: string;
+  readonly label: string;
+  readonly empty: string;
+} {
+  return kind === "test"
+    ? {
+      noun: "Test",
+      label: "Test progress",
+      empty: "No test job is configured, so no project command ran.",
+    }
+    : {
+      noun: "Gate",
+      label: "Gate progress",
+      empty: "No Gate job is configured, so no project command ran.",
+    };
+}
+
 /** Render aggregate progress and every ordered job fact through package Components. */
+export function renderGateFullDashboard(
+  dashboard: GateLiveDashboard,
+  options: GatePresentationOptions,
+): string {
+  const width = presentationWidth(options.width);
+  const presenter = options.terminal.presenter;
+  const subject = dashboardSubject(dashboard.kind);
+  if (dashboard.jobs.length === 0) {
+    return presenter.present(renderResultSummaryCli, {
+      state: "unchanged",
+      fact: safeLine(subject.empty),
+      maxWidth: width,
+    });
+  }
+  const lifecycle = dashboard.state === "failed"
+    ? {
+      status: "validation-error" as const,
+      message: safeLine(
+        dashboard.kind === "test" ? "Tests failed." : "A Gate job failed.",
+      ),
+    }
+    : dashboard.state === "cancelled"
+    ? {
+      status: "cancelled" as const,
+      reason: safeLine(
+        dashboard.kind === "test"
+          ? "The test run was cancelled."
+          : "The Gate run was cancelled.",
+      ),
+    }
+    : dashboard.state === "complete"
+    ? { status: "submitted" as const }
+    : { status: "active" as const };
+  const progress = presenter.present(renderMeterCli, {
+    kind: "determinate-progress",
+    label: safeLine(subject.label),
+    lifecycle,
+    completed: dashboard.completed,
+    total: dashboard.total,
+    tone: dashboard.state === "failed"
+      ? "danger"
+      : dashboard.state === "cancelled"
+      ? "warning"
+      : "neutral",
+    width,
+  });
+  return [
+    progress,
+    ...jobRuns(dashboard.jobs).map((run) => renderJobRun(run, options)),
+  ].join("\n\n");
+}
+
+/** Render the intentionally small live view: aggregate facts plus active jobs. */
+export function renderGateCompactDashboard(
+  dashboard: GateLiveDashboard,
+  options: GatePresentationOptions,
+): string {
+  const width = presentationWidth(options.width);
+  const presenter = options.terminal.presenter;
+  const subject = dashboardSubject(dashboard.kind);
+  if (dashboard.total === 0) {
+    return presenter.present(renderResultSummaryCli, {
+      state: "unchanged",
+      fact: safeLine(subject.empty),
+      maxWidth: width,
+    });
+  }
+  const running = dashboard.running.map((row) => row.label);
+  const activity = running.length === 0
+    ? dashboard.state === "active"
+      ? "Waiting for the next job to start."
+      : `The ${subject.noun.toLowerCase()} has no running job.`
+    : running.length === 1
+    ? `Running: ${running[0] ?? "(unknown)"}.`
+    : `Running concurrently: ${running.join(", ")}.`;
+  const status = dashboard.state === "active"
+    ? "active"
+    : dashboard.state === "failed"
+    ? "failed"
+    : dashboard.state === "cancelled"
+    ? "cancelled"
+    : "complete";
+  return presenter.present(renderResultSummaryCli, {
+    state: LIVE_DASHBOARD_RESULT_STATE[dashboard.state],
+    fact: safeLine(
+      `${subject.noun} ${status} · ${dashboard.completed} / ${dashboard.total} jobs settled. ${activity}`,
+    ),
+    counts: [
+      { label: "Completed", value: safeLine(String(dashboard.completed)) },
+      { label: "Failed", value: safeLine(String(dashboard.failed)) },
+      { label: "Cancelled", value: safeLine(String(dashboard.cancelled)) },
+      { label: "Remaining", value: safeLine(String(dashboard.remaining)) },
+    ],
+    duration: safeLine(fmtDuration(dashboard.elapsedS)),
+    maxWidth: width,
+  });
+}
+
+/** Compatibility projection for completed and static Gate job tables. */
 export function renderGateJobs(
   rows: readonly GateJobPresentation[],
   options: GatePresentationOptions,
+  kind: GateLiveDashboardKind = "gate",
+  elapsedS = 0,
 ): string {
-  const capabilities = componentCapabilities(options);
-  const theme = componentTheme(options);
-  if (rows.length === 0) {
-    return renderResultSummaryCli({
-      state: "unchanged",
-      fact: "No Gate job is configured, so no project command ran.",
-      theme,
-      maxWidth: capabilities.columns,
-    }, capabilities);
-  }
-  const completed = rows.filter((row) => statusSettled(row.status)).length;
-  const failed = rows.some((row) => row.status === "failed");
-  const cancelled = !failed && rows.some((row) => row.status === "cancelled");
-  const lifecycle = failed
-    ? { status: "validation-error" as const, message: "A Gate job failed." }
-    : cancelled
-    ? { status: "cancelled" as const, reason: "The Gate run was cancelled." }
-    : completed === rows.length
-    ? { status: "submitted" as const }
-    : { status: "active" as const };
-  const reading = `${completed} / ${rows.length} steps settled`;
-  const readingFits = `Gate progress  ${reading}`.length <=
-    capabilities.columns;
-  const progress = renderMeterCli({
-    kind: "determinate-progress",
-    label: "Gate progress",
-    lifecycle,
-    completed,
-    total: rows.length,
-    ...(readingFits ? { reading: safeLine(reading) } : {}),
-    tone: failed ? "danger" : cancelled ? "warning" : "neutral",
-    theme,
-    width: capabilities.columns,
-  }, capabilities);
-  return [
-    progress,
-    ...jobRuns(rows).map((run) => renderJobRun(run, options)),
-  ].join("\n\n");
+  return renderGateFullDashboard(
+    gateLiveDashboard(rows, kind, elapsedS),
+    options,
+  );
 }
 
 /** Project completed envelope steps without re-deciding any outcome. */
@@ -569,8 +700,8 @@ function renderPlanPrerequisites(
   occurrence: number,
   options: GatePresentationOptions,
 ): string {
-  const capabilities = componentCapabilities(options);
-  return renderPrerequisiteListCli({
+  const width = presentationWidth(options.width);
+  return options.terminal.presenter.present(renderPrerequisiteListCli, {
     title: occurrence === 1 ? "Gate prerequisites" : "Final checks",
     items: run.steps.map((step) => ({
       requirement: safeMultiline(
@@ -581,9 +712,8 @@ function renderPlanPrerequisites(
         `${planKindLabel(step.kind)} is marked ${step.disposition}.`,
       ),
     })),
-    theme: componentTheme(options),
-    maxWidth: capabilities.columns,
-  }, capabilities);
+    maxWidth: width,
+  });
 }
 
 /** Render one configured Gate-job plan run. */
@@ -610,28 +740,27 @@ export function renderGatePlan(
   plan: EnginePlan,
   options: GatePresentationOptions,
 ): string {
-  const capabilities = componentCapabilities(options);
-  const theme = componentTheme(options);
-  const title = renderTriangleSectionRule(safeLine(plan.title), {
-    width: capabilities.columns,
-    theme,
-  }, capabilities);
-  const context = plan.details.length === 0 ? [] : [renderResultSummaryCli({
-    state: "unchanged",
-    fact: safeMultiline(plan.details.join("\n")),
-    theme,
-    maxWidth: capabilities.columns,
-  }, capabilities)];
+  const width = presentationWidth(options.width);
+  const presenter = options.terminal.presenter;
+  const title = presenter.triangleSectionRule(safeLine(plan.title), {
+    width,
+  });
+  const context = plan.details.length === 0
+    ? []
+    : [presenter.present(renderResultSummaryCli, {
+      state: "unchanged",
+      fact: safeMultiline(plan.details.join("\n")),
+      maxWidth: width,
+    })];
   if (plan.steps.length === 0) {
     return [
       title,
       ...context,
-      renderResultSummaryCli({
+      presenter.present(renderResultSummaryCli, {
         state: "unchanged",
         fact: "The Gate plan contains no project command.",
-        theme,
-        maxWidth: capabilities.columns,
-      }, capabilities),
+        maxWidth: width,
+      }),
     ].join("\n\n");
   }
   let prerequisiteOccurrence = 0;
@@ -692,10 +821,10 @@ export function renderGateStandards(
   options: GatePresentationOptions,
 ): string {
   if (standards.length === 0) return "";
-  const capabilities = componentCapabilities(options);
-  const theme = componentTheme(options);
+  const width = presentationWidth(options.width);
+  const presenter = options.terminal.presenter;
   return standards.map((standard) => {
-    const evidence = renderResultSummaryCli({
+    const evidence = presenter.present(renderResultSummaryCli, {
       state: standardSummaryState(standard),
       fact: safeMultiline(standardEvidence(standard)),
       counts: [
@@ -723,11 +852,10 @@ export function renderGateStandards(
       ...(standard.measurement === "deferred"
         ? { nextAction: "Run discern standards." }
         : {}),
-      theme,
-      maxWidth: capabilities.columns,
-    }, capabilities);
+      maxWidth: width,
+    });
     if (standard.value === undefined) return evidence;
-    const meter = renderStandardMeterCli({
+    const meter = presenter.present(renderStandardMeterCli, {
       label: safeLine(standard.name),
       value: standard.value,
       limit: standard.limit,
@@ -735,9 +863,8 @@ export function renderGateStandards(
       ...(standard.verdict === undefined
         ? {}
         : { trend: GATE_STANDARD_TREND[standard.verdict] }),
-      theme,
-      maxWidth: capabilities.columns,
-    }, capabilities);
+      maxWidth: width,
+    });
     return `${meter}\n${evidence}`;
   }).join("\n\n");
 }
@@ -754,14 +881,13 @@ function renderDiagnosticRetry(
   diagnostic: Diagnostic,
   options: GatePresentationOptions,
 ): string {
-  const capabilities = componentCapabilities(options);
-  return renderRetryNoticeCli({
+  const width = presentationWidth(options.width);
+  return options.terminal.presenter.present(renderRetryNoticeCli, {
     safeToRetry: true,
     reason: safeMultiline(diagnosticCorrection(diagnostic)),
     label: safeLine(`after running ${safeLine(diagnostic.reproduce_cmd)}`),
-    theme: componentTheme(options),
-    maxWidth: capabilities.columns,
-  }, capabilities);
+    maxWidth: width,
+  });
 }
 
 /** Render a discern-owned captured excerpt, if the diagnostic carries one. */
@@ -772,21 +898,20 @@ function renderDiagnosticOutput(
   if (diagnostic.output === undefined || diagnostic.output.trim() === "") {
     return "";
   }
-  const capabilities = componentCapabilities(options);
+  const width = presentationWidth(options.width);
   const artifact = diagnostic.truncated === true &&
       diagnostic.output_path !== undefined
     ? `\nFull output artifact: ${safeLine(diagnostic.output_path)}`
     : "";
-  return renderRawOutputCli({
+  return options.terminal.presenter.present(renderRawOutputCli, {
     output: safeMultiline(`${diagnostic.output}${artifact}`),
     label: safeLine(
       diagnostic.truncated === true
         ? `${safeLine(diagnostic.tool)} captured output excerpt`
         : `${safeLine(diagnostic.tool)} captured output`,
     ),
-    theme: componentTheme(options),
-    maxWidth: capabilities.columns,
-  }, capabilities);
+    maxWidth: width,
+  });
 }
 
 /** Render only Discern-authored captured-output excerpts for a quieted run. */
@@ -805,13 +930,13 @@ export function renderGateDiagnostics(
   options: GatePresentationOptions,
 ): string {
   if (diagnostics.length === 0) return "";
-  const capabilities = componentCapabilities(options);
-  const theme = componentTheme(options);
+  const width = presentationWidth(options.width);
+  const presenter = options.terminal.presenter;
   return diagnostics.map((diagnostic) => {
     const title = diagnostic.rule === undefined
       ? diagnostic.tool
       : `${diagnostic.tool}: ${diagnostic.rule}`;
-    const finding = renderDiagnosticCli({
+    const finding = presenter.present(renderDiagnosticCli, {
       title: safeLine(title),
       impact: safeMultiline(diagnostic.message),
       correction: safeMultiline(diagnosticCorrection(diagnostic)),
@@ -822,9 +947,8 @@ export function renderGateDiagnostics(
       ...(diagnostic.line === undefined ? {} : { line: diagnostic.line }),
       ...(diagnostic.col === undefined ? {} : { column: diagnostic.col }),
       reproductionCommand: safeMultiline(diagnostic.reproduce_cmd),
-      theme,
-      maxWidth: capabilities.columns,
-    }, capabilities);
+      maxWidth: width,
+    });
     const retry = renderDiagnosticRetry(diagnostic, options);
     const output = renderDiagnosticOutput(diagnostic, options);
     return output === ""
@@ -841,9 +965,9 @@ export function renderGateFailureSummary(
   options: GatePresentationOptions,
   failedStage?: FailedStage,
 ): string {
-  const capabilities = componentCapabilities(options);
+  const width = presentationWidth(options.width);
   const firstCommand = diagnostics[0]?.reproduce_cmd;
-  return renderResultSummaryCli({
+  return options.terminal.presenter.present(renderResultSummaryCli, {
     state: "failed",
     fact: safeLine(
       firstCommand === undefined
@@ -854,9 +978,8 @@ export function renderGateFailureSummary(
         }: ${headline}`
         : `discern ${verb} failed · reproduce: ${firstCommand}`,
     ),
-    theme: componentTheme(options),
-    maxWidth: capabilities.columns,
-  }, capabilities);
+    maxWidth: width,
+  });
 }
 
 /** Map any Gate job state to a package Result summary. */
@@ -884,13 +1007,12 @@ export function renderGateStatus(
   status: GateJobPresentationStatus,
   options: GatePresentationOptions,
 ): string {
-  const capabilities = componentCapabilities(options);
-  return renderResultSummaryCli({
+  const width = presentationWidth(options.width);
+  return options.terminal.presenter.present(renderResultSummaryCli, {
     state: resultState(status),
     fact: safeMultiline(message),
-    theme: componentTheme(options),
-    maxWidth: capabilities.columns,
-  }, capabilities);
+    maxWidth: width,
+  });
 }
 
 /** Render a truthful Proof receipt and retain the exact copyable proof line. */
@@ -901,7 +1023,7 @@ export function renderGateProofReceipt(
   options: GatePresentationOptions,
   landingAuthority?: LandingAuthorityData,
 ): string {
-  const capabilities = componentCapabilities(options);
+  const width = presentationWidth(options.width);
   const state: ReceiptPresentationState = record === undefined
     ? GATE_PROOF_RECORD_PRESENTATION.unavailable
     : GATE_PROOF_RECORD_PRESENTATION[record.status];
@@ -924,7 +1046,7 @@ export function renderGateProofReceipt(
     : ` Landing still needs conversation consent; ${uncovered} changed path${
       uncovered === 1 ? " is" : "s are"
     } uncovered.`;
-  const receipt = renderReceiptCli({
+  const receipt = options.terminal.presenter.present(renderReceiptCli, {
     title: "Gate proof",
     ...(state.stamp === undefined ? {} : { stamp: state.stamp }),
     meta: [
@@ -966,9 +1088,8 @@ export function renderGateProofReceipt(
     ],
     summary: safeMultiline(`${proofSummary}${landingSummary}`),
     footer: "Full proof: discern status --verbose",
-    theme: componentTheme(options),
-    maxWidth: capabilities.columns,
-  }, capabilities);
+    maxWidth: width,
+  });
   return `${receipt}\n\n${safeLine(proof.line)}`;
 }
 
@@ -977,13 +1098,13 @@ export function renderGateProofCheckReceipt(
   check: GateProofCheckData,
   options: GatePresentationOptions,
 ): string {
-  const capabilities = componentCapabilities(options);
+  const width = presentationWidth(options.width);
   const state: ReceiptPresentationState =
     GATE_PROOF_CHECK_PRESENTATION[check.status];
   const summary = check.reason === undefined
     ? state.summary
     : `${state.summary} ${safeMultiline(check.reason)}`;
-  const receipt = renderReceiptCli({
+  const receipt = options.terminal.presenter.present(renderReceiptCli, {
     title: "Gate proof",
     ...(state.stamp === undefined ? {} : { stamp: state.stamp }),
     meta: [
@@ -1006,9 +1127,8 @@ export function renderGateProofCheckReceipt(
     footer: check.status === "honored"
       ? "The recorded Gate result is authoritative for this tree."
       : "Refresh proof: discern done",
-    theme: componentTheme(options),
-    maxWidth: capabilities.columns,
-  }, capabilities);
+    maxWidth: width,
+  });
   return check.proof_line === undefined
     ? receipt
     : `${receipt}\n\n${safeLine(check.proof_line)}`;

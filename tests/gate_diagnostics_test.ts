@@ -1,6 +1,6 @@
 /**
  * Tier-1 diagnostic normalization (ADR 0028): the SARIF and JUnit XML
- * auto-detectors that turn a failed gate command's machine output into
+ * auto-detectors that turn a failed gate command's tool output into
  * structured {file,line,rule} findings. Pure-unit here; the end-to-end wiring
  * through `done --json` lives in `engine_done_json_test.ts`.
  */

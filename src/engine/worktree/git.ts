@@ -18,6 +18,7 @@
 
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
+import { padDisplayEnd } from "../../lib/text.ts";
 import { adrNumberOf } from "../../lib/adr_numbers.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
@@ -2918,18 +2919,18 @@ export function renderGitWorktreePruneScan(
 ): void {
   log.line(`Scanning worktrees in ${scan.repoRoot}`);
   for (const line of scan.worktreeLines) {
-    log.line(`${line.action.padEnd(6)} ${line.label} (${line.reason})`);
+    log.line(`${padDisplayEnd(line.action, 6)} ${line.label} (${line.reason})`);
   }
   log.group("branches");
   log.line(`Scanning branches in ${scan.repoRoot}`);
   for (const line of scan.branchLines) {
-    log.line(`${line.action.padEnd(6)} ${line.label} (${line.reason})`);
+    log.line(`${padDisplayEnd(line.action, 6)} ${line.label} (${line.reason})`);
   }
 }
 
 /**
  * Re-validate one planned worktree removal against LIVE state. The plan may
- * have waited at a confirmation prompt while an agent re-entered the worktree,
+ * have waited at a confirmation interaction while an agent re-entered the worktree,
  * so apply re-runs the scan's own eligibility predicate
  * ({@link worktreeKeepReasons}) just before removing — the same apply-time
  * discipline as `deleteBranchSafe`'s merged-ness re-check and

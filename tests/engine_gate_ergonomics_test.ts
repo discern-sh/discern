@@ -9,7 +9,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -142,6 +142,6 @@ Deno.test("gate stream: output is line-prefixed with the job label", async () =>
     const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 0, r.output);
     // Streamed lines carry the `── <label> │ ` prefix.
-    assertStringIncludes(r.output, "│ HELLO-FROM-FIX");
+    assertTerminalTextIncludes(r.output, "│ HELLO-FROM-FIX");
   });
 });

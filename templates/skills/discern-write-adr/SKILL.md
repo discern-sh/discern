@@ -16,7 +16,9 @@ The project's ADRs live in the configured documentation tree, at `{{map_dir}}_ad
 
 ## 0. Ensure the ADR home exists
 
-ADRs live in `{{map_dir}}_adr/`. If that directory doesn't exist yet — a project that hasn't run `discern setup` — create it from this skill's skeleton before writing: copy this skill's own `skeleton/docs/_adr/` directory (the canonical `README.md` format guide and `0000-template.md`) to `{{map_dir}}_adr/`. If it already exists, skip this.
+ADRs live in `{{map_dir}}_adr/`. If that directory does not exist, copy this skill's `skeleton/docs/_adr/` directory there before writing. The skeleton contains the canonical `README.md` format guide, `0000-template.md`, and the seeded adoption record `0001-adopt-discern.md`.
+
+Complete the seeded record before the ADR you came to write. Replace its `setup fills this` markers with the project's reason for adopting discern, the jobs its Gate runs, and project-specific consequences. Keep the provenance sentence. It identifies discern as the source of the seed and the configuring agent as the writer of its project-specific material. If the ADR directory already exists, skip this step.
 
 ---
 
@@ -36,7 +38,7 @@ When in doubt, ask the user the three questions above rather than guessing.
 
 ## 2. Pick the next number
 
-List `{{map_dir}}_adr/`, find the highest existing `NNNN-…` number, and add one (zero-padded, four digits). Numbers are continuous and never reused; `0000-template.md` is the template, so the first real ADR is `0001`. Choose a short kebab-case slug that names the **decision**, not the problem — e.g. `0007-event-sourced-write-model.md`.
+List `{{map_dir}}_adr/`, find the highest existing `NNNN-…` number, and add one (zero-padded, four digits). Numbers are continuous and never reused; `0000-template.md` is only the template, and `0001` is usually the seeded record of adopting the practice. Choose a short kebab-case slug that names the **decision**, not the problem — e.g. `0007-event-sourced-write-model.md`.
 
 Your tree shows only landed records, so another in-flight branch may have claimed the same next number. `discern status` warns when that happens, and the gate refuses a duplicated number once both records reach one tree — whoever lands second moves to the next free number, so don't fight for a specific one.
 

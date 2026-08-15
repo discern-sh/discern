@@ -71,11 +71,13 @@ Use this page to look up the exact syntax and flags for every visible `discern` 
 
 These options are inherited unless a command's entry says otherwise. Tokens beyond an exec-style child boundary are never discern options.
 
-| Option       | Description                                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------- |
-| `--json`     | Emit machine-readable JSON instead of human output.                                           |
-| `--no-color` | Disable colour (also honours NO_COLOR and non-TTY output).                                    |
-| `--plain`    | Disable prompts and paging; use static output. CI and non-terminal input imply this behavior. |
+| Option            | Description                                                                                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`          | Emit one JSON result on stdout.                                                                                                                                                  |
+| `--markdown`      | Emit one Markdown result on stdout.                                                                                                                                              |
+| `--no-color`      | Disable colour (also honours NO_COLOR and non-TTY output).                                                                                                                       |
+| `--plain`         | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.                                                                          |
+| `--theme <theme>` | Set the terminal theme. `auto` senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing. `light` and `dark` still force that variant. Default: `auto`. |
 
 ## Your desk
 
@@ -87,9 +89,9 @@ Open the interactive task list: start a task, open its worktree, update it, land
 
 Usage: `discern desk [options]`
 
-| Option   | Description                                                               |
-| -------- | ------------------------------------------------------------------------- |
-| `--json` | The desk is interactive only; use `status --json` to list every worktree. |
+| Option   | Description                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------ |
+| `--json` | The desk is interactive only; use `status --markdown` or `status --json` to list every worktree. |
 
 ## Agentic loop
 
@@ -101,12 +103,12 @@ Show what's true right now and what to do next (read-only; does not run the gate
 
 Usage: `discern status [options]`
 
-| Option      | Description                                                                                                                                |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--all`     | Include every worktree even when called from one (local view plus all worktrees).                                                          |
-| `--local`   | Show only this checkout, even in the main checkout.                                                                                        |
-| `--verbose` | Also print the full proof page for an honored branch (and each ready fleet row). Interactive output only; --json always carries the proof. |
-| `--json`    | Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).                                                              |
+| Option      | Description                                                                                                                                                                                     |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--all`     | Include every worktree even when called from one (local view plus all worktrees).                                                                                                               |
+| `--local`   | Show only this checkout, even in the main checkout.                                                                                                                                             |
+| `--verbose` | Expand fleet attention, per-worktree evidence, configured checks, landing history, and full Proof pages. This affects the terminal presentation only; JSON and Markdown results remain compact. |
+| `--json`    | Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).                                                                                                                   |
 
 ### `discern prepare`
 
@@ -142,7 +144,7 @@ Usage: `discern test [options]`
 
 ### `discern queue`
 
-Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead. This command has no `--json` mode; tokens after `--` belong to the child.
+Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead. This command has no `--json` or `--markdown` mode; tokens after `--` belong to the child.
 
 Usage: `discern queue -- <command> [args...]`
 
@@ -169,7 +171,7 @@ Usage: `discern start [options]`
 
 | Option          | Description                                                                                                                                         |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`        | Emit a machine-readable (plan, result) object on stdout (data.path is the new worktree).                                                            |
+| `--json`        | Emit one JSON result on stdout (data.path is the new worktree).                                                                                     |
 | `--dry-run`     | Show the start plan; touch nothing.                                                                                                                 |
 | `--name <name>` | Name the worktree after this task (a slug or a few words — discern normalises it into a branch-safe name). Omit for a random codename.              |
 | `--from <ref>`  | Branch the new worktree from this ref (a branch, tag, or commit) instead of the trunk. For building on unlanded work — omit it for everyday starts. |
@@ -182,7 +184,7 @@ Usage: `discern update [options]`
 
 | Option         | Description                                                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--json`       | Emit a machine-readable (plan, results) object on stdout.                                                                                                          |
+| `--json`       | Emit one JSON result on stdout.                                                                                                                                    |
 | `--dry-run`    | Show the update plan; touch nothing.                                                                                                                               |
 | `--from <ref>` | Pull this ref (a branch, tag, or commit) into the worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call. |
 
@@ -209,7 +211,7 @@ Usage: `discern accept [options]`
 
 | Option        | Description                                                                                                                                                                                                                                                                                                       |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`      | Emit a machine-readable (plan, results) object on stdout.                                                                                                                                                                                                                                                         |
+| `--json`      | Emit one JSON result on stdout.                                                                                                                                                                                                                                                                                   |
 | `--dry-run`   | Show the acceptance plan; touch nothing.                                                                                                                                                                                                                                                                          |
 | `--confirmed` | Attest that your owner accepted this landing in the current conversation. Recorded standing and effort grants are checked directly. Consent bound to an interrupted transaction may authorize recovery of that transaction only. Without applicable evidence, acceptance refuses read-only; a dry-run needs none. |
 
@@ -225,10 +227,10 @@ Set up or re-sync the current worktree.
 
 Usage: `discern worktree setup [options]`
 
-| Option      | Description                                               |
-| ----------- | --------------------------------------------------------- |
-| `--json`    | Emit a machine-readable (plan, results) object on stdout. |
-| `--dry-run` | Show the setup plan; touch nothing.                       |
+| Option      | Description                         |
+| ----------- | ----------------------------------- |
+| `--json`    | Emit one JSON result on stdout.     |
+| `--dry-run` | Show the setup plan; touch nothing. |
 
 #### `discern worktree ensure`
 
@@ -267,7 +269,7 @@ Usage: `discern worktree prune [options]`
 
 | Option        | Description                                                                                                                               |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `-y, --yes`   | Non-interactive: skip the confirm prompt.                                                                                                 |
+| `-y, --yes`   | Non-interactive: skip confirmation.                                                                                                       |
 | `--contained` | Also reclaim contained worktrees — checkouts whose committed work is fully contained in another live branch. Branch refs are always kept. |
 | `--dry-run`   | Report what would be removed/reclaimed without acting.                                                                                    |
 | `--json`      | Emit the result as a JSON DiscernResult object on stdout.                                                                                 |
@@ -530,7 +532,7 @@ Usage: `discern uninstall [options]`
 | Option      | Description                                             |
 | ----------- | ------------------------------------------------------- |
 | `--dry-run` | Preview what would be removed and kept; change nothing. |
-| `-y, --yes` | Skip the confirmation prompt.                           |
+| `-y, --yes` | Skip the confirmation.                                  |
 
 ## Inspect & explore
 
@@ -637,10 +639,10 @@ Permanently remove the active Logbook after terminal confirmation. Sealed archiv
 
 Usage: `discern patterns reset [options]`
 
-| Option      | Description                                                       |
-| ----------- | ----------------------------------------------------------------- |
-| `--json`    | Preview as one JSON DiscernResult; apply is refused in JSON mode. |
-| `--dry-run` | Render the complete plan without prompting or changing files.     |
+| Option      | Description                                                                 |
+| ----------- | --------------------------------------------------------------------------- |
+| `--json`    | Preview as one result; apply is refused with `--json` or `--markdown`.      |
+| `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
 
 #### `discern patterns archive`
 
@@ -648,10 +650,10 @@ Seal the active event history into a timestamped archive and begin a fresh activ
 
 Usage: `discern patterns archive [options]`
 
-| Option      | Description                                                       |
-| ----------- | ----------------------------------------------------------------- |
-| `--json`    | Preview as one JSON DiscernResult; apply is refused in JSON mode. |
-| `--dry-run` | Render the complete plan without prompting or changing files.     |
+| Option      | Description                                                                 |
+| ----------- | --------------------------------------------------------------------------- |
+| `--json`    | Preview as one result; apply is refused with `--json` or `--markdown`.      |
+| `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
 
 ### `discern map`
 

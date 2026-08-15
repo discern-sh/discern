@@ -8,7 +8,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
@@ -87,7 +87,7 @@ Deno.test("done (human): a failure prints a structured Failures block with repro
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Failures");
     assertStringIncludes(r.output, "reproduce:");
-    assertStringIncludes(r.output, "exit 7");
+    assertTerminalTextIncludes(r.output, "exit 7");
   });
 });
 
@@ -132,7 +132,7 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
     const human = await runAgent(dir, ["done", "--confirmed"]);
     assertEquals(human.code, 0, human.output);
     for (const hint of obj.hints) {
-      assertStringIncludes(human.output, hint);
+      assertTerminalTextIncludes(human.output, hint);
     }
   });
 });
@@ -209,7 +209,7 @@ Deno.test("done --json: a STALE agent file fails the guidance check; refresh fix
     assertEquals(diag.reproduce_cmd, "discern refresh");
     assertStringIncludes(diag.output, "CLAUDE.md");
     assertStringIncludes(diag.output, "[guidance].sources"); // the redirect
-    assertStringIncludes(diag.output, "stray hand edit"); // the diff shows the loss
+    assertTerminalTextIncludes(diag.output, "stray hand edit"); // the diff shows the loss
 
     // Regenerating satisfies the check — the gate passes again.
     await runAgent(dir, ["refresh"]);
@@ -273,8 +273,8 @@ Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatte
       `expected a skill-frontmatter diagnostic: ${r.stdout}`,
     );
     assertStringIncludes(diag.message, "label-the-jars");
-    assertStringIncludes(diag.output, "nested mapping"); // what YAML reads
-    assertStringIncludes(diag.output, "must be quoted"); // the remedy
+    assertTerminalTextIncludes(diag.output, "nested mapping"); // what YAML reads
+    assertTerminalTextIncludes(diag.output, "must be quoted"); // the remedy
 
     // Folding the value onto one quoted line satisfies every parser.
     await Deno.writeTextFile(
@@ -317,7 +317,7 @@ Deno.test("done --json: two ADR records claiming one number fail the adr_numbers
     assertStringIncludes(diag.message, "0007");
     assertStringIncludes(diag.output, "0007-first.md");
     assertStringIncludes(diag.output, "0007-second.md");
-    assertStringIncludes(diag.output, "next free"); // the remedy
+    assertTerminalTextIncludes(diag.output, "next free"); // the remedy
     assertHasHint(obj, HINTS["gate-failure-adr-numbers"]);
 
     // Renumbering the newer record clears the check.
@@ -454,11 +454,11 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
       `expected tracked-artifacts diagnostic: ${r.stdout}`,
     );
     assertStringIncludes(diag.reproduce_cmd, "git ls-files --");
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       diag.output,
       "git rm -r --cached -- .claude/settings.local.json",
     );
-    assertStringIncludes(diag.output, "discern refresh");
+    assertTerminalTextIncludes(diag.output, "discern refresh");
     assertEquals(diagFor(obj, "guidance"), undefined);
   });
 });
@@ -513,13 +513,7 @@ const PROOF_CONFIG = [
   "",
 ].join("\n");
 
-/** Strip the duration fragments (`· 3s`) — the one part of a proof allowed to
- * differ between runs of the same tree. */
-function stripDurations(md: string): string {
-  return md.replaceAll(/ · \d+s/g, "");
-}
-
-Deno.test("done --json: a green worktree gate emits the proof in data and stores it in the marker", async () => {
+Deno.test("done --json: a green worktree gate emits a compact proof and stores the full page in the marker", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, PROOF_CONFIG);
@@ -534,7 +528,7 @@ Deno.test("done --json: a green worktree gate emits the proof in data and stores
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
 
-    // The structured proof: git facts + the two renderings, one derivation.
+    // Compact data keeps the claim and omits the review-page rendering.
     const proof = obj.data.proof;
     assert(proof !== undefined, `expected data.proof: ${r.stdout}`);
     assertEquals(proof.branch, "agent/alpha");
@@ -551,15 +545,7 @@ Deno.test("done --json: a green worktree gate emits the proof in data and stores
       proof.line,
       "full proof: discern status --verbose",
     );
-    assertStringIncludes(proof.markdown, "### Proof — `agent/alpha`");
-    assertStringIncludes(
-      proof.markdown,
-      "| test | `echo proof-gate-ok` | ok",
-    );
-    assertStringIncludes(
-      proof.markdown,
-      "Inspect: `git diff main...agent/alpha`",
-    );
+    assertEquals(proof.markdown, undefined);
 
     // The relay affordance rides the envelope's hints, led by the
     // prove-before-claiming guardrail that replaced the prove-it-works skill.
@@ -577,16 +563,12 @@ Deno.test("done --json: a green worktree gate emits the proof in data and stores
     );
     assertStringIncludes(marker, "\n\n### Proof");
 
-    // Deterministic: the same tree and result render the same proof (durations
-    // excepted). The unchanged tree makes this a rerun, so it carries the
-    // attestation the rerun precondition requires.
+    // Deterministic: the same tree emits the same compact Proof. The unchanged
+    // tree makes this a rerun, so it carries the required attestation.
     const again = parseJson(
       (await runAgent(wt, ["done", "--confirmed", "--json"])).stdout,
     );
-    assertEquals(
-      stripDurations(again.data.proof.markdown),
-      stripDurations(proof.markdown),
-    );
+    assertEquals(again.data.proof, proof);
   });
 });
 

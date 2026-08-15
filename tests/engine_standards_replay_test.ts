@@ -316,9 +316,9 @@ Deno.test("replay: the proof names the replay's source commit", async () => {
     await git(dir, "checkout", "-qb", "agent/replay-proof");
     await commitDocsChange(dir);
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 0, r.output);
-    const markdown = parseGate(r.stdout).data?.proof?.markdown ?? "";
+    const markdown = r.output;
     assertStringIncludes(markdown, "replayed from");
     assertStringIncludes(markdown, baseline.slice(0, 7));
     assertStringIncludes(markdown, "inputs unchanged");

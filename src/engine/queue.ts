@@ -10,7 +10,8 @@
 
 import { loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
-import { renderHumanOutputGroups } from "../shared/result.ts";
+import { Logger } from "../lib/log.ts";
+import { reportFailure } from "../lib/narration.ts";
 import { recordedRun } from "./logbook/cli.ts";
 import { reraiseInterrupt } from "./process_signals.ts";
 import { runOwnedChild } from "./owned_child.ts";
@@ -39,30 +40,39 @@ export type QueueInvocation =
 /**
  * Split the queue command at its required `--` boundary. Root-global flags may
  * precede the boundary because Cliffy permits them on either side of a verb;
- * `--json` remains unsupported because the child owns both output streams.
+ * Quiet result formats remain unsupported because the child owns both output streams.
  */
 export function parseQueueInvocation(
   argsWithoutVerb: readonly string[],
   globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string> = new Set(),
 ): QueueInvocation {
   let index = 0;
   const wrapperFlags: string[] = [];
-  while (
-    index < argsWithoutVerb.length &&
-    globalFlags.has(argsWithoutVerb[index] ?? "")
-  ) {
-    wrapperFlags.push(argsWithoutVerb[index] ?? "");
-    index++;
+  while (index < argsWithoutVerb.length) {
+    const token = argsWithoutVerb[index] ?? "";
+    const equals = token.indexOf("=");
+    const flag = globalFlags.has(token)
+      ? token
+      : equals > 0 && valueFlags.has(token.slice(0, equals))
+      ? token.slice(0, equals)
+      : undefined;
+    if (flag === undefined) break;
+    wrapperFlags.push(flag);
+    index += equals > 0 || !valueFlags.has(flag) ? 1 : 2;
   }
   const args = argsWithoutVerb.slice(index);
   if (args.length === 1 && (args[0] === "-h" || args[0] === "--help")) {
     return { kind: "help" };
   }
-  if (wrapperFlags.includes("--json")) {
+  const resultFlag = wrapperFlags.find((flag) =>
+    flag === "--json" || flag === "--markdown"
+  );
+  if (resultFlag !== undefined) {
     return {
       kind: "error",
       message:
-        "queue has no `--json` mode because the wrapped command owns stdout and stderr.",
+        "queue has no `--json` or `--markdown` mode because the wrapped command owns stdout and stderr.",
     };
   }
   if (args[0] !== "--") {
@@ -83,10 +93,11 @@ export function parseQueueInvocation(
 
 /** Render one queue failure and its canonical recovery form to stderr. */
 function writeQueueError(message: string): void {
-  console.error(renderHumanOutputGroups([
-    { id: "failure", items: [`discern: ${message}`] },
-    { id: "recovery", items: [`       Run: ${QUEUE_USAGE}`] },
-  ]));
+  reportFailure(
+    new Logger({ json: false, noColor: false }),
+    message,
+    [`Run: ${QUEUE_USAGE}`],
+  );
 }
 
 /** Report a malformed queue invocation with the conventional usage exit code. */

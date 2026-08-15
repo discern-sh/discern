@@ -1,6 +1,6 @@
 # ADR 0139: The design system is an independently versioned package
 
-> **Dependency-pin amendment (2026-08-13):** Discern now pins `jsr:@discern-sh/design-system@0.12.2` in `deno.json` and `deno.lock`. The `0.1.1` line below records the initial external cut-over. Exact immutable consumption and external package ownership remain the current decisions.
+> **Dependency-pin amendment (2026-08-15):** Discern now pins `jsr:@discern-sh/design-system@0.17.0` in `deno.json` and `deno.lock`. The `0.1.1` line below records the initial external cut-over. Exact immutable consumption and external package ownership remain the current decisions.
 
 **Status**: accepted
 
@@ -26,7 +26,7 @@ This changes ADR 0135's in-repository ownership/location clause. Its central dec
 
 The local package now has neutral and React entrypoints, selected runtime output, a manifest, optional assets, themes, and isolated tests. Discern consumes those entrypoints rather than an internal build script.
 
-External ownership is real as of 2026-07-16: the package's subtree history lives at [discern-sh/design-system](https://github.com/discern-sh/design-system). Discern pinned the follow-up release exactly as `jsr:@discern-sh/design-system@0.1.1` in its root configuration and lockfile. At that cut-over, the root, `./runtime`, and `./react` exports were its only package seams. The current release also exposes the documented `./cli` and `./cli/interactive` seams. Deno's minimum-dependency-age exception names this package explicitly while an exact release is inside the registry holding period; it does not relax the policy for other dependencies.
+External ownership is real as of 2026-07-16: the package's subtree history lives at [discern-sh/design-system](https://github.com/discern-sh/design-system). Discern pinned the follow-up release exactly as `jsr:@discern-sh/design-system@0.1.1` in its root configuration and lockfile. At that cut-over, the root, `./runtime`, and `./react` exports were its only package seams. The current release also exposes the documented `./cli`, `./cli/interactive`, and `./cli/projection` seams. Deno's minimum-dependency-age exception names this package explicitly while an exact release is inside the registry holding period; it does not relax the policy for other dependencies.
 
 One registry constraint shaped the module contract: JSR rejects text import attributes when it builds the publish graph, so stylesheets embed into generated modules beside the fonts and textures. Discern emits selected local runtime bundles through the public API and no longer consumes the former in-repository package.
 

@@ -9,8 +9,8 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
-import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { runAgent, runAgentPty, scaffoldEngine } from "./engine_helpers.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 
 const DESK_SESSION = { [DESK_SESSION_ENV]: "1" };
@@ -52,7 +52,7 @@ Deno.test("bare discern refuses inside a desk-owned child before interaction pol
     await scaffoldEngine(dir);
     const r = await runAgent(dir, [], { env: DESK_SESSION });
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "already active");
+    assertTerminalTextIncludes(r.output, "already active");
     assertStringIncludes(r.output, "exit");
     assert(!r.output.includes("Pick an effort"));
     assert(!r.output.includes("Commands:"));
@@ -64,9 +64,32 @@ Deno.test("desk without a TTY: refuses with a pointer at status", async () => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["desk"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "interactive terminal");
-    assertStringIncludes(r.stderr, "discern status");
+    assertTerminalTextIncludes(r.stderr, "interactive terminal");
+    assertTerminalTextIncludes(r.stderr, "discern status");
   });
+});
+
+Deno.test({
+  name: "discern desk opens its production grouped interaction on a real PTY",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      const r = await runAgentPty(dir, ["desk"], {
+        // The empty fleet exposes Start, docs, Refresh, and Quit. Select's End
+        // navigation reaches the final semantic option without counting group
+        // headings as choices.
+        input: "\x1b[F\r",
+        timeoutMs: 8_000,
+      });
+      assertEquals(r.code, 0, r.output);
+      assertTerminalTextIncludes(r.output, "Choose a desk action");
+      assertStringIncludes(r.output, "DESK");
+      assertStringIncludes(r.output, "SESSION");
+      assertTerminalTextIncludes(r.output, "› [●] Quit");
+      assertStringIncludes(r.output, "\x1b[?25h");
+    });
+  },
 });
 
 Deno.test("desk pre-setup: the setup redirect fires before the surface", async () => {
@@ -86,8 +109,8 @@ Deno.test("bare discern without a TTY: help, exactly as before the desk existed"
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Commands:");
     // The desk is advertised in the help map (its group leads), but piped
-    // output must never BE the desk — no prompt, no picker, a clean exit.
-    assertStringIncludes(r.stdout, "Your desk");
+    // output must never BE the desk — no interaction, no picker, a clean exit.
+    assertTerminalTextIncludes(r.stdout, "YOUR DESK");
     assert(
       !r.stdout.includes("Pick an effort"),
       "piped bare discern must never open the interactive picker",

@@ -25,7 +25,11 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { unexpectedTerminalControls, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  unexpectedTerminalControls,
+  withTempDir,
+} from "./helpers.ts";
 
 /** Locate one package triangle section at or after a previous section. */
 function triangleSectionAt(
@@ -33,16 +37,20 @@ function triangleSectionAt(
   label: string,
   after = 0,
 ): number {
+  const renderedLabel = label.toUpperCase();
   let cursor = after;
   while (cursor < output.length) {
     const end = output.indexOf("\n", cursor);
     const lineEnd = end < 0 ? output.length : end;
     const line = output.slice(cursor, lineEnd);
-    const decoration = line.replace(label, "");
+    const decoration = line.replace(renderedLabel, "");
     const hasTriangle = Object.values(DISCERN_TRIANGLE_GLYPHS).some((glyph) =>
       decoration.includes(glyph)
     );
-    if (line.includes(label) && (hasTriangle || /[<>^v]/u.test(decoration))) {
+    if (
+      line.includes(renderedLabel) &&
+      (hasTriangle || /[<>^v]/u.test(decoration))
+    ) {
       return cursor;
     }
     cursor = lineEnd + 1;
@@ -509,9 +517,12 @@ Deno.test("improvement: responsive package reports keep hostile evidence inert a
       );
       assertEquals(run.code, 0);
       outputs.set(width, run.stdout);
-      assertStringIncludes(run.stdout, "Agent guidance");
-      assertStringIncludes(run.stdout, "Review question:");
-      assertStringIncludes(
+      assert(
+        triangleSectionAt(run.stdout, "Agent guidance") >= 0,
+        "the category needs its package-backed heading",
+      );
+      assertTerminalTextIncludes(run.stdout, "Review question:");
+      assertTerminalTextIncludes(
         run.stdout.replaceAll(/\s+/gu, " "),
         "Project evidence ␛[31m␇<U+009B>",
       );
@@ -665,7 +676,10 @@ Deno.test({
           assertStringIncludes(rendered, mode.marker, mode.name);
         }
         const facts = stripAnsi(rendered);
-        assertStringIncludes(facts, "Agent guidance");
+        assert(
+          triangleSectionAt(facts, "Agent guidance") >= 0,
+          `${mode.name} lost the category heading`,
+        );
         assertStringIncludes(facts, "Review question:");
         baseline ??= facts;
         assertEquals(facts, baseline, `${mode.name} changed coaching facts`);

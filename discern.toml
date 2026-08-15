@@ -242,6 +242,7 @@
       "${map.dir}_internal/tip-inventory.md",
       "${map.dir}_internal/brand/messaging.md",
       "${map.dir}_internal/feature-canon-benefits.md",
+      "${map.dir}_internal/practice-canon.md",
     ]
     neutral = true
 
@@ -295,6 +296,7 @@
       "schema/discern-proof-note.schema.json",
       "types/discern-json.d.ts",
       "${map.dir}00-orientation/glossary.md",
+      "${map.dir}00-orientation/the-practice.md",
       "${map.dir}70-reference/cli-reference.md",
       "${map.dir}70-reference/config-reference.md",
       "${map.dir}70-reference/environment-variables.md",
@@ -302,6 +304,7 @@
       "${map.dir}_internal/feature-canon-plain.md",
       "${map.dir}_internal/feature-canon-benefits.md",
       "${map.dir}_internal/hint-inventory.md",
+      "${map.dir}_internal/practice-canon.md",
       "${map.dir}_internal/registry-atlas.md",
       "${map.dir}_internal/tip-inventory.md",
       "${map.dir}_internal/voice-enforcement-coverage.md",
@@ -330,6 +333,9 @@
       ".vale/DiscernAgent/BestJudgment.yml",
       ".vale/DiscernAgent/PositionalReference.yml",
       "site/pages/assets/search.js",
+      "templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md",
+      "templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md",
+      "templates/skills/discern-write-adr/skeleton/docs/_adr/README.md",
       ".github/cla-assistant/metadata",
       "THIRD_PARTY_NOTICES",
       "src/lib/first_party_license_bundle.ts",
@@ -777,7 +783,7 @@
     direction = "up"
     per = "public_doc_words"
     scale = 10000
-    limit = 11.66
+    limit = 11.4
     # Deepening an existing page is legitimate growth: at the current corpus size
     # the margin keeps roughly a thousand words of room for it before a new leaf
     # is due, and re-pins leave the same headroom.
@@ -798,9 +804,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 [gate]
-  # Stream each job's output live (line-prefixed `── <label> │ …`) instead of
-  # buffering it until the stage finishes. Helps when watching a slow build/test.
-  # Concurrent jobs interleave (but stay labelled). Off by default (grouped).
+  # Controls static terminal transcripts only: false groups complete per-job output;
+  # true streams prefixed lines. Live-capable terminals always show the Gate frame's
+  # bounded tail. CI, pipes, --plain, and no-cursor terminals are static. Off by default.
   stream = false
 
   # Cancel the in-flight sibling commands the moment one fails, instead of running

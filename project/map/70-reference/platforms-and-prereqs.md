@@ -1,7 +1,7 @@
 ---
 title: Platforms & prerequisites
 description: Supported operating systems and architectures, required tools, identity selectors, and worktree command tokens.
-order: 110
+order: 120
 publish: true
 aliases:
   - platforms

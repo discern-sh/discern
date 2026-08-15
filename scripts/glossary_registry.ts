@@ -427,6 +427,18 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "The rule deciding what discern and its agents may write: a file at its namespace default carries an implicit write-license, a config key you pointed elsewhere is an explicit one, and any other path is untouchable — enforced by an architectural test ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). See [design principles](design-principles.md).",
   },
   {
+    term: "Practice",
+    plain: {
+      keep:
+        "an everyday word for a way of working; kept as the product says it",
+    },
+    // "practice" also reads as ordinary English ("best practices"); the
+    // canonical sense is the definite form product surfaces use.
+    matches: ["the practice"],
+    definition:
+      "The connected way of working discern installs and the project carries, enumerated as tenets in the practice canon ([ADR 0284](../_adr/0284-the-practice-canon-enumerates-the-tenets.md)). The engine holds the loop: one [worktree](#worktree) per effort, a deterministic [gate](#gate) verdict, [standards](#standard) that only tighten, [proof](#proof) bound to the exact change, [landing authority](#landing-authority) that stays human. The bundled [skills](#skill) teach the rest: whole delegated pieces, retained lessons, cured bug classes, one authority per fact. Its conduct holds too: every result names the next action, and every effect runs planned. The human owns the practice; agents operate it. Covered in [the practice](the-practice.md).",
+  },
+  {
     term: "Preset",
     plain: { phrase: "a reusable starter collection of settings" },
     // "preset" also names component and design-system presets in the manual.

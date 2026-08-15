@@ -11,6 +11,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   DISCERN_TRIANGLE_GLYPHS,
   measureText,
+  renderCalloutCli,
   renderCodeListingCli,
   renderDividerCli,
   renderHeadingCli,
@@ -138,6 +139,31 @@ Deno.test("blockquotes are prefixed with a bar", () => {
   assertStringIncludes(plain("> quoted"), "│ quoted");
 });
 
+Deno.test("explicit GFM admonitions are byte-for-byte package Callouts", () => {
+  const terminal = terminalPresentationContext(false);
+  for (
+    const [marker, title, tone] of [
+      ["NOTE", "Note", "insight"],
+      ["WARNING", "Warning", "warning"],
+    ] as const
+  ) {
+    const body = "Review the committed boundary before continuing.";
+    assertEquals(
+      renderMarkdown(`> [!${marker}]\n> ${body}`, {
+        width: 48,
+        color: false,
+        terminal,
+      }),
+      terminal.presenter.present(renderCalloutCli, {
+        title,
+        body,
+        tone,
+        maxWidth: 48,
+      }),
+    );
+  }
+});
+
 Deno.test("a GFM table renders as a bordered box", () => {
   const out = plain("| A | B |\n|---|---|\n| 1 | 2 |");
   assertStringIncludes(out, "│");
@@ -159,7 +185,7 @@ Deno.test("colour mode emits ANSI and a heading underline rule", () => {
   assertEquals(
     out,
     renderHeadingCli(
-      { text: "Title", level: 1, maxWidth: 40 },
+      { text: "Title", level: 1, maxWidth: 40, leadingBlankLines: 0 },
       { colorDepth: "ansi16", columns: 40, unicode: true },
     ),
   );
@@ -372,7 +398,7 @@ Deno.test("headings above level 1 are styled by level in colour mode", () => {
     assertEquals(
       renderMarkdown(`${"#".repeat(level)} ${text}`, { color: true }),
       renderHeadingCli(
-        { text, level, maxWidth: 80 },
+        { text, level, maxWidth: 80, leadingBlankLines: 0 },
         { colorDepth: "ansi16", columns: 80, unicode: true },
       ),
     );

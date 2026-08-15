@@ -6350,6 +6350,35 @@
                     "trunk"
                   ]
                 },
+                "gate_proof": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "recorded",
+                        "skipped_dirty",
+                        "skipped_head_moved",
+                        "unavailable",
+                        "record_failed",
+                        "cleared",
+                        "clear_failed"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                "proof": {
+                  "$ref": "#/$defs/DiscernProofSummary"
+                },
                 "landing_authority": {
                   "type": "object",
                   "properties": {
@@ -6380,7 +6409,30 @@
                         "type": "string"
                       }
                     },
+                    "uncovered_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered_unscoped_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "uncovered_generated_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "uncovered": {
+                      "maxItems": 6,
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -6393,6 +6445,9 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "generated": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -6401,44 +6456,14 @@
                         ]
                       }
                     },
-                    "warnings": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                    "uncovered_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
                     "kind"
-                  ]
-                },
-                "proof": {
-                  "$ref": "#/$defs/DiscernProof"
-                },
-                "gate_proof": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "recorded",
-                        "skipped_dirty",
-                        "skipped_head_moved",
-                        "unavailable",
-                        "record_failed",
-                        "cleared",
-                        "clear_failed"
-                      ]
-                    },
-                    "path": {
-                      "type": "string"
-                    },
-                    "reason": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "status"
                   ]
                 }
               },
@@ -10141,6 +10166,11 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "automation": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "unknown": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -10175,6 +10205,7 @@
                     "analyzed",
                     "agent",
                     "human",
+                    "automation",
                     "unknown",
                     "identities"
                   ]
@@ -13304,89 +13335,6 @@
                     "type": "string"
                   }
                 },
-                "gate_proof": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "honored",
-                        "missing",
-                        "stale",
-                        "dirty",
-                        "unavailable",
-                        "read_failed"
-                      ]
-                    },
-                    "path": {
-                      "type": "string"
-                    },
-                    "recorded": {
-                      "type": "string"
-                    },
-                    "head": {
-                      "type": "string"
-                    },
-                    "reason": {
-                      "type": "string"
-                    },
-                    "proof": {
-                      "type": "string"
-                    },
-                    "proof_line": {
-                      "type": "string"
-                    },
-                    "proof_data": {
-                      "$ref": "#/$defs/DiscernProof"
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ]
-                },
-                "landed_proof": {
-                  "type": "object",
-                  "properties": {
-                    "commit": {
-                      "type": "string"
-                    },
-                    "commit_at": {
-                      "type": "string"
-                    },
-                    "ref": {
-                      "type": "string"
-                    },
-                    "proof": {
-                      "$ref": "#/$defs/DiscernProof"
-                    },
-                    "issuer": {
-                      "type": "object",
-                      "properties": {
-                        "name": {
-                          "type": "string",
-                          "description": "The issuer's asserted display name. A verified signature protects this text from alteration; trust policy decides who the signing key represents."
-                        },
-                        "email": {
-                          "type": "string",
-                          "description": "The issuer's asserted email address. A verified signature protects this text from alteration; trust policy decides who the signing key represents."
-                        },
-                        "key": {
-                          "type": "string",
-                          "description": "The issuer's asserted key or key reference. Verifiers use their signing profile and trust policy rather than trusting this value on its own."
-                        }
-                      },
-                      "description": "Identity details asserted by the proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Nothing writes them at v1.0.0."
-                    },
-                    "brief": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "commit",
-                    "ref",
-                    "proof"
-                  ]
-                },
                 "landed_proof_unsupported": {
                   "type": "object",
                   "properties": {
@@ -13404,68 +13352,6 @@
                     "commit",
                     "ref",
                     "format"
-                  ]
-                },
-                "landing_authority": {
-                  "type": "object",
-                  "properties": {
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "authorized",
-                        "conversation-required"
-                      ]
-                    },
-                    "source": {
-                      "type": "string",
-                      "enum": [
-                        "conversation",
-                        "standing-grant",
-                        "effort-grant"
-                      ]
-                    },
-                    "scopes": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "standing_scopes": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "uncovered": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "scopes": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        "required": [
-                          "path",
-                          "scopes"
-                        ]
-                      }
-                    },
-                    "warnings": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "required": [
-                    "kind"
                   ]
                 },
                 "stale_generated": {
@@ -13615,6 +13501,173 @@
                     ]
                   }
                 },
+                "gate_proof": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "honored",
+                        "missing",
+                        "stale",
+                        "dirty",
+                        "unavailable",
+                        "read_failed"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "recorded": {
+                      "type": "string"
+                    },
+                    "head": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "proof": {
+                      "$ref": "#/$defs/DiscernProofSummary"
+                    },
+                    "proof_line": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                "landed_proof": {
+                  "type": "object",
+                  "properties": {
+                    "commit": {
+                      "type": "string"
+                    },
+                    "commit_at": {
+                      "type": "string"
+                    },
+                    "ref": {
+                      "type": "string"
+                    },
+                    "proof": {
+                      "$ref": "#/$defs/DiscernProofSummary"
+                    },
+                    "issuer": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "description": "The issuer's asserted display name. A verified signature protects this text from alteration; trust policy decides who the signing key represents."
+                        },
+                        "email": {
+                          "type": "string",
+                          "description": "The issuer's asserted email address. A verified signature protects this text from alteration; trust policy decides who the signing key represents."
+                        },
+                        "key": {
+                          "type": "string",
+                          "description": "The issuer's asserted key or key reference. Verifiers use their signing profile and trust policy rather than trusting this value on its own."
+                        }
+                      },
+                      "description": "Identity details asserted by the proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Nothing writes them at v1.0.0."
+                    },
+                    "brief": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "commit",
+                    "ref",
+                    "proof"
+                  ]
+                },
+                "landing_authority": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "authorized",
+                        "conversation-required"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "conversation",
+                        "standing-grant",
+                        "effort-grant"
+                      ]
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "standing_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered_unscoped_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "uncovered_generated_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered": {
+                      "maxItems": 6,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "generated": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "scopes"
+                        ]
+                      }
+                    },
+                    "uncovered_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
                 "fleet": {
                   "type": "array",
                   "items": {
@@ -13714,15 +13767,6 @@
                       "broken": {
                         "type": "boolean"
                       },
-                      "proof_honored": {
-                        "type": "boolean"
-                      },
-                      "proof": {
-                        "type": "string"
-                      },
-                      "proof_line": {
-                        "type": "string"
-                      },
                       "gate_proof": {
                         "type": "object",
                         "properties": {
@@ -13750,13 +13794,10 @@
                             "type": "string"
                           },
                           "proof": {
-                            "type": "string"
+                            "$ref": "#/$defs/DiscernProofSummary"
                           },
                           "proof_line": {
                             "type": "string"
-                          },
-                          "proof_data": {
-                            "$ref": "#/$defs/DiscernProof"
                           }
                         },
                         "required": [
@@ -13793,7 +13834,30 @@
                               "type": "string"
                             }
                           },
+                          "uncovered_scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "uncovered_unscoped_total": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "uncovered_generated_total": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "warnings": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "uncovered": {
+                            "maxItems": 6,
                             "type": "array",
                             "items": {
                               "type": "object",
@@ -13806,6 +13870,9 @@
                                   "items": {
                                     "type": "string"
                                   }
+                                },
+                                "generated": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -13814,11 +13881,10 @@
                               ]
                             }
                           },
-                          "warnings": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
+                          "uncovered_total": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
                           }
                         },
                         "required": [
@@ -13850,19 +13916,12 @@
                           }
                         ]
                       },
-                      "overlap": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
                       "total": {
                         "type": "number"
                       }
                     },
                     "required": [
                       "branches",
-                      "overlap",
                       "total"
                     ]
                   }
@@ -13880,18 +13939,11 @@
                         "items": {
                           "type": "string"
                         }
-                      },
-                      "paths": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
                       }
                     },
                     "required": [
                       "number",
-                      "branches",
-                      "paths"
+                      "branches"
                     ]
                   }
                 }
@@ -14234,6 +14286,9 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "generated": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -14241,6 +14296,22 @@
                           "scopes"
                         ]
                       }
+                    },
+                    "uncovered_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered_unscoped_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "uncovered_generated_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
                     },
                     "warnings": {
                       "type": "array",
@@ -14593,65 +14664,6 @@
                     "type": "string"
                   }
                 },
-                "gate_validation": {
-                  "type": "object",
-                  "properties": {
-                    "mode": {
-                      "type": "string",
-                      "enum": [
-                        "proof",
-                        "rerun"
-                      ]
-                    },
-                    "proof": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "honored",
-                            "missing",
-                            "stale",
-                            "dirty",
-                            "unavailable",
-                            "read_failed"
-                          ]
-                        },
-                        "path": {
-                          "type": "string"
-                        },
-                        "recorded": {
-                          "type": "string"
-                        },
-                        "head": {
-                          "type": "string"
-                        },
-                        "reason": {
-                          "type": "string"
-                        },
-                        "proof": {
-                          "type": "string"
-                        },
-                        "proof_line": {
-                          "type": "string"
-                        },
-                        "proof_data": {
-                          "$ref": "#/$defs/DiscernProof"
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "mode",
-                    "proof"
-                  ]
-                },
-                "proof": {
-                  "type": "string"
-                },
                 "proof_line": {
                   "type": "string"
                 },
@@ -14784,6 +14796,59 @@
                     "changed_roots",
                     "changed_total",
                     "truncated"
+                  ]
+                },
+                "gate_validation": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "proof",
+                        "rerun"
+                      ]
+                    },
+                    "proof": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "honored",
+                            "missing",
+                            "stale",
+                            "dirty",
+                            "unavailable",
+                            "read_failed"
+                          ]
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "recorded": {
+                          "type": "string"
+                        },
+                        "head": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "proof": {
+                          "$ref": "#/$defs/DiscernProofSummary"
+                        },
+                        "proof_line": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "proof"
                   ]
                 }
               },
@@ -18092,8 +18157,8 @@
         "verb"
       ]
     },
-    "DiscernProof": {
-      "title": "DiscernProof",
+    "DiscernProofSummary": {
+      "title": "DiscernProofSummary",
       "type": "object",
       "properties": {
         "branch": {
@@ -18116,9 +18181,6 @@
         },
         "line": {
           "type": "string"
-        },
-        "markdown": {
-          "type": "string"
         }
       },
       "required": [
@@ -18128,16 +18190,16 @@
         "files_total",
         "insertions",
         "deletions",
-        "line",
-        "markdown"
+        "line"
       ],
-      "description": "The structured proof a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, and the two renderings derived from those facts."
+      "description": "The compact Proof claim: branch, trunk, validated commit, whole-diff statistics, and the one-line rendered proof."
     },
     "DiscernDoctorMcpToolResult": {
       "title": "DiscernDoctorMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18146,7 +18208,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18156,7 +18219,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernDoctorResult"
+          "$ref": "#/$defs/DiscernDoctorResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18173,6 +18237,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18181,7 +18246,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18191,7 +18257,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernMapResult"
+          "$ref": "#/$defs/DiscernMapResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18208,6 +18275,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18216,7 +18284,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18226,7 +18295,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernDocsResult"
+          "$ref": "#/$defs/DiscernDocsResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18243,6 +18313,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18251,7 +18322,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18261,7 +18333,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernDoneResult"
+          "$ref": "#/$defs/DiscernDoneResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18278,6 +18351,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18286,7 +18360,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18296,7 +18371,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernPrepareResult"
+          "$ref": "#/$defs/DiscernPrepareResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18313,6 +18389,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18321,7 +18398,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18331,7 +18409,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernTestResult"
+          "$ref": "#/$defs/DiscernTestResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18348,6 +18427,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18356,7 +18436,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18366,7 +18447,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernImprovementResult"
+          "$ref": "#/$defs/DiscernImprovementResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18383,6 +18465,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18391,7 +18474,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18401,7 +18485,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernStandardsResult"
+          "$ref": "#/$defs/DiscernStandardsResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18418,6 +18503,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18426,7 +18512,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18436,7 +18523,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernRefreshResult"
+          "$ref": "#/$defs/DiscernRefreshResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18453,6 +18541,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18461,7 +18550,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18471,7 +18561,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernImpactResult"
+          "$ref": "#/$defs/DiscernImpactResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18488,6 +18579,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18496,7 +18588,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18506,7 +18599,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernCouplingResult"
+          "$ref": "#/$defs/DiscernCouplingResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18523,6 +18617,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18531,7 +18626,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18541,7 +18637,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernAwaitResult"
+          "$ref": "#/$defs/DiscernAwaitResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18558,6 +18655,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18566,7 +18664,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18576,7 +18675,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernPatternsResult"
+          "$ref": "#/$defs/DiscernPatternsResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18593,6 +18693,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18601,7 +18702,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18611,7 +18713,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernStatusResult"
+          "$ref": "#/$defs/DiscernStatusResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18628,6 +18731,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18636,7 +18740,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18646,7 +18751,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernStartResult"
+          "$ref": "#/$defs/DiscernStartResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18663,6 +18769,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18671,7 +18778,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18681,7 +18789,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernAcceptResult"
+          "$ref": "#/$defs/DiscernAcceptResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18698,6 +18807,7 @@
       "type": "object",
       "properties": {
         "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
           "type": "array",
           "items": {
             "type": "object",
@@ -18706,7 +18816,8 @@
                 "const": "text"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
               }
             },
             "required": [
@@ -18716,7 +18827,8 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernUpdateResult"
+          "$ref": "#/$defs/DiscernUpdateResult",
+          "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
           "type": "boolean"
@@ -18917,7 +19029,7 @@
     },
     "DiscernMcpJsonResult": {
       "title": "DiscernMcpJsonResult",
-      "description": "Any MCP tool result object returned by discern's MCP server. Its structuredContent is the same DiscernResult envelope exposed by the corresponding CLI command.",
+      "description": "Any MCP tool result object returned by discern's MCP server. Its structuredContent is the same DiscernResult envelope exposed by the corresponding CLI command; content carries an independently sufficient authored Markdown projection.",
       "oneOf": [
         {
           "$ref": "#/$defs/DiscernDoctorMcpToolResult"

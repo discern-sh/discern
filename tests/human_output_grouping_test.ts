@@ -2,9 +2,14 @@
  * Structural guard for discern-managed human output groups.
  *
  * A semantic boundary must be expressed through the shared grouping renderer or
- * grouped-prompt helper. Hand-emitting an empty line, importing a package prompt
+ * grouped-selection helper. Hand-emitting an empty line, importing a package request
  * outside the product adapter, or inventing a heading entry recreates the
  * permissive boundary that let composed views collapse into flat lists.
+ *
+ * The consolidated-output outlaw extends the same claim to the residue idioms:
+ * `padEnd` alignment, narration glyphs outside the authority, direct console
+ * presentation, and hand-emitted boundary newlines are illegal in shipped
+ * `src/**` human surfaces, with exact named exceptions for protocol surfaces.
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
@@ -17,9 +22,9 @@ import {
 import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 import { makeOut } from "../src/engine/output.ts";
 import {
-  groupedSelectOptions,
-  withPromptBoundary,
-} from "../src/lib/prompts.ts";
+  groupedSelectionEntries,
+  withInteractionBoundary,
+} from "../src/lib/terminal_interaction.ts";
 
 interface BoundaryFinding {
   readonly rule: string;
@@ -27,11 +32,12 @@ interface BoundaryFinding {
 }
 
 const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
+const STATIC_CLI_MODULE = "discern-design-system/cli";
 
-/** Find imports that can call a package prompt outside the product adapter.
- * The public `prompt*` naming convention defines the enrollment set, including
+/** Find imports that can call a package request outside the product adapter.
+ * The public `request*` naming convention defines the enrollment set, including
  * future package entry points and aliases this test has never seen. */
-function directPromptFindings(source: string): BoundaryFinding[] {
+function directRequestFindings(source: string): BoundaryFinding[] {
   const findings: BoundaryFinding[] = [];
   for (const match of source.matchAll(/(["'])@cliffy\/prompt\1/g)) {
     findings.push({
@@ -49,9 +55,9 @@ function directPromptFindings(source: string): BoundaryFinding[] {
     for (const part of imported[1]?.split(",") ?? []) {
       const names = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/);
       const importedName = names[0]?.trim() ?? "";
-      if (/^prompt[A-Z]/.test(importedName)) {
+      if (/^request[A-Z]/.test(importedName)) {
         findings.push({
-          rule: "direct-package-prompt-import",
+          rule: "direct-package-request-import",
           offset: imported.index ?? 0,
         });
         const localName = names.at(-1)?.trim() ?? importedName;
@@ -62,7 +68,7 @@ function directPromptFindings(source: string): BoundaryFinding[] {
         );
         for (const call of source.matchAll(directCall)) {
           findings.push({
-            rule: "direct-package-prompt-call",
+            rule: "direct-package-request-call",
             offset: call.index ?? 0,
           });
         }
@@ -73,9 +79,9 @@ function directPromptFindings(source: string): BoundaryFinding[] {
           const offset = use.index ?? 0;
           if (offset >= importStart && offset < importEnd) continue;
           const prefix = source.slice(0, offset);
-          if (!/(?:^|[^\w$.])productPrompt\s*\(\s*$/u.test(prefix)) {
+          if (!/(?:^|[^\w$.])runInteractionRequest\s*\(\s*$/u.test(prefix)) {
             findings.push({
-              rule: "unmediated-package-prompt-use",
+              rule: "unmediated-package-request-use",
               offset,
             });
           }
@@ -91,10 +97,10 @@ function directPromptFindings(source: string): BoundaryFinding[] {
   for (const imported of source.matchAll(namespace)) {
     const local = imported[1];
     if (local === undefined) continue;
-    const call = new RegExp(`\\b${local}\\.prompt[A-Z][\\w$]*\\s*\\(`, "g");
+    const call = new RegExp(`\\b${local}\\.request[A-Z][\\w$]*\\s*\\(`, "g");
     for (const match of source.matchAll(call)) {
       findings.push({
-        rule: "direct-package-namespace-prompt",
+        rule: "direct-package-namespace-request",
         offset: match.index ?? 0,
       });
     }
@@ -116,9 +122,285 @@ function directPromptFindings(source: string): BoundaryFinding[] {
 /** Find a package-shaped heading assembled anywhere but the one adapter. */
 function adHocHeadingFindings(source: string): BoundaryFinding[] {
   return [...source.matchAll(/(["'])group-heading\1/g)].map((match) => ({
-    rule: "ad-hoc-prompt-heading",
+    rule: "ad-hoc-selection-heading",
     offset: match.index ?? 0,
   }));
+}
+
+/** Return one complete call expression, ignoring delimiters inside literals and
+ * comments. The detector needs only the call's options, not a TypeScript AST. */
+function callExpressionAt(
+  source: string,
+  callOffset: number,
+  openOffset: number,
+): string {
+  let depth = 0;
+  let quote: '"' | "'" | "`" | undefined;
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+  for (let index = openOffset; index < source.length; index++) {
+    const character = source[index] ?? "";
+    const next = source[index + 1] ?? "";
+    if (lineComment) {
+      if (character === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (character === "*" && next === "/") {
+        blockComment = false;
+        index++;
+      }
+      continue;
+    }
+    if (quote !== undefined) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+    if (character === "/" && next === "/") {
+      lineComment = true;
+      index++;
+      continue;
+    }
+    if (character === "/" && next === "*") {
+      blockComment = true;
+      index++;
+      continue;
+    }
+    if (character === '"' || character === "'" || character === "`") {
+      quote = character;
+      continue;
+    }
+    if (character === "(") depth++;
+    if (character !== ")") continue;
+    depth--;
+    if (depth === 0) return source.slice(callOffset, index + 1);
+  }
+  return source.slice(callOffset);
+}
+
+/** Package Heading calls nested in an existing composer must opt out of the
+ * default leading line. Direct calls retain the package's top-level default. */
+function packageHeadingBoundaryFindings(source: string): BoundaryFinding[] {
+  const findings: BoundaryFinding[] = [];
+  const escapedModule = STATIC_CLI_MODULE.replaceAll("/", "\\/");
+  const named = new RegExp(
+    `import\\s*{([^}]*)}\\s*from\\s*(["'])${escapedModule}\\2`,
+    "g",
+  );
+  const localNames: string[] = [];
+  for (const imported of source.matchAll(named)) {
+    for (const part of imported[1]?.split(",") ?? []) {
+      const names = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/u);
+      const importedName = names[0]?.trim() ?? "";
+      if (!/^render(?:[A-Z][\w$]*)?HeadingCli$/u.test(importedName)) continue;
+      localNames.push(names.at(-1)?.trim() ?? importedName);
+    }
+  }
+
+  for (const localName of localNames) {
+    const escaped = localName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const calls = new RegExp(`\\b${escaped}\\s*\\(`, "g");
+    for (const match of source.matchAll(calls)) {
+      const offset = match.index ?? 0;
+      const openOffset = offset + match[0].lastIndexOf("(");
+      const call = callExpressionAt(source, offset, openOffset);
+      const leading = /\bleadingBlankLines\s*:\s*([^,}\n]+)/u.exec(call);
+      if (leading !== null) {
+        if (leading[1]?.trim() !== "0") {
+          findings.push({
+            rule: "package-heading-nonembedded-override",
+            offset,
+          });
+        }
+        continue;
+      }
+      const prefix = source.slice(Math.max(0, offset - 600), offset);
+      const nested =
+        /(?:\.(?:raw|line)\(\s*|\breturn\s*\[[^\]]*|\bitems\s*:\s*\[[^\]]*|renderHumanOutputGroups\([^)]*|\.group\([^;]*\);\s*\w+\.(?:raw|line)\(\s*)$/su
+          .test(prefix);
+      if (nested) {
+        findings.push({
+          rule: "package-heading-default-inside-owned-boundary",
+          offset,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+// ── consolidated-output outlaw (ADR 0250, sink-ownership amendment) ──────────
+// The narration authority (`src/lib/narration.ts`) and the aligned-listing
+// policy (`renderAlignedRows`) are the only legal spellings for their jobs;
+// these rules reject the residue idioms, with exact named exceptions for the
+// protocol surfaces that legitimately stay bare.
+
+/** Blank comments in place (offsets preserved) so prose cannot self-match. */
+function codeOnly(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//gu, (match) => match.replace(/[^\n]/gu, " "))
+    .replace(/\/\/[^\n]*/gu, (match) => " ".repeat(match.length));
+}
+
+const OUTPUT_IDIOM_RULES: readonly {
+  readonly id: string;
+  readonly pattern: RegExp;
+}[] = [
+  // Alignment belongs to renderAlignedRows (display-width aware); padding by
+  // code units drifts on styled or wide text.
+  { id: "padEnd-alignment", pattern: /\.padEnd\(/g },
+  // The narration authority owns both retired and current line-prefix glyphs.
+  {
+    id: "narration-glyph-literal",
+    pattern: /(["'`])(?:→|◮|✓|✗|✕) /g,
+  },
+  // Human presentation writes through the authority; console is protocol-only.
+  {
+    id: "direct-console-presentation",
+    pattern: /console\.(?:log|error|warn)\(/g,
+  },
+  // The sink owns every boundary newline.
+  { id: "boundary-newline-repeat", pattern: /(["'`])\\n\1\.repeat\(/g },
+  {
+    id: "writer-leading-newline",
+    pattern: /\b(?:writeStdout|writeStderr)\(\s*(?:["']\\n|`\\n)/g,
+  },
+];
+
+interface OutputIdiomException {
+  readonly file: string;
+  readonly rule: string;
+  readonly count: number;
+  readonly reason: string;
+}
+
+/** Protocol and document surfaces that legitimately bypass the authority.
+ * Exact counts: a stale, moved, or grown population fails. */
+const OUTPUT_IDIOM_EXCEPTIONS: readonly OutputIdiomException[] = [
+  {
+    file: "src/shared/emit.ts",
+    rule: "direct-console-presentation",
+    count: 1,
+    reason: "The machine envelope chokepoint prints the one JSON result.",
+  },
+  {
+    file: "src/lib/log.ts",
+    rule: "direct-console-presentation",
+    count: 3,
+    reason:
+      "The authority's console-backed line writers and the JSON result channel.",
+  },
+  {
+    file: "src/main.ts",
+    rule: "direct-console-presentation",
+    count: 1,
+    reason: "The last-resort crash frame stays free of narration dependencies.",
+  },
+  {
+    file: "src/engine/dispatch.ts",
+    rule: "direct-console-presentation",
+    count: 4,
+    reason: "Scalar identity and config values for shell capture.",
+  },
+  {
+    file: "src/engine/queue.ts",
+    rule: "direct-console-presentation",
+    count: 1,
+    reason: "The wrapped child owns both streams; slot hints ride stderr raw.",
+  },
+  {
+    file: "src/engine/scopes/scopes.ts",
+    rule: "direct-console-presentation",
+    count: 1,
+    reason: "Scalar scope names for shell capture.",
+  },
+  {
+    file: "src/commands/docs.ts",
+    rule: "direct-console-presentation",
+    count: 1,
+    reason: "An unpaged rendered document body is a raw stdout stream.",
+  },
+  {
+    file: "src/shared/third_party_codegen.ts",
+    rule: "padEnd-alignment",
+    count: 2,
+    reason: "Generated NOTICE document columns over ASCII names and versions.",
+  },
+  {
+    file: "src/shared/result.ts",
+    rule: "padEnd-alignment",
+    count: 2,
+    reason:
+      "Fixed ASCII disposition/outcome vocabulary, width-safe by construction.",
+  },
+  {
+    file: "src/lib/artifact_ownership.ts",
+    rule: "padEnd-alignment",
+    count: 1,
+    reason: "Generated Markdown table cells in a committed document.",
+  },
+  {
+    file: "src/engine/desk/desk.ts",
+    rule: "narration-glyph-literal",
+    count: 1,
+    reason: "The desk's muted command echo reuses the accent arrow glyph.",
+  },
+];
+
+/** Locate outlawed output idioms in comment-stripped source. */
+function outputIdiomFindings(source: string): BoundaryFinding[] {
+  const code = codeOnly(source);
+  return OUTPUT_IDIOM_RULES.flatMap(({ id, pattern }) => {
+    pattern.lastIndex = 0;
+    return [...code.matchAll(pattern)].map((match) => ({
+      rule: id,
+      offset: match.index ?? 0,
+    }));
+  });
+}
+
+/** One located idiom finding, ready for the offender report. */
+interface LocatedIdiomFinding {
+  readonly rule: string;
+  readonly line: number;
+}
+
+/** Apply the exact exception table to per-file idiom findings; return the
+ * uncovered residue. A count mismatch (stale, moved, or grown) fails here. */
+function unappliedIdiomFindings(
+  byFile: ReadonlyMap<string, readonly LocatedIdiomFinding[]>,
+): string[] {
+  const residue: string[] = [];
+  const covered = new Set<string>();
+  for (const entry of OUTPUT_IDIOM_EXCEPTIONS) {
+    assert(
+      entry.reason.trim() !== "",
+      `${entry.file} exception needs a reason`,
+    );
+    const matched = (byFile.get(entry.file) ?? []).filter((finding) =>
+      finding.rule === entry.rule
+    ).length;
+    assertEquals(
+      matched,
+      entry.count,
+      `${entry.file} ${entry.rule} exception moved, became stale, or changed count`,
+    );
+    covered.add(`${entry.file} ${entry.rule}`);
+  }
+  for (const [file, findings] of byFile) {
+    for (const finding of findings) {
+      if (covered.has(`${file} ${finding.rule}`)) continue;
+      residue.push(`${file}:${finding.line} (${finding.rule})`);
+    }
+  }
+  return residue;
 }
 
 const MANUAL_BOUNDARY_RULES: readonly {
@@ -202,40 +484,40 @@ Deno.test("human-output boundary detector rejects unrelated future siblings", ()
     ],
   );
 
-  const promptSynthetic = [
+  const requestSynthetic = [
     'import { Select } from "@cliffy/prompt";',
-    `import { promptSelect as orbit, DenoTerminalIO } from "${INTERACTIVE_MODULE}";`,
+    `import { requestSelection as orbit, DenoTerminalIO } from "${INTERACTIVE_MODULE}";`,
     `import * as interactive from "${INTERACTIVE_MODULE}";`,
     'orbit({ label: "Fresh sibling", choices: [] });',
     'relay(orbit, { label: "Helper bypass", choices: [] });',
-    'notproductPrompt(orbit, { label: "Near miss", choices: [] });',
-    'adapter.productPrompt(orbit, { label: "Qualified near miss", choices: [] });',
-    'interactive.promptFuture({ label: "Future sibling" });',
-    `const future = await import("${INTERACTIVE_MODULE}"); future.promptFuture({});`,
+    'notRunInteractionRequest(orbit, { label: "Near miss", choices: [] });',
+    'adapter.runInteractionRequest(orbit, { label: "Qualified near miss", choices: [] });',
+    'interactive.requestFuture({ label: "Future sibling" });',
+    `const future = await import("${INTERACTIVE_MODULE}"); future.requestFuture({});`,
   ].join("\n");
   assertEquals(
-    directPromptFindings(promptSynthetic).map((finding) => finding.rule),
+    directRequestFindings(requestSynthetic).map((finding) => finding.rule),
     [
       "legacy-cliffy-prompt-import",
-      "direct-package-prompt-import",
-      "direct-package-prompt-call",
-      "unmediated-package-prompt-use",
-      "unmediated-package-prompt-use",
-      "unmediated-package-prompt-use",
-      "unmediated-package-prompt-use",
-      "direct-package-namespace-prompt",
+      "direct-package-request-import",
+      "direct-package-request-call",
+      "unmediated-package-request-use",
+      "unmediated-package-request-use",
+      "unmediated-package-request-use",
+      "unmediated-package-request-use",
+      "direct-package-namespace-request",
       "dynamic-interactive-package-import",
     ],
   );
   assertEquals(
-    directPromptFindings(
-      `import { promptSelect as orbit } from "${INTERACTIVE_MODULE}";\n` +
-        "productPrompt(orbit, options, runtime);",
+    directRequestFindings(
+      `import { requestSelection as orbit } from "${INTERACTIVE_MODULE}";\n` +
+        "runInteractionRequest(orbit, options, runtime);",
     ).map((finding) => finding.rule),
-    ["direct-package-prompt-import"],
+    ["direct-package-request-import"],
   );
   assertEquals(
-    directPromptFindings(
+    directRequestFindings(
       `import { InlineFramePainter } from "${INTERACTIVE_MODULE}";\n` +
         "new InlineFramePainter({});",
     ),
@@ -245,7 +527,25 @@ Deno.test("human-output boundary detector rejects unrelated future siblings", ()
     adHocHeadingFindings(
       'const fake = { kind: "group-heading", id: "fake", value: "fake" };',
     ).map((finding) => finding.rule),
-    ["ad-hoc-prompt-heading"],
+    ["ad-hoc-selection-heading"],
+  );
+
+  const headingImport =
+    `import { renderOrbitHeadingCli as future } from "${STATIC_CLI_MODULE}";\n`;
+  assertEquals(
+    packageHeadingBoundaryFindings(
+      headingImport +
+        'function grouped(out: Out, caps: Caps) { out.group("next"); out.raw(future({ text: "Next" }, caps)); }\n' +
+        'function composed(caps: Caps) { return [future({ text: "Inside" }, caps)]; }\n' +
+        'function top(caps: Caps) { return future({ text: "Top" }, caps); }\n' +
+        'function embedded(caps: Caps) { return [future({ text: "Inside", leadingBlankLines: 0 }, caps)]; }\n' +
+        'function custom(caps: Caps) { return future({ text: "Custom", leadingBlankLines: 2 }, caps); }',
+    ).map((finding) => finding.rule),
+    [
+      "package-heading-default-inside-owned-boundary",
+      "package-heading-default-inside-owned-boundary",
+      "package-heading-nonembedded-override",
+    ],
   );
 });
 
@@ -311,7 +611,7 @@ Deno.test("the live output grouping surface writes exactly one complete boundary
 
   assertEquals(
     chunks.join(""),
-    "first\n\nsecond\n\n→ third\n\n  ── Fourth\nfourth\n",
+    "first\n\nsecond\n\n◮ third\n\n  ── Fourth\nfourth\n",
   );
 
   out.error("failure");
@@ -319,7 +619,7 @@ Deno.test("the live output grouping surface writes exactly one complete boundary
   out.warn("fix it");
   assertEquals(
     errors.join(""),
-    "✗ failure\n\n  ── Recovery\n! fix it\n",
+    "✕ failure\n\n  ── Recovery\n! fix it\n",
   );
 });
 
@@ -344,16 +644,16 @@ Deno.test("the live narration surface makes hostile caller facts inert but keeps
 
   assertEquals(
     chunks.join(""),
-    `→ ${safe}\n✓ ${safe}\n\n${safe}\n\n  ── ${safeLabel}\n`,
+    `◮ ${safe}\n✓ ${safe}\n\n${safe}\n\n  ── ${safeLabel}\n`,
   );
-  assertEquals(errors.join(""), `! ${safe}\n✗ ${safe}\n`);
+  assertEquals(errors.join(""), `! ${safe}\n✕ ${safe}\n`);
 
   out.raw(hostile);
   assertEquals(chunks.at(-1), hostile);
 });
 
-Deno.test("the prompt grouping surface gives every populated group a heading", () => {
-  const options = groupedSelectOptions<string>([
+Deno.test("the selection grouping surface gives every populated group a heading", () => {
+  const options = groupedSelectionEntries<string>([
     {
       id: "orbit",
       label: "Orbit",
@@ -378,7 +678,7 @@ Deno.test("the prompt grouping surface gives every populated group a heading", (
   );
 });
 
-Deno.test("the prompt grouping surface writes one leading boundary", () => {
+Deno.test("the interaction grouping surface writes one leading boundary", () => {
   const writes: string[] = [];
   const rawTransitions: boolean[] = [];
   const target: TerminalIO = {
@@ -393,7 +693,7 @@ Deno.test("the prompt grouping surface writes one leading boundary", () => {
     setRawMode: (enabled) => rawTransitions.push(enabled),
     write: (value) => writes.push(value),
   };
-  const terminal = withPromptBoundary(target);
+  const terminal = withInteractionBoundary(target);
 
   terminal.setRawMode(true);
   terminal.write("? Fresh sibling");
@@ -409,6 +709,7 @@ Deno.test("the prompt grouping surface writes one leading boundary", () => {
 
 Deno.test("discern-managed human boundaries use the semantic grouping surface", async () => {
   const offenders: string[] = [];
+  const idiomFindings = new Map<string, LocatedIdiomFinding[]>();
   for (
     const rel of AUTHORED_DENO_FILES.filter((path) => path.startsWith("src/"))
   ) {
@@ -418,27 +719,72 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
         `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
       );
     }
-    const promptFindings = directPromptFindings(source).filter((finding) =>
-      !(rel === "src/lib/prompts.ts" &&
-        finding.rule === "direct-package-prompt-import")
+    const located = outputIdiomFindings(source).map((finding) => ({
+      rule: finding.rule,
+      line: lineAt(source, finding.offset),
+    }));
+    if (located.length > 0) idiomFindings.set(rel, located);
+    const requestFindings = directRequestFindings(source).filter((finding) =>
+      !(rel === "src/lib/terminal_interaction.ts" &&
+        finding.rule === "direct-package-request-import")
     );
-    for (const finding of promptFindings) {
+    for (const finding of requestFindings) {
       offenders.push(
         `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
       );
     }
-    if (rel !== "src/lib/prompts.ts") {
+    if (rel !== "src/lib/terminal_interaction.ts") {
       for (const finding of adHocHeadingFindings(source)) {
         offenders.push(
           `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
         );
       }
     }
+    for (const finding of packageHeadingBoundaryFindings(source)) {
+      offenders.push(
+        `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
+      );
+    }
   }
+
+  offenders.push(...unappliedIdiomFindings(idiomFindings));
 
   assert(
     offenders.length === 0,
-    "Human output groups must go through the shared text/prompt grouping surfaces; " +
+    "Human output groups must go through the shared text/interaction grouping surfaces; " +
       `found:\n${offenders.join("\n")}`,
+  );
+});
+
+Deno.test("the output-idiom detector rejects unrelated future siblings", () => {
+  const synthetic = [
+    "function orbit(rows: { name: string }[]) {",
+    "  for (const row of rows) console.log(`  ${row.name.padEnd(20)}`);",
+    "}",
+    'function canopy() { console.error("✗ the file is missing."); }',
+    'function harbor(out: { raw(s: string): void }) { out.raw("→ next"); }',
+    'function estuary(n: number) { writeStdout("\\n".repeat(n)); }',
+    'function inlet() { writeStderr("\\nSection heading"); }',
+    "// a commented console.log(`✓ done`) never matches",
+  ].join("\n");
+  assertEquals(
+    outputIdiomFindings(synthetic).map((finding) => finding.rule).sort(),
+    [
+      "boundary-newline-repeat",
+      "direct-console-presentation",
+      "direct-console-presentation",
+      "narration-glyph-literal",
+      "narration-glyph-literal",
+      "padEnd-alignment",
+      "writer-leading-newline",
+      "writer-leading-newline",
+    ],
+  );
+  assertEquals(
+    outputIdiomFindings(
+      'const mark = "✓";\nlog.error("state the condition");\n',
+    ),
+    [],
+    "a bare data glyph and an authority call stay legal",
   );
 });

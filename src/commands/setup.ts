@@ -4,7 +4,7 @@
  * Combines mechanical scaffolding and agent-driven authoring in a single command
  * (ADR 0036). The user installs the binary and
  * tells their coding agent to "run discern"; bare `discern` (pre-setup) and the
- * explicit `discern setup` both land here. There are no wizard prompts and no
+ * explicit `discern setup` both land here. There are no wizard questions and no
  * decisions for the user to make at the CLI — setup is always non-interactive:
  *
  *   1. Scaffold discern's machinery (a fresh install, or a `--force` refresh):
@@ -39,7 +39,9 @@ import {
   type InitFlags,
   plainModeEnabled,
   resolveSetupConfig,
-} from "../lib/prompts.ts";
+} from "../lib/terminal_interaction.ts";
+import { terminalLine } from "../lib/terminal.ts";
+import { alignedLabelWidth, padDisplayEnd } from "../lib/text.ts";
 import {
   applyConfigDoc,
   type DiscernConfigDoc,
@@ -138,6 +140,7 @@ import {
 import {
   completionMessage,
   confirmedBeginCommand,
+  confirmedBeginCommandReference,
   consentMessage,
   deriveConsentContext,
   humanOffRampLines,
@@ -161,7 +164,7 @@ import {
 } from "../shared/setup_machinery_evidence.ts";
 
 /**
- * The AUDIENCE of each setup command path's human render: agent-addressed
+ * The AUDIENCE of each setup command path's terminal presentation: agent-addressed
  * surfaces carry the human off-ramp ({@link humanOffRampLines}); the rest are
  * named exceptions with the reason a human can read them directly. Total over
  * the setup-family command paths in the public result-contract registry — the
@@ -596,7 +599,7 @@ function scaffoldCategorySummary(scaffold: ScaffoldOutcome): string {
 
 /**
  * Phase 1 — Scaffold discern's machinery into `destDir`. Resolves the config
- * non-interactively (flags + `--config` + defaults; never prompts), assembles and
+ * non-interactively (flags + `--config` + defaults; never requests terminal input), assembles and
  * applies the seed plan, then compiles guidance / materializes skills / wires MCP.
  * Returns the outcome, or `undefined` when an error was already emitted (caller
  * returns exit 1) or when `--dry-run` short-circuited (the plan was printed).
@@ -628,7 +631,7 @@ async function scaffoldHarness(
   }
 
   // Setup is always non-interactive: resolve from flags + the --config file +
-  // defaults, never prompting. The user makes no decisions at the CLI.
+  // defaults, without terminal interaction. The user makes no decisions at the CLI.
   const effectiveFlags = mergeDocIntoFlags(opts, fileAnswers);
   effectiveFlags.yes = true;
 
@@ -1159,7 +1162,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
           data: { already_set_up: true, message },
         });
       } else {
-        console.log(`discern: ${message}`);
+        log.line(message);
       }
       return 0;
     }
@@ -1507,7 +1510,9 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       ],
     },
   ];
-  console.log(renderHumanOutputGroups(groups));
+  new Logger({ json: false, noColor: false }).line(
+    renderHumanOutputGroups(groups),
+  );
   return 0;
 }
 
@@ -1854,7 +1859,7 @@ export async function runSetupStep(
         message,
       });
     } else {
-      console.error(`discern: ${message}`);
+      new Logger({ json: false, noColor: false }).error(message);
     }
     return 1;
   }
@@ -1869,7 +1874,7 @@ export async function runSetupStep(
         message,
       });
     } else {
-      console.error(`discern: ${message}`);
+      new Logger({ json: false, noColor: false }).error(message);
     }
     return 1;
   }
@@ -1879,7 +1884,7 @@ export async function runSetupStep(
   } else {
     // Human: the off-ramp first (the page below is addressed to the agent), then
     // the prose leads with the spine's rails bracketing it (renderSetupPage).
-    console.log(renderHumanOutputGroups([
+    new Logger({ json: false, noColor: false }).line(renderHumanOutputGroups([
       { id: "audience-off-ramp", items: humanOffRampLines() },
       { id: "setup-page", items: [renderSetupPage(page)] },
     ]));
@@ -1983,26 +1988,19 @@ function emitSetupIncomplete(
     });
     return;
   }
-  console.error(renderHumanOutputGroups([
-    { id: "failure", items: [`discern: ${message}`] },
-    {
-      id: "unfinished-items",
-      items: [
-        ...leftover.map((file) =>
-          `         • ${file} (skeleton marker remains)`
-        ),
-        ...unmet.map((check) =>
-          `         • Step ${check.step} — ${check.describe}`
-        ),
-      ],
-    },
-    {
-      id: "recovery",
-      items: [
-        "       Fill them and re-run, or pass --force to mark complete anyway.",
-      ],
-    },
-  ]));
+  const log = new Logger({ json: false, noColor: false });
+  log.error(message);
+  log.group("unfinished-items");
+  for (const file of leftover) {
+    log.humanLine(`  • ${terminalLine(file)} (skeleton marker remains)`);
+  }
+  for (const check of unmet) {
+    log.humanLine(`  • Step ${check.step} — ${terminalLine(check.describe)}`);
+  }
+  log.group("recovery");
+  log.humanLine(
+    "  Fill them and re-run, or pass --force to mark complete anyway.",
+  );
 }
 
 /**
@@ -2073,20 +2071,19 @@ function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
     });
     return;
   }
-  console.error(renderHumanOutputGroups([
-    { id: "failure", items: [`discern: ${message}`] },
-    {
-      id: "uncommitted-items",
-      items: uncommitted.map((item) => `         • ${item}`),
-    },
-    {
-      id: "recovery",
-      items: [
-        "       The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
-        "       (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
-      ],
-    },
-  ]));
+  const log = new Logger({ json: false, noColor: false });
+  log.error(message);
+  log.group("uncommitted-items");
+  for (const item of uncommitted) {
+    log.humanLine(`  • ${terminalLine(item)}`);
+  }
+  log.group("recovery");
+  log.humanLine(
+    "  The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
+  );
+  log.humanLine(
+    "  (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
+  );
 }
 
 /** The view `printDoneSuccess` renders — the celebrate/assure/land/onboard pieces of a
@@ -2161,9 +2158,9 @@ function verdictSentence(a: SetupAssurance): string {
 /** The aligned known-job assurance lines (A12) — each known job and its honest
  * state (enforced / housekeeping [self-supplied] / deferred [+reason] / absent). */
 function assuranceLines(a: SetupAssurance): string[] {
-  const width = Math.max(...a.known_jobs.map((job) => job.name.length));
+  const width = alignedLabelWidth(a.known_jobs.map((job) => job.name));
   return a.known_jobs.map((c) => {
-    const name = c.name.padEnd(width);
+    const name = padDisplayEnd(c.name, width);
     const mark = c.state === "enforced"
       ? "✓"
       : c.self_supplied === true
@@ -2296,7 +2293,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
 
   // The ready-to-relay completion message, carried verbatim (identical to the `--json`
   // `guidance` field) so a courier agent can hand the human a warm close (ADR 0086).
-  console.log(renderHumanOutputGroups([
+  new Logger({ json: false, noColor: false }).line(renderHumanOutputGroups([
     { id: "completion", items: completionLines },
     { id: "assurance", items: assuranceGroupLines },
     { id: "worktree-proof", items: worktreeLines },
@@ -2649,7 +2646,7 @@ function emitDoneUnreadableConfig(json: boolean, detail: string): void {
       message,
     });
   } else {
-    console.error(`discern: ${message}`);
+    new Logger({ json: false, noColor: false }).error(message);
   }
 }
 
@@ -2673,21 +2670,16 @@ function emitDoneGateFailure(
       data: { stage },
     });
   } else {
-    console.error(renderHumanOutputGroups([
-      { id: "failure", items: [`discern: ${message}`] },
-      {
-        id: "proof-context",
-        items: [
-          `       (\`discern setup done\`'s completion proof is refresh → doctor → done, then a worktree probe; the ${stage} step failed.)`,
-        ],
-      },
-      {
-        id: "recovery",
-        items: [
-          "       Fix it and re-run, or pass --force to record completion without the proof.",
-        ],
-      },
-    ]));
+    const log = new Logger({ json: false, noColor: false });
+    log.error(message);
+    log.group("proof-context");
+    log.humanLine(
+      `  (\`discern setup done\`'s completion proof is refresh → doctor → done, then a worktree probe; the ${stage} step failed.)`,
+    );
+    log.group("recovery");
+    log.humanLine(
+      "  Fix it and re-run, or pass --force to record completion without the proof.",
+    );
   }
   return 1;
 }
@@ -2719,12 +2711,16 @@ async function emitAwaitingConsent(
       error: AWAITING_CONSENT_SLUG,
       message,
       data: { guidance, command },
-      hints: hintTexts([fire(HINTS["setup-awaiting-confirmation"])]),
+      hints: hintTexts([
+        fire(HINTS["setup-awaiting-confirmation"], {
+          command: confirmedBeginCommandReference(),
+        }),
+      ]),
     });
   } else {
     // Everything on stdout — the channel the agent reads — so the served message it
     // relays and the command it runs after both land where it is looking.
-    console.log(renderHumanOutputGroups([
+    new Logger({ json: false, noColor: false }).line(renderHumanOutputGroups([
       { id: "consent-required", items: [message] },
       { id: "consent-guidance", items: [guidance] },
     ]));
@@ -2766,7 +2762,7 @@ async function rootOrError(
         message: NO_PROJECT_MESSAGE,
       });
     } else {
-      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+      new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
     }
   }
   return root;

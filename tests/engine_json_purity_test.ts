@@ -1,6 +1,6 @@
 /**
  * The `--json` purity guard (ADR 0030): the regression net that keeps every
- * public command path's machine output to one result envelope and nothing else.
+ * public command path's structured output to one result envelope and nothing else.
  *
  * Two layers:
  *  1. **Behavioural** — run each `--json` verb against a config whose commands print
@@ -25,7 +25,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   mapPool,
@@ -723,6 +723,40 @@ Deno.test("every swept --json verb emits ONLY the envelope (no human or subproce
   });
 });
 
+Deno.test("done --markdown emits one quiet authored document under both stream settings", async () => {
+  for (const config of NOISY_CONFIGS) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(dir, config.toml);
+      await gitInit(dir);
+      const result = await runAgent(dir, ["done", "--markdown"]);
+      assertEquals(result.code, 0, result.output);
+      assertEquals(result.stderr, "", result.output);
+      assertTerminalTextIncludes(result.stdout, "# `discern done`");
+      assertTerminalTextIncludes(result.stdout, "## Current state");
+      assertTerminalTextIncludes(result.stdout, "## Evidence");
+      assertEquals(result.stdout.match(/^# /gm)?.length, 1, result.stdout);
+      for (
+        const noise of [
+          "FMT-OUT",
+          "FMT-ERR",
+          "LINT-OUT",
+          "LINT-ERR",
+          "TC-OUT",
+          "TEST-OUT",
+          "TEST-ERR",
+          "STANDARD-NOISE",
+        ]
+      ) {
+        assert(
+          !result.output.includes(noise),
+          `${config.name}: ${noise} leaked around the Markdown result:\n${result.output}`,
+        );
+      }
+    });
+  }
+});
+
 Deno.test("worktree lifecycle --json: start/update/accept/setup/teardown/drop/prune emit only the envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -865,6 +899,32 @@ Deno.test("serializeResult reaches stdout ONLY through the emitResult chokepoint
     [],
     `serializeResult must only be emitted via emitResult (src/shared/emit.ts) or the MCP renderer.\n` +
       `Hand-rolled envelope emission found in:\n  ${offenders.join("\n  ")}`,
+  );
+});
+
+Deno.test("authored Markdown reaches agents only through the CLI and MCP result boundaries", async () => {
+  const allowed = new Set([
+    join("src", "shared", "result_markdown.ts"),
+    join("src", "shared", "emit.ts"),
+    join("src", "engine", "mcp", "server.ts"),
+  ]);
+  const offenders: string[] = [];
+  for await (const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })) {
+    const rel = relative(REPO_ROOT, entry.path);
+    if (allowed.has(rel)) {
+      continue;
+    }
+    const source = await Deno.readTextFile(entry.path);
+    if (/renderResultMarkdown\s*\(/.test(source)) {
+      offenders.push(rel);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `Markdown result rendering bypassed the shared boundaries:\n  ${
+      offenders.join("\n  ")
+    }`,
   );
 });
 

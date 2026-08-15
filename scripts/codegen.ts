@@ -40,6 +40,12 @@ import {
   renderFeatureCanonDoc,
   renderFeatureCanonPlainDoc,
 } from "./feature_registry.ts";
+import {
+  PRACTICE_CANON_PAGE_REL,
+  PRACTICE_PUBLIC_PAGE_REL,
+  renderPracticeCanonDoc,
+  renderPracticePublicDoc,
+} from "./practice_registry.ts";
 import { buildCli } from "../src/main.ts";
 import {
   renderProofNoteJsonSchema,
@@ -139,6 +145,14 @@ const featureCanonBenefits = relative(
   repoRoot,
   join(mapDir, FEATURE_CANON_BENEFITS_PAGE_REL),
 );
+const practiceCanon = relative(
+  repoRoot,
+  join(mapDir, PRACTICE_CANON_PAGE_REL),
+);
+const practicePublic = relative(
+  repoRoot,
+  join(mapDir, PRACTICE_PUBLIC_PAGE_REL),
+);
 const installSurface = relative(
   repoRoot,
   join(mapDir, "80-development", "install-surface.md"),
@@ -220,6 +234,27 @@ await write(
     await Deno.readTextFile(join(repoRoot, "src/lib/docs_search.js")),
   ),
 );
+console.log("Copying the authored ADR skeleton into the write-adr skill:");
+// The setup skeleton is the authored source for the ADR pack; the write-adr
+// skill carries a generated copy so the pack travels with the skill. The
+// byte-identity test in tests/adr_index_test.ts backstops the pair, and its
+// file-set equality flags a new source file until it is copied here too.
+const adrSkeletonFile = (name: string): Promise<string> =>
+  Deno.readTextFile(
+    join(repoRoot, "templates/setup/skeleton/docs/_adr", name),
+  );
+await write(
+  "templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md",
+  await adrSkeletonFile("0000-template.md"),
+);
+await write(
+  "templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md",
+  await adrSkeletonFile("0001-adopt-discern.md"),
+);
+await write(
+  "templates/skills/discern-write-adr/skeleton/docs/_adr/README.md",
+  await adrSkeletonFile("README.md"),
+);
 console.log("Regenerating the hint inventory from HINTS:");
 await write(hintInventory, renderHintInventoryDoc());
 console.log("Regenerating the tip inventory from TIPS:");
@@ -239,6 +274,11 @@ console.log(
 await write(featureCanon, renderFeatureCanonDoc());
 await write(featureCanonPlain, renderFeatureCanonPlainDoc());
 await write(featureCanonBenefits, renderFeatureCanonBenefitsDoc());
+console.log(
+  "Regenerating the practice canon from scripts/practice_registry.ts:",
+);
+await write(practiceCanon, renderPracticeCanonDoc());
+await write(practicePublic, renderPracticePublicDoc());
 console.log(
   "Regenerating the registry atlas from scripts/canonical_sets.ts:",
 );

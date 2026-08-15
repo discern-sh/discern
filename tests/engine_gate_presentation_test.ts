@@ -1,24 +1,15 @@
 /** Closed-set and composition coverage for the Gate's pure CLI presentation. */
 
-import {
-  assert,
-  assertEquals,
-  assertStringIncludes,
-  assertThrows,
-} from "@std/assert";
-import {
-  DISCERN_TRIANGLE_SPINNER_ORDER,
-  stripAnsi,
-} from "discern-design-system/cli";
-import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { stripAnsi } from "discern-design-system/cli";
 import {
   createGateTtyProgress,
-  type GateProgressScheduler,
-  gateTtyPresentation,
-  gateTtyProgressCanRepaint,
-  renderGateTtyProgressTable,
   renderGateTtyTable,
 } from "../src/engine/gate/gate_tty.ts";
+import {
+  gateRunContext,
+  resolveGateRunPolicy,
+} from "../src/engine/gate/execute.ts";
 import {
   GATE_DIAGNOSTIC_SEVERITY,
   GATE_FAILED_STAGE_LABEL,
@@ -42,9 +33,8 @@ import {
   renderProofLine,
   renderProofMarkdown,
 } from "../src/engine/gate/proof_render.ts";
-import { buildGatePlan, type JobGroup } from "../src/engine/gate/plan.ts";
+import type { JobGroup } from "../src/engine/gate/plan.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import type { JobResult } from "../src/engine/jobs/types.ts";
 import {
   resolveTerminalContext,
   type TerminalContext,
@@ -81,6 +71,7 @@ function terminal(options: {
   readonly rows?: number;
   readonly stdoutIsTerminal?: boolean;
   readonly ci?: string;
+  readonly theme?: "light" | "dark";
 } = {}): TerminalContext {
   const color = options.color ?? "none";
   const unicode = options.unicode ?? true;
@@ -98,23 +89,52 @@ function terminal(options: {
     env: fakeEnv(env),
     isTerminal: () => options.stdoutIsTerminal ?? true,
     consoleSize: () => ({ columns, rows: options.rows ?? 24 }),
+    ...(options.theme === undefined ? {} : { theme: options.theme }),
   });
 }
 
-const PLAIN = terminal();
+/** Mutable injected viewport with explicit sampling and cleanup evidence. */
+function observedTerminal(
+  initial: { readonly columns: number; readonly rows: number },
+): {
+  readonly terminal: TerminalContext;
+  readonly set: (
+    next: { readonly columns: number; readonly rows: number },
+  ) => void;
+  readonly samples: () => number;
+  readonly closes: () => number;
+} {
+  let size = initial;
+  let sampleCount = 0;
+  let closeCount = 0;
+  const base = terminal(initial);
+  return {
+    terminal: {
+      ...base,
+      observeViewport: () => {
+        let closed = false;
+        return {
+          sample: () => {
+            if (!closed) sampleCount += 1;
+            return size;
+          },
+          close: () => {
+            if (closed) return;
+            closed = true;
+            closeCount += 1;
+          },
+        };
+      },
+    },
+    set: (next): void => {
+      size = next;
+    },
+    samples: (): number => sampleCount,
+    closes: (): number => closeCount,
+  };
+}
 
-const TRIANGLE_WEAVE = [
-  DISCERN_TRIANGLE_GLYPHS.upRight,
-  DISCERN_TRIANGLE_GLYPHS.downRight,
-  DISCERN_TRIANGLE_GLYPHS.upLeft,
-  DISCERN_TRIANGLE_GLYPHS.downLeft,
-].join("");
-const TRIANGLE_RULE_TAIL = [
-  DISCERN_TRIANGLE_GLYPHS.downRight,
-  DISCERN_TRIANGLE_GLYPHS.upRight,
-  DISCERN_TRIANGLE_GLYPHS.downLeft,
-  DISCERN_TRIANGLE_GLYPHS.upLeft,
-].join("");
+const PLAIN = terminal();
 
 const GROUP: JobGroup = {
   stage: "check",
@@ -128,35 +148,6 @@ const GROUP: JobGroup = {
     reportStage: "check",
     willRun: true,
   })),
-};
-
-const CURRENT_GATE_GROUPS = buildGatePlan(
-  parseConfigOrThrow([
-    "[project]",
-    'slug = "gate-viewport"',
-    "agents = []",
-    "",
-    "[guidance]",
-    "sources = []",
-    "",
-    "[jobs]",
-    'format = "deno fmt"',
-    'build = "deno task build"',
-    'lint = "deno lint"',
-    'typecheck = "deno check"',
-    'test = "deno task test"',
-    'smoke = "deno task smoke"',
-  ].join("\n")),
-  [],
-).groups;
-
-const OK_FORMAT: JobResult = {
-  label: "format",
-  status: "ok",
-  code: 0,
-  durationS: 1,
-  outputLines: 0,
-  errorLikeLines: 0,
 };
 
 const PROOF_FACTS = {
@@ -238,25 +229,56 @@ Deno.test("Gate presentation mappings cover every closed typed state", () => {
   );
 });
 
-Deno.test("Gate TTY selection consumes only injected attachment, CI, plain, JSON, and width facts", () => {
+Deno.test("Gate output policy separates live presentation from static transcript timing", () => {
   const live = terminal({ columns: 93, ci: "false" });
-  assertEquals(gateTtyPresentation(false, false, live), {
-    ttyWidth: 93,
-    liveWidth: 93,
+  const ci = terminal({ columns: 71, ci: "  TRUE " });
+  const pipe = terminal({ columns: 67, stdoutIsTerminal: false });
+  const dumb = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({ TERM: "dumb", LANG: "en_GB.UTF-8" }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 48, rows: 24 }),
   });
 
-  const ci = terminal({ columns: 71, ci: "  TRUE " });
-  assertEquals(gateTtyPresentation(false, false, ci), { ttyWidth: 71 });
-  assertEquals(gateTtyPresentation(false, true, live), { ttyWidth: 93 });
-  assertEquals(
-    gateTtyPresentation(
-      false,
-      false,
-      terminal({ columns: 67, stdoutIsTerminal: false }),
-    ),
-    {},
-  );
-  assertEquals(gateTtyPresentation(true, false, live), {});
+  for (const staticStream of [false, true]) {
+    const livePolicy = resolveGateRunPolicy(staticStream, {
+      kind: "human",
+      plain: false,
+      terminal: live,
+    });
+    assertEquals(livePolicy.output.kind, "live-frame");
+    assertEquals(livePolicy.capture, "buffered-full");
+    assertEquals(
+      livePolicy.output.kind === "live-frame"
+        ? livePolicy.output.ttyWidth
+        : undefined,
+      93,
+    );
+
+    const expectedStatic = staticStream ? "static-streamed" : "static-grouped";
+    for (
+      const surface of [
+        { kind: "human" as const, plain: false, terminal: ci },
+        { kind: "human" as const, plain: true, terminal: live },
+        { kind: "human" as const, plain: false, terminal: pipe },
+        { kind: "human" as const, plain: false, terminal: dumb },
+      ]
+    ) {
+      const policy = resolveGateRunPolicy(staticStream, surface);
+      assertEquals(policy.output.kind, expectedStatic);
+      assertEquals(
+        policy.capture,
+        staticStream ? "streamed-capped" : "buffered-full",
+      );
+    }
+  }
+
+  const quiet = resolveGateRunPolicy(true, {
+    kind: "quiet-result",
+    terminal: live,
+  });
+  assertEquals(quiet.output.kind, "quiet-result");
+  assertEquals(quiet.capture, "buffered-full");
 });
 
 Deno.test("Gate receipt makes landing readiness explicit without claiming consent", () => {
@@ -303,504 +325,233 @@ Deno.test("Gate presentation renders every failure stage through ResultSummary",
   }
 });
 
-Deno.test("Gate progress: a stable 25 percent frame pins Component composition", () => {
-  const actual = renderGateTtyProgressTable(
-    [GROUP],
-    new Set(),
-    new Map([["format", OK_FORMAT]]),
-    { width: 54, terminal: PLAIN },
-  );
-  const expected = [
-    "Gate progress  1 / 4 steps settled",
-    `[ 25%] ${TRIANGLE_WEAVE.repeat(2)}${
-      TRIANGLE_WEAVE.slice(0, 3)
-    }..................................`,
+Deno.test("Gate run context keeps live presentation on full buffered capture", () => {
+  const cfg = parseConfigOrThrow([
+    "[project]",
+    'slug = "gate-live-context"',
+    "agents = []",
     "",
-    "Check",
+    "[guidance]",
+    "sources = []",
     "",
-    `${TRIANGLE_WEAVE.repeat(5)}${TRIANGLE_WEAVE.slice(0, 2)} Steps ${
-      TRIANGLE_RULE_TAIL.repeat(5)
-    }${TRIANGLE_RULE_TAIL.slice(0, 3)}`,
-    ` ${DISCERN_TRIANGLE_GLYPHS.upRight}  format [passed]`,
-    " │",
-    " ·  lint [pending]",
-    " │",
-    " ·  types [pending]",
-    " │",
-    " ·  test [pending]",
-    "",
-    "Complete when: Every configured step reaches a final",
-    "               reported state.",
-    "",
-    "$ run format",
-    "format: Configured known job passed in 1s.",
-    "",
-    "$ run lint",
-    "lint: Configured known job pending.",
-    "",
-    "$ run types",
-    "types: Configured known job pending.",
-    "",
-    "$ run test",
-    "test: Configured known job pending.",
-  ].join("\n");
-  assertEquals(actual, expected);
-});
-
-Deno.test("Gate progress: Unicode and ASCII expose every package spinner phase", () => {
-  assertEquals(DISCERN_TRIANGLE_SPINNER_ORDER.length, 4);
-  const unicode = new Set<string>();
-  const ascii = new Set<string>();
-  for (let phase = 0; phase < DISCERN_TRIANGLE_SPINNER_ORDER.length; phase++) {
-    const args = [
-      [GROUP],
-      new Set(["lint"]),
-      new Map<string, JobResult>(),
-    ] as const;
-    const unicodeFrame = renderGateTtyProgressTable(
-      ...args,
-      { width: 50, terminal: PLAIN },
-      phase,
-    );
-    const asciiFrame = renderGateTtyProgressTable(
-      ...args,
-      { width: 50, terminal: terminal({ unicode: false }) },
-      phase,
-    );
-    unicode.add(
-      unicodeFrame.split("\n").find((line) => line.includes("lint [running]"))
-        ?.split(" ")[0] ?? "",
-    );
-    ascii.add(
-      asciiFrame.split("\n").find((line) => line.includes("lint [running]"))
-        ?.split(" ")[0] ?? "",
-    );
-  }
-  assertEquals(
-    [...unicode].sort(),
-    DISCERN_TRIANGLE_SPINNER_ORDER.map((name) =>
-      `[${DISCERN_TRIANGLE_GLYPHS[name]}]`
-    ).sort(),
-  );
-  assertEquals([...ascii].sort(), ["[>]", "[v]", "[^]", "[<]"].sort());
-});
-
-Deno.test("Gate progress controller injects time, resize, cancellation, and scheduler stop", async () => {
-  let callback: (() => void) | undefined;
-  let stops = 0;
-  let now = 1_000;
-  const scheduler: GateProgressScheduler = {
-    repeat(next, intervalMs): () => void {
-      assertEquals(intervalMs, 50);
-      callback = next;
-      return (): void => {
-        stops += 1;
-      };
-    },
-  };
-  const writes: string[] = [];
-  const progress = createGateTtyProgress((value) => writes.push(value), {
-    width: 54,
-    terminal: terminal({ columns: 54, rows: 200 }),
-    scheduler,
-    intervalMs: 50,
-    clock: () => now,
+    "[gate]",
+    "stream = true",
+  ].join("\n"));
+  const livePolicy = resolveGateRunPolicy(true, {
+    kind: "human",
+    plain: false,
+    terminal: terminal({ columns: 88 }),
   });
-  progress.start([GROUP]);
-  const lint = GROUP.jobs.find((job) => job.label === "lint");
-  assert(lint !== undefined);
-  progress.started(lint);
-  await Promise.resolve();
-  assert(callback !== undefined);
-  now = 3_000;
-  callback?.();
-  await Promise.resolve();
-  assertStringIncludes(writes.at(-1) ?? "", "running for 2s");
+  const live = gateRunContext("/tmp/gate-live-context", cfg, livePolicy);
+  assertEquals(live.runOpts.stream, false);
+  assertEquals(live.runOpts.quiet, true);
 
-  progress.resize({ columns: 34, rows: 200 });
-  assertStringIncludes(writes.at(-1) ?? "", "run lint");
-  const frame = (writes.at(-1) ?? "").split("\x1b[J").at(-1) ?? "";
-  assertWithinWidth(frame.trimEnd(), 34);
-
-  progress.settled({
-    label: "lint",
-    status: "failed",
-    code: 1,
-    durationS: 2,
-    outputLines: 0,
-    errorLikeLines: 0,
-    cancelled: true,
+  const streamedPolicy = resolveGateRunPolicy(true, {
+    kind: "human",
+    plain: true,
+    terminal: terminal({ columns: 88 }),
   });
-  await Promise.resolve();
-  assertEquals(stops, 1);
-  assertStringIncludes(writes.at(-1) ?? "", "cancelled");
+  const streamed = gateRunContext(
+    "/tmp/gate-live-context",
+    cfg,
+    streamedPolicy,
+  );
+  assertEquals(streamed.runOpts.stream, true);
+  assertEquals(streamed.runOpts.quiet, false);
 
-  progress.complete(PROOF_STEPS);
-  assertEquals(stops, 1);
-  const completedFrame = writes.at(-1) ?? "";
-  assertStringIncludes(completedFrame, "scope:site [skipped]");
-  assert(completedFrame.endsWith("\n"));
-  assertEquals(completedFrame.endsWith("\x1b[J"), false);
-  const completedWriteCount = writes.length;
-  callback?.();
-  progress.resize({ columns: 20, rows: 200 });
-  await Promise.resolve();
-  assertEquals(
-    writes.length,
-    completedWriteCount,
-    "ticks and resizes must not erase or replace the completed static frame",
-  );
-  assertThrows(
-    () =>
-      createGateTtyProgress(() => {}, {
-        width: 80,
-        terminal: PLAIN,
-        intervalMs: 0,
-      }),
-    TypeError,
-    "positive safe integer",
-  );
+  const quietPolicy = resolveGateRunPolicy(true, {
+    kind: "quiet-result",
+    terminal: terminal({ columns: 88 }),
+  });
+  const quiet = gateRunContext("/tmp/gate-live-context", cfg, quietPolicy);
+  assertEquals(quiet.runOpts.stream, false);
+  assertEquals(quiet.runOpts.quiet, true);
 });
 
-Deno.test("Gate progress never repaints a frame taller than its viewport", async () => {
+Deno.test("Gate activity pins lifecycle facts and fits a sanitised partial tail", async () => {
   let tick: (() => void) | undefined;
   let stops = 0;
   const writes: string[] = [];
-  const progress = createGateTtyProgress((value) => writes.push(value), {
-    width: 54,
-    terminal: terminal({ columns: 54, rows: 12 }),
-    scheduler: {
-      repeat(callback): () => void {
-        tick = callback;
-        return (): void => {
-          stops += 1;
-        };
-      },
-    },
-  });
-
-  progress.start(CURRENT_GATE_GROUPS);
-  const lint = CURRENT_GATE_GROUPS.flatMap((group) => group.jobs).find((job) =>
-    job.label === "lint"
-  );
-  assert(lint !== undefined);
-  progress.started(lint);
-  await Promise.resolve();
-  tick?.();
-  await Promise.resolve();
-
-  assertEquals(
-    writes.some((value) => value.includes("\x1b[")),
-    false,
-    "an unaddressable frame must never enter cursor-up repainting",
-  );
-  assertEquals(
-    tick,
-    undefined,
-    "static fallback never starts an activity ticker",
-  );
-  assertEquals(stops, 0);
-
-  progress.complete(PROOF_STEPS);
-  assertEquals(
-    writes.filter((value) => value.includes("Gate progress")).length,
-    1,
-    "the completed Gate is emitted once as static output",
-  );
-  assertStringIncludes(writes.at(-1) ?? "", "scope:site [skipped]");
-  assertEquals(writes.at(-1)?.includes("\x1b["), false);
-});
-
-Deno.test("Gate repaint admission counts the production trailing-newline row", () => {
-  const width = 54;
-  const rendered = renderGateTtyProgressTable(
+  const viewport = observedTerminal({ columns: 72, rows: 20 });
+  const progress = await createGateTtyProgress(
+    (value) => writes.push(value),
     [GROUP],
-    new Set(),
-    new Map(),
-    { width, terminal: terminal({ columns: width, rows: 200 }) },
-  );
-  const frameRows = `${rendered}\n`.split("\n").length;
-  assertEquals(
-    gateTtyProgressCanRepaint([GROUP], {
-      width,
-      terminal: terminal({ columns: width, rows: frameRows }),
-    }),
-    true,
-  );
-  assertEquals(
-    gateTtyProgressCanRepaint([GROUP], {
-      width,
-      terminal: terminal({ columns: width, rows: frameRows - 1 }),
-    }),
-    false,
-  );
-
-  const writes: string[] = [];
-  const progress = createGateTtyProgress((value) => writes.push(value), {
-    width,
-    terminal: terminal({ columns: width, rows: frameRows - 1 }),
-  });
-  progress.start([GROUP]);
-  assertEquals(writes, ["\n"]);
-});
-
-Deno.test("Gate progress abandons repainting after an injected viewport shrink", async () => {
-  let tick: (() => void) | undefined;
-  let stops = 0;
-  const writes: string[] = [];
-  const progress = createGateTtyProgress((value) => writes.push(value), {
-    width: 54,
-    terminal: terminal({ columns: 54, rows: 200 }),
-    scheduler: {
-      repeat(callback): () => void {
-        tick = callback;
-        return (): void => {
-          stops += 1;
-        };
-      },
-    },
-  });
-
-  progress.start([GROUP]);
-  const lint = GROUP.jobs.find((job) => job.label === "lint");
-  assert(lint !== undefined);
-  progress.started(lint);
-  await Promise.resolve();
-  assert(tick !== undefined);
-
-  progress.resize({ columns: 54, rows: 12 });
-  const afterShrink = writes.length;
-  tick?.();
-  await Promise.resolve();
-  assertEquals(stops, 1);
-  assertEquals(
-    writes.length,
-    afterShrink,
-    "activity ticks must stay stopped after the package refuses a repaint",
-  );
-
-  progress.complete(PROOF_STEPS);
-  assertStringIncludes(writes.at(-1) ?? "", "scope:site [skipped]");
-  assertEquals(
-    writes.slice(afterShrink).some((value) => value.includes("\x1b[")),
-    false,
-    "the final static Gate must not resume cursor replacement",
-  );
-});
-
-Deno.test("Gate progress delegates initial and growing frame safety to the package painter", async () => {
-  const context = terminal({ columns: 54, rows: 32 });
-  const options = { width: 54, terminal: context };
-  assertEquals(gateTtyProgressCanRepaint([GROUP], options), true);
-  assertEquals(gateTtyProgressCanRepaint(CURRENT_GATE_GROUPS, options), false);
-
-  let stops = 0;
-  const writes: string[] = [];
-  const progress = createGateTtyProgress((value) => writes.push(value), {
-    ...options,
-    scheduler: {
-      repeat(): () => void {
-        return (): void => {
-          stops += 1;
-        };
-      },
-    },
-  });
-  progress.start([GROUP]);
-  const lint = GROUP.jobs.find((job) => job.label === "lint");
-  assert(lint !== undefined);
-  progress.started(lint);
-  progress.replaceGroups(CURRENT_GATE_GROUPS);
-  await Promise.resolve();
-  assertEquals(stops, 1);
-
-  progress.complete(PROOF_STEPS);
-  assertEquals(progress.renderedFinal(), true);
-  assertEquals(
-    writes.filter((value) => value.includes("scope:site [skipped]")).length,
-    1,
-    "one static completion follows the abandoned growing frame",
-  );
-});
-
-Deno.test("Gate progress prints an oversized final result once after stopping repaint", () => {
-  const context = terminal({ columns: 54, rows: 32 });
-  let stops = 0;
-  const writes: string[] = [];
-  const progress = createGateTtyProgress((value) => writes.push(value), {
-    width: 54,
-    terminal: context,
-    scheduler: {
-      repeat(): () => void {
-        return (): void => {
-          stops += 1;
-        };
-      },
-    },
-  });
-  progress.start([GROUP]);
-  const lint = GROUP.jobs.find((job) => job.label === "lint");
-  assert(lint !== undefined);
-  progress.started(lint);
-  const oversized = Array.from({ length: 12 }, (_, index): StepResult => ({
-    step: {
-      kind: "job",
-      label: verbatimStepLabel(`final-${index}`),
-      disposition: "run",
-      note: `run final-${index}`,
-      group: "Check & test",
-    },
-    outcome: "ok",
-  }));
-
-  progress.complete(oversized);
-  assertEquals(stops, 1);
-  assertEquals(progress.renderedFinal(), true);
-  assertEquals(
-    writes.filter((value) => value.includes("final-11 [passed]")).length,
-    1,
-  );
-});
-
-Deno.test("Gate progress latches every painter write failure without a cleanup retry", async () => {
-  const scenarios = [
-    { name: "initial boundary", failAt: 1, run: "start" },
-    { name: "initial paint", failAt: 2, run: "start" },
-    { name: "replacement", failAt: 3, run: "replacement" },
-    { name: "refusal cleanup", failAt: 3, run: "cleanup" },
-    { name: "final static", failAt: 4, run: "final" },
-  ] as const;
-  for (const scenario of scenarios) {
-    let attempts = 0;
-    let stops = 0;
-    const progress = createGateTtyProgress(() => {
-      attempts += 1;
-      if (attempts === scenario.failAt) throw new Error(scenario.name);
-    }, {
-      width: 54,
-      terminal: terminal({ columns: 54, rows: 200 }),
+    {
+      width: 72,
+      terminal: viewport.terminal,
+      tailRows: 2,
       scheduler: {
-        repeat(): () => void {
+        repeat(callback, intervalMs): () => void {
+          assertEquals(intervalMs, 80);
+          tick = callback;
+          let stopped = false;
           return (): void => {
+            if (stopped) return;
+            stopped = true;
             stops += 1;
           };
         },
       },
-    });
-    progress.start([GROUP]);
-    const lint = GROUP.jobs.find((job) => job.label === "lint");
-    assert(lint !== undefined);
-
-    if (scenario.run === "replacement") {
-      progress.started(lint);
-      await Promise.resolve();
-    } else if (scenario.run === "cleanup") {
-      progress.started(lint);
-      progress.resize({ columns: 54, rows: 2 });
-      await Promise.resolve();
-    } else if (scenario.run === "final") {
-      progress.started(lint);
-      progress.resize({ columns: 54, rows: 2 });
-      progress.complete(PROOF_STEPS);
-      await Promise.resolve();
-    }
-
-    const attemptsAfterFailure = attempts;
-    progress.resize({ columns: 20, rows: 1 });
-    progress.complete(PROOF_STEPS);
-    await Promise.resolve();
-    assertEquals(
-      attempts,
-      attemptsAfterFailure,
-      `${scenario.name} must not trigger a second cleanup or control write`,
-    );
-    assertEquals(progress.renderedFinal(), false, scenario.name);
-    if (scenario.run !== "start") assertEquals(stops, 1, scenario.name);
-  }
-});
-
-Deno.test("Gate workflow sanitizes controls and preserves long facts across widths", () => {
-  const longCommand =
-    "deno check a/very/long/path/to/the/project/entrypoint.ts\x1b[31m\rnext";
-  const group: JobGroup = {
-    ...GROUP,
-    jobs: [{
-      label: "types\x07",
-      command: longCommand,
-      kind: "custom",
-      reportStage: "check",
-      willRun: true,
-    }],
-  };
-  for (const width of [28, 120]) {
-    const rendered = renderGateTtyProgressTable(
-      [group],
-      new Set(),
-      new Map(),
-      { width, terminal: PLAIN },
-    );
-    assertEquals(rendered.includes("\x1b"), false);
-    assertEquals(rendered.includes("\x07"), false);
-    assertStringIncludes(
-      rendered.replaceAll(/\s/gu, ""),
-      longCommand.replace("\x1b", "␛")
-        .replace("\r", "␍")
-        .replaceAll(/\s/gu, ""),
-    );
-    assertStringIncludes(rendered, "types␇");
-    assertWithinWidth(rendered, width);
-  }
-});
-
-Deno.test("Gate workflow colour depth changes styling only", () => {
-  const contexts = ["ansi16", "ansi256", "truecolor"] as const;
-  const plain = renderGateTtyProgressTable(
-    [GROUP],
-    new Set(["lint"]),
-    new Map([["format", OK_FORMAT]]),
-    { width: 80, terminal: PLAIN },
-    1,
+    },
   );
-  for (const color of contexts) {
-    const context = terminal({ color });
-    assertEquals(context.capabilities.colorDepth, color);
-    const rendered = renderGateTtyProgressTable(
-      [GROUP],
-      new Set(["lint"]),
-      new Map([["format", OK_FORMAT]]),
-      { width: 80, terminal: context },
-      1,
-    );
-    assert(rendered.includes("\x1b["));
-    assertEquals(stripAnsi(rendered), plain);
-    assertWithinWidth(rendered, 80);
-  }
-});
+  const lint = GROUP.jobs.find((job) => job.label === "lint");
+  assert(lint !== undefined);
 
-Deno.test("Gate workflow TERM=dumb degrades through the shared context", () => {
-  const dumb = resolveTerminalContext({
-    noColor: false,
-    env: fakeEnv({ TERM: "dumb", LANG: "en_GB.UTF-8" }),
-    isTerminal: () => true,
-    consoleSize: () => ({ columns: 48, rows: 24 }),
+  progress.started(lint);
+  progress.output({ kind: "line", label: "lint", text: "older line" });
+  progress.output({
+    kind: "line",
+    label: "lint",
+    text: "newer\x1b[31mred",
   });
-  assertEquals(dumb.capabilities.colorDepth, "none");
-  assertEquals(dumb.capabilities.ansiControl, false);
-  assertEquals(dumb.capabilities.unicode, true);
-  assertEquals(gateTtyPresentation(false, false, dumb), { ttyWidth: 48 });
-  const rendered = renderGateTtyProgressTable(
+  progress.output({
+    kind: "partial",
+    label: "lint",
+    text: "building\rrewritten partial",
+  });
+  progress.output({
+    kind: "line",
+    label: "outside-the-plan",
+    text: "must stay invisible",
+  });
+  tick?.();
+  await Promise.resolve();
+
+  const active = stripAnsi(writes.at(-1) ?? "");
+  assertStringIncludes(active, "lint started");
+  assertStringIncludes(active, "lint │ newerred");
+  assertStringIncludes(active, "rewritten partial");
+  assertEquals(active.includes("older line"), false);
+  assertEquals(active.includes("must stay invisible"), false);
+  assertEquals(active.includes("[31m"), false);
+
+  progress.settled({
+    label: "lint",
+    status: "ok",
+    code: 0,
+    durationS: 1,
+    outputLines: 2,
+    errorLikeLines: 0,
+  });
+  tick?.();
+  await Promise.resolve();
+  await progress.complete(PROOF_STEPS);
+
+  const completed = stripAnsi(writes.join(""));
+  assertStringIncludes(completed, "lint passed");
+  assertEquals(stops, 1);
+  assertEquals(viewport.closes(), 1);
+  assertStringIncludes(writes.join(""), "\x1b[?25h");
+  assertEquals(progress.writeFailed(), false);
+});
+
+Deno.test("Gate activity follows package fitting from full through compact to append-only", async () => {
+  let tick: (() => void) | undefined;
+  let stops = 0;
+  const writes: string[] = [];
+  const viewport = observedTerminal({ columns: 64, rows: 12 });
+  const progress = await createGateTtyProgress(
+    (value) => writes.push(value),
     [GROUP],
-    new Set(["lint"]),
-    new Map<string, JobResult>(),
-    { width: 48, terminal: dumb },
-    0,
+    {
+      width: 64,
+      terminal: viewport.terminal,
+      tailRows: 4,
+      scheduler: {
+        repeat(callback): () => void {
+          tick = callback;
+          let stopped = false;
+          return (): void => {
+            if (stopped) return;
+            stopped = true;
+            stops += 1;
+          };
+        },
+      },
+    },
   );
-  assertStringIncludes(
-    rendered,
-    `[${DISCERN_TRIANGLE_GLYPHS.upRight}] lint [running]`,
+  const lint = GROUP.jobs.find((job) => job.label === "lint");
+  assert(lint !== undefined);
+  progress.started(lint);
+
+  viewport.set({ columns: 64, rows: 4 });
+  tick?.();
+  await Promise.resolve();
+  const compact = stripAnsi(writes.at(-1) ?? "");
+  assertStringIncludes(compact, "lint started");
+  assertEquals(
+    compact.split("\n").filter((line) => line.trim() === "│").length,
+    1,
+    "the package removes tail rows before giving up cursor control",
   );
-  assertStringIncludes(rendered, "·  format [pending]");
-  assertEquals(rendered.includes("\x1b["), false);
+
+  const beforeAppend = writes.length;
+  viewport.set({ columns: 64, rows: 3 });
+  tick?.();
+  await Promise.resolve();
+  const degradation = writes.slice(beforeAppend).join("");
+  assertEquals(degradation.includes("\x1b[1G"), false);
+  assertEquals(degradation.includes("\x1b[J"), false);
+
+  progress.output({
+    kind: "line",
+    label: "lint",
+    text: "committed after shrink",
+  });
+  const beforePartial = writes.length;
+  progress.output({
+    kind: "partial",
+    label: "lint",
+    text: "partial after shrink",
+  });
+  assertEquals(
+    writes.length,
+    beforePartial,
+    "append-only degradation suppresses partial-line churn",
+  );
+  progress.settled({
+    label: "lint",
+    status: "ok",
+    code: 0,
+    durationS: 1,
+    outputLines: 2,
+    errorLikeLines: 0,
+  });
+  await progress.complete(PROOF_STEPS);
+
+  const appended = stripAnsi(writes.slice(beforeAppend).join(""));
+  assertStringIncludes(appended, "committed after shrink");
+  assertStringIncludes(appended, "partial after shrink");
+  assertStringIncludes(appended, "lint passed");
+  assertEquals(appended.split("partial after shrink").length - 1, 1);
+  assertEquals(stops, 1);
+  assertEquals(viewport.closes(), 1);
+  assertEquals(progress.writeFailed(), false);
+});
+
+Deno.test("Gate activity latches a terminal write failure without retrying cleanup", async () => {
+  let attempts = 0;
+  const viewport = observedTerminal({ columns: 72, rows: 20 });
+  const progress = await createGateTtyProgress(
+    () => {
+      attempts += 1;
+      throw new Error("terminal disappeared");
+    },
+    [GROUP],
+    {
+      width: 72,
+      terminal: viewport.terminal,
+    },
+  );
+  const lint = GROUP.jobs.find((job) => job.label === "lint");
+  assert(lint !== undefined);
+  progress.started(lint);
+  progress.output({ kind: "line", label: "lint", text: "ignored" });
+  await progress.complete(PROOF_STEPS);
+
+  assertEquals(progress.writeFailed(), true);
+  assertEquals(attempts, 1);
+  assertEquals(viewport.closes(), 1);
 });
 
 Deno.test("Gate plan preserves prerequisite and configured-job group boundaries", () => {
@@ -836,13 +587,31 @@ Deno.test("Gate plan preserves prerequisite and configured-job group boundaries"
   assertStringIncludes(rendered, "Gate prerequisites");
   assertStringIncludes(rendered, "main is already merged");
   assertStringIncludes(rendered, "Fix");
-  assertStringIncludes(rendered, "$ deno fmt");
+  assertStringIncludes(rendered, "Run: deno fmt");
   assertStringIncludes(rendered, "scope:map [skipped]");
   assertStringIncludes(rendered, "Final checks");
   assertStringIncludes(rendered, "refresh has no pending effect");
   assert(rendered.indexOf("Gate prerequisites") < rendered.indexOf("Fix"));
   assert(rendered.indexOf("Fix") < rendered.indexOf("Scope gates"));
   assert(rendered.indexOf("Scope gates") < rendered.indexOf("Final checks"));
+});
+
+Deno.test("Gate plan section rules inherit the bound terminal theme", () => {
+  const plan: EnginePlan = {
+    title: "Gate plan",
+    details: [],
+    steps: [],
+  };
+  const light = renderGatePlan(plan, {
+    width: 62,
+    terminal: terminal({ color: "truecolor", theme: "light" }),
+  });
+  const dark = renderGatePlan(plan, {
+    width: 62,
+    terminal: terminal({ color: "truecolor", theme: "dark" }),
+  });
+  assertEquals(stripAnsi(light), stripAnsi(dark));
+  assert(light !== dark, "light and dark section-rule styling must differ");
 });
 
 Deno.test("Gate Standards render every measurement and verdict without invented values", () => {

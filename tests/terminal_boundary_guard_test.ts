@@ -18,10 +18,30 @@ const RUNTIME_TS_FILES = AUTHORED_TS_FILES.filter((rel) =>
 const RUNTIME_DENO_FILES = AUTHORED_DENO_FILES.filter((rel) =>
   !rel.startsWith("tests/")
 );
-const PROMPT_AUTHORITY = "src/lib/prompts.ts";
+const INTERACTION_AUTHORITY = "src/lib/terminal_interaction.ts";
 const PAINTER_AUTHORITY = "src/lib/terminal_painter.ts";
+const LIVE_VIEWPORT_CONTROLLER = "src/engine/gate/gate_tty.ts";
+const TRIANGLE_ART_AUTHORITY = "art/terminal/triangle.ts";
 const CLI_MODULE = "discern-design-system/cli";
 const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
+
+/** Raw foundations are presenter-owned except inside the package-motif adapter. */
+const PRESENTER_FOUNDATION_RENDERERS = new Set([
+  "renderBox",
+  "renderTriangleSectionRule",
+  "renderTriangleSpinnerFrame",
+  "renderTriangleWorkflowStepper",
+]);
+
+/**
+ * The web build owns a separate site-theme model, not terminal presentation.
+ * The capture task's HTML-document theme is admitted only by exact exceptions
+ * below. Every other authored runtime tree is enrolled so a future script or
+ * source root cannot reconstruct the CLI presenter's bound facts.
+ */
+function terminalPlumbingLawApplies(rel: string): boolean {
+  return !rel.startsWith("site/");
+}
 
 /** Every migrated supervisory presentation tree, enrolled from authored source. */
 function consumesExplicitPresentationFacts(
@@ -358,12 +378,12 @@ const PROCESS_CAPABILITY_RULES = [
   {
     id: "terminal-environment-read",
     pattern:
-      /\b(?:Deno\.)?env\.get\(\s*["'](?:TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)["']/u,
+      /\b(?:Deno\.)?env\.get\(\s*["'](?:TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES|COLORFGBG)["']/u,
   },
   {
     id: "Node-terminal-environment-read",
     pattern:
-      /\bprocess\.env(?:\.|\[\s*["'])(?:TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)\b/u,
+      /\bprocess\.env(?:\.|\[\s*["'])(?:TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES|COLORFGBG)\b/u,
   },
 ] as const;
 
@@ -399,6 +419,12 @@ function authorityFindings(rel: string, source: string): Finding[] {
     ) {
       findings.push({ file: rel, rule: "CLI-namespace-import" });
     }
+  }
+  if (
+    rel !== TERMINAL_AUTHORITY && rel !== LIVE_VIEWPORT_CONTROLLER &&
+    /\.\s*observeViewport\s*\(/u.test(code)
+  ) {
+    findings.push({ file: rel, rule: "feature-local-viewport-observer" });
   }
   for (const imported of publicCliImports(code)) {
     if (rel !== TERMINAL_AUTHORITY && TERMINAL_ONLY_IMPORTS.has(imported)) {
@@ -460,7 +486,7 @@ function cliffyImportFindings(rel: string, source: string): Finding[] {
 }
 
 /**
- * Text-bearing leaves in the published 0.12.2 `*CliProps` contracts and their
+ * Text-bearing leaves in the published 0.17.0 `*CliProps` contracts and their
  * exported nested row shapes. Generic future renderer names deliberately
  * inherit this vocabulary; a package upgrade must re-audit the public types.
  */
@@ -636,6 +662,38 @@ function unwrappedExpression(node: Deno.lint.Node): Deno.lint.Node {
     return unwrappedExpression(node.expression);
   }
   return node;
+}
+
+/**
+ * True when an expression is, or was bound from, terminal capabilities. Package
+ * rendering outside `terminal.ts` must use the bound presenter; spreading this
+ * object reconstructs the old per-call plumbing even when a local alias hides
+ * the literal word `capabilities`.
+ */
+function terminalCapabilityExpression(
+  candidate: Deno.lint.Node,
+  bindings: ReadonlySet<string>,
+): boolean {
+  const node = unwrappedExpression(candidate);
+  if (node.type === "Identifier") {
+    return bindings.has(node.name) || /capabilit/iu.test(node.name);
+  }
+  if (node.type === "MemberExpression") {
+    return propertyName(node.property) === "capabilities" ||
+      terminalCapabilityExpression(node.object, bindings);
+  }
+  if (node.type === "ConditionalExpression") {
+    return terminalCapabilityExpression(node.consequent, bindings) ||
+      terminalCapabilityExpression(node.alternate, bindings);
+  }
+  if (node.type === "LogicalExpression") {
+    return terminalCapabilityExpression(node.left, bindings) ||
+      terminalCapabilityExpression(node.right, bindings);
+  }
+  if (node.type === "CallExpression") {
+    return terminalCapabilityExpression(node.callee, bindings);
+  }
+  return false;
 }
 
 /** True only when static syntax proves a product-text expression can carry data. */
@@ -901,14 +959,24 @@ function inspectableComponentProps(node: Deno.lint.Node): boolean {
 
 /**
  * Parse language-agnostic terminal boundaries through Deno's AST: package
- * prompt/painter ownership, process probes, local control literals, palette
+ * interaction/painter ownership, process probes, local control literals, palette
  * shapes, and statically provable Component safe-text bypasses.
  */
 function structuralTerminalFindings(rel: string, source: string): Finding[] {
   const findings: Finding[] = [];
   const renderers = new Map<string, string>();
+  const backgroundSensors = new Set<string>();
+  const terminalIoConstructors = new Set<string>();
   const sanitizers = new Set<string>();
   const multilineSanitizers = new Set<string>();
+  const capabilityBindings = new Set<string>([
+    "capabilities",
+    ...[
+      ...codeOnly(source).matchAll(
+        /\b([A-Za-z_$][\w$]*)\s*:\s*(?:Readonly\s*<\s*)?TerminalCapabilities\b/gu,
+      ),
+    ].flatMap((match) => match[1] ?? []),
+  ]);
   if (rel === "src/engine/gate/presentation.ts") {
     sanitizers.add("safeLine");
     sanitizers.add("safeMultiline");
@@ -944,6 +1012,13 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   if (entry.type !== "ImportSpecifier") continue;
                   const imported = propertyName(entry.imported);
                   if (imported === undefined) continue;
+                  if (
+                    PRESENTER_FOUNDATION_RENDERERS.has(imported) &&
+                    (imported === "renderBox" ||
+                      rel !== TRIANGLE_ART_AUTHORITY)
+                  ) {
+                    add(`presenter-foundation-import:${imported}`, node);
+                  }
                   if (/^render[A-Z].*Cli$/u.test(imported)) {
                     renderers.set(entry.local.name, imported);
                   }
@@ -960,15 +1035,23 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   const imported = propertyName(entry.imported);
                   if (imported === undefined) continue;
                   if (
-                    /^prompt[A-Z]/u.test(imported) && rel !== PROMPT_AUTHORITY
+                    /^request[A-Z]/u.test(imported) &&
+                    rel !== INTERACTION_AUTHORITY
                   ) {
-                    add(`package-prompt-import:${imported}`, node);
+                    add(`package-request-import:${imported}`, node);
                   }
                   if (imported === "InlineFramePainter") {
                     add("package-inline-painter-import", node);
                   }
                   if (imported === "TerminalIO") {
                     add("package-terminal-io-import", node);
+                  }
+                  if (imported === "DenoTerminalIO") {
+                    terminalIoConstructors.add(entry.local.name);
+                  }
+                  if (imported === "senseTerminalBackground") {
+                    backgroundSensors.add(entry.local.name);
+                    add("package-background-sensor-import", node);
                   }
                 }
               }
@@ -1000,6 +1083,23 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
               ) add("dynamic-cli-package-import", node);
             },
             VariableDeclarator(node): void {
+              if (node.id.type === "ObjectPattern") {
+                for (const property of node.id.properties) {
+                  if (
+                    property.type === "Property" &&
+                    propertyName(property.key) === "capabilities" &&
+                    property.value.type === "Identifier"
+                  ) {
+                    capabilityBindings.add(property.value.name);
+                  }
+                }
+              }
+              if (
+                node.id.type === "Identifier" && node.init !== null &&
+                terminalCapabilityExpression(node.init, capabilityBindings)
+              ) {
+                capabilityBindings.add(node.id.name);
+              }
               if (
                 node.id.type === "Identifier" &&
                 node.init?.type === "Identifier" &&
@@ -1009,6 +1109,35 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   node.id.name,
                   renderers.get(node.init.name) ?? node.init.name,
                 );
+              }
+            },
+            AssignmentExpression(node): void {
+              if (
+                node.left.type === "Identifier" &&
+                terminalCapabilityExpression(node.right, capabilityBindings)
+              ) {
+                capabilityBindings.add(node.left.name);
+              }
+            },
+            SpreadElement(node): void {
+              if (
+                rel !== TERMINAL_AUTHORITY &&
+                terminalPlumbingLawApplies(rel) &&
+                terminalCapabilityExpression(
+                  node.argument,
+                  capabilityBindings,
+                )
+              ) {
+                add("capability-respread", node);
+              }
+            },
+            Property(node): void {
+              if (
+                rel !== TERMINAL_AUTHORITY &&
+                terminalPlumbingLawApplies(rel) &&
+                propertyName(node.key) === "theme"
+              ) {
+                add("direct-theme-threading", node);
               }
             },
             Literal(node): void {
@@ -1030,9 +1159,17 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                 node.callee.type === "Identifier" &&
                 node.callee.name === "InlineFramePainter"
               ) add("direct-inline-painter-construction", node);
+              if (
+                node.callee.type === "Identifier" &&
+                terminalIoConstructors.has(node.callee.name)
+              ) add("package-terminal-io-construction", node);
             },
             CallExpression(node): void {
               const callee = context.sourceCode.getText(node.callee);
+              if (
+                node.callee.type === "Identifier" &&
+                backgroundSensors.has(node.callee.name)
+              ) add("package-background-sensing-call", node);
               if (
                 node.callee.type === "MemberExpression" &&
                 propertyName(node.callee.property) ===
@@ -1056,7 +1193,7 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                 node.arguments.some((argument) =>
                   argument.type === "Literal" &&
                   typeof argument.value === "string" &&
-                  /^(?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)$/u
+                  /^(?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES|COLORFGBG)$/u
                     .test(argument.value)
                 )
               ) add("process-terminal-environment-probe", node);
@@ -1331,16 +1468,34 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
   {
     file: TERMINAL_AUTHORITY,
     rule: "process-stream-terminal-probe",
-    authority: "productionTerminalContext",
+    authority: "createProductionTerminalContextResolver",
+    count: 2,
+    reason:
+      "The production terminal adapter snapshots stdout and stdin attachment before sensing.",
+  },
+  {
+    file: TERMINAL_AUTHORITY,
+    rule: "process-stream-terminal-probe",
+    authority: "terminalProcessContext",
     count: 1,
-    reason: "The production terminal adapter snapshots stdout attachment once.",
+    reason:
+      "The synchronous fallback snapshots stdout without running the background sensor.",
   },
   {
     file: TERMINAL_AUTHORITY,
     rule: "process-console-size-probe",
-    authority: "productionTerminalContext",
+    authority: "createProductionTerminalContextResolver",
     count: 1,
-    reason: "The production terminal adapter snapshots the viewport once.",
+    reason:
+      "The production terminal adapter owns the initial viewport and its injectable live reader.",
+  },
+  {
+    file: TERMINAL_AUTHORITY,
+    rule: "process-console-size-probe",
+    authority: "terminalProcessContext",
+    count: 1,
+    reason:
+      "The synchronous fallback owns its injectable initial viewport observation.",
   },
   {
     file: TERMINAL_AUTHORITY,
@@ -1351,20 +1506,82 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
       "The retained dimension facade delegates its default observation here.",
   },
   {
-    file: PROMPT_AUTHORITY,
-    rule: "process-stream-terminal-probe",
-    authority: "canPrompt",
-    count: 2,
+    file: TERMINAL_AUTHORITY,
+    rule: "package-background-sensor-import",
+    authority: "<module>",
+    count: 1,
     reason:
-      "The product prompt choke point alone admits interactive stdin/stdout.",
+      "The process adapter is the sole caller of the package background sensor.",
   },
   {
-    file: PROMPT_AUTHORITY,
+    file: TERMINAL_AUTHORITY,
+    rule: "package-background-sensing-call",
+    authority: "packageBackgroundSensor",
+    count: 1,
+    reason:
+      "One package call owns background sensing before the process caches its verdict.",
+  },
+  {
+    file: TERMINAL_AUTHORITY,
+    rule: "package-terminal-io-construction",
+    authority: "createPackageTerminalIo",
+    count: 1,
+    reason:
+      "The process adapter owns the package terminal IO shared by sensing and interaction.",
+  },
+  {
+    file: "src/main.ts",
+    rule: "direct-theme-threading",
+    authority: "<module>",
+    count: 1,
+    reason: "The root-global flag registry owns the `--theme` spelling.",
+  },
+  {
+    file: "src/main.ts",
+    rule: "direct-theme-threading",
+    authority: "main",
+    count: 1,
+    reason:
+      "The root flag hands one user-selected theme mode to the process adapter.",
+  },
+  {
+    file: INTERACTION_AUTHORITY,
+    rule: "process-stream-terminal-probe",
+    authority: "canInteract",
+    count: 2,
+    reason:
+      "The product interaction choke point alone admits interactive stdin/stdout.",
+  },
+  {
+    file: INTERACTION_AUTHORITY,
     rule: "process-terminal-environment-probe",
     authority: "interactionAllowed",
     count: 1,
+    reason: "The product interaction choke point alone applies the CI veto.",
+  },
+  {
+    file: INTERACTION_AUTHORITY,
+    rule: "direct-theme-threading",
+    authority: "packageInteractionRuntime",
+    count: 1,
     reason:
-      "The product prompt choke point alone applies the CI interaction veto.",
+      "The effectful package request graph accepts a theme but cannot use the pure CLI presenter.",
+  },
+  {
+    file: "scripts/terminal_capture.ts",
+    rule: "direct-theme-threading",
+    authority: "parseOptions",
+    count: 1,
+    reason:
+      "The review task selects an HTML artifact theme, not a live terminal theme.",
+  },
+  {
+    file: "scripts/terminal_capture.ts",
+    rule: "direct-theme-threading",
+    authority: "main",
+    count: 1,
+    reason:
+      "The review task forwards its HTML artifact theme into package projection.",
   },
   {
     file: "src/engine/owned_child.ts",
@@ -1412,12 +1629,12 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
       "Logbook records the MCP driver's raw CI fact without terminal presentation.",
   },
   {
-    file: PROMPT_AUTHORITY,
+    file: INTERACTION_AUTHORITY,
     rule: "package-terminal-io-import",
     authority: "<module>",
     count: 1,
     reason:
-      "The product prompt choke point owns the package prompt IO lifecycle.",
+      "The product interaction choke point types requests while the process adapter owns IO lifecycle.",
   },
   {
     file: PAINTER_AUTHORITY,
@@ -1545,9 +1762,9 @@ function presentationProbeFindings(
   for (const match of code.matchAll(/\bDeno\.env\.get\s*\(([^)]*)\)/gu)) {
     const argument = match[1] ?? "";
     if (
-      /["'](?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)["']/u
+      /["'](?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES|COLORFGBG)["']/u
         .test(argument) ||
-      /\b(?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES)\b/u
+      /\b(?:CI|TERM|COLORTERM|LC_ALL|LC_CTYPE|LANG|NO_COLOR|COLUMNS|LINES|COLORFGBG)\b/u
         .test(argument)
     ) {
       findings.push({ file: rel, rule: "direct-terminal-environment-probe" });
@@ -1580,6 +1797,39 @@ function presentationProbeFindings(
 
 const LEGACY_PALETTE_PATTERN =
   /\b(?:out\.c|c)\.(?:reset|bold|dim|red|green|yellow|cyan)\b/gu;
+
+/**
+ * A compile-time numeric row budget on an interaction request sizes a menu
+ * for no terminal in particular — the class behind the crushed board windows.
+ * The interaction authority derives every budget from the live viewport at
+ * request time; callers reserve their own composition rows via reservedRows
+ * and may only ceiling with a derived value. A budget routed through a named
+ * numeric constant escapes this text detector; the real-PTY window journey in
+ * interactive_tty_test.ts is the behavioral backstop for that residual.
+ */
+function constantRowBudgetFindings(rel: string, source: string): Finding[] {
+  return /\bmaxRows\s*:\s*\d/u.test(codeOnly(source))
+    ? [{ file: rel, rule: "constant-interaction-row-budget" }]
+    : [];
+}
+
+Deno.test("terminal interaction reserves prompt vocabulary for agent instructions", async () => {
+  const reservedTerm = "pro" + "mpt";
+  const pattern = new RegExp(reservedTerm, "iu");
+  const source = await Deno.readTextFile(
+    join(REPO_ROOT, INTERACTION_AUTHORITY),
+  );
+  const offenders = [
+    ...(pattern.test(INTERACTION_AUTHORITY) ? ["filename"] : []),
+    ...(pattern.test(source) ? ["source"] : []),
+  ];
+  assertEquals(
+    offenders,
+    [],
+    "Terminal interaction uses request*/Interaction* vocabulary; the reserved term names coding-agent instructions.",
+  );
+});
+
 Deno.test("terminal boundary detectors reject unrelated future source", () => {
   assertEquals(
     authorityFindings(
@@ -1588,15 +1838,25 @@ Deno.test("terminal boundary detectors reject unrelated future source", () => {
         'import { detectTerminalCapabilities, measureText } from "discern-design-system/cli";',
         'const term = Deno.env.get("TERM");',
         "const size = Deno.consoleSize();",
+        "const live = context.observeViewport();",
       ].join("\n"),
     ).map((finding) => finding.rule).toSorted(),
     [
       "Deno-console-size",
+      "feature-local-viewport-observer",
       "package-capability-detector",
       "terminal-environment-read",
       "terminal-import:detectTerminalCapabilities",
       "text-import:measureText",
     ],
+  );
+  assertEquals(
+    authorityFindings(
+      LIVE_VIEWPORT_CONTROLLER,
+      "const live = context.observeViewport();",
+    ),
+    [],
+    "the one shared Gate controller owns live observation",
   );
   assertEquals(
     packageSourceImportFindings(
@@ -1624,6 +1884,48 @@ Deno.test("terminal boundary detectors reject unrelated future source", () => {
         "const pictograph = /Extended_Pictographic/u;",
     ).map((finding) => finding.rule).toSorted(),
     ["Intl-Segmenter", "extended-pictographic", "local-grapheme-width"],
+  );
+  assertEquals(
+    constantRowBudgetFindings(
+      "src/engine/orbit/view.ts",
+      "const flavor = await requestFlavor({ label, maxRows: 12 });",
+    ).map((finding) => finding.rule),
+    ["constant-interaction-row-budget"],
+    "an unrelated future request with a literal row budget must be rejected",
+  );
+  assertEquals(
+    constantRowBudgetFindings(
+      "src/engine/orbit/view.ts",
+      "const flavor = await requestFlavor({ label, reservedRows: header });",
+    ),
+    [],
+    "a reservation derived from the caller's own composition stays legal",
+  );
+  assertEquals(
+    structuralTerminalFindings(
+      "scripts/future.ts",
+      [
+        "const local = terminal.capabilities;",
+        "const rebuilt = { ...local, columns: 72 };",
+        "const { capabilities: hidden } = terminal;",
+        "const rebuiltAgain = { ...hidden, columns: 80 };",
+        'const props = { theme: "dark" };',
+      ].join("\n"),
+    ).map((finding) => finding.rule),
+    [
+      "capability-respread",
+      "capability-respread",
+      "direct-theme-threading",
+    ],
+    "a future authored runtime tree auto-enrols in presenter plumbing law",
+  );
+  assertEquals(
+    structuralTerminalFindings(
+      "site/build.ts",
+      "const page = { theme: selection.theme };",
+    ),
+    [],
+    "the independent web theme is outside the terminal-presenter class",
   );
 });
 
@@ -1799,11 +2101,11 @@ Deno.test("the 84-use legacy palette census reached permanent zero", async () =>
 Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and safe-text bypasses", () => {
   const source = [
     'import { Table } from "@cliffy/table";',
-    `import { InlineFramePainter, type TerminalIO, promptFuture as ask } from "${INTERACTIVE_MODULE}";`,
-    'import { renderOrbitCli as future, renderResultSummaryCli as draw } from "discern-design-system/cli";',
+    `import { DenoTerminalIO as GroundChannel, InlineFramePainter, type TerminalIO, requestFuture as ask, senseTerminalBackground as detectGround } from "${INTERACTIVE_MODULE}";`,
+    'import { renderBox as frame, renderOrbitCli as future, renderResultSummaryCli as draw, renderTriangleSectionRule as section, renderTriangleSpinnerFrame as spinner, renderTriangleWorkflowStepper as workflow } from "discern-design-system/cli";',
     'import { terminalLine as safe } from "../../lib/terminal.ts";',
     'const dynamic = import("@cliffy/prompt");',
-    `const interactive = await import("${INTERACTIVE_MODULE}"); interactive.promptFuture({});`,
+    `const interactive = await import("${INTERACTIVE_MODULE}"); interactive.requestFuture({});`,
     `const cli = await import("${CLI_MODULE}"); cli.renderResultSummaryCli({ fact: row.path }, {});`,
     'const term = Deno.env.get("TERM");',
     'const noColor = Deno.env.get("NO_COLOR");',
@@ -1814,7 +2116,9 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     'const cycle = ["◢", "◣", "◤", "◥"];',
     'function orbitPalette() { return { reset: "", red: "", green: "", cyan: "" }; }',
     "new InlineFramePainter({} as TerminalIO);",
+    "new GroundChannel({});",
     'ask({ label: "Future" });',
+    "await detectGround({});",
     "draw({ fact: row.path, counts: [{ label: meta.name, value: `${meta.value}` }] }, {});",
     "const alias = draw;",
     "const fact = row.path;",
@@ -1836,6 +2140,8 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     "future({ rows: safe(model.rows) }, {});",
     "future({ body: row.body, explanation: row.explanation, checks: [{ stateLabel: row.stateLabel }], subtitle: row.subtitle, details: row.details }, {});",
     "draw({ fact: safe(row.path) }, {});",
+    "const boundFacts = terminal.capabilities;",
+    "draw({ fact: safe(row.path), theme: terminal.themeVariant }, { ...boundFacts, columns: 44 });",
   ].join("\n");
   const rules = [
     ...cliffyImportFindings("src/engine/orbit/view.ts", source),
@@ -1848,9 +2154,16 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "retired-cliffy-import:@cliffy/prompt",
       "package-inline-painter-import",
       "package-terminal-io-import",
-      "package-prompt-import:promptFuture",
+      "package-request-import:requestFuture",
+      "package-background-sensor-import",
+      "package-background-sensing-call",
+      "package-terminal-io-construction",
       "dynamic-interactive-package-import",
       "dynamic-cli-package-import",
+      "presenter-foundation-import:renderBox",
+      "presenter-foundation-import:renderTriangleSectionRule",
+      "presenter-foundation-import:renderTriangleSpinnerFrame",
+      "presenter-foundation-import:renderTriangleWorkflowStepper",
       "direct-inline-painter-construction",
       "process-terminal-environment-probe",
       "process-console-size-probe",
@@ -1872,6 +2185,8 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "unsafe-component-text:subtitle",
       "unsafe-component-text:details",
       "unsafe-terminal-safe-multiline-error",
+      "capability-respread",
+      "direct-theme-threading",
     ]
   ) assert(rules.includes(expected), `missing synthetic ${expected}`);
   assertEquals(
@@ -1902,6 +2217,28 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       .length,
     1,
     "the Logger-specific unsafe call fails while an unrelated method does not",
+  );
+  assertEquals(
+    rules.filter((rule) => rule === "capability-respread").length,
+    1,
+    "a local alias cannot hide reconstructed terminal capabilities",
+  );
+  assertEquals(
+    rules.filter((rule) => rule === "direct-theme-threading").length,
+    1,
+    "a package renderer cannot receive a feature-local theme",
+  );
+
+  const motifAdapterRules = structuralTerminalFindings(
+    TRIANGLE_ART_AUTHORITY,
+    'import { renderBox, renderTriangleSectionRule, renderTriangleSpinnerFrame, renderTriangleWorkflowStepper } from "discern-design-system/cli";',
+  ).map((finding) => finding.rule).filter((rule) =>
+    rule.startsWith("presenter-foundation-import:")
+  );
+  assertEquals(
+    motifAdapterRules,
+    ["presenter-foundation-import:renderBox"],
+    "only raw triangle motifs belong to the product artwork adapter",
   );
 
   assertEquals(
@@ -2065,10 +2402,11 @@ Deno.test("authored terminal outlaw is zero and exceptions remain exact", async 
     );
   }
   for (const rel of RUNTIME_TS_FILES) {
-    findings.push(...legacyTypeApiFindings(
-      rel,
-      await Deno.readTextFile(join(REPO_ROOT, rel)),
-    ));
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    findings.push(
+      ...legacyTypeApiFindings(rel, source),
+      ...constantRowBudgetFindings(rel, source),
+    );
   }
   assertEquals(unappliedOutlawFindings(findings), []);
 

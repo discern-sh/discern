@@ -6,7 +6,7 @@ _Every advisory hint, generated from the live registry._
 
 Entries follow id order. Emitting context states when an entry fires. Each example renders the template with its registered example parameters. An interactive example appears when the terminal uses different wording for the same facts.
 
-Audience `all` renders on every surface. Audience `agent` marks an instruction only an agent can execute: interactive human renderers drop it, while the `--json` and Model Context Protocol (MCP) envelopes always carry it.
+Audience `all` renders on every surface. Audience `agent` marks an instruction only an agent can execute: the interactive terminal presentation drops it, while JSON, Markdown, and Model Context Protocol (MCP) results always carry it.
 
 ## `accept-awaiting-confirmation`
 
@@ -50,7 +50,7 @@ Rendered example:
 
 Rendered example:
 
-> Read `data.landing` before acting. If `trunk_landed` is true, do not land the commit again; finish only the cleanup whose state is false. Otherwise resolve the reported failure, then run `discern status` before attempting `discern accept` again.
+> Read the reported landing state before acting. If the trunk already landed, do not land the commit again; finish only the incomplete cleanup. Otherwise resolve the reported failure, then run `discern status` before attempting `discern accept` again.
 
 Interactive example:
 
@@ -76,7 +76,7 @@ Rendered example:
 
 Rendered example:
 
-> Report the landing in your own words, then end your response with `data.proof_line` verbatim. `data.proof` is the full landing record; paste that Markdown into a PR body when one exists.
+> Report the landing in your own words, then end your response with the result's Proof line verbatim. Retrieve the full review page with `discern status --verbose` if a PR body needs it.
 
 ## `accept-review-via-status`
 
@@ -87,7 +87,7 @@ Rendered example:
 
 Rendered example:
 
-> Run `discern status` to get the valid Proof for the owner's review (data.gate_proof.proof) and the exact `git diff` command for the raw change.
+> Run `discern status --verbose` to get the valid Proof for the owner's review and the exact `git diff` command for the raw change.
 
 ## `adr-index-stale`
 
@@ -219,7 +219,7 @@ Rendered example:
 
 Rendered example:
 
-> Review the most recent shared commits in data.commits. 3 older commits are outside its cap.
+> Review the most recent shared commits in this result. 3 older commits are outside the result cap.
 
 ## `coupling-evidence-none`
 
@@ -241,7 +241,7 @@ Rendered example:
 
 Rendered example:
 
-> Review the shared commits in data.commits. `src/main.ts` and `tests/main_test.ts` changed together in 3 recent commits: 3 of the 6 (50%) that touched `src/main.ts`, and 3 of the 4 (75%) that touched `tests/main_test.ts`.
+> Review the shared commits in this result. `src/main.ts` and `tests/main_test.ts` changed together in 3 recent commits: 3 of the 6 (50%) that touched `src/main.ts`, and 3 of the 4 (75%) that touched `tests/main_test.ts`.
 
 ## `coupling-generated-exclusion`
 
@@ -307,10 +307,6 @@ Rendered example:
 
 Rendered example:
 
-> Choose one exact path from `data.candidates`, then re-run the same command with that path as its target.
-
-Interactive example:
-
 > Choose one exact path from the listed candidates, then re-run the same command with that path as its target.
 
 ## `docs-find-target`
@@ -321,10 +317,6 @@ Interactive example:
 - Emitting context: A docs or map target does not resolve.
 
 Rendered example:
-
-> Use an exact path from `data.suggestions` when present; otherwise run the same command without a target to inspect its index, then retry with one returned path.
-
-Interactive example:
 
 > Use an exact suggested path when one is listed; otherwise run the same command without a target to inspect its index, then retry with one returned path.
 
@@ -673,7 +665,7 @@ Rendered example:
 
 Rendered example:
 
-> The clean HEAD named by Proof is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.proof_line` afterward.
+> The clean HEAD named by Proof is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with its Proof line afterward.
 
 ## `gate-previewable-change`
 
@@ -761,7 +753,7 @@ Rendered example:
 
 Rendered example:
 
-> If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with `data.proof.line` verbatim and stop. Your owner can retrieve the full Proof with `discern status --verbose`. Run `discern accept` only after they accept.
+> If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with the result's Proof line verbatim and stop. Your owner can retrieve the full Proof with `discern status --verbose`. Run `discern accept` only after they accept.
 
 ## `gate-relay-uncovered-authority`
 
@@ -772,7 +764,7 @@ Rendered example:
 
 Rendered example:
 
-> Report this task to your owner in your own words, end with `data.proof.line` verbatim, and stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Your owner can retrieve the full Proof with `discern status --verbose`.
+> Report this task to your owner in your own words, end with the result's Proof line verbatim, and stop: the recorded grant does not cover this landing. Your owner can retrieve the full Proof with `discern status --verbose`.
 
 ## `gate-standards-limits-unverified`
 
@@ -870,10 +862,6 @@ Rendered example:
 - Emitting context: `improvement --min-score` reports a score below its threshold.
 
 Rendered example:
-
-> Carry out `data.next_action.action`, then re-run the same improvement command to measure the result against its threshold.
-
-Interactive example:
 
 > Carry out the report's ranked next action, then re-run the same improvement command to measure the result against its threshold.
 
@@ -1128,7 +1116,7 @@ Rendered example:
 
 Rendered example:
 
-> Present `data.guidance` to the owner, wait for their answers, then run the exact command in `data.command`; its `--confirmed` flag attests only to that conversation.
+> Present the setup guidance in this result to the owner, wait for their answers, then run `discern setup begin --model "<your-model-id>" --confirmed`; its `--confirmed` flag attests only to that conversation.
 
 Interactive example:
 
@@ -1164,10 +1152,6 @@ Rendered example:
 - Emitting context: `setup done` finds skeleton markers or unmet completion checks.
 
 Rendered example:
-
-> Complete every file in `data.leftover` and every check in `data.unmet`, then re-run `discern setup done`; use `--force` only to record completion without that proof.
-
-Interactive example:
 
 > Complete every listed file and unmet check, then re-run `discern setup done`; use `--force` only to record completion without that proof.
 
@@ -1289,10 +1273,6 @@ Rendered example:
 - Emitting context: `skills eject` writes the override but cannot materialize it everywhere.
 
 Rendered example:
-
-> Fix every entry in `data.materialized.errors`, then run `discern refresh` to materialize the ejected Skill in every configured agent directory.
-
-Interactive example:
 
 > Fix every reported materialization error, then run `discern refresh` to materialize the ejected Skill in every configured agent directory.
 
@@ -1503,11 +1483,11 @@ Rendered example:
 
 Rendered example:
 
-> Expect a renumber: 2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three) (records in `data.adr_collisions`). The records are different files that merge cleanly, so nothing collides until both sit in one tree and the gate refuses the duplicate — whoever lands second takes the next free number.
+> Expect a renumber: 2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three). The records are different files that merge cleanly, so nothing collides until both sit in one tree and the gate refuses the duplicate. Whoever lands second takes the next free number; `discern status --verbose` lists the record paths.
 
 Interactive example:
 
-> 2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three). The attention block lists the record paths. Whoever lands second takes the next free number.
+> 2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three). `discern status --verbose` lists the record paths. Whoever lands second takes the next free number.
 
 ## `status-branch-behind`
 
@@ -1588,11 +1568,11 @@ Rendered example:
 
 Rendered example:
 
-> Note 2 worktree pairs changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help (paths in `data.fleet_collisions`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run `discern update` and re-read the shared paths.
+> Note 2 worktree pairs changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help. Both sides may merge cleanly and still conflict semantically. Whoever lands second should run `discern update`; the update result names the shared paths to re-read.
 
 Interactive example:
 
-> 2 worktree pairs are changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help. Whoever lands second should run `discern update` and re-read the shared paths listed in the attention block.
+> 2 worktree pairs are changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help. `discern status --verbose` lists the shared paths. Whoever lands second should run `discern update` and re-read them.
 
 ## `status-fleet-logbook-disabled`
 
@@ -1625,7 +1605,7 @@ Rendered example:
 
 Rendered example:
 
-> Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). Use each branch from `data.fleet` with `git diff main...<branch>`.
+> Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). Inspect a named branch with `git diff main...<branch>`.
 
 Interactive example:
 
@@ -1640,7 +1620,7 @@ Interactive example:
 
 Rendered example:
 
-> Review 5 worktrees that look stale: stale-task, old-fix, paused-docs, … (+2 more). Resume their sessions or discard each with `discern worktree drop <name>`. `data.fleet` carries last activity and unlanded work.
+> Review 5 worktrees that look stale: stale-task, old-fix, paused-docs, … (+2 more). Resume their sessions or discard each with `discern worktree drop <name>`. Status has already accounted for last activity and unlanded work.
 
 Interactive example:
 
@@ -1721,7 +1701,7 @@ Rendered example:
 
 Rendered example:
 
-> Report this branch to your owner in your own words. End with `data.gate_proof.proof_line` verbatim, then wait. This clean HEAD is committed and up to date with main. Your owner can retrieve the full Proof with `discern status --verbose` and inspect the raw change with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
+> Report this branch to your owner in your own words. End with the result's Proof line verbatim, then wait. This clean HEAD is committed and up to date with main. Your owner can retrieve the full Proof with `discern status --verbose` and inspect the raw change with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
 
 ## `status-ready-uncovered-authority`
 
@@ -1732,7 +1712,7 @@ Rendered example:
 
 Rendered example:
 
-> Report this branch to your owner and end with `data.gate_proof.proof_line` verbatim, then stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Inspect the raw change with `git diff main...agent/hints`.
+> Report this branch to your owner in your own words, end with the result's Proof line verbatim, then stop: the recorded grant does not cover this landing. Inspect the raw change with `git diff main...agent/hints`.
 
 ## `status-reappeared-worktree-paths`
 

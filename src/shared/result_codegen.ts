@@ -109,18 +109,28 @@ function mcpToolResultSchema(structuredContentRef: JsonObject): JsonObject {
     type: "object",
     properties: {
       content: {
+        description:
+          "One authored Markdown presentation that is sufficient without structuredContent.",
         type: "array",
         items: {
           type: "object",
           properties: {
             type: { const: "text" },
-            text: { type: "string" },
+            text: {
+              type: "string",
+              description:
+                "The contract-authored Markdown projection of the prepared DiscernResult.",
+            },
           },
           required: ["type", "text"],
           additionalProperties: false,
         },
       },
-      structuredContent: structuredContentRef,
+      structuredContent: {
+        ...structuredContentRef,
+        description:
+          "The compact structured projection, sufficient without text content.",
+      },
       isError: { type: "boolean" },
     },
     required: ["content", "structuredContent", "isError"],
@@ -189,7 +199,7 @@ function mcpUnionSchema(): JsonObject {
   return {
     title: "DiscernMcpJsonResult",
     description:
-      "Any MCP tool result object returned by discern's MCP server. Its structuredContent is the same DiscernResult envelope exposed by the corresponding CLI command.",
+      "Any MCP tool result object returned by discern's MCP server. Its structuredContent is the same DiscernResult envelope exposed by the corresponding CLI command; content carries an independently sufficient authored Markdown projection.",
     oneOf: MCP_RESULT_CONTRACTS.map((contract) =>
       refFor(mcpTypeName(contract))
     ),
@@ -592,11 +602,14 @@ export function renderResultTypesDts(): string {
     "",
     "export interface DiscernMcpTextContent {",
     '  type: "text";',
+    "  /** An independently sufficient, contract-authored Markdown projection. */",
     "  text: string;",
     "}",
     "",
     "export interface DiscernMcpToolResult<TStructuredContent> {",
+    "  /** Authored Markdown for text-only and model-facing hosts. */",
     "  content: DiscernMcpTextContent[];",
+    "  /** Compact structured data for structured-first hosts and integrations. */",
     "  structuredContent: TStructuredContent;",
     "  isError: boolean;",
     "}",

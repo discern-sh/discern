@@ -59,12 +59,12 @@ const OWNER_STATUS_VERBOSE = ownerDiscernCommand("status", flag("verbose"));
 export type HintCategory = "next-step" | "guardrail" | "notice";
 
 /**
- * A suppression flag for interactive human surfaces, not a targeting field:
- * every entry rides the `--json`/MCP envelope regardless of audience. `all`
- * also renders on the interactive human surfaces; `agent` marks entries whose
- * instruction only an agent can execute — relaying to an owner, re-rooting a
- * session — which the interactive human renderers drop. The drop keys on this
- * field, not on reconstructing the rendered string.
+ * A suppression flag for the interactive terminal presentation, not a format
+ * targeting field: every entry rides JSON, Markdown, and MCP results regardless
+ * of audience. `all` also renders in the interactive terminal; `agent` marks
+ * entries whose instruction only an agent can execute — relaying to an owner,
+ * re-rooting a session — which the terminal renderer drops. The drop keys on
+ * this field, not on reconstructing the rendered string.
  */
 export type HintAudience = "all" | "agent";
 
@@ -116,9 +116,9 @@ export interface HintDef<P = undefined> {
   readonly example: P;
   /** Renders the hint from named, compiler-checked parameters. */
   readonly template: (params: P) => string;
-  /** Optional interactive-human wording for the same facts. The wire keeps the
-   * canonical template; human renderers use this projection when machine field
-   * names would make the instruction less useful at a terminal. */
+  /** Optional interactive-terminal wording for the same facts. Serialized
+   * results keep the canonical template; terminal renderers use this projection
+   * when structured field names would make the instruction less useful there. */
   readonly interactiveTemplate?: ((params: P) => string) | undefined;
 }
 
@@ -795,7 +795,8 @@ export const HINTS = {
     example: { trunk: "main", branch: "agent/hints" },
     template: ({ trunk, branch }): string =>
       `Report this branch to your owner in your own words. End with ` +
-      `\`data.gate_proof.proof_line\` verbatim, then wait. This clean HEAD is ` +
+      `the result's Proof line verbatim, then ` +
+      `wait. This clean HEAD is ` +
       `committed and up to date with ${trunk}. Your owner can retrieve the ` +
       `full Proof with ${OWNER_STATUS_VERBOSE} and inspect the raw change with ` +
       `\`git diff ${trunk}...${branch}\`. Run ` +
@@ -824,8 +825,6 @@ export const HINTS = {
 
   /** A ready Proof whose recorded standing grant does not cover every path. */
   "status-ready-uncovered-authority": defineHint<{
-    uncovered: readonly string[];
-    warnings: readonly string[];
     trunk: string;
     branch: string;
   }>({
@@ -835,18 +834,11 @@ export const HINTS = {
     when:
       "A clean, current branch has valid Proof but recorded authority does not cover it.",
     family: "landing-authority",
-    example: {
-      uncovered: ["`src/main.ts` (scopes: engine)"],
-      warnings: [],
-      trunk: "main",
-      branch: "agent/hints",
-    },
-    template: ({ uncovered, warnings, trunk, branch }): string =>
-      `Report this branch to your owner and end with \`data.gate_proof.proof_line\` verbatim, then stop. The recorded grant does not cover ${
-        uncovered.length > 0 ? uncovered.join(", ") : "this landing"
-      }.${
-        warnings.length > 0 ? ` ${warnings.join(" ")}` : ""
-      } Inspect the raw change with \`git diff ${trunk}...${branch}\`.`,
+    example: { trunk: "main", branch: "agent/hints" },
+    template: ({ trunk, branch }): string =>
+      `Report this branch to your owner in your own words, end with the ` +
+      `result's Proof line verbatim, then stop: the recorded grant does not ` +
+      `cover this landing. Inspect the raw change with \`git diff ${trunk}...${branch}\`.`,
   }),
 
   "status-missing-done-proof": defineHint<{ trunk: string }>({
@@ -960,8 +952,7 @@ export const HINTS = {
       `Review ${total} worktree${total === 1 ? "" : "s"} with committed work ` +
       `ready for owner review: ${
         boundedNameSummary(total, names)
-      }. Use each branch ` +
-      `from \`data.fleet\` with \`git diff ${trunk}...<branch>\`.`,
+      }. Inspect a named branch with \`git diff ${trunk}...<branch>\`.`,
     interactiveTemplate: ({ total, names, trunk }): string =>
       `Review ${total} worktree${total === 1 ? "" : "s"} with committed work ` +
       `ready for owner review: ${
@@ -1014,15 +1005,16 @@ export const HINTS = {
         total === 1 ? "" : "s"
       } changing the same files: ${
         boundedNameSummary(total, pairs)
-      } (paths in \`data.fleet_collisions\`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run ${CMD.update} and re-read the shared paths.`,
+      }. Both sides may merge cleanly and still conflict semantically. Whoever ` +
+      `lands second should run ${CMD.update}; the update result names the shared ` +
+      `paths to re-read.`,
     interactiveTemplate: ({ total, pairs }): string =>
       `${total} worktree pair${
         total === 1 ? " is" : "s are"
       } changing the same files: ${
         boundedNameSummary(total, pairs)
-      }. Whoever ` +
-      `lands second should run ${CMD.update} and re-read the shared paths listed ` +
-      `in the attention block.`,
+      }. ${OWNER_STATUS_VERBOSE} lists the shared paths. Whoever lands second ` +
+      `should run ${CMD.update} and re-read them.`,
   }),
 
   /** In-flight ADR number collisions — number-keyed where the fleet-collision
@@ -1048,17 +1040,17 @@ export const HINTS = {
         total === 1 ? " is" : "s are"
       } claimed by more than one in-flight branch: ${
         boundedNameSummary(total, claims)
-      } (records in \`data.adr_collisions\`). The records are different files ` +
-      `that merge cleanly, so nothing collides until both sit in one tree and ` +
-      `the gate refuses the duplicate — whoever lands second takes the next ` +
-      `free number.`,
+      }. The records are different files that merge cleanly, so nothing collides ` +
+      `until both sit in one tree and the gate refuses the duplicate. Whoever ` +
+      `lands second takes the next free number; ${OWNER_STATUS_VERBOSE} lists ` +
+      `the record paths.`,
     interactiveTemplate: ({ total, claims }): string =>
       `${total} ADR number${
         total === 1 ? " is" : "s are"
       } claimed by more than one in-flight branch: ${
         boundedNameSummary(total, claims)
-      }. The attention block lists the record paths. Whoever lands second takes ` +
-      `the next free number.`,
+      }. ${OWNER_STATUS_VERBOSE} lists the record paths. Whoever lands second ` +
+      `takes the next free number.`,
   }),
 
   /** One bounded summary for every fleet member whose git state is unreadable. */
@@ -1139,7 +1131,7 @@ export const HINTS = {
       }. ` +
         `Resume ${sessions} or discard ${discard} with ` +
         `${discernCommand("worktree drop", positional("name", "<name>"))}. ` +
-        "`data.fleet` carries last activity and unlanded work.";
+        "Status has already accounted for last activity and unlanded work.";
     },
     interactiveTemplate: ({ total, names }): string => {
       const subject = total === 1 ? "worktree looks" : "worktrees look";
@@ -1243,7 +1235,7 @@ export const HINTS = {
       `\`${b}\`.`,
   }),
 
-  /** Pair evidence summary; the commit rows themselves stay in `data.commits`. */
+  /** Pair evidence summary; the result carries the bounded commit rows. */
   "coupling-evidence-summary": defineHint<{
     a: string;
     b: string;
@@ -1266,7 +1258,7 @@ export const HINTS = {
     template: ({ a, b, together, ofA, ofB }): string => {
       const shareA = ofA > 0 ? ` (${Math.round((together / ofA) * 100)}%)` : "";
       const shareB = ofB > 0 ? ` (${Math.round((together / ofB) * 100)}%)` : "";
-      return `Review the shared commits in data.commits. \`${a}\` and \`${b}\` ` +
+      return `Review the shared commits in this result. \`${a}\` and \`${b}\` ` +
         `changed together in ${together} recent commits: ${together} of the ` +
         `${ofA}${shareA} that touched \`${a}\`, and ${together} of the ` +
         `${ofB}${shareB} that touched \`${b}\`.`;
@@ -1282,8 +1274,8 @@ export const HINTS = {
     family: "coupling-evidence",
     example: { more: 3 },
     template: ({ more }): string =>
-      `Review the most recent shared commits in data.commits. ${more} older ` +
-      `commit${more === 1 ? " is" : "s are"} outside its cap.`,
+      `Review the most recent shared commits in this result. ${more} older ` +
+      `commit${more === 1 ? " is" : "s are"} outside the result cap.`,
   }),
 
   /** Diff-aware summary before the single strongest missing partner. */
@@ -1768,7 +1760,7 @@ export const HINTS = {
     family: "improvement-recovery",
     example: undefined,
     template: (): string =>
-      "Carry out `data.next_action.action`, then re-run the same improvement command to measure the result against its threshold.",
+      "Carry out the report's ranked next action, then re-run the same improvement command to measure the result against its threshold.",
     interactiveTemplate: (): string =>
       "Carry out the report's ranked next action, then re-run the same " +
       "improvement command to measure the result against its threshold.",
@@ -2371,7 +2363,7 @@ export const HINTS = {
     when: "A successful gate records Proof ready for owner review.",
     example: undefined,
     template: (): string =>
-      "If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with `data.proof.line` verbatim and stop. Your owner can retrieve the full Proof with " +
+      "If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with the result's Proof line verbatim and stop. Your owner can retrieve the full Proof with " +
       `${OWNER_STATUS_VERBOSE}. Run ${CMD.accept} only after they accept.`,
   }),
 
@@ -2389,33 +2381,25 @@ export const HINTS = {
     example: { source: "standing-grant", scopes: ["map"] },
     template: ({ source, scopes }): string =>
       source === "effort-grant"
-        ? `The owner pre-authorized this landing at the desk, and Proof covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with \`data.proof_line\` afterward.`
+        ? `The owner pre-authorized this landing at the desk, and Proof covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with its Proof line afterward.`
         : `The clean HEAD named by Proof is covered by the standing grant for ${
           scopes.join(", ")
-        }. Run ${CMD.accept} now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with \`data.proof_line\` afterward.`,
+        }. Run ${CMD.accept} now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with its Proof line afterward.`,
   }),
 
   /** A green Proof whose recorded authority left changed paths uncovered. */
-  "gate-relay-uncovered-authority": defineHint<{
-    uncovered: readonly string[];
-    warnings: readonly string[];
-  }>({
+  "gate-relay-uncovered-authority": defineHint({
     id: "gate-relay-uncovered-authority",
     category: "next-step",
     audience: "agent",
     when:
       "A successful gate records Proof but recorded authority does not cover its tree.",
     family: "landing-authority",
-    example: {
-      uncovered: ["`src/main.ts` (scopes: engine)"],
-      warnings: [],
-    },
-    template: ({ uncovered, warnings }): string =>
-      `Report this task to your owner in your own words, end with \`data.proof.line\` verbatim, and stop. The recorded grant does not cover ${
-        uncovered.length > 0 ? uncovered.join(", ") : "this landing"
-      }.${
-        warnings.length > 0 ? ` ${warnings.join(" ")}` : ""
-      } Your owner can retrieve the full Proof with ${OWNER_STATUS_VERBOSE}.`,
+    example: undefined,
+    template: (): string =>
+      `Report this task to your owner in your own words, end with the ` +
+      `result's Proof line verbatim, and stop: the recorded grant does not ` +
+      `cover this landing. Your owner can retrieve the full Proof with ${OWNER_STATUS_VERBOSE}.`,
   }),
 
   "gate-update-docs": defineHint({
@@ -2634,10 +2618,12 @@ export const HINTS = {
       );
       const summary = slack.length > 0
         ? slack.join("; ")
-        : "review data.standards";
+        : "review the reported standards";
       const remaining = Math.max(0, standards.length - shown.length);
       const overflow = remaining > 0
-        ? ` Review ${remaining} more in data.standards.`
+        ? ` ${remaining} more standard${
+          remaining === 1 ? " is" : "s are"
+        } eligible.`
         : "";
       return `Run ${
         discernCommand("standards", flag("pin"))
@@ -2718,7 +2704,7 @@ export const HINTS = {
     family: "skills-eject-recovery",
     example: undefined,
     template: (): string =>
-      `Fix every entry in \`data.materialized.errors\`, then run ${CMD.refresh} ` +
+      `Fix every reported materialization error, then run ${CMD.refresh} ` +
       "to materialize the ejected Skill in every configured agent directory.",
     interactiveTemplate: (): string =>
       `Fix every reported materialization error, then run ${CMD.refresh} ` +
@@ -2750,9 +2736,8 @@ export const HINTS = {
     family: "accept-consent",
     example: undefined,
     template: (): string =>
-      `Run ${CMD.status} to get the valid Proof for the owner's review ` +
-      "(data.gate_proof.proof) and the exact `git diff` command for the raw " +
-      "change.",
+      `Run ${OWNER_STATUS_VERBOSE} to get the valid Proof for the owner's review ` +
+      "and the exact `git diff` command for the raw change.",
   }),
 
   /** Recovery after an irreversible acceptance step follows the recorded state,
@@ -2765,8 +2750,8 @@ export const HINTS = {
     family: "accept-recovery",
     example: undefined,
     template: (): string =>
-      "Read `data.landing` before acting. If `trunk_landed` is true, do not " +
-      "land the commit again; finish only the cleanup whose state is false. " +
+      "Read the reported landing state before acting. If the trunk already " +
+      "landed, do not land the commit again; finish only the incomplete cleanup. " +
       `Otherwise resolve the reported failure, then run ${CMD.status} before ` +
       `attempting ${CMD.accept} again.`,
     interactiveTemplate: (): string =>
@@ -2808,7 +2793,7 @@ export const HINTS = {
   }),
 
   /** A successful acceptance exposes the system-rendered line for the agent's
-   * report and the full page as the durable landing record. */
+   * report; the full page stays in the durable landing record. */
   "accept-relay-landing-proof": defineHint({
     id: "accept-relay-landing-proof",
     category: "next-step",
@@ -2816,7 +2801,8 @@ export const HINTS = {
     when: "`accept` lands successfully and returns a one-line landing Proof.",
     example: undefined,
     template: (): string =>
-      "Report the landing in your own words, then end your response with `data.proof_line` verbatim. `data.proof` is the full landing record; paste that Markdown into a PR body when one exists.",
+      "Report the landing in your own words, then end your response with the result's Proof line verbatim. " +
+      `Retrieve the full review page with ${OWNER_STATUS_VERBOSE} if a PR body needs it.`,
   }),
 
   /** Fetch transport is enabled, but publication stays an explicit owner-side
@@ -3071,16 +3057,22 @@ export const HINTS = {
 
   /** A flag-less setup begin re-serves the full consent exchange and exact
    * attested continuation in structured fields. */
-  "setup-awaiting-confirmation": defineHint({
+  "setup-awaiting-confirmation": defineHint<{ command: CommandRef }>({
     id: "setup-awaiting-confirmation",
     category: "next-step",
     audience: "all",
     when: "`setup begin` has no conversation-consent attestation.",
     family: "setup-consent",
-    example: undefined,
-    template: (): string =>
-      "Present `data.guidance` to the owner, wait for their answers, then run " +
-      "the exact command in `data.command`; its `--confirmed` flag attests " +
+    example: {
+      command: discernCommand(
+        "setup begin",
+        flag("model", '"<your-model-id>"'),
+        flag("confirmed"),
+      ),
+    },
+    template: ({ command }): string =>
+      "Present the setup guidance in this result to the owner, wait for their " +
+      `answers, then run ${command}; its \`--confirmed\` flag attests ` +
       "only to that conversation.",
     interactiveTemplate: (): string =>
       "Review the setup guidance and answer its questions, then run the " +
@@ -3098,8 +3090,8 @@ export const HINTS = {
     family: "setup-done-recovery",
     example: undefined,
     template: (): string =>
-      `Complete every file in \`data.leftover\` and every check in ` +
-      `\`data.unmet\`, then re-run ${CMD.setupDone}; use \`--force\` only ` +
+      `Complete every listed file and unmet check, then re-run ${CMD.setupDone}; ` +
+      `use \`--force\` only ` +
       "to record completion without that proof.",
     interactiveTemplate: (): string =>
       `Complete every listed file and unmet check, then re-run ${CMD.setupDone}; ` +
@@ -3335,7 +3327,7 @@ export const HINTS = {
     family: "docs-recovery",
     example: undefined,
     template: (): string =>
-      "Choose one exact path from `data.candidates`, then re-run the same command with that path as its target.",
+      "Choose one exact path from the listed candidates, then re-run the same command with that path as its target.",
     interactiveTemplate: (): string =>
       "Choose one exact path from the listed candidates, then re-run the same " +
       "command with that path as its target.",
@@ -3351,7 +3343,7 @@ export const HINTS = {
     family: "docs-recovery",
     example: undefined,
     template: (): string =>
-      "Use an exact path from `data.suggestions` when present; otherwise run the same command without a target to inspect its index, then retry with one returned path.",
+      "Use an exact suggested path when one is listed; otherwise run the same command without a target to inspect its index, then retry with one returned path.",
     interactiveTemplate: (): string =>
       "Use an exact suggested path when one is listed; otherwise run the same " +
       "command without a target to inspect its index, then retry with one " +
@@ -3673,9 +3665,9 @@ export function hintHasAudience(
 }
 
 /**
- * The fired entries an interactive human renderer prints: agent-audience
- * entries drop, everything else passes in order. The single projection every
- * human surface uses — the wire envelope always carries the full channel.
+ * The fired entries the interactive terminal presentation prints: agent-audience
+ * entries drop, everything else passes in order. The wire result always carries
+ * the full channel.
  */
 export function interactiveHints(
   fired: readonly FiredHint[],
@@ -3690,7 +3682,7 @@ export function interactiveHints(
 }
 
 /**
- * Project a result's wire hints for an interactive human renderer. Entries
+ * Project a result's wire hints for an interactive terminal presentation. Entries
  * whose recovered in-process identity is agent-audience drop; texts with no
  * identity pass through unchanged. Pass the envelope's own `hints` array —
  * identity recovery keys on the exact array object, so a copy loses it.

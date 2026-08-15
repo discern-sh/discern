@@ -1694,6 +1694,41 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "practice-tenets",
+    title: "Practice canon",
+    what:
+      "The practice registry behind the practice canon: the obligations upheld by enforcement, automation, and teaching, each tenet citing its feature-canon mechanisms, its benefit-canon yields, and the project-inventory items it maintains.",
+    source: {
+      kind: "module",
+      module: "scripts/practice_registry.ts",
+      exportName: "PRACTICE_CANON",
+    },
+    guards: ["tests/practice_canon_enrolment_test.ts"],
+    artifacts: [
+      {
+        path: "project/map/_internal/practice-canon.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: "project/map/00-orientation/the-practice.md",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: { term: "Practice" },
+      featureCanon: {
+        absent:
+          "the tenets are obligations the feature nodes implement; each cites its mechanisms rather than claiming surfaces",
+      },
+    },
+    members: async () =>
+      (await import("./practice_registry.ts")).PRACTICE_CANON.map(
+        (tenet) => tenet.id,
+      ),
+  },
+  {
     id: "result-contracts",
     title: "Result contracts",
     what:
@@ -2526,6 +2561,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
   "tests/terminal_boundary_guard_test.ts":
     "applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set",
+  "tests/logger_ambient_guard_test.ts":
+    "applies a determinism rule across test sources: human-mode Loggers and terminal contexts must be injected, never resolved from the ambient environment",
+  "tests/narration_wrap_guard_test.ts":
+    "applies a layout-independence rule across test sources: multi-word phrases asserted on rendered output must compare wrap-insensitively, because narration wraps by content width and platform path lengths shift the break points",
   "tests/result_capture_drain_parity_test.ts":
     "derives its universe from the module's `take*` exports and checks that both recording points drain every `result_capture` one-slot mailbox",
   "tests/control_byte_guard_test.ts":
@@ -2548,6 +2587,12 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
 export const UNAFFILIATED_CODEGEN_TARGETS: Readonly<Record<string, string>> = {
   "site/pages/assets/search.js":
     "copies the single `src/lib/docs_search.js` module into the browser asset",
+  "templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md":
+    "copies the authored setup-skeleton ADR template into the write-adr skill",
+  "templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md":
+    "copies the authored setup-skeleton adoption record into the write-adr skill",
+  "templates/skills/discern-write-adr/skeleton/docs/_adr/README.md":
+    "copies the authored setup-skeleton ADR format guide into the write-adr skill",
 };
 
 /**

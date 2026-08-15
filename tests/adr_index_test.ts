@@ -238,9 +238,11 @@ Deno.test("control: a start marker missing its end marker reports the markers ca
 
 Deno.test("the two shipped ADR skeletons are identical", async () => {
   // The setup skeleton and the discern-write-adr skill's skeleton both lay the
-  // same `_adr/` starter (README format guide + template + index markers) —
-  // one shipped contract, two delivery paths. Byte-identity keeps an edit to
-  // one from silently forking the other.
+  // same `_adr/` starter (README format guide + template + seeded record) —
+  // one shipped contract, two delivery paths. The setup skeleton is the
+  // authored source; `deno task codegen` produces the skill's copy. This
+  // byte-identity check backstops the generator: it fails when a copy is
+  // edited by hand or a new source file is not yet enrolled and regenerated.
   const setupSkel = join(REPO_ROOT, "templates/setup/skeleton/docs/_adr");
   const skillSkel = join(
     REPO_ROOT,

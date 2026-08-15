@@ -61,8 +61,8 @@ export interface LandingConsent {
   readonly scopes?: readonly string[];
 }
 
-/** One rendering that must carry the gated act's complete interaction contract. */
-export type ConsentSurface = "human" | "json" | "mcp";
+/** One presentation that must carry the gated act's complete interaction contract. */
+export type ConsentSurface = "terminal" | "json" | "markdown" | "mcp";
 
 /** One consent-gated verb — pure metadata, no behaviour. */
 export interface ConsentGatedVerb {
@@ -88,13 +88,13 @@ export const CONSENT_GATED_VERBS = [
     id: "setup-begin",
     command: "setup begin",
     flag: CONFIRMED_ATTESTATION,
-    surfaces: ["human", "json"],
+    surfaces: ["terminal", "json", "markdown"],
   },
   {
     id: "accept",
     command: "accept",
     flag: CONFIRMED_ATTESTATION,
-    surfaces: ["human", "json", "mcp"],
+    surfaces: ["terminal", "json", "markdown", "mcp"],
   },
 ] as const satisfies readonly ConsentGatedVerb[];
 

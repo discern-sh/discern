@@ -76,6 +76,24 @@ export interface JobResult {
   failureMessage?: string;
 }
 
+/** One presentation-only observation derived from a job's combined output. */
+export type JobOutputEvent =
+  | {
+    readonly kind: "line";
+    readonly label: string;
+    readonly text: string;
+  }
+  | {
+    readonly kind: "partial";
+    readonly label: string;
+    readonly text: string;
+  };
+
+/** A live presenter can observe child text without selecting streamed capture. */
+export interface JobOutputObserver {
+  output(event: JobOutputEvent): void;
+}
+
 /** What a stage run returns: overall success plus the per-job results produced. */
 export interface StageRunResult {
   /** True only when every job that ran exited 0. */

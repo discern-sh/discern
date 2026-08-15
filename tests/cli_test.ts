@@ -8,7 +8,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { KIT_VERSION } from "../src/lib/version.ts";
-import { runCli, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
@@ -225,7 +225,7 @@ Deno.test("a malformed discern.toml fails cleanly (no stack trace), in human and
     // Human mode: a one-line diagnostic on stderr, exit 1, no raw "Uncaught".
     const human = await runCli(["config", "get", "project.slug"], dir);
     assertEquals(human.code, 1);
-    assertStringIncludes(human.stderr, "syntax error near line");
+    assertTerminalTextIncludes(human.stderr, "syntax error near line");
     assertStringIncludes(human.stderr, "discern.toml");
     assert(
       !human.stderr.includes("Uncaught"),
@@ -289,7 +289,7 @@ for (const state of BAD_PROJECT_STATES) {
         // drill-in footer both present (a truncated help would be missing the
         // footer at the end of the generated help).
         assertStringIncludes(out, "Commands:");
-        assertStringIncludes(out, "Agentic loop");
+        assertStringIncludes(out, "AGENTIC LOOP");
         assertStringIncludes(out, "discern <command> --help");
         // No raw crash leaked into the help.
         assert(

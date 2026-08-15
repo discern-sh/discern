@@ -29,7 +29,7 @@ import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
   convergeFixtureGitattributes,
@@ -902,7 +902,7 @@ Deno.test("the human CLI renders the FULL list (not the truncated gate hints) an
     // diff-aware, HUMAN mode (no --json) — exactly what a user runs.
     const r = await runAgent(dir, ["coupling"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "You changed"); // grouped by the file you changed
+    assertTerminalTextIncludes(r.stdout, "You changed"); // grouped by the file you changed
     assertStringIncludes(r.stdout, "commits"); // plain-count evidence
     // The full ranked list is shown — including the partner the 5-line gate hint would
     // have truncated to "… and 1 more" (b5.ts sorts last among the six tied partners).
@@ -1086,8 +1086,8 @@ Deno.test("coupling A B works black-box on the CLI (evidence mode, --json and hu
     // human: the rendered view names the pair and lists the shared commit subjects.
     const h = await runAgent(dir, ["coupling", "a.ts", "b.ts"]);
     assertEquals(h.code, 0, h.output);
-    assertStringIncludes(h.stdout, "Shared history of a.ts and b.ts");
-    assertStringIncludes(h.stdout, "Changed together in 2");
+    assertTerminalTextIncludes(h.stdout, "Shared history of a.ts and b.ts");
+    assertTerminalTextIncludes(h.stdout, "Changed together in 2");
     assertStringIncludes(h.stdout, "ab-decision");
     assertStringIncludes(h.stdout, "ab-again");
   });

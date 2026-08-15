@@ -8,6 +8,8 @@
  */
 
 import {
+  type CliPresenter,
+  createCliPresenter,
   detectTerminalCapabilities,
   styleText,
   type TerminalCapabilities,
@@ -22,10 +24,22 @@ import {
   type TerminalThemeVariant,
   terminalToneColor,
 } from "discern-design-system/cli";
+import {
+  DenoTerminalIO,
+  senseTerminalBackground,
+  type TerminalBackgroundOptions,
+  type TerminalBackgroundReading,
+} from "discern-design-system/cli/interactive";
 import type { EnvReader } from "../shared/env.ts";
 
 const DEFAULT_TERMINAL_COLUMNS = 80;
 const DEFAULT_TERMINAL_ROWS = 24;
+/** Maximum startup delay when an interactive terminal does not answer OSC 11. */
+export const TERMINAL_BACKGROUND_TIMEOUT_MS = 100;
+/** Root-level terminal theme modes, ordered with the default first. */
+export const TERMINAL_THEME_MODES = ["auto", "light", "dark"] as const;
+export type TerminalThemeMode = typeof TERMINAL_THEME_MODES[number];
+export const DEFAULT_TERMINAL_THEME_MODE: TerminalThemeMode = "auto";
 const CAPABILITY_ENVIRONMENT_KEYS = [
   "TERM",
   "COLORTERM",
@@ -37,6 +51,7 @@ const DIMENSION_ENVIRONMENT_KEYS = ["COLUMNS", "LINES"] as const;
 const TERMINAL_ENVIRONMENT_KEYS = [
   ...CAPABILITY_ENVIRONMENT_KEYS,
   ...DIMENSION_ENVIRONMENT_KEYS,
+  "COLORFGBG",
   "NO_COLOR",
   "CI",
 ] as const;
@@ -58,6 +73,14 @@ export interface TerminalSize {
   readonly rows: number;
 }
 
+/** A bounded live viewport observation owned by one command invocation. */
+export interface TerminalViewportObservation {
+  /** Sample the current terminal dimensions, or the last supported reading. */
+  sample(): TerminalSize;
+  /** Permanently detach this observation from its process reader. */
+  close(): void;
+}
+
 /** Fully explicit process inputs for deterministic terminal adaptation. */
 export interface TerminalProcessInput {
   readonly noColor: boolean;
@@ -69,8 +92,8 @@ export interface TerminalProcessInput {
   readonly theme?: TerminalThemeVariant;
 }
 
-/** Optional overrides accepted by the stable production constructor. */
-export interface ProductionTerminalOptions {
+/** Optional overrides accepted by a synchronous process snapshot. */
+export interface TerminalProcessOptions {
   readonly noColor?: boolean;
   readonly env?: EnvReader;
   readonly isTerminal?: () => boolean;
@@ -79,6 +102,29 @@ export interface ProductionTerminalOptions {
   readonly fallbackRows?: number;
   readonly theme?: TerminalThemeVariant;
 }
+
+/** Optional overrides accepted by the adaptive production constructor. */
+export interface ProductionTerminalOptions {
+  readonly noColor?: boolean;
+  readonly env?: EnvReader;
+  readonly isTerminal?: () => boolean;
+  readonly inputIsTerminal?: () => boolean;
+  readonly consoleSize?: () => TerminalSize;
+  readonly fallbackColumns?: number;
+  readonly fallbackRows?: number;
+  /** `auto` senses the terminal ground; explicit variants skip sensing. */
+  readonly theme?: TerminalThemeMode;
+  /** False for result projections and other modes that render no theme. */
+  readonly backgroundSensing?: boolean;
+  /** Injectable terminal effects boundary for deterministic sensor tests. */
+  readonly backgroundIo?: TerminalBackgroundOptions["io"];
+}
+
+/** Injectable package background sensor used by a process-cached resolver. */
+export type TerminalBackgroundSensor = (
+  options: TerminalBackgroundOptions,
+) => Promise<TerminalBackgroundReading>;
+type TerminalIo = TerminalBackgroundOptions["io"];
 
 /** Injectable boundaries retained by the terminal-size compatibility facade. */
 export interface TerminalSizeOptions {
@@ -102,6 +148,8 @@ export interface TerminalWidthOptions {
  */
 export interface TerminalContext {
   readonly capabilities: TerminalCapabilities;
+  /** Package renderer bound to this process snapshot's capabilities and theme. */
+  readonly presenter: CliPresenter;
   readonly color: boolean;
   /** Whether stdout was attached when this process snapshot was resolved. */
   readonly stdoutIsTerminal: boolean;
@@ -111,6 +159,8 @@ export interface TerminalContext {
   readonly size: TerminalSize;
   readonly theme: TerminalTheme;
   readonly themeVariant: TerminalThemeVariant;
+  /** Open one command-owned live viewport observation. Pure views never call it. */
+  observeViewport(): TerminalViewportObservation;
   /** Apply one explicit package text style under these resolved capabilities. */
   style(text: string, style: TerminalTextStyle): string;
   /** Resolve one package Token colour for a Component prop. */
@@ -126,6 +176,49 @@ export interface TerminalContext {
     token: TerminalColorTokenName,
     role?: TerminalTextRole,
   ): string;
+}
+
+/** Lazily-bound terminal IO retained privately for each presentation context. */
+const interactionIoByContext = new WeakMap<
+  TerminalContext,
+  () => TerminalIo
+>();
+
+/** Normalize one observed dimension without consulting mutable environment state. */
+function observedDimension(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0
+    ? Math.max(1, Math.floor(value))
+    : fallback;
+}
+
+/**
+ * Bind a live reader to one initial snapshot. Sampling owns no timer or signal;
+ * the command controller decides when to sample and always closes the handle.
+ */
+function viewportObservation(
+  initial: TerminalSize,
+  consoleSize: () => TerminalSize,
+): TerminalViewportObservation {
+  let current = initial;
+  let closed = false;
+  return {
+    sample: (): TerminalSize => {
+      if (closed) return current;
+      try {
+        const observed = consoleSize();
+        current = {
+          columns: observedDimension(observed.columns, current.columns),
+          rows: observedDimension(observed.rows, current.rows),
+        };
+      } catch {
+        // A platform without live size support retains its stable snapshot.
+      }
+      return current;
+    },
+    close: (): void => {
+      closed = true;
+    },
+  };
 }
 
 /** Interpret the conventional process marker once at the shared boundary. */
@@ -214,14 +307,21 @@ function contextFromFacts(
   environment: Readonly<Record<string, string | undefined>>,
   themeVariant: TerminalThemeVariant,
   stdoutIsTerminal: boolean,
+  observeViewport: () => TerminalViewportObservation,
+  interactionIo?: () => TerminalIo,
 ): TerminalContext {
   const theme = terminalThemes[themeVariant];
+  const presenter = createCliPresenter(capabilities, {
+    theme: themeVariant,
+    width: size.columns,
+  });
   const styled = (
     text: string,
     style: TerminalTextStyle,
   ): string => styleText(text, style, capabilities);
-  return {
+  const context: TerminalContext = {
     capabilities,
+    presenter,
     color: capabilities.colorDepth !== "none",
     stdoutIsTerminal,
     ciRequestsStaticOutput: enabledEnvironmentMarker(environment.CI),
@@ -229,6 +329,7 @@ function contextFromFacts(
     size,
     theme,
     themeVariant,
+    observeViewport,
     style: styled,
     themeColor: (token: TerminalColorTokenName): TerminalColor =>
       terminalThemeColor(theme, token),
@@ -253,12 +354,24 @@ function contextFromFacts(
         color: terminalThemeColor(theme, token),
       }),
   };
+  if (interactionIo !== undefined) {
+    interactionIoByContext.set(context, interactionIo);
+  }
+  return context;
 }
 
-/** Resolve one immutable context from explicit, injectable process inputs. */
-export function resolveTerminalContext(
-  input: TerminalProcessInput,
-): TerminalContext {
+interface ResolvedTerminalFacts {
+  readonly capabilities: TerminalCapabilities;
+  readonly consoleSize: () => TerminalSize;
+  readonly environment: Readonly<Record<string, string | undefined>>;
+  readonly size: TerminalSize;
+  readonly stdoutIsTerminal: boolean;
+}
+
+/** Resolve process facts once so asynchronous theme selection never re-reads them. */
+function resolveTerminalFacts(
+  input: Omit<TerminalProcessInput, "theme">,
+): ResolvedTerminalFacts {
   const environment = environmentSnapshot(input.env);
   if (input.noColor) environment.NO_COLOR = "1";
   const stdoutIsTerminal = input.isTerminal();
@@ -268,23 +381,57 @@ export function resolveTerminalContext(
     input.fallbackColumns ?? DEFAULT_TERMINAL_COLUMNS,
     input.fallbackRows ?? DEFAULT_TERMINAL_ROWS,
   );
-  const capabilities = detectTerminalCapabilities({
-    env: environment,
-    isTty: stdoutIsTerminal,
-    columns: size.columns,
-  });
-  return contextFromFacts(
-    capabilities,
-    size,
+  return {
+    capabilities: detectTerminalCapabilities({
+      env: environment,
+      isTty: stdoutIsTerminal,
+      columns: size.columns,
+    }),
+    consoleSize: input.consoleSize,
     environment,
-    input.theme ?? "dark",
+    size,
     stdoutIsTerminal,
+  };
+}
+
+/** Bind one theme variant to an already-resolved process snapshot. */
+function contextFromResolvedFacts(
+  facts: ResolvedTerminalFacts,
+  theme: TerminalThemeVariant,
+  interactionIo?: () => TerminalIo,
+): TerminalContext {
+  return contextFromFacts(
+    facts.capabilities,
+    facts.size,
+    facts.environment,
+    theme,
+    facts.stdoutIsTerminal,
+    () => viewportObservation(facts.size, facts.consoleSize),
+    interactionIo,
   );
 }
 
-/** Construct the production context, with every process effect still injectable. */
-export function productionTerminalContext(
-  options: ProductionTerminalOptions = {},
+/** Whether an untrusted flag value names one supported terminal theme mode. */
+export function isTerminalThemeMode(
+  value: unknown,
+): value is TerminalThemeMode {
+  return typeof value === "string" &&
+    (TERMINAL_THEME_MODES as readonly string[]).includes(value);
+}
+
+/** Resolve one immutable context from explicit, injectable process inputs. */
+export function resolveTerminalContext(
+  input: TerminalProcessInput,
+): TerminalContext {
+  return contextFromResolvedFacts(
+    resolveTerminalFacts(input),
+    input.theme ?? "dark",
+  );
+}
+
+/** Snapshot the process without background sensing for synchronous fallbacks. */
+export function terminalProcessContext(
+  options: TerminalProcessOptions = {},
 ): TerminalContext {
   return resolveTerminalContext({
     noColor: options.noColor ?? false,
@@ -301,6 +448,90 @@ export function productionTerminalContext(
   });
 }
 
+/** Call the package-owned sensor at Discern's sole process boundary. */
+async function packageBackgroundSensor(
+  options: TerminalBackgroundOptions,
+): Promise<TerminalBackgroundReading> {
+  return await senseTerminalBackground(options);
+}
+
+/** Convert a sensed ground into Discern's fallback-stable theme policy. */
+function themeFromBackground(
+  reading: TerminalBackgroundReading,
+): TerminalThemeVariant {
+  return reading.ground === "light" ? "light" : "dark";
+}
+
+/** Construct package terminal IO only at Discern's process-effects boundary. */
+function createPackageTerminalIo(
+  environment: Readonly<Record<string, string | undefined>>,
+): TerminalIo {
+  return new DenoTerminalIO({ environment });
+}
+
+/**
+ * Build an adaptive constructor whose first eligible sensing verdict is reused
+ * for the process. Explicit variants and non-rendering/non-TTY modes never fill
+ * the cache, so they also never invoke the sensor.
+ */
+export function createProductionTerminalContextResolver(
+  sensor: TerminalBackgroundSensor,
+): (options?: ProductionTerminalOptions) => Promise<TerminalContext> {
+  let sensedTheme: Promise<TerminalThemeVariant> | undefined;
+  let processIo: TerminalIo | undefined;
+  return async (
+    options: ProductionTerminalOptions = {},
+  ): Promise<TerminalContext> => {
+    const facts = resolveTerminalFacts({
+      noColor: options.noColor ?? false,
+      env: options.env ?? Deno.env,
+      isTerminal: options.isTerminal ?? (() => Deno.stdout.isTerminal()),
+      consoleSize: options.consoleSize ?? (() => Deno.consoleSize()),
+      ...(options.fallbackColumns === undefined
+        ? {}
+        : { fallbackColumns: options.fallbackColumns }),
+      ...(options.fallbackRows === undefined
+        ? {}
+        : { fallbackRows: options.fallbackRows }),
+    });
+    const mode = options.theme ?? DEFAULT_TERMINAL_THEME_MODE;
+    const interactionIo = (): TerminalIo => {
+      processIo ??= options.backgroundIo ??
+        createPackageTerminalIo(facts.environment);
+      return processIo;
+    };
+    if (mode !== "auto") {
+      return contextFromResolvedFacts(facts, mode, interactionIo);
+    }
+
+    const maySense = options.backgroundSensing !== false &&
+      facts.stdoutIsTerminal &&
+      facts.capabilities.colorDepth !== "none" &&
+      !enabledEnvironmentMarker(facts.environment.CI) &&
+      (options.inputIsTerminal ?? (() => Deno.stdin.isTerminal()))();
+    if (!maySense) {
+      return contextFromResolvedFacts(facts, "dark", interactionIo);
+    }
+
+    sensedTheme ??= sensor({
+      io: interactionIo(),
+      environment: facts.environment,
+      timeoutMs: TERMINAL_BACKGROUND_TIMEOUT_MS,
+    }).then(themeFromBackground, () => "dark");
+    return contextFromResolvedFacts(facts, await sensedTheme, interactionIo);
+  };
+}
+
+const resolveProductionTerminalContext =
+  createProductionTerminalContextResolver(packageBackgroundSensor);
+
+/** Construct the cached adaptive context used by the CLI process. */
+export async function productionTerminalContext(
+  options: ProductionTerminalOptions = {},
+): Promise<TerminalContext> {
+  return await resolveProductionTerminalContext(options);
+}
+
 let activeTerminalContext: TerminalContext | undefined;
 
 /** Set or clear the single process context resolved by the CLI entry point. */
@@ -312,7 +543,23 @@ export function setTerminalContext(
 
 /** Return the process context, constructing a stable fallback for direct calls. */
 export function terminalContext(): TerminalContext {
-  return activeTerminalContext ?? productionTerminalContext();
+  return activeTerminalContext ?? terminalProcessContext();
+}
+
+/** Return the IO identity shared by background sensing and package requests. */
+export function terminalInteractionIo(
+  context: TerminalContext = terminalContext(),
+): TerminalIo {
+  let resolveIo = interactionIoByContext.get(context);
+  if (resolveIo === undefined) {
+    let io: TerminalIo | undefined;
+    resolveIo = (): TerminalIo => {
+      io ??= createPackageTerminalIo(context.environment);
+      return io;
+    };
+    interactionIoByContext.set(context, resolveIo);
+  }
+  return resolveIo();
 }
 
 /**
@@ -334,6 +581,14 @@ export function terminalPresentationContext(
     {},
     "dark",
     false,
+    () =>
+      viewportObservation(
+        { columns: DEFAULT_TERMINAL_COLUMNS, rows: DEFAULT_TERMINAL_ROWS },
+        () => ({
+          columns: DEFAULT_TERMINAL_COLUMNS,
+          rows: DEFAULT_TERMINAL_ROWS,
+        }),
+      ),
   );
   return terminalContextWithColor(base, color);
 }
@@ -358,7 +613,19 @@ export function terminalContextWithColor(
     context.environment,
     context.themeVariant,
     context.stdoutIsTerminal,
+    context.observeViewport,
   );
+}
+
+/** Rebind only the live viewport column for package painters that resize after
+ * the process presenter was constructed. Component renderers use the bound
+ * presenter and explicit width props instead. */
+export function terminalCapabilitiesAtWidth(
+  capabilities: TerminalCapabilities,
+  width: number,
+): TerminalCapabilities {
+  const finite = Number.isFinite(width) ? Math.floor(width) : 1;
+  return { ...capabilities, columns: Math.max(1, finite) };
 }
 
 /** Resolve both dimensions through the shared process adapter. */

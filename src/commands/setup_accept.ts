@@ -26,6 +26,7 @@ import {
 } from "../shared/command_reference.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
+import { Logger } from "../lib/log.ts";
 import { discernMergeArgs, runGit } from "../shared/subprocess.ts";
 import { SETUP_BRANCH } from "../shared/setup_state.ts";
 import { type ErrorSlug, renderHumanOutputGroups } from "../shared/result.ts";
@@ -113,6 +114,7 @@ interface AcceptData {
 /** Emit a landing refusal/no-op (human + `--json`) and return its exit code. */
 function emitAccept(
   opts: SetupAcceptOptions,
+  log: Logger,
   result: {
     ok: boolean;
     error?: ErrorSlug;
@@ -129,10 +131,13 @@ function emitAccept(
       message: result.message,
     });
   } else {
-    const stream = result.ok ? console.log : console.error;
-    stream(`discern: ${result.message}`);
+    if (result.ok) {
+      log.ok(result.message);
+    } else {
+      log.error(result.message);
+    }
     for (const d of result.detail ?? []) {
-      stream(`         ${d}`);
+      log.detail(d);
     }
   }
   return result.code;
@@ -148,9 +153,10 @@ function emitAccept(
 export async function runSetupAccept(
   opts: SetupAcceptOptions,
 ): Promise<number> {
+  const log = new Logger({ json: opts.json, noColor: opts.noColor });
   const root = await findRoot();
   if (root === undefined) {
-    return emitAccept(opts, {
+    return emitAccept(opts, log, {
       ok: false,
       error: "no_project",
       message: NO_PROJECT_MESSAGE,
@@ -164,7 +170,7 @@ export async function runSetupAccept(
   // Outside a git repo there is no branch to land — setup is already in place as-is.
   const state = await worktreeState(root);
   if (state.kind === "not-a-repo") {
-    return emitAccept(opts, {
+    return emitAccept(opts, log, {
       ok: true,
       message:
         "no git repository here, so there is nothing to land — your setup is already in place.",
@@ -174,7 +180,7 @@ export async function runSetupAccept(
 
   const branch = (await run(["branch", "--show-current"])).stdout.trim();
   if (branch === "") {
-    return emitAccept(opts, {
+    return emitAccept(opts, log, {
       ok: false,
       error: "detached_head",
       message:
@@ -183,7 +189,7 @@ export async function runSetupAccept(
     });
   }
   if (branch === target) {
-    return emitAccept(opts, {
+    return emitAccept(opts, log, {
       ok: true,
       message:
         `already on ${target} — your setup work is landed; nothing to do.`,
@@ -194,7 +200,7 @@ export async function runSetupAccept(
   // the CURRENT branch onto the integration branch — run from an ordinary branch
   // it would sweep that branch's own commits onto the trunk with no review.
   if (branch !== SETUP_BRANCH) {
-    return emitAccept(opts, {
+    return emitAccept(opts, log, {
       ok: false,
       error: "not_setup_branch",
       message:
@@ -211,7 +217,7 @@ export async function runSetupAccept(
     // born on the setup branch, so the integration branch never came into being.
     // Serve the exact creation-then-land step in the message itself, so it rides
     // both surfaces identically, rather than dead-ending.
-    return emitAccept(opts, {
+    return emitAccept(opts, log, {
       ok: false,
       error: "no_target",
       message:
@@ -228,7 +234,7 @@ export async function runSetupAccept(
   // work into the merge. Untracked scratch files are harmless and ignored (the same
   // notion of "dirty" `discern setup` uses to gate its own branch creation).
   if (state.kind === "dirty") {
-    return emitAccept(opts, {
+    return emitAccept(opts, log, {
       ok: false,
       error: "dirty_worktree",
       message:
@@ -260,7 +266,7 @@ export async function runSetupAccept(
         },
       });
     } else {
-      console.log(renderHumanOutputGroups([
+      log.line(renderHumanOutputGroups([
         {
           id: "accept-plan",
           items: [
@@ -284,7 +290,7 @@ export async function runSetupAccept(
   // Check out the integration branch, then land the setup branch onto it.
   const checkout = await run(["checkout", "--quiet", target]);
   if (!checkout.success) {
-    return emitAccept(opts, {
+    return emitAccept(opts, log, {
       ok: false,
       error: "checkout_failed",
       message:
@@ -301,7 +307,7 @@ export async function runSetupAccept(
     // Step the conflict aside so the tree is left clean, then refuse.
     await run(["merge", "--abort"]);
     await run(["checkout", "--quiet", branch]);
-    return emitAccept(opts, {
+    return emitAccept(opts, log, {
       ok: false,
       error: "conflict",
       message:
@@ -333,16 +339,16 @@ export async function runSetupAccept(
     });
     return 0;
   }
-  console.log(
+  log.ok(
     fastForward
       ? `Setup landed — fast-forwarded ${target} to ${branch}.`
       : `Setup landed — merged ${branch} into ${target}.`,
   );
-  console.log(`You are now on ${target} with discern set up.`);
+  log.info(`You are now on ${target} with discern set up.`);
   if (branchDeleted) {
-    console.log(`Deleted the merged ${branch} branch.`);
+    log.info(`Deleted the merged ${branch} branch.`);
   } else {
-    console.log(
+    log.info(
       `Left the ${branch} branch in place (it is fully merged; delete it with \`git branch -d ${branch}\` when ready).`,
     );
   }

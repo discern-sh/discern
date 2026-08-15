@@ -25,7 +25,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -308,7 +308,7 @@ Deno.test("worktree prune leaves contained worktrees untouched by default and ke
       "the default apply must not touch a contained checkout",
     );
     assert(await exists(c));
-    assertStringIncludes(human.output, "Contained worktrees (kept)");
+    assertTerminalTextIncludes(human.output, "Contained worktrees (kept)");
     assertStringIncludes(human.output, "--contained");
 
     const json = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
@@ -340,7 +340,7 @@ Deno.test("worktree prune --contained still requires the explicit confirmation o
     const { a } = await chainFixture(dir);
     const r = await runAgent(dir, ["worktree", "prune", "--contained"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "Confirmation required");
+    assertTerminalTextIncludes(r.output, "Confirmation required");
     assert(
       await exists(a),
       `the flag alone must never reclaim — a fresh confirmation does\n${r.output}`,
@@ -579,7 +579,7 @@ Deno.test("a failed resource destroy refuses the reclaim and keeps the checkout"
       "--yes",
     ]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "could not be destroyed");
+    assertTerminalTextIncludes(r.output, "could not be destroyed");
     assert(
       await exists(a),
       `a checkout whose resources survive must survive too\n${r.output}`,

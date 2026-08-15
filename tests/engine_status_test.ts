@@ -17,7 +17,7 @@ import {
 import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import { displayWidth } from "../src/lib/text.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   defaultMapPath,
@@ -35,7 +35,6 @@ import { KNOWN_JOBS, type KnownJob } from "../src/shared/capabilities.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
-import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { configEpoch } from "../src/engine/logbook/epoch.ts";
 import { appendEvent } from "../src/engine/logbook/store.ts";
@@ -106,13 +105,15 @@ function normalized(text: string): string {
 
 /** Find one package section rule without pinning its capability-specific glyphs. */
 function sectionRuleLine(output: string, label: string): string {
-  const marker = ` ${label} `;
+  const marker = ` ${label.toUpperCase()} `;
   const line = output.split("\n").find((candidate) => {
     const markerAt = candidate.indexOf(marker);
     if (markerAt < 1) return false;
     const left = candidate.slice(0, markerAt);
     const right = candidate.slice(markerAt + marker.length);
-    return right.length > 0 && !/\s/u.test(`${left}${right}`);
+    const decoration = `${left}${right}`.replaceAll("v", "");
+    return left.trim().length > 0 && right.trim().length > 0 &&
+      !/[\p{L}\p{N}]/u.test(decoration);
   });
   assert(
     line !== undefined,
@@ -139,11 +140,11 @@ Deno.test("status assertions accept either package glyph repertoire", () => {
   const triangles = DISCERN_TRIANGLE_GLYPHS;
   const unicodeRule =
     `${triangles.upRight}${triangles.downRight}${triangles.upLeft} ` +
-    `Current worktree ` +
+    `CURRENT WORKTREE ` +
     `${triangles.upLeft}${triangles.downRight}${triangles.upRight}`;
   assertEquals(
-    sectionRuleLine(">v<> Current worktree v><^", "Current worktree"),
-    ">v<> Current worktree v><^",
+    sectionRuleLine(">v<> CURRENT WORKTREE v><^", "Current worktree"),
+    ">v<> CURRENT WORKTREE v><^",
   );
   assertEquals(
     sectionRuleLine(unicodeRule, "Current worktree"),
@@ -176,13 +177,17 @@ Deno.test("status: the fleet view surfaces cross-worktree file collisions", asyn
       Array.isArray(collisions) && collisions.length === 1,
       `expected exactly one collision pair: ${r.stdout}`,
     );
-    assertEquals(collisions[0].overlap, ["shared.txt"]);
+    assertEquals(collisions[0].overlap, undefined);
     assertEquals(collisions[0].total, 1);
     const [first, second] = collisions[0].branches;
     assertHasHint(obj, HINTS["status-fleet-collisions"], {
       total: 1,
       pairs: [`${first} ↔ ${second}`],
     });
+
+    const verbose = await runAgent(dir, ["status", "--verbose"]);
+    assertEquals(verbose.code, 0, verbose.output);
+    assertStringIncludes(verbose.output, "shared.txt");
   });
 });
 
@@ -220,10 +225,7 @@ Deno.test("status: in-flight branches claiming one ADR number are surfaced — e
     );
     assertEquals(collisions[0].number, "0007");
     assertEquals(collisions[0].branches, ["agent/alpha", "agent/beta"]);
-    assertEquals(collisions[0].paths, [
-      `${SOURCE_PATHS.map.defaultPath}_adr/0007-alpha-take.md`,
-      `${SOURCE_PATHS.map.defaultPath}_adr/0007-beta-take.md`,
-    ]);
+    assertEquals(collisions[0].paths, undefined);
     assertHasHint(obj, HINTS["status-adr-number-collisions"], {
       total: 1,
       claims: ["0007 (agent/alpha ↔ agent/beta)"],
@@ -425,10 +427,10 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
     });
     assertEquals(beta.running, undefined);
 
-    const human = await runAgent(dir, ["status"]);
+    const human = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "running done 2m · usually 4m");
-    assertStringIncludes(human.output, "done failed at test");
+    assertTerminalTextIncludes(human.output, "running done 2m · usually 4m");
+    assertTerminalTextIncludes(human.output, "done failed at test");
   });
 });
 
@@ -729,14 +731,14 @@ Deno.test("status fleet: ownership stays available without repeating in a routin
     const wt = await addWorktree(dir, "beta");
     const survey = await runAgent(wt, ["status", "--all"]);
     assertEquals(survey.code, 0, survey.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       survey.output,
       "Worktrees stay with the effort that created them",
     );
   });
 });
 
-Deno.test("status fleet (human): the wide projection is bounded and merges task identity", async () => {
+Deno.test("status fleet (human): the wide brief is bounded and defers row evidence to verbose", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -744,13 +746,15 @@ Deno.test("status fleet (human): the wide projection is bounded and merges task 
 
     const r = await runAgent(dir, ["status"], { env: { COLUMNS: "120" } });
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "Worktree");
-    assertStringIncludes(r.output, "Status");
-    assertStringIncludes(r.output, "Git");
-    assertStringIncludes(r.output, "Proof");
-    assertStringIncludes(r.output, "Activity");
+    assertStringIncludes(r.output, "WORKTREES");
+    assertStringIncludes(r.output, "STATE");
+    assert(!r.output.includes("ATTENTION"), r.output);
+    assert(!r.output.includes("Receipt:"), r.output);
+    assertEquals(r.output.match(/Git:/gu)?.length, 1);
+    assert(!r.output.includes("Proof"), r.output);
+    assert(!r.output.includes("Activity"), r.output);
     assertStringIncludes(r.output, "agent/alpha");
-    assertEquals(r.output.match(/Main checkout/gu)?.length, 1);
+    assertEquals(r.output.match(/main checkout/giu)?.length, 1);
     assert(!r.output.includes("AHEAD/BEHIND"), r.output);
     for (const line of r.output.trimEnd().split("\n")) {
       assert(
@@ -758,6 +762,14 @@ Deno.test("status fleet (human): the wide projection is bounded and merges task 
         `capped wide dashboard line exceeded 104 columns: ${line}`,
       );
     }
+
+    const verbose = await runAgent(dir, ["status", "--verbose"], {
+      env: { COLUMNS: "120" },
+    });
+    assertEquals(verbose.code, 0, verbose.output);
+    assertStringIncludes(verbose.output, "Git:");
+    assertStringIncludes(verbose.output, "Proof");
+    assertStringIncludes(verbose.output, "Activity");
   });
 });
 
@@ -778,8 +790,8 @@ Deno.test({
       });
       assertEquals(colored.code, 0, colored.output);
       assertStringIncludes(colored.output, `${STATUS_ESCAPE}[`);
-      assertStringIncludes(colored.output, "Active worktrees");
-      assertStringIncludes(colored.output, "Branch: agent/alpha");
+      assertTerminalTextIncludes(colored.output, "Active worktrees");
+      assertTerminalTextIncludes(colored.output, "Branch: agent/alpha");
       assertStringIncludes(colored.output, "Idle");
       for (const line of colored.stdout.trimEnd().split("\n")) {
         assert(
@@ -794,8 +806,8 @@ Deno.test({
       });
       assertEquals(plain.code, 0, plain.output);
       assert(!plain.output.includes(STATUS_ESCAPE), plain.output);
-      assertStringIncludes(plain.output, "Active worktrees");
-      assertStringIncludes(plain.output, "Branch: agent/alpha");
+      assertTerminalTextIncludes(plain.output, "Active worktrees");
+      assertTerminalTextIncludes(plain.output, "Branch: agent/alpha");
       assertStringIncludes(plain.output, "Idle");
       for (const line of plain.stdout.trimEnd().split("\n")) {
         assert(
@@ -879,7 +891,7 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
       !localHuman.output.slice(checksAt, environmentAt).includes("Port:"),
       localHuman.output,
     );
-    assert(!localHuman.output.includes(" Fleet "), localHuman.output);
+    assert(!localHuman.output.includes(" FLEET "), localHuman.output);
     assert(localHuman.output.indexOf(currentSection) >= 0);
 
     // --all from a worktree keeps the local blocks AND adds the fleet survey.
@@ -1010,10 +1022,10 @@ Deno.test("status: an untracked project file makes local and fleet status dirty"
     assertEquals(row.clean, false);
     assertEquals(row.changed_files, 1);
 
-    const human = await runAgent(dir, ["status"]);
+    const human = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(human.output, "agent/scratch");
-    assertStringIncludes(human.output, "1 file changed");
+    assertTerminalTextIncludes(human.output, "1 file changed");
     assertEquals(row.gate_proof.status, "missing");
   });
 });
@@ -1108,11 +1120,10 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     assertEquals(obj.data.git.ahead_trunk, 1);
     assertEquals(obj.data.git.behind_trunk, 0);
     assertEquals(obj.data.gate_proof.status, "honored");
-    // The honored record carries the stored proof page, and the one-line form
-    // the review-ready hint tells the agent to end its report with.
-    assertStringIncludes(obj.data.gate_proof.proof, "### Proof");
+    // The compact result carries Proof facts and the one-line form the
+    // review-ready hint tells the agent to end its report with.
     assertStringIncludes(
-      obj.data.gate_proof.proof_line,
+      obj.data.gate_proof.proof.line,
       "Proof: gate passed on agent/alpha @ ",
     );
     assertHasHint(obj, HINTS["status-ready-for-review"], {
@@ -1124,7 +1135,7 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     // reserves the stored Markdown page for --verbose.
     const plain = await runAgent(wt, ["status"]);
     assertEquals(plain.code, 0, plain.output);
-    assertStringIncludes(plain.output, "Receipt: agent/alpha Proof");
+    assertTerminalTextIncludes(plain.output, "Receipt: agent/alpha Proof");
     assertStringIncludes(plain.output, "Proof");
     assertStatusFactLine(plain.output, "Proof", "honored");
     assert(
@@ -1133,11 +1144,11 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     );
     const verbose = await runAgent(wt, ["status", "--verbose"]);
     assertEquals(verbose.code, 0, verbose.output);
-    assertStringIncludes(verbose.output, "### Proof — `agent/alpha`");
+    assertTerminalTextIncludes(verbose.output, "### Proof — `agent/alpha`");
 
     // From the main checkout, the fleet's review-ready hint names the same
     // inspection command, so the owner can look at the work from where they sit —
-    // and the ready row carries the proof itself, page and line.
+    // and the ready row carries the compact Proof claim.
     const fleet = await runAgent(dir, ["status", "--json"]);
     assertEquals(fleet.code, 0, fleet.output);
     const fleetObj = parseStatus(fleet.stdout);
@@ -1150,10 +1161,8 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
       (e: { branch: string }) => e.branch === "agent/alpha",
     );
     assertEquals(row.gate_proof.status, "honored");
-    assertEquals(row.proof_honored, true);
-    assertStringIncludes(row.proof, "### Proof — `agent/alpha`");
     assertStringIncludes(
-      row.proof_line,
+      row.gate_proof.proof.line,
       "Proof: gate passed on agent/alpha @ ",
     );
 
@@ -1161,7 +1170,10 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     // row's page beneath the fleet table.
     const fleetVerbose = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(fleetVerbose.code, 0, fleetVerbose.output);
-    assertStringIncludes(fleetVerbose.output, "### Proof — `agent/alpha`");
+    assertTerminalTextIncludes(
+      fleetVerbose.output,
+      "### Proof — `agent/alpha`",
+    );
 
     // The additive fleet check preserves a proof that exists but is no longer
     // honored, while the legacy honored-only projection remains compatible.
@@ -1248,9 +1260,9 @@ Deno.test("status: a landed proof carries its commit time for the human age", as
       JSON.stringify(result.data.landed_proof),
     );
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.output, "Receipt: Last landing");
+    assertTerminalTextIncludes(human.output, "Receipt: Last landing");
     assertStringIncludes(human.output, "[PASS]");
-    assertStringIncludes(human.output, "just now");
+    assertTerminalTextIncludes(human.output, "just now");
   });
 });
 

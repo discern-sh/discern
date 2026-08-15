@@ -35,7 +35,7 @@ import {
   cliRefusalCases,
   SIDE_RESTRICTED_OPS,
 } from "../src/engine/worktree/side_restrictions.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -192,7 +192,7 @@ Deno.test("worktree setup: refreshes agent files and links skills inside the wor
       await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
       `bundled skills not linked in the worktree\n${r.output}`,
     );
-    assertStringIncludes(r.output, "Worktree setup complete");
+    assertTerminalTextIncludes(r.output, "Worktree setup complete");
   });
 });
 
@@ -233,7 +233,7 @@ Deno.test("worktree ensure sets up once, then is a no-op", async () => {
     const wt = await mainWithWorktree(dir, "beta");
     const first = await runAgent(wt, ["worktree", "ensure"]);
     assertEquals(first.code, 0, first.output);
-    assertStringIncludes(first.output, "not configured yet");
+    assertTerminalTextIncludes(first.output, "not configured yet");
     const second = await runAgent(wt, ["worktree", "ensure"]);
     assertEquals(second.code, 0, second.output);
     assertEquals(
@@ -256,7 +256,7 @@ Deno.test("worktree ensure on the main checkout leads with the worktree-first li
     );
     const r = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, expected);
+    assertTerminalTextIncludes(r.stdout, expected);
   });
 });
 
@@ -306,7 +306,7 @@ Deno.test("accept: fast-forwards the trunk, removes the worktree, deletes the me
       "",
       `the merged branch should be deleted\n${r.output}`,
     );
-    assertStringIncludes(r.output, "Acceptance complete");
+    assertTerminalTextIncludes(r.output, "Acceptance complete");
   });
 });
 
@@ -533,7 +533,7 @@ Deno.test("accept: malformed tracked refresh input is refused before landing", a
       false,
       "the malformed branch file must not reach the trunk checkout",
     );
-    assertStringIncludes(r.output, "tracked refresh convergence");
+    assertTerminalTextIncludes(r.output, "tracked refresh convergence");
   });
 });
 
@@ -546,8 +546,14 @@ Deno.test("accept: refuses a dirty worktree without moving anything", async () =
 
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "This worktree has uncommitted changes");
-    assertStringIncludes(r.output, "never creates a work-in-progress commit");
+    assertTerminalTextIncludes(
+      r.output,
+      "This worktree has uncommitted changes",
+    );
+    assertTerminalTextIncludes(
+      r.output,
+      "never creates a work-in-progress commit",
+    );
     assertEquals(
       await exists(wt),
       true,
@@ -592,7 +598,7 @@ Deno.test("accept: refuses a locked worktree at plan time, before anything moves
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "locked");
-    assertStringIncludes(r.output, "git worktree unlock");
+    assertTerminalTextIncludes(r.output, "git worktree unlock");
     assertEquals(await exists(wt), true, `the worktree survives\n${r.output}`);
     assertEquals(
       await gitOut(dir, "rev-parse", "main"),
@@ -620,8 +626,8 @@ Deno.test("accept: refuses a detached-HEAD main checkout the same way", async ()
 
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "'(detached)', not 'main'");
-    assertStringIncludes(
+    assertTerminalTextIncludes(r.output, "'(detached)', not 'main'");
+    assertTerminalTextIncludes(
       r.output,
       "switch main` — then re-run `discern accept`",
     );
@@ -645,9 +651,9 @@ Deno.test("accept: refuses when the main checkout is parked off the trunk, namin
 
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "'parked-elsewhere', not 'main'");
+    assertTerminalTextIncludes(r.output, "'parked-elsewhere', not 'main'");
     // The way back is named (path canonicalization may differ, so match the tail).
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       r.output,
       "switch main` — then re-run `discern accept`",
     );
@@ -676,7 +682,7 @@ Deno.test("accept refuses (non-destructively) when the main checkout is dirty", 
 
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "uncommitted tracked changes");
+    assertTerminalTextIncludes(r.output, "uncommitted tracked changes");
     assertEquals(
       await exists(wt),
       true,
@@ -722,8 +728,8 @@ Deno.test("accept: refuses a branch behind main before dirty-tree handling or re
 
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "behind the trunk (main)");
-    assertStringIncludes(r.output, "discern update");
+    assertTerminalTextIncludes(r.output, "behind the trunk (main)");
+    assertTerminalTextIncludes(r.output, "discern update");
     assert(
       await exists(wt),
       `behind-main refusal must leave the worktree intact\n${r.output}`,
@@ -771,8 +777,8 @@ Deno.test("accept: refuses when main moves during the gate before teardown or re
     const r = await runAgent(wt, ["accept", "--confirmed"]);
 
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "behind the trunk (main)");
-    assertStringIncludes(r.output, "discern update");
+    assertTerminalTextIncludes(r.output, "behind the trunk (main)");
+    assertTerminalTextIncludes(r.output, "discern update");
     assert(
       await exists(wt),
       `post-gate trunk-race refusal must leave the worktree intact\n${r.output}`,
@@ -807,7 +813,7 @@ Deno.test("accept reports ignored files changed since worktree setup at the top 
 
     const dry = await runAgent(wt, ["accept", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
-    assertStringIncludes(dry.output, "Ignored files changed since setup");
+    assertTerminalTextIncludes(dry.output, "Ignored files changed since setup");
     assertStringIncludes(dry.output, "local-cache/");
     assert(
       !dry.output.includes("generated-0.txt"),
@@ -867,7 +873,7 @@ Deno.test("update: refuses from the main checkout", async () => {
     // Run from the main checkout, not the worktree — update is worktree-only.
     const r = await runAgent(dir, ["update"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "main checkout");
+    assertTerminalTextIncludes(r.output, "main checkout");
   });
 });
 
@@ -879,7 +885,7 @@ Deno.test("accept: refuses from the main checkout (worktree-only, the CLI mirror
     // refusal: run from the main checkout, accept has no current worktree to move.
     const r = await runAgent(dir, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "runs inside a worktree");
+    assertTerminalTextIncludes(r.output, "runs inside a worktree");
   });
 });
 
@@ -950,7 +956,7 @@ Deno.test("update: no-op when the branch already contains main", async () => {
     // main has not moved, so the branch is up to date — update touches nothing.
     const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "up to date");
+    assertTerminalTextIncludes(r.output, "up to date");
   });
 });
 
@@ -974,8 +980,8 @@ Deno.test("update: behind main fast-forwards and re-materializes the agent files
 
     const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "Fast-forwarded to main");
-    assertStringIncludes(r.output, "Update complete");
+    assertTerminalTextIncludes(r.output, "Fast-forwarded to main");
+    assertTerminalTextIncludes(r.output, "Update complete");
     // The merge brought main's commit in…
     assert(
       await exists(join(wt, "upstream.txt")),
@@ -1028,7 +1034,7 @@ Deno.test("update: ignores untracked local scratch when checking whether the wor
 
     const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "Fast-forwarded to main");
+    assertTerminalTextIncludes(r.output, "Fast-forwarded to main");
     assert(
       await exists(join(wt, "upstream.txt")),
       `main was not merged into the worktree\n${r.output}`,
@@ -1053,11 +1059,11 @@ Deno.test("update: refuses (non-destructively) when the worktree is dirty", asyn
 
     const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       r.output,
-      "discern: This worktree has uncommitted tracked changes",
+      "✕ This worktree has uncommitted tracked changes",
     );
-    assertStringIncludes(r.output, "Commit or stash");
+    assertTerminalTextIncludes(r.output, "Commit or stash");
     // The tree is untouched: the dirty file stays, and main was NOT merged in.
     assert(
       await exists(join(wt, "wip.txt")),
@@ -1110,8 +1116,8 @@ Deno.test("update --dry-run: previews the merge + refresh and touches nothing", 
 
     const r = await runAgent(wt, ["update", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "Update plan");
-    assertStringIncludes(r.output, "Behind by: 1");
+    assertTerminalTextIncludes(r.output, "Update plan");
+    assertTerminalTextIncludes(r.output, "Behind by: 1");
     // The preview merged nothing — main's commit is still absent in the worktree.
     assertEquals(
       await exists(join(wt, "upstream.txt")),
@@ -1133,7 +1139,7 @@ Deno.test("update end-to-end: a behind finish points at update, which then unblo
     //    bare `git merge` (the rest of the gate never runs).
     const behind = await runAgent(wt, ["done"]);
     assertEquals(behind.code, 1, behind.output);
-    assertStringIncludes(behind.output, "discern update");
+    assertTerminalTextIncludes(behind.output, "discern update");
 
     // 2. update brings main in AND re-materializes in one step.
     const integ = await runAgent(wt, ["update"]);
@@ -1237,7 +1243,7 @@ Deno.test("status and worktree prune keep a fully-merged worktree with uncommitt
 
     const dry = await runAgent(dir, ["worktree", "prune", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
-    assertStringIncludes(dry.output, "(nothing to do)");
+    assertTerminalTextIncludes(dry.output, "(nothing to do)");
     assert(
       await exists(dirty),
       `dry-run prune must not remove the dirty worktree\n${dry.output}`,
@@ -1249,7 +1255,7 @@ Deno.test("status and worktree prune keep a fully-merged worktree with uncommitt
       await exists(dirty),
       `dirty merged worktree must not be pruned\n${r.output}`,
     );
-    assertStringIncludes(r.output, "dirty 2 status entries");
+    assertTerminalTextIncludes(r.output, "dirty 2 status entries");
     assertEquals(
       await Deno.readTextFile(join(dirty, "tracked.txt")),
       "dirty tracked\n",
@@ -1288,7 +1294,7 @@ Deno.test("worktree prune --yes keeps a clean detached worktree whose HEAD is no
       await exists(detached),
       `detached unmerged worktree must not be pruned\n${r.output}`,
     );
-    assertStringIncludes(r.output, "detached HEAD has unmerged commits");
+    assertTerminalTextIncludes(r.output, "detached HEAD has unmerged commits");
     assertEquals(await gitOut(detached, "rev-parse", "HEAD"), detachedHead);
     assertEquals(
       await Deno.readTextFile(join(detached, "detached.txt")),
@@ -1494,8 +1500,8 @@ Deno.test("start (human): announces the new worktree and how to cd into it", asy
     const r = await runAgent(dir, ["start"]); // human mode (no --json)
     assertEquals(r.code, 0, r.output);
     // Setup narrated, then the path + the "cd into it" deliverable.
-    assertStringIncludes(r.output, "is ready at");
-    assertStringIncludes(r.output, "cd ");
+    assertTerminalTextIncludes(r.output, "is ready at");
+    assertTerminalTextIncludes(r.output, "cd ");
     assertStringIncludes(r.output, `${basename(dir)}.worktrees`);
   });
 });
@@ -1638,7 +1644,7 @@ Deno.test("worktree setup re-entry: skips the one-shot steps, re-runs ensure", a
       await runAgent(wt, ["worktree", "setup"]); // creation: steps 1, ensure 1
       const again = await runAgent(wt, ["worktree", "setup"]); // re-entry
       assertEquals(again.code, 0, again.output);
-      assertStringIncludes(again.output, "skipping setup steps");
+      assertTerminalTextIncludes(again.output, "skipping setup steps");
       assertEquals(
         await markerCount(steps),
         1,
@@ -1706,8 +1712,8 @@ Deno.test("worktree setup --dry-run: lists the ensure commands it would run", as
     });
     const r = await runAgent(wt, ["worktree", "setup", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "echo once-only");
-    assertStringIncludes(r.output, "echo converge-me");
+    assertTerminalTextIncludes(r.output, "echo once-only");
+    assertTerminalTextIncludes(r.output, "echo converge-me");
   });
 });
 
@@ -1716,7 +1722,7 @@ Deno.test("worktree setup: a failing ensure at creation is fatal (aborts setup)"
     const wt = await mainWithSetup(dir, "fatal-ensure", { ensure: ["exit 7"] });
     const r = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "worktree ensure step failed");
+    assertTerminalTextIncludes(r.output, "worktree ensure step failed");
     // Aborted before the agent-file refresh + sentinel — setup never completed.
     assertEquals(
       r.output.includes("Worktree setup complete"),
@@ -1749,7 +1755,7 @@ Deno.test("update: re-runs [worktree.setup].ensure after the merge", async () =>
 
       const r = await runAgent(wt, ["update"]);
       assertEquals(r.code, 0, r.output);
-      assertStringIncludes(r.output, "Update complete");
+      assertTerminalTextIncludes(r.output, "Update complete");
       assert(
         await exists(join(wt, "upstream.txt")),
         `merge landed\n${r.output}`,

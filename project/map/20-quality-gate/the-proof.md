@@ -12,10 +12,12 @@ aliases:
 
 _A clean green Gate records what ran and identifies the exact branch state ready for review._
 
-`discern done` emits a structured Proof when the run passes on a clean, committed branch that is ahead of trunk. It renders in two forms from the same object ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md), [ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)):
+`discern done` derives a structured Proof when the run passes on a clean, committed branch that is ahead of trunk. It renders in two forms from the same object ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md), [ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)):
 
-- **The line** (`data.proof.line`): one sentence naming the branch, validated commit, diffstat, Standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_proof.proof_line`; `accept` derives its line from it and appends the recorded consent source.
-- **The page** (`data.proof.markdown`): Standards, declared jobs and scope gates, then the diff command. `status --verbose` prints a valid Proof. Git owns commit and per-file lists; `Inspect:` names the command.
+- **The line**: one sentence naming the branch, validated commit, diffstat, Standards state, and page command. JSON and MCP carry it as `data.proof.line`; `accept` derives `data.proof_line` from it and appends the recorded consent source. Agents quote that line verbatim after their account.
+- **The page**: Standards, declared jobs and scope gates, then the diff command. It stays in the worktree marker and landed Proof note. Terminal `status --verbose` prints a valid page. Git owns commit and per-file lists; `Inspect:` names the command.
+
+The complete in-process Proof owns both renderings. Compact results use a projection with branch, trunk, validated commit, diff counts, and line. They omit the page, which can otherwise appear several times in one status fleet. `discern <verb> --markdown` selects an authored result presentation; it does not substitute the full Proof page for that presentation.
 
 `done` and `prepare` share package progress, grouped jobs, activity, and commands. `done` adds review, recording, and readiness facts; only `recorded` passes. `prepare` names omitted work. The byte-exact relay stays separate.
 
@@ -46,11 +48,11 @@ Write authority is different. Before any declared job or Standard measurement st
 
 discern stores the validated commit, structured Proof, and both renderings in the worktree's Git administration directory. The marker is local to that worktree and disappears when the worktree is removed ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 
-| Surface          | What it does with the Proof                                                                                                                                                                                                                                                                         |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern done`   | Prints the job table and line at a TTY, or the page when piped; returns `data.proof` (`line` + `markdown`) and may print at most 1 branch finding beside it.                                                                                                                                        |
-| `discern status` | Reports whether the marker still matches the clean current `HEAD`; returns the stored object, page, and line when honored. It also reads a landed trunk-tip Proof from the local or fetched notes ref as `data.landed_proof`.                                                                       |
-| `discern accept` | Uses an honored marker to avoid repeating the Gate jobs and checks the current tracked-refresh plan before the fast-forward. It returns the page in `data.proof`, derives `data.proof_line` by appending the recorded consent source, and records the structured Proof as a Git note after landing. |
+| Surface          | What it does with the Proof                                                                                                                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern done`   | Prints the job table and line at a TTY, or the page when piped. JSON and MCP return compact `data.proof`; Markdown selects the bounded facts for its evidence section.                                                                                                                                  |
+| `discern status` | Reports whether the marker still matches the clean current `HEAD`. JSON, Markdown, MCP, and the status resource return Proof status plus compact facts; terminal `--verbose` retrieves the page. Status also reads a landed trunk-tip Proof from the local or fetched notes ref as `data.landed_proof`. |
+| `discern accept` | Uses an honored marker to avoid repeating the Gate jobs and checks the current tracked-refresh plan before the fast-forward. It returns consent-qualified `data.proof_line` and records the complete structured Proof plus presentation as a Git note after landing.                                    |
 
 Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the Gate Proof forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
 
