@@ -1,10 +1,10 @@
 /**
  * `discern` — the CLI entrypoint.
  *
- * Wires the Cliffy command tree, threads the global flags (`--json`, `--markdown`,
- * `--no-color`, `--help`, `--version`) into ordinary subcommands, and maps
- * each command's exit code onto the process. Each subcommand's logic lives in
- * `src/commands/*`; this file is routing only.
+ * Wires the Cliffy command tree, threads the global result, interaction, colour,
+ * and theme flags into ordinary subcommands, and maps each command's exit code
+ * onto the process. Each subcommand's logic lives in `src/commands/*`; this file
+ * is routing only.
  */
 
 import { Command, ValidationError } from "@cliffy/command";
@@ -60,9 +60,13 @@ import {
 import { runCommandGroup } from "./shared/command_group.ts";
 import { cliJsonResultVerb } from "./shared/result_contracts.ts";
 import {
+  DEFAULT_TERMINAL_THEME_MODE,
+  isTerminalThemeMode,
   productionTerminalContext,
   setTerminalContext,
+  TERMINAL_THEME_MODES,
   type TerminalContext,
+  type TerminalThemeMode,
 } from "./lib/terminal.ts";
 import { CLI_RESULT_FORMATS } from "./shared/result_formats.ts";
 
@@ -81,7 +85,8 @@ function noColorFrom(color: boolean | undefined): boolean {
 }
 
 /**
- * Thread the one resolved terminal context to every surface that emits colour:
+ * Thread the one resolved terminal context to every surface that emits colour or
+ * makes a theme-dependent layout choice:
  *  - package-backed Logger and engine output consume the installed context;
  *  - the `@std/fmt/colors` module-global remains synchronized for legacy
  *    consumers outside the package-backed 2C surfaces;
@@ -130,18 +135,31 @@ function globalFlags(options: unknown): { json: boolean; noColor: boolean } {
   };
 }
 
+/** Validate one root theme value through the terminal boundary's vocabulary. */
+function terminalThemeValue(value: string): TerminalThemeMode {
+  if (isTerminalThemeMode(value)) return value;
+  const modes = TERMINAL_THEME_MODES.map((mode) => `\`${mode}\``).join(", ");
+  throw new ValidationError(`--theme accepts ${modes}.`);
+}
+
 /** Root-global flag spellings, shared by early routing and Cliffy registration. */
 export const ROOT_GLOBAL_FLAGS = {
   json: CLI_RESULT_FORMATS.json.flag,
   markdown: CLI_RESULT_FORMATS.markdown.flag,
   noColor: "--no-color",
   plain: "--plain",
+  theme: "--theme",
 } as const;
 
 /** Root-global flag tokens available before the live command tree is built. */
 export const ROOT_GLOBAL_FLAG_TOKENS: ReadonlySet<string> = new Set(
   Object.values(ROOT_GLOBAL_FLAGS),
 );
+
+/** Root-global flags whose following token is their required value. */
+export const ROOT_GLOBAL_VALUE_FLAG_TOKENS: ReadonlySet<string> = new Set([
+  ROOT_GLOBAL_FLAGS.theme,
+]);
 
 /** The CLI routes whose child arguments begin before Cliffy owns the tail. */
 export const CLI_CHILD_BOUNDARIES = {
@@ -172,7 +190,7 @@ function emitRootResultRefusal(argv: readonly string[]): void {
 }
 
 /**
- * The type of `buildCli`'s root command. Cliffy threads the four `globalOption`
+ * The type of `buildCli`'s root command. Cliffy threads the five `globalOption`
  * declarations into the command's generics, so the concrete type is impractical
  * to write by hand. We name it from a type-only `declare` (no runtime value is
  * emitted) whose chain mirrors the real root built in `buildCli`.
@@ -180,7 +198,11 @@ function emitRootResultRefusal(argv: readonly string[]): void {
 declare function rootShape(): ReturnType<
   ReturnType<
     ReturnType<
-      ReturnType<Command<void, void, void, []>["globalOption"]>["globalOption"]
+      ReturnType<
+        ReturnType<
+          Command<void, void, void, []>["globalOption"]
+        >["globalOption"]
+      >["globalOption"]
     >["globalOption"]
   >["globalOption"]
 >;
@@ -232,6 +254,14 @@ export function buildCli(
     .globalOption(
       ROOT_GLOBAL_FLAGS.plain,
       "Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.",
+    )
+    .globalOption(
+      `${ROOT_GLOBAL_FLAGS.theme} <theme:string>`,
+      "Set the terminal theme. `auto` senses the background; `light` and `dark` force that variant. Default: `auto`. `--no-color` and `NO_COLOR` still disable colour.",
+      {
+        default: DEFAULT_TERMINAL_THEME_MODE,
+        value: terminalThemeValue,
+      },
     )
     .error((error, command) => {
       if (
@@ -1024,6 +1054,57 @@ export interface CliInvocation {
   argsWithoutVerb: string[];
 }
 
+/** Match one exact global flag or the equals form of a value-taking flag. */
+function globalFlagToken(
+  token: string,
+  globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string>,
+): { readonly flag: string; readonly inlineValue: boolean } | undefined {
+  if (globalFlags.has(token)) return { flag: token, inlineValue: false };
+  const equals = token.indexOf("=");
+  if (equals < 1) return undefined;
+  const flag = token.slice(0, equals);
+  return valueFlags.has(flag) ? { flag, inlineValue: true } : undefined;
+}
+
+/** Skip a run of root-global options, including their required values. */
+function skipGlobalOptions(
+  argv: readonly string[],
+  start: number,
+  globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string>,
+): number {
+  let index = start;
+  while (index < argv.length) {
+    const matched = globalFlagToken(
+      argv[index] ?? "",
+      globalFlags,
+      valueFlags,
+    );
+    if (matched === undefined) break;
+    index += matched.inlineValue || !valueFlags.has(matched.flag) ? 1 : 2;
+  }
+  return Math.min(index, argv.length);
+}
+
+/** Return the last explicit value for one root-global option. */
+function globalOptionValue(
+  argv: readonly string[],
+  flag: string,
+): string | undefined {
+  let value: string | undefined;
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (token === flag) {
+      value = argv[index + 1];
+      index += 1;
+    } else if (token?.startsWith(`${flag}=`) === true) {
+      value = token.slice(flag.length + 1);
+    }
+  }
+  return value;
+}
+
 /**
  * Return only the argv owned by discern's global interaction modes. A
  * delimiter-owned child starts after that token; a named Project Script starts
@@ -1032,11 +1113,9 @@ export interface CliInvocation {
 export function discernOwnedArgv(
   argv: readonly string[],
   globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string> = ROOT_GLOBAL_VALUE_FLAG_TOKENS,
 ): string[] {
-  let verbIndex = 0;
-  while (globalFlags.has(argv[verbIndex] ?? "")) {
-    verbIndex++;
-  }
+  const verbIndex = skipGlobalOptions(argv, 0, globalFlags, valueFlags);
   const rawVerb = argv[verbIndex];
   if (rawVerb === undefined) {
     return [...argv];
@@ -1052,10 +1131,12 @@ export function discernOwnedArgv(
     const boundaryIndex = argv.indexOf(boundary.token, verbIndex + 1);
     return boundaryIndex === -1 ? [...argv] : [...argv.slice(0, boundaryIndex)];
   }
-  let childNameIndex = verbIndex + 1;
-  while (globalFlags.has(argv[childNameIndex] ?? "")) {
-    childNameIndex++;
-  }
+  const childNameIndex = skipGlobalOptions(
+    argv,
+    verbIndex + 1,
+    globalFlags,
+    valueFlags,
+  );
   return childNameIndex >= argv.length
     ? [...argv]
     : [...argv.slice(0, childNameIndex + 1)];
@@ -1070,21 +1151,15 @@ export function discernOwnedArgv(
  * dispatch — must key on this resolved verb, never on `argv[0]`, or a leading
  * flag smuggles the invocation past the router and straight into Cliffy.
  *
- * Only KNOWN global flags are skipped: an unknown leading flag stays the
- * "verb" so it falls through to Cliffy, which owns the unknown-option error.
+ * Known value-taking flags skip their following value or accept `--flag=value`.
+ * An unknown leading flag stays the "verb" so Cliffy owns the error.
  */
 export function resolveInvocation(
   argv: readonly string[],
   globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string> = ROOT_GLOBAL_VALUE_FLAG_TOKENS,
 ): CliInvocation {
-  let i = 0;
-  while (i < argv.length) {
-    const token = argv[i];
-    if (token === undefined || !globalFlags.has(token)) {
-      break;
-    }
-    i++;
-  }
+  const i = skipGlobalOptions(argv, 0, globalFlags, valueFlags);
   const verb = argv[i];
   return {
     verb,
@@ -1094,12 +1169,35 @@ export function resolveInvocation(
   };
 }
 
+/** Whether this invocation may pay the one bounded terminal-background query. */
+export function backgroundSensingRequested(
+  argv: readonly string[],
+): boolean {
+  if (quietResultRequested(argv)) return false;
+  const invocation = resolveInvocation(
+    argv,
+    ROOT_GLOBAL_FLAG_TOKENS,
+    ROOT_GLOBAL_VALUE_FLAG_TOKENS,
+  );
+  if (
+    invocation.verb !== undefined &&
+    normalizeVerbVariant(invocation.verb, KNOWN_VERBS) === "mcp"
+  ) return false;
+
+  const rawTheme = globalOptionValue(argv, ROOT_GLOBAL_FLAGS.theme);
+  const hasThemeOption = argv.some((token) =>
+    token === ROOT_GLOBAL_FLAGS.theme ||
+    token.startsWith(`${ROOT_GLOBAL_FLAGS.theme}=`)
+  );
+  return !hasThemeOption || rawTheme === DEFAULT_TERMINAL_THEME_MODE;
+}
+
 /**
  * The root command's global flag tokens, read from the Cliffy registration
  * itself so {@link resolveInvocation}'s flag-skipping can never drift from
- * what Cliffy actually accepts before a subcommand. Every global flag must be
- * a valueless boolean — a value-taking one would need lookahead here, which
- * `tests/engine_flag_first_test.ts` enforces structurally.
+ * what Cliffy actually accepts before a subcommand. Value arity comes from
+ * {@link globalValueFlagTokens}; `tests/engine_flag_first_test.ts` keeps both
+ * derived sets aligned with the early router.
  */
 export function globalFlagTokens(root: Command): ReadonlySet<string> {
   const tokens = new Set<string>();
@@ -1108,6 +1206,17 @@ export function globalFlagTokens(root: Command): ReadonlySet<string> {
       for (const flag of option.flags) {
         tokens.add(flag);
       }
+    }
+  }
+  return tokens;
+}
+
+/** Value-taking root-global flags, derived from the same Cliffy registration. */
+export function globalValueFlagTokens(root: Command): ReadonlySet<string> {
+  const tokens = new Set<string>();
+  for (const option of root.getOptions(true)) {
+    if (option.global === true && option.args.length > 0) {
+      for (const flag of option.flags) tokens.add(flag);
     }
   }
   return tokens;
@@ -1122,14 +1231,14 @@ export function globalFlagTokens(root: Command): ReadonlySet<string> {
 function splitScriptInvocation(
   argsWithoutVerb: readonly string[],
   globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string>,
 ): { name: string | undefined; args: string[] } {
-  let i = 0;
-  while (
-    i < argsWithoutVerb.length &&
-    globalFlags.has(argsWithoutVerb[i] ?? "")
-  ) {
-    i++;
-  }
+  const i = skipGlobalOptions(
+    argsWithoutVerb,
+    0,
+    globalFlags,
+    valueFlags,
+  );
   return {
     name: argsWithoutVerb[i],
     args: [...argsWithoutVerb.slice(i + 1)],
@@ -1139,11 +1248,19 @@ function splitScriptInvocation(
 /** Parse argv and dispatch. Exported for tests; called below when run directly. */
 export async function main(args: string[]): Promise<void> {
   let argv = args;
-  const discernArgv = discernOwnedArgv(argv, ROOT_GLOBAL_FLAG_TOKENS);
+  const discernArgv = discernOwnedArgv(
+    argv,
+    ROOT_GLOBAL_FLAG_TOKENS,
+    ROOT_GLOBAL_VALUE_FLAG_TOKENS,
+  );
   activeDiscernArgv = discernArgv;
   const jsonRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.json);
   const markdownRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.markdown);
   const quietResult = jsonRequested || markdownRequested;
+  const rawTheme = globalOptionValue(discernArgv, ROOT_GLOBAL_FLAGS.theme);
+  const theme = isTerminalThemeMode(rawTheme)
+    ? rawTheme
+    : DEFAULT_TERMINAL_THEME_MODE;
   if (markdownRequested) {
     // Every command already treats its `json` option as the quiet result-path
     // switch. Normalize only discern-owned tokens to that internal switch;
@@ -1185,8 +1302,10 @@ export async function main(args: string[]): Promise<void> {
     // rather than each path re-deciding and dropping the flag (B32/B36). Done
     // before helper dispatch so a helper's own output (`with-gotchas`' gotchas
     // hint) obeys it too.
-    const terminal = productionTerminalContext({
+    const terminal = await productionTerminalContext({
       noColor: discernArgv.includes(ROOT_GLOBAL_FLAGS.noColor),
+      theme,
+      backgroundSensing: backgroundSensingRequested(discernArgv),
     });
     const color = terminal.color;
     applyColorMode(terminal);
@@ -1216,7 +1335,14 @@ export async function main(args: string[]): Promise<void> {
     // `discern --json map` slip past the setup redirect that catches
     // `discern map --json`.
     const globalTokens = globalFlagTokens(cli as unknown as Command);
-    const invocation = resolveInvocation(argv, globalTokens);
+    const globalValueTokens = globalValueFlagTokens(
+      cli as unknown as Command,
+    );
+    const invocation = resolveInvocation(
+      argv,
+      globalTokens,
+      globalValueTokens,
+    );
     verb = invocation.verb;
 
     // No verb (bare `discern`, or global flags alone): pre-setup, this prints
@@ -1321,6 +1447,7 @@ export async function main(args: string[]): Promise<void> {
       const queued = parseQueueInvocation(
         invocation.argsWithoutVerb,
         globalTokens,
+        globalValueTokens,
       );
       if (queued.kind === "error") {
         Deno.exit(reportQueueUsageError(queued.message));
@@ -1361,6 +1488,7 @@ export async function main(args: string[]): Promise<void> {
       const script = splitScriptInvocation(
         invocation.argsWithoutVerb,
         globalTokens,
+        globalValueTokens,
       );
       if (script.name !== "-h" && script.name !== "--help") {
         // Pre-Cliffy dispatch still routes through the one recording point.

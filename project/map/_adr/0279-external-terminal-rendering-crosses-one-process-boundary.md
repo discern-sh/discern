@@ -1,5 +1,7 @@
 # ADR 0279: External terminal rendering crosses one Discern-owned process boundary
 
+> **Adaptive-theme amendment (2026-08-15):** The process boundary asks the published interactive package to sense a TTY background once, with a 100ms timeout. `--theme light` and `--theme dark` bypass sensing, while `--theme auto` selects the sensed variant and retains dark as the unknown fallback. Machine and non-TTY paths never probe.
+
 > **Projection amendment (2026-08-15):** Discern now consumes the immutable 0.15.0 release. Its public `./cli/projection` graph decodes package-emitted terminal styles and renders self-contained HTML for review; Discern carries no local escape parser.
 
 > **Amended 2026-08-14:** `TerminalContext` now exposes command-owned viewport observation. A frame made unsafe by shrink is never erased with guessed cursor geometry.
@@ -26,7 +28,7 @@ The package owns reusable Component rendering, generic ANSI stripping, grapheme 
 
 The package also owns projection of its emitted Select Graphic Rendition (SGR) and Operating System Command (OSC) hyperlink repertoire. Discern may select terminal transcript boundaries and normalise volatile product facts, carriage-return line endings, and platform wrapper artifacts, but it does not parse or reinterpret escape sequences. Unsupported controls fail projection visibly.
 
-[`src/lib/terminal.ts`](../../../src/lib/terminal.ts) is Discern's sole process adapter. From explicit injectable inputs it resolves the global no-color policy, effective package environment, terminal attachment, CI static-output policy, TERM and locale capabilities, an initial console-size observation with environment fallbacks, the selected package theme, and semantic role helpers. It also converts untrusted product values into visibly escaped single-line or explicitly multi-line Component props. It never alters raw child-process bytes.
+[`src/lib/terminal.ts`](../../../src/lib/terminal.ts) is Discern's sole process adapter. From explicit injectable inputs it resolves the global no-color policy, effective package environment, terminal attachment, CI static-output policy, TERM and locale capabilities, an initial console-size observation with environment fallbacks, the selected package theme, and semantic role helpers. In `auto` mode, the interactive package senses the terminal background only when both input and output are TTYs and human output is active. The 100ms query is cached for the process; an explicit `light` or `dark` value skips it, and an unknown or failed reading selects dark. `--no-color` and `NO_COLOR` disable color without changing theme selection because spacing and attributes may still depend on the variant. It also converts untrusted product values into visibly escaped single-line or explicitly multi-line Component props. It never alters raw child-process bytes.
 
 `TerminalContext.observeViewport()` binds the same injected reader to one command. The Gate controller samples it with its repaint ticker and closes both on every exit, refusal, or write fault. Failed reads retain the last size. The terminal guard rejects other process observers.
 

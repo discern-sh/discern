@@ -21,12 +21,12 @@ import {
   wrapText,
 } from "./lib/text.ts";
 import {
-  productionTerminalContext,
   type TerminalContext,
   terminalContext,
   terminalContextWithColor,
   terminalLine,
   terminalMultiline,
+  terminalProcessContext,
 } from "./lib/terminal.ts";
 
 /** Ambient inputs that callers may pin for deterministic help rendering. */
@@ -137,7 +137,7 @@ function helpPresentation(options: OperatorHelpOptions): {
   const base = options.terminal ??
     (options.env === undefined
       ? terminalContext()
-      : productionTerminalContext({ env: options.env, fallbackColumns: 150 }));
+      : terminalProcessContext({ env: options.env, fallbackColumns: 150 }));
   const width = Math.max(
     1,
     Math.floor(options.width ?? base.capabilities.columns),

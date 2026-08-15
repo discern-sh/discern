@@ -20,8 +20,8 @@ import {
   type TerminalIO,
 } from "discern-design-system/cli/interactive";
 import {
-  productionTerminalContext,
   setTerminalContext,
+  terminalProcessContext,
 } from "../../src/lib/terminal.ts";
 
 export type InteractiveTtyScenario =
@@ -517,7 +517,7 @@ async function main(args: readonly string[]): Promise<void> {
   const before = await stty(["-g"]);
   const beforeDescription = await stty(["-a"]);
   const initialSize = consoleSize();
-  setTerminalContext(productionTerminalContext({ noColor: options.noColor }));
+  setTerminalContext(terminalProcessContext({ noColor: options.noColor }));
   const eofBoundary = options.canonicalEof
     ? canonicalEofBoundary()
     : undefined;

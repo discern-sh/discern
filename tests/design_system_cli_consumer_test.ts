@@ -23,6 +23,7 @@ import {
   InlineFramePainter,
   type InteractionEntry,
   requestSelection,
+  senseTerminalBackground,
   type TerminalIO,
   type TerminalSize,
 } from "discern-design-system/cli/interactive";
@@ -191,7 +192,7 @@ Deno.test("the selected release exposes all four public consumer graphs", async 
   ] as const satisfies readonly InteractionEntry<string>[];
   const io = new ConsumerTerminal(["\x1b[B\r"]);
   assertEquals(
-    await requestSelection({ label: "Pick", choices }, { io }),
+    await requestSelection({ label: "Pick", choices, reservedRows: 2 }, { io }),
     "two",
   );
   assertEquals(io.rawTransitions, [true, false]);
@@ -258,6 +259,25 @@ Deno.test("the selected release exposes all four public consumer graphs", async 
     viewportRows: 2,
   });
   assertEquals(shortIo.writes, []);
+
+  const hintedIo = new ConsumerTerminal([], {
+    ansiControl: false,
+    colorDepth: "none",
+    columns: 60,
+    unicode: true,
+  });
+  assertEquals(
+    await senseTerminalBackground({
+      io: hintedIo,
+      environment: { COLORFGBG: "0;15" },
+      timeoutMs: 1,
+    }),
+    {
+      ground: "light",
+      evidence: { source: "environment-hint", value: "0;15" },
+    },
+  );
+  assertEquals(hintedIo.writes, []);
 });
 
 Deno.test("the selected release supplies Discern's revised static contracts", () => {

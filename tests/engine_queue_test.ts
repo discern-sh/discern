@@ -7,6 +7,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
+import { parseQueueInvocation } from "../src/engine/queue.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -24,6 +25,27 @@ import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const QUEUED_TEXT = "Tests queued";
 const UNAVAILABLE_TEXT = "The concurrent test-run cap is not enforced";
+
+Deno.test("queue routing consumes required global-option values before its delimiter", () => {
+  const globalFlags = new Set(["--plain", "--theme"]);
+  const valueFlags = new Set(["--theme"]);
+  assertEquals(
+    parseQueueInvocation(
+      ["--theme", "light", "--", "printf", "ok"],
+      globalFlags,
+      valueFlags,
+    ),
+    { kind: "run", command: "printf", args: ["ok"] },
+  );
+  assertEquals(
+    parseQueueInvocation(
+      ["--theme=dark", "--", "printf", "ok"],
+      globalFlags,
+      valueFlags,
+    ),
+    { kind: "run", command: "printf", args: ["ok"] },
+  );
+});
 
 /** Write the minimal configured cap used by queue behavior tests. */
 async function writeCapConfig(dir: string, cap: number): Promise<void> {

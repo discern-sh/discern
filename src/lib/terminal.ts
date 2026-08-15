@@ -24,10 +24,22 @@ import {
   type TerminalThemeVariant,
   terminalToneColor,
 } from "discern-design-system/cli";
+import {
+  DenoTerminalIO,
+  senseTerminalBackground,
+  type TerminalBackgroundOptions,
+  type TerminalBackgroundReading,
+} from "discern-design-system/cli/interactive";
 import type { EnvReader } from "../shared/env.ts";
 
 const DEFAULT_TERMINAL_COLUMNS = 80;
 const DEFAULT_TERMINAL_ROWS = 24;
+/** Maximum startup delay when an interactive terminal does not answer OSC 11. */
+export const TERMINAL_BACKGROUND_TIMEOUT_MS = 100;
+/** Root-level terminal theme modes, ordered with the default first. */
+export const TERMINAL_THEME_MODES = ["auto", "light", "dark"] as const;
+export type TerminalThemeMode = typeof TERMINAL_THEME_MODES[number];
+export const DEFAULT_TERMINAL_THEME_MODE: TerminalThemeMode = "auto";
 const CAPABILITY_ENVIRONMENT_KEYS = [
   "TERM",
   "COLORTERM",
@@ -39,6 +51,7 @@ const DIMENSION_ENVIRONMENT_KEYS = ["COLUMNS", "LINES"] as const;
 const TERMINAL_ENVIRONMENT_KEYS = [
   ...CAPABILITY_ENVIRONMENT_KEYS,
   ...DIMENSION_ENVIRONMENT_KEYS,
+  "COLORFGBG",
   "NO_COLOR",
   "CI",
 ] as const;
@@ -79,8 +92,8 @@ export interface TerminalProcessInput {
   readonly theme?: TerminalThemeVariant;
 }
 
-/** Optional overrides accepted by the stable production constructor. */
-export interface ProductionTerminalOptions {
+/** Optional overrides accepted by a synchronous process snapshot. */
+export interface TerminalProcessOptions {
   readonly noColor?: boolean;
   readonly env?: EnvReader;
   readonly isTerminal?: () => boolean;
@@ -89,6 +102,28 @@ export interface ProductionTerminalOptions {
   readonly fallbackRows?: number;
   readonly theme?: TerminalThemeVariant;
 }
+
+/** Optional overrides accepted by the adaptive production constructor. */
+export interface ProductionTerminalOptions {
+  readonly noColor?: boolean;
+  readonly env?: EnvReader;
+  readonly isTerminal?: () => boolean;
+  readonly inputIsTerminal?: () => boolean;
+  readonly consoleSize?: () => TerminalSize;
+  readonly fallbackColumns?: number;
+  readonly fallbackRows?: number;
+  /** `auto` senses the terminal ground; explicit variants skip sensing. */
+  readonly theme?: TerminalThemeMode;
+  /** False for result projections and other modes that render no theme. */
+  readonly backgroundSensing?: boolean;
+  /** Injectable terminal effects boundary for deterministic sensor tests. */
+  readonly backgroundIo?: TerminalBackgroundOptions["io"];
+}
+
+/** Injectable package background sensor used by a process-cached resolver. */
+export type TerminalBackgroundSensor = (
+  options: TerminalBackgroundOptions,
+) => Promise<TerminalBackgroundReading>;
 
 /** Injectable boundaries retained by the terminal-size compatibility facade. */
 export interface TerminalSizeOptions {
@@ -313,10 +348,18 @@ function contextFromFacts(
   };
 }
 
-/** Resolve one immutable context from explicit, injectable process inputs. */
-export function resolveTerminalContext(
-  input: TerminalProcessInput,
-): TerminalContext {
+interface ResolvedTerminalFacts {
+  readonly capabilities: TerminalCapabilities;
+  readonly consoleSize: () => TerminalSize;
+  readonly environment: Readonly<Record<string, string | undefined>>;
+  readonly size: TerminalSize;
+  readonly stdoutIsTerminal: boolean;
+}
+
+/** Resolve process facts once so asynchronous theme selection never re-reads them. */
+function resolveTerminalFacts(
+  input: Omit<TerminalProcessInput, "theme">,
+): ResolvedTerminalFacts {
   const environment = environmentSnapshot(input.env);
   if (input.noColor) environment.NO_COLOR = "1";
   const stdoutIsTerminal = input.isTerminal();
@@ -326,24 +369,55 @@ export function resolveTerminalContext(
     input.fallbackColumns ?? DEFAULT_TERMINAL_COLUMNS,
     input.fallbackRows ?? DEFAULT_TERMINAL_ROWS,
   );
-  const capabilities = detectTerminalCapabilities({
-    env: environment,
-    isTty: stdoutIsTerminal,
-    columns: size.columns,
-  });
-  return contextFromFacts(
-    capabilities,
-    size,
+  return {
+    capabilities: detectTerminalCapabilities({
+      env: environment,
+      isTty: stdoutIsTerminal,
+      columns: size.columns,
+    }),
+    consoleSize: input.consoleSize,
     environment,
-    input.theme ?? "dark",
+    size,
     stdoutIsTerminal,
-    () => viewportObservation(size, input.consoleSize),
+  };
+}
+
+/** Bind one theme variant to an already-resolved process snapshot. */
+function contextFromResolvedFacts(
+  facts: ResolvedTerminalFacts,
+  theme: TerminalThemeVariant,
+): TerminalContext {
+  return contextFromFacts(
+    facts.capabilities,
+    facts.size,
+    facts.environment,
+    theme,
+    facts.stdoutIsTerminal,
+    () => viewportObservation(facts.size, facts.consoleSize),
   );
 }
 
-/** Construct the production context, with every process effect still injectable. */
-export function productionTerminalContext(
-  options: ProductionTerminalOptions = {},
+/** Whether an untrusted flag value names one supported terminal theme mode. */
+export function isTerminalThemeMode(
+  value: unknown,
+): value is TerminalThemeMode {
+  return typeof value === "string" &&
+    (TERMINAL_THEME_MODES as readonly string[]).includes(value);
+}
+
+/** Resolve one immutable context from explicit, injectable process inputs. */
+export function resolveTerminalContext(
+  input: TerminalProcessInput,
+): TerminalContext {
+  return contextFromResolvedFacts(
+    resolveTerminalFacts(input),
+    input.theme ?? "dark",
+  );
+}
+
+/** Snapshot the process without background sensing for synchronous fallbacks. */
+export function terminalProcessContext(
+  options: TerminalProcessOptions = {},
 ): TerminalContext {
   return resolveTerminalContext({
     noColor: options.noColor ?? false,
@@ -360,6 +434,72 @@ export function productionTerminalContext(
   });
 }
 
+/** Call the package-owned sensor at Discern's sole process boundary. */
+async function packageBackgroundSensor(
+  options: TerminalBackgroundOptions,
+): Promise<TerminalBackgroundReading> {
+  return await senseTerminalBackground(options);
+}
+
+/** Convert a sensed ground into Discern's fallback-stable theme policy. */
+function themeFromBackground(
+  reading: TerminalBackgroundReading,
+): TerminalThemeVariant {
+  return reading.ground === "light" ? "light" : "dark";
+}
+
+/**
+ * Build an adaptive constructor whose first eligible sensing verdict is reused
+ * for the process. Explicit variants and non-rendering/non-TTY modes never fill
+ * the cache, so they also never invoke the sensor.
+ */
+export function createProductionTerminalContextResolver(
+  sensor: TerminalBackgroundSensor,
+): (options?: ProductionTerminalOptions) => Promise<TerminalContext> {
+  let sensedTheme: Promise<TerminalThemeVariant> | undefined;
+  return async (
+    options: ProductionTerminalOptions = {},
+  ): Promise<TerminalContext> => {
+    const facts = resolveTerminalFacts({
+      noColor: options.noColor ?? false,
+      env: options.env ?? Deno.env,
+      isTerminal: options.isTerminal ?? (() => Deno.stdout.isTerminal()),
+      consoleSize: options.consoleSize ?? (() => Deno.consoleSize()),
+      ...(options.fallbackColumns === undefined
+        ? {}
+        : { fallbackColumns: options.fallbackColumns }),
+      ...(options.fallbackRows === undefined
+        ? {}
+        : { fallbackRows: options.fallbackRows }),
+    });
+    const mode = options.theme ?? DEFAULT_TERMINAL_THEME_MODE;
+    if (mode !== "auto") return contextFromResolvedFacts(facts, mode);
+
+    const maySense = options.backgroundSensing !== false &&
+      facts.stdoutIsTerminal &&
+      (options.inputIsTerminal ?? (() => Deno.stdin.isTerminal()))();
+    if (!maySense) return contextFromResolvedFacts(facts, "dark");
+
+    sensedTheme ??= sensor({
+      io: options.backgroundIo ??
+        new DenoTerminalIO({ environment: facts.environment }),
+      environment: facts.environment,
+      timeoutMs: TERMINAL_BACKGROUND_TIMEOUT_MS,
+    }).then(themeFromBackground, () => "dark");
+    return contextFromResolvedFacts(facts, await sensedTheme);
+  };
+}
+
+const resolveProductionTerminalContext =
+  createProductionTerminalContextResolver(packageBackgroundSensor);
+
+/** Construct the cached adaptive context used by the CLI process. */
+export async function productionTerminalContext(
+  options: ProductionTerminalOptions = {},
+): Promise<TerminalContext> {
+  return await resolveProductionTerminalContext(options);
+}
+
 let activeTerminalContext: TerminalContext | undefined;
 
 /** Set or clear the single process context resolved by the CLI entry point. */
@@ -371,7 +511,7 @@ export function setTerminalContext(
 
 /** Return the process context, constructing a stable fallback for direct calls. */
 export function terminalContext(): TerminalContext {
-  return activeTerminalContext ?? productionTerminalContext();
+  return activeTerminalContext ?? terminalProcessContext();
 }
 
 /**
