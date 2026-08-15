@@ -46,23 +46,37 @@ function loggerOptionSpans(source: string): string[] {
   return spans;
 }
 
+/** The zero-argument resolvers that read the real process environment. */
+const AMBIENT_RESOLVERS = [
+  "terminalContext()",
+  "productionTerminalContext()",
+];
+
+// This guard names the banned calls as data, so it skips its own source.
+const SELF = "tests/logger_ambient_guard_test.ts";
+
 Deno.test("human-mode test Loggers pin their terminal context", async () => {
   const offenders: string[] = [];
   for (const file of AUTHORED_TS_FILES) {
-    if (!file.startsWith("tests/")) {
+    if (!file.startsWith("tests/") || file === SELF) {
       continue;
     }
     const source = await Deno.readTextFile(join(REPO_ROOT, file));
     for (const span of loggerOptionSpans(source)) {
       if (span.includes("json: false") && !span.includes("terminal")) {
-        offenders.push(file);
+        offenders.push(`${file}: ambient new Logger({ json: false … })`);
+      }
+    }
+    for (const resolver of AMBIENT_RESOLVERS) {
+      if (source.includes(resolver)) {
+        offenders.push(`${file}: ${resolver}`);
       }
     }
   }
   assertEquals(
     offenders,
     [],
-    "these tests build a human-mode Logger from the ambient environment; " +
+    "these tests resolve terminal capability from the ambient environment; " +
       "pass `terminal: pinnedTerminal()` (tests/helpers.ts) — or another " +
       "injected context — so the asserted decoration cannot float with " +
       "the shell's locale",
