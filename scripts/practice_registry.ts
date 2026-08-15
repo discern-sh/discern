@@ -622,8 +622,8 @@ export function renderPracticePublicDoc(): string {
   const lines: string[] = [
     "---",
     "title: The practice",
-    "description: The tenets discern holds for every change.",
-    "order: 15",
+    "description: The tenets discern holds for every change, numbered and citable.",
+    "order: 40",
     "aliases:",
     "  - the practice",
     "  - practice",
