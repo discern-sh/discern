@@ -9,7 +9,11 @@ import {
 } from "../src/shared/result_markdown.ts";
 import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
 import { projectStatusResult } from "../src/shared/result_wire.ts";
-import { StatusOutputSchema } from "../src/shared/result_schemas.ts";
+import {
+  ACCEPT_LANDING_STATE_FIELDS,
+  AcceptDataSchema,
+  StatusOutputSchema,
+} from "../src/shared/result_schemas.ts";
 import {
   confirmedBeginCommand,
   confirmedBeginCommandReference,
@@ -460,6 +464,52 @@ Deno.test("no recorded grant keeps the boundary to the conversation sentence", (
   );
   assert(!rendered.includes("src/a.ts"), rendered);
   assert(!rendered.includes("also touches"), rendered);
+});
+
+Deno.test("accept renders the landing state from its canonical fields", () => {
+  const data = {
+    root: "/workspace/project",
+    consent: { source: "conversation" },
+    scopes_changed: ["code"],
+    landing: {
+      recovery_performed: false,
+      trunk_landed: true,
+      worktree_removed: true,
+      branch_deleted: true,
+    },
+  };
+  AcceptDataSchema.parse(data);
+  const rendered = renderResultMarkdown(
+    { ok: true, verb: "accept", data },
+    resultPresenterForVerb("accept"),
+  );
+  assertStringIncludes(
+    rendered,
+    "Trunk landed: yes; worktree removed: yes; branch deleted: yes.",
+  );
+  assertStringIncludes(rendered, "Landing used `conversation` consent.");
+});
+
+Deno.test("the accept presenter reads only canonical landing-state fields", async () => {
+  const source = await Deno.readTextFile("src/shared/result_markdown.ts");
+  const start = source.indexOf("const presentAccept: ResultMarkdownPresenter");
+  assert(start !== -1, "presentAccept is no longer defined under that name");
+  const end = source.indexOf("\nconst present", start);
+  const body = end === -1 ? source.slice(start) : source.slice(start, end);
+  // Scoped to presentAccept: other presenters bind `landing` to different
+  // shapes (setup completion's landing), each with its own canon.
+  const reads = [...body.matchAll(/\blanding\??\.([a-z_]+)/g)].map((match) =>
+    match[1] ?? ""
+  );
+  assert(reads.length > 0, "presentAccept stopped reading landing fields");
+  for (const field of reads) {
+    assert(
+      ACCEPT_LANDING_STATE_FIELDS.includes(field),
+      `presentAccept reads landing.${field}; the canonical fields are ${
+        ACCEPT_LANDING_STATE_FIELDS.join(", ")
+      }`,
+    );
+  }
 });
 
 Deno.test("every presenter renders clean prose for empty and failed envelopes", () => {
