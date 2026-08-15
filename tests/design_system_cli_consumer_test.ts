@@ -26,6 +26,7 @@ import {
   type TerminalIO,
   type TerminalSize,
 } from "discern-design-system/cli/interactive";
+import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SELECTED_VERSION = "0.15.0";
@@ -143,7 +144,7 @@ function resolvedEdge(info: DenoInfo, specifier: string): string {
   return info.redirects?.[specifier] ?? specifier;
 }
 
-Deno.test("the selected release exposes all three public consumer graphs", async () => {
+Deno.test("the selected release exposes all four public consumer graphs", async () => {
   const config = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.json")),
   ) as DenoConfig;
@@ -166,6 +167,10 @@ Deno.test("the selected release exposes all three public consumer graphs", async
   assertEquals(
     renderBadgeCli({ label: "Published", tone: "success" }, capabilities),
     "[Published]",
+  );
+  assertStringIncludes(
+    projectTerminalHtml("\x1b[1mPublished\x1b[0m"),
+    "font-weight:700",
   );
 
   const persona = "Terminal contract audit with complete identity";
@@ -429,7 +434,8 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
       .filter((dependency) =>
         dependency.specifier === "discern-design-system" ||
         dependency.specifier === "discern-design-system/cli" ||
-        dependency.specifier === "discern-design-system/cli/interactive"
+        dependency.specifier === "discern-design-system/cli/interactive" ||
+        dependency.specifier === "discern-design-system/cli/projection"
       )
       .flatMap((dependency) =>
         dependency.code === undefined ? [] : [
@@ -444,6 +450,7 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
     "discern-design-system",
     "discern-design-system/cli",
     "discern-design-system/cli/interactive",
+    "discern-design-system/cli/projection",
   ]);
   const allowedOrigin =
     `https://jsr.io/@discern-sh/design-system/${SELECTED_VERSION}/`;

@@ -1,5 +1,7 @@
 # ADR 0279: External terminal rendering crosses one Discern-owned process boundary
 
+> **Projection amendment (2026-08-15):** Discern now consumes the immutable 0.15.0 release. Its public `./cli/projection` graph decodes package-emitted terminal styles and renders self-contained HTML for review; Discern carries no local escape parser.
+
 > **Amended 2026-08-14:** `TerminalContext` now exposes command-owned viewport observation. A frame made unsafe by shrink is never erased with guessed cursor geometry.
 
 > **Presenter-contract amendment (2026-08-15):** Discern now consumes the immutable 0.15.0 release. One bound presenter carries capabilities, theme, and default width from the process boundary to every package renderer. The package's narration verbs own the line markers and semantic tones. Per-call widths remain explicit props, and Discern retains stream routing and boundary accounting.
@@ -10,7 +12,7 @@
 
 ## Context
 
-The independent design-system package now exposes a pure `./cli` graph and an effectful `./cli/interactive` graph. Pure renderers accept explicit terminal capabilities and return strings. Interactive primitives put raw terminal effects behind an injectable input/output interface. Neither graph knows Discern's process, repository, product vocabulary, stream ownership, or result contracts.
+The independent design-system package now exposes a pure `./cli` graph, an effectful `./cli/interactive` graph, and a pure `./cli/projection` graph. Pure renderers accept explicit terminal capabilities and return strings. Interactive primitives put raw terminal effects behind an injectable input/output interface. Projection decodes the package's emitted style repertoire into typed spans and self-contained HTML. None of these graphs knows Discern's process, repository, product vocabulary, stream ownership, or result contracts.
 
 Discern has the inverse responsibilities. It knows the global `--no-color` flag, terminal attachment, TERM and locale facts, dimensions, product semantics, and whether a fact came from a branch, path, subprocess, Proof, project label, or user. Some of those values are untrusted terminal data. Machine JSON and Model Context Protocol output must stay byte-stable, while raw child output remains a separate byte contract.
 
@@ -18,9 +20,11 @@ Consuming a sibling checkout would make an unpublished tree look like package ev
 
 ## Decision
 
-Discern consumes the exact published `@discern-sh/design-system@0.15.0` release through its configured alias. Consumer tests exercise the root, `./cli`, and `./cli/interactive` exports and inspect Deno's resolved graph. They require the configured pin, lock entry, and every module in each public closure to name the same immutable JSR origin and version; the CLI-only graph may contain neither a React runtime nor a package checkout filesystem path. A local path, workspace override, source import, mixed-version graph, cache substitution, or unpublished tag is never predecessor evidence.
+Discern consumes the exact published `@discern-sh/design-system@0.15.0` release through its configured alias. Consumer tests exercise the root, `./cli`, `./cli/interactive`, and `./cli/projection` exports and inspect Deno's resolved graph. They require the configured pin, lock entry, and every module in each public closure to name the same immutable JSR origin and version; the CLI-only graphs may contain neither a React runtime nor a package checkout filesystem path. A local path, workspace override, source import, mixed-version graph, cache substitution, or unpublished tag is never predecessor evidence.
 
 The package owns reusable Component rendering, generic ANSI stripping, grapheme measurement, truncation, padding and wrapping, terminal themes and semantic Token roles, and reusable interaction machinery. A generic gap is fixed and released upstream rather than copied into Discern.
+
+The package also owns projection of its emitted Select Graphic Rendition (SGR) and Operating System Command (OSC) hyperlink repertoire. Discern may select terminal transcript boundaries and normalise volatile product facts, carriage-return line endings, and platform wrapper artifacts, but it does not parse or reinterpret escape sequences. Unsupported controls fail projection visibly.
 
 [`src/lib/terminal.ts`](../../../src/lib/terminal.ts) is Discern's sole process adapter. From explicit injectable inputs it resolves the global no-color policy, effective package environment, terminal attachment, CI static-output policy, TERM and locale capabilities, an initial console-size observation with environment fallbacks, the selected package theme, and semantic role helpers. It also converts untrusted product values into visibly escaped single-line or explicitly multi-line Component props. It never alters raw child-process bytes.
 
@@ -48,6 +52,7 @@ A Git-derived permanent outlaw scans every authored Deno source for language-agn
 - Unsafe shrink and write failure are one-way latches: no guessed cleanup or later presentation attempt can change the Gate result.
 - The staged compatibility palette has reached zero and is permanently illegal. Product conveniences remain only where their policy is not generic package behavior.
 - Result schemas, action legality, output routes, raw child bytes, and machine projections remain Discern contracts even when their human presentation uses package Components.
+- Review artifacts preserve the package's terminal styles through its published typed-span and HTML projection instead of a Discern-owned decoder.
 
 ## Alternatives considered
 
