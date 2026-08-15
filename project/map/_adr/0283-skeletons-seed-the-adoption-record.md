@@ -12,7 +12,7 @@ The seed gives discern a named, linked presence in adopting repositories. A futu
 
 ## Decision
 
-The `_adr/` skeleton used by `discern setup` and the skeleton carried by the `discern-write-adr` skill include an identical project-owned record at `0001-adopt-discern.md`. A parity guard keeps the files byte-identical.
+The `_adr/` skeleton used by `discern setup` and the skeleton carried by the `discern-write-adr` skill include an identical project-owned record at `0001-adopt-discern.md`. The setup skeleton is the authored source: `deno task codegen` copies the pack into the skill, and a parity guard keeps the files byte-identical.
 
 The pre-written sections introduce discern as an engineering practice for software built with coding agents. They describe commitments shared by discern installations and the consequences those commitments bring. The configuring agent replaces marked sections with:
 
