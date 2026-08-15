@@ -288,20 +288,23 @@ Open **`{{guidance_path}}`** (the configured `[guidance].sources` seed). This fi
 ## Step 6 — Seed the map's orientation pages
 
 ```toml
-intent = "Seed the map's three orientation pages from what you learned, using one consistent set of canonical nouns."
+intent = "Seed the map's three orientation pages from what you learned, using one consistent set of canonical nouns, and complete the seeded first decision record."
 files_to_read = [
   "{{map_dir}}00-orientation/concepts.md",
   "{{map_dir}}00-orientation/glossary.md",
   "{{map_dir}}00-orientation/system-map.md",
+  "{{map_dir}}_adr/0001-adopt-discern.md",
 ]
 must_do = [
   "Fill concepts (the narrative tour), glossary (each canonical noun defined once), and system-map (an ASCII diagram).",
+  "Complete the seeded first ADR: real context, what the gate actually runs, honest project-specific consequences.",
   "Clear the stale \"starts as a skeleton\" notes once each page is real.",
 ]
 what_not_to_do = [
   "Do not introduce synonyms for the canonical nouns — use the same capitalised terms everywhere.",
+  "Do not leave the first ADR generic — a record that could describe any project records nothing about this one.",
 ]
-completion_check = "concepts, glossary, and system-map are seeded, and their skeleton notes are cleared."
+completion_check = "concepts, glossary, system-map, and the first ADR are real, and the skeleton notes are cleared."
 next_action = "Once the orientation pages read true, pull the next page: `discern setup step 7`."
 ```
 
@@ -312,6 +315,14 @@ Fill the three orientation skeletons from what you learned in Step 1, removing t
 - **`{{map_dir}}00-orientation/system-map.md`** — an **ASCII** diagram of the real components and the flow between them, plus the "where each piece runs" notes.
 
 Use the same capitalised canonical nouns across all three (and everywhere else). Don't introduce synonyms.
+
+Next, complete **`{{map_dir}}_adr/0001-adopt-discern.md`** — the seeded first Architecture Decision Record, which documents the adoption of discern itself. The shape is pre-written; you supply the substance from what you already know, replacing its `<!-- setup fills this -->` markers:
+
+- **Context** — from Step 1: how quality was held here before, and what made enforced practice worth adopting now. Specific to this project, never generic.
+- **What the gate runs** — from Step 2: name the jobs you actually wired, so the record states concretely what "done" verifies.
+- **Consequences** — the honest generic ones are pre-written; add one to three that are true of this project specifically, costs included.
+
+Complete it with the care the position deserves: it is the record future sessions read to understand why the practice is here, and the exemplar every later ADR in this project will be patterned on. Keep the seeded sentence noting the record's own provenance — that is part of the history it preserves.
 
 Then clear the stale "starts as a skeleton" notes so the filled tree doesn't still announce itself as empty: the blockquote at the top of **`{{map_dir}}00-orientation/README.md`** and the one-line skeleton blockquote atop each page you just filled. Once a page is real, a note telling the reader it is empty is worse than no note.
 
@@ -458,6 +469,7 @@ These are stop-conditions to **verify for yourself before you finish** — not a
 - `{{guidance_path}}` has a real pitch and Conventions section.
 - If `begin` imported existing instructions, they are folded into `{{guidance_path}}` and **reconciled** — no leftover rule contradicts discern's standing disciplines (e.g. no surviving "don't use worktrees").
 - The orientation pages (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
+- The seeded first ADR (`0001-adopt-discern.md`) is completed — real context, the gate's actual contents, honest consequences — with its provenance sentence kept and no markers left.
 - No stale "starts as a skeleton / run `discern setup`" notes remain — the `{{map_dir}}README.md` and `{{map_dir}}00-orientation/README.md` intros describe the filled tree, not an empty one.
 - `discern.toml` job fills are **recommended, narrated, and committed** for every detected stack you were confident in — each its own revertible commit — with any genuine fork left for the user to decide and recorded in `{{todo_path}}`; and `discern done` is **green** with whatever was activated.
 - The project **runs in a worktree** — you wired `[worktree]` for whatever a fresh copy needs (env files, dependencies, resources), and a probe worktree's `discern done` is green — or the unresolved gap is recorded in `{{todo_path}}` (Step 8).

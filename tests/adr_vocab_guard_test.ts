@@ -41,8 +41,9 @@ const ADRS = join(REPO_AUTHORED_PATHS.map, "_adr");
 
 /** A numbered citation of an internal decision: "ADR 0034", "adr-12", "ADR0101". */
 const ADR_CITATION = /\bADR[\s-]?\d+/gi;
-/** A numbered ADR file path; the shipped skeleton's 0000-template is the one legal number. */
-const ADR_PATH = /_adr\/(?!0000-template)\d/gi;
+/** A numbered ADR file path; the two records the skeletons themselves ship
+ * (0000-template, the seeded 0001-adopt-discern) are the only legal numbers. */
+const ADR_PATH = /_adr\/(?!0000-template|0001-adopt-discern)\d/gi;
 /** Callable/config/artifact pointers that are legal only in reviewed history. */
 const RETIRED_ADR_POINTER =
   /\b(?:discern|agent)[\s_](?:finish|graduate|integrate|scopes|improve|ratchets)\b|\[(?:ratchets|docs)(?:\.|\])|\$\{docs\.|\bsetup\s+land\b|discern-gate-pass|(?<!DISCERN_)\bMAIN_BRANCH\b|# --- \/?discern harness ---|\b[Qq]uality\s+[Rr]atchet\b|\b[Rr]atchet\s+feature\b|\b[Tt]he\s+harness\b|\b[Hh]arness's\b/g;
@@ -220,6 +221,12 @@ Deno.test("adr guard: the seeded record may cite its own number, nothing else, n
     shippedOffendersIn("templates/guidance/base.md", "see ADR 0001"),
     ["ADR 0001"],
   );
+  // The seeded record's path is referenceable anywhere; other numbers stay leaks.
+  assertEquals(
+    citationsIn("complete docs/_adr/0001-adopt-discern.md first"),
+    [],
+  );
+  assertEquals(citationsIn("see docs/_adr/0002-example.md"), ["_adr/0"]);
 });
 
 Deno.test("adr guard: template interpolation and regex hazards don't desync the lexer", () => {

@@ -16,7 +16,7 @@ The project's ADRs live in the configured documentation tree, at `{{map_dir}}_ad
 
 ## 0. Ensure the ADR home exists
 
-ADRs live in `{{map_dir}}_adr/`. If that directory doesn't exist yet — a project that hasn't run `discern setup` — create it from this skill's skeleton before writing: copy this skill's own `skeleton/docs/_adr/` directory (the canonical `README.md` format guide and `0000-template.md`) to `{{map_dir}}_adr/`. If it already exists, skip this.
+ADRs live in `{{map_dir}}_adr/`. If that directory doesn't exist yet — a project that hasn't run `discern setup` — create it from this skill's skeleton before writing: copy this skill's own `skeleton/docs/_adr/` directory (the canonical `README.md` format guide, `0000-template.md`, and the seeded first record `0001-adopt-discern.md`) to `{{map_dir}}_adr/`. Then complete the seeded record before the one you came to write: it documents the adoption of discern itself, and its `setup fills this` markers ask for this project's real context, what the gate actually runs, and honest project-specific consequences. Keep the sentence noting the record's own provenance — it is part of the history the record preserves. If the directory already exists, skip all of this.
 
 ---
 
@@ -36,7 +36,7 @@ When in doubt, ask the user the three questions above rather than guessing.
 
 ## 2. Pick the next number
 
-List `{{map_dir}}_adr/`, find the highest existing `NNNN-…` number, and add one (zero-padded, four digits). Numbers are continuous and never reused; `0000-template.md` is the template, so the first real ADR is `0001`. Choose a short kebab-case slug that names the **decision**, not the problem — e.g. `0007-event-sourced-write-model.md`.
+List `{{map_dir}}_adr/`, find the highest existing `NNNN-…` number, and add one (zero-padded, four digits). Numbers are continuous and never reused; `0000-template.md` is only the template, and `0001` is usually the seeded record of adopting the practice. Choose a short kebab-case slug that names the **decision**, not the problem — e.g. `0007-event-sourced-write-model.md`.
 
 Your tree shows only landed records, so another in-flight branch may have claimed the same next number. `discern status` warns when that happens, and the gate refuses a duplicated number once both records reach one tree — whoever lands second moves to the next free number, so don't fight for a specific one.
 
