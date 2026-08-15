@@ -24,6 +24,15 @@ const LIVE_VIEWPORT_CONTROLLER = "src/engine/gate/gate_tty.ts";
 const CLI_MODULE = "discern-design-system/cli";
 const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
 
+/**
+ * The web build owns a separate site-theme model, not terminal presentation.
+ * Every other authored runtime tree is enrolled so a future script or source
+ * root cannot reconstruct the CLI presenter's bound facts.
+ */
+function terminalPlumbingLawApplies(rel: string): boolean {
+  return !rel.startsWith("site/");
+}
+
 /** Every migrated supervisory presentation tree, enrolled from authored source. */
 function consumesExplicitPresentationFacts(
   rel: string,
@@ -645,6 +654,38 @@ function unwrappedExpression(node: Deno.lint.Node): Deno.lint.Node {
   return node;
 }
 
+/**
+ * True when an expression is, or was bound from, terminal capabilities. Package
+ * rendering outside `terminal.ts` must use the bound presenter; spreading this
+ * object reconstructs the old per-call plumbing even when a local alias hides
+ * the literal word `capabilities`.
+ */
+function terminalCapabilityExpression(
+  candidate: Deno.lint.Node,
+  bindings: ReadonlySet<string>,
+): boolean {
+  const node = unwrappedExpression(candidate);
+  if (node.type === "Identifier") {
+    return bindings.has(node.name) || /capabilit/iu.test(node.name);
+  }
+  if (node.type === "MemberExpression") {
+    return propertyName(node.property) === "capabilities" ||
+      terminalCapabilityExpression(node.object, bindings);
+  }
+  if (node.type === "ConditionalExpression") {
+    return terminalCapabilityExpression(node.consequent, bindings) ||
+      terminalCapabilityExpression(node.alternate, bindings);
+  }
+  if (node.type === "LogicalExpression") {
+    return terminalCapabilityExpression(node.left, bindings) ||
+      terminalCapabilityExpression(node.right, bindings);
+  }
+  if (node.type === "CallExpression") {
+    return terminalCapabilityExpression(node.callee, bindings);
+  }
+  return false;
+}
+
 /** True only when static syntax proves a product-text expression can carry data. */
 function staticallyUnsafeProductText(
   candidate: Deno.lint.Node,
@@ -916,6 +957,14 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
   const renderers = new Map<string, string>();
   const sanitizers = new Set<string>();
   const multilineSanitizers = new Set<string>();
+  const capabilityBindings = new Set<string>([
+    "capabilities",
+    ...[
+      ...codeOnly(source).matchAll(
+        /\b([A-Za-z_$][\w$]*)\s*:\s*(?:Readonly\s*<\s*)?TerminalCapabilities\b/gu,
+      ),
+    ].flatMap((match) => match[1] ?? []),
+  ]);
   if (rel === "src/engine/gate/presentation.ts") {
     sanitizers.add("safeLine");
     sanitizers.add("safeMultiline");
@@ -1008,6 +1057,23 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
               ) add("dynamic-cli-package-import", node);
             },
             VariableDeclarator(node): void {
+              if (node.id.type === "ObjectPattern") {
+                for (const property of node.id.properties) {
+                  if (
+                    property.type === "Property" &&
+                    propertyName(property.key) === "capabilities" &&
+                    property.value.type === "Identifier"
+                  ) {
+                    capabilityBindings.add(property.value.name);
+                  }
+                }
+              }
+              if (
+                node.id.type === "Identifier" && node.init !== null &&
+                terminalCapabilityExpression(node.init, capabilityBindings)
+              ) {
+                capabilityBindings.add(node.id.name);
+              }
               if (
                 node.id.type === "Identifier" &&
                 node.init?.type === "Identifier" &&
@@ -1017,6 +1083,35 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   node.id.name,
                   renderers.get(node.init.name) ?? node.init.name,
                 );
+              }
+            },
+            AssignmentExpression(node): void {
+              if (
+                node.left.type === "Identifier" &&
+                terminalCapabilityExpression(node.right, capabilityBindings)
+              ) {
+                capabilityBindings.add(node.left.name);
+              }
+            },
+            SpreadElement(node): void {
+              if (
+                rel !== TERMINAL_AUTHORITY &&
+                terminalPlumbingLawApplies(rel) &&
+                terminalCapabilityExpression(
+                  node.argument,
+                  capabilityBindings,
+                )
+              ) {
+                add("capability-respread", node);
+              }
+            },
+            Property(node): void {
+              if (
+                rel !== TERMINAL_AUTHORITY &&
+                terminalPlumbingLawApplies(rel) &&
+                propertyName(node.key) === "theme"
+              ) {
+                add("direct-theme-threading", node);
               }
             },
             Literal(node): void {
@@ -1375,6 +1470,14 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
     reason: "The product interaction choke point alone applies the CI veto.",
   },
   {
+    file: INTERACTION_AUTHORITY,
+    rule: "direct-theme-threading",
+    authority: "packageInteractionRuntime",
+    count: 1,
+    reason:
+      "The effectful package request graph accepts a theme but cannot use the pure CLI presenter.",
+  },
+  {
     file: "src/engine/owned_child.ts",
     rule: "process-stream-terminal-probe",
     authority: "runOwnedChild",
@@ -1692,6 +1795,32 @@ Deno.test("terminal boundary detectors reject unrelated future source", () => {
     [],
     "a reservation derived from the caller's own composition stays legal",
   );
+  assertEquals(
+    structuralTerminalFindings(
+      "scripts/future.ts",
+      [
+        "const local = terminal.capabilities;",
+        "const rebuilt = { ...local, columns: 72 };",
+        "const { capabilities: hidden } = terminal;",
+        "const rebuiltAgain = { ...hidden, columns: 80 };",
+        'const props = { theme: "dark" };',
+      ].join("\n"),
+    ).map((finding) => finding.rule),
+    [
+      "capability-respread",
+      "capability-respread",
+      "direct-theme-threading",
+    ],
+    "a future authored runtime tree auto-enrols in presenter plumbing law",
+  );
+  assertEquals(
+    structuralTerminalFindings(
+      "site/build.ts",
+      "const page = { theme: selection.theme };",
+    ),
+    [],
+    "the independent web theme is outside the terminal-presenter class",
+  );
 });
 
 Deno.test("explicit presentation-fact detector rejects an unrelated future view", () => {
@@ -1903,6 +2032,8 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     "future({ rows: safe(model.rows) }, {});",
     "future({ body: row.body, explanation: row.explanation, checks: [{ stateLabel: row.stateLabel }], subtitle: row.subtitle, details: row.details }, {});",
     "draw({ fact: safe(row.path) }, {});",
+    "const boundFacts = terminal.capabilities;",
+    "draw({ fact: safe(row.path), theme: terminal.themeVariant }, { ...boundFacts, columns: 44 });",
   ].join("\n");
   const rules = [
     ...cliffyImportFindings("src/engine/orbit/view.ts", source),
@@ -1939,6 +2070,8 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "unsafe-component-text:subtitle",
       "unsafe-component-text:details",
       "unsafe-terminal-safe-multiline-error",
+      "capability-respread",
+      "direct-theme-threading",
     ]
   ) assert(rules.includes(expected), `missing synthetic ${expected}`);
   assertEquals(
@@ -1969,6 +2102,16 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       .length,
     1,
     "the Logger-specific unsafe call fails while an unrelated method does not",
+  );
+  assertEquals(
+    rules.filter((rule) => rule === "capability-respread").length,
+    1,
+    "a local alias cannot hide reconstructed terminal capabilities",
+  );
+  assertEquals(
+    rules.filter((rule) => rule === "direct-theme-threading").length,
+    1,
+    "a package renderer cannot receive a feature-local theme",
   );
 
   assertEquals(
