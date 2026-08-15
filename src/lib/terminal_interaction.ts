@@ -5,6 +5,7 @@
  * flags). Requests are only reached on a TTY with `--yes` absent.
  */
 
+import { renderDestructiveActionNoticeCli } from "discern-design-system/cli";
 import {
   DenoTerminalIO,
   InteractionCancelled as PackageInteractionCancelled,
@@ -38,7 +39,13 @@ import {
   populatedHumanOutputGroups,
 } from "../shared/result.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
-import { terminalContext, terminalLine, terminalSize } from "./terminal.ts";
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalLine,
+  terminalMultiline,
+  terminalSize,
+} from "./terminal.ts";
 
 /** Process-wide CLI choice set once by `main` from the global `--plain` flag. */
 let plainMode = false;
@@ -964,6 +971,69 @@ export function confirmationAllowed(
   return interactive(yes);
 }
 
+/** Product facts required before a person authorizes a destructive action. */
+export interface DestructiveConfirmationCopy {
+  /** Imperative name for the act being authorized. */
+  readonly label: string;
+  /** Exact object or bounded set the action can change. */
+  readonly scope: string;
+  /** Consequence of continuing. */
+  readonly impact: string;
+  /** What can restore the affected state, or an honest absence of recovery. */
+  readonly recovery: string;
+  /** Who may authorize the action. */
+  readonly authority?: string;
+  /** The final yes-or-no continuation request. */
+  readonly continuation: string;
+}
+
+/** Human delivery facts kept separate from the semantic confirmation copy. */
+export interface DestructiveConfirmationOptions {
+  readonly yes: boolean;
+  readonly json: boolean;
+  readonly terminal: TerminalContext;
+  readonly present: (frame: string) => void;
+}
+
+/** Injectable confirmation effects used to prove suppression and ordering. */
+export interface ConfirmationRequestRuntime {
+  readonly interactive?: (yes: boolean) => boolean;
+  readonly request?: (
+    message: string,
+    defaultTo: boolean,
+  ) => Promise<boolean>;
+}
+
+/** Render one package-owned destructive review from terminal-safe product facts. */
+export function renderDestructiveConfirmation(
+  copy: DestructiveConfirmationCopy,
+  terminal: TerminalContext,
+): string {
+  return terminal.presenter.present(renderDestructiveActionNoticeCli, {
+    label: terminalLine(copy.label),
+    scope: terminalMultiline(copy.scope),
+    impact: terminalMultiline(copy.impact),
+    recovery: terminalMultiline(copy.recovery),
+    ...(copy.authority === undefined
+      ? {}
+      : { authority: terminalMultiline(copy.authority) }),
+    tone: "danger",
+  });
+}
+
+/** Ask one cancellation-aware package confirmation through an injected request. */
+async function requestProceed(
+  message: string,
+  request: (message: string, defaultTo: boolean) => Promise<boolean>,
+): Promise<boolean> {
+  try {
+    return await request(message, true);
+  } catch (error) {
+    if (!isInteractionCancelled(error)) throw error;
+    return false;
+  }
+}
+
 /**
  * A friendly confirmation request. At this low-level seam a suppressed
  * interaction returns true; effectful callers first require explicit `--yes` when the
@@ -982,12 +1052,28 @@ export async function confirmProceed(
   if (!confirmationAllowed(yes, json)) {
     return true;
   }
-  try {
-    return await requestConfirmation(message, true);
-  } catch (error) {
-    if (!isInteractionCancelled(error)) throw error;
-    return false;
+  return await requestProceed(message, requestConfirmation);
+}
+
+/**
+ * Present scope, impact, authority, and recovery immediately before a destructive
+ * confirmation. Suppressed interactions present nothing, preserving `--yes` and
+ * machine output byte-for-byte.
+ */
+export async function confirmDestructiveAction(
+  copy: DestructiveConfirmationCopy,
+  options: DestructiveConfirmationOptions,
+  runtime: ConfirmationRequestRuntime = {},
+): Promise<boolean> {
+  const interactive = runtime.interactive ?? canInteract;
+  if (!confirmationAllowed(options.yes, options.json, interactive)) {
+    return true;
   }
+  options.present(renderDestructiveConfirmation(copy, options.terminal));
+  return await requestProceed(
+    copy.continuation,
+    runtime.request ?? requestConfirmation,
+  );
 }
 
 /** Default project name from the current directory's basename. */

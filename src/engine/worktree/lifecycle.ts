@@ -28,7 +28,7 @@ import { type Logger, loggerSink } from "../../lib/log.ts";
 import { adrIndexState } from "../../lib/adr_index.ts";
 import {
   canInteract,
-  confirmProceed,
+  confirmDestructiveAction,
   plainModeEnabled,
 } from "../../lib/terminal_interaction.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -4572,7 +4572,31 @@ export async function worktreePrune(
       });
     }
     renderPlan(loggerSink(ctx.log), enginePlan);
-    if (!(await confirmProceed("Remove the prune candidates above?", false))) {
+    const runCount = enginePlan.steps.filter((step) =>
+      step.disposition === "run"
+    ).length;
+    if (
+      !(await confirmDestructiveAction(
+        {
+          label: "Remove prune candidates",
+          scope: `${runCount} candidate${
+            runCount === 1 ? "" : "s"
+          } in ${ctx.root}`,
+          impact:
+            "Candidates marked run in the reviewed plan will be removed; skipped entries stay.",
+          recovery:
+            "Git-tracked work can be recovered from Git; untracked files and external resources may have no automatic recovery.",
+          authority: "Repository owner after reviewing the candidate plan",
+          continuation: "Remove the prune candidates above?",
+        },
+        {
+          yes: false,
+          json,
+          terminal: ctx.log.terminal,
+          present: (frame: string): void => ctx.log.humanLine(frame),
+        },
+      ))
+    ) {
       throw new WorktreeGitError(
         "Pruning was cancelled, so nothing was removed. Re-run when you are ready, " +
           "or pass `--yes` after reviewing the plan.",

@@ -17,9 +17,11 @@ import type {
 import {
   canInteract,
   confirmationAllowed,
+  confirmDestructiveAction,
   groupedSelectionEntries,
   interactionAllowed,
   isInteractionCancelled,
+  renderDestructiveConfirmation,
   requestSelection,
   requestSelections,
   requestText,
@@ -30,7 +32,11 @@ import {
 } from "../src/lib/terminal_interaction.ts";
 import { DEFAULTS } from "../src/lib/config.ts";
 import { Logger } from "../src/lib/log.ts";
-import { withTempDir } from "./helpers.ts";
+import {
+  resolveTerminalContext,
+  type TerminalContext,
+} from "../src/lib/terminal.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 
 const encoder = new TextEncoder();
 
@@ -761,6 +767,76 @@ Deno.test("confirmationAllowed defers to the interactive gate when not --json", 
   // Outside json mode the ordinary interactive decision stands.
   assertEquals(confirmationAllowed(false, false, ttyPresent), true);
   assertEquals(confirmationAllowed(false, false, noTty), false);
+});
+
+const DESTRUCTIVE_COPY = {
+  label: "Remove generated wiring",
+  scope: "/tmp/project",
+  impact: "Generated integration files are removed.",
+  recovery: "Restore committed files with Git.",
+  authority: "Project owner",
+  continuation: "Continue with removal?",
+} as const;
+
+/** Stable colourless terminal facts for destructive-review rendering. */
+function confirmationTerminal(): TerminalContext {
+  return resolveTerminalContext({
+    noColor: true,
+    env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 72, rows: 24 }),
+  });
+}
+
+Deno.test("destructive confirmation renders the package's semantic facts", () => {
+  assertEquals(
+    renderDestructiveConfirmation(DESTRUCTIVE_COPY, confirmationTerminal()),
+    [
+      "DANGER: Remove generated wiring",
+      "Scope: /tmp/project",
+      "Impact: Generated integration files are removed.",
+      "Authority: Project owner",
+      "Recovery: Restore committed files with Git.",
+    ].join("\n"),
+  );
+});
+
+Deno.test("destructive confirmation presents only on the interactive human path", async () => {
+  const presented: string[] = [];
+  const requests: string[] = [];
+  const options = {
+    yes: false,
+    json: false,
+    terminal: confirmationTerminal(),
+    present: (frame: string): void => {
+      presented.push(frame);
+    },
+  };
+  const request = (message: string, defaultTo: boolean): Promise<boolean> => {
+    requests.push(`${message}:${defaultTo}`);
+    return Promise.resolve(false);
+  };
+
+  assertEquals(
+    await confirmDestructiveAction(DESTRUCTIVE_COPY, options, {
+      interactive: () => false,
+      request,
+    }),
+    true,
+  );
+  assertEquals(presented, []);
+  assertEquals(requests, []);
+
+  assertEquals(
+    await confirmDestructiveAction(DESTRUCTIVE_COPY, options, {
+      interactive: () => true,
+      request,
+    }),
+    false,
+  );
+  assertEquals(presented.length, 1);
+  assertStringIncludes(presented[0] ?? "", "Scope: /tmp/project");
+  assertEquals(requests, ["Continue with removal?:true"]);
 });
 
 // ---- resolveSetupConfig (interaction suppressed via flags.yes) --------------
