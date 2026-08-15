@@ -11,6 +11,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   DISCERN_TRIANGLE_GLYPHS,
   measureText,
+  renderCalloutCli,
   renderCodeListingCli,
   renderDividerCli,
   renderHeadingCli,
@@ -136,6 +137,31 @@ Deno.test("fenced code blocks keep their fences in plain mode", () => {
 
 Deno.test("blockquotes are prefixed with a bar", () => {
   assertStringIncludes(plain("> quoted"), "│ quoted");
+});
+
+Deno.test("explicit GFM admonitions are byte-for-byte package Callouts", () => {
+  const terminal = terminalPresentationContext(false);
+  for (
+    const [marker, title, tone] of [
+      ["NOTE", "Note", "insight"],
+      ["WARNING", "Warning", "warning"],
+    ] as const
+  ) {
+    const body = "Review the committed boundary before continuing.";
+    assertEquals(
+      renderMarkdown(`> [!${marker}]\n> ${body}`, {
+        width: 48,
+        color: false,
+        terminal,
+      }),
+      terminal.presenter.present(renderCalloutCli, {
+        title,
+        body,
+        tone,
+        maxWidth: 48,
+      }),
+    );
+  }
 });
 
 Deno.test("a GFM table renders as a bordered box", () => {

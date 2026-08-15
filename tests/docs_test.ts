@@ -28,6 +28,7 @@ import { stageBundledDocs } from "../scripts/build.ts";
 import {
   docsBrowseNavigationChoices,
   renderDocsCorpusHeader,
+  renderExternalDecisionsNotice,
 } from "../src/commands/docs.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { runPtyProcess } from "./fixtures/pty_process.ts";
@@ -113,6 +114,31 @@ Deno.test("docs headers make hostile directory facts inert before rendering", ()
   for (const line of rendered.split("\n")) {
     assert(measureText(line) <= width);
   }
+});
+
+Deno.test("installed decision redirects use a TTY Callout and one pipe-safe line", () => {
+  const width = 56;
+  const tty = resolveTerminalContext({
+    noColor: true,
+    env: fakeEnv({ TERM: "xterm-256color", LANG: "en_GB.UTF-8" }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: width, rows: 24 }),
+  });
+  const rendered = renderExternalDecisionsNotice(tty, width);
+  assertStringIncludes(rendered, "Decision records live online");
+  assertStringIncludes(rendered, "https://discern.sh/docs/decisions");
+  for (const line of rendered.split("\n")) assert(measureText(line) <= width);
+
+  const pipe = resolveTerminalContext({
+    noColor: true,
+    env: fakeEnv({}),
+    isTerminal: () => false,
+    consoleSize: () => ({ columns: width, rows: 24 }),
+  });
+  const plain = renderExternalDecisionsNotice(pipe, width);
+  assert(!plain.includes("Decision records live online"));
+  assertStringIncludes(plain, "not bundled with installed binaries");
+  assertStringIncludes(plain, "https://discern.sh/docs/decisions");
 });
 
 /**

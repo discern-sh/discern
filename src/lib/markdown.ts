@@ -24,6 +24,7 @@
  */
 
 import {
+  renderCalloutCli,
   renderCodeListingCli,
   renderDividerCli,
   renderHeadingCli,
@@ -62,6 +63,42 @@ interface Style {
 /** A run of text with one uniform style. */
 interface Seg extends Style {
   text: string;
+}
+
+const MARKDOWN_CALLOUTS = {
+  NOTE: { title: "Note", tone: "insight" },
+  TIP: { title: "Tip", tone: "insight" },
+  IMPORTANT: { title: "Important", tone: "insight" },
+  WARNING: { title: "Warning", tone: "warning" },
+  CAUTION: { title: "Caution", tone: "warning" },
+} as const;
+
+type MarkdownCalloutName = keyof typeof MARKDOWN_CALLOUTS;
+
+/** Render an explicitly marked GFM admonition; ordinary quotations return undefined. */
+function renderMarkdownCallout(
+  inner: readonly string[],
+  width: number,
+  terminal: TerminalContext,
+): string[] | undefined {
+  const marker = inner[0]?.trim().match(
+    /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/iu,
+  );
+  const name = marker?.[1]?.toUpperCase() as MarkdownCalloutName | undefined;
+  if (name === undefined || !(name in MARKDOWN_CALLOUTS)) return undefined;
+  const body = renderMarkdown(inner.slice(1).join("\n"), {
+    width: Math.max(20, width - 4),
+    color: false,
+    terminal,
+  }).trim();
+  if (body === "") return undefined;
+  const callout = MARKDOWN_CALLOUTS[name];
+  return terminal.presenter.present(renderCalloutCli, {
+    title: terminalLine(callout.title),
+    body: terminalMultiline(body),
+    tone: callout.tone,
+    maxWidth: width,
+  }).split("\n");
 }
 
 /** OSC-8 terminal hyperlink: clickable in modern terminals, inert elsewhere. */
@@ -728,6 +765,11 @@ export function renderMarkdown(
         if (cur === undefined || !/^\s*>/.test(cur)) break;
         inner.push(cur.replace(/^\s*>\s?/, ""));
         i++;
+      }
+      const callout = renderMarkdownCallout(inner, width, terminal);
+      if (callout !== undefined) {
+        pushBlock(callout);
+        continue;
       }
       const rendered = renderMarkdown(inner.join("\n"), {
         width: Math.max(20, width - 2),

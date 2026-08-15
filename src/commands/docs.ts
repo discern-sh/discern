@@ -23,6 +23,7 @@
  */
 
 import {
+  renderCalloutCli,
   renderDocsHeaderCli,
   renderSectionCli,
 } from "discern-design-system/cli";
@@ -274,6 +275,22 @@ const EXTERNAL_DECISIONS_MESSAGE =
   "discern's decision records are not bundled with installed binaries. " +
   "Read them at https://discern.sh/docs/decisions or in the source repository " +
   "at https://github.com/jackwh/discern/tree/main/project/map/_adr.";
+
+/** Render the installed-binary decision redirect as a TTY Callout or pipe-safe line. */
+export function renderExternalDecisionsNotice(
+  terminal: TerminalContext,
+  width: number,
+): string {
+  if (!terminal.stdoutIsTerminal) {
+    return terminalLine(EXTERNAL_DECISIONS_MESSAGE);
+  }
+  return terminal.presenter.present(renderCalloutCli, {
+    title: terminalLine("Decision records live online"),
+    body: terminalMultiline(EXTERNAL_DECISIONS_MESSAGE),
+    tone: "insight",
+    maxWidth: width,
+  });
+}
 
 /** Render an allowed-scope list for an error message ("public, all, or select"). */
 function listScopes(scopes: readonly DocsExportScope[]): string {
@@ -1615,7 +1632,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     (options.adr === true || targetNamesAdrSubtree(options.target)) &&
     resolved.kind === "ok" && !(await hasDecisionRecords(resolved.dir))
   ) {
-    log.line(EXTERNAL_DECISIONS_MESSAGE);
+    log.line(renderExternalDecisionsNotice(terminal, width));
     return 0;
   }
   const discovered = resolved.kind === "missing"
