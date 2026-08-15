@@ -555,6 +555,8 @@ export type StandardsLimitsData = z.infer<typeof StandardsLimitsSchema>;
 const landingAuthorityUncoveredSchema = z.strictObject({
   path: z.string(),
   scopes: z.array(z.string()),
+  /** Owned by a `[generated.<name>]` group; display evidence only. */
+  generated: z.boolean().optional(),
 });
 
 /** A read-only projection of recorded landing authority at one lifecycle moment. */
@@ -568,6 +570,12 @@ export const LandingAuthorityDataSchema = z.strictObject({
   standing_scopes: z.array(z.string()).optional(),
   /** Changed paths that keep this tree on the conversational path. */
   uncovered: z.array(landingAuthorityUncoveredSchema).optional(),
+  /** Distinct scope names across every uncovered path. */
+  uncovered_scopes: z.array(z.string()).optional(),
+  /** Uncovered paths matching no configured scope. */
+  uncovered_unscoped_total: z.number().int().nonnegative().optional(),
+  /** Uncovered paths owned by a `[generated.<name>]` group. */
+  uncovered_generated_total: z.number().int().nonnegative().optional(),
   warnings: z.array(z.string()).optional(),
 });
 export type LandingAuthorityData = z.infer<typeof LandingAuthorityDataSchema>;

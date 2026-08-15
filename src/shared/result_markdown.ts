@@ -151,6 +151,52 @@ function defaultState(
     : `${command} failed with ${code(error)}.`;
 }
 
+/**
+ * State one grant's coverage gap in scope vocabulary. Grants are written in
+ * scopes, so the mismatch reads in scopes; a handful of stragglers is named
+ * outright, and generated paths collapse to a count either way. With no
+ * recorded grant the conversation sentence already covers the whole tree, so
+ * there is nothing to enumerate.
+ */
+function coverageGap(authority: Record<string, unknown>): string | undefined {
+  const standing = strings(authority.standing_scopes);
+  const entries = records(authority.uncovered);
+  const total = number(authority.uncovered_total) ?? entries.length;
+  if (standing.length === 0 || total === 0) {
+    return undefined;
+  }
+  const grant = standing.map(code).join(", ");
+  const generatedTotal = number(authority.uncovered_generated_total) ??
+    entries.filter((entry) => entry.generated === true).length;
+  if (total <= MAX_LIST_ITEMS) {
+    const authored = entries
+      .filter((entry) => entry.generated !== true)
+      .map((entry) => text(entry.path))
+      .filter((path): path is string => path !== undefined);
+    const listed = [
+      ...(authored.length > 0 ? [authored.map(code).join(", ")] : []),
+      ...(generatedTotal > 0 ? [plural(generatedTotal, "generated file")] : []),
+    ].join(", plus ");
+    return `Outside the ${grant} grant: ${listed}.`;
+  }
+  const scopes = strings(authority.uncovered_scopes);
+  const unscopedTotal = number(authority.uncovered_unscoped_total) ??
+    entries.filter((entry) => strings(entry.scopes).length === 0).length;
+  const touched = [
+    ...(scopes.length > 0
+      ? [
+        `scope${scopes.length === 1 ? "" : "s"} ${scopes.map(code).join(", ")}`,
+      ]
+      : []),
+    ...(unscopedTotal > 0
+      ? [`${plural(unscopedTotal, "path")} matching no scope`]
+      : []),
+  ].join(" and ");
+  return `The standing grant covers ${grant}. This change also touches ${touched} — ${
+    plural(total, "changed file")
+  }${generatedTotal > 0 ? ` (${generatedTotal} generated)` : ""}.`;
+}
+
 /** Project one landing-authority object into explicit boundary statements. */
 function landingBoundary(data: Record<string, unknown>): string[] {
   const authority = object(data.landing_authority);
@@ -159,23 +205,10 @@ function landingBoundary(data: Record<string, unknown>): string[] {
   }
   const kind = text(authority.kind);
   const warnings = strings(authority.warnings);
-  const uncovered = records(authority.uncovered)
-    .map((entry) => text(entry.path))
-    .filter((path): path is string => path !== undefined);
-  const uncoveredTotal = number(authority.uncovered_total) ?? uncovered.length;
-  const uncoveredFact = uncovered.length === 0
-    ? undefined
-    : `Paths outside standing landing authority: ${
-      uncovered.map(code).join(", ")
-    }${
-      uncoveredTotal > uncovered.length
-        ? `, plus ${uncoveredTotal - uncovered.length} more`
-        : ""
-    }.`;
   if (kind === "conversation-required") {
     return unique([
       "Landing requires approval from the current conversation.",
-      uncoveredFact,
+      coverageGap(authority),
       ...warnings,
     ]);
   }

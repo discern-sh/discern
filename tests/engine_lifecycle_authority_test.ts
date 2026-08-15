@@ -205,6 +205,7 @@ Deno.test("partial standing authority names the same uncovered path at done and 
       kind: "conversation-required",
       standing_scopes: ["map"],
       uncovered: [{ path: "src/main.ts", scopes: ["engine"] }],
+      uncovered_scopes: ["engine"],
       uncovered_total: 1,
     });
     assertHasHint(done, HINTS["gate-relay-uncovered-authority"], {

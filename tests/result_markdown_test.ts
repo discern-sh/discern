@@ -18,8 +18,16 @@ import {
 const PROOF_SENTINEL = "FULL-PROOF-PAGE".repeat(8_000);
 const UNCOVERED = Array.from(
   { length: 9 },
-  (_, index) => ({ path: `src/path-${index}.ts`, scopes: ["code"] }),
+  (_, index) => ({
+    path: `src/path-${index}.ts`,
+    scopes: ["code"],
+    ...(index >= 6 ? { generated: true } : {}),
+  }),
 );
+const AUTHORITY_SUMMARY = {
+  uncovered_scopes: ["code"],
+  uncovered_generated_total: 3,
+};
 
 const FULL_PROOF = {
   branch: "agent/presentation",
@@ -62,6 +70,7 @@ function minimalStatusResult(): Record<string, unknown> {
         kind: "conversation-required",
         standing_scopes: ["map"],
         uncovered: UNCOVERED,
+        ...AUTHORITY_SUMMARY,
       },
       landed_proof: {
         commit: "abc123def4567890",
@@ -99,6 +108,7 @@ function minimalStatusResult(): Record<string, unknown> {
           kind: "conversation-required",
           standing_scopes: ["map"],
           uncovered: UNCOVERED,
+          ...AUTHORITY_SUMMARY,
         },
       }],
       fleet_collisions: [{
@@ -178,7 +188,10 @@ Deno.test("status wire and Markdown remove repeated Proof pages within a combine
   assertStringIncludes(structured, FULL_PROOF.line);
   assertStringIncludes(markdown, FULL_PROOF.line);
   assertStringIncludes(markdown, "Fleet: 1 active worktree.");
-  assertStringIncludes(markdown, "plus 3 more");
+  assertStringIncludes(
+    markdown,
+    "The standing grant covers `map`. This change also touches scope `code` — 9 changed files (3 generated).",
+  );
   assert(!markdown.includes("`main`: clean"), markdown);
   assert(
     structured.length + markdown.length < 8_000,
@@ -391,4 +404,60 @@ Deno.test("non-ok steps nest beneath the steps summary", () => {
       "  - `standard:binary_size`: skipped.",
   );
   assert(!rendered.includes("ended"), rendered);
+});
+
+Deno.test("a narrow coverage gap names authored stragglers and collapses generated files", () => {
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "done",
+      data: {
+        landing_authority: {
+          kind: "conversation-required",
+          standing_scopes: ["map"],
+          uncovered: [
+            { path: "src/a.ts", scopes: ["code"] },
+            { path: "src/b.ts", scopes: ["code"] },
+            { path: "schema/out.json", scopes: [], generated: true },
+            { path: "types/out.d.ts", scopes: [], generated: true },
+          ],
+          uncovered_scopes: ["code"],
+          uncovered_unscoped_total: 2,
+          uncovered_generated_total: 2,
+        },
+      },
+    },
+    resultPresenterForVerb("done"),
+  );
+  assertStringIncludes(
+    rendered,
+    "Outside the `map` grant: `src/a.ts`, `src/b.ts`, plus 2 generated files.",
+  );
+  assert(!rendered.includes("schema/out.json"), rendered);
+});
+
+Deno.test("no recorded grant keeps the boundary to the conversation sentence", () => {
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "done",
+      data: {
+        landing_authority: {
+          kind: "conversation-required",
+          uncovered: [
+            { path: "src/a.ts", scopes: ["code"] },
+            { path: "src/b.ts", scopes: ["code"] },
+          ],
+          uncovered_scopes: ["code"],
+        },
+      },
+    },
+    resultPresenterForVerb("done"),
+  );
+  assertStringIncludes(
+    rendered,
+    "Landing requires approval from the current conversation.",
+  );
+  assert(!rendered.includes("src/a.ts"), rendered);
+  assert(!rendered.includes("also touches"), rendered);
 });

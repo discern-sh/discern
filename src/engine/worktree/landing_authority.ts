@@ -24,12 +24,19 @@ import type {
 import { runGit } from "../../shared/subprocess.ts";
 import { readTrunkConfig } from "../gate/standard_limits.ts";
 import { collectPaths, scopeNamesForPath } from "../scopes/scopes.ts";
+import {
+  generatedGroupForPath,
+  resolveGeneratedGroups,
+} from "../../shared/generated_artifacts.ts";
 import { readEffortGrant } from "./effort_grant.ts";
 
 /** One changed path and every configured scope it matches. */
 export interface ClassifiedLandingPath {
   readonly path: string;
   readonly scopes: readonly string[];
+  /** Owned by a `[generated.<name>]` group. Evidence for display collapse
+   * only — authority counts generated paths like any other change. */
+  readonly generated?: boolean;
 }
 
 /** Pure facts supplied to {@link resolveLandingAuthority}. */
@@ -86,7 +93,17 @@ export interface LandingAuthorityProjection {
   readonly scopes?: string[];
   /** Known trunk grants, useful before or outside full coverage. */
   readonly standing_scopes?: string[];
-  readonly uncovered?: { path: string; scopes: string[] }[];
+  readonly uncovered?: {
+    path: string;
+    scopes: string[];
+    generated?: boolean;
+  }[];
+  /** Distinct scope names across every uncovered path. */
+  readonly uncovered_scopes?: string[];
+  /** Uncovered paths matching no configured scope. */
+  readonly uncovered_unscoped_total?: number;
+  /** Uncovered paths owned by a `[generated.<name>]` group. */
+  readonly uncovered_generated_total?: number;
   readonly warnings?: string[];
 }
 
@@ -287,9 +304,13 @@ async function classifyLanding(
     return { kind: "unavailable", reason: "paths" };
   }
   const paths = unique(changedPaths);
+  const generatedGroups = resolveGeneratedGroups(config);
   const classifications = paths.map((path) => ({
     path,
     scopes: scopeNamesForPath(path, config),
+    ...(generatedGroupForPath(generatedGroups, path) === undefined
+      ? {}
+      : { generated: true }),
   }));
   return {
     kind: "classified",
@@ -438,6 +459,13 @@ export function landingAuthorityProjection(
   ) {
     return undefined;
   }
+  const uncoveredScopes = unique(
+    authority.uncovered.flatMap((entry) => entry.scopes),
+  ).sort();
+  const unscoped = authority.uncovered
+    .filter((entry) => entry.scopes.length === 0).length;
+  const generated = authority.uncovered
+    .filter((entry) => entry.generated === true).length;
   return {
     kind: authority.kind,
     ...(authority.standingScopes.length > 0
@@ -448,9 +476,15 @@ export function landingAuthorityProjection(
         uncovered: authority.uncovered.map((entry) => ({
           path: entry.path,
           scopes: [...entry.scopes],
+          ...(entry.generated === true ? { generated: true } : {}),
         })),
       }
       : {}),
+    ...(uncoveredScopes.length > 0
+      ? { uncovered_scopes: uncoveredScopes }
+      : {}),
+    ...(unscoped > 0 ? { uncovered_unscoped_total: unscoped } : {}),
+    ...(generated > 0 ? { uncovered_generated_total: generated } : {}),
     ...(authority.warnings.length > 0
       ? { warnings: [...authority.warnings] }
       : {}),
