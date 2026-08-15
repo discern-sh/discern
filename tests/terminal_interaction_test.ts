@@ -39,7 +39,7 @@ import {
   resolveTerminalContext,
   type TerminalContext,
 } from "../src/lib/terminal.ts";
-import { fakeEnv, withTempDir } from "./helpers.ts";
+import { fakeEnv, pinnedTerminal, withTempDir } from "./helpers.ts";
 
 const encoder = new TextEncoder();
 
@@ -94,9 +94,10 @@ function scriptedRuntime(io: TerminalIO): {
   return { io, interactive: () => true };
 }
 
-/** A real, colourless, non-JSON logger as the wizard receives one. */
+/** A real, colourless, non-JSON logger as the wizard receives one, with a
+ * pinned terminal context so nothing floats with the ambient locale. */
 function logger(): Logger {
-  return new Logger({ json: false, noColor: true });
+  return new Logger({ json: false, noColor: true, terminal: pinnedTerminal() });
 }
 
 /**

@@ -23,7 +23,7 @@ import { Logger } from "../src/lib/log.ts";
 import type { OpDisposition, Plan, PlanOp } from "../src/lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../src/lib/plan_view.ts";
 import { displayWidth } from "../src/lib/text.ts";
-import { runCli, withTempDir } from "./helpers.ts";
+import { pinnedTerminal, runCli, withTempDir } from "./helpers.ts";
 
 /** Capture everything written to console.error / console.log while `fn` runs. */
 async function capture(
@@ -48,9 +48,10 @@ async function capture(
   return { err, out };
 }
 
-/** A logger with colour forced off, so `bold`/`dim` are identity. */
+/** A logger with colour forced off, so `bold`/`dim` are identity, and a
+ * pinned terminal context so nothing floats with the ambient locale. */
 function plainLogger(): Logger {
-  return new Logger({ json: false, noColor: true });
+  return new Logger({ json: false, noColor: true, terminal: pinnedTerminal() });
 }
 
 /** Build a synthetic `write` PlanOp at `targetRel` with the given disposition. */
