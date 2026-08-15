@@ -197,8 +197,8 @@ Deno.test("prepare TTY: stream mode uses the same live bounded activity frame", 
     assertTerminalTextIncludes(result.output, "Applying fixers");
     assertStringIncludes(result.output, "streamed-fix");
     assertStringIncludes(result.output, "streamed-check");
-    assertStringIncludes(result.output, "format │ streamed-fix");
-    assertStringIncludes(result.output, "lint │ streamed-check");
+    assertTerminalTextIncludes(result.output, "format │ streamed-fix");
+    assertTerminalTextIncludes(result.output, "lint │ streamed-check");
     assertTerminalTextIncludes(result.output, "format passed");
     assertEquals(result.output.includes("── format"), false);
     assertEquals(result.output.includes("JOB / RESULT"), false);

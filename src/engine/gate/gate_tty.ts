@@ -278,7 +278,6 @@ export async function createGateTtyProgress(
   const bracket = withActivityLog({
     label: options.kind === "test" ? "Test" : "Gate",
     io,
-    theme: options.terminal.themeVariant,
     onInterrupt: (): void => {
       // The Gate's process-level interrupt tracker owns child cancellation and
       // re-delivery. End this package bracket so it restores before that signal
