@@ -11,6 +11,8 @@ import {
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
+const REPAINT = `${CSI}1G`;
+const SHOW_CURSOR = `${CSI}?25h`;
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "u");
 
 /** Build the minimal prepare fixture config for one job and gate-mode matrix row. */
@@ -41,7 +43,7 @@ async function preparedRepo(
   await gitInit(dir);
 }
 
-Deno.test("prepare TTY: an 80-column live table moves every job through execution", async () => {
+Deno.test("prepare TTY: the live activity frame moves every job through execution", async () => {
   await withTempDir(async (dir) => {
     await preparedRepo(
       dir,
@@ -56,33 +58,25 @@ Deno.test("prepare TTY: an 80-column live table moves every job through executio
       timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
-    assertTerminalTextIncludes(result.output, "Gate progress");
-    assertStringIncludes(result.output, "STEPS");
-    assertStringIncludes(result.output, "format");
-    assertTerminalTextIncludes(result.output, "sleep 1");
-    assertStringIncludes(result.output, "lint");
-    assertTerminalTextIncludes(result.output, "passed in 1s");
-
-    const firstRedraw = result.stdout.indexOf(CSI);
-    assert(firstRedraw > 0, result.output);
-    const firstFrame = result.stdout.slice(0, firstRedraw);
-    assertStringIncludes(firstFrame, "format");
-    assertStringIncludes(firstFrame, "lint");
-    assertStringIncludes(firstFrame, "pending");
-    assertStringIncludes(result.stdout.slice(firstRedraw), "running");
+    assertStringIncludes(result.output, "Gate");
+    assertTerminalTextIncludes(result.output, "format started");
+    assertTerminalTextIncludes(result.output, "format passed");
+    assertTerminalTextIncludes(result.output, "lint started");
+    assertTerminalTextIncludes(result.output, "lint passed");
+    assert(result.stdout.includes(REPAINT), result.output);
     assertTerminalTextIncludes(result.output, "Applying fixers");
-    assertTerminalTextIncludes(result.output, "── format");
+    assertEquals(result.output.includes("── format"), false);
 
     const passed = result.stdout.lastIndexOf(
       "Fix and check stages passed. Build and test stages did not run.",
     );
-    assert(passed > result.stdout.lastIndexOf("passed in 1s"), result.stdout);
-    assert(passed > result.stdout.lastIndexOf(CSI), result.stdout);
+    assert(passed > result.stdout.lastIndexOf("lint passed"), result.stdout);
+    assert(passed > result.stdout.lastIndexOf(SHOW_CURSOR), result.stdout);
     assertEquals(SGR.test(result.output), false);
   });
 });
 
-Deno.test("prepare TTY: a narrow terminal wraps every command fact", async () => {
+Deno.test("prepare TTY: a narrow terminal keeps the stable activity facts", async () => {
   await withTempDir(async (dir) => {
     await preparedRepo(
       dir,
@@ -97,13 +91,10 @@ Deno.test("prepare TTY: a narrow terminal wraps every command fact", async () =>
       timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
-    assertTerminalTextIncludes(result.output, "Gate progress");
-    assertTerminalTextIncludes(result.output, "format [passed]");
-    assertTerminalTextIncludes(result.output, "Run: true");
-    assertStringIncludes(result.output, "a-check-command-with-detail");
-    assertEquals(result.output.includes("pending"), false);
-    assertTerminalTextIncludes(result.output, "Gate active");
-    assert(result.output.includes(CSI), "the compact frame repaints in place");
+    assertTerminalTextIncludes(result.output, "format passed");
+    assertTerminalTextIncludes(result.output, "lint passed");
+    assertEquals(result.output.includes("a-check-command-with-detail"), false);
+    assert(result.output.includes(REPAINT), "the frame repaints in place");
     assertEquals(result.output.includes("JOB                 COMMAND"), false);
   });
 });
@@ -125,14 +116,11 @@ Deno.test("prepare TTY: a failed live table completes before the actionable tail
       timeoutMs: 20_000,
     });
     assertEquals(result.code, 1, result.output);
-    assertTerminalTextIncludes(result.output, "failed in <1s");
-    assertStringIncludes(result.output, "cancelled");
+    assertTerminalTextIncludes(result.output, "lint failed");
+    assertTerminalTextIncludes(result.output, "typecheck cancelled");
     const tailStart = result.stdout.indexOf("Failure guide:");
-    assert(tailStart > result.stdout.lastIndexOf(CSI), result.stdout);
-    assert(
-      tailStart > result.stdout.lastIndexOf("failed in <1s"),
-      result.stdout,
-    );
+    assert(tailStart > result.stdout.lastIndexOf(SHOW_CURSOR), result.stdout);
+    assert(tailStart > result.stdout.indexOf("lint failed"), result.stdout);
     assertTerminalTextIncludes(result.stdout.slice(tailStart), "FAILURE: lint");
     assertTerminalTextIncludes(
       result.stdout.slice(tailStart),
@@ -188,14 +176,14 @@ Deno.test("prepare TTY: --plain and CI render a static final table", async () =>
   }
 });
 
-Deno.test("prepare TTY: stream mode keeps the ordinary command transcript", async () => {
+Deno.test("prepare TTY: stream mode uses the same live bounded activity frame", async () => {
   await withTempDir(async (dir) => {
     await preparedRepo(
       dir,
       config(
         [
-          'format = "echo streamed-fix"',
-          'lint = "echo streamed-check"',
+          'format = "echo streamed-fix; sleep 0.2"',
+          'lint = "echo streamed-check; sleep 0.2"',
         ],
         ["stream = true"],
       ),
@@ -209,10 +197,13 @@ Deno.test("prepare TTY: stream mode keeps the ordinary command transcript", asyn
     assertTerminalTextIncludes(result.output, "Applying fixers");
     assertStringIncludes(result.output, "streamed-fix");
     assertStringIncludes(result.output, "streamed-check");
-    assertTerminalTextIncludes(result.output, "── format");
+    assertTerminalTextIncludes(result.output, "format │ streamed-fix");
+    assertTerminalTextIncludes(result.output, "lint │ streamed-check");
+    assertTerminalTextIncludes(result.output, "format passed");
+    assertEquals(result.output.includes("── format"), false);
     assertEquals(result.output.includes("JOB / RESULT"), false);
     assertEquals(result.output.includes("JOB                 COMMAND"), false);
-    assertEquals(result.output.includes(CSI), false);
+    assert(result.output.includes(REPAINT), result.output);
   });
 });
 
@@ -261,10 +252,6 @@ Deno.test("prepare TTY: a no-op names the missing fix and check jobs", async () 
       timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
-    assertTerminalTextIncludes(
-      result.output,
-      "No Gate job is configured, so no project command ran.",
-    );
     assertTerminalTextIncludes(
       result.output,
       "No fix or check job is configured. Build and test stages did not",

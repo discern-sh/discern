@@ -557,7 +557,7 @@ const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
 
 const gateSection = z.strictObject({
   stream: z.boolean().default(false).describe(
-    "Stream each job's output live (line-prefixed) instead of buffering it until the stage finishes. Off by default (grouped).",
+    "Controls static terminal transcripts only: false groups complete per-job output; true streams prefixed lines. Live-capable terminals always show the Gate frame's bounded tail. CI, pipes, --plain, and no-cursor terminals are static. Off by default.",
   ),
   fail_fast: z.boolean().default(true).describe(
     "Cancel the in-flight sibling commands the moment one fails. ON by default — an agent-driven gate wants a fast abort. Set false to run every job and see all failures in one pass.",

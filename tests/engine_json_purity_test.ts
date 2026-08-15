@@ -723,36 +723,38 @@ Deno.test("every swept --json verb emits ONLY the envelope (no human or subproce
   });
 });
 
-Deno.test("done --markdown emits one authored document with no subprocess leak", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(dir, NOISY_CONFIG);
-    await gitInit(dir);
-    const result = await runAgent(dir, ["done", "--markdown"]);
-    assertEquals(result.code, 0, result.output);
-    assertEquals(result.stderr, "", result.output);
-    assertTerminalTextIncludes(result.stdout, "# `discern done`");
-    assertTerminalTextIncludes(result.stdout, "## Current state");
-    assertTerminalTextIncludes(result.stdout, "## Evidence");
-    assertEquals(result.stdout.match(/^# /gm)?.length, 1, result.stdout);
-    for (
-      const noise of [
-        "FMT-OUT",
-        "FMT-ERR",
-        "LINT-OUT",
-        "LINT-ERR",
-        "TC-OUT",
-        "TEST-OUT",
-        "TEST-ERR",
-        "STANDARD-NOISE",
-      ]
-    ) {
-      assert(
-        !result.output.includes(noise),
-        `${noise} leaked around the Markdown result:\n${result.output}`,
-      );
-    }
-  });
+Deno.test("done --markdown emits one quiet authored document under both stream settings", async () => {
+  for (const config of NOISY_CONFIGS) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(dir, config.toml);
+      await gitInit(dir);
+      const result = await runAgent(dir, ["done", "--markdown"]);
+      assertEquals(result.code, 0, result.output);
+      assertEquals(result.stderr, "", result.output);
+      assertTerminalTextIncludes(result.stdout, "# `discern done`");
+      assertTerminalTextIncludes(result.stdout, "## Current state");
+      assertTerminalTextIncludes(result.stdout, "## Evidence");
+      assertEquals(result.stdout.match(/^# /gm)?.length, 1, result.stdout);
+      for (
+        const noise of [
+          "FMT-OUT",
+          "FMT-ERR",
+          "LINT-OUT",
+          "LINT-ERR",
+          "TC-OUT",
+          "TEST-OUT",
+          "TEST-ERR",
+          "STANDARD-NOISE",
+        ]
+      ) {
+        assert(
+          !result.output.includes(noise),
+          `${config.name}: ${noise} leaked around the Markdown result:\n${result.output}`,
+        );
+      }
+    });
+  }
 });
 
 Deno.test("worktree lifecycle --json: start/update/accept/setup/teardown/drop/prune emit only the envelope", async () => {

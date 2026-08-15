@@ -61,7 +61,11 @@ import {
   planStageJobs,
   serializeJobSteps,
 } from "../gate/plan.ts";
-import { gateRunContext, runJobGroups } from "../gate/execute.ts";
+import {
+  gateRunContext,
+  resolveGateRunPolicy,
+  runJobGroups,
+} from "../gate/execute.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import {
@@ -1992,7 +1996,10 @@ async function runLandingSmoke(
   // JSON envelope), while serializeJobSteps retains failure output as structured
   // diagnostics exactly as the normal gate does. The smoke group is a
   // test-stage run, so the fleet test-run cap counts it like any other.
-  const { runOpts, out, slots } = gateRunContext(mainRepo, config, true);
+  const policy = resolveGateRunPolicy(config.gate.stream, {
+    kind: "quiet-result",
+  });
+  const { runOpts, out, slots } = gateRunContext(mainRepo, config, policy);
   const { results, failedStage } = await runJobGroups(
     [group],
     runOpts,
@@ -3338,7 +3345,10 @@ async function runUpdateGeneratedGroups(
   }
   ctx.log.info("Regenerating declared artifacts...");
   try {
-    const context = gateRunContext(ctx.root, ctx.config, true);
+    const policy = resolveGateRunPolicy(ctx.config.gate.stream, {
+      kind: "quiet-result",
+    });
+    const context = gateRunContext(ctx.root, ctx.config, policy);
     const run = await runJobGroups(
       [group],
       { ...context.runOpts, failFast: false },

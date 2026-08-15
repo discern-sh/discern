@@ -41,6 +41,7 @@ import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.t
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { fakeEnv, REAL_TEMPLATES } from "./helpers.ts";
 import {
+  type PtyInputPhase,
   type PtyProcessResult,
   runPtyProcess,
 } from "./fixtures/pty_process.ts";
@@ -425,6 +426,44 @@ export async function runAgentPty(
     );
   }
   return { code, stdout: out, stderr: err, output: out + err };
+}
+
+/**
+ * Run the real engine on a PTY with readiness-gated input phases. Use this for
+ * journeys such as Ctrl-C where input must arrive only after product output
+ * proves the Gate is active; ordinary non-interactive PTY cases use
+ * {@link runAgentPty}.
+ */
+export async function runAgentPtyJourney(
+  dir: string,
+  args: string[],
+  opts: {
+    readonly input: readonly PtyInputPhase[];
+    readonly env?: Record<string, string>;
+    readonly geometry?: { readonly columns: number; readonly rows: number };
+    readonly timeoutMs?: number;
+  },
+): Promise<PtyProcessResult> {
+  if (Deno.build.os === "windows") {
+    throw new Error("runAgentPtyJourney requires the Unix script(1) utility");
+  }
+  return await runPtyProcess({
+    command: Deno.execPath(),
+    args: [
+      "run",
+      "--no-check",
+      "--config",
+      DENO_JSON,
+      "-A",
+      MAIN_TS,
+      ...args,
+    ],
+    cwd: dir,
+    env: await engineEnv({ TERM: "xterm-256color", ...opts.env }),
+    input: opts.input,
+    ...(opts.geometry === undefined ? {} : { geometry: opts.geometry }),
+    timeoutMs: opts.timeoutMs ?? 8_000,
+  });
 }
 
 /** A real-PTY engine result plus kernel-observed viewport evidence. */

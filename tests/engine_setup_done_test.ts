@@ -36,6 +36,9 @@ import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { INSTRUCTIONS_H1 } from "./engine_setup_shared.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
+const HIDE_CURSOR = `${CSI}?25l`;
+const SHOW_CURSOR = `${CSI}?25h`;
+const REPAINT = `${CSI}1G`;
 
 /** Replace setup skeletons with substantive fixtures and configure the gate command under test. */
 async function readyForDone(
@@ -88,7 +91,7 @@ Deno.test("setup done runs the gate and records bootstrapped only when green (AD
   });
 });
 
-Deno.test("setup done TTY shows live tables for both completion gates", async () => {
+Deno.test("setup done TTY uses the live activity frame for both composite gates", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "sleep 1");
     await git(dir, "add", "-A");
@@ -100,28 +103,27 @@ Deno.test("setup done TTY shows live tables for both completion gates", async ()
     });
     assertEquals(done.code, 0, done.output);
 
-    const mainTable = done.stdout.indexOf("Gate progress");
+    const mainFrame = done.stdout.indexOf(HIDE_CURSOR);
     const probeLead = done.stdout.indexOf(
       "Proving your project runs inside a worktree",
     );
-    const probeTable = done.stdout.indexOf("Gate progress", probeLead);
+    const probeFrame = done.stdout.indexOf(HIDE_CURSOR, probeLead);
     assert(
-      mainTable >= 0 && probeLead > mainTable && probeTable > probeLead,
+      mainFrame >= 0 && probeLead > mainFrame && probeFrame > probeLead,
       done.output,
     );
     for (
       const [start, end] of [
-        [mainTable, probeLead],
-        [probeTable, done.stdout.length],
+        [mainFrame, probeLead],
+        [probeFrame, done.stdout.length],
       ] as const
     ) {
       const transcript = done.stdout.slice(start, end);
-      const redraw = transcript.indexOf(CSI);
-      assert(redraw > 0, transcript);
-      assertStringIncludes(transcript.slice(0, redraw), "pending");
-      assertStringIncludes(transcript.slice(redraw), "running");
-      assertStringIncludes(transcript, "sleep 1");
-      assertStringIncludes(transcript, "passed in 1s");
+      assertStringIncludes(transcript, REPAINT);
+      assertTerminalTextIncludes(transcript, "test started");
+      assertTerminalTextIncludes(transcript, "test passed");
+      assertStringIncludes(transcript, SHOW_CURSOR);
+      assertEquals(transcript.includes("Gate progress"), false);
     }
   });
 });

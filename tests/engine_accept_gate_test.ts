@@ -40,8 +40,6 @@ import {
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import type { Proof } from "../src/shared/result_schemas.ts";
 
-const CSI = `${String.fromCharCode(27)}[`;
-
 /** Run the real admin-state preflight and expose its proven write capability to proof tests. */
 async function proofAuthority(
   dir: string,
@@ -434,27 +432,24 @@ Deno.test("accept TTY: a proofless validation shows the full gate moving live", 
     const validation = accepted.stdout.indexOf(
       "Validating the branch against the full gate",
     );
-    const initialTable = accepted.stdout.indexOf("Gate progress", validation);
-    const firstRedraw = accepted.stdout.indexOf(CSI, initialTable);
+    const initialFrame = accepted.stdout.indexOf("\x1b[?25l", validation);
+    const firstRedraw = accepted.stdout.indexOf("\x1b[1G", initialFrame);
+    const restored = accepted.stdout.indexOf("\x1b[?25h", firstRedraw);
     const passed = accepted.stdout.indexOf(
       "Gate passed against the tree to be landed",
     );
     assert(
-      validation >= 0 && initialTable > validation &&
-        firstRedraw > initialTable && passed > firstRedraw,
+      validation >= 0 && initialFrame > validation &&
+        firstRedraw > initialFrame && restored > firstRedraw &&
+        passed > restored,
       accepted.output,
     );
-    assertStringIncludes(
-      accepted.stdout.slice(initialTable, firstRedraw),
-      "pending",
-    );
-    assertStringIncludes(
-      accepted.stdout.slice(firstRedraw, passed),
-      "running",
-    );
-    assertStringIncludes(accepted.output, "format");
-    assertTerminalTextIncludes(accepted.output, "sleep 1");
-    assertTerminalTextIncludes(accepted.output, "passed in 1s");
+    const frame = accepted.stdout.slice(initialFrame, restored);
+    assertTerminalTextIncludes(frame, "format started");
+    assertTerminalTextIncludes(frame, "format passed");
+    assertTerminalTextIncludes(frame, "test started");
+    assertTerminalTextIncludes(frame, "test passed");
+    assertEquals(frame.includes("Gate progress"), false);
   });
 });
 

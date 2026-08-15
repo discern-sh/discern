@@ -21,21 +21,13 @@ Use `discern done` on the intended final commit. A green run on a clean branch a
 
 ## Live terminal presentation
 
-Interactive `done`, `prepare`, and `test` use this priority:
+On a cursor-controlled terminal, `done`, `prepare`, `test`, and human composite Gate runs share the package activity frame: lifecycle facts stay pinned; complete and partial subprocess lines feed a bounded tail. `[gate].stream` never gates this frame.
 
-1. Full live dashboard when its rendered frame fits.
-2. Compact live dashboard when only that frame fits.
-3. Append-only output when neither fits safely, or for CI, `--plain`, `[gate].stream`, pipes, and unavailable cursor control.
+The package fits full, then compact, then append-only output. Resizes retain the same producer feed; interrupts restore the cursor. Success leaves stable facts without replaying the tail. Failure follows them with diagnostics and the full-output-artifact route.
 
-Compact shows settled and total jobs, separate concurrent jobs, elapsed time, and `Completed`, `Failed`, `Cancelled`, and `Remaining`; `Completed` covers every final state. Full retains the job table. Test uses Test labels and its configured job.
+CI, pipes, `--plain`, and terminals without cursor control remain static: `stream = false` groups complete per-job output; `true` streams prefixed lines. JSON, Markdown, and MCP omit human job output.
 
-The controller samples viewport size and switches modes while safe. Unsafe shrink latches append-only output without guessed cleanup. Unsupported observation retains the initial size.
-
-Transcript, final table, result tail, diagnostics, remedies, and Proof appear once below live progress. JSON and Model Context Protocol calls bypass it.
-
-For JSON fields, the Markdown presentation, and the MCP tool contract, use [MCP tools & results](../70-reference/mcp-and-results.md).
-
-[`presentation.ts`](../../../src/engine/gate/presentation.ts) receives facts, time, and viewport. [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) selects live mode; [`terminal.ts`](../../../src/lib/terminal.ts) observes the process.
+[`execute.ts`](../../../src/engine/gate/execute.ts) resolves presentation separately from capture. [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) feeds the package; [`command.ts`](../../../src/engine/jobs/command.ts) retains raw evidence. For result contracts, see [MCP tools & results](../70-reference/mcp-and-results.md).
 
 | Read next                                                   | What it helps you do                                                             |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |

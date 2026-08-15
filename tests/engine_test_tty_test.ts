@@ -3,6 +3,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   gitInit,
+  runAgent,
   runAgentPty,
   runAgentPtyWithViewport,
   scaffoldEngine,
@@ -11,6 +12,9 @@ import {
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 const CSI = "\x1b[";
+const REPAINT = `${CSI}1G`;
+const HIDE_CURSOR = `${CSI}?25l`;
+const SHOW_CURSOR = `${CSI}?25h`;
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "u");
 
 /** Build the smallest standalone-test fixture configuration for one case. */
@@ -48,7 +52,7 @@ function occurrences(text: string, value: string): number {
 
 /** Discard runtime setup controls emitted before the product's first frame. */
 function testOutput(output: string): string {
-  const starts = ["Test progress", "Test active", "Running tests"]
+  const starts = [HIDE_CURSOR, "Test progress", "Running tests"]
     .map((token) => output.indexOf(token))
     .filter((at) => at >= 0);
   const start = Math.min(...starts);
@@ -73,13 +77,12 @@ Deno.test({
       });
       assertEquals(result.code, 1, result.output);
       const output = testOutput(result.stdout);
-      const firstControl = output.indexOf(CSI);
-      assert(firstControl > 0, result.output);
-      assertStringIncludes(output.slice(0, firstControl), "Test active");
-      assertEquals(output.slice(0, firstControl).includes("[pending]"), false);
-      assertEquals(occurrences(output, "808-TEST-FAIL"), 1, result.output);
-      const tail = output.slice(output.lastIndexOf(CSI));
-      assertEquals(occurrences(tail, "test [failed]"), 1, result.output);
+      assert(output.includes(REPAINT), result.output);
+      assertStringIncludes(output, "test started");
+      assertStringIncludes(output, "test failed");
+      assert(occurrences(output, "808-TEST-FAIL") >= 1, result.output);
+      const tail = output.slice(output.lastIndexOf(SHOW_CURSOR));
+      assertEquals(occurrences(tail, "808-TEST-FAIL"), 1, result.output);
       assertEquals(occurrences(tail, "Failure guide:"), 1, result.output);
       assertStringIncludes(tail, "Failed: discern test failed");
       assertStringIncludes(tail, "Reproduce: $");
@@ -94,18 +97,28 @@ Deno.test({
   fn: async () => {
     const cases = [
       {
-        label: "plain",
+        label: "plain grouped",
         args: ["test", "--plain"],
         env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "false" },
         stream: false,
         ascii: false,
+        pty: true,
       },
       {
-        label: "CI",
+        label: "CI grouped",
         args: ["test"],
         env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "1" },
         stream: false,
         ascii: false,
+        pty: true,
+      },
+      {
+        label: "pipe grouped",
+        args: ["test"],
+        env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "false" },
+        stream: false,
+        ascii: false,
+        pty: false,
       },
       {
         label: "TERM=dumb",
@@ -113,6 +126,7 @@ Deno.test({
         env: { TERM: "dumb", NO_COLOR: "1", CI: "false" },
         stream: false,
         ascii: false,
+        pty: true,
       },
       {
         label: "ASCII",
@@ -126,13 +140,31 @@ Deno.test({
         },
         stream: false,
         ascii: true,
+        pty: true,
       },
       {
-        label: "stream",
+        label: "plain streamed",
+        args: ["test", "--plain"],
+        env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "false" },
+        stream: true,
+        ascii: false,
+        pty: true,
+      },
+      {
+        label: "CI streamed",
+        args: ["test"],
+        env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "1" },
+        stream: true,
+        ascii: false,
+        pty: true,
+      },
+      {
+        label: "pipe streamed",
         args: ["test"],
         env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "false" },
         stream: true,
         ascii: false,
+        pty: false,
       },
     ] as const;
     for (const testCase of cases) {
@@ -142,10 +174,14 @@ Deno.test({
           "echo $((900+9))-TEST-STATIC",
           testCase.stream,
         );
-        const result = await runAgentPty(dir, [...testCase.args], {
-          env: { ...testCase.env },
-          timeoutMs: 10_000,
-        });
+        const result = testCase.pty
+          ? await runAgentPty(dir, [...testCase.args], {
+            env: { ...testCase.env },
+            timeoutMs: 10_000,
+          })
+          : await runAgent(dir, [...testCase.args], {
+            env: { ...testCase.env },
+          });
         assertEquals(result.code, 0, `${testCase.label}: ${result.output}`);
         assertEquals(
           result.output.includes(CSI),
@@ -159,13 +195,37 @@ Deno.test({
         );
         assertTerminalTextIncludes(result.output, "Running tests");
         assertTerminalTextIncludes(result.output, "Tests passed.");
+        assert(
+          result.output.indexOf("Running tests") <
+              result.output.indexOf("909-TEST-STATIC") &&
+            result.output.indexOf("909-TEST-STATIC") <
+              result.output.indexOf("Tests passed."),
+          `${testCase.label}: ${result.output}`,
+        );
         assertEquals(result.output.includes("[pending]"), false);
         assertEquals(result.output.includes("[running]"), false);
         if (testCase.stream) {
           assertEquals(result.output.includes("Test progress"), false);
+          assertTerminalTextIncludes(
+            result.output,
+            "── test │ 909-TEST-STATIC",
+          );
         } else {
-          assertTerminalTextIncludes(result.output, "Test progress");
-          assertTerminalTextIncludes(result.output, "test [passed]");
+          assertEquals(result.output.includes("── test │"), false);
+          if (testCase.pty) {
+            assertTerminalTextIncludes(result.output, "Test progress");
+            assertTerminalTextIncludes(result.output, "test [passed]");
+          } else {
+            assertEquals(result.output.includes("Test progress"), false);
+            assertTerminalTextIncludes(result.output, "── test ─ ok");
+          }
+        }
+        if (!testCase.pty) {
+          assertEquals(
+            result.stderr,
+            "",
+            `${testCase.label}: ${result.output}`,
+          );
         }
         if (testCase.ascii) {
           const product = testOutput(result.output);

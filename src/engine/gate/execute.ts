@@ -27,6 +27,90 @@ import { TEST_RUN_SLOT_ENV, TEST_RUN_SLOT_VALUE } from "../test_run_slots.ts";
 
 const ENCODER = new TextEncoder();
 
+/** The caller-owned Gate surface before project policy is applied. */
+export type GateOutputSurface =
+  | { readonly kind: "quiet-result"; readonly terminal?: TerminalContext }
+  | {
+    readonly kind: "human";
+    readonly plain: boolean;
+    readonly terminal: TerminalContext;
+  };
+
+/** The resolved presentation authority for every Gate-family run. */
+export type GateOutputMode =
+  | { readonly kind: "quiet-result"; readonly terminal: TerminalContext }
+  | {
+    readonly kind: "live-frame";
+    readonly terminal: TerminalContext;
+    readonly ttyWidth: number;
+  }
+  | {
+    readonly kind: "static-streamed";
+    readonly terminal: TerminalContext;
+    readonly ttyWidth?: number;
+  }
+  | {
+    readonly kind: "static-grouped";
+    readonly terminal: TerminalContext;
+    readonly ttyWidth?: number;
+  };
+
+/** Runner retention stays explicit and separate from terminal presentation. */
+export type GateCaptureMode = "buffered-full" | "streamed-capped";
+
+/** One shared decision consumed by done, prepare, test, and composite callers. */
+export interface GateRunPolicy {
+  readonly output: GateOutputMode;
+  readonly capture: GateCaptureMode;
+}
+
+/** Resolve terminal presentation and child capture once at the shared boundary. */
+export function resolveGateRunPolicy(
+  staticStream: boolean,
+  surface: GateOutputSurface,
+): GateRunPolicy {
+  const terminal = surface.terminal ?? terminalContext();
+  if (surface.kind === "quiet-result") {
+    return {
+      output: { kind: "quiet-result", terminal },
+      capture: "buffered-full",
+    };
+  }
+  const ttyWidth = terminal.stdoutIsTerminal
+    ? terminal.size.columns
+    : undefined;
+  const live = ttyWidth !== undefined && !surface.plain &&
+    !terminal.ciRequestsStaticOutput &&
+    terminal.capabilities.ansiControl !== false;
+  if (live) {
+    return {
+      output: { kind: "live-frame", terminal, ttyWidth },
+      capture: "buffered-full",
+    };
+  }
+  const output = {
+    kind: staticStream ? "static-streamed" : "static-grouped",
+    terminal,
+    ...(ttyWidth === undefined ? {} : { ttyWidth }),
+  } as const;
+  return {
+    output,
+    capture: staticStream ? "streamed-capped" : "buffered-full",
+  };
+}
+
+/** Width available to a terminal result table, if stdout is a terminal. */
+export function gateOutputTtyWidth(policy: GateRunPolicy): number | undefined {
+  return policy.output.kind === "quiet-result"
+    ? undefined
+    : policy.output.ttyWidth;
+}
+
+/** Whether the package activity frame owns the run's live projection. */
+export function gateOutputIsLive(policy: GateRunPolicy): boolean {
+  return policy.output.kind === "live-frame";
+}
+
 /** Buffered human transcript held while a replaceable live frame owns stdout. */
 interface DeferredHumanRun {
   readonly out: Out;
@@ -217,13 +301,8 @@ export async function runJobGroups(
 export function gateRunContext(
   root: string,
   cfg: DiscernConfig,
-  json: boolean,
+  policy: GateRunPolicy,
   signal?: AbortSignal,
-  presentation: {
-    /** Buffer the ordinary transcript while a live frame owns stdout. */
-    deferHumanRun?: boolean;
-    terminal?: TerminalContext;
-  } = {},
 ): {
   runOpts: RunOptions;
   out: Out;
@@ -231,23 +310,23 @@ export function gateRunContext(
   flushDeferredOutput: () => boolean;
   slots: TestRunSlots | undefined;
 } {
-  const terminal = presentation.terminal ?? terminalContext();
+  const terminal = policy.output.terminal;
   const color = terminal.color;
-  const deferred = !json && (presentation.deferHumanRun ?? false)
-    ? deferredHumanRun(color, terminal)
-    : undefined;
-  const out = makeOut(color, { quiet: json, terminal });
+  const quietResult = policy.output.kind === "quiet-result";
+  const liveFrame = policy.output.kind === "live-frame";
+  const deferred = liveFrame ? deferredHumanRun(color, terminal) : undefined;
+  const out = makeOut(color, { quiet: quietResult, terminal });
   return {
     runOpts: {
       cwd: root,
-      stream: cfg.gate.stream,
+      stream: policy.capture === "streamed-capped",
       failFast: cfg.gate.fail_fast,
       timeoutS: cfg.gate.timeout,
       ...(signal !== undefined ? { signal } : {}),
       color,
       terminal,
       write: deferred?.write ?? byteWriter("stdout"),
-      quiet: json,
+      quiet: quietResult || liveFrame,
     },
     out,
     runOut: deferred?.out ?? out,

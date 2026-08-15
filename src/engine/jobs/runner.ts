@@ -18,7 +18,12 @@
  * default), keeping `--json` stdout clean for the report.
  */
 
-import type { Job, JobResult, StageRunResult } from "./types.ts";
+import type {
+  Job,
+  JobOutputObserver,
+  JobResult,
+  StageRunResult,
+} from "./types.ts";
 import { spawnJob, type SpawnOptions } from "./command.ts";
 import { trackRun } from "./interrupt.ts";
 import {
@@ -75,6 +80,8 @@ export interface RunOptions {
   quiet?: boolean;
   /** Optional lifecycle observer for an interactive progress projection. */
   observer?: JobRunObserver;
+  /** Presentation-only child-text observer; capture strategy stays independent. */
+  outputObserver?: JobOutputObserver;
 }
 
 const ENCODER = new TextEncoder();
@@ -123,6 +130,9 @@ function spawnOptions(
     write,
     ...(timeoutS !== undefined ? { timeoutS } : {}),
     ...(job.keepOutput === true ? { keepOutput: true } : {}),
+    ...(opts.outputObserver === undefined
+      ? {}
+      : { outputObserver: opts.outputObserver }),
   };
 }
 
