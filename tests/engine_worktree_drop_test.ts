@@ -15,7 +15,7 @@ import {
   DROP_RECOVERY_REF_PREFIX,
   preserveDropRecoveryRef,
 } from "../src/engine/worktree/recovery_refs.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -116,8 +116,8 @@ Deno.test("worktree drop: refuses an ambiguous basename and requires a path", as
       refused.output,
       "`discern worktree drop` can't resolve 'dup'",
     );
-    assertStringIncludes(refused.output, firstPath);
-    assertStringIncludes(refused.output, secondPath);
+    assertTerminalTextIncludes(refused.output, firstPath);
+    assertTerminalTextIncludes(refused.output, secondPath);
     assertStringIncludes(refused.output, "Pass one of these paths");
     assert(await exists(first), "the first candidate must survive");
     assert(await exists(second), "the second candidate must survive");
@@ -168,8 +168,8 @@ Deno.test("worktree drop: refuses an id shared by different worktree paths", asy
       refused.output,
       "`discern worktree drop` can't resolve 'shared-id'",
     );
-    assertStringIncludes(refused.output, firstPath);
-    assertStringIncludes(refused.output, secondPath);
+    assertTerminalTextIncludes(refused.output, firstPath);
+    assertTerminalTextIncludes(refused.output, secondPath);
     assert(await exists(first), "the first candidate must survive");
     assert(await exists(second), "the second candidate must survive");
   });

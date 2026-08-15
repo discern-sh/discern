@@ -12,7 +12,7 @@ import {
 } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { stripAnsi } from "discern-design-system/cli";
-import { fakeEnv, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -720,11 +720,11 @@ Deno.test({
           input: "y\n",
         });
         assertEquals(result.code, 1, `${action}\n${result.output}`);
-        assertStringIncludes(
+        assertTerminalTextIncludes(
           result.output,
           "done on agent/other-work remains in flight",
         );
-        assertStringIncludes(result.output, "discern status --all");
+        assertTerminalTextIncludes(result.output, "discern status --all");
         assertEquals(await Deno.readTextFile(active), before);
       });
     }

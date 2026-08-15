@@ -12,7 +12,7 @@ import { HINTS } from "../src/shared/hints.ts";
 import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
-import { runCli, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
@@ -98,7 +98,7 @@ Deno.test("config set-job names an empty command as deferred, on both surfaces",
 
     const human = await runCli(["config", "set-job", "test", ""], dir);
     assertEquals(human.code, 0, human.stderr);
-    assertStringIncludes(human.stderr + human.stdout, expected);
+    assertTerminalTextIncludes(human.stderr + human.stdout, expected);
 
     // A real command carries no such hint.
     const wired = await runCli(

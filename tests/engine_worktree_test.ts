@@ -35,7 +35,7 @@ import {
   cliRefusalCases,
   SIDE_RESTRICTED_OPS,
 } from "../src/engine/worktree/side_restrictions.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -256,7 +256,7 @@ Deno.test("worktree ensure on the main checkout leads with the worktree-first li
     );
     const r = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, expected);
+    assertTerminalTextIncludes(r.stdout, expected);
   });
 });
 
@@ -546,8 +546,14 @@ Deno.test("accept: refuses a dirty worktree without moving anything", async () =
 
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "This worktree has uncommitted changes");
-    assertStringIncludes(r.output, "never creates a work-in-progress commit");
+    assertTerminalTextIncludes(
+      r.output,
+      "This worktree has uncommitted changes",
+    );
+    assertTerminalTextIncludes(
+      r.output,
+      "never creates a work-in-progress commit",
+    );
     assertEquals(
       await exists(wt),
       true,
@@ -1055,7 +1061,7 @@ Deno.test("update: refuses (non-destructively) when the worktree is dirty", asyn
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(
       r.output,
-      "✗ This worktree has uncommitted tracked changes",
+      "✕ This worktree has uncommitted tracked changes",
     );
     assertStringIncludes(r.output, "Commit or stash");
     // The tree is untouched: the dirty file stays, and main was NOT merged in.

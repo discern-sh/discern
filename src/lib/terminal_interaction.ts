@@ -1049,7 +1049,7 @@ export interface ConfirmationDialogCopy {
   readonly continuation: string;
 }
 
-/** Injectable confirmation effects used to prove suppression and ordering. */
+/** Injectable confirmation effects that prove suppression and ordering. */
 export interface ConfirmationRequestRuntime {
   readonly interactive?: (yes: boolean) => boolean;
   readonly request?: (

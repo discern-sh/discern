@@ -26,7 +26,7 @@ import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { planTrackedRefresh } from "../src/engine/tracked_refresh.ts";
 import { compileGuidelines } from "../src/engine/guidelines.ts";
 import { Logger } from "../src/lib/log.ts";
-import { fakeEnv, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
   gitInit,
@@ -444,7 +444,7 @@ Deno.test("engine refresh: prunes the link of an authored skill removed from the
       await exists(join(dir, ".claude/skills/discern-write-adr/SKILL.md")),
       `bundled skills must stay materialized\n${r.output}`,
     );
-    assertStringIncludes(r.stdout, "pruned 1 stale");
+    assertTerminalTextIncludes(r.stdout, "pruned 1 stale");
   });
 });
 

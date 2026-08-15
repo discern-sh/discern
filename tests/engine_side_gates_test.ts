@@ -11,7 +11,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -129,9 +129,9 @@ Deno.test("scope-gates: a failing gate fails finish and points at the gotchas", 
     const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stdout, "FAILED");
-    assertStringIncludes(r.stderr, "scope gates failed");
+    assertTerminalTextIncludes(r.stderr, "scope gates failed");
     // The shared gotchas pointer fires on a gated-phase failure.
-    assertStringIncludes(r.stderr, "gate step failed");
+    assertTerminalTextIncludes(r.stderr, "gate step failed");
   });
 });
 

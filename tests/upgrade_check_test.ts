@@ -13,7 +13,7 @@ import {
   UPDATE_CHANNEL,
 } from "../src/lib/version.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { runCli, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
 /** Fresh install in `dir`. */
@@ -134,8 +134,8 @@ Deno.test("upgrade --check on a current install tells the truth: version, channe
     assertEquals(human.code, 0, human.stderr);
     assertStringIncludes(human.stderr, `discern ${KIT_VERSION}`);
     assertStringIncludes(human.stderr, `schema ${SCHEMA_VERSION}`);
-    assertStringIncludes(human.stderr, UPDATE_CHANNEL);
-    assertStringIncludes(human.stderr, "never checks the network");
+    assertTerminalTextIncludes(human.stderr, UPDATE_CHANNEL);
+    assertTerminalTextIncludes(human.stderr, "never checks the network");
 
     // JSON surface: the same facts ride the envelope.
     const json = await runCli(["upgrade", "--check", "--json"], dir);
@@ -145,6 +145,6 @@ Deno.test("upgrade --check on a current install tells the truth: version, channe
     const expected = assertHasHint(res, HINTS["upgrade-newer-discern"], {
       updateChannel: UPDATE_CHANNEL,
     });
-    assertStringIncludes(human.stderr, expected);
+    assertTerminalTextIncludes(human.stderr, expected);
   });
 });

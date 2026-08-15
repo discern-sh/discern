@@ -27,6 +27,8 @@ import {
 } from "../src/shared/result.ts";
 import { makeOut, outSink } from "../src/engine/output.ts";
 import { displayWidth } from "../src/lib/text.ts";
+import { resolveTerminalContext } from "../src/lib/terminal.ts";
+import { fakeEnv } from "./helpers.ts";
 import type { GatePlan } from "../src/engine/gate/plan.ts";
 import type { JobResult } from "../src/engine/jobs/types.ts";
 import type {
@@ -53,18 +55,12 @@ const SGR_GLOBAL = new RegExp(
 const stripSgr = (value: string): string => value.replaceAll(SGR_GLOBAL, "");
 const PLAIN_TERMINAL = makeOut(false).terminal;
 const COLOR_TERMINAL = makeOut(true).terminal;
-const LARGE_PLAIN_TERMINAL = {
-  ...PLAIN_TERMINAL,
-  capabilities: {
-    ...PLAIN_TERMINAL.capabilities,
-    ansiControl: true,
-  },
-  size: { columns: 80, rows: 200 },
-  observeViewport: () => ({
-    sample: () => ({ columns: 80, rows: 200 }),
-    close: () => {},
-  }),
-};
+const LARGE_PLAIN_TERMINAL = resolveTerminalContext({
+  noColor: true,
+  env: fakeEnv({ LANG: "en_GB.UTF-8", TERM: "xterm-256color" }),
+  isTerminal: () => true,
+  consoleSize: () => ({ columns: 80, rows: 200 }),
+});
 
 const FACTS: ProofFacts = {
   branch: "agent/upload-retry",

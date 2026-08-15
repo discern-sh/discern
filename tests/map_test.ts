@@ -28,7 +28,13 @@ import {
   resolveDocRegion,
 } from "../src/lib/docs.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
-import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  readTarget,
+  runCli,
+  seedConfig,
+  withTempDir,
+} from "./helpers.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 
 /** Write a small but representative map tree. The tree lives at a pinned root
@@ -1024,7 +1030,7 @@ Deno.test("map --export rejects an unknown scope naming the configured ones", as
 
     assertEquals(code, 1);
     assertStringIncludes(stderr, 'unknown export scope "nope"');
-    assertStringIncludes(stderr, "a configured scope (canon)");
+    assertTerminalTextIncludes(stderr, "a configured scope (canon)");
   });
 });
 

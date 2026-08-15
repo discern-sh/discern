@@ -8,7 +8,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
@@ -132,7 +132,7 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
     const human = await runAgent(dir, ["done", "--confirmed"]);
     assertEquals(human.code, 0, human.output);
     for (const hint of obj.hints) {
-      assertStringIncludes(human.output, hint);
+      assertTerminalTextIncludes(human.output, hint);
     }
   });
 });

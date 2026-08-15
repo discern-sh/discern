@@ -17,7 +17,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, dirname, join } from "@std/path";
 import { exists } from "@std/fs";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -244,7 +244,7 @@ Deno.test("consent class: every consent-gated verb refuses without its attestati
         assert(observation.refused, `${verb.id}: ${surface} must refuse`);
         const publicText = observation.evidence.join("\n");
         for (const dimension of CONSENT_MEANING_DIMENSIONS) {
-          assertStringIncludes(
+          assertTerminalTextIncludes(
             publicText,
             meaning[dimension],
             `${verb.id}: ${surface} omits the exact ${dimension}`,
@@ -286,7 +286,7 @@ Deno.test("accept: refuses without --confirmed, re-serving the review moment (sl
     // equally mutation-free.
     const terminal = await runAgent(wt, ["accept"]);
     assertEquals(terminal.code, 1, terminal.output);
-    assertStringIncludes(terminal.output, env.message);
+    assertTerminalTextIncludes(terminal.output, env.message);
     assert(
       await exists(wt),
       "the terminal refusal must not touch the worktree",

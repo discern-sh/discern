@@ -4,6 +4,7 @@
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
+import { assertStringIncludes } from "@std/assert";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import type { TokenMap } from "../src/lib/template.ts";
 import type { EnvReader } from "../src/shared/env.ts";
@@ -55,6 +56,20 @@ export interface CliResult {
   code: number;
   stdout: string;
   stderr: string;
+}
+
+/**
+ * Assert semantic terminal content independently of presenter-owned wrapping.
+ * Narration may soft-wrap prose or hard-break a long path at the bound width;
+ * exact layout belongs in renderer tests and reviewed terminal captures.
+ */
+export function assertTerminalTextIncludes(
+  actual: string,
+  expected: string,
+  message?: string,
+): void {
+  const content = (value: string): string => value.replaceAll(/\s+/gu, "");
+  assertStringIncludes(content(actual), content(expected), message);
 }
 
 /**

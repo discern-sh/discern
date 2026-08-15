@@ -15,7 +15,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   engineEnv,
@@ -247,7 +247,7 @@ Deno.test("hook WorktreeCreate: warns when the caller-named worktree's port coll
       cwd: dir,
     });
     assertEquals(r.code, 0, r.stderr);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       r.stderr,
       "already claimed by a live sibling",
       `the collision must be explained\n${r.stderr}`,

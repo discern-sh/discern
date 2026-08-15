@@ -13,7 +13,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { GATE_FAILURE_REMEDIES, HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -82,7 +82,7 @@ Deno.test("done fails fast on the merge precondition when behind main — the ca
       JSON.parse(json.stdout),
       GATE_FAILURE_REMEDIES.merge,
     );
-    assertStringIncludes(r.output, expected);
+    assertTerminalTextIncludes(r.output, expected);
   });
 });
 
@@ -131,7 +131,7 @@ Deno.test("done warns when the configured trunk is missing locally", async () =>
 
     const human = await runAgent(wt, ["done"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       human.output,
       "trunk branch 'main' is not available locally",
     );
@@ -147,6 +147,6 @@ Deno.test("done warns when the configured trunk is missing locally", async () =>
       HINTS["missing-trunk-branch"],
       { branch: "main" },
     );
-    assertStringIncludes(human.output, expected);
+    assertTerminalTextIncludes(human.output, expected);
   });
 });

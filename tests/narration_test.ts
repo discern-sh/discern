@@ -155,6 +155,24 @@ Deno.test("the narrator inherits package Unicode and ASCII degradation", () => {
   });
 });
 
+Deno.test("the narrator delegates hanging-indent wrapping to the package", () => {
+  const { sink, stdout } = rawCapture();
+  const terminal = resolveTerminalContext({
+    noColor: true,
+    env: fakeEnv({ LANG: "en_GB.UTF-8", TERM: "xterm" }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 20, rows: 24 }),
+  });
+  const narration = makeNarration(sink, terminal, {
+    narration: "stdout",
+    alerts: "stderr",
+  });
+
+  narration.info("one two three four five");
+
+  assertEquals(stdout.join(""), "◮ one two three four\n  five\n");
+});
+
 Deno.test("the one failure form is a danger line with one recovery group", () => {
   const { sink, stderr } = lineCapture();
   const narration = makeNarration(sink, terminalContext(), {
