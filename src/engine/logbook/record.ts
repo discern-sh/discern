@@ -53,6 +53,7 @@ import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 import { logbookVerbIsEffectful } from "../../shared/verbs.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { changedSections, type ConfigEpoch, configEpoch } from "./epoch.ts";
+import { setActiveInvocationId } from "./invocation_context.ts";
 import {
   type BeginEvent,
   type ChangeScale,
@@ -515,6 +516,7 @@ async function advanceEpoch(
  */
 export function beginRecording(cwd: string, begin: BeginReport): Recording {
   const invocation = crypto.randomUUID();
+  setActiveInvocationId(invocation);
   const startedAt = new Date().toISOString();
   const context = gatherContext(cwd).catch(() => undefined);
   const beginAppend = logbookVerbIsEffectful(begin.verb, begin.flags)

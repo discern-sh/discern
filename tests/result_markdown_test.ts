@@ -18,8 +18,16 @@ import {
 const PROOF_SENTINEL = "FULL-PROOF-PAGE".repeat(8_000);
 const UNCOVERED = Array.from(
   { length: 9 },
-  (_, index) => ({ path: `src/path-${index}.ts`, scopes: ["code"] }),
+  (_, index) => ({
+    path: `src/path-${index}.ts`,
+    scopes: ["code"],
+    ...(index >= 6 ? { generated: true } : {}),
+  }),
 );
+const AUTHORITY_SUMMARY = {
+  uncovered_scopes: ["code"],
+  uncovered_generated_total: 3,
+};
 
 const FULL_PROOF = {
   branch: "agent/presentation",
@@ -62,6 +70,7 @@ function minimalStatusResult(): Record<string, unknown> {
         kind: "conversation-required",
         standing_scopes: ["map"],
         uncovered: UNCOVERED,
+        ...AUTHORITY_SUMMARY,
       },
       landed_proof: {
         commit: "abc123def4567890",
@@ -99,6 +108,7 @@ function minimalStatusResult(): Record<string, unknown> {
           kind: "conversation-required",
           standing_scopes: ["map"],
           uncovered: UNCOVERED,
+          ...AUTHORITY_SUMMARY,
         },
       }],
       fleet_collisions: [{
@@ -153,7 +163,7 @@ Deno.test("Markdown orders state, evidence, boundary, and the immediate action a
   assert(boundaryAt < actionAt, rendered);
   assertStringIncludes(rendered, notice.text);
   assertStringIncludes(rendered, guardrail.text);
-  assertStringIncludes(rendered, `Later: ${later.text}`);
+  assertStringIncludes(rendered, `Later:\n\n- ${later.text}`);
   assert(
     rendered.trimEnd().endsWith(immediate.text),
     `the immediate action must close the context:\n${rendered}`,
@@ -178,7 +188,10 @@ Deno.test("status wire and Markdown remove repeated Proof pages within a combine
   assertStringIncludes(structured, FULL_PROOF.line);
   assertStringIncludes(markdown, FULL_PROOF.line);
   assertStringIncludes(markdown, "Fleet: 1 active worktree.");
-  assertStringIncludes(markdown, "plus 3 more");
+  assertStringIncludes(
+    markdown,
+    "The standing grant covers `map`. This change also touches scope `code` — 9 changed files (3 generated).",
+  );
   assert(!markdown.includes("`main`: clean"), markdown);
   assert(
     structured.length + markdown.length < 8_000,
@@ -305,4 +318,192 @@ Deno.test("unregistered router results use the bounded envelope presenter", () =
   );
   assertStringIncludes(rendered, "That command has moved.");
   assert(!rendered.includes("undefined"), rendered);
+});
+
+Deno.test("bounded-list overflow lines agree with their counts", () => {
+  const fleetOf = (rows: number) =>
+    Array.from({ length: rows }, (_, index) => ({
+      path: `/workspace/project.worktrees/row-${index}`,
+      is_main: false,
+      is_current: false,
+      branch: `agent/row-${index}`,
+      clean: true,
+      changed_files: 0,
+      ahead: 0,
+      behind: 0,
+    }));
+  const statusWith = (rows: number) =>
+    renderResultMarkdown(
+      {
+        ok: true,
+        verb: "status",
+        data: { location: "main", project: "example", fleet: fleetOf(rows) },
+      },
+      resultPresenterForVerb("status"),
+    );
+  assertStringIncludes(statusWith(7), "1 additional fleet row omitted.");
+  assertStringIncludes(statusWith(8), "2 additional fleet rows omitted.");
+});
+
+Deno.test("overflow sentences render only through the shared omitted() helper", async () => {
+  const source = await Deno.readTextFile("src/shared/result_markdown.ts");
+  const occurrences = source.match(/omitted(?!\()/g) ?? [];
+  // The helper body and the capText marker are the two sanctioned spellings
+  // (identifier uses are excluded). A new hand-rolled "N additional things
+  // omitted." line must route through omitted() so count and noun agree.
+  assertEquals(occurrences.length, 2, "route overflow lines through omitted()");
+});
+
+Deno.test("later actions group one hint family under its first item", () => {
+  const header = fire(HINTS["coupling-diff-header"]);
+  const partner = fire(HINTS["coupling-diff-partner"], {
+    from: "src/main.ts",
+    path: "tests/main_test.ts",
+    cochanges: 4,
+    of: 4,
+    confidence: 1,
+  });
+  const strongPair = fire(HINTS["coupling-strong-pair"], {
+    from: "src/main.ts",
+    path: "tests/main_test.ts",
+  });
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "coupling",
+      data: {},
+      hints: hintTexts([header, partner, strongPair]),
+    },
+    resultPresenterForVerb("coupling"),
+  );
+  assertStringIncludes(
+    rendered,
+    `Later:\n\n- ${partner.text}\n  - ${strongPair.text}`,
+  );
+  assert(rendered.trimEnd().endsWith(header.text), rendered);
+});
+
+Deno.test("non-ok steps nest beneath the steps summary", () => {
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "done",
+      data: { scopes_changed: ["code"] },
+      steps: [
+        { label: "format", outcome: "ok" },
+        { label: "standard:coverage", outcome: "skipped" },
+        { label: "standard:binary_size", outcome: "skipped" },
+      ],
+    },
+    resultPresenterForVerb("done"),
+  );
+  assertStringIncludes(
+    rendered,
+    "- Steps: 1 ok, 2 skipped.\n" +
+      "  - `standard:coverage`: skipped.\n" +
+      "  - `standard:binary_size`: skipped.",
+  );
+  assert(!rendered.includes("ended"), rendered);
+});
+
+Deno.test("a narrow coverage gap names authored stragglers and collapses generated files", () => {
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "done",
+      data: {
+        landing_authority: {
+          kind: "conversation-required",
+          standing_scopes: ["map"],
+          uncovered: [
+            { path: "src/a.ts", scopes: ["code"] },
+            { path: "src/b.ts", scopes: ["code"] },
+            { path: "schema/out.json", scopes: [], generated: true },
+            { path: "types/out.d.ts", scopes: [], generated: true },
+          ],
+          uncovered_scopes: ["code"],
+          uncovered_unscoped_total: 2,
+          uncovered_generated_total: 2,
+        },
+      },
+    },
+    resultPresenterForVerb("done"),
+  );
+  assertStringIncludes(
+    rendered,
+    "Outside the `map` grant: `src/a.ts`, `src/b.ts`, plus 2 generated files.",
+  );
+  assert(!rendered.includes("schema/out.json"), rendered);
+});
+
+Deno.test("no recorded grant keeps the boundary to the conversation sentence", () => {
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "done",
+      data: {
+        landing_authority: {
+          kind: "conversation-required",
+          uncovered: [
+            { path: "src/a.ts", scopes: ["code"] },
+            { path: "src/b.ts", scopes: ["code"] },
+          ],
+          uncovered_scopes: ["code"],
+        },
+      },
+    },
+    resultPresenterForVerb("done"),
+  );
+  assertStringIncludes(
+    rendered,
+    "Landing requires approval from the current conversation.",
+  );
+  assert(!rendered.includes("src/a.ts"), rendered);
+  assert(!rendered.includes("also touches"), rendered);
+});
+
+Deno.test("every presenter renders clean prose for empty and failed envelopes", () => {
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    const empty = renderResultMarkdown(
+      { ok: true, verb: contract.verb, data: {} },
+      contract.presenter,
+    );
+    const failed = renderResultMarkdown(
+      {
+        ok: false,
+        verb: contract.verb,
+        error: "apply_failed",
+        message: "The operation could not finish.",
+      },
+      contract.presenter,
+    );
+    for (const rendered of [empty, failed]) {
+      assert(rendered.startsWith("# `discern"), `${contract.id}: ${rendered}`);
+      assert(!rendered.includes("undefined"), `${contract.id}: ${rendered}`);
+      assert(!rendered.includes("NaN"), `${contract.id}: ${rendered}`);
+      assert(!rendered.includes("[object"), `${contract.id}: ${rendered}`);
+    }
+  }
+});
+
+Deno.test("durations and byte sizes render at readable units", () => {
+  const awaited = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "await",
+      data: { met: false, condition: "green", waited_ms: 60_000 },
+    },
+    resultPresenterForVerb("await"),
+  );
+  assertStringIncludes(awaited, "Waited 60 s.");
+  const archive = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "patterns archive",
+      data: { events: 14783, bytes: 16_000_000 },
+    },
+    resultPresenterForVerb("patterns archive"),
+  );
+  assertStringIncludes(archive, "Size: 16 MB.");
+  assert(!archive.includes("16000000"), archive);
 });

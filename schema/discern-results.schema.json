@@ -6409,6 +6409,22 @@
                         "type": "string"
                       }
                     },
+                    "uncovered_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered_unscoped_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "uncovered_generated_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
                     "warnings": {
                       "type": "array",
                       "items": {
@@ -6429,6 +6445,9 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "generated": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -10147,6 +10166,11 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "automation": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "unknown": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -10181,6 +10205,7 @@
                     "analyzed",
                     "agent",
                     "human",
+                    "automation",
                     "unknown",
                     "identities"
                   ]
@@ -13586,6 +13611,22 @@
                         "type": "string"
                       }
                     },
+                    "uncovered_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered_unscoped_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "uncovered_generated_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
                     "warnings": {
                       "type": "array",
                       "items": {
@@ -13606,6 +13647,9 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "generated": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -13790,6 +13834,22 @@
                               "type": "string"
                             }
                           },
+                          "uncovered_scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "uncovered_unscoped_total": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "uncovered_generated_total": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
                           "warnings": {
                             "type": "array",
                             "items": {
@@ -13810,6 +13870,9 @@
                                   "items": {
                                     "type": "string"
                                   }
+                                },
+                                "generated": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -14223,6 +14286,9 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "generated": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -14230,6 +14296,22 @@
                           "scopes"
                         ]
                       }
+                    },
+                    "uncovered_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered_unscoped_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "uncovered_generated_total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
                     },
                     "warnings": {
                       "type": "array",

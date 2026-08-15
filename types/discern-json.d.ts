@@ -2019,10 +2019,14 @@ export type DiscernDoneResult = {
       source?: "conversation" | "standing-grant" | "effort-grant";
       scopes?: Array<string>;
       standing_scopes?: Array<string>;
+      uncovered_scopes?: Array<string>;
+      uncovered_unscoped_total?: number;
+      uncovered_generated_total?: number;
       warnings?: Array<string>;
       uncovered?: Array<{
         path: string;
         scopes: Array<string>;
+        generated?: boolean;
       }>;
       uncovered_total?: number;
     };
@@ -3156,6 +3160,7 @@ export type DiscernPatternsResult = {
       analyzed: number;
       agent: number;
       human: number;
+      automation: number;
       unknown: number;
       identities: Array<{
         agent: string;
@@ -4017,10 +4022,14 @@ export type DiscernStatusResult = {
       source?: "conversation" | "standing-grant" | "effort-grant";
       scopes?: Array<string>;
       standing_scopes?: Array<string>;
+      uncovered_scopes?: Array<string>;
+      uncovered_unscoped_total?: number;
+      uncovered_generated_total?: number;
       warnings?: Array<string>;
       uncovered?: Array<{
         path: string;
         scopes: Array<string>;
+        generated?: boolean;
       }>;
       uncovered_total?: number;
     };
@@ -4071,10 +4080,14 @@ export type DiscernStatusResult = {
         source?: "conversation" | "standing-grant" | "effort-grant";
         scopes?: Array<string>;
         standing_scopes?: Array<string>;
+        uncovered_scopes?: Array<string>;
+        uncovered_unscoped_total?: number;
+        uncovered_generated_total?: number;
         warnings?: Array<string>;
         uncovered?: Array<{
           path: string;
           scopes: Array<string>;
+          generated?: boolean;
         }>;
         uncovered_total?: number;
       };
@@ -4192,7 +4205,11 @@ export type DiscernStartResult = {
       uncovered?: Array<{
         path: string;
         scopes: Array<string>;
+        generated?: boolean;
       }>;
+      uncovered_scopes?: Array<string>;
+      uncovered_unscoped_total?: number;
+      uncovered_generated_total?: number;
       warnings?: Array<string>;
     };
   } | {

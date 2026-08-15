@@ -356,6 +356,16 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
         "Marks a child process whose test-run concurrency slot is already accounted for.",
     },
   },
+  spawnedBy: {
+    name: "DISCERN_SPAWNED_BY",
+    group: "process-internals",
+    lifecycle: "live",
+    documentation: {
+      public: false,
+      reason:
+        "Carries the parent invocation id into a discern child the gate's job runner spawns, so the Logbook records the run as a self-invocation.",
+    },
+  },
   setupDeno: {
     name: "DISCERN_SETUP_DENO",
     group: "process-internals",

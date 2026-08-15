@@ -142,7 +142,10 @@ const crashSignatureSchema = z.looseObject({
  *    a winner or confidence score;
  *  - `mcp_client` — the bounded raw `clientInfo` declaration when the call came
  *    over MCP. It identifies the client implementation, not necessarily the
- *    model or agent behind it.
+ *    model or agent behind it;
+ *  - `spawned_by` — the parent invocation id when discern itself spawned this
+ *    run (the gate's job runner stamps it), so readers can classify
+ *    self-invocations as automation and join them to the run that caused them.
  */
 const agentSignalSchema = z.looseObject({
   agent: z.string(),
@@ -164,6 +167,7 @@ const driverSchema = z.looseObject({
   ci: z.boolean().optional(),
   agent_signals: z.array(agentSignalSchema).optional(),
   mcp_client: mcpClientSchema.optional(),
+  spawned_by: z.string().optional(),
 });
 /** One recorded driver-signal bundle. */
 export type DriverFacts = z.infer<typeof driverSchema>;

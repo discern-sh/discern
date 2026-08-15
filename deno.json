@@ -71,6 +71,7 @@
     "zlib": "node:zlib",
     "@zod/zod": "jsr:@zod/zod@^4.4.3",
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
+    "@std/fmt/bytes": "jsr:@std/fmt@^1.0.10/bytes",
     "@std/fmt/colors": "jsr:@std/fmt@^1.0.10/colors",
     "@std/path": "jsr:@std/path@^1.0.8",
     "@std/fs": "jsr:@std/fs@^1.0.13",

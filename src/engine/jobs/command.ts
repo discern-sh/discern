@@ -10,6 +10,8 @@
  * falls back to killing the direct child.
  */
 
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
+import { activeInvocationId } from "../logbook/invocation_context.ts";
 import type { Job, JobResult } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
 import { selfShimPath } from "../../shared/self_shim.ts";
@@ -78,6 +80,16 @@ const CAPTURE_ENV: Record<string, string> = {
   TERM: "dumb",
   CI: "1",
 };
+
+/** Stamp the recording invocation into a job child's environment, so a
+ * `discern` the job invokes records itself as this run's self-invocation
+ * rather than a decision somebody made. */
+function spawnedByEnv(): Record<string, string> {
+  const invocation = activeInvocationId();
+  return invocation === undefined
+    ? {}
+    : { [DISCERN_ENVIRONMENT_VARIABLES.spawnedBy]: invocation };
+}
 
 /**
  * The exit code a finished job reports. A job terminated by a signal — i.e. the
@@ -179,6 +191,7 @@ export async function spawnJob(
     // whatever the ambient PATH holds (self_shim.ts).
     env: {
       ...CAPTURE_ENV,
+      ...spawnedByEnv(),
       ...(opts.env ?? {}),
       PATH: await selfShimPath(opts.cwd),
     },

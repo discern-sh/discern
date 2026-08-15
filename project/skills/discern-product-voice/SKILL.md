@@ -194,6 +194,15 @@ First use may include a plain-language explanation:
 
 After introduction, use the canonical term.
 
+### Audiences and gates
+
+Formats and features are described by capability, never by the reader they were designed for:
+
+- **`--json` / `--markdown`** are result formats. Describe what they emit; never call one agent-facing or human-facing — people, agents, and tools choose either.
+- **terminal** names the decorated rendering a TTY receives.
+- **interactive** names features whose real gate is a terminal (the Desk, lifecycle confirmations, the expanded `--verbose` dashboard): "interactive only", never "human only".
+- **human** and **owner** are reserved for genuinely human concepts — consent, review, "report to your owner", the Desk as the human view over work in progress. Do not dilute these to "user" or "CLI" when the human role is the point.
+
 ### Proof
 
 **Proof** is the canonical term for discern's completion evidence:

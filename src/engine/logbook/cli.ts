@@ -34,6 +34,7 @@ import {
 } from "../crash.ts";
 import type { DriverFacts, LogbookSurface } from "./schema.ts";
 import type { AgentSignal } from "./agent_signals.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
   LOGBOOK_EFFECTFUL_VERBS,
   logbookInvocationIsRecorded,
@@ -66,6 +67,14 @@ async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
   } catch {
     // No env permission reads as not-CI.
   }
+  let spawnedBy: string | undefined;
+  try {
+    const marker = Deno.env
+      .get(DISCERN_ENVIRONMENT_VARIABLES.spawnedBy)?.trim();
+    spawnedBy = marker === undefined || marker === "" ? undefined : marker;
+  } catch {
+    // No env permission reads as not-spawned.
+  }
   let agentSignals: AgentSignal[] | undefined;
   try {
     // Loaded when a verb actually dispatches — this module sits on every CLI
@@ -88,6 +97,7 @@ async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
     ...(agentSignals !== undefined && agentSignals.length > 0
       ? { agent_signals: agentSignals }
       : {}),
+    ...(spawnedBy === undefined ? {} : { spawned_by: spawnedBy }),
   };
 }
 

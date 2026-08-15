@@ -181,6 +181,11 @@ export async function engineEnv(
     // A fixture models a normal local invocation unless its test opts into CI.
     // This keeps the harness independent of the environment running the suite.
     CI: "false",
+    // Glyph capability keys off the locale, so pin one UTF-8 locale (and keep
+    // an inherited LC_ALL from outranking it): a suite run from a locale-less
+    // shell must render the same report a developer's terminal gets.
+    LANG: "en_US.UTF-8",
+    LC_ALL: "",
     // FORCE_COLOR flips Deno.noColor false even when NO_COLOR is set; empty
     // means unset, so an inherited value can't recolour spawned output.
     FORCE_COLOR: "",

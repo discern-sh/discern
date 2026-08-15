@@ -61,7 +61,7 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 | `writer`       | `"1.2.0"` (which discern wrote it)                                      |
 | `verb`         | `"done"`                                                                |
 | `surface`      | `"cli"` or `"mcp"`                                                      |
-| `driver`       | session, mode, CI, and possible agent signals                           |
+| `driver`       | session, mode, CI, spawning invocation, and possible agent signals      |
 | `branch`       | `"agent/fix-upload-retry"`                                              |
 | `head`         | `"<short commit ID>"`                                                   |
 | `clean`        | was the working tree clean?                                             |
@@ -106,6 +106,8 @@ The source explains the marker's lifetime:
 - `process-environment` records names such as `CODEX_THREAD_ID` or `GEMINI_CLI`. Their values are never stored.
 - `mcp-client` means the MCP client's declared name or title matched a known client name.
 - `host-filesystem` is ambient machine state. The current `/opt/.devin` marker can persist after Devin's installation, so it does not mean Devin drove that invocation.
+
+`driver.spawned_by` carries the parent invocation id when the gate's job runner spawned the run: readers classify these as automation and join child to parent.
 
 For an MCP call, `driver.mcp_client` retains the declared `name`, optional `title`, and `version`, capped at 256 characters each. Readers classify it through the current catalog. A newly recognized name attributes old and new events on the next read without changing stored lines. Unknown clients remain visible.
 

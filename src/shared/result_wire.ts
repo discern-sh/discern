@@ -67,10 +67,22 @@ function landingAuthoritySummary(
     "source",
     "scopes",
     "standing_scopes",
+    "uncovered_scopes",
+    "uncovered_unscoped_total",
+    "uncovered_generated_total",
     "warnings",
   ]);
   if (Array.isArray(authority.uncovered)) {
-    out.uncovered = authority.uncovered.slice(0, STATUS_AUTHORITY_PATH_LIMIT);
+    // Authored paths make the more actionable examples; generated paths stay
+    // countable through uncovered_generated_total.
+    const authored = authority.uncovered.filter((entry) =>
+      object(entry)?.generated !== true
+    );
+    const generated = authority.uncovered.filter((entry) =>
+      object(entry)?.generated === true
+    );
+    out.uncovered = [...authored, ...generated]
+      .slice(0, STATUS_AUTHORITY_PATH_LIMIT);
     out.uncovered_total = authority.uncovered.length;
   }
   return out;

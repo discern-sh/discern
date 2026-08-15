@@ -76,7 +76,7 @@ Rendered example:
 
 Rendered example:
 
-> Report the landing in your own words, then end your response with `data.proof_line` verbatim. Retrieve the full review page with `discern status --verbose` if a PR body needs it.
+> Report the landing in your own words, then end your response with the result's Proof line verbatim. Retrieve the full review page with `discern status --verbose` if a PR body needs it.
 
 ## `accept-review-via-status`
 
@@ -665,7 +665,7 @@ Rendered example:
 
 Rendered example:
 
-> The clean HEAD named by Proof is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.proof_line` afterward.
+> The clean HEAD named by Proof is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with its Proof line afterward.
 
 ## `gate-previewable-change`
 
@@ -753,7 +753,7 @@ Rendered example:
 
 Rendered example:
 
-> If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with `data.proof.line` verbatim and stop. Your owner can retrieve the full Proof with `discern status --verbose`. Run `discern accept` only after they accept.
+> If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with the result's Proof line verbatim and stop. Your owner can retrieve the full Proof with `discern status --verbose`. Run `discern accept` only after they accept.
 
 ## `gate-relay-uncovered-authority`
 
@@ -764,7 +764,7 @@ Rendered example:
 
 Rendered example:
 
-> Report this task to your owner in your own words, end with `data.proof.line` verbatim, and stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Your owner can retrieve the full Proof with `discern status --verbose`.
+> Report this task to your owner in your own words, end with the result's Proof line verbatim, and stop: the recorded grant does not cover this landing. Your owner can retrieve the full Proof with `discern status --verbose`.
 
 ## `gate-standards-limits-unverified`
 
@@ -1701,7 +1701,7 @@ Rendered example:
 
 Rendered example:
 
-> Report this branch to your owner in your own words. End with the result's Proof line (`data.gate_proof.proof.line`) verbatim, then wait. This clean HEAD is committed and up to date with main. Your owner can retrieve the full Proof with `discern status --verbose` and inspect the raw change with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
+> Report this branch to your owner in your own words. End with the result's Proof line verbatim, then wait. This clean HEAD is committed and up to date with main. Your owner can retrieve the full Proof with `discern status --verbose` and inspect the raw change with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
 
 ## `status-ready-uncovered-authority`
 
@@ -1712,7 +1712,7 @@ Rendered example:
 
 Rendered example:
 
-> Report this branch to your owner and end with the result's Proof line (`data.gate_proof.proof.line`) verbatim, then stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Inspect the raw change with `git diff main...agent/hints`.
+> Report this branch to your owner in your own words, end with the result's Proof line verbatim, then stop: the recorded grant does not cover this landing. Inspect the raw change with `git diff main...agent/hints`.
 
 ## `status-reappeared-worktree-paths`
 
