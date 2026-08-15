@@ -19,7 +19,7 @@ Individual worktree operations are available through Model Context Protocol (MCP
 
 The root menu keeps project actions under **Desk** and refresh or quit under **Session**. `Start a task` is always present. `Run a Project Script` appears when the main checkout has executable Project Scripts. `Read discern's docs` opens [discern.sh/docs](https://discern.sh/docs) in the system browser.
 
-Menus derive their visible rows from the live terminal height, minus what their header or preamble occupies.
+Menus derive a hard choice-row ceiling from the live terminal height. Each request passes its header or preamble reservation to the package fitter, which measures the complete frame against the remaining viewport.
 
 `Start a task` asks for an optional name and runs the `discern start` lifecycle core: a supplied name becomes the worktree id and branch; a blank answer draws a random codename. It creates and sets up the worktree before the Desk continues.
 

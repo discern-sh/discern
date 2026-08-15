@@ -346,8 +346,8 @@ async function runScenario(
       // A board-shaped composition: each cycle clears the screen, paints a
       // header, opens a grouped board menu that reserves the header's rows,
       // then clears again for a preamble and a grouped action menu. The
-      // parent test asserts every window's painted height stays full and
-      // constant across cycles.
+      // parent test asserts every header stays reserved and every window's
+      // painted height stays full and constant across cycles.
       const encoder = new TextEncoder();
       const raw = (value: string): void => {
         const bytes = encoder.encode(value);

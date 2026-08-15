@@ -381,6 +381,30 @@ function activeWindowHeights(transcript: string): number[][] {
   );
 }
 
+/** Complete painted heights of every active frame, one list per cleared screen. */
+function activeFrameHeights(transcript: string): number[][] {
+  return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) =>
+    screen.split(`${CSI}1G`).flatMap((frame) => {
+      if (!frame.includes("[active]")) return [];
+      const lines = stripCsiSequences(frame).split(/\r?\n/u);
+      const start = lines.findIndex((line) => line.includes("[active]"));
+      if (start < 0) return [];
+      let end = lines.length - 1;
+      while (end >= start && lines[end]?.trim() === "") end -= 1;
+      return [end - start + 1];
+    })
+  );
+}
+
+/** Caller-owned rows painted before the first active frame on each screen. */
+function reservedHeaderHeights(transcript: string): number[] {
+  return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) => {
+    const activeAt = screen.indexOf("[active]");
+    assert(activeAt >= 0, screen);
+    return stripCsiSequences(screen.slice(0, activeAt)).split("\n").length - 1;
+  });
+}
+
 const COMPOSED_CYCLE_INPUT: PtyInputPhase[] = Array.from(
   { length: 3 },
   (): PtyInputPhase[] => [
@@ -435,7 +459,7 @@ Deno.test({
 
 Deno.test({
   name:
-    "a short terminal degrades composed menus once and holds them across cycles",
+    "a short terminal keeps each reserved header while the frame fills the remainder",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const run = await runHarness({
@@ -446,7 +470,24 @@ Deno.test({
     });
     assertValue(run, COMPOSED_CYCLE_VALUES);
     const heights = activeWindowHeights(run.process.transcript);
+    const frameHeights = activeFrameHeights(run.process.transcript);
+    const headerHeights = reservedHeaderHeights(run.process.transcript);
     assertEquals(heights.length, 6, run.process.transcript);
+    assertEquals(frameHeights.length, 6, run.process.transcript);
+    assertEquals(headerHeights, [6, 4, 6, 4, 6, 4]);
+    for (const [screen, frames] of frameHeights.entries()) {
+      const expected = screen % 2 === 0 ? 6 : 8;
+      assert(frames.length > 0, run.process.transcript);
+      for (const height of frames) {
+        assertEquals(
+          height,
+          expected,
+          `screen ${screen + 1} must keep its ${12 - expected}-row reserved ` +
+            `header and fill the ${expected}-row remainder with the complete frame:\n` +
+            `frameHeights=${JSON.stringify(frameHeights)}`,
+        );
+      }
+    }
     const boardCycles = [heights[0], heights[2], heights[4]];
     const actionCycles = [heights[1], heights[3], heights[5]];
     for (const cycles of [boardCycles, actionCycles]) {

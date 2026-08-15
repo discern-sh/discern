@@ -175,8 +175,8 @@ export interface SelectionRequestOptions<T> {
   readonly searchLabel?: string;
   /** Hard ceiling on visible choice rows, below the viewport-derived budget. */
   readonly maxRows?: number;
-  /** Rows the caller's own composition occupies above this request; the
-   * derived visible-row budget subtracts them from the live terminal height. */
+  /** Rows the caller's composition occupies above this request. The package
+   * fitter reserves them while measuring the complete interaction frame. */
   readonly reservedRows?: number;
 }
 
@@ -192,8 +192,8 @@ export interface SelectionsRequestOptions<T> {
   ) => MaybePromise<InteractionValidation>;
   /** Hard ceiling on visible choice rows, below the viewport-derived budget. */
   readonly maxRows?: number;
-  /** Rows the caller's own composition occupies above this request; the
-   * derived visible-row budget subtracts them from the live terminal height. */
+  /** Rows the caller's composition occupies above this request. The package
+   * fitter reserves them while measuring the complete interaction frame. */
   readonly reservedRows?: number;
 }
 
@@ -384,9 +384,9 @@ const INTERACTION_BOUNDARY_ROWS = 1;
  * Resolve the visible-row budget for one choice request from the live terminal
  * height at request time: the injected interaction io when a harness supplies
  * one, otherwise the shared process adapter. The caller's `maxRows` remains a
- * hard ceiling and keeps its package validation; `reservedRows` subtracts the
- * caller's own composition rows so a tall terminal fills with choices while a
- * short one degrades exactly as the package's per-frame fitting provides.
+ * hard ceiling and keeps its package validation. The request forwards
+ * `reservedRows` separately, so the package measures the complete frame against
+ * the viewport left by the caller's composition.
  */
 function visibleRowBudget(
   options: { readonly maxRows?: number; readonly reservedRows?: number },
@@ -402,7 +402,7 @@ function visibleRowBudget(
       : 0;
   const derived = Math.max(
     MINIMUM_DERIVED_INTERACTION_ROWS,
-    rows - reserved - INTERACTION_BOUNDARY_ROWS,
+    rows - INTERACTION_BOUNDARY_ROWS,
   );
   const budget = options.maxRows === undefined
     ? derived
@@ -723,6 +723,9 @@ export async function requestSelection<T>(
       validate: async (value: T | undefined): Promise<string | undefined> =>
         value === undefined ? undefined : await validate(value),
     }),
+    ...(options.reservedRows === undefined
+      ? {}
+      : { reservedRows: options.reservedRows }),
     visibleCount: visibleRowBudget(options, runtime),
   };
   const value = options.search === true
@@ -732,6 +735,9 @@ export async function requestSelection<T>(
       ...(shared.hint === undefined ? {} : { hint: shared.hint }),
       ...(shared.required === undefined ? {} : { required: shared.required }),
       ...(shared.validate === undefined ? {} : { validate: shared.validate }),
+      ...(shared.reservedRows === undefined
+        ? {}
+        : { reservedRows: shared.reservedRows }),
       visibleCount: shared.visibleCount,
       ...(options.searchLabel === undefined
         ? {}
@@ -789,6 +795,9 @@ export async function requestSelections<T>(
     initialIds: [...initialIds],
     ...(options.hint === undefined ? {} : { hint: terminalLine(options.hint) }),
     validate,
+    ...(options.reservedRows === undefined
+      ? {}
+      : { reservedRows: options.reservedRows }),
     visibleCount: visibleRowBudget(options, runtime),
   }, runtime);
   return [...values];
