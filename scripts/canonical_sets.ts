@@ -2552,6 +2552,12 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
 export const UNAFFILIATED_CODEGEN_TARGETS: Readonly<Record<string, string>> = {
   "site/pages/assets/search.js":
     "copies the single `src/lib/docs_search.js` module into the browser asset",
+  "templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md":
+    "copies the authored setup-skeleton ADR template into the write-adr skill",
+  "templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md":
+    "copies the authored setup-skeleton adoption record into the write-adr skill",
+  "templates/skills/discern-write-adr/skeleton/docs/_adr/README.md":
+    "copies the authored setup-skeleton ADR format guide into the write-adr skill",
 };
 
 /**

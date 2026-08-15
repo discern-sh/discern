@@ -2750,6 +2750,9 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 `UNAFFILIATED_CODEGEN_TARGETS` records these write targets. The write chokepoint in `scripts/codegen.ts` permits only declared artifacts and recorded unaffiliated targets.
 
 - `site/pages/assets/search.js` — copies the single `src/lib/docs_search.js` module into the browser asset
+- `templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md` — copies the authored setup-skeleton ADR template into the write-adr skill
+- `templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md` — copies the authored setup-skeleton adoption record into the write-adr skill
+- `templates/skills/discern-write-adr/skeleton/docs/_adr/README.md` — copies the authored setup-skeleton ADR format guide into the write-adr skill
 
 ### Single-source claims anchoring no set
 
