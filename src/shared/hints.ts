@@ -795,7 +795,7 @@ export const HINTS = {
     example: { trunk: "main", branch: "agent/hints" },
     template: ({ trunk, branch }): string =>
       `Report this branch to your owner in your own words. End with ` +
-      `the result's Proof line (\`data.gate_proof.proof.line\`) verbatim, then ` +
+      `the result's Proof line verbatim, then ` +
       `wait. This clean HEAD is ` +
       `committed and up to date with ${trunk}. Your owner can retrieve the ` +
       `full Proof with ${OWNER_STATUS_VERBOSE} and inspect the raw change with ` +
@@ -825,8 +825,6 @@ export const HINTS = {
 
   /** A ready Proof whose recorded standing grant does not cover every path. */
   "status-ready-uncovered-authority": defineHint<{
-    uncovered: readonly string[];
-    warnings: readonly string[];
     trunk: string;
     branch: string;
   }>({
@@ -836,19 +834,11 @@ export const HINTS = {
     when:
       "A clean, current branch has valid Proof but recorded authority does not cover it.",
     family: "landing-authority",
-    example: {
-      uncovered: ["`src/main.ts` (scopes: engine)"],
-      warnings: [],
-      trunk: "main",
-      branch: "agent/hints",
-    },
-    template: ({ uncovered, warnings, trunk, branch }): string =>
-      `Report this branch to your owner and end with the result's Proof line ` +
-      `(\`data.gate_proof.proof.line\`) verbatim, then stop. The recorded grant does not cover ${
-        uncovered.length > 0 ? uncovered.join(", ") : "this landing"
-      }.${
-        warnings.length > 0 ? ` ${warnings.join(" ")}` : ""
-      } Inspect the raw change with \`git diff ${trunk}...${branch}\`.`,
+    example: { trunk: "main", branch: "agent/hints" },
+    template: ({ trunk, branch }): string =>
+      `Report this branch to your owner in your own words, end with the ` +
+      `result's Proof line verbatim, then stop: the recorded grant does not ` +
+      `cover this landing. Inspect the raw change with \`git diff ${trunk}...${branch}\`.`,
   }),
 
   "status-missing-done-proof": defineHint<{ trunk: string }>({
@@ -2373,7 +2363,7 @@ export const HINTS = {
     when: "A successful gate records Proof ready for owner review.",
     example: undefined,
     template: (): string =>
-      "If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with `data.proof.line` verbatim and stop. Your owner can retrieve the full Proof with " +
+      "If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with the result's Proof line verbatim and stop. Your owner can retrieve the full Proof with " +
       `${OWNER_STATUS_VERBOSE}. Run ${CMD.accept} only after they accept.`,
   }),
 
@@ -2391,33 +2381,25 @@ export const HINTS = {
     example: { source: "standing-grant", scopes: ["map"] },
     template: ({ source, scopes }): string =>
       source === "effort-grant"
-        ? `The owner pre-authorized this landing at the desk, and Proof covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with \`data.proof_line\` afterward.`
+        ? `The owner pre-authorized this landing at the desk, and Proof covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with its Proof line afterward.`
         : `The clean HEAD named by Proof is covered by the standing grant for ${
           scopes.join(", ")
-        }. Run ${CMD.accept} now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with \`data.proof_line\` afterward.`,
+        }. Run ${CMD.accept} now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with its Proof line afterward.`,
   }),
 
   /** A green Proof whose recorded authority left changed paths uncovered. */
-  "gate-relay-uncovered-authority": defineHint<{
-    uncovered: readonly string[];
-    warnings: readonly string[];
-  }>({
+  "gate-relay-uncovered-authority": defineHint({
     id: "gate-relay-uncovered-authority",
     category: "next-step",
     audience: "agent",
     when:
       "A successful gate records Proof but recorded authority does not cover its tree.",
     family: "landing-authority",
-    example: {
-      uncovered: ["`src/main.ts` (scopes: engine)"],
-      warnings: [],
-    },
-    template: ({ uncovered, warnings }): string =>
-      `Report this task to your owner in your own words, end with \`data.proof.line\` verbatim, and stop. The recorded grant does not cover ${
-        uncovered.length > 0 ? uncovered.join(", ") : "this landing"
-      }.${
-        warnings.length > 0 ? ` ${warnings.join(" ")}` : ""
-      } Your owner can retrieve the full Proof with ${OWNER_STATUS_VERBOSE}.`,
+    example: undefined,
+    template: (): string =>
+      `Report this task to your owner in your own words, end with the ` +
+      `result's Proof line verbatim, and stop: the recorded grant does not ` +
+      `cover this landing. Your owner can retrieve the full Proof with ${OWNER_STATUS_VERBOSE}.`,
   }),
 
   "gate-update-docs": defineHint({
@@ -2819,7 +2801,7 @@ export const HINTS = {
     when: "`accept` lands successfully and returns a one-line landing Proof.",
     example: undefined,
     template: (): string =>
-      "Report the landing in your own words, then end your response with `data.proof_line` verbatim. " +
+      "Report the landing in your own words, then end your response with the result's Proof line verbatim. " +
       `Retrieve the full review page with ${OWNER_STATUS_VERBOSE} if a PR body needs it.`,
   }),
 

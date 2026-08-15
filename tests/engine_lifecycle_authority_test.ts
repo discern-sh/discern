@@ -208,10 +208,7 @@ Deno.test("partial standing authority names the same uncovered path at done and 
       uncovered_scopes: ["engine"],
       uncovered_total: 1,
     });
-    assertHasHint(done, HINTS["gate-relay-uncovered-authority"], {
-      uncovered: ["`src/main.ts` (scopes: engine)"],
-      warnings: [],
-    });
+    assertHasHint(done, HINTS["gate-relay-uncovered-authority"]);
     assertLacksHint(done, HINTS["gate-land-under-verified-authority"], {
       source: "standing-grant",
       scopes: ["map"],
@@ -222,8 +219,6 @@ Deno.test("partial standing authority names the same uncovered path at done and 
     );
     assertEquals(status.data?.landing_authority, done.data?.landing_authority);
     assertHasHint(status, HINTS["status-ready-uncovered-authority"], {
-      uncovered: ["`src/main.ts` (scopes: engine)"],
-      warnings: [],
       trunk: "main",
       branch: "agent/partial",
     });

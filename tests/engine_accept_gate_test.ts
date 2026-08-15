@@ -107,7 +107,7 @@ function assertLandingProofRelay(obj: any, branch: string): void {
     obj,
     HINTS["accept-relay-landing-proof"],
   );
-  assertStringIncludes(relayHint, "data.proof_line");
+  assertStringIncludes(relayHint, "Proof line");
   assertStringIncludes(relayHint, "verbatim");
 }
 

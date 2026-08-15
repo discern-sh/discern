@@ -171,16 +171,43 @@ Deno.test("failure recovery never fabricates a command from the result verb", ()
 });
 
 Deno.test("proof relay hints require the system-rendered line verbatim", () => {
-  const relayFields = [
-    ["gate-relay-proof", "data.proof.line"],
-    ["status-ready-for-review", "data.gate_proof.proof.line"],
-    ["accept-relay-landing-proof", "data.proof_line"],
+  const relayIds = [
+    "gate-relay-proof",
+    "status-ready-for-review",
+    "status-ready-uncovered-authority",
+    "gate-relay-uncovered-authority",
+    "accept-relay-landing-proof",
   ] as const;
-  for (const [id, field] of relayFields) {
+  for (const id of relayIds) {
     const def = HINTS[id];
     const rendered = def.template(def.example as never);
-    assertStringIncludes(rendered, `\`${field}\``);
+    assertStringIncludes(rendered, "Proof line");
     assertStringIncludes(rendered, "verbatim");
+  }
+});
+
+Deno.test("hint templates never point at JSON envelope paths", () => {
+  // Every projection carries the fact itself — the Markdown presentation has
+  // no data object, and JSON readers see the field beside the hint — so a
+  // `data.<field>` pointer is at best redundant and at worst wrong for the
+  // surface the reader is on. State the fact; never its envelope address.
+  for (const [key, def] of Object.entries(HINTS)) {
+    const entry = def as {
+      example: unknown;
+      template: (params: unknown) => string;
+      interactiveTemplate?: (params: unknown) => string;
+    };
+    for (
+      const rendered of [
+        entry.template(entry.example),
+        entry.interactiveTemplate?.(entry.example),
+      ]
+    ) {
+      assert(
+        rendered === undefined || !/\bdata\.[a-zA-Z_]/.test(rendered),
+        `${key} points at a JSON envelope path: ${rendered}`,
+      );
+    }
   }
 });
 

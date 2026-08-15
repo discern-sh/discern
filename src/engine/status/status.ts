@@ -126,7 +126,6 @@ import {
   inspectLandingAuthority,
   landingAuthorityProjection,
   type LandingAuthorityResolution,
-  uncoveredLandingAuthorityDetails,
 } from "../worktree/landing_authority.ts";
 import { configEpoch } from "../logbook/epoch.ts";
 import {
@@ -1128,10 +1127,6 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
         ) {
           hints.push(
             fire(HINTS["status-ready-uncovered-authority"], {
-              uncovered: uncoveredLandingAuthorityDetails(
-                ctx.landingAuthority,
-              ),
-              warnings: ctx.landingAuthority.warnings,
               trunk: main,
               branch: g.branch,
             }),

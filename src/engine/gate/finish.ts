@@ -141,7 +141,6 @@ import {
   inspectLandingAuthority,
   landingAuthorityProjection,
   type LandingAuthorityResolution,
-  uncoveredLandingAuthorityDetails,
 } from "../worktree/landing_authority.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
@@ -1358,10 +1357,7 @@ function buildGateHints(
     })
     : landingAuthority !== undefined &&
         landingAuthorityProjection(landingAuthority) !== undefined
-    ? fire(HINTS["gate-relay-uncovered-authority"], {
-      uncovered: uncoveredLandingAuthorityDetails(landingAuthority),
-      warnings: landingAuthority.warnings,
-    })
+    ? fire(HINTS["gate-relay-uncovered-authority"])
     : fire(HINTS["gate-relay-proof"]);
   const hints = proofEmitted
     ? [
