@@ -44,6 +44,7 @@ Deno.test("terminal context snapshots process facts and observes dimensions once
     ansiControl: true,
     colorDepth: "truecolor",
     columns: 101,
+    hyperlinks: true,
     unicode: true,
   });
   assertEquals(context.themeVariant, "dark");
@@ -143,6 +144,7 @@ Deno.test("empty NO_COLOR, non-TTY, dumb TERM, and C locale degrade distinctly",
     ansiControl: false,
     colorDepth: "none",
     columns: 80,
+    hyperlinks: false,
     unicode: true,
   });
   assertEquals(nonTerminal.stdoutIsTerminal, false);
@@ -181,6 +183,7 @@ Deno.test("Codex and Claude dumb terminals retain their UTF-8 repertoire", () =>
       ansiControl: false,
       colorDepth: "none",
       columns: 80,
+      hyperlinks: false,
       unicode: true,
     });
   }
