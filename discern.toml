@@ -242,7 +242,7 @@
       "${map.dir}_internal/tip-inventory.md",
       "${map.dir}_internal/brand/messaging.md",
       "${map.dir}_internal/feature-canon-benefits.md",
-      "${map.dir}00-orientation/the-practice.md",
+      "${map.dir}_internal/practice-canon.md",
     ]
     neutral = true
 
