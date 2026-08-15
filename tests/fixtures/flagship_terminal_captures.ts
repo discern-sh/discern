@@ -143,6 +143,13 @@ const commitIdentifiers: TerminalCaptureNormalizer = {
     ),
 };
 
+/** Strip per-line trailing padding so right-edge alignment cannot encode an
+ * environment-variable width the earlier scalar normalizers preserved. */
+const trailingWhitespace: TerminalCaptureNormalizer = {
+  name: "trailing-whitespace",
+  normalize: (output: string): string => output.replace(/[ \t]+$/gmu, ""),
+};
+
 /** Ordered, documented scalar normalizers applied at capture time. */
 export const FLAGSHIP_CAPTURE_NORMALIZERS = [
   absolutePaths,
@@ -151,6 +158,7 @@ export const FLAGSHIP_CAPTURE_NORMALIZERS = [
   versions,
   runtimePlatform,
   commitIdentifiers,
+  trailingWhitespace,
 ] as const satisfies readonly TerminalCaptureNormalizer[];
 
 /** Apply the flagship policy directly for focused normalizer coverage. */
@@ -184,20 +192,70 @@ async function createFixtureWorktree(main: string): Promise<string> {
   return worktree;
 }
 
+/** One canonical fixture-root width for every platform. Temp roots differ per
+ * OS (`/tmp` vs macOS's `/private/tmp`), and the narrator wraps and pads by
+ * content width — so an unequal path length shifts layout between the
+ * recording machine and CI replays. Renaming the root to one shared width
+ * makes the rendered geometry platform-independent by construction, and the
+ * width keeps the derived worktree path
+ * (`<root>.worktrees/terminal-review`) inside the canonical 80-column
+ * capture geometry. */
+const FIXTURE_ROOT_WIDTH = 48;
+
+/** A unique fixture root whose canonical path is exactly the shared width. */
+async function lengthNormalizedRoot(): Promise<string> {
+  const temp = await Deno.makeTempDir({
+    dir: "/tmp",
+    prefix: "discern-terminal-fixture-",
+  });
+  const canonical = await Deno.realPath(temp);
+  const parent = canonical.slice(0, canonical.lastIndexOf("/"));
+  const suffix = canonical.slice(canonical.lastIndexOf("-") + 1);
+  const stem = `${parent}/discern-tcf-${suffix}`;
+  if (stem.length > FIXTURE_ROOT_WIDTH) {
+    await Deno.remove(canonical, { recursive: true }).catch(() => undefined);
+    throw new Error(
+      `fixture root ${stem} is wider than the shared ` +
+        `${FIXTURE_ROOT_WIDTH}-column budget; raise FIXTURE_ROOT_WIDTH and ` +
+        `re-record the flagship captures on every platform`,
+    );
+  }
+  const padded = stem + "x".repeat(FIXTURE_ROOT_WIDTH - stem.length);
+  await Deno.rename(canonical, padded);
+  return padded;
+}
+
+/** Refuse a capture that still carries the fixture path: a wrapped or
+ * style-interrupted occurrence dodges whole-string replacement and would
+ * re-encode a machine path into the reviewed fixture. */
+function assertNoResidualPath(
+  name: string,
+  screen: string,
+  root: string,
+): void {
+  const flattened = screen
+    .replaceAll(/\u001b\[[0-9;]*m/gu, "")
+    .replaceAll(/\s+/gu, "");
+  if (flattened.includes(root)) {
+    throw new Error(
+      `flagship capture '${name}' still contains the fixture path after ` +
+        `normalization — a wrapped occurrence dodged the absolute-paths ` +
+        `normalizer; adjust the scenario or the normalizer before recording`,
+    );
+  }
+}
+
 /** Capture every flagship from a fresh scenario; no command inherits prior proof. */
 export async function captureFlagshipTerminalScreens(
   executable: string,
 ): Promise<Readonly<Record<string, TerminalCommandCapture>>> {
-  const main = await Deno.makeTempDir({
-    dir: "/tmp",
-    prefix: "discern-terminal-fixture-",
-  });
+  const main = await lengthNormalizedRoot();
   const worktreeRoot = `${main}.worktrees`;
   try {
     const worktree = await createFixtureWorktree(main);
     const captures: Record<string, TerminalCommandCapture> = {};
     for (const command of FLAGSHIP_COMMANDS) {
-      captures[command.name] = await captureDiscernCommand({
+      const capture = await captureDiscernCommand({
         executable,
         name: command.name,
         args: command.args,
@@ -207,6 +265,8 @@ export async function captureFlagshipTerminalScreens(
         env: { DISCERN_TEMPLATES_DIR: join(REPO_ROOT, "templates") },
         normalizers: FLAGSHIP_CAPTURE_NORMALIZERS,
       });
+      assertNoResidualPath(command.name, capture.screen, main);
+      captures[command.name] = capture;
     }
     return captures;
   } finally {
