@@ -37,6 +37,7 @@ import { PROVIDERS } from "./providers.ts";
 import type { Logger } from "./log.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import type { EnvReader } from "../shared/env.ts";
+import { runGit, SPAWN_FAILED } from "../shared/subprocess.ts";
 import {
   type HumanOutputGroup,
   populatedHumanOutputGroups,
@@ -203,6 +204,8 @@ export interface TextRequestSettings {
   readonly hint?: string;
   readonly placeholder?: string;
   readonly required?: boolean | string;
+  /** Canonicalise a submitted value before required and caller validation. */
+  readonly transform?: (value: string) => string;
   readonly validate?: (value: string) => MaybePromise<InteractionValidation>;
 }
 
@@ -814,6 +817,9 @@ export async function requestText(
       ? {}
       : { placeholder: terminalLine(settings.placeholder) }),
     ...(required === undefined ? {} : { required }),
+    ...(settings.transform === undefined
+      ? {}
+      : { transform: settings.transform }),
     ...(validate === undefined ? {} : { validate }),
   }, runtime);
 }
@@ -831,6 +837,30 @@ export async function requestConfirmation(
   }, runtime);
 }
 
+/** Canonical whitespace policy shared by single-line product text requests. */
+function trimRequestedText(value: string): string {
+  return value.trim();
+}
+
+/** Canonical comma-and-space spelling for the setup source-glob answer. */
+function canonicalSourceGlobs(value: string): string {
+  return parseSourceGlobs(value).join(", ");
+}
+
+/** Ask Git itself whether the prefix can begin every discern worktree branch. */
+async function validateBranchPrefix(
+  value: string,
+): Promise<InteractionValidation> {
+  const result = await runGit(
+    ["check-ref-format", "--branch", `${value}discern-probe`],
+    { cwd: Deno.cwd() },
+  );
+  if (result.success) return true;
+  return result.code === SPAWN_FAILED
+    ? "Git is required to validate the branch prefix."
+    : "Enter a Git-safe branch prefix, such as agent/.";
+}
+
 /**
  * Resolve the full `SetupConfig`. In non-interactive mode every value comes from
  * a flag or its default; in interactive mode unset values are requested, seeded
@@ -846,10 +876,12 @@ export async function resolveSetupConfig(
   // 1. Project name.
   let projectName = flags.name?.trim() ?? "";
   if (!projectName && interactive) {
-    projectName = (await requestText({
+    projectName = await requestText({
       message: "Project name",
       default: defaultNameFromCwd(),
-    })).trim();
+      required: "Enter a project name.",
+      transform: trimRequestedText,
+    });
   }
   if (!projectName) {
     projectName = defaultNameFromCwd();
@@ -864,12 +896,13 @@ export async function resolveSetupConfig(
       throw new Error(`invalid --slug "${slug}": ${SLUG_RULE}`);
     }
   } else if (interactive) {
-    slug = (await requestText({
+    slug = await requestText({
       message: "Slug",
       default: defaultSlug,
-      validate: (value) =>
-        isValidSlug(value.trim()) || `Slug must be ${SLUG_RULE}.`,
-    })).trim();
+      required: "Enter a slug.",
+      transform: trimRequestedText,
+      validate: (value) => isValidSlug(value) || `Slug must be ${SLUG_RULE}.`,
+    });
   } else {
     slug = defaultSlug;
   }
@@ -877,10 +910,13 @@ export async function resolveSetupConfig(
   // 3. Branch prefix.
   let branchPrefix = flags.branchPrefix?.trim();
   if (branchPrefix === undefined && interactive) {
-    branchPrefix = (await requestText({
+    branchPrefix = await requestText({
       message: "Branch prefix for worktrees",
       default: DEFAULTS.branchPrefix,
-    })).trim();
+      required: "Enter a branch prefix.",
+      transform: trimRequestedText,
+      validate: validateBranchPrefix,
+    });
   }
   if (branchPrefix === undefined || branchPrefix === "") {
     branchPrefix = DEFAULTS.branchPrefix;
@@ -894,6 +930,8 @@ export async function resolveSetupConfig(
     const answer = await requestText({
       message: "Primary source globs (comma-separated)",
       default: DEFAULTS.sourceGlobs.join(", "),
+      required: "Enter at least one source glob.",
+      transform: canonicalSourceGlobs,
     });
     sourceGlobs = parseSourceGlobs(answer);
   } else {
@@ -911,6 +949,7 @@ export async function resolveSetupConfig(
     brief = await requestText({
       message: "What are you building? (one or two sentences)",
       default: "",
+      transform: trimRequestedText,
     });
   } else {
     brief = "";

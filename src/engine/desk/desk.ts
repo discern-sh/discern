@@ -38,6 +38,7 @@ import {
   requestText,
   type SelectionGroup,
   type SelectionRequestOptions,
+  type TextRequestOptions,
 } from "../../lib/terminal_interaction.ts";
 import { Logger } from "../../lib/log.ts";
 import {
@@ -137,7 +138,7 @@ export interface DeskRuntime {
   error(message: string): void;
   select(options: DeskSelectOptions): DeskMaybePromise<string>;
   confirm(message: string, defaultTo: boolean): DeskMaybePromise<boolean>;
-  input(message: string): DeskMaybePromise<string>;
+  input(options: TextRequestOptions): DeskMaybePromise<string>;
   pause(out: Out): DeskMaybePromise<void>;
   lifecycle(root: string): DeskMaybePromise<LifecycleContext>;
   accept(
@@ -292,7 +293,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   error: (message) => deskLogger().error(message),
   select: (options) => requestSelection<string>(options),
   confirm: (message, defaultTo) => confirmOrNo(message, defaultTo),
-  input: (message) => requestText({ message }),
+  input: (options) => requestText(options),
   pause: (out) => awaitEnter(out),
   lifecycle: (root) => lifecycleContext(root, deskLogger()),
   accept: (ctx, opts) => accept(ctx, opts),
@@ -829,9 +830,10 @@ async function startTask(
 ): Promise<string | undefined> {
   let answer: string;
   try {
-    answer = await runtime.input(
-      "Task name (blank uses a codename)",
-    );
+    answer = await runtime.input({
+      message: "Task name (blank uses a codename)",
+      transform: (value) => value.trim(),
+    });
   } catch (error) {
     if (!isInteractionCancelled(error)) throw error;
     return undefined;
@@ -993,13 +995,17 @@ async function dispatchAction(
         out.warn(e.message);
         let typed: string;
         try {
-          typed = await runtime.input(
-            `Type the branch name (${row.entry.branch}) to discard it permanently — anything else cancels`,
-          );
+          typed = await runtime.input({
+            message:
+              `Type the branch name (${row.entry.branch}) to discard it permanently — anything else cancels`,
+            transform: (value) => value.trim(),
+          });
         } catch (error) {
           if (!isInteractionCancelled(error)) throw error;
           typed = "";
         }
+        // A mismatch is the documented cancellation choice, not invalid input
+        // that should trap the operator in a validation retry.
         if (typed.trim() !== row.entry.branch) {
           out.info("Left untouched.");
           return false;

@@ -3,6 +3,7 @@
  */
 
 import {
+  assert,
   assertEquals,
   assertExists,
   assertRejects,
@@ -722,6 +723,33 @@ Deno.test("text validation stays distinct from normalized Ctrl-C and EOF cancell
     assertEquals(cancelled.rawTransitions, [true, false]);
     assertEquals(cancelled.writes[0], "\n");
   }
+});
+
+Deno.test("text transforms before required validation and returns the canonical value", async () => {
+  const observed: string[] = [];
+  const io = new ScriptedTerminal([
+    "   \r",
+    "\x7f\x7f\x7f",
+    "  MiXeD  \r",
+  ]);
+  assertEquals(
+    await requestText({
+      message: "Value",
+      required: "Enter a value.",
+      transform: (value) => value.trim().toLowerCase(),
+      validate: (value) => {
+        observed.push(value);
+        return value === "mixed" || "Enter mixed.";
+      },
+    }, scriptedRuntime(io)),
+    "mixed",
+  );
+  assert(
+    observed.every((value) => value === value.trim().toLowerCase()),
+    "required and caller validation should see only canonical values",
+  );
+  assertEquals(observed.at(-1), "mixed");
+  assertStringIncludes(io.writes.join(""), "Enter a value.");
 });
 
 Deno.test("an unexpected in-frame error restores and terminates the interaction", async () => {
