@@ -21,21 +21,23 @@ Use `discern done` on the intended final commit. A green run on a clean branch a
 
 ## Live terminal presentation
 
-Interactive `done`, `prepare`, and `test` use this priority:
+On a live-capable terminal, `done`, `prepare`, `test`, and human composite Gate runs always use one activity frame. Stable job-start and job-result facts stay pinned while complete subprocess lines enter a bounded tail and partial lines update in place. `[gate].stream` does not decide whether this frame appears.
 
-1. Full live dashboard when its rendered frame fits.
-2. Compact live dashboard when only that frame fits.
-3. Append-only output when neither fits safely, or for CI, `--plain`, `[gate].stream`, pipes, and unavailable cursor control.
+The package-owned frame uses this fitting order:
 
-Compact shows settled and total jobs, separate concurrent jobs, elapsed time, and `Completed`, `Failed`, `Cancelled`, and `Remaining`; `Completed` covers every final state. Full retains the job table. Test uses Test labels and its configured job.
+1. Full live frame with its configured tail when the complete frame fits.
+2. Compact live frame with fewer tail rows when only that geometry fits.
+3. Append-only rendering when cursor-controlled painting is no longer safe.
 
-The controller samples viewport size and switches modes while safe. Unsafe shrink latches append-only output without guessed cleanup. Unsupported observation retains the initial size.
+The same producer feed continues through every degradation; a resize never switches an admitted live run to the project's static transcript policy. Interrupts restore the cursor and leave the stable activity facts in terminal history.
 
-Transcript, final table, result tail, diagnostics, remedies, and Proof appear once below live progress. JSON and Model Context Protocol calls bypass it.
+On success, completion leaves the stable summary without replaying the transient tail as a complete output wall. On failure, the captured diagnostic excerpt, full-output-artifact route, remedy, and result tail appear below the restored frame.
+
+Static surfaces keep the configured transcript contract. CI, pipes, `--plain`, and terminals without cursor control use grouped per-job output when `[gate].stream = false` and immediate line-prefixed output when it is `true`. JSON, Markdown, and Model Context Protocol calls bypass human job output and return only their result projection.
 
 For JSON fields, the Markdown presentation, and the MCP tool contract, use [MCP tools & results](../70-reference/mcp-and-results.md).
 
-[`presentation.ts`](../../../src/engine/gate/presentation.ts) receives facts, time, and viewport. [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) selects live mode; [`terminal.ts`](../../../src/lib/terminal.ts) observes the process.
+[`execute.ts`](../../../src/engine/gate/execute.ts) resolves the shared output and capture policy. [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts) maps Gate lifecycle and child-output facts into the package producer; the package owns painting, fitting, and degradation. [`command.ts`](../../../src/engine/jobs/command.ts) preserves raw capture while feeding presentation-only decoded text, and [`terminal.ts`](../../../src/lib/terminal.ts) observes the process.
 
 | Read next                                                   | What it helps you do                                                             |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
