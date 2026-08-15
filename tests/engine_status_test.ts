@@ -17,7 +17,7 @@ import {
 import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import { displayWidth } from "../src/lib/text.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   defaultMapPath,
@@ -429,8 +429,8 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
 
     const human = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "running done 2m · usually 4m");
-    assertStringIncludes(human.output, "done failed at test");
+    assertTerminalTextIncludes(human.output, "running done 2m · usually 4m");
+    assertTerminalTextIncludes(human.output, "done failed at test");
   });
 });
 
@@ -731,7 +731,7 @@ Deno.test("status fleet: ownership stays available without repeating in a routin
     const wt = await addWorktree(dir, "beta");
     const survey = await runAgent(wt, ["status", "--all"]);
     assertEquals(survey.code, 0, survey.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       survey.output,
       "Worktrees stay with the effort that created them",
     );
@@ -790,8 +790,8 @@ Deno.test({
       });
       assertEquals(colored.code, 0, colored.output);
       assertStringIncludes(colored.output, `${STATUS_ESCAPE}[`);
-      assertStringIncludes(colored.output, "Active worktrees");
-      assertStringIncludes(colored.output, "Branch: agent/alpha");
+      assertTerminalTextIncludes(colored.output, "Active worktrees");
+      assertTerminalTextIncludes(colored.output, "Branch: agent/alpha");
       assertStringIncludes(colored.output, "Idle");
       for (const line of colored.stdout.trimEnd().split("\n")) {
         assert(
@@ -806,8 +806,8 @@ Deno.test({
       });
       assertEquals(plain.code, 0, plain.output);
       assert(!plain.output.includes(STATUS_ESCAPE), plain.output);
-      assertStringIncludes(plain.output, "Active worktrees");
-      assertStringIncludes(plain.output, "Branch: agent/alpha");
+      assertTerminalTextIncludes(plain.output, "Active worktrees");
+      assertTerminalTextIncludes(plain.output, "Branch: agent/alpha");
       assertStringIncludes(plain.output, "Idle");
       for (const line of plain.stdout.trimEnd().split("\n")) {
         assert(
@@ -1025,7 +1025,7 @@ Deno.test("status: an untracked project file makes local and fleet status dirty"
     const human = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(human.output, "agent/scratch");
-    assertStringIncludes(human.output, "1 file changed");
+    assertTerminalTextIncludes(human.output, "1 file changed");
     assertEquals(row.gate_proof.status, "missing");
   });
 });
@@ -1135,7 +1135,7 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     // reserves the stored Markdown page for --verbose.
     const plain = await runAgent(wt, ["status"]);
     assertEquals(plain.code, 0, plain.output);
-    assertStringIncludes(plain.output, "Receipt: agent/alpha Proof");
+    assertTerminalTextIncludes(plain.output, "Receipt: agent/alpha Proof");
     assertStringIncludes(plain.output, "Proof");
     assertStatusFactLine(plain.output, "Proof", "honored");
     assert(
@@ -1144,7 +1144,7 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     );
     const verbose = await runAgent(wt, ["status", "--verbose"]);
     assertEquals(verbose.code, 0, verbose.output);
-    assertStringIncludes(verbose.output, "### Proof — `agent/alpha`");
+    assertTerminalTextIncludes(verbose.output, "### Proof — `agent/alpha`");
 
     // From the main checkout, the fleet's review-ready hint names the same
     // inspection command, so the owner can look at the work from where they sit —
@@ -1170,7 +1170,10 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     // row's page beneath the fleet table.
     const fleetVerbose = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(fleetVerbose.code, 0, fleetVerbose.output);
-    assertStringIncludes(fleetVerbose.output, "### Proof — `agent/alpha`");
+    assertTerminalTextIncludes(
+      fleetVerbose.output,
+      "### Proof — `agent/alpha`",
+    );
 
     // The additive fleet check preserves a proof that exists but is no longer
     // honored, while the legacy honored-only projection remains compatible.
@@ -1257,9 +1260,9 @@ Deno.test("status: a landed proof carries its commit time for the human age", as
       JSON.stringify(result.data.landed_proof),
     );
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.output, "Receipt: Last landing");
+    assertTerminalTextIncludes(human.output, "Receipt: Last landing");
     assertStringIncludes(human.output, "[PASS]");
-    assertStringIncludes(human.output, "just now");
+    assertTerminalTextIncludes(human.output, "just now");
   });
 });
 

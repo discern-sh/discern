@@ -11,7 +11,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { writeDiscernToml } from "../src/lib/tidy_format.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -223,7 +223,7 @@ Deno.test("worktree setup is idempotent: a re-run re-readies but never re-create
     // would): it must re-ready, not re-create or re-run steps.
     const second = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(second.code, 0, second.output);
-    assertStringIncludes(second.output, "already configured");
+    assertTerminalTextIncludes(second.output, "already configured");
 
     assertEquals(
       await Deno.readTextFile(join(markers, `${handle}.create`)),
@@ -267,7 +267,7 @@ Deno.test("worktree prune reclaims a vanished worktree's resource (GC), and --dr
     const dry = await runAgent(dir, ["worktree", "prune", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.output, handle);
-    assertStringIncludes(dry.output, "reclaim orphaned resource");
+    assertTerminalTextIncludes(dry.output, "reclaim orphaned resource");
     assert(
       !(await exists(join(markers, `${handle}.gone`))),
       "dry-run ran the destroy",

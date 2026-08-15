@@ -211,7 +211,7 @@ Deno.test("hook WorktreeCreate: a failed create never deletes a pre-existing bra
     });
     assertEquals(r.code, 1, r.stderr);
     assertStringIncludes(r.stderr, "agent/fix-login");
-    assertStringIncludes(r.stderr, "already exists");
+    assertTerminalTextIncludes(r.stderr, "already exists");
     assertEquals(
       await gitOut(dir, "rev-parse", "agent/fix-login"),
       tip,
@@ -386,7 +386,7 @@ Deno.test("hook WorktreeCreate: a FAILING setup step surfaces its output for deb
     assertEquals(r.stdout, "");
     // The step's own OUTPUT is surfaced on stderr, beside the failure narration.
     assertStringIncludes(r.stderr, "FAIL_42_Z");
-    assertStringIncludes(r.stderr, "worktree setup step failed");
+    assertTerminalTextIncludes(r.stderr, "worktree setup step failed");
   });
 });
 

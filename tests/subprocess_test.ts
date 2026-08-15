@@ -22,7 +22,7 @@ import {
   SPAWN_FAILED,
 } from "../src/shared/subprocess.ts";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 /** command → the probeable leading word, or undefined to skip the probe. */
 const CASES: [string, string | undefined][] = [
@@ -146,7 +146,7 @@ Deno.test("runGit: a spawn failure reports the real cause, not a fabricated PATH
   const result = await runGit(["status"], { cwd: "/no/such/dir/at/all/xyz" });
   assertEquals(result.success, false);
   assertEquals(result.code, SPAWN_FAILED);
-  assertStringIncludes(result.stderr, "No such cwd");
+  assertTerminalTextIncludes(result.stderr, "No such cwd");
   assert(
     !result.stderr.includes("git is not on PATH"),
     "runGit must not fabricate a PATH cause for a missing cwd",

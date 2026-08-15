@@ -39,7 +39,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 const INTERRUPTION_FIXTURES = {
   "effort-claim": "pre-CAS claim and post-CAS consumption",
@@ -1553,7 +1553,7 @@ Deno.test("conversation consent lands the branch that outgrew the trunk's commit
     await grantEffort(worktree, branch, "2026-07-29T08:00:00.000Z");
     const effort = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(effort.code, 1, effort.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       effort.stdout,
       "could not be checked",
       "a recorded effort grant must not bypass an unreadable policy record",
@@ -1598,7 +1598,7 @@ Deno.test("accept falls back loudly when trunk authority is unreadable and recor
 
     const flagless = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(flagless.code, 1, flagless.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       JSON.parse(flagless.stdout).message,
       "could not be checked",
     );
@@ -1607,7 +1607,7 @@ Deno.test("accept falls back loudly when trunk authority is unreadable and recor
     await grantEffort(worktree, branch, "2026-07-28T23:30:00.000Z");
     const effort = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(effort.code, 1, effort.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       effort.stdout,
       "could not be checked",
       "a recorded effort grant must not bypass malformed trunk policy",
@@ -1627,7 +1627,7 @@ Deno.test("accept falls back loudly when trunk authority is unreadable and recor
         !confirmed.stdout.includes("cannot bypass"),
       confirmed.stdout,
     );
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       confirmed.stdout,
       "never-loosen check cannot verify",
       confirmed.stdout,

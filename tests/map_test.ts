@@ -535,7 +535,7 @@ Deno.test("map search labels strong partials that fill unused result slots", asy
       "copper orchard velvet beacons",
     ], dir);
     assertEquals(human.code, 0);
-    assertStringIncludes(human.stdout, "partial match");
+    assertTerminalTextIncludes(human.stdout, "partial match");
   });
 });
 
@@ -674,7 +674,10 @@ Deno.test("map search rejects an empty query and incompatible read modes", async
       "--raw",
     ], dir);
     assertEquals(raw.code, 1);
-    assertStringIncludes(raw.stderr, "--search cannot be combined with --raw");
+    assertTerminalTextIncludes(
+      raw.stderr,
+      "--search cannot be combined with --raw",
+    );
   });
 });
 
@@ -723,12 +726,15 @@ Deno.test("bare map renders README descriptions and Git freshness facts per regi
 
     const human = await runCli(["map"], dir);
     assertEquals(human.code, 0);
-    assertStringIncludes(human.stdout, "discern map — 1 region in docs");
-    assertStringIncludes(
+    assertTerminalTextIncludes(human.stdout, "discern map — 1 region in docs");
+    assertTerminalTextIncludes(
       human.stdout,
       "00-intro  The short orientation to this project.",
     );
-    assertStringIncludes(human.stdout, "linked code changed 2 times since");
+    assertTerminalTextIncludes(
+      human.stdout,
+      "linked code changed 2 times since",
+    );
 
     const json = await runCli(["map", "--json"], dir);
     const payload = JSON.parse(json.stdout);
@@ -763,7 +769,7 @@ Deno.test("bare map reports unknown freshness when pages link only a directory",
 
     const human = await runCli(["map"], dir);
     assertEquals(human.code, 0);
-    assertStringIncludes(human.stdout, "freshness unknown");
+    assertTerminalTextIncludes(human.stdout, "freshness unknown");
 
     const json = await runCli(["map", "--json"], dir);
     const region = JSON.parse(json.stdout).data.regions[0];
@@ -780,8 +786,8 @@ Deno.test("bare map reports unknown freshness without tracked file links", async
 
     const human = await runCli(["map"], dir);
     assertEquals(human.code, 0);
-    assertStringIncludes(human.stdout, "00-intro  Intro");
-    assertStringIncludes(human.stdout, "freshness unknown");
+    assertTerminalTextIncludes(human.stdout, "00-intro  Intro");
+    assertTerminalTextIncludes(human.stdout, "freshness unknown");
 
     const json = await runCli(["map", "--json"], dir);
     const region = JSON.parse(json.stdout).data.regions[0];
@@ -885,11 +891,15 @@ Deno.test("map --export honours the scope: public withholds, all keeps", async (
     assert(!pub.stdout.includes("hidden.md"), "public export withholds");
     assert(!pub.stdout.includes("publish: false"));
     assert(!pub.stdout.includes("Short label"), "frontmatter never exports");
-    assertStringIncludes(pub.stdout, "# Rich doc");
+    assertTerminalTextIncludes(pub.stdout, "# Rich doc");
 
     const all = await runCli(["map", "--export", "all"], dir);
     assertEquals(all.code, 0);
-    assertStringIncludes(all.stdout, "Withheld body.", "all keeps everything");
+    assertTerminalTextIncludes(
+      all.stdout,
+      "Withheld body.",
+      "all keeps everything",
+    );
     assert(!all.stdout.includes("publish: false"), "but still no frontmatter");
   });
 });
@@ -1134,7 +1144,7 @@ Deno.test("map export validates scope and incompatible flags", async () => {
       dir,
     );
     assertEquals(unknown.code, 1);
-    assertStringIncludes(unknown.stderr, "unknown export scope");
+    assertTerminalTextIncludes(unknown.stderr, "unknown export scope");
 
     for (
       const args of [
@@ -1147,7 +1157,7 @@ Deno.test("map export validates scope and incompatible flags", async () => {
     ) {
       const result = await runCli(args, dir);
       assertEquals(result.code, 1, args.join(" "));
-      assertStringIncludes(result.stderr, "--export cannot be combined");
+      assertTerminalTextIncludes(result.stderr, "--export cannot be combined");
       assertEquals(result.stdout, "");
     }
 
@@ -1182,7 +1192,7 @@ Deno.test("map --export select requires output and an interactive terminal", asy
       dir,
     );
     assertEquals(noOutput.code, 1);
-    assertStringIncludes(noOutput.stderr, "requires --output");
+    assertTerminalTextIncludes(noOutput.stderr, "requires --output");
 
     const nonInteractive = await runCli(
       [
@@ -1195,7 +1205,7 @@ Deno.test("map --export select requires output and an interactive terminal", asy
       dir,
     );
     assertEquals(nonInteractive.code, 1);
-    assertStringIncludes(nonInteractive.stderr, "interactive terminal");
+    assertTerminalTextIncludes(nonInteractive.stderr, "interactive terminal");
   });
 });
 

@@ -8,7 +8,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   git,
   gitInit,
@@ -123,7 +123,7 @@ Deno.test("standards: coverage passes when the emitted metric meets the floor", 
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "meets the floor");
+    assertTerminalTextIncludes(r.stdout, "meets the floor");
     const proof = JSON.parse(
       await Deno.readTextFile(
         `${dir}/.git/${GIT_ADMIN_STATE.standardMeasurements.path}`,
@@ -154,7 +154,7 @@ Deno.test("standards: non-dry-run refuses a dirty tree unless forced", async () 
 
     const blocked = await runAgent(dir, ["standards"]);
     assertEquals(blocked.code, 1, blocked.output);
-    assertStringIncludes(blocked.stderr, "clean worktree");
+    assertTerminalTextIncludes(blocked.stderr, "clean worktree");
     assertStringIncludes(blocked.stderr, "--force");
 
     const blockedJson = await runAgent(dir, ["standards", "--json"]);
@@ -166,7 +166,7 @@ Deno.test("standards: non-dry-run refuses a dirty tree unless forced", async () 
 
     const forced = await runAgent(dir, ["standards", "--force"]);
     assertEquals(forced.code, 0, forced.output);
-    assertStringIncludes(forced.stdout, "meets the floor");
+    assertTerminalTextIncludes(forced.stdout, "meets the floor");
   });
 });
 
@@ -256,7 +256,7 @@ Deno.test("standards: coverage fails when the emitted metric is below the floor"
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "below the floor");
+    assertTerminalTextIncludes(r.stderr, "below the floor");
 
     // The envelope carries the reason too: a caller that can't hear the live
     // narration (MCP, --json) must read the same words from diagnostics[], never
@@ -296,7 +296,7 @@ Deno.test("standards: a trailing NN% is NOT read — only the DISCERN_METRIC mar
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "could not read metric");
+    assertTerminalTextIncludes(r.stderr, "could not read metric");
 
     // A metric-reading failure's evidence is the measurement output itself — the
     // diagnostic carries it so a remote caller can see what the command emitted.
@@ -304,7 +304,7 @@ Deno.test("standards: a trailing NN% is NOT read — only the DISCERN_METRIC mar
     const obj = parseStandardsJson(json.stdout);
     const diag = (obj.diagnostics ?? [])[0];
     assertStringIncludes(diag?.message ?? "", "could not read metric");
-    assertStringIncludes(diag?.output ?? "", "Total coverage: 90%");
+    assertTerminalTextIncludes(diag?.output ?? "", "Total coverage: 90%");
   });
 });
 
@@ -338,7 +338,7 @@ Deno.test("standards: a limit may not be lowered vs main", async () => {
     // A floor may only rise vs main: the never-loosen baseline is read from
     // main's root discern.toml.
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "only rises");
+    assertTerminalTextIncludes(r.stderr, "only rises");
 
     // The envelope distinguishes THIS failure mode from a low measurement: the
     // diagnostic names the loosened limit and both values, and the reproduce is
@@ -429,7 +429,7 @@ Deno.test("standards: a down-standard ceiling may not be raised vs main", async 
 
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "only falls");
+    assertTerminalTextIncludes(r.stderr, "only falls");
   });
 });
 
@@ -519,7 +519,7 @@ Deno.test("standards: an up-standard passes at equality with the floor", async (
 
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "meets the floor");
+    assertTerminalTextIncludes(r.stdout, "meets the floor");
   });
 });
 
@@ -539,8 +539,8 @@ Deno.test("standards: a down-standard passes within its ceiling", async () => {
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "within the ceiling");
-    assertStringIncludes(r.stdout, "standard(s) held");
+    assertTerminalTextIncludes(r.stdout, "within the ceiling");
+    assertTerminalTextIncludes(r.stdout, "standard(s) held");
   });
 });
 
@@ -560,7 +560,7 @@ Deno.test("standards: a down-standard fails above its ceiling", async () => {
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "exceeds the ceiling");
+    assertTerminalTextIncludes(r.stderr, "exceeds the ceiling");
   });
 });
 
@@ -579,7 +579,7 @@ Deno.test("standards: an up-standard passes above its floor", async () => {
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "meets the floor");
+    assertTerminalTextIncludes(r.stdout, "meets the floor");
   });
 });
 
@@ -607,7 +607,7 @@ Deno.test("standards: a misconfigured standard (no run command) errors clearly",
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "discern.toml is invalid");
+    assertTerminalTextIncludes(r.stderr, "discern.toml is invalid");
     assertStringIncludes(r.stderr, "standards.coverage.run");
   });
 });
@@ -642,9 +642,9 @@ Deno.test("standards: runs every configured standard, aggregating failures", asy
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
     // Coverage held (reported) AND the bundle standard failed — both ran.
-    assertStringIncludes(r.stdout, "meets the floor");
-    assertStringIncludes(r.stderr, "exceeds the ceiling");
-    assertStringIncludes(r.stderr, "standards failed");
+    assertTerminalTextIncludes(r.stdout, "meets the floor");
+    assertTerminalTextIncludes(r.stderr, "exceeds the ceiling");
+    assertTerminalTextIncludes(r.stderr, "standards failed");
   });
 });
 
@@ -689,7 +689,7 @@ Deno.test("standards: non-numeric emitted metrics fail before comparison", async
 
       const r = await runAgent(dir, ["standards"]);
       assertEquals(r.code, 1, r.output);
-      assertStringIncludes(r.stderr, "is not a number");
+      assertTerminalTextIncludes(r.stderr, "is not a number");
       assertStringIncludes(r.stderr, value);
     });
   }
@@ -721,7 +721,7 @@ Deno.test("standards: a clean no-op when nothing is configured", async () => {
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "No standards configured");
+    assertTerminalTextIncludes(r.output, "No standards configured");
   });
 });
 
@@ -746,8 +746,8 @@ Deno.test("standards: per a built-in word extent passes within the rate ceiling"
     const r = await runAgent(dir, ["standards"]);
     // 1 alert / 100 words * 1000 = 10 per 1,000 words, within the ceiling of 12.
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "within the ceiling");
-    assertStringIncludes(r.stdout, "per 100 words");
+    assertTerminalTextIncludes(r.stdout, "within the ceiling");
+    assertTerminalTextIncludes(r.stdout, "per 100 words");
   });
 });
 
@@ -770,8 +770,8 @@ Deno.test("standards: per a built-in word extent fails when the rate exceeds the
     const r = await runAgent(dir, ["standards"]);
     // 10 per 1,000 words exceeds the ceiling of 5.
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "exceeds the ceiling");
-    assertStringIncludes(r.stderr, "per 100 words");
+    assertTerminalTextIncludes(r.stderr, "exceeds the ceiling");
+    assertTerminalTextIncludes(r.stderr, "per 100 words");
   });
 });
 
@@ -795,8 +795,8 @@ Deno.test("standards: per a second emitted metric divides one number by the othe
     const r = await runAgent(dir, ["standards"]);
     // 30 alerts / 1000 words * 1000 = 30, within the ceiling of 40.
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "within the ceiling");
-    assertStringIncludes(r.stdout, "per 1000");
+    assertTerminalTextIncludes(r.stdout, "within the ceiling");
+    assertTerminalTextIncludes(r.stdout, "per 1000");
   });
 });
 
@@ -817,7 +817,7 @@ Deno.test("standards: a `per` extent matching nothing errors instead of dividing
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "nothing to divide by");
+    assertTerminalTextIncludes(r.stderr, "nothing to divide by");
   });
 });
 
@@ -843,7 +843,7 @@ Deno.test("standards: an empty `per` pathspec is refused at load, never measurin
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "discern.toml is invalid");
+    assertTerminalTextIncludes(r.stderr, "discern.toml is invalid");
     assertStringIncludes(r.stderr, "standards.prose.per.words");
     // It must NOT have run a whole-repo measurement — no metric narration leaks.
     assert(!r.stdout.includes("per"), r.output);
@@ -871,7 +871,7 @@ Deno.test("standards: a rate is invariant under proportional growth (the fix)", 
     await gitInit(dir);
     const small = await runAgent(dir, ["standards"]);
     assertEquals(small.code, 0, small.output);
-    assertStringIncludes(small.stdout, "within the ceiling");
+    assertTerminalTextIncludes(small.stdout, "within the ceiling");
 
     // Grow the corpus and the alerts proportionally: density stays 20.0, so the
     // SAME ceiling still holds — growth alone never breaches it.
@@ -889,7 +889,7 @@ Deno.test("standards: a rate is invariant under proportional growth (the fix)", 
     );
     const grown = await runAgent(dir, ["standards", "--force"]);
     assertEquals(grown.code, 0, grown.output);
-    assertStringIncludes(grown.stdout, "within the ceiling");
+    assertTerminalTextIncludes(grown.stdout, "within the ceiling");
   });
 });
 
@@ -923,8 +923,8 @@ Deno.test("standards: the same growth breaks a raw count, and the failure points
     );
     const grown = await runAgent(dir, ["standards", "--force"]);
     assertEquals(grown.code, 1, grown.output);
-    assertStringIncludes(grown.stderr, "exceeds the ceiling");
-    assertStringIncludes(grown.stderr, "hold a rate"); // the normalize hint
+    assertTerminalTextIncludes(grown.stderr, "exceeds the ceiling");
+    assertTerminalTextIncludes(grown.stderr, "hold a rate"); // the normalize hint
   });
 });
 
@@ -1018,6 +1018,6 @@ Deno.test("standards: a `per` metric the run never emits errors clearly", async 
     await gitInit(dir);
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "could not read 'per' metric 'words'");
+    assertTerminalTextIncludes(r.stderr, "could not read 'per' metric 'words'");
   });
 });

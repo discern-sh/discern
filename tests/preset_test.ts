@@ -9,7 +9,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 // `dirname` is used both for the fixtures path and by `stagePreset`'s mkdir.
-import { runCli, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { runAgent } from "./engine_helpers.ts";
 import {
   applyConfigDoc,
@@ -114,7 +114,7 @@ Deno.test("preset: the overlaid project script is runnable through its namespace
     await runCli(["preset", "example", "--yes"], dir, PRESET_ENV);
     const r = await runAgent(dir, ["scripts", "example-deploy"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "example deploy ran");
+    assertTerminalTextIncludes(r.stdout, "example deploy ran");
   });
 });
 
@@ -207,7 +207,7 @@ Deno.test("preset --dry-run disclosures name each key filled and each kept", asy
       PRESET_ENV,
     );
     assertEquals(human.code, 0, human.stderr);
-    assertStringIncludes(human.stderr, "Would fill discern.toml:");
+    assertTerminalTextIncludes(human.stderr, "Would fill discern.toml:");
     assertStringIncludes(human.stderr, "standards.examplesize");
     assertStringIncludes(human.stderr, "jobs.test");
   });
@@ -301,7 +301,7 @@ Deno.test("preset reports not_initialized as plain text without --json", async (
       PRESET_ENV,
     );
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, "no discern install here");
+    assertTerminalTextIncludes(r.stderr, "no discern install here");
   });
 });
 
@@ -312,7 +312,7 @@ Deno.test("preset reports an unknown preset as plain text (no --json)", async ()
     assertEquals(r.code, 1);
     // The non-JSON branch logs the message to stderr; the example fixture is
     // listed as available.
-    assertStringIncludes(r.stderr, 'unknown preset "nope"');
+    assertTerminalTextIncludes(r.stderr, 'unknown preset "nope"');
     assertStringIncludes(r.stderr, "example");
   });
 });
@@ -369,8 +369,11 @@ Deno.test("preset --dry-run prints the plan as plain text and writes nothing", a
     // The plan rows print to stdout (the user-facing channel); the heading and
     // the config-fills note are status lines on stderr.
     assertStringIncludes(r.stdout, "discern/scripts/example-deploy");
-    assertStringIncludes(r.stderr, 'Dry run — preset "example" would overlay');
-    assertStringIncludes(r.stderr, "Would fill discern.toml:");
+    assertTerminalTextIncludes(
+      r.stderr,
+      'Dry run — preset "example" would overlay',
+    );
+    assertTerminalTextIncludes(r.stderr, "Would fill discern.toml:");
     assertStringIncludes(r.stderr, "jobs.test");
     // Nothing was written.
     assert(!(await exists(join(dir, "discern/scripts/example-deploy"))));
@@ -450,11 +453,11 @@ Deno.test("preset rejects invalid config fills as plain text", async () => {
     const r = await runCli(["preset", "badfills", "--yes"], dir, env);
     assertEquals(r.code, 1);
     // The non-JSON branch logs to stderr and names the offending preset.
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       r.stderr,
       'preset "badfills" has invalid config fills',
     );
-    assertStringIncludes(r.stderr, "unknown stage");
+    assertTerminalTextIncludes(r.stderr, "unknown stage");
   });
 });
 

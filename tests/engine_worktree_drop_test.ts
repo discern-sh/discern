@@ -112,13 +112,13 @@ Deno.test("worktree drop: refuses an ambiguous basename and requires a path", as
 
     const refused = await runAgent(dir, ["worktree", "drop", "dup"]);
     assertEquals(refused.code, 1, refused.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       refused.output,
       "`discern worktree drop` can't resolve 'dup'",
     );
     assertTerminalTextIncludes(refused.output, firstPath);
     assertTerminalTextIncludes(refused.output, secondPath);
-    assertStringIncludes(refused.output, "Pass one of these paths");
+    assertTerminalTextIncludes(refused.output, "Pass one of these paths");
     assert(await exists(first), "the first candidate must survive");
     assert(await exists(second), "the second candidate must survive");
     assert(await branchExists(dir, "agent/dup"), refused.output);
@@ -164,7 +164,7 @@ Deno.test("worktree drop: refuses an id shared by different worktree paths", asy
       "--force",
     ]);
     assertEquals(refused.code, 1, refused.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       refused.output,
       "`discern worktree drop` can't resolve 'shared-id'",
     );
@@ -220,7 +220,7 @@ Deno.test("worktree drop: a worktree holding the TRUNK loses its checkout, never
       await branchExists(dir, "main"),
       `the trunk must survive a drop\n${r.output}`,
     );
-    assertStringIncludes(r.output, "the trunk is never deleted");
+    assertTerminalTextIncludes(r.output, "the trunk is never deleted");
   });
 });
 
@@ -243,7 +243,7 @@ Deno.test("worktree drop: refuses uncommitted changes without --force, discards 
 
     const refused = await runAgent(dir, ["worktree", "drop", "dirty-drop"]);
     assertEquals(refused.code, 1, refused.output);
-    assertStringIncludes(refused.output, "uncommitted change");
+    assertTerminalTextIncludes(refused.output, "uncommitted change");
     assertStringIncludes(refused.output, "--force");
     assertEquals(await exists(wt), true, "a refusal must not remove anything");
 
@@ -268,7 +268,7 @@ Deno.test("worktree drop: refuses unmerged commits without --force, discards wit
 
     const refused = await runAgent(dir, ["worktree", "drop", "unmerged-drop"]);
     assertEquals(refused.code, 1, refused.output);
-    assertStringIncludes(refused.output, "not on main");
+    assertTerminalTextIncludes(refused.output, "not on main");
     assertEquals(await exists(wt), true, "a refusal must not remove anything");
     assert(await branchExists(dir, "agent/unmerged-drop"));
 
@@ -388,8 +388,8 @@ Deno.test("worktree drop: an unreadable worktree is a blocker, never a silent cl
       "unreadable-drop",
     ]);
     assertEquals(refused.code, 1, refused.output);
-    assertStringIncludes(refused.output, "could not be read");
-    assertStringIncludes(refused.output, "not on main");
+    assertTerminalTextIncludes(refused.output, "could not be read");
+    assertTerminalTextIncludes(refused.output, "not on main");
     assertEquals(await exists(wt), true, "a refusal must not remove anything");
     assert(
       await branchExists(dir, "agent/unreadable-drop"),
@@ -430,7 +430,7 @@ Deno.test("worktree drop: a failed status read blocks even with no other blocker
     }
 
     assertEquals(refused.code, 1, refused.output);
-    assertStringIncludes(refused.output, "could not be read");
+    assertTerminalTextIncludes(refused.output, "could not be read");
     assertEquals(
       await exists(wt),
       true,
@@ -453,7 +453,7 @@ Deno.test("worktree drop: an out-of-band-deleted checkout never silently deletes
 
     const refused = await runAgent(dir, ["worktree", "drop", "vanished-drop"]);
     assertEquals(refused.code, 1, refused.output);
-    assertStringIncludes(refused.output, "not on main");
+    assertTerminalTextIncludes(refused.output, "not on main");
     assert(
       await branchExists(dir, "agent/vanished-drop"),
       `the unmerged branch must survive\n${refused.output}`,
@@ -490,7 +490,7 @@ Deno.test("worktree drop: honors git worktree lock — refused even with --force
       const r = await runAgent(dir, args);
       assertEquals(r.code, 1, r.output);
       assertStringIncludes(r.output, "locked");
-      assertStringIncludes(r.output, "git worktree unlock");
+      assertTerminalTextIncludes(r.output, "git worktree unlock");
       assertEquals(
         await exists(wt),
         true,
@@ -513,7 +513,7 @@ Deno.test("remove-worktree-safely: the shared removal core refuses a locked work
     const r = await runAgent(dir, ["remove-worktree-safely", wt]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "locked");
-    assertStringIncludes(r.output, "git worktree unlock");
+    assertTerminalTextIncludes(r.output, "git worktree unlock");
     assertEquals(await exists(wt), true, r.output);
     assertStringIncludes(await gitOut(dir, "worktree", "list"), "locked-core");
   });
@@ -562,7 +562,10 @@ Deno.test("worktree drop: refuses an unknown target, listing the known worktrees
     await mainWithWorktree(dir, "the-only-one");
     const r = await runAgent(dir, ["worktree", "drop", "no-such-worktree"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "No worktree matches 'no-such-worktree'");
+    assertTerminalTextIncludes(
+      r.output,
+      "No worktree matches 'no-such-worktree'",
+    );
     assertStringIncludes(r.output, "the-only-one");
   });
 });
@@ -572,7 +575,7 @@ Deno.test("worktree drop: refuses from inside a worktree (main-checkout-only)", 
     const wt = await mainWithWorktree(dir, "self-drop");
     const r = await runAgent(wt, ["worktree", "drop", "self-drop"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "main checkout");
+    assertTerminalTextIncludes(r.output, "main checkout");
     assertEquals(await exists(wt), true);
   });
 });
@@ -589,8 +592,8 @@ Deno.test("worktree drop --dry-run: shows what a drop would discard and touches 
       "--dry-run",
     ]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "Drop plan");
-    assertStringIncludes(r.output, "uncommitted change");
+    assertTerminalTextIncludes(r.output, "Drop plan");
+    assertTerminalTextIncludes(r.output, "uncommitted change");
     assertEquals(await exists(wt), true, "a dry-run must not remove anything");
     assert(await branchExists(dir, "agent/preview-drop"));
     assertEquals(await recoveryRefs(dir), [], "a dry-run must not create refs");

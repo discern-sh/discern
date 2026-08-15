@@ -19,7 +19,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { guidanceSeedRel } from "../src/shared/paths_registry.ts";
-import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  REAL_TEMPLATES,
+  withTempDir,
+} from "./helpers.ts";
 import {
   defaultMapPath,
   git,
@@ -147,8 +151,11 @@ Deno.test("setup step <n> human output leads with the prose, with light navigati
     const r = await runAgent(dir, ["setup", "step", "4"]);
     assertEquals(r.code, 0, r.output);
 
-    assertStringIncludes(r.stdout, "## Step 4 — Draft the design principles");
-    assertStringIncludes(r.stdout, "single source of truth"); // the warm prose leads
+    assertTerminalTextIncludes(
+      r.stdout,
+      "## Step 4 — Draft the design principles",
+    );
+    assertTerminalTextIncludes(r.stdout, "single source of truth"); // the warm prose leads
     assertStringIncludes(r.stdout, "Next:"); // the chaining rail
     // The raw spine fence must never leak into the human rendering.
     assert(!r.stdout.includes("```toml"), r.stdout);
@@ -173,12 +180,12 @@ Deno.test("setup begin emits the operating principles + the first page only, nev
     assertEquals(r.code, 0, r.output);
 
     // The principles (preamble) and the first page (Step 0) are present...
-    assertStringIncludes(r.stdout, "Operating principles");
-    assertStringIncludes(
+    assertTerminalTextIncludes(r.stdout, "Operating principles");
+    assertTerminalTextIncludes(
       r.stdout,
       "## Step 0 — Checkpoint: the model question, then orient",
     );
-    assertStringIncludes(r.stdout, "am I your most capable model"); // Step 0's prose
+    assertTerminalTextIncludes(r.stdout, "am I your most capable model"); // Step 0's prose
 
     // ...but no later page is dumped — the agent pulls each with `setup step <n>`.
     for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
@@ -266,8 +273,8 @@ Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (an
     // The human form names the check too.
     const human = await runAgent(dir, ["setup", "done"]);
     assertEquals(human.code, 1, human.output);
-    assertStringIncludes(human.stderr, "not finished");
-    assertStringIncludes(human.stderr, "Step 4");
+    assertTerminalTextIncludes(human.stderr, "not finished");
+    assertTerminalTextIncludes(human.stderr, "Step 4");
   });
 });
 

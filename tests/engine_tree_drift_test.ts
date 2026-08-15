@@ -18,7 +18,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -620,7 +620,7 @@ Deno.test("done: refresh planning fails closed when a fixer corrupts the index",
     assertEquals(diagFor(obj, "tree-drift"), undefined);
     const refresh = diagFor(obj, "refresh");
     assert(refresh !== undefined, r.stdout);
-    assertStringIncludes(refresh.output ?? "", "git ls-files");
+    assertTerminalTextIncludes(refresh.output ?? "", "git ls-files");
   });
 });
 
@@ -700,7 +700,7 @@ Deno.test("accept: refuses (non-destructively) when the fix stage would reformat
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "doc.md");
-    assertStringIncludes(r.output, "fix stage");
+    assertTerminalTextIncludes(r.output, "fix stage");
     // Non-destructive: the worktree survives and the unformatted doc never reached main.
     assertEquals(
       await exists(wt),

@@ -25,7 +25,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   mapPool,
@@ -731,9 +731,9 @@ Deno.test("done --markdown emits one authored document with no subprocess leak",
     const result = await runAgent(dir, ["done", "--markdown"]);
     assertEquals(result.code, 0, result.output);
     assertEquals(result.stderr, "", result.output);
-    assertStringIncludes(result.stdout, "# `discern done`");
-    assertStringIncludes(result.stdout, "## Current state");
-    assertStringIncludes(result.stdout, "## Evidence");
+    assertTerminalTextIncludes(result.stdout, "# `discern done`");
+    assertTerminalTextIncludes(result.stdout, "## Current state");
+    assertTerminalTextIncludes(result.stdout, "## Evidence");
     assertEquals(result.stdout.match(/^# /gm)?.length, 1, result.stdout);
     for (
       const noise of [

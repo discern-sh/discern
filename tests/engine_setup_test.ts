@@ -13,7 +13,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join, relative } from "@std/path";
 import { exists, walk } from "@std/fs";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   defaultMapPath,
   gitInit,
@@ -222,7 +222,7 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
     assertEquals(r.code, 0, r.output);
     // The instructions are printed for the agent in the loop to act on.
     assertStringIncludes(r.stdout, INSTRUCTIONS_H1);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       r.stdout,
       `Project skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
     );
@@ -240,7 +240,7 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
 
     // Re-running is non-destructive: the map now exists, so it is left untouched.
     const again = await runAgent(dir, ["setup", "begin", "--confirmed"]);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       again.stdout,
       `Left your existing ${SOURCE_PATHS.map.defaultPath}`,
     );
@@ -262,7 +262,10 @@ Deno.test("setup begin --map persists and scaffolds a separate map tree", async 
       "claude_code",
     ]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Project skeletons laid: docs/discern/");
+    assertTerminalTextIncludes(
+      r.stdout,
+      "Project skeletons laid: docs/discern/",
+    );
     const step = await runAgent(dir, ["setup", "step", "4"]);
     assertStringIncludes(
       step.stdout,
@@ -328,7 +331,7 @@ Deno.test("discern setup never overwrites an existing configured map tree (seaml
 
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       r.stdout,
       `Left your existing ${SOURCE_PATHS.map.defaultPath}`,
     );
@@ -355,7 +358,7 @@ Deno.test("a project's own root docs/ no longer collides with the default skelet
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     // The skeleton lands at the namespace default; the user's tree is untouched.
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       r.stdout,
       `Project skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
     );
@@ -378,7 +381,7 @@ Deno.test("a project's own root map/ does not collide with discern's default map
 
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       r.stdout,
       `Project skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
     );
@@ -397,7 +400,7 @@ Deno.test("discern setup done refuses while skeleton markers remain; --force ove
 
     const blocked = await runAgent(dir, ["setup", "done"]);
     assertEquals(blocked.code, 1, blocked.output);
-    assertStringIncludes(blocked.stderr, "not finished");
+    assertTerminalTextIncludes(blocked.stderr, "not finished");
     assertStringIncludes(blocked.stderr, "design-principles.md");
     assert(
       !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
@@ -408,7 +411,7 @@ Deno.test("discern setup done refuses while skeleton markers remain; --force ove
 
     const forced = await runAgent(dir, ["setup", "done", "--force"]);
     assertEquals(forced.code, 0, forced.output);
-    assertStringIncludes(forced.stdout, "Setup complete");
+    assertTerminalTextIncludes(forced.stdout, "Setup complete");
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
@@ -507,7 +510,7 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
     // and setup shows in help. (`done` is no longer gated — ADR 0065.)
     const preDocs = await runAgent(dir, ["map"]);
     assertEquals(preDocs.code, 1, preDocs.output);
-    assertStringIncludes(preDocs.stderr, "isn't set up yet");
+    assertTerminalTextIncludes(preDocs.stderr, "isn't set up yet");
     const preHelp = await runAgent(dir, ["--help"]);
     assertStringIncludes(preHelp.stdout, HELP_DESC);
 
@@ -542,7 +545,7 @@ Deno.test("the redirect fires on still-gated work verbs but not on plumbing or p
     // stays gated.
     const docs = await runAgent(dir, ["map"]);
     assertEquals(docs.code, 1, docs.output);
-    assertStringIncludes(docs.stderr, "isn't set up yet");
+    assertTerminalTextIncludes(docs.stderr, "isn't set up yet");
     // `refresh` is machinery (and `discern setup` itself runs it) — no redirect,
     // so it never leaks into the regen/hook path.
     const refresh = await runAgent(dir, ["refresh"]);
@@ -577,7 +580,7 @@ Deno.test("map is gated pre-setup but docs and help are not", async () => {
     const docs = await runAgent(dir, ["docs", "--list"]);
     assertEquals(docs.code, 0, docs.output);
     assert(!docs.stderr.includes("isn't set up yet"));
-    assertStringIncludes(docs.stdout, "discern docs");
+    assertTerminalTextIncludes(docs.stdout, "discern docs");
 
     const help = await runAgent(dir, ["help"]);
     assertEquals(help.code, 0, help.output);

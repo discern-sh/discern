@@ -120,7 +120,7 @@ Deno.test("upgrade --check (human) confirms an up-to-date install and exits zero
     await setup(dir);
     const r = await runCli(["upgrade", "--check"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertStringIncludes(r.stderr, "up to date");
+    assertTerminalTextIncludes(r.stderr, "up to date");
   });
 });
 
@@ -132,8 +132,8 @@ Deno.test("upgrade --check on a current install tells the truth: version, channe
     // never an implied network poll (discern makes no network requests).
     const human = await runCli(["upgrade", "--check"], dir);
     assertEquals(human.code, 0, human.stderr);
-    assertStringIncludes(human.stderr, `discern ${KIT_VERSION}`);
-    assertStringIncludes(human.stderr, `schema ${SCHEMA_VERSION}`);
+    assertTerminalTextIncludes(human.stderr, `discern ${KIT_VERSION}`);
+    assertTerminalTextIncludes(human.stderr, `schema ${SCHEMA_VERSION}`);
     assertTerminalTextIncludes(human.stderr, UPDATE_CHANNEL);
     assertTerminalTextIncludes(human.stderr, "never checks the network");
 

@@ -10,7 +10,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join, relative } from "@std/path";
 import { exists, walk } from "@std/fs";
-import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  REAL_TEMPLATES,
+  withTempDir,
+} from "./helpers.ts";
 import {
   defaultMapPath,
   git,
@@ -300,7 +304,7 @@ Deno.test("setup done proves the project viable in a worktree and reports it, th
     await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
     const done = await runAgent(dir, ["setup", "done"]);
     assertEquals(done.code, 0, done.output);
-    assertStringIncludes(done.stdout, "runs inside a worktree");
+    assertTerminalTextIncludes(done.stdout, "runs inside a worktree");
   });
 });
 
@@ -519,7 +523,7 @@ Deno.test("setup done refuses when the gate is red, recording nothing; --force o
     // --force is the escape hatch: it skips the proof and records anyway.
     const forced = await runAgent(dir, ["setup", "done", "--force"]);
     assertEquals(forced.code, 0, forced.output);
-    assertStringIncludes(forced.stdout, "the gate was not proven");
+    assertTerminalTextIncludes(forced.stdout, "the gate was not proven");
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
@@ -1106,10 +1110,10 @@ Deno.test("begin reports the scaffold by category, never the old flat count", as
       "claude_code",
     ]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Files written into");
-    assertStringIncludes(r.stdout, "seed file");
-    assertStringIncludes(r.stdout, "agent file");
-    assertStringIncludes(r.stdout, "MCP config");
+    assertTerminalTextIncludes(r.stdout, "Files written into");
+    assertTerminalTextIncludes(r.stdout, "seed file");
+    assertTerminalTextIncludes(r.stdout, "agent file");
+    assertTerminalTextIncludes(r.stdout, "MCP config");
     assert(
       !r.stdout.includes("files written:"),
       "the flat count must not survive",
@@ -1227,7 +1231,7 @@ Deno.test("bare `discern` shows the setup welcome in an un-set-up project, but h
     await scaffoldEngine(dir, { bootstrapped: false });
     const bare = await runAgent(dir, []);
     assertEquals(bare.code, 0, bare.output);
-    assertStringIncludes(bare.stdout, "IN PROGRESS");
+    assertTerminalTextIncludes(bare.stdout, "IN PROGRESS");
     assert(
       !bare.stdout.includes(INSTRUCTIONS_H1),
       "the welcome is not the brief — bare `discern` must not print the brief",
@@ -1255,7 +1259,7 @@ Deno.test("bare `discern` shows the fresh welcome inside a git work tree, writin
     await gitInit(dir);
     const bare = await runAgent(dir, []);
     assertEquals(bare.code, 0, bare.output);
-    assertStringIncludes(bare.stdout, "isn't set up yet");
+    assertTerminalTextIncludes(bare.stdout, "isn't set up yet");
     assert(
       !(await exists(join(dir, "discern.toml"))),
       "the welcome is read-only — bare `discern` must not scaffold",
@@ -1270,7 +1274,7 @@ Deno.test("discern setup is still callable with --force after it is recorded", a
     // Bare `discern setup` (the welcome) now reports it is already done...
     const bare = await runAgent(dir, ["setup"]);
     assertEquals(bare.code, 0, bare.output);
-    assertStringIncludes(bare.stdout, "already set up");
+    assertTerminalTextIncludes(bare.stdout, "already set up");
 
     // ...but --force re-seeds (and reprints the instructions).
     const forced = await runAgent(dir, ["setup", "--force"]);

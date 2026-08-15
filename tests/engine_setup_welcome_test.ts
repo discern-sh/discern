@@ -14,7 +14,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { measureText, stripAnsi } from "discern-design-system/cli";
-import { fakeEnv, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
@@ -233,10 +233,10 @@ Deno.test("the fresh welcome dual-addresses both readers and writes nothing", as
     assertEquals(r.code, 0, r.output);
     assertNoAnsi(r.stdout, "piped fresh welcome");
     // Both readers are addressed — robust where detecting them is not (ADR 0075).
-    assertStringIncludes(r.stdout, "FOR HUMANS");
-    assertStringIncludes(r.stdout, "FOR CODING AGENTS");
+    assertTerminalTextIncludes(r.stdout, "FOR HUMANS");
+    assertTerminalTextIncludes(r.stdout, "FOR CODING AGENTS");
     // The agent is funnelled into the preflight, not handed the brief.
-    assertStringIncludes(r.stdout, "discern setup verify");
+    assertTerminalTextIncludes(r.stdout, "discern setup verify");
     // Read-only: the welcome scaffolds nothing.
     assert(
       !(await exists(join(dir, "discern.toml"))),
@@ -267,8 +267,8 @@ Deno.test("the in-progress welcome shows derived progress and funnels to done", 
     await runAgent(dir, ["setup", "begin", "--confirmed"]); // lay the marker-carrying skeletons
 
     const human = await runAgent(dir, ["setup"]);
-    assertStringIncludes(human.stdout, "IN PROGRESS");
-    assertStringIncludes(human.stdout, "discern setup done");
+    assertTerminalTextIncludes(human.stdout, "IN PROGRESS");
+    assertTerminalTextIncludes(human.stdout, "discern setup done");
 
     const d =
       JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
@@ -518,8 +518,8 @@ Deno.test("setup done emits the provider-aware reactivation handoff", async () =
     const done = await runAgent(dir, ["setup", "done", "--force"]);
     assertEquals(done.code, 0, done.output);
     // The human handoff names the wired agent and the fresh-session step.
-    assertStringIncludes(done.stdout, "load them at session start");
-    assertStringIncludes(done.stdout, "Claude Code");
+    assertTerminalTextIncludes(done.stdout, "load them at session start");
+    assertTerminalTextIncludes(done.stdout, "Claude Code");
     // The --json carries it structurally for an agent to act on.
     const d = JSON.parse(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,

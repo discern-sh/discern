@@ -14,7 +14,7 @@ import { HINTS } from "../src/shared/hints.ts";
 import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
 import { legalActions } from "../src/engine/desk/model.ts";
 import { gitSnapshot } from "../src/engine/worktree/git.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -66,8 +66,11 @@ Deno.test("status flags a configless worktree as broken, with the drop hint", as
 
     // The human row carries the derived broken state and its concrete action.
     const human = await runAgent(dir, ["status", "--verbose"]);
-    assertStringIncludes(humanWords(human.output), "agent/crashed: Broken");
-    assertStringIncludes(
+    assertTerminalTextIncludes(
+      humanWords(human.output),
+      "agent/crashed: Broken",
+    );
+    assertTerminalTextIncludes(
       humanWords(human.output),
       "Setup never completed. Inspect the checkout before discarding it with `discern worktree drop <name>`.",
     );
@@ -138,13 +141,13 @@ Deno.test("a failed worktree status read stays unreadable through status and the
 
       // Both fleet and local projections retain the derived unreadable state.
       const human = await runAgent(dir, ["status", "--verbose"]);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         humanWords(human.output),
         "agent/damaged: Unreadable",
       );
       const local = await runAgent(wt, ["status"]);
       assertStringIncludes(humanWords(local.output), "Unreadable.");
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         humanWords(local.output),
         "Git could not read this checkout. Investigate the path before resuming or discarding it.",
       );
@@ -197,7 +200,7 @@ Deno.test("status reports ahead as null (not 0) when the trunk branch is missing
       "no trunk to count against — null, never a fabricated 0",
     );
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       humanWords(human.output),
       "The 'main' branch does not exist, and the main checkout is on 'master'.",
     );

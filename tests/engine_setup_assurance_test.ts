@@ -31,7 +31,7 @@ import {
   deferralReason,
   isSelfSuppliedCommand,
 } from "../src/shared/setup_assurance.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   git,
   gitInit,
@@ -292,16 +292,16 @@ Deno.test("setup done's human output names where the work lives, the land comman
     const done = await runAgent(dir, ["setup", "done", "--force"]);
     assertEquals(done.code, 0, done.output);
     // Celebratory + honest coverage.
-    assertStringIncludes(done.stdout, "Setup complete");
-    assertStringIncludes(done.stdout, "Quality coverage: partial");
+    assertTerminalTextIncludes(done.stdout, "Setup complete");
+    assertTerminalTextIncludes(done.stdout, "Quality coverage: partial");
     assertStringIncludes(done.stdout, "enforced");
     assertStringIncludes(done.stdout, "deferred");
     // Where the work lives + the EXACT land command (the largest clean-room UX gap).
     assertStringIncludes(done.stdout, "discern-setup");
-    assertStringIncludes(done.stdout, "discern setup accept");
+    assertTerminalTextIncludes(done.stdout, "discern setup accept");
     assertStringIncludes(done.stdout, "main");
     // The ongoing-use steer.
-    assertStringIncludes(done.stdout, "discern improvement --json");
+    assertTerminalTextIncludes(done.stdout, "discern improvement --json");
   });
 });
 

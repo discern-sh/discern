@@ -15,7 +15,7 @@ import {
   type ViewportRunResult,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 const CSI = "\x1b[";
 const LINT_OUTPUT = "701-PTY-LINT";
@@ -272,7 +272,7 @@ Deno.test({
         assertEquals(result.code, 0, result.output);
         assertInitialMode("done", "full", result);
         assertEquals(result.terminal.resizedSize, { columns: 40, rows: 29 });
-        assertStringIncludes(result.output, "Gate active");
+        assertTerminalTextIncludes(result.output, "Gate active");
         assertFinalRegionOnce("done", result);
       }, RESIZE_CONFIG),
       withVerbFixture("prepare", async (root, args) => {

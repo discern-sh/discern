@@ -42,7 +42,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 /** Render a minimal project configured for local or fetched proof-note discovery. */
 function proofConfig(mode: "local" | "fetch"): string {
@@ -274,7 +274,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
     });
     const unreadHuman = await runAgent(dir, ["status", "--plain"]);
     assertEquals(unreadHuman.code, 0, unreadHuman.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       unreadHuman.stdout.replaceAll(/\s+/gu, ""),
       `proof unavailable in this discern version (${newerFormat})`.replaceAll(
         /\s+/gu,
@@ -626,7 +626,7 @@ Deno.test("proof-note fetch reconciliation migrates managed exact mappings and e
 
     const failedFetch = await runGit(["fetch", "origin"], { cwd: dir });
     assertEquals(failedFetch.success, false);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       failedFetch.stderr,
       "couldn't find remote ref refs/notes/discern",
     );

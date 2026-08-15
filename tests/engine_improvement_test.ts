@@ -25,7 +25,11 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { unexpectedTerminalControls, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  unexpectedTerminalControls,
+  withTempDir,
+} from "./helpers.ts";
 
 /** Locate one package triangle section at or after a previous section. */
 function triangleSectionAt(
@@ -517,8 +521,8 @@ Deno.test("improvement: responsive package reports keep hostile evidence inert a
         triangleSectionAt(run.stdout, "Agent guidance") >= 0,
         "the category needs its package-backed heading",
       );
-      assertStringIncludes(run.stdout, "Review question:");
-      assertStringIncludes(
+      assertTerminalTextIncludes(run.stdout, "Review question:");
+      assertTerminalTextIncludes(
         run.stdout.replaceAll(/\s+/gu, " "),
         "Project evidence ␛[31m␇<U+009B>",
       );

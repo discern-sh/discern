@@ -5,7 +5,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   runAgent,
   scaffoldEngine,
@@ -84,9 +84,12 @@ Deno.test("scripts lists every executable project script in deterministic order"
 
     const r = await runAgent(dir, ["scripts"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Project scripts (from discern/scripts)");
+    assertTerminalTextIncludes(
+      r.stdout,
+      "Project scripts (from discern/scripts)",
+    );
     assertStringIncludes(r.stdout, "a-first");
-    assertStringIncludes(r.stdout, "first script");
+    assertTerminalTextIncludes(r.stdout, "first script");
     assertStringIncludes(r.stdout, "z-last");
     assert(
       r.stdout.indexOf("a-first") < r.stdout.indexOf("z-last"),
@@ -206,7 +209,7 @@ Deno.test("scripts: child flags cannot select discern global modes", async () =>
     const result = await runAgent(dir, ["scripts", "unreached", "--json"]);
     assertEquals(result.code, 1, result.output);
     assertEquals(result.stdout, "");
-    assertStringIncludes(result.stderr, "syntax error near line 1");
+    assertTerminalTextIncludes(result.stderr, "syntax error near line 1");
   });
 });
 
@@ -220,11 +223,11 @@ Deno.test("scripts: an existing non-executable file is reported, not run", async
     );
     const r = await runAgent(dir, ["scripts", "deploy"]);
     assertEquals(r.code, 1);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       r.stderr,
       'script "deploy" exists but is not executable',
     );
-    assertStringIncludes(r.stderr, "chmod +x");
+    assertTerminalTextIncludes(r.stderr, "chmod +x");
   });
 });
 
@@ -251,7 +254,7 @@ Deno.test("scripts: [scripts].dir relocates the project scripts directory", asyn
     assertEquals(run.code, 0, run.output);
     assertStringIncludes(run.stdout, "BUILT-THE-THING");
     const list = await runAgent(dir, ["scripts"]);
-    assertStringIncludes(list.stdout, "Project scripts (from tools)");
+    assertTerminalTextIncludes(list.stdout, "Project scripts (from tools)");
   });
 });
 
@@ -266,13 +269,16 @@ Deno.test("a former root-level project script is unknown and points to the names
     const exact = await runAgent(dir, ["deploy"]);
     assertEquals(exact.code, 1, exact.output);
     assert(!exact.output.includes("PROJECT-SCRIPT-RAN"), exact.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       exact.stderr,
       "Did you mean `discern scripts deploy`?",
     );
 
     const typo = await runAgent(dir, ["deplyo"]);
     assertEquals(typo.code, 1, typo.output);
-    assertStringIncludes(typo.stderr, "Did you mean `discern scripts deploy`?");
+    assertTerminalTextIncludes(
+      typo.stderr,
+      "Did you mean `discern scripts deploy`?",
+    );
   });
 });

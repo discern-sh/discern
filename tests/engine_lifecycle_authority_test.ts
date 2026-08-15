@@ -5,7 +5,7 @@
  * behind the one resolver those cores share with accept.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { join, relative } from "@std/path";
 import type { DiscernResult } from "../src/shared/result.ts";
 import type {
@@ -25,7 +25,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const BASE_CONFIG = [
@@ -185,8 +185,8 @@ Deno.test("covered standing authority agrees across green done, local status, an
       names: ["covered"],
     });
     const human = await runAgent(dir, ["status", "--verbose"]);
-    assertStringIncludes(human.output, "Landing: granted");
-    assertStringIncludes(human.output, "standing grant for map");
+    assertTerminalTextIncludes(human.output, "Landing: granted");
+    assertTerminalTextIncludes(human.output, "standing grant for map");
   });
 });
 

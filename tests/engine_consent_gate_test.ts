@@ -324,7 +324,7 @@ Deno.test("accept: terminal success reports the same conversation-consent eviden
 
     const landed = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(landed.code, 0, landed.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       landed.output,
       "landed with conversation consent",
       "the interactive completion must report the authority used",
