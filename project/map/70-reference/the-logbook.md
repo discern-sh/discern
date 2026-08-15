@@ -107,7 +107,7 @@ The source explains the marker's lifetime:
 - `mcp-client` means the MCP client's declared name or title matched a known client name.
 - `host-filesystem` is ambient machine state. The current `/opt/.devin` marker can persist after Devin's installation, so it does not mean Devin drove that invocation.
 
-`driver.spawned_by` is present when discern itself spawned the run: the gate's job runner stamps its own invocation id into the child's environment. Readers classify such events as automation and can join a child to the run that caused it.
+`driver.spawned_by` carries the parent invocation id when the gate's job runner spawned the run: readers classify these as automation and join child to parent.
 
 For an MCP call, `driver.mcp_client` retains the declared `name`, optional `title`, and `version`, capped at 256 characters each. Readers classify it through the current catalog. A newly recognized name attributes old and new events on the next read without changing stored lines. Unknown clients remain visible.
 
