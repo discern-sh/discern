@@ -30,6 +30,7 @@ aliases:
   - namespace
   - patterns
   - placement is consent
+  - practice
   - preset
   - project script
   - project-owned file
@@ -162,6 +163,10 @@ What `discern patterns` reports: findings mined from the [logbook](#logbook) by 
 ### Placement is consent
 
 The rule deciding what discern and its agents may write: a file at its namespace default carries an implicit write-license, a config key you pointed elsewhere is an explicit one, and any other path is untouchable — enforced by an architectural test ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). See [design principles](design-principles.md).
+
+### Practice
+
+The connected way of working discern installs and the project carries, enumerated as tenets in the practice canon — the maintainer registry beside the feature canon ([ADR 0284](../_adr/0284-the-practice-canon-enumerates-the-tenets.md)). The engine holds the loop: one [worktree](#worktree) per effort, the [gate](#gate)'s deterministic meaning of done, [standards](#standard) that only tighten, [proof](#proof) bound to the exact change, and [landing authority](#landing-authority) that stays human. The bundled [skills](#skill) teach the rest: work handed over whole, lessons the [map](#map) keeps, bug classes cured over instances, one authority per fact. The human owns the practice; agents operate it.
 
 ### Preset
 
