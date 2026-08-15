@@ -1,12 +1,14 @@
 # ADR 0279: External terminal rendering crosses one Discern-owned process boundary
 
+> **Choice-frame amendment (2026-08-15):** Discern now consumes the immutable 0.16.0 release. Scrolling Select, Checkbox, and Radio frames use the available terminal width, keep wrapped labels under a stable pointer-and-marker prefix, reserve one framed blank row above every semantic group heading, and disclose hidden choices in the lower border. The sole product interaction adapter carries no parallel width, wrapping, or overflow implementation.
+
 > **Adaptive-theme amendment (2026-08-15):** The process boundary asks the published interactive package to sense a coloured TTY background once, with a 100ms timeout, and gives later interactions the same process IO identity. `--theme light` and `--theme dark` bypass sensing, while `--theme auto` selects the sensed variant and retains dark as the unknown fallback. Machine, CI-static, colourless, and non-TTY paths never probe.
 
-> **Projection amendment (2026-08-15):** Discern now consumes the immutable 0.15.0 release. Its public `./cli/projection` graph decodes package-emitted terminal styles and renders self-contained HTML for review; Discern carries no local escape parser.
+> **Projection amendment (2026-08-15):** Release 0.15.0 introduced the public `./cli/projection` graph. It decodes package-emitted terminal styles and renders self-contained HTML for review; Discern carries no local escape parser.
 
 > **Amended 2026-08-14:** `TerminalContext` now exposes command-owned viewport observation. A frame made unsafe by shrink is never erased with guessed cursor geometry.
 
-> **Presenter-contract amendment (2026-08-15):** Discern now consumes the immutable 0.15.0 release. One bound presenter carries capabilities, theme, and default width from the process boundary to every package renderer. The package's narration verbs own the line markers and semantic tones. Per-call widths remain explicit props, and Discern retains stream routing and boundary accounting.
+> **Presenter-contract amendment (2026-08-15):** Release 0.15.0 introduced one bound presenter carrying capabilities, theme, and default width from the process boundary to every package renderer. The package's narration verbs own the line markers and semantic tones. Per-call widths remain explicit props, and Discern retains stream routing and boundary accounting.
 
 > **Component-contract amendment (2026-08-14):** Search defaults cross the boundary as stable IDs; interaction height, Heading leading lines, Confirm geometry, choice markers, step triangles, Result-summary alignment, and Command suggestion grammar remain package contracts. Terminal value operations use `request*`; their shared contracts use `Interaction*`.
 
@@ -22,7 +24,7 @@ Consuming a sibling checkout would make an unpublished tree look like package ev
 
 ## Decision
 
-Discern consumes the exact published `@discern-sh/design-system@0.15.0` release through its configured alias. Consumer tests exercise the root, `./cli`, `./cli/interactive`, and `./cli/projection` exports and inspect Deno's resolved graph. They require the configured pin, lock entry, and every module in each public closure to name the same immutable JSR origin and version; the CLI-only graphs may contain neither a React runtime nor a package checkout filesystem path. A local path, workspace override, source import, mixed-version graph, cache substitution, or unpublished tag is never predecessor evidence.
+Discern consumes the exact published `@discern-sh/design-system@0.16.0` release through its configured alias. Consumer tests exercise the root, `./cli`, `./cli/interactive`, and `./cli/projection` exports and inspect Deno's resolved graph. They require the configured pin, lock entry, and every module in each public closure to name the same immutable JSR origin and version; the CLI-only graphs may contain neither a React runtime nor a package checkout filesystem path. A local path, workspace override, source import, mixed-version graph, cache substitution, or unpublished tag is never predecessor evidence.
 
 The package owns reusable Component rendering, generic ANSI stripping, grapheme measurement, truncation, padding and wrapping, terminal themes and semantic Token roles, and reusable interaction machinery. A generic gap is fixed and released upstream rather than copied into Discern.
 

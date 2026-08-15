@@ -30,7 +30,7 @@ import {
 import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.15.0";
+const SELECTED_VERSION = "0.16.0";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;

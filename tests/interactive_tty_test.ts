@@ -443,13 +443,16 @@ Deno.test({
     const heights = activeWindowHeights(run.process.transcript);
     assertEquals(heights.length, 6, run.process.transcript);
     for (const [screen, frames] of heights.entries()) {
-      const expected = screen % 2 === 0 ? 14 : 9;
+      const entries = screen % 2 === 0 ? 14 : 9;
+      const groupBreathingRows = 3;
+      const expected = entries + groupBreathingRows;
       for (const height of frames) {
         assertEquals(
           height,
           expected,
           `screen ${screen + 1} painted a ${height}-row window where the ` +
-            `full ${expected}-entry list fits the 44-row terminal:\n` +
+            `full ${entries}-entry list and ${groupBreathingRows} group ` +
+            `breathing rows fit the 44-row terminal:\n` +
             `heights=${JSON.stringify(heights)}`,
         );
       }
@@ -459,12 +462,12 @@ Deno.test({
 
 Deno.test({
   name:
-    "a short terminal keeps each reserved header while the frame fills the remainder",
+    "a short terminal keeps each reserved header while frames fit the remainder",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const run = await runHarness({
       scenario: "composed-viewport-cycles",
-      size: { columns: 80, rows: 12 },
+      size: { columns: 80, rows: 13 },
       input: COMPOSED_CYCLE_INPUT,
       timeoutMs: 15_000,
     });
@@ -476,14 +479,18 @@ Deno.test({
     assertEquals(frameHeights.length, 6, run.process.transcript);
     assertEquals(headerHeights, [6, 4, 6, 4, 6, 4]);
     for (const [screen, frames] of frameHeights.entries()) {
-      const expected = screen % 2 === 0 ? 6 : 8;
+      const budget = screen % 2 === 0 ? 7 : 9;
       assert(frames.length > 0, run.process.transcript);
+      assert(
+        frames.includes(budget),
+        `screen ${screen + 1} never used its ${budget}-row frame budget:\n` +
+          `frameHeights=${JSON.stringify(frameHeights)}`,
+      );
       for (const height of frames) {
-        assertEquals(
-          height,
-          expected,
-          `screen ${screen + 1} must keep its ${12 - expected}-row reserved ` +
-            `header and fill the ${expected}-row remainder with the complete frame:\n` +
+        assert(
+          height <= budget,
+          `screen ${screen + 1} must keep its ${13 - budget}-row reserved ` +
+            `header while fitting within the ${budget}-row remainder:\n` +
             `frameHeights=${JSON.stringify(frameHeights)}`,
         );
       }

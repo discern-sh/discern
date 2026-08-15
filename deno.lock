@@ -5,7 +5,7 @@
     "jsr:@cliffy/flags@1.2.1": "1.2.1",
     "jsr:@cliffy/internal@1.2.1": "1.2.1",
     "jsr:@cliffy/table@1.2.1": "1.2.1",
-    "jsr:@discern-sh/design-system@0.15.0": "0.15.0",
+    "jsr:@discern-sh/design-system@0.16.0": "0.16.0",
     "jsr:@std/assert@^1.0.10": "1.0.19",
     "jsr:@std/collections@^1.1.3": "1.2.0",
     "jsr:@std/encoding@^1.0.7": "1.0.11",
@@ -64,8 +64,8 @@
         "jsr:@std/fmt"
       ]
     },
-    "@discern-sh/design-system@0.15.0": {
-      "integrity": "4e9b6828908ad79a60ca523b62525ad937d225692b69228c857ac94f9df04104",
+    "@discern-sh/design-system@0.16.0": {
+      "integrity": "db6cb451545dada2c6a11b3a98a63da53f036882359ad8df8aad6912ac9b2691",
       "dependencies": [
         "npm:@types/react",
         "npm:react"
@@ -921,7 +921,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@cliffy/command@^1.0.0-rc.8",
-      "jsr:@discern-sh/design-system@0.15.0",
+      "jsr:@discern-sh/design-system@0.16.0",
       "jsr:@std/assert@^1.0.10",
       "jsr:@std/encoding@^1.0.7",
       "jsr:@std/fmt@^1.0.10",

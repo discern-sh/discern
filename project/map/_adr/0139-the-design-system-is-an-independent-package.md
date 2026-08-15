@@ -1,6 +1,6 @@
 # ADR 0139: The design system is an independently versioned package
 
-> **Dependency-pin amendment (2026-08-15):** Discern now pins `jsr:@discern-sh/design-system@0.15.0` in `deno.json` and `deno.lock`. The `0.1.1` line below records the initial external cut-over. Exact immutable consumption and external package ownership remain the current decisions.
+> **Dependency-pin amendment (2026-08-15):** Discern now pins `jsr:@discern-sh/design-system@0.16.0` in `deno.json` and `deno.lock`. The `0.1.1` line below records the initial external cut-over. Exact immutable consumption and external package ownership remain the current decisions.
 
 **Status**: accepted
 
