@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { fromFileUrl } from "@std/path";
 import { runPtyProcess } from "./fixtures/pty_process.ts";
 
@@ -16,6 +16,62 @@ try {
   Deno.stdin.setRaw(false);
 }
 `;
+
+const RAW_THREE_BYTE_CHILD = `
+Deno.stdin.setRaw(true);
+try {
+  console.log("unrelated input reader ready");
+  const input = new Uint8Array(3);
+  let offset = 0;
+  while (offset < input.length) {
+    const read = await Deno.stdin.read(input.subarray(offset));
+    if (read === null) break;
+    offset += read;
+  }
+  console.log("observed:" + [...input.subarray(0, offset)].join(","));
+} finally {
+  Deno.stdin.setRaw(false);
+}
+`;
+
+Deno.test({
+  name: "PTY input requires an opt-in before continuing a lone Escape write",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await assertRejects(
+      () =>
+        runPtyProcess({
+          command: Deno.execPath(),
+          args: ["eval", RAW_THREE_BYTE_CHILD],
+          cwd: REPO_ROOT,
+          input: [{
+            waitFor: "unrelated input reader ready",
+            steps: [
+              { bytes: "\x1b" },
+              { delayMs: 5, bytes: "[B" },
+            ],
+          }],
+        }),
+      TypeError,
+      "must not leave a lone Escape byte before later input",
+    );
+
+    const allowed = await runPtyProcess({
+      command: Deno.execPath(),
+      args: ["eval", RAW_THREE_BYTE_CHILD],
+      cwd: REPO_ROOT,
+      input: [{
+        waitFor: "unrelated input reader ready",
+        steps: [
+          { bytes: "\x1b", allowLoneEscape: true },
+          { delayMs: 5, bytes: "[B" },
+        ],
+      }],
+    });
+    assertEquals(allowed.code, 0, allowed.transcript);
+    assertStringIncludes(allowed.transcript, "observed:27,91,66");
+  },
+});
 
 Deno.test({
   name:
