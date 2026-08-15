@@ -1697,7 +1697,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "practice-tenets",
     title: "Practice canon",
     what:
-      "The practice registry behind the practice canon: the obligations the engine holds and the bundled skills teach, each tenet citing its feature-canon mechanisms, its benefit-canon yields, and the project-inventory items it maintains.",
+      "The practice registry behind the practice canon: the obligations upheld by enforcement, automation, and teaching, each tenet citing its feature-canon mechanisms, its benefit-canon yields, and the project-inventory items it maintains.",
     source: {
       kind: "module",
       module: "scripts/practice_registry.ts",

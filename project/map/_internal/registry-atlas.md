@@ -67,7 +67,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 41      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 128     | —                | —                           |
 | [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 44      | —                | —                           |
-| [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 10      | "Practice"       | —                           |
+| [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 44      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
@@ -1834,10 +1834,10 @@ The commercially ordered transposition of the feature registry: human value and 
 
 ## `practice-tenets` — Practice canon
 
-The practice registry behind the practice canon: the obligations the engine holds and the bundled skills teach, each tenet citing its feature-canon mechanisms, its benefit-canon yields, and the project-inventory items it maintains.
+The practice registry behind the practice canon: the obligations upheld by enforcement, automation, and teaching, each tenet citing its feature-canon mechanisms, its benefit-canon yields, and the project-inventory items it maintains.
 
 - Source: `scripts/practice_registry.ts` — `PRACTICE_CANON`
-- Members: 10
+- Members: 12
   - `arrive-knowing`
   - `one-task-one-place`
   - `hand-over-whole-pieces`
@@ -1848,6 +1848,8 @@ The practice registry behind the practice canon: the obligations the engine hold
   - `the-project-remembers`
   - `cure-the-class`
   - `write-it-once`
+  - `no-dead-ends`
+  - `plan-then-apply`
 - Guards: `tests/practice_canon_enrolment_test.ts`
 - Artifacts: `project/map/_internal/practice-canon.md`, `project/map/00-orientation/the-practice.md`
 - Glossary: the "Practice" entry carries the concept

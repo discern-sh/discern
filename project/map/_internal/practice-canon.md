@@ -2,9 +2,9 @@
 
 # Practice canon
 
-_The practice, enumerated: the obligations discern holds for every change, stated without naming a feature, then tied to the features that implement them and the value they yield. The [feature canon](feature-canon.md) owns the mechanism account and the [benefit canon](feature-canon-benefits.md) owns the human value; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._
+_The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the value they yield. The [feature canon](feature-canon.md) owns the mechanism account and the [benefit canon](feature-canon-benefits.md) owns the human value; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._
 
-10 tenets · 9 bundled skills claimed · 52 feature nodes cited · 5 of 8 benefit clusters yielded · 6 properties.
+12 tenets · 9 bundled skills claimed · 71 feature nodes cited · 7 of 8 benefit clusters yielded · 6 properties.
 
 ## The frame
 
@@ -16,7 +16,7 @@ The tenets operate inside one relationship:
 
 ## The tenets
 
-Numbered by position; `loop` tenets govern how work moves, `craft` tenets govern what the work honors. A tenet marked _by the engine_ is held at a machine boundary — a verb or the gate refuses the violation; a tenet marked _taught_ is carried by a bundled skill and the compiled guidance.
+Numbered by position. `loop` tenets govern how work moves, `craft` tenets govern what the work honors, and `conduct` tenets govern how the practice behaves toward its operators. A tenet is **enforced** (a boundary refuses the violation), **automated** (the machinery performs it without being asked), **taught** (a bundled skill carries it), or a combination.
 
 ### 1. Arrive knowing
 
@@ -25,19 +25,19 @@ Numbered by position; `loop` tenets govern how work moves, `craft` tenets govern
 One authored guidance body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.
 
 - **Arc:** loop
-- **Held:** by the engine (`refresh`, `[guidance]`)
+- **Upheld:** automated via `refresh`, `[guidance]`
 - **Mechanisms:** Agent guidance · Author once, compile everywhere · The map · The discovery funnel · Skills · Status.
 - **Yields:** Keep project knowledge available.
 - **Maintains:** its guidance.
 
 ### 2. One task, one place
 
-> Every effort works in its own place: a separate checkout with its own identity, environment, and resources.
+> Every effort works in its own place: a separate checkout with its own identity, environment, and declared resources.
 
 Each effort forks from the trunk into a linked worktree with its own branch, port, environment values, and resources. Parallel agents cannot overwrite one another's tree, and the fleet view names file collisions before either change lands.
 
 - **Arc:** loop
-- **Held:** by the engine (`start`, `worktree`, `[worktree]`)
+- **Upheld:** automated via `start`, `worktree`, `[worktree]`
 - **Mechanisms:** Isolated worktrees · Start · Deterministic identity · Per-worktree resources · The fleet view.
 - **Yields:** Build further.
 - **Maintains:** its working conditions.
@@ -49,7 +49,7 @@ Each effort forks from the trunk into a linked worktree with its own branch, por
 The delegate-work skill turns discussed work into self-contained briefs (a purpose, a boundary, a definition of ready), each dispatched to its own worktree. A dependent task blocks on the repository's own state and composes below the trunk, so nobody relays readiness between sessions.
 
 - **Arc:** loop
-- **Held:** by the engine (`await`); taught (`discern-delegate-work`, `discern-await-the-fleet`)
+- **Upheld:** automated via `await` · taught by `discern-delegate-work`, `discern-await-the-fleet`
 - **Mechanisms:** Delegate work · Awaiting a fleet condition · Await the fleet · Composing unlanded work.
 - **Yields:** Build further.
 - **Maintains:** its working conditions.
@@ -61,19 +61,19 @@ The delegate-work skill turns discussed work into self-contained briefs (a purpo
 The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. Every verdict is recomputed, and a failure carries the command that produced it, so the fix starts at the cause.
 
 - **Arc:** loop
-- **Held:** by the engine (`done`, `prepare`, `[jobs]`, `[gate]`)
+- **Upheld:** enforced via `done`, `[jobs]`, `[gate]` · automated via `prepare`
 - **Mechanisms:** The quality gate · Declared jobs · The staged pipeline · Normalized diagnostics · The fast inner loop.
 - **Yields:** Know what is ready.
 - **Maintains:** its checks.
 
 ### 5. Only better
 
-> Measured limits never loosen, gains become the new baseline, and the local record shows the next improvement.
+> Measured limits never loosen, captured gains become the new baseline, and the local record shows the next improvement.
 
 Standards hold each measured number at a limit compared against the trunk: a floor may only rise, a ceiling may only fall, and a branch that loosens either fails the gate. A pin captures a gain as the new limit; the advisory readers mine the local logbook for the next one.
 
 - **Arc:** loop
-- **Held:** by the engine (`standards`, `[standards]`); taught (`discern-set-the-standard`, `discern-clear-the-decks`)
+- **Upheld:** enforced via `[standards]` · automated via `standards` · taught by `discern-set-the-standard`, `discern-clear-the-decks`
 - **Mechanisms:** Standards · Floors and ceilings · Capturing a gain · The logbook · Patterns · Improvement · Set the standard · Clear the decks.
 - **Yields:** Keep the gains the project earns.
 - **Maintains:** its checks, its evidence.
@@ -85,7 +85,7 @@ Standards hold each measured number at a limit compared against the trunk: a flo
 A green gate over a clean, committed tree mints proof: the pinned commit, the changed files, the check results, the held standards. Acceptance writes it to the landed commit as a durable note, so the evidence outlives the worktree.
 
 - **Arc:** loop
-- **Held:** by the engine (`done`, `[repository]`)
+- **Upheld:** enforced via `done` · automated via `[repository]`
 - **Mechanisms:** Proof · Durable proof notes · A rerun on an unchanged tree is attested.
 - **Yields:** Know what is ready.
 - **Maintains:** its evidence.
@@ -97,7 +97,7 @@ A green gate over a clean, committed tree mints proof: the pinned commit, the ch
 Acceptance resolves its authority per invocation (a conversation attestation, a standing scope grant, or a one-shot effort grant) and refuses without one. What lands is the tree the gate validated, fast-forwarded onto the trunk.
 
 - **Arc:** loop
-- **Held:** by the engine (`accept`, `[acceptance]`)
+- **Upheld:** enforced via `accept`, `[acceptance]`
 - **Mechanisms:** Accept · Landing authority is proved per invocation.
 - **Yields:** Know what is ready · Keep control of the project.
 - **Maintains:** its decisions.
@@ -109,7 +109,7 @@ Acceptance resolves its authority per invocation (a conversation attestation, a 
 A correction becomes guidance, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
 
 - **Arc:** loop
-- **Held:** by the engine (`[map]`); taught (`discern-teach-the-project`, `discern-write-adr`, `discern-document-subsystem`)
+- **Upheld:** enforced via `[map]` · taught by `discern-teach-the-project`, `discern-write-adr`, `discern-document-subsystem`
 - **Mechanisms:** The map · Decision records · The docs integrity preflight · File-linked freshness · The vocabulary canon · Teach the project · Write an ADR · Document a subsystem.
 - **Yields:** Keep project knowledge available.
 - **Maintains:** its guidance, its decisions.
@@ -121,22 +121,44 @@ A correction becomes guidance, a decision becomes a record with its reasons, a p
 The cure-a-bug skill requires the cause proven, the fix applied to every member of the class, and a guard driven from the class's single source left in the gate, so a future member enrols the moment it exists.
 
 - **Arc:** craft
-- **Held:** taught (`discern-cure-a-bug`)
+- **Upheld:** taught by `discern-cure-a-bug`
 - **Mechanisms:** Cure a bug · Forcing-function parity.
 - **Yields:** Keep the gains the project earns.
 - **Maintains:** its checks.
 
 ### 10. Write it once
 
-> Every shared fact has one authority; copies are generated from it, and drift fails the gate.
+> Every shared fact has one authority; copies are generated from it, and a declared copy that drifts fails the gate.
 
 The write-it-once skill carries the discipline discern builds itself with: one authority per fact with bound consumers, guards that enrol future members, effects planned before they run. Generated artifacts regenerate from their sources, and the gate fails a copy that drifted.
 
 - **Arc:** craft
-- **Held:** by the engine (`[generated]`); taught (`discern-write-it-once`)
+- **Upheld:** enforced via `[generated]` · taught by `discern-write-it-once`
 - **Mechanisms:** Write it once · Generated artifact declarations · The closed set of closed sets.
 - **Yields:** Keep project knowledge available.
 - **Maintains:** its checks.
+
+### 11. No dead ends
+
+> Every result is structured and bounded, every refusal names the next valid action, and advice never blocks.
+
+Every verb returns one structured result: the state, the diagnostics with the command that reproduces each failure, and the hints that apply at that moment. A refusal names its recovery instead of leaving a dead end, and advisory surfaces inform without changing a verdict.
+
+- **Arc:** conduct
+- **Upheld:** automated via `mcp`
+- **Mechanisms:** Interfaces and contracts · One result envelope · Idempotent by contract · A forgiving command line · Normalized diagnostics · Registered hints · The gotchas pointer · Ready-to-relay messages · The agent is the user · Context is a budget · The Model Context Protocol (MCP) server.
+- **Yields:** Spend more time on the product.
+
+### 12. Plan, then apply
+
+> Nothing mutates without a plan; writes land only where placement licenses them, and an interruption leaves a recoverable state.
+
+Every effectful verb computes a plan a thin executor applies, so a dry run is a faithful preview. Writes land only where placement licenses them, provisioning records its intent before acting, and a crash or kill leaves a machine you would still want to work on.
+
+- **Arc:** conduct
+- **Upheld:** enforced via `done` · automated via `worktree`
+- **Mechanisms:** Plan and apply · Placement is consent · Write authority proven first · Strand detection · Crash-safe provisioning · Bounded drop recovery · Orphan reclamation · Clean under interruption · Ignored-file drift.
+- **Yields:** Keep control of the project.
 
 ## Properties
 
@@ -161,8 +183,17 @@ The project holds its guidance, its working conditions, its checks, its evidence
 
 ## Coverage
 
-Every bundled skill is claimed by a tenet's carriers or recorded absent below; every carrier, mechanism, and yield names a live member; every inventory item has a maintainer. The guard (`tests/practice_canon_enrolment_test.ts`) holds all of it, and the loop closes structurally: what tenet 8 deposits, tenet 1 hands to the next session.
+Every bundled skill is claimed by a tenet or recorded absent; every carrier, mechanism, and yield names a live member; every feature pillar and benefit cluster is claimed or recorded absent; every inventory item has a maintainer; and each deferred consumer is pinned by fingerprint. The guard (`tests/practice_canon_enrolment_test.ts`) holds all of it, and the loop closes structurally: what tenet 8 deposits, tenet 1 hands to the next session.
 
 ### Recorded absences
 
-- None: every bundled skill is claimed by at least one tenet.
+- **Bundled skills** — none: every bundled skill is claimed by at least one tenet.
+- **Feature pillars** — none: every pillar is cited by a tenet or property, at some resolution.
+- **Benefit clusters** — `put-practice-in-place`: the commissioning corollary: the setup conversation is the loop applied to its own installation, so this value follows from the practice existing rather than from a separate obligation.
+
+### Deferred consumers
+
+Surfaces that still hand-carry practice prose, pinned by fingerprint until they render or cite this canon:
+
+- `scripts/brand/bridge.ts` — the practice row of the brand concept map; deferred until the brand registry derives its practice row from this canon.
+- `site/text/discern.txt` — the practice block of the machine edition; deferred until the machine edition renders its practice block from this canon.

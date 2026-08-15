@@ -12,7 +12,7 @@ aliases:
 
 # The practice
 
-_The [practice](glossary.md#practice) discern installs, as numbered tenets: the obligations that hold for every change. The [concepts page](concepts.md) tours the mechanisms; this page states what they add up to._
+_The [practice](glossary.md#practice) discern installs, as numbered tenets: the obligations that hold for every change, and for the practice's own conduct. The [concepts page](concepts.md) tours the mechanisms; this page states what they add up to._
 
 The tenets operate inside one relationship:
 
@@ -28,7 +28,7 @@ One authored guidance body compiles into every configured agent's instruction fi
 
 ### 2. One task, one place
 
-> Every effort works in its own place: a separate checkout with its own identity, environment, and resources.
+> Every effort works in its own place: a separate checkout with its own identity, environment, and declared resources.
 
 Each effort forks from the trunk into a linked worktree with its own branch, port, environment values, and resources. Parallel agents cannot overwrite one another's tree, and the fleet view names file collisions before either change lands.
 
@@ -46,7 +46,7 @@ The gate runs the project's full declared check: the jobs by stage, the scope ga
 
 ### 5. Only better
 
-> Measured limits never loosen, gains become the new baseline, and the local record shows the next improvement.
+> Measured limits never loosen, captured gains become the new baseline, and the local record shows the next improvement.
 
 Standards hold each measured number at a limit compared against the trunk: a floor may only rise, a ceiling may only fall, and a branch that loosens either fails the gate. A pin captures a gain as the new limit; the advisory readers mine the local logbook for the next one.
 
@@ -76,8 +76,20 @@ The cure-a-bug skill requires the cause proven, the fix applied to every member 
 
 ### 10. Write it once
 
-> Every shared fact has one authority; copies are generated from it, and drift fails the gate.
+> Every shared fact has one authority; copies are generated from it, and a declared copy that drifts fails the gate.
 
 The write-it-once skill carries the discipline discern builds itself with: one authority per fact with bound consumers, guards that enrol future members, effects planned before they run. Generated artifacts regenerate from their sources, and the gate fails a copy that drifted.
+
+### 11. No dead ends
+
+> Every result is structured and bounded, every refusal names the next valid action, and advice never blocks.
+
+Every verb returns one structured result: the state, the diagnostics with the command that reproduces each failure, and the hints that apply at that moment. A refusal names its recovery instead of leaving a dead end, and advisory surfaces inform without changing a verdict.
+
+### 12. Plan, then apply
+
+> Nothing mutates without a plan; writes land only where placement licenses them, and an interruption leaves a recoverable state.
+
+Every effectful verb computes a plan a thin executor applies, so a dry run is a faithful preview. Writes land only where placement licenses them, provisioning records its intent before acting, and a crash or kill leaves a machine you would still want to work on.
 
 The tenets maintain what the project holds: its guidance, its working conditions, its checks, its evidence, and its decisions.
