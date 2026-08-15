@@ -21,7 +21,15 @@ import {
   interactiveHintTexts,
 } from "../../shared/hints.ts";
 import { serializeJobSteps, stageGroup } from "./plan.ts";
-import { gateRunContext, runJobGroups } from "./execute.ts";
+import {
+  gateOutputIsLive,
+  type GateOutputSurface,
+  gateOutputTtyWidth,
+  gateRunContext,
+  type GateRunPolicy,
+  resolveGateRunPolicy,
+  runJobGroups,
+} from "./execute.ts";
 import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
@@ -37,11 +45,9 @@ import {
   type ValidationStart,
 } from "../logbook/validation.ts";
 import { captureValidationStart } from "../logbook/validation_state.ts";
-import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
+import { terminalContext } from "../../lib/terminal.ts";
 import {
   createGateTtyProgress,
-  gateTtyPresentation,
-  gateTtyProgressCanRepaint,
   renderGateTtyStatus,
   renderGateTtyTable,
 } from "./gate_tty.ts";
@@ -55,12 +61,8 @@ import {
  */
 async function runTestGate(
   root: string,
-  json: boolean,
+  surface: GateOutputSurface,
   signal?: AbortSignal,
-  presentation: {
-    liveWidth?: number;
-    terminal?: TerminalContext;
-  } = {},
 ): Promise<
   {
     result: DiscernResult;
@@ -68,32 +70,24 @@ async function runTestGate(
     out: Out;
     configured: boolean;
     cfg: DiscernConfig;
+    policy: GateRunPolicy;
     gotchasTail: GotchasFailureTail | undefined;
-    liveTable: boolean;
     outputWithheld: boolean;
     presentationWritable: boolean;
   }
 > {
   const cfg = await loadConfig(root);
+  const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
   const group = stageGroup(cfg, "test");
-  const liveOptions = presentation.liveWidth === undefined ||
-      presentation.terminal === undefined
-    ? undefined
-    : { width: presentation.liveWidth, terminal: presentation.terminal };
-  const liveTty = group !== undefined && liveOptions !== undefined && !json &&
-    !cfg.gate.stream && gateTtyProgressCanRepaint([group], liveOptions);
   const { runOpts, out, runOut, flushDeferredOutput, slots } = gateRunContext(
     root,
     cfg,
-    json,
+    policy,
     signal,
-    {
-      deferHumanRun: liveTty,
-      ...(presentation.terminal === undefined
-        ? {}
-        : { terminal: presentation.terminal }),
-    },
   );
+  const liveOutput = policy.output.kind === "live-frame"
+    ? policy.output
+    : undefined;
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): test is
   // un-gated during setup, so a pass here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
@@ -125,22 +119,22 @@ async function runTestGate(
       out,
       configured: false,
       cfg,
+      policy,
       gotchasTail: undefined,
-      liveTable: false,
       outputWithheld: false,
       presentationWritable: true,
     };
   }
-  const progress = liveTty && liveOptions !== undefined
-    ? createGateTtyProgress(out.raw, {
-      width: liveOptions.width,
+  const progress = liveOutput !== undefined
+    ? await createGateTtyProgress(out.raw, [group], {
+      width: liveOutput.ttyWidth,
       terminal: out.terminal,
       kind: "test",
     })
     : undefined;
   if (progress !== undefined) {
     runOpts.observer = progress;
-    progress.start([group]);
+    runOpts.outputObserver = progress;
   }
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
@@ -205,7 +199,7 @@ async function runTestGate(
       completeValidationEvidence(validation, steps),
     );
   }
-  progress?.complete(result.steps ?? []);
+  await progress?.complete(result.steps ?? []);
   const liveWriteFailed = progress?.writeFailed() ?? false;
   const deferredOutputFlushed = liveWriteFailed ? false : flushDeferredOutput();
   return {
@@ -214,9 +208,9 @@ async function runTestGate(
     out,
     configured: true,
     cfg,
+    policy,
     gotchasTail,
-    liveTable: false,
-    outputWithheld: liveTty && !deferredOutputFlushed,
+    outputWithheld: gateOutputIsLive(policy) && !deferredOutputFlushed,
     presentationWritable: !liveWriteFailed && deferredOutputFlushed,
   };
 }
@@ -232,7 +226,7 @@ export async function testResult(
   root: string,
   signal?: AbortSignal,
 ): Promise<DiscernResult> {
-  return (await runTestGate(root, true, signal)).result;
+  return (await runTestGate(root, { kind: "quiet-result" }, signal)).result;
 }
 
 /** Run `test`. Returns a process exit code. */
@@ -247,33 +241,29 @@ export async function runTestJob(
   }
 
   const terminal = terminalContext();
-  const { ttyWidth, liveWidth } = gateTtyPresentation(
-    false,
-    opts.plain ?? false,
-    terminal,
-  );
   const {
     result,
     failedStage,
     out,
     configured,
-    cfg,
+    policy,
     gotchasTail,
-    liveTable,
     outputWithheld,
     presentationWritable,
-  } = await runTestGate(root, false, undefined, {
-    terminal,
-    ...(liveWidth === undefined ? {} : { liveWidth }),
-  });
+  } = await runTestGate(
+    root,
+    { kind: "human", plain: opts.plain ?? false, terminal },
+  );
   observeResult(result); // the logbook recorder lifts step timings from it
   if (!presentationWritable) return failedStage === null ? 0 : 1;
   if (!configured) {
     out.info(fire(HINTS["test-job-not-configured"]).text);
     return 0;
   }
-  const ttyTable = ttyWidth !== undefined && !cfg.gate.stream;
-  if (ttyTable && !liveTable && ttyWidth !== undefined) {
+  const ttyWidth = gateOutputTtyWidth(policy);
+  const staticGroupedTable = ttyWidth !== undefined &&
+    policy.output.kind === "static-grouped";
+  if (staticGroupedTable && ttyWidth !== undefined) {
     out.group("test-results");
     out.raw(
       `${
@@ -298,7 +288,7 @@ export async function runTestJob(
     renderSlotWait(out, result.waitedMs);
     return 1;
   }
-  if (ttyTable && ttyWidth !== undefined) {
+  if (staticGroupedTable && ttyWidth !== undefined) {
     out.group("test-summary");
     out.raw(
       `${

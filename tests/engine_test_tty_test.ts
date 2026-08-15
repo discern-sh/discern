@@ -11,6 +11,9 @@ import {
 import { withTempDir } from "./helpers.ts";
 
 const CSI = "\x1b[";
+const REPAINT = `${CSI}1G`;
+const HIDE_CURSOR = `${CSI}?25l`;
+const SHOW_CURSOR = `${CSI}?25h`;
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "u");
 
 /** Build the smallest standalone-test fixture configuration for one case. */
@@ -48,7 +51,7 @@ function occurrences(text: string, value: string): number {
 
 /** Discard runtime setup controls emitted before the product's first frame. */
 function testOutput(output: string): string {
-  const starts = ["Test progress", "Test active", "Running tests"]
+  const starts = [HIDE_CURSOR, "Test progress", "Running tests"]
     .map((token) => output.indexOf(token))
     .filter((at) => at >= 0);
   const start = Math.min(...starts);
@@ -73,13 +76,12 @@ Deno.test({
       });
       assertEquals(result.code, 1, result.output);
       const output = testOutput(result.stdout);
-      const firstControl = output.indexOf(CSI);
-      assert(firstControl > 0, result.output);
-      assertStringIncludes(output.slice(0, firstControl), "Test active");
-      assertEquals(output.slice(0, firstControl).includes("[pending]"), false);
-      assertEquals(occurrences(output, "808-TEST-FAIL"), 1, result.output);
-      const tail = output.slice(output.lastIndexOf(CSI));
-      assertEquals(occurrences(tail, "test [failed]"), 1, result.output);
+      assert(output.includes(REPAINT), result.output);
+      assertStringIncludes(output, "test started");
+      assertStringIncludes(output, "test failed");
+      assert(occurrences(output, "808-TEST-FAIL") >= 1, result.output);
+      const tail = output.slice(output.lastIndexOf(SHOW_CURSOR));
+      assertEquals(occurrences(tail, "808-TEST-FAIL"), 0, result.output);
       assertEquals(occurrences(tail, "Failure guide:"), 1, result.output);
       assertStringIncludes(tail, "Failed: discern test failed");
       assertStringIncludes(tail, "Reproduce: $");
@@ -129,7 +131,7 @@ Deno.test({
       },
       {
         label: "stream",
-        args: ["test"],
+        args: ["test", "--plain"],
         env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "false" },
         stream: true,
         ascii: false,

@@ -27,6 +27,8 @@ import {
 import { stripAnsi } from "discern-design-system/cli";
 
 const CSI = `${String.fromCharCode(27)}[`;
+const REPAINT = `${CSI}1G`;
+const SHOW_CURSOR = `${CSI}?25h`;
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "u");
 
 const CONFIG = [
@@ -119,7 +121,7 @@ async function committedWorktree(
   return worktree;
 }
 
-Deno.test("done human output uses the compact proof only on a TTY", async () => {
+Deno.test("done human output leaves live activity facts and the compact TTY proof", async () => {
   await withTempDir(async (main) => {
     await scaffoldEngine(main, { agents: [] });
     await writeConfig(main, CONFIG);
@@ -135,19 +137,12 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
       timeoutMs: 15_000,
     });
     assertEquals(tty.code, 0, tty.output);
-    assertStringIncludes(tty.output, "Gate progress");
-    assertStringIncludes(tty.output, "STEPS");
-    assertStringIncludes(tty.output, "format");
-    assertStringIncludes(tty.output, "sleep 1");
-    assertStringIncludes(tty.output, "test");
-    assertStringIncludes(tty.output, "passed in 1s");
-    const firstRedraw = tty.stdout.indexOf(CSI);
-    assert(firstRedraw > 0, tty.output);
-    const firstFrame = tty.stdout.slice(0, firstRedraw);
-    assertStringIncludes(firstFrame, "format");
-    assertStringIncludes(firstFrame, "test");
-    assertStringIncludes(firstFrame, "pending");
-    assertStringIncludes(tty.stdout.slice(firstRedraw), "running");
+    assertStringIncludes(tty.output, "Gate");
+    assertStringIncludes(tty.output, "format started");
+    assertStringIncludes(tty.output, "format passed");
+    assertStringIncludes(tty.output, "test started");
+    assertStringIncludes(tty.output, "test passed");
+    assert(tty.stdout.includes(REPAINT), tty.output);
     assertEquals(tty.output.includes("Running gate checks"), false);
     assertStringIncludes(
       tty.output,
@@ -176,20 +171,12 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
       timeoutMs: 15_000,
     });
     assertEquals(failing.code, 1, failing.output);
-    const failingFirstRedraw = failing.stdout.indexOf(CSI);
-    assert(failingFirstRedraw > 0, failing.output);
-    assertStringIncludes(
-      failing.stdout.slice(0, failingFirstRedraw),
-      "pending",
-    );
-    assertStringIncludes(failing.stdout.slice(failingFirstRedraw), "running");
-    assertStringIncludes(failing.output, "failed in <1s");
-    assertStringIncludes(failing.output, "skipped");
+    assert(failing.stdout.includes(REPAINT), failing.output);
+    assertStringIncludes(failing.output, "format failed");
     assertStringIncludes(failing.output, "Failure guide:");
-    assertEquals(failing.output.match(/42-ONE-OFF/gu)?.length, 1);
     assert(
       failing.stdout.indexOf("Failure guide:") >
-        failing.stdout.lastIndexOf(CSI),
+        failing.stdout.lastIndexOf(SHOW_CURSOR),
       failing.output,
     );
     assertEquals(failing.output.includes("Proof: gate passed"), false);
@@ -261,7 +248,7 @@ Deno.test("done human output uses the compact proof only on a TTY", async () => 
   });
 });
 
-Deno.test("done TTY: a Gate taller than the viewport uses the compact live frame", async () => {
+Deno.test("done TTY: a chatty Gate keeps one bounded package-owned live frame", async () => {
   await withTempDir(async (main) => {
     await scaffoldEngine(main, { agents: [] });
     await writeConfig(main, CONFIG);
@@ -280,15 +267,9 @@ Deno.test("done TTY: a Gate taller than the viewport uses the compact live frame
     assertEquals(result.code, 0, result.output);
     assertStringIncludes(result.output, "Applying fixers");
     assertStringIncludes(result.output, "Checking and testing");
-    assertStringIncludes(result.output, "Gate progress");
-    assertStringIncludes(result.output, "format [passed]");
-    assertStringIncludes(result.output, "smoke [passed]");
-    assertEquals(result.output.match(/Gate progress/gu)?.length, 1);
-    assertEquals(result.output.match(/format \[passed\]/gu)?.length, 1);
-    assertEquals(result.output.match(/smoke \[passed\]/gu)?.length, 1);
-    assertStringIncludes(result.output, "Gate active");
-    assert(result.stdout.includes(CSI), "the admitted compact frame repaints");
-    assertEquals(result.output.includes("pending"), false);
-    assertEquals(result.output.includes("running for"), false);
+    assertStringIncludes(result.output, "format passed");
+    assertStringIncludes(result.output, "smoke passed");
+    assert(result.stdout.includes(REPAINT), "the package frame repaints");
+    assertEquals(result.output.includes("── format"), false);
   });
 });

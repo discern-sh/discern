@@ -30,7 +30,15 @@ import {
   preparePlanGroups,
   serializeJobSteps,
 } from "./plan.ts";
-import { gateRunContext, runJobGroups } from "./execute.ts";
+import {
+  gateOutputIsLive,
+  type GateOutputSurface,
+  gateOutputTtyWidth,
+  gateRunContext,
+  type GateRunPolicy,
+  resolveGateRunPolicy,
+  runJobGroups,
+} from "./execute.ts";
 import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
@@ -39,11 +47,9 @@ import { observeResult } from "../../shared/result_capture.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
-import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
+import { terminalContext } from "../../lib/terminal.ts";
 import {
   createGateTtyProgress,
-  gateTtyPresentation,
-  gateTtyProgressCanRepaint,
   renderGateTtyStatus,
   renderGateTtyTable,
 } from "./gate_tty.ts";
@@ -56,53 +62,41 @@ import {
  */
 async function runPrepareGate(
   root: string,
-  json: boolean,
+  surface: GateOutputSurface,
   signal?: AbortSignal,
-  presentation: {
-    liveWidth?: number;
-    terminal?: TerminalContext;
-  } = {},
 ): Promise<
   {
     result: DiscernResult;
     failedStage: FailedStage | null;
     out: Out;
     cfg: DiscernConfig;
+    policy: GateRunPolicy;
     gotchasTail: GotchasFailureTail | undefined;
-    liveTable: boolean;
     outputWithheld: boolean;
     presentationWritable: boolean;
   }
 > {
   const cfg = await loadConfig(root);
+  const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
   const groups = preparePlanGroups(cfg);
-  const liveOptions = presentation.liveWidth === undefined ||
-      presentation.terminal === undefined
-    ? undefined
-    : { width: presentation.liveWidth, terminal: presentation.terminal };
-  const compactTty = liveOptions !== undefined && !json && !cfg.gate.stream &&
-    gateTtyProgressCanRepaint(groups, liveOptions);
   const { runOpts, out, runOut, flushDeferredOutput, slots } = gateRunContext(
     root,
     cfg,
-    json,
+    policy,
     signal,
-    {
-      deferHumanRun: compactTty,
-      ...(presentation.terminal === undefined
-        ? {}
-        : { terminal: presentation.terminal }),
-    },
   );
-  const progress = compactTty && liveOptions !== undefined
-    ? createGateTtyProgress(out.raw, {
-      width: liveOptions.width,
+  const liveOutput = policy.output.kind === "live-frame"
+    ? policy.output
+    : undefined;
+  const progress = liveOutput !== undefined
+    ? await createGateTtyProgress(out.raw, groups, {
+      width: liveOutput.ttyWidth,
       terminal: out.terminal,
     })
     : undefined;
   if (progress !== undefined) {
     runOpts.observer = progress;
-    progress.start(groups);
+    runOpts.outputObserver = progress;
   }
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
@@ -153,7 +147,7 @@ async function runPrepareGate(
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
   };
-  progress?.complete(result.steps ?? []);
+  await progress?.complete(result.steps ?? []);
   const liveWriteFailed = progress?.writeFailed() ?? false;
   const deferredOutputFlushed = liveWriteFailed ? false : flushDeferredOutput();
   return {
@@ -161,9 +155,9 @@ async function runPrepareGate(
     failedStage,
     out,
     cfg,
+    policy,
     gotchasTail,
-    liveTable: false,
-    outputWithheld: compactTty && !deferredOutputFlushed,
+    outputWithheld: gateOutputIsLive(policy) && !deferredOutputFlushed,
     presentationWritable: !liveWriteFailed && deferredOutputFlushed,
   };
 }
@@ -179,7 +173,7 @@ export async function prepareResult(
   root: string,
   signal?: AbortSignal,
 ): Promise<DiscernResult> {
-  return (await runPrepareGate(root, true, signal)).result;
+  return (await runPrepareGate(root, { kind: "quiet-result" }, signal)).result;
 }
 
 /** Run `prepare`. Returns a process exit code. */
@@ -194,30 +188,25 @@ export async function runPrepare(
   }
 
   const terminal = terminalContext();
-  const { ttyWidth, liveWidth } = gateTtyPresentation(
-    false,
-    opts.plain ?? false,
-    terminal,
-  );
   const {
     result,
     failedStage,
     out,
-    cfg,
+    policy,
     gotchasTail,
-    liveTable,
     outputWithheld,
     presentationWritable,
   } = await runPrepareGate(
     root,
-    false,
+    { kind: "human", plain: opts.plain ?? false, terminal },
     undefined,
-    { terminal, ...(liveWidth === undefined ? {} : { liveWidth }) },
   );
   observeResult(result); // the logbook recorder lifts step timings from it
   if (!presentationWritable) return failedStage === null ? 0 : 1;
-  const ttyTable = ttyWidth !== undefined && !cfg.gate.stream;
-  if (ttyTable && !liveTable && ttyWidth !== undefined) {
+  const ttyWidth = gateOutputTtyWidth(policy);
+  const staticGroupedTable = ttyWidth !== undefined &&
+    policy.output.kind === "static-grouped";
+  if (staticGroupedTable && ttyWidth !== undefined) {
     out.group("prepare-results");
     out.raw(
       `${
@@ -254,7 +243,7 @@ export async function runPrepare(
     : regenerated
     ? "Fix and check stages passed; generated artifacts were regenerated. Build jobs and tests did not run."
     : "Fix and check stages passed. Build and test stages did not run.";
-  if (ttyTable && ttyWidth !== undefined) {
+  if (staticGroupedTable && ttyWidth !== undefined) {
     out.group("prepare-summary");
     out.raw(
       `${
