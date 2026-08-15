@@ -20,7 +20,7 @@ The pre-written sections introduce discern as an engineering practice for softwa
 - the jobs its Gate runs; and
 - consequences specific to the project.
 
-The first mention of discern links to its site. A provenance sentence states that discern seeded the record and the configuring agent completed it. `discern setup done` refuses to finish while a marked section remains. When the skill creates an ADR home outside setup, the skill instructs the agent to complete the record before writing another ADR.
+The opening decision sentence links discern to its site. A provenance sentence states that discern seeded the record and the configuring agent completed it. `discern setup done` refuses to finish while a marked section remains. When the skill creates an ADR home outside setup, the skill instructs the agent to complete the record before writing another ADR.
 
 The seed contains no `{{…}}` tokens. The configuring agent authors the project-specific sections, and the skill can copy the skeleton without a separate rendering path.
 
