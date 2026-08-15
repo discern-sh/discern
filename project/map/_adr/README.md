@@ -273,6 +273,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0281 — Main fleet status is a decision brief](0281-main-fleet-status-is-a-decision-brief.md)
 - [0282 — Self-invocations carry recorded provenance](0282-self-invocations-carry-recorded-provenance.md)
 - [0283 — Seed the adoption record in the shipped skeletons](0283-skeletons-seed-the-adoption-record.md)
+- [0284 — The practice canon enumerates the tenets](0284-the-practice-canon-enumerates-the-tenets.md)
 
 <!-- END GENERATED: current ADR records -->
 

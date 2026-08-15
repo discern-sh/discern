@@ -13,6 +13,7 @@ project/map/_internal/feature-canon.md merge=discern-generated linguist-generate
 project/map/_internal/feature-canon-plain.md merge=discern-generated linguist-generated
 project/map/_internal/feature-canon-benefits.md merge=discern-generated linguist-generated
 project/map/_internal/hint-inventory.md merge=discern-generated linguist-generated
+project/map/_internal/practice-canon.md merge=discern-generated linguist-generated
 project/map/_internal/registry-atlas.md merge=discern-generated linguist-generated
 project/map/_internal/tip-inventory.md merge=discern-generated linguist-generated
 project/map/_internal/voice-enforcement-coverage.md merge=discern-generated linguist-generated
