@@ -1,3 +1,4 @@
+import { setActiveInvocationId } from "../src/engine/logbook/invocation_context.ts";
 import {
   assert,
   assertEquals,
@@ -150,6 +151,36 @@ Deno.test("spawnJob runs captured commands with the non-interactive CI env contr
     assertEquals(
       await Deno.readTextFile(join(dir, "observed-override.env")),
       "custom:xterm:0",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("spawnJob stamps the recording invocation into DISCERN_SPAWNED_BY", async () => {
+  // A `discern` invoked by a job is a self-invocation: the runner passes the
+  // recording invocation's id so the Logbook can attribute the child to the
+  // run that spawned it instead of scoring it as somebody's decision.
+  const dir = await Deno.makeTempDir({ prefix: "discern-job-spawned-" });
+  try {
+    setActiveInvocationId("11111111-2222-4333-8444-555555555555");
+    const sink = makeSink();
+    const result = await runParallel([
+      {
+        label: "spawned",
+        command: "printf '%s' \"$DISCERN_SPAWNED_BY\" > observed.spawned",
+      },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      write: sink.write,
+    });
+    assertEquals(result.ok, true);
+    assertEquals(
+      await Deno.readTextFile(join(dir, "observed.spawned")),
+      "11111111-2222-4333-8444-555555555555",
     );
   } finally {
     await Deno.remove(dir, { recursive: true });

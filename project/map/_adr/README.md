@@ -271,6 +271,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0279 — External terminal rendering crosses one Discern-owned process boundary](0279-external-terminal-rendering-crosses-one-process-boundary.md)
 - [0280 — Results pair one structured contract with authored Markdown](0280-authored-markdown-result-presentations.md)
 - [0281 — Main fleet status is a decision brief](0281-main-fleet-status-is-a-decision-brief.md)
+- [0282 — Self-invocations carry recorded provenance](0282-self-invocations-carry-recorded-provenance.md)
 
 <!-- END GENERATED: current ADR records -->
 
