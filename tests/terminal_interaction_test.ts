@@ -10,7 +10,11 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import type { TerminalCapabilities } from "discern-design-system/cli";
+import {
+  measureText,
+  stripAnsi,
+  type TerminalCapabilities,
+} from "discern-design-system/cli";
 import type {
   TerminalIO,
   TerminalSize,
@@ -42,6 +46,13 @@ import {
 import { fakeEnv, pinnedTerminal, withTempDir } from "./helpers.ts";
 
 const encoder = new TextEncoder();
+
+/** Widest visible row in one package-painted terminal write. */
+function widestTerminalLine(value: string): number {
+  return Math.max(
+    ...stripAnsi(value).split("\n").map((line) => measureText(line)),
+  );
+}
 
 /** Scripted package terminal that still runs the production request wrappers. */
 class ScriptedTerminal implements TerminalIO {
@@ -316,6 +327,62 @@ Deno.test("grouped select keeps headings structural and ids stable across reorde
     }, scriptedRuntime(reordered)),
     "beta",
   );
+});
+
+Deno.test("the shared choice adapter preserves wide frames and group breathing rows", async () => {
+  const columns = 96;
+  const io = new ScriptedTerminal(
+    ["\r"],
+    { colorDepth: "none", columns, unicode: true },
+    { columns, rows: 24 },
+  );
+  assertEquals(
+    await requestSelection({
+      message: "Choose",
+      options: groupedSelectionEntries([
+        {
+          id: "primary",
+          label: "Primary",
+          items: [{ name: "Alpha", value: "alpha" }],
+        },
+        {
+          id: "secondary",
+          label: "Secondary",
+          items: [{ name: "Beta", value: "beta" }],
+        },
+      ]),
+    }, scriptedRuntime(io)),
+    "alpha",
+  );
+
+  const active = io.writes.find((write) => write.includes("Choose [active]"));
+  assertExists(active);
+  assertEquals(widestTerminalLine(active), columns);
+  const rows = stripAnsi(active).split("\n");
+  const blank = `│${" ".repeat(columns - 2)}│`;
+  for (const heading of ["PRIMARY", "SECONDARY"]) {
+    const index = rows.findIndex((row) => row.includes(heading));
+    assert(index > 0, `missing ${heading} heading`);
+    assertEquals(rows[index - 1], blank);
+  }
+});
+
+Deno.test("the shared choice adapter discloses choices below its visible window", async () => {
+  const io = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await requestSelection({
+      message: "Choose",
+      options: Array.from({ length: 5 }, (_, index) => ({
+        name: `Choice ${index + 1}`,
+        value: index,
+      })),
+      maxRows: 2,
+    }, scriptedRuntime(io)),
+    0,
+  );
+  const active = io.writes.find((write) => write.includes("Choose [active]"));
+  assertExists(active);
+  assertStringIncludes(stripAnsi(active), "↓ 3 more");
 });
 
 Deno.test("choice identity rejects duplicate values, ids, and implicit object ids", async () => {

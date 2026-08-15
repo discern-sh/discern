@@ -30,7 +30,9 @@ import { JSDOM } from "jsdom";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
-const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.15.0";
+const DESIGN_SYSTEM_VERSION = "0.16.0";
+const DESIGN_SYSTEM_SPECIFIER =
+  `jsr:@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}`;
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -191,8 +193,11 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
   const lock = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   ) as DenoLock;
-  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.15.0");
-  assert("@discern-sh/design-system@0.15.0" in lock.jsr);
+  assertEquals(
+    lock.specifiers[DESIGN_SYSTEM_SPECIFIER],
+    DESIGN_SYSTEM_VERSION,
+  );
+  assert(`@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}` in lock.jsr);
 
   const sourceFiles = (await walk(SITE_ROOT)).filter((path) =>
     /\.[cm]?[jt]sx?$/.test(path)
