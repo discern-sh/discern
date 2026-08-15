@@ -636,7 +636,7 @@ function upheldLine(tenet: PracticeTenet): string {
     .join(" · ");
 }
 
-/** The 1-based number of a tenet id, or throw when the canon no longer carries it. */
+/** The 1-based number of a tenet id; throws on an id the canon does not carry. */
 function tenetNumber(id: string): number {
   const index = PRACTICE_CANON.findIndex((tenet) => tenet.id === id);
   if (index === -1) throw new Error(`practice canon has no tenet: ${id}`);

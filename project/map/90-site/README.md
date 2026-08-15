@@ -58,27 +58,27 @@ Production's canonical origin is `https://discern.sh`, and page URLs have no tra
 
 The public address set freezes at launch. Before launch, experimental pages may be removed without creating redirects or tombstones. After launch, adding a page extends the contract. Renaming, moving, or removing a page does not erase its old address.
 
-[`liveHtmlRoutes(site)`](../../../site/serve.ts) returns the complete canonical HTML set: the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries are the authority for the route list. The live registries contain 220 routes as of July 22, 2026:
+[`liveHtmlRoutes(site)`](../../../site/serve.ts) returns the complete canonical HTML set: the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries are the authority for the route list. The live registries contain 354 routes as of August 16, 2026:
 
 | Source           | Current routes                                                                                                                                                         |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Static pages     | `/`                                                                                                                                                                    |
 | Docs index       | `/docs`                                                                                                                                                                |
-| Product guidance | The 50 routes in the section table below.                                                                                                                              |
-| Project history  | `/docs/decisions` plus `/docs/decisions/<file-stem>` for each of the 167 published records discovered under `_adr/`, including its archive; 145 existed at the freeze. |
+| Product guidance | The 77 routes in the section table below.                                                                                                                              |
+| Project history  | `/docs/decisions` plus `/docs/decisions/<file-stem>` for each of the 274 published records discovered under `_adr/`, including its archive; 145 existed at the freeze. |
 
 Each product-guidance row records its section landing and, after the colon, every leaf appended to that route:
 
-| Section route              | Frozen leaf suffixes                                                                                  |
-| -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `/docs/orientation`        | `concepts`, `design-principles`, `trust-and-data`, `system-map`, `glossary`                           |
-| `/docs/getting-started`    | `quickstart`, `walkthrough`, `after-setup`, `faq`, `upgrade-discern`                                  |
-| `/docs/quality-gate`       | `when-the-gate-fails`, `standards`, `the-proof`, `strand-detection`, `ci`, `improvement`, `coupling`  |
-| `/docs/worktrees`          | `lifecycle`, `the-resources`, `identity-and-env`, `team-workflow`, `the-desk`                         |
-| `/docs/agent-guidance`     | `write-project-guidance`, `compile-and-check-guidance`                                                |
-| `/docs/skills`             | `what-a-skill-is`, `bundled-skills`, `author-a-skill`, `customize-or-exclude`, `teach-the-project`    |
-| `/docs/agent-integrations` | `claude-code`, `codex`, `gemini`, `cursor`, `github-copilot`                                          |
-| `/docs/reference`          | `cli-reference`, `config-reference`, `mcp-and-results`, `artifact-ownership`, `platforms-and-prereqs` |
+| Section route              | Frozen leaf suffixes                                                                                                                                                                                                                                                                                           |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/docs/orientation`        | `concepts`, `design-principles`, `glossary`, `system-map`, `the-practice`, `trust-and-data`                                                                                                                                                                                                                    |
+| `/docs/getting-started`    | `after-setup`, `faq`, `quickstart`, `tasks`, `upgrade-discern`, `walkthrough`                                                                                                                                                                                                                                  |
+| `/docs/quality-gate`       | `ci`, `concurrent-test-runs`, `coupling`, `improvement`, `pattern-investigations`, `patterns`, `patterns-decision-evidence`, `practice-stats`, `proof-notes`, `standards`, `strand-detection`, `the-proof`, `tidy`, `validation-findings`, `when-the-gate-fails`                                               |
+| `/docs/worktrees`          | `acceptance-recovery`, `awaiting-the-fleet`, `desk-tips`, `drop-recovery`, `hand-work-back`, `identity-and-env`, `landing-authority`, `lifecycle`, `multi-repo-workspaces`, `reappeared-worktree-paths`, `reclaiming-contained-worktrees`, `status`, `team-workflow`, `the-desk`, `the-resources`, `the-trunk` |
+| `/docs/agent-guidance`     | `compile-and-check-guidance`, `write-project-guidance`                                                                                                                                                                                                                                                         |
+| `/docs/skills`             | `author-a-skill`, `bundled-skills`, `customize-or-exclude`, `teach-the-project`, `what-a-skill-is`                                                                                                                                                                                                             |
+| `/docs/agent-integrations` | `claude-code`, `codex`, `cursor`, `gemini`, `github-copilot`                                                                                                                                                                                                                                                   |
+| `/docs/reference`          | `artifact-ownership`, `cli-reference`, `config-reference`, `crash-reports`, `environment-variables`, `logbook-lifecycle`, `mcp-and-results`, `mcp-call-duration`, `platforms-and-prereqs`, `project-payload-license`, `proof-note-format`, `result-surfaces`, `temp-files-and-retention`, `the-logbook`        |
 
 The stable non-HTML endpoints are `/docs/index.json`, `/install`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/robots.txt`, and `/.well-known/security.txt`. `/install` serves the repository's own `install.sh` byte-for-byte and joined the set with ADR 0156. `/docs.md` and the `.md` form of every guidance and decision route share the corresponding canonical HTML page's identity and redirect behavior.
 
