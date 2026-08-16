@@ -742,7 +742,7 @@ export function renderGatePlan(
 ): string {
   const width = presentationWidth(options.width);
   const presenter = options.terminal.presenter;
-  const title = presenter.triangleSectionRule(safeLine(plan.title), {
+  const title = presenter.motifSectionRule(safeLine(plan.title), {
     width,
   });
   const context = plan.details.length === 0

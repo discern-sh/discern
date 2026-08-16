@@ -15,7 +15,7 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.17.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.18.1"
 ```
 
 Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI consumer additionally uses the documented `./cli`, `./cli/interactive`, and `./cli/projection` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
@@ -46,11 +46,17 @@ discern scripts site-design-system -- --build-only /absolute/path/to/design-syst
 
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts).
 
-Consumer conformance proves the package root and all three CLI graphs are React-free where required and that every module in each closure resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.17.0/` origin. A local path, workspace override, source import, mixed version, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves the package root and all three CLI graphs are React-free where required and that every module in each closure resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.18.1/` origin. A local path, workspace override, source import, mixed version, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+
+## Release 0.18.1 semantic motif contracts
+
+Release 0.18.1 replaces geometry-named triangle foundations with the semantic `TerminalMotif` contract. A validated, immutable motif carries separate Unicode and ASCII repertoires for spinner motion, repeated patterns, an accent marker, and complete/incomplete status. The process boundary explicitly binds the package's `DISCERN_TERMINAL_MOTIF` into one `CliPresenter`; feature renderers call its `motif*` methods with only content and local measures. The selected Unicode spinner for discern is the centered clockwise cycle `▴`, `◂`, `▾`, `▸`, with `^`, `<`, `v`, `>` as its ASCII fallback.
+
+The package default remains suitable for discern without imposing triangle geometry on another consumer. A consumer can derive a validated motif by replacing selected roles, bind it when constructing or deriving a presenter, or pass it to one renderer call. [`art/terminal/triangle.ts`](../../../art/terminal/triangle.ts) is the sole explicit-capability adapter: its reusable gallery entries bind the discern preset to public motif renderers, while the product-only pyramid and recursive gasket project named triangle geometry from the pattern in that preset. It does not render CLI features.
 
 ## Release 0.17.0 presenter foundation contracts
 
-Release 0.17.0 binds box, triangle-spinner, triangle-section-rule, and triangle-workflow rendering into the CLI presenter alongside Components and narration. Feature renderers in discern therefore pass only content and local measures; the process boundary supplies capabilities and theme once. Section rules now inherit the selected light or dark terminal theme. [`art/terminal/triangle.ts`](../../../art/terminal/triangle.ts) retains explicit capability inputs for the maintainer gallery's package-motif projections; it does not render CLI features.
+Release 0.17.0 first bound box and the then triangle-named spinner, section-rule, and workflow foundations into the CLI presenter alongside Components and narration. It established that feature renderers pass only content and local measures while the process boundary supplies capabilities and theme once. Release 0.18.1 preserves that boundary through semantic motif names and adds the bound motif itself.
 
 ## Release 0.16.0 choice contracts
 

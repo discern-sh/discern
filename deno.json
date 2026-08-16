@@ -37,7 +37,7 @@
   "tasks": {
     "dev": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts",
     "build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build.ts",
-    "art": "deno run --allow-env=CI,TERM,COLUMNS,LINES scripts/art.ts",
+    "art": "deno run --allow-env=TERM,COLORTERM,LC_ALL,LC_CTYPE,LANG,COLUMNS,LINES,COLORFGBG,NO_COLOR,CI scripts/art.ts",
     "terminal:capture": "deno run --allow-read --allow-write --allow-env --allow-run scripts/terminal_capture.ts",
     "terminal:capture-fixtures": "deno run --allow-read --allow-write --allow-env --allow-run scripts/terminal_capture_fixtures.ts",
     "terminal:review": "deno run --allow-read --allow-net=127.0.0.1 scripts/terminal_review.ts",
@@ -91,7 +91,7 @@
     "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
     "react-dom/client": "npm:react-dom@18.3.1/client",
     "react-dom/server": "npm:react-dom@18.3.1/server",
-    "discern-design-system": "jsr:@discern-sh/design-system@0.17.0"
+    "discern-design-system": "jsr:@discern-sh/design-system@0.18.1"
   },
   "fmt": {
     "proseWrap": "never",

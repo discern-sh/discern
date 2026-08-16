@@ -31,7 +31,7 @@ import {
   resolveTerminalContext,
   terminalContextWithColor,
 } from "../src/lib/terminal.ts";
-import { stripAnsi } from "discern-design-system/cli";
+import { DISCERN_TERMINAL_MOTIF, stripAnsi } from "discern-design-system/cli";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
@@ -167,6 +167,12 @@ Deno.test("done human output leaves live activity facts and the compact TTY proo
     assertTerminalTextIncludes(tty.output, "format passed");
     assertTerminalTextIncludes(tty.output, "test started");
     assertTerminalTextIncludes(tty.output, "test passed");
+    for (const glyph of DISCERN_TERMINAL_MOTIF.unicode.spinner) {
+      assert(
+        tty.output.includes(glyph),
+        `live Gate omitted spinner phase ${glyph}: ${tty.output}`,
+      );
+    }
     assert(tty.stdout.includes(REPAINT), tty.output);
     assertEquals(tty.output.includes("Running gate checks"), false);
     assertTerminalTextIncludes(

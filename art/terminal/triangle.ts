@@ -1,32 +1,57 @@
 /**
- * Discern's terminal-art adapters over the published design-system triangle
+ * Discern's terminal-art adapters over the published design-system motif
  * authority. Reusable motifs call package renderers byte-for-byte; only the
- * product-specific pyramid and recursive gasket remain composed here.
+ * product-specific triangle pyramid and recursive gasket remain composed here.
  */
 
 import {
-  DISCERN_TRIANGLE_ASCII_GLYPHS,
-  DISCERN_TRIANGLE_GLYPHS,
-  DISCERN_TRIANGLE_SPINNER_ORDER,
-  DISCERN_TRIANGLE_WEAVE_ORDER,
-  renderTriangleActivityBeacon,
-  renderTrianglePattern,
-  renderTriangleProgressFrame,
-  renderTriangleSectionRule,
-  renderTriangleSpinnerFrame,
-  renderTriangleWorkflowStepper,
+  DISCERN_TERMINAL_MOTIF,
+  renderMotifActivityBeacon,
+  renderMotifPattern,
+  renderMotifProgressFrame,
+  renderMotifSectionRule,
+  renderMotifSpinnerFrame,
+  renderMotifWorkflowStepper,
   type TerminalCapabilities,
+  type TerminalMotifCycle,
+  terminalMotifRepertoire,
 } from "discern-design-system/cli";
 import { displayWidth } from "../../src/lib/text.ts";
 import { type DiscernArtAnimation, finishAnimation } from "./animation.ts";
 import type { DiscernArtVariant } from "./brand.ts";
 
-export {
-  DISCERN_TRIANGLE_ASCII_GLYPHS,
-  DISCERN_TRIANGLE_GLYPHS,
-  DISCERN_TRIANGLE_SPINNER_ORDER,
-  DISCERN_TRIANGLE_WEAVE_ORDER,
-};
+interface DiscernTriangleGlyphs {
+  readonly upRight: string;
+  readonly upLeft: string;
+  readonly downLeft: string;
+  readonly downRight: string;
+}
+
+/** Project the discern preset's four-glyph pattern into product-art geometry. */
+function triangleGlyphsFromPattern(
+  pattern: TerminalMotifCycle,
+): DiscernTriangleGlyphs {
+  const [upRight, downRight, upLeft, downLeft] = pattern;
+  if (
+    pattern.length !== 4 || upRight === undefined || downRight === undefined ||
+    upLeft === undefined || downLeft === undefined
+  ) {
+    throw new TypeError(
+      "Discern's product triangle art requires a four-glyph motif pattern",
+    );
+  }
+  return Object.freeze({ upRight, upLeft, downLeft, downRight });
+}
+
+/** Named Unicode geometry used only by Discern's product triangle art. */
+export const DISCERN_TRIANGLE_GLYPHS = triangleGlyphsFromPattern(
+  DISCERN_TERMINAL_MOTIF.unicode.pattern,
+);
+
+/** Named ASCII geometry used only by Discern's product triangle art. */
+export const DISCERN_TRIANGLE_ASCII_GLYPHS = triangleGlyphsFromPattern(
+  DISCERN_TERMINAL_MOTIF.ascii.pattern,
+);
 
 /** Maximum visible cells one product-specific triangle frame may contain. */
 export const MAX_TRIANGLE_ART_CELLS = 10_000;
@@ -54,8 +79,6 @@ export interface TriangleGasketOptions {
   readonly phase?: number;
   readonly capabilities?: TerminalCapabilities;
 }
-
-type TriangleName = keyof typeof DISCERN_TRIANGLE_GLYPHS;
 
 /** Reject a dimension or phase before it reaches allocation or modulo logic. */
 function assertSafeInteger(
@@ -99,27 +122,23 @@ function normalizedIndex(index: number, length: number): number {
 }
 
 /**
- * Select one package-owned glyph for a product composition. This is deliberately
- * not a generic pattern renderer: package renderTrianglePattern owns that job.
+ * Select one preset glyph for a product composition. This is deliberately not
+ * a generic pattern renderer: package renderMotifPattern owns that job.
  */
 function productGlyph(
   position: number,
   phase: number,
   capabilities: TerminalCapabilities,
 ): string {
-  const index = normalizedIndex(
-    position + phase,
-    DISCERN_TRIANGLE_WEAVE_ORDER.length,
-  );
-  const name = DISCERN_TRIANGLE_WEAVE_ORDER[index] ??
-    DISCERN_TRIANGLE_WEAVE_ORDER[0];
-  const glyphs: Readonly<Record<TriangleName, string>> = capabilities.unicode
-    ? DISCERN_TRIANGLE_GLYPHS
-    : DISCERN_TRIANGLE_ASCII_GLYPHS;
-  return glyphs[name];
+  const pattern = terminalMotifRepertoire(
+    DISCERN_TERMINAL_MOTIF,
+    capabilities.unicode,
+  ).pattern;
+  return pattern[normalizedIndex(position + phase, pattern.length)] ??
+    pattern[0];
 }
 
-/** Render Discern's solid pyramid from package glyph and order constants. */
+/** Render Discern's solid pyramid from the package motif's pattern role. */
 export function renderTrianglePyramid(
   options: TrianglePyramidOptions,
 ): string {
@@ -220,29 +239,35 @@ const GASKET = Object.freeze({ rows: 8 });
 
 /** Render one reusable package pattern with the gallery's explicit defaults. */
 function packagePattern(
-  options: Parameters<typeof renderTrianglePattern>[0],
+  options: Parameters<typeof renderMotifPattern>[0],
   capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
 ): string {
-  return renderTrianglePattern(options, capabilities);
+  return renderMotifPattern(
+    { ...options, motif: DISCERN_TERMINAL_MOTIF },
+    capabilities,
+  );
 }
 
 /** Render one reusable package progress frame with explicit capabilities. */
 function packageProgress(
-  options: Parameters<typeof renderTriangleProgressFrame>[0],
+  options: Parameters<typeof renderMotifProgressFrame>[0],
   capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
 ): string {
-  return renderTriangleProgressFrame(options, capabilities);
+  return renderMotifProgressFrame(
+    { ...options, motif: DISCERN_TERMINAL_MOTIF },
+    capabilities,
+  );
 }
 
 /** Render one reusable package section rule with explicit capabilities. */
 function packageSectionRule(
   label: string,
-  options: Parameters<typeof renderTriangleSectionRule>[1],
+  options: Parameters<typeof renderMotifSectionRule>[1],
   capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
 ): string {
-  return renderTriangleSectionRule(
+  return renderMotifSectionRule(
     label,
-    options,
+    { ...options, motif: DISCERN_TERMINAL_MOTIF },
     capabilities,
   );
 }
@@ -252,7 +277,7 @@ function packageStepper(
   activeIndex: number,
   capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
 ): string {
-  return renderTriangleWorkflowStepper(
+  return renderMotifWorkflowStepper(
     STEPS.map((label, index) => ({
       label,
       status: index < activeIndex
@@ -263,6 +288,7 @@ function packageStepper(
       phase: index,
     })),
     capabilities,
+    { motif: DISCERN_TERMINAL_MOTIF },
   );
 }
 
@@ -271,8 +297,8 @@ function packageBeacon(
   phase: number,
   capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
 ): string {
-  return renderTriangleActivityBeacon(
-    { ...BEACON, phase },
+  return renderMotifActivityBeacon(
+    { ...BEACON, phase, motif: DISCERN_TERMINAL_MOTIF },
     capabilities,
   );
 }
@@ -281,8 +307,13 @@ function packageBeacon(
 function renderSpinnerStoryboard(
   capabilities: TerminalCapabilities = TRIANGLE_GALLERY_CAPABILITIES,
 ): string {
-  const frames = DISCERN_TRIANGLE_SPINNER_ORDER.map((_, phase) =>
-    renderTriangleSpinnerFrame(phase, capabilities)
+  const frames = terminalMotifRepertoire(
+    DISCERN_TERMINAL_MOTIF,
+    capabilities.unicode,
+  ).spinner.map((_, phase) =>
+    renderMotifSpinnerFrame(phase, capabilities, {
+      motif: DISCERN_TERMINAL_MOTIF,
+    })
   );
   return `${frames.join(" -> ")} -> (repeat)`;
 }
@@ -338,8 +369,16 @@ function animateSpinner(
   return finishAnimation(
     staticArt,
     Array.from(
-      { length: DISCERN_TRIANGLE_SPINNER_ORDER.length * 2 },
-      (_, phase) => renderTriangleSpinnerFrame(phase, capabilities),
+      {
+        length: terminalMotifRepertoire(
+          DISCERN_TERMINAL_MOTIF,
+          capabilities.unicode,
+        ).spinner.length * 2,
+      },
+      (_, phase) =>
+        renderMotifSpinnerFrame(phase, capabilities, {
+          motif: DISCERN_TERMINAL_MOTIF,
+        }),
     ),
     90,
     250,

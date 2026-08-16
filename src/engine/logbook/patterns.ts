@@ -425,7 +425,7 @@ function renderGroup(out: Out, id: string, label: string): void {
   const { presenter, width } = presentationFacts(out);
   out.group(id);
   out.raw(`${
-    presenter.triangleSectionRule(terminalLine(label), {
+    presenter.motifSectionRule(terminalLine(label), {
       width,
     })
   }\n`);
