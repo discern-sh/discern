@@ -13,6 +13,8 @@ import {
   runTriangle,
   triangleResult,
 } from "../src/commands/triangle.ts";
+import { resultPresenterForVerb } from "../src/shared/result_contracts.ts";
+import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
 import { DISCERN_MARK, DISCERN_WORDMARK } from "../src/shared/brand.ts";
 import {
   DISCERN_PRODUCT_TRIANGLE_ART,
@@ -135,6 +137,17 @@ Deno.test("triangle --json emits one faithful result envelope and exits 0", asyn
   assertEquals(envelope.verb, "triangle");
   assertEquals(envelope.data.mark, DISCERN_MARK);
   assertEquals(envelope.data.art, renderTriangleArt());
+});
+
+Deno.test("triangle Markdown preserves the exact gasket geometry", () => {
+  const rendered = renderResultMarkdown(
+    { ...triangleResult() },
+    resultPresenterForVerb("triangle"),
+  );
+  assertStringIncludes(
+    rendered,
+    `\`\`\`text\n${renderTriangleArt()}\n\`\`\``,
+  );
 });
 
 Deno.test("triangle keeps Unicode in a Codex-style dumb UTF-8 terminal", async () => {

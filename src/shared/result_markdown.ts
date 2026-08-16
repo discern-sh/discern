@@ -53,6 +53,11 @@ function text(value: unknown): string | undefined {
     : undefined;
 }
 
+/** Read non-empty content without changing whitespace-significant bytes. */
+function verbatimText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() !== "" ? value : undefined;
+}
+
 /** Read one finite numeric value. */
 function number(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value)
@@ -132,6 +137,22 @@ function unique(items: readonly (string | undefined)[]): string[] {
     }
     seen.add(normalized);
     out.push(normalized);
+  }
+  return out;
+}
+
+/** Remove blank and exactly duplicate content without normalizing either. */
+function uniqueVerbatim(items: readonly (string | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of items) {
+    if (
+      item === undefined || item.trim() === "" || seen.has(item)
+    ) {
+      continue;
+    }
+    seen.add(item);
+    out.push(item);
   }
   return out;
 }
@@ -349,7 +370,7 @@ function envelopeEvidence(
   if (diagnostics.length > MAX_DIAGNOSTICS) {
     facts.push(omitted(diagnostics.length - MAX_DIAGNOSTICS, "diagnostic"));
   }
-  const firstOutput = text(diagnostics[0]?.output);
+  const firstOutput = verbatimText(diagnostics[0]?.output);
   if (firstOutput !== undefined) {
     markdown.push(
       `### First diagnostic output\n\n${
@@ -510,7 +531,7 @@ export function renderResultMarkdown(
     ...envelope.facts,
     ...hints.evidence,
   ]);
-  const supporting = unique([
+  const supporting = uniqueVerbatim([
     ...(presented.supportingMarkdown ?? []),
     ...envelope.markdown,
   ]);
@@ -568,11 +589,11 @@ const presentSetup: ResultMarkdownPresenter = (result) => {
   const action = result.error === "awaiting_consent"
     ? undefined
     : text(data.next_action) ?? text(data.command);
-  const guidance = unique([
-    text(data.agent_guidance),
-    text(data.guidance),
-    text(data.instructions),
-    text(data.human_framing),
+  const guidance = uniqueVerbatim([
+    verbatimText(data.agent_guidance),
+    verbatimText(data.guidance),
+    verbatimText(data.instructions),
+    verbatimText(data.human_framing),
   ]).map((value) => `### Setup guidance\n\n${value}`);
   return {
     state: defaultState(result),
@@ -603,6 +624,7 @@ const presentSetupVerify: ResultMarkdownPresenter = (result) => {
   const git = object(findings?.git);
   const conflicts = records(data.conflicts);
   const next = text(data.next_action);
+  const guidance = verbatimText(data.guidance);
   return {
     state: defaultState(
       result,
@@ -628,9 +650,9 @@ const presentSetupVerify: ResultMarkdownPresenter = (result) => {
         } to account for.`,
       ...conflicts.slice(0, MAX_LIST_ITEMS).map((entry) => text(entry.detail)),
     ]),
-    supportingMarkdown: text(data.guidance) === undefined
+    supportingMarkdown: guidance === undefined
       ? []
-      : [`### Consent guidance\n\n${text(data.guidance)}`],
+      : [`### Consent guidance\n\n${guidance}`],
     action: next === undefined ? [] : [next],
   };
 };
@@ -639,6 +661,7 @@ const presentSetupStep: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const spine = object(data.spine) ?? {};
   const title = text(data.title);
+  const guidance = verbatimText(data.guidance);
   return {
     state: defaultState(
       result,
@@ -656,9 +679,9 @@ const presentSetupStep: ResultMarkdownPresenter = (result) => {
         ? undefined
         : `Completion check: ${text(spine.completion_check)}`,
     ]),
-    supportingMarkdown: text(data.guidance) === undefined
+    supportingMarkdown: guidance === undefined
       ? []
-      : [`### Step guidance\n\n${text(data.guidance)}`],
+      : [`### Step guidance\n\n${guidance}`],
     boundary: strings(spine.what_not_to_do),
     action: text(spine.next_action) === undefined
       ? []
@@ -672,6 +695,7 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
   const landing = object(data.landing);
   const reactivation = object(data.reactivation);
   const unmet = records(data.unmet);
+  const guidance = verbatimText(data.guidance);
   const action = boolean(landing?.on_target) === false
     ? text(landing?.command)
     : text(reactivation?.summary);
@@ -699,9 +723,9 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
         ? omitted(unmet.length - MAX_LIST_ITEMS, "setup check")
         : undefined,
     ]),
-    supportingMarkdown: text(data.guidance) === undefined
+    supportingMarkdown: guidance === undefined
       ? []
-      : [`### Completion guidance\n\n${text(data.guidance)}`],
+      : [`### Completion guidance\n\n${guidance}`],
     action: action === undefined ? [] : [action],
   };
 };
@@ -806,6 +830,7 @@ const presentDoctor: ResultMarkdownPresenter = (result) => {
 
 const presentInventory: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
+  const art = verbatimText(data.art);
   return {
     state: defaultState(result),
     evidence: unique([
@@ -821,9 +846,9 @@ const presentInventory: ResultMarkdownPresenter = (result) => {
       listFact("Available presets", strings(data.available)),
       listFact("Written files", strings(data.written)),
     ]),
-    supportingMarkdown: text(data.art) === undefined
+    supportingMarkdown: art === undefined
       ? []
-      : [`### Mark\n\n${fencedText(text(data.art) ?? "")}`],
+      : [`### Mark\n\n${fencedText(art)}`],
   };
 };
 
@@ -833,6 +858,7 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
   const results = records(data.results);
   const docs = records(data.docs);
   const suggestions = records(data.suggestions);
+  const content = verbatimText(doc?.content);
   const title = text(doc?.title);
   const query = text(data.query);
   const state = doc !== undefined
@@ -868,9 +894,9 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
         }`;
       }),
     ]),
-    supportingMarkdown: text(doc?.content) === undefined
+    supportingMarkdown: content === undefined
       ? []
-      : [`### Requested document\n\n${text(doc?.content)}`],
+      : [`### Requested document\n\n${content}`],
   };
 };
 
