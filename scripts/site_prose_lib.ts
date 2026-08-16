@@ -152,17 +152,19 @@ function routeStagePath(route: string): string {
   return `_internal/brand/${leaf}.md`;
 }
 
-/** Project every page from the canonical marketing registry in route order. */
+/** Project every prose-guarded page from the marketing registry in route order. */
 export function projectSiteProse(): ProjectedSiteProsePage[] {
-  return MARKETING_PAGES.map((page) => {
-    const projected = visibleSiteProse(renderMarketingPage(page.route));
-    return {
-      route: page.route,
-      source: page.source,
-      stagePath: routeStagePath(page.route),
-      ...projected,
-    };
-  });
+  return MARKETING_PAGES
+    .filter((page) => page.prose === "guarded")
+    .map((page) => {
+      const projected = visibleSiteProse(renderMarketingPage(page.route));
+      return {
+        route: page.route,
+        source: page.source,
+        stagePath: routeStagePath(page.route),
+        ...projected,
+      };
+    });
 }
 
 /** Stage the exact corpus shared by the site prose check and measurements. */

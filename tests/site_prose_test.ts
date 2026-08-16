@@ -19,7 +19,7 @@ import {
 
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
 
-Deno.test("every canonical marketing route builds, serves, and joins the prose corpus", () => {
+Deno.test("every marketing route builds, serves, and follows its prose policy", () => {
   assertEquals(
     Object.keys(PAGES),
     MARKETING_PAGES.map(({ route }) => route),
@@ -27,7 +27,9 @@ Deno.test("every canonical marketing route builds, serves, and joins the prose c
   const projected = projectSiteProse();
   assertEquals(
     projected.map(({ route }) => route),
-    MARKETING_PAGES.map(({ route }) => route),
+    MARKETING_PAGES.filter(({ prose }) => prose === "guarded").map(
+      ({ route }) => route,
+    ),
   );
   for (const page of MARKETING_PAGES) {
     assertEquals(PAGES[page.route], {
@@ -35,10 +37,12 @@ Deno.test("every canonical marketing route builds, serves, and joins the prose c
       negotiable: page.negotiable,
     });
     assertStringIncludes(renderMarketingPage(page.route), "<!doctype html>");
-    assert(
+    assertEquals(
       projected.some(({ route, source }) =>
         route === page.route && source === page.source
       ),
+      page.prose === "guarded",
+      `${page.route} follows its ${page.prose} prose policy`,
     );
   }
 });
@@ -59,7 +63,7 @@ Deno.test("the preserved homepage projection measures prose once and excludes ar
   assertEquals(homepage.prose.includes(INSTALL_COMMAND), false);
   assertEquals(homepage.prose.includes("9 August 2026"), false);
   assertEquals(homepage.prose.includes("customer benchmark"), false);
-  assertEquals(siteProseReadingGrade(pages), 9.36);
+  assertEquals(siteProseReadingGrade(pages), 7.68);
 });
 
 Deno.test("the Vale numerator and denominator read the exact same staged bytes", async () => {

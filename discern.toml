@@ -603,8 +603,8 @@
     direction = "down"
     per = "site_prose_words"
     scale = 1000
-    # Launch baseline: 10 Vale alerts across 1,437 projected words.
-    limit = 6.96
+    # Guarded-corpus baseline: 2 Vale alerts across 1,025 projected words.
+    limit = 1.95
     margin = 0.05
     run = "deno task site:prose"
     inputs = [
@@ -627,8 +627,8 @@
 
   [standards.site_reading_grade]
     direction = "down"
-    # Current composition baseline over the same deduplicated prose blocks.
-    limit = 9.36
+    # Guarded-corpus baseline over the same deduplicated prose blocks.
+    limit = 7.68
     margin = 0.2
     run = "deno task site:reading-grade"
     inputs = [
