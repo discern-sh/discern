@@ -1,0 +1,308 @@
+/* The Scriptorium's shell, layered after the design system's own layers.
+   Chrome is styled from design tokens; the one colour the studio adds is the
+   rubric — the working red that marks what the pen may touch. */
+
+@layer discern.consumer {
+  :root {
+    --scr-rubric: #b0392c;
+    --scr-rubric-soft: #f6e4e1;
+  }
+  :root[data-discern-theme="dark"] {
+    --scr-rubric: #e0715d;
+    --scr-rubric-soft: #3a2622;
+  }
+
+  body {
+    margin: 0;
+    background: var(--discern-color-canvas);
+  }
+
+  /* ——— Header ——— */
+  .scr-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.55rem 1.1rem;
+    background: var(--discern-color-surface);
+    border-bottom: 1px solid var(--discern-color-border);
+  }
+  .scr-brand {
+    font-family: var(--discern-font-display);
+    font-size: 1.02rem;
+    color: var(--discern-color-ink);
+    text-decoration: none;
+  }
+  .scr-header-right {
+    margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .scr-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    font-family: var(--discern-font-mono);
+    font-size: 0.68rem;
+    line-height: 1;
+    padding: 0.38em 0.65em;
+    border-radius: var(--discern-radius-pill);
+    border: 1px solid var(--discern-color-border);
+    background: var(--discern-color-surface);
+    color: var(--discern-color-ink-muted);
+    cursor: default;
+  }
+  button.scr-chip {
+    cursor: pointer;
+  }
+  .scr-chip-dirty {
+    color: var(--discern-color-warning-deep);
+    border-color: var(--discern-color-warning);
+    background: var(--discern-color-warning-soft);
+  }
+  .scr-chip-ok {
+    color: var(--discern-color-success-deep);
+    border-color: var(--discern-color-success);
+    background: var(--discern-color-success-soft);
+  }
+  .scr-chip-fail {
+    color: var(--discern-color-danger);
+    border-color: var(--discern-color-danger);
+    background: var(--discern-color-danger-soft);
+  }
+
+  /* ——— Shell ——— */
+  .scr-shell {
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr) 19.5rem;
+    max-width: 100rem;
+    margin: 0 auto;
+  }
+  .scr-nav {
+    border-right: 1px solid var(--discern-color-border);
+    padding: 1.1rem 0.9rem 2rem;
+    position: sticky;
+    top: 2.6rem;
+    align-self: start;
+    max-height: calc(100vh - 2.6rem);
+    overflow-y: auto;
+  }
+  .scr-nav-group h2 {
+    font-family: var(--discern-font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--discern-color-ink-faint);
+    margin: 1.2rem 0 0.35rem 0.4rem;
+    font-weight: 500;
+  }
+  .scr-nav-group:first-child h2 {
+    margin-top: 0;
+  }
+  .scr-nav-group ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .scr-nav-group a {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.3rem 0.5rem;
+    border-radius: var(--discern-radius-sm);
+    font-family: var(--discern-font-ui);
+    font-size: 0.82rem;
+    color: var(--discern-color-ink-muted);
+    text-decoration: none;
+  }
+  .scr-nav-group a:hover {
+    background: var(--discern-color-surface-sunken);
+    color: var(--discern-color-ink);
+  }
+  .scr-nav-group a[aria-current="page"] {
+    background: var(--discern-color-surface);
+    color: var(--discern-color-ink);
+    font-weight: 600;
+    box-shadow: inset 2px 0 0 var(--scr-rubric);
+  }
+  .scr-count {
+    font-family: var(--discern-font-mono);
+    font-size: 0.66rem;
+    color: var(--discern-color-ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ——— Reading surface ——— */
+  .scr-doc {
+    padding: 2rem 2.6rem 5rem;
+    min-width: 0;
+  }
+  .scr-article {
+    max-width: var(--discern-measure);
+  }
+  .scr-field {
+    border-radius: 3px;
+    transition: background-color 120ms ease-out;
+    cursor: pointer;
+  }
+  .scr-field:hover {
+    background: var(--scr-rubric-soft);
+    box-shadow: 0 1px 0 var(--scr-rubric);
+  }
+  .scr-field:focus-visible {
+    outline: 2px solid var(--scr-rubric);
+    outline-offset: 1px;
+  }
+  .scr-field.scr-selected {
+    background: var(--scr-rubric-soft);
+    box-shadow: 0 0 0 1.5px var(--scr-rubric);
+  }
+  .scr-locked {
+    cursor: not-allowed;
+    border-bottom: 1px dotted var(--discern-color-ink-faint);
+  }
+  .scr-locked:hover {
+    background: var(--discern-color-surface-sunken);
+    box-shadow: none;
+  }
+  a[data-outside] {
+    color: var(--discern-color-ink-muted);
+    text-decoration-style: dotted;
+    cursor: help;
+  }
+
+  /* ——— Inspector rail ——— */
+  .scr-rail {
+    border-left: 1px solid var(--discern-color-border);
+    padding: 1.1rem 1rem 2rem;
+    position: sticky;
+    top: 2.6rem;
+    align-self: start;
+    max-height: calc(100vh - 2.6rem);
+    overflow-y: auto;
+    font-family: var(--discern-font-ui);
+    font-size: 0.78rem;
+  }
+  .scr-rail-empty {
+    color: var(--discern-color-ink-faint);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    padding: 0.4rem;
+  }
+  .scr-rail h3 {
+    font-family: var(--discern-font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--discern-color-ink-faint);
+    margin: 1.1rem 0 0.35rem;
+    font-weight: 500;
+  }
+  .scr-rail h3:first-child {
+    margin-top: 0;
+  }
+  .scr-rail-title {
+    font-family: var(--discern-font-display);
+    font-size: 0.95rem;
+    color: var(--discern-color-ink);
+    margin: 0 0 0.2rem;
+  }
+  .scr-rail .scr-kind {
+    font-family: var(--discern-font-mono);
+    font-size: 0.66rem;
+    color: var(--discern-color-ink-faint);
+  }
+  .scr-cite {
+    display: block;
+    padding: 0.14rem 0;
+    color: var(--discern-color-accent-600);
+    text-decoration: none;
+    font-size: 0.76rem;
+  }
+  .scr-cite:hover {
+    text-decoration: underline;
+  }
+  .scr-cite small {
+    font-family: var(--discern-font-mono);
+    font-size: 0.62rem;
+    color: var(--discern-color-ink-faint);
+  }
+  .scr-fieldrow {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.16rem 0;
+    font-family: var(--discern-font-mono);
+    font-size: 0.68rem;
+    color: var(--discern-color-ink-muted);
+  }
+  .scr-fieldrow[data-active="true"] {
+    color: var(--scr-rubric);
+    font-weight: 600;
+  }
+  .scr-btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    font-family: var(--discern-font-ui);
+    font-size: 0.76rem;
+    font-weight: 600;
+    border-radius: var(--discern-radius-sm);
+    border: 1px solid var(--discern-color-border);
+    background: var(--discern-color-surface);
+    color: var(--discern-color-ink);
+    padding: 0.45rem 0.6rem;
+    margin-top: 0.5rem;
+    cursor: pointer;
+  }
+  .scr-btn:hover {
+    background: var(--discern-color-surface-sunken);
+  }
+  .scr-btn.scr-primary {
+    background: var(--scr-rubric);
+    border-color: var(--scr-rubric);
+    color: #fff8f5;
+  }
+  .scr-guards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .scr-guardline {
+    font-family: var(--discern-font-mono);
+    font-size: 0.64rem;
+    overflow-wrap: anywhere;
+  }
+  .scr-failure {
+    white-space: pre-wrap;
+    font-family: var(--discern-font-mono);
+    font-size: 0.62rem;
+    background: var(--discern-color-surface-sunken);
+    border-radius: var(--discern-radius-sm);
+    padding: 0.5rem;
+    max-height: 14rem;
+    overflow: auto;
+  }
+
+  @media (max-width: 74rem) {
+    .scr-shell {
+      grid-template-columns: 13rem minmax(0, 1fr);
+    }
+    .scr-rail {
+      display: none;
+    }
+  }
+  @media (max-width: 52rem) {
+    .scr-shell {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .scr-nav {
+      display: none;
+    }
+  }
+}

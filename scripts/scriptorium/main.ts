@@ -1,7 +1,8 @@
 /**
- * The Scriptorium's command line. `open <entry>` resolves any canon id, slug,
- * or title across the five prose registries and jumps the IDE to its exact
- * source line; the serving surface builds on the same resolution.
+ * The Scriptorium's command line. `serve` (the default) opens the studio in
+ * the browser's reading room; `open <entry>` resolves any canon id, slug, or
+ * title across the five prose registries and jumps the IDE to its exact
+ * source line.
  */
 
 import { locateEntries, openInIde } from "./locate.ts";
@@ -9,9 +10,12 @@ import { locateEntries, openInIde } from "./locate.ts";
 const USAGE = `The Scriptorium — the canon registries, where you read them.
 
 Usage:
+  discern scripts scriptorium [serve]
   discern scripts scriptorium open <entry> [--print] [--json]
 
 Commands:
+  serve          Start the studio on this worktree's derived port (or PORT)
+                 and keep it live against registry changes. The default.
   open <entry>   Resolve a canon entry (id, slug, or title — e.g. proof,
                  file-ownership, "Only better") and open its registry source
                  in the IDE at the exact line. --print writes the position
@@ -60,16 +64,25 @@ function runOpen(args: readonly string[]): number {
   return 0;
 }
 
+/** Run the studio server until interrupted. */
+async function runServe(): Promise<number> {
+  const { startStudio } = await import("./server.ts");
+  await startStudio();
+  await new Promise<never>(() => {
+    // The server owns the process until a signal ends it.
+  });
+  return 0;
+}
+
 /** Dispatch the scriptorium subcommands. */
-export function runScriptorium(args: readonly string[]): number {
+export async function runScriptorium(args: readonly string[]): Promise<number> {
   const [command, ...rest] = args;
   if (command === "open") return runOpen(rest);
+  if (command === "serve" || command === undefined) return await runServe();
   console.error(USAGE.trimEnd());
-  return command === undefined || command === "--help" || command === "help"
-    ? 0
-    : 2;
+  return command === "--help" || command === "help" ? 0 : 2;
 }
 
 if (import.meta.main) {
-  Deno.exit(runScriptorium(Deno.args));
+  Deno.exit(await runScriptorium(Deno.args));
 }
