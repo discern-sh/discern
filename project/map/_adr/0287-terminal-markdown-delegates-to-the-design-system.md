@@ -26,7 +26,7 @@ Discern consumes only the immutable `0.19.0` public exports. A generic Markdown 
 
 - `discern map` and `discern docs` gain the package's complete supported dialect, nested lossless layout, semantic Components, safety limits, and deterministic degradation without carrying a second terminal grammar.
 - Terminal output changes to the Component-backed document composition. The change therefore requires exact adapter tests plus rendered before-and-after terminal evidence.
-- The compiled binary and notices gain the parser stack shipped by the package. That cost is accepted once at the package boundary instead of paying ongoing local grammar, safety, and conformance cost.
+- The compiled binary and notices gain the parser stack shipped by the package. The representative Linux x64 artifact measures 167,486,008 bytes, 4,644,744 above the previous ceiling. The owner accepts that release cost and recalibrates the ceiling on the trunk instead of paying ongoing local grammar, safety, and conformance cost.
 - Browser and terminal Markdown no longer claim one parser. The website keeps its current product projections and exact HTML contracts until a public package hook or a separately decided build-time projection can replace them without importing React into the production server.
 - ADR 0015 remains the history of why the map browser, TTY split, raw view, search, export, and pager exist, but its hand-rolled-renderer decision is superseded.
 
