@@ -1,5 +1,7 @@
 # ADR 0139: The design system is an independently versioned package
 
+> **Dependency-pin amendment (2026-08-16):** Discern now pins `jsr:@discern-sh/design-system@0.19.0` in `deno.json` and `deno.lock`. The release adds the first-class Markdown Component, and Discern delegates its terminal Map and manual documents through that public `./cli` authority ([ADR 0287](0287-terminal-markdown-delegates-to-the-design-system.md)).
+
 > **Dependency-pin amendment (2026-08-16):** Discern now pins `jsr:@discern-sh/design-system@0.18.1` in `deno.json` and `deno.lock`. This release replaces geometry-specific triangle rendering contracts with configurable semantic terminal motifs while retaining the discern preset as this product's explicit selection.
 
 > **Dependency-pin amendment (2026-08-15):** Discern now pins `jsr:@discern-sh/design-system@0.17.0` in `deno.json` and `deno.lock`. The `0.1.1` line below records the initial external cut-over. Exact immutable consumption and external package ownership remain the current decisions.

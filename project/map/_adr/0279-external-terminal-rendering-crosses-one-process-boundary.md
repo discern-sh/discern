@@ -1,5 +1,7 @@
 # ADR 0279: External terminal rendering crosses one Discern-owned process boundary
 
+> **Markdown amendment (2026-08-16; [ADR 0287](0287-terminal-markdown-delegates-to-the-design-system.md)):** Discern now consumes the immutable 0.19.0 release. `discern map` and `discern docs` pass source and an explicit measure through the bound presenter to the package's complete Markdown Component; Discern keeps no terminal grammar or Component dispatch table.
+
 > **Semantic-motif amendment (2026-08-16):** Discern now consumes the immutable 0.18.1 release. The process boundary binds the validated `DISCERN_TERMINAL_MOTIF` with capabilities, theme, and width; feature renderers call the presenter's semantic motif methods. The preset supplies a clockwise small-triangle spinner while remaining replaceable globally or per call. The product-owned terminal-art registry is the sole explicit-capability motif adapter and derives its local triangle geometry from the preset pattern.
 
 > **Presenter-foundation amendment (2026-08-15):** Discern now consumes the immutable 0.17.0 release. Feature renderers call the presenter's bound box and triangle-foundation methods, so section rules inherit the selected terminal theme and no feature passes capabilities directly. The product-owned terminal-art registry remains the sole explicit-capability triangle adapter for package motif projection.
@@ -28,7 +30,7 @@ Consuming a sibling checkout would make an unpublished tree look like package ev
 
 ## Decision
 
-Discern consumes the exact published `@discern-sh/design-system@0.18.1` release through its configured alias. Consumer tests exercise the root, `./cli`, `./cli/interactive`, and `./cli/projection` exports and inspect Deno's resolved graph. They require the configured pin, lock entry, and every module in each public closure to name the same immutable JSR origin and version; the CLI-only graphs may contain neither a React runtime nor a package checkout filesystem path. A local path, workspace override, source import, mixed-version graph, cache substitution, or unpublished tag is never predecessor evidence.
+Discern consumes the exact published `@discern-sh/design-system@0.19.0` release through its configured alias. Consumer tests exercise the root, `./cli`, `./cli/interactive`, and `./cli/projection` exports and inspect Deno's resolved graph. They require the configured pin and lock entry, every package-owned module to name the same immutable JSR origin and version, and every external npm root to be declared by the published package and resolved to an exact lock node. The CLI-only graphs may contain neither a React runtime nor a package checkout filesystem path. A local path, workspace override, source import, mixed-version graph, unlocked parser, cache substitution, or unpublished tag is never predecessor evidence.
 
 The package owns reusable Component rendering, generic ANSI stripping, grapheme measurement, truncation, padding and wrapping, terminal themes and semantic Token roles, and reusable interaction machinery. A generic gap is fixed and released upstream rather than copied into Discern.
 
