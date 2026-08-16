@@ -795,10 +795,12 @@ export const ContinuationHandleSchema = z.string()
 
 /** Why one `await` call uses its reported bound: an exact caller request, the
  * long CLI allowance, a known configurable MCP client, a known strict client,
- * or the conservative unknown-client fallback. */
+ * the conservative unknown-client fallback, or an environment-supplied
+ * experimental cap sitting below the caller profile's bound. */
 export const AWAIT_RETRY_BASES = [
   "explicit",
   ...AWAIT_CALL_PROFILES,
+  "experimental-cap",
 ] as const;
 
 /** The current call and its continuation share one bound vocabulary. */
