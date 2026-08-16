@@ -29,6 +29,7 @@ import {
   NAMESPACE_DIR,
   sourcePathDefault,
 } from "../src/shared/paths_registry.ts";
+import { annotateProse, slugify } from "./scriptorium/annotation.ts";
 
 /** A place a retired phrase may still legally appear, and why. */
 export interface RetiredException {
@@ -760,7 +761,20 @@ export function renderGlossaryDoc(): string {
       (e.retired ?? []).map((r) => r.phrase.toLowerCase())
     ),
   ];
-  const sections = entries.map((e) => `### ${e.term}\n\n${e.definition}`);
+  const sections = entries.map((e) => {
+    const entry = slugify(e.term);
+    const term = annotateProse(e.term, {
+      registry: "glossary",
+      entry,
+      field: "term",
+    });
+    const definition = annotateProse(e.definition, {
+      registry: "glossary",
+      entry,
+      field: "definition",
+    });
+    return `### ${term}\n\n${definition}`;
+  });
   return [
     "---",
     "title: Glossary",

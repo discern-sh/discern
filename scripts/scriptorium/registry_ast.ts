@@ -16,6 +16,7 @@
 
 import { join } from "@std/path";
 import { Node, Project } from "ts-morph";
+import { slugify } from "./annotation.ts";
 import type {
   Expression,
   ObjectLiteralExpression,
@@ -181,14 +182,6 @@ function propertyKeyText(property: PropertyAssignment): string {
   return Node.isStringLiteral(nameNode)
     ? nameNode.getLiteralValue()
     : nameNode.getText();
-}
-
-/** Lowercase, dash-separated form of an id or term for forgiving lookups. */
-export function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 /** The string value of an entry's own property, when it is a plain literal. */

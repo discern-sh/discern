@@ -14,6 +14,7 @@ import {
   type EvidenceClass,
   type EvidenceClassDefinition,
 } from "./model.ts";
+import { annotateProse } from "../scriptorium/annotation.ts";
 
 /** The evidence-class table: meaning and permitted public use per class. */
 export const EVIDENCE_CLASSES: Readonly<
@@ -337,33 +338,65 @@ function classDisplayName(name: EvidenceClass): string {
   return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 }
 
+/**
+ * Route one ledger field through the scriptorium's provenance channel;
+ * outside the scriptorium the text passes through unchanged.
+ */
+function claimProse(slug: string, field: string, text: string): string {
+  return annotateProse(text, { registry: "claims", entry: slug, field });
+}
+
 /** Render one claim's ledger entry. */
 function renderClaim(slug: string, claim: Claim): string {
   const lines = [
-    `### ${claimHeading(slug, claim.title)}`,
+    `### ${claimHeading(slug, claimProse(slug, "title", claim.title))}`,
     "",
     `- **Evidence:** ${claim.evidence.join(" / ")}`,
-    `- **Strongest supported public form:** “${claim.strongestPublicForm}”`,
+    `- **Strongest supported public form:** “${
+      claimProse(slug, "strongestPublicForm", claim.strongestPublicForm)
+    }”`,
   ];
   if (claim.mechanism !== undefined) {
-    lines.push(`- **Mechanism:** ${claim.mechanism}`);
+    lines.push(
+      `- **Mechanism:** ${claimProse(slug, "mechanism", claim.mechanism)}`,
+    );
   }
   if (claim.conditions !== undefined) {
-    lines.push(`- **Conditions:** ${claim.conditions}`);
+    lines.push(
+      `- **Conditions:** ${claimProse(slug, "conditions", claim.conditions)}`,
+    );
   }
-  lines.push(`- **Forbidden inference:** ${claim.forbiddenInference}`);
+  lines.push(
+    `- **Forbidden inference:** ${
+      claimProse(slug, "forbiddenInference", claim.forbiddenInference)
+    }`,
+  );
   if (claim.evidenceNote !== undefined) {
-    lines.push(`- **Evidence note:** ${claim.evidenceNote}`);
+    lines.push(
+      `- **Evidence note:** ${
+        claimProse(slug, "evidenceNote", claim.evidenceNote)
+      }`,
+    );
   }
   if (claim.tacticalUse !== undefined) {
-    lines.push(`- **Current tactical use case:** ${claim.tacticalUse}`);
+    lines.push(
+      `- **Current tactical use case:** ${
+        claimProse(slug, "tacticalUse", claim.tacticalUse)
+      }`,
+    );
   }
   if (claim.wordingCorrection !== undefined) {
     lines.push(
-      `- **Canonical wording correction:** ${claim.wordingCorrection}`,
+      `- **Canonical wording correction:** ${
+        claimProse(slug, "wordingCorrection", claim.wordingCorrection)
+      }`,
     );
   }
-  lines.push(`- **Primary source:** ${claim.primarySource}`);
+  lines.push(
+    `- **Primary source:** ${
+      claimProse(slug, "primarySource", claim.primarySource)
+    }`,
+  );
   return lines.join("\n");
 }
 
