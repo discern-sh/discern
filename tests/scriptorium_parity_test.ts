@@ -22,9 +22,11 @@ import {
   stripAnnotationMarkers,
 } from "../scripts/scriptorium/annotation.ts";
 import {
+  fieldLeaves,
   openRegistryProject,
   registryEntries,
 } from "../scripts/scriptorium/registry_ast.ts";
+import { fieldSpecFor } from "../scripts/scriptorium/fields.ts";
 import { REPO_ROOT } from "../scripts/scriptorium/root.ts";
 import {
   allBenefitEntries,
@@ -164,6 +166,36 @@ Deno.test("every canon entry surfaces at least one annotated span", () => {
       seen.has(`${entry.registry}:${entry.slug}`),
       `${entry.registry} ${entry.id} renders no annotated span — the editor cannot reach it`,
     );
+  }
+});
+
+Deno.test("every declared field resolves to studio semantics that fit its literal", () => {
+  const project = openRegistryProject(REPO_ROOT);
+  for (const entry of registryEntries(project, REPO_ROOT)) {
+    for (const leaf of fieldLeaves(entry)) {
+      const spec = fieldSpecFor(entry.registry, entry.kind, leaf.path);
+      assert(
+        spec !== undefined,
+        `${entry.registry} ${entry.id} · ${leaf.path}: the studio has no semantics for this field`,
+      );
+      if (spec.edit === "prose") {
+        assert(
+          leaf.kind === "string" || leaf.kind === "template",
+          `${entry.registry} ${entry.id} · ${leaf.path}: prose semantics over a ${leaf.kind} literal`,
+        );
+      }
+      if (spec.edit === "list") {
+        assert(
+          leaf.kind === "string-array" || leaf.kind === "array" ||
+            leaf.kind === "computed",
+          `${entry.registry} ${entry.id} · ${leaf.path}: list semantics over a ${leaf.kind} literal`,
+        );
+      }
+      assert(
+        spec.edit !== "nested",
+        `${entry.registry} ${entry.id} · ${leaf.path}: a nested spec cannot terminate a leaf`,
+      );
+    }
   }
 });
 
