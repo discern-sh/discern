@@ -6,12 +6,14 @@
  * without net access, so the tests drive the route handler directly.
  */
 
+import { join } from "@std/path";
 import { assert, assertEquals } from "@std/assert";
 import {
   MARK_CLOSE,
   MARK_OPEN,
   MARK_SEP,
 } from "../scripts/scriptorium/annotation.ts";
+import { mainCheckoutIssue } from "../scripts/scriptorium/root.ts";
 import { buildSnapshot } from "../scripts/scriptorium/snapshot.ts";
 import {
   startStudio,
@@ -104,6 +106,30 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
     assertEquals(missing.status, 404);
     await missing.body?.cancel();
   });
+});
+
+Deno.test("the studio serves worktrees only", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    assert(
+      await mainCheckoutIssue(dir) !== undefined,
+      "no .git at all refuses",
+    );
+    await Deno.mkdir(join(dir, ".git"));
+    assert(
+      await mainCheckoutIssue(dir) !== undefined,
+      "a .git directory is the main checkout and refuses",
+    );
+    await Deno.remove(join(dir, ".git"));
+    await Deno.writeTextFile(join(dir, ".git"), "gitdir: elsewhere");
+    assertEquals(
+      await mainCheckoutIssue(dir),
+      undefined,
+      "a gitlink file is a linked worktree and serves",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
 });
 
 Deno.test("state and page routes answer sanely", async () => {

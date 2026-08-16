@@ -16,6 +16,8 @@ Usage:
 Commands:
   serve          Start the studio on this worktree's derived port (or PORT)
                  and keep it live against registry changes. The default.
+                 Serves only from a worktree — write-back never lands on
+                 the main checkout by accident.
   open <entry>   Resolve a canon entry (id, slug, or title — e.g. proof,
                  file-ownership, "Only better") and open its registry source
                  in the IDE at the exact line. --print writes the position
@@ -64,8 +66,14 @@ async function runOpen(args: readonly string[]): Promise<number> {
   return 0;
 }
 
-/** Run the studio server until interrupted. */
+/** Run the studio server until interrupted; the pen stays in worktrees. */
 async function runServe(): Promise<number> {
+  const { mainCheckoutIssue } = await import("./root.ts");
+  const issue = await mainCheckoutIssue();
+  if (issue !== undefined) {
+    console.error(issue);
+    return 2;
+  }
   const { startStudio } = await import("./server.ts");
   await startStudio();
   await new Promise<never>(() => {

@@ -19,7 +19,7 @@ discern scripts scriptorium
 discern scripts scriptorium open proof
 ```
 
-The server binds 127.0.0.1 only, on a port salted from the worktree identity, so each worktree's studio coexists with its site server; `PORT` overrides, and a main checkout uses 4517. `open` resolves any entry id, slug, or title across the registries to its source line and opens PhpStorm there — the same resolution behind every jump in the studio.
+The server binds 127.0.0.1 only, on a port salted from the worktree identity, so each worktree's studio coexists with its site server, and `PORT` overrides. It also serves from worktrees only: the studio edits the tree it runs in, and a stray launch on the main checkout refuses rather than aim write-back at the trunk. `open` resolves any entry id, slug, or title across the registries to its source line and opens PhpStorm there — the same resolution behind every jump in the studio. It never writes, so it works from any checkout.
 
 ## The reading surface
 

@@ -35,7 +35,7 @@ import { THEME_BOOTSTRAP } from "../../site/theme.ts";
 const BIND_HOST = "127.0.0.1";
 const BROWSER_HOST = "localhost";
 
-/** The studio's fixed port on a main checkout without a worktree identity. */
+/** The fallback port when no worktree identity resolves. */
 export const DEFAULT_STUDIO_PORT = 4517;
 
 const WATCH_DEBOUNCE_MS = 200;
