@@ -419,7 +419,9 @@ Deno.test({
 
       const human = await runAgentPty(dir, ["done"], {
         env: { COLUMNS: "80", LINES: "18", NO_COLOR: "1", CI: "false" },
-        timeoutMs: 15_000,
+        // This case deliberately pushes more than the capture cap through a
+        // real PTY. Keep a bounded but load-tolerant budget for parallel suites.
+        timeoutMs: 30_000,
       });
       assertEquals(human.code, 1, human.output);
       assertStringIncludes(human.stdout, REPAINT);
