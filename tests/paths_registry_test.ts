@@ -23,6 +23,10 @@ import {
   resolveSkillsDir,
   resolveTodoPath,
 } from "../src/lib/paths.ts";
+import {
+  defaultDocumentationScopes,
+  defaultInstructionScopes,
+} from "../src/lib/config.ts";
 
 Deno.test("registry defaults follow the namespace policy and classify gate-neutral sources", () => {
   for (const name of SOURCE_PATH_NAMES) {
@@ -108,8 +112,8 @@ Deno.test("the shipped template's path values equal the registry defaults", asyn
     gotchas_doc: "",
     agents_array: '"claude_code", "codex"',
     map_dir: SOURCE_PATHS.map.defaultPath,
-    scopes_neutral: '"${map.dir}"',
-    scopes_instructions: '"discern/instructions.md", "discern/skills/"',
+    scopes_neutral: defaultDocumentationScopes().join(", "),
+    scopes_instructions: defaultInstructionScopes().join(", "),
     scopes_previewable: '"public/**"',
     artifact_provenance_marker: "discern provenance marker",
     kit_version: "0.0.0",

@@ -6,9 +6,10 @@
  *
  * Everything else derives from this table: the Zod schema's path `.default()`s
  * (`config_schema.ts`), the resolver helpers (`lib/paths.ts`), setup's seeding,
- * codegen, and the leakage guards. Adding a path means adding one entry here —
- * every satellite either auto-enrols or fails the gate. A path default written
- * as a literal anywhere else in `src/**` is a defect.
+ * codegen, live source-path references, and the leakage guards. Adding a path
+ * means adding one entry here — every satellite either auto-enrols or fails the
+ * gate. A path default written as a literal anywhere else in `src/**` is a
+ * defect.
  */
 
 import type { FileOwnershipDeclaration } from "./file_ownership.ts";
@@ -121,6 +122,40 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
       "The project brief captured at setup — authored intent, read by the setup instructions.",
   },
 };
+
+/** One live reference derived from a configured source-path registry entry. */
+export interface SourcePathReference {
+  readonly name: SourcePathName;
+  readonly key: string;
+  readonly reference: string;
+}
+
+/** Every live source-path reference, in source-path registry order. Configured
+ * members enrol automatically; other resolution modes deliberately expose no
+ * reference because they do not name one stable scalar config value. */
+export const SOURCE_PATH_REFERENCES: readonly SourcePathReference[] =
+  SOURCE_PATH_NAMES.flatMap((name): SourcePathReference[] => {
+    const entry = SOURCE_PATHS[name];
+    if (entry.resolution !== "configured") return [];
+    if (entry.key === null) {
+      throw new Error(
+        `${name}: configured source paths need a config key before they can expose a live reference`,
+      );
+    }
+    return [{ name, key: entry.key, reference: `\${${entry.key}}` }];
+  });
+
+const SOURCE_PATH_REFERENCE_BY_NAME = new Map<SourcePathName, string>(
+  SOURCE_PATH_REFERENCES.map(({ name, reference }) => [name, reference]),
+);
+
+/** The live reference for one configured registry member; absent for sources
+ * whose concrete path is resolved by another rule. */
+export function sourcePathReference(
+  name: SourcePathName,
+): string | undefined {
+  return SOURCE_PATH_REFERENCE_BY_NAME.get(name);
+}
 
 /** The default path for source `name` — the ADR 0099 namespace location. */
 export function sourcePathDefault(name: SourcePathName): string {

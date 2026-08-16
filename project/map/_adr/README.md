@@ -275,6 +275,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0283 — Seed the adoption record in the shipped skeletons](0283-skeletons-seed-the-adoption-record.md)
 - [0284 — The practice canon enumerates the tenets](0284-the-practice-canon-enumerates-the-tenets.md)
 - [0285 — Agent instructions replace Guidance throughout the live product](0285-agent-instructions-replace-guidance.md)
+- [0286 — Configured source paths expose registry-derived live references](0286-configured-source-paths-expose-live-references.md)
 
 <!-- END GENERATED: current ADR records -->
 

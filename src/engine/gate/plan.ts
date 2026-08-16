@@ -26,7 +26,7 @@ import {
   HINTS,
   hintTexts,
 } from "../../shared/hints.ts";
-import { expandMapDirReference } from "../../shared/map_path.ts";
+import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 import type {
   Diagnostic,
   DiscernResult,
@@ -141,9 +141,9 @@ export function planScopeGates(
 ): PlannedJob[] {
   const out: PlannedJob[] = [];
   for (const [scope, spec] of Object.entries(cfg.scopes)) {
-    const command = expandMapDirReference(
+    const command = expandSourcePathReferences(
       toCommand(spec.gate),
-      cfg.map.dir,
+      cfg,
     );
     if (command === "") {
       continue;

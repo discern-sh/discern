@@ -31,10 +31,8 @@ import {
   parseConfigOrThrow,
   toCommandList,
 } from "../src/shared/config_schema.ts";
-import {
-  expandMapDirReference,
-  normalizeMapDir,
-} from "../src/shared/map_path.ts";
+import { normalizeMapDir } from "../src/shared/map_path.ts";
+import { expandSourcePathReferences } from "../src/shared/source_path_references.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
 import { checkDocsIntegrity, liveCliModel } from "../src/lib/map_integrity.ts";
@@ -164,7 +162,7 @@ Deno.test("every configured command that reads the map has an overlay adapter", 
   const mapDir = normalizeMapDir(config.map.dir);
   const readsMap = (value: Parameters<typeof toCommandList>[0]): boolean =>
     toCommandList(value).some((command) =>
-      expandMapDirReference(command, config.map.dir).includes(mapDir)
+      expandSourcePathReferences(command, config).includes(mapDir)
     );
 
   const required: string[] = [];

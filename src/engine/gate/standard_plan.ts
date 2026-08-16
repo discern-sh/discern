@@ -23,7 +23,7 @@ import {
   type PlanStep,
   verbatimStepLabel,
 } from "../../shared/result.ts";
-import { expandMapDirReference } from "../../shared/map_path.ts";
+import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 
 /** The denominator that turns a raw count into a rate, resolved to the shape the
  * executor acts on: either a second emitted metric, or a built-in extent discern
@@ -60,7 +60,8 @@ export interface PlannedStandard {
    * false defers the measurement to the standalone `standards` verb. The
    * never-loosen limit check is NOT governed by this — it runs regardless. */
   gateMeasure: boolean;
-  /** The paths the metric reads (scope-paths globs, `${map.dir}` expanded) —
+  /** The paths the metric reads (scope-paths globs, with live source-path
+   * references expanded) —
    * when every change since the last recorded measurement falls outside them,
    * the gate replays that value. Absent = always measure. */
   inputs?: string[];
@@ -83,7 +84,7 @@ export function standardJobLabel(name: string): string {
  * schema guarantees exactly one), whose value is one or more git pathspecs. */
 function resolvePer(
   per: StandardConfig["per"],
-  mapDir: string,
+  config: DiscernConfig,
 ): PerSpec | undefined {
   if (per === undefined) return undefined;
   if (typeof per === "string") return { kind: "metric", metric: per };
@@ -94,7 +95,7 @@ function resolvePer(
         kind: "extent",
         measure,
         globs: (typeof globs === "string" ? [globs] : globs).map((glob) =>
-          expandMapDirReference(glob, mapDir)
+          expandSourcePathReferences(glob, config)
         ),
       };
     }
@@ -120,16 +121,16 @@ export interface StandardPlan {
 export function buildStandardPlan(cfg: DiscernConfig): StandardPlan {
   const standards: PlannedStandard[] = Object.entries(cfg.standards).map(
     ([name, spec]: [string, StandardConfig]) => {
-      const per = resolvePer(spec.per, cfg.map.dir);
+      const per = resolvePer(spec.per, cfg);
       const inputs = spec.inputs?.map((glob) =>
-        expandMapDirReference(glob, cfg.map.dir)
+        expandSourcePathReferences(glob, cfg)
       );
       return {
         name,
         metric: spec.metric ?? name,
         direction: spec.direction,
         limit: spec.limit,
-        command: expandMapDirReference(toCommand(spec.run), cfg.map.dir),
+        command: expandSourcePathReferences(toCommand(spec.run), cfg),
         limitKey: `standards.${name}.limit`,
         scale: spec.scale,
         margin: spec.margin,

@@ -88,7 +88,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [map] — the project map: discern's agent-maintained documentation tree. This is
 # distinct from human-curated project docs: setup scaffolds it here, `discern map`
-# browses it, and `${map.dir}` keeps checks/scopes/standards tied to this path.
+# browses it. Live `${<config-key>}` references keep checks, scopes, generated
+# paths, and standards tied to configured entries in the source-path registry.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [map]
@@ -167,6 +168,10 @@
 # plus `run` (a command or list). `provides` is an optional free-text label;
 # `timeout` has the same per-job meaning as above. Known names MUST NOT declare
 # `stage`: their stage comes from the list above.
+# Commands, scope paths and gates, generated paths and runs, and Standard
+# `run`/`inputs`/`per` globs accept `${<config-key>}` references for every
+# configured source in the paths registry. Unregistered braced forms stay
+# untouched, so ordinary shell expansion keeps working.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [jobs]

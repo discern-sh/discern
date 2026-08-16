@@ -16,8 +16,8 @@ import { KIT_VERSION } from "./version.ts";
 // wizard, config document, generated editor schema, and logbook detector therefore
 // share one identity source without making signal-only agents setup choices.
 import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
-import { MAP_DIR_REFERENCE } from "../shared/map_path.ts";
 import { SOURCE_PATH_NAMES, SOURCE_PATHS } from "../shared/paths_registry.ts";
+import { sourcePathReference } from "../shared/source_path_references.ts";
 import { neutralAgentScopePaths } from "./providers.ts";
 
 /** The agent/provider files the kit knows how to emit. */
@@ -51,19 +51,17 @@ export const DEFAULTS = {
   scopesPreviewable: ['"public/**"'],
 } as const;
 
-/** Render one registry path as a scope pattern. The map keeps its live config
- * reference; other directories gain the trailing slash the scope matcher uses
- * for prefix matching. */
+/** Render one registry path as a scope pattern. Configured sources use their
+ * registry-derived live reference; directories follow the canonical trailing-
+ * slash shape recorded by their registry default. */
 function neutralSourceScopePath(
   name: (typeof SOURCE_PATH_NAMES)[number],
 ): string {
   const entry = SOURCE_PATHS[name];
-  if (name === "map") {
-    return MAP_DIR_REFERENCE;
-  }
-  return entry.pathKind === "directory"
-    ? `${entry.defaultPath.replace(/\/+$/, "")}/`
-    : entry.defaultPath;
+  const path = sourcePathReference(name) ?? entry.defaultPath;
+  return entry.pathKind === "directory" && !entry.defaultPath.endsWith("/")
+    ? `${path}/`
+    : path;
 }
 
 const DOCUMENTATION_SCOPE_SOURCES = ["map", "todo"] as const;

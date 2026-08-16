@@ -17,7 +17,7 @@ import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import { pathMatchesPattern } from "./glob.ts";
-import { expandMapDirReference } from "../../shared/map_path.ts";
+import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 
 /**
  * The two derived markers a classification emits ALONGSIDE the scope names: `code`
@@ -147,7 +147,7 @@ function resolvedScopePaths(
   scope: string,
 ): string[] {
   return (config.scopes[scope]?.paths ?? []).map((path) =>
-    expandMapDirReference(path, config.map.dir)
+    expandSourcePathReferences(path, config)
   );
 }
 

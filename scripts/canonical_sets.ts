@@ -724,7 +724,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "source-paths",
     title: "Source paths",
     what:
-      "The configurable authored-source locations: instructions, Map, Skills, Project Scripts, TODO, and brief. Each entry carries its config key, default, ownership, and resolution rule.",
+      "The authored-source locations: instructions, Map, Skills, Project Scripts, TODO, and brief. Each entry carries its config key, default, ownership, and resolution rule; every configured scalar entry automatically exposes its live reference.",
     source: {
       kind: "module",
       module: "src/shared/paths_registry.ts",
@@ -737,6 +737,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/paths_sentinel_render_test.ts",
       "tests/paths_write_surface_test.ts",
       "tests/agent_gitattributes_test.ts",
+      "tests/source_path_references_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
