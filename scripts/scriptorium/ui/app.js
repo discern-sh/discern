@@ -347,6 +347,7 @@ function stageLabel(stage) {
     patch: "patching the registry",
     format: "formatting",
     render: "re-rendering the canon",
+    prose: "checking the prose",
     guards: "running the guards",
   };
   return labels[stage] ?? stage;
@@ -390,7 +391,7 @@ async function submitEditor() {
   }
   benchState("red");
   benchStatusReset();
-  const wrote = report.stage === "render" || report.stage === "guards";
+  const wrote = report.restored === true;
   bench.status.append(el("span", {
     class: "scr-bench-verdict",
     text: wrote

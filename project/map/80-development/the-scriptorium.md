@@ -29,7 +29,7 @@ The inspector rail shows the selected entry's source position, field inventory, 
 
 ## The save-and-prove loop
 
-A save replaces one string literal through the syntax view, formats the file as the repository would, swaps it into place, re-renders every projection in a fresh subprocess, rewrites the committed canon pages to the generator's own bytes, and then runs the registry's guard files from the meta-registry roster. Any red step restores every written byte, so an unprovable save leaves the tree as it was. A green save leaves the registry and its generated pages agreeing on disk, ready for an atomic commit.
+A save replaces one string literal through the syntax view, formats the file as the repository would, swaps it into place, re-renders every projection in a fresh subprocess, and rewrites the committed canon pages to the generator's own bytes. The rewritten pages are then held to the gate's own prose command with its blocking severity, and the registry's guard files run from the meta-registry roster. Any red step restores every written byte, so an unprovable save leaves the tree as it was. A green save leaves the registry and its generated pages agreeing on disk, ready for an atomic commit.
 
 Saving a technical field queues its plain twin for review, and the nudge rides the entry's rail until the twin is visited. Saving a plain field re-measures the `plain_reading_grade` standard.
 

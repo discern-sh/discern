@@ -20,6 +20,7 @@ import { buildSnapshot } from "../scripts/scriptorium/snapshot.ts";
 import { MARK_OPEN } from "../scripts/scriptorium/annotation.ts";
 import { REPO_ROOT } from "../scripts/scriptorium/root.ts";
 import { allFeatureNodes } from "../scripts/feature_registry.ts";
+import { PRACTICE_CANON } from "../scripts/practice_registry.ts";
 
 const FEATURE_FILE = join(REPO_ROOT, "scripts", "feature_registry.ts");
 
@@ -219,4 +220,55 @@ Deno.test("a red guard rolls the whole save back", async () => {
     "the registry rolled back to its exact prior bytes",
   );
   assertEquals(await Deno.readTextFile(pagePath), pageBefore);
+});
+
+Deno.test("a save the gate's prose voice refuses rolls back", async () => {
+  // A tenet obligation renders as paragraph prose on two pages, where the
+  // voice rules bite; the exclamation must red the prose stage, not guards.
+  const registryPath = join(REPO_ROOT, "scripts", "practice_registry.ts");
+  const before = await Deno.readTextFile(registryPath);
+  const held = new Map<string, string>();
+  for (
+    const rel of [
+      ["project", "map", "_internal", "practice-canon.md"],
+      ["project", "map", "00-orientation", "the-practice.md"],
+    ]
+  ) {
+    const path = join(REPO_ROOT, ...rel);
+    held.set(path, await Deno.readTextFile(path));
+  }
+  const tenet = PRACTICE_CANON.find((item) => item.id === "arrive-knowing");
+  assert(tenet !== undefined, "the probed tenet should exist");
+  try {
+    const report = await saveField(
+      {
+        registry: "practice",
+        slug: "arrive-knowing",
+        field: "obligation",
+        value: tenet.obligation + " Surprise, it works!",
+      },
+      {
+        root: REPO_ROOT,
+        guardsFor: () => [],
+        buildSnapshot: () => spawnSnapshot(REPO_ROOT),
+      },
+    );
+    assert(!report.ok, "an exclamation must refuse the save before guards");
+    assertEquals(report.ok === false && report.stage, "prose");
+    assert(
+      report.ok === false && report.issue.includes("Discern.Exclamation"),
+      "the verdict names the refusing prose rule",
+    );
+    assert(
+      report.ok === false && report.restored === true,
+      "the report says the held bytes were restored",
+    );
+  } finally {
+    await Deno.writeTextFile(registryPath, before);
+    for (const [path, bytes] of held) await Deno.writeTextFile(path, bytes);
+  }
+  assertEquals(await Deno.readTextFile(registryPath), before);
+  for (const [path, bytes] of held) {
+    assertEquals(await Deno.readTextFile(path), bytes);
+  }
 });

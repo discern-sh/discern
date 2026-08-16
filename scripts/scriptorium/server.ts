@@ -512,6 +512,7 @@ export async function startStudio(
               stage: report.stage,
               issue: report.issue,
               guards: report.guards ?? null,
+              restored: report.restored ?? false,
             },
         );
       } finally {

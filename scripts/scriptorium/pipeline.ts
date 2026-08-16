@@ -2,10 +2,11 @@
  * The save-and-prove loop. A save patches the registry in memory, formats it
  * the way the repo would, swaps it into place, re-renders every projection in
  * a fresh subprocess, rewrites the committed canon pages to the exact bytes
- * the generator would produce, and runs the registry's own guard files — and
- * if any step past the swap fails, every written byte is restored, so a save
- * that cannot be proven leaves the tree exactly as it was. `discern done`
- * stays the final authority; the studio only moves its judgment earlier.
+ * the generator would produce, holds the rewritten pages to the gate's own
+ * prose command, and runs the registry's own guard files — and if any step
+ * past the swap fails, every written byte is restored, so a save that cannot
+ * be proven leaves the tree exactly as it was. `discern done` stays the final
+ * authority; the studio only moves its judgment earlier.
  */
 
 import { join } from "@std/path";
@@ -16,7 +17,7 @@ import { type GuardRunReport, metricProbe, runGuardFiles } from "./guards.ts";
 import type { Snapshot } from "./snapshot.ts";
 
 /** Where a refused save stopped. */
-export type SaveStage = "patch" | "format" | "render" | "guards";
+export type SaveStage = "patch" | "format" | "render" | "prose" | "guards";
 
 /** One page the save rewrote (or would rewrite). */
 export interface PageChange {
@@ -118,6 +119,77 @@ async function restore(written: Map<string, string>): Promise<void> {
   }
 }
 
+/** One Vale alert as the prose command's JSON output carries it. */
+interface ProseAlert {
+  readonly Line?: number;
+  readonly Check?: string;
+  readonly Message?: string;
+}
+
+/** Flatten the prose command's findings into panel-ready lines. */
+function proseIssueLines(findings: unknown): string[] {
+  if (findings === null || typeof findings !== "object") return [];
+  const lines: string[] = [];
+  for (const [file, alerts] of Object.entries(findings)) {
+    if (!Array.isArray(alerts)) continue;
+    for (const alert of alerts as ProseAlert[]) {
+      lines.push(
+        `${file}:${alert.Line ?? "?"} ${alert.Check ?? "?"} — ${
+          alert.Message ?? "?"
+        }`,
+      );
+    }
+  }
+  return lines;
+}
+
+/**
+ * Hold the rewritten pages to the gate's own prose command — the identical
+ * judgment (`--custom-zero`, error-level blockers plus the authored voice),
+ * moved from `discern done` to save time so a save can never leave a tree
+ * the gate's prose job refuses.
+ */
+async function proseGate(
+  root: string,
+  pages: readonly string[],
+): Promise<{ ok: true } | { ok: false; issue: string }> {
+  const command = new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "--allow-run",
+      join("scripts", "prose_check.ts"),
+      "project/map/",
+      "--custom-zero",
+      ...pages,
+    ],
+    cwd: root,
+    env: { NO_COLOR: "1", CI: "1", TERM: "dumb" },
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  if (output.success) return { ok: true };
+  const stdout = new TextDecoder().decode(output.stdout);
+  let lines: string[] = [];
+  try {
+    lines = proseIssueLines(JSON.parse(stdout));
+  } catch {
+    // Unparseable output still refuses; the raw tail is the evidence.
+  }
+  const detail = lines.length > 0
+    ? lines.join("\n")
+    : (stdout + new TextDecoder().decode(output.stderr)).trim().slice(-1200);
+  return {
+    ok: false,
+    issue:
+      `the gate's prose check refuses the rewritten page(s) — the save was rolled back\n\n${detail}`,
+  };
+}
+
 /**
  * Run one save through the whole loop. On a red verdict nothing of the save
  * survives on disk; on green the registry, the regenerated pages, and the
@@ -183,6 +255,18 @@ export async function saveField(
     held.set(path, current);
     await Deno.writeTextFile(path, expected);
     changed.push({ id: page.id, rel: page.rel });
+  }
+
+  if (changed.length > 0) {
+    stage("prose");
+    const prose = await proseGate(
+      context.root,
+      changed.map((page) => page.rel),
+    );
+    if (!prose.ok) {
+      await restore(held);
+      return { ok: false, stage: "prose", issue: prose.issue, restored: true };
+    }
   }
 
   stage("guards");
