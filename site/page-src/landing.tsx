@@ -276,13 +276,10 @@ function Hero({ archived = false }: { readonly archived?: boolean }) {
             evidence, so you can take the software further with confidence in
             what comes back.
           </p>
-          {archived
-            ? (
-              <p className="landing-hero__category">
-                An engineering practice for agent-built software.
-              </p>
-            )
-            : <HeroFacts />}
+          <p className="landing-hero__category">
+            An engineering practice for agent-built software.
+          </p>
+          {archived ? null : <HeroFacts />}
         </>
       }
       actions={archived

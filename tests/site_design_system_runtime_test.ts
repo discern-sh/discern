@@ -24,6 +24,7 @@ import {
   COPY_PROMPT_TEXT,
   INSTALL_COMMAND,
   renderLanding,
+  renderOldLanding,
 } from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
 import { providerBrandSilhouette, PROVIDERS } from "../src/lib/providers.ts";
@@ -502,6 +503,10 @@ Deno.test("generated output is ignored and reproducible from its selections", as
     await formatGeneratedText(renderLanding(), "html"),
   );
   assertEquals(
+    await Deno.readTextFile(join(ROOT, "site/pages/old.html")),
+    await formatGeneratedText(renderOldLanding(), "html"),
+  );
+  assertEquals(
     await Deno.readTextFile(join(ROOT, "site/pages/fragments/brand.html")),
     renderDiscernBrand(),
   );
@@ -523,10 +528,55 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   }
 });
 
-Deno.test("the public homepage presents the complete signed-off launch sequence", async () => {
+Deno.test("the current homepage preserves its hero and nine composition slots", async () => {
   assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
   const response = await handler(
     new Request("https://discern.sh/", { headers: BROWSER }),
+  );
+  assertEquals(response.status, 200);
+  const html = await response.text();
+  const dom = new JSDOM(html);
+  const body = dom.window.document.body;
+  const hero = body.querySelector(".landing-hero");
+
+  assertEquals(body.querySelectorAll("h1").length, 1);
+  assertEquals(
+    body.querySelector("h1")?.textContent?.trim(),
+    "A bolder way to build.",
+  );
+  assertStringIncludes(
+    hero?.textContent ?? "",
+    "An engineering practice for agent-built software",
+  );
+  assertEquals(hero?.querySelectorAll(".landing-hero__facts li").length, 3);
+  assert(hero?.querySelector(".landing-integrations") !== null);
+  assertEquals(hero?.querySelector("[data-copy-prompt]"), null);
+  assertEquals(hero?.querySelector("[data-project-preview]"), null);
+
+  const slots = [...body.querySelectorAll("main > .landing-placeholder")];
+  assertEquals(slots.length, 9);
+  assertEquals(
+    slots.map((slot) => slot.querySelector("h2")?.textContent?.trim()),
+    Array.from({ length: 9 }, (_, index) => `Section ${index + 1}`),
+  );
+  assertEquals(
+    slots.every((slot) => slot.hasAttribute("data-site-prose-exclude")),
+    true,
+  );
+  assertEquals(
+    [...body.querySelectorAll(".landing-masthead nav a")].map((link) => [
+      link.textContent?.trim(),
+      link.getAttribute("href"),
+    ]),
+    [["GitHub ↗", "https://github.com/jackwh/discern"]],
+  );
+  assertEquals(body.querySelector(".landing-masthead__action"), null);
+});
+
+Deno.test("the archived homepage preserves the complete signed-off launch sequence", async () => {
+  assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/old"));
+  const response = await handler(
+    new Request("https://discern.sh/old", { headers: BROWSER }),
   );
   assertEquals(response.status, 200);
   const html = await response.text();
