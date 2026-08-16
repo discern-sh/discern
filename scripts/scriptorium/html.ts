@@ -239,6 +239,18 @@ ${docHtml}
 <div class="scr-rail-empty">Select any rubricated span to inspect its entry — source, citations, and guards.</div>
 </aside>
 </div>
+<div class="scr-bench" id="scr-bench" hidden>
+<div class="scr-bench-row">
+<span class="scr-bench-path" id="scr-bench-path"></span>
+<span class="scr-bench-status" id="scr-bench-status"></span>
+<span class="scr-bench-actions">
+<button type="button" class="scr-btn" id="scr-bench-details-toggle" hidden aria-expanded="false">Details</button>
+<button type="button" class="scr-btn" id="scr-bench-cancel">Cancel</button>
+<button type="button" class="scr-btn scr-primary" id="scr-bench-save">Save</button>
+</span>
+</div>
+<pre class="scr-bench-details" id="scr-bench-details" hidden></pre>
+</div>
 <script id="scr-boot" type="application/json">${
     JSON.stringify(boot).replaceAll("</", "<\\/")
   }</script>

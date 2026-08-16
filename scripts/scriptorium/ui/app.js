@@ -1,13 +1,27 @@
 /* The Scriptorium's reading-room behavior: span selection, the entry
-   inspector rail, IDE jumps, guard runs, and the live change feed. */
+   inspector rail, IDE jumps, guard runs, the live change feed, and the
+   workbench — the fixed strip that carries all editing chrome so the
+   document itself never shifts while the pen works. */
 
 const boot = JSON.parse(document.getElementById("scr-boot").textContent);
 const rail = document.getElementById("scr-rail");
 const doc = document.getElementById("scr-doc");
+const railEmptyHtml = rail.innerHTML;
+
+const bench = {
+  root: document.getElementById("scr-bench"),
+  path: document.getElementById("scr-bench-path"),
+  status: document.getElementById("scr-bench-status"),
+  details: document.getElementById("scr-bench-details"),
+  detailsToggle: document.getElementById("scr-bench-details-toggle"),
+  cancel: document.getElementById("scr-bench-cancel"),
+  save: document.getElementById("scr-bench-save"),
+};
 
 let selected = null;
 let currentEntry = null;
 let editing = null;
+const runningGuards = new Set();
 
 /** The pending plain-twin reviews the pen has queued. */
 function twinList() {
@@ -65,11 +79,12 @@ function parseRef(token) {
 
 /** Ask the server to jump PhpStorm to an entry or one of its fields. */
 async function openInIde(ref) {
-  await fetch("/api/open", {
+  const response = await fetch("/api/open", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(ref),
   });
+  return response.ok ? await response.json() : { opened: false };
 }
 
 /** A rail link that navigates to a cited entry's page and focuses it there. */
@@ -91,8 +106,11 @@ function citeLink(target) {
   ]);
 }
 
-/** The verdict chip summarizing a registry's last guard run. */
-function guardChip(report) {
+/** The verdict chip summarizing a registry's guard state. */
+function guardChip(registry, report) {
+  if (runningGuards.has(registry)) {
+    return el("span", { class: "scr-chip", text: "⟳ running…" });
+  }
   if (!report) return el("span", { class: "scr-chip", text: "not run yet" });
   return el("span", {
     class: report.ok ? "scr-chip scr-chip-ok" : "scr-chip scr-chip-fail",
@@ -101,6 +119,41 @@ function guardChip(report) {
 }
 
 let lastReports = new Map();
+
+/** The IDE-jump button with visible feedback for a jump that cannot land. */
+function ideButton(entry, activeField) {
+  const hint = el("div", { class: "scr-open-hint" });
+  hint.hidden = true;
+  const button = el("button", {
+    class: "scr-btn scr-primary",
+    text: "Open in PhpStorm",
+  });
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    button.textContent = "Opening…";
+    hint.hidden = true;
+    const result = await openInIde({
+      registry: entry.registry,
+      slug: entry.slug,
+      field: activeField,
+    });
+    if (result.opened) {
+      button.textContent = "✓ sent to PhpStorm";
+      setTimeout(() => {
+        button.disabled = false;
+        button.textContent = "Open in PhpStorm";
+      }, 2200);
+      return;
+    }
+    button.disabled = false;
+    button.textContent = "Open in PhpStorm";
+    hint.textContent = result.hint ?? "The jump could not be delivered.";
+    hint.hidden = false;
+  });
+  const wrap = el("div", {});
+  wrap.append(button, hint);
+  return wrap;
+}
 
 /** Fill the inspector rail: source, fields, citation web, and guard panel. */
 function renderRail(entry, activeField) {
@@ -117,16 +170,7 @@ function renderRail(entry, activeField) {
       class: "scr-guardline",
       text: entry.file ? `${entry.file}:${entry.line}` : "position unknown",
     }),
-    el("button", {
-      class: "scr-btn scr-primary",
-      text: "Open in PhpStorm",
-      onclick: () =>
-        openInIde({
-          registry: entry.registry,
-          slug: entry.slug,
-          field: activeField,
-        }),
-    }),
+    ideButton(entry, activeField),
   );
 
   const active = entry.fields.find((field) => field.path === activeField);
@@ -207,7 +251,7 @@ function renderRail(entry, activeField) {
   rail.append(el("h3", { text: "Guards" }));
   const registryGuards = boot.guards.find((g) => g.registry === entry.registry);
   rail.append(el("div", { class: "scr-guards" }, [
-    guardChip(lastReports.get(entry.registry)),
+    guardChip(entry.registry, lastReports.get(entry.registry)),
     ...(registryGuards?.guards ?? []).map((file) =>
       el("div", { class: "scr-guardline", text: file })
     ),
@@ -218,35 +262,106 @@ function renderRail(entry, activeField) {
       rail.append(el("pre", { class: "scr-failure", text: result.summary }));
     }
   }
-  rail.append(
-    el("button", {
-      class: "scr-btn",
-      text: "Run this registry's guards",
-      onclick: () =>
-        fetch("/api/guards/run", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ registry: entry.registry }),
-        }),
-    }),
-  );
+  const runButton = el("button", {
+    class: "scr-btn",
+    text: runningGuards.has(entry.registry)
+      ? "⟳ Running guards…"
+      : "Run this registry's guards",
+    onclick: () => {
+      runningGuards.add(entry.registry);
+      renderRail(currentEntry, activeField);
+      fetch("/api/guards/run", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ registry: entry.registry }),
+      });
+    },
+  });
+  runButton.disabled = runningGuards.has(entry.registry);
+  rail.append(runButton);
+}
+
+/** Clear the selection and return the rail to its resting state. */
+function deselect() {
+  if (selected) selected.classList.remove("scr-selected");
+  selected = null;
+  currentEntry = null;
+  rail.innerHTML = railEmptyHtml;
+}
+
+/** Put the workbench into one of its states: lint, saving, or red. */
+function benchState(state) {
+  bench.root.dataset.state = state;
+  const busy = state === "saving";
+  bench.save.disabled = busy;
+  bench.cancel.disabled = busy;
+  if (state !== "red") {
+    bench.details.hidden = true;
+    bench.detailsToggle.hidden = true;
+    bench.detailsToggle.setAttribute("aria-expanded", "false");
+  }
+}
+
+/** Reset the workbench status area, keeping a disk-change notice if queued. */
+function benchStatusReset() {
+  bench.status.textContent = "";
+  if (editing?.diskNote) {
+    bench.status.append(el("span", {
+      class: "scr-chip scr-chip-dirty",
+      text: "⚠ canon changed on disk — Save re-proves against it",
+    }));
+  }
+}
+
+/** Open the workbench for a field about to be edited. */
+function benchOpen(ref) {
+  bench.path.textContent = `${ref.registry} · ${ref.slug} · ${ref.field}`;
+  benchState("lint");
+  benchStatusReset();
+  bench.root.hidden = false;
+  document.body.classList.add("scr-benched");
+}
+
+/** Hide the workbench when the pen is put down. */
+function benchClose() {
+  bench.root.hidden = true;
+  document.body.classList.remove("scr-benched");
 }
 
 /** Close the inline editor, restoring the span's rendered content. */
 function closeEditor() {
   if (!editing) return;
-  editing.span.innerHTML = editing.original;
-  editing.span.classList.remove("scr-editing");
-  editing.failure?.remove();
+  const { span, original } = editing;
+  span.innerHTML = original;
+  span.classList.remove("scr-editing", "scr-saving");
   editing = null;
+  benchClose();
+  if (selected) selected.classList.remove("scr-selected");
+  selected = span;
+  span.classList.add("scr-selected");
+}
+
+/** Human wording for the save pipeline's stage names. */
+function stageLabel(stage) {
+  const labels = {
+    patch: "patching the registry",
+    format: "formatting",
+    render: "re-rendering the canon",
+    guards: "running the guards",
+  };
+  return labels[stage] ?? stage;
 }
 
 /** Submit the inline editor through the save-and-prove loop. */
 async function submitEditor() {
-  if (!editing) return;
+  if (!editing || bench.root.dataset.state === "saving") return;
   const value = editing.box.textContent;
-  const { span, ref, stageline } = editing;
-  stageline.textContent = "saving…";
+  const { span, ref } = editing;
+  benchState("saving");
+  benchStatusReset();
+  const stage = el("span", { class: "scr-bench-stage", text: "⟳ saving…" });
+  bench.status.append(stage);
+  editing.stageEl = stage;
   span.classList.add("scr-saving");
   const response = await fetch("/api/save", {
     method: "POST",
@@ -254,31 +369,48 @@ async function submitEditor() {
     body: JSON.stringify({ ...ref, value }),
   });
   const report = await response.json();
+  if (!editing || editing.span !== span) return;
   span.classList.remove("scr-saving");
+  editing.stageEl = null;
   if (report.ok) {
     if (report.twin) pushTwin(ref, report.twin);
     if (ref.field.startsWith("plain.")) clearTwin(ref);
     sessionStorage.setItem("scr-focus", `${ref.registry}:${ref.slug}`);
+    sessionStorage.setItem(
+      "scr-saved",
+      JSON.stringify({
+        field: ref.field,
+        pages: report.pages?.length ?? 0,
+        grade: report.grade ?? null,
+      }),
+    );
     editing = null;
     location.reload();
     return;
   }
-  stageline.textContent = `${report.stage} refused`;
-  editing.failure?.remove();
-  const failure = el("div", { class: "scr-failure" }, []);
+  benchState("red");
+  benchStatusReset();
+  const wrote = report.stage === "render" || report.stage === "guards";
+  bench.status.append(el("span", {
+    class: "scr-bench-verdict",
+    text: wrote
+      ? `✗ rolled back while ${stageLabel(report.stage)} — every byte restored`
+      : `✗ refused while ${stageLabel(report.stage)} — nothing was written`,
+  }));
   const issues = [report.issue];
   for (const result of report.guards?.results?.filter((r) => !r.ok) ?? []) {
     issues.push(result.summary);
   }
-  failure.textContent = issues.join("\n\n");
-  span.after(failure);
-  editing.failure = failure;
+  bench.details.textContent = issues.join("\n\n");
+  bench.detailsToggle.hidden = false;
+  bench.detailsToggle.textContent = "Show details";
+  bench.details.hidden = true;
 }
 
 /** Ask the server to judge the draft; on a pause, Vale joins the panel. */
 async function lintDraft(vale) {
   if (!editing) return;
-  const { ref, box, lints, kind } = editing;
+  const { ref, box, kind } = editing;
   const response = await fetch("/api/lint", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -291,10 +423,11 @@ async function lintDraft(vale) {
     }),
   });
   if (!response.ok || !editing || editing.box !== box) return;
+  if (bench.root.dataset.state !== "lint") return;
   const report = await response.json();
-  lints.textContent = "";
+  benchStatusReset();
   if (report.grade !== null && report.grade !== undefined) {
-    lints.append(el("span", {
+    bench.status.append(el("span", {
       class: "scr-chip",
       text: `field grade ${report.grade.toFixed(1)}`,
       title:
@@ -302,7 +435,7 @@ async function lintDraft(vale) {
     }));
   }
   for (const finding of report.findings) {
-    lints.append(el("span", {
+    bench.status.append(el("span", {
       class: finding.severity === "error"
         ? "scr-chip scr-chip-fail"
         : finding.severity === "warning"
@@ -314,7 +447,7 @@ async function lintDraft(vale) {
     }));
   }
   if (report.findings.length === 0 && vale) {
-    lints.append(
+    bench.status.append(
       el("span", { class: "scr-chip scr-chip-ok", text: "✓ register clean" }),
     );
   }
@@ -323,8 +456,11 @@ async function lintDraft(vale) {
 /** Open the in-place editor over a span, seeded with the field's source. */
 function openEditor(span, ref, value, kind) {
   if (editing) closeEditor();
+  if (selected) selected.classList.remove("scr-selected");
+  selected = span;
   const original = span.innerHTML;
   span.classList.add("scr-editing");
+  span.classList.remove("scr-selected");
   span.innerHTML = "";
   const box = el("span", {
     class: "scr-editor",
@@ -332,36 +468,16 @@ function openEditor(span, ref, value, kind) {
     spellcheck: "true",
   });
   box.textContent = value;
-  const stageline = el("span", { class: "scr-stage", text: "" });
-  const bar = el("span", { class: "scr-editbar" }, [
-    el("button", {
-      class: "scr-btn scr-primary scr-btn-inline",
-      text: "Save",
-      onclick: submitEditor,
-    }),
-    el("button", {
-      class: "scr-btn scr-btn-inline",
-      text: "Cancel",
-      onclick: closeEditor,
-    }),
-    stageline,
-  ]);
-  const lints = el("span", { class: "scr-lints" });
-  span.append(box, bar, lints);
-  editing = {
-    span,
-    ref,
-    box,
-    bar,
-    stageline,
-    lints,
-    kind,
-    original,
-    failure: null,
-  };
+  span.append(box);
+  editing = { span, ref, box, kind, original, diskNote: false, stageEl: null };
+  benchOpen(ref);
   let fastTimer = null;
   let valeTimer = null;
   box.addEventListener("input", () => {
+    if (bench.root.dataset.state === "red") {
+      benchState("lint");
+      benchStatusReset();
+    }
     if (fastTimer) clearTimeout(fastTimer);
     if (valeTimer) clearTimeout(valeTimer);
     fastTimer = setTimeout(() => lintDraft(false), 160);
@@ -382,9 +498,18 @@ function openEditor(span, ref, value, kind) {
     }
     if (event.key === "Escape") {
       event.stopPropagation();
-      closeEditor();
+      if (bench.root.dataset.state !== "saving") closeEditor();
     }
   });
+  // Nudge the page only when the bench would sit over the field being edited.
+  const boxRect = box.getBoundingClientRect();
+  const benchTop = bench.root.getBoundingClientRect().top;
+  if (boxRect.bottom > benchTop) {
+    globalThis.scrollBy({
+      top: boxRect.bottom - benchTop + 32,
+      behavior: "smooth",
+    });
+  }
 }
 
 /** Fetch an entry and open the editor for one of its editable fields. */
@@ -442,10 +567,37 @@ doc.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && selected) {
-    selected.classList.remove("scr-selected");
-    selected = null;
+  if (event.key === "Escape") {
+    if (editing) {
+      if (bench.root.dataset.state !== "saving") closeEditor();
+    } else if (selected) deselect();
   }
+});
+
+/* Clicking anywhere that is not a span, the rail, the bench, or the header
+   returns the studio to its resting state — unless the pen is down, where
+   an accidental click must not discard the draft. */
+document.addEventListener("click", (event) => {
+  if (editing || !selected) return;
+  const target = event.target;
+  if (
+    target.closest?.(".scr-field") ||
+    target.closest?.("#scr-rail") ||
+    target.closest?.("#scr-bench") ||
+    target.closest?.(".scr-header")
+  ) {
+    return;
+  }
+  deselect();
+});
+
+bench.save.addEventListener("click", submitEditor);
+bench.cancel.addEventListener("click", closeEditor);
+bench.detailsToggle.addEventListener("click", () => {
+  const open = bench.details.hidden;
+  bench.details.hidden = !open;
+  bench.detailsToggle.textContent = open ? "Hide details" : "Show details";
+  bench.detailsToggle.setAttribute("aria-expanded", String(open));
 });
 
 /** Pull server state: dirty files, the reading grade, and guard reports. */
@@ -459,7 +611,10 @@ async function refreshState() {
   const dirty = document.getElementById("scr-dirty");
   if (dirty) {
     dirty.hidden = state.dirty.length === 0;
-    dirty.title = state.dirty.join("\n");
+    dirty.textContent = `● ${state.dirty.length} to commit`;
+    dirty.title = `Uncommitted studio-writable files:\n${
+      state.dirty.join("\n")
+    }`;
   }
   const grade = document.getElementById("scr-grade");
   const reading = state.standards.find((s) => s.name === "plain_reading_grade");
@@ -497,24 +652,65 @@ function focusStored() {
   }
 }
 
+/** After a green save's reload, confirm it plainly in the header for a bit. */
+function showSavedNote() {
+  const raw = sessionStorage.getItem("scr-saved");
+  if (!raw) return;
+  sessionStorage.removeItem("scr-saved");
+  let note;
+  try {
+    note = JSON.parse(raw);
+  } catch {
+    return;
+  }
+  const chip = el("span", {
+    class: "scr-chip scr-chip-ok",
+    text: `✓ saved ${note.field} — proven`,
+    title: `${note.pages} page(s) rewritten${
+      note.grade === null ? "" : `, corpus grade ${note.grade}`
+    }`,
+  });
+  const host = document.querySelector(".scr-header-right");
+  host?.prepend(chip);
+  setTimeout(() => chip.remove(), 6000);
+}
+
 const events = new EventSource("/events");
 events.addEventListener("message", (event) => {
   const payload = JSON.parse(event.data);
   if (payload.type === "snapshot") {
     if (editing) {
-      editing.stageline.textContent =
-        "canon changed on disk — save re-proves against it";
+      // Our own save broadcasts a snapshot on adoption; only a change that
+      // arrives while the pen is idle over a draft is outside news.
+      if (bench.root.dataset.state !== "saving" && !editing.diskNote) {
+        editing.diskNote = true;
+        benchStatusReset();
+      }
       return;
     }
     location.reload();
     return;
   }
-  if (payload.type === "save" && editing) {
-    editing.stageline.textContent = `${payload.stage}…`;
+  if (payload.type === "save" && editing?.stageEl) {
+    editing.stageEl.textContent = `⟳ ${stageLabel(payload.stage)}…`;
     return;
   }
-  if (payload.type === "guards") refreshState();
+  if (payload.type === "guards") {
+    if (payload.status === "running") {
+      runningGuards.add(payload.registry);
+      if (currentEntry) {
+        renderRail(
+          currentEntry,
+          selected ? parseRef(selected.dataset.ref).field : undefined,
+        );
+      }
+      return;
+    }
+    runningGuards.delete(payload.registry);
+    refreshState();
+  }
 });
 
 refreshState();
 focusStored();
+showSavedNote();

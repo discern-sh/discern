@@ -151,10 +151,16 @@
     border-radius: 3px;
     transition: background-color 120ms ease-out;
     cursor: pointer;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: color-mix(in srgb, var(--scr-rubric) 40%, transparent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.24em;
   }
   .scr-field:hover {
     background: var(--scr-rubric-soft);
     box-shadow: 0 1px 0 var(--scr-rubric);
+    text-decoration-color: var(--scr-rubric);
   }
   .scr-field:focus-visible {
     outline: 2px solid var(--scr-rubric);
@@ -166,14 +172,17 @@
   }
   .scr-locked {
     cursor: not-allowed;
-    border-bottom: 1px dotted var(--discern-color-ink-faint);
+    text-decoration-color: var(--discern-color-ink-faint);
   }
 
   /* ——— The pen ——— */
-  .scr-editing {
+  .scr-field.scr-editing,
+  .scr-field.scr-editing:hover {
     display: inline;
     background: none;
     box-shadow: none;
+    text-decoration: none;
+    cursor: auto;
   }
   .scr-editor {
     display: inline-block;
@@ -189,25 +198,6 @@
     outline: none;
     white-space: pre-wrap;
   }
-  .scr-editbar {
-    display: inline-flex;
-    gap: 0.35rem;
-    align-items: center;
-    margin-left: 0.45rem;
-    vertical-align: middle;
-  }
-  .scr-btn-inline {
-    display: inline-block;
-    width: auto;
-    margin-top: 0;
-    padding: 0.28rem 0.6rem;
-  }
-  .scr-stage {
-    font-family: var(--discern-font-mono);
-    font-size: var(--discern-font-size-xs);
-    color: var(--discern-color-ink-faint);
-    white-space: nowrap;
-  }
   .scr-saving .scr-editor {
     opacity: 0.6;
     pointer-events: none;
@@ -217,21 +207,103 @@
     margin-top: 0.6rem;
     white-space: normal;
   }
-  .scr-lints {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-    margin-top: 0.4rem;
-    font-family: var(--discern-font-ui);
-  }
-  .scr-lints .scr-chip {
-    white-space: normal;
-    line-height: 1.4;
-    text-align: left;
-  }
   .scr-locked:hover {
     background: var(--discern-color-surface-sunken);
     box-shadow: none;
+  }
+
+  /* ——— The workbench ———
+     All editing chrome lives on one fixed strip at the bottom of the
+     viewport: the field's address, live register judgment, save progress,
+     and the verdict. The document never has elements inserted into it, so
+     the prose stands still while the pen works. */
+  .scr-bench {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    box-sizing: border-box;
+    padding: 0.6rem 1.1rem 0.7rem;
+    background: var(--discern-color-surface);
+    border-top: 2px solid var(--scr-rubric);
+    box-shadow: 0 -6px 24px rgb(0 0 0 / 0.09);
+  }
+  .scr-bench[hidden] {
+    display: none;
+  }
+  .scr-bench[data-state="red"] {
+    border-top-color: var(--discern-color-danger);
+  }
+  .scr-bench-row {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+  }
+  .scr-bench-path {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-ink-muted);
+    white-space: nowrap;
+  }
+  .scr-bench-status {
+    flex: 1 1 14rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    min-height: 1.7rem;
+    font-family: var(--discern-font-ui);
+    font-size: var(--discern-font-size-sm);
+  }
+  .scr-bench-status .scr-chip {
+    white-space: normal;
+    line-height: 1.35;
+    text-align: left;
+  }
+  .scr-bench-verdict {
+    color: var(--discern-color-danger);
+    font-weight: 600;
+  }
+  .scr-bench-stage {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-ink-muted);
+  }
+  .scr-bench-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 0.4rem;
+  }
+  .scr-bench .scr-btn {
+    display: inline-block;
+    width: auto;
+    margin-top: 0;
+    padding: 0.4rem 0.95rem;
+  }
+  .scr-bench-details {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    background: var(--discern-color-surface-sunken);
+    border-radius: var(--discern-radius-sm);
+    padding: 0.5rem 0.7rem;
+    max-height: 11rem;
+    overflow: auto;
+  }
+  /* Room under the article so the bench never sits over the line being
+     edited at the bottom of the page. */
+  body.scr-benched .scr-doc {
+    padding-bottom: 14rem;
+  }
+  .scr-open-hint {
+    margin-top: 0.35rem;
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-danger);
+    line-height: 1.4;
   }
   a[data-outside] {
     color: var(--discern-color-ink-muted);
