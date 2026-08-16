@@ -708,8 +708,8 @@ function docsTerminal(noColor: boolean): TerminalContext {
 
 /**
  * Page `text` through the user's pager so long docs scroll (and keep ANSI
- * colour). Honours `$PAGER`, defaulting to `less -R`. Returns false if no pager
- * could be spawned, so the caller can fall back to a plain print.
+ * colour). Honours `$PAGER`, defaulting to `less -R`. Returns false if the pager
+ * cannot run successfully, so the caller can fall back to a plain print.
  */
 async function pageThrough(text: string): Promise<boolean> {
   const pager = Deno.env.get("PAGER")?.trim();
@@ -730,19 +730,25 @@ async function pageThrough(text: string): Promise<boolean> {
       // The pager exited before reading everything (e.g. the user pressed q on
       // a short doc) — a broken pipe here is expected, not an error.
     }
-    await child.status;
-    return true;
+    const status = await child.status;
+    return status.success;
   } catch {
     return false;
   }
 }
 
+type PresentationDisposition = "paged" | "printed";
+
 /** Show rendered text: paged on an interactive terminal, else straight to stdout. */
-async function present(text: string, noPager: boolean): Promise<void> {
+async function present(
+  text: string,
+  noPager: boolean,
+): Promise<PresentationDisposition> {
   if (!noPager && canInteract(false)) {
-    if (await pageThrough(text)) return;
+    if (await pageThrough(text)) return "paged";
   }
   console.log(text);
+  return "printed";
 }
 
 /** The semantic picker label; interaction rendering owns selection-state styling. */
@@ -796,7 +802,7 @@ function docsHeader(
   );
 }
 
-/** The interactive browse loop: pick a doc, view it, repeat until quit. */
+/** Browse repeatedly through a pager; a direct print exits with the doc visible. */
 async function browse(
   desc: DocsVerb,
   tree: DocsTree,
@@ -865,7 +871,7 @@ async function browse(
       entry,
       await Deno.readTextFile(entry.absPath),
     );
-    await present(
+    const presentation = await present(
       renderMarkdown(content, {
         width,
         color: terminal.color,
@@ -873,6 +879,9 @@ async function browse(
       }),
       options.noPager,
     );
+    // A direct print must remain the terminal's final view. Reopening the
+    // full-height picker would push the selected document out of the viewport.
+    if (presentation === "printed") return 0;
   }
 }
 

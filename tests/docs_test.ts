@@ -203,10 +203,9 @@ Deno.test({
           "-A",
           MAIN_TS,
           "docs",
-          "--no-pager",
         ],
         cwd: dir,
-        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1" },
+        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "cat" },
         input: [
           // A search interaction starts without a highlighted choice. Select the
           // first document, then submit the remembered highlight unchanged.
@@ -239,6 +238,79 @@ Deno.test({
   },
 });
 
+for (
+  const testCase of [
+    {
+      verb: "docs",
+      body: "Welcome.",
+      mode: "--no-pager",
+      args: ["--no-pager"],
+    },
+    {
+      verb: "map",
+      body: "The project's own docs.",
+      mode: "--no-pager",
+      args: ["--no-pager"],
+    },
+    {
+      verb: "docs",
+      body: "Welcome.",
+      mode: "pager fallback",
+      args: [],
+    },
+    {
+      verb: "map",
+      body: "The project's own docs.",
+      mode: "pager fallback",
+      args: [],
+    },
+  ] as const
+) {
+  Deno.test({
+    name:
+      `${testCase.verb} browser leaves direct ${testCase.mode} output after the final picker`,
+    ignore: Deno.build.os === "windows",
+    fn: async () => {
+      await withTempDir(async (dir) => {
+        const docs = await makeDocsFixture(dir);
+        const env: Record<string, string> = { NO_COLOR: "1" };
+        if (testCase.verb === "docs") env.DISCERN_DOCS_DIR = docs;
+        if (testCase.mode === "pager fallback") env.PAGER = "false";
+        const process = await runPtyProcess({
+          command: Deno.execPath(),
+          args: [
+            "run",
+            "--no-check",
+            "--config",
+            DENO_JSON,
+            "-A",
+            MAIN_TS,
+            testCase.verb,
+            ...testCase.args,
+          ],
+          cwd: dir,
+          env,
+          input: [{
+            waitFor: "○ Quit",
+            steps: [{ bytes: "\x1b[B\r" }],
+          }],
+          timeoutMs: 8_000,
+        });
+
+        assertEquals(process.code, 0, process.transcript);
+        assertEquals(process.stderr, "", process.transcript);
+        const bodyOffset = process.transcript.lastIndexOf(testCase.body);
+        const pickerOffset = process.transcript.lastIndexOf("type to filter");
+        assert(bodyOffset >= 0, process.transcript);
+        assert(
+          bodyOffset > pickerOffset,
+          `${testCase.verb} reopened its picker after rendering:\n${process.transcript}`,
+        );
+      });
+    },
+  });
+}
+
 Deno.test({
   name:
     "map browser selects and leaves the production interaction through a real PTY",
@@ -256,10 +328,9 @@ Deno.test({
           "-A",
           MAIN_TS,
           "map",
-          "--no-pager",
         ],
         cwd: dir,
-        env: { NO_COLOR: "1" },
+        env: { NO_COLOR: "1", PAGER: "cat" },
         input: [
           { waitFor: "○ Quit", steps: [{ bytes: "\x1b[B\r" }] },
           // The remembered document is first; Quit is the next selectable row.

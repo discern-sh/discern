@@ -611,7 +611,10 @@ export function buildCli(
       "--search <query:string>",
       "Search the map with task language or exact text; use a target to narrow it.",
     )
-    .option("--no-pager", "Don't page rendered output through $PAGER.")
+    .option(
+      "--no-pager",
+      "Print rendered output directly; interactive browsing exits after one selection.",
+    )
     .option(
       "--dir <path:string>",
       "Map directory to browse (default: the project's [map].dir).",
@@ -673,7 +676,10 @@ export function buildCli(
       "--adr",
       "Browse decision records in a source checkout, or show their public location.",
     )
-    .option("--no-pager", "Don't page rendered output through $PAGER.")
+    .option(
+      "--no-pager",
+      "Print rendered output directly; interactive browsing exits after one selection.",
+    )
     .option("--width <cols:number>", "Wrap width for rendered output.")
     .option(
       "--export <scope:string>",
