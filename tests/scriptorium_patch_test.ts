@@ -205,6 +205,10 @@ Deno.test("a red guard rolls the whole save back", async () => {
     );
     assert(!report.ok, "a red guard must refuse the save");
     assertEquals(report.ok === false && report.stage, "guards");
+    assert(
+      report.ok === false && report.restored === true,
+      "the report says the held bytes were restored",
+    );
   } finally {
     await Deno.writeTextFile(FEATURE_FILE, before);
     await Deno.writeTextFile(pagePath, pageBefore);

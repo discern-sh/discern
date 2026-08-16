@@ -278,9 +278,17 @@ export async function startStudio(
   };
 
   const gitDirty = async (): Promise<string[]> => {
+    // Only the files the pen can write: the registry sources and the
+    // committed canon pages. Ambient repo dirt is not the studio's news.
+    const writable = [
+      ...PROSE_REGISTRIES.map((spec) => spec.file),
+      ...(snapshot?.pages ?? [])
+        .filter((page) => page.annotated && page.rel.startsWith("project/map/"))
+        .map((page) => page.rel),
+    ];
     try {
       const output = await new Deno.Command("git", {
-        args: ["status", "--porcelain", "--", "scripts/", "project/map/"],
+        args: ["status", "--porcelain", "--", ...writable],
         cwd: REPO_ROOT,
         stdin: "null",
         stdout: "piped",
@@ -360,7 +368,15 @@ export async function startStudio(
       const leaf = record.leaves.find((c) => c.path === body.field);
       const line = leaf?.line ?? record.line;
       const opened = openInIde(record.file, line);
-      return json({ opened, file: record.file, line });
+      return json({
+        opened,
+        file: record.file,
+        line,
+        ...(opened ? {} : {
+          hint:
+            "No `phpstorm` launcher on PATH — in PhpStorm run Tools → Create Command-line Launcher, or enable shell scripts in JetBrains Toolbox.",
+        }),
+      });
     }
     if (path === "/api/state") {
       return json({
@@ -471,6 +487,11 @@ export async function startStudio(
           buildAst();
           skipNextWatchRefresh = true;
           notify({ type: "snapshot", error: null });
+        }
+        if (!report.ok && report.restored === true) {
+          // The rollback rewrote the held bytes, so disk again matches the
+          // snapshot already in memory; the watcher's next cycle stands down.
+          skipNextWatchRefresh = true;
         }
         if (report.ok && report.guards !== undefined) {
           guardReports.set(registry, report.guards);
@@ -585,6 +606,11 @@ export async function startStudio(
         if (debounce !== undefined) clearTimeout(debounce);
         debounce = setTimeout(() => {
           debounce = undefined;
+          if (saving) {
+            // Mid-save writes are the pipeline's own; its verdict — adoption
+            // or rollback — decides what happens, not a watcher refresh.
+            return;
+          }
           if (skipNextWatchRefresh) {
             // The save pipeline just wrote the registry and adopted its own
             // fresh snapshot; one watcher cycle stands down.

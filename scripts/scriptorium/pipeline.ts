@@ -44,6 +44,8 @@ export type SaveReport =
     readonly stage: SaveStage;
     readonly issue: string;
     readonly guards?: GuardRunReport;
+    /** True when the loop had written files and restored every held byte. */
+    readonly restored?: boolean;
   };
 
 /** What the pipeline needs from its host. */
@@ -161,6 +163,7 @@ export async function saveField(
       ok: false,
       stage: "render",
       issue: error instanceof Error ? error.message : String(error),
+      restored: true,
     };
   }
 
@@ -195,6 +198,7 @@ export async function saveField(
       stage: "guards",
       issue: `${failed.length} guard file(s) red — the save was rolled back`,
       guards,
+      restored: true,
     };
   }
 
