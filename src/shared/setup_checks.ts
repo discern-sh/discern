@@ -25,7 +25,7 @@ import { join } from "@std/path";
 import { KNOWN_JOBS } from "./capabilities.ts";
 import type { DiscernConfig } from "./config_schema.ts";
 import { normalizeMapDir } from "./map_path.ts";
-import { guidanceSeedRel } from "./paths_registry.ts";
+import { instructionSeedRel } from "./paths_registry.ts";
 
 /** What a completion predicate reads: the project root and its loaded config. */
 export interface SetupCheckContext {
@@ -109,13 +109,13 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
   },
   {
     step: 5,
-    name: "guidance",
+    name: "instructions",
     describe:
-      "The guidance source has a real one-line pitch and a filled-in Conventions section.",
+      "The instruction source has a real one-line pitch and a filled-in Conventions section.",
     async evaluate({ root, config }): Promise<boolean> {
       const text = await readFileOr(
         root,
-        guidanceSeedRel(config.guidance.sources),
+        instructionSeedRel(config.instructions.sources),
       );
       if (text === undefined) {
         return true; // not laid → N/A

@@ -513,23 +513,23 @@ Rendered example:
 
 > If the result message and diagnostics do not explain the failure, run `discern map 80-development/done-gate-gotchas --json` to read this project's known gate failures and their fixes.
 
-## `gate-failure-guidance`
+## `gate-failure-instructions`
 
 - Category: `next-step`
 - Audience: `all`
 - Family: `gate-failure-remedy`
-- Emitting context: The gate finds compiled guidance drift.
+- Emitting context: The gate finds compiled instruction drift.
 
 Rendered example:
 
-> Run `discern refresh`, then re-run the current discern command. If the guidance must change, edit `[guidance].sources`. Refresh overwrites agent files.
+> Run `discern refresh`, then re-run the current discern command. If the instructions must change, edit `[instructions].sources`. Refresh overwrites agent files.
 
 ## `gate-failure-map-integrity`
 
 - Category: `next-step`
 - Audience: `all`
 - Family: `gate-failure-remedy`
-- Emitting context: The gate finds a broken reference or stale example in the map or a guidance source.
+- Emitting context: The gate finds a broken reference or stale example in the map or a instruction source.
 
 Rendered example:
 
@@ -841,7 +841,7 @@ Rendered example:
 
 Rendered example:
 
-> Run `discern refresh` to restore discern-managed artifacts. Agent files are out of date (AGENTS.md, CLAUDE.md). Make intended guidance changes in [guidance].sources. Refresh overwrites agent files.
+> Run `discern refresh` to restore discern-managed artifacts. Agent files are out of date (AGENTS.md, CLAUDE.md). Make intended instructions changes in [instructions].sources. Refresh overwrites agent files.
 
 ## `gotchas-matcher-invalid`
 
@@ -1116,11 +1116,11 @@ Rendered example:
 
 Rendered example:
 
-> Present the setup guidance in this result to the owner, wait for their answers, then run `discern setup begin --model "<your-model-id>" --confirmed`; its `--confirmed` flag attests only to that conversation.
+> Present the setup instructions in this result to the owner, wait for their answers, then run `discern setup begin --model "<your-model-id>" --confirmed`; its `--confirmed` flag attests only to that conversation.
 
 Interactive example:
 
-> Review the setup guidance and answer its questions, then run the displayed command; its `--confirmed` flag attests only to this conversation.
+> Review the setup instructions and answer its questions, then run the displayed command; its `--confirmed` flag attests only to this conversation.
 
 ## `setup-done-land-dedicated`
 
@@ -1155,27 +1155,27 @@ Rendered example:
 
 > Complete every listed file and unmet check, then re-run `discern setup done`; use `--force` only to record completion without that proof.
 
-## `setup-guidance-own-render-skipped`
+## `setup-instructions-own-render-skipped`
 
 - Category: `notice`
 - Audience: `all`
-- Family: `setup-guidance-migration`
+- Family: `setup-instructions-migration`
 - Emitting context: Setup recognizes an agent file as its own prior compiled output.
 
 Rendered example:
 
-> Skipped importing AGENTS.md, CLAUDE.md into discern/guidance.md. It matches discern's own compiled output from an earlier setup. discern/guidance.md remains the canonical authored source.
+> Skipped importing AGENTS.md, CLAUDE.md into discern/instructions.md. It matches discern's own compiled output from an earlier setup. discern/instructions.md remains the canonical authored source.
 
-## `setup-guidance-preserved`
+## `setup-instructions-preserved`
 
 - Category: `next-step`
 - Audience: `all`
-- Family: `setup-guidance-migration`
-- Emitting context: Setup migrates existing authored guidance into the canonical source.
+- Family: `setup-instructions-migration`
+- Emitting context: Setup migrates existing authored instructions into the canonical source.
 
 Rendered example:
 
-> Fold the guidance migrated from AGENTS.md, CLAUDE.md into your conventions, then delete the import note from discern/guidance.md. Setup preserved the existing guidance there.
+> Fold the instructions migrated from AGENTS.md, CLAUDE.md into your conventions, then delete the import note from discern/instructions.md. Setup preserved the existing instructions there.
 
 ## `setup-reactivate-tools`
 
@@ -1833,7 +1833,7 @@ Rendered example:
 
 Rendered example:
 
-> Commit the untracked agent files (AGENTS.md, CLAUDE.md) so cloud and out-of-tool agents read the same guidance from a fresh clone.
+> Commit the untracked agent files (AGENTS.md, CLAUDE.md) so cloud and out-of-tool agents read the same instructions from a fresh clone.
 
 ## `update-no-overlap`
 

@@ -1,16 +1,16 @@
 ---
-title: Compile and check guidance
+title: Compile and check instructions
 description: Run refresh, inspect the agent files, and keep every configured agent on the current sources.
 order: 20
 aliases:
-  - refresh guidance
+  - refresh instructions
   - agent files
-  - generated guidance
+  - generated instructions
 ---
 
-# Compile and check agent guidance
+# Compile and check agent instructions
 
-_After a Guidance edit, run `discern refresh`, review the generated files, and commit the tracked outputs with their sources._
+_After an instruction edit, run `discern refresh`, review the generated files, and commit the tracked outputs with their sources._
 
 ## Refresh the agent files
 
@@ -21,7 +21,7 @@ discern refresh
 discern status
 ```
 
-`refresh` combines discern's built-in Guidance with `[guidance].sources`. It also reconciles Skills, agent integration artifacts, and the maintained architecture decision record (ADR) index. That index is the record list between markers in the Map's ADR README, regenerated from the record files on disk. `status` reports any generated Guidance, materialized Skills, or ADR index that still differs from the current sources.
+`refresh` combines discern's built-in instructions with `[instructions].sources`. It also reconciles Skills, agent integration artifacts, and the maintained architecture decision record (ADR) index. That index is the record list between markers in the Map's ADR README, regenerated from the record files on disk. `status` reports any generated agent files, materialized Skills, or ADR index that still differs from the current sources.
 
 The ADR index is opt-in by construction: a README that carries the `BEGIN GENERATED` markers is maintained, one without them is never touched. Fresh installs receive the markers from the setup skeleton; an existing project adopts the index by adding them.
 
@@ -62,8 +62,8 @@ Operational procedures derive from the Skill resolver and setup templates. A rep
 
 | Concern                         | Source                                                                              |
 | ------------------------------- | ----------------------------------------------------------------------------------- |
-| Compilation and file writes     | [`guidelines.ts`](../../../src/engine/guidelines.ts)                                |
-| Canonical and pointer rendering | [`guidance_render.ts`](../../../src/engine/guidance_render.ts)                      |
+| Compilation and file writes     | [`instructions.ts`](../../../src/engine/instructions.ts)                            |
+| Canonical and pointer rendering | [`instruction_render.ts`](../../../src/engine/instruction_render.ts)                |
 | Region discovery                | [`docs.ts`](../../../src/lib/docs.ts)                                               |
 | Agent file mappings             | [`providers.ts`](../../../src/lib/providers.ts)                                     |
 | Operational-copy universe       | [`agent_surface_contracts.ts`](../../../scripts/agent_surface_contracts.ts)         |

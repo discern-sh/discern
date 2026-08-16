@@ -7,7 +7,7 @@
  *     marker.
  *   - {@link resolveWorktreeRoot} — the placement convention for new worktrees:
  *     the sibling default and the relative/absolute `[worktree].root` overrides.
- *   - {@link resolveGuidanceSources} — `[guidance].sources` expansion, and the
+ *   - {@link resolveInstructionSources} — `[instructions].sources` expansion, and the
  *     guarantee that the compiler's own generated outputs are never admitted
  *     as sources.
  *
@@ -25,11 +25,11 @@ import {
 import { dirname, join } from "@std/path";
 import {
   resolveConfigPath,
-  resolveGuidanceSources,
+  resolveInstructionSources,
   resolveTemplatesDir,
   resolveWorktreeRoot,
 } from "../src/lib/paths.ts";
-import { allGuidanceFilePaths } from "../src/lib/providers.ts";
+import { allInstructionFilePaths } from "../src/lib/providers.ts";
 import { CONFIG_REL, findRoot, installedConfigRel } from "../src/shared/env.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
@@ -140,12 +140,12 @@ Deno.test("resolveWorktreeRoot: an absolute root is used as-is", () => {
   );
 });
 
-Deno.test("resolveGuidanceSources: a root whose path contains glob metacharacters still compiles its guidance", async () => {
+Deno.test("resolveInstructionSources: a root whose path contains glob metacharacters still compiles its instructions", async () => {
   // The class: a user-controlled path segment (the absolute project root) fed
   // into a pattern language. Building the glob as `join(root, pattern)` parses
   // the root itself as glob syntax, so a directory named `re[po]` / `pr{o}j` /
   // `pa(re)n` / `my app` / `star*` matches NOTHING — the compile then proceeds
-  // with zero user guidance and no error. The `root` option keeps the root
+  // with zero user instructions and no error. The `root` option keeps the root
   // literal; this parameterises over every metacharacter family so a regression
   // in any one of them fails here. The pre-fix code fails EVERY case.
   const families = ["re[po]", "pr{o}j", "pa(re)n", "my app", "star*name"];
@@ -156,27 +156,27 @@ Deno.test("resolveGuidanceSources: a root whose path contains glob metacharacter
 
       // The registry's default source lives at a nested path (`discern/…`); seed
       // it so the no-config (default sources) case has a file to find.
-      const defaultRel = SOURCE_PATHS.guidance.defaultPath;
+      const defaultRel = SOURCE_PATHS.instructions.defaultPath;
       const defaultAbs = join(root, defaultRel);
       await Deno.mkdir(join(root, dirname(defaultRel)), { recursive: true });
-      await Deno.writeTextFile(defaultAbs, "# real guidance\n");
+      await Deno.writeTextFile(defaultAbs, "# real instructions\n");
       // And a root-level file for the explicit-glob case.
       const rootLevel = join(root, "notes.md");
-      await Deno.writeTextFile(rootLevel, "# more guidance\n");
+      await Deno.writeTextFile(rootLevel, "# more instructions\n");
 
-      // Default sources (no config): the registry guidance path resolves under
+      // Default sources (no config): the registry instruction path resolves under
       // the awkward root.
       assertEquals(
-        await resolveGuidanceSources(root, parseConfigOrThrow("")),
+        await resolveInstructionSources(root, parseConfigOrThrow("")),
         [defaultAbs],
         `default sources dropped under root '${name}'`,
       );
 
       // An explicit glob pattern also resolves files under the awkward root.
       assertEquals(
-        await resolveGuidanceSources(
+        await resolveInstructionSources(
           root,
-          parseConfigOrThrow('[guidance]\nsources = ["*.md"]\n'),
+          parseConfigOrThrow('[instructions]\nsources = ["*.md"]\n'),
         ),
         [rootLevel],
         `glob '*.md' dropped under root '${name}'`,
@@ -185,16 +185,16 @@ Deno.test("resolveGuidanceSources: a root whose path contains glob metacharacter
   }
 });
 
-Deno.test("resolveGuidanceSources: never admits an agent file, for any provider — glob or explicit", async () => {
+Deno.test("resolveInstructionSources: never admits an agent file, for any provider — glob or explicit", async () => {
   // The compiler's own OUTPUTS must never round-trip back in as sources: a
   // pattern like "*.md" that also matches the AGENTS.md discern just wrote
   // would make every refresh embed the previous compiled body (unbounded
   // growth) and the currency check permanently stale — a gate whose own
   // remediation (`discern refresh`) can never clear it. Enumerated from the
-  // provider registry (allGuidanceFilePaths), so a future provider's guidance
+  // provider registry (allInstructionFilePaths), so a future provider's instructions
   // file auto-enrols in this guard.
-  const outputs = allGuidanceFilePaths();
-  assert(outputs.length > 0, "the registry must emit guidance files");
+  const outputs = allInstructionFilePaths();
+  assert(outputs.length > 0, "the registry must emit instruction files");
   await withTempDir(async (root) => {
     for (const rel of outputs) {
       await Deno.writeTextFile(join(root, rel), "generated body\n");
@@ -202,17 +202,17 @@ Deno.test("resolveGuidanceSources: never admits an agent file, for any provider 
     await Deno.writeTextFile(join(root, "notes.md"), "# mine\n");
 
     // A glob matching everything at the root admits only the genuine source.
-    const globbed = await resolveGuidanceSources(
+    const globbed = await resolveInstructionSources(
       root,
-      parseConfigOrThrow('[guidance]\nsources = ["*.md"]\n'),
+      parseConfigOrThrow('[instructions]\nsources = ["*.md"]\n'),
     );
     assertEquals(globbed, [join(root, "notes.md")]);
 
     // Even listed EXPLICITLY, an output is refused — it cannot be a source.
     for (const rel of outputs) {
-      const explicit = await resolveGuidanceSources(
+      const explicit = await resolveInstructionSources(
         root,
-        parseConfigOrThrow(`[guidance]\nsources = ["${rel}"]\n`),
+        parseConfigOrThrow(`[instructions]\nsources = ["${rel}"]\n`),
       );
       assertEquals(explicit, [], `${rel} must never resolve as a source`);
     }
@@ -223,9 +223,9 @@ Deno.test("resolveGuidanceSources: never admits an agent file, for any provider 
     const nested = join("notes", outputs[0] ?? "AGENTS.md");
     await Deno.writeTextFile(join(root, nested), "# nested notes\n");
     assertEquals(
-      await resolveGuidanceSources(
+      await resolveInstructionSources(
         root,
-        parseConfigOrThrow(`[guidance]\nsources = ["${nested}"]\n`),
+        parseConfigOrThrow(`[instructions]\nsources = ["${nested}"]\n`),
       ),
       [join(root, nested)],
     );

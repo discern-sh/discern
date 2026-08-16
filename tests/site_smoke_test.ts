@@ -27,6 +27,6 @@ Deno.test("production smoke crawls the real running artifact", async () => {
   assertEquals(result.failures, []);
   assertStringIncludes(
     result.observations.join("\n"),
-    "guidance pages in cross-surface parity",
+    "instructions pages in cross-surface parity",
   );
 });

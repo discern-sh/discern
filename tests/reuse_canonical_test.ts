@@ -1,37 +1,37 @@
 /**
- * Reuse-canonical guidance modelling (Phase A, deliverable 2).
+ * Reuse-canonical instructions modelling (Phase A, deliverable 2).
  *
  * Cursor and Copilot read the canonical `AGENTS.md` natively and need no
- * vendor-specific guidance file. The registry models that as
- * `guidanceFile.reuseCanonical`: they do not write a duplicate file of their own,
+ * vendor-specific instruction file. The registry models that as
+ * `instructionFile.reuseCanonical`: they do not write a duplicate file of their own,
  * but they still require the canonical file to exist for the configured set.
  *
  * These tests exercise that model with a synthetic provider set. The pure cores
- * (`emittedGuidancePaths`, the renderer's `agentFileContents`) take the guidance
+ * (`emittedInstructionPaths`, the renderer's `agentFileContents`) take the instructions
  * entries as input, so the behaviour is pinned without an install.
  */
 
 import { assert, assertEquals } from "@std/assert";
 import {
   atImportPointer,
-  emitsGuidanceFile,
-  emittedGuidancePaths,
-  type GuidanceFile,
+  emitsInstructionFile,
+  emittedInstructionPaths,
+  type InstructionFile,
 } from "../src/lib/providers.ts";
-import { agentFileContents } from "../src/engine/guidance_render.ts";
+import { agentFileContents } from "../src/engine/instruction_render.ts";
 import { ignoreCovers } from "../src/lib/agent_gitignore.ts";
 import { fromFileUrl, join } from "@std/path";
 import { CONTEXT_LOADED_ARTIFACT } from "../src/shared/file_ownership.ts";
 
 /** The canonical full-body file (codex → AGENTS.md). */
-const CANONICAL: GuidanceFile = {
+const CANONICAL: InstructionFile = {
   path: "AGENTS.md",
   ownership: { generated: true },
   writtenArtifact: CONTEXT_LOADED_ARTIFACT,
   canonical: true,
 };
 /** A pointer mirror (claude_code → CLAUDE.md → @AGENTS.md). */
-const POINTER: GuidanceFile = {
+const POINTER: InstructionFile = {
   path: "CLAUDE.md",
   ownership: { generated: true },
   writtenArtifact: CONTEXT_LOADED_ARTIFACT,
@@ -39,7 +39,7 @@ const POINTER: GuidanceFile = {
   pointer: atImportPointer,
 };
 /** A SYNTHETIC reuse-canonical provider: reads AGENTS.md natively. */
-const REUSE: GuidanceFile = {
+const REUSE: InstructionFile = {
   path: "AGENTS.md",
   ownership: { generated: true },
   writtenArtifact: CONTEXT_LOADED_ARTIFACT,
@@ -47,29 +47,29 @@ const REUSE: GuidanceFile = {
   reuseCanonical: true,
 };
 
-Deno.test("emitsGuidanceFile: false only for a reuse-canonical entry", () => {
-  assertEquals(emitsGuidanceFile(CANONICAL), true);
-  assertEquals(emitsGuidanceFile(POINTER), true);
-  assertEquals(emitsGuidanceFile(REUSE), false);
+Deno.test("emitsInstructionFile: false only for a reuse-canonical entry", () => {
+  assertEquals(emitsInstructionFile(CANONICAL), true);
+  assertEquals(emitsInstructionFile(POINTER), true);
+  assertEquals(emitsInstructionFile(REUSE), false);
 });
 
-Deno.test("emittedGuidancePaths: a reuse-canonical entry adds no duplicate path", () => {
+Deno.test("emittedInstructionPaths: a reuse-canonical entry adds no duplicate path", () => {
   // codex (AGENTS.md) + a reuse-canonical agent (also reads AGENTS.md) + claude
   // (CLAUDE.md). The reuse-canonical entry must not leak a second AGENTS.md.
   assertEquals(
-    emittedGuidancePaths([CANONICAL, REUSE, POINTER]),
+    emittedInstructionPaths([CANONICAL, REUSE, POINTER]),
     ["AGENTS.md", "CLAUDE.md"],
   );
   // Order-independent and dedup holds whatever the position of the reuse entry.
   assertEquals(
-    emittedGuidancePaths([REUSE, POINTER, CANONICAL]),
+    emittedInstructionPaths([REUSE, POINTER, CANONICAL]),
     ["CLAUDE.md", "AGENTS.md"],
   );
 });
 
-Deno.test("emittedGuidancePaths: a reuse-canonical-only set still emits the canonical", () => {
-  assertEquals(emittedGuidancePaths([REUSE]), ["AGENTS.md"]);
-  assertEquals(emittedGuidancePaths([REUSE, POINTER]), [
+Deno.test("emittedInstructionPaths: a reuse-canonical-only set still emits the canonical", () => {
+  assertEquals(emittedInstructionPaths([REUSE]), ["AGENTS.md"]);
+  assertEquals(emittedInstructionPaths([REUSE, POINTER]), [
     "AGENTS.md",
     "CLAUDE.md",
   ]);
@@ -103,7 +103,7 @@ Deno.test("agentFileContents: reuse-canonical supplies the canonical for pointer
 
 Deno.test("reuse-canonical: the read path is tracked — never ignored by the seed fragment", () => {
   // A reuse-canonical provider's `path` (the canonical it reads) is a compiled
-  // guidance file, tracked by default so a bare clone carries it — an ignore
+  // instruction file, tracked by default so a bare clone carries it — an ignore
   // rule for it would blind exactly the agents that read it natively.
   const repo = fromFileUrl(new URL("../", import.meta.url));
   const lines = Deno.readTextFileSync(

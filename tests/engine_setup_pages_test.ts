@@ -7,7 +7,7 @@
  * The three measurable behaviors of ADR 0078, plus the two forcing functions that
  * keep the page format honest:
  *
- *  1. `setup step <n>` returns the structured spine + the prose guidance;
+ *  1. `setup step <n>` returns the structured spine + the prose instructions;
  *  2. `setup begin` emits the principles + the FIRST page only (never steps 1–9);
  *  3. `setup done` FAILS (naming the unmet check) when a step was skipped and
  *     PASSES when every check is satisfied — the anti-shallow-compliance guard;
@@ -18,7 +18,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
-import { guidanceSeedRel } from "../src/shared/paths_registry.ts";
+import { instructionSeedRel } from "../src/shared/paths_registry.ts";
 import {
   assertTerminalTextIncludes,
   REAL_TEMPLATES,
@@ -81,10 +81,13 @@ Deno.test("the shipped brief parses into the nine numbered pages, each with a fu
       p.spine.completion_check.length > 0,
       `Step ${p.step} completion_check empty`,
     );
-    assert(p.guidance.length > 0, `Step ${p.step} prose guidance is empty`);
+    assert(
+      p.instructions.length > 0,
+      `Step ${p.step} prose instructions are empty`,
+    );
     // The spine block is the machine lane only — its fence must not leak into prose.
     assert(
-      !p.guidance.includes("```toml"),
+      !p.instructions.includes("```toml"),
       `Step ${p.step} prose carries its spine fence`,
     );
   }
@@ -92,7 +95,7 @@ Deno.test("the shipped brief parses into the nine numbered pages, each with a fu
 
 // ── `setup step <n>` serves one structured page (both lanes) ─────────────────
 
-Deno.test("setup step <n> --json carries the structured spine AND the prose guidance", async () => {
+Deno.test("setup step <n> --json carries the structured spine AND the prose instructions", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["setup", "step", "4", "--json"]);
@@ -119,9 +122,9 @@ Deno.test("setup step <n> --json carries the structured spine AND the prose guid
     }
     assert(Array.isArray(d.spine.must_do) && d.spine.must_do.length > 0);
 
-    // The prose lane: the warm guidance the agent follows verbatim.
-    assert(typeof d.guidance === "string" && d.guidance.length > 0);
-    assertStringIncludes(d.guidance, "single source of truth"); // a Step 4 prose anchor
+    // The prose lane: the warm instructions the agent follows verbatim.
+    assert(typeof d.instructions === "string" && d.instructions.length > 0);
+    assertStringIncludes(d.instructions, "single source of truth"); // a Step 4 prose anchor
 
     // Faithfulness (ADR 0041): the real serialized output validates against the schema.
     SetupStepOutputSchema.parse(res);
@@ -134,13 +137,13 @@ Deno.test("setup step 2 renders every supported diagnostic format", async () => 
     const r = await runAgent(dir, ["setup", "step", "2", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const guidance = JSON.parse(r.stdout).data.guidance as string;
+    const instructions = JSON.parse(r.stdout).data.instructions as string;
     assert(
-      !guidance.includes("{{diagnostic_formats}}"),
+      !instructions.includes("{{diagnostic_formats}}"),
       "setup must replace the diagnostic-format token",
     );
     for (const format of DIAGNOSTIC_FORMATS) {
-      assertStringIncludes(guidance, format.label);
+      assertStringIncludes(instructions, format.label);
     }
   });
 });
@@ -214,7 +217,7 @@ Deno.test("setup begin emits the operating principles + the first page only, nev
 
 // ── `setup done` proves per-step completion (the anti-shallow-compliance guard) ──
 
-/** Lay a marker-free project whose docs/guidance satisfy every per-step check, then
+/** Lay a marker-free project whose docs/instructions satisfy every per-step check, then
  * let the caller break exactly one thing. `principles` is the design-principles body. */
 async function layMarkerFreeProject(
   dir: string,
@@ -231,15 +234,15 @@ async function layMarkerFreeProject(
     principles,
   );
   await Deno.writeTextFile(
-    join(dir, "discern/guidance.md"),
-    "# Guidance\n\nA real pitch describing the project.\n\n## Conventions\n\nReal conventions.\n",
+    join(dir, "discern/instructions.md"),
+    "# Instructions\n\nA real pitch describing the project.\n\n## Conventions\n\nReal conventions.\n",
   );
   await runAgent(dir, ["config", "set-job", "test", "true"]);
 }
 
 Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (anti-shallow-compliance)", async () => {
   await withTempDir(async (dir) => {
-    // Marker-free, a capability wired, guidance filled — but design-principles.md has
+    // Marker-free, a capability wired, instructions filled — but design-principles.md has
     // had its EXAMPLE marker DELETED without being filled (one principle where the step
     // asks for ≥3). The marker walk is satisfied; the derived check is not.
     await layMarkerFreeProject(
@@ -253,7 +256,7 @@ Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (an
     assertEquals(res.ok, false);
     assertEquals(res.error, "incomplete");
 
-    // The diagnostic NAMES the unmet check — and only it (guidance + capability pass).
+    // The diagnostic NAMES the unmet check — and only it (instructions + capability pass).
     const unmet = res.data.unmet as Array<{ name: string; step: number }>;
     assertEquals(
       unmet.map((u) => u.name),
@@ -359,7 +362,7 @@ async function writePrinciples(
  * For every completion check: a context where its step's work is ABSENT/stubbed
  * (evaluate must be false) and one where it's PRESENT (true). The describe-parity
  * loop above proves each check exists; this proves each check's evaluate() actually
- * catches a skipped step — end-to-end only `design_principles` did, so `guidance`
+ * catches a skipped step — end-to-end only `design_principles` did, so `instructions`
  * and `capabilities` could have been broken to always-pass unnoticed. Coupled to the
  * SSOT, so a new check must supply a fail/pass fixture.
  */
@@ -390,29 +393,29 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
       return { root, config };
     },
   },
-  guidance: {
+  instructions: {
     async fail(root): Promise<EvalCtx> {
       // Conventions heading present but the stub placeholder never replaced.
       const config = baseConfig();
       await Deno.mkdir(
-        join(root, dirname(guidanceSeedRel(config.guidance.sources))),
+        join(root, dirname(instructionSeedRel(config.instructions.sources))),
         { recursive: true },
       );
       await Deno.writeTextFile(
-        join(root, guidanceSeedRel(config.guidance.sources)),
-        "# Guidance\n\nA pitch.\n\n## Conventions\n\n_(replace this section with the project's real conventions)_\n",
+        join(root, instructionSeedRel(config.instructions.sources)),
+        "# Instructions\n\nA pitch.\n\n## Conventions\n\n_(replace this section with the project's real conventions)_\n",
       );
       return { root, config };
     },
     async pass(root): Promise<EvalCtx> {
       const config = baseConfig();
       await Deno.mkdir(
-        join(root, dirname(guidanceSeedRel(config.guidance.sources))),
+        join(root, dirname(instructionSeedRel(config.instructions.sources))),
         { recursive: true },
       );
       await Deno.writeTextFile(
-        join(root, guidanceSeedRel(config.guidance.sources)),
-        "# Guidance\n\nA real pitch.\n\n## Conventions\n\nReal conventions.\n",
+        join(root, instructionSeedRel(config.instructions.sources)),
+        "# Instructions\n\nA real pitch.\n\n## Conventions\n\nReal conventions.\n",
       );
       return { root, config };
     },

@@ -384,7 +384,7 @@ Usage: `discern setup accept [options]`
 
 ### `discern upgrade`
 
-Upgrade discern itself in this project: migrate its config and refresh bundled skills and guidance. Use `discern update` for this branch; use `discern refresh` for agent files alone.
+Upgrade discern itself in this project: migrate its config and refresh bundled skills and instructions. Use `discern update` for this branch; use `discern refresh` for agent files alone.
 
 Usage: `discern upgrade [options]`
 
@@ -525,7 +525,7 @@ Usage: `discern refresh [options]`
 
 ### `discern uninstall`
 
-Remove discern's wiring from this project (keeps your discern.toml, guidance, and map).
+Remove discern's wiring from this project (keeps your discern.toml, instructions, and map).
 
 Usage: `discern uninstall [options]`
 
@@ -547,7 +547,7 @@ Usage: `discern improvement [options]`
 | Option              | Description                                                                                   |
 | ------------------- | --------------------------------------------------------------------------------------------- |
 | `--json`            | Emit the coaching result as JSON (practice-health score, open reviews, and data.next_action). |
-| `--category <name>` | Review a single area (gate, setup, guidance, map, worktrees, standards, skills).              |
+| `--category <name>` | Review a single area (gate, setup, instructions, map, worktrees, standards, skills).          |
 | `--min-score <n>`   | Exit non-zero when the overall score is below this floor (a CI/agent gate).                   |
 
 ### `discern standards`

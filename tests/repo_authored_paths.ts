@@ -15,7 +15,7 @@ import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { isHostMetadataPath } from "../scripts/host_metadata.ts";
 import {
-  resolveGuidanceSources,
+  resolveInstructionSources,
   resolveMapDir,
   resolveScriptsDir,
   resolveSkillsDir,
@@ -28,7 +28,7 @@ export const REPO_ROOT: string = join(
 );
 
 export interface RepoAuthoredPaths {
-  guidance: string[];
+  instructions: string[];
   map: string;
   mapRel: string;
   scripts: string;
@@ -40,7 +40,7 @@ const config = await loadConfig(REPO_ROOT);
 const map = resolveMapDir(REPO_ROOT, config).abs;
 
 export const REPO_AUTHORED_PATHS: RepoAuthoredPaths = {
-  guidance: await resolveGuidanceSources(REPO_ROOT, config),
+  instructions: await resolveInstructionSources(REPO_ROOT, config),
   map,
   mapRel: relative(REPO_ROOT, map),
   scripts: resolveScriptsDir(REPO_ROOT, config).abs,

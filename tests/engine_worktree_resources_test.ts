@@ -45,7 +45,7 @@ async function commitCurrentWorktree(
 }
 
 /** Append a `[worktree.resources.<name>]` table to a worktree's scaffolded config
- * (keeping every other section intact, so setup's guidance refresh still works).
+ * (keeping every other section intact, so setup's instruction refresh still works).
  * create/destroy touch markers under an absolute dir OUTSIDE the worktree, so a
  * destroy works even after the worktree is gone. */
 async function declareResource(

@@ -25,21 +25,22 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 
-Deno.test("engine on non-default paths: refresh compiles guidance and renders skills to the configured layout", async () => {
+Deno.test("engine on non-default paths: refresh compiles instructions and renders skills to the configured layout", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const repointed = await repointSourcePaths(dir);
     const mapDir = repointed.find((p) => p.name === "map")?.value;
-    const guidanceSrc = repointed.find((p) => p.name === "guidance")?.value;
+    const instructionSrc = repointed.find((p) => p.name === "instructions")
+      ?.value;
     const skillsDir = repointed.find((p) => p.name === "skills")?.value;
     assert(
-      mapDir !== undefined && guidanceSrc !== undefined &&
+      mapDir !== undefined && instructionSrc !== undefined &&
         skillsDir !== undefined,
     );
 
-    // A user source at the repointed guidance path, and an authored skill in
+    // A user source at the repointed instruction path, and an authored skill in
     // the repointed skills dir — both must be picked up from the new layout.
-    await Deno.writeTextFile(join(dir, guidanceSrc), "# ZZ custom rules\n");
+    await Deno.writeTextFile(join(dir, instructionSrc), "# ZZ custom rules\n");
     await Deno.mkdir(join(dir, skillsDir, "my-alt-skill"), { recursive: true });
     await Deno.writeTextFile(
       join(dir, skillsDir, "my-alt-skill", "SKILL.md"),
@@ -49,7 +50,7 @@ Deno.test("engine on non-default paths: refresh compiles guidance and renders sk
     const r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
 
-    // Compiled guidance speaks the repointed layout and carries the user source.
+    // Compiled instructions speaks the repointed layout and carries the user source.
     const claude = await Deno.readTextFile(join(dir, "CLAUDE.md"));
     assertStringIncludes(claude, mapDir);
     assertStringIncludes(claude, "ZZ custom rules");

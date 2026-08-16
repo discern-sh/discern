@@ -236,7 +236,7 @@ function parseProcedure(body: string, source: string): ProcedureModel {
   };
 }
 
-/** Parse a shell fence with optional run context and required outcome guidance. */
+/** Parse a shell fence with optional run context and required outcome notes. */
 function parseCommand(body: string, source: string): CommandModel {
   const lines = trimBlankLines(body.split("\n"));
   const opening = lines.findIndex((line) =>
@@ -437,7 +437,7 @@ function renderProcedure(
   </section>`;
 }
 
-/** Render a command panel with context, expected outcome, and failure guidance. */
+/** Render a command panel with context, expected outcome, and failure notes. */
 function renderCommand(
   model: CommandModel,
   options: MarkdownHtmlOptions,

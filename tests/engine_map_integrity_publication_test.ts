@@ -1,6 +1,6 @@
 /**
  * Map-integrity gate tests over the publication and citation rules: the
- * audience boundary (_internal/), bundled-skill citations, and guidance
+ * audience boundary (_internal/), bundled-skill citations, and instructions
  * sources. Split from `engine_map_integrity_test.ts` so `deno test --parallel`
  * (per-FILE distribution) can spread the serial `done` runs.
  */
@@ -84,20 +84,20 @@ Deno.test("done --json: excluding a bundled skill the map still cites fails unti
   });
 });
 
-Deno.test("done --json: a guidance source citing an unknown skill fails with the source named", async () => {
+Deno.test("done --json: a instruction source citing an unknown skill fails with the source named", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // [guidance].sources are read present-only, so creating the default
+    // [instructions].sources are read present-only, so creating the default
     // source file enrols it in the preflight's command and citation checks.
-    const guidance = join(dir, SOURCE_PATHS.guidance.defaultPath);
-    await Deno.mkdir(join(guidance, ".."), { recursive: true });
+    const instructions = join(dir, SOURCE_PATHS.instructions.defaultPath);
+    await Deno.mkdir(join(instructions, ".."), { recursive: true });
     await Deno.writeTextFile(
-      guidance,
-      "# Project guidance\n\nUse the `discern-polish-the-lamp` skill for finishing passes.\n",
+      instructions,
+      "# Project instructions\n\nUse the `discern-polish-the-lamp` skill for finishing passes.\n",
     );
     const output = await expectMapIntegrityFailure(dir);
-    assertStringIncludes(output, SOURCE_PATHS.guidance.defaultPath);
+    assertStringIncludes(output, SOURCE_PATHS.instructions.defaultPath);
     assertStringIncludes(output, "skill-citation");
     assertStringIncludes(output, "discern-polish-the-lamp");
   });

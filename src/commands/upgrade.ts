@@ -12,11 +12,11 @@
  *   4. reconcile the discern-owned `.gitignore` block against the current
  *      fragment, preserving project ignore rules outside it;
  *   5. reconcile the config-derived `.gitattributes` block;
- *   6. recompile the guidelines — which re-materializes the bundled skills into
+ *   6. recompile the instructions — which re-materializes the bundled skills into
  *      `.claude/skills/` and writes the per-provider agent files;
  *   7. stamp the new `[meta].schema_version` into the config.
  *
- * Your config values, guidance sources, authored skills, and project scripts are never
+ * Your config values, instruction sources, authored skills, and project scripts are never
  * rewritten. The clean-tree git guard keeps the upgrade revertible.
  */
 
@@ -49,11 +49,11 @@ import {
   parseConfigOrThrow,
 } from "../shared/config_schema.ts";
 import {
-  compileGuidelines,
-  guidanceRefreshErrors,
-  type GuidelinesResult,
-} from "../engine/guidelines.ts";
-import { agentFilePaths } from "../engine/guidance_render.ts";
+  compileInstructions,
+  instructionRefreshErrors,
+  type InstructionsResult,
+} from "../engine/instructions.ts";
+import { agentFilePaths } from "../engine/instruction_render.ts";
 import {
   ensureDiscernGitignoreBlock,
   type GitignoreReconcileOperation,
@@ -368,7 +368,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       );
       log.group("agent-files");
       log.info(
-        "Would recompile the agent guidance and re-materialize the bundled skills.",
+        "Would recompile the agent instructions and re-materialize the bundled skills.",
       );
       log.group("dry-run-verdict");
       log.info("No files were written (--dry-run).");
@@ -443,7 +443,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   }
 
   // 1b. Prove the migrated config parses and validates BEFORE any softer
-  // refresh work. Guideline compilation remains best-effort (ADR 0065), but a
+  // refresh work. Instruction compilation remains best-effort (ADR 0065), but a
   // broken config would brick every later command if we stamped it as current.
   const newConfigPath = (await resolveConfigPath(destDir)) ?? configPath;
   if (newConfigPath === undefined) {
@@ -554,35 +554,35 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     gitattributesReconciliation.refused,
   );
 
-  // 2. Recompile the guidelines (re-materializes skills + writes agent files).
+  // 2. Recompile the instructions (re-materializes skills + writes agent files).
   // A failure here is non-fatal to the upgrade — the
   // schema is still stamped — but it is reported.
-  let guidelines: GuidelinesResult | undefined;
-  let thrownGuidelinesError: string | undefined;
+  let instructions: InstructionsResult | undefined;
+  let thrownInstructionsError: string | undefined;
   try {
     // Pass upgrade's own logger so its narration follows upgrade's stream
     // discipline (suppressed in --json, stderr in human mode) — never polluting
     // the stdout JSON object.
-    guidelines = await compileGuidelines(destDir, log);
+    instructions = await compileInstructions(destDir, log);
   } catch (error) {
-    thrownGuidelinesError = `could not recompile guidelines: ${
+    thrownInstructionsError = `could not recompile instructions: ${
       error instanceof Error ? error.message : String(error)
     }`;
-    log.warn(thrownGuidelinesError);
+    log.warn(thrownInstructionsError);
   }
   // A per-artifact failure inside the compile is isolated, not thrown (ADR 0065):
-  // the per-job detail was already warned by compileGuidelines, so surface only an
+  // the per-job detail was already warned by compileInstructions, so surface only an
   // aggregate here and treat the compile as incomplete.
-  const guidelinesErrors = guidelines === undefined
-    ? (thrownGuidelinesError === undefined ? [] : [thrownGuidelinesError])
-    : guidanceRefreshErrors(guidelines);
-  if (guidelinesErrors.length > 0) {
+  const instructionsErrors = instructions === undefined
+    ? (thrownInstructionsError === undefined ? [] : [thrownInstructionsError])
+    : instructionRefreshErrors(instructions);
+  if (instructionsErrors.length > 0) {
     log.warn(
-      `guideline refresh did not fully complete: ${guidelinesErrors.length} artifact(s) failed.`,
+      `instruction refresh did not fully complete: ${instructionsErrors.length} artifact(s) failed.`,
     );
   }
-  const fullyCompiled = guidelines !== undefined &&
-    guidelinesErrors.length === 0;
+  const fullyCompiled = instructions !== undefined &&
+    instructionsErrors.length === 0;
 
   // 3. Stamp the new schema version into the config (now at its migrated path).
   await stampSchema(newConfigPath, currentSchema);
@@ -594,10 +594,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       ...(fullyCompiled ? {} : {
         error: "partial_refresh",
         message:
-          `${guidelinesErrors.length} artifact(s) failed to refresh; see data.guidelines_errors.`,
+          `${instructionsErrors.length} artifact(s) failed to refresh; see data.instructions_errors.`,
       }),
       hints: mergeHintTexts(
-        guidelines?.hints ?? [],
+        instructions?.hints ?? [],
         hintTexts([newerDiscernHint(), restartAgentsHint()]),
       ),
       data: {
@@ -621,18 +621,18 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         ),
         untranslated_gitattributes_patterns:
           gitattributesReconciliation.refused,
-        skills: guidelines === undefined ? null : {
-          copied: guidelines.skillsCopied,
-          linked: guidelines.skillsLinked,
-          pruned: guidelines.skillsPruned,
+        skills: instructions === undefined ? null : {
+          copied: instructions.skillsCopied,
+          linked: instructions.skillsLinked,
+          pruned: instructions.skillsPruned,
         },
-        agents_written: guidelines?.agentsWritten ?? [],
-        mcp_wired: guidelines?.mcpWired ?? [],
-        hooks_wired: guidelines?.hooksWired ?? [],
-        worktree_app_wired: guidelines?.worktreeAppWired ?? [],
-        project_rules_wired: guidelines?.projectRulesWired ?? [],
-        guidelines_compiled: fullyCompiled,
-        guidelines_errors: guidelinesErrors,
+        agents_written: instructions?.agentsWritten ?? [],
+        mcp_wired: instructions?.mcpWired ?? [],
+        hooks_wired: instructions?.hooksWired ?? [],
+        worktree_app_wired: instructions?.worktreeAppWired ?? [],
+        project_rules_wired: instructions?.projectRulesWired ?? [],
+        instructions_compiled: fullyCompiled,
+        instructions_errors: instructionsErrors,
       },
     });
     return 0;
@@ -648,13 +648,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     ok: fullyCompiled,
     verb: "upgrade",
     hints: mergeHintTexts(
-      guidelines?.hints ?? [],
+      instructions?.hints ?? [],
       hintTexts([newerDiscernHint(), restartAgentsHint()]),
     ),
   });
   renderUpgradeSummary(
     log,
-    guidelines,
+    instructions,
     applied.length,
     reconciliation.operations,
     gitignoreReconciliation.operations,
@@ -718,11 +718,11 @@ async function validateMigratedConfig(
 
 /**
  * Render the human upgrade summary: how many skills were re-materialized and
- * whether guidelines recompiled. The schema stamp is implicit (it always runs).
+ * whether instructions recompiled. The schema stamp is implicit (it always runs).
  */
 function renderUpgradeSummary(
   log: Logger,
-  guidelines: GuidelinesResult | undefined,
+  instructions: InstructionsResult | undefined,
   migrationCount: number,
   reconciliation: ConfigReconcileOperation[],
   gitignoreReconciliation: GitignoreReconcileOperation[],
@@ -751,16 +751,16 @@ function renderUpgradeSummary(
       log.detail(gitattributesOperationLabel(op));
     }
   }
-  if (guidelines !== undefined) {
+  if (instructions !== undefined) {
     log.ok(
       `skills re-materialized: ${
-        guidelines.skillsCopied + guidelines.skillsLinked
-      } (${guidelines.skillsCopied} bundled, ${guidelines.skillsLinked} authored)`,
+        instructions.skillsCopied + instructions.skillsLinked
+      } (${instructions.skillsCopied} bundled, ${instructions.skillsLinked} authored)`,
     );
     log.ok(
-      guidelines.agentsWritten.length > 0
-        ? `guidelines recompiled: ${guidelines.agentsWritten.join(", ")}`
-        : "guidelines: nothing to compile",
+      instructions.agentsWritten.length > 0
+        ? `instructions recompiled: ${instructions.agentsWritten.join(", ")}`
+        : "instructions: nothing to compile",
     );
   }
   log.ok(`install stamped at schema ${currentSchema}`);

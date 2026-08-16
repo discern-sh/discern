@@ -1,6 +1,6 @@
 ---
 title: The discern manual
-description: "The public manual agents maintain under discern's own gate, covering quality checks, worktrees, guidance, skills, and reference."
+description: "The public manual agents maintain under discern's own gate, covering quality checks, worktrees, instructions, skills, and reference."
 aliases:
   - docs
   - documentation
@@ -23,7 +23,7 @@ Already know the outcome you need? Use the [task index](10-getting-started/tasks
 | [10-getting-started/](10-getting-started/)       | Install, setup, a first gated change, troubleshooting, and upgrades.                 |
 | [20-quality-gate/](20-quality-gate/)             | `discern done`, its fix · build · check · test model, scopes, and Standards.         |
 | [30-worktrees/](30-worktrees/)                   | The isolated-worktree workflow: lifecycle, per-worktree identity, resources.         |
-| [40-agent-guidance/](40-agent-guidance/)         | Guidance authored once and compiled into every agent file.                           |
+| [40-agent-instructions/](40-agent-instructions/) | Instructions authored once and compiled into every agent file.                       |
 | [45-skills/](45-skills/)                         | Bundled and project-authored playbooks that agents load when the work calls for one. |
 | [60-agent-integrations/](60-agent-integrations/) | Per-agent integration guides: the files discern writes, trust gates, gotchas.        |
 | [70-reference/](70-reference/)                   | Exact CLI, configuration, MCP, ownership, and platform contracts.                    |

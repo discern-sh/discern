@@ -754,7 +754,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     [...body.querySelectorAll("#compounding .landing-section__action a")].map(
       (link) => link.getAttribute("href"),
     ),
-    ["/docs/quality-gate/standards", "/docs/agent-guidance"],
+    ["/docs/quality-gate/standards", "/docs/agent-instructions"],
   );
 
   const possibility = body.querySelector("#possibility");

@@ -495,7 +495,7 @@ function CommissioningSection() {
     ],
     [
       "Establish",
-      "Create shared guidance, working methods, checks, and maintained project knowledge.",
+      "Create shared project instructions, working methods, checks, and maintained project knowledge.",
     ],
     [
       "Prove",
@@ -557,7 +557,7 @@ function CommissioningSection() {
           </ol>
           <footer>
             <code>discern.toml</code>
-            <code>project/guidance.md</code>
+            <code>project/instructions.md</code>
             <code>project/map/</code>
             <code>project/skills/</code>
           </footer>
@@ -725,7 +725,7 @@ function CompoundingSection() {
             </blockquote>
             <ul className="landing-memory__routes">
               <li>
-                <strong>Guidance</strong>
+                <strong>Instructions</strong>
                 <span>A rule every configured agent receives</span>
               </li>
               <li>
@@ -748,8 +748,8 @@ function CompoundingSection() {
           <Button href="/docs/quality-gate/standards" variant="secondary">
             See how Standards retain gains
           </Button>
-          <Button href="/docs/agent-guidance" variant="secondary">
-            See how guidance travels
+          <Button href="/docs/agent-instructions" variant="secondary">
+            See how project instructions travel
           </Button>
         </div>
       </div>
@@ -829,7 +829,7 @@ function AgentsSection() {
               intro={
                 <p>
                   Configure the providers you use. Each receives the same
-                  project-owned guidance and works through the same discern
+                  project-owned instructions and works through the same discern
                   practice.
                 </p>
               }

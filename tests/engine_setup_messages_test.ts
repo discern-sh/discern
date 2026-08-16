@@ -76,10 +76,10 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
     msg,
     "agent-maintained account of how the codebase fits together",
   );
-  assertStringIncludes(msg, "author the project's map and guidance");
+  assertStringIncludes(msg, "author the project's map and instructions");
   assertStringIncludes(msg, "the files your coding tools require");
   assert(
-    !msg.includes("author the project's docs and guidance"),
+    !msg.includes("author the project's docs and instructions"),
     "the setup plan must name the map rather than teach docs as its synonym",
   );
   assert(!msg.includes("Nothing else in your repo is touched"));

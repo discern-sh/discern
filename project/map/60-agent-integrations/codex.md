@@ -1,6 +1,6 @@
 ---
 title: Codex
-description: How discern configures Guidance, Skills, MCP, hooks, worktree setup, and Git rules for Codex.
+description: How discern configures instructions, Skills, MCP, hooks, worktree setup, and Git rules for Codex.
 order: 20
 aliases:
   - Codex
@@ -10,7 +10,7 @@ aliases:
 
 # Codex integration
 
-_The Codex integration supplies canonical Guidance, shared Skills, a Model Context Protocol (MCP) server entry, hooks, app worktree scripts, and narrow Git rules._
+_The Codex integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, hooks, app worktree scripts, and narrow Git rules._
 
 discern's Codex integration is project-local and registry-driven. It writes or co-manages the files below when Codex is enabled in `[project].agents`:
 
@@ -23,9 +23,9 @@ discern's Codex integration is project-local and registry-driven. It writes or c
 | `.codex/environments/environment.toml` | Codex app worktree setup/cleanup                     | Shared, tracked       |
 | `.codex/rules/discern.rules`           | Narrow Git rules for discern worktrees               | Shared, tracked       |
 
-## Guidance and Skills
+## Instructions and Skills
 
-Codex reads `AGENTS.md` directly, so discern makes it the canonical agent file. Claude Code and Gemini point back to that file rather than duplicating it. discern generates the file from its built-in Guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
+Codex reads `AGENTS.md` directly, so discern makes it the canonical agent file. Claude Code and Gemini point back to that file rather than duplicating it. discern generates the file from its built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
 Codex also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`.
 
@@ -46,7 +46,7 @@ startup_timeout_sec = 30
 tool_timeout_sec = 3600
 ```
 
-`project_doc_max_bytes` is set only when the project has not chosen its own value. The 65,536-byte value raises Codex's default instruction-file limit for discern-generated Guidance.
+`project_doc_max_bytes` is set only when the project has not chosen its own value. The 65,536-byte value raises Codex's default instruction-file limit for discern-generated instructions.
 
 `sandbox_workspace_write.writable_roots` is merged with any existing list. The added entry points at the directory where discern creates linked worktrees, so a Codex session that starts in the main checkout can edit and run commands in a new sibling worktree with fewer sandbox prompts. For the default `[worktree].root = ""`, the entry is relative to `.codex/` and looks like `../../<repo>.worktrees`. If `[worktree].root` is relative, discern emits the corresponding path relative to `.codex/`. If `[worktree].root` is absolute, discern keeps it absolute.
 

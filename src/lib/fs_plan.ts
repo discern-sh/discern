@@ -14,7 +14,7 @@
  *
  * Every scaffolded file is a SEED — the user's once written, never overwritten.
  * The binary's own artifacts are NOT scaffolded here: bundled skills
- * (`templates/skills/`) and built-in guidance (`templates/guidance/`) are
+ * (`templates/skills/`) and built-in instructions (`templates/instructions/`) are
  * materialized/read straight from the binary, never written into the user's tree,
  * so the walker skips those subtrees entirely.
  */
@@ -120,14 +120,14 @@ export class PlanApplyError extends Error {
 
 /**
  * Top-level templates subtrees that are the binary's OWN artifacts, not seeds:
- * bundled skills (materialized into `.claude/skills/`), built-in guidance (read by
+ * bundled skills (materialized into `.claude/skills/`), built-in instructions (read by
  * the compiler), and the setup assets (instructions + doc skeletons that
  * `discern setup` reads/lays on demand — ADR 0024, 0036). The seed walk skips them
  * so they are never written into the user's tracked tree.
  */
 const NON_SEED_SUBTREES: readonly string[] = [
   "skills/",
-  "guidance/",
+  "instructions/",
   "setup/",
 ];
 
@@ -155,14 +155,14 @@ async function readBytesIfExists(
  * Walk the templates tree and produce a complete scaffolding plan.
  *
  * Every file is a write-once SEED (create-or-skip). The binary's own artifacts
- * (`templates/skills/`, `templates/guidance/`) are skipped — they are
+ * (`templates/skills/`, `templates/instructions/`) are skipped — they are
  * materialized/read from the binary, never seeded. Provider settings deep-merge;
  * `.gitignore` and `.gitattributes` reconcile their discern-owned blocks.
  *
  * @param templatesDir   absolute path to the `templates/` tree to scaffold from
  * @param destDir        absolute destination root (the project being scaffolded)
  * @param tokens         resolved content tokens
- * @param excludeNonSeed skip the binary's own `skills/`/`guidance/` subtrees.
+ * @param excludeNonSeed skip the binary's own `skills/`/`instructions/` subtrees.
  *   Set when scaffolding from the BINARY's templates (`setup`), where those are
  *   materialized/read from the binary rather than seeded. Left false for a preset
  *   overlay, whose `skills/` IS an intended authored-skill overlay.
@@ -458,7 +458,7 @@ export async function planBrief(
   const body = brief.trimEnd();
   const content = `# Project brief\n\n` +
     `<!-- Captured at \`discern setup\`. Read by the setup instructions to seed\n` +
-    `     principles, guidelines, and docs. Edit freely. -->\n\n` +
+    `     principles, instructions, and docs. Edit freely. -->\n\n` +
     `${
       body.length > 0
         ? body

@@ -519,9 +519,13 @@ export const TIPS: readonly RegisteredTip[] = [
   }),
 
   defineTip({
-    id: "refresh-publishes-guidance",
+    id: "refresh-publishes-instructions",
     when: "Evergreen — a project-upkeep lesson.",
-    features: ["guidance", "guidance-compile", "skills-materialization"],
+    features: [
+      "instructions",
+      "instructions-compile",
+      "skills-materialization",
+    ],
     followThrough: {
       family: "tip-adoption",
       kind: "verb-run-after-tip",
@@ -529,7 +533,7 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.refresh} compiles shared guidance into every configured coding ` +
+      `${CMD.refresh} compiles shared instructions into every configured coding ` +
       "agent's instruction file and republishes reusable guides from their " +
       "sources.",
   }),
@@ -858,8 +862,8 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "Setup configures private-setting inheritance; routine Desk use requires no separate action.",
   "feature:ignored-drift":
     "A Worktree check teaches this advanced diagnostic when it detects ignored-file drift.",
-  "feature:guidance-conditionals":
-    "The Map documents this advanced Guidance-authoring feature.",
+  "feature:instructions-conditionals":
+    "The Map documents this advanced instruction-authoring feature.",
   "feature:providers":
     "The agent-integration reference documents provider support; the Desk exposes actions for active tasks.",
   "feature:provider-claude-code":

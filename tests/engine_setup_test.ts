@@ -621,5 +621,5 @@ Deno.test("done/prepare/test/standards run before setup is recorded, carrying th
 
 /** Lay a clean project state so `setup done`'s marker check AND its derived per-step
  * checks (ADR 0078) pass, leaving only the GATE to decide the outcome: real docs, a
- * guidance.md with a pitch + a Conventions section, and `test` wired to `cmd` (a
+ * instructions.md with a pitch + a Conventions section, and `test` wired to `cmd` (a
  * shell command whose exit status is the gate's verdict). */

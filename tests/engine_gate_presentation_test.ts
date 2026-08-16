@@ -331,7 +331,7 @@ Deno.test("Gate run context keeps live presentation on full buffered capture", (
     'slug = "gate-live-context"',
     "agents = []",
     "",
-    "[guidance]",
+    "[instructions]",
     "sources = []",
     "",
     "[gate]",

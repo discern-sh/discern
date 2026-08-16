@@ -147,9 +147,9 @@ import {
 } from "../worktree/landing_authority.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
-  checkGuidanceCurrent,
-  type GuidanceDriftEntry,
-} from "../guidance_render.ts";
+  checkInstructionCurrent,
+  type InstructionDriftEntry,
+} from "../instruction_render.ts";
 import {
   checkSkillsCurrent,
   checkSkillsWellformed,
@@ -178,7 +178,7 @@ import {
  * in the recompiled body (what a refresh would remove, a hand-edit included).
  * Bounded so it never floods the diagnostic.
  */
-function driftDiff(entry: GuidanceDriftEntry): string {
+function driftDiff(entry: InstructionDriftEntry): string {
   const expected = new Set(entry.expected.split("\n"));
   const added = (entry.actual ?? "").split("\n")
     .filter((l) => l.trim() !== "" && !expected.has(l));
@@ -197,23 +197,23 @@ function driftDiff(entry: GuidanceDriftEntry): string {
 
 /**
  * The Tier-0 {@link Diagnostic} for a stale agent file: the `discern
- * refresh` reproduce command, the redirect (edits belong in `[guidance].sources`,
+ * refresh` reproduce command, the redirect (edits belong in `[instructions].sources`,
  * not the generated file), and a capped diff of what a refresh would change — the
  * rescue, since the untracked file has no `git diff` to fall back on.
  */
-async function guidanceDiagnostic(
-  stale: GuidanceDriftEntry[],
+async function instructionDiagnostic(
+  stale: InstructionDriftEntry[],
 ): Promise<Diagnostic> {
   const files = stale.map((d) => d.path).join(", ");
   const outputFields = await diagnosticOutputFields(
     `Agent files are out of date: ${files}.\n` +
       "Run `discern refresh` to regenerate them. If you meant to change the " +
-      "guidance, edit your [guidance].sources (e.g. guidance.md) instead — a direct " +
+      "instructions, edit your [instructions].sources (e.g. instructions.md) instead — a direct " +
       "edit to a generated file is overwritten on the next refresh.\n\n" +
       stale.map(driftDiff).join("\n\n"),
   );
   return {
-    tool: "guidance",
+    tool: "instructions",
     severity: "error",
     message: `agent file(s) out of date: ${files}`,
     reproduce_cmd: "discern refresh",
@@ -258,7 +258,7 @@ async function trackedRefreshDiagnostic(
 /**
  * A diagnostic for stale MATERIALIZED skills: which dirs/skills drifted from the
  * effective set, and the `discern refresh` that re-materializes them. The skills
- * analog of {@link guidanceDiagnostic} — same redirect (edit the source, not the
+ * analog of {@link instructionDiagnostic} — same redirect (edit the source, not the
  * generated copy), so the two generated-artifact failures read identically.
  */
 async function skillsDiagnostic(
@@ -338,7 +338,7 @@ async function adrNumbersDiagnostic(
 }
 
 /**
- * A diagnostic for MAP & GUIDANCE integrity findings: every finding as
+ * A diagnostic for MAP & INSTRUCTIONS integrity findings: every finding as
  * `file:line`, grouped by rule with each rule's remedy stated once — the fix
  * is at the point of failure, and one loop from the diagnostic clears it.
  * `discern refresh` cannot help here: the SOURCE files carry the defect, so
@@ -358,13 +358,13 @@ async function mapIntegrityDiagnostic(
   );
   const files = [...new Set(findings.map((f) => f.file))];
   const outputFields = await diagnosticOutputFields(
-    "The map or guidance references things a reader cannot follow:\n\n" +
+    "The map or instructions references things a reader cannot follow:\n\n" +
       sections.join("\n\n"),
   );
   return {
     tool: "map-integrity",
     severity: "error",
-    message: `map or guidance integrity: ${findings.length} finding(s) ` +
+    message: `map or instructions integrity: ${findings.length} finding(s) ` +
       `across ${files.length} file(s)`,
     reproduce_cmd: "discern done",
     ...outputFields,
@@ -596,7 +596,7 @@ async function runGate(
   // 1b. Discern-owned ignored artifacts must not be tracked. A forced `git add -f`
   //     can put materialized skills or machine-local provider state into the index
   //     despite the canonical .gitignore block. Scoped to that block's enumerated
-  //     rules, so the tracked-by-default compiled guidance files and a user's own
+  //     rules, so the tracked-by-default compiled instruction files and a user's own
   //     files under a provider directory are never flagged.
   let trackedArtifactsDiag: Diagnostic | undefined;
   if (failedStage === null) {
@@ -607,23 +607,23 @@ async function runGate(
     }
   }
 
-  // 1c. Generated-artifacts currency — guidance (ADR 0034) — also runs FIRST, as a
+  // 1c. Generated-artifacts currency — instructions (ADR 0034) — also runs FIRST, as a
   //     fail-fast precondition beside the merge check (ADR 0056). Its verdict is
   //     invariant across the gate for the same reason the merge check's is: the gate
   //     never runs `discern refresh`, and its fix stage formats SOURCE code, never the
-  //     guidance sources or the agent files those checks read —
+  //     instruction sources or the agent files those checks read —
   //     so checking here gives the same answer as checking last, while skipping the
   //     slow build/check∥test/scope-gate sweep when the only problem is stale drift the
   //     agent must `discern refresh` and re-run to clear regardless. Block a STALE agent
   //     file only (a MISSING one is tolerated: a tree that has not built them yet, or a
   //     project that deliberately keeps them untracked — see ADR 0034/0128).
-  let guidanceDiag: Diagnostic | undefined;
+  let instructionDiag: Diagnostic | undefined;
   if (failedStage === null) {
-    const stale = (await checkGuidanceCurrent(root, cfg))
+    const stale = (await checkInstructionCurrent(root, cfg))
       .filter((d) => d.reason === "stale");
     if (stale.length > 0) {
-      failedStage = "guidance";
-      guidanceDiag = await guidanceDiagnostic(stale);
+      failedStage = "instructions";
+      instructionDiag = await instructionDiagnostic(stale);
     }
   }
 
@@ -703,7 +703,7 @@ async function runGate(
     }
   }
 
-  // 1d-sexies. Map & guidance integrity — the documentation agents and the
+  // 1d-sexies. Map & instructions integrity — the documentation agents and the
   //     published projections read must not reference things that do not exist:
   //     dead intra-map links and anchors, metadata blocks the lenient reader
   //     would swallow, fenced `discern` examples the current CLI rejects,
@@ -1032,8 +1032,8 @@ async function runGate(
       trackedArtifactsDiag,
     ];
   }
-  if (guidanceDiag !== undefined) {
-    result.diagnostics = [...(result.diagnostics ?? []), guidanceDiag];
+  if (instructionDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), instructionDiag];
   }
   if (skillsDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), skillsDiag];
@@ -1506,7 +1506,7 @@ export function renderGateStageGapNote(
 
 /**
  * Print the gate plan without running it (`--dry-run`): the leading fail-fast
- * preconditions (the merge check, tracked-artifacts guard, then the guidance/skills
+ * preconditions (the merge check, tracked-artifacts guard, then the instructions/skills
  * and complete tracked-refresh currency checks), the wired job groups, and the scope-gates selected for the
  * changed scopes. Honest — it lists "what would run"; it cannot predict which jobs
  * fail-fast would skip.

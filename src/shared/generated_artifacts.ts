@@ -5,14 +5,14 @@
  */
 
 import { type DiscernConfig, toCommand } from "./config_schema.ts";
-import { expandMapDirReference } from "./map_path.ts";
+import { expandSourcePathReferences } from "./source_path_references.ts";
 import { pathMatchesPattern } from "../engine/scopes/glob.ts";
 
 /** One generated-artifact group ready for gate, update, and doctor consumers. */
 export interface ResolvedGeneratedGroup {
   /** The `<name>` from `[generated.<name>]`. */
   readonly name: string;
-  /** Root-relative ownership globs, with `${map.dir}` expanded. */
+  /** Root-relative ownership globs, with live source-path references expanded. */
   readonly paths: readonly string[];
   /** The declared command list normalized to one shell command. */
   readonly run: string;
@@ -24,14 +24,12 @@ export interface ResolvedGeneratedGroup {
 
 /** Resolve every configured generated-artifact group. */
 export function resolveGeneratedGroups(
-  config: Pick<DiscernConfig, "generated" | "map">,
+  config: DiscernConfig,
 ): ResolvedGeneratedGroup[] {
   return Object.entries(config.generated).map(([name, group]) => ({
     name,
-    paths: group.paths.map((path) =>
-      expandMapDirReference(path, config.map.dir)
-    ),
-    run: toCommand(group.run),
+    paths: group.paths.map((path) => expandSourcePathReferences(path, config)),
+    run: expandSourcePathReferences(toCommand(group.run), config),
     linguistGenerated: group.linguist_generated,
     ...(group.timeout === undefined ? {} : { timeout: group.timeout }),
   }));

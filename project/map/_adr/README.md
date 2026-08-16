@@ -9,7 +9,7 @@ aliases:
 
 # Project decisions
 
-These dated records preserve the context and trade-offs behind discern's architecture. They are project history, not product guidance. Read [the manual](../README.md) for current behavior and instructions.
+These dated records preserve the context and trade-offs behind discern's architecture. They are project history, not product documentation. Read [the manual](../README.md) for current behavior and instructions.
 
 A record captures a significant choice, its context, and the rejected alternatives. Later architecture can supersede that choice without erasing the reasoning that led to it. Current records appear first. Retired records remain available and carry their status into the public decisions pages.
 
@@ -274,6 +274,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0282 — Self-invocations carry recorded provenance](0282-self-invocations-carry-recorded-provenance.md)
 - [0283 — Seed the adoption record in the shipped skeletons](0283-skeletons-seed-the-adoption-record.md)
 - [0284 — The practice canon enumerates the tenets](0284-the-practice-canon-enumerates-the-tenets.md)
+- [0285 — Agent instructions replace Guidance throughout the live product](0285-agent-instructions-replace-guidance.md)
+- [0286 — Configured source paths expose registry-derived live references](0286-configured-source-paths-expose-live-references.md)
 
 <!-- END GENERATED: current ADR records -->
 

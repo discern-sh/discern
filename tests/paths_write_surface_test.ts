@@ -69,7 +69,7 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   [
     "src/commands/setup.ts",
-    "setup: the guidance seed, the docs/TODO skeletons (registry-resolved), config provenance",
+    "setup: the instructions seed, the docs/TODO skeletons (registry-resolved), config provenance",
   ],
   [
     "src/commands/uninstall.ts",
@@ -81,7 +81,7 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   [
     "src/engine/tidy/tidy.ts",
-    "the configured map, guidance, TODO, and root discern.toml formatter",
+    "the configured map, instructions, TODO, and root discern.toml formatter",
   ],
   [
     "src/lib/migrations.ts",
@@ -89,8 +89,8 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   // provider-registry paths
   [
-    "src/engine/guidelines.ts",
-    "the agent files (provider registry guidance paths) and the maintained ADR index inside the configured map",
+    "src/engine/instructions.ts",
+    "the agent files (provider registry instructions paths) and the maintained ADR index inside the configured map",
   ],
   [
     "src/lib/providers.ts",
@@ -373,7 +373,7 @@ Deno.test("setup begin + refresh + upgrade write only inside the contract", asyn
     const before = await snapshotTree(dir);
 
     // The richest writing verb, for every agent the registry knows: seeds,
-    // skeletons, guidance seed, provider wiring, skills, agent files.
+    // skeletons, instructions seed, provider wiring, skills, agent files.
     let r = await runAgent(dir, [
       "setup",
       "begin",

@@ -971,7 +971,7 @@ Deno.test("map --export <configured scope> follows the scope's declared order", 
   await withTempDir(async (dir) => {
     await makeScopedDocsProject(
       dir,
-      '[scopes.canon]\npaths = ["${map.dir}00-intro/beta.md", "docs/README.md", "docs/00-intro/alpha.md"]\nneutral = true\n',
+      '[skills]\ndir = "docs/00-intro"\n[scopes.canon]\npaths = ["${skills.dir}/beta.md", "docs/README.md", "docs/00-intro/alpha.md"]\nneutral = true\n',
     );
 
     const { code, stdout, stderr } = await runCli(
@@ -1401,7 +1401,7 @@ Deno.test("map <ambiguous> without --json lists the candidates on stderr", async
     // Every subtree has a README → a bare "README" matches more than one.
     const { code, stdout, stderr } = await runCli(["map", "README"], dir);
     assertEquals(code, 1);
-    // The candidate list and guidance go to stderr, not stdout.
+    // The candidate list and instructions go to stderr, not stdout.
     assertStringIncludes(stderr, "matches");
     assertStringIncludes(stderr, "Qualify it");
     assertStringIncludes(stderr, "docs/README.md");

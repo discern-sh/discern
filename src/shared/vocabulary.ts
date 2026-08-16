@@ -24,6 +24,7 @@ export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
 
 /** Retired top-level config keys and the canonical key each names now. */
 export const RETIRED_CONFIG_KEY_REDIRECTS: Readonly<Record<string, string>> = {
+  guidance: "instructions",
   ratchets: "standards",
   docs: "map",
   recipes: "scripts",
@@ -37,7 +38,7 @@ export function retiredConfigKeySuccessor(key: string): string | undefined {
 }
 
 /** One retired config position that is DEAD — it is rejected during parsing,
- * and its guidance may name the canonical replacement — matched against a schema
+ * and its instructions may name the canonical replacement — matched against a schema
  * unrecognized-keys issue. */
 export interface DeadConfigPosition {
   /** Dotted parent path of the unrecognized key ("" is the document root). */

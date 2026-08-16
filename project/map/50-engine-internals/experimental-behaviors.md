@@ -15,7 +15,7 @@ Experimental behaviors are off unless their registered environment variable has 
 
 The registry in [`experimental.ts`](../../../src/shared/experimental.ts) owns every variable name and the activation rule. [`experimental_environment_enrolment_test.ts`](../../../tests/experimental_environment_enrolment_test.ts) scans authored TypeScript for the `DISCERN_EXPERIMENTAL_*` namespace and compares this page with the registry. A new variable therefore has to enter the registry and this reference together. The [canonical-set registry](../../../scripts/canonical_sets.ts) enrolls the set and its runtime guards.
 
-An experiment belongs here only while discern is gathering evidence about a narrow behavior. It does not belong in the config template, generated config schema, feature canon, public integration guide, or compiled agent guidance. Promotion to a supported feature requires its own stable configuration and documentation decision. Removal can delete the registry member, consumer, tests, and this row as one change.
+An experiment belongs here only while discern is gathering evidence about a narrow behavior. It does not belong in the config template, generated config schema, feature canon, public integration guide, or compiled agent instructions. Promotion to a supported feature requires its own stable configuration and documentation decision. Removal can delete the registry member, consumer, tests, and this row as one change.
 
 ## Current experiments
 

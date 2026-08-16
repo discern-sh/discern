@@ -26,7 +26,7 @@ import {
   HINTS,
   hintTexts,
 } from "../../shared/hints.ts";
-import { expandMapDirReference } from "../../shared/map_path.ts";
+import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 import type {
   Diagnostic,
   DiscernResult,
@@ -98,9 +98,9 @@ export interface GatePlan {
   /** The generated-artifacts currency check runs as a fail-fast precondition, beside
    * the merge check (ADR 0034, front-loaded by ADR 0056). Blocks on a STALE agent
    * file. Always true (the field gates its plan-listing, not its run). */
-  guidanceCheck: boolean;
+  instructionCheck: boolean;
   /** The materialized-skills currency check (ADR 0034, extended to skills). A
-   * fail-fast precondition like guidance; blocks on a STALE skills dir. Always true
+   * fail-fast precondition like instructions; blocks on a STALE skills dir. Always true
    * (the field gates its plan-listing, not its run). */
   skillsCheck: boolean;
   /** The complete tracked-refresh plan must be empty before and after gate jobs. */
@@ -141,9 +141,9 @@ export function planScopeGates(
 ): PlannedJob[] {
   const out: PlannedJob[] = [];
   for (const [scope, spec] of Object.entries(cfg.scopes)) {
-    const command = expandMapDirReference(
+    const command = expandSourcePathReferences(
       toCommand(spec.gate),
-      cfg.map.dir,
+      cfg,
     );
     if (command === "") {
       continue;
@@ -416,7 +416,7 @@ export function composeGatePlan(
       ? stageGroups
       : [...stageGroups, scopeGates],
     standardsLimitsCheck: true,
-    guidanceCheck: true,
+    instructionCheck: true,
     skillsCheck: true,
     trackedRefreshCheck: true,
     mergeCheck: true,
@@ -430,7 +430,7 @@ export function composeGatePlan(
  * classified by the caller — the only read-only I/O). Pure given those inputs, so
  * the whole "what would the gate run" decision is unit-testable without a
  * subprocess. Mirrors the gate's order: the leading fail-fast preconditions — the
- * merge check (ADR 0050), tracked-artifacts guard, then the guidance/skills
+ * merge check (ADR 0050), tracked-artifacts guard, then the instructions/skills
  * currency checks (ADR 0056) — then fix (serial) → build → check∥test →
  * scope-gates. Used by `--dry-run` (which
  * classifies scopes once, read-only); the apply path classifies scopes AFTER the
@@ -678,7 +678,7 @@ export async function buildGateResultWithHints(
 /**
  * Project a gate plan onto the common {@link EnginePlan} the shared renderer
  * prints. Leading `gate` steps stand for the fail-fast preconditions — the merge
- * check (ADR 0050), tracked-artifacts guard, then the guidance/skills and complete
+ * check (ADR 0050), tracked-artifacts guard, then the instructions/skills and complete
  * tracked-refresh currency checks — followed by each job grouped under its stage, a firing job
  * `run`, an unchanged scope gate `skip`. Honest by construction:
  * declared jobs render as "run" — fail-fast may still skip some, which a
@@ -713,10 +713,10 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
         "verify discern-managed ignored artifacts are not tracked by Git (`git rm --cached` if tracked)",
     });
   }
-  if (plan.guidanceCheck) {
+  if (plan.instructionCheck) {
     steps.push({
-      kind: "guidance-check",
-      label: BUILT_IN_STEP_LABELS.guidanceCheck,
+      kind: "instructions-check",
+      label: BUILT_IN_STEP_LABELS.instructionCheck,
       disposition: "gate",
       note:
         "verify the agent files match their sources (`discern refresh` if stale)",

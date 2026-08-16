@@ -32,7 +32,7 @@ These failures come from Git worktrees, parallel stages, build artifacts, and th
 
 **Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are usually agent files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized Skills, or machine-local provider state under `.claude/`.
 
-**Cause.** The file matches the discern-owned `.gitignore` block, but `git add -f` or an equivalent operation forced it into the index. The reviewable source is `project/guidance.md`, `[skills].dir`, or provider config. A generated or local artifact remains untracked even when its bytes are current.
+**Cause.** The file matches the discern-owned `.gitignore` block, but `git add -f` or an equivalent operation forced it into the index. The reviewable source is `project/instructions.md`, `[skills].dir`, or provider config. A generated or local artifact remains untracked even when its bytes are current.
 
 **Fix.** Remove it from the index without deleting the working-tree copy: `git rm -r --cached -- <path...>`. Then run `discern refresh` to rebuild any generated artifacts that are missing, commit the index change, and re-run `discern done`.
 

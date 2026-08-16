@@ -34,7 +34,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “discern installs an engineering practice into an agent-built project.”
-- **Mechanism:** setup studies the repository, learns human intent, wires project jobs, authors guidance and project knowledge, establishes worktree viability, and refuses completion until refresh, doctor, the full Gate, and a throwaway worktree probe pass. Ongoing guidance, Skills, worktrees, Standards, evidence, acceptance, and Patterns sustain the practice.
+- **Mechanism:** setup studies the repository, learns human intent, wires project jobs, authors instructions and project knowledge, establishes worktree viability, and refuses completion until refresh, doctor, the full Gate, and a throwaway worktree probe pass. Ongoing instructions, Skills, worktrees, Standards, evidence, acceptance, and Patterns sustain the practice.
 - **Conditions:** “Practice” names the connected product system. Installation alone does not establish cultural transformation.
 - **Forbidden inference:** setup makes every project professionally engineered without good repository evidence, a capable setup agent, or human decisions.
 - **Primary source:** setup brief; feature registry/canon.
@@ -48,11 +48,11 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Forbidden inference:** setup is instantaneous, requires no agent effort, or never asks the human a question.
 - **Primary source:** `discern setup begin` brief.
 
-### `one-guidance-source` — every configured provider receives the same project guidance
+### `one-instruction-source` — every configured provider receives the same project instructions
 
 - **Evidence:** structural
-- **Strongest supported public form:** “Write the project guidance once; discern compiles it for every configured coding-agent provider.”
-- **Mechanism:** one guidance source plus built-in guidance generates the provider instruction files; drift fails the Gate.
+- **Strongest supported public form:** “Write the project instructions once; discern compiles them for every configured coding-agent provider.”
+- **Mechanism:** one instruction source plus built-in instructions generates the provider instruction files; drift fails the Gate.
 - **Conditions:** applies to supported and configured providers; provider-specific capabilities still differ.
 - **Forbidden inference:** all providers behave identically or support identical integrations.
 - **Primary source:** feature registry/canon; config schema; glossary.
@@ -61,11 +61,11 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “Change coding agents without starting the project explanation over.”
-- **Mechanism:** project guidance, Skills, Map, Gate, Standards, and worktree practice remain project-owned.
+- **Mechanism:** project instructions, Skills, Map, Gate, Standards, and worktree practice remain project-owned.
 - **Conditions:** the target provider must be supported and configured; active sessions may require restart or MCP reload.
 - **Forbidden inference:** every provider can resume identical hidden conversational state or proprietary provider features.
 - **Current tactical use case:** quota and subscription-capacity juggling.
-- **Primary source:** provider guidance registry; setup and refresh behavior.
+- **Primary source:** provider instructions registry; setup and refresh behavior.
 
 ### `shaped-delegation` — substantial delegated work can be shaped into parallel or staged programs
 
@@ -80,11 +80,11 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 - **Evidence:** demonstrated / observational
 - **Strongest supported public form:** “discern is designed to reduce the amount of implementation a person must inspect line by line, allowing attention to move toward outcomes, exceptions, and the decision to ship.”
-- **Mechanism:** project guidance, independent agent review, deterministic checks, exact-tree evidence, Standards, and authority boundaries.
+- **Mechanism:** project instructions, independent agent review, deterministic checks, exact-tree evidence, Standards, and authority boundaries.
 - **Conditions:** appropriate review depth depends on project risk, change type, test quality, and the person's confidence in the configured practice.
 - **Forbidden inference:** no human ever needs to inspect code, the product guarantees correctness, or passing evidence replaces exercising the real artifact.
 - **Evidence note:** founder dogfooding supports the intended outcome; external validation remains limited.
-- **Primary source:** founder account; Gate guidance; Delegate Work Skill; current practice evidence.
+- **Primary source:** founder account; Gate instructions; Delegate Work Skill; current practice evidence.
 
 ### `isolated-worktrees` — each task receives an isolated worktree and declared resources
 
@@ -172,7 +172,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Evidence:** structural
 - **Strongest supported public form:** “All project-specific discern settings live in one root `discern.toml` file.”
 - **Mechanism:** config schema; other surfaces are bundled, pointed to, authored, shared, or generated.
-- **Forbidden inference:** discern touches only one tracked file, or the project contains no guidance, Map, agent files, Skills, or integration files.
+- **Forbidden inference:** discern touches only one tracked file, or the project contains no instructions, Map, agent files, Skills, or integration files.
 - **Primary source:** config reference; one-file-settings tip.
 
 ### `setup-proves-worktree` — setup proves the project runs in a worktree
@@ -196,7 +196,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 - **Evidence:** structural
 - **Strongest supported public form:** “discern's interaction design treats the coding agent as its principal day-to-day operator.”
-- **Mechanism:** typed MCP tools, one result envelope, context bounds, relevant hints, self-checking verbs, explicit next actions, provider guidance, and relay-safe prose.
+- **Mechanism:** typed MCP tools, one result envelope, context bounds, relevant hints, self-checking verbs, explicit next actions, provider instructions, and relay-safe prose.
 - **Forbidden inference:** humans are secondary in authority, or discern itself is an agent.
 - **Primary source:** Foundations; interfaces; hint audience registry.
 

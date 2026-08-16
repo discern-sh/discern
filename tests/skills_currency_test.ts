@@ -1,6 +1,6 @@
 /**
  * Currency check for materialized skills (`checkSkillsCurrent`) — the stateless
- * skills analog of `checkGuidanceCurrent` (ADR 0034). These drive the check against
+ * skills analog of `checkInstructionCurrent` (ADR 0034). These drive the check against
  * REAL bundled skills materialized into a temp dir, then mutate the materialized
  * state and assert the drift is classified the way the gate consumes it: `stale`
  * blocks `done`, `missing`/`foreign` do not.
@@ -160,7 +160,7 @@ Deno.test("repointing a path key makes materialized skills `stale` until re-mate
 
     // Repoint the map tree: the rendered prose changes, so the materialized
     // copies must read as stale — the refresh-after-reconfigure contract
-    // guidance already has.
+    // instructions already have.
     const repointed = cfg('[map]\ndir = "zz-atlas/"\n');
     const drift = await checkSkillsCurrent(root, repointed);
     assert(

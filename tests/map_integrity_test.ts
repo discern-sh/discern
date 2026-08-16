@@ -1,11 +1,11 @@
 /**
- * Map & guidance integrity — the SHIPPED preflight core applied to this
+ * Map & instructions integrity — the SHIPPED preflight core applied to this
  * repository, plus proof each rule bites.
  *
  * The application logic lives in src/lib/map_integrity.ts and runs inside
  * every project's gate; these tests are a thin layer over that one core:
  *
- *  1. the LIVE-CORPUS run — this repo's configured map and guidance sources
+ *  1. the LIVE-CORPUS run — this repo's configured map and instruction sources
  *     must be clean, exactly as `discern done` will demand of any project;
  *  2. per-rule BITE proofs over scaffolded fixture projects, including the
  *     deliberate escapes (root-relative links, `publish: false`, non-exact
@@ -36,7 +36,7 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const model = cliCommandModel(buildCli(false) as unknown as Command);
 
-Deno.test("the live corpus is clean: this repo's map and guidance pass the shipped preflight", async () => {
+Deno.test("the live corpus is clean: this repo's map and instructions pass the shipped preflight", async () => {
   const findings = await checkDocsIntegrity(
     REPO_ROOT,
     await loadConfig(REPO_ROOT),
@@ -45,7 +45,7 @@ Deno.test("the live corpus is clean: this repo's map and guidance pass the shipp
   assertEquals(
     findings.map((f) => `${f.file}:${f.line} [${f.rule}] ${f.detail}`),
     [],
-    "the map and guidance must satisfy the same integrity preflight every " +
+    "the map and instructions must satisfy the same integrity preflight every " +
       "project's gate runs — fix the reference (or the registry it names)",
   );
 });
@@ -233,11 +233,11 @@ Deno.test("bites: a citation of a missing or excluded skill fails; non-citation 
   assertEquals(spellings, []);
 });
 
-Deno.test("bites: guidance sources get the command and citation checks, nothing page-shaped", async () => {
-  const guidance = SOURCE_PATHS.guidance.defaultPath;
+Deno.test("bites: instruction sources get the command and citation checks, nothing page-shaped", async () => {
+  const instructions = SOURCE_PATHS.instructions.defaultPath;
   const findings = await fixtureFindings({
-    [guidance]: [
-      "---", // an unterminated fence — guidance is prose, not a map page,
+    [instructions]: [
+      "---", // an unterminated fence — instructions are prose, not a map page,
       "so this must NOT be read as a broken metadata block.",
       "",
       "Run:",
@@ -254,11 +254,11 @@ Deno.test("bites: guidance sources get the command and citation checks, nothing 
   assertEquals(ruleFindings(findings, "skill-citation").length, 1);
   assertEquals(findings.length, 2, JSON.stringify(findings));
   assert(
-    findings.every((f) => f.file === guidance),
-    "guidance findings must name the source file",
+    findings.every((f) => f.file === instructions),
+    "instructions findings must name the source file",
   );
 });
 
-Deno.test("a project with no map and no guidance has nothing to check", async () => {
+Deno.test("a project with no map and no instructions has nothing to check", async () => {
   assertEquals(await fixtureFindings({}), []);
 });

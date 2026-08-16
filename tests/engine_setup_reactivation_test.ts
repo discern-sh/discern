@@ -2,7 +2,7 @@
  * Setup reactivation × provider-registry coverage (ADR 0075/0051) — the forcing
  * function that keeps the setup-completion handoff in step with every vendor's wiring.
  *
- * The reactivation guidance `discern setup done` prints is DERIVED from each provider's
+ * The reactivation message `discern setup done` prints is DERIVED from each provider's
  * setup surface — its live MCP server, session hooks, project rules, one-time trust gate,
  * and human-facing setup advice. So a new vendor's reactivation behaviour follows from
  * its declaration the moment it lands in `PROVIDERS`, with no hand-maintained list. This
@@ -46,7 +46,7 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
       assert(
         provider.humanSetupAdvice.humanOnlyTopics.length > 0,
         `"${name}" declares human setup advice without naming the human-only ` +
-          "topics generic agent guidance must exclude",
+          "topics generic agent instructions must exclude",
       );
       for (const topic of provider.humanSetupAdvice.humanOnlyTopics) {
         assert(

@@ -240,8 +240,79 @@ Deno.test("requested documentation remains intact in the Markdown projection", (
   assertStringIncludes(rendered, "### Requested document");
 });
 
+Deno.test("Markdown preserves whitespace-significant supporting payloads", () => {
+  const payload = "  future sibling\ntrailing  ";
+  const cases = [
+    {
+      label: "future presenter",
+      rendered: renderResultMarkdown(
+        { ok: true, verb: "future" },
+        () => ({
+          state: "Future result.",
+          supportingMarkdown: [payload],
+        }),
+      ),
+      expected: `## Evidence\n\n${payload}\n`,
+    },
+    {
+      label: "diagnostic output",
+      rendered: renderResultMarkdown(
+        {
+          ok: false,
+          verb: "future",
+          diagnostics: [{
+            tool: "future-check",
+            message: "Future failure.",
+            output: payload,
+          }],
+        },
+        resultPresenterForVerb("future"),
+      ),
+      expected: `\`\`\`text\n${payload}\n\`\`\``,
+    },
+    ...([
+      ["setup", "Setup instructions"],
+      ["setup verify", "Consent instructions"],
+      ["setup step", "Step instructions"],
+      ["setup done", "Completion instructions"],
+    ] as const).map(([verb, heading]) => ({
+      label: `${verb} instructions`,
+      rendered: renderResultMarkdown(
+        { ok: true, verb, data: { instructions: payload } },
+        resultPresenterForVerb(verb),
+      ),
+      expected: `### ${heading}\n\n${payload}`,
+    })),
+    {
+      label: "terminal art",
+      rendered: renderResultMarkdown(
+        { ok: true, verb: "triangle", data: { mark: "mark", art: payload } },
+        resultPresenterForVerb("triangle"),
+      ),
+      expected: `\`\`\`text\n${payload}\n\`\`\``,
+    },
+    {
+      label: "requested document",
+      rendered: renderResultMarkdown(
+        {
+          ok: true,
+          verb: "docs",
+          data: { doc: { title: "Future document", content: payload } },
+        },
+        resultPresenterForVerb("docs"),
+      ),
+      expected: `### Requested document\n\n${payload}`,
+    },
+  ];
+
+  const failures = cases.flatMap(({ label, rendered, expected }) =>
+    rendered.includes(expected) ? [] : [label]
+  );
+  assertEquals(failures, []);
+});
+
 Deno.test("setup consent keeps the consent exchange ahead of its confirmed command", () => {
-  const guidance = "Ask the owner which checks must block completion.";
+  const instructions = "Ask the owner which checks must block completion.";
   const command = confirmedBeginCommand();
   const consent = fire(HINTS["setup-awaiting-confirmation"], {
     command: confirmedBeginCommandReference(),
@@ -252,13 +323,13 @@ Deno.test("setup consent keeps the consent exchange ahead of its confirmed comma
       verb: "setup",
       error: "awaiting_consent",
       message: "Setup needs the owner's consent before it writes anything.",
-      data: { guidance, command },
+      data: { instructions, command },
       hints: hintTexts([consent]),
     },
     resultPresenterForVerb("setup"),
   );
 
-  assertStringIncludes(rendered, guidance);
+  assertStringIncludes(rendered, instructions);
   assertStringIncludes(rendered, `then run \`${command}\``);
   assert(
     rendered.trimEnd().endsWith(consent.text),

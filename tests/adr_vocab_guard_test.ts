@@ -218,7 +218,7 @@ Deno.test("adr guard: the seeded record may cite its own number, nothing else, n
     ["ADR 0034"],
   );
   assertEquals(
-    shippedOffendersIn("templates/guidance/base.md", "see ADR 0001"),
+    shippedOffendersIn("templates/instructions/base.md", "see ADR 0001"),
     ["ADR 0001"],
   );
   // The seeded record's path is referenceable anywhere; other numbers stay leaks.

@@ -72,7 +72,7 @@ import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { stripAdrCitations } from "../lib/adr_citations.ts";
 import { pathMatchesPattern } from "../engine/scopes/glob.ts";
 import { loadConfig } from "../shared/config_schema.ts";
-import { expandMapDirReference } from "../shared/map_path.ts";
+import { expandSourcePathReferences } from "../shared/source_path_references.ts";
 import { observeVerbTarget } from "../shared/result_capture.ts";
 import {
   DOCS_ADR_DOC_DIR,
@@ -154,7 +154,8 @@ interface ExportUnknown {
 
 /**
  * The project's configured `[scopes.<name>]` tables as export candidates:
- * scope name → its `paths` with `${map.dir}` expanded. Read best-effort — no
+ * scope name → its `paths` with live source-path references expanded. Read
+ * best-effort — no
  * project root, or a missing/invalid discern.toml, leaves only the built-in
  * export scopes rather than failing a browse-adjacent command.
  */
@@ -168,7 +169,7 @@ async function configuredExportScopes(
     return new Map(
       Object.entries(config.scopes).map(([name, scope]) => [
         name,
-        scope.paths.map((path) => expandMapDirReference(path, config.map.dir)),
+        scope.paths.map((path) => expandSourcePathReferences(path, config)),
       ]),
     );
   } catch {
@@ -493,7 +494,7 @@ async function indexData(
   };
 }
 
-/** Compact names for nearest-match guidance. Each label leads with the
+/** Compact names for nearest-match instructions. Each label leads with the
  * canonical target so retrying the suggestion verbatim resolves — a bare slug
  * would refuse for a buried entry (`_adr/…`) whose section is the opt-in. */
 function suggestionLabels(suggestions: readonly DocEntry[]): string[] {

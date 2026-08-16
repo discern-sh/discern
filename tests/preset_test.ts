@@ -58,9 +58,9 @@ Deno.test("preset overlays the example preset's files and config fills", async (
     assertEquals(result.verb, "preset");
     assertEquals(result.data.config_fills, true);
 
-    // Files overlaid: a project script, a guideline fragment, a managed skill.
+    // Files overlaid: a project script, a instruction fragment, a managed skill.
     assert(await exists(join(dir, "discern/scripts/example-deploy")));
-    assert(await exists(join(dir, "discern/guidance.md")));
+    assert(await exists(join(dir, "discern/instructions.md")));
     assert(await exists(join(dir, "discern/skills/example-skill/SKILL.md")));
     // The overlaid project script kept its exec bit.
     const scriptInfo = await Deno.stat(

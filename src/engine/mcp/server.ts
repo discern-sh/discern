@@ -94,9 +94,9 @@ import {
   loadConfig,
 } from "../../shared/config_schema.ts";
 import {
-  type GuidanceContext,
-  renderGuidanceTemplate,
-} from "../guidance_template.ts";
+  type InstructionContext,
+  renderInstructionTemplate,
+} from "../instruction_template.ts";
 import {
   NOT_SET_UP_MESSAGE,
   verbNeedsSetup,
@@ -113,7 +113,7 @@ import { couplingResult } from "../coupling/coupling.ts";
 import { awaitResult } from "../await/await.ts";
 import { patternsResult } from "../logbook/patterns.ts";
 import { statusResult } from "../status/status.ts";
-import { refreshResult } from "../guidelines.ts";
+import { refreshResult } from "../instructions.ts";
 import { doctorResult } from "../../commands/doctor.ts";
 import { docsResult, mapResult } from "../../commands/docs.ts";
 import {
@@ -430,7 +430,7 @@ export const TOOLS: McpTool[] = orderTools([
       "integration artifacts, and the maintained ADR index (the record lists " +
       "between markers in the map's ADR README, regenerated from the record " +
       "files on disk). It rewrites discern-generated or co-managed artifacts " +
-      "only; edit guidance sources, skill sources, or explicit provider config for " +
+      "only; edit instruction sources, skill sources, or explicit provider config for " +
       "durable changes. Idempotent: a second call with the same inputs writes nothing. " +
       "Use discern_update for this branch; use `discern upgrade` for discern itself.",
     inputSchema: { ...PATH_PARAM },
@@ -881,7 +881,7 @@ export const TOOLS: McpTool[] = orderTools([
       "now-merged branch. Before the fast-forward it verifies that the current " +
       "tracked refresh plan is empty, even when an older gate proof is honored. " +
       "After the fast-forward it materializes only checkout-local Agent artifacts; " +
-      "tracked guidance and provider integrations must already be committed on the " +
+      "tracked instructions and provider integrations must already be committed on the " +
       "branch. This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
       "message first so it lands as a proper review commit. After a green landing, " +
@@ -1243,7 +1243,7 @@ async function startToolResult(
  * the trunk while the gate runs in the worktree, so the two diverge. Written for the
  * _class_ — an agent that cannot change its working root — not per vendor: re-root
  * if you can, else prefix shell commands with `cd <path> &&` and pass `path` to
- * every discern tool. The same pattern the compiled guidance teaches; keep them
+ * every discern tool. The same pattern the compiled instructions teaches; keep them
  * aligned (`version_check.ts` sibling aside, this is the one hint the two surfaces
  * share). Exported so the parity guard can hold it to that shared wording.
  */
@@ -1733,12 +1733,12 @@ async function resolveServerConfig(
  * The template context the MCP agent-facing text renders against — the
  * `discern.toml`-configurable values its tool descriptions, titles, and instructions
  * may name, so a project that customised one reads its real value rather than
- * discern's default. The MCP sibling of `guidanceContext` (`guidance_render.ts`):
+ * discern's default. The MCP sibling of `instructionContext` (`instruction_render.ts`):
  * the SAME `{{var}}` engine, a different surface. PURE function of config. Keep it
  * minimal — add a var only when a description/instruction actually interpolates it;
  * every exposed var is held to that by the surface guard (`engine_mcp_surface_test`).
  */
-export function mcpContext(config: DiscernConfig): GuidanceContext {
+export function mcpContext(config: DiscernConfig): InstructionContext {
   return {
     vars: {
       main_branch: config.repository.trunk,
@@ -1756,7 +1756,7 @@ export function mcpContext(config: DiscernConfig): GuidanceContext {
  * engine's strictness — a typo'd token fails loudly, never reaches the wire blank).
  */
 export function renderMcpText(text: string, config: DiscernConfig): string {
-  return renderGuidanceTemplate(text, mcpContext(config));
+  return renderInstructionTemplate(text, mcpContext(config));
 }
 
 // ── resources (readable context, paired with the tools; ADR 0041) ────────────

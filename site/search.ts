@@ -26,7 +26,7 @@ export {
 /** The whole client-side index. No query or usage data travels the other way. */
 export type ReadSearchSource = (path: string) => Promise<string>;
 
-/** Decision records are history, not launch-search product guidance. */
+/** Decision records are history, not launch-search product documentation. */
 export function isSearchableSource(source: SearchSource): boolean {
   return isPublicDoc(source.entry) && source.entry.section !== "_adr";
 }

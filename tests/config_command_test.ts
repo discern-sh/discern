@@ -163,8 +163,8 @@ Deno.test("config set redirects the retired standards key to its successor", asy
   await withTempDir(async (dir) => {
     await setup(dir);
     const before = await readToml(dir);
-    const retired = Object.keys(RETIRED_CONFIG_KEY_REDIRECTS)[0];
-    assert(retired !== undefined);
+    const retired = "ratchets";
+    assertEquals(RETIRED_CONFIG_KEY_REDIRECTS[retired], "standards");
     const result = await runCli(
       ["config", "set", `${retired}.coverage.limit`, "80", "--json"],
       dir,

@@ -25,7 +25,7 @@
  * content.
  *
  * What it keeps: `discern.toml`, and every path in the `discern/` namespace
- * (guidance, the map, authored skills, project scripts, the ledger, the brief) — plain
+ * (instructions, the map, authored skills, project scripts, the ledger, the brief) — plain
  * files at paths the user chose or accepted, valuable without the tool. It ends
  * by listing what stayed and the one line to remove the binary.
  *
@@ -46,7 +46,7 @@ import {
 } from "../shared/config_schema.ts";
 import {
   resolveBriefPath,
-  resolveGuidanceSeedRel,
+  resolveInstructionSeedRel,
   resolveMapDir,
   resolveScriptsDir,
   resolveSkillsDir,
@@ -54,7 +54,7 @@ import {
   resolveTodoPath,
 } from "../lib/paths.ts";
 import {
-  allGuidanceFilePaths,
+  allInstructionFilePaths,
   allSkillsDirs,
   PROVIDERS,
   stripDiscernFromCodexConfig,
@@ -260,11 +260,11 @@ async function computeUninstallPlan(
     plan.emptyDirCandidates.add(dirname(rel));
   };
 
-  // 1. Generated agent guidance files (regenerable; tracked copies land in the
+  // 1. Generated agent instruction files (regenerable; tracked copies land in the
   //    user's removal commit).
-  for (const rel of allGuidanceFilePaths()) {
+  for (const rel of allInstructionFilePaths()) {
     if (await pathExists(abs(rel))) {
-      noteDelete(rel, false, "generated agent guidance file");
+      noteDelete(rel, false, "generated agent instruction file");
     }
   }
   // 2. Materialized skills directories (gitignored, regenerable).
@@ -414,7 +414,10 @@ async function computeUninstallPlan(
       plan.kept.push({ rel, why });
     }
   };
-  await keepIfExists(resolveGuidanceSeedRel(config), "your guidance source");
+  await keepIfExists(
+    resolveInstructionSeedRel(config),
+    "your instruction source",
+  );
   await keepIfExists(resolveMapDir(root, config).rel, "the project map");
   await keepIfExists(
     resolveSkillsDir(root, config).rel,

@@ -30,7 +30,7 @@ The agent attests that consent happened when it begins. A fresh interactive setu
 
 ## Setup builds on its own branch
 
-`discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent first wires the project's real format, lint, build, typecheck, test, and smoke commands into `discern.toml`. It then fills the project guidance and initial map pages while those checks are live, including the seeded record of the adoption decision.
+`discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent first wires the project's real format, lint, build, typecheck, test, and smoke commands into `discern.toml`. It then fills the project instructions and initial map pages while those checks are live, including the seeded record of the adoption decision.
 
 discern commits the wiring it scaffolds before the handoff and the completion marker after setup passes. Those machine-composed commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. The agent's authoring commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
 
@@ -38,7 +38,7 @@ Watch the branch rather than the main checkout. The agent makes small authoring 
 
 ## Setup verifies the checkout can reproduce
 
-When the authored files are committed, the agent runs `discern setup done`. That command refreshes generated guidance and Skills, runs `discern doctor`, runs the full Gate, and repeats the Gate in a temporary worktree created from the same committed setup branch ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)).
+When the authored files are committed, the agent runs `discern setup done`. That command refreshes generated instructions and Skills, runs `discern doctor`, runs the full Gate, and repeats the Gate in a temporary worktree created from the same committed setup branch ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)).
 
 A failure result includes the failed command and output. A pass records setup as complete and gives you the next actions:
 

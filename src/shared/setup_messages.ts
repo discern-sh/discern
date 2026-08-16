@@ -18,7 +18,7 @@
  * its own list item (or the headline), one thought apiece.
  *
  * Each builder returns ONE plain prose string carried verbatim in every result
- * representation (including the structured `guidance` field and the
+ * representation (including the structured `instructions` field and the
  * `awaiting_consent` refusal). It is
  * never decomposed into structured fields — ADR 0078's two-lane finding is that
  * field-ized behavioral instructions get summarized and weakened; only prose is
@@ -195,8 +195,8 @@ export function consentMessage(ctx: ConsentContext): string {
   const command = confirmedBeginCommand();
 
   const plan = gitRepo
-    ? "The plan: I'll study the repo, come back with one short batch of questions, author the project's map and guidance, wire up the quality checks, and prove it green."
-    : "The plan: I'll initialize git first (`git init` — the safety net below needs it), then study the project, come back with one short batch of questions, author the project's map and guidance, wire up the quality checks, and prove it green.";
+    ? "The plan: I'll study the repo, come back with one short batch of questions, author the project's map and instructions, wire up the quality checks, and prove it green."
+    : "The plan: I'll initialize git first (`git init` — the safety net below needs it), then study the project, come back with one short batch of questions, author the project's map and instructions, wire up the quality checks, and prove it green.";
   const safety = gitRepo
     ? "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch (or later with `discern uninstall`), and there's no API key or outside service."
     : "It's safe and reversible: once git is initialized I work on a dedicated `discern-setup` branch, you can undo it all by deleting that branch (or later with `discern uninstall`), and there's no API key or outside service.";

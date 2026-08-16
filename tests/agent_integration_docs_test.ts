@@ -31,7 +31,7 @@ import {
 /** The IDE-first agents (read the canonical file, emit no vendor file). */
 function reuseCanonicalAgents(): readonly string[] {
   return AGENT_NAMES.filter(
-    (n) => providerFor(n)?.guidanceFile.reuseCanonical === true,
+    (n) => providerFor(n)?.instructionFile.reuseCanonical === true,
   );
 }
 

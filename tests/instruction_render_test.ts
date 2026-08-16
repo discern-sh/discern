@@ -1,25 +1,25 @@
 /**
- * The pure guidance renderer + currency check (ADR 0034). `renderAgentFiles` is
- * the single source the writer (`compileGuidelines`) and the checker
- * (`checkGuidanceCurrent`) share, so the check agrees with what `discern refresh`
+ * The pure instruction renderer + currency check (ADR 0034). `renderAgentFiles` is
+ * the single source the writer (`compileInstructions`) and the checker
+ * (`checkInstructionCurrent`) share, so the check agrees with what `discern refresh`
  * writes by construction. Fast: no subprocess.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { compileGuidelines } from "../src/engine/guidelines.ts";
+import { compileInstructions } from "../src/engine/instructions.ts";
 import {
   agentFileOwnershipPatterns,
-  checkGuidanceCurrent,
-  guidanceContext,
-  matchesGuidanceOwnership,
+  checkInstructionCurrent,
+  instructionContext,
+  matchesInstructionOwnership,
   renderAgentFiles,
-} from "../src/engine/guidance_render.ts";
+} from "../src/engine/instruction_render.ts";
 import { providerFor } from "../src/lib/providers.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
 import { defaultMapPath } from "./engine_helpers.ts";
 
-/** A temp project emitting both providers, with one user guidance source. */
+/** A temp project emitting both providers, with one user instruction source. */
 async function scaffold(
   agents = '["claude_code", "codex"]',
 ): Promise<string> {
@@ -29,12 +29,12 @@ async function scaffold(
     [
       "[project]",
       `agents = ${agents}`,
-      "[guidance]",
-      'sources = ["guidance.md"]',
+      "[instructions]",
+      'sources = ["instructions.md"]',
       "",
     ].join("\n"),
   );
-  await Deno.writeTextFile(join(tmp, "guidance.md"), "# Mine\nA rule.\n");
+  await Deno.writeTextFile(join(tmp, "instructions.md"), "# Mine\nA rule.\n");
   return tmp;
 }
 
@@ -47,12 +47,12 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
     assert(agents !== undefined);
     assert(
       agents.startsWith("# Working in this project"),
-      "the canonical file opens with the guidance — no banner",
+      "the canonical file opens with the instructions — no banner",
     );
     assertStringIncludes(
       agents,
       "\n---\n\n# Mine\nA rule.\n",
-      "the shipped guidance and user guidance are separated by one Markdown rule",
+      "the shipped instructions and user instructions are separated by one Markdown rule",
     );
     assert(agents.includes("A rule."), "the user source is appended");
     assertEquals(files.get("CLAUDE.md"), "@AGENTS.md\n");
@@ -72,7 +72,7 @@ Deno.test("renderAgentFiles: Cursor configuration does not change the generic wo
     assertStringIncludes(agents, "Can't change your working root?");
     assert(
       !/(external file protection|approval-gates external edits)/i.test(agents),
-      "compiled guidance must not condition an agent on Cursor's human-visible approval state",
+      "compiled instructions must not condition an agent on Cursor's human-visible approval state",
     );
   } finally {
     await Deno.remove(dir, { recursive: true });
@@ -84,7 +84,7 @@ Deno.test("renderAgentFiles: the compiled file opens as the project's own — [p
   try {
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
-      '[project]\nslug = "voyager-2"\nagents = ["codex"]\n[guidance]\nsources = ["guidance.md"]\n',
+      '[project]\nslug = "voyager-2"\nagents = ["codex"]\n[instructions]\nsources = ["instructions.md"]\n',
     );
     let files = await renderAgentFiles(dir);
     let agents = files.get("AGENTS.md");
@@ -96,7 +96,7 @@ Deno.test("renderAgentFiles: the compiled file opens as the project's own — [p
 
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
-      '[project]\nname = "Voyager 2"\nslug = "voyager-2"\nagents = ["codex"]\n[guidance]\nsources = ["guidance.md"]\n',
+      '[project]\nname = "Voyager 2"\nslug = "voyager-2"\nagents = ["codex"]\n[instructions]\nsources = ["instructions.md"]\n',
     );
     files = await renderAgentFiles(dir);
     agents = files.get("AGENTS.md");
@@ -112,7 +112,7 @@ Deno.test("renderAgentFiles: the compiled file opens as the project's own — [p
 
 Deno.test("renderAgentFiles: every reuse-canonical agent configured alone emits the canonical it reads", async () => {
   const reuseAgents = AGENT_NAMES.filter((name) =>
-    providerFor(name)?.guidanceFile.reuseCanonical === true
+    providerFor(name)?.instructionFile.reuseCanonical === true
   );
   assert(
     reuseAgents.length > 0,
@@ -124,18 +124,18 @@ Deno.test("renderAgentFiles: every reuse-canonical agent configured alone emits 
     try {
       const provider = providerFor(name);
       assert(provider !== undefined);
-      const gf = provider.guidanceFile;
+      const gf = provider.instructionFile;
       const files = await renderAgentFiles(dir);
       assertEquals(
         [...files.keys()],
         [gf.path],
-        `${name} must render the canonical guidance file it reads`,
+        `${name} must render the canonical instruction file it reads`,
       );
       const body = files.get(gf.path);
       assert(body !== undefined);
       assert(
         body.includes("A rule."),
-        `${name} canonical guidance should carry the compiled body`,
+        `${name} canonical instructions should carry the compiled body`,
       );
     } finally {
       await Deno.remove(dir, { recursive: true });
@@ -161,18 +161,18 @@ Deno.test("renderAgentFiles: internal map slots never reach provider output", as
   }
 });
 
-Deno.test("checkGuidanceCurrent: clean after a compile; flags a hand-edit stale and a delete missing", async () => {
+Deno.test("checkInstructionCurrent: clean after a compile; flags a hand-edit stale and a delete missing", async () => {
   const dir = await scaffold();
   try {
-    await compileGuidelines(dir);
+    await compileInstructions(dir);
     // Freshly compiled → everything matches what refresh would write.
-    assertEquals(await checkGuidanceCurrent(dir), []);
+    assertEquals(await checkInstructionCurrent(dir), []);
 
     // Hand-edit AGENTS.md → stale, carrying both expected and actual (for a diff).
     const agentsPath = join(dir, "AGENTS.md");
     const original = await Deno.readTextFile(agentsPath);
     await Deno.writeTextFile(agentsPath, `${original}\nstray edit\n`);
-    const afterEdit = await checkGuidanceCurrent(dir);
+    const afterEdit = await checkInstructionCurrent(dir);
     assertEquals(afterEdit.length, 1);
     const stale = afterEdit[0];
     assert(stale !== undefined);
@@ -184,7 +184,7 @@ Deno.test("checkGuidanceCurrent: clean after a compile; flags a hand-edit stale 
     // deliberately-untracked tree — tolerated, never blocking).
     await Deno.writeTextFile(agentsPath, original);
     await Deno.remove(join(dir, "CLAUDE.md"));
-    const afterDelete = await checkGuidanceCurrent(dir);
+    const afterDelete = await checkInstructionCurrent(dir);
     assertEquals(afterDelete.length, 1);
     const missing = afterDelete[0];
     assert(missing !== undefined);
@@ -194,7 +194,7 @@ Deno.test("checkGuidanceCurrent: clean after a compile; flags a hand-edit stale 
   }
 });
 
-Deno.test("compile converges when [guidance].sources globs the generated files' location", async () => {
+Deno.test("compile converges when [instructions].sources globs the generated files' location", async () => {
   // sources = ["*.md"] matches the root-level markdown the user meant — AND the
   // AGENTS.md/CLAUDE.md the compiler itself writes there. The outputs must be
   // excluded from source resolution: otherwise each refresh embeds the previous
@@ -208,19 +208,19 @@ Deno.test("compile converges when [guidance].sources globs the generated files' 
       [
         "[project]",
         'agents = ["claude_code", "codex"]',
-        "[guidance]",
+        "[instructions]",
         'sources = ["*.md"]',
         "",
       ].join("\n"),
     );
-    await Deno.writeTextFile(join(dir, "guidance.md"), "# Mine\nA rule.\n");
+    await Deno.writeTextFile(join(dir, "instructions.md"), "# Mine\nA rule.\n");
 
-    await compileGuidelines(dir);
+    await compileInstructions(dir);
     const first = await Deno.readTextFile(join(dir, "AGENTS.md"));
     // Current immediately after a refresh — the self-defeating loop is the bug.
-    assertEquals(await checkGuidanceCurrent(dir), []);
+    assertEquals(await checkInstructionCurrent(dir), []);
 
-    await compileGuidelines(dir);
+    await compileInstructions(dir);
     const second = await Deno.readTextFile(join(dir, "AGENTS.md"));
     assertEquals(second, first, "consecutive refreshes must be byte-identical");
   } finally {
@@ -267,7 +267,7 @@ Deno.test("renderAgentFiles: map regions enroll automatically without leaf churn
     assertEquals(
       (await renderAgentFiles(dir)).get("AGENTS.md"),
       first,
-      "adding a leaf inside an existing region must not churn agent guidance",
+      "adding a leaf inside an existing region must not churn agent instructions",
     );
 
     await Deno.mkdir(defaultMapPath(dir, "30-worktrees"), {
@@ -280,34 +280,37 @@ Deno.test("renderAgentFiles: map regions enroll automatically without leaf churn
     const expanded = (await renderAgentFiles(dir)).get("AGENTS.md");
     assert(expanded !== undefined);
     assertStringIncludes(expanded, "`30-worktrees` — Worktrees");
-    assert(expanded !== first, "a new top-level region must refresh guidance");
+    assert(
+      expanded !== first,
+      "a new top-level region must refresh instructions",
+    );
     const config = await loadConfig(dir);
     const provider = providerFor("codex");
     assert(provider !== undefined);
     const patterns = await agentFileOwnershipPatterns(
       dir,
       config,
-      [provider.guidanceFile],
+      [provider.instructionFile],
     );
     assert(
-      patterns.some((pattern) => matchesGuidanceOwnership(pattern, first)),
+      patterns.some((pattern) => matchesInstructionOwnership(pattern, first)),
       "ownership comparison accepts an older generated region payload",
     );
     assert(
       !patterns.some((pattern) =>
-        matchesGuidanceOwnership(
+        matchesInstructionOwnership(
           pattern,
           first.replace("# Mine", "# Changed"),
         )
       ),
-      "authored guidance outside the owned slot must remain significant",
+      "authored instructions outside the owned slot must remain significant",
     );
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
 });
 
-Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolation is real, not cosmetic)", async () => {
+Deno.test("renderAgentFiles: the built-in instructions reflect config (interpolation is real, not cosmetic)", async () => {
   // Bare = schema defaults (branch_prefix agent/, trunk main, no standards,
   // no resources). Rich = custom branch/main, a standard, and a resource declared.
   const bare = await Deno.makeTempDir({ prefix: "discern-tmpl-bare-" });
@@ -339,7 +342,10 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
     const bareBody = (await renderAgentFiles(bare)).get("AGENTS.md");
     const richBody = (await renderAgentFiles(rich)).get("AGENTS.md");
     assert(bareBody !== undefined && richBody !== undefined);
-    assert(bareBody !== richBody, "config must change the rendered guidance");
+    assert(
+      bareBody !== richBody,
+      "config must change the rendered instructions",
+    );
 
     // {{var}} interpolates the committed values.
     assert(bareBody.includes("branch prefix `agent/`"), "bare branch prefix");
@@ -353,7 +359,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "custom trunk replaces the default",
     );
 
-    // {{#if has_standards}} selects configured guidance or the adoption seed.
+    // {{#if has_standards}} selects configured instructions or the adoption seed.
     assert(
       bareBody.includes(
         "No quality standards yet. When a number the user cares about comes up — coverage, bundle size, TODO count — offer `discern-set-the-standard`.",
@@ -366,11 +372,11 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
     );
     assert(
       !bareBody.includes("Standards are **numbers that can never get worse**"),
-      "an unconfigured project omits the configured standards guidance",
+      "an unconfigured project omits the configured standards instructions",
     );
     assert(
       richBody.includes("Standards are **numbers that can never get worse**"),
-      "a configured project gets the standards guidance",
+      "a configured project gets the standards instructions",
     );
     assert(
       !richBody.includes("No quality standards yet."),
@@ -441,7 +447,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
           "`from` (any ref) — work composes below the trunk",
         ],
         [
-          "await guidance states what the call watches",
+          "await instructions states what the call watches",
           "watches a sibling or the trunk in one longest-safe call",
         ],
         [
@@ -477,7 +483,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       assertStringIncludes(
         bareBody,
         needle,
-        `worktree guidance lost this operational safeguard: ${meaning}`,
+        `worktree instructions lost this operational safeguard: ${meaning}`,
       );
     }
   } finally {
@@ -486,7 +492,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
   }
 });
 
-Deno.test("renderAgentFiles: excluding the teach skill removes its guidance reference", async () => {
+Deno.test("renderAgentFiles: excluding the teach skill removes its instructions reference", async () => {
   const included = await Deno.makeTempDir({
     prefix: "discern-teach-included-",
   });
@@ -515,7 +521,7 @@ Deno.test("renderAgentFiles: excluding the teach skill removes its guidance refe
     assertStringIncludes(includedBody, "discern-teach-the-project");
     assert(
       !excludedBody.includes("discern-teach-the-project"),
-      "compiled guidance must not name an excluded skill",
+      "compiled instructions must not name an excluded skill",
     );
   } finally {
     await Deno.remove(included, { recursive: true });
@@ -566,7 +572,7 @@ Deno.test("renderAgentFiles: the never-edit sentence names the project's real ge
   }
 });
 
-Deno.test("checkGuidanceCurrent: a templated, non-default config compiles current (no drift)", async () => {
+Deno.test("checkInstructionCurrent: a templated, non-default config compiles current (no drift)", async () => {
   // Proves the templated output a refresh writes is exactly what the currency
   // check recomputes — the ADR 0034 invariant, exercised with live interpolation.
   const dir = await Deno.makeTempDir({ prefix: "discern-tmpl-currency-" });
@@ -588,14 +594,14 @@ Deno.test("checkGuidanceCurrent: a templated, non-default config compiles curren
         "",
       ].join("\n"),
     );
-    await compileGuidelines(dir);
-    assertEquals(await checkGuidanceCurrent(dir), []);
+    await compileInstructions(dir);
+    assertEquals(await checkInstructionCurrent(dir), []);
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
 });
 
-Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no envelope dump or roster)", async () => {
+Deno.test("renderAgentFiles: base instructions are MCP-first with a CLI fallback (no envelope dump or roster)", async () => {
   const dir = await scaffold();
   try {
     const body = (await renderAgentFiles(dir)).get("AGENTS.md");
@@ -625,12 +631,12 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
   }
 });
 
-Deno.test("renderAgentFiles: every guidance template input is config-driven — no hardcoded value can creep in", async () => {
-  // Class guard for "built-in guidance states a discern.toml-configurable value but
+Deno.test("renderAgentFiles: every instructions template input is config-driven — no hardcoded value can creep in", async () => {
+  // Class guard for "built-in instructions states a discern.toml-configurable value but
   // hardcodes one literal instead of interpolating it" — the bug behind the
-  // guidance.sources filename. Driven off the SSOT,
-  // guidanceContext's own variable set: every exposed {{var}} MUST have a case here
-  // proving its value flows from config into the compiled guidance. A newly exposed
+  // instructions.sources filename. Driven off the SSOT,
+  // instructionContext's own variable set: every exposed {{var}} MUST have a case here
+  // proving its value flows from config into the compiled instructions. A newly exposed
   // var fails until its case is added, and replacing any {{var}} with a hardcoded
   // literal makes that case's render stop tracking config.
   //
@@ -675,9 +681,9 @@ Deno.test("renderAgentFiles: every guidance template input is config-driven — 
       expect: "zz-tools",
       contextOnly: true,
     },
-    guidance_sources: {
+    instruction_sources: {
       toml:
-        '[project]\nagents = ["codex"]\n[guidance]\nsources = ["zz-rules.md"]\n',
+        '[project]\nagents = ["codex"]\n[instructions]\nsources = ["zz-rules.md"]\n',
       expect: "zz-rules.md",
     },
     generated_agent_files: {
@@ -739,16 +745,16 @@ Deno.test("renderAgentFiles: every guidance template input is config-driven — 
       join(probe, "discern.toml"),
       '[project]\nagents = ["codex"]\n',
     );
-    const ctx = guidanceContext(await loadConfig(probe));
+    const ctx = instructionContext(await loadConfig(probe));
     assertEquals(
       Object.keys(cases).sort(),
       Object.keys(ctx.vars).sort(),
-      "every guidance {{var}} needs a config-driven case here (and vice versa)",
+      "every instructions {{var}} needs a config-driven case here (and vice versa)",
     );
     assertEquals(
       Object.keys(predicateCases).sort(),
       Object.keys(ctx.preds).sort(),
-      "every guidance {{#if}} needs a config-driven case here (and vice versa)",
+      "every instructions {{#if}} needs a config-driven case here (and vice versa)",
     );
   } finally {
     await Deno.remove(probe, { recursive: true });
@@ -762,11 +768,11 @@ Deno.test("renderAgentFiles: every guidance template input is config-driven — 
       const dir = await Deno.makeTempDir({ prefix: "discern-var-ctx-" });
       try {
         await Deno.writeTextFile(join(dir, "discern.toml"), c.toml);
-        const ctx = guidanceContext(await loadConfig(dir));
+        const ctx = instructionContext(await loadConfig(dir));
         assertEquals(
           ctx.vars[name],
           c.expect,
-          `${name}: the configured value must flow into the guidance context`,
+          `${name}: the configured value must flow into the instruction context`,
         );
       } finally {
         await Deno.remove(dir, { recursive: true });
@@ -776,12 +782,12 @@ Deno.test("renderAgentFiles: every guidance template input is config-driven — 
     const body = await renderBody(c.toml);
     assert(
       body !== baseline,
-      `${name}: changing its config must change the compiled guidance`,
+      `${name}: changing its config must change the compiled instructions`,
     );
     if (c.expect !== undefined) {
       assert(
         body.includes(c.expect),
-        `${name}: the configured value "${c.expect}" must appear in the guidance`,
+        `${name}: the configured value "${c.expect}" must appear in the instructions`,
       );
     }
   }
@@ -789,11 +795,11 @@ Deno.test("renderAgentFiles: every guidance template input is config-driven — 
     const dir = await Deno.makeTempDir({ prefix: "discern-pred-case-" });
     try {
       await Deno.writeTextFile(join(dir, "discern.toml"), c.toml);
-      const ctx = guidanceContext(await loadConfig(dir));
+      const ctx = instructionContext(await loadConfig(dir));
       assertEquals(
         ctx.preds[name],
         c.expect,
-        `${name}: the configured value must flow into the guidance context`,
+        `${name}: the configured value must flow into the instruction context`,
       );
     } finally {
       await Deno.remove(dir, { recursive: true });

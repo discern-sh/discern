@@ -12,9 +12,9 @@ _The prerequisites, editor settings, and maintainer actions used alongside codin
 
 ## Core idea: the engine belongs to the binary
 
-discern is a self-contained Deno binary with the Engine compiled in as TypeScript under [`src/engine/`](../../../src/engine/). The Engine runs the project's final quality check (the Gate), the worktree workflow, Standards, and the Guidance compiler. An installed project receives that Engine through the binary ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repository runs the same Engine from source with `discern done`, so the installed and source workflows share one implementation.
+discern is a self-contained Deno binary with the Engine compiled in as TypeScript under [`src/engine/`](../../../src/engine/). The Engine runs the project's final quality check (the Gate), the worktree workflow, Standards, and the instruction compiler. An installed project receives that Engine through the binary ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repository runs the same Engine from source with `discern done`, so the installed and source workflows share one implementation.
 
-An install puts `discern.toml` at the root and keeps the Map, Guidance, Skills, Project Scripts, ledger, and setup brief under `discern/` by default ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)). [File ownership](../00-orientation/glossary.md#file-ownership) assigns those paths to project-owned, shared, or generated buckets. Project-owned files include the Map and authored files under `discern/`. Shared files include `discern.toml`, provider settings, and discern's delimited `.gitignore` block. Generated files include the tracked agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) and the gitignored materialized-Skill directories. The full file-by-file inventory is in [install-surface.md](install-surface.md). Edit project-owned files in place. Rebuild generated files with `discern refresh` or `discern upgrade`.
+An install puts `discern.toml` at the root and keeps the Map, instructions, Skills, Project Scripts, ledger, and setup brief under `discern/` by default ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)). [File ownership](../00-orientation/glossary.md#file-ownership) assigns those paths to project-owned, shared, or generated buckets. Project-owned files include the Map and authored files under `discern/`. Shared files include `discern.toml`, provider settings, and discern's delimited `.gitignore` block. Generated files include the tracked agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) and the gitignored materialized-Skill directories. The full file-by-file inventory is in [install-surface.md](install-surface.md). Edit project-owned files in place. Rebuild generated files with `discern refresh` or `discern upgrade`.
 
 ## Prerequisites
 
@@ -40,7 +40,7 @@ Stack-specific setup (installing project dependencies, running the app) lives in
 
 ### Any editor
 
-Edit the agent files at their authored source. `discern refresh` compiles `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` from discern's built-in Guidance plus this repository's [`project/guidance.md`](../../guidance.md), and the repository commits the results ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Edit the Guidance source, run `discern refresh`, and commit the regenerated files.
+Edit the agent files at their authored source. `discern refresh` compiles `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` from discern's built-in instructions plus this repository's [`project/instructions.md`](../../instructions.md), and the repository commits the results ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Edit the instruction source, run `discern refresh`, and commit the regenerated files.
 
 ## Working alongside the agents
 

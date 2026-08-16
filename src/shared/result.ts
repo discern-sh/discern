@@ -51,7 +51,7 @@ export const STEP_KINDS = [
   "merge-check", // assert the branch contains the integration branch
   "standards-limits-check", // assert no [standards] limit loosened vs the trunk
   "tracked-artifacts-check", // assert discern-owned ignored artifacts are untracked
-  "guidance-check", // assert the agent files match their sources
+  "instructions-check", // assert the agent files match their sources
   "skills-check", // assert the materialized skills match the effective set
   "tracked-refresh-check", // assert refresh has no pending tracked effect
   "resource-create", // create a per-worktree external resource
@@ -89,7 +89,7 @@ export const BUILT_IN_STEP_LABELS = {
   deleteBranch: "delete-branch",
   ensureBranch: "ensure-branch",
   fastForwardTrunk: "fast-forward-trunk",
-  guidanceCheck: "guidance-check",
+  instructionCheck: "instructions-check",
   inheritEnv: "inherit-env",
   materializeLocalAgentArtifacts: "materialize-local-agent-artifacts",
   merge: "merge",
@@ -221,7 +221,7 @@ export interface StepResult {
  *    committed/shared artifact, so the tree has not committed the result of its
  *    own refresh transformations;
  *  - `tracked_artifacts` — a discern-owned generated/local artifact is tracked by Git;
- *  - `guidance` / `skills` — an agent file / materialized skills dir is stale
+ *  - `instructions` / `skills` — an agent file / materialized skills dir is stale
  *    (the currency checks, ADR 0034);
  *  - `skill_frontmatter` — an effective skill's SKILL.md frontmatter fails the
  *    consumer contract (valid YAML with a non-empty `name`/`description`
@@ -233,7 +233,7 @@ export interface StepResult {
  *    lists in the map's ADR README) does not match the record files on
  *    disk, or cannot be derived from them. Only a README carrying the
  *    markers is checked — the index is opt-in by construction;
- *  - `map_integrity` — the map or a guidance source carries a reference a
+ *  - `map_integrity` — the map or a instruction source carries a reference a
  *    reader would follow and fail: a dead link or anchor, a metadata block the
  *    lenient reader would swallow, a fenced `discern` example the current CLI
  *    rejects, a published page linking into the internal trees, or a citation
@@ -262,7 +262,7 @@ export const FAILED_STAGES = [
   "generated_drift",
   "refresh_drift",
   "tracked_artifacts",
-  "guidance",
+  "instructions",
   "skills",
   "skill_frontmatter",
   "adr_numbers",

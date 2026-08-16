@@ -45,8 +45,8 @@ import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import {
   defaultDocumentationScopePaths,
   defaultDocumentationScopes,
-  defaultGuidanceScopePaths,
-  defaultGuidanceScopes,
+  defaultInstructionScopePaths,
+  defaultInstructionScopes,
 } from "../src/lib/config.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
@@ -151,7 +151,7 @@ Deno.test("the generated config schema publishes path and uniqueness rules", () 
   for (const source of Object.values(SOURCE_PATHS)) {
     if (source.key === null) continue;
     const node = schemaNodeAt(live, source.key);
-    const pathNode = source.key === "guidance.sources" ? node.items : node;
+    const pathNode = source.key === "instructions.sources" ? node.items : node;
     assert(isJsonObject(pathNode), `${source.key} has no item schema`);
     assert(
       typeof pathNode.pattern === "string" && pathNode.pattern !== "",
@@ -185,7 +185,7 @@ Deno.test("the generated config schema publishes path and uniqueness rules", () 
   }).compile(live);
   assertSchemaAccepts(validate, {
     project: { todo: "././TODO.md" },
-    guidance: { sources: ["././guidance.md", "./docs/**/*.md"] },
+    instructions: { sources: ["././instructions.md", "./docs/**/*.md"] },
     skills: { dir: "././playbooks/" },
     map: { dir: "././docs/map" },
     scripts: { dir: "tools/" },
@@ -315,7 +315,7 @@ async function renderedTemplate(): Promise<string> {
     agents_array: '"claude_code", "codex"',
     map_dir: SOURCE_PATHS.map.defaultPath,
     scopes_neutral: defaultDocumentationScopes().join(", "),
-    scopes_guidance: defaultGuidanceScopes().join(", "),
+    scopes_instructions: defaultInstructionScopes().join(", "),
     scopes_previewable: '"public/**"',
     artifact_provenance_marker: generatedArtifactMarkerBody(
       ARTIFACT_PROVENANCE_SOURCES.config,
@@ -333,18 +333,18 @@ Deno.test("the shipped discern.toml.tmpl renders to a config that VALIDATES unde
   assert(config !== undefined);
 });
 
-Deno.test("a fresh config seeds separate documentation and guidance scopes", async () => {
+Deno.test("a fresh config seeds separate documentation and instructions scopes", async () => {
   const rendered = await renderedTemplate();
   const raw = parseToml(rendered) as Record<string, unknown>;
   const scopes = raw.scopes as Record<string, Record<string, unknown>>;
-  assertEquals(Object.keys(scopes), ["map", "guidance"]);
+  assertEquals(Object.keys(scopes), ["map", "instructions"]);
   assertEquals(scopes.map?.paths, defaultDocumentationScopePaths());
   assertEquals(scopes.map?.neutral, true);
-  assertEquals(scopes.guidance?.paths, defaultGuidanceScopePaths());
-  assertEquals(scopes.guidance?.neutral, true);
+  assertEquals(scopes.instructions?.paths, defaultInstructionScopePaths());
+  assertEquals(scopes.instructions?.neutral, true);
   for (const path of defaultDocumentationScopePaths()) {
     assert(
-      !defaultGuidanceScopePaths().includes(path),
+      !defaultInstructionScopePaths().includes(path),
       `${path} must belong to the documentation seed only`,
     );
   }

@@ -2,7 +2,7 @@
 
 # Agent integration coverage
 
-_This reference records discern's current integration for each coding agent: compiled Guidance, materialized Skills, Model Context Protocol (MCP) registration, hooks, trust, and tracked or ignored files. The [cross-agent behavior reference](cross-agent-behaviour-reference.md) records the vendor capabilities these integrations use._
+_This reference records discern's current integration for each coding agent: compiled Instructions, materialized Skills, Model Context Protocol (MCP) registration, hooks, trust, and tracked or ignored files. The [cross-agent behavior reference](cross-agent-behaviour-reference.md) records the vendor capabilities these integrations use._
 
 > **What this is.** A maintainer reference compiled from the live engine. Every path, status, and per-agent cell below derives from the typed `PROVIDERS` registry in `src/lib/providers.ts` during code generation. The cross-agent behavior reference records vendor capabilities; this page records the discern integration that currently uses them. Use it as evidence when deciding whether to change default providers, rely on a hook surface, or close an integration gap. It covers the 5 agents discern models today: Claude Code, Codex, Gemini, Cursor, GitHub Copilot.
 >
@@ -16,9 +16,9 @@ _This reference records discern's current integration for each coding agent: com
 
 discern models **5** agents (`claude_code`, `codex`, `gemini`, `cursor`, `copilot`) as a total `Record<AgentName, Provider>` in `src/lib/providers.ts` (ADR 0031). The type checker requires a complete entry for each provider and prevents provider-specific behavior from drifting into separate lists. Current coverage differs by provider:
 
-- **Claude Code is wired end-to-end:** Guidance, Skills, MCP, and the worktree-lifecycle hooks. It alone exposes the `WorktreeCreate`/`WorktreeRemove` contract.
-- **Codex and Gemini have Guidance, Skills, MCP, and a `SessionStart` hook.** Each uses a provider-specific committable file and requires a one-time trust grant. Codex also receives the `environment.toml` setup and cleanup pair and a discern-owned execution-policy rules file.
-- **Cursor and GitHub Copilot are wired as reuse-canonical providers** (ADR 0070): both read the canonical `AGENTS.md` and the cross-tool `.agents/skills/` natively, so discern emits no guidance file for them and dedupes their skills onto the shared dir; each needed only an MCP `register()` and a `SessionStart` hook.
+- **Claude Code is wired end-to-end:** Instructions, Skills, MCP, and the worktree-lifecycle hooks. It alone exposes the `WorktreeCreate`/`WorktreeRemove` contract.
+- **Codex and Gemini have Instructions, Skills, MCP, and a `SessionStart` hook.** Each uses a provider-specific committable file and requires a one-time trust grant. Codex also receives the `environment.toml` setup and cleanup pair and a discern-owned execution-policy rules file.
+- **Cursor and GitHub Copilot are wired as reuse-canonical providers** (ADR 0070): both read the canonical `AGENTS.md` and the cross-tool `.agents/skills/` natively, so discern emits no instruction file for them and dedupes their skills onto the shared dir; each needed only an MCP `register()` and a `SessionStart` hook.
 - **The fresh-install default is `claude_code`, `codex`** (`DEFAULT_AGENTS`, `src/shared/config_schema.ts`). Gemini, Cursor, GitHub Copilot remain opt-in when setup does not detect them on `PATH`.
 
 Claude Code can drive the isolated-worktree lifecycle through agent hooks. Every provider can run the lifecycle through discern's agent-agnostic CLI and MCP verbs: `discern start`, `discern update`, and `discern accept`. The automatic in-agent create and remove actions are specific to Claude Code.
@@ -37,7 +37,7 @@ Everything agent-specific lives in one typed record per agent in `src/lib/provid
 | `binaries`          | Terminal-agent executable name(s) for PATH auto-detect — **match-any** (ADR 0069)                     | (required)                               |
 | `setupPresence`     | Setup-only installation evidence (editor binaries, app locations) beyond the terminal agent           | (required)                               |
 | `cli`               | Interactive open/continue entry points `discern desk` launches, `argv` included                       | (required)                               |
-| `guidanceFile`      | `{ path, canonical, pointer?, reuseCanonical? }` — the compiled instruction file, or reuse-canonical  | (required)                               |
+| `instructionFile`   | `{ path, canonical, pointer?, reuseCanonical? }` — the compiled instruction file, or reuse-canonical  | (required)                               |
 | `mcp`               | `McpStatus`: `wired` \| `pending` (committable target) \| `none` (ADR 0072)                           | (required)                               |
 | `hooks?`            | `{ settingsFile, worktreeEventKeys, sessionHookNeedle, mergeSeed? }`                                  | no worktree-hook surface — skipped       |
 | `trust`             | `TrustGate { required, hint }` — one-time trust for committed MCP/hooks                               | (required)                               |
@@ -54,12 +54,12 @@ AGENT_NAMES = ["claude_code", "codex", "gemini", "cursor", "copilot"]; // src/sh
 DEFAULT_AGENTS = ["claude_code", "codex"]; // src/shared/config_schema.ts (no-detection floor)
 ```
 
-`resolveConfiguredAgents(config)` resolves which agents a run targets: `[project].agents` → `DEFAULT_AGENTS`. It stays a **pure reader**. Setup resolves the default through auto-detection and stores the result; runtime reads that stored choice. Every cross-cutting consumer (the gitignore seed, neutral-scope defaults, the audit's agent-file probe, and gitignore convergence) reads agent paths from the registry-derived `allGuidanceFilePaths()`, `allSkillsDirs()`, `neutralAgentScopePaths()`, and `agentArtifactPosture()` aggregators. Those aggregators own the path lists (ADR 0043).
+`resolveConfiguredAgents(config)` resolves which agents a run targets: `[project].agents` → `DEFAULT_AGENTS`. It stays a **pure reader**. Setup resolves the default through auto-detection and stores the result; runtime reads that stored choice. Every cross-cutting consumer (the gitignore seed, neutral-scope defaults, the audit's agent-file probe, and gitignore convergence) reads agent paths from the registry-derived `allInstructionFilePaths()`, `allSkillsDirs()`, `neutralAgentScopePaths()`, and `agentArtifactPosture()` aggregators. Those aggregators own the path lists (ADR 0043).
 
 The machinery that makes "add the next vendor" a registry declaration:
 
 - **PATH auto-detect (ADR 0069).** `binaries` lists the agent's matching CLI executables; `setupPresence` adds editor-only installation evidence. `detectAgentsOnPath()` scans `PATH`, and `discern setup` seeds a fresh install's `[project].agents` from the detected set or `DEFAULT_AGENTS`. Setup persists that result in configuration, and runtime resolution reads the recorded value.
-- **Reuse-canonical Guidance (ADR 0070).** `guidanceFile.reuseCanonical` marks an agent that reads the canonical `AGENTS.md` natively and needs no provider-specific file. Cursor and Copilot use this mode. The `emitsGuidanceFile` predicate governs the renderer, writer, and aggregators, so each provider's Guidance is written and counted once.
+- **Reuse-canonical Instructions (ADR 0070).** `instructionFile.reuseCanonical` marks an agent that reads the canonical `AGENTS.md` natively and needs no provider-specific file. Cursor and Copilot use this mode. The `emitsInstructionFile` predicate governs the renderer, writer, and aggregators, so each provider's Instructions are written and counted once.
 - **Typed MCP status (ADR 0072).** `mcp` is a required discriminated `McpStatus`: `wired`, `pending` with a committable target file, or `none`. A missing declaration is a compile error. The parity test requires a `pending` entry to name a real target. Every current agent is `wired`; the derived matrix surfaces a later regression to `pending` at the next code generation.
 - **App-managed worktree-lifecycle seam (ADR 0073).** An optional `worktreeApp` co-manages a configuration file that the agent app generates, such as Codex's `environment.toml`. `wireProviderWorktreeApp` re-emits the discern-owned entries on every refresh alongside MCP wiring, preserves the app's keys, and repairs entries after the app rewrites the file. Codex declares this seam; other providers skip it when `worktreeApp` is absent.
 - **Provider-driven settings seam (ADR 0071).** `settingsSeeds()` derives each hooks provider's settings file + per-provider merge strategy (default: the JSON deep-merge; group-dedup where the vendor's hook groups hold the command at the group level). The scaffolder routes settings templates by that registry-derived set, so a new hooks provider seeds purely from a `HooksIntegration` declaration + a dropped template.
@@ -69,7 +69,7 @@ The machinery that makes "add the next vendor" a registry declaration:
 
 1. **The total `Record`** — a new name in `AGENT_NAMES` without a complete `PROVIDERS` entry is a compile error (ADR 0031), and the required `mcp` / `trust` / `binaries` / `brand` / `cli` fields make their declaration compile-mandatory too.
 2. **The parity test** (`tests/agent_parity_test.ts`) — for every `AGENT_NAMES` entry it asserts tracked and ignored file state, neutral scopes, each hooks provider's seed template (event keys + session-hook needle), non-empty `binaries`, the canonical and reuse-canonical invariants, an accounted MCP status, and trust metadata. A new agent fails the Gate at each incomplete seam (ADR 0043/0051).
-3. **`discern doctor`** reports per-configured-agent coverage explicitly (`src/commands/doctor.ts` §8b): for each agent it prints what is wired (Guidance, Skills, MCP, and hooks) and the one-time trust step (or that none is needed) — so the expected divergences are visible rather than read as a bug.
+3. **`discern doctor`** reports per-configured-agent coverage explicitly (`src/commands/doctor.ts` §8b): for each agent it prints what is wired (Instructions, Skills, MCP, and hooks) and the one-time trust step (or that none is needed) — so the expected divergences are visible rather than read as a bug.
 4. **This page itself** — code generation derives the cells from `PROVIDERS`, and the Gate diffs the committed copy. The typed commentary layer fails compilation until verdict prose covers a new agent.
 
 ---
@@ -82,7 +82,7 @@ Each fact table below is a projection of the agent's `PROVIDERS` entry — regen
 
 | Registry fact      | Live declaration                                                                                                 |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Guidance           | `CLAUDE.md` — pointer `@AGENTS.md`                                                                               |
+| Instructions       | `CLAUDE.md` — pointer `@AGENTS.md`                                                                               |
 | Skills             | `.claude/skills/` — its own directory                                                                            |
 | MCP                | `discern mcp --long-tool-calls` in `.mcp.json` (co-owned with `copilot`)                                         |
 | MCP call duration  | 60-minute tool calls; `await` holds one call up to 55 minutes                                                    |
@@ -100,11 +100,11 @@ Claude Code drives its worktree lifecycle through hooks in `.claude/settings.jso
 
 MCP needs no trust step. `registerClaudeCodeMcp` writes the stdio server into the shared `.mcp.json`, which GitHub Copilot co-owns through the same byte-identical writer (ADR 0074), and pre-approves the server through `enabledMcpjsonServers` in `.claude/settings.json`. The additive, idempotent merge in `src/lib/settings_merge.ts` appends hook groups with command-string deduplication, unions permission arrays, and sets other keys when absent. The seed carries `permissions.deny: ["Read(./.env)"]`. Claude Code reads Skills from `.claude/skills/`; it does not read the cross-tool `.agents/skills/` (anthropics/claude-code#31005, open). The vendor's per-machine `settings.local.json` stays ignored.
 
-### Codex — canonical guidance + the widest committed-config surface
+### Codex — canonical instructions + the widest committed-config surface
 
 | Registry fact      | Live declaration                                                                                                                                                                                                  |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Guidance           | `AGENTS.md` — canonical body                                                                                                                                                                                      |
+| Instructions       | `AGENTS.md` — canonical body                                                                                                                                                                                      |
 | Skills             | `.agents/skills/` — shared with `gemini`, `cursor`, `copilot`                                                                                                                                                     |
 | MCP                | `discern mcp --long-tool-calls` in `.codex/config.toml`                                                                                                                                                           |
 | MCP call duration  | 60-minute tool calls; `await` holds one call up to 55 minutes                                                                                                                                                     |
@@ -133,7 +133,7 @@ The trust gate is two-stage: a one-time directory trust activates the committed 
 
 | Registry fact      | Live declaration                                                                                                                                                                                       |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Guidance           | `GEMINI.md` — pointer `@AGENTS.md`                                                                                                                                                                     |
+| Instructions       | `GEMINI.md` — pointer `@AGENTS.md`                                                                                                                                                                     |
 | Skills             | `.agents/skills/` — shared with `codex`, `cursor`, `copilot`                                                                                                                                           |
 | MCP                | `discern mcp --long-tool-calls` in `.gemini/settings.json`                                                                                                                                             |
 | MCP call duration  | 60-minute tool calls; `await` holds one call up to 55 minutes                                                                                                                                          |
@@ -149,7 +149,7 @@ The trust gate is two-stage: a one-time directory trust activates the committed 
 
 `GEMINI.md` is a pointer. Gemini's verified Markdown-only Memory Import accepts `@AGENTS.md`, the same one-line import that Claude Code uses (ADR 0043 §5). Gemini prefers the cross-tool `.agents/skills/` alias over `.gemini/skills/`, so Codex and Gemini share one Skills materialization target.
 
-One committable file carries both wired seams: `registerGeminiMcp` deep-merges `mcpServers.discern` (stdio inferred from `command` — Gemini takes no `type` field, which is why it does not share the `.mcp.json`-shape writer) into `.gemini/settings.json`, preserving the seeded `hooks` block and the user's own servers; the seed sets `hooksConfig.enabled: true` because without it the `SessionStart → discern worktree ensure` hook never fires. Both seams are inert in Folder-Trust "safe mode" until the folder is user-trusted; the compiled `GEMINI.md` is read regardless of trust, so guidance is unaffected.
+One committable file carries both wired seams: `registerGeminiMcp` deep-merges `mcpServers.discern` (stdio inferred from `command` — Gemini takes no `type` field, which is why it does not share the `.mcp.json`-shape writer) into `.gemini/settings.json`, preserving the seeded `hooks` block and the user's own servers; the seed sets `hooksConfig.enabled: true` because without it the `SessionStart → discern worktree ensure` hook never fires. Both seams are inert in Folder-Trust "safe mode" until the folder is user-trusted; the compiled `GEMINI.md` is read regardless of trust, so instructions are unaffected.
 
 Live code supersedes 2 older ADR descriptions. ADR 0032 describes `GEMINI.md` as “still a full copy” and Claude's pointer as carrying a “do-not-edit banner.” ADR 0043 §5 changed `GEMINI.md` to an `@AGENTS.md` pointer. The current `atImportPointer` emits a bare `@AGENTS.md` line because Claude Code strips HTML comments before the model sees them. `base.md` carries the generated-file instruction in band, and the currency check guards the output. Use the registry and generated artifacts as the current authority.
 
@@ -157,7 +157,7 @@ Live code supersedes 2 older ADR descriptions. ADR 0032 describes `GEMINI.md` as
 
 | Registry fact      | Live declaration                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Guidance           | reads `AGENTS.md` (no own file)                                                                                                 |
+| Instructions       | reads `AGENTS.md` (no own file)                                                                                                 |
 | Skills             | `.agents/skills/` — shared with `codex`, `gemini`, `copilot`                                                                    |
 | MCP                | `discern mcp --strict-tool-calls` in `.cursor/mcp.json`                                                                         |
 | MCP call duration  | surface-dependent client bounds (strictest 60s), so `await` answers in 45s continuation slices                                  |
@@ -171,7 +171,7 @@ Live code supersedes 2 older ADR descriptions. ADR 0032 describes `GEMINI.md` as
 | Local state        | —                                                                                                                               |
 | Default set        | opt-in — add `"cursor"` to `[project].agents`                                                                                   |
 
-Cursor reads the canonical root `AGENTS.md` and the cross-tool `.agents/skills/`. Its `reuseCanonical` declaration means discern emits no Cursor-specific Guidance body or pointer and reuses the shared Skills directory (ADR 0070). `registerCursorMcp` writes the stdio server into committable `.cursor/mcp.json` with Cursor's required explicit `type: "stdio"` through the shared `registerStdioMcpJson` writer. The `.cursor/hooks.json` seed carries `sessionStart → discern worktree ensure` and uses a group-dedup merge because Cursor stores the command at the hook-group level.
+Cursor reads the canonical root `AGENTS.md` and the cross-tool `.agents/skills/`. Its `reuseCanonical` declaration means discern emits no Cursor-specific Instructions body or pointer and reuses the shared Skills directory (ADR 0070). `registerCursorMcp` writes the stdio server into committable `.cursor/mcp.json` with Cursor's required explicit `type: "stdio"` through the shared `registerStdioMcpJson` writer. The `.cursor/hooks.json` seed carries `sessionStart → discern worktree ensure` and uses a group-dedup merge because Cursor stores the command at the hook-group level.
 
 Cursor's MCP **call-duration policy** is surface-dependent. Its project `.cursor/mcp.json` feeds the integrated development environment (IDE) and the CLI or Agent Client Protocol (ACP) path. The CLI stops tool calls at 60 seconds and has no supported override. discern's server therefore declares `--strict-tool-calls`, and `discern_await` returns lossless 45-second continuation slices (the behavior reference §12 carries the vendor evidence).
 
@@ -181,7 +181,7 @@ Detection uses `cursor-agent` as its `PATH` signal because unrelated tools commo
 
 | Registry fact      | Live declaration                                                                                                                          |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Guidance           | reads `AGENTS.md` (no own file)                                                                                                           |
+| Instructions       | reads `AGENTS.md` (no own file)                                                                                                           |
 | Skills             | `.agents/skills/` — shared with `codex`, `gemini`, `cursor`                                                                               |
 | MCP                | `discern mcp --long-tool-calls` in `.mcp.json` (co-owned with `claude_code`)                                                              |
 | MCP call duration  | 60-minute tool calls; `await` holds one call up to 55 minutes                                                                             |
@@ -195,7 +195,7 @@ Detection uses `cursor-agent` as its `PATH` signal because unrelated tools commo
 | Local state        | —                                                                                                                                         |
 | Default set        | opt-in — add `"copilot"` to `[project].agents`                                                                                            |
 
-Copilot CLI reads `AGENTS.md` natively as its primary instructions and reads `.agents/skills/`, so Guidance and Skills reuse discern's existing artifacts. It has no `@import` requirement. Copilot shares `.mcp.json` with Claude Code (ADR 0074). `registerCopilotMcp` writes the byte-identical stdio entry through the shared writer, making provider order irrelevant. Copilot gates on folder trust and does not use Claude Code's `enabledMcpjsonServers` pre-approval. The CLI ignores `.github/mcp.json` without a diagnostic (copilot-cli #1886), so discern writes the shared root file.
+Copilot CLI reads `AGENTS.md` natively as its primary instructions and reads `.agents/skills/`, so Instructions and Skills reuse discern's existing artifacts. It has no `@import` requirement. Copilot shares `.mcp.json` with Claude Code (ADR 0074). `registerCopilotMcp` writes the byte-identical stdio entry through the shared writer, making provider order irrelevant. Copilot gates on folder trust and does not use Claude Code's `enabledMcpjsonServers` pre-approval. The CLI ignores `.github/mcp.json` without a diagnostic (copilot-cli #1886), so discern writes the shared root file.
 
 The `ensure` step seeds `sessionStart → discern worktree ensure` into discern-owned `.github/hooks/discern.json`; Copilot loads every `.github/hooks/*.json` file. The group-dedup merge re-seeds it idempotently. `sessionStart` fires for each prompt in interactive mode, and `worktree ensure` is safe to rerun. The trust grant lives in user-level `trustedFolders` within `~/.copilot/config.json`. Unattended startup needs `--allow-all-tools --allow-all-paths` or a pre-seeded `COPILOT_HOME`. Copilot's fail-closed `preToolUse` hook supports `modifiedArgs`, making it a candidate for the pre-execution guard surveyed in the worktree-isolation research. That possible feature does not affect the current worktree lifecycle.
 
@@ -205,29 +205,29 @@ The `ensure` step seeds `sessionStart → discern worktree ensure` into discern-
 
 Every coverage-matrix cell derives from the provider registry. `wired` names a discern-owned integration; `reuse-canonical` means the agent reads canonical `AGENTS.md`; `none` names a gap; and — means the seam does not apply to that agent.
 
-| Integration capability                            | Claude Code                                                                           | Codex                                          | Gemini                                             | Cursor                                           | GitHub Copilot                                          |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------- |
-| Guidance file                                     | wired: `CLAUDE.md` — pointer `@AGENTS.md`                                             | wired: `AGENTS.md` — canonical body            | wired: `GEMINI.md` — pointer `@AGENTS.md`          | reuse-canonical: reads `AGENTS.md` (no own file) | reuse-canonical: reads `AGENTS.md` (no own file)        |
-| Skills dir materialized                           | wired: `.claude/skills/` (its own)                                                    | wired: `.agents/skills/` (shared)              | wired: `.agents/skills/` (shared)                  | wired: `.agents/skills/` (shared)                | wired: `.agents/skills/` (shared)                       |
-| MCP wired via committed config                    | wired: `.mcp.json` (co-owned; pre-approved)                                           | wired: `.codex/config.toml` (trust-gated)      | wired: `.gemini/settings.json` (trust-gated)       | wired: `.cursor/mcp.json` (trust-gated)          | wired: `.mcp.json` (co-owned; trust-gated)              |
-| Worktree / session hooks                          | wired: `WorktreeCreate`/`WorktreeRemove` + SessionStart (`.claude/settings.json`)     | wired: SessionStart only (`.codex/hooks.json`) | wired: SessionStart only (`.gemini/settings.json`) | wired: SessionStart only (`.cursor/hooks.json`)  | wired: SessionStart only (`.github/hooks/discern.json`) |
-| App-managed worktree lifecycle co-managed         | —                                                                                     | wired: `.codex/environments/environment.toml`  | —                                                  | —                                                | —                                                       |
-| Project rules file                                | —                                                                                     | wired: `.codex/rules/discern.rules`            | —                                                  | —                                                | —                                                       |
-| One-time trust before committed config fires      | none needed                                                                           | required                                       | required                                           | required                                         | required                                                |
-| Tracked and ignored files (managed block)         | `.claude/skills/` ignored; `.claude/settings.local.json` ignored; `CLAUDE.md` tracked | `.agents/skills/` ignored; `AGENTS.md` tracked | `.agents/skills/` ignored; `GEMINI.md` tracked     | `.agents/skills/` ignored; no own guidance file  | `.agents/skills/` ignored; no own guidance file         |
-| Generated-file currency check                     | current: guidance + skills                                                            | current: guidance + skills                     | current: guidance + skills                         | current: skills (no own guidance file)           | current: skills (no own guidance file)                  |
-| In `DEFAULT_AGENTS` (fresh install, no detection) | included                                                                              | included                                       | opt-in                                             | opt-in                                           | opt-in                                                  |
-| OS-sandbox config emitted by discern              | none                                                                                  | none                                           | none                                               | none                                             | none                                                    |
+| Integration capability                            | Claude Code                                                                           | Codex                                          | Gemini                                             | Cursor                                             | GitHub Copilot                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------- |
+| Instruction file                                  | wired: `CLAUDE.md` — pointer `@AGENTS.md`                                             | wired: `AGENTS.md` — canonical body            | wired: `GEMINI.md` — pointer `@AGENTS.md`          | reuse-canonical: reads `AGENTS.md` (no own file)   | reuse-canonical: reads `AGENTS.md` (no own file)        |
+| Skills dir materialized                           | wired: `.claude/skills/` (its own)                                                    | wired: `.agents/skills/` (shared)              | wired: `.agents/skills/` (shared)                  | wired: `.agents/skills/` (shared)                  | wired: `.agents/skills/` (shared)                       |
+| MCP wired via committed config                    | wired: `.mcp.json` (co-owned; pre-approved)                                           | wired: `.codex/config.toml` (trust-gated)      | wired: `.gemini/settings.json` (trust-gated)       | wired: `.cursor/mcp.json` (trust-gated)            | wired: `.mcp.json` (co-owned; trust-gated)              |
+| Worktree / session hooks                          | wired: `WorktreeCreate`/`WorktreeRemove` + SessionStart (`.claude/settings.json`)     | wired: SessionStart only (`.codex/hooks.json`) | wired: SessionStart only (`.gemini/settings.json`) | wired: SessionStart only (`.cursor/hooks.json`)    | wired: SessionStart only (`.github/hooks/discern.json`) |
+| App-managed worktree lifecycle co-managed         | —                                                                                     | wired: `.codex/environments/environment.toml`  | —                                                  | —                                                  | —                                                       |
+| Project rules file                                | —                                                                                     | wired: `.codex/rules/discern.rules`            | —                                                  | —                                                  | —                                                       |
+| One-time trust before committed config fires      | none needed                                                                           | required                                       | required                                           | required                                           | required                                                |
+| Tracked and ignored files (managed block)         | `.claude/skills/` ignored; `.claude/settings.local.json` ignored; `CLAUDE.md` tracked | `.agents/skills/` ignored; `AGENTS.md` tracked | `.agents/skills/` ignored; `GEMINI.md` tracked     | `.agents/skills/` ignored; no own instruction file | `.agents/skills/` ignored; no own instruction file      |
+| Generated-file currency check                     | current: instructions + skills                                                        | current: instructions + skills                 | current: instructions + skills                     | current: skills (no own instruction file)          | current: skills (no own instruction file)               |
+| In `DEFAULT_AGENTS` (fresh install, no detection) | included                                                                              | included                                       | opt-in                                             | opt-in                                             | opt-in                                                  |
+| OS-sandbox config emitted by discern              | none                                                                                  | none                                           | none                                               | none                                               | none                                                    |
 
-**Cursor and Copilot reuse canonical Guidance and Skills.** Their `reuse-canonical` cells mean that discern emits no provider-specific Guidance file and materializes Skills into the shared directory. **Every agent reads committed MCP configuration.** Claude pre-approves the server without a trust prompt. Codex, Gemini, Cursor, and Copilot require a one-time trust grant or per-tool approval. Every agent also has a wired `SessionStart` hook for `discern worktree ensure`. Claude provides a committable `WorktreeRemove` hook, and Codex provides `environment.toml [cleanup]` for Codex-managed worktrees. Teardown reliability and scope vary, so discern owns creation and removal for its worktrees. The OS-sandbox row is empty because discern currently emits no sandbox configuration. The [worktree-isolation research](../_private/research/worktree-isolation-research.md) surveys provider capabilities outside this page's integration scope.
+**Cursor and Copilot reuse canonical Instructions and Skills.** Their `reuse-canonical` cells mean that discern emits no provider-specific Instruction file and materializes Skills into the shared directory. **Every agent reads committed MCP configuration.** Claude pre-approves the server without a trust prompt. Codex, Gemini, Cursor, and Copilot require a one-time trust grant or per-tool approval. Every agent also has a wired `SessionStart` hook for `discern worktree ensure`. Claude provides a committable `WorktreeRemove` hook, and Codex provides `environment.toml [cleanup]` for Codex-managed worktrees. Teardown reliability and scope vary, so discern owns creation and removal for its worktrees. The OS-sandbox row is empty because discern currently emits no sandbox configuration. The [worktree-isolation research](../_private/research/worktree-isolation-research.md) surveys provider capabilities outside this page's integration scope.
 
 ---
 
 ## The seams in detail
 
-### Guidance compile (one body, many mirrors)
+### Instructions compile (one body, many mirrors)
 
-`discern refresh` composes built-in `base.md`, the enabled feature sections, and the project's `[guidance].sources` into one body. It writes the configured provider files through `src/engine/guidance_render.ts` and `src/engine/guidelines.ts`. `AGENTS.md` is the canonical full-body file because Codex has no import directive. Other providers declare an `@AGENTS.md` pointer or `reuseCanonical` when they read `AGENTS.md` directly. Claude Code and Gemini support the same byte-identical `@path` import, so `atImportPointer` serves both (ADR 0032/0043). `renderAgentFiles` feeds the writer and the `status` and `done` currency checks from committed configuration (ADR 0034). ADR 0128 keeps the Agent files tracked, and the Gate fails when a committed copy differs from its sources.
+`discern refresh` composes built-in `base.md`, the enabled feature sections, and the project's `[instructions].sources` into one body. It writes the configured provider files through `src/engine/instruction_render.ts` and `src/engine/instructions.ts`. `AGENTS.md` is the canonical full-body file because Codex has no import directive. Other providers declare an `@AGENTS.md` pointer or `reuseCanonical` when they read `AGENTS.md` directly. Claude Code and Gemini support the same byte-identical `@path` import, so `atImportPointer` serves both (ADR 0032/0043). `renderAgentFiles` feeds the writer and the `status` and `done` currency checks from committed configuration (ADR 0034). ADR 0128 keeps the Agent files tracked, and the Gate fails when a committed copy differs from its sources.
 
 ### Skills materialization
 
@@ -243,7 +243,7 @@ Claude Code drives discern's isolated-worktree workflow through `SessionStart`, 
 
 ### Settings, gitignore, and convergence
 
-The additive, idempotent JSON merge in `src/lib/settings_merge.ts` appends hook groups, deduplicates by command string or group strategy, unions permission arrays, and sets other keys when absent. Codex's comment-preserving `TomlEditor` provides the corresponding guarantee for TOML surfaces. The managed `.gitignore` block ignores each agent's materialized Skills directory and declared `localState` files. Compiled Guidance and co-owned settings, MCP, and hook files stay tracked (ADR 0128). `src/lib/agent_gitignore.ts` reconciles the block during every `discern upgrade`, absorbs old discern-owned fragments, and derives current artifacts from the provider registry. The managed `.gitattributes` block uses the same registry to mark generated artifacts for merge and review metadata (ADR 0259). A future provider therefore enters both convergence paths through its registry declaration (ADR 0043, ADR 0093).
+The additive, idempotent JSON merge in `src/lib/settings_merge.ts` appends hook groups, deduplicates by command string or group strategy, unions permission arrays, and sets other keys when absent. Codex's comment-preserving `TomlEditor` provides the corresponding guarantee for TOML surfaces. The managed `.gitignore` block ignores each agent's materialized Skills directory and declared `localState` files. Compiled Instructions and co-owned settings, MCP, and hook files stay tracked (ADR 0128). `src/lib/agent_gitignore.ts` reconciles the block during every `discern upgrade`, absorbs old discern-owned fragments, and derives current artifacts from the provider registry. The managed `.gitattributes` block uses the same registry to mark generated artifacts for merge and review metadata (ADR 0259). A future provider therefore enters both convergence paths through its registry declaration (ADR 0043, ADR 0093).
 
 ---
 
@@ -253,7 +253,7 @@ Each gap provides decision input by stating the work required to close it and th
 
 ### 1. Gemini: wired with opt-in default status
 
-**Status.** Guidance through a pointer, Skills, MCP, and the `SessionStart` hook are live. Gemini remains outside `DEFAULT_AGENTS`. The behavior reference confirms that Gemini natively reads `GEMINI.md` and supports `@file.md` imports, so the `@AGENTS.md` pointer uses a documented provider mechanism.
+**Status.** Instructions through a pointer, Skills, MCP, and the `SessionStart` hook are live. Gemini remains outside `DEFAULT_AGENTS`. The behavior reference confirms that Gemini natively reads `GEMINI.md` and supports `@file.md` imports, so the `@AGENTS.md` pointer uses a documented provider mechanism.
 
 **What remains.**
 
@@ -261,7 +261,7 @@ Each gap provides decision input by stating the work required to close it and th
 
 **Uncertainties.**
 
-- **Folder Trust gates committed configuration.** Per the behavior reference, Gemini ignores project `.gemini/settings.json`, including discern's MCP entry and hook, until the folder receives a user trust grant. `--skip-trust` and `GEMINI_CLI_TRUST_WORKSPACE=true` bypass that gate. Gemini reads compiled `GEMINI.md` before trust, so Guidance remains available. Codex has a corresponding one-time trust boundary (Gaps §2).
+- **Folder Trust gates committed configuration.** Per the behavior reference, Gemini ignores project `.gemini/settings.json`, including discern's MCP entry and hook, until the folder receives a user trust grant. `--skip-trust` and `GEMINI_CLI_TRUST_WORKSPACE=true` bypass that gate. Gemini reads compiled `GEMINI.md` before trust, so instructions remain available. Codex has a corresponding one-time trust boundary (Gaps §2).
 - **Schema/version volatility.** Gemini's MCP and worktree surfaces are moving fast (native `--worktree` and per-OS sandbox support landed ~v0.36.0 and are partly experimental). Any wired config should be version-aware.
 
 ### 2. Codex: MCP, hooks, environment.toml, and exec rules all wired
@@ -286,9 +286,9 @@ Claude Code provides an explicit `WorktreeCreate` and `WorktreeRemove` contract.
 
 **Operational consequence.** The agent-agnostic CLI and MCP verbs implement the lifecycle: `discern start`, `discern update`, `discern accept`, and the `worktree` command group. `discern worktree prune` performs out-of-band reclamation. The `SessionStart` hook can run `ensure` for each provider. Claude Code can re-root through `EnterWorktree`, and Copilot can use `/cwd` or `/worktree`. Codex, Cursor, and Gemini pin the root at launch, so entering a worktree requires a fresh session (behavior reference §6).
 
-### 4. Keep Codex as the canonical full-body Guidance file
+### 4. Keep Codex as the canonical full-body Instruction file
 
-Codex has no instruction-file import directive, so `AGENTS.md` holds the canonical full body that other providers import or reuse. ADR 0043 records this required asymmetry. Keep `AGENTS.md` as the on-disk source for provider mirrors. Cursor and Copilot read that canonical file directly and therefore need no provider-specific Guidance file.
+Codex has no instruction-file import directive, so `AGENTS.md` holds the canonical full body that other providers import or reuse. ADR 0043 records this required asymmetry. Keep `AGENTS.md` as the on-disk source for provider mirrors. Cursor and Copilot read that canonical file directly and therefore need no provider-specific Instruction file.
 
 ---
 
@@ -296,7 +296,7 @@ Codex has no instruction-file import directive, so `AGENTS.md` holds the canonic
 
 - [Cross-agent behavior reference](cross-agent-behaviour-reference.md) records what each agent supports: hooks, sandboxes, cwd and re-root behavior, MCP root mobility, trust, and configuration surfaces. This page cites it for every vendor-behavior claim.
 - [Worktree isolation research](../_private/research/worktree-isolation-research.md) surveys the OS-sandbox and pre-execution-guard options behind the empty sandbox row.
-- [Agent instruction files research](../_private/research/agent-instruction-files-research.md) records the research behind the Guidance compilation seam.
+- [Agent instruction files research](../_private/research/agent-instruction-files-research.md) records the research behind the Instructions compilation seam.
 
 ## Sources
 
@@ -305,11 +305,11 @@ The derived layer needs no verification pass: it is read from the code below at 
 **Code**
 
 - `src/lib/providers.ts` — the typed provider registry: `PROVIDERS`, `DISCERN_MCP_SERVER`, `atImportPointer`, the MCP adapters (`registerClaudeCodeMcp`, `registerGeminiMcp`, `registerCodexProjectConfig`, `registerCursorMcp`, `registerCopilotMcp`, sharing the `registerStdioMcpJson` writer), the Codex worktree-app and rules adapters, and the registry-derived aggregators.
-- `src/shared/agent_catalogue.ts` — the identity catalogue `AGENT_NAMES`, labels, and guidance paths derive from.
+- `src/shared/agent_catalogue.ts` — the identity catalogue `AGENT_NAMES`, labels, and instructions paths derive from.
 - `src/shared/config_schema.ts` — `DEFAULT_AGENTS`, `resolveConfiguredAgents`.
 - `src/shared/mcp_timeout_policy.ts` — the per-agent call-duration policy and capability flags.
 - `src/lib/skills.ts` — per-agent skills materialization + `checkSkillsCurrent`.
-- `src/engine/guidance_render.ts`, `src/engine/guidelines.ts` — the pure renderer + effectful compiler; the MCP + worktree-app + rules wiring; the guidance currency check.
+- `src/engine/instruction_render.ts`, `src/engine/instructions.ts` — the pure renderer + effectful compiler; the MCP + worktree-app + rules wiring; the instruction currency check.
 - `src/lib/settings_merge.ts` and the per-agent seed templates under `templates/` — the settings merge + the `SessionStart` seeds.
 - `src/lib/worktree_hooks.ts` — the `WorktreeCreate` / `WorktreeRemove` adapter; the cwd-based `worktree teardown` that Codex's `[cleanup]` reuses.
 - `src/engine/mcp/server.ts` — the `discern mcp` server and its tool surface (the derived tool list above).
@@ -327,7 +327,7 @@ The derived layer needs no verification pass: it is read from the code below at 
 - 0043 — the provider registry is the enforced single source for every agent surface.
 - 0045 — the MCP server is core infrastructure.
 - 0062 — the MCP server tracks its own working root.
-- 0069/0070/0071/0072 — PATH auto-detect, reuse-canonical guidance, the provider-driven settings seam, and the typed MCP status.
+- 0069/0070/0071/0072 — PATH auto-detect, reuse-canonical instructions, the provider-driven settings seam, and the typed MCP status.
 - 0073 — discern co-manages Codex's auto-generated `environment.toml`.
 - 0074 — Claude Code and GitHub Copilot co-own the shared `.mcp.json` through one stdio writer.
 - 0075 — the post-setup reactivation handoff derives from the registry.

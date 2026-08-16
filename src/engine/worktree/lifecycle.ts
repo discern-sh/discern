@@ -193,15 +193,15 @@ import {
   preserveDropRecoveryRef,
 } from "./recovery_refs.ts";
 
-// worktree setup recompiles the agent guidance as its final step — which also
+// worktree setup recompiles the agent instructions as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
 // linked worktree does not inherit that gitignored directory from the main checkout).
 import {
-  compileGuidelines,
-  guidanceRefreshSucceeded,
+  compileInstructions,
+  instructionRefreshSucceeded,
   materializeLocalRefreshArtifacts,
-} from "../guidelines.ts";
-import { agentFilePaths, renderAgentFiles } from "../guidance_render.ts";
+} from "../instructions.ts";
+import { agentFilePaths, renderAgentFiles } from "../instruction_render.ts";
 import {
   planTrackedRefresh,
   type TrackedRefreshPlan,
@@ -682,15 +682,15 @@ async function discernSourceEntrypoint(
  * branches carry `src/**` and `templates/**`. A `start --from <ref>` launched
  * from another checkout must therefore re-enter the new worktree's source
  * engine for this final composition step; otherwise the launcher can overwrite
- * committed agent files with its own older compiler or bundled guidance.
+ * committed agent files with its own older compiler or bundled instructions.
  */
 async function refreshWorktreeArtifacts(
   ctx: LifecycleContext,
 ): Promise<boolean> {
   const sourceEntrypoint = await discernSourceEntrypoint(ctx.root);
   if (sourceEntrypoint === undefined) {
-    const refreshed = await compileGuidelines(ctx.root, ctx.log);
-    return guidanceRefreshSucceeded(refreshed);
+    const refreshed = await compileInstructions(ctx.root, ctx.log);
+    return instructionRefreshSucceeded(refreshed);
   }
 
   const setupDeno = DISCERN_ENVIRONMENT_VARIABLES.setupDeno;
@@ -1679,7 +1679,7 @@ function acceptAwaitingConsentMessage(
  * The read-only refusal `accept` serves when no recorded grant authorizes the
  * landing and its `--confirmed` conversation attestation is absent (ADR 0134,
  * amended by ADR 0194). Landing is the highest-stakes act, so structure — not a
- * guidance sentence — forces the relay moment into the transcript: an agent
+ * instructions sentence — forces the relay moment into the transcript: an agent
  * under context pressure that runs `accept` without authority is handed the
  * review moment, not silently landed. Shares the
  * {@link AWAITING_CONSENT_SLUG} slug with `setup begin` so the consent-gated
@@ -2415,7 +2415,7 @@ async function executeAcceptPlan(
       ctx.log,
       localTemplatesDir,
     );
-    refreshOk = guidanceRefreshSucceeded(refreshed);
+    refreshOk = instructionRefreshSucceeded(refreshed);
     convergenceHints = mergeHintTexts(convergenceHints, refreshed.hints);
   } catch {
     refreshOk = false;
@@ -3586,8 +3586,8 @@ async function runUpdateConvergence(
   let refreshHints: string[] = hintTexts([]);
   const refreshedSharedPaths = new Set<string>();
   try {
-    const refreshed = await compileGuidelines(ctx.root, ctx.log);
-    refreshOk = guidanceRefreshSucceeded(refreshed);
+    const refreshed = await compileInstructions(ctx.root, ctx.log);
+    refreshOk = instructionRefreshSucceeded(refreshed);
     refreshHints = refreshed.hints;
     for (const path of refreshed.trackedArtifactsChanged) {
       refreshedSharedPaths.add(path);
@@ -3785,7 +3785,7 @@ async function executeUpdatePlan(
         },
       ];
       // Refresh + converge — the shared tail; a merge can bring in another line
-      // of work's guidance/skill edits, generated metadata, or a changed lockfile.
+      // of work's instructions/skill edits, generated metadata, or a changed lockfile.
       const convergence = await runUpdateConvergence(ctx, plan, {
         commitRegenerated: true,
       });

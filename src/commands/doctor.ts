@@ -10,7 +10,7 @@
 import { join } from "@std/path";
 import {
   resolveConfigPath,
-  resolveGuidanceSources,
+  resolveInstructionSources,
   resolveScriptsDir,
   resolveSkillsDir,
 } from "../lib/paths.ts";
@@ -42,14 +42,17 @@ import {
   toCommandList,
 } from "../shared/config_schema.ts";
 import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
-import { agentFilePaths, renderAgentFiles } from "../engine/guidance_render.ts";
+import {
+  agentFilePaths,
+  renderAgentFiles,
+} from "../engine/instruction_render.ts";
 import {
   planDiscernGitattributesBlock,
   refusedGitattributesPatternLabel,
 } from "../lib/agent_gitattributes.ts";
 import { checkProviderHooksCurrent } from "../lib/provider_hooks.ts";
 import {
-  allGuidanceFilePaths,
+  allInstructionFilePaths,
   providerFor,
   providersWithHooks,
 } from "../lib/providers.ts";
@@ -218,7 +221,7 @@ async function logbookCheck(
       detail:
         "recording is off ([project].logbook = false) — discern keeps no memory of how it is driven",
       fix:
-        "consider re-enabling it: gate thrash, flaky tests, and guidance gaps only become visible in this local history, it never leaves the machine, and it cannot be recorded retroactively",
+        "consider re-enabling it: gate thrash, flaky tests, and instructions gaps only become visible in this local history, it never leaves the machine, and it cannot be recorded retroactively",
     };
   }
   const dir = logbookDir(commonGitDir);
@@ -865,7 +868,7 @@ export async function runChecks(
 
   // 7d. the logbook is recording — discern's local memory of its own use, and
   // the only place a whole class of agent-driven faults (gate thrash, flaky
-  // tests, guidance gaps) ever becomes visible. Off is a deliberate choice,
+  // tests, instructions gaps) ever becomes visible. Off is a deliberate choice,
   // surfaced as advice because history can never be recorded retroactively.
   // On-but-empty is red: either writes are failing, or the install is so new
   // that no verb has completed yet — and since this doctor run itself appends
@@ -877,35 +880,35 @@ export async function runChecks(
     }
   }
 
-  // 8. guidance/skills config resolves — if [guidance].sources or [skills].dir is
+  // 8. instructions/skills config resolves — if [instructions].sources or [skills].dir is
   // configured, report what it resolves to. Both are present-only (an absent
   // match/dir is fine), so this is informational: it surfaces a typo'd path
-  // before the user wonders why their guidance/skills aren't picked up.
+  // before the user wonders why their instructions/skills aren't picked up.
   {
-    const sources = await resolveGuidanceSources(destDir, config);
+    const sources = await resolveInstructionSources(destDir, config);
     // A configured source that IS an agent file would feed the compiler
-    // its own output; resolution refuses those (see resolveGuidanceSources), so
+    // its own output; resolution refuses those (see resolveInstructionSources), so
     // an explicit listing deserves a named diagnostic, not a silent zero-match.
-    const outputs = allGuidanceFilePaths();
-    const listedOutputs = config.guidance.sources
+    const outputs = allInstructionFilePaths();
+    const listedOutputs = config.instructions.sources
       .filter((p) => outputs.includes(p));
     if (listedOutputs.length > 0) {
       checks.push({
-        name: "guidance sources",
+        name: "instruction sources",
         ok: false,
         detail:
-          `[guidance].sources names agent file(s) discern itself writes: ${
+          `[instructions].sources names agent file(s) discern itself writes: ${
             listedOutputs.join(", ")
           } — an output can never be a source, so these entries resolve to nothing`,
         fix:
-          "point [guidance].sources at your authored guidance instead (the agent files are generated outputs, overwritten on every refresh)",
+          "point [instructions].sources at your authored instructions instead (the agent files are generated outputs, overwritten on every refresh)",
       });
     } else {
       checks.push({
-        name: "guidance sources",
+        name: "instruction sources",
         ok: true,
         detail: sources.length === 0
-          ? "no source files match [guidance].sources yet (built-in guidance still compiles)"
+          ? "no source files match [instructions].sources yet (built-in instructions still compile)"
           : `${sources.length} source file(s) resolve`,
       });
     }
@@ -927,14 +930,14 @@ export async function runChecks(
     });
   }
 
-  let renderedGuidanceFiles = new Set<string>();
-  let guidanceRenderError: string | undefined;
+  let renderedInstructionFiles = new Set<string>();
+  let instructionRenderError: string | undefined;
   try {
-    renderedGuidanceFiles = new Set(
+    renderedInstructionFiles = new Set(
       (await renderAgentFiles(destDir, config)).keys(),
     );
   } catch (error) {
-    guidanceRenderError = error instanceof Error
+    instructionRenderError = error instanceof Error
       ? error.message
       : String(error);
   }
@@ -945,7 +948,7 @@ export async function runChecks(
   );
 
   // 8b. agent integrations — per CONFIGURED agent, the integration surfaces the
-  // provider registry wires today (guidance file, skills dir, MCP, worktree hooks).
+  // provider registry wires today (instruction file, skills dir, MCP, worktree hooks).
   // Makes per-agent coverage EXPLICIT rather than a silent gap: MCP/hooks are
   // Claude-only because Codex/Gemini use different mechanisms (their config files /
   // the absence of a worktree-hook event), so an operator can SEE why an agent lacks
@@ -962,14 +965,14 @@ export async function runChecks(
       continue;
     }
     const mcp = provider.mcp;
-    const guidancePath = provider.guidanceFile.path;
-    const guidanceWired = guidanceRenderError === undefined &&
-      renderedGuidanceFiles.has(guidancePath);
+    const instructionPath = provider.instructionFile.path;
+    const instructionWired = instructionRenderError === undefined &&
+      renderedInstructionFiles.has(instructionPath);
     const hookDrift = hookDriftByAgent.get(name);
     const hooksWired = provider.hooks !== undefined &&
       hookDrift === undefined;
     const wired = [
-      guidanceWired ? `guidance ${guidancePath}` : undefined,
+      instructionWired ? `instructions ${instructionPath}` : undefined,
       provider.skillsDir ? `skills ${provider.skillsDir.path}` : undefined,
       mcp.kind === "wired" ? "mcp" : undefined,
       hooksWired ? "hooks" : undefined,
@@ -978,10 +981,10 @@ export async function runChecks(
     // a `pending` MCP is committable and names the file discern will write into once
     // authored; an absent hooks surface uses the agent's own mechanism.
     const notWired = [
-      guidanceRenderError !== undefined
-        ? `guidance ${guidancePath} (render error)`
-        : !guidanceWired
-        ? `guidance ${guidancePath} (not rendered)`
+      instructionRenderError !== undefined
+        ? `instructions ${instructionPath} (render error)`
+        : !instructionWired
+        ? `instructions ${instructionPath} (not rendered)`
         : undefined,
       mcp.kind === "pending"
         ? `mcp → ${mcp.targetFile} (committable; not yet wired)`

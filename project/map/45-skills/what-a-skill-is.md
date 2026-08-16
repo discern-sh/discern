@@ -1,6 +1,6 @@
 ---
 title: What a Skill is
-description: How Skills give agents task-matched procedures, and when to use one instead of guidance, a script, or documentation.
+description: How Skills give agents task-matched procedures, and when to use one instead of instructions, a script, or documentation.
 order: 10
 aliases:
   - skill
@@ -14,7 +14,7 @@ _A Skill is a focused agent playbook that becomes available when its description
 
 Each Skill lives in a named directory with a `SKILL.md`. Frontmatter gives it a name and description. The description defines its trigger: the requests, failures, or situations that call for the playbook. The body explains the procedure and the judgment needed to apply it.
 
-discern makes the same effective set available to every configured coding agent. Its built-in Guidance instructs agents to load a Skill when a task matches. Naming the Skill in your request works across integrations even when their command syntax differs.
+discern makes the same effective set available to every configured coding agent. Its built-in instructions tell agents to load a Skill when a task matches. Naming the Skill in your request works across integrations even when their command syntax differs.
 
 ## Inspect the effective set
 
@@ -31,15 +31,15 @@ The terminal listing marks each Skill as built-in, yours, an override, or exclud
 
 Use a Skill when the work has a repeatable sequence and still needs judgment. Specify when to pause, what evidence to gather, which branch to take, and which observable conditions mark completion.
 
-| Knowledge to preserve                   | Put it here       | Reason                                         |
-| --------------------------------------- | ----------------- | ---------------------------------------------- |
-| A rule every session must follow        | Agent Guidance    | Each configured agent reads it from the start. |
-| A repeatable procedure needing judgment | Skill             | The agent loads it when the task matches.      |
-| A deterministic command sequence        | Project Script    | Executable steps stay executable.              |
-| Durable facts about a subsystem         | Documentation Map | Readers and agents use it as reference.        |
-| A significant, hard-to-reverse decision | ADR               | The record preserves the reason and trade-off. |
+| Knowledge to preserve                   | Put it here        | Reason                                         |
+| --------------------------------------- | ------------------ | ---------------------------------------------- |
+| A rule every session must follow        | Agent instructions | Each configured agent reads it from the start. |
+| A repeatable procedure needing judgment | Skill              | The agent loads it when the task matches.      |
+| A deterministic command sequence        | Project Script     | Executable steps stay executable.              |
+| Durable facts about a subsystem         | Documentation Map  | Readers and agents use it as reference.        |
+| A significant, hard-to-reverse decision | ADR                | The record preserves the reason and trade-off. |
 
-A deterministic command does not need a Skill. Put it in a Project Script. Durable project facts belong in [Guidance](../40-agent-guidance/) or the Map. This boundary keeps Skills procedural and always-loaded instructions short.
+A deterministic command does not need a Skill. Put it in a Project Script. Durable project facts belong in [agent instructions](../40-agent-instructions/) or the Map. This boundary keeps Skills procedural and always-loaded instructions short.
 
 ## Make an operational procedure self-contained
 
@@ -58,7 +58,7 @@ An internal registry keeps classifications outside shipped Skills and binds exac
 
 | Concern                     | Source                                                                       |
 | --------------------------- | ---------------------------------------------------------------------------- |
-| Built-in discovery rule     | [`skills.md`](../../../templates/guidance/skills.md)                         |
+| Built-in discovery rule     | [`skills.md`](../../../templates/instructions/skills.md)                     |
 | Effective-set listing       | [`skills.ts`](../../../src/lib/skills.ts) (`listSkills`, `skillsListResult`) |
 | Operational classifications | [`agent_surface_contracts.ts`](../../../scripts/agent_surface_contracts.ts)  |
 | Contract and prose bindings | [`agent_contract.ts`](../../../scripts/agent_contract.ts)                    |

@@ -2445,7 +2445,7 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       );
     }
 
-    // Repeated detector guidance appears once. Subject-specific standard pins
+    // Repeated detector instructions appears once. Subject-specific standard pins
     // collapse into one named action, and the boundary caveat appears once.
     const steps = new Map<string, number>();
     for (const finding of data.findings) {

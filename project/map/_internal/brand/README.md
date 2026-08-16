@@ -2,7 +2,7 @@
 
 # discern brand operating system
 
-> Repository-ready guidance for positioning, messaging, public copy, product copy, and agent-facing communication.
+> Repository-ready instructions for positioning, messaging, public copy, product copy, and agent-facing communication.
 
 **Status:** Canonical working system
 

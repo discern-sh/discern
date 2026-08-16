@@ -348,6 +348,9 @@ Deno.test("setup done on the seeded config alone is honest: minimal, with the no
     );
     assertEquals(format.state, "deferred");
     assertEquals(format.self_supplied, true);
-    assertStringIncludes(res.data.guidance, "No quality checks are wired yet");
+    assertStringIncludes(
+      res.data.instructions,
+      "No quality checks are wired yet",
+    );
   });
 });

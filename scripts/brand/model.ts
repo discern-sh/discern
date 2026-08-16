@@ -73,7 +73,7 @@ export interface Pillar<Slug extends string = string> {
   readonly humanTruth: string;
   readonly promise: string;
   readonly goodExpressions: readonly string[];
-  /** Guidance rendered between the expressions and the avoid list. */
+  /** Instructions rendered between the expressions and the avoid list. */
   readonly note?: string;
   readonly avoid?: readonly string[];
   readonly claims: readonly [Slug, ...Slug[]];

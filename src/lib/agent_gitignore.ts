@@ -4,11 +4,11 @@
  * Fresh setup and mutating upgrade both use the same model: the project owns the
  * rest of `.gitignore`, while discern owns exactly one delimited block. The block
  * enumerates ONLY what discern materializes or keeps machine-local (the
- * registry's ignored artifact kinds) — the compiled guidance files stay tracked,
+ * registry's ignored artifact kinds) — the compiled instruction files stay tracked,
  * so they never appear in it. It is authored in `templates/.gitignore.fragment`,
  * widened from the provider registry, and reconciled idempotently into existing
  * installs by absorbing old one-off `# discern:` fragments and scattered legacy
- * rules — including the guidance-file ignores earlier versions shipped, so an
+ * rules — including the instruction-file ignores earlier versions shipped, so an
  * upgraded install's compiled files become trackable again.
  */
 
@@ -16,7 +16,7 @@ import { join } from "@std/path";
 import {
   type AgentArtifactPosture,
   agentArtifactPosture,
-  allGuidanceFilePaths,
+  allInstructionFilePaths,
 } from "./providers.ts";
 import { resolveTemplatesDir } from "./paths.ts";
 import type { EnvReader } from "../shared/env.ts";
@@ -75,7 +75,7 @@ export function ignoreCovers(
 /**
  * Return the block setup and upgrade should write, ensuring the static fragment
  * has delimiters and every registry-declared IGNORED artifact — a materialized
- * directory or a machine-local state file — is covered. Guidance files are
+ * directory or a machine-local state file — is covered. Instruction files are
  * tracked, so they are never widened in.
  */
 export function canonicalDiscernGitignoreBlock(
@@ -266,14 +266,16 @@ export async function trackedDiscernIgnoredArtifacts(
 }
 
 /**
- * Compiled guidance files present on disk but untracked AND not ignored — the
+ * Compiled instruction files present on disk but untracked AND not ignored — the
  * state an existing install lands in after upgrade narrows the managed ignore
  * block. Advisory input for a commit recommendation: an out-of-harness agent
- * reading a bare clone only gets the guidance once these are committed. A
+ * reading a bare clone only gets the instructions once these are committed. A
  * project that deliberately ignores a compiled file in its OWN rules is
  * respected — git excludes an ignored file from this list, so no hint nags it.
  */
-export async function untrackedGuidanceFiles(root: string): Promise<string[]> {
+export async function untrackedInstructionFiles(
+  root: string,
+): Promise<string[]> {
   const run = await runGit(
     [
       "ls-files",
@@ -281,7 +283,7 @@ export async function untrackedGuidanceFiles(root: string): Promise<string[]> {
       "--exclude-standard",
       "-z",
       "--",
-      ...allGuidanceFilePaths(),
+      ...allInstructionFilePaths(),
     ],
     { cwd: root },
   );
@@ -291,8 +293,8 @@ export async function untrackedGuidanceFiles(root: string): Promise<string[]> {
   return unique(splitNul(run.stdout)).sort();
 }
 
-/** Fire the advisory that asks the operator to commit newly trackable guidance. */
-export function untrackedGuidanceFilesHint(
+/** Fire the advisory that asks the operator to commit newly trackable instructions. */
+export function untrackedInstructionFilesHint(
   paths: readonly string[],
 ): FiredHint {
   return fire(HINTS["untracked-agent-files"], { paths });
@@ -633,10 +635,10 @@ function isDiscernOwnedRule(
   }
   // Everything discern ever wrote as an ignore rule, so reconcile absorbs it:
   // the current ignored kinds, plus legacy rules earlier versions shipped —
-  // including the guidance-file ignores the tracked-by-default posture retired,
+  // including the instruction-file ignores the tracked-by-default posture retired,
   // so an upgraded install's compiled files become trackable again.
   const ownedPaths = new Set<string>([
-    ...artifacts.guidanceFiles,
+    ...artifacts.instructionFiles,
     ...artifacts.materializedDirs,
     ...artifacts.localStateFiles,
     ".claude",

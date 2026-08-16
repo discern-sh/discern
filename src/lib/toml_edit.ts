@@ -2,7 +2,7 @@
  * A surgical, comment-preserving editor for the `discern.toml` subset.
  *
  * `discern.toml` is heavily commented (every slot carries a `# e.g.` hint; every
- * section a paragraph of guidance). A parse→stringify round-trip through a normal
+ * section a paragraph of instructions). A parse→stringify round-trip through a normal
  * TOML library strips all of that. So this editor operates on the raw text as
  * lines and only ever rewrites the *value* of a targeted key — preserving the
  * key, its `=` alignment, and every comment elsewhere.

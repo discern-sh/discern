@@ -79,9 +79,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 274     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 276     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
-| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 22      | —                | node `forgiving-cli`        |
+| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 11      | —                | —                           |
 | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                              | `scripts/brand/vale.ts#voiceEnforcementCoverage`                                  | 23      | —                | —                           |
@@ -94,7 +94,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 81      | —                | node `canonical-sets`       |
 
-81 sets · 126 guard tests · 55 committed artifacts.
+81 sets · 127 guard tests · 55 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -185,13 +185,13 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/glossary_enrolment_test.ts`                 | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                      |
 | `tests/gotcha_matchers_drift_test.ts`              | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/gotchas_parity_test.ts`                     | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `tests/guidance_corpus_guard_test.ts`              | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools), [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/hint_audience_guard_test.ts`                | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/hint_closed_set_guard_test.ts`              | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/hint_command_guard_test.ts`                 | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/hint_inventory_codegen_test.ts`             | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/improve_catalog_test.ts`                    | [`improve-categories`](#improve-categories--improvement-categories)                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/improve_count_adrs_test.ts`                 | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tests/instruction_corpus_guard_test.ts`           | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools), [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/logbook_no_network_test.ts`                 | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/logbook_powered_test.ts`                    | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/logbook_routing_test.ts`                    | [`logbook-events`](#logbook-events--logbook-events), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                                                                                                                                                                                                                                  |
@@ -214,6 +214,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/site_smoke_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/site_workflow_test.ts`                      | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/skill_name_parity_test.ts`                  | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/source_path_references_test.ts`             | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/spoiler_guard_test.ts`                      | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/ssot_claim_guard_test.ts`                   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/third_party_notices_test.ts`                | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -330,7 +331,7 @@ The top-level command vocabulary: every verb the dispatcher accepts through the 
   - `skills`
   - `scripts`
   - `mcp`
-- Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
+- Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/instruction_corpus_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
 - Artifacts: `project/map/70-reference/cli-reference.md`
 - Glossary: each member is held named-or-recorded-absent by `tests/glossary_enrolment_test.ts`
 - Feature canon: claimed as the `verb` surface set
@@ -403,7 +404,7 @@ The MCP tool table; verb parity ties every tool to a CLI verb, and the live tool
   - `discern_docs`
   - `discern_doctor`
   - `discern_improvement`
-- Guards: `tests/engine_verb_parity_test.ts`, `tests/engine_mcp_test.ts`, `tests/result_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`
+- Guards: `tests/engine_verb_parity_test.ts`, `tests/engine_mcp_test.ts`, `tests/result_codegen_test.ts`, `tests/instruction_corpus_guard_test.ts`
 - Glossary: not enrolled — the glossary defines the mirrored verb vocabulary once
 - Feature canon: described by the `mcp-surface` node
 
@@ -487,7 +488,7 @@ The environment-only switches for reversible trials, with one exact activation r
 
 ## `operating-policies` — Operating policies
 
-The core policy statements carried by bundled Guidance and MCP server instructions, with probes that recognize each authored restatement.
+The core policy statements carried by bundled instructions and MCP server instructions, with probes that recognize each authored restatement.
 
 - Source: `src/shared/operating_policies.ts` — `OPERATING_POLICIES`
 - Members: 9
@@ -502,7 +503,7 @@ The core policy statements carried by bundled Guidance and MCP server instructio
   - `accept-on-handoff`
 - Guards: `tests/agent_policy_parity_test.ts`
 - Glossary: not enrolled — existing Glossary entries define the reader-facing concepts behind these internal policy identifiers
-- Feature canon: not enrolled — the Guidance, Worktree, Standard, and MCP nodes own the enforced behaviors
+- Feature canon: not enrolled — the instruction, Worktree, Standard, and MCP nodes own the enforced behaviors
 
 ## `command-groups` — Command groups
 
@@ -702,7 +703,7 @@ The result-step operation vocabulary: what a step does. The doctor's `STEP_KIND_
   - `merge-check`
   - `standards-limits-check`
   - `tracked-artifacts-check`
-  - `guidance-check`
+  - `instructions-check`
   - `skills-check`
   - `tracked-refresh-check`
   - `resource-create`
@@ -736,7 +737,7 @@ The stable kebab-case operation labels discern authors in plans and applied resu
   - `delete-branch`
   - `ensure-branch`
   - `fast-forward-trunk`
-  - `guidance-check`
+  - `instructions-check`
   - `inherit-env`
   - `materialize-local-agent-artifacts`
   - `merge`
@@ -772,7 +773,7 @@ Every top-level table in the config schema.
   - `meta`
   - `project`
   - `repository`
-  - `guidance`
+  - `instructions`
   - `skills`
   - `map`
   - `jobs`
@@ -791,17 +792,17 @@ Every top-level table in the config schema.
 
 ## `source-paths` — Source paths
 
-The configurable authored-source locations: Guidance, Map, Skills, Project Scripts, TODO, and brief. Each entry carries its config key, default, ownership, and resolution rule.
+The authored-source locations: instructions, Map, Skills, Project Scripts, TODO, and brief. Each entry carries its config key, default, ownership, and resolution rule; every configured scalar entry automatically exposes its live reference.
 
 - Source: `src/shared/paths_registry.ts` — `SOURCE_PATHS`
 - Members: 6
-  - `guidance`
+  - `instructions`
   - `map`
   - `skills`
   - `scripts`
   - `todo`
   - `brief`
-- Guards: `tests/paths_registry_test.ts`, `tests/paths_literal_ban_test.ts`, `tests/engine_nondefault_paths_test.ts`, `tests/paths_sentinel_render_test.ts`, `tests/paths_write_surface_test.ts`, `tests/agent_gitattributes_test.ts`
+- Guards: `tests/paths_registry_test.ts`, `tests/paths_literal_ban_test.ts`, `tests/engine_nondefault_paths_test.ts`, `tests/paths_sentinel_render_test.ts`, `tests/paths_write_surface_test.ts`, `tests/agent_gitattributes_test.ts`, `tests/source_path_references_test.ts`
 - Glossary: not enrolled — the config reference documents every source-path key
 - Feature canon: described by the `one-file-footprint` node
 
@@ -820,7 +821,7 @@ The Skills the binary ships and materializes into a project.
   - `discern-teach-the-project`
   - `discern-write-adr`
   - `discern-write-it-once`
-- Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/guidance_corpus_guard_test.ts`
+- Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/instruction_corpus_guard_test.ts`
 - Glossary: the "Skill" entry carries the concept
 - Feature canon: claimed as the `skill` surface set
 
@@ -891,7 +892,7 @@ The integration seams discern wires for each coding agent. The operational-inter
 
 - Source: `scripts/agent_integration_registry.ts` — `INTEGRATION_SEAMS`
 - Members: 11
-  - `guidance`
+  - `instructions`
   - `skills`
   - `mcp`
   - `worktree-hooks`
@@ -943,7 +944,7 @@ The public claims ledger behind brand copy: per-claim evidence classes, stronges
 - Members: 20
   - `installs-a-practice`
   - `no-manual-configuration`
-  - `one-guidance-source`
+  - `one-instruction-source`
   - `switch-without-reteaching`
   - `shaped-delegation`
   - `reduced-review-burden`
@@ -1016,7 +1017,7 @@ The machine-checkable predicates behind setup's observable progress. Each mirror
 - Members: 3
   - `known_jobs`
   - `design_principles`
-  - `guidance`
+  - `instructions`
 - Guards: `tests/engine_setup_pages_test.ts`
 - Glossary: not enrolled — the setup pages describe each progress predicate in reader-facing prose
 - Feature canon: described by the `setup-observability` node
@@ -1142,7 +1143,7 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-failure-refresh-drift`
   - `gate-failure-generated-undercoverage`
   - `gate-failure-tracked-artifacts`
-  - `gate-failure-guidance`
+  - `gate-failure-instructions`
   - `gate-failure-skills`
   - `gate-failure-skill-frontmatter`
   - `gate-failure-adr-numbers`
@@ -1194,8 +1195,8 @@ The advisory hint registry: every hint string enters results through it.
   - `setup-refresh-artifact-failed`
   - `setup-awaiting-confirmation`
   - `setup-finish-incomplete`
-  - `setup-guidance-preserved`
-  - `setup-guidance-own-render-skipped`
+  - `setup-instructions-preserved`
+  - `setup-instructions-own-render-skipped`
   - `setup-done-land-dedicated`
   - `setup-done-land-manually`
   - `setup-reactivate-tools`
@@ -1245,7 +1246,7 @@ The Desk tip registry: every teaching line the Desk can show enters through it, 
   - `standards-on-demand`
   - `standards-pin-gain`
   - `config-validates-edits`
-  - `refresh-publishes-guidance`
+  - `refresh-publishes-instructions`
   - `preset-keeps-project-values`
   - `upgrade-check-only`
   - `one-file-settings`
@@ -1548,7 +1549,7 @@ Every detector the Patterns verb runs over the Logbook, in stable registry order
   - `identity-gap`
   - `provider-fit`
   - `cohort-done-thrash`
-  - `guidance-parity`
+  - `instruction-parity`
   - `dominant-stage`
   - `generator-gate-share`
   - `slot-contention`
@@ -1577,7 +1578,7 @@ The improvement catalog's categories, in display order. The runner ranks them we
 - Members: 7
   - `gate`
   - `setup`
-  - `guidance`
+  - `instructions`
   - `map`
   - `worktrees`
   - `standards`
@@ -1607,7 +1608,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Gate`
   - `Generated file`
   - `Generated artifact`
-  - `Guidance source`
+  - `Instruction source`
   - `Installer`
   - `Landing authority`
   - `Logbook`
@@ -1696,9 +1697,9 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `await`
   - `desk`
   - `tips`
-  - `guidance`
-  - `guidance-compile`
-  - `guidance-conditionals`
+  - `instructions`
+  - `instructions-compile`
+  - `instructions-conditionals`
   - `providers`
   - `provider-claude-code`
   - `provider-codex`
@@ -1812,7 +1813,7 @@ The commercially ordered transposition of the feature registry: human value and 
   - `teach-project-once`
   - `inspect-agent-understanding`
   - `preserve-decision-reasons`
-  - `guidance-at-failure`
+  - `instructions-at-failure`
   - `orient-new-session`
   - `export-project-briefing`
   - `reuse-engineering-discipline`
@@ -2118,7 +2119,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 274
+- Members: 276
   - `0003`
   - `0005`
   - `0006`
@@ -2375,6 +2376,8 @@ The numbered decision records in the Map, including records later superseded.
   - `0282`
   - `0283`
   - `0284`
+  - `0285`
+  - `0286`
   - `0001`
   - `0002`
   - `0004`
@@ -2403,7 +2406,7 @@ Every project-tree path discern writes or maintains, with its operational owners
 
 - Source: `src/lib/artifact_ownership.ts` — `projectArtifactPaths`
 - Members: 27
-  - `discern/guidance.md`
+  - `discern/instructions.md`
   - `discern/map/`
   - `discern/skills`
   - `discern/scripts`
@@ -2440,7 +2443,7 @@ Every project-tree path discern writes or maintains, with its operational owners
 Retired commands, retired config keys, dead config positions, and synonym redirects that make the CLI return a redirect or refusal.
 
 - Source: `src/shared/vocabulary.ts` — `RETIRED_COMMAND_REDIRECTS`
-- Members: 22
+- Members: 23
   - `finish`
   - `graduate`
   - `setup land`
@@ -2450,6 +2453,7 @@ Retired commands, retired config keys, dead config positions, and synonym redire
   - `config set-ratchet`
   - `config set-capability`
   - `config set-check`
+  - `guidance`
   - `ratchets`
   - `docs`
   - `recipes`
@@ -2648,7 +2652,7 @@ The top-level trees holding authored TypeScript define the scan universe for rep
 
 ## `artifact-validators` — Artifact validators
 
-Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance sources, Skills, Project Scripts, and Architecture Decision Records. Each validator has a shipped caller or a recorded repository-only classification.
+Every `src/lib` validator for a config-resolved authored artifact: Map, Instruction sources, Skills, Project Scripts, and Architecture Decision Records. Each validator has a shipped caller or a recorded repository-only classification.
 
 - Source: `tests/validator_registry.ts` — `ARTIFACT_VALIDATORS`
 - Members: 9

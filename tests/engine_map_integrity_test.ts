@@ -1,5 +1,5 @@
 /**
- * Engine tests for the gate's map & guidance integrity preflight.
+ * Engine tests for the gate's map & instructions integrity preflight.
  *
  * Every project's `discern done` must refuse documentation whose references a
  * reader cannot follow: dead intra-map links and anchors, metadata blocks the

@@ -98,7 +98,7 @@ In the repository's rule set or branch-protection settings, require pull request
 
 ## Cloud-agent changes
 
-A cloud coding agent may start from a clone without the discern binary or materialized Skills. Committed agent guidance still travels with the clone. The required CI job installs discern and runs the repository's Gate before the change can merge. A wrapped task without the binary exits 127, so an agent that runs it needs discern installed. Installation also supplies Model Context Protocol tools and Skills.
+A cloud coding agent may start from a clone without the discern binary or materialized Skills. Committed agent instructions still travels with the clone. The required CI job installs discern and runs the repository's Gate before the change can merge. A wrapped task without the binary exits 127, so an agent that runs it needs discern installed. Installation also supplies Model Context Protocol tools and Skills.
 
 ## Where it lives in code
 
@@ -110,6 +110,6 @@ A cloud coding agent may start from a clone without the discern binary or materi
 
 ## Current state & gotchas
 
-- Do not run `discern refresh` in the gate job. CI verifies committed guidance and accepts an intentionally missing untracked copy; regenerating first can hide drift.
+- Do not run `discern refresh` in the gate job. CI verifies committed instructions and accepts an intentionally missing untracked copy; regenerating first can hide drift.
 - Pull-request checkouts may lack local `main`. Fetch it without exporting `DISCERN_TRUNK` into project jobs.
 - `git diff --exit-code` catches fixer output. Without it, the workflow can finish after changing the runner's checkout and does not verify that the commit contains those changes.

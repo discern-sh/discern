@@ -54,7 +54,7 @@ Choose among terminal, Markdown, JSON, and MCP delivery through [Result formats 
 | `discern_impact`      | List the scopes the current change activates.                                                          | Read-only and idempotent.                                            |
 | `discern_coupling`    | Report historical co-change partners for the current diff or named files.                              | Read-only, idempotent, and advisory.                                 |
 | `discern_patterns`    | Report findings, investigation paths, or Stats from the active Logbook or a selected sealed archive.   | Read-only, idempotent, and advisory; lifecycle actions are CLI-only. |
-| `discern_refresh`     | Rebuild generated Guidance, Skills, integrations, and the ADR index.                                   | Mutating, closed-world, and idempotent.                              |
+| `discern_refresh`     | Rebuild generated Instructions, Skills, integrations, and the ADR index.                               | Mutating, closed-world, and idempotent.                              |
 | `discern_map`         | Index, search, or read the project's agent-maintained Map.                                             | Read-only and idempotent.                                            |
 | `discern_docs`        | Index, search, or read discern's bundled public manual.                                                | Read-only, idempotent, and project-independent.                      |
 | `discern_doctor`      | Check config, commands, repository shape, and integration health.                                      | Read-only and idempotent.                                            |

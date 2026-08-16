@@ -30,7 +30,7 @@ import {
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import {
   defaultDocumentationScopes,
-  defaultGuidanceScopes,
+  defaultInstructionScopes,
   DEFAULTS,
 } from "./config.ts";
 import { KIT_VERSION } from "./version.ts";
@@ -180,7 +180,7 @@ export function renderConfigTemplateForConfig(
     map_dir: config.map.dir,
     gotchas_doc: config.project.gotchas_doc,
     scopes_neutral: defaultDocumentationScopes().join(", "),
-    scopes_guidance: defaultGuidanceScopes().join(", "),
+    scopes_instructions: defaultInstructionScopes().join(", "),
     scopes_web: renderTomlStringList([...DEFAULTS.sourceGlobs]),
     scopes_previewable: DEFAULTS.scopesPreviewable.join(", "),
     artifact_provenance_marker: generatedArtifactMarkerBody(

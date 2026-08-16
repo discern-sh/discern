@@ -17,7 +17,7 @@ import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import { pathMatchesPattern } from "./glob.ts";
-import { expandMapDirReference } from "../../shared/map_path.ts";
+import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 
 /**
  * The two derived markers a classification emits ALONGSIDE the scope names: `code`
@@ -147,14 +147,14 @@ function resolvedScopePaths(
   scope: string,
 ): string[] {
   return (config.scopes[scope]?.paths ?? []).map((path) =>
-    expandMapDirReference(path, config.map.dir)
+    expandSourcePathReferences(path, config)
   );
 }
 
 /**
  * Whether `path` is a NEUTRAL path — one a change to needs no gate, and that must
  * not register as evidence: it matches a `neutral`-flagged scope (docs, agent
- * guidance, generated/materialized artifacts), or it is a root-level `*.md`. The
+ * instructions, generated/materialized artifacts), or it is a root-level `*.md`. The
  * single definition of "neutral path", shared by {@link scopes} (which drops
  * these before classifying) and the co-change miner (which drops them before
  * building baskets, so `AGENTS.md`, `dist/`, lockfiles, and materialized skills

@@ -16,7 +16,7 @@ import { fakeEnv, withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
-  allGuidanceFilePaths,
+  allInstructionFilePaths,
   DISCERN_MCP_SERVER,
   type McpServerSpec,
   type McpWireResult,
@@ -83,7 +83,10 @@ Deno.test("the registry is total: every known agent has a complete provider", ()
     assert(p, `no provider for ${name}`);
     assertEquals(p.name, name);
     assert(p.label.length > 0, `${name}: empty label`);
-    assert(p.guidanceFile.path.endsWith(".md"), `${name}: odd guidance file`);
+    assert(
+      p.instructionFile.path.endsWith(".md"),
+      `${name}: odd instruction file`,
+    );
   }
   assertEquals(Object.keys(PROVIDERS).length, AGENT_NAMES.length);
 });
@@ -156,12 +159,12 @@ Deno.test("skillsDirsForAgents: dedupes Codex+Gemini onto the shared .agents/ski
 
 Deno.test("every agent renders a distinct `<label> (<file>)` setup choice", () => {
   // The `setup` agent-files Checkbox derives each option's display from the
-  // registry: `${label} (${guidanceFile.path})`. The label and path must be
+  // registry: `${label} (${instructionFile.path})`. The label and path must be
   // 1:1 with the agent, or two agents render identically and one is silently
   // mislabelled (the "two Codexs" bug, when a hardcoded fallback labelled both
   // codex and gemini "Codex (AGENTS.md)").
   const display = (name: typeof AGENT_NAMES[number]) =>
-    `${PROVIDERS[name].label} (${PROVIDERS[name].guidanceFile.path})`;
+    `${PROVIDERS[name].label} (${PROVIDERS[name].instructionFile.path})`;
   assertEquals(display("claude_code"), "Claude Code (CLAUDE.md)");
   assertEquals(display("codex"), "Codex (AGENTS.md)");
   assertEquals(display("gemini"), "Gemini (GEMINI.md)");
@@ -174,33 +177,33 @@ Deno.test("every agent renders a distinct `<label> (<file>)` setup choice", () =
   );
 });
 
-Deno.test("the guidance-file mapping is the documented one (AGENTS.md the one canonical file)", () => {
+Deno.test("the instruction-file mapping is the documented one (AGENTS.md the one canonical file)", () => {
   // Claude Code's mirror points at the canonical file rather than duplicating it,
-  // so its guidanceFile carries a `pointer` that emits an `@<path>` import — and it
+  // so its instructionFile carries a `pointer` that emits an `@<path>` import — and it
   // is not itself canonical. (canonical is decoupled from git-tracking: ADR 0034
   // makes every compiled file gitignored.)
-  const claude = providerFor("claude_code")?.guidanceFile;
+  const claude = providerFor("claude_code")?.instructionFile;
   assertEquals(claude?.path, "CLAUDE.md");
   assertEquals(claude?.canonical, false);
   assertEquals(typeof claude?.pointer, "function");
   assertEquals(claude?.pointer?.("AGENTS.md"), "@AGENTS.md\n");
 
   // The canonical file holds the full compiled body — no pointer.
-  const codex = providerFor("codex")?.guidanceFile;
+  const codex = providerFor("codex")?.instructionFile;
   assertEquals(codex?.path, "AGENTS.md");
   assertEquals(codex?.canonical, true);
   assertEquals(codex?.pointer, undefined);
 
   // Gemini's mirror points at the canonical AGENTS.md via its `@path` Memory Import
   // (vendor-verified, `.md`-only), exactly like Claude — not a duplicated body.
-  const gemini = providerFor("gemini")?.guidanceFile;
+  const gemini = providerFor("gemini")?.instructionFile;
   assertEquals(gemini?.path, "GEMINI.md");
   assertEquals(gemini?.canonical, false);
   assertEquals(gemini?.pointer?.("AGENTS.md"), "@AGENTS.md\n");
   // Exactly one canonical file, and it is AGENTS.md.
   const canonical = Object.values(PROVIDERS)
-    .filter((p) => p.guidanceFile.canonical)
-    .map((p) => p.guidanceFile.path);
+    .filter((p) => p.instructionFile.canonical)
+    .map((p) => p.instructionFile.path);
   assertEquals(canonical, ["AGENTS.md"]);
 });
 
@@ -266,17 +269,17 @@ Deno.test("MCP status is typed and explicit: all five agents wired to their own 
 });
 
 Deno.test("Cursor & Copilot are reuse-canonical: read AGENTS.md natively, no duplicate provider file, share .agents/skills", () => {
-  // Phase C's two cheap agents: guidance and skills reuse artifacts discern already
+  // Phase C's two cheap agents: instructions and skills reuse artifacts discern already
   // produces, so each is a registry declaration, not new machinery (ADR 0070).
   for (const name of ["cursor", "copilot"] as const) {
     const p = providerFor(name);
     assert(p !== undefined, `no provider for ${name}`);
     // Reuse-canonical: path names the canonical AGENTS.md it reads; discern emits
     // no provider-specific file (no duplicate body, no pointer).
-    assertEquals(p.guidanceFile.path, "AGENTS.md");
-    assertEquals(p.guidanceFile.canonical, false);
-    assertEquals(p.guidanceFile.reuseCanonical, true);
-    assertEquals(p.guidanceFile.pointer, undefined);
+    assertEquals(p.instructionFile.path, "AGENTS.md");
+    assertEquals(p.instructionFile.canonical, false);
+    assertEquals(p.instructionFile.reuseCanonical, true);
+    assertEquals(p.instructionFile.pointer, undefined);
     // The shared cross-tool skills dir — deduped onto Codex's/Gemini's target.
     assertEquals(p.skillsDir?.path, ".agents/skills");
     // Committed MCP/hooks are inert until a one-time trust, and the action is named.
@@ -287,7 +290,7 @@ Deno.test("Cursor & Copilot are reuse-canonical: read AGENTS.md natively, no dup
     );
   }
   // A reuse-canonical provider leaks no duplicate AGENTS.md into the emitted set.
-  const emitted = allGuidanceFilePaths();
+  const emitted = allInstructionFilePaths();
   assertEquals(emitted.filter((p) => p === "AGENTS.md").length, 1);
 });
 

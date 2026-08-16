@@ -227,7 +227,7 @@ Deno.test("agent-experience accounts describe benefits instead of issuing instru
   assertEquals(
     failures,
     [],
-    "agent-experience accounts state what the feature buys the agent; operating instructions belong in guidance",
+    "agent-experience accounts state what the feature buys the agent; operating instructions belong in instructions",
   );
 });
 

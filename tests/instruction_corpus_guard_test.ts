@@ -1,5 +1,5 @@
 /**
- * Reference guard for the shipped agent-facing corpus: the guidance templates
+ * Reference guard for the shipped agent-facing corpus: the instructions templates
  * every project compiles into its agent files, the bundled skills, and the
  * MCP server's instructions and tool descriptions. The hint registry and the
  * map's fenced examples already validate against the live registries; this
@@ -48,7 +48,7 @@ async function markdownDocs(dir: string): Promise<CorpusDoc[]> {
 /** The whole shipped agent-facing corpus, one doc per surface. */
 async function collectCorpus(): Promise<CorpusDoc[]> {
   const docs: CorpusDoc[] = [
-    ...(await markdownDocs(join(REPO_ROOT, "templates", "guidance"))),
+    ...(await markdownDocs(join(REPO_ROOT, "templates", "instructions"))),
     ...(await markdownDocs(join(REPO_ROOT, "templates", "skills"))),
     { label: "mcp server instructions", text: buildInstructions() },
     ...TOOLS.map((tool) => ({

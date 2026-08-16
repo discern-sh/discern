@@ -16,7 +16,7 @@
  * turns a VALID call into an ERROR. Tying the schema to the type (compile time) and
  * proving faithfulness with a test (`tests/result_schemas_test.ts` runs each verb
  * and validates its real `serializeResult` output) keeps the two from drifting — the
- * MCP analog of the gate's guidance-currency check.
+ * MCP analog of the gate's instructions-currency check.
  *
  * Layer note: this is a `shared/` module — it depends only on `result.ts` and
  * Zod, never on `src/engine/**`, so the engine
@@ -679,7 +679,7 @@ const GateValidationWireSchema = z.strictObject({
   proof: GateProofWireSchema,
 });
 
-/** `refresh` — generated guidance, skills, provider integration artifacts, and
+/** `refresh` — generated instructions, skills, provider integration artifacts, and
  * the maintained ADR index. `adr_index_written` names the ADR README whose
  * marker-delimited record lists this run regenerated (at most one path; empty
  * when the index is current or the project carries no index markers). */
@@ -1534,7 +1534,7 @@ export type DocSearchResult = z.infer<typeof docSearchResultSchema>;
  * `map`/`help` — the documentation payload, across every mode: the index
  * (`map_dir`/`count`/`docs`; `help` omits `map_dir`), an empty tree
  * (`count:0`), a single doc (`doc` with content), an ambiguous match
- * (`candidates`), nearest-match guidance for a not-found (`suggestions`), or a
+ * (`candidates`), nearest-match instructions for a not-found (`suggestions`), or a
  * ranked search (`query`/`results`, optionally narrowed to `scope`). Modeled as
  * one object with mode-specific optionals.
  */
@@ -1562,8 +1562,8 @@ export type DocsData = z.infer<typeof DocsDataSchema>;
 
 /**
  * The structured **spine** of one setup page (ADR 0078) — navigation and
- * completion-proof rails ONLY. The warm behavioral/consent guidance stays in the
- * prose `guidance` field, never flattened into these terse fields (the two-lane
+ * completion-proof rails ONLY. The warm behavioral/consent instructions stay in the
+ * prose `instructions` field, never flattened into these terse fields (the two-lane
  * rule: structured fields get summarized and weakened; prose gets followed). The
  * page parser ({@link import("./setup_pages.ts")}) validates each step's authored
  * TOML block against this, so a malformed spine fails loudly rather than serving
@@ -1581,14 +1581,14 @@ export type SetupPageSpine = z.infer<typeof SetupPageSpineSchema>;
 
 /**
  * `setup step` — one numbered setup page: the structured `spine` plus the warm
- * prose `guidance` the agent follows verbatim. Every result representation carries
+ * prose `instructions` the agent follows verbatim. Every result representation carries
  * both; terminal and Markdown presentations lead with the prose (ADR 0078).
  */
 export const SetupStepDataSchema = z.strictObject({
   step: z.number(),
   title: z.string(),
   spine: SetupPageSpineSchema,
-  guidance: z.string(),
+  instructions: z.string(),
 });
 export type SetupStepData = z.infer<typeof SetupStepDataSchema>;
 
@@ -1613,7 +1613,7 @@ export type SetupVerifyConflict = z.infer<typeof SetupVerifyConflictSchema>;
 /**
  * The grounded, read-only findings `verify` reports about THIS repo — the machine lane
  * of the preflight. The consent conversation itself never rides these fields; it stays
- * in the `guidance` prose. A new finding (e.g. a new repo probe) enrolls HERE,
+ * in the `instructions` prose. A new finding (e.g. a new repo probe) enrolls HERE,
  * so the schema and the real output can't drift (ADR 0041).
  */
 export const SetupVerifyFindingsSchema = z.strictObject({
@@ -1639,7 +1639,7 @@ export type SetupVerifyFindings = z.infer<typeof SetupVerifyFindingsSchema>;
  * `setup verify` — the read-only preflight payload (ADR 0075), two shapes under one
  * schema:
  *   - the FRESH preflight: the structured machine lane (`findings`/`conflicts`/`ready`)
- *     plus the consent `guidance` — the warm prose the agent relays VERBATIM and never
+ *     plus the consent `instructions` — the warm prose the agent relays VERBATIM and never
  *     summarizes — and the `next_action` funnel into `begin`;
  *   - the redirect (phase ≠ fresh): just `phase` + `next_action`.
  * The two-lane split mirrors `setup step` (ADR 0078): consent/behavioral instructions
@@ -1652,7 +1652,7 @@ export const SetupVerifyDataSchema = z.strictObject({
   ready: z.boolean().optional(),
   findings: SetupVerifyFindingsSchema.optional(),
   conflicts: z.array(SetupVerifyConflictSchema).optional(),
-  guidance: z.string().optional(),
+  instructions: z.string().optional(),
 });
 export type SetupVerifyData = z.infer<typeof SetupVerifyDataSchema>;
 
@@ -1710,7 +1710,7 @@ export const SetupDoneLandingSchema = z.strictObject({
 
 /**
  * `setup done` — the completion payload (ADR 0065/0078/0086). The structured fields
- * carry assurance, landing, reactivation, and coach facts. The `guidance` prose is
+ * carry assurance, landing, reactivation, and coach facts. The `instructions` prose is
  * the ready-to-relay completion message a courier agent hands its human — carried
  * verbatim in every representation, never flattened into fields (ADR 0086).
  */
@@ -1730,7 +1730,7 @@ export const SetupDoneDataSchema = z.strictObject({
   landing: SetupDoneLandingSchema,
   reactivation: ReactivationSchema,
   coach: z.strictObject({ verb: z.string(), command: z.string() }),
-  guidance: z.string(),
+  instructions: z.string(),
 });
 export type SetupDoneData = z.infer<typeof SetupDoneDataSchema>;
 
@@ -1757,7 +1757,7 @@ export const SetupDataSchema = z.strictObject({
   phase: z.enum(["fresh", "in_progress", "done"]).optional(),
   complete: z.boolean().optional(),
   next_action: z.string().optional(),
-  agent_guidance: z.string().optional(),
+  agent_instructions: z.string().optional(),
   human_framing: z.string().optional(),
   progress: setupProgressSchema.optional(),
   already_set_up: z.boolean().optional(),
@@ -1770,7 +1770,6 @@ export const SetupDataSchema = z.strictObject({
       note: z.string().optional(),
     }),
   ).optional(),
-  guidance: z.string().optional(),
   command: z.string().optional(),
   bootstrapped: z.boolean().optional(),
   branch: z.string().nullable().optional(),
@@ -1785,8 +1784,8 @@ export const SetupDataSchema = z.strictObject({
   hooks_wired: z.array(z.string()).optional(),
   worktree_app_wired: z.array(z.string()).optional(),
   project_rules_wired: z.array(z.string()).optional(),
-  guidelines_compiled: z.boolean().optional(),
-  guidelines_errors: z.array(z.string()).optional(),
+  instructions_compiled: z.boolean().optional(),
+  instructions_errors: z.array(z.string()).optional(),
   skeletons: z.array(z.string()).optional(),
   skipped: z.array(z.string()).optional(),
   instructions: z.string().optional(),
@@ -2002,8 +2001,8 @@ export const UpgradeDataSchema = z.strictObject({
   hooks_wired: z.array(z.string()).optional(),
   worktree_app_wired: z.array(z.string()).optional(),
   project_rules_wired: z.array(z.string()).optional(),
-  guidelines_compiled: z.boolean().optional(),
-  guidelines_errors: z.array(z.string()).optional(),
+  instructions_compiled: z.boolean().optional(),
+  instructions_errors: z.array(z.string()).optional(),
 });
 export type UpgradeData = z.infer<typeof UpgradeDataSchema>;
 
@@ -2190,7 +2189,7 @@ export const SetupStepOutputSchema = resultOutputSchema(
 
 /** `setup verify` output: envelope + the preflight `data` (fresh or redirect). CLI-only
  * (setup is not an MCP tool), modeled here so a faithfulness test can pin the real
- * serialized output — including the consent `guidance` — to one source (ADR 0041). */
+ * serialized output — including the consent `instructions` — to one source (ADR 0041). */
 export const SetupVerifyOutputSchema = resultOutputSchema(
   "setup verify",
   SetupVerifyDataSchema,
@@ -2198,7 +2197,7 @@ export const SetupVerifyOutputSchema = resultOutputSchema(
 
 /** `setup done` output: envelope + the completion `data`. CLI-only (setup is not an MCP
  * tool), modeled here so a faithfulness test can pin the real serialized output —
- * including the completion `guidance` — to one source (ADR 0041). */
+ * including the completion `instructions` — to one source (ADR 0041). */
 export const SetupDoneOutputSchema = resultOutputSchema(
   "setup done",
   SetupDoneDataSchema,

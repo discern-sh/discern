@@ -133,7 +133,7 @@ const PROBES = {
         json: {
           refused: json.code === 1 && env.ok === false &&
             env.error === AWAITING_CONSENT_SLUG,
-          evidence: [env.message, env.data.guidance, env.data.command],
+          evidence: [env.message, env.data.instructions, env.data.command],
         },
         markdown: {
           refused: markdown.code === 1,

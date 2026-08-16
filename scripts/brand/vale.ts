@@ -782,7 +782,7 @@ export const VALE_DISPOSITIONS = [
     disposition: "covered",
     mechanism: "structural-guard",
     authority: [
-      enforcementReference("discern.toml", "[standards.guidance]"),
+      enforcementReference("discern.toml", "[standards.instructions]"),
       enforcementReference("discern.toml", "[standards.skills_count]"),
       enforcementReference("discern.toml", "[standards.skills_words]"),
     ],
@@ -798,7 +798,7 @@ export const VALE_DISPOSITIONS = [
       enforcementReference("tests/engine_standards_test.ts"),
     ],
     residual:
-      "The configured corpus totals are ratcheted; allocation within one Skill or guidance section remains editorial.",
+      "The configured corpus totals are ratcheted; allocation within one Skill or instruction section remains editorial.",
   },
   {
     check: {

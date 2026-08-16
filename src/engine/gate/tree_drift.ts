@@ -123,7 +123,7 @@ function stagePhrase(stage: FailedStage): string {
 /**
  * The Tier-0 {@link Diagnostic} for stranded gate output: the committed-clean files
  * each stage dirtied, a capped `git diff` of them (so the agent sees the change is the
- * gate's own — usually trivial), and the commit-then-re-run guidance. `git diff` is
+ * gate's own — usually trivial), and the commit-then-re-run instructions. `git diff` is
  * the reproduce command: it shows exactly what is left to commit.
  */
 export async function treeDriftDiagnostic(

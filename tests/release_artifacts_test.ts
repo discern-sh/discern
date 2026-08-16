@@ -177,7 +177,7 @@ case "$1" in
   setup)
     mkdir -p discern
     printf '%s\\n' '[project]' > discern.toml
-    printf '%s\\n' '# Guidance' > ${SOURCE_PATHS.guidance.defaultPath}
+    printf '%s\\n' '# Instructions' > ${SOURCE_PATHS.instructions.defaultPath}
     ${scaffoldMap}
     ${materializeLegal}
     printf '%s\\n' '${JSON.stringify({ ok: true, verb: "setup" })}'

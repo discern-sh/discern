@@ -3,7 +3,7 @@
  * tests own the behaviours the spec calls out: content + path token
  * substitution, `.tmpl` stripping, exec-bit preservation, settings deep-merge
  * into an existing file, `.gitignore` block idempotency, write-once seed
- * skipping, the `excludeNonSeed` skip of the binary's `skills/`/`guidance/`
+ * skipping, the `excludeNonSeed` skip of the binary's `skills/`/`instructions/`
  * subtrees, and dry-run-writes-nothing.
  *
  * They use the fixture (not the real templates) so they stay stable while other
@@ -39,7 +39,7 @@ import { settingsSeeds } from "../src/lib/providers.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 
 /** Build and apply an init-style plan over the fixture tree into `dir` (the
- * binary's skills/ + guidance/ subtrees excluded, exactly as `setup` does). */
+ * binary's skills/ + instructions/ subtrees excluded, exactly as `setup` does). */
 async function scaffold(dir: string): Promise<Plan> {
   const plan = await buildPlan({
     templatesDir: FIXTURE_TEMPLATES,
@@ -128,9 +128,9 @@ Deno.test("init copies a token-free file verbatim", async () => {
   });
 });
 
-Deno.test("excludeNonSeed skips the binary's skills/ and guidance/ subtrees", async () => {
+Deno.test("excludeNonSeed skips the binary's skills/ and instructions/ subtrees", async () => {
   await withTempDir(async (dir) => {
-    // init-style: skills/ + guidance/ are the binary's, materialized/read from
+    // init-style: skills/ + instructions/ are the binary's, materialized/read from
     // the binary, never seeded.
     const excluded = await buildPlan({
       templatesDir: FIXTURE_TEMPLATES,
@@ -139,7 +139,7 @@ Deno.test("excludeNonSeed skips the binary's skills/ and guidance/ subtrees", as
       excludeNonSeed: true,
     });
     assert(!excluded.ops.some((o) => o.targetRel.startsWith("skills/")));
-    assert(!excluded.ops.some((o) => o.targetRel.startsWith("guidance/")));
+    assert(!excluded.ops.some((o) => o.targetRel.startsWith("instructions/")));
 
     // preset-style (default): a preset's skills/ IS an intended overlay.
     const included = await buildPlan({
@@ -148,7 +148,7 @@ Deno.test("excludeNonSeed skips the binary's skills/ and guidance/ subtrees", as
       tokens: testTokens(),
     });
     assert(included.ops.some((o) => o.targetRel === "skills/demo/SKILL.md"));
-    assert(included.ops.some((o) => o.targetRel === "guidance/base.md"));
+    assert(included.ops.some((o) => o.targetRel === "instructions/base.md"));
   });
 });
 

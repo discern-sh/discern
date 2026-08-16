@@ -56,7 +56,7 @@ export const CLAIMS = {
     strongestPublicForm:
       "discern installs an engineering practice into an agent-built project.",
     mechanism:
-      "setup studies the repository, learns human intent, wires project jobs, authors guidance and project knowledge, establishes worktree viability, and refuses completion until refresh, doctor, the full Gate, and a throwaway worktree probe pass. Ongoing guidance, Skills, worktrees, Standards, evidence, acceptance, and Patterns sustain the practice.",
+      "setup studies the repository, learns human intent, wires project jobs, authors instructions and project knowledge, establishes worktree viability, and refuses completion until refresh, doctor, the full Gate, and a throwaway worktree probe pass. Ongoing instructions, Skills, worktrees, Standards, evidence, acceptance, and Patterns sustain the practice.",
     conditions:
       "“Practice” names the connected product system. Installation alone does not establish cultural transformation.",
     forbiddenInference:
@@ -76,13 +76,13 @@ export const CLAIMS = {
       "setup is instantaneous, requires no agent effort, or never asks the human a question.",
     primarySource: "`discern setup begin` brief.",
   },
-  "one-guidance-source": {
-    title: "every configured provider receives the same project guidance",
+  "one-instruction-source": {
+    title: "every configured provider receives the same project instructions",
     evidence: ["structural"],
     strongestPublicForm:
-      "Write the project guidance once; discern compiles it for every configured coding-agent provider.",
+      "Write the project instructions once; discern compiles them for every configured coding-agent provider.",
     mechanism:
-      "one guidance source plus built-in guidance generates the provider instruction files; drift fails the Gate.",
+      "one instruction source plus built-in instructions generates the provider instruction files; drift fails the Gate.",
     conditions:
       "applies to supported and configured providers; provider-specific capabilities still differ.",
     forbiddenInference:
@@ -95,13 +95,14 @@ export const CLAIMS = {
     strongestPublicForm:
       "Change coding agents without starting the project explanation over.",
     mechanism:
-      "project guidance, Skills, Map, Gate, Standards, and worktree practice remain project-owned.",
+      "project instructions, Skills, Map, Gate, Standards, and worktree practice remain project-owned.",
     conditions:
       "the target provider must be supported and configured; active sessions may require restart or MCP reload.",
     forbiddenInference:
       "every provider can resume identical hidden conversational state or proprietary provider features.",
     tacticalUse: "quota and subscription-capacity juggling.",
-    primarySource: "provider guidance registry; setup and refresh behavior.",
+    primarySource:
+      "provider instructions registry; setup and refresh behavior.",
   },
   "shaped-delegation": {
     title:
@@ -123,7 +124,7 @@ export const CLAIMS = {
     strongestPublicForm:
       "discern is designed to reduce the amount of implementation a person must inspect line by line, allowing attention to move toward outcomes, exceptions, and the decision to ship.",
     mechanism:
-      "project guidance, independent agent review, deterministic checks, exact-tree evidence, Standards, and authority boundaries.",
+      "project instructions, independent agent review, deterministic checks, exact-tree evidence, Standards, and authority boundaries.",
     conditions:
       "appropriate review depth depends on project risk, change type, test quality, and the person's confidence in the configured practice.",
     forbiddenInference:
@@ -131,7 +132,7 @@ export const CLAIMS = {
     evidenceNote:
       "founder dogfooding supports the intended outcome; external validation remains limited.",
     primarySource:
-      "founder account; Gate guidance; Delegate Work Skill; current practice evidence.",
+      "founder account; Gate instructions; Delegate Work Skill; current practice evidence.",
   },
   "isolated-worktrees": {
     title: "each task receives an isolated worktree and declared resources",
@@ -256,7 +257,7 @@ export const CLAIMS = {
     mechanism:
       "config schema; other surfaces are bundled, pointed to, authored, shared, or generated.",
     forbiddenInference:
-      "discern touches only one tracked file, or the project contains no guidance, Map, agent files, Skills, or integration files.",
+      "discern touches only one tracked file, or the project contains no instructions, Map, agent files, Skills, or integration files.",
     primarySource: "config reference; one-file-settings tip.",
   },
   "setup-proves-worktree": {
@@ -288,7 +289,7 @@ export const CLAIMS = {
     strongestPublicForm:
       "discern's interaction design treats the coding agent as its principal day-to-day operator.",
     mechanism:
-      "typed MCP tools, one result envelope, context bounds, relevant hints, self-checking verbs, explicit next actions, provider guidance, and relay-safe prose.",
+      "typed MCP tools, one result envelope, context bounds, relevant hints, self-checking verbs, explicit next actions, provider instructions, and relay-safe prose.",
     forbiddenInference:
       "humans are secondary in authority, or discern itself is an agent.",
     primarySource: "Foundations; interfaces; hint audience registry.",

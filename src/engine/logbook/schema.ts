@@ -12,7 +12,7 @@
  *    meeting an unknown major skips the line rather than misreading it. Every
  *    event also carries `writer` — the discern version that wrote it — because
  *    a released reader must be able to segment history by the release that
- *    produced it (guidance and gate behaviour ship with the binary, so every
+ *    produced it (instructions and gate behaviour ship with the binary, so every
  *    release is an experiment whose before/after the logbook should preserve).
  *  - **Metadata, never payloads.** No code, no prompts, no command output, no
  *    message bodies. Every field here must be safe to read aloud: verb names,
@@ -67,7 +67,7 @@ export type LogbookSurface = (typeof LOGBOOK_SURFACES)[number];
  *  - `failed` — the work ran and came back red (a red gate, a failed script).
  *
  * The distinction is diagnostic gold for readers: an agent looping on `refused`
- * is fighting the workflow (a guidance gap); an agent looping on `failed` is
+ * is fighting the workflow (an instruction gap); an agent looping on `failed` is
  * iterating toward green (the tool working as designed).
  */
 export const LOGBOOK_OUTCOMES = [
@@ -125,7 +125,7 @@ const crashSignatureSchema = z.looseObject({
 
 /**
  * The raw **driver signals** — evidence for the "who drove this?" question
- * `surface` alone cannot answer (agents follow the guidance onto the CLI, so
+ * `surface` alone cannot answer (agents follow the instructions onto the CLI, so
  * `cli` never means human). Facts only, each independently honest; scoring
  * them into an inference is reader work, revisable over the whole history:
  *  - `session` — an opaque grouping hint: the MCP server instance for `mcp`

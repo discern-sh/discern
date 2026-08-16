@@ -109,7 +109,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/engine_verb_parity_test.ts",
       "tests/cli_reference_codegen_test.ts",
-      "tests/guidance_corpus_guard_test.ts",
+      "tests/instruction_corpus_guard_test.ts",
       "tests/feature_canon_enrolment_test.ts",
       "tests/glossary_enrolment_test.ts",
     ],
@@ -194,7 +194,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/engine_verb_parity_test.ts",
       "tests/engine_mcp_test.ts",
       "tests/result_codegen_test.ts",
-      "tests/guidance_corpus_guard_test.ts",
+      "tests/instruction_corpus_guard_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -302,7 +302,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "operating-policies",
     title: "Operating policies",
     what:
-      "The core policy statements carried by bundled Guidance and MCP server instructions, with probes that recognize each authored restatement.",
+      "The core policy statements carried by bundled instructions and MCP server instructions, with probes that recognize each authored restatement.",
     source: {
       kind: "module",
       module: "src/shared/operating_policies.ts",
@@ -317,7 +317,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       },
       featureCanon: {
         absent:
-          "the Guidance, Worktree, Standard, and MCP nodes own the enforced behaviors",
+          "the instruction, Worktree, Standard, and MCP nodes own the enforced behaviors",
       },
     },
     members: async () =>
@@ -724,7 +724,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "source-paths",
     title: "Source paths",
     what:
-      "The configurable authored-source locations: Guidance, Map, Skills, Project Scripts, TODO, and brief. Each entry carries its config key, default, ownership, and resolution rule.",
+      "The authored-source locations: instructions, Map, Skills, Project Scripts, TODO, and brief. Each entry carries its config key, default, ownership, and resolution rule; every configured scalar entry automatically exposes its live reference.",
     source: {
       kind: "module",
       module: "src/shared/paths_registry.ts",
@@ -737,6 +737,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/paths_sentinel_render_test.ts",
       "tests/paths_write_surface_test.ts",
       "tests/agent_gitattributes_test.ts",
+      "tests/source_path_references_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -762,7 +763,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/skill_name_parity_test.ts",
       "tests/feature_canon_enrolment_test.ts",
-      "tests/guidance_corpus_guard_test.ts",
+      "tests/instruction_corpus_guard_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -2500,7 +2501,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "artifact-validators",
     title: "Artifact validators",
     what:
-      "Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance sources, Skills, Project Scripts, and Architecture Decision Records. Each validator has a shipped caller or a recorded repository-only classification.",
+      "Every `src/lib` validator for a config-resolved authored artifact: Map, Instruction sources, Skills, Project Scripts, and Architecture Decision Records. Each validator has a shipped caller or a recorded repository-only classification.",
     source: {
       kind: "module",
       module: "tests/validator_registry.ts",

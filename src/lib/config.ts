@@ -16,8 +16,8 @@ import { KIT_VERSION } from "./version.ts";
 // wizard, config document, generated editor schema, and logbook detector therefore
 // share one identity source without making signal-only agents setup choices.
 import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
-import { MAP_DIR_REFERENCE } from "../shared/map_path.ts";
 import { SOURCE_PATH_NAMES, SOURCE_PATHS } from "../shared/paths_registry.ts";
+import { sourcePathReference } from "../shared/source_path_references.ts";
 import { neutralAgentScopePaths } from "./providers.ts";
 
 /** The agent/provider files the kit knows how to emit. */
@@ -51,19 +51,17 @@ export const DEFAULTS = {
   scopesPreviewable: ['"public/**"'],
 } as const;
 
-/** Render one registry path as a scope pattern. The map keeps its live config
- * reference; other directories gain the trailing slash the scope matcher uses
- * for prefix matching. */
+/** Render one registry path as a scope pattern. Configured sources use their
+ * registry-derived live reference; directories follow the canonical trailing-
+ * slash shape recorded by their registry default. */
 function neutralSourceScopePath(
   name: (typeof SOURCE_PATH_NAMES)[number],
 ): string {
   const entry = SOURCE_PATHS[name];
-  if (name === "map") {
-    return MAP_DIR_REFERENCE;
-  }
-  return entry.pathKind === "directory"
-    ? `${entry.defaultPath.replace(/\/+$/, "")}/`
-    : entry.defaultPath;
+  const path = sourcePathReference(name) ?? entry.defaultPath;
+  return entry.pathKind === "directory" && !entry.defaultPath.endsWith("/")
+    ? `${path}/`
+    : path;
 }
 
 const DOCUMENTATION_SCOPE_SOURCES = ["map", "todo"] as const;
@@ -79,10 +77,10 @@ export function defaultDocumentationScopes(): string[] {
 }
 
 /** The agent-instruction paths a fresh install seeds under
- * `[scopes.guidance]`. Every gate-neutral authored source outside the narrow
+ * `[scopes.instructions]`. Every gate-neutral authored source outside the narrow
  * documentation set enrolls here, and materialized skills derive from the
  * provider registry. */
-export function defaultGuidanceScopePaths(): string[] {
+export function defaultInstructionScopePaths(): string[] {
   return [
     ...SOURCE_PATH_NAMES
       .filter((name) =>
@@ -94,9 +92,9 @@ export function defaultGuidanceScopePaths(): string[] {
   ];
 }
 
-/** The fresh guidance paths, quoted for template substitution. */
-export function defaultGuidanceScopes(): string[] {
-  return defaultGuidanceScopePaths().map((path) => `"${path}"`);
+/** The fresh instructions paths, quoted for template substitution. */
+export function defaultInstructionScopes(): string[] {
+  return defaultInstructionScopePaths().map((path) => `"${path}"`);
 }
 
 /** The fully-resolved answers that drive scaffolding. */
@@ -167,7 +165,7 @@ export function tokensFromConfig(
     map_dir: config.mapDir ?? DEFAULTS.mapDir,
     gotchas_doc: DEFAULTS.gotchasDoc,
     scopes_neutral: defaultDocumentationScopes().join(", "),
-    scopes_guidance: defaultGuidanceScopes().join(", "),
+    scopes_instructions: defaultInstructionScopes().join(", "),
     scopes_web: renderTomlStringList(config.sourceGlobs),
     scopes_previewable: DEFAULTS.scopesPreviewable.join(", "),
     artifact_provenance_marker: generatedArtifactMarkerBody(

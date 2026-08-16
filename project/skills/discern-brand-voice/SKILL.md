@@ -1,6 +1,6 @@
 ---
 name: discern-brand-voice
-description: "Write or review discern's public-facing brand copy: website pages, campaigns, launch material, social posts, founder essays, product marketing, and public explanations. Use this skill when the reader is deciding whether discern belongs in their future. Do not use it for CLI messages, exact documentation, MCP guidance, or operational agent instructions."
+description: "Write or review discern's public-facing brand copy: website pages, campaigns, launch material, social posts, founder essays, product marketing, and public explanations. Use this skill when the reader is deciding whether discern belongs in their future. Do not use it for CLI messages, exact documentation, MCP instructions, or operational agent instructions."
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -448,13 +448,13 @@ Why it fails:
 
 ### Manual-like section: reject
 
-> Cross-provider guidance compilation
+> Cross-provider instructions compilation
 
 ### Brand section: stronger
 
 > Change agents without starting the project over.
 
-Supporting body can then explain the compiled guidance mechanism.
+Supporting body can then explain the compiled instructions mechanism.
 
 ## Calls to action
 

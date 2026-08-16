@@ -21,7 +21,7 @@ import {
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import type { EnvReader } from "../shared/env.ts";
 import { runGit } from "../shared/subprocess.ts";
-import { agentFilePaths, renderAgentFiles } from "./guidance_render.ts";
+import { agentFilePaths, renderAgentFiles } from "./instruction_render.ts";
 import { repoPathPrefix, stripRepoPathPrefix } from "./scopes/scopes.ts";
 import { reconcileTrackedProviderArtifacts } from "./tracked_refresh_providers.ts";
 
@@ -224,7 +224,7 @@ export async function planTrackedRefresh(
     }
   }
 
-  // Compiled guidance uses the renderer shared with refresh. Refresh normalizes
+  // Compiled instructions uses the renderer shared with refresh. Refresh normalizes
   // these generated files to mode 0644, so mode-only drift is part of the plan.
   let renderedAgentPaths: string[] = [];
   try {

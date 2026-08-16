@@ -2,7 +2,7 @@
  * Measure the public manual's leaves and words — the corpus behind the
  * `[standards.public_doc_leaf_density]` floor.
  *
- * The corpus is the public guidance projection every published surface serves
+ * The corpus is the public-document projection every published surface serves
  * — the site, terminal help, search, and the llms editions — composed from the
  * document model's own predicates, never a private re-derivation: the shared
  * reader indexes the map (underscore-prefixed subtrees — _private, _internal,

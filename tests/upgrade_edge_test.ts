@@ -159,7 +159,7 @@ Deno.test("upgrade refuses a config from a newer schema (--json)", async () => {
 Deno.test("upgrade refuses an absent templates dir before stamping (--json)", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    // Point resolution at a path that does not exist. Guideline refresh failures
+    // Point resolution at a path that does not exist. Instruction refresh failures
     // are still isolated, but the config template is now required so upgrade can
     // prove and repair scaffold drift before stamping the schema.
     const r = await runCli(["upgrade", "--json"], dir, {
@@ -192,7 +192,7 @@ Deno.test("upgrade fills agents from defaults when discern.toml carries no agent
   await withTempDir(async (dir) => {
     await setup(dir);
     // Strip the `agents = [...]` line so [project].agents is absent; the
-    // guideline compile must fall back to the default agents to resolve content.
+    // instruction compile must fall back to the default agents to resolve content.
     const tomlPath = join(dir, "discern.toml");
     const stripped = (await Deno.readTextFile(tomlPath))
       .split("\n")
@@ -204,7 +204,7 @@ Deno.test("upgrade fills agents from defaults when discern.toml carries no agent
     assertEquals(r.code, 0, r.stderr);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.data.guidelines_compiled, true);
+    assertEquals(res.data.instructions_compiled, true);
     assertEquals(res.data.agents_written, ["CLAUDE.md", "AGENTS.md"]);
   });
 });
@@ -220,9 +220,9 @@ Deno.test("upgrade --json reports a partial refresh as top-level not-ok while ke
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
     assertEquals(res.error, "partial_refresh");
-    assertEquals(res.data.guidelines_compiled, false);
+    assertEquals(res.data.instructions_compiled, false);
     assertStringIncludes(
-      res.data.guidelines_errors.join("\n"),
+      res.data.instructions_errors.join("\n"),
       "malformed JSON",
     );
     assertEquals(await recordedSchema(dir), SCHEMA_VERSION);

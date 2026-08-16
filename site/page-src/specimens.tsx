@@ -343,8 +343,8 @@ export function CommissioningTimeline() {
                   <Badge tone="accent">shared context</Badge>
                 </header>
                 <p>
-                  Your goals, principles, and ways of working become guidance
-                  every future agent can use.
+                  Your goals, principles, and ways of working become
+                  instructions every future agent can use.
                 </p>
               </div>
             </li>
@@ -378,7 +378,7 @@ export function CommissioningTimeline() {
                 </header>
                 <p>
                   A clean copy of the project confirms that future tasks begin
-                  with the same guidance, checks, and working conditions.
+                  with the same instructions, checks, and working conditions.
                 </p>
               </div>
             </li>
@@ -694,7 +694,7 @@ export function ProofSpecimen() {
                 <p>
                   <Badge tone="success">5 improved</Badge>
                   <span>
-                    prose · reading grade · lint suppressions · guidance ·
+                    prose · reading grade · lint suppressions · instructions ·
                     public docs
                   </span>
                 </p>

@@ -1,42 +1,42 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import {
-  compileGuidelines,
-  guidanceRefreshErrors,
-  guidanceRefreshSucceeded,
-} from "../src/engine/guidelines.ts";
+  compileInstructions,
+  instructionRefreshErrors,
+  instructionRefreshSucceeded,
+} from "../src/engine/instructions.ts";
 import { bundledSkillNames } from "../src/lib/skills.ts";
 
-/** Scaffold a temp project with a discern.toml, a guidance source, and one
- * authored skill (under ./skills/). Built-in guidance + bundled skills come from
+/** Scaffold a temp project with a discern.toml, a instruction source, and one
+ * authored skill (under ./skills/). Built-in instructions + bundled skills come from
  * the repo's own templates/ tree (resolved by the compiler). */
 async function scaffold(): Promise<string> {
-  const tmp = await Deno.makeTempDir({ prefix: "discern-guidelines-test-" });
+  const tmp = await Deno.makeTempDir({ prefix: "discern-instructions-test-" });
   await Deno.writeTextFile(
     join(tmp, "discern.toml"),
     [
       "[project]",
       'agents = ["claude_code", "codex"]',
-      "[guidance]",
-      'sources = ["guidance.md"]',
+      "[instructions]",
+      'sources = ["instructions.md"]',
       "[skills]",
       'dir = "skills"',
       "",
     ].join("\n"),
   );
   await Deno.writeTextFile(
-    join(tmp, "guidance.md"),
-    "# Project guidance\nMy own rule.\n",
+    join(tmp, "instructions.md"),
+    "# Project instructions\nMy own rule.\n",
   );
   await Deno.mkdir(join(tmp, "skills/demo"), { recursive: true });
   await Deno.writeTextFile(join(tmp, "skills/demo/SKILL.md"), "demo skill");
   return tmp;
 }
 
-Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, symlinks authored, prunes", async () => {
+Deno.test("compileInstructions: built-in + sources (no banner); copies built-ins, symlinks authored, prunes", async () => {
   const tmp = await scaffold();
   try {
-    const first = await compileGuidelines(tmp);
+    const first = await compileInstructions(tmp);
     // Provider files written in [project].agents order.
     assertEquals(first.agentsWritten, ["CLAUDE.md", "AGENTS.md"]);
     // Skills materialize into BOTH configured agents' dirs: Claude's .claude/skills
@@ -50,13 +50,13 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
     assertEquals(first.skillsPruned, 0);
 
     // AGENTS.md is the canonical agent file: NO banner — it opens with discern's
-    // built-in guidance (the base section's first heading), then names the
-    // gate command, then the user's own guidance.md appended after it. The prime
-    // attention spot is real guidance, not a deterrent (ADR 0034).
+    // built-in instructions (the base section's first heading), then names the
+    // gate command, then the user's own instructions.md appended after it. The prime
+    // attention spot is real instructions, not a deterrent (ADR 0034).
     const agentsMd = await Deno.readTextFile(join(tmp, "AGENTS.md"));
     assert(
       agentsMd.startsWith("# Working in this project"),
-      "expected the guidance itself at the top — no banner",
+      "expected the instructions itself at the top — no banner",
     );
     assert(
       !agentsMd.includes("<!-- GENERATED"),
@@ -66,7 +66,7 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
     assertStringIncludes(agentsMd, "My own rule.");
     assert(
       agentsMd.indexOf("discern_done") < agentsMd.indexOf("My own rule."),
-      "built-in guidance should come before the user's sources",
+      "built-in instructions should come before the user's sources",
     );
     // CLAUDE.md is NOT a byte-for-byte duplicate: it is exactly the `@AGENTS.md`
     // import (no banner — Claude Code strips HTML comments anyway), so the two can
@@ -91,7 +91,7 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
     // --- prune: remove the authored skill, re-run → the dangling link is gone --
     // from BOTH dirs (so pruned counts 2).
     await Deno.remove(join(tmp, "skills/demo"), { recursive: true });
-    const second = await compileGuidelines(tmp);
+    const second = await compileInstructions(tmp);
     assertEquals(second.skillsLinked, 0);
     assertEquals(second.skillsPruned, 2);
     assertEquals(
@@ -104,36 +104,36 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
   }
 });
 
-Deno.test("guidance refresh status ignores blank error entries", () => {
-  assertEquals(guidanceRefreshErrors({ errors: [" \n\t "] }), []);
-  assertEquals(guidanceRefreshSucceeded({ errors: [" \n\t "] }), true);
+Deno.test("instruction refresh status ignores blank error entries", () => {
+  assertEquals(instructionRefreshErrors({ errors: [" \n\t "] }), []);
+  assertEquals(instructionRefreshSucceeded({ errors: [" \n\t "] }), true);
   assertEquals(
-    guidanceRefreshErrors({ errors: [" \n\t ", " real error "] }),
+    instructionRefreshErrors({ errors: [" \n\t ", " real error "] }),
     ["real error"],
   );
   assertEquals(
-    guidanceRefreshSucceeded({ errors: [" \n\t ", " real error "] }),
+    instructionRefreshSucceeded({ errors: [" \n\t ", " real error "] }),
     false,
   );
 });
 
-Deno.test("compileGuidelines callers use the shared partial-refresh predicate", async () => {
+Deno.test("compileInstructions callers use the shared partial-refresh predicate", async () => {
   const root = join(dirname(fromFileUrl(import.meta.url)), "..");
   const offenders: string[] = [];
   for await (const path of sourceFiles(join(root, "src"))) {
     const rel = path.slice(root.length + 1);
-    if (rel === "src/engine/guidelines.ts") {
+    if (rel === "src/engine/instructions.ts") {
       continue;
     }
     const text = await Deno.readTextFile(path);
     const compileResults = [
       ...text.matchAll(
-        /\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*await\s+compileGuidelines\s*\(/gu,
+        /\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*await\s+compileInstructions\s*\(/gu,
       ),
     ].flatMap((match) => match[1] === undefined ? [] : [match[1]]);
-    const compileCalls = [...text.matchAll(/\bcompileGuidelines\s*\(/gu)];
+    const compileCalls = [...text.matchAll(/\bcompileInstructions\s*\(/gu)];
     if (compileCalls.length !== compileResults.length) {
-      offenders.push(`${rel} (unclassified compileGuidelines call)`);
+      offenders.push(`${rel} (unclassified compileInstructions call)`);
     }
     for (const result of compileResults) {
       const rawLengthCheck = new RegExp(
@@ -148,7 +148,7 @@ Deno.test("compileGuidelines callers use the shared partial-refresh predicate", 
   assertEquals(offenders, []);
 });
 
-Deno.test("compileGuidelines honours [skills].exclude: an excluded bundled set materializes nothing, guidance still compiles", async () => {
+Deno.test("compileInstructions honours [skills].exclude: an excluded bundled set materializes nothing, instructions still compile", async () => {
   const dir = await Deno.makeTempDir({ prefix: "discern-skills-excluded-" });
   try {
     const bundled = await bundledSkillNames();
@@ -158,11 +158,11 @@ Deno.test("compileGuidelines honours [skills].exclude: an excluded bundled set m
         JSON.stringify(bundled)
       }\n[project]\nagents = ["claude_code"]\n`,
     );
-    const r = await compileGuidelines(dir);
+    const r = await compileInstructions(dir);
     assertEquals(r.skillsCopied, 0);
     assertEquals(r.skillsLinked, 0);
     assertEquals(r.agentsWritten, ["CLAUDE.md"]);
-    // With no tracked AGENTS.md emitted, CLAUDE.md falls back to the FULL guidance
+    // With no tracked AGENTS.md emitted, CLAUDE.md falls back to the FULL instructions
     // (there is nothing to point at) rather than a dangling `@AGENTS.md` import.
     const claudeOnly = await Deno.readTextFile(join(dir, "CLAUDE.md"));
     assertStringIncludes(claudeOnly, "discern_done");
@@ -175,7 +175,7 @@ Deno.test("compileGuidelines honours [skills].exclude: an excluded bundled set m
   }
 });
 
-/** Enumerate authored guidance fragments in stable compilation order. */
+/** Enumerate authored instructions fragments in stable compilation order. */
 async function* sourceFiles(dir: string): AsyncGenerator<string> {
   for await (const entry of Deno.readDir(dir)) {
     const path = join(dir, entry.name);

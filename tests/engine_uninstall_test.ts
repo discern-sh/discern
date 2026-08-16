@@ -20,7 +20,7 @@ import { git, gitInit, runAgent } from "./engine_helpers.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
-  allGuidanceFilePaths,
+  allInstructionFilePaths,
   allSkillsDirs,
   PROVIDERS,
   wiredMcp,
@@ -56,7 +56,7 @@ async function exists(path: string): Promise<boolean> {
  */
 function registryCreatedPaths(): string[] {
   const out = new Set<string>();
-  for (const rel of allGuidanceFilePaths()) {
+  for (const rel of allInstructionFilePaths()) {
     out.add(rel);
   }
   for (const dir of allSkillsDirs()) {
@@ -180,8 +180,8 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
       "discern.toml must be kept",
     );
     assert(
-      await exists(join(dir, "discern/guidance.md")),
-      "the guidance source must be kept",
+      await exists(join(dir, "discern/instructions.md")),
+      "the instruction source must be kept",
     );
 
     // 5. The runtime-state namespace under .git exits with the tool

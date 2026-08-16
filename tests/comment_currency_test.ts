@@ -6,10 +6,10 @@
  * rationalises the current code by narrating a superseded state of the codebase
  * — "it works this way because it USED to work that way" — it strands a
  * reference a future reader can't resolve: the thing it points at is gone. The
- * project's guidance asks for current-behaviour comments and for history to live
+ * project's instructions asks for current-behaviour comments and for history to live
  * in docs/ADRs instead; this test makes that a checkable property rather than a
  * plea, so a backward-looking comment fails the gate the moment it lands —
- * including in code written later by someone who never read the guidance.
+ * including in code written later by someone who never read the instructions.
  *
  * The detector is a predicate over PROSE, tuned for precision: it flags a curated
  * set of retrospective markers that, inside a comment, usually narrate the past.
@@ -35,7 +35,7 @@
  * this repo's own root `discern.toml` — the places a stale reference reaches
  * a reader with no context for discern's internal history. Out of scope by
  * design: `tests/` (they legitimately narrate the past they guard), and `docs/`
- * prose plus `templates/` guidance/skills (where documenting history, ADR
+ * prose plus `templates/` instructions/skills (where documenting history, ADR
  * lifecycle, and troubleshooting symptoms is the correct thing to do), and ADRs.
  * The scan set derives from the authored-paths registry and the config files
  * are listed here, so a new source file auto-enrols with nothing to remember.

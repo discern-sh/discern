@@ -20,7 +20,7 @@ import {
 } from "../../shared/config_schema.ts";
 import { isKnownJob, jobStage, type Stage } from "../../shared/capabilities.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
-import { expandMapDirReference } from "../../shared/map_path.ts";
+import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 
 /** The custom table shape after config validation. The key decides which arm of
@@ -56,7 +56,7 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
       toCommandList(value).forEach((command, i) => {
         jobs.push({
           label: i === 0 ? name : `${name}#${i + 1}`,
-          command: expandMapDirReference(command, config.map.dir),
+          command: expandSourcePathReferences(command, config),
           kind: "known",
           ...(timeoutS !== undefined ? { timeoutS } : {}),
         });
@@ -70,9 +70,9 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
     if (spec.stage !== stage) {
       continue;
     }
-    const run = expandMapDirReference(
+    const run = expandSourcePathReferences(
       toCommand(spec.run),
-      config.map.dir,
+      config,
     );
     if (run === "") {
       continue;

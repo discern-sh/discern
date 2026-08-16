@@ -331,7 +331,7 @@ These are candidates for Vale, tests, or registries after the rules are accepted
 - required stop condition in Skills and setup steps;
 - required authority field for dispatch, install, and landing procedures;
 - warning on relative cross-worktree paths;
-- warning on vague pronouns in operational guidance;
+- warning on vague pronouns in operational instructions;
 - context-length budgets by surface;
 - stable target validation;
 - relay-message completeness tests.

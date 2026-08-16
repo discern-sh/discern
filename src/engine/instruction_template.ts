@@ -1,7 +1,7 @@
 /**
- * A tiny, strict, dependency-free template engine for discern's BUILT-IN guidance
- * sections (`templates/guidance/*.md`). The guidance compiler renders each section
- * against a context before concatenating them (see `guidance_render.ts`), so the
+ * A tiny, strict, dependency-free template engine for discern's BUILT-IN instructions
+ * sections (`templates/instructions/*.md`). The instruction compiler renders each section
+ * against a context before concatenating them (see `instruction_render.ts`), so the
  * generic shipped prose can name a project's real branch prefix / integration
  * branch and drop sections that are inert until configured.
  *
@@ -19,15 +19,15 @@
  *
  * The context is a CLOSED, curated set. An unknown `{{var}}` or `{{#if pred}}` name
  * — anywhere in the template, including a branch that won't be taken — throws
- * {@link GuidanceTemplateError}, as does a malformed or unbalanced tag. A mistake
+ * {@link InstructionTemplateError}, as does a malformed or unbalanced tag. A mistake
  * in a built-in template therefore fails loudly at refresh / currency-check time
  * instead of silently emitting an empty string.
  *
  * ## Boundary — discern's own shipped surfaces ONLY
  *
- * This renders discern's OWN guidance sections, plus bundled-skill markdown at
+ * This renders discern's OWN instruction sections, plus bundled-skill markdown at
  * materialization (`src/lib/skills.ts` — ADR 0102), both against the one
- * context `guidanceContext` builds. The user's `[guidance].sources` are
+ * context `instructionContext` builds. The user's `[instructions].sources` are
  * appended verbatim by the compiler, and authored skills are symlinked
  * untouched — a user's markdown may legitimately contain `{{…}}` and is NEVER
  * passed through here.
@@ -36,19 +36,19 @@
  *
  * That module substitutes `{{token}}` in the `.tmpl` SCAFFOLD surface at `setup`
  * time, over a different token set, leaving an unknown token VERBATIM (drift is
- * reported, not fatal). This one runs at guidance-compile time, is strict, and adds
+ * reported, not fatal). This one runs at instruction-compile time, is strict, and adds
  * conditionals. They never process the same files — the scaffold skips
- * `templates/guidance/` (`fs_plan.ts`) — so the shared `{{}}` delimiter never
+ * `templates/instructions/` (`fs_plan.ts`) — so the shared `{{}}` delimiter never
  * collides.
  */
 
 /**
- * The closed context a built-in guidance section renders against. Both maps must be
- * a pure function of committed config (built by `guidanceContext` in
- * `guidance_render.ts`); that purity is what keeps the generated files' currency
+ * The closed context a built-in instruction section renders against. Both maps must be
+ * a pure function of committed config (built by `instructionContext` in
+ * `instruction_render.ts`); that purity is what keeps the generated files' currency
  * check deterministic (ADR 0034).
  */
-export interface GuidanceContext {
+export interface InstructionContext {
   /** `{{var}}` string substitutions. */
   readonly vars: Readonly<Record<string, string>>;
   /** `{{#if pred}}` booleans. */
@@ -57,11 +57,11 @@ export interface GuidanceContext {
 
 /** A malformed template, an unbalanced block, or an unknown variable/predicate
  * name. Thrown so a built-in-template mistake fails the compile loudly rather than
- * shipping blank guidance. */
-export class GuidanceTemplateError extends Error {
+ * shipping blank instructions. */
+export class InstructionTemplateError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "GuidanceTemplateError";
+    this.name = "InstructionTemplateError";
   }
 }
 
@@ -86,14 +86,14 @@ function classifyTag(inner: string): Token {
   if (inner.startsWith("#")) {
     const name = inner.match(/^#if\s+([a-z][a-z0-9_]*)$/)?.[1];
     if (name === undefined) {
-      throw new GuidanceTemplateError(
+      throw new InstructionTemplateError(
         `malformed block tag {{${inner}}} — expected {{#if <name>}}`,
       );
     }
     return { kind: "if", name };
   }
   if (!NAME_RE.test(inner)) {
-    throw new GuidanceTemplateError(
+    throw new InstructionTemplateError(
       `malformed template tag {{${inner}}} — expected {{var}}, {{#if x}}, {{else}}, or {{/if}}`,
     );
   }
@@ -148,7 +148,7 @@ function parse(tokens: readonly Token[]): Node[] {
   function parseIf(name: string): Node {
     const thenPart = parseNodes();
     if (thenPart.stop === undefined) {
-      throw new GuidanceTemplateError(
+      throw new InstructionTemplateError(
         `unclosed {{#if ${name}}} — missing {{/if}}`,
       );
     }
@@ -157,7 +157,7 @@ function parse(tokens: readonly Token[]): Node[] {
       pos++; // consume {{else}}
       const elsePart = parseNodes();
       if (elsePart.stop?.kind !== "endif") {
-        throw new GuidanceTemplateError(
+        throw new InstructionTemplateError(
           `unclosed {{#if ${name}}} — missing {{/if}} after {{else}}`,
         );
       }
@@ -170,7 +170,7 @@ function parse(tokens: readonly Token[]): Node[] {
   const top = parseNodes();
   if (top.stop !== undefined) {
     const tag = top.stop.kind === "endif" ? "/if" : "else";
-    throw new GuidanceTemplateError(
+    throw new InstructionTemplateError(
       `stray {{${tag}}} with no matching {{#if}}`,
     );
   }
@@ -180,17 +180,17 @@ function parse(tokens: readonly Token[]): Node[] {
 /** Walk the whole tree — both branches of every `{{#if}}`, reachable or not — and
  * reject any name absent from the context. This is what makes a typo in a dead
  * branch fail the compile rather than lurk until some project's config takes it. */
-function validateNames(nodes: readonly Node[], ctx: GuidanceContext): void {
+function validateNames(nodes: readonly Node[], ctx: InstructionContext): void {
   for (const n of nodes) {
     if (n.kind === "var") {
       if (!Object.hasOwn(ctx.vars, n.name)) {
-        throw new GuidanceTemplateError(
+        throw new InstructionTemplateError(
           `unknown template variable {{${n.name}}}`,
         );
       }
     } else if (n.kind === "if") {
       if (!Object.hasOwn(ctx.preds, n.name)) {
-        throw new GuidanceTemplateError(
+        throw new InstructionTemplateError(
           `unknown template predicate {{#if ${n.name}}}`,
         );
       }
@@ -201,7 +201,7 @@ function validateNames(nodes: readonly Node[], ctx: GuidanceContext): void {
 }
 
 /** Emit the validated tree against the context. */
-function renderNodes(nodes: readonly Node[], ctx: GuidanceContext): string {
+function renderNodes(nodes: readonly Node[], ctx: InstructionContext): string {
   let out = "";
   for (const n of nodes) {
     if (n.kind === "text") out += n.value;
@@ -212,14 +212,14 @@ function renderNodes(nodes: readonly Node[], ctx: GuidanceContext): string {
 }
 
 /**
- * Render one built-in guidance section against `ctx`. Pure: same `(template, ctx)`
- * always yields the same string. Throws {@link GuidanceTemplateError} on a
+ * Render one built-in instruction section against `ctx`. Pure: same `(template, ctx)`
+ * always yields the same string. Throws {@link InstructionTemplateError} on a
  * malformed/unbalanced tag or an unknown variable/predicate name (validated across
  * the entire tree, before any output is produced).
  */
-export function renderGuidanceTemplate(
+export function renderInstructionTemplate(
   template: string,
-  ctx: GuidanceContext,
+  ctx: InstructionContext,
 ): string {
   const ast = parse(tokenize(template));
   validateNames(ast, ctx);

@@ -23,7 +23,7 @@ import {
 } from "./helpers.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { crossedRepoBoundaries } from "../src/shared/env.ts";
-import { renderAgentFiles } from "../src/engine/guidance_render.ts";
+import { renderAgentFiles } from "../src/engine/instruction_render.ts";
 import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
 import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
@@ -1448,14 +1448,14 @@ Deno.test("doctor: flags a gotchas_doc that points at a missing file", async () 
   });
 });
 
-Deno.test("doctor: reports resolved guidance sources and authored skills when present", async () => {
+Deno.test("doctor: reports resolved instruction sources and authored skills when present", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // A guidance source + an authored skill exercise the "populated" branch of
+    // An instruction source + an authored skill exercise the "populated" branch of
     // both checks (a fresh install only hits the "none yet" branch).
     await Deno.writeTextFile(
-      join(dir, "discern/guidance.md"),
-      "# project guidance\n",
+      join(dir, "discern/instructions.md"),
+      "# project instructions\n",
     );
     await Deno.mkdir(join(dir, "discern/skills/my-skill"), { recursive: true });
     await Deno.writeTextFile(
@@ -1465,15 +1465,18 @@ Deno.test("doctor: reports resolved guidance sources and authored skills when pr
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
-    assertStringIncludes(check(payload, "guidance sources").detail, "resolve");
+    assertStringIncludes(
+      check(payload, "instruction sources").detail,
+      "resolve",
+    );
     assertStringIncludes(check(payload, "skills").detail, "1 authored skill");
   });
 });
 
-Deno.test("doctor: flags a [guidance].sources entry naming an agent file", async () => {
+Deno.test("doctor: flags a [instructions].sources entry naming an agent file", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // An output can never be a source (resolveGuidanceSources refuses it), so a
+    // An output can never be a source (resolveInstructionSources refuses it), so a
     // config that names one explicitly must get a diagnostic with the reason —
     // not a silent zero-match the user has to puzzle out.
     const tomlPath = join(dir, "discern.toml");
@@ -1481,17 +1484,17 @@ Deno.test("doctor: flags a [guidance].sources entry naming an agent file", async
     await Deno.writeTextFile(
       tomlPath,
       toml.replace(
-        'sources = ["discern/guidance.md"]',
-        'sources = ["discern/guidance.md", "AGENTS.md"]',
+        'sources = ["discern/instructions.md"]',
+        'sources = ["discern/instructions.md", "AGENTS.md"]',
       ),
     );
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
-    const g = check(payload, "guidance sources");
+    const g = check(payload, "instruction sources");
     assertEquals(g.ok, false);
     assertStringIncludes(g.detail, "AGENTS.md");
     assertStringIncludes(g.detail, "an output can never be a source");
-    assertStringIncludes(g.fix ?? "", "[guidance].sources");
+    assertStringIncludes(g.fix ?? "", "[instructions].sources");
   });
 });
 
@@ -1506,7 +1509,7 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired fo
     // is visible (deliverable 5).
     const claude = check(payload, "agent: Claude Code");
     assertEquals(claude.ok, true);
-    assertStringIncludes(claude.detail, "guidance CLAUDE.md");
+    assertStringIncludes(claude.detail, "instructions CLAUDE.md");
     assertStringIncludes(claude.detail, "mcp");
     assertStringIncludes(claude.detail, "hooks");
     assertStringIncludes(claude.detail, "trust: not required");
@@ -1516,7 +1519,7 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired fo
     // the committed config to fire (the typed McpStatus + TrustGate made visible).
     const codex = check(payload, "agent: Codex");
     assertEquals(codex.ok, true);
-    assertStringIncludes(codex.detail, "guidance AGENTS.md");
+    assertStringIncludes(codex.detail, "instructions AGENTS.md");
     assertStringIncludes(codex.detail, "mcp");
     assertStringIncludes(codex.detail, "hooks");
     assertEquals(
@@ -1564,7 +1567,7 @@ Deno.test("doctor: fails when configured provider hook files are missing", async
   });
 });
 
-Deno.test("doctor: Cursor-only guidance report is backed by compiled AGENTS.md output", async () => {
+Deno.test("doctor: Cursor-only instructions report is backed by compiled AGENTS.md output", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     await setAgents(dir, '["cursor"]');
@@ -1575,13 +1578,13 @@ Deno.test("doctor: Cursor-only guidance report is backed by compiled AGENTS.md o
     assertEquals(code, 0);
     const cursor = check(payload, "agent: Cursor");
     assertEquals(cursor.ok, true);
-    assertStringIncludes(cursor.detail, "guidance AGENTS.md");
+    assertStringIncludes(cursor.detail, "instructions AGENTS.md");
 
     const rendered = await renderAgentFiles(dir);
     assertEquals(
       rendered.has("AGENTS.md"),
       true,
-      "doctor must not report guidance wired for a file refresh would not render",
+      "doctor must not report instructions wired for a file refresh would not render",
     );
   });
 });

@@ -3,7 +3,7 @@
  * rendered for a browser.
  *
  * There is no second content tree and no site-side curation list. Discovery is
- * the engine's own `discoverDocs`, and the guidance boundary is the engine's
+ * the engine's own `discoverDocs`, and the instruction boundary is the engine's
  * own `BUNDLED_PUBLIC_DOC_DIRS` — the allowlist that decides which `map/`
  * subtrees ship inside every customer binary. What `discern docs` shows in a
  * terminal, this module shows at discern.sh/docs; numbered ADRs use the same
@@ -81,7 +81,7 @@ export interface DocsPage {
   isIndex: boolean;
 }
 
-/** One rendered project-history record outside the product-guidance nav. */
+/** One rendered project-history record outside the product-documentation nav. */
 export interface DecisionPage {
   kind: "decision";
   route: string;
@@ -115,7 +115,7 @@ export interface DocsLanding {
 
 /** The published docs site, derived once per process. */
 export interface DocsSite {
-  /** The public root README, first in every guidance projection. */
+  /** The public root README, first in every documentation projection. */
   landing: DocsLanding;
   /** Every page in linear reading order (section indexes included). */
   pages: DocsPage[];
@@ -251,7 +251,7 @@ interface DocsProjection {
 }
 
 /**
- * Project public guidance pages into curated sections. This is also the build
+ * Project public documentation pages into curated sections. This is also the build
  * guard: configured public sections must have a README, and every public page
  * must belong to exactly one rendered section. The function is exported so a
  * synthetic orphan can exercise the same failure path as the production build.
@@ -1098,7 +1098,7 @@ export function docsIndexShell(site: DocsSite): string {
   });
 }
 
-/** Explain decision status and route readers to current product guidance. */
+/** Explain decision status and route readers to current product documentation. */
 function historyLabelHtml(superseded: boolean): string {
   const status = superseded
     ? `<strong class="docs-history-status">Superseded record.</strong> `
@@ -1106,8 +1106,8 @@ function historyLabelHtml(superseded: boolean): string {
   return `<aside class="docs-history-label">
     <span class="discern-kicker">Project history</span>
     <p>${status}These records explain why discern was built this way. They are
-    project history, not current product guidance; use the
-    <a href="/docs">manual</a> for guidance.</p>
+    project history, not current product documentation; use the
+    <a href="/docs">manual</a> for current instructions.</p>
   </aside>`;
 }
 
@@ -1125,7 +1125,7 @@ function decisionListHtml(pages: readonly DecisionPage[]): string {
   }</ol>`;
 }
 
-/** The project-history index, deliberately outside the product-guidance nav. */
+/** The project-history index, deliberately outside the product-documentation nav. */
 export function decisionsIndexShell(site: DocsSite): string {
   const active = site.decisions.pages.filter((page) => !page.superseded);
   const superseded = site.decisions.pages.filter((page) => page.superseded);
@@ -1151,7 +1151,7 @@ export function decisionsIndexShell(site: DocsSite): string {
   });
 }
 
-/** One rendered ADR, labeled as history rather than product guidance. */
+/** One rendered ADR, labeled as history rather than product documentation. */
 export function decisionShell(
   site: DocsSite,
   page: DecisionPage,
@@ -1241,7 +1241,7 @@ function respond(body: string, contentType: string, vary = false): Response {
   return new Response(body, { status: 200, headers });
 }
 
-/** Serve equivalent 404 guidance as plain text or minimal HTML according to reader negotiation. */
+/** Serve equivalent 404 help as plain text or minimal HTML according to reader negotiation. */
 function docsNotFound(asText: boolean): Response {
   if (asText) {
     return new Response(

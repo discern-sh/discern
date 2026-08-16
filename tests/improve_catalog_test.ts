@@ -37,10 +37,10 @@ function ctx(
   return {
     root: "/tmp/demo",
     config: parseConfigOrThrow(toml),
-    guidancePresent: false,
-    guidanceText: "",
-    guidanceChars: 0,
-    guidancePlaceholder: false,
+    instructionPresent: false,
+    instructionText: "",
+    instructionChars: 0,
+    instructionPlaceholder: false,
     gotchasDocSet: false,
     gotchasDocExists: false,
     mapTree: false,
@@ -71,9 +71,9 @@ limit = 1
 run = "echo"
 `,
     {
-      guidancePresent: true,
-      guidanceText: "x".repeat(1000),
-      guidanceChars: 1000,
+      instructionPresent: true,
+      instructionText: "x".repeat(1000),
+      instructionChars: 1000,
       gotchasDocSet: true,
       gotchasDocExists: true,
       mapTree: true,
@@ -254,7 +254,7 @@ Deno.test("improve scoring: every catalog category is always reviewed (ADR 0101)
 });
 
 Deno.test("improve scoring: `only` restricts evaluation to one category", () => {
-  const report = evaluateReport(perfect(), "guidance");
+  const report = evaluateReport(perfect(), "instructions");
   assertEquals(report.categories.length, 1);
-  assertEquals(report.categories[0]?.name, "guidance");
+  assertEquals(report.categories[0]?.name, "instructions");
 });

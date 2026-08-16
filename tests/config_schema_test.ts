@@ -46,7 +46,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.skills.dir, SOURCE_PATHS.skills.defaultPath);
   assertEquals(c.map.dir, SOURCE_PATHS.map.defaultPath);
   assertEquals(c.scripts.dir, SOURCE_PATHS.scripts.defaultPath);
-  assertEquals(c.guidance.sources, [SOURCE_PATHS.guidance.defaultPath]);
+  assertEquals(c.instructions.sources, [SOURCE_PATHS.instructions.defaultPath]);
   assertEquals(c.project.todo, SOURCE_PATHS.todo.defaultPath);
   // `agents` is OPTIONAL (no default): an absent key stays undefined so the
   // resolver can tell "unset" (→ default pair) from an explicit `[]` (→ no agents).
@@ -106,13 +106,13 @@ Deno.test("repository owns the trunk, branch prefix, and shared convergence comm
 Deno.test("current configs reject settings whose section home moved", () => {
   // The class: keys living under a section that is not their canonical home —
   // repository policy moved out of [project], and `agents` is project identity,
-  // not a [guidance] setting. No epitaph row and no fallback: no public install
+  // not a [instructions] setting. No epitaph row and no fallback: no public install
   // ever wrote these, so plain unknown-key rejection is the whole contract
   // (the public-baseline reset's reasoning).
   const moved = [
     ["project", "main_branch"],
     ["project", "branch_prefix"],
-    ["guidance", "agents"],
+    ["instructions", "agents"],
   ] as const;
   for (const [section, key] of moved) {
     const { config, issues } = parseConfig(
@@ -142,7 +142,7 @@ Deno.test("every retired top-level key is redirected to its successor", () => {
   }
 });
 
-Deno.test("every dead config position rejects with its recorded guidance", () => {
+Deno.test("every dead config position rejects with its recorded instructions", () => {
   // Driven off the DEAD_CONFIG_POSITIONS table the schema itself reads: each
   // row's example must trip exactly that row's message, never the generic
   // unknown-key wording — so a new retirement is exercised by adding its row.
@@ -612,8 +612,8 @@ Deno.test("write-capable config paths normalize harmless aliases", () => {
 [project]
 todo = "././TODO.md"
 
-[guidance]
-sources = ["././guidance.md", "./docs/**/*.md"]
+[instructions]
+sources = ["././instructions.md", "./docs/**/*.md"]
 
 [skills]
 dir = "././playbooks/"
@@ -629,8 +629,8 @@ env_files = ["././runtime", "config/secrets"]
 `);
 
   assertEquals(config.project.todo, "TODO.md");
-  assertEquals(config.guidance.sources, [
-    "guidance.md",
+  assertEquals(config.instructions.sources, [
+    "instructions.md",
     "./docs/**/*.md",
   ]);
   assertEquals(config.skills.dir, "playbooks");
@@ -670,7 +670,10 @@ Deno.test("write-capable config paths keep every safety refusal", () => {
 
   for (
     const [text, path] of [
-      ['[guidance]\nsources = ["../guidance.md"]\n', "guidance.sources.0"],
+      [
+        '[instructions]\nsources = ["../instructions.md"]\n',
+        "instructions.sources.0",
+      ],
       ['[skills]\ndir = "nested/.git/skills"\n', "skills.dir"],
       ['[scripts]\ndir = "tools//local"\n', "scripts.dir"],
       ['[worktree]\nenv_files = ["../runtime"]\n', "worktree.env_files.0"],

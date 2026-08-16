@@ -98,7 +98,7 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     hint:
       "Built-in fail-fast precondition: discern-managed ignored artifacts must not be tracked by Git. Remove them from the index with `git rm --cached`, then refresh.",
   },
-  "guidance-check": {
+  "instructions-check": {
     actor: "discern",
     hint:
       "Built-in fail-fast precondition: the agent files must match their sources — run `discern refresh` if stale.",

@@ -20,8 +20,11 @@ import {
   jobStage,
   type KnownJob,
 } from "../../shared/capabilities.ts";
-import { resolveGuidanceSources, resolveSkillsDir } from "../../lib/paths.ts";
-import { allGuidanceFilePaths } from "../../lib/providers.ts";
+import {
+  resolveInstructionSources,
+  resolveSkillsDir,
+} from "../../lib/paths.ts";
+import { allInstructionFilePaths } from "../../lib/providers.ts";
 import { normalizeMapDir } from "../../shared/map_path.ts";
 import { SOURCE_PATHS } from "../../shared/paths_registry.ts";
 import { diagnosticFormatList } from "../gate/diagnostics.ts";
@@ -38,13 +41,13 @@ import {
 
 // ── gathering the facts ─────────────────────────────────────────────────────
 
-/** The setup skeleton seeds guidance.md with this phrase until the agent fills it;
- * its presence means the guidance is still a placeholder, not real prose. */
-const GUIDANCE_PLACEHOLDER_MARK = "setup fills this";
+/** The setup skeleton seeds instructions.md with this phrase until the agent fills it;
+ * its presence means the instructions are still a placeholder, not real prose. */
+const INSTRUCTION_PLACEHOLDER_MARK = "setup fills this";
 
-/** Substance threshold (non-whitespace chars) below which a guidance file reads as
- * a stub rather than real, project-specific guidance. */
-const GUIDANCE_SUBSTANCE_MIN = 400;
+/** Substance threshold (non-whitespace chars) below which a instruction file reads as
+ * a stub rather than real, project-specific instructions. */
+const INSTRUCTION_SUBSTANCE_MIN = 400;
 
 /** Whether a path exists (any type). */
 async function pathExists(path: string): Promise<boolean> {
@@ -116,10 +119,10 @@ async function countAuthoredSkills(
 }
 
 /** Whether any agent file is present (the output of `discern refresh`).
- * Derived from the provider registry (every agent's `guidanceFile.path`), so a new
+ * Derived from the provider registry (every agent's `instructionFile.path`), so a new
  * agent's file counts without editing this probe. */
 async function anyAgentFile(root: string): Promise<boolean> {
-  for (const name of allGuidanceFilePaths()) {
+  for (const name of allInstructionFilePaths()) {
     if (await fileExists(join(root, name))) {
       return true;
     }
@@ -141,17 +144,17 @@ export async function buildContext(
       (await inlineFindingRoutes(root, config)).improvement,
     )
     : [];
-  const sources = await resolveGuidanceSources(root, config);
-  let guidanceText = "";
+  const sources = await resolveInstructionSources(root, config);
+  let instructionText = "";
   for (const src of sources) {
     try {
-      guidanceText += await Deno.readTextFile(src);
-      guidanceText += "\n";
+      instructionText += await Deno.readTextFile(src);
+      instructionText += "\n";
     } catch {
       // a source that vanished between glob and read contributes nothing
     }
   }
-  const guidanceChars = guidanceText.replace(/\s+/g, "").length;
+  const instructionChars = instructionText.replace(/\s+/g, "").length;
 
   const gotchasDoc = config.project.gotchas_doc.trim();
   const gotchasAbs = gotchasDoc === ""
@@ -164,10 +167,12 @@ export async function buildContext(
   return {
     root,
     config,
-    guidancePresent: sources.length > 0,
-    guidanceText,
-    guidanceChars,
-    guidancePlaceholder: guidanceText.includes(GUIDANCE_PLACEHOLDER_MARK),
+    instructionPresent: sources.length > 0,
+    instructionText,
+    instructionChars,
+    instructionPlaceholder: instructionText.includes(
+      INSTRUCTION_PLACEHOLDER_MARK,
+    ),
     gotchasDocSet: gotchasDoc !== "",
     gotchasDocExists: gotchasAbs !== "" && (await fileExists(gotchasAbs)),
     mapDir,
@@ -370,7 +375,7 @@ const SETUP: Category = {
       weight: 2,
       fix: "discern setup",
       teach:
-        "Setup seeds the docs skeleton and prompts the agent to author your guidance " +
+        "Setup seeds the docs skeleton and prompts the agent to author your instructions " +
         "and design principles from the repo and your answers. Until it runs, the " +
         "project has only a bare gate. Run `discern setup`, then `discern setup done`.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
@@ -436,56 +441,57 @@ const SETUP: Category = {
   ],
 };
 
-/** Agent guidance — the author-once → compile-everywhere instruction pipeline. */
-const GUIDANCE: Category = {
-  name: "guidance",
-  title: "Agent guidance",
+/** Agent instructions — the author-once → compile-everywhere instruction pipeline. */
+const INSTRUCTIONS: Category = {
+  name: "instructions",
+  title: "Agent instructions",
   rules: [
     {
       kind: "deterministic",
-      id: "guidance.source",
-      title: "Substantive guidance source",
+      id: "instructions.source",
+      title: "Substantive instruction source",
       weight: 3,
       fix:
-        "write project-specific prose into guidance.md, then `discern refresh`",
+        "write project-specific prose into instructions.md, then `discern refresh`",
       teach:
-        "Built-in guidance teaches discern; YOUR guidance teaches your project — " +
+        "Built-in instructions teaches discern; YOUR instructions teaches your project — " +
         "the conventions, boundaries, and gotchas an agent can't infer from the code. " +
-        "A thin or missing guidance.md is a thin agent. Aim for real, specific prose.",
+        "A thin or missing instructions.md is a thin agent. Aim for real, specific prose.",
       evaluate: (
         ctx,
       ): { status: "pass" | "partial" | "fail"; detail: string } => {
-        if (!ctx.guidancePresent || ctx.guidanceChars === 0) {
+        if (!ctx.instructionPresent || ctx.instructionChars === 0) {
           return {
             status: "fail",
-            detail: "no [guidance].sources file resolves on disk",
+            detail: "no [instructions].sources file resolves on disk",
           };
         }
         if (
-          ctx.guidancePlaceholder || ctx.guidanceChars < GUIDANCE_SUBSTANCE_MIN
+          ctx.instructionPlaceholder ||
+          ctx.instructionChars < INSTRUCTION_SUBSTANCE_MIN
         ) {
           return {
             status: "partial",
-            detail: ctx.guidancePlaceholder
-              ? "guidance still carries the bootstrap placeholder marker"
-              : `guidance is thin (${ctx.guidanceChars} non-whitespace chars)`,
+            detail: ctx.instructionPlaceholder
+              ? "instructions still carries the bootstrap placeholder marker"
+              : `instructions are thin (${ctx.instructionChars} non-whitespace chars)`,
           };
         }
         return {
           status: "pass",
-          detail: `${ctx.guidanceChars} chars of guidance prose`,
+          detail: `${ctx.instructionChars} chars of instructions prose`,
         };
       },
     },
     {
       kind: "deterministic",
-      id: "guidance.compiled",
+      id: "instructions.compiled",
       title: "Agent files compiled",
       weight: 1,
       fix: "discern refresh",
       teach:
         "The per-provider agent files (one per configured agent) are compiled from the " +
-        "built-in guidance plus your sources. If none exist, agents are flying blind. " +
+        "built-in instructions plus your sources. If none exist, agents are flying blind. " +
         "Run `discern refresh` to (re)compile them.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.agentFilePresent
@@ -497,21 +503,21 @@ const GUIDANCE: Category = {
     },
     {
       kind: "subjective",
-      id: "guidance.project-specific",
-      title: "Guidance captures what the code can't say",
+      id: "instructions.project-specific",
+      title: "Instructions capture what the code can't say",
       ask:
-        "Reading the guidance below, does it teach project-specific knowledge an agent " +
+        "Do the instructions below teach project-specific knowledge an agent " +
         "could NOT infer from the code itself — the testing philosophy, the architectural " +
         "boundaries that must hold, the non-obvious gotchas, the 'we tried X, it failed' " +
         "lessons? Or is it generic filler that restates what the code already shows?",
       teach:
-        "Strong guidance is specific and load-bearing: it changes what an agent does. " +
+        "Strong instructions are specific and load-bearing: they change what an agent does. " +
         "If a line would be true of any project in the language, cut it. If a real " +
-        "constraint isn't written down, add it. Edit your guidance source and run `discern refresh`.",
+        "constraint isn't written down, add it. Edit your instruction source and run `discern refresh`.",
       against: (ctx): { source: string; excerpt: string } | undefined =>
-        ctx.guidanceChars === 0 ? undefined : {
-          source: ctx.config.guidance.sources.join(", "),
-          excerpt: excerpt(ctx.guidanceText, 600),
+        ctx.instructionChars === 0 ? undefined : {
+          source: ctx.config.instructions.sources.join(", "),
+          excerpt: excerpt(ctx.instructionText, 600),
         },
     },
   ],
@@ -766,7 +772,7 @@ const SKILLS: Category = {
 export const CATEGORIES: readonly Category[] = [
   GATE,
   SETUP,
-  GUIDANCE,
+  INSTRUCTIONS,
   MAP,
   WORKTREES,
   STANDARDS,

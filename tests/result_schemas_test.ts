@@ -87,7 +87,7 @@ import {
 } from "../src/engine/logbook/patterns.ts";
 import { improvementResult } from "../src/engine/improve/improve.ts";
 import { docsResult, mapResult } from "../src/commands/docs.ts";
-import { refreshResult } from "../src/engine/guidelines.ts";
+import { refreshResult } from "../src/engine/instructions.ts";
 import { tidyResult } from "../src/engine/tidy/tidy.ts";
 import {
   acceptResult,

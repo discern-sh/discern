@@ -22,9 +22,9 @@
 
 ## Decision
 
-This project adopts [discern](https://discern.sh), an engineering practice for software built with coding agents. The repository holds the project-specific parts of that practice: guidance, declared checks, reusable agent playbooks called Skills, and records of decisions like this one. They stay with the code, where every future session can use them.
+This project adopts [discern](https://discern.sh), an engineering practice for software built with coding agents. The repository holds the project-specific parts of that practice: instructions, declared checks, reusable agent playbooks called Skills, and records of decisions like this one. They stay with the code, where every future session can use them.
 
-- Project-specific guidance and significant decisions stay with the code. Future configured agents begin from the same maintained account of the project.
+- Project-specific instructions and significant decisions stay with the code. Future configured agents begin from the same maintained account of the project.
 - Each effort receives its own Git worktree and branch, so concurrent tasks never share a checkout. Overlapping source changes still require integration before landing.
 - `discern done` runs the project's final quality check, the Gate. `discern.toml` declares its jobs and configured quality measures, called Standards. Together they give the project a shared definition of technical completion.
 - A green Gate over a clean, committed tree can produce evidence tied to that tree, called Proof. Landing remains a separate acceptance decision with its own authority check.
@@ -41,11 +41,11 @@ discern seeded this record when the project adopted the practice, and the agent 
 
 ## Consequences
 
-- A future contributor or agent can read how the project works, and why, from the repository itself: the guidance, the maintained documentation called the Map, and these records. The project keeps that account current as the code changes.
+- A future contributor or agent can read how the project works, and why, from the repository itself: the instructions, the maintained documentation called the Map, and these records. The project keeps that account current as the code changes.
 - Separate worktrees prevent concurrent efforts from overwriting the same checkout. discern manages their lifecycle. Source overlap still requires integration before landing.
 - The Gate adds verification time to technical completion. The project maintains its jobs and chooses what its Standards measure. A branch cannot loosen a configured Standard; changing a limit remains a project decision.
 - Agent instruction files and materialized Skills come from authored sources. Contributors edit those sources and run `discern refresh`; edits to generated copies are overwritten.
-- The project depends on discern for this workflow. Uninstalling discern retains the authored guidance and Map. The project must replace any removed enforcement and lifecycle behavior it still needs.
+- The project depends on discern for this workflow. Uninstalling discern retains the authored instructions and Map. The project must replace any removed enforcement and lifecycle behavior it still needs.
 
 <!-- setup fills this -->
 

@@ -2,7 +2,7 @@
 
 import type { DiscernConfig } from "./config_schema.ts";
 import {
-  guidanceSeedRel,
+  instructionSeedRel,
   SOURCE_PATH_NAMES,
   SOURCE_PATHS,
   type SourcePathEntry,
@@ -28,13 +28,13 @@ function valueAt(config: DiscernConfig, dotted: string): unknown {
   return value;
 }
 
-/** Resolve one registry entry from its default, guidance seed, or config key. */
+/** Resolve one registry entry from its default, instruction seed, or config key. */
 function resolvedPath(entry: SourcePathEntry, config: DiscernConfig): string {
   switch (entry.resolution) {
     case "default":
       return entry.defaultPath;
-    case "guidance-seed":
-      return guidanceSeedRel(config.guidance.sources);
+    case "instruction-seed":
+      return instructionSeedRel(config.instructions.sources);
     case "configured": {
       if (entry.key === null) {
         throw new Error(

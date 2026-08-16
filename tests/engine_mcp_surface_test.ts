@@ -1,8 +1,8 @@
 /**
  * Class guard for "an MCP agent-facing string states a `discern.toml`-configurable
- * value as a fixed literal" — the MCP sibling of the guidance-render guard
- * (`guidance_render_test.ts`). The graduate_to / guidance.sources fixes templated
- * the GUIDANCE surface against config; this holds the MCP surface (every tool
+ * value as a fixed literal" — the MCP sibling of the instructions-render guard
+ * (`instruction_render_test.ts`). The graduate_to / instructions.sources fixes templated
+ * the INSTRUCTIONS surface against config; this holds the MCP surface (every tool
  * description + title, and the instructions block for both locations) to the same
  * bar: a value it names must flow from config, never a baked-in default that
  * misleads a project which changed it.
@@ -89,7 +89,7 @@ Deno.test("mcp surface: every config value it names flows from config — no har
 
   // SSOT coupling: the cases must name EXACTLY `mcpContext`'s variables — a newly
   // exposed var can't ship without a guard, and a removed one can't leave a dead
-  // case behind (mirrors guidance_render_test's `Object.keys` coupling).
+  // case behind (mirrors instruction_render_test's `Object.keys` coupling).
   assertEquals(
     Object.keys(cases).sort(),
     Object.keys(mcpContext(configWith({})).vars).sort(),

@@ -507,8 +507,8 @@ export const HINTS = {
   }),
 
   /**
-   * Compiled guidance files are present but untracked and not ignored. Committing
-   * them puts the same guidance in reach of agents reading a fresh clone.
+   * Compiled instruction files are present but untracked and not ignored. Committing
+   * them puts the same instructions in reach of agents reading a fresh clone.
    */
   "untracked-agent-files": defineHint<{ paths: readonly string[] }>({
     id: "untracked-agent-files",
@@ -519,7 +519,7 @@ export const HINTS = {
     template: ({ paths }): string =>
       `Commit the untracked agent files (${
         paths.join(", ")
-      }) so cloud and out-of-tool agents read the same guidance from a fresh clone.`,
+      }) so cloud and out-of-tool agents read the same instructions from a fresh clone.`,
   }),
 
   /** Missing agent-file context for the shared generated-drift remedy. */
@@ -545,7 +545,7 @@ export const HINTS = {
     template: ({ paths }): string =>
       generatedDriftHint(
         `Agent files are out of date (${paths}).`,
-        "Make intended guidance changes in [guidance].sources. Refresh overwrites agent files.",
+        "Make intended instructions changes in [instructions].sources. Refresh overwrites agent files.",
       ),
   }),
 
@@ -2227,16 +2227,16 @@ export const HINTS = {
       `Remove the discern-managed ignored artifacts named by the diagnostics from the Git index, run ${CMD.refresh}, then re-run the current discern command.`,
   }),
 
-  /** Compiled agent guidance differs from its authored sources. */
-  "gate-failure-guidance": defineHint({
-    id: "gate-failure-guidance",
+  /** Compiled agent instructions differ from their authored sources. */
+  "gate-failure-instructions": defineHint({
+    id: "gate-failure-instructions",
     category: "next-step",
     audience: "all",
-    when: "The gate finds compiled guidance drift.",
+    when: "The gate finds compiled instruction drift.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      `Run ${CMD.refresh}, then re-run the current discern command. If the guidance must change, edit \`[guidance].sources\`. Refresh overwrites agent files.`,
+      `Run ${CMD.refresh}, then re-run the current discern command. If the instructions must change, edit \`[instructions].sources\`. Refresh overwrites agent files.`,
   }),
 
   /** Materialized skills differ from the effective authored set. */
@@ -2288,13 +2288,13 @@ export const HINTS = {
       `Run ${CMD.refresh} to regenerate the ADR index, commit the rewritten README, then re-run the current discern command. If the diagnostic says the index cannot be derived, first fix the named record heading or incomplete marker pair. Then refresh again.`,
   }),
 
-  /** The map or a guidance source carries a reference readers cannot follow. */
+  /** The map or a instruction source carries a reference readers cannot follow. */
   "gate-failure-map-integrity": defineHint({
     id: "gate-failure-map-integrity",
     category: "next-step",
     audience: "all",
     when:
-      "The gate finds a broken reference or stale example in the map or a guidance source.",
+      "The gate finds a broken reference or stale example in the map or a instruction source.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
@@ -3071,11 +3071,11 @@ export const HINTS = {
       ),
     },
     template: ({ command }): string =>
-      "Present the setup guidance in this result to the owner, wait for their " +
+      "Present the setup instructions in this result to the owner, wait for their " +
       `answers, then run ${command}; its \`--confirmed\` flag attests ` +
       "only to that conversation.",
     interactiveTemplate: (): string =>
-      "Review the setup guidance and answer its questions, then run the " +
+      "Review the setup instructions and answer its questions, then run the " +
       "displayed command; its `--confirmed` flag attests only to this " +
       "conversation.",
   }),
@@ -3098,47 +3098,47 @@ export const HINTS = {
       "use `--force` only to record completion without that proof.",
   }),
 
-  /** Existing authored agent guidance was preserved in the canonical source. */
-  "setup-guidance-preserved": defineHint<{
+  /** Existing authored agent instructions were preserved in the canonical source. */
+  "setup-instructions-preserved": defineHint<{
     paths: readonly string[];
-    guidanceRel: string;
+    instructionRel: string;
   }>({
-    id: "setup-guidance-preserved",
+    id: "setup-instructions-preserved",
     category: "next-step",
     audience: "all",
     when:
-      "Setup migrates existing authored guidance into the canonical source.",
-    family: "setup-guidance-migration",
+      "Setup migrates existing authored instructions into the canonical source.",
+    family: "setup-instructions-migration",
     example: {
       paths: ["AGENTS.md", "CLAUDE.md"],
-      guidanceRel: SOURCE_PATHS.guidance.defaultPath,
+      instructionRel: SOURCE_PATHS.instructions.defaultPath,
     },
-    template: ({ paths, guidanceRel }): string =>
-      `Fold the guidance migrated from ${
+    template: ({ paths, instructionRel }): string =>
+      `Fold the instructions migrated from ${
         paths.join(", ")
-      } into your conventions, then delete the import note from ${guidanceRel}. ` +
-      `Setup preserved the existing guidance there.`,
+      } into your conventions, then delete the import note from ${instructionRel}. ` +
+      `Setup preserved the existing instructions there.`,
   }),
 
   /** A pre-existing agent file matched discern's own prior compiled output. */
-  "setup-guidance-own-render-skipped": defineHint<{
+  "setup-instructions-own-render-skipped": defineHint<{
     paths: readonly string[];
-    guidanceRel: string;
+    instructionRel: string;
   }>({
-    id: "setup-guidance-own-render-skipped",
+    id: "setup-instructions-own-render-skipped",
     category: "notice",
     audience: "all",
     when: "Setup recognizes an agent file as its own prior compiled output.",
-    family: "setup-guidance-migration",
+    family: "setup-instructions-migration",
     example: {
       paths: ["AGENTS.md", "CLAUDE.md"],
-      guidanceRel: SOURCE_PATHS.guidance.defaultPath,
+      instructionRel: SOURCE_PATHS.instructions.defaultPath,
     },
-    template: ({ paths, guidanceRel }): string =>
+    template: ({ paths, instructionRel }): string =>
       `Skipped importing ${
         paths.join(", ")
-      } into ${guidanceRel}. It matches discern's own compiled output from an ` +
-      `earlier setup. ${guidanceRel} remains the canonical authored source.`,
+      } into ${instructionRel}. It matches discern's own compiled output from an ` +
+      `earlier setup. ${instructionRel} remains the canonical authored source.`,
   }),
 
   /** A completed setup on the dedicated setup branch is ready to land. */
@@ -3628,7 +3628,7 @@ export const GATE_FAILURE_REMEDIES = {
   generated_drift: exampleBoundHint(HINTS["gate-failure-generated-drift"]),
   refresh_drift: HINTS["gate-failure-refresh-drift"],
   tracked_artifacts: HINTS["gate-failure-tracked-artifacts"],
-  guidance: HINTS["gate-failure-guidance"],
+  instructions: HINTS["gate-failure-instructions"],
   skills: HINTS["gate-failure-skills"],
   skill_frontmatter: HINTS["gate-failure-skill-frontmatter"],
   adr_numbers: HINTS["gate-failure-adr-numbers"],

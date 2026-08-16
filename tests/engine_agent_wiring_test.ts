@@ -324,7 +324,7 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
   });
 });
 
-Deno.test("Cursor-only refresh emits AGENTS.md with the compiled guidance body", async () => {
+Deno.test("Cursor-only refresh emits AGENTS.md with the compiled instruction body", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { agents: ["cursor"] });
 

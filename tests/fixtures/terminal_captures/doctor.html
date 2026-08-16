@@ -20,7 +20,7 @@ Before you call a change done — the full gate.
             vanished versus the trunk (vacuous when none are configured)
   <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">tracked-artifacts-check</span> — verify discern-managed ignored artifacts
             are not tracked by Git (`git rm --cached` if tracked)
-  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">guidance-check</span> — verify the agent files match their sources
+  <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">instructions-check</span> — verify the agent files match their sources
             (`discern refresh` if stale)
   <span style="color:rgb(135 215 255)">[discern]</span> <span style="font-weight:700">skills-check</span> — verify the materialized skills match the effective
             set (`discern refresh` if stale)
@@ -147,11 +147,11 @@ worktree(s), with no checkout-specific settings in the common config
 <span style="color:rgb(255 215 135)">│</span> logbook: recording is off ([project].logbook = false) — discern keeps no     <span style="color:rgb(255 215 135)">│</span>
 <span style="color:rgb(255 215 135)">│</span> memory of how it is driven                                                   <span style="color:rgb(255 215 135)">│</span>
 <span style="color:rgb(255 215 135)">└──────────────────────────────────────────────────────────────────────────────┘</span>
-<span style="color:rgb(208 208 208);opacity:0.68">fix: consider re-enabling it: gate thrash, flaky tests, and guidance gaps only
-become visible in this local history, it never leaves the machine, and it cannot
-be recorded retroactively</span>
-<span style="color:rgb(175 215 175)">✓</span> guidance sources: no source files match [guidance].sources yet (built-in
-guidance still compiles)
+<span style="color:rgb(208 208 208);opacity:0.68">fix: consider re-enabling it: gate thrash, flaky tests, and instructions gaps
+only become visible in this local history, it never leaves the machine, and it
+cannot be recorded retroactively</span>
+<span style="color:rgb(175 215 175)">✓</span> instruction sources: no source files match [instructions].sources yet
+(built-in instructions still compile)
 <span style="color:rgb(175 215 175)">✓</span> skills: no authored skills in discern/skills/ yet (built-ins still apply)
 
 <span style="color:rgb(175 215 175)">✓</span> All checks passed (see the advisory above).

@@ -287,7 +287,7 @@ const PROBES: Record<string, DryRunProbe> = {
     envelope: "engine-plan",
     arrange: async (dir) => {
       // The untouched scaffold: its agent files were compiled from this exact
-      // config, so the gate's guidance/skills checks hold and the apply is a
+      // config, so the gate's instructions/skills checks hold and the apply is a
       // full green run.
       await scaffoldEngine(dir);
       await gitInit(dir);

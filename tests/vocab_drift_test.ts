@@ -99,7 +99,7 @@ const ROOT_PROSE = [
   join(REPO_ROOT, "README.md"),
   join(REPO_ROOT, "CONTRIBUTING.md"),
   join(REPO_ROOT, "discern.toml"),
-  ...REPO_AUTHORED_PATHS.guidance,
+  ...REPO_AUTHORED_PATHS.instructions,
 ];
 
 /** The generated glossary page — the declaration surface, where a retired

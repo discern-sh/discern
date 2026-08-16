@@ -5,7 +5,7 @@
  * black-box parity oracle for the coach's behaviour.
  *
  * A `scaffoldEngine(dir, { bootstrapped: false })` install is deliberately weak —
- * nothing wired, not set up, no guidance/docs — so it exercises the failing/teaching
+ * nothing wired, not set up, no instructions/docs — so it exercises the failing/teaching
  * path; a second config wires the practices and exercises the passing path. The
  * pure scoring/ranking/catalog-integrity invariants are guarded separately in
  * `improve_catalog_test.ts`.
@@ -162,8 +162,8 @@ direction = "up"
 limit = 1
 run = "echo DISCERN_METRIC coverage 1"
 
-[guidance]
-sources = ["guidance.md"]
+[instructions]
+sources = ["instructions.md"]
 
 [map]
 dir = "docs/"
@@ -172,9 +172,9 @@ dir = "docs/"
 /** Lay down the files the strong config's deterministic rules look for. */
 async function writeStrongFiles(dir: string): Promise<void> {
   await Deno.writeTextFile(
-    join(dir, "guidance.md"),
+    join(dir, "instructions.md"),
     // Substantive prose (> the 400 non-whitespace-char substance threshold).
-    "# Project guidance\n\n" +
+    "# Project instructions\n\n" +
       "This project follows a few hard conventions an agent could not infer from the code alone. "
         .repeat(8),
   );
@@ -240,7 +240,7 @@ Deno.test("improvement --json: baseline 100 still leads with an open review", as
     await scaffoldEngine(dir);
     await writeConfig(dir, STRONG_CONFIG);
     await writeStrongFiles(dir);
-    // Compile the agent file from the guidance — the exact fix `guidance.compiled`
+    // Compile the agent file from the instructions — the exact fix `instructions.compiled`
     // teaches, so the practice it checks is genuinely satisfied here.
     assertEquals((await runAgent(dir, ["refresh"])).code, 0);
 
@@ -270,7 +270,7 @@ Deno.test("improvement --json: baseline 100 still leads with an open review", as
       "pass",
     );
     assertEquals(
-      rule(cat(payload, "guidance"), "guidance.source").status,
+      rule(cat(payload, "instructions"), "instructions.source").status,
       "pass",
     );
     assertEquals(rule(cat(payload, "map"), "map.adrs").status, "pass");
@@ -359,16 +359,16 @@ Deno.test("improvement --json: reviews carry the cited material", async () => {
     assert(payload.data !== undefined);
     assert(payload.data.open_reviews > 0, "expected open review items");
 
-    // The guidance review cites guidance.md as the material to judge against.
-    const review = cat(payload, "guidance").reviews.find(
-      (rv) => rv.id === "guidance.project-specific",
+    // The instructions review cites instructions.md as the material to judge against.
+    const review = cat(payload, "instructions").reviews.find(
+      (rv) => rv.id === "instructions.project-specific",
     );
-    assert(review !== undefined, "expected the guidance review item");
+    assert(review !== undefined, "expected the instructions review item");
     assert(review.ask.length > 0 && review.teach.length > 0);
-    assertEquals(review.against?.source, "guidance.md");
+    assertEquals(review.against?.source, "instructions.md");
     assert(
       (review.against?.excerpt ?? "").length > 0,
-      "the review should quote the guidance to judge",
+      "the review should quote the instructions to judge",
     );
 
     const structured = cat(payload, "gate").reviews.find(
@@ -493,9 +493,9 @@ Deno.test("improvement: responsive package reports keep hostile evidence inert a
     await writeConfig(dir, STRONG_CONFIG);
     await writeStrongFiles(dir);
     await Deno.writeTextFile(
-      join(dir, "guidance.md"),
+      join(dir, "instructions.md"),
       `Project evidence \u001b[31m\u0007\u009b stays visible. ${
-        "This is project-specific guidance with enough substance to review. "
+        "These are project-specific instructions with enough substance to review. "
           .repeat(10)
       }`,
     );
@@ -505,7 +505,7 @@ Deno.test("improvement: responsive package reports keep hostile evidence inert a
     for (const width of [39, 80, 104, 400]) {
       const run = await runAgent(
         dir,
-        ["improvement", "--category", "guidance", "--plain"],
+        ["improvement", "--category", "instructions", "--plain"],
         {
           env: {
             COLUMNS: String(width),
@@ -518,7 +518,7 @@ Deno.test("improvement: responsive package reports keep hostile evidence inert a
       assertEquals(run.code, 0);
       outputs.set(width, run.stdout);
       assert(
-        triangleSectionAt(run.stdout, "Agent guidance") >= 0,
+        triangleSectionAt(run.stdout, "Agent instructions") >= 0,
         "the category needs its package-backed heading",
       );
       assertTerminalTextIncludes(run.stdout, "Review question:");
@@ -583,7 +583,7 @@ Deno.test("improvement: one injected context controls colour and width without r
       assertEquals(
         await runImprovement(dir, {
           json: false,
-          category: "guidance",
+          category: "instructions",
           terminal,
           stdout: (text) => stdout += text,
           stderr: (text) => stderr += text,
@@ -665,7 +665,7 @@ Deno.test({
       for (const mode of modes) {
         const run = await runAgentPty(
           dir,
-          ["improvement", "--category", "guidance"],
+          ["improvement", "--category", "instructions"],
           { env: { ...mode.env, LANG: "en_US.UTF-8" } },
         );
         assertEquals(run.code, 0);
@@ -677,7 +677,7 @@ Deno.test({
         }
         const facts = stripAnsi(rendered);
         assert(
-          triangleSectionAt(facts, "Agent guidance") >= 0,
+          triangleSectionAt(facts, "Agent instructions") >= 0,
           `${mode.name} lost the category heading`,
         );
         assertStringIncludes(facts, "Review question:");

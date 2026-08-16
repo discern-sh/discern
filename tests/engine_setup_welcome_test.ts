@@ -308,14 +308,14 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
     const d =
       JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
 
-    // The agent guidance carries the role + the verify funnel the human prose has,
+    // The agent instructions carries the role + the verify funnel the human prose has,
     // and points at verify as the source of the message to relay (ADR 0086).
-    assertStringIncludes(d.agent_guidance, "nothing is written until");
+    assertStringIncludes(d.agent_instructions, "nothing is written until");
     assertStringIncludes(
-      d.agent_guidance,
+      d.agent_instructions,
       "hands you the exact message to relay",
     );
-    assertStringIncludes(d.agent_guidance, "discern setup verify");
+    assertStringIncludes(d.agent_instructions, "discern setup verify");
     // The human framing carries the most-capable-model nudge the human block makes.
     assertStringIncludes(d.human_framing, "most capable model");
     // Both surfaces actually say it, so neither path is the thinner one.
@@ -326,7 +326,7 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
   });
 });
 
-Deno.test("the in-progress welcome --json carries the 'your job, not a status' agent guidance", async () => {
+Deno.test("the in-progress welcome --json carries the 'your job, not a status' agent instructions", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await runAgent(dir, ["setup", "begin", "--confirmed"]);
@@ -335,8 +335,8 @@ Deno.test("the in-progress welcome --json carries the 'your job, not a status' a
     assertEquals(d.phase, "in_progress");
     // The resume framing the human text carries ("this is YOUR job ... not a status
     // to report back") must ride the JSON path too, not just the human one.
-    assertStringIncludes(d.agent_guidance, "YOUR job");
-    assertStringIncludes(d.agent_guidance, "discern setup done");
+    assertStringIncludes(d.agent_instructions, "YOUR job");
+    assertStringIncludes(d.agent_instructions, "discern setup done");
   });
 });
 
@@ -354,17 +354,20 @@ Deno.test("verify reports grounded findings and the consent conversation, writin
     assertEquals(d.findings.git.repo, true);
     assertEquals(d.findings.docs.exists, false);
     assert(typeof d.findings.worktree_path === "string");
-    // The consent conversation rides the prose `guidance` lane (not structured
+    // The consent conversation rides the prose `instructions` lane (not structured
     // fields the agent summarizes) as a ready-to-relay message: the relay licence,
     // then the points to settle with the human — model, worktree, ready — plus the
     // funnel to begin (ADR 0086).
-    assertStringIncludes(d.guidance, "Relay the message below to your human");
-    assertStringIncludes(d.guidance, "Am I your most capable model");
     assertStringIncludes(
-      d.guidance,
+      d.instructions,
+      "Relay the message below to your human",
+    );
+    assertStringIncludes(d.instructions, "Am I your most capable model");
+    assertStringIncludes(
+      d.instructions,
       "Isolated working copies will live beside",
     );
-    assertStringIncludes(d.guidance, "Ready for me to begin");
+    assertStringIncludes(d.instructions, "Ready for me to begin");
     assertStringIncludes(d.next_action, "begin");
     // The command the agent runs after the conversation carries the consent
     // attestation — a fresh begin refuses without it.
@@ -387,16 +390,16 @@ Deno.test("verify funnels begin with --model so the configuring model is recorde
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     ).data;
     assertStringIncludes(d.next_action, "--model");
-    // The consent guidance instructs passing --model for best-effort provenance.
-    assertStringIncludes(d.guidance, "--model");
+    // The consent instructions instructs passing --model for best-effort provenance.
+    assertStringIncludes(d.instructions, "--model");
   });
 });
 
-Deno.test("verify's consent guidance is identical and faithful across the human render and --json (the A9 parity guard)", async () => {
+Deno.test("verify's consent instructions are identical and faithful across the human render and --json (the A9 parity guard)", async () => {
   // Running `verify --json` once led an agent to summarize and weaken the consent
   // conversation — it dropped "open warmly", reworded the model question, and guessed a
   // model id — while the SAME verify in human-readable form was followed faithfully.
-  // The consent now rides ONE prose `guidance` lane; this pins the two surfaces to the
+  // The consent now rides ONE prose `instructions` lane; this pins the two surfaces to the
   // same text and asserts every load-bearing instruction survives in both, so they can
   // never silently diverge again (ADR 0078, the two-lane rule).
   await withTempDir(async (dir) => {
@@ -410,10 +413,10 @@ Deno.test("verify's consent guidance is identical and faithful across the human 
     // One source, two renderings: the human preflight embeds the --json prose lane
     // verbatim, so the consent conversation cannot drift between the surfaces.
     assert(
-      typeof d.guidance === "string" && d.guidance.length > 200,
-      `expected a substantial consent guidance string: ${d.guidance}`,
+      typeof d.instructions === "string" && d.instructions.length > 200,
+      `expected a substantial consent instructions string: ${d.instructions}`,
     );
-    assertStringIncludes(human, d.guidance);
+    assertStringIncludes(human, d.instructions);
 
     // Every load-bearing point is present in BOTH surfaces: the adaptive relay
     // licence, the exact model question verbatim, the three-pillar explainer, the
@@ -431,14 +434,14 @@ Deno.test("verify's consent guidance is identical and faithful across the human 
       ]
     ) {
       assertStringIncludes(
-        d.guidance,
+        d.instructions,
         needle,
-        `--json guidance missing: ${needle}`,
+        `--json instructions missing: ${needle}`,
       );
       assertStringIncludes(human, needle, `human render missing: ${needle}`);
     }
 
-    // Faithfulness (ADR 0041): the real serialized envelope — guidance and all —
+    // Faithfulness (ADR 0041): the real serialized envelope — instructions and all —
     // validates against the schema the data is typed from.
     SetupVerifyOutputSchema.parse(res);
   });
@@ -472,11 +475,11 @@ Deno.test("verify reassures about existing docs, and surfaces agent instructions
     // With a docs/ folder present, the relay message promises it stays untouched
     // and names the map's separate home — and never offers to point discern at
     // the human's docs (the retired ADR 0100 opt-in; ADR 0131).
-    assertStringIncludes(d.guidance, "You already have a docs/ folder");
-    assertStringIncludes(d.guidance, "discern won't touch it");
-    assertStringIncludes(d.guidance, SOURCE_PATHS.map.defaultPath);
+    assertStringIncludes(d.instructions, "You already have a docs/ folder");
+    assertStringIncludes(d.instructions, "discern won't touch it");
+    assertStringIncludes(d.instructions, SOURCE_PATHS.map.defaultPath);
     assert(
-      !d.guidance.includes("--map"),
+      !d.instructions.includes("--map"),
       "the existing-docs adoption offer must not return",
     );
     assert(!d.next_action.includes("--map"));
@@ -491,8 +494,8 @@ Deno.test("verify asks no docs question when the project has no docs folder", as
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     ).data;
     assertEquals(d.findings.docs.exists, false);
-    assert(!d.guidance.includes("You already have a docs/ folder"));
-    assert(!d.guidance.includes("--map"));
+    assert(!d.instructions.includes("You already have a docs/ folder"));
+    assert(!d.instructions.includes("--map"));
     // The default is still stated: the human render names where the map lands.
     const human = (await runAgent(dir, ["setup", "verify"])).stdout;
     assertStringIncludes(human, SOURCE_PATHS.map.defaultPath);
@@ -537,7 +540,7 @@ Deno.test("setup done emits the provider-aware reactivation handoff", async () =
 Deno.test("setup done serves the completion message at parity across the human render and --json (ADR 0086)", async () => {
   // The bookend of the served-message handshake: an agent that only relays discern's
   // words still gives the human a warm, accurate close. The message rides ONE prose
-  // `guidance` lane, carried verbatim by both surfaces so the relay can't drift.
+  // `instructions` lane, carried verbatim by both surfaces so the relay can't drift.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // agents: [claude_code]
     const human = (await runAgent(dir, ["setup", "done", "--force"])).stdout;
@@ -546,12 +549,12 @@ Deno.test("setup done serves the completion message at parity across the human r
     );
     const d = res.data;
 
-    // One source, two renderings: the human output embeds the --json guidance verbatim.
+    // One source, two renderings: the human output embeds the --json instructions verbatim.
     assert(
-      typeof d.guidance === "string" && d.guidance.length > 100,
-      `expected a substantial completion guidance string: ${d.guidance}`,
+      typeof d.instructions === "string" && d.instructions.length > 100,
+      `expected a substantial completion instructions string: ${d.instructions}`,
     );
-    assertStringIncludes(human, d.guidance);
+    assertStringIncludes(human, d.instructions);
 
     // The close carries the relay licence, the honest coverage (minimal here — the
     // seeded tidy job is housekeeping, nothing of the project's own is wired), the
@@ -564,7 +567,11 @@ Deno.test("setup done serves the completion message at parity across the human r
         "start a fresh session",
       ]
     ) {
-      assertStringIncludes(d.guidance, needle, `guidance missing: ${needle}`);
+      assertStringIncludes(
+        d.instructions,
+        needle,
+        `instructions missing: ${needle}`,
+      );
       assertStringIncludes(human, needle, `human render missing: ${needle}`);
     }
 

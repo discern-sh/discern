@@ -4,7 +4,7 @@
  *
  * These commands run from git hooks, not `discern done`, so the gate is otherwise
  * blind to them: a regression here would ship green. (The noglob break in
- * `guidelines` hid on exactly this path — the worktree-create hook runs it.)
+ * `instructions` hid on exactly this path — the worktree-create hook runs it.)
  * Each test drives a REAL linked worktree in a hermetic git repo and shells out
  * to the dispatcher, so the bytes under test are what an install runs.
  */
@@ -89,7 +89,7 @@ async function commitCurrentWorktree(
 /**
  * Overlay the source engine + bundled templates onto an engine fixture. This
  * makes the fixture a self-hosting discern checkout: a branch can carry a
- * different compiler or bundled guidance, and a worktree created from that ref
+ * different compiler or bundled instructions, and a worktree created from that ref
  * can run the exact engine it checked out.
  */
 async function addSourceEngine(dir: string): Promise<void> {
@@ -136,36 +136,36 @@ async function runCheckoutEngine(
   return { code, stdout: out, stderr: err, output: out + err };
 }
 
-/** Add a unique authored guidance heading and commit it on the accepting branch. */
-async function commitGuidanceMarker(
+/** Add a unique authored instructions heading and commit it on the accepting branch. */
+async function commitInstructionMarker(
   wt: string,
   marker: string,
 ): Promise<void> {
-  const guidance = join(wt, "discern/guidance.md");
+  const instructions = join(wt, "discern/instructions.md");
   await Deno.mkdir(join(wt, "discern"), { recursive: true });
-  const existing = await Deno.readTextFile(guidance).catch(() => "");
+  const existing = await Deno.readTextFile(instructions).catch(() => "");
   await Deno.writeTextFile(
-    guidance,
+    instructions,
     await formatMarkdownText(
-      guidance,
-      `${existing}\n\n## ${marker}\n\nKeep this marker visible in generated guidance.\n`,
+      instructions,
+      `${existing}\n\n## ${marker}\n\nKeep this marker visible in generated instructions.\n`,
     ),
   );
   const refreshed = await runAgent(wt, ["refresh", "--json"]);
   assertEquals(refreshed.code, 0, refreshed.output);
   await git(wt, "add", "-A");
-  await git(wt, "commit", "-q", "-m", "update guidance", "--no-gpg-sign");
+  await git(wt, "commit", "-q", "-m", "update instructions", "--no-gpg-sign");
 }
 
-/** Prove the fast-forward carried current branch guidance into main. */
-async function assertLandedGuidanceCurrent(
+/** Prove the fast-forward carried current branch instructions into main. */
+async function assertLandedInstructionCurrent(
   dir: string,
   marker: string,
 ): Promise<void> {
   assertStringIncludes(
     await Deno.readTextFile(join(dir, "CLAUDE.md")),
     marker,
-    "the landed commit should carry its generated guidance",
+    "the landed commit should carry its generated instructions",
   );
   const status = await runAgent(dir, ["status", "--json"]);
   assertEquals(status.code, 0, status.output);
@@ -175,7 +175,7 @@ async function assertLandedGuidanceCurrent(
   assertEquals(
     result.data.stale_generated ?? [],
     [],
-    `generated guidance should be current after acceptance\n${status.stdout}`,
+    `generated instructions should be current after acceptance\n${status.stdout}`,
   );
 }
 
@@ -314,7 +314,7 @@ Deno.test("accept: materializes only checkout-local artifacts after landing", as
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "trunk-refresh");
     const marker = "Trunk Acceptance Refresh";
-    await commitGuidanceMarker(wt, marker);
+    await commitInstructionMarker(wt, marker);
     const localSkills = join(dir, ".claude/skills");
     if (await exists(localSkills)) {
       await Deno.remove(localSkills, { recursive: true });
@@ -349,7 +349,7 @@ Deno.test("accept: materializes only checkout-local artifacts after landing", as
       "",
       `the merged branch should be deleted\n${r.output}`,
     );
-    await assertLandedGuidanceCurrent(dir, marker);
+    await assertLandedInstructionCurrent(dir, marker);
     assert(
       await exists(
         join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
@@ -1353,16 +1353,16 @@ Deno.test("start: from the main checkout creates a set-up sibling worktree and r
   });
 });
 
-Deno.test("start --from: branch-owned guidance is refreshed by the new worktree's engine", async () => {
+Deno.test("start --from: branch-owned instructions are refreshed by the new worktree's engine", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
     await addSourceEngine(dir);
     await gitInit(dir);
 
-    const fromRef = "unlanded-guidance";
-    const marker = "Branch-owned built-in guidance";
+    const fromRef = "unlanded-instructions";
+    const marker = "Branch-owned built-in instructions";
     await git(dir, "switch", "-q", "-c", fromRef);
-    const builtIn = join(dir, "templates/guidance/worktrees.md");
+    const builtIn = join(dir, "templates/instructions/worktrees.md");
     await Deno.writeTextFile(
       builtIn,
       `${await Deno.readTextFile(
@@ -1382,7 +1382,7 @@ Deno.test("start --from: branch-owned guidance is refreshed by the new worktree'
       "commit",
       "-q",
       "-m",
-      "change bundled guidance",
+      "change bundled instructions",
       "--no-gpg-sign",
     );
     await git(dir, "switch", "-q", "main");
@@ -1392,7 +1392,7 @@ Deno.test("start --from: branch-owned guidance is refreshed by the new worktree'
       "--from",
       fromRef,
       "--name",
-      "branch guidance",
+      "branch instructions",
       "--json",
     ]);
     assertEquals(started.code, 0, started.output);
@@ -1401,7 +1401,7 @@ Deno.test("start --from: branch-owned guidance is refreshed by the new worktree'
     assertStringIncludes(
       await Deno.readTextFile(join(result.data.path, "AGENTS.md")),
       marker,
-      "start must not rewrite the from-ref with the launching engine's bundled guidance",
+      "start must not rewrite the from-ref with the launching engine's bundled instructions",
     );
     assertEquals(
       await gitOut(result.data.path, "status", "--porcelain"),

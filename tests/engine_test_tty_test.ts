@@ -24,7 +24,7 @@ function config(command: string, stream = false): string {
     'slug = "test-tty"',
     "agents = []",
     "",
-    "[guidance]",
+    "[instructions]",
     "sources = []",
     ...(stream ? ["", "[gate]", "stream = true"] : []),
     "",

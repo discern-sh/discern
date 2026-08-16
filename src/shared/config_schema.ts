@@ -33,6 +33,7 @@ import { logbookPoweredPhraseList } from "./logbook_powered.ts";
 import {
   GLOB_METACHARACTER_RE,
   isConcretePath,
+  SOURCE_PATH_REFERENCES,
   SOURCE_PATHS,
 } from "./paths_registry.ts";
 import {
@@ -91,6 +92,14 @@ export class ConfigParseError extends Error {
  * `<name>` the next load would reject. */
 export const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
+/** One schema-description sentence for every field that accepts the shared
+ * scope-glob dialect. The reference list derives from SOURCE_PATHS, so the
+ * generated config reference documents a future configured member immediately. */
+const LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION =
+  `Registered source-path references (${
+    SOURCE_PATH_REFERENCES.map(({ reference }) => reference).join(", ")
+  }) resolve from this config before matching or execution; unregistered braced forms stay untouched.`;
+
 /** The native provider names are derived from the shared identity catalogue,
  * then reused by the document's `agents` enum, generated editor JSON Schema,
  * and installer `KNOWN_AGENTS` export. Signal-only identities never become
@@ -109,7 +118,7 @@ export const DEFAULT_AGENTS = [
 
 /** A job/gate/standard value: one command, or a list run in order. */
 const commandOrList = z.union([z.string(), z.array(z.string())]).describe(
-  "A single command, or a list of commands run in order.",
+  `A single command, or a list of commands run in order. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
 );
 
 /** The per-job `timeout` override: replaces the global `[gate].timeout` budget for
@@ -129,11 +138,14 @@ const knownJobCommand = z.union([
   z.string(),
   z.array(z.string()),
   z.strictObject({
-    run: commandOrList.describe("The command(s) to run."),
+    run: commandOrList.describe(
+      `The command(s) to run. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+    ),
     timeout: jobTimeout,
   }),
 ]).describe(
-  'A single command, a list of commands run in order, or a table { run = "…", timeout = N } giving this job its own time budget.',
+  'A single command, a list of commands run in order, or a table { run = "…", timeout = N } giving this job its own time budget. ' +
+    LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION,
 );
 
 /** A command-bearing config value in any of its shapes: a bare command, a list, or
@@ -190,7 +202,9 @@ const customJobValue = z.strictObject({
   stage: stageEnum.describe(
     "When the custom job runs in the gate (fix|build|check|test).",
   ),
-  run: commandOrList.describe("The command(s) to run."),
+  run: commandOrList.describe(
+    `The command(s) to run. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+  ),
   provides: z.string().optional().describe(
     "Optional free-text label, for humans / audit.",
   ),
@@ -207,16 +221,16 @@ export type JobConfig = CommandValue | CustomJobConfig;
 /** A `[scopes.<name>]` table — a named region with optional attributes. */
 const scopeValue = z.strictObject({
   paths: z.array(z.string()).describe(
-    "The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path.",
+    `The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   neutral: z.boolean().default(false).describe(
-    "true: changes here need no gate (docs, agent guidance).",
+    "true: changes here need no gate (docs, agent instructions).",
   ),
   previewable: z.boolean().default(false).describe(
     "true: a person could see changes here — worth a preview link.",
   ),
   gate: commandOrList.optional().describe(
-    "A command discern done runs when this scope changed (a sub-component with its own self-contained gate).",
+    `A command discern done runs when this scope changed (a sub-component with its own self-contained gate). ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   timeout: jobTimeout,
 });
@@ -225,13 +239,13 @@ const scopeValue = z.strictObject({
  * deterministic command that re-derives them (ADR 0247). */
 const generatedValue = z.strictObject({
   paths: z.array(z.string()).describe(
-    "The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path.",
+    `The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (\`reference/**\`), a standard glob (\`reference/**/*.md\`, \`reference/*\`), a \`*.ext\` suffix at any depth, a \`/seg/\` segment, or an exact path. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   run: commandOrList.refine(
     (run) => toCommandList(run).length > 0,
     { message: "generated run must contain at least one command." },
   ).describe(
-    "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits.",
+    `The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   linguist_generated: z.boolean().default(false).describe(
     "Whether GitHub should hide this group's files in diffs by default and exclude them from repository language statistics through the `linguist-generated` Git attribute. Default false.",
@@ -249,13 +263,13 @@ const standardValue = z.strictObject({
   ),
   limit: z.number().describe("The floor (up) or ceiling (down)."),
   run: commandOrList.describe(
-    "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>.",
+    `The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   per: perValue.optional().describe(
     "Divide the metric to hold a *rate*, not a raw count — so the number " +
       "doesn't rise solely because the project grew. Either a second metric the run emits, " +
       'or a built-in extent discern measures itself: per = { words = "${map.dir}**" } ' +
-      "(files | lines | words | bytes over a git pathspec).",
+      `(files | lines | words | bytes over a git pathspec). ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   scale: z.number().default(1).describe(
     'Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words".',
@@ -285,7 +299,8 @@ const standardValue = z.strictObject({
       "every change since the last recorded measurement outside these globs, it " +
       "replays that recorded value instead of re-measuring — loudly, naming the " +
       "source commit. Omit to measure every time (the conservative default). Risk: a " +
-      "too-narrow inputs list delays detection until the next measured run.",
+      "too-narrow inputs list delays detection until the next measured run. " +
+      LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION,
   ),
   timeout: jobTimeout,
 });
@@ -310,12 +325,12 @@ const projectDirectoryPath = z.string().regex(
   },
 );
 
-const guidanceSourceInputPattern = new RegExp(
+const instructionSourceInputPattern = new RegExp(
   `(?:${PROJECT_RELATIVE_FILE_INPUT_RE.source})|` +
     `(?:${GLOB_METACHARACTER_RE.source})`,
 );
-const guidanceSourcePath = z.string().regex(
-  guidanceSourceInputPattern,
+const instructionSourcePath = z.string().regex(
+  instructionSourceInputPattern,
   "must be a project-relative file path or glob",
 ).overwrite((value) =>
   isConcretePath(value) ? normalizeProjectRelativeFilePath(value) : value
@@ -352,7 +367,7 @@ const metaSection = z.strictObject({
 
 const projectSection = z.strictObject({
   name: z.string().default("").describe(
-    "Display name (free text), used where compiled guidance addresses the project. Empty falls back to the slug.",
+    "Display name (free text), used when compiled instructions address the project. Empty falls back to the slug.",
   ),
   slug: z.string().default("").describe(
     "Short, lowercase, dash-separated identity. Used for worktree/site/branch names.",
@@ -390,15 +405,15 @@ const repositorySection = z.strictObject({
   "Repository-wide checkout policy: the trunk, discern-created branch names, and convergence shared by linked worktrees and the main checkout.",
 );
 
-const guidanceSection = z.strictObject({
-  sources: z.array(guidanceSourcePath).default([
-    SOURCE_PATHS.guidance.defaultPath,
+const instructionSection = z.strictObject({
+  sources: z.array(instructionSourcePath).default([
+    SOURCE_PATHS.instructions.defaultPath,
   ])
     .describe(
-      "Your guidance source files and globs. Concrete paths are relative to the project root, and discern removes leading `./` prefixes from them. Globs keep their authored spelling and may be relative or absolute. Source discovery excludes the agent files, so a glob may match them. Sources are read only when present; discern's built-in guidance is prepended.",
+      "Your instruction source files and globs. Concrete paths are relative to the project root, and discern removes leading `./` prefixes from them. Globs keep their authored spelling and may be relative or absolute. Source discovery excludes the agent files, so a glob may match them. Sources are read only when present; discern's built-in instructions are prepended.",
     ),
 }).prefault({}).describe(
-  "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one agent file per provider.",
+  "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in instructions plus your sources into one agent file per provider.",
 );
 
 const skillsSection = z.strictObject({
@@ -595,7 +610,7 @@ export const configSchema = z.strictObject({
   meta: metaSection,
   project: projectSection,
   repository: repositorySection,
-  guidance: guidanceSection,
+  instructions: instructionSection,
   skills: skillsSection,
   map: mapSection,
   jobs: jobsSection,
@@ -619,7 +634,7 @@ export type DiscernConfig = Omit<InferredDiscernConfig, "jobs"> & {
 };
 
 /**
- * The provider names to emit guidance / materialize skills for: the configured
+ * The provider names to emit instructions / materialize skills for: the configured
  * `[project].agents`, else {@link DEFAULT_AGENTS}. The single resolver shared
  * by the compiler, the worktree dispatcher, AND the skills currency check — so
  * "which agents are configured" is answered identically everywhere, never

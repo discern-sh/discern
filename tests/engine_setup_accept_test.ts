@@ -181,7 +181,7 @@ Deno.test("setup done steers a non-setup branch to a manual merge, never `setup 
   // done` must not recommend `discern setup accept` there — the command lands
   // whatever branch it is run from, and this one carries the user's own
   // commits. Every recommendation surface (the JSON hints, the relay
-  // guidance, the landing data) derives from the one landingSummary field,
+  // instructions, the landing data) derives from the one landingSummary field,
   // so this drives the full envelope.
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
@@ -227,13 +227,15 @@ Deno.test("setup done steers a non-setup branch to a manual merge, never `setup 
       setupBranch: "discern-setup",
     });
     assertStringIncludes(
-      obj.data.guidance,
+      obj.data.instructions,
       "usual way",
       "the relay message steers to a manual merge for a non-setup branch",
     );
     assert(
-      !obj.data.guidance.includes("landing it now with `discern setup accept`"),
-      `the relay message must not recommend setup accept here:\n${obj.data.guidance}`,
+      !obj.data.instructions.includes(
+        "landing it now with `discern setup accept`",
+      ),
+      `the relay message must not recommend setup accept here:\n${obj.data.instructions}`,
     );
   });
 });

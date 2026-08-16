@@ -14,7 +14,7 @@ This subtree documents local setup, the testing approach, the conventions the to
 
 Contributors use the same `discern <verb>` commands as installed projects. In this repository, the local-development wrapper runs each command against the current checkout's Engine:
 
-- `start` provisions an isolated workspace for one task (a Git worktree). See the worktree rule in the project guidance.
+- `start` provisions an isolated workspace for one task (a Git worktree). See the worktree rule in the project instructions.
 - `prepare` is the fast inner loop. It applies the fix-stage work, then the check-stage work, and omits build and test stages.
 - `done` runs the full Gate. In a worktree, it first verifies that the branch contains the latest trunk. It then runs the fix-stage and build-stage work, runs `check` and `test` in parallel, and fires the Gate for each changed scope that declares one. Run it on the intended final commit. Follow the first diagnostic, then run `discern done` again.
 

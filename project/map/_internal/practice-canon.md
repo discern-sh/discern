@@ -11,8 +11,8 @@ _The practice, enumerated: the obligations discern holds for every change and fo
 The tenets operate inside one relationship:
 
 - **The human** — You set the direction, make the calls only you can make, and hold the authority over what becomes shared.
-- **The agents** — Coding agents operate the practice: they inherit the project's guidance, carry the work, and answer to its checks.
-- **The project** — The repository carries the practice — its guidance, its working conditions, its checks, its evidence, and its decisions — across sessions, agents, and providers.
+- **The agents** — Coding agents operate the practice: they inherit the project's instructions, carry the work, and answer to its checks.
+- **The project** — The repository carries the practice — its instructions, its working conditions, its checks, its evidence, and its decisions — across sessions, agents, and providers.
 
 ## The tenets
 
@@ -20,15 +20,15 @@ Numbered by position. `loop` tenets govern how work moves, `craft` tenets govern
 
 ### 1. Arrive knowing
 
-> Every session starts with the project's guidance, understanding, and methods already in hand.
+> Every session starts with the project's instructions, understanding, and methods already in hand.
 
-One authored guidance body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.
+One authored instruction body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.
 
 - **Arc:** loop
-- **Upheld:** automated via `refresh`, `[guidance]`
-- **Mechanisms:** Agent guidance · Author once, compile everywhere · The map · The discovery funnel · Skills · Status.
+- **Upheld:** automated via `refresh`, `[instructions]`
+- **Mechanisms:** Agent instructions · Author once, compile everywhere · The map · The discovery funnel · Skills · Status.
 - **Yields:** Keep project knowledge available.
-- **Maintains:** its guidance.
+- **Maintains:** its instructions.
 
 ### 2. One task, one place
 
@@ -106,13 +106,13 @@ Acceptance resolves its authority per invocation (a conversation attestation, a 
 
 > Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.
 
-A correction becomes guidance, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
+A correction becomes instructions, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
 
 - **Arc:** loop
 - **Upheld:** enforced via `[map]` · taught by `discern-teach-the-project`, `discern-write-adr`, `discern-document-subsystem`
 - **Mechanisms:** The map · Decision records · The docs integrity preflight · File-linked freshness · The vocabulary canon · Teach the project · Write an ADR · Document a subsystem.
 - **Yields:** Keep project knowledge available.
-- **Maintains:** its guidance, its decisions.
+- **Maintains:** its instructions, its decisions.
 
 ### 9. Cure the class
 
@@ -166,16 +166,16 @@ What kind of thing the practice is — its nature rather than its obligations. N
 
 - **Local** — The practice runs on the machine: verdicts come from the project's own commands, and the working record never leaves it. (Evidence stays local · The logbook.)
 - **No model inside** — discern contains no model and needs no API key; the agent supplies the intelligence, and the practice supplies the conditions. (No model inside.)
-- **Ordinary files, yours** — The practice is files in the repository — one root configuration plus the guidance, methods, and decisions it records — all readable and all project-owned. (A one-file footprint · File ownership.)
+- **Ordinary files, yours** — The practice is files in the repository — one root configuration plus the instructions, methods, and decisions it records — all readable and all project-owned. (A one-file footprint · File ownership.)
 - **Stack-neutral** — The practice ships none of the project's stack: the gate, scopes, standards, and resources run whatever commands the project declares. (Stack-neutral.)
 - **Provider-neutral** — Every supported agent works through the same project-owned practice, so changing providers never means starting the project over. (Agent providers · Author once, compile everywhere.)
 - **Reversible** — Leaving costs one command and loses no authored work: the wiring goes, and the practice's files stay. (Uninstall.)
 
 ## The inventory
 
-The project holds its guidance, its working conditions, its checks, its evidence, and its decisions — the fixed list public copy repeats verbatim. Each item is maintained by the tenets that claim it:
+The project holds its instructions, its working conditions, its checks, its evidence, and its decisions — the fixed list public copy repeats verbatim. Each item is maintained by the tenets that claim it:
 
-- **its guidance** — 1. Arrive knowing · 8. The project remembers
+- **its instructions** — 1. Arrive knowing · 8. The project remembers
 - **its working conditions** — 2. One task, one place · 3. Hand over whole pieces
 - **its checks** — 4. Done is deterministic · 5. Only better · 9. Cure the class · 10. Write it once
 - **its evidence** — 5. Only better · 6. Proof binds to the change

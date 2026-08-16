@@ -27,7 +27,7 @@ The agent studies the repository, proposes the checks that will define "done," a
 
 ## What the practice holds
 
-- **Every agent starts with the project already in view.** Write your project guidance once; discern compiles it for every configured provider — Claude Code, Codex, Gemini, Cursor, GitHub Copilot, and any other tool that reads `AGENTS.md`. Change agents without starting the project explanation over.
+- **Every agent starts with the project already in view.** Write your project instructions once; discern compiles them for every configured provider — Claude Code, Codex, Gemini, Cursor, GitHub Copilot, and any other tool that reads `AGENTS.md`. Change agents without starting the project explanation over.
 - **Every task gets its own prepared place.** Each change happens in its own Git worktree, with its own branch, identity, environment values, and any resources the project declares. Parallel agents work in separate checkouts and cannot overwrite one another's working tree.
 - **"Done" means your project's own bar was met.** Declare format, lint, typecheck, and test once in `discern.toml`; the Gate runs them against the final tree and reports what they returned.
 - **A measurable gain becomes the new floor.** Standards hold quality numbers (coverage, bundle size, lint counts) at limits that may only improve. When a measure gets better, discern can pin the gain; a branch cannot weaken the limit.
@@ -53,7 +53,7 @@ Every verb takes `--json` and returns one structured envelope; the MCP tools (`d
 
 - discern contains no AI model and needs no API key; it runs the commands the project declares.
 - The Logbook, discern's local record of its own runs, stays on your machine and contains metadata rather than code or command output.
-- All project-specific settings live in one root `discern.toml`. The guidance, skills, and agent files discern maintains are generated in the open, an architectural test enumerates every path it may write, and `discern uninstall` takes the wiring back out.
+- All project-specific settings live in one root `discern.toml`. The instructions, skills, and agent files discern maintains are generated in the open, an architectural test enumerates every path it may write, and `discern uninstall` takes the wiring back out.
 - discern is not a sandbox, and it does not guarantee correct or secure software. It gives you declared checks, evidence for the exact change, and the final say over what lands.
 
 ## Any repository, any stack

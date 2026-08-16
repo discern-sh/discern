@@ -1,16 +1,16 @@
 /**
  * The operating-policy registry — the single source of truth for the core
- * policies carried by both discern's bundled guidance and its MCP server
+ * policies carried by both discern's bundled instructions and its MCP server
  * instructions.
  *
- * MCP instructions render each required statement directly. The guidance
+ * MCP instructions render each required statement directly. The instructions
  * templates remain authored Markdown and must satisfy the same entry's probes.
  * A policy belongs here only when every declared surface must carry it.
  */
 
 /** An authored surface that carries discern's core operating policies. */
 export const OPERATING_POLICY_SURFACES = [
-  "guidance-templates",
+  "instructions-templates",
   "mcp-instructions",
 ] as const;
 
@@ -44,7 +44,7 @@ export function worktreeContinuityPolicy(startCommand: string): string {
   return `${WORKTREE_CONTINUITY_CORE} Do not call ${startCommand} again.`;
 }
 
-/** Every core operating policy shared by the guidance and MCP instructions. */
+/** Every core operating policy shared by the instructions and MCP instructions. */
 export const OPERATING_POLICIES = [
   {
     id: "worktree-continuity",

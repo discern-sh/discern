@@ -35,7 +35,7 @@ import {
   type DiscernConfig,
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
-import { renderAgentFiles } from "../src/engine/guidance_render.ts";
+import { renderAgentFiles } from "../src/engine/instruction_render.ts";
 import { writeEnvVar } from "../src/engine/worktree/env_file.ts";
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";

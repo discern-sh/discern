@@ -8,7 +8,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import type { z } from "@zod/zod";
-import { renderAgentFiles } from "../src/engine/guidance_render.ts";
+import { renderAgentFiles } from "../src/engine/instruction_render.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";

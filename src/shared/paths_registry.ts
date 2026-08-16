@@ -6,9 +6,10 @@
  *
  * Everything else derives from this table: the Zod schema's path `.default()`s
  * (`config_schema.ts`), the resolver helpers (`lib/paths.ts`), setup's seeding,
- * codegen, and the leakage guards. Adding a path means adding one entry here —
- * every satellite either auto-enrols or fails the gate. A path default written
- * as a literal anywhere else in `src/**` is a defect.
+ * codegen, live source-path references, and the leakage guards. Adding a path
+ * means adding one entry here — every satellite either auto-enrols or fails the
+ * gate. A path default written as a literal anywhere else in `src/**` is a
+ * defect.
  */
 
 import type { FileOwnershipDeclaration } from "./file_ownership.ts";
@@ -29,7 +30,7 @@ export interface SourcePathEntry {
   /** Whether the write-surface contract admits one file or a directory tree. */
   readonly pathKind: "file" | "directory";
   /** How the write target is selected from config. */
-  readonly resolution: "configured" | "guidance-seed" | "default";
+  readonly resolution: "configured" | "instruction-seed" | "default";
   /** This authored path's required File ownership declaration. */
   readonly ownership: FileOwnershipDeclaration;
   /** Whether changes at this authored path skip the project gate by default. */
@@ -45,7 +46,7 @@ export const NAMESPACE_DIR = "discern/";
 /** The source-path names, in display order. The single source of truth for the
  * path vocabulary; {@link SOURCE_PATHS} is pinned to it at compile time. */
 export const SOURCE_PATH_NAMES = [
-  "guidance",
+  "instructions",
   "map",
   "skills",
   "scripts",
@@ -62,15 +63,15 @@ export type SourcePathName = (typeof SOURCE_PATH_NAMES)[number];
  * never drift.
  */
 export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
-  guidance: {
-    key: "guidance.sources",
-    defaultPath: "discern/guidance.md",
+  instructions: {
+    key: "instructions.sources",
+    defaultPath: "discern/instructions.md",
     pathKind: "file",
-    resolution: "guidance-seed",
+    resolution: "instruction-seed",
     ownership: { "project-owned": true },
     gateNeutral: true,
     description:
-      "The project's guidance source discern compiles into the agent files.",
+      "The project's instruction source, which discern compiles into the agent files.",
   },
   map: {
     key: "map.dir",
@@ -122,6 +123,40 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
   },
 };
 
+/** One live reference derived from a configured source-path registry entry. */
+export interface SourcePathReference {
+  readonly name: SourcePathName;
+  readonly key: string;
+  readonly reference: string;
+}
+
+/** Every live source-path reference, in source-path registry order. Configured
+ * members enrol automatically; other resolution modes deliberately expose no
+ * reference because they do not name one stable scalar config value. */
+export const SOURCE_PATH_REFERENCES: readonly SourcePathReference[] =
+  SOURCE_PATH_NAMES.flatMap((name): SourcePathReference[] => {
+    const entry = SOURCE_PATHS[name];
+    if (entry.resolution !== "configured") return [];
+    if (entry.key === null) {
+      throw new Error(
+        `${name}: configured source paths need a config key before they can expose a live reference`,
+      );
+    }
+    return [{ name, key: entry.key, reference: `\${${entry.key}}` }];
+  });
+
+const SOURCE_PATH_REFERENCE_BY_NAME = new Map<SourcePathName, string>(
+  SOURCE_PATH_REFERENCES.map(({ name, reference }) => [name, reference]),
+);
+
+/** The live reference for one configured registry member; absent for sources
+ * whose concrete path is resolved by another rule. */
+export function sourcePathReference(
+  name: SourcePathName,
+): string | undefined {
+  return SOURCE_PATH_REFERENCE_BY_NAME.get(name);
+}
+
 /** The default path for source `name` — the ADR 0099 namespace location. */
 export function sourcePathDefault(name: SourcePathName): string {
   return SOURCE_PATHS[name].defaultPath;
@@ -137,12 +172,12 @@ export function isConcretePath(pattern: string): boolean {
 }
 
 /**
- * The concrete file setup seeds the starter guidance into, given the configured
- * `[guidance].sources`: the first entry that is a plain path (no glob
+ * The concrete file setup seeds the starter instructions into, given the configured
+ * `[instructions].sources`: the first entry that is a plain path (no glob
  * metacharacters), else the registry default. One definition shared by the
- * seeding (`seedGuidance`) and the setup-progress checks, so "where does the
- * guidance stub live" is answered identically everywhere.
+ * seeding (`seedInstructions`) and the setup-progress checks, so "where does the
+ * instruction stub live?" is answered identically everywhere.
  */
-export function guidanceSeedRel(sources: readonly string[]): string {
-  return sources.find(isConcretePath) ?? SOURCE_PATHS.guidance.defaultPath;
+export function instructionSeedRel(sources: readonly string[]): string {
+  return sources.find(isConcretePath) ?? SOURCE_PATHS.instructions.defaultPath;
 }

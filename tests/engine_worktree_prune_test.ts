@@ -780,8 +780,8 @@ Deno.test("worktree teardown destroys the worktree's resources", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "tear");
     const markers = join(dir, "markers");
-    // Append a resource to the scaffolded config (keeping [guidance] etc. so the
-    // setup step's guidance refresh still runs).
+    // Append a resource to the scaffolded config (keeping [instructions] etc. so the
+    // setup step's instruction refresh still runs).
     const cfg = await Deno.readTextFile(join(wt, "discern.toml"));
     await Deno.writeTextFile(
       join(wt, "discern.toml"),

@@ -346,7 +346,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "tidy",
         title: "Canonical formatting for discern surfaces",
         what:
-          "`discern tidy [md|toml]` canonically formats the configured map, TODO and guidance sources, plus the root `discern.toml`, using formatters embedded in the offline binary. Bare `discern tidy` runs both types; a parse failure leaves every file unchanged. Fenced box-drawing diagrams in those Markdown targets must stay column-aligned; a fence tagged `freeform` is exempt.",
+          "`discern tidy [md|toml]` canonically formats the configured map, TODO and instruction sources, plus the root `discern.toml`, using formatters embedded in the offline binary. Bare `discern tidy` runs both types; a parse failure leaves every file unchanged. Fenced box-drawing diagrams in those Markdown targets must stay column-aligned; a fence tagged `freeform` is exempt.",
         why:
           "Agent-maintained prose and frequently edited config stop accumulating formatting churn, even when the project's stack has no formatter of its own.",
         plain: {
@@ -404,7 +404,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           what:
             "`[scopes.<name>]` names one part of the project by the file locations it covers. An area can be `neutral` (changes there need no check), `previewable` (a person could usefully preview it), or carry its own `gate` instruction that runs only when that area changed.",
           why:
-            "A change to written guidance does not pay the cost of preparing the whole app, and a smaller part's private checks run only when that part moved.",
+            "A change to written instructions does not pay the cost of preparing the whole app, and a smaller part's private checks run only when that part moved.",
         },
         surfaces: ["config:scopes"],
         children: [
@@ -496,7 +496,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         what:
           "When a stage fails, the gate prints a pasteable `discern map <target> --json` fetch when `[project].gotchas_doc` lives in the map, and the file path otherwise. A trap entry annotated with a fenced `gotcha-match` block (a stage and/or an evidence pattern) goes further: a failure matching it carries the entry's own prose inline in the failure output, on the terminal and in the result envelope alike, and the pointer prints only when nothing matches.",
         why:
-          "Matched failure guidance appears with the failure that made it relevant, without a separate fetch.",
+          "Matched failure instructions appears with the failure that made it relevant, without a separate fetch.",
         agent:
           "Matching reads the failure's `failed_stage` and diagnostic evidence against the doc's entries in document order; the first match wins and the inlined entry keeps the map fetch as the route to the full page. A malformed matcher warns by entry name whenever the doc is consulted, and a project that never adds matchers keeps the pointer unchanged.",
         hints: ["gate-failure-gotcha-matched", "gotchas-matcher-invalid"],
@@ -505,7 +505,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           what:
             "When a group of work fails, discern points at the project's own record of known traps — as a ready-to-paste `discern map` fetch when that record lives in the project guide, or as the file's location otherwise. An entry there can also carry a small matching rule (which group failed, or what the failure's text looks like): a failure that matches brings the entry's own advice straight into the failure report, and the pointer appears only when nothing matched.",
           why:
-            "Matched failure guidance appears with the relevant failure, so the coding agent does not need a separate lookup.",
+            "Matched failure instructions appears with the relevant failure, so the coding agent does not need a separate lookup.",
           agent:
             "Matching compares the failed group and the failure's details with the record's entries, in order; the first match wins, and the advice it carries still names where the full page lives. A malformed matching rule produces a warning naming its entry whenever discern consults the record, and a project that never adds matching rules keeps the plain pointer unchanged.",
         },
@@ -652,7 +652,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           what:
             "`inputs` names the files a measurement reads. When nothing under them has changed since the last recorded measurement, the check reuses the recorded value instead of measuring again.",
           why:
-            "A change that only touches written guidance pays seconds for a trial-coverage rule, and the check against weakening still runs.",
+            "A change that only touches written instructions pays seconds for a trial-coverage rule, and the check against weakening still runs.",
           agent:
             "A fresh working copy inherits its starting measurements from the main shared version's Proof, so its first check reuses what unchanged work already proved.",
         },
@@ -687,11 +687,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "standards-escalation",
         title: "Breach escalation",
         what:
-          "A limit the work itself breached is an owner decision: the built-in guidance has agents cut waste they added and report genuine growth, rather than move a limit to pass.",
+          "A limit the work itself breached is an owner decision: the built-in instructions have agents cut waste they added and report genuine growth, rather than move a limit to pass.",
         plain: {
           title: "When the work itself crosses a limit",
           what:
-            "A limit the work itself crossed is a decision for the person in charge: discern's built-in guidance tells coding agents to remove waste they added and to report genuine growth, rather than to move a limit so the work passes.",
+            "A limit the work itself crossed is a decision for the person in charge: discern's built-in instructions tells coding agents to remove waste they added and to report genuine growth, rather than to move a limit so the work passes.",
         },
       },
     ],
@@ -986,12 +986,12 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
   },
   // ──────────────────────────────────────────────────────────────────────────
   {
-    id: "guidance",
-    title: "Agent guidance",
+    id: "instructions",
+    title: "Agent instructions",
     what:
-      "One authored guidance source compiles into every configured agent's instruction file. discern's built-in operating guidance is always prepended, so your sources extend it rather than replace it.",
+      "One authored instruction source compiles into every configured agent's instruction file. discern's built-in operating instructions are always prepended, so your sources extend it rather than replace it.",
     why:
-      "Every provider reads one authored guidance body, including cloud agents.",
+      "Every provider reads one authored instruction body, including cloud agents.",
     plain: {
       title: "Instructions for coding agents",
       what:
@@ -999,35 +999,36 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       why:
         "Write the instructions once, and every coding agent (including one working on another computer) reads the same page.",
     },
-    surfaces: ["config:guidance", "verb:refresh"],
+    surfaces: ["config:instructions", "verb:refresh"],
     children: [
       {
-        id: "guidance-compile",
+        id: "instructions-compile",
         title: "Author once, compile everywhere",
         what:
-          "`discern refresh` compiles the built-in guidance plus `[guidance].sources` into one generated file per provider. The outputs are committed, and a generated file that drifts from its sources fails the gate.",
+          "`discern refresh` compiles the built-in instructions plus `[instructions].sources` into one generated file per provider. The outputs are committed, and a generated file that drifts from its sources fails the gate.",
         why:
           "A bare clone hands every agent current instructions, and stale copies cannot survive review.",
         plain: {
           title: "Write once, produce every copy",
           what:
-            "`discern refresh` compiles discern's built-in advice plus `[guidance].sources` into one finished instruction file per kind of coding agent. The finished files live with the project, and a finished file that no longer matches its sources fails the final check.",
+            "`discern refresh` compiles discern's built-in advice plus `[instructions].sources` into one finished instruction file per kind of coding agent. The finished files live with the project, and a finished file that no longer matches its sources fails the final check.",
           why:
             "A freshly copied project hands every coding agent current instructions, and a stale copy cannot survive review.",
         },
       },
       {
-        id: "guidance-conditionals",
-        title: "Config-aware guidance",
+        id: "instructions-conditionals",
+        title: "Config-aware instructions",
         what:
-          "The built-in guidance is templated on the project's config, so a project without worktree resources or standards never ships agents instructions about them.",
-        why: "Agents read guidance about the project they're in, nothing else.",
+          "The built-in instructions are templated on the project's config, so a project without worktree resources or standards never ships agent instructions about them.",
+        why:
+          "Agents read instructions about the project they're in, nothing else.",
         plain: {
           title: "Instructions that match this project",
           what:
-            "The project's own settings shape the built-in advice, so a project with no separate supporting services or quality rules never hands its coding agents instructions about them.",
+            "The project's own settings shape the built-in advice, so a project with no separate supporting services or quality rules never hands its coding agent instructions about them.",
           why:
-            "Coding agents read guidance about the project in front of them, nothing else.",
+            "Coding agents read instructions about the project in front of them, nothing else.",
         },
       },
       {
@@ -1035,7 +1036,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         title: "Agent providers",
         what: `The native providers — ${
           codeList([...AGENT_NAMES], "and")
-        } — each get their integration files from one typed registry: guidance target, settings seed, hooks, and MCP wiring.`,
+        } — each get their integration files from one typed registry: instruction target, settings seed, hooks, and MCP wiring.`,
         why:
           "Supporting an agent is registry data; parity guards keep every provider surface complete.",
         plain: {
@@ -1260,7 +1261,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "skill-teach-the-project",
             title: "Teach the project",
             what:
-              "Route a session's lesson into the project's own surfaces — a guidance line, an authored skill, a project script, a doc, or a decision record — so every future session inherits it.",
+              "Route a session's lesson into the project's own surfaces — an instruction line, an authored skill, a project script, a doc, or a decision record — so every future session inherits it.",
             plain: {
               title: "Teach the project",
               what:
@@ -1329,7 +1330,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "discovery-funnel",
         title: "The discovery funnel",
         what:
-          "Agent document discovery runs regions, then search, then canonical targets: compiled guidance lists each top-level region by exact target, `search` takes a query in task language, and every result returns a snippet plus a target that feeds back into the same tool. Search returns at most 5 ranked documents, and query values are never written to the logbook.",
+          "Agent document discovery runs regions, then search, then canonical targets: compiled instructions lists each top-level region by exact target, `search` takes a query in task language, and every result returns a snippet plus a target that feeds back into the same tool. Search returns at most 5 ranked documents, and query values are never written to the logbook.",
         why:
           "Documentation growth never churns the tracked agent files and never spends context before a page is needed.",
         agent:
@@ -1358,7 +1359,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           what:
             "Every `discern done` examines the guide's substance before the work runs. It checks that links between pages and to their sections resolve, and that examples containing `discern` match the real list of instructions and choices (the project's own instructions included). It also checks that the small details at the top of each page follow their agreed shape, that published pages respect the rule of who may read `_internal` and `_private` material, and that mentions of how-to guides match the set now in force.",
           why:
-            "A renamed thing breaks the written guidance loudly, in the same change, instead of quietly a month later — and a withdrawn how-to guide cannot stay recommended by live text.",
+            "A renamed thing breaks the written instructions loudly, in the same change, instead of quietly a month later — and a withdrawn how-to guide cannot stay recommended by live text.",
           agent:
             "A failed guide check lists every finding as a file and line with its rule and its remedy — one editing pass clears it.",
         },
@@ -1527,7 +1528,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "improvement",
         title: "Improvement",
         what:
-          "`discern improvement` ranks the highest-value next action from deterministic rules and subjective reviews across the gate, setup, guidance, map, worktrees, standards, and skills, scoring project health 0–100.",
+          "`discern improvement` ranks the highest-value next action from deterministic rules and subjective reviews across the gate, setup, instructions, map, worktrees, standards, and skills, scoring project health 0–100.",
         why:
           "The maintainer receives a ranked next action with the evidence used to select it.",
         plain: {
@@ -1656,7 +1657,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "relay-messages",
         title: "Ready-to-relay messages",
         what:
-          "At the consent and completion moments, setup serves the message to forward to the human — first-person prose, with each fact that must survive as its own list item — rather than instructions about a message. The identical text is carried in every result representation, including the structured envelope's guidance field.",
+          "At the consent and completion moments, setup serves the message to forward to the human — first-person prose, with each fact that must survive as its own list item — rather than instructions about a message. The identical text is carried in every result representation, including the structured envelope's instructions field.",
         why:
           "Forwarding the authored message preserves every required fact and its intended tone.",
         agent:
@@ -1695,7 +1696,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "doctor",
         title: "Doctor",
         what:
-          "`discern doctor` verifies the installation without changing it: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, guidance, skills, automation, and resource commands. It also prints each verb's execution model: which steps are the project's and which are discern's.",
+          "`discern doctor` verifies the installation without changing it: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, instructions, skills, automation, and resource commands. It also prints each verb's execution model: which steps are the project's and which are discern's.",
         why:
           "Facts before judgments, and a misconfigured install names its own fix.",
         agent:
@@ -1760,7 +1761,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "uninstall",
         title: "Uninstall",
         what:
-          "`discern uninstall` removes the wiring discern laid down — derived from the ownership registry — and keeps `discern.toml`, your guidance, and the map.",
+          "`discern uninstall` removes the wiring discern laid down — derived from the ownership registry — and keeps `discern.toml`, your instructions, and the map.",
         why: "Leaving costs one command and loses no authored work.",
         plain: {
           title: "Removal",
@@ -1835,7 +1836,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         what:
           "A verb returns one structured result — status, message, steps, data, hints, diagnostics. `--json` serializes it, `--markdown` presents it as prioritized prose, and the terminal and MCP renderers draw from the same envelope.",
         agent:
-          "Behavioral guidance remains one verbatim prose unit instead of being decomposed into fields, because field-decomposed instructions weaken under summarization. JSON retains the unit and Markdown presents it intact.",
+          "Behavioral instructions remain one verbatim prose unit instead of being decomposed into fields, because field-decomposed instructions weaken under summarization. JSON retains the unit and Markdown presents it intact.",
         plain: {
           title: "One consistent result package",
           what:
@@ -1973,7 +1974,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         kind: "benefit",
         title: "The agent is the user",
         what:
-          "Humans install discern and review its Proof; nearly every other surface — the verbs, the tools, the hints, the compiled guidance — is read by an agent, and the interaction design aims at that reader.",
+          "Humans install discern and review its Proof; nearly every other surface — the verbs, the tools, the hints, the compiled instructions — is read by an agent, and the interaction design aims at that reader.",
         why:
           "Agents take the intended path by default, whether or not they notice the steering.",
         agent:
@@ -1993,7 +1994,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         kind: "benefit",
         title: "Context is a budget",
         what:
-          "Result surfaces are sized for a context window: oversized diagnostics keep head and tail inline and offload the full text to a named file, search returns at most 5 ranked documents, compiled guidance lists regions rather than leaves, provisioning output appears only on failure, and logbook lines are metadata-only.",
+          "Result surfaces are sized for a context window: oversized diagnostics keep head and tail inline and offload the full text to a named file, search returns at most 5 ranked documents, compiled instructions lists regions rather than leaves, provisioning output appears only on failure, and logbook lines are metadata-only.",
         why:
           "Bounded results preserve the agent's limited context for the work that requires it.",
         agent:
@@ -2088,13 +2089,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         what:
           "There are no feature toggles: every verb attaches unconditionally, and configuration tunes behavior rather than enabling it.",
         why:
-          "Every install is the same product, so guidance, docs, and habits transfer between projects verbatim.",
+          "Every install is the same product, so instructions, docs, and habits transfer between projects verbatim.",
         plain: {
           title: "Every major part is always present",
           what:
             "There are no on-off switches for whole features: every instruction is always attached, and settings tune behavior rather than enabling it.",
           why:
-            "Every installation is the same product, so guidance, written explanations, and habits carry between projects unchanged.",
+            "Every installation is the same product, so instructions, written explanations, and habits carry between projects unchanged.",
         },
       },
       {
@@ -3124,7 +3125,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "catch-documentation-breakage",
         title: "Catch broken project documentation before it lands",
         value:
-          "Broken links, stale generated pages, invalid command examples, malformed metadata, and vocabulary drift can fail alongside code. Agents and people spend less time following guidance whose mechanics no longer work.",
+          "Broken links, stale generated pages, invalid command examples, malformed metadata, and vocabulary drift can fail alongside code. Agents and people spend less time following instructions whose mechanics no longer work.",
         whyItFollows:
           "The Map preflight validates links, anchors, commands, metadata, audience boundaries, and Skill references; generated-artifact declarations and fail-fast preconditions catch drift; the glossary and publication registry keep names and visibility consistent.",
         drawsOn: [
@@ -3140,7 +3141,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "improve-practice-from-evidence",
         title: "Improve the way the agents work from real evidence",
         value:
-          "Recurring friction, slow stages, adoption gaps, and quality trends become counted findings rather than anecdotes. The person can improve guidance, configuration, or checks where the local evidence says the practice is losing time.",
+          "Recurring friction, slow stages, adoption gaps, and quality trends become counted findings rather than anecdotes. The person can improve instructions, configuration, or checks where the local evidence says the practice is losing time.",
         whyItFollows:
           "The local Logbook records metadata about discern's use, `discern patterns` analyzes comparable events and cohorts with denominators, and `discern improvement` ranks the next supported action without grading individual agents.",
         drawsOn: ["patterns", "improvement", "logbook"],
@@ -3168,15 +3169,15 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         value:
           "A lesson captured after one task can guide later sessions and every configured agent provider. Repeated explanation becomes a reusable project asset instead of a recurring cost paid in prompts and corrections.",
         whyItFollows:
-          "One authored guidance source compiles into every provider's instruction file, reusable Skills carry procedures, conditional guidance keeps the result project-specific, and the Teach the Project Skill routes each lesson into its smallest durable home.",
+          "One authored instruction source compiles into every provider's instruction file, reusable Skills carry procedures, conditional instructions keep the result project-specific, and the Teach the Project Skill routes each lesson into its smallest durable home.",
         drawsOn: [
-          "guidance",
-          "guidance-compile",
-          "guidance-conditionals",
+          "instructions",
+          "instructions-compile",
+          "instructions-conditionals",
           "skills",
           "skill-teach-the-project",
         ],
-        claims: ["one-guidance-source"],
+        claims: ["one-instruction-source"],
       },
       {
         id: "inspect-agent-understanding",
@@ -3197,8 +3198,8 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         drawsOn: ["adr-discipline", "skill-write-adr"],
       },
       {
-        id: "guidance-at-failure",
-        title: "Put the right guidance beside the failure",
+        id: "instructions-at-failure",
+        title: "Put the right instructions beside the failure",
         value:
           "An agent can meet a known recovery procedure at the moment the matching problem appears. Recurring knowledge does not depend on somebody remembering the relevant note or searching for it under pressure.",
         whyItFollows:
@@ -3255,7 +3256,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         value:
           "The human can add a project-specific engineering practice without manually configuring every check, instruction file, and worktree condition. Their effort goes into intent and consequential choices while the agent handles repository study and implementation.",
         whyItFollows:
-          "The setup agent detects installed providers, studies the repository before asking one concise batch of questions, configures the project's real jobs and guidance, relays consent points clearly, and refuses completion until the Gate and a throwaway worktree probe pass.",
+          "The setup agent detects installed providers, studies the repository before asking one concise batch of questions, configures the project's real jobs and instructions, relays consent points clearly, and refuses completion until the Gate and a throwaway worktree probe pass.",
         drawsOn: ["setup", "relay-messages", "agent-autodetect"],
         claims: [
           "installs-a-practice",
@@ -3307,7 +3308,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
     promise:
       "The project's way of working belongs to the project, so agents, stacks, and surrounding tooling can change without taking accumulated practice with them.",
     commercialValue:
-      "Provider switching costs fall, subscriptions and capacity become easier to juggle, and investment in guidance and quality remains useful as the market changes.",
+      "Provider switching costs fall, subscriptions and capacity become easier to juggle, and investment in instructions and quality remains useful as the market changes.",
     benefits: [
       {
         id: "switch-providers",
@@ -3315,7 +3316,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         value:
           "A provider change does not require the project explanation, working methods, and quality conditions to be rebuilt from scratch. The accumulated investment remains useful when preferences, model quality, quotas, or subscriptions change.",
         whyItFollows:
-          "Guidance, Skills, Map, Gate, Standards, and worktree practice remain project-owned, while the provider registry generates each configured agent's instruction file, Skill materialization, hooks, and MCP wiring.",
+          "Agent instructions, Skills, Map, Gate, Standards, and worktree practice remain project-owned, while the provider registry generates each configured agent's instruction file, Skill materialization, hooks, and MCP wiring.",
         drawsOn: [
           "providers",
           "provider-claude-code",
@@ -3332,7 +3333,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "practice-across-stacks",
         title: "Use the same working practice across different stacks",
         value:
-          "The habits, guidance, documentation discipline, and acceptance model can move between projects that use different languages and tools. Learning the practice creates value beyond one codebase.",
+          "The habits, instructions, documentation discipline, and acceptance model can move between projects that use different languages and tools. Learning the practice creates value beyond one codebase.",
         whyItFollows:
           "discern ships none of the project's stack tools, runs the commands each project declares, and keeps every subsystem available through the same stack-neutral foundation.",
         drawsOn: ["stack-neutral", "all-subsystems-core", "foundations"],
@@ -3367,7 +3368,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "retain-work-after-uninstall",
         title: "Uninstall cleanly and keep everything you wrote",
         value:
-          "Guidance, project knowledge, Skills, scripts, and configuration remain ordinary files the project can continue to use. Trying discern does not turn that investment into hostage data or disposable setup work.",
+          "Agent instructions, project knowledge, Skills, scripts, and configuration remain ordinary files the project can continue to use. Trying discern does not turn that investment into hostage data or disposable setup work.",
         whyItFollows:
           "`discern uninstall` derives the removable integration wiring from the ownership registry and leaves the project's authored files at the paths it chose.",
         drawsOn: ["uninstall", "ownership-buckets"],

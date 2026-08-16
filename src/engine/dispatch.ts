@@ -457,7 +457,7 @@ export function attachEngineCommands(
     .action(recordedExit("refresh", async (o) => {
       const json = o.json ?? false;
       const root = await requireRoot("refresh", json);
-      const { refreshResult } = await import("./guidelines.ts");
+      const { refreshResult } = await import("./instructions.ts");
       // Quiet result: narration → stderr, the selected result → stdout.
       // Terminal presentation narrates to stdout via the default logger.
       const log = json
@@ -1232,7 +1232,7 @@ async function skillsEjectResult(
   const cfg = await loadConfig(root);
   const { ejectSkill, materializeSkills } = await import("../lib/skills.ts");
   const { skillsDirsForAgents } = await import("../lib/providers.ts");
-  const { guidanceAgents } = await import("./guidance_render.ts");
+  const { instructionAgents } = await import("./instruction_render.ts");
   const { TomlEditor } = await import("../lib/toml_edit.ts");
   const { writeDiscernToml } = await import("../lib/tidy_format.ts");
   try {
@@ -1255,7 +1255,7 @@ async function skillsEjectResult(
     const materialized = await materializeSkills(
       root,
       updated,
-      skillsDirsForAgents(guidanceAgents(updated)),
+      skillsDirsForAgents(instructionAgents(updated)),
     );
     const data: SkillsEjectData = {
       name: result.name,

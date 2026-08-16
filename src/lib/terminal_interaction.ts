@@ -963,7 +963,7 @@ export async function resolveSetupConfig(
   }
 
   // 6. Which agent files to emit. A deliberately EMPTY agents flag ("" — e.g. an
-  // explicit `[guidance] agents = []` round-tripping through a re-scaffold, ADR 0125)
+  // explicit `[instructions] agents = []` round-tripping through a re-scaffold, ADR 0125)
   // means no agents and is honored verbatim; only input that named agents and matched
   // NONE of them (all unknown) falls back to the default pair as the repair path.
   let agents: AgentName[];
@@ -979,7 +979,7 @@ export async function resolveSetupConfig(
     agents = await requestSelections({
       message: "Which agent instruction files should be emitted?",
       options: KNOWN_AGENTS.map((a) => ({
-        name: `${PROVIDERS[a].label} (${PROVIDERS[a].guidanceFile.path})`,
+        name: `${PROVIDERS[a].label} (${PROVIDERS[a].instructionFile.path})`,
         value: a,
       })),
       default: [...DEFAULTS.agents],

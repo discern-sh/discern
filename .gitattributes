@@ -54,7 +54,7 @@ scripts/jsr_license_cache.json merge=discern-generated linguist-generated
 /CLAUDE.md merge=discern-generated diff=markdown
 /AGENTS.md merge=discern-generated diff=markdown
 /GEMINI.md merge=discern-generated diff=markdown
-project/guidance.md diff=markdown
+project/instructions.md diff=markdown
 project/map/**/*.md diff=markdown
 project/skills/**/*.md diff=markdown
 project/scripts/**/*.md diff=markdown
