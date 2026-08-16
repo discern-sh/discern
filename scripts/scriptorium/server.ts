@@ -367,14 +367,14 @@ export async function startStudio(
       if (record === undefined) return json({ error: "no such entry" }, 404);
       const leaf = record.leaves.find((c) => c.path === body.field);
       const line = leaf?.line ?? record.line;
-      const opened = openInIde(record.file, line);
+      const opened = await openInIde(record.file, line);
       return json({
         opened,
         file: record.file,
         line,
         ...(opened ? {} : {
           hint:
-            "No `phpstorm` launcher on PATH — in PhpStorm run Tools → Create Command-line Launcher, or enable shell scripts in JetBrains Toolbox.",
+            "PhpStorm couldn't take the jump: no handler answered the phpstorm:// URL scheme and no `phpstorm` launcher is on PATH. Is PhpStorm installed?",
         }),
       });
     }

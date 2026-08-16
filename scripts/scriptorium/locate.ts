@@ -45,12 +45,50 @@ export function locateEntries(query: string): LocatedEntry[] {
 }
 
 /**
- * Launch the JetBrains `phpstorm` command-line launcher at a file and line,
- * detached so a launcher that lingers with the application never blocks the
- * caller. Returns false when no launcher is on PATH — the caller prints the
- * position instead, so the jump degrades to a clickable location.
+ * The position as a JetBrains `phpstorm://open` URL — the scheme IDE
+ * browser links use, handled by any installed PhpStorm with no launcher
+ * on PATH involved. Slashes stay literal; only other characters encode.
  */
-export function openInIde(file: string, line: number): boolean {
+function ideUrl(file: string, line: number): string {
+  const path = encodeURIComponent(join(REPO_ROOT, file))
+    .replaceAll("%2F", "/");
+  return `phpstorm://open?file=${path}&line=${line}`;
+}
+
+/**
+ * Hand a URL to the operating system's scheme handler and report whether
+ * it was accepted. Only macOS and Linux have a dependable opener; other
+ * platforms fall through to the command-line launcher.
+ */
+async function openUrl(url: string): Promise<boolean> {
+  const opener = Deno.build.os === "darwin"
+    ? "open"
+    : Deno.build.os === "linux"
+    ? "xdg-open"
+    : undefined;
+  if (opener === undefined) return false;
+  try {
+    const output = await new Deno.Command(opener, {
+      args: [url],
+      stdout: "null",
+      stderr: "null",
+      stdin: "null",
+    }).output();
+    return output.success;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return false;
+    throw error;
+  }
+}
+
+/**
+ * Jump PhpStorm to a file and line: the `phpstorm://` URL scheme first —
+ * delivered whenever the application is installed — then the `phpstorm`
+ * command-line launcher, detached. Returns false when neither path can
+ * deliver, so the caller prints the position instead.
+ */
+export async function openInIde(file: string, line: number): Promise<boolean> {
+  if (await openUrl(ideUrl(file, line))) return true;
   try {
     const child = new Deno.Command("phpstorm", {
       args: ["--line", String(line), join(REPO_ROOT, file)],

@@ -34,7 +34,7 @@ function positionLine(entry: {
 }
 
 /** Run `open`: resolve the query, then jump, print, or list matches. */
-function runOpen(args: readonly string[]): number {
+async function runOpen(args: readonly string[]): Promise<number> {
   const flags = new Set(args.filter((arg) => arg.startsWith("--")));
   const query = args.filter((arg) => !arg.startsWith("--")).join(" ").trim();
   if (query === "") {
@@ -58,8 +58,8 @@ function runOpen(args: readonly string[]): number {
     return 0;
   }
   console.log(positionLine(entry));
-  if (!flags.has("--print") && !openInIde(entry.file, entry.line)) {
-    console.error("No `phpstorm` launcher on PATH — printed the position.");
+  if (!flags.has("--print") && !(await openInIde(entry.file, entry.line))) {
+    console.error("PhpStorm couldn't be reached — printed the position.");
   }
   return 0;
 }
@@ -77,7 +77,7 @@ async function runServe(): Promise<number> {
 /** Dispatch the scriptorium subcommands. */
 export async function runScriptorium(args: readonly string[]): Promise<number> {
   const [command, ...rest] = args;
-  if (command === "open") return runOpen(rest);
+  if (command === "open") return await runOpen(rest);
   if (command === "serve" || command === undefined) return await runServe();
   console.error(USAGE.trimEnd());
   return command === "--help" || command === "help" ? 0 : 2;
