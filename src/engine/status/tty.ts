@@ -655,7 +655,7 @@ function section(
   width: number,
 ): string {
   return [
-    terminal.presenter.triangleSectionRule(terminalLine(label), {
+    terminal.presenter.motifSectionRule(terminalLine(label), {
       width,
     }),
     ...lines.map(renderSectionLine),

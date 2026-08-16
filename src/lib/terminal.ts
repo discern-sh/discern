@@ -11,6 +11,7 @@ import {
   type CliPresenter,
   createCliPresenter,
   detectTerminalCapabilities,
+  DISCERN_TERMINAL_MOTIF,
   styleText,
   type TerminalCapabilities,
   type TerminalColor,
@@ -312,6 +313,7 @@ function contextFromFacts(
 ): TerminalContext {
   const theme = terminalThemes[themeVariant];
   const presenter = createCliPresenter(capabilities, {
+    motif: DISCERN_TERMINAL_MOTIF,
     theme: themeVariant,
     width: size.columns,
   });

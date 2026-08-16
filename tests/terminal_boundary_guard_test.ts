@@ -28,9 +28,9 @@ const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
 /** Raw foundations are presenter-owned except inside the package-motif adapter. */
 const PRESENTER_FOUNDATION_RENDERERS = new Set([
   "renderBox",
-  "renderTriangleSectionRule",
-  "renderTriangleSpinnerFrame",
-  "renderTriangleWorkflowStepper",
+  "renderMotifSectionRule",
+  "renderMotifSpinnerFrame",
+  "renderMotifWorkflowStepper",
 ]);
 
 /**
@@ -486,7 +486,7 @@ function cliffyImportFindings(rel: string, source: string): Finding[] {
 }
 
 /**
- * Text-bearing leaves in the published 0.17.0 `*CliProps` contracts and their
+ * Text-bearing leaves in the published 0.18.1 `*CliProps` contracts and their
  * exported nested row shapes. Generic future renderer names deliberately
  * inherit this vocabulary; a package upgrade must re-audit the public types.
  */
@@ -2102,7 +2102,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
   const source = [
     'import { Table } from "@cliffy/table";',
     `import { DenoTerminalIO as GroundChannel, InlineFramePainter, type TerminalIO, requestFuture as ask, senseTerminalBackground as detectGround } from "${INTERACTIVE_MODULE}";`,
-    'import { renderBox as frame, renderOrbitCli as future, renderResultSummaryCli as draw, renderTriangleSectionRule as section, renderTriangleSpinnerFrame as spinner, renderTriangleWorkflowStepper as workflow } from "discern-design-system/cli";',
+    'import { renderBox as frame, renderMotifSectionRule as section, renderMotifSpinnerFrame as spinner, renderMotifWorkflowStepper as workflow, renderOrbitCli as future, renderResultSummaryCli as draw } from "discern-design-system/cli";',
     'import { terminalLine as safe } from "../../lib/terminal.ts";',
     'const dynamic = import("@cliffy/prompt");',
     `const interactive = await import("${INTERACTIVE_MODULE}"); interactive.requestFuture({});`,
@@ -2161,9 +2161,9 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "dynamic-interactive-package-import",
       "dynamic-cli-package-import",
       "presenter-foundation-import:renderBox",
-      "presenter-foundation-import:renderTriangleSectionRule",
-      "presenter-foundation-import:renderTriangleSpinnerFrame",
-      "presenter-foundation-import:renderTriangleWorkflowStepper",
+      "presenter-foundation-import:renderMotifSectionRule",
+      "presenter-foundation-import:renderMotifSpinnerFrame",
+      "presenter-foundation-import:renderMotifWorkflowStepper",
       "direct-inline-painter-construction",
       "process-terminal-environment-probe",
       "process-console-size-probe",
@@ -2231,14 +2231,14 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
 
   const motifAdapterRules = structuralTerminalFindings(
     TRIANGLE_ART_AUTHORITY,
-    'import { renderBox, renderTriangleSectionRule, renderTriangleSpinnerFrame, renderTriangleWorkflowStepper } from "discern-design-system/cli";',
+    'import { renderBox, renderMotifSectionRule, renderMotifSpinnerFrame, renderMotifWorkflowStepper } from "discern-design-system/cli";',
   ).map((finding) => finding.rule).filter((rule) =>
     rule.startsWith("presenter-foundation-import:")
   );
   assertEquals(
     motifAdapterRules,
     ["presenter-foundation-import:renderBox"],
-    "only raw triangle motifs belong to the product artwork adapter",
+    "only raw motif renderers belong to the product artwork adapter",
   );
 
   assertEquals(

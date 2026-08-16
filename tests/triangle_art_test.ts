@@ -2,27 +2,23 @@
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import {
-  DISCERN_TRIANGLE_ASCII_GLYPHS as PACKAGE_ASCII_GLYPHS,
-  DISCERN_TRIANGLE_GLYPHS as PACKAGE_GLYPHS,
-  DISCERN_TRIANGLE_SPINNER_ORDER as PACKAGE_SPINNER_ORDER,
-  DISCERN_TRIANGLE_WEAVE_ORDER as PACKAGE_WEAVE_ORDER,
+  DISCERN_TERMINAL_MOTIF,
+  renderMotifActivityBeacon as renderPackageBeacon,
+  renderMotifPattern as renderPackagePattern,
+  renderMotifProgressFrame as renderPackageProgress,
+  renderMotifSectionRule as renderPackageSectionRule,
+  renderMotifSpinnerFrame as renderPackageSpinner,
+  renderMotifWorkflowStepper as renderPackageStepper,
   renderTimelineCli as renderPackageTimeline,
-  renderTriangleActivityBeacon as renderPackageBeacon,
-  renderTrianglePattern as renderPackagePattern,
-  renderTriangleProgressFrame as renderPackageProgress,
-  renderTriangleSectionRule as renderPackageSectionRule,
-  renderTriangleSpinnerFrame as renderPackageSpinner,
-  renderTriangleWorkflowStepper as renderPackageStepper,
   stripAnsi,
   type TerminalCapabilities,
+  terminalMotifRepertoire,
 } from "discern-design-system/cli";
 import {
   DISCERN_PACKAGE_TRIANGLE_MOTIFS,
   DISCERN_PRODUCT_TRIANGLE_ART,
   DISCERN_TRIANGLE_ASCII_GLYPHS,
   DISCERN_TRIANGLE_GLYPHS,
-  DISCERN_TRIANGLE_SPINNER_ORDER,
-  DISCERN_TRIANGLE_WEAVE_ORDER,
   MAX_TRIANGLE_ART_CELLS,
   renderTriangleGasket,
   renderTrianglePyramid,
@@ -50,27 +46,46 @@ const STEPS = ["inspect", "plan", "apply", "verify"] as const;
 function packageMotifFrames(
   terminalFacts: TerminalCapabilities,
 ): Readonly<Record<keyof typeof DISCERN_PACKAGE_TRIANGLE_MOTIFS, string>> {
-  const spinner = PACKAGE_SPINNER_ORDER.map((_, phase) =>
-    renderPackageSpinner(phase, terminalFacts)
+  const repertoire = terminalMotifRepertoire(
+    DISCERN_TERMINAL_MOTIF,
+    terminalFacts.unicode,
+  );
+  const spinner = repertoire.spinner.map((_, phase) =>
+    renderPackageSpinner(phase, terminalFacts, {
+      motif: DISCERN_TERMINAL_MOTIF,
+    })
   ).join(" -> ");
   return {
-    divider: renderPackagePattern({ length: 32 }, terminalFacts),
+    divider: renderPackagePattern(
+      { length: 32, motif: DISCERN_TERMINAL_MOTIF },
+      terminalFacts,
+    ),
     ribbon: renderPackagePattern(
-      { length: 24, thickness: 3 },
+      { length: 24, thickness: 3, motif: DISCERN_TERMINAL_MOTIF },
       terminalFacts,
     ),
     weave: renderPackagePattern(
-      { length: 8, orientation: "vertical", thickness: 4 },
+      {
+        length: 8,
+        motif: DISCERN_TERMINAL_MOTIF,
+        orientation: "vertical",
+        thickness: 4,
+      },
       terminalFacts,
     ),
     spinner: `${spinner} -> (repeat)`,
     progress: renderPackageProgress(
-      { completed: 25, total: 100, width: 40 },
+      {
+        completed: 25,
+        motif: DISCERN_TERMINAL_MOTIF,
+        total: 100,
+        width: 40,
+      },
       terminalFacts,
     ),
     "section-rule": renderPackageSectionRule(
       "quality gate",
-      { width: 30 },
+      { motif: DISCERN_TERMINAL_MOTIF, width: 30 },
       terminalFacts,
     ),
     stepper: renderPackageStepper(
@@ -80,26 +95,38 @@ function packageMotifFrames(
         phase: index,
       })),
       terminalFacts,
+      { motif: DISCERN_TERMINAL_MOTIF },
     ),
     beacon: renderPackageBeacon(
-      { width: 32, phase: 14 },
+      { motif: DISCERN_TERMINAL_MOTIF, width: 32, phase: 14 },
       terminalFacts,
     ),
   };
 }
 
-Deno.test("Discern re-exports the published triangle vocabulary by identity", () => {
-  assert(DISCERN_TRIANGLE_ASCII_GLYPHS === PACKAGE_ASCII_GLYPHS);
-  assert(DISCERN_TRIANGLE_GLYPHS === PACKAGE_GLYPHS);
-  assert(DISCERN_TRIANGLE_WEAVE_ORDER === PACKAGE_WEAVE_ORDER);
-  assert(DISCERN_TRIANGLE_SPINNER_ORDER === PACKAGE_SPINNER_ORDER);
+Deno.test("Discern derives product triangle geometry from the published motif preset", () => {
+  const unicode = DISCERN_TERMINAL_MOTIF.unicode.pattern;
+  const ascii = DISCERN_TERMINAL_MOTIF.ascii.pattern;
+  assertEquals(DISCERN_TRIANGLE_GLYPHS, {
+    upRight: unicode[0],
+    upLeft: unicode[2],
+    downLeft: unicode[3],
+    downRight: unicode[1],
+  });
+  assertEquals(DISCERN_TRIANGLE_ASCII_GLYPHS, {
+    upRight: ascii[0],
+    upLeft: ascii[2],
+    downLeft: ascii[3],
+    downRight: ascii[1],
+  });
 });
 
 Deno.test("vertical timeline triangles follow status rather than list position", () => {
   for (const terminalFacts of [UNICODE, ASCII]) {
-    const glyphs = terminalFacts.unicode
-      ? PACKAGE_GLYPHS
-      : PACKAGE_ASCII_GLYPHS;
+    const repertoire = terminalMotifRepertoire(
+      DISCERN_TERMINAL_MOTIF,
+      terminalFacts.unicode,
+    );
     for (const completeFirst of [true, false]) {
       const complete = {
         date: "Now",
@@ -126,8 +153,8 @@ Deno.test("vertical timeline triangles follow status rather than list position",
       );
       assert(completeLine !== undefined);
       assert(incompleteLine !== undefined);
-      assertEquals(completeLine.at(0), glyphs.upLeft);
-      assertEquals(incompleteLine.at(0), glyphs.downRight);
+      assertEquals(completeLine.at(0), repertoire.status.complete);
+      assertEquals(incompleteLine.at(0), repertoire.status.incomplete);
     }
   }
 });
@@ -178,10 +205,13 @@ Deno.test("package motif animation uses package frames and ends at static", () =
     }
   }
   const spinner = DISCERN_PACKAGE_TRIANGLE_MOTIFS.spinner.animate(UNICODE);
+  const spinnerGlyphs = DISCERN_TERMINAL_MOTIF.unicode.spinner;
   assertEquals(
-    spinner.frames.slice(0, PACKAGE_SPINNER_ORDER.length),
-    PACKAGE_SPINNER_ORDER.map((_, phase) =>
-      renderPackageSpinner(phase, UNICODE)
+    spinner.frames.slice(0, spinnerGlyphs.length),
+    spinnerGlyphs.map((_, phase) =>
+      renderPackageSpinner(phase, UNICODE, {
+        motif: DISCERN_TERMINAL_MOTIF,
+      })
     ),
   );
 });
@@ -194,11 +224,11 @@ Deno.test("product pyramid and gasket derive Unicode and ASCII from package fact
   const asciiPyramid = renderTrianglePyramid({ rows: 8, capabilities: ASCII });
   for (
     const [label, pyramid, authority] of [
-      ["Unicode", unicodePyramid, PACKAGE_GLYPHS],
-      ["ASCII", asciiPyramid, PACKAGE_ASCII_GLYPHS],
+      ["Unicode", unicodePyramid, DISCERN_TERMINAL_MOTIF.unicode.pattern],
+      ["ASCII", asciiPyramid, DISCERN_TERMINAL_MOTIF.ascii.pattern],
     ] as const
   ) {
-    const authorityGlyphs = new Set<string>(Object.values(authority));
+    const authorityGlyphs = new Set<string>(authority);
     const productGlyphs = new Set(pyramid.replaceAll(/[\s]/gu, ""));
     assertEquals(
       productGlyphs,
@@ -224,12 +254,13 @@ Deno.test("product pyramid and gasket derive Unicode and ASCII from package fact
   const full = renderTriangleGasket({ rows: 8, capabilities: UNICODE });
   assertEquals(
     [...full].filter((glyph) =>
-      glyph === PACKAGE_GLYPHS.upRight || glyph === PACKAGE_GLYPHS.upLeft
+      glyph === DISCERN_TRIANGLE_GLYPHS.upRight ||
+      glyph === DISCERN_TRIANGLE_GLYPHS.upLeft
     ).length,
     27,
   );
-  assert(!full.includes(PACKAGE_GLYPHS.downLeft));
-  assert(!full.includes(PACKAGE_GLYPHS.downRight));
+  assert(!full.includes(DISCERN_TRIANGLE_GLYPHS.downLeft));
+  assert(!full.includes(DISCERN_TRIANGLE_GLYPHS.downRight));
 });
 
 Deno.test("product-only compositions keep deterministic static and final frames", () => {

@@ -19,11 +19,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { Command } from "@cliffy/command";
-import {
-  DISCERN_TRIANGLE_GLYPHS,
-  measureText,
-  stripAnsi,
-} from "discern-design-system/cli";
+import { measureText, stripAnsi } from "discern-design-system/cli";
+import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import { HIDDEN_VERBS, hiddenVerbNames } from "../src/shared/hidden_verbs.ts";
 import {

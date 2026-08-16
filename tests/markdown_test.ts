@@ -9,7 +9,6 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
-  DISCERN_TRIANGLE_GLYPHS,
   measureText,
   renderCalloutCli,
   renderCodeListingCli,
@@ -18,6 +17,7 @@ import {
   renderTableCli,
   stripAnsi,
 } from "discern-design-system/cli";
+import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
 import {
   inlineToPlain,
   renderMarkdown,

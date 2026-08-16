@@ -5,6 +5,8 @@ import { fromFileUrl, join } from "@std/path";
 import { packageManifest } from "discern-design-system";
 import {
   createCliPresenter,
+  deriveTerminalMotif,
+  DISCERN_TERMINAL_MOTIF,
   measureText,
   renderBadgeCli,
   renderCommandCli,
@@ -29,7 +31,7 @@ import {
 import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.17.0";
+const SELECTED_VERSION = "0.18.1";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
@@ -303,11 +305,30 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
 
   const box = presenter.box({ body: "Ready", title: "Status", width: 32 });
   assertEquals(box.split("\n").map(measureText), [32, 32, 32]);
-  assert(presenter.triangleSpinnerFrame(0).length > 0);
-  const section = presenter.triangleSectionRule("Status", { width: 32 });
+  assert(presenter.motif === DISCERN_TERMINAL_MOTIF);
+  assertEquals(
+    Array.from({ length: 4 }, (_, phase) => presenter.motifSpinnerFrame(phase)),
+    ["▴", "◂", "▾", "▸"],
+  );
+  const customMotif = deriveTerminalMotif(DISCERN_TERMINAL_MOTIF, {
+    unicode: { spinner: ["◴", "◷", "◶", "◵"] },
+  });
+  const customPresenter = presenter.with({ motif: customMotif });
+  assert(customPresenter.motif === customMotif);
+  assertEquals(
+    Array.from(
+      { length: 4 },
+      (_, phase) => customPresenter.motifSpinnerFrame(phase),
+    ),
+    ["◴", "◷", "◶", "◵"],
+  );
+  assertEquals(presenter.motifSpinnerFrame(1, { motif: customMotif }), "◷");
+  assertEquals(presenter.motifSpinnerFrame(1), "◂");
+
+  const section = presenter.motifSectionRule("Status", { width: 32 });
   assertStringIncludes(section, "STATUS");
   assertEquals(measureText(section), 32);
-  const workflow = presenter.triangleWorkflowStepper([
+  const workflow = presenter.motifWorkflowStepper([
     { label: "Pending", status: "pending" },
     { label: "Running", status: "active", phase: 0 },
     { label: "Passed", status: "complete" },
@@ -331,11 +352,11 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
   const lightSection = createCliPresenter(colorCapabilities, {
     theme: "light",
     width: 32,
-  }).triangleSectionRule("Status", { width: 32 });
+  }).motifSectionRule("Status", { width: 32 });
   const darkSection = createCliPresenter(colorCapabilities, {
     theme: "dark",
     width: 32,
-  }).triangleSectionRule("Status", { width: 32 });
+  }).motifSectionRule("Status", { width: 32 });
   assert(lightSection !== darkSection, "the presenter must bind motif theme");
 
   assertEquals(
