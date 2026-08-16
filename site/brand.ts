@@ -14,6 +14,9 @@ export const LANDING_TITLE =
 export const LANDING_DESCRIPTION =
   "An engineering practice for agent-built software. Give coding agents a project-owned way to work, and come back to changes ready for a decision.";
 
+/** Unique metadata title for the complete homepage preserved at /old. */
+export const OLD_LANDING_TITLE = "discern · Previous homepage";
+
 /** Metadata for the copy-neutral design-review twin of the homepage. */
 export const LIPSUM_TITLE = "Lorem ipsum dolor sit amet · discern";
 export const LIPSUM_DESCRIPTION =
@@ -27,7 +30,7 @@ export const LIPSUM_DESCRIPTION =
  */
 export const SELF_TITLED_PAGES: Readonly<Record<string, string>> = {
   "/": LANDING_TITLE,
-  "/old": LANDING_TITLE,
+  "/old": OLD_LANDING_TITLE,
   "/lipsum": LIPSUM_TITLE,
 };
 

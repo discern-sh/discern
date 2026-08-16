@@ -43,9 +43,9 @@ Deno.test("every canonical marketing route builds, serves, and joins the prose c
   }
 });
 
-Deno.test("the homepage projection measures authored prose once and excludes code and artefact data", () => {
+Deno.test("the preserved homepage projection measures prose once and excludes artefact data", () => {
   const pages = projectSiteProse();
-  const homepage = pages.find(({ route }) => route === "/");
+  const homepage = pages.find(({ route }) => route === "/old");
   assert(homepage !== undefined);
   assertStringIncludes(
     homepage.prose,
@@ -59,7 +59,7 @@ Deno.test("the homepage projection measures authored prose once and excludes cod
   assertEquals(homepage.prose.includes(INSTALL_COMMAND), false);
   assertEquals(homepage.prose.includes("9 August 2026"), false);
   assertEquals(homepage.prose.includes("customer benchmark"), false);
-  assertEquals(siteProseReadingGrade(pages), 7.94);
+  assertEquals(siteProseReadingGrade(pages), 9.36);
 });
 
 Deno.test("the Vale numerator and denominator read the exact same staged bytes", async () => {

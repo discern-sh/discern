@@ -2,7 +2,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { LIPSUM_DESCRIPTION, LIPSUM_TITLE } from "../site/brand.ts";
-import { renderLanding } from "../site/page-src/landing.tsx";
+import { renderOldLanding } from "../site/page-src/landing.tsx";
 import { renderLipsum } from "../site/page-src/lipsum.ts";
 import { handler } from "../site/serve.ts";
 // @ts-types="@types/jsdom"
@@ -25,8 +25,8 @@ function structuralMarkup(document: Document): string {
   return document.body.innerHTML;
 }
 
-Deno.test("the lipsum page is the homepage structure with copy-neutral text", () => {
-  const landing = new JSDOM(renderLanding());
+Deno.test("the lipsum page mirrors the preserved homepage with copy-neutral text", () => {
+  const landing = new JSDOM(renderOldLanding());
   const lipsum = new JSDOM(renderLipsum());
   const sourceLength = landing.window.document.body.textContent?.length ?? 0;
   const fillerLength = lipsum.window.document.body.textContent?.length ?? 0;

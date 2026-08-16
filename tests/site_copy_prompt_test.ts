@@ -3,7 +3,10 @@
 import { assert, assertEquals } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { COPY_PROMPT_TEXT, renderLanding } from "../site/page-src/landing.tsx";
+import {
+  COPY_PROMPT_TEXT,
+  renderOldLanding,
+} from "../site/page-src/landing.tsx";
 
 interface PromptWindow extends Window {
   eval(source: string): unknown;
@@ -15,14 +18,14 @@ function readableText(value: string | null): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
-Deno.test("Copy prompt stays readable without JavaScript and copies the exact approved instruction", async () => {
-  const html = renderLanding();
+Deno.test("the preserved Copy prompt stays readable and copies the exact approved instruction", async () => {
+  const html = renderOldLanding();
   const client = await Deno.readTextFile(
     new URL("../site/page-src/landing.js", import.meta.url),
   );
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
-    url: "https://discern.sh/",
+    url: "https://discern.sh/old",
   });
   const window = dom.window as unknown as PromptWindow;
   const document = window.document;

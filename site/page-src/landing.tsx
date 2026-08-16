@@ -22,6 +22,7 @@ import {
   DISCERN_MARK_OUTLINE_PATH,
   LANDING_DESCRIPTION,
   LANDING_TITLE,
+  OLD_LANDING_TITLE,
 } from "../brand.ts";
 import { pageDocument } from "./document.ts";
 import { ProjectInMotion } from "./project-in-motion.tsx";
@@ -1129,7 +1130,7 @@ export function renderLanding(): string {
 export function renderOldLanding(): string {
   return pageDocument({
     source: "landing.tsx",
-    title: LANDING_TITLE,
+    title: OLD_LANDING_TITLE,
     description: LANDING_DESCRIPTION,
     styles: ["fonts.css", "discern.css", "landing.css"],
     scripts: ["landing.js"],

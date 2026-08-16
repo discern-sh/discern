@@ -83,7 +83,7 @@ Mixed Result summaries compose through the package's group renderer, which align
 | Bundle         | Routes                      | Selection                                              | Optional assets |
 | -------------- | --------------------------- | ------------------------------------------------------ | --------------- |
 | `docs`         | `/docs` and its descendants | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
-| `compositions` | `/` and `/lipsum`           | Marketing, Editorial, and shared display parts         | fonts           |
+| `compositions` | `/`, `/old`, and `/lipsum`  | Marketing, Editorial, and shared display parts         | fonts           |
 
 The table also owns the discern theme choice and emitted public directories. [`site/build.ts`](../../../site/build.ts) passes each selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a manifest, and the requested assets. The discern integration reads those outputs instead of copying the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 
