@@ -108,6 +108,6 @@ The design-system runtime test drives the ignored-output, exact-dependency, bund
 
 ## Current state & gotchas
 
-- The homepage source lives in `site/page-src/` and uses the same system-aware theme bootstrap and controller as the docs shell. `deno task site:build` owns its ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
+- The homepage source lives in `site/page-src/` and uses the same system-aware theme bootstrap and reversible two-state controller as the docs shell. A visitor override stays pinned until the next chosen theme matches the current system preference, which clears it and resumes system following. `deno task site:build` owns its ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
 - [the-design-system.md](the-design-system.md) records the external dependency, thin integration, and bundle boundary.
 - [design-system-consumption.md](design-system-consumption.md) records static page composition, build commands, and consumer guards.

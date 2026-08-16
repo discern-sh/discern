@@ -24,7 +24,7 @@
         "aria-label",
         dark ? "Switch to the light theme" : "Switch to the dark theme",
       );
-      control.setAttribute("aria-pressed", String(dark));
+      control.removeAttribute("aria-pressed");
       const label = control.querySelector("[data-theme-label]");
       if (label) label.textContent = dark ? "Light" : "Dark";
     }
@@ -35,17 +35,23 @@
     reflect(theme);
   };
 
-  const override = () => {
+  const toggleTheme = () => {
     const next = root.dataset.discernTheme === "dark" ? "light" : "dark";
     try {
-      localStorage.setItem("discern-theme", next);
+      if (next === systemTheme()) {
+        localStorage.removeItem("discern-theme");
+      } else {
+        localStorage.setItem("discern-theme", next);
+      }
     } catch {
       /* Storage is optional; the current page still changes. */
     }
     apply(next);
   };
 
-  for (const control of controls) control.addEventListener("click", override);
+  for (const control of controls) {
+    control.addEventListener("click", toggleTheme);
+  }
   media.addEventListener?.("change", () => {
     if (storedTheme() === null) apply(systemTheme());
   });

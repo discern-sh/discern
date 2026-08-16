@@ -71,7 +71,6 @@ function LandingThemeToggle() {
       type="button"
       className="discern-theme-toggle discern-theme-toggle--quiet landing-masthead__theme"
       aria-label="Switch to the dark theme"
-      aria-pressed="false"
       data-theme-toggle
     >
       <span className="discern-theme-toggle__glyph" aria-hidden="true">
