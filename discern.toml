@@ -109,7 +109,7 @@
 # file that has drifted from its source.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[guidance]
+[instructions]
   # Your guideline source file(s), relative to the project root. Globs are allowed.
   # Read only if present; discern's built-in guidance is always prepended.
   sources = ["project/guidance.md"]
