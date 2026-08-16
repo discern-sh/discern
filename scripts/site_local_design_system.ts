@@ -6,12 +6,13 @@
 import { dirname, fromFileUrl, join, resolve, toFileUrl } from "@std/path";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 const PACKAGE_NAME = "@discern-sh/design-system";
 const PACKAGE_NAME_SPECIFIER = `jsr:${PACKAGE_NAME}`;
 const PACKAGE_EXPORTS = [".", "./react", "./runtime"] as const;
-const PATH_ENV = "DISCERN_DESIGN_SYSTEM_PATH";
+const PATH_ENV = DISCERN_ENVIRONMENT_VARIABLES.designSystemPath;
 const SEMVER_PATTERN =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
