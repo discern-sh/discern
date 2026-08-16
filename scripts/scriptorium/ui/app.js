@@ -125,7 +125,7 @@ function ideButton(entry, activeField) {
   const hint = el("div", { class: "scr-open-hint" });
   hint.hidden = true;
   const button = el("button", {
-    class: "scr-btn scr-primary",
+    class: "scr-btn",
     text: "Open in PhpStorm",
   });
   button.addEventListener("click", async () => {
@@ -165,12 +165,6 @@ function renderRail(entry, activeField) {
       class: "scr-kind",
       text: `${entry.registry} ${entry.kind} · ${entry.id}`,
     }),
-    el("h3", { text: "Source" }),
-    el("div", {
-      class: "scr-guardline",
-      text: entry.file ? `${entry.file}:${entry.line}` : "position unknown",
-    }),
-    ideButton(entry, activeField),
   );
 
   const active = entry.fields.find((field) => field.path === activeField);
@@ -178,7 +172,7 @@ function renderRail(entry, activeField) {
     const span = selected;
     rail.append(
       el("button", {
-        class: "scr-btn",
+        class: "scr-btn scr-primary",
         text: `Edit ${active.path}`,
         onclick: () =>
           openEditor(
@@ -190,6 +184,15 @@ function renderRail(entry, activeField) {
       }),
     );
   }
+
+  rail.append(
+    el("h3", { text: "Source" }),
+    el("div", {
+      class: "scr-guardline",
+      text: entry.file ? `${entry.file}:${entry.line}` : "position unknown",
+    }),
+    ideButton(entry, activeField),
+  );
   const pendingTwins = twinList().filter((item) => item.slug === entry.slug);
   for (const twin of pendingTwins) {
     rail.append(

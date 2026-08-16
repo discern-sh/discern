@@ -218,7 +218,7 @@ export function renderShell(options: {
 </head>
 <body>
 <header class="scr-header">
-<a class="scr-brand" href="/page/feature-canon">❦ The Scriptorium</a>
+<a class="scr-brand" href="/page/feature-canon">The Scriptorium</a>
 <div class="scr-header-right">
 ${gradeChip}
 <span class="scr-chip scr-chip-dirty" id="scr-dirty" hidden>● uncommitted changes</span>
