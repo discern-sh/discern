@@ -49,8 +49,8 @@
     text-transform: uppercase;
   }
 
-  .landing-footer {
-    --discern-page-max: 86rem;
+  .landing-footer .discern-site-footer__inner {
+    width: min(100%, 86rem);
   }
 
   .landing-section {
@@ -121,6 +121,14 @@
   }
 
   /* Hero */
+
+  .landing-hero--current .discern-hero-block__content {
+    gap: var(--discern-space-8);
+  }
+
+  .landing-hero--current .discern-hero-block__inner {
+    gap: clamp(var(--discern-space-10), 5vw, var(--discern-space-12));
+  }
 
   .landing-hero--current .landing-hero__facts {
     margin-block-start: var(--discern-space-8);

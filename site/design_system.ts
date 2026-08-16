@@ -57,7 +57,6 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "tag",
       "window",
       "terminal",
-      "resonance-ground",
       "skip-link",
     ],
     assets: ["fonts"],

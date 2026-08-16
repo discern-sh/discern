@@ -9,7 +9,6 @@ import {
   Kicker,
   LogoCloud,
   MarketingSection,
-  ResonanceGround,
   SiteFooter,
   SiteHeader,
   SkipLink,
@@ -332,7 +331,6 @@ function Hero({ archived = false }: { readonly archived?: boolean }) {
           <ProviderStrip />
         </>
       }
-      ground={archived ? null : <ResonanceGround />}
       layout="showcase"
       surface="atmospheric"
     />
