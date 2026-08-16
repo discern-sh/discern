@@ -276,6 +276,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0285 — Agent instructions replace Guidance throughout the live product](0285-agent-instructions-replace-guidance.md)
 - [0286 — Configured source paths expose registry-derived live references](0286-configured-source-paths-expose-live-references.md)
 - [0287 — Terminal Markdown delegates to the design system](0287-terminal-markdown-delegates-to-the-design-system.md)
+- [0288 — The scriptorium edits the canon through its projections](0288-the-scriptorium-edits-the-canon-through-its-projections.md)
 
 <!-- END GENERATED: current ADR records -->
 

@@ -1,0 +1,48 @@
+---
+description: The repo-internal studio that edits the five prose registries on their own generated pages, with every save proven by the canons' guards before it survives.
+aliases:
+  - scriptorium
+  - canon studio
+  - canon editor
+---
+
+# The Scriptorium
+
+_The canon registries, where you read them. The scriptorium serves the generated canon pages as the editing surface: every prose span knows which registry field it renders, a double-click edits that field in place, and a save proves itself against the canons' own guards before the tree keeps it._
+
+The prose registries are read as generated pages but authored as TypeScript data under `scripts/`: the feature canon, the benefit canon, the practice canon, the glossary, and the claims ledger. The scriptorium closes that gap for editorial passes. The registry stays the store, the page is the lens with write-back, and `discern done` remains the authority on whether the work is done; the studio only moves that judgment earlier.
+
+## Launching
+
+```
+discern scripts scriptorium
+discern scripts scriptorium open proof
+```
+
+The server binds 127.0.0.1 only, on a port salted from the worktree identity, so each worktree's studio coexists with its site server; `PORT` overrides, and a main checkout uses 4517. `open` resolves any entry id, slug, or title across the registries to its source line and opens PhpStorm there — the same resolution behind every jump in the studio.
+
+## The reading surface
+
+A fresh subprocess evaluates the registries and renders the canon pages through the real renderers (`scripts/scriptorium/snapshot.ts`), with an annotation seam (`scripts/scriptorium/annotation.ts`) wrapping each field's text in markers that carry its registry, entry, and field. The server turns those markers into spans, restores the committed pages' heading anchors, and reroutes canon-internal links into the studio. A syntax-only view of the same files (`scripts/scriptorium/registry_ast.ts`) supplies each entry's source position and classifies every field literal: plain strings edit, interpolated templates and computed values render locked and stay IDE jumps.
+
+The inspector rail shows the selected entry's source position, field inventory, citation web in both directions (which benefits draw on a node, which tenets cite it, which public claims ride on it through citing benefits), and its registry's guard roster with an on-demand runner. Editing a registry file in the IDE refreshes the studio automatically.
+
+## The save-and-prove loop
+
+A save replaces one string literal through the syntax view, formats the file as the repository would, swaps it into place, re-renders every projection in a fresh subprocess, rewrites the committed canon pages to the generator's own bytes, and then runs the registry's guard files from the meta-registry roster. Any red step restores every written byte, so an unprovable save leaves the tree as it was. A green save leaves the registry and its generated pages agreeing on disk, ready for an atomic commit.
+
+Saving a technical field queues its plain twin for review, and the nudge rides the entry's rail until the twin is visited. Saving a plain field re-measures the `plain_reading_grade` standard.
+
+## Judgment at the keystroke
+
+While a field is open, the draft is judged live: retired synonyms from the glossary's own patterns (code spans stay legal names), the plain register's jargon scan for plain fields, and the field's own reading grade. On a pause, Vale runs through `scripts/vale_lib.ts` over a probe path chosen so the register's real section styles apply. The gate's judgment arrives at the keystroke instead of minutes later; the gate still has the final word.
+
+## Enrolment
+
+The guard net the studio serves also holds the studio. The parity guard in `tests/scriptorium_parity_test.ts`, registered with each prose registry in [canonical sets](canonical-sets.md), pins the annotated render to the committed pages byte for byte, requires every canon entry to surface an annotated span, and holds the syntax enumeration equal to the evaluated registries. The field maps in `scripts/scriptorium/fields.ts` compile `satisfies` clauses over the registry interfaces, so a new registry field breaks the studio's typecheck until the editor says how to treat it.
+
+## Limits
+
+- Derived spans — prose interpolated from sets like the known job names — stay IDE jumps by design.
+- List fields (citations, surfaces, claims) read in the rail; in-place write-back covers prose fields only.
+- Structural work — adding, retiring, or reordering entries, and batch campaigns — remains agent work, briefed the ordinary way.
