@@ -7,6 +7,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { dirname, fromFileUrl } from "@std/path";
+import { stripAnsi } from "discern-design-system/cli";
 import {
   artAnimationScenes,
   type ArtCommandEnvironment,
@@ -20,6 +21,7 @@ import {
   DISCERN_PRODUCT_TRIANGLE_ART,
 } from "../art/terminal/triangle.ts";
 import { DISCERN_ART_VARIANTS } from "../art/terminal/brand.ts";
+import { runPtyProcess } from "./fixtures/pty_process.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 const DECODER = new TextDecoder();
@@ -38,7 +40,7 @@ const ANIMATED_ENVIRONMENT: ArtCommandEnvironment = {
 const PIPED_CAPABILITIES = {
   colorDepth: "none" as const,
   columns: 80,
-  unicode: false,
+  unicode: true,
 };
 const EXPECTED_ENTRIES = [
   ...Object.entries(DISCERN_ART_VARIANTS),
@@ -186,6 +188,7 @@ Deno.test("deno task art prints the complete plain-text gallery", async () => {
   const result = await new Deno.Command(Deno.execPath(), {
     args: ["task", "art"],
     cwd: REPO_ROOT,
+    env: { LANG: "en_US.UTF-8" },
     stdout: "piped",
     stderr: "piped",
   }).output();
@@ -198,10 +201,34 @@ Deno.test("deno task art prints the complete plain-text gallery", async () => {
   );
 });
 
+Deno.test({
+  name: "deno task art renders its Unicode gallery without permission prompts",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const result = await runPtyProcess({
+      command: Deno.execPath(),
+      args: ["task", "art"],
+      cwd: REPO_ROOT,
+      timeoutMs: 5_000,
+    });
+
+    assertEquals(result.code, 0, result.transcript);
+    assert(
+      !result.transcript.includes("Deno requests env access"),
+      result.transcript,
+    );
+    assertStringIncludes(
+      stripAnsi(result.transcript),
+      "▴ -> ◂ -> ▾ -> ▸ -> (repeat)",
+    );
+  },
+});
+
 Deno.test("piped deno task art --animate falls back to the static gallery", async () => {
   const result = await new Deno.Command(Deno.execPath(), {
     args: ["task", "art", "--animate"],
     cwd: REPO_ROOT,
+    env: { LANG: "en_US.UTF-8" },
     stdout: "piped",
     stderr: "piped",
   }).output();
