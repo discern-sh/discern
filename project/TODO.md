@@ -48,7 +48,7 @@ _Verified defects and correctness risks. Nothing outstanding._
 
 ## 🟢 Test & tooling hygiene
 
-- [ ] **Scaffold the CI gate workflow once releases are public.** The docs now give a pasteable GitHub Actions recipe, but launch still needs the public repo/version values re-checked and a later `setup`/binary affordance that writes the workflow for users. Evidence: `project/map/20-quality-gate/ci.md`.
+- [ ] **Post-launch: publish the opt-in managed GitHub gate.** Replace the one-shot scaffold idea with a deterministic, ejectable `.github/workflows/discern-gate.yml` after public release assets and the managed-version authority exist; follow it with native annotations, step summaries, and CI measurement of deferred Standards. Dispatch briefs: `project/map/_private/planning/managed-ci-workstreams/`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
