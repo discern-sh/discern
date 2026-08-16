@@ -179,7 +179,7 @@ function renderRail(entry, activeField) {
     rail.append(
       el("button", {
         class: "scr-btn",
-        text: `Edit ${active.path} here`,
+        text: `Edit ${active.path}`,
         onclick: () =>
           openEditor(
             span,
@@ -580,6 +580,10 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   if (editing || !selected) return;
   const target = event.target;
+  // A target no longer in the document was re-rendered by its own click
+  // (the rail's guard button does this); its ancestry cannot be judged,
+  // and a click that changed the studio was never an "outside" click.
+  if (target.isConnected === false) return;
   if (
     target.closest?.(".scr-field") ||
     target.closest?.("#scr-rail") ||
