@@ -153,7 +153,8 @@
     cursor: pointer;
     text-decoration-line: underline;
     text-decoration-style: dotted;
-    text-decoration-color: color-mix(in srgb, var(--scr-rubric) 40%, transparent);
+    text-decoration-color: color-mix(in srgb, var(--scr-rubric) 40%,
+      transparent);
     text-decoration-thickness: 1px;
     text-underline-offset: 0.24em;
   }
