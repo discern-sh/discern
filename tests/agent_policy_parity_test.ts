@@ -1,6 +1,6 @@
 /**
  * Policy parity guard for the two authored operating-model surfaces: the
- * bundled guidance templates (compiled into every project's agent files) and
+ * bundled instructions templates (compiled into every project's agent files) and
  * the MCP server's instructions block. The two are deliberately redundant —
  * MCP instructions reach clients that never read an agent file — but they
  * are authored independently, and independent authorship drifts: the same
@@ -8,7 +8,7 @@
  * guard existed.
  *
  * The canonical set lives in `operating_policies.ts` (ADR 0181). MCP
- * instructions render its statements; guidance remains authored Markdown
+ * instructions render its statements; instructions remain authored Markdown
  * verified by the same entries' probes. A generalization of the acceptance
  * anti-pattern scan in `agent_acceptance_instruction_test.ts`, which bans
  * wrong phrasings; this asserts the right ones exist.
@@ -27,17 +27,20 @@ import {
 } from "../src/shared/operating_policies.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
-/** The bundled guidance templates as one searchable blob (source text, so
+/** The bundled instructions templates as one searchable blob (source text, so
  * conditional sections are always present). */
-async function guidanceBlob(): Promise<string> {
-  const dir = join(REPO_ROOT, "templates", "guidance");
+async function instructionBlob(): Promise<string> {
+  const dir = join(REPO_ROOT, "templates", "instructions");
   const parts: string[] = [];
   for await (const entry of Deno.readDir(dir)) {
     if (entry.isFile && entry.name.endsWith(".md")) {
       parts.push(await Deno.readTextFile(join(dir, entry.name)));
     }
   }
-  assert(parts.length > 0, "no guidance templates found — check the scan set");
+  assert(
+    parts.length > 0,
+    "no instructions templates found — check the scan set",
+  );
   return parts.join("\n");
 }
 
@@ -224,9 +227,9 @@ Deno.test("the operating-policy registry is complete and self-consistent", () =>
 
 Deno.test("both operating-model surfaces carry every registered policy", async () => {
   const surfaces: Record<OperatingPolicySurface, PolicySurfaceText> = {
-    "guidance-templates": {
-      label: "templates/guidance",
-      text: await guidanceBlob(),
+    "instructions-templates": {
+      label: "templates/instructions",
+      text: await instructionBlob(),
       rendered: false,
     },
     "mcp-instructions": {
@@ -264,7 +267,7 @@ Deno.test("await calling surfaces keep active calls and unmet continuations off 
   ));
   const surfaces = [
     { label: "canonical await policy", text: policy.statement },
-    { label: "bundled guidance", text: await guidanceBlob() },
+    { label: "bundled instructions", text: await instructionBlob() },
     { label: "MCP instructions", text: buildInstructions() },
     { label: "await MCP tool", text: tool.description },
     { label: "await-the-fleet skill", text: skill },
@@ -297,7 +300,7 @@ Deno.test("every worktree-entry surface keeps follow-up turns in the effort's ex
     "the detector must cover every current entry and re-root hint",
   );
   const surfaces = [
-    { label: "bundled guidance", text: await guidanceBlob() },
+    { label: "bundled instructions", text: await instructionBlob() },
     { label: "MCP instructions", text: buildInstructions() },
     { label: "start MCP tool", text: tool.description },
     ...hintSurfaces,
@@ -350,7 +353,7 @@ Deno.test("fleet ownership distinguishes this effort's worktree from another eff
   );
 });
 
-Deno.test("control: await calling detector rejects renamed heartbeat guidance", () => {
+Deno.test("control: await calling detector rejects renamed heartbeat instructions", () => {
   const failures = awaitCallingFailures([
     {
       label: "future wait",
@@ -387,8 +390,8 @@ Deno.test("control: a future policy carried by only one surface fails parity", (
     parityFailures(
       [CONTROL_POLICY],
       {
-        "guidance-templates": {
-          label: "templates/guidance",
+        "instructions-templates": {
+          label: "templates/instructions",
           text: "",
           rendered: false,
         },
@@ -400,7 +403,7 @@ Deno.test("control: a future policy carried by only one surface fails parity", (
       },
     ),
     [
-      "future-policy missing from templates/guidance (probe /future-policy marker/)",
+      "future-policy missing from templates/instructions (probe /future-policy marker/)",
     ],
   );
 });

@@ -66,7 +66,7 @@ async function recordGreenNow(
 }
 
 /** A check-stage gate that fails iff `taboo.txt` exists — a deterministic stand-in for
- * "the merged tree breaks a check". guidance/skills off so the check is the only gate. */
+ * "the merged tree breaks a check". instructions/skills off so the check is the only gate. */
 const CONFIG_CHECK = [
   "[project]",
   'slug = "engine-test"',

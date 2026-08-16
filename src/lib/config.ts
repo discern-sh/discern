@@ -79,10 +79,10 @@ export function defaultDocumentationScopes(): string[] {
 }
 
 /** The agent-instruction paths a fresh install seeds under
- * `[scopes.guidance]`. Every gate-neutral authored source outside the narrow
+ * `[scopes.instructions]`. Every gate-neutral authored source outside the narrow
  * documentation set enrolls here, and materialized skills derive from the
  * provider registry. */
-export function defaultGuidanceScopePaths(): string[] {
+export function defaultInstructionScopePaths(): string[] {
   return [
     ...SOURCE_PATH_NAMES
       .filter((name) =>
@@ -94,9 +94,9 @@ export function defaultGuidanceScopePaths(): string[] {
   ];
 }
 
-/** The fresh guidance paths, quoted for template substitution. */
-export function defaultGuidanceScopes(): string[] {
-  return defaultGuidanceScopePaths().map((path) => `"${path}"`);
+/** The fresh instructions paths, quoted for template substitution. */
+export function defaultInstructionScopes(): string[] {
+  return defaultInstructionScopePaths().map((path) => `"${path}"`);
 }
 
 /** The fully-resolved answers that drive scaffolding. */
@@ -167,7 +167,7 @@ export function tokensFromConfig(
     map_dir: config.mapDir ?? DEFAULTS.mapDir,
     gotchas_doc: DEFAULTS.gotchasDoc,
     scopes_neutral: defaultDocumentationScopes().join(", "),
-    scopes_guidance: defaultGuidanceScopes().join(", "),
+    scopes_instructions: defaultInstructionScopes().join(", "),
     scopes_web: renderTomlStringList(config.sourceGlobs),
     scopes_previewable: DEFAULTS.scopesPreviewable.join(", "),
     artifact_provenance_marker: generatedArtifactMarkerBody(

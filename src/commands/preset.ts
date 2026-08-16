@@ -9,7 +9,7 @@
  * metadata, never scaffolded — is a discern config document (the same shape
  * `setup --config` reads) whose jobs / scopes / standards are
  * written into the project's `discern.toml` via the comment-preserving
- * editor. So a preset overlays both files (project scripts, skills, guideline fragments,
+ * editor. So a preset overlays both files (project scripts, skills, instruction fragments,
  * docs) and config (jobs, scopes).
  *
  * The config half honors the same rule as the file half: **fill-if-absent,
@@ -196,7 +196,7 @@ export async function runPreset(
   const tokens = tokensFromConfig(config);
   // A preset's files overlay exactly like the base templates tree: every file is
   // a write-once seed (a changed preset file on re-apply is skipped as a present
-  // seed). Unlike `setup`, a preset's `skills/`/`guidance/` ARE intended overlays,
+  // seed). Unlike `setup`, a preset's `skills/`/`instructions/` ARE intended overlays,
   // so they are scaffolded (excludeNonSeed defaults off).
   const plan = await buildPlan({ templatesDir: presetDir, destDir, tokens });
   // preset.json is metadata (config fills), not a scaffolded file.

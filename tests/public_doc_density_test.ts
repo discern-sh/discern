@@ -1,5 +1,5 @@
 /**
- * The leaf-density standard measures the PUBLIC guidance corpus — the same
+ * The leaf-density standard measures the PUBLIC instructions corpus — the same
  * projection the document model serves to every published surface, never a
  * private re-derivation. Pins the three exclusions the measurement makes: a
  * `publish: false` page counts toward neither leaves nor words (it is not yet

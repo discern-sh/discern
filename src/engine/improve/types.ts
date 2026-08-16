@@ -8,12 +8,12 @@
  *   - a **deterministic** rule is decided in-process now — it reads the gathered
  *     {@link ImprovementContext} and returns a {@link RuleStatus}, a finding, a fix,
  *     and a teach. discern owns it end to end.
- *   - a **subjective** rule cannot be mechanically decided (does the guidance
+ *   - a **subjective** rule cannot be mechanically decided (do the instructions
  *     actually capture what an agent couldn't infer? do the docs still match the
  *     code?). discern can't run a model, so it does the next best thing: it surfaces
  *     the *question* plus the project material to judge it **against** ({@link
  *     ReviewEvidence}), and the agent in the loop renders the verdict. This is how a
- *     deterministic binary "analyses subjective rules against guidance".
+ *     deterministic binary "analyses subjective rules against instructions".
  *
  * The catalog (categories + rules) lives in `rules.ts`; the runner that evaluates
  * it into an {@link ImprovementReport} and the renderings live in `improve.ts`.
@@ -35,14 +35,14 @@ export interface ImprovementContext {
   root: string;
   /** The fully-typed, fully-defaulted config. */
   config: DiscernConfig;
-  /** Whether at least one `[guidance].sources` file resolved on disk. */
-  guidancePresent: boolean;
-  /** The concatenated text of every resolved guidance source ("" when none). */
-  guidanceText: string;
-  /** Non-whitespace character count of {@link guidanceText} — a proxy for substance. */
-  guidanceChars: number;
-  /** Whether the guidance still carries the bootstrap skeleton's "fills this" marker. */
-  guidancePlaceholder: boolean;
+  /** Whether at least one `[instructions].sources` file resolved on disk. */
+  instructionPresent: boolean;
+  /** The concatenated text of every resolved instruction source ("" when none). */
+  instructionText: string;
+  /** Non-whitespace character count of {@link instructionText} — a proxy for substance. */
+  instructionChars: number;
+  /** Whether the instructions still carries the bootstrap skeleton's "fills this" marker. */
+  instructionPlaceholder: boolean;
   /** Whether `[project].gotchas_doc` is set to a non-empty path. */
   gotchasDocSet: boolean;
   /** Whether the configured `[project].gotchas_doc` resolves to a real file. */
@@ -98,7 +98,7 @@ export interface DeterministicRule {
 /** A pointer to the project material a subjective rule is judged against — what
  * the agent should actually read before answering. */
 export interface ReviewEvidence {
-  /** The file or config section to read (e.g. `guidance.md`, `[worktree.resources]`). */
+  /** The file or config section to read (e.g. `instructions.md`, `[worktree.resources]`). */
   source: string;
   /** A short excerpt of it, or a note that it is absent/empty. */
   excerpt: string;
@@ -125,7 +125,7 @@ export type Rule = DeterministicRule | SubjectiveRule;
 /** A group of related rules. Every category is always reviewed — the subsystems
  * are all core (ADR 0101). */
 export interface Category {
-  /** Stable slug, used by `--category` (e.g. `gate`, `guidance`). */
+  /** Stable slug, used by `--category` (e.g. `gate`, `instructions`). */
   name: string;
   title: string;
   rules: Rule[];

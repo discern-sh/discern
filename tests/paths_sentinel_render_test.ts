@@ -1,9 +1,9 @@
 /**
- * Sentinel-render leakage guard (ADR 0102): compile the built-in guidance and
+ * Sentinel-render leakage guard (ADR 0102): compile the built-in instructions and
  * materialize EVERY bundled skill against a config that points each registry
  * path at an obviously fake location, then assert no registry DEFAULT survives
  * in any rendered output. A hard-coded `discern/docs/`-style literal in a
- * bundled skill or guidance section — the layout an agent can see instead of
+ * bundled skill or instruction section — the layout an agent can see instead of
  * the layout the user configured — fails here, not in front of a reviewer.
  *
  * The banned list and the sentinel config are both DERIVED from the paths
@@ -20,7 +20,7 @@ import {
   SOURCE_PATHS,
   type SourcePathName,
 } from "../src/shared/paths_registry.ts";
-import { renderAgentFiles } from "../src/engine/guidance_render.ts";
+import { renderAgentFiles } from "../src/engine/instruction_render.ts";
 import { materializeSkills } from "../src/lib/skills.ts";
 import { skillsDirsForAgents } from "../src/lib/providers.ts";
 import { withTempDir } from "./helpers.ts";
@@ -41,7 +41,7 @@ function sentinelFor(name: SourcePathName): string {
 
 /**
  * TOML pointing every KEYED registry path at its sentinel (a keyless entry —
- * the brief — has nothing to repoint). `guidance.sources` is the one
+ * the brief — has nothing to repoint). `instructions.sources` is the one
  * list-typed key and gets a list literal; a future list-typed entry fails the
  * config parse loudly, telling its author to teach this builder the shape.
  */
@@ -54,7 +54,7 @@ function sentinelToml(): string {
     }
     const value = sentinelFor(name);
     lines.push(
-      key === "guidance.sources"
+      key === "instructions.sources"
         ? `${key} = ["${value}"]`
         : `${key} = "${value}"`,
     );
@@ -62,7 +62,7 @@ function sentinelToml(): string {
   return `${lines.join("\n")}\n`;
 }
 
-Deno.test("sentinel render: no registry default survives in compiled guidance or materialized skills", async () => {
+Deno.test("sentinel render: no registry default survives in compiled instructions or materialized skills", async () => {
   await withTempDir(async (root) => {
     const config = parseConfigOrThrow(sentinelToml());
     const defaults = SOURCE_PATH_NAMES.map((n) => SOURCE_PATHS[n].defaultPath);

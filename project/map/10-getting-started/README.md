@@ -16,7 +16,7 @@ You need a Git repository, a supported coding agent, and macOS, Linux, or WSL2. 
 
 Start with the [quickstart](quickstart.md). It is the shortest path from installation to a reviewed change on your trunk. The [walkthrough](walkthrough.md) then explains the consent, branch, Gate, Proof, and review boundaries you encounter while an agent works.
 
-When you already know the outcome you need, open [Tasks by lifecycle](tasks.md). It routes installation, worktree, Gate, guidance, Skill, Standard, and handoff tasks to the page that owns each procedure.
+When you already know the outcome you need, open [Tasks by lifecycle](tasks.md). It routes installation, worktree, Gate, instructions, Skill, Standard, and handoff tasks to the page that owns each procedure.
 
 Setup leaves ordinary files on a branch for you to inspect. [What setup added](after-setup.md) explains that diff and names what you edit, what discern shares with you, and what it regenerates. If a command or agent integration fails, go to the [FAQ](faq.md), which starts with the diagnostic command.
 

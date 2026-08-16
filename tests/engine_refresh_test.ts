@@ -1,10 +1,10 @@
 /**
  * Engine coverage for `discern refresh` — the verb that compiles the agent
- * instruction files (job 1: built-in guidance + the project's `[guidance].sources`)
+ * instruction files (job 1: built-in instructions + the project's `[instructions].sources`)
  * AND materializes skills into `.claude/skills/` (job 2): bundled built-ins are
  * copied in, authored skills (under `[skills].dir`) are symlinked. The two jobs
  * are independent, each gated on its feature, so a project with no authored
- * guidance still gets discoverable skills. These tests pin both jobs under the
+ * instructions still gets discoverable skills. These tests pin both jobs under the
  * real dispatcher.
  */
 
@@ -17,14 +17,14 @@ import {
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { HINTS } from "../src/shared/hints.ts";
-import { agentFilePaths } from "../src/engine/guidance_render.ts";
+import { agentFilePaths } from "../src/engine/instruction_render.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
 import { canonicalDiscernGitattributesBlockForConfig } from "../src/lib/agent_gitattributes.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { planTrackedRefresh } from "../src/engine/tracked_refresh.ts";
-import { compileGuidelines } from "../src/engine/guidelines.ts";
+import { compileInstructions } from "../src/engine/instructions.ts";
 import { Logger } from "../src/lib/log.ts";
 import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
@@ -53,7 +53,7 @@ Deno.test("engine refresh: read-only plan and live apply share one tracked effec
 
     const planned = await planTrackedRefresh(dir);
     assertEquals(planned.errors, []);
-    const applied = await compileGuidelines(
+    const applied = await compileInstructions(
       dir,
       new Logger({ json: true, noColor: true }),
     );
@@ -252,7 +252,7 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
 
     // Job 1: the configured agent file (claude_code → CLAUDE.md) was compiled.
     // With no canonical AGENTS.md emitted (claude_code is the only agent), CLAUDE.md
-    // holds the full body and opens with the guidance itself — no banner (ADR 0034).
+    // holds the full body and opens with the instructions itself — no banner (ADR 0034).
     assert(
       await exists(join(dir, "CLAUDE.md")),
       `CLAUDE.md missing\n${r.output}`,
@@ -260,7 +260,7 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
     const claude = await Deno.readTextFile(join(dir, "CLAUDE.md"));
     assert(
       claude.startsWith("# Working in Engine Test"),
-      `expected guidance at the top, no banner\n${claude.slice(0, 80)}`,
+      `expected instructions at the top, no banner\n${claude.slice(0, 80)}`,
     );
 
     // Job 2: a bundled built-in is COPIED into .claude/skills/ (a real SKILL.md,
@@ -367,8 +367,8 @@ Deno.test("engine refresh: changed tracked artifacts advise committing the refre
     // MCP. The commit advice is driven by that tracked change, not by first setup.
     await ensureDir(join(dir, "discern"));
     await Deno.writeTextFile(
-      join(dir, "discern/guidance.md"),
-      "# Project guidance\nKeep the refreshed copy with this source.\n",
+      join(dir, "discern/instructions.md"),
+      "# Project instructions\nKeep the refreshed copy with this source.\n",
     );
     const changed = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(changed.code, 0, changed.output);
@@ -378,13 +378,13 @@ Deno.test("engine refresh: changed tracked artifacts advise committing the refre
   });
 });
 
-Deno.test("engine refresh: materializes skills even with no guideline sources (jobs are independent)", async () => {
+Deno.test("engine refresh: materializes skills even with no instruction sources (jobs are independent)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    // A fresh scaffold has no `guidance.md` source at all: job 1 compiles only
-    // the built-in guidance, but job 2 (skills) must still run.
+    // A fresh scaffold has no `instructions.md` source at all: job 1 compiles only
+    // the built-in instructions, but job 2 (skills) must still run.
     assert(
-      !(await exists(join(dir, "guidance.md"))),
+      !(await exists(join(dir, "instructions.md"))),
       "precondition: no source",
     );
 
@@ -392,7 +392,7 @@ Deno.test("engine refresh: materializes skills even with no guideline sources (j
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(join(dir, ".claude/skills/discern-write-adr/SKILL.md")),
-      `skills must materialize independently of guideline compilation\n${r.output}`,
+      `skills must materialize independently of instruction compilation\n${r.output}`,
     );
   });
 });

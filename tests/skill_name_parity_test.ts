@@ -3,7 +3,7 @@
  * must name a skill that ships (bundled) or exists in this repo's authored set.
  *
  * The class this cures: advisory strings recommend skills by name — the logbook
- * detectors, the improve rules, hint templates, the guidance sources, the map's
+ * detectors, the improve rules, hint templates, the instruction sources, the map's
  * product pages, the skills' own cross-references — and nothing tied those
  * citations to the bundled directory set. A trim or rename then leaves live
  * surfaces recommending skills that no longer exist (the seven-skill trim found
@@ -61,7 +61,7 @@ const EXEMPT_SEGMENTS = ["/_adr/", "/_private/"] as const;
 const SWEEP_ROOTS: readonly string[] = [
   join(REPO_ROOT, "src"),
   join(REPO_ROOT, "templates"),
-  ...REPO_AUTHORED_PATHS.guidance,
+  ...REPO_AUTHORED_PATHS.instructions,
   REPO_AUTHORED_PATHS.skills,
   REPO_AUTHORED_PATHS.map,
 ];

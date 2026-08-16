@@ -26,7 +26,7 @@ Every successful run reports:
 - category detail, shown weakest first;
 - project-scope advice from the local logbook under `history.findings`.
 
-A deterministic rule checks a concrete fact such as whether tests are configured, guidance exists, or a standard is declared. A qualitative review asks an agent to inspect cited project material, such as whether tests isolate shared state or whether the map still matches the code. Those reviews remain open beside a `100/100` automated score because the binary does not claim judgments it cannot prove ([ADR 0029](../_adr/0029-best-practices-audit.md)).
+A deterministic rule checks a concrete fact such as whether tests are configured, instructions exist, or a standard is declared. A qualitative review asks an agent to inspect cited project material, such as whether tests isolate shared state or whether the map still matches the code. Those reviews remain open beside a `100/100` automated score because the binary does not claim judgments it cannot prove ([ADR 0029](../_adr/0029-best-practices-audit.md)).
 
 ## Presentation authority
 
@@ -36,7 +36,7 @@ One terminal snapshot per human invocation caps the report at 104 columns and pr
 
 ## Findings from the logbook
 
-The `From the Logbook` group carries recorded conditions that may need an owner decision. It currently includes edits made on the trunk, repeated documentation misses, one diagnostic class recurring across branches, and each Standard's recent value and limit trajectory. Every item retains its detector id, plain-count evidence, ranking strength, and recommended next step. A proposed guidance line, config change, class guard, or Standards stanza remains a proposal for you to decide ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+The `From the Logbook` group carries recorded conditions that may need an owner decision. It currently includes edits made on the trunk, repeated documentation misses, one diagnostic class recurring across branches, and each Standard's recent value and limit trajectory. Every item retains its detector id, plain-count evidence, ranking strength, and recommended next step. A proposed instructions line, config change, class guard, or Standards stanza remains a proposal for you to decide ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
 This group is separate from the static catalogue. It changes no category score, weak-rule count, qualitative review, `next_action`, `ok`, or `--min-score` result. Inline detectors read at most the newest 200 logbook events here; longer analyses stay under `discern patterns`. Findings are strongest-first and disappear when the recent window is quiet, setup is unfinished, or recording is off.
 
@@ -46,15 +46,15 @@ Objective gaps lead. The coach chooses the fix that recovers the most weighted s
 
 ## Categories
 
-| Category    | What the coach inspects                                                                           |
-| ----------- | ------------------------------------------------------------------------------------------------- |
-| `gate`      | Tests, static analysis, structured diagnostics, formatting, depth, isolation, and feedback speed. |
-| `setup`     | Completed setup and useful failure memory.                                                        |
-| `guidance`  | Substantive authored guidance and current compiled files.                                         |
-| `map`       | A navigable Map, decision records, and documentation accuracy.                                    |
-| `worktrees` | Isolation for shared external resources.                                                          |
-| `standards` | At least one defended Standard and sensible use of rates.                                         |
-| `skills`    | Repeated workflows captured as executable, verifiable Skills.                                     |
+| Category       | What the coach inspects                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------- |
+| `gate`         | Tests, static analysis, structured diagnostics, formatting, depth, isolation, and feedback speed. |
+| `setup`        | Completed setup and useful failure memory.                                                        |
+| `instructions` | Substantive authored instructions and current compiled files.                                     |
+| `map`          | A navigable Map, decision records, and documentation accuracy.                                    |
+| `worktrees`    | Isolation for shared external resources.                                                          |
+| `standards`    | At least one defended Standard and sensible use of rates.                                         |
+| `skills`       | Repeated workflows captured as executable, verifiable Skills.                                     |
 
 Every category applies to every install; discern has no feature-toggle layer ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 

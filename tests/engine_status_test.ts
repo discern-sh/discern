@@ -1469,7 +1469,7 @@ Deno.test("status: tracked discern-managed ignored artifacts are listed with an 
     await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
     await gitInit(dir);
     await runAgent(dir, ["refresh"]);
-    // The compiled guidance files are tracked by default — adding them is the
+    // The compiled instruction files are tracked by default — adding them is the
     // intended state, never flagged. Machine-local state forced in IS flagged.
     await git(dir, "add", "AGENTS.md", "CLAUDE.md");
     await Deno.writeTextFile(
@@ -1492,14 +1492,14 @@ Deno.test("status: tracked discern-managed ignored artifacts are listed with an 
   });
 });
 
-Deno.test("status: untracked compiled guidance files draw a commit hint that clears once committed or ignored", async () => {
+Deno.test("status: untracked compiled instruction files draw a commit hint that clears once committed or ignored", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
     await gitInit(dir);
     await runAgent(dir, ["refresh"]);
 
     // Freshly compiled, not yet committed: recommend the one-time commit that
-    // makes the guidance readable from a bare clone.
+    // makes the instructions readable from a bare clone.
     let r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertHasHint(parseStatus(r.stdout), HINTS["untracked-agent-files"], {

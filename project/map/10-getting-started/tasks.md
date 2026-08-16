@@ -35,7 +35,7 @@ Keep the change current and put durable project knowledge in the surface that fu
 | I want to…                    | Go here                                                                                                                                              |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Update my branch from trunk   | [Bring the trunk into the branch](../30-worktrees/lifecycle.md#bring-the-trunk-into-the-branch), review the incoming overlap, and rerun the gate.    |
-| Add project guidance          | [Write project guidance](../40-agent-guidance/write-project-guidance.md) in the configured source, then run `discern refresh`.                       |
+| Add project instructions      | [Write project instructions](../40-agent-instructions/write-project-instructions.md) in the configured source, then run `discern refresh`.           |
 | Record a significant decision | Ask your agent to use [`discern-write-adr`](../45-skills/bundled-skills.md#the-bundled-catalog), which applies the project's decision-record format. |
 | Create a reusable Skill       | [Create a project Skill](../45-skills/author-a-skill.md), give it a trigger-rich description, and materialize it with `discern refresh`.             |
 

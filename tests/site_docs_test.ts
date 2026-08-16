@@ -402,7 +402,7 @@ Deno.test("every nested contents heading is unnumbered and does not advance sect
   );
 });
 
-Deno.test("the shared CLI/MCP docs core and site model have exact guidance parity", async () => {
+Deno.test("the shared CLI/MCP docs core and site model have exact instruction parity", async () => {
   const site = await loadDocsSite();
   const docs = await docsResult(REPO_ROOT);
   assert(docs.ok && docs.data?.docs !== undefined);
@@ -883,7 +883,7 @@ Deno.test("the decisions family renders every record as labeled project history"
   assertEquals(indexRes.status, 200);
   const indexHtml = await indexRes.text();
   assertStringIncludes(indexHtml, "Project history");
-  assertStringIncludes(indexHtml, "not current product guidance");
+  assertStringIncludes(indexHtml, "not current product documentation");
   const indexSource = await Deno.readTextFile(
     new URL("../project/map/_adr/README.md", import.meta.url),
   );
@@ -1056,14 +1056,14 @@ Deno.test("every local link in every published page resolves — no dead ends", 
 
 Deno.test("the search index and llms.txt cover every published page", async () => {
   const site = await loadDocsSite();
-  const guidanceRoutes = ["/docs", ...site.pages.map((page) => page.route)];
+  const instructionRoutes = ["/docs", ...site.pages.map((page) => page.route)];
 
   const res = await get("/docs/index.json", BROWSER);
   assertEquals(res.status, 200);
   const index = await res.json() as {
     pages: Array<{ route: string; title: string }>;
   };
-  assertEquals(index.pages.map((p) => p.route), guidanceRoutes);
+  assertEquals(index.pages.map((p) => p.route), instructionRoutes);
   assertEquals(index.pages[0]?.title, "The discern manual");
   for (const decision of site.decisions.pages) {
     assert(
@@ -1091,7 +1091,7 @@ Deno.test("the search index and llms.txt cover every published page", async () =
   assertStringIncludes(docsLlmsSection(site), "## Documentation");
 });
 
-Deno.test("the sitemap source contains guidance and project-history routes", async () => {
+Deno.test("the sitemap source contains instructions and project-history routes", async () => {
   const site = await loadDocsSite();
   assertEquals(site.sitemapRoutes, [
     "/docs",

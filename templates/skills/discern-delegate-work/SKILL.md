@@ -47,14 +47,14 @@ Decide how many agents, prompts, and worktrees the work wants. Pick the simplest
 
 ## 3. Write a prompt that stands on its own
 
-Assume the new agent knows nothing of this conversation. Everything that mattered here and isn't already plain from the project's own files must be restated. The shared project context (the guidance files, the docs) it can read for itself, so point it at the parts that matter rather than trusting it to find them. Any conclusion the two of you reached that the code does not record must be written into the prompt; nothing else carries it across.
+Assume the new agent knows nothing of this conversation. Everything that mattered here and isn't already plain from the project's own files must be restated. The shared project context (the instruction files, the docs) it can read for itself, so point it at the parts that matter rather than trusting it to find them. Any conclusion the two of you reached that the code does not record must be written into the prompt; nothing else carries it across.
 
 **Mind the worktree boundary.** The fresh agent starts in a clean worktree branched from the trunk, so anything that exists only in your current worktree (an uncommitted file, a research note, work on your branch the trunk doesn't have yet) isn't there for it. If the prompt needs such a file, either paste its content into the prompt or reference it by an absolute path, which resolves across worktrees on the same machine. Never use a relative path: it resolves inside the new worktree, where the file doesn't exist. (You can instead point the new agent at your current worktree, but two lines of work sharing a worktree give up the isolation that makes delegation clean. Prefer inlining or absolute paths unless the task is tightly bound to uncommitted work here.)
 
 Give each prompt a clear spine. Adapt the headings to the task, but cover:
 
 - **Title and one-line goal.** What this achieves, in a sentence. When the handoff spans multiple streams (§2), lead the title with the workstream key: `1B — Add rate limiting to the upload endpoint`.
-- **Orient, re-root, then read.** Have it begin by orienting (`discern_status`), create its worktree with `discern_start` under the name the brief gives it, and re-root there before reading anything else — the project's guidance file, the brief's anchors, the code. “There” is the absolute path `discern_start` returns. Reads made on the trunk don't carry across: an agent that must read a file before editing it sees the worktree's copy as unread, so every trunk-side read is paid for twice. A staged brief that must wait before branching is the exception described in §2: its first action after orientation is the read-only `discern_await`, and it follows the met hint to create or update the right worktree.
+- **Orient, re-root, then read.** Have it begin by orienting (`discern_status`), create its worktree with `discern_start` under the name the brief gives it, and re-root there before reading anything else — the project's instruction file, the brief's anchors, the code. “There” is the absolute path `discern_start` returns. Reads made on the trunk don't carry across: an agent that must read a file before editing it sees the worktree's copy as unread, so every trunk-side read is paid for twice. A staged brief that must wait before branching is the exception described in §2: its first action after orientation is the read-only `discern_await`, and it follows the met hint to create or update the right worktree.
 - **Background: why this, why now.** The context you hold and it doesn't: the problem, what's true today, what made the change worth doing. Usually the part only you can supply, and the part most often skipped.
 - **Deliverables.** The concrete, ordered changes. For each, say what and where, and name an existing thing to mirror for house style ("model it on X"). Anchor each deliverable in real files, tests, and patterns.
 - **Constraints.** The rules it must hold to (see §4).
@@ -78,7 +78,7 @@ A handful of constraints hold for any task in any discern project. Fold them in 
 - **Record notable decisions.** A hard-to-reverse or surprising choice deserves an ADR (the `discern-write-adr` skill).
 - **Carry staged dependencies.** Name the exact returned branch, the readiness condition, and the composition move from §2. The `discern-await-the-fleet` skill owns the wait procedure the receiving agent follows.
 
-Keep this to a few lines. The agent's own guidance file already states most of it, the project's own rules included; reinforce the constraints this task leans on.
+Keep this to a few lines. The agent's own instruction file already states most of it, the project's own rules included; reinforce the constraints this task leans on.
 
 ---
 
@@ -122,6 +122,6 @@ Report what you find plainly: what stands, and what needs another pass. Feed any
 - For a multi-brief handoff, every brief carries its workstream key in its title (and its filename, if saved) and its literal `<slug>-<key>` worktree name, you offered to save the set as Markdown files in the project, and any saved brief tells its agent to move the file into `_done/` when its task is complete.
 - Every brief states its landing authority: an independent stream or final stack stage lands under a recorded grant or stops at the proof line, and none claims in prose an authority no grant backs. An intermediate stack stage stays green, reports its proof, keeps its branch for the dependent, and does not accept.
 - Every prompt is self-contained: it assumes no memory of this conversation and carries title, orientation, background, deliverables, constraints, out-of-scope, and a definition of done that is both falsifiable and stated from the user's side.
-- The standing project constraints (the gate as the bar, atomic commits, no hand-editing generated files, plus the project's own guidelines) are baked into each.
+- The standing project constraints (the gate as the bar, atomic commits, no hand-editing generated files, plus the project's own instructions) are baked into each.
 - The user has each prompt as a copyable block and knows that launching one spins up a fresh worktree.
 - You've committed to reviewing each result, and know to ask for the branch or worktree name when it's ready.

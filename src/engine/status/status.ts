@@ -60,9 +60,9 @@ import { classifyScopes, isScopeMarker } from "../scopes/scopes.ts";
 import { planScopeGates } from "../gate/plan.ts";
 import { readLandedProofNote } from "../gate/proof_notes.ts";
 import {
-  checkGuidanceCurrent,
-  type GuidanceDriftEntry,
-} from "../guidance_render.ts";
+  checkInstructionCurrent,
+  type InstructionDriftEntry,
+} from "../instruction_render.ts";
 import {
   checkProviderHooksCurrent,
   type ProviderHookDriftEntry,
@@ -75,8 +75,8 @@ import {
   type TrackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifactsHint,
-  untrackedGuidanceFiles,
-  untrackedGuidanceFilesHint,
+  untrackedInstructionFiles,
+  untrackedInstructionFilesHint,
 } from "../../lib/agent_gitignore.ts";
 import {
   type AdrNumberCollision,
@@ -353,12 +353,13 @@ export async function statusResult(
   // files match what `discern refresh` would write. Advisory only here — surfaced as
   // a hint so a drifted or not-yet-built AGENTS.md is noticed at orientation, never
   // an unverified pass/fail.
-  const guidanceDrift: GuidanceDriftEntry[] = await checkGuidanceCurrent(
-    root,
-    cfg,
-  );
-  if (guidanceDrift.length > 0) {
-    data.stale_generated = guidanceDrift.map((d) => d.path);
+  const instructionDrift: InstructionDriftEntry[] =
+    await checkInstructionCurrent(
+      root,
+      cfg,
+    );
+  if (instructionDrift.length > 0) {
+    data.stale_generated = instructionDrift.map((d) => d.path);
   }
 
   // The same read-only currency check, for the MATERIALIZED skills (ADR 0034,
@@ -367,7 +368,7 @@ export async function statusResult(
   // affected skill paths (dir/name), `missing` dirs included.
   const skillsDrift: SkillsDriftEntry[] = await checkSkillsCurrent(root, cfg);
   {
-    // Report only `missing`/`stale` (parallel to `stale_generated` for guidance) — a
+    // Report only `missing`/`stale` (parallel to `stale_generated` for instructions) — a
     // `foreign` drop-in is NOT discern's to fix (the materializer leaves it and warns),
     // so listing it under a `stale_`-named field would tell an agent to "refresh" a
     // file a refresh won't touch. It is intentionally absent from the structured field.
@@ -381,7 +382,7 @@ export async function statusResult(
 
   // Provider integration currency. Hook files are provider-owned settings that
   // `discern refresh` re-seeds through registry-declared merge strategies. Surface
-  // missing/stale hook files during orientation just like generated guidance and
+  // missing/stale hook files during orientation just like generated instructions and
   // materialized skills, but keep status read-only.
   const providerHookDrift = await checkProviderHooksCurrent(root, cfg);
   if (providerHookDrift.length > 0) {
@@ -416,11 +417,11 @@ export async function statusResult(
     data.tracked_ignored_artifacts = trackedIgnoredArtifacts.paths;
   }
 
-  // Compiled guidance files sitting untracked (and not ignored) — the state an
+  // Compiled instruction files sitting untracked (and not ignored) — the state an
   // upgraded install lands in once the managed ignore block narrows. Status is
   // the surface for this (not doctor): nothing is misconfigured, it is the
   // every-session orientation nudge until the one-time commit clears it.
-  const untrackedGuidance = await untrackedGuidanceFiles(root);
+  const untrackedInstructions = await untrackedInstructionFiles(root);
 
   // One-time setup state (ADR 0036). Until `[meta].bootstrapped` is recorded the
   // project is mid-setup and the agent must finish it — surfaced loudly (a banner,
@@ -614,13 +615,13 @@ export async function statusResult(
     fleetCollisions: fleetCollisionPairs,
     adrCollisions,
     liveCount,
-    guidanceDrift,
+    instructionDrift,
     skillsDrift,
     providerHookDrift,
     adrIndex,
     trackedRefreshPlan,
     trackedIgnoredArtifacts,
-    untrackedGuidance,
+    untrackedInstructions,
     setupPending,
     nowMs,
     gateProof,
@@ -898,7 +899,7 @@ interface HintContext {
   adrCollisions: AdrNumberCollision[] | undefined;
   liveCount: number;
   /** Agent files that don't match what `discern refresh` would write. */
-  guidanceDrift: GuidanceDriftEntry[];
+  instructionDrift: InstructionDriftEntry[];
   /** Materialized skills that don't match the effective set a refresh would place. */
   skillsDrift: SkillsDriftEntry[];
   /** Provider hook files that don't match the configured integration seed. */
@@ -909,8 +910,8 @@ interface HintContext {
   trackedRefreshPlan: TrackedRefreshPlan;
   /** Discern-owned ignored artifacts currently tracked by Git. */
   trackedIgnoredArtifacts: TrackedDiscernIgnoredArtifacts;
-  /** Compiled guidance files untracked and not ignored — commit recommended. */
-  untrackedGuidance: string[];
+  /** Compiled instruction files untracked and not ignored — commit recommended. */
+  untrackedInstructions: string[];
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
@@ -959,20 +960,22 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   }
 
   // Tracked-by-default posture: recommend the one-time commit that puts the
-  // compiled guidance in reach of agents reading a bare clone. Only fires while
+  // compiled instructions in reach of agents reading a bare clone. Only fires while
   // the files are untracked AND not ignored, so a project that deliberately
   // ignores them in its own rules is never nagged. Skipped mid-setup — the
   // setup flow's own scaffolding commit captures them.
-  if (ctx.untrackedGuidance.length > 0 && ctx.setupPending === undefined) {
-    hints.push(untrackedGuidanceFilesHint(ctx.untrackedGuidance));
+  if (ctx.untrackedInstructions.length > 0 && ctx.setupPending === undefined) {
+    hints.push(untrackedInstructionFilesHint(ctx.untrackedInstructions));
   }
 
   // Agent files drifted from their source — actionable anywhere, so lead
   // with it. "missing" (not built yet) reads differently from "stale" (a drift that
   // a refresh would overwrite), so the redirect to the source only shows for stale.
-  if (ctx.guidanceDrift.length > 0) {
-    const paths = ctx.guidanceDrift.map((d) => d.path).join(", ");
-    const allMissing = ctx.guidanceDrift.every((d) => d.reason === "missing");
+  if (ctx.instructionDrift.length > 0) {
+    const paths = ctx.instructionDrift.map((d) => d.path).join(", ");
+    const allMissing = ctx.instructionDrift.every((d) =>
+      d.reason === "missing"
+    );
     hints.push(
       allMissing
         ? fire(HINTS["generated-agent-files-missing"], { paths })
@@ -981,7 +984,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   }
 
   // Materialized skills drifted from the effective set — the same advisory shape as
-  // guidance. `missing`/`foreign` (a not-yet-built dir, an unmanaged drop-in) read
+  // instructions. `missing`/`foreign` (a not-yet-built dir, an unmanaged drop-in) read
   // differently from `stale` (a drift a refresh overwrites), so only stale gets the
   // edit-the-source redirect; foreign is surfaced but never presented as fixable.
   const realSkillsDrift = ctx.skillsDrift.filter((d) => d.reason !== "foreign");
@@ -1016,11 +1019,11 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     hints.push(fire(HINTS["adr-index-stale"], { path: ctx.adrIndex.path }));
   }
 
-  // The focused hints above already explain guidance, hooks, and the ADR index.
+  // The focused hints above already explain instructions, hooks, and the ADR index.
   // Speak once more only for paths they do not cover (or for mode-only drift,
   // which their byte-oriented checks cannot see).
   const focused = new Set([
-    ...ctx.guidanceDrift.map((entry) => entry.path),
+    ...ctx.instructionDrift.map((entry) => entry.path),
     ...ctx.providerHookDrift.map((entry) => entry.path),
     ...(ctx.adrIndex.kind === "stale" ? [ctx.adrIndex.path] : []),
   ]);

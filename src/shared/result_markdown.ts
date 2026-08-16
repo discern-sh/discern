@@ -568,12 +568,11 @@ const presentSetup: ResultMarkdownPresenter = (result) => {
   const action = result.error === "awaiting_consent"
     ? undefined
     : text(data.next_action) ?? text(data.command);
-  const guidance = unique([
-    text(data.agent_guidance),
-    text(data.guidance),
+  const instructions = unique([
+    text(data.agent_instructions),
     text(data.instructions),
     text(data.human_framing),
-  ]).map((value) => `### Setup guidance\n\n${value}`);
+  ]).map((value) => `### Setup instructions\n\n${value}`);
   return {
     state: defaultState(result),
     evidence: unique([
@@ -592,7 +591,7 @@ const presentSetup: ResultMarkdownPresenter = (result) => {
       listFact("Written files", strings(data.written)),
       listFact("Agent files", strings(data.compiled)),
     ]),
-    supportingMarkdown: guidance,
+    supportingMarkdown: instructions,
     action: action === undefined ? [] : [action],
   };
 };
@@ -628,9 +627,9 @@ const presentSetupVerify: ResultMarkdownPresenter = (result) => {
         } to account for.`,
       ...conflicts.slice(0, MAX_LIST_ITEMS).map((entry) => text(entry.detail)),
     ]),
-    supportingMarkdown: text(data.guidance) === undefined
+    supportingMarkdown: text(data.instructions) === undefined
       ? []
-      : [`### Consent guidance\n\n${text(data.guidance)}`],
+      : [`### Consent instructions\n\n${text(data.instructions)}`],
     action: next === undefined ? [] : [next],
   };
 };
@@ -656,9 +655,9 @@ const presentSetupStep: ResultMarkdownPresenter = (result) => {
         ? undefined
         : `Completion check: ${text(spine.completion_check)}`,
     ]),
-    supportingMarkdown: text(data.guidance) === undefined
+    supportingMarkdown: text(data.instructions) === undefined
       ? []
-      : [`### Step guidance\n\n${text(data.guidance)}`],
+      : [`### Step instructions\n\n${text(data.instructions)}`],
     boundary: strings(spine.what_not_to_do),
     action: text(spine.next_action) === undefined
       ? []
@@ -699,9 +698,9 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
         ? omitted(unmet.length - MAX_LIST_ITEMS, "setup check")
         : undefined,
     ]),
-    supportingMarkdown: text(data.guidance) === undefined
+    supportingMarkdown: text(data.instructions) === undefined
       ? []
-      : [`### Completion guidance\n\n${text(data.guidance)}`],
+      : [`### Completion instructions\n\n${text(data.instructions)}`],
     action: action === undefined ? [] : [action],
   };
 };

@@ -67,7 +67,7 @@ export const REASONS_TO_BELIEVE = [
     id: "commissioning",
     name: "Commissioning",
     detail:
-      "the setup agent studies the repository, learns intent, wires the project's real checks, authors project guidance and principles, and proves the practice in an isolated worktree.",
+      "the setup agent studies the repository, learns intent, wires the project's real checks, authors project instructions and principles, and proves the practice in an isolated worktree.",
   },
   {
     id: "project-continuity",
@@ -148,7 +148,7 @@ export const DIFFERENTIATION = [
     id: "against-vendor-fleets",
     title: "Against vendor-native agent fleets",
     body:
-      "Vendor fleets can launch and coordinate sessions. discern gives the project a provider-independent practice: persistent guidance, work boundaries, quality conditions, evidence, authority, and memory.",
+      "Vendor fleets can launch and coordinate sessions. discern gives the project a provider-independent practice: persistent instructions, work boundaries, quality conditions, evidence, authority, and memory.",
   },
   {
     id: "against-loose-tools",

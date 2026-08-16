@@ -48,7 +48,7 @@ const AGENT_PATH_EXCEPTIONS: readonly AgentPathException[] = [];
 function providerPathFragments(): string[] {
   const paths: string[] = [];
   for (const provider of Object.values(PROVIDERS)) {
-    paths.push(provider.guidanceFile.path);
+    paths.push(provider.instructionFile.path);
     if (provider.skillsDir !== undefined) {
       paths.push(provider.skillsDir.path);
     }

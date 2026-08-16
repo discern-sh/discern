@@ -20,7 +20,7 @@ The trunk is the shared branch accepted work lands on: `[repository].trunk` in `
 
 ## Why work stays off it
 
-An edit on the trunk can enter every effort's next update because each worktree merges the trunk. It also bypasses the Gate, Proof, and review. The protections arrive in layers: the compiled guidance says worktree-first, the session hook leads a main-checkout session with the same line, `discern status` warns when the main checkout is dirty, and the Logbook's trunk-edits detector records changes that still occur there. Read-only investigation can stay in the main checkout. Run `discern start` when you intend to change something.
+An edit on the trunk can enter every effort's next update because each worktree merges the trunk. It also bypasses the Gate, Proof, and review. The protections arrive in layers: the compiled instructions says worktree-first, the session hook leads a main-checkout session with the same line, `discern status` warns when the main checkout is dirty, and the Logbook's trunk-edits detector records changes that still occur there. Read-only investigation can stay in the main checkout. Run `discern start` when you intend to change something.
 
 ## When it advances under you
 

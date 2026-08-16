@@ -281,11 +281,11 @@ The quota message is timely and practical. It should not become the enduring mas
 
 ### New consequential builder
 
-> Tell your coding agent to commission discern. It studies your project, establishes the checks and guidance future agents will follow, explains the important choices, and proves the setup in a fresh worktree before it finishes. Your software gains a working practice that can grow with it.
+> Tell your coding agent to commission discern. It studies your project, establishes the checks and instructions future agents will follow, explains the important choices, and proves the setup in a fresh worktree before it finishes. Your software gains a working practice that can grow with it.
 
 ### Agent
 
-> discern gives you structured tools, persistent project guidance, isolated work, explicit authority, and bounded results across supported providers. The project keeps its practice; you can spend context on the work.
+> discern gives you structured tools, persistent project instructions, isolated work, explicit authority, and bounded results across supported providers. The project keeps its practice; you can spend context on the work.
 
 ### Press or partner
 
@@ -386,7 +386,7 @@ Do not open with the complete mechanism list. Reveal proof in the order required
 1. **Show the desired future:** greater ambition, earned confidence, meaningful attention.
 2. **Show a recognizable moment:** backlog planning, commissioning, parallel work, ready-for-decision return.
 3. **Explain the category:** an engineering practice installed into the project.
-4. **Name the connected mechanisms:** guidance, isolated work, deterministic checks, Standards, Proof, acceptance.
+4. **Name the connected mechanisms:** instructions, isolated work, deterministic checks, Standards, Proof, acceptance.
 5. **Show an artifact:** brief, wave plan, Standard trajectory, Proof, Map, Pattern finding.
 6. **State the boundary:** what the evidence covers and what it does not.
 7. **Offer technical depth:** documentation, source-level explanation, schemas, trust page.

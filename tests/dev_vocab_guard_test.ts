@@ -219,7 +219,7 @@ async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
   }
   for (
     const path of [
-      ...REPO_AUTHORED_PATHS.guidance,
+      ...REPO_AUTHORED_PATHS.instructions,
       REPO_AUTHORED_PATHS.todo,
     ]
   ) {
@@ -233,6 +233,67 @@ async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
     ],
   );
 }
+
+/** Structural forms of the retired agent-instructions vocabulary. The glossary
+ * guard owns ordinary prose; this catches the forms prose scanning deliberately
+ * cannot see: identifiers, config positions, feature ids, and file paths. */
+const RETIRED_INSTRUCTION_STRUCTURE =
+  /\bguid(?:ance|elines?)(?=[A-Z_]|\.sources\b|\.md\b|\/|-(?:check|compile|conditionals|corpus|parity|render|source|template)\b)/iu;
+
+/** Dated and declaration surfaces where the retired spelling is evidence, not a
+ * live contract. */
+function isInstructionVocabularyRecord(rel: string): boolean {
+  return isRepoMapPath(rel, "_adr") ||
+    isRepoMapPath(rel, "_private") ||
+    new Set([
+      "scripts/glossary_registry.ts",
+      "src/shared/vocabulary.ts",
+      "tests/dev_vocab_guard_test.ts",
+    ]).has(rel);
+}
+
+Deno.test("the retired Guidance/Guidelines structure stays out of live surfaces", async () => {
+  const offenders: string[] = [];
+  for (const [rel, source] of await commandSurfaceFiles()) {
+    if (isInstructionVocabularyRecord(rel)) continue;
+    if (RETIRED_INSTRUCTION_STRUCTURE.test(rel)) {
+      offenders.push(`${rel}: retired vocabulary in path`);
+    }
+    if (
+      (rel.startsWith("src/") || rel.startsWith("scripts/")) &&
+      RETIRED_INSTRUCTION_STRUCTURE.test(source)
+    ) {
+      const hit = source.match(RETIRED_INSTRUCTION_STRUCTURE)?.[0] ?? "unknown";
+      offenders.push(`${rel}: retired structural token ${JSON.stringify(hit)}`);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    "the agent-instructions rename regressed — use instructions/instruction " +
+      `throughout live paths and symbols:\n  ${offenders.join("\n  ")}`,
+  );
+});
+
+Deno.test("the retired agent-instructions detector bites on every structural form", () => {
+  for (
+    const value of [
+      "guidanceFile",
+      "guidance_sources",
+      "guidance.sources",
+      "guidance.md",
+      "templates/guidance/",
+      "guidance-compile",
+      "guidelines.ts",
+    ]
+  ) {
+    assertEquals(
+      RETIRED_INSTRUCTION_STRUCTURE.test(value),
+      true,
+      `detector missed ${JSON.stringify(value)}`,
+    );
+  }
+});
 
 Deno.test("retired prelaunch command vocabulary does not reappear", async () => {
   const offenders: string[] = [];

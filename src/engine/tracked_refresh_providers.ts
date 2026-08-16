@@ -19,7 +19,7 @@ import {
 } from "../lib/refresh_file_ops.ts";
 import type { DiscernConfig } from "../shared/config_schema.ts";
 import type { EnvReader } from "../shared/env.ts";
-import { guidanceAgents } from "./guidance_render.ts";
+import { instructionAgents } from "./instruction_render.ts";
 
 /** Ordered provider-integration refresh result shared by plan and apply. */
 export interface TrackedProviderRefreshResult {
@@ -45,7 +45,7 @@ export async function reconcileTrackedProviderArtifacts(
   files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
   firstInstallBaselineFiles?: RefreshFileOps,
 ): Promise<TrackedProviderRefreshResult> {
-  const agents = guidanceAgents(config);
+  const agents = instructionAgents(config);
   const errors: string[] = [];
   let mcpWired: string[] = [];
   let mcpFirstInstall = false;

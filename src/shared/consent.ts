@@ -1,7 +1,7 @@
 /**
  * The consent-gated verbs and the attestation they share.
  *
- * Two acts in discern are destructive enough that structure — not a guidance
+ * Two acts in discern are destructive enough that structure — not an instruction
  * sentence — must guard them: scaffolding a fresh install (`setup begin`, ADR
  * 0086) and landing a branch on the trunk (`accept`, ADR 0134). Fresh setup
  * requires an explicit `--confirmed` attestation. Landing accepts either that

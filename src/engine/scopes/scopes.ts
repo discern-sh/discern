@@ -154,7 +154,7 @@ function resolvedScopePaths(
 /**
  * Whether `path` is a NEUTRAL path — one a change to needs no gate, and that must
  * not register as evidence: it matches a `neutral`-flagged scope (docs, agent
- * guidance, generated/materialized artifacts), or it is a root-level `*.md`. The
+ * instructions, generated/materialized artifacts), or it is a root-level `*.md`. The
  * single definition of "neutral path", shared by {@link scopes} (which drops
  * these before classifying) and the co-change miner (which drops them before
  * building baskets, so `AGENTS.md`, `dist/`, lockfiles, and materialized skills

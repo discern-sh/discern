@@ -16,7 +16,7 @@ import { KNOWN_JOBS } from "./capabilities.ts";
 import { type DiscernConfig, loadConfig } from "./config_schema.ts";
 import { fire, type FiredHint, HINTS } from "./hints.ts";
 import { normalizeMapDir } from "./map_path.ts";
-import { guidanceSeedRel, SOURCE_PATHS } from "./paths_registry.ts";
+import { instructionSeedRel, SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
 
 /** The branch a fresh `discern setup` isolates its work on, so its several
@@ -29,7 +29,7 @@ export const SETUP_BRANCH = "discern-setup";
  * this is the signal that setup is half-finished, not fresh — the first-contact
  * surfaces route to the resume path (check the branch out) instead of the fresh
  * funnel, whose re-scaffold would fold discern's own compiled output back into
- * the guidance source.
+ * the instruction source.
  */
 export async function setupBranchExists(dir: string): Promise<boolean> {
   return (await runGit(
@@ -173,10 +173,10 @@ async function pathExists(path: string): Promise<boolean> {
 
 /**
  * Walk the scaffolded surface for files that still carry a skeleton marker —
- * every `.md` under the configured map tree, plus the guidance seed. Returns
+ * every `.md` under the configured map tree, plus the instructions seed. Returns
  * repo-relative paths, sorted. Cheap (a handful of small files) but still worth
  * gating on `!bootstrapped` at the call site so a finished project pays nothing.
- * The guidance-seed check is narrowed to the `setup fills this` sentinel (its
+ * The instruction-seed check is narrowed to the `setup fills this` sentinel (its
  * stub never carries an EXAMPLE principle), matching what `setup done` has
  * always asserted.
  */
@@ -187,7 +187,7 @@ export async function findSkeletonMarkers(
   const leftover: string[] = [];
 
   let docsRel = SOURCE_PATHS.map.defaultPath;
-  let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
+  let instructionRel = SOURCE_PATHS.instructions.defaultPath;
   let resolved = config;
   if (resolved === undefined) {
     try {
@@ -198,7 +198,7 @@ export async function findSkeletonMarkers(
   }
   if (resolved !== undefined) {
     docsRel = normalizeMapDir(resolved.map.dir);
-    guidanceRel = guidanceSeedRel(resolved.guidance.sources);
+    instructionRel = instructionSeedRel(resolved.instructions.sources);
   }
   const docsDir = join(root, docsRel);
   if (await pathExists(docsDir)) {
@@ -216,11 +216,13 @@ export async function findSkeletonMarkers(
     }
   }
 
-  const guidance = join(root, guidanceRel);
-  if (await pathExists(guidance)) {
+  const instructions = join(root, instructionRel);
+  if (await pathExists(instructions)) {
     try {
-      if ((await Deno.readTextFile(guidance)).includes("setup fills this")) {
-        leftover.push(guidanceRel);
+      if (
+        (await Deno.readTextFile(instructions)).includes("setup fills this")
+      ) {
+        leftover.push(instructionRel);
       }
     } catch {
       // unreadable — skip.
@@ -239,7 +241,7 @@ export interface KnownJobProgress {
 
 /**
  * Setup progress, DERIVED from the tree rather than self-reported (ADR 0075): which
- * scaffolded files still carry a skeleton marker (the doc/guidance authoring left to
+ * scaffolded files still carry a skeleton marker (the doc/instructions authoring left to
  * do — the same predicate `setup done` gates on), and which known jobs have a
  * command wired versus left unset. Unfakeable — a file either still carries its marker
  * or it doesn't — and free of any "mark step N done" round-trip. Rendered by the

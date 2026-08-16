@@ -40,7 +40,7 @@ import {
 import { observeResult } from "../../shared/result_capture.ts";
 import {
   resolveBriefPath,
-  resolveGuidanceSources,
+  resolveInstructionSources,
   resolveMapDir,
   resolveSkillsDir,
   resolveTodoPath,
@@ -205,7 +205,7 @@ async function markdownTargets(root: string): Promise<string[]> {
     include(todo);
   }
 
-  for (const source of await resolveGuidanceSources(root, config)) {
+  for (const source of await resolveInstructionSources(root, config)) {
     include(source);
   }
   return [...targets].sort();

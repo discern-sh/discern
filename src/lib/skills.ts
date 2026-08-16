@@ -10,7 +10,7 @@
  * providers', never the user's footprint):
  *   - a bundled skill is **rendered** in (its source lives in the binary, out of
  *     the project tree, so a symlink would dangle): markdown passes through the
- *     strict guidance template engine against the resolved-config context, so a
+ *     strict instructions template engine against the resolved-config context, so a
  *     bundled skill speaks the project's configured paths, never discern's
  *     defaults (ADR 0102); every other file is copied byte-for-byte;
  *   - an authored skill is **symlinked** to `[skills].dir` (so edits are live,
@@ -42,11 +42,11 @@ import {
   UNTERMINATED_FRONTMATTER_ISSUE,
 } from "./frontmatter.ts";
 import { providerFor, skillsDirsForAgents } from "./providers.ts";
-import { guidanceContext } from "../engine/guidance_render.ts";
+import { instructionContext } from "../engine/instruction_render.ts";
 import {
-  type GuidanceContext,
-  renderGuidanceTemplate,
-} from "../engine/guidance_template.ts";
+  type InstructionContext,
+  renderInstructionTemplate,
+} from "../engine/instruction_template.ts";
 
 /** Where a skill in the effective set comes from. */
 export type SkillSource = "authored" | "bundled";
@@ -294,9 +294,9 @@ function rendersViaEngine(path: string): boolean {
 
 /**
  * The bytes a bundled-skill file materializes with: markdown renders through the
- * strict guidance template engine against `ctx` (so `{{map_dir}}`-style tokens
+ * strict instructions template engine against `ctx` (so `{{map_dir}}`-style tokens
  * become the project's configured paths — a stray or misspelled token throws,
- * exactly like a built-in guidance section); any other file passes through
+ * exactly like a built-in instruction section); any other file passes through
  * byte-for-byte. The ONE transform both the write path
  * ({@link materializeSkillsDir}, {@link ejectSkill}) and the currency check
  * ({@link checkSkillsCurrent}) apply, so the check can never disagree with what
@@ -304,13 +304,13 @@ function rendersViaEngine(path: string): boolean {
  */
 async function renderedBundledFile(
   srcPath: string,
-  ctx: GuidanceContext,
+  ctx: InstructionContext,
 ): Promise<Uint8Array> {
   if (!rendersViaEngine(srcPath)) {
     return await Deno.readFile(srcPath);
   }
   const text = await Deno.readTextFile(srcPath);
-  return new TextEncoder().encode(renderGuidanceTemplate(text, ctx));
+  return new TextEncoder().encode(renderInstructionTemplate(text, ctx));
 }
 
 /**
@@ -322,7 +322,7 @@ async function renderedBundledFile(
 async function copyRenderedSkillTree(
   srcAbs: string,
   destAbs: string,
-  ctx: GuidanceContext,
+  ctx: InstructionContext,
 ): Promise<void> {
   await ensureDir(destAbs);
   for await (const entry of walk(srcAbs, { includeDirs: true })) {
@@ -483,9 +483,9 @@ export async function materializeSkills(
       } — check for a typo (\`discern skills list\` shows the known set).`,
     );
   }
-  // The same resolved-config context the guidance compiler renders against —
+  // The same resolved-config context the instruction compiler renders against —
   // one context for both rendered surfaces (ADR 0102).
-  const ctx = guidanceContext(config);
+  const ctx = instructionContext(config);
   const total: MaterializeResult = {
     copied: 0,
     linked: 0,
@@ -536,7 +536,7 @@ async function materializeSkillsDir(
   skillsRel: string,
   skillsAbs: string,
   effective: SkillEntry[],
-  ctx: GuidanceContext,
+  ctx: InstructionContext,
   log?: Logger,
 ): Promise<Omit<MaterializeResult, "errors">> {
   const managed = new Map(effective.map((e) => [e.name, e]));
@@ -668,7 +668,7 @@ export async function ejectSkill(
     );
   }
   await ensureDir(skillsAbs);
-  await copyRenderedSkillTree(src, destAbs, guidanceContext(config));
+  await copyRenderedSkillTree(src, destAbs, instructionContext(config));
   // The embedded-templates filesystem reports files read-only; make the ejected
   // copy writable so it can actually be edited.
   await chmodWritable(destAbs);
@@ -707,13 +707,13 @@ export function claudeSkillsDirOf(root: string): string {
 }
 
 // ── currency check (ADR 0034, extended to skills) ───────────────────────────
-// The stateless skills analog of `checkGuidanceCurrent`: re-resolve the effective
+// The stateless skills analog of `checkInstructionCurrent`: re-resolve the effective
 // set and compare it to what is materialized on disk, with NO stored hash. (The
 // MATERIALIZED_MANIFEST is reconciliation state the WRITE path uses for pruning;
 // this is read-only OBSERVATION, the dual the gate and `status` consume.) Because it
 // and `materializeSkills` both go through `resolveEffectiveSkills`, the check can
 // never disagree with what a refresh would place — the same single-source guarantee
-// guidance has.
+// instructions have.
 
 /** One materialized skills entry that does not match what `discern refresh` would
  * place. */
@@ -722,7 +722,7 @@ export interface SkillsDriftEntry {
   dir: string;
   /**
    * `missing` — the whole dir is absent (the expected state of a gitignored artifact
-   * on a fresh checkout; non-blocking, exactly like a missing guidance file).
+   * on a fresh checkout; non-blocking, exactly like a missing instruction file).
    * `stale` — the dir exists but an effective skill is absent / differs from its
    * source, or a managed entry lingers that is no longer effective (real drift: a
    * hand-edit or an un-refreshed change; this is what blocks `done`).
@@ -747,7 +747,7 @@ export interface SkillsDriftEntry {
 async function treesEqual(
   a: string,
   b: string,
-  ctx: GuidanceContext,
+  ctx: InstructionContext,
 ): Promise<boolean> {
   type Kind = "file" | "dir" | "symlink";
   const list = async (rootDir: string): Promise<Map<string, Kind>> => {
@@ -806,7 +806,7 @@ async function skillMismatch(
   path: string,
   entry: Deno.DirEntry,
   skill: SkillEntry,
-  ctx: GuidanceContext,
+  ctx: InstructionContext,
 ): Promise<string | undefined> {
   if (skill.source === "authored") {
     if (!entry.isSymlink) {
@@ -842,7 +842,7 @@ async function checkSkillsDir(
   rel: string,
   abs: string,
   effective: SkillEntry[],
-  ctx: GuidanceContext,
+  ctx: InstructionContext,
 ): Promise<SkillsDriftEntry[]> {
   const drift: SkillsDriftEntry[] = [];
   const managed = new Map(effective.map((e) => [e.name, e]));
@@ -926,7 +926,7 @@ export async function checkSkillsCurrent(
     return [];
   }
   const effective = await resolveEffectiveSkills(root, config);
-  const ctx = guidanceContext(config);
+  const ctx = instructionContext(config);
   const drift: SkillsDriftEntry[] = [];
   for (const rel of dirs) {
     drift.push(...await checkSkillsDir(rel, join(root, rel), effective, ctx));
@@ -962,7 +962,7 @@ export async function checkSkillsWellformed(
   config: DiscernConfig,
 ): Promise<SkillWellformedness[]> {
   const effective = await resolveEffectiveSkills(root, config);
-  const ctx = guidanceContext(config);
+  const ctx = instructionContext(config);
   const malformed: SkillWellformedness[] = [];
   for (const skill of effective) {
     const src = join(skill.srcAbs, "SKILL.md");

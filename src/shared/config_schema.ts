@@ -210,7 +210,7 @@ const scopeValue = z.strictObject({
     "The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path.",
   ),
   neutral: z.boolean().default(false).describe(
-    "true: changes here need no gate (docs, agent guidance).",
+    "true: changes here need no gate (docs, agent instructions).",
   ),
   previewable: z.boolean().default(false).describe(
     "true: a person could see changes here — worth a preview link.",
@@ -310,12 +310,12 @@ const projectDirectoryPath = z.string().regex(
   },
 );
 
-const guidanceSourceInputPattern = new RegExp(
+const instructionSourceInputPattern = new RegExp(
   `(?:${PROJECT_RELATIVE_FILE_INPUT_RE.source})|` +
     `(?:${GLOB_METACHARACTER_RE.source})`,
 );
-const guidanceSourcePath = z.string().regex(
-  guidanceSourceInputPattern,
+const instructionSourcePath = z.string().regex(
+  instructionSourceInputPattern,
   "must be a project-relative file path or glob",
 ).overwrite((value) =>
   isConcretePath(value) ? normalizeProjectRelativeFilePath(value) : value
@@ -352,7 +352,7 @@ const metaSection = z.strictObject({
 
 const projectSection = z.strictObject({
   name: z.string().default("").describe(
-    "Display name (free text), used where compiled guidance addresses the project. Empty falls back to the slug.",
+    "Display name (free text), used when compiled instructions address the project. Empty falls back to the slug.",
   ),
   slug: z.string().default("").describe(
     "Short, lowercase, dash-separated identity. Used for worktree/site/branch names.",
@@ -390,15 +390,15 @@ const repositorySection = z.strictObject({
   "Repository-wide checkout policy: the trunk, discern-created branch names, and convergence shared by linked worktrees and the main checkout.",
 );
 
-const guidanceSection = z.strictObject({
-  sources: z.array(guidanceSourcePath).default([
-    SOURCE_PATHS.guidance.defaultPath,
+const instructionSection = z.strictObject({
+  sources: z.array(instructionSourcePath).default([
+    SOURCE_PATHS.instructions.defaultPath,
   ])
     .describe(
-      "Your guidance source files and globs. Concrete paths are relative to the project root, and discern removes leading `./` prefixes from them. Globs keep their authored spelling and may be relative or absolute. Source discovery excludes the agent files, so a glob may match them. Sources are read only when present; discern's built-in guidance is prepended.",
+      "Your instruction source files and globs. Concrete paths are relative to the project root, and discern removes leading `./` prefixes from them. Globs keep their authored spelling and may be relative or absolute. Source discovery excludes the agent files, so a glob may match them. Sources are read only when present; discern's built-in instructions are prepended.",
     ),
 }).prefault({}).describe(
-  "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one agent file per provider.",
+  "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in instructions plus your sources into one agent file per provider.",
 );
 
 const skillsSection = z.strictObject({
@@ -595,7 +595,7 @@ export const configSchema = z.strictObject({
   meta: metaSection,
   project: projectSection,
   repository: repositorySection,
-  guidance: guidanceSection,
+  instructions: instructionSection,
   skills: skillsSection,
   map: mapSection,
   jobs: jobsSection,
@@ -619,7 +619,7 @@ export type DiscernConfig = Omit<InferredDiscernConfig, "jobs"> & {
 };
 
 /**
- * The provider names to emit guidance / materialize skills for: the configured
+ * The provider names to emit instructions / materialize skills for: the configured
  * `[project].agents`, else {@link DEFAULT_AGENTS}. The single resolver shared
  * by the compiler, the worktree dispatcher, AND the skills currency check — so
  * "which agents are configured" is answered identically everywhere, never

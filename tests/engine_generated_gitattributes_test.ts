@@ -214,8 +214,8 @@ Deno.test("done refuses a tracked refresh artifact made stale by config", async 
 Deno.test("done refuses mode-only drift in a tracked refresh artifact", async () => {
   await withTempDir(async (dir) => {
     await scaffoldGeneratedProject(dir);
-    const guidancePath = join(dir, "CLAUDE.md");
-    await Deno.chmod(guidancePath, 0o755);
+    const instructionPath = join(dir, "CLAUDE.md");
+    await Deno.chmod(instructionPath, 0o755);
 
     const done = await runAgent(dir, ["done", "--json"]);
 
@@ -229,7 +229,7 @@ Deno.test("done refuses mode-only drift in a tracked refresh artifact", async ()
       true,
       done.output,
     );
-    const mode = (await Deno.stat(guidancePath)).mode;
+    const mode = (await Deno.stat(instructionPath)).mode;
     assert(mode !== null && (mode & 0o111) !== 0);
   });
 });

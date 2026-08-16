@@ -1,7 +1,7 @@
 /**
  * Engine tests for `done --json` surfaces past the core envelope: the dry-run
  * preview, human-mode parity, hint carriage, the artifact-currency checks
- * (guidance, skills, ADR numbers, tracked artifacts), and the proof.
+ * (instructions, skills, ADR numbers, tracked artifacts), and the proof.
  * Split from `engine_done_json_test.ts` so `deno test --parallel` (which
  * distributes per FILE) can spread these serial `done` runs across workers.
  */
@@ -184,7 +184,7 @@ Deno.test("done --json: human mode is unaffected (stdout still human, not JSON)"
   });
 });
 
-Deno.test("done --json: a STALE agent file fails the guidance check; refresh fixes it", async () => {
+Deno.test("done --json: a STALE agent file fails the instruction check; refresh fixes it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -203,12 +203,15 @@ Deno.test("done --json: a STALE agent file fails the guidance check; refresh fix
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
-    assertEquals(obj.data.failed_stage, "guidance");
-    const diag = diagFor(obj, "guidance");
-    assert(diag !== undefined, `expected a guidance diagnostic: ${r.stdout}`);
+    assertEquals(obj.data.failed_stage, "instructions");
+    const diag = diagFor(obj, "instructions");
+    assert(
+      diag !== undefined,
+      `expected an instruction diagnostic: ${r.stdout}`,
+    );
     assertEquals(diag.reproduce_cmd, "discern refresh");
     assertStringIncludes(diag.output, "CLAUDE.md");
-    assertStringIncludes(diag.output, "[guidance].sources"); // the redirect
+    assertStringIncludes(diag.output, "[instructions].sources"); // the redirect
     assertTerminalTextIncludes(diag.output, "stray hand edit"); // the diff shows the loss
 
     // Regenerating satisfies the check — the gate passes again.
@@ -367,7 +370,7 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
       }`,
     );
 
-    // Stale an agent file → the guidance currency precondition fails FIRST.
+    // Stale an agent file → the instruction currency precondition fails FIRST.
     const claudePath = join(dir, "CLAUDE.md");
     await Deno.writeTextFile(
       claudePath,
@@ -376,7 +379,7 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout);
-    assertEquals(obj.data.failed_stage, "guidance");
+    assertEquals(obj.data.failed_stage, "instructions");
     // Fail-fast (ADR 0056): the expensive stage never ran — every planned step is
     // skipped, exactly as for the merge precondition (ADR 0050). Were the currency
     // check still last, the capability would have run first (its step would be `ok`).
@@ -406,7 +409,7 @@ Deno.test("done --json: a MISSING agent file does NOT block (absent copy tolerat
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
     assertEquals(obj.data.failed_stage, null);
-    assertEquals(diagFor(obj, "guidance"), undefined);
+    assertEquals(diagFor(obj, "instructions"), undefined);
   });
 });
 
@@ -430,7 +433,7 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
       ].join("\n"),
     );
     await runAgent(dir, ["refresh"]);
-    // The compiled guidance files are tracked by design — add them normally.
+    // The compiled instruction files are tracked by design — add them normally.
     // Machine-local state forced into the index is what the check catches.
     await git(dir, "add", "AGENTS.md", "CLAUDE.md");
     await Deno.writeTextFile(
@@ -459,7 +462,7 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
       "git rm -r --cached -- .claude/settings.local.json",
     );
     assertTerminalTextIncludes(diag.output, "discern refresh");
-    assertEquals(diagFor(obj, "guidance"), undefined);
+    assertEquals(diagFor(obj, "instructions"), undefined);
   });
 });
 

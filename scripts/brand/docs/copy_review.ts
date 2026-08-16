@@ -309,7 +309,7 @@ export const PROPOSED_MECHANICAL_CHECKS = {
     },
     {
       id: "vague-pronouns",
-      text: "warning on vague pronouns in operational guidance;",
+      text: "warning on vague pronouns in operational instructions;",
     },
     {
       id: "context-length-budgets",

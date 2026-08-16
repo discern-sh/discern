@@ -44,7 +44,7 @@ Deno.test("the bundled template is depth-indented (a fixpoint of indentToml)", a
   );
 });
 
-/** Decode the human-readable agent-to-guidance mappings embedded in the template comment. */
+/** Decode the human-readable agent-to-instructions mappings embedded in the template comment. */
 function agentTargetPairs(
   comment: string,
 ): Array<{ name: string; target: string }> {
@@ -84,24 +84,27 @@ Deno.test("extracts [project] including its {{agents_array}} token (for the call
   assertStringIncludes(block, "agents = [{{agents_array}}]");
 });
 
-Deno.test("extracts [guidance] with its seeded sources", async () => {
-  const block = sectionBlockFromTemplate(await realTemplate(), "guidance");
+Deno.test("extracts [instructions] with its seeded sources", async () => {
+  const block = sectionBlockFromTemplate(await realTemplate(), "instructions");
   assertExists(block);
-  assertStringIncludes(block, "[guidance]");
-  assertStringIncludes(block, 'sources = ["discern/guidance.md"]');
+  assertStringIncludes(block, "[instructions]");
+  assertStringIncludes(block, 'sources = ["discern/instructions.md"]');
 });
 
-Deno.test("the seed scope comments keep guidance outside the docs grant example", async () => {
+Deno.test("the seed scope comments keep instructions outside the docs grant example", async () => {
   const template = await realTemplate();
   const docs = sectionBlockFromTemplate(template, "scopes.map");
-  const guidance = sectionBlockFromTemplate(template, "scopes.guidance");
+  const instructions = sectionBlockFromTemplate(
+    template,
+    "scopes.instructions",
+  );
   const acceptance = sectionBlockFromTemplate(template, "acceptance");
   assertExists(docs);
-  assertExists(guidance);
+  assertExists(instructions);
   assertExists(acceptance);
   assertStringIncludes(docs, "paths   = [{{scopes_neutral}}]");
-  assertStringIncludes(guidance, "paths   = [{{scopes_guidance}}]");
-  assertStringIncludes(guidance, "landing them stays owner-reviewed");
+  assertStringIncludes(instructions, "paths   = [{{scopes_instructions}}]");
+  assertStringIncludes(instructions, "landing them stays owner-reviewed");
   assertStringIncludes(acceptance, 'pre_authorized = [] # e.g. ["map"]');
   assertStringIncludes(
     acceptance,
@@ -116,11 +119,11 @@ Deno.test("lists only active template section headers, in file order", async () 
     "project",
     "repository",
     "map",
-    "guidance",
+    "instructions",
     "skills",
     "jobs",
     "scopes.map",
-    "scopes.guidance",
+    "scopes.instructions",
     "generated",
     "acceptance",
     "worktree",
@@ -161,7 +164,7 @@ Deno.test("extracts a documented key block and section key order", async () => {
   assertStringIncludes(block, "fail_fast = true");
 });
 
-Deno.test("the agents template comment names every known agent and guidance target", async () => {
+Deno.test("the agents template comment names every known agent and instruction target", async () => {
   const block = sectionBlockFromTemplate(await realTemplate(), "project");
   assertExists(block);
   const comment = block.split("\n")
@@ -173,20 +176,20 @@ Deno.test("the agents template comment names every known agent and guidance targ
   assertEquals(
     new Set(listedAgents).size,
     listedAgents.length,
-    "[guidance] template comment must not list an agent twice",
+    "[instructions] template comment must not list an agent twice",
   );
   assertEquals(
     [...listedAgents].sort(),
     [...AGENT_NAMES].sort(),
-    "[guidance] template comment must list exactly the AGENT_NAMES members",
+    "[instructions] template comment must list exactly the AGENT_NAMES members",
   );
   for (const agent of AGENT_NAMES) {
     const pair = pairs.find(({ name }) => name === agent);
     assertExists(pair);
     assertEquals(
       pair.target,
-      PROVIDERS[agent].guidanceFile.path,
-      `[guidance] template comment has the wrong target for "${agent}"`,
+      PROVIDERS[agent].instructionFile.path,
+      `[instructions] template comment has the wrong target for "${agent}"`,
     );
   }
 });
@@ -293,7 +296,7 @@ Deno.test("a comment run reaching the top of the file is treated as preamble, no
 Deno.test("readConfigTemplate resolves the bundled template", async () => {
   const text = await readConfigTemplate();
   assertExists(text, "the bundled template should resolve");
-  assertStringIncludes(text, "[guidance]");
+  assertStringIncludes(text, "[instructions]");
   assertStringIncludes(text, "[skills]");
 });
 

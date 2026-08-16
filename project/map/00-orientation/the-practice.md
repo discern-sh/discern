@@ -17,14 +17,14 @@ _The [practice](glossary.md#practice) discern installs, as numbered tenets: the 
 The tenets operate inside one relationship:
 
 - **The human** — You set the direction, make the calls only you can make, and hold the authority over what becomes shared.
-- **The agents** — Coding agents operate the practice: they inherit the project's guidance, carry the work, and answer to its checks.
-- **The project** — The repository carries the practice — its guidance, its working conditions, its checks, its evidence, and its decisions — across sessions, agents, and providers.
+- **The agents** — Coding agents operate the practice: they inherit the project's instructions, carry the work, and answer to its checks.
+- **The project** — The repository carries the practice — its instructions, its working conditions, its checks, its evidence, and its decisions — across sessions, agents, and providers.
 
 ### 1. Arrive knowing
 
-> Every session starts with the project's guidance, understanding, and methods already in hand.
+> Every session starts with the project's instructions, understanding, and methods already in hand.
 
-One authored guidance body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.
+One authored instruction body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.
 
 ### 2. One task, one place
 
@@ -66,7 +66,7 @@ Acceptance resolves its authority per invocation (a conversation attestation, a 
 
 > Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.
 
-A correction becomes guidance, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
+A correction becomes instructions, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
 
 ### 9. Cure the class
 
@@ -92,4 +92,4 @@ Every verb returns one structured result: the state, the diagnostics with the co
 
 Every effectful verb computes a plan a thin executor applies, so a dry run is a faithful preview. Writes land only where placement licenses them, provisioning records its intent before acting, and a crash or kill leaves a machine you would still want to work on.
 
-The tenets maintain what the project holds: its guidance, its working conditions, its checks, its evidence, and its decisions.
+The tenets maintain what the project holds: its instructions, its working conditions, its checks, its evidence, and its decisions.

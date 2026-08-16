@@ -408,7 +408,7 @@
           },
           "neutral": {
             "default": false,
-            "description": "true: changes here need no gate (docs, agent guidance).",
+            "description": "true: changes here need no gate (docs, agent instructions).",
             "type": "boolean"
           },
           "previewable": {

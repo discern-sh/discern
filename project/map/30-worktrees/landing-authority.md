@@ -25,7 +25,7 @@ A green [Proof](../20-quality-gate/the-proof.md) records that an exact clean com
 
 `--confirmed` means conversation consent only. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
 
-Fresh setup's standing-grant example names `docs`, whose seed contains the Map and deferred-work ledger. The separate `guidance` seed contains the project brief, guidance sources, authored Skills, and materialized Skill directories; it stays outside that example and reaches the owner for review. Upgrade leaves existing named scopes unchanged, so owners of earlier installs split their scope manually to adopt this boundary ([ADR 0209](../_adr/0209-fresh-seed-grants-cover-pure-documentation.md)).
+Fresh setup's standing-grant example names `docs`, whose seed contains the Map and deferred-work ledger. The separate `instructions` seed contains the project brief, instruction sources, authored Skills, and materialized Skill directories; it stays outside that example and reaches the owner for review. Upgrade leaves existing named scopes unchanged, so owners of earlier installs split their scope manually to adopt this boundary ([ADR 0209](../_adr/0209-fresh-seed-grants-cover-pure-documentation.md)).
 
 ## How discern resolves coverage
 

@@ -9,7 +9,7 @@ import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import {
-  guidanceSeedRel,
+  instructionSeedRel,
   isConcretePath,
   NAMESPACE_DIR,
   SOURCE_PATH_NAMES,
@@ -109,7 +109,7 @@ Deno.test("the shipped template's path values equal the registry defaults", asyn
     agents_array: '"claude_code", "codex"',
     map_dir: SOURCE_PATHS.map.defaultPath,
     scopes_neutral: '"${map.dir}"',
-    scopes_guidance: '"discern/guidance.md", "discern/skills/"',
+    scopes_instructions: '"discern/instructions.md", "discern/skills/"',
     scopes_previewable: '"public/**"',
     artifact_provenance_marker: "discern provenance marker",
     kit_version: "0.0.0",
@@ -141,16 +141,16 @@ Deno.test("the shipped template's path values equal the registry defaults", asyn
   }
 });
 
-Deno.test("guidanceSeedRel picks the first concrete source, else the registry default", () => {
-  assertEquals(guidanceSeedRel([]), SOURCE_PATHS.guidance.defaultPath);
+Deno.test("instructionSeedRel picks the first concrete source, else the registry default", () => {
+  assertEquals(instructionSeedRel([]), SOURCE_PATHS.instructions.defaultPath);
   assertEquals(
-    guidanceSeedRel(["conventions/*.md"]),
-    SOURCE_PATHS.guidance.defaultPath,
+    instructionSeedRel(["conventions/*.md"]),
+    SOURCE_PATHS.instructions.defaultPath,
   );
   assertEquals(
-    guidanceSeedRel(["conventions/*.md", "rules.md"]),
+    instructionSeedRel(["conventions/*.md", "rules.md"]),
     "rules.md",
   );
-  assert(isConcretePath("discern/guidance.md"));
-  assert(!isConcretePath("guidance/*.md"));
+  assert(isConcretePath("discern/instructions.md"));
+  assert(!isConcretePath("instructions/*.md"));
 });

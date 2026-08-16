@@ -27,7 +27,7 @@ import { TomlFormatError, writeDiscernToml } from "../src/lib/tidy_format.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { ensureDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
-import { agentFilePaths } from "../src/engine/guidance_render.ts";
+import { agentFilePaths } from "../src/engine/instruction_render.ts";
 import {
   SOURCE_PATH_NAMES,
   SOURCE_PATHS,
@@ -285,7 +285,7 @@ export function nonDefaultPaths(): RepointedPath[] {
 /**
  * Repoint every keyed registry source path in a scaffolded `discern.toml` at
  * the {@link nonDefaultPaths} layout (comment-preserving) — the
- * paths-parameterized variant of the engine scaffold. `guidance.sources` is
+ * paths-parameterized variant of the engine scaffold. `instructions.sources` is
  * the one list-typed key; a future list-typed entry fails the config parse
  * loudly, telling its author to teach this helper the shape.
  */
@@ -296,7 +296,7 @@ export async function repointSourcePaths(
   const editor = new TomlEditor(await Deno.readTextFile(path));
   const repointed = nonDefaultPaths();
   for (const { key, value } of repointed) {
-    if (key === "guidance.sources") {
+    if (key === "instructions.sources") {
       editor.setStringArray(key, [value]);
     } else {
       editor.setString(key, value);

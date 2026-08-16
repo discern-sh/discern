@@ -53,7 +53,7 @@ const FIXER = [
   "",
 ].join("\n");
 
-/** A minimal config whose ONLY gate work is the fix stage above — guidance/skills
+/** A minimal config whose ONLY gate work is the fix stage above — instructions/skills
  * currency off so the strand check is the only thing that can fail a green run. */
 const CONFIG = [
   "[project]",

@@ -262,17 +262,17 @@ Rendered line:
 
 > `discern config set <key> <value>` edits `discern.toml` without losing comments and validates the full file before writing.
 
-## `refresh-publishes-guidance`
+## `refresh-publishes-instructions`
 
 - Relevance: Evergreen — a project-upkeep lesson.
 - Predicate: —
 - Since: —
-- Teaches: `guidance`, `guidance-compile`, `skills-materialization`
+- Teaches: `instructions`, `instructions-compile`, `skills-materialization`
 - Follow-through: `verb-run-after-tip` (`refresh`)
 
 Rendered line:
 
-> `discern refresh` compiles shared guidance into every configured coding agent's instruction file and republishes reusable guides from their sources.
+> `discern refresh` compiles shared instructions into every configured coding agent's instruction file and republishes reusable guides from their sources.
 
 ## `preset-keeps-project-values`
 
@@ -543,11 +543,11 @@ The enrollment guard derives every feature node and top-level verb from its live
 | `feature:generated-artifact-declarations` | The config reference teaches this advanced generated-artifact authoring choice.                                                      |
 | `feature:glossary-canon`                  | The glossary and generated references own canonical vocabulary.                                                                      |
 | `feature:gotchas-pointer`                 | The failure that needs the troubleshooting pointer supplies it directly.                                                             |
-| `feature:guidance-conditionals`           | The Map documents this advanced Guidance-authoring feature.                                                                          |
 | `feature:hints`                           | Each hint appears with the action that makes it relevant.                                                                            |
 | `feature:idempotent-verbs`                | This Engine guarantee makes safe retries possible; each command describes its own rerun behavior.                                    |
 | `feature:ignored-drift`                   | A Worktree check teaches this advanced diagnostic when it detects ignored-file drift.                                                |
 | `feature:install`                         | The installer teaches installation before the Desk becomes available.                                                                |
+| `feature:instructions-conditionals`       | The Map documents this advanced instruction-authoring feature.                                                                       |
 | `feature:interfaces`                      | Machine interfaces serve integrations and coding agents; the Desk owns human actions.                                                |
 | `feature:interruption-safety`             | The Engine applies this cleanup guarantee when a command stops and reports any recovery action.                                      |
 | `feature:job-build`                       | Projects author this Gate job in config; the `done` tip teaches the combined final check.                                            |

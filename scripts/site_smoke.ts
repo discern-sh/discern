@@ -22,7 +22,7 @@ const BROWSER_HEADERS = {
 const TEXT_HEADERS = { accept: "text/plain", "user-agent": "curl/8.6.0" };
 const CONCURRENCY = 16;
 
-interface GuidanceItem {
+interface InstructionItem {
   route: string;
   title: string;
 }
@@ -84,11 +84,11 @@ function sameSequence(
   );
 }
 
-/** Compare guidance routes in order and then verify each route's displayed title. */
+/** Compare instructions routes in order and then verify each route's displayed title. */
 function sameItems(
   label: string,
-  actual: readonly GuidanceItem[],
-  expected: readonly GuidanceItem[],
+  actual: readonly InstructionItem[],
+  expected: readonly InstructionItem[],
   fail: (message: string) => void,
 ): void {
   sameSequence(
@@ -183,7 +183,7 @@ export async function runSiteSmoke(
   const site = await loadDocsSite();
   const expectedRoutes = liveHtmlRoutes(site);
   const expectedCanonical = expectedRoutes.map(canonicalUrl);
-  const guidance: GuidanceItem[] = [
+  const instructions: InstructionItem[] = [
     { route: site.landing.route, title: site.landing.entry.title },
     ...site.pages.map((page) => ({
       route: page.route,
@@ -462,7 +462,7 @@ export async function runSiteSmoke(
   if (docs === undefined) {
     fail("/docs: unavailable for surface parity");
   } else {
-    const nav: GuidanceItem[] = [guidance[0] as GuidanceItem];
+    const nav: InstructionItem[] = [instructions[0] as InstructionItem];
     for (const chapter of docs.querySelectorAll(".docs-nav-chapter")) {
       const sectionTitle = chapter.querySelector(".docs-nav-label")?.textContent
         ?.replace(/^\s*\d+\s*/, "").trim() ?? "";
@@ -475,7 +475,7 @@ export async function runSiteSmoke(
         });
       }
     }
-    sameItems("/docs nav", nav, guidance, fail);
+    sameItems("/docs nav", nav, instructions, fail);
   }
 
   const searchResponse = await get("/docs/index.json");
@@ -483,14 +483,14 @@ export async function runSiteSmoke(
   const search = await searchResponse.json() as {
     pages: Array<{ route: string; title: string }>;
   };
-  sameItems("search", search.pages, guidance, fail);
+  sameItems("search", search.pages, instructions, fail);
 
   const llmsResponse = await get("/llms.txt");
   secure(llmsResponse, "/llms.txt");
   const llmsText = await llmsResponse.text();
   const llms = llmsText.slice(llmsText.indexOf("## Documentation"))
     .split("\n")
-    .flatMap((line): GuidanceItem[] => {
+    .flatMap((line): InstructionItem[] => {
       const match = /^- \[(.+?)\]\(https:\/\/discern\.sh(\/docs[^)]*)\):/.exec(
         line,
       );
@@ -498,7 +498,7 @@ export async function runSiteSmoke(
         ? []
         : [{ route: match[2] ?? "", title: (match[1] ?? "").trim() }];
     });
-  sameItems("llms.txt", llms, guidance, fail);
+  sameItems("llms.txt", llms, instructions, fail);
 
   const fullResponse = await get("/llms-full.txt");
   secure(fullResponse, "/llms-full.txt");
@@ -509,19 +509,19 @@ export async function runSiteSmoke(
   sameSequence(
     "llms-full.txt",
     fullRoutes,
-    guidance.map((item) => item.route),
+    instructions.map((item) => item.route),
     fail,
   );
 
-  const sitemapGuidance = routes.filter((route) =>
+  const sitemapInstructions = routes.filter((route) =>
     route === "/docs" ||
     (route.startsWith("/docs/") && route !== site.decisions.route &&
       !route.startsWith(`${site.decisions.route}/`))
   );
   sameSequence(
-    "guidance sitemap",
-    sitemapGuidance,
-    guidance.map((item) => item.route),
+    "instructions sitemap",
+    sitemapInstructions,
+    instructions.map((item) => item.route),
     fail,
   );
 
@@ -646,7 +646,7 @@ export async function runSiteSmoke(
     `${variants.length} canonical redirect variants`,
     `${redirectTable.redirects.size} declared historical redirects`,
     `${checkedInternal.size} linked non-HTML internal endpoints`,
-    `${guidance.length} guidance pages in cross-surface parity`,
+    `${instructions.length} instructions pages in cross-surface parity`,
     `${PUBLIC_SCHEMA_PUBLICATIONS.length} versioned public schemas byte-matched`,
     "RFC 9116 security.txt byte-matched",
   );

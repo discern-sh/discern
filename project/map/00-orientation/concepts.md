@@ -1,6 +1,6 @@
 ---
 title: Concepts
-description: "The mental model of discern in one pass: the Gate, isolated worktrees, compiled guidance, and file ownership."
+description: "The mental model of discern in one pass: the Gate, isolated worktrees, compiled instructions, and file ownership."
 order: 10
 aliases:
   - concepts
@@ -29,11 +29,11 @@ discern is a self-contained binary on your `PATH`; its engine requires `git`. An
 
 **Worktrees isolate each effort.** `discern start` gives an effort one checkout and branch, retained through review feedback and resumed sessions. The workflow keeps the main checkout available while several efforts run at once. A worktree gets a deterministic dev-server port and any [resources](glossary.md#worktree-resource) your project declares, such as a database or emulator. discern creates those resources when the worktree starts and destroys them when the change lands. `discern update` brings the latest [trunk](glossary.md#trunk) into the branch; `discern accept` lands the reviewed branch and removes the worktree. [Worktrees](../30-worktrees/) covers the lifecycle.
 
-**Shared project instructions are written once and supplied to every agent.** This [guidance source](glossary.md#guidance-source) defaults to `discern/guidance.md`. `discern refresh` compiles discern's built-ins and your sources into each agent file (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`), so Claude Code, Codex, Gemini, Cursor, and Copilot read the same instructions. Focused task playbooks ([Skills](glossary.md#skill)) materialize into each agent's skills directory through the same command. [Agent guidance](../40-agent-guidance/) and [Skills](../45-skills/) cover both surfaces.
+**Shared project instructions are written once and supplied to every agent.** This [instruction source](glossary.md#instruction-source) defaults to `discern/instructions.md`. `discern refresh` compiles discern's built-ins and your sources into each agent file (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`), so Claude Code, Codex, Gemini, Cursor, and Copilot read the same instructions. Focused task playbooks ([Skills](glossary.md#skill)) materialize into each agent's skills directory through the same command. [Agent instructions](../40-agent-instructions/) and [Skills](../45-skills/) cover both surfaces.
 
 **The project's maintained guide is the Map.** Agents maintain [the Map](glossary.md#map), a documentation tree for the codebase, under the same Gate as the code. A stale page is a defect, and the tree gives you a reviewable account of what the agents understand. This manual is discern's own Map.
 
-**Ownership decides which files discern may write.** [File ownership](glossary.md#file-ownership) places each file discern writes in a [project-owned](glossary.md#project-owned-file), [shared](glossary.md#shared-file), or [generated](glossary.md#generated-file) category. The underlying rule is [placement is consent](glossary.md#placement-is-consent): a path you configured is a path you licensed. Repeated commands follow those ownership contracts. For example, `discern upgrade` migrates the config, re-materializes Skills, and recompiles guidance without replacing a value you set.
+**Ownership decides which files discern may write.** [File ownership](glossary.md#file-ownership) places each file discern writes in a [project-owned](glossary.md#project-owned-file), [shared](glossary.md#shared-file), or [generated](glossary.md#generated-file) category. The underlying rule is [placement is consent](glossary.md#placement-is-consent): a path you configured is a path you licensed. Repeated commands follow those ownership contracts. For example, `discern upgrade` migrates the config, re-materializes Skills, and recompiles instructions without replacing a value you set.
 
 ## The loop
 
@@ -48,7 +48,7 @@ From the main checkout, bare `discern` opens the human view over work in progres
 | Install, setup, and upgrades                   | [Getting started](../10-getting-started/)       |
 | `discern done`: jobs, scopes, and Standards    | [the quality gate](../20-quality-gate/)         |
 | The worktree lifecycle and its resources       | [worktrees](../30-worktrees/)                   |
-| Guidance compilation                           | [agent guidance](../40-agent-guidance/)         |
+| Instruction compilation                        | [agent instructions](../40-agent-instructions/) |
 | Bundled and project-authored Skills            | [Skills](../45-skills/)                         |
 | The files discern writes for each coding agent | [agent integrations](../60-agent-integrations/) |
 | Why the system is shaped this way              | [design principles](design-principles.md)       |

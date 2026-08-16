@@ -1,6 +1,6 @@
 ---
 title: GitHub Copilot
-description: How discern configures shared Guidance and Skills, MCP, hooks, and folder trust for GitHub Copilot.
+description: How discern configures shared instructions and Skills, MCP, hooks, and folder trust for GitHub Copilot.
 order: 50
 aliases:
   - GitHub Copilot
@@ -10,7 +10,7 @@ aliases:
 
 # GitHub Copilot integration
 
-_The GitHub Copilot integration supplies canonical Guidance, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+_The GitHub Copilot integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
 
 discern's GitHub Copilot integration is project-local and registry-driven. It writes, co-manages, or relies on the files below when GitHub Copilot is enabled in `[project].agents`:
 
@@ -34,11 +34,11 @@ agents = ["copilot"]
 
 If the project already lists other agents, include `copilot` in that same array. Use explicit configuration for an editor-only install.
 
-## Guidance and Skills
+## Instructions and Skills
 
-The Copilot CLI reads `AGENTS.md` natively as its primary instruction file, so discern models it as reuse-canonical. It does not emit a Copilot-specific Guidance file or write an import pointer. Copilot reads the same canonical `AGENTS.md` emitted by the canonical provider, normally Codex, and imported by Claude Code and Gemini.
+The Copilot CLI reads `AGENTS.md` natively as its primary instruction file, so discern models it as reuse-canonical. It does not emit a Copilot-specific Instruction file or write an import pointer. Copilot reads the same canonical `AGENTS.md` emitted by the canonical provider, normally Codex, and imported by Claude Code and Gemini.
 
-discern generates `AGENTS.md` from its built-in Guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
+discern generates `AGENTS.md` from its built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
 Copilot also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Gemini, and Cursor use the same directory.
 
@@ -96,7 +96,7 @@ Copilot can move a running session with `/cwd` and can create and enter a native
 
 Copilot's `sessionStart` hook can fire per prompt in interactive mode. `discern worktree ensure` is idempotent, so repeated hook calls preserve the resulting state.
 
-Copilot's local sandbox and pre-tool hooks are separate vendor features. discern does not configure them today. The provider integration is limited to Guidance, Skills, MCP, and the session-start setup hook.
+Copilot's local sandbox and pre-tool hooks are separate vendor features. discern does not configure them today. The provider integration is limited to instructions, Skills, MCP, and the session-start setup hook.
 
 ## See also
 

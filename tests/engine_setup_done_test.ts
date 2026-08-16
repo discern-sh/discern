@@ -29,7 +29,7 @@ import {
   AGENT_NAMES,
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
-import { allGuidanceFilePaths, providerFor } from "../src/lib/providers.ts";
+import { allInstructionFilePaths, providerFor } from "../src/lib/providers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
@@ -50,8 +50,8 @@ async function readyForDone(
   await gitInit(dir);
   await runAgent(dir, ["setup", "begin", "--confirmed"], { env }); // lay the skeletons
   // Replace the marker-carrying skeletons with real, marker-free content. The
-  // guidance.md carries a real pitch and a Conventions section so the per-step
-  // guidance check (ADR 0078) passes; design-principles is left absent (N/A).
+  // instructions.md carries a real pitch and a Conventions section so the per-step
+  // instruction check (ADR 0078) passes; design-principles is left absent (N/A).
   await Deno.remove(defaultMapPath(dir), { recursive: true });
   await Deno.mkdir(defaultMapPath(dir));
   await Deno.writeTextFile(
@@ -59,8 +59,8 @@ async function readyForDone(
     "# Real docs\n",
   );
   await Deno.writeTextFile(
-    join(dir, "discern/guidance.md"),
-    "# Project guidance\n\nA real pitch describing the project and who it serves.\n\n## Conventions\n\nReal, project-specific conventions.\n",
+    join(dir, "discern/instructions.md"),
+    "# Project instructions\n\nA real pitch describing the project and who it serves.\n\n## Conventions\n\nReal, project-specific conventions.\n",
   );
   const wired = await runAgent(dir, ["config", "set-job", "test", cmd], {
     env,
@@ -179,7 +179,7 @@ Deno.test("setup done refuses while the authored setup is uncommitted, naming wh
     );
     assert(
       uncommitted.some((l) => l.includes("discern/")),
-      `the authored docs/guidance must be listed:\n${done.stdout}`,
+      `the authored docs/instructions must be listed:\n${done.stdout}`,
     );
     assertStringIncludes(res.message, "Commit these as your authoring commits");
     // Nothing recorded — status keeps reporting setup unfinished.
@@ -253,7 +253,7 @@ Deno.test("the worktree probe proves the CONFIGURED gate against the authored se
     // A gate that can only pass when the AUTHORED content traveled into the probe:
     // before the clean-tree precondition, the probe branched from a HEAD holding
     // none of it and "proved" a vacuously green gate.
-    await readyForDone(dir, "grep -q Conventions discern/guidance.md");
+    await readyForDone(dir, "grep -q Conventions discern/instructions.md");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
 
@@ -533,7 +533,7 @@ Deno.test("setup done refuses when the gate is red, recording nothing; --force o
   });
 });
 
-Deno.test("discern setup migrates a pre-existing agent file into guidance.md, never destroying it (ADR 0065)", async () => {
+Deno.test("discern setup migrates a pre-existing agent file into instructions.md, never destroying it (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     // A project with its own hand-written CLAUDE.md, harnessed by discern for the
     // first time (a true fresh install — no discern.toml).
@@ -549,13 +549,15 @@ Deno.test("discern setup migrates a pre-existing agent file into guidance.md, ne
     assertEquals(r.code, 0, r.output);
 
     // The user's instruction survives in the tracked source...
-    const guidance = await Deno.readTextFile(join(dir, "discern/guidance.md"));
-    assertStringIncludes(guidance, rule);
-    assertStringIncludes(guidance, "Imported from CLAUDE.md");
+    const instructions = await Deno.readTextFile(
+      join(dir, "discern/instructions.md"),
+    );
+    assertStringIncludes(instructions, rule);
+    assertStringIncludes(instructions, "Imported from CLAUDE.md");
 
     // ...and is re-emitted into the agent files (the compile folds
-    // guidance.md into the canonical AGENTS.md, which CLAUDE.md then points at), so
-    // reading the agent guidance still shows it — nothing was lost.
+    // instructions.md into the canonical AGENTS.md, which CLAUDE.md then points at), so
+    // reading the agent instructions still shows it — nothing was lost.
     const compiled = (await Promise.all(
       ["AGENTS.md", "CLAUDE.md", "GEMINI.md"].map((f) =>
         Deno.readTextFile(join(dir, f)).catch(() => "")
@@ -568,18 +570,18 @@ Deno.test("discern setup migrates a pre-existing agent file into guidance.md, ne
 Deno.test("discern setup migrates EVERY provider's pre-existing instruction file — configured or not (the verify promise)", async () => {
   // `setup verify` names the pre-existing instruction files of ALL known
   // providers and promises "begin preserves them by folding their content into
-  // the guidance source — nothing is lost". The migration must therefore cover
+  // the instruction source — nothing is lost". The migration must therefore cover
   // the full provider registry, not just the configured agent set: a
   // hand-authored file for an unwired agent is otherwise never folded, becomes
   // gitignored by the scaffold, and a later `discern uninstall` deletes it.
-  // Driven off allGuidanceFilePaths() (the registry aggregator `verify` reads),
+  // Driven off allInstructionFilePaths() (the registry aggregator `verify` reads),
   // so a new provider's instruction path auto-enrols in this guard.
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
     // Written AFTER the init commit, so each file is UNTRACKED — the fresh-repo
     // shape where a dropped migration is unrecoverable (no git history holds it).
-    const paths = allGuidanceFilePaths();
+    const paths = allInstructionFilePaths();
     for (const rel of paths) {
       await Deno.writeTextFile(
         join(dir, rel),
@@ -597,15 +599,17 @@ Deno.test("discern setup migrates EVERY provider's pre-existing instruction file
     ]);
     assertEquals(r.code, 0, r.output);
 
-    const guidance = await Deno.readTextFile(join(dir, "discern/guidance.md"));
+    const instructions = await Deno.readTextFile(
+      join(dir, "discern/instructions.md"),
+    );
     for (const rel of paths) {
       assertStringIncludes(
-        guidance,
+        instructions,
         `HOUSE RULE from ${rel}`,
-        `the pre-existing ${rel} must be folded into guidance.md whether or not ` +
+        `the pre-existing ${rel} must be folded into instructions.md whether or not ` +
           `its agent is configured — verify promised the user nothing is lost.`,
       );
-      assertStringIncludes(guidance, `Imported from ${rel}`);
+      assertStringIncludes(instructions, `Imported from ${rel}`);
     }
   });
 });
@@ -699,7 +703,7 @@ Deno.test("discern setup honours an explicit --agents over installation detectio
   });
 });
 
-Deno.test("discern setup lays a marked guidance.md stub that setup done enforces (ADR 0065)", async () => {
+Deno.test("discern setup lays a marked instructions.md stub that setup done enforces (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
@@ -707,14 +711,16 @@ Deno.test("discern setup lays a marked guidance.md stub that setup done enforces
     assertEquals(r.code, 0, r.output);
 
     // The stub exists and carries the marker, so it is a real "flesh out the stub".
-    const guidance = await Deno.readTextFile(join(dir, "discern/guidance.md"));
-    assertStringIncludes(guidance, "setup fills this");
+    const instructions = await Deno.readTextFile(
+      join(dir, "discern/instructions.md"),
+    );
+    assertStringIncludes(instructions, "setup fills this");
 
-    // setup done refuses while the guidance stub is unfilled — the existing marker
-    // check now enforces guidance.md, with no second code path.
+    // setup done refuses while the instruction stub is unfilled — the existing marker
+    // check now enforces instructions.md, with no second code path.
     const blocked = await runAgent(dir, ["setup", "done"]);
     assertEquals(blocked.code, 1, blocked.output);
-    assertStringIncludes(blocked.stderr, "guidance.md");
+    assertStringIncludes(blocked.stderr, "instructions.md");
   });
 });
 
@@ -875,7 +881,7 @@ Deno.test("discern setup begin refuses to start from a feature branch when the t
   });
 });
 
-Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/guidance/TODO for the agent", async () => {
+Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/instructions/TODO for the agent", async () => {
   // The cold-setup failure this fixes: a coding agent's safety classifier refuses to
   // commit discern's own permission-widening wiring (.mcp.json / .claude/settings.json
   // pre-approve an MCP server), so setup ended on a dirty tree with discern's essentials
@@ -939,7 +945,7 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/gu
     const untracked = await gitOut(dir, "status", "--porcelain", "-uall");
     for (
       const seed of [
-        "discern/guidance.md",
+        "discern/instructions.md",
         "discern/TODO.md",
         SOURCE_PATHS.map.defaultPath,
       ]
@@ -1142,19 +1148,19 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
       "awaiting_consent must write nothing",
     );
 
-    // Single source: the refusal's guidance is byte-identical to what `verify` serves,
+    // Single source: the refusal's instructions are byte-identical to what `verify` serves,
     // so an agent that skipped verify is handed the very same conversation (ADR 0086).
-    const verifyGuidance = JSON.parse(
+    const verifyInstructions = JSON.parse(
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
-    ).data.guidance;
-    assertEquals(res.data.guidance, verifyGuidance);
-    assertStringIncludes(res.data.guidance, "Am I your most capable model");
+    ).data.instructions;
+    assertEquals(res.data.instructions, verifyInstructions);
+    assertStringIncludes(res.data.instructions, "Am I your most capable model");
 
     // The human render carries the same message verbatim (dual-addressed, ADR 0078),
     // and still writes nothing.
     const human = await runAgent(dir, ["setup", "begin"]);
     assertEquals(human.code, 1, human.output);
-    assertStringIncludes(human.stdout, res.data.guidance);
+    assertStringIncludes(human.stdout, res.data.instructions);
     assert(!(await exists(join(dir, "discern.toml"))));
 
     // --dry-run is exempt: consent gates writes, and a dry run writes nothing —
@@ -1382,13 +1388,13 @@ Deno.test("the brief reframes Step 0 as a relayed model question, explains the m
     "Step 0's self-assessment framing must not return — it is now a relayed question",
   );
 
-  // WHY the map matters: the map/guidance are the source of truth that every
+  // WHY the map matters: the map/instructions are the source of truth that every
   // future agent session and discern itself read from, and the map gives people
   // an audit of what those agents understand. Stated before authoring and again
   // in the closing summary.
   assertStringIncludes(brief, "single source of truth");
   assertStringIncludes(brief, "audit what future agents understand");
-  assertStringIncludes(brief, "map and guidance");
+  assertStringIncludes(brief, "map and instructions");
   assertStringIncludes(brief, "what the map is for");
 
   // The brief is the canonical agent-facing setup script. A new step anywhere in
@@ -1508,6 +1514,6 @@ Deno.test("the brief frames setup as a chance to add missing well-established to
   );
   assertStringIncludes(brief, "raise the project's floor");
   assertStringIncludes(brief, "intend to add one");
-  // The "leave unset" guidance is scoped to genuine absence, not un-adopted tools.
+  // The "leave unset" instructions are scoped to genuine absence, not un-adopted tools.
   assertStringIncludes(brief, "genuinely has no standard tool");
 });

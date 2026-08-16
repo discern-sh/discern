@@ -422,9 +422,10 @@ export const PUBLIC_DOC_SURFACES: readonly PublicDocSurface[] = [
   {
     name: "site",
     source: "site/docs.ts",
-    via: "buildDocsSite filters the landing and guidance through isPublicDoc " +
+    via:
+      "buildDocsSite filters the landing and instructions through isPublicDoc " +
       "and decision records through publicDocs; search and llms derive from " +
-      "guidance, while the sitemap and raw .md editions derive from both families",
+      "instructions, while the sitemap and raw .md editions derive from both families",
   },
   {
     name: "docs",
@@ -820,7 +821,7 @@ export function groupDocs(entries: readonly DocEntry[]): DocGroup[] {
 /**
  * Project the non-internal top-level regions from a discovered tree. Root files and
  * underscore-prefixed internal subtrees are not regions. This is the single
- * source for map overviews, region targets, and generated agent guidance, so a
+ * source for map overviews, region targets, and generated agent instructions, so a
  * new top-level directory enrolls everywhere without a copied list.
  */
 export function docRegions(entries: readonly DocEntry[]): DocRegion[] {

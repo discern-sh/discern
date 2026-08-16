@@ -1,6 +1,6 @@
 ---
 title: Cursor
-description: How discern configures Guidance, Skills, MCP, hooks, trust, and worktrees for Cursor.
+description: How discern configures instructions, Skills, MCP, hooks, trust, and worktrees for Cursor.
 order: 40
 aliases:
   - Cursor
@@ -13,7 +13,7 @@ aliases:
 
 # Cursor integration
 
-_The Cursor integration supplies canonical Guidance, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+_The Cursor integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
 
 When `[project].agents` includes Cursor, discern uses these project-local files:
 
@@ -62,11 +62,11 @@ root = ".worktrees"
 
 Add `/.worktrees/` to the root `.gitignore`. This keeps External File Protection enabled. The sibling default avoids nested checkouts. Run the full Gate and check formatters, linters, indexers, and file watchers for recursive scans. Exclude the directory where needed.
 
-## Guidance and Skills
+## Instructions and Skills
 
 Cursor reads the root `AGENTS.md` natively, so discern reuses the canonical file instead of emitting a Cursor-specific copy or import pointer. Codex normally emits that file. Claude Code and Gemini import it too.
 
-discern generates `AGENTS.md` from its built-in Guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
+discern generates `AGENTS.md` from its built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
 Cursor also reads `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Gemini, and GitHub Copilot share it.
 

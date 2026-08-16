@@ -1,6 +1,6 @@
 /**
  * The typed native-provider registry (ADR 0031): the single source of truth for
- * every integration surface — compiled guidance, worktree hooks, MCP
+ * every integration surface — compiled instructions, worktree hooks, MCP
  * registration, project rules, skills directories, and site brand assets. Native
  * names and labels come from the broader identity catalogue (ADR 0166); this
  * record is TOTAL over that native subset, so the type checker forces a complete
@@ -29,7 +29,7 @@ import {
 import { TomlEditor } from "./toml_edit.ts";
 import {
   agentLabelForNative,
-  guidancePathForNative,
+  instructionPathForNative,
 } from "../shared/agent_catalogue.ts";
 import {
   mcpServerArgsForNativeAgent,
@@ -297,7 +297,7 @@ export interface SetupPresence {
 /**
  * Human-facing setup advice for a provider UI choice that the running agent
  * cannot observe or make. `setup done` relays the handoff; generic agent
- * guidance and runtime hints must never consume it. Documentation topics keep
+ * instructions and runtime hints must never consume it. Documentation topics keep
  * the full explanation enrolled when another provider declares similar advice.
  */
 export interface HumanSetupAdvice {
@@ -397,7 +397,7 @@ export interface SettingsSeed {
 }
 
 /** The compiled agent-instruction file for one provider. */
-export interface GuidanceFile {
+export interface InstructionFile {
   /** Project-relative path of the generated file. */
   readonly path: string;
   /** The agent file's required File ownership declaration. */
@@ -419,9 +419,9 @@ export interface GuidanceFile {
    * the provider's own include syntax (the `@path` import Claude Code AND Gemini CLI
    * both support; see {@link atImportPointer}). Receives the canonical file's
    * project-relative path; returns the whole file body. Absent → the provider always
-   * gets the full compiled guidance (e.g. Codex, whose `AGENTS.md` has no import
+   * gets the full compiled instructions (e.g. Codex, whose `AGENTS.md` has no import
    * directive — so it is the canonical file the others point at). The point is
-   * single-source-of-truth: the guidance lives in one compiled file and the mirror
+   * single-source-of-truth: the instructions live in one compiled file and the mirror
    * imports it, so the two can never drift.
    */
   readonly pointer?: (canonicalPath: string) => string;
@@ -441,28 +441,30 @@ export interface GuidanceFile {
 }
 
 /**
- * Whether this guidance entry emits its own provider file. False only for a
+ * Whether this instruction entry emits its own provider file. False only for a
  * reuse-canonical provider — it reads the canonical file, and the configured set
  * decides whether that canonical write is already covered or must be synthesized.
  */
-export function emitsGuidanceFile(gf: GuidanceFile): boolean {
+export function emitsInstructionFile(gf: InstructionFile): boolean {
   return gf.reuseCanonical !== true;
 }
 
 /**
- * The distinct guidance-file paths discern emits for the given entries, in
+ * The distinct instruction-file paths discern emits for the given entries, in
  * first-seen order: a reuse-canonical entry contributes the canonical path when no
  * canonical provider is configured in this set, otherwise it contributes no
  * duplicate, and repeated paths collapse to one. The shared core behind
- * {@link allGuidanceFilePaths} and the renderer's file map, so a
+ * {@link allInstructionFilePaths} and the renderer's file map, so a
  * reuse-canonical provider can never leak a duplicate `AGENTS.md` into the
  * aggregators while a reuse-canonical-only set still gets the file it reads.
  */
-export function emittedGuidancePaths(files: readonly GuidanceFile[]): string[] {
+export function emittedInstructionPaths(
+  files: readonly InstructionFile[],
+): string[] {
   const hasCanonical = files.some((gf) => gf.canonical);
   const out: string[] = [];
   for (const gf of files) {
-    const emitsForSet = emitsGuidanceFile(gf) ||
+    const emitsForSet = emitsInstructionFile(gf) ||
       (gf.reuseCanonical === true && !hasCanonical);
     if (emitsForSet && !out.includes(gf.path)) {
       out.push(gf.path);
@@ -545,7 +547,7 @@ export interface Provider {
    * the selected worktree as cwd. */
   readonly cli: AgentCliIntegration;
   /** The compiled agent-instruction file: project-relative path + git-tracked. */
-  readonly guidanceFile: GuidanceFile;
+  readonly instructionFile: InstructionFile;
   /**
    * MCP-wiring status: a live integration, an explicit `pending` marker (with the
    * committable target file), or `none`. REQUIRED — a new agent must account for its
@@ -594,9 +596,9 @@ export interface Provider {
 }
 
 /**
- * A guidance file rendered as a pointer to the canonical agent file: a single
+ * An instruction file rendered as a pointer to the canonical agent file: a single
  * `@<path>` import line the agent expands in place when it loads its instruction
- * file. So the compiled guidance lives in ONE file (`AGENTS.md`) and every mirror
+ * file. So the compiled instructions lives in ONE file (`AGENTS.md`) and every mirror
  * imports it rather than duplicating the body — they can never drift from it.
  *
  * The `@path` syntax is byte-identical and vendor-supported for BOTH Claude Code
@@ -1277,7 +1279,7 @@ export function stripDiscernFromCodexEnv(existingText: string): string | null {
   return withoutMarker;
 }
 
-// ── Cursor & GitHub Copilot (reuse-canonical guidance + skills) ──────────────
+// ── Cursor & GitHub Copilot (reuse-canonical instructions + skills) ──────────────
 
 /**
  * Register discern's MCP server for Cursor: write the stdio server into the
@@ -1335,7 +1337,7 @@ async function registerCopilotMcp(
  * error) — that is the mechanism that keeps the registry the single source of
  * truth. Rule: `AGENTS.md` (codex) is the one CANONICAL agent file (it holds the
  * full body; the others point at it); all compiled files are TRACKED by default,
- * so a bare clone carries the same guidance a local session reads (ADR 0128).
+ * so a bare clone carries the same instructions a local session reads (ADR 0128).
  */
 export const PROVIDERS: Record<AgentName, Provider> = {
   claude_code: {
@@ -1375,8 +1377,8 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         },
       ],
     },
-    guidanceFile: {
-      path: guidancePathForNative("claude_code"),
+    instructionFile: {
+      path: instructionPathForNative("claude_code"),
       ownership: { generated: true },
       writtenArtifact: CONTEXT_LOADED_ARTIFACT,
       canonical: false,
@@ -1453,8 +1455,8 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         },
       ],
     },
-    guidanceFile: {
-      path: guidancePathForNative("codex"),
+    instructionFile: {
+      path: instructionPathForNative("codex"),
       ownership: { generated: true },
       writtenArtifact: CONTEXT_LOADED_ARTIFACT,
       canonical: true,
@@ -1548,8 +1550,8 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // GEMINI.md points at the canonical AGENTS.md via Gemini's `@path` Memory Import
     // (verified vendor support — `.md`-only, which `@AGENTS.md` satisfies), exactly
     // like Claude Code, so the body lives in one file and the mirror can't drift.
-    guidanceFile: {
-      path: guidancePathForNative("gemini"),
+    instructionFile: {
+      path: instructionPathForNative("gemini"),
       ownership: { generated: true },
       writtenArtifact: CONTEXT_LOADED_ARTIFACT,
       canonical: false,
@@ -1659,8 +1661,8 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     },
     // Cursor reads the canonical AGENTS.md natively at the repo root, so discern emits
     // no Cursor-specific file (reuse-canonical: no duplicate body, no pointer).
-    guidanceFile: {
-      path: guidancePathForNative("cursor"),
+    instructionFile: {
+      path: instructionPathForNative("cursor"),
       ownership: { generated: true },
       writtenArtifact: CONTEXT_LOADED_ARTIFACT,
       canonical: false,
@@ -1761,8 +1763,8 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // The Copilot CLI reads the canonical AGENTS.md natively as its primary
     // instructions (it has no @import directive), so discern emits no
     // Copilot-specific file (reuse-canonical).
-    guidanceFile: {
-      path: guidancePathForNative("copilot"),
+    instructionFile: {
+      path: instructionPathForNative("copilot"),
       ownership: { generated: true },
       writtenArtifact: CONTEXT_LOADED_ARTIFACT,
       canonical: false,
@@ -1866,21 +1868,21 @@ export function skillsDirsForAgents(agents: readonly string[]): string[] {
 // from `PROVIDERS`, so adding an agent to `AGENT_NAMES` extends them for free — no
 // hand-maintained second list to fall out of sync (the ADR 0031/0042 contract).
 
-/** Every provider's guidance-file entry, in registry order (paths may repeat —
+/** Every provider's instruction-file entry, in registry order (paths may repeat —
  * the reuse-canonical providers share `AGENTS.md`). The registry-derived input
- * to {@link allGuidanceFilePaths} and to any consumer that must reason about
+ * to {@link allInstructionFilePaths} and to any consumer that must reason about
  * the FULL provider surface (e.g. `setup begin`'s instruction-file migration),
- * so no caller hand-copies the `AGENT_NAMES → guidanceFile` walk. */
-export function allGuidanceFiles(): GuidanceFile[] {
-  return AGENT_NAMES.map((a) => PROVIDERS[a].guidanceFile);
+ * so no caller hand-copies the `AGENT_NAMES → instructionFile` walk. */
+export function allInstructionFiles(): InstructionFile[] {
+  return AGENT_NAMES.map((a) => PROVIDERS[a].instructionFile);
 }
 
-/** Every compiled guidance-file path discern emits across all known agents
+/** Every compiled instruction-file path discern emits across all known agents
  * (CLAUDE.md, AGENTS.md, GEMINI.md, …), in registry order. Reuse-canonical
  * providers collapse into the canonical provider's path here, so the set never
  * carries `AGENTS.md` twice. */
-export function allGuidanceFilePaths(): string[] {
-  return emittedGuidancePaths(allGuidanceFiles());
+export function allInstructionFilePaths(): string[] {
+  return emittedInstructionPaths(allInstructionFiles());
 }
 
 /** Every distinct skills directory discern materializes into across all known
@@ -1930,15 +1932,15 @@ export function allLocalStateFiles(): string[] {
  * The per-kind artifact posture across all known agents — the single source the
  * managed `.gitignore` block, its registry widening, and the gate's
  * tracked-artifacts check all derive from. The kinds carry the ownership
- * distinction the ignore posture needs: `guidanceFiles` are compiled but TRACKED
+ * distinction the ignore posture needs: `instructionFiles` are compiled but TRACKED
  * (committed so a bare clone — a cloud agent's only view — reads the same page);
  * only `materializedDirs` (republished wholesale by the binary) and
  * `localStateFiles` (per-machine state) belong out of version control. A new
  * provider auto-enrols each of its paths with the right posture.
  */
 export interface AgentArtifactPosture {
-  /** Compiled guidance files — tracked, never in the managed ignore block. */
-  guidanceFiles: string[];
+  /** Compiled instruction files — tracked, never in the managed ignore block. */
+  instructionFiles: string[];
   /** Materialized directories discern republishes — ignored. */
   materializedDirs: string[];
   /** Machine-local provider state files — ignored. */
@@ -1948,7 +1950,7 @@ export interface AgentArtifactPosture {
 /** The registry-derived {@link AgentArtifactPosture} for all known agents. */
 export function agentArtifactPosture(): AgentArtifactPosture {
   return {
-    guidanceFiles: allGuidanceFilePaths(),
+    instructionFiles: allInstructionFilePaths(),
     materializedDirs: allSkillsDirs(),
     localStateFiles: allLocalStateFiles(),
   };

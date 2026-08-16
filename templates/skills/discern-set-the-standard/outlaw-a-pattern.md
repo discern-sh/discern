@@ -26,7 +26,7 @@ Make the detector runnable as one repo command — it's about to become the stan
 
 Wire the detector's count as a `direction = "down"` standard — the main procedure in this skill's `SKILL.md` has the full detail and the config shape; the short of it is a `[standards.<name>]` table whose `run` prints `DISCERN_METRIC <name> <count>`, with `limit` set to **today's census**, and `discern standards` run as needed on a clean tree.
 
-This is the moment the pattern becomes illegal: any branch that _adds_ an instance now fails the standard, whoever writes it, however unrelated their task. Announce the law where the next writer will look — the project guidance or conventions doc names the outlawed pattern and its replacement, so the standard is the enforcement and not the documentation.
+This is the moment the pattern becomes illegal: any branch that _adds_ an instance now fails the standard, whoever writes it, however unrelated their task. Announce the law where the next writer will look — the project instructions or conventions doc names the outlawed pattern and its replacement, so the standard is the enforcement and not the documentation.
 
 ---
 

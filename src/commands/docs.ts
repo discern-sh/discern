@@ -493,7 +493,7 @@ async function indexData(
   };
 }
 
-/** Compact names for nearest-match guidance. Each label leads with the
+/** Compact names for nearest-match instructions. Each label leads with the
  * canonical target so retrying the suggestion verbatim resolves — a bare slug
  * would refuse for a buried entry (`_adr/…`) whose section is the opt-in. */
 function suggestionLabels(suggestions: readonly DocEntry[]): string[] {

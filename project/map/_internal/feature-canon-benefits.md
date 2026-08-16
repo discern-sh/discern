@@ -24,16 +24,16 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ## At a glance
 
-| Role               | Benefit territory                      | Audience                                                         | Commercial value                                                                                                                                                |
-| ------------------ | -------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| lead promise       | **Build further**                      | experienced engineers, new consequential builders                | More of a backlog can progress at once without adding the same amount of scheduling, workspace administration, and message relaying to the human's day.         |
-| conversion benefit | **Spend more time on the product**     | experienced engineers, new consequential builders                | Each additional agent task demands less status chasing, check verification, and workspace administration from the person responsible for the project.           |
-| core value         | **Know what is ready**                 | experienced engineers, new consequential builders                | The user can make faster, better-informed release decisions because the status of the declared checks and the scope of the evidence are already clear.          |
-| durable value      | **Keep the gains the project earns**   | experienced engineers, new consequential builders                | The codebase can become easier to trust and maintain over time because later branches start from retained gains instead of renegotiating them.                  |
-| durable value      | **Keep project knowledge available**   | experienced engineers, new consequential builders, coding agents | Each task begins with more accumulated context, reducing repeated explanation, rediscovery, and dependence on one person's memory.                              |
-| adoption benefit   | **Put a serious practice in place**    | new consequential builders, experienced engineers                | Adoption does not require the human to become the integration engineer for a new platform, and the project proves the setup before treating it as ready.        |
-| differentiator     | **Change tools without starting over** | experienced engineers, coding agents                             | Provider switching costs fall, subscriptions and capacity become easier to juggle, and investment in guidance and quality remains useful as the market changes. |
-| trust assurance    | **Keep control of the project**        | experienced engineers, new consequential builders                | The practice can support serious work without introducing a hosted control plane, another model, or an opaque decision-maker.                                   |
+| Role               | Benefit territory                      | Audience                                                         | Commercial value                                                                                                                                                    |
+| ------------------ | -------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| lead promise       | **Build further**                      | experienced engineers, new consequential builders                | More of a backlog can progress at once without adding the same amount of scheduling, workspace administration, and message relaying to the human's day.             |
+| conversion benefit | **Spend more time on the product**     | experienced engineers, new consequential builders                | Each additional agent task demands less status chasing, check verification, and workspace administration from the person responsible for the project.               |
+| core value         | **Know what is ready**                 | experienced engineers, new consequential builders                | The user can make faster, better-informed release decisions because the status of the declared checks and the scope of the evidence are already clear.              |
+| durable value      | **Keep the gains the project earns**   | experienced engineers, new consequential builders                | The codebase can become easier to trust and maintain over time because later branches start from retained gains instead of renegotiating them.                      |
+| durable value      | **Keep project knowledge available**   | experienced engineers, new consequential builders, coding agents | Each task begins with more accumulated context, reducing repeated explanation, rediscovery, and dependence on one person's memory.                                  |
+| adoption benefit   | **Put a serious practice in place**    | new consequential builders, experienced engineers                | Adoption does not require the human to become the integration engineer for a new platform, and the project proves the setup before treating it as ready.            |
+| differentiator     | **Change tools without starting over** | experienced engineers, coding agents                             | Provider switching costs fall, subscriptions and capacity become easier to juggle, and investment in instructions and quality remains useful as the market changes. |
+| trust assurance    | **Keep control of the project**        | experienced engineers, new consequential builders                | The practice can support serious work without introducing a hosted control plane, another model, or an opaque decision-maker.                                       |
 
 ## Build further
 
@@ -209,13 +209,13 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ### Catch broken project documentation before it lands
 
-- **Value:** Broken links, stale generated pages, invalid command examples, malformed metadata, and vocabulary drift can fail alongside code. Agents and people spend less time following guidance whose mechanics no longer work.
+- **Value:** Broken links, stale generated pages, invalid command examples, malformed metadata, and vocabulary drift can fail alongside code. Agents and people spend less time following instructions whose mechanics no longer work.
 - **Mechanism:** The Map preflight validates links, anchors, commands, metadata, audience boundaries, and Skill references; generated-artifact declarations and fail-fast preconditions catch drift; the glossary and publication registry keep names and visibility consistent.
 - **Product basis:** The docs integrity preflight · Generated artifact declarations · Fail-fast preconditions · The vocabulary canon · Publication control.
 
 ### Improve the way the agents work from real evidence
 
-- **Value:** Recurring friction, slow stages, adoption gaps, and quality trends become counted findings rather than anecdotes. The person can improve guidance, configuration, or checks where the local evidence says the practice is losing time.
+- **Value:** Recurring friction, slow stages, adoption gaps, and quality trends become counted findings rather than anecdotes. The person can improve instructions, configuration, or checks where the local evidence says the practice is losing time.
 - **Mechanism:** The local Logbook records metadata about discern's use, `discern patterns` analyzes comparable events and cohorts with denominators, and `discern improvement` ranks the next supported action without grading individual agents.
 - **Product basis:** Patterns · Improvement · The logbook.
 
@@ -229,8 +229,8 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Teach the project once
 
 - **Value:** A lesson captured after one task can guide later sessions and every configured agent provider. Repeated explanation becomes a reusable project asset instead of a recurring cost paid in prompts and corrections.
-- **Mechanism:** One authored guidance source compiles into every provider's instruction file, reusable Skills carry procedures, conditional guidance keeps the result project-specific, and the Teach the Project Skill routes each lesson into its smallest durable home.
-- **Product basis:** Agent guidance · Author once, compile everywhere · Config-aware guidance · Skills · Teach the project.
+- **Mechanism:** One authored instruction source compiles into every provider's instruction file, reusable Skills carry procedures, conditional instructions keep the result project-specific, and the Teach the Project Skill routes each lesson into its smallest durable home.
+- **Product basis:** Agent instructions · Author once, compile everywhere · Config-aware instructions · Skills · Teach the project.
 
 ### See what agents understand about the project
 
@@ -244,7 +244,7 @@ More of the backlog can move at once. The person spends less time running the wo
 - **Mechanism:** The decision-record discipline stores context, decision, consequences, and alternatives in a canonical project location, and the Write an ADR Skill guides the author through the threshold and format.
 - **Product basis:** Decision records · Write an ADR.
 
-### Put the right guidance beside the failure
+### Put the right instructions beside the failure
 
 - **Value:** An agent can meet a known recovery procedure at the moment the matching problem appears. Recurring knowledge does not depend on somebody remembering the relevant note or searching for it under pressure.
 - **Mechanism:** Matched gotchas and registered hints are inserted into the same structured result that reports the failure or state that made them relevant.
@@ -278,7 +278,7 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Have your agent set up the practice for this project
 
 - **Value:** The human can add a project-specific engineering practice without manually configuring every check, instruction file, and worktree condition. Their effort goes into intent and consequential choices while the agent handles repository study and implementation.
-- **Mechanism:** The setup agent detects installed providers, studies the repository before asking one concise batch of questions, configures the project's real jobs and guidance, relays consent points clearly, and refuses completion until the Gate and a throwaway worktree probe pass.
+- **Mechanism:** The setup agent detects installed providers, studies the repository before asking one concise batch of questions, configures the project's real jobs and instructions, relays consent points clearly, and refuses completion until the Gate and a throwaway worktree probe pass.
 - **Product basis:** Agent-driven setup · Ready-to-relay messages · Detection at setup.
 
 ### Adopt discern without running another service
@@ -303,18 +303,18 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Role:** differentiator
 - **Promise:** The project's way of working belongs to the project, so agents, stacks, and surrounding tooling can change without taking accumulated practice with them.
-- **Commercial value:** Provider switching costs fall, subscriptions and capacity become easier to juggle, and investment in guidance and quality remains useful as the market changes.
+- **Commercial value:** Provider switching costs fall, subscriptions and capacity become easier to juggle, and investment in instructions and quality remains useful as the market changes.
 - **Audience:** experienced engineers, coding agents
 
 ### Switch coding agents without re-teaching the project
 
 - **Value:** A provider change does not require the project explanation, working methods, and quality conditions to be rebuilt from scratch. The accumulated investment remains useful when preferences, model quality, quotas, or subscriptions change.
-- **Mechanism:** Guidance, Skills, Map, Gate, Standards, and worktree practice remain project-owned, while the provider registry generates each configured agent's instruction file, Skill materialization, hooks, and MCP wiring.
+- **Mechanism:** Agent instructions, Skills, Map, Gate, Standards, and worktree practice remain project-owned, while the provider registry generates each configured agent's instruction file, Skill materialization, hooks, and MCP wiring.
 - **Product basis:** Agent providers · Claude Code · Codex · Gemini · Cursor · GitHub Copilot · Materialization · The Model Context Protocol (MCP) server.
 
 ### Use the same working practice across different stacks
 
-- **Value:** The habits, guidance, documentation discipline, and acceptance model can move between projects that use different languages and tools. Learning the practice creates value beyond one codebase.
+- **Value:** The habits, instructions, documentation discipline, and acceptance model can move between projects that use different languages and tools. Learning the practice creates value beyond one codebase.
 - **Mechanism:** discern ships none of the project's stack tools, runs the commands each project declares, and keeps every subsystem available through the same stack-neutral foundation.
 - **Product basis:** Stack-neutral · Every subsystem is core · Foundations.
 
@@ -332,7 +332,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ### Uninstall cleanly and keep everything you wrote
 
-- **Value:** Guidance, project knowledge, Skills, scripts, and configuration remain ordinary files the project can continue to use. Trying discern does not turn that investment into hostage data or disposable setup work.
+- **Value:** Agent instructions, project knowledge, Skills, scripts, and configuration remain ordinary files the project can continue to use. Trying discern does not turn that investment into hostage data or disposable setup work.
 - **Mechanism:** `discern uninstall` derives the removable integration wiring from the ownership registry and leaves the project's authored files at the paths it chose.
 - **Product basis:** Uninstall · File ownership.
 
@@ -367,7 +367,7 @@ Every feature node is cited by a benefit or recorded absent below; every public 
 
 - `installs-a-practice` — agent-commissioning
 - `no-manual-configuration` — agent-commissioning
-- `one-guidance-source` — teach-project-once
+- `one-instruction-source` — teach-project-once
 - `switch-without-reteaching` — switch-providers
 - `shaped-delegation` — shape-substantial-work
 - `reduced-review-burden` — reduce-routine-review

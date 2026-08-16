@@ -1,6 +1,6 @@
 ---
 title: Gemini
-description: How discern configures Guidance, shared Skills, MCP, hooks, and workspace trust for Gemini.
+description: How discern configures instructions, shared Skills, MCP, hooks, and workspace trust for Gemini.
 order: 30
 aliases:
   - Gemini
@@ -10,7 +10,7 @@ aliases:
 
 # Gemini integration
 
-_The Gemini integration supplies shared Guidance and Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+_The Gemini integration supplies shared instructions and Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
 
 discern's Gemini integration is project-local and registry-driven. It writes or co-manages the files below when Gemini is enabled in `[project].agents`:
 
@@ -22,7 +22,7 @@ discern's Gemini integration is project-local and registry-driven. It writes or 
 
 Gemini is not in `DEFAULT_AGENTS`; add `"gemini"` to `[project].agents` to emit these artifacts.
 
-## Guidance and Skills
+## Instructions and Skills
 
 Gemini reads `GEMINI.md` by default, not `AGENTS.md`, so discern writes `GEMINI.md` as an import pointer:
 
@@ -30,7 +30,7 @@ Gemini reads `GEMINI.md` by default, not `AGENTS.md`, so discern writes `GEMINI.
 @AGENTS.md
 ```
 
-`AGENTS.md` remains the canonical agent file. discern generates it from built-in Guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
+`AGENTS.md` remains the canonical agent file. discern generates it from built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
 Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Cursor, and GitHub Copilot use the same directory.
 
@@ -74,7 +74,7 @@ discern does not set Gemini sandbox options, model settings, custom commands, `.
 
 ## Runtime behavior and gotchas
 
-Project `.gemini/settings.json` is ignored in Gemini's safe mode until Gemini trusts the folder. That trust grant is outside the repository. Gemini still reads `GEMINI.md` as Guidance before trust, but the committed MCP server and hooks do not load until the folder is trusted or the user chooses a bypass such as `--skip-trust` or `GEMINI_CLI_TRUST_WORKSPACE=true`.
+Project `.gemini/settings.json` is ignored in Gemini's safe mode until Gemini trusts the folder. That trust grant is outside the repository. Gemini still reads `GEMINI.md` as instructions before trust, but the committed MCP server and hooks do not load until the folder is trusted or the user chooses a bypass such as `--skip-trust` or `GEMINI_CLI_TRUST_WORKSPACE=true`.
 
 Gemini has no mid-session project-root move. `/directory add` can widen the workspace, and the native `--worktree` flag is a launch-time choice, but a running session cannot move its root into a discern worktree. Use `discern start` / `discern_start` to create the worktree, then launch a Gemini session there when commands must run from that root.
 

@@ -1,6 +1,6 @@
 /**
  * The artifact-validator registry — every `src/lib` validator whose subject is
- * a config-resolved authored artifact (the map, guidance sources, skills,
+ * a config-resolved authored artifact (the map, instruction sources, skills,
  * project scripts, the TODO ledger, or the map's ADR records), each declared
  * either SHIPPED (the binary applies it to every project) or REPO-LOCAL (this
  * repository holds only itself to it, with the reason).
@@ -25,7 +25,7 @@
  */
 export type ArtifactSubject =
   | "map"
-  | "guidance"
+  | "instructions"
   | "skills"
   | "scripts"
   | "todo"
@@ -60,10 +60,10 @@ export const ARTIFACT_VALIDATORS: readonly EnrolledValidator[] = [
   {
     module: "src/lib/map_integrity.ts",
     exportName: "checkDocsIntegrity",
-    subjects: ["map", "guidance"],
+    subjects: ["map", "instructions"],
     enforcement: {
       kind: "shipped",
-      via: "the gate's map & guidance integrity preflight (ADR 0202)",
+      via: "the gate's map & instructions integrity preflight (ADR 0202)",
     },
   },
   {

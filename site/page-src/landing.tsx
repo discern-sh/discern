@@ -154,7 +154,7 @@ function LandingPage() {
             <div>
               <dt>Same project knowledge</dt>
               <dd>
-                Write the project guidance once. Every supported coding agent
+                Write the project instructions once. Every supported coding agent
                 reads the same instructions.
               </dd>
             </div>

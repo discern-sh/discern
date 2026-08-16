@@ -207,7 +207,7 @@ Agent ergonomics should lead the For Agents page and technical thought leadershi
 
 A connected system supports the brand promise:
 
-1. **Commissioning:** the setup agent studies the repository, learns intent, wires the project's real checks, authors project guidance and principles, and proves the practice in an isolated worktree.
+1. **Commissioning:** the setup agent studies the repository, learns intent, wires the project's real checks, authors project instructions and principles, and proves the practice in an isolated worktree.
 2. **Project continuity:** one authored source reaches every configured coding-agent provider; project knowledge and procedures persist across sessions.
 3. **Shaped delegation:** substantial work can become complete briefs, parallel waves, or staged dependencies with explicit authority and independent review.
 4. **Isolated work:** each task receives its own checkout, branch, identity, environment values, and declared resources.
@@ -234,7 +234,7 @@ CI remains useful for shared and remote verification. discern owns an earlier, l
 
 ### Against vendor-native agent fleets
 
-Vendor fleets can launch and coordinate sessions. discern gives the project a provider-independent practice: persistent guidance, work boundaries, quality conditions, evidence, authority, and memory.
+Vendor fleets can launch and coordinate sessions. discern gives the project a provider-independent practice: persistent instructions, work boundaries, quality conditions, evidence, authority, and memory.
 
 ### Against a loose collection of tools
 

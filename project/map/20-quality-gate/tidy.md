@@ -1,6 +1,6 @@
 ---
 title: Format discern-owned surfaces
-description: Run discern tidy directly or from the format job to keep the Map, guidance, TODO, and root config canonical.
+description: Run discern tidy directly or from the format job to keep the Map, instructions, TODO, and root config canonical.
 order: 100
 aliases:
   - discern tidy
@@ -18,10 +18,10 @@ Fresh installations put bare `discern tidy` in the [format job](../00-orientatio
 
 ## What it formats
 
-| Type     | Included                                                                                                  | Left alone                                                                                                |
-| -------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Markdown | Every `.md` file under `[map].dir`, the `[project].todo` file, and files matched by `[guidance].sources`. | The project brief, authored Skills, generated agent files, and Markdown outside those configured sources. |
-| TOML     | The root `discern.toml`.                                                                                  | Every other TOML file, including files owned by the project's stack or a coding-agent provider.           |
+| Type     | Included                                                                                                      | Left alone                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Markdown | Every `.md` file under `[map].dir`, the `[project].todo` file, and files matched by `[instructions].sources`. | The project brief, authored Skills, generated agent files, and Markdown outside those configured sources. |
+| TOML     | The root `discern.toml`.                                                                                      | Every other TOML file, including files owned by the project's stack or a coding-agent provider.           |
 
 Markdown prose is stored unwrapped, with two-space indentation, spaces rather than tabs, and LF line endings. Fenced code stays byte-for-byte unchanged, though a fenced box-drawing diagram must stay column-aligned. A misaligned glyph fails the run under `diagrams_misaligned` with its file, line, and column, while a fence tagged `freeform` is exempt. TOML preserves comments and uses indentation to show depth: headers sit one two-space step per dotted level, entries one step deeper, and comments align with what they document. The plugins and their formatter host are pinned and embedded in the binary, so formatting makes no network call and needs no project runtime.
 

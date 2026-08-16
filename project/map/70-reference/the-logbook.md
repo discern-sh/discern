@@ -113,7 +113,7 @@ For an MCP call, `driver.mcp_client` retains the declared `name`, optional `titl
 
 The read-time view preserves non-MCP evidence and merges duplicate agent/source pairs. A current MCP match replaces stored MCP evidence from the same declaration. Without a current match, stored MCP evidence remains. Independent sources that disagree leave the run unattributed.
 
-MCP describes the client implementation. An editor, extension, or proxy may sit between discern and the coding agent. These signals can be absent, inherited, or faked. They never change output, guidance, setup, Gate behavior, or landing authority.
+MCP describes the client implementation. An editor, extension, or proxy may sit between discern and the coding agent. These signals can be absent, inherited, or faked. They never change output, instructions, setup, Gate behavior, or landing authority.
 
 ## Local storage only
 

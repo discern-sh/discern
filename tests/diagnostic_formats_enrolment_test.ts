@@ -1,6 +1,6 @@
 /**
  * Enrolment guard for the diagnostic-format registry. Runtime setup and
- * improvement guidance derive their format list from the registry; the public
+ * improvement instructions derive their format list from the registry; the public
  * quickstart remains authored prose, so this guard makes a new parser fail until
  * that page teaches it too.
  */
@@ -15,7 +15,7 @@ import { CATEGORIES } from "../src/engine/improve/rules.ts";
 
 const ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 
-Deno.test("diagnostic formats enrol setup, improvement, and public guidance", async () => {
+Deno.test("diagnostic formats enrol setup, improvement, and public instructions", async () => {
   const ids = DIAGNOSTIC_FORMATS.map((format) => format.id);
   const labels = DIAGNOSTIC_FORMATS.map((format) => format.label);
   assertEquals(
@@ -58,6 +58,6 @@ Deno.test("diagnostic formats enrol setup, improvement, and public guidance", as
   assertStringIncludes(
     quickstart,
     `emit ${diagnosticFormatList("or")} to captured`,
-    "public setup guidance must list every supported diagnostic format",
+    "public setup instructions must list every supported diagnostic format",
   );
 });

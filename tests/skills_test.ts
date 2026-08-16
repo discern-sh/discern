@@ -83,7 +83,7 @@ Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
 Deno.test("shipped content names no vendor-specific skills dir (stays provider-neutral)", async () => {
   // Content discern scaffolds or materializes onto an end user's machine — bundled
   // skill bodies and their skeletons, the setup instructions and scaffolded doc
-  // skeletons, the built-in guidance — must not hardcode ONE provider's skills
+  // skeletons, the built-in instructions — must not hardcode ONE provider's skills
   // directory. A skill materializes into whichever provider dir(s) the user
   // configured (`.claude/skills` for Claude Code, the shared `.agents/skills` for
   // the rest), so a `.claude/skills/…` path is a dead reference for a Codex or
@@ -97,7 +97,7 @@ Deno.test("shipped content names no vendor-specific skills dir (stays provider-n
   const trees = [
     bundledSkills,
     join(templates, "setup"),
-    join(templates, "guidance"),
+    join(templates, "instructions"),
   ];
   const banned = allSkillsDirs();
   const offenders: string[] = [];

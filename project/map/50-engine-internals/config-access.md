@@ -16,7 +16,7 @@ The binary parses `discern.toml` with strict `@std/toml` and validates it agains
 
 ## The paths registry and its resolvers
 
-Every configurable source path has an entry in the [paths registry](../../../src/shared/paths_registry.ts): the guidance sources, map, authored skills, project scripts, ledger, and brief. Each entry records its config key, `discern/` default, file-or-directory kind, resolution mode, ownership, gate treatment, and description ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). The Zod schema's path defaults derive from the registry. Code reads path keys through the resolvers in [`lib/paths.ts`](../../../src/lib/paths.ts) (`resolveMapDir`, `resolveSkillsDir`, `resolveTodoPath`, …), which turn an absolute or relative configured value into a project-absolute location. A registry default written as a literal anywhere else in `src/**` fails [`tests/paths_literal_ban_test.ts`](../../../tests/paths_literal_ban_test.ts); a rendered artifact that leaks one fails the sentinel-render guard.
+Every configurable source path has an entry in the [paths registry](../../../src/shared/paths_registry.ts): the instruction sources, map, authored skills, project scripts, ledger, and brief. Each entry records its config key, `discern/` default, file-or-directory kind, resolution mode, ownership, gate treatment, and description ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). The Zod schema's path defaults derive from the registry. Code reads path keys through the resolvers in [`lib/paths.ts`](../../../src/lib/paths.ts) (`resolveMapDir`, `resolveSkillsDir`, `resolveTodoPath`, …), which turn an absolute or relative configured value into a project-absolute location. A registry default written as a literal anywhere else in `src/**` fails [`tests/paths_literal_ban_test.ts`](../../../tests/paths_literal_ban_test.ts); a rendered artifact that leaks one fails the sentinel-render guard.
 
 Gate commands get one substitution: `${map.dir}` in a check, Standard, or `per` extent expands to the configured docs directory ([`expandMapDirReference`](../../../src/shared/map_path.ts)). This substitution makes the shipped `prose` check and documentation Standards follow a re-pointed Map without an edit.
 
@@ -43,4 +43,4 @@ The value renderers apply the same read-after-write contract. `tomlNumber` probe
 ## See also
 
 - [config-reference.md](../70-reference/config-reference.md) — every section, key, type, and default (generated).
-- [the-templating-engine.md](the-templating-engine.md) — how rendered guidance and skills consume the same resolved config.
+- [the-templating-engine.md](the-templating-engine.md) — how rendered instructions and skills consume the same resolved config.

@@ -188,7 +188,7 @@ export const PILLARS = [
     ],
     claims: [
       "installs-a-practice",
-      "one-guidance-source",
+      "one-instruction-source",
       "switch-without-reteaching",
     ],
   },
@@ -259,7 +259,7 @@ export const PILLARS = [
     ],
     note:
       "The quota message is timely and practical. It should not become the enduring master promise because provider pricing and limits will change.",
-    claims: ["switch-without-reteaching", "one-guidance-source"],
+    claims: ["switch-without-reteaching", "one-instruction-source"],
   },
   {
     id: "agent-ergonomics",
@@ -335,14 +335,14 @@ export const DESCRIPTIONS = [
     group: "audience",
     heading: "New consequential builder",
     body:
-      `> Tell your coding agent to commission discern. It studies your project, establishes the checks and guidance future agents will follow, explains the important choices, and proves the setup in a fresh worktree before it finishes. Your software gains a working practice that can grow with it.`,
+      `> Tell your coding agent to commission discern. It studies your project, establishes the checks and instructions future agents will follow, explains the important choices, and proves the setup in a fresh worktree before it finishes. Your software gains a working practice that can grow with it.`,
   },
   {
     id: "agent",
     group: "audience",
     heading: "Agent",
     body:
-      `> discern gives you structured tools, persistent project guidance, isolated work, explicit authority, and bounded results across supported providers. The project keeps its practice; you can spend context on the work.`,
+      `> discern gives you structured tools, persistent project instructions, isolated work, explicit authority, and bounded results across supported providers. The project keeps its practice; you can spend context on the work.`,
   },
   {
     id: "press-or-partner",
@@ -506,7 +506,7 @@ export const PROOF_ORDER: readonly { step: string; detail: string }[] = [
   {
     step: "Name the connected mechanisms",
     detail:
-      "guidance, isolated work, deterministic checks, Standards, Proof, acceptance.",
+      "instructions, isolated work, deterministic checks, Standards, Proof, acceptance.",
   },
   {
     step: "Show an artifact",

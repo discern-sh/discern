@@ -1,6 +1,6 @@
 ---
 name: discern-teach-the-project
-description: Route a lesson this session produced into the project's own surfaces — a guidance line, an authored skill, a project script, a doc, or an ADR — so every future agent session inherits it. Use when the user says "remember this", "add this to the guidance", "capture this", or wants a rule or procedure to stick. Also offer it proactively, at a natural pause and never mid-task, after the user corrects your approach, after you derive a non-obvious procedure the hard way, or when a decision gets made that no file records. Bundled with discern.
+description: Route a lesson this session produced into the project's own surfaces — an instruction line, an authored skill, a project script, a doc, or an ADR — so every future agent session inherits it. Use when the user says "remember this", "add this to the instructions", "capture this", or wants a rule or procedure to stick. Also offer it proactively, at a natural pause and never mid-task, after the user corrects your approach, after you derive a non-obvious procedure the hard way, or when a decision gets made that no file records. Bundled with discern.
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -39,19 +39,19 @@ Pick the **smallest surface that fully carries the lesson**, and give it exactly
 
 | The lesson is…                                                                    | Its home                                                                                                   | Why there                                                                                       |
 | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| A standing rule every session must follow ("always X here", "never Y")            | **A guidance line** — the project guidance source ({{guidance_sources}}), compiled into every agent's file | Always in context, so it's never missed — and always _paying_ context, so it must earn its line |
+| A standing rule every session must follow ("always X here", "never Y")            | **A instructions line** — the project instruction source ({{instruction_sources}}), compiled into every agent's file | Always in context, so it's never missed — and always _paying_ context, so it must earn its line |
 | A repeatable, multi-step procedure needing judgement                              | **An authored skill** — a `SKILL.md` under `{{skills_dir}}`                                                | Discoverable when the task matches; costs context only when used                                |
 | A deterministic action — a command sequence you'd otherwise re-derive             | **A project script** — an executable in `{{scripts_dir}}` (run it with `discern scripts <name>`)            | A script executes exactly; prose about commands drifts                                          |
 | Durable context — how a subsystem works, what's true and why it's shaped this way | **A docs page** — under `{{map_dir}}` (the `discern-document-subsystem` skill maintains subtrees)          | Read on demand; the reference the other surfaces can point at                                   |
 | A decision — hard to reverse, surprising without context, a real trade-off        | **An ADR** — via the `discern-write-adr` skill                                                             | Records _why_, so it isn't silently re-litigated                                                |
 
-Two rules across all five: **check for an existing home first** — a lesson that updates a stale guidance line, an existing skill, or a current doc belongs _there_, not in a duplicate; and **never split one lesson across surfaces** — if a rule needs its rationale, the rule goes in guidance with a link to the ADR that explains it.
+Two rules across all five: **check for an existing home first** — a lesson that updates a stale instructions line, an existing skill, or a current doc belongs _there_, not in a duplicate; and **never split one lesson across surfaces** — if a rule needs its rationale, the rule goes in instructions with a link to the ADR that explains it.
 
 ---
 
 ## 4. Author it to that surface's own bar
 
-- **A guidance line** is one or two sentences, imperative, with the _why_ in half a sentence when it isn't obvious — written for an agent who will read it in every session, forever. If it needs a paragraph, it's probably a doc plus a one-line pointer.
+- **An instruction line** is one or two sentences, imperative, with the _why_ in half a sentence when it isn't obvious — written for an agent who will read it in every session, forever. If it needs a paragraph, it's probably a doc plus a one-line pointer.
 - **An authored skill** must be a genuine multi-step playbook — trigger-rich `description` frontmatter (that's what matching runs on), concrete steps with the judgement points called out, and a falsifiable "done when". A single deterministic action is not a skill; make it a project script.
 - **A project script** is an executable with an optional `# desc:` line, exiting non-zero on failure, silent about things it didn't do.
 - **Docs and ADRs** follow the project's existing tree and ADR format — their skills hold those bars.
@@ -64,7 +64,7 @@ Write for a _future reader with no memory of today_: name files by path, not "th
 
 Teaching isn't done until the surface is live:
 
-- Guidance edits: run `discern refresh` so the agent files recompile; the gate fails on drift either way.
+- Instruction edits: run `discern refresh` so the agent files recompile; the gate fails on drift either way.
 - A new skill or project script: confirm it's discoverable — `discern skills list` shows the skill materialized into the agent dirs; `discern scripts` lists the script.
 - Tell the user what was taught and _where_, in one line each — they're the editor of record for what their project believes.
 
@@ -75,6 +75,6 @@ Teaching isn't done until the surface is live:
 ## Done when
 
 - each lesson lives at **exactly one surface**, the smallest that carries it — updating an existing entry rather than duplicating it;
-- what was authored meets **that surface's bar** (an earning-its-line guidance rule, a real playbook, an executable project script, a current doc, a why-carrying ADR);
-- the surface is **live** — guidance recompiled, skill/project script discoverable — and the user was told what the project just learned;
+- what was authored meets **that surface's bar** (an earning-its-line instructions rule, a real playbook, an executable project script, a current doc, a why-carrying ADR);
+- the surface is **live** — instructions recompiled, skill/project script discoverable — and the user was told what the project just learned;
 - anything the user declined to capture was **dropped without residue** (no half-filed notes in odd corners).

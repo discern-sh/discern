@@ -8,7 +8,7 @@ import {
 import { mcpToolNameForVerb } from "../src/engine/mcp/server.ts";
 
 const AGENT_FACING_SURFACES = [
-  "templates/guidance",
+  "templates/instructions",
   "templates/skills",
   "src/main.ts",
   "src/engine/status/status.ts",
@@ -133,11 +133,11 @@ Deno.test("only exact machine-verified runtime hints may instruct landing", () =
 Deno.test("the acceptance guard still catches an unconditional finish-to-land instruction", () => {
   assertEquals(
     acceptanceViolations(
-      "synthetic-static-guidance",
+      "synthetic-static-instructions",
       "Finish with discern done → discern accept.",
     ),
     [
-      "synthetic-static-guidance:1: finish then accept workflow",
+      "synthetic-static-instructions:1: finish then accept workflow",
     ],
   );
 });

@@ -132,7 +132,7 @@ export interface StreamFacts {
   agentish: VerbEvent[];
   /** The trunk branch name (`[repository].trunk`) — the branch work must not land on directly. */
   trunk: string;
-  /** The native provider names guidance is compiled for (the configured
+  /** The native provider names instructions are compiled for (the configured
    * `[project].agents`, resolved) — what the provider-fit detector reads the
    * driver mix against. */
   configuredAgents: readonly string[];
@@ -1951,7 +1951,7 @@ const docsGap: Detector = {
   // 5 lookups before reading anything into what gets looked up.
   threshold: 5,
   next_step:
-    "The most-read topics are where guidance pays off — keep those pages current.",
+    "The most-read topics are where instructions pays off — keep those pages current.",
   detect(facts): DetectorOutcome {
     // Humans reading docs are signal too, so this detector keeps every
     // non-CI lookup rather than the agent-scored subset.
@@ -2233,7 +2233,7 @@ const providerFit: Detector = {
   // not a stray visit.
   threshold: 5,
   next_step:
-    "discern can compile guidance and materialize skills for this agent natively. Add it to `[project].agents` in `discern.toml`, then run `discern refresh`.",
+    "discern can compile instructions and materialize skills for this agent natively. Add it to `[project].agents` in `discern.toml`, then run `discern refresh`.",
   detect(facts): DetectorOutcome {
     const runsByIdentity = new Map<string, number>();
     let attributed = 0;
@@ -2276,14 +2276,14 @@ const providerFit: Detector = {
   },
 };
 
-/** The compiled guidance file for one cohort's identity, when discern emits
- * one — the provider surface a guidance-parity finding can name. Signal-only
+/** The compiled instruction file for one cohort's identity, when discern emits
+ * one — the provider surface a instruction-parity finding can name. Signal-only
  * identities have none: there is no compiled surface to fix, and provider-fit
  * already proposes adding an integration for a returning agent. */
-function guidanceSurfaceOf(agent: string): string | undefined {
+function instructionSurfaceOf(agent: string): string | undefined {
   const entry = AGENT_CATALOGUE.find((i) => i.id === agent);
-  return entry !== undefined && "guidancePath" in entry
-    ? entry.guidancePath
+  return entry !== undefined && "instructionPath" in entry
+    ? entry.instructionPath
     : undefined;
 }
 
@@ -2300,7 +2300,7 @@ const cohortDoneThrash: Detector = {
   // reports insufficient evidence, never a one-sided "comparison".
   threshold: COHORT_MINIMUMS.cohorts,
   next_step:
-    "Cohorts draw different task mixes, so these counts are a place to look, never a verdict. The branch-scope done-thrash findings name the exact thrashing branches — diagnose those (`discern-cure-a-bug`); if one cohort keeps meeting red streaks, check how its provider's compiled guidance teaches the `prepare` loop.",
+    "Cohorts draw different task mixes, so these counts are a place to look, never a verdict. The branch-scope done-thrash findings name the exact thrashing branches — diagnose those (`discern-cure-a-bug`); if one cohort keeps meeting red streaks, check how its provider's compiled instructions teaches the `prepare` loop.",
   detect(facts): DetectorOutcome {
     const dones = facts.agentish.filter((e) => e.verb === "done");
     // The unit is the branch — the same unit done-thrash judges — attributed
@@ -2351,9 +2351,9 @@ const cohortDoneThrash: Detector = {
   },
 };
 
-const guidanceParity: Detector = {
-  id: "guidance-parity",
-  title: "Guidance gaps by attributed driver cohort",
+const instructionParity: Detector = {
+  id: "instruction-parity",
+  title: "Instructions gaps by attributed driver cohort",
   family: "behaviour",
   scope: "project",
   tier: "batch",
@@ -2362,9 +2362,9 @@ const guidanceParity: Detector = {
   // Cohort-counted `considered`, as for every cohort detector.
   threshold: COHORT_MINIMUMS.cohorts,
   next_step:
-    "Inspect the compiled guidance surface named by the finding. If it does not teach or route the recorded workflow, amend the authored guidance source and run `discern refresh`.",
+    "Inspect the compiled instructions surface named by the finding. If it does not teach or route the recorded workflow, amend the authored instruction source and run `discern refresh`.",
   detect(facts): DetectorOutcome {
-    // One authored source compiles to every provider's guidance file, so a
+    // One authored source compiles to every provider's instruction file, so a
     // refusal or doc miss ONE population keeps hitting while its peers never
     // do is an empirical test of whether that provider's compiled output
     // lands. The population is the agent-scored corpus (unlike docs-gap,
@@ -2431,7 +2431,7 @@ const guidanceParity: Detector = {
         if (hits < minHits) {
           continue;
         }
-        const surface = guidanceSurfaceOf(only.agent);
+        const surface = instructionSurfaceOf(only.agent);
         if (surface === undefined) {
           continue;
         }
@@ -2464,7 +2464,7 @@ const guidanceParity: Detector = {
           evidence,
           strength: hits * 10,
           next_step: shape === "refusal"
-            ? `Check how \`${surface}\` teaches the workflow named by this refusal. If the instruction is absent or unclear, amend the authored guidance source and run \`discern refresh\`.`
+            ? `Check how \`${surface}\` teaches the workflow named by this refusal. If the instruction is absent or unclear, amend the authored instruction source and run \`discern refresh\`.`
             : `Check how \`${surface}\` routes agents to this topic. Add or cross-link the page if needed; the \`discern-document-subsystem\` skill fits this work.`,
         });
       }
@@ -3245,7 +3245,7 @@ const recurringDiagnostic: Detector = {
   // 5 red events carrying diagnostics before reading cross-branch classes.
   threshold: 5,
   next_step:
-    "A rule that trips every effort is a project-level gap, and a guard beats a memory: teach it in guidance (`discern-teach-the-project`), or change the config so the class can't recur — the `discern-cure-a-bug` skill walks that conversion.",
+    "A rule that trips every effort is a project-level gap, and a guard beats a memory: teach it in instructions (`discern-teach-the-project`), or change the config so the class can't recur — the `discern-cure-a-bug` skill walks that conversion.",
   detect(facts): DetectorOutcome {
     const reds = facts.agentish.filter((e) =>
       e.outcome === "failed" && (e.diagnostics ?? []).length > 0
@@ -4360,7 +4360,7 @@ export const DETECTORS: readonly Detector[] = [
   identityGap,
   providerFit,
   cohortDoneThrash,
-  guidanceParity,
+  instructionParity,
   dominantStage,
   generatorGateShare,
   slotContention,

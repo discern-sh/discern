@@ -3,7 +3,7 @@
  * carries, the heading anchors it exposes, the fenced `discern …` examples it
  * quotes, the skill citations it recommends, and the validation of one such
  * example against the live command model. The shipped gate preflight
- * (map_integrity.ts) applies them to every project's map and guidance; the
+ * (map_integrity.ts) applies them to every project's map and instructions; the
  * gate tests (tests/docs_integrity_test.ts, tests/map_integrity_test.ts)
  * prove they bite and hold this repo's own corpus to them.
  *

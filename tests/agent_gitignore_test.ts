@@ -32,9 +32,9 @@ Deno.test("the .claude/* wildcard covers .claude/skills (no redundant rule added
   assert(ignoreCovers(lines, ".claude/skills", true));
 });
 
-Deno.test("an ancestor wildcard covers a NESTED guidance file too (no redundant rule)", () => {
+Deno.test("an ancestor wildcard covers a NESTED instruction file too (no redundant rule)", () => {
   // File-coverage is ancestor-aware (symmetric with dir-coverage): `/.cursor/*`
-  // already ignores a nested guidance file `.cursor/rules.md`, so nothing is added.
+  // already ignores a nested instruction file `.cursor/rules.md`, so nothing is added.
   const existing = "/.cursor/*\n";
   const lines = existing.split("\n").map((line) => line.trim());
   assert(ignoreCovers(lines, ".cursor/rules.md", false));
@@ -42,12 +42,12 @@ Deno.test("an ancestor wildcard covers a NESTED guidance file too (no redundant 
 
 Deno.test("canonical block auto-includes a hypothetical new agent's IGNORED artifacts only", () => {
   // Simulate a registry that grew another agent: its materialized dir and local
-  // state widen into the block; its compiled guidance file — tracked by
+  // state widen into the block; its compiled instruction file — tracked by
   // default — never does.
   const fragment =
     `${DISCERN_GITIGNORE_BEGIN}\n/.agents/skills/\n${DISCERN_GITIGNORE_END}\n`;
   const artifacts = {
-    guidanceFiles: ["AGENTS.md", "CURSOR.md"],
+    instructionFiles: ["AGENTS.md", "CURSOR.md"],
     materializedDirs: [".agents/skills", ".cursor/skills"],
     localStateFiles: [".cursor/settings.local.json"],
   };
@@ -149,9 +149,9 @@ Deno.test("scattered legacy discern rules are absorbed into the canonical block"
 });
 
 Deno.test("reconcile narrows a previous install's over-wide block to enumerated ownership", () => {
-  // The block earlier versions shipped ignored the compiled guidance files and
+  // The block earlier versions shipped ignored the compiled instruction files and
   // wildcarded /.claude/*. Reconcile must rewrite it to the narrow form so the
-  // previously ignored guidance files become trackable, with user rules intact.
+  // previously ignored instruction files become trackable, with user rules intact.
   const legacyBlock = [
     DISCERN_GITIGNORE_BEGIN,
     "# These are discern's agent files, materialized skills,",
@@ -189,14 +189,14 @@ Deno.test("ensureDiscernGitignoreBlock: no .gitignore creates the canonical bloc
   });
 });
 
-Deno.test("trackedDiscernIgnoredArtifacts flags forced materialized/local paths — never a user's or guidance file", async () => {
+Deno.test("trackedDiscernIgnoredArtifacts flags forced materialized/local paths — never a user's or instruction file", async () => {
   await withTempDir(async (root) => {
     await Deno.writeTextFile(join(root, ".gitignore"), "node_modules/\n");
     await ensureDiscernGitignoreBlock(root);
     await Deno.mkdir(join(root, ".claude"));
     await Deno.mkdir(join(root, ".claude", "skills", "x"), { recursive: true });
     await Deno.mkdir(join(root, ".claude", "commands"), { recursive: true });
-    // Tracked by design: the compiled guidance files, the co-managed settings,
+    // Tracked by design: the compiled instruction files, the co-managed settings,
     // and a user's own slash command under .claude/ — none may be flagged.
     await Deno.writeTextFile(join(root, "AGENTS.md"), "compiled\n");
     await Deno.writeTextFile(join(root, "CLAUDE.md"), "@AGENTS.md\n");

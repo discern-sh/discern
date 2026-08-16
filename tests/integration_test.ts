@@ -18,7 +18,7 @@ import { join } from "@std/path";
 import { assembleInitPlan } from "../src/commands/setup.ts";
 import {
   defaultDocumentationScopePaths,
-  defaultGuidanceScopePaths,
+  defaultInstructionScopePaths,
   type SetupConfig,
 } from "../src/lib/config.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
@@ -27,7 +27,7 @@ import { schemaFromRaw } from "../src/lib/schema.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { materializeSkills } from "../src/lib/skills.ts";
 import { skillsDirsForAgents } from "../src/lib/providers.ts";
-import { guidanceAgents } from "../src/engine/guidance_render.ts";
+import { instructionAgents } from "../src/engine/instruction_render.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
@@ -86,11 +86,11 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
       string,
       { paths?: unknown; neutral?: unknown }
     >;
-    assertEquals(Object.keys(scopes), ["map", "guidance"]);
+    assertEquals(Object.keys(scopes), ["map", "instructions"]);
     assertEquals(scopes.map?.paths, defaultDocumentationScopePaths());
     assertEquals(scopes.map?.neutral, true);
-    assertEquals(scopes.guidance?.paths, defaultGuidanceScopePaths());
-    assertEquals(scopes.guidance?.neutral, true);
+    assertEquals(scopes.instructions?.paths, defaultInstructionScopePaths());
+    assertEquals(scopes.instructions?.neutral, true);
     const acceptance = toml.raw.acceptance as
       | { pre_authorized?: unknown }
       | undefined;
@@ -105,7 +105,11 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     // artifacts, materialized the way runSetup/worktree setup do — so drive that
     // step here (for the project's real agent set), then assert.
     const cfg = await loadConfig(dir);
-    await materializeSkills(dir, cfg, skillsDirsForAgents(guidanceAgents(cfg)));
+    await materializeSkills(
+      dir,
+      cfg,
+      skillsDirsForAgents(instructionAgents(cfg)),
+    );
     const skillInfo = await Deno.stat(
       join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
     );
@@ -147,7 +151,7 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     // `discern setup`).
     await assertAbsent(join(dir, "bootstrap"));
     await assertAbsent(join(dir, "skills"));
-    await assertAbsent(join(dir, "guidance"));
+    await assertAbsent(join(dir, "instructions"));
     await assertAbsent(join(dir, SOURCE_PATHS.map.defaultPath));
   });
 });

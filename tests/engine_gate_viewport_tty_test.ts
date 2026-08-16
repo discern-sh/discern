@@ -43,7 +43,7 @@ function config(resizeReady: boolean): string {
     "[repository]",
     'trunk = "main"',
     "",
-    "[guidance]",
+    "[instructions]",
     "sources = []",
     "",
     "[jobs]",

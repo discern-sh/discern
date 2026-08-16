@@ -39,7 +39,7 @@ This subtree documents the public Gate workflow: fixing a failed run, the work `
 
 - The user-facing meaning and order of Gate stages, preconditions, scope gates, Standards, diagnostics, Proof, Proof-note transport, test-run concurrency, and strand detection.
 - The `discern prepare`, `discern done`, `discern standards`, `discern improvement`, and `discern coupling` tasks as users encounter them.
-- Continuous integration guidance for running the Gate outside the local Worktree workflow.
+- Continuous integration instructions for running the Gate outside the local Worktree workflow.
 
 ## Existing-doc content to preserve
 

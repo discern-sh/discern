@@ -24,11 +24,11 @@ File ownership is an operational term for edit and overwrite authority. It does 
 
 ## The ownership contract
 
-| Bucket                                                            | May you edit it?                                                 | Can discern overwrite it?                                           |
-| ----------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------- |
-| [Project-owned](../00-orientation/glossary.md#project-owned-file) | Yes. Edit the file in place.                                     | No. Setup may seed it, then discern leaves it alone.                |
-| [Shared](../00-orientation/glossary.md#shared-file)               | Yes, outside discern's marked region or named entry.             | It may replace its region or entry and preserves the rest.          |
-| [Generated](../00-orientation/glossary.md#generated-file)         | No. Edit the guidance or skill source and run `discern refresh`. | Yes. `refresh` and `upgrade` rebuild it from its reviewable source. |
+| Bucket                                                            | May you edit it?                                                     | Can discern overwrite it?                                           |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [Project-owned](../00-orientation/glossary.md#project-owned-file) | Yes. Edit the file in place.                                         | No. Setup may seed it, then discern leaves it alone.                |
+| [Shared](../00-orientation/glossary.md#shared-file)               | Yes, outside discern's marked region or named entry.                 | It may replace its region or entry and preserves the rest.          |
+| [Generated](../00-orientation/glossary.md#generated-file)         | No. Edit the instructions or skill source and run `discern refresh`. | Yes. `refresh` and `upgrade` rebuild it from its reviewable source. |
 
 The coding agent creates and maintains provider-local files. discern only ignores their registered paths. Other untracked provider files have no entry.
 
@@ -40,7 +40,7 @@ The discern-authored portions of every canonical project artifact are available 
 
 Shared and Generated artifacts also declare one provenance class:
 
-- **Context-loaded:** unmarked. Agent files and Skills load in full, so each marker would spend context tokens. Providers also render comments differently. Guidance and drift checks enforce ownership.
+- **Context-loaded:** unmarked. Agent files and Skills load in full, so each marker would spend context tokens. Providers also render comments differently. Instructions and drift checks enforce ownership.
 - **Comment-incapable:** no marker because JSON forbids comments.
 - **Comment-capable non-context:** its marker identifies the source. By default, it also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product byline and link.
 
@@ -58,7 +58,7 @@ The table uses fresh-install defaults. Configured worktree environment paths rep
 | Path                                   | Ownership      | Provenance class            | discern-authored portions | What discern maintains                                                                                                                                         |
 | -------------------------------------- | -------------- | --------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `discern/brief.md`                     | Project-owned  | —                           | Apache-2.0                | The project brief captured at setup — authored intent, read by the setup instructions.                                                                         |
-| `discern/guidance.md`                  | Project-owned  | —                           | Apache-2.0                | The project's guidance source discern compiles into the agent files.                                                                                           |
+| `discern/instructions.md`              | Project-owned  | —                           | Apache-2.0                | The project's instruction source, which discern compiles into the agent files.                                                                                 |
 | `discern/map/**`                       | Project-owned  | —                           | Apache-2.0                | The project map — the agent-maintained documentation tree discern scaffolds, validates, and browses.                                                           |
 | `discern/scripts/**`                   | Project-owned  | —                           | Apache-2.0                | Where the project's own executable scripts live.                                                                                                               |
 | `discern/skills/**`                    | Project-owned  | —                           | Apache-2.0                | Where the project's authored skills live.                                                                                                                      |
@@ -80,9 +80,9 @@ The table uses fresh-install defaults. Configured worktree environment paths rep
 | `discern.toml`                         | Shared         | Comment-capable non-context | Apache-2.0                | Project configuration. discern maintains its fixed scaffold and ruled banners.                                                                                 |
 | `.agents/skills/**`                    | Generated      | Context-loaded              | Apache-2.0                | Materialized skills directory rebuilt by `discern refresh`.                                                                                                    |
 | `.claude/skills/**`                    | Generated      | Context-loaded              | Apache-2.0                | Materialized skills directory rebuilt by `discern refresh`.                                                                                                    |
-| `AGENTS.md`                            | Generated      | Context-loaded              | Apache-2.0                | Agent file compiled from the configured guidance sources.                                                                                                      |
-| `CLAUDE.md`                            | Generated      | Context-loaded              | Apache-2.0                | Agent file compiled from the configured guidance sources.                                                                                                      |
-| `GEMINI.md`                            | Generated      | Context-loaded              | Apache-2.0                | Agent file compiled from the configured guidance sources.                                                                                                      |
+| `AGENTS.md`                            | Generated      | Context-loaded              | Apache-2.0                | Agent file compiled from the configured instruction sources.                                                                                                   |
+| `CLAUDE.md`                            | Generated      | Context-loaded              | Apache-2.0                | Agent file compiled from the configured instruction sources.                                                                                                   |
+| `GEMINI.md`                            | Generated      | Context-loaded              | Apache-2.0                | Agent file compiled from the configured instruction sources.                                                                                                   |
 | `.claude/settings.local.json`          | Provider-local | —                           | —                         | Claude Code creates and maintains this per-machine override. discern only keeps it out of Git.                                                                 |
 
 <!-- END GENERATED: project artifact ownership -->
@@ -97,7 +97,7 @@ Project lines outside `.gitattributes`' discern markers remain unchanged. `setup
 
 Every declared [Generated artifact](../00-orientation/glossary.md#generated-artifact) receives the `discern-generated` merge driver. Set `linguist_generated = true` inside one `[generated.<name>]` table to mark only that group's paths as generated for GitHub. GitHub then hides them in diffs by default and excludes them from language statistics. The default is false ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
 
-Markdown inside discern's registered surfaces uses Git's built-in `markdown` diff driver. This covers configured Map, guidance, skills, scripts, TODO, and brief paths plus active Agent files. There is no repo-wide `*.md` rule: a project's README and other Markdown stay under the project's own attributes policy unless one of those paths is explicitly configured as a discern surface.
+Markdown inside discern's registered surfaces uses Git's built-in `markdown` diff driver. This covers configured Map, instructions, skills, scripts, TODO, and brief paths plus active Agent files. There is no repo-wide `*.md` rule: a project's README and other Markdown stay under the project's own attributes policy unless one of those paths is explicitly configured as a discern surface.
 
 Materialized Skills and provider-local state are ignored by exact registry path, leaving neighboring files unchanged. Add agent-file ignores outside the managed block if preferred. The currency check accepts a missing copy.
 

@@ -18,7 +18,7 @@ export const CONCEPTS = [
     id: "practice",
     name: "Practice",
     productRole:
-      "The connected project-specific system of guidance, Skills, worktrees, checks, Standards, evidence, acceptance, maintained knowledge, and local history.",
+      "The connected project-specific system of instructions, Skills, worktrees, checks, Standards, evidence, acceptance, maintained knowledge, and local history.",
     humanSituation:
       "The person cannot personally repeat or supervise every expectation across growing agent work.",
     brandInterpretation:
@@ -93,8 +93,8 @@ export const CONCEPTS = [
       "That logical source overlap or semantic integration conflict can never occur.",
   },
   {
-    id: "guidance",
-    name: "Guidance",
+    id: "instructions",
+    name: "Instructions",
     productRole:
       "One authored source compiled into each configured provider's instruction surface.",
     humanSituation:
@@ -235,7 +235,7 @@ export const CONCEPTS = [
     id: "provider-independence",
     name: "Provider independence",
     productRole:
-      "One project guidance and practice across supported providers.",
+      "One project instructions and practice across supported providers.",
     humanSituation:
       "Quotas, preferences, capabilities, and availability lead the user to switch agents.",
     brandInterpretation: "Change agents without re-teaching the project.",
@@ -327,8 +327,8 @@ export const TRANSLATIONS = [
     ],
   },
   {
-    id: "guidance",
-    title: "Guidance",
+    id: "instructions",
+    title: "Instructions",
     productTruth:
       "one authored source compiles into supported provider instruction files.",
     weakLiteralTranslation: "Cross-provider generated instruction parity.",

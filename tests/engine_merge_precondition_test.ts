@@ -26,7 +26,7 @@ import {
 
 /**
  * A config with a single observable `test` capability — its echoed marker is the
- * tell for whether the expensive stage ran. Guidance/skills off so the only thing
+ * tell for whether the expensive stage ran. Instructions/skills off so the only thing
  * standing between the merge check and a green gate is that one capability.
  */
 const MARKER = "RAN-THE-CAPABILITY";

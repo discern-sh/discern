@@ -41,7 +41,7 @@
       "properties": {
         "name": {
           "default": "",
-          "description": "Display name (free text), used where compiled guidance addresses the project. Empty falls back to the slug.",
+          "description": "Display name (free text), used when compiled instructions address the project. Empty falls back to the slug.",
           "type": "string"
         },
         "slug": {
@@ -117,16 +117,16 @@
       },
       "additionalProperties": false
     },
-    "guidance": {
-      "description": "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one agent file per provider.",
+    "instructions": {
+      "description": "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in instructions plus your sources into one agent file per provider.",
       "default": {},
       "type": "object",
       "properties": {
         "sources": {
           "default": [
-            "discern/guidance.md"
+            "discern/instructions.md"
           ],
-          "description": "Your guidance source files and globs. Concrete paths are relative to the project root, and discern removes leading `./` prefixes from them. Globs keep their authored spelling and may be relative or absolute. Source discovery excludes the agent files, so a glob may match them. Sources are read only when present; discern's built-in guidance is prepended.",
+          "description": "Your instruction source files and globs. Concrete paths are relative to the project root, and discern removes leading `./` prefixes from them. Globs keep their authored spelling and may be relative or absolute. Source discovery excludes the agent files, so a glob may match them. Sources are read only when present; discern's built-in instructions are prepended.",
           "type": "array",
           "items": {
             "type": "string",
@@ -507,7 +507,7 @@
           },
           "neutral": {
             "default": false,
-            "description": "true: changes here need no gate (docs, agent guidance).",
+            "description": "true: changes here need no gate (docs, agent instructions).",
             "type": "boolean"
           },
           "previewable": {

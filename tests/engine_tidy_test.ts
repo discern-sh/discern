@@ -56,7 +56,7 @@ async function write(path: string, text: string): Promise<void> {
   await Deno.writeTextFile(path, text);
 }
 
-/** Create deliberately noncanonical config, guidance, skill, map, and TODO fixtures for one tidy pass. */
+/** Create deliberately noncanonical config, instructions, skill, map, and TODO fixtures for one tidy pass. */
 async function seedTidyProject(root: string): Promise<void> {
   await write(
     join(root, "discern.toml"),
@@ -67,7 +67,7 @@ async function seedTidyProject(root: string): Promise<void> {
       "[project]",
       'todo="notes/TODO.md"',
       "",
-      "[guidance]",
+      "[instructions]",
       'sources=["instructions/*.md"]',
       "",
       "[skills]",
@@ -82,7 +82,7 @@ async function seedTidyProject(root: string): Promise<void> {
   await write(join(root, "notes", "TODO.md"), "# Todo\n\n-   item\n");
   await write(
     join(root, "instructions", "one.md"),
-    "# Guidance\n\n-   item\n",
+    "# Instructions\n\n-   item\n",
   );
   await write(join(root, "docs", "skills", "one.md"), "#Skill\n");
   await write(join(root, "discern", "brief.md"), "#Brief\n");
@@ -216,8 +216,8 @@ Deno.test("missing configured Markdown paths are a no-op success", async () => {
         "[project]",
         'todo = "missing/TODO.md"',
         "",
-        "[guidance]",
-        'sources = ["missing/guidance/*.md"]',
+        "[instructions]",
+        'sources = ["missing/instructions/*.md"]',
         "",
         "[map]",
         'dir = "missing/map/"',

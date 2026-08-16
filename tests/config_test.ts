@@ -8,8 +8,8 @@ import { assert, assertEquals } from "@std/assert";
 import {
   defaultDocumentationScopePaths,
   defaultDocumentationScopes,
-  defaultGuidanceScopePaths,
-  defaultGuidanceScopes,
+  defaultInstructionScopePaths,
+  defaultInstructionScopes,
   isValidSlug,
   parseAgents,
   parseSourceGlobs,
@@ -86,15 +86,15 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
     defaultDocumentationScopes().join(", "),
   );
   assertEquals(
-    map.scopes_guidance,
-    defaultGuidanceScopes().join(", "),
+    map.scopes_instructions,
+    defaultInstructionScopes().join(", "),
   );
   assertEquals(defaultDocumentationScopes(), [
     '"${map.dir}"',
     '"discern/TODO.md"',
   ]);
-  assertEquals(defaultGuidanceScopes(), [
-    '"discern/guidance.md"',
+  assertEquals(defaultInstructionScopes(), [
+    '"discern/instructions.md"',
     '"discern/skills/"',
     '"discern/brief.md"',
     '".claude/skills/"',
@@ -105,7 +105,7 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
 
 Deno.test("every gate-neutral authored path belongs to exactly one seed scope", () => {
   const docs = defaultDocumentationScopePaths();
-  const guidance = defaultGuidanceScopePaths();
+  const instructions = defaultInstructionScopePaths();
   for (const name of SOURCE_PATH_NAMES) {
     const entry = SOURCE_PATHS[name];
     if (!entry.gateNeutral) continue;
@@ -115,7 +115,7 @@ Deno.test("every gate-neutral authored path belongs to exactly one seed scope", 
       ? `${entry.defaultPath.replace(/\/+$/, "")}/`
       : entry.defaultPath;
     assertEquals(
-      Number(docs.includes(path)) + Number(guidance.includes(path)),
+      Number(docs.includes(path)) + Number(instructions.includes(path)),
       1,
       `${name}: every gate-neutral authored path must belong to exactly one seed scope`,
     );
@@ -129,8 +129,8 @@ Deno.test("the fresh neutral scopes separate pure docs from owner-reviewed instr
       `paths = [${defaultDocumentationScopes().join(", ")}]`,
       "neutral = true",
       "",
-      "[scopes.guidance]",
-      `paths = [${defaultGuidanceScopes().join(", ")}]`,
+      "[scopes.instructions]",
+      `paths = [${defaultInstructionScopes().join(", ")}]`,
       "neutral = true",
       "",
     ].join("\n"),
@@ -142,7 +142,7 @@ Deno.test("the fresh neutral scopes separate pure docs from owner-reviewed instr
 
   for (
     const path of [
-      "discern/guidance.md",
+      "discern/instructions.md",
       "discern/skills/review/SKILL.md",
       "discern/brief.md",
       ".claude/skills/review/SKILL.md",
@@ -154,8 +154,8 @@ Deno.test("the fresh neutral scopes separate pure docs from owner-reviewed instr
 
   for (const path of defaultDocumentationScopePaths()) {
     assert(
-      !defaultGuidanceScopePaths().includes(path),
-      `${path} must not share the owner-reviewed guidance scope`,
+      !defaultInstructionScopePaths().includes(path),
+      `${path} must not share the owner-reviewed instructions scope`,
     );
   }
 

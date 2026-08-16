@@ -194,7 +194,7 @@ When <triggering situation>, <changed action or experience>.
 
 > ## Change agents without starting the project over.
 >
-> When one provider reaches its quota, move the next task elsewhere. The project guidance, Skills, Map, checks, and working practice remain with the repository.
+> When one provider reaches its quota, move the next task elsewhere. The project instructions, Skills, Map, checks, and working practice remain with the repository.
 
 > ## Let several pieces move at once.
 >
@@ -323,14 +323,14 @@ Explaining setup to either audience.
 
 1. The agent studies the repository.
 2. It asks for the intent the code cannot reveal.
-3. It establishes the project's checks, principles, guidance, and working conditions.
+3. It establishes the project's checks, principles, instructions, and working conditions.
 4. It proves the practice in a fresh worktree.
 5. Every future agent inherits the result.
 
 <CTA to tell the agent to begin>
 ```
 
-### Copy guidance
+### Copy instructions
 
 - Prefer **commission** when describing the complete experience.
 - Use **setup** when naming the actual command or documentation.
@@ -580,7 +580,7 @@ Feature → capability → user moment → removed burden → human payoff → b
 Example:
 
 ```text
-Feature: compiled provider guidance
+Feature: compiled provider instructions
 Capability: every supported provider receives the same project instructions
 User moment: one quota runs out and the next task moves to another agent
 Removed burden: no re-teaching or provider-specific project explanation

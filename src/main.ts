@@ -478,7 +478,7 @@ export function buildCli(
     .command("upgrade")
     .description(
       "Upgrade discern itself in this project: migrate its config and refresh bundled " +
-        "skills and guidance. Use `discern update` for this branch; use `discern " +
+        "skills and instructions. Use `discern update` for this branch; use `discern " +
         "refresh` for agent files alone.",
     )
     .option(
@@ -507,7 +507,7 @@ export function buildCli(
   root
     .command("uninstall")
     .description(
-      "Remove discern's wiring from this project (keeps your discern.toml, guidance, and map).",
+      "Remove discern's wiring from this project (keeps your discern.toml, instructions, and map).",
     )
     .option(
       "--dry-run",

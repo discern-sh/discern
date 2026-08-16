@@ -447,7 +447,7 @@ Deno.test("gatePlanToEngine: firing job is run, unchanged scope gate is skip, bu
     engine.steps.find((s) => s.label === "format")?.disposition,
     "run",
   );
-  // The merge check, tracked-artifacts guard, and guidance + skills currency checks
+  // The merge check, tracked-artifacts guard, and instructions + skills currency checks
   // (FULL leaves both features on) are read-only `gate` preconditions, listed for
   // honesty.
   assertEquals(
@@ -460,7 +460,7 @@ Deno.test("gatePlanToEngine: firing job is run, unchanged scope gate is skip, bu
     "gate",
   );
   assertEquals(
-    engine.steps.find((s) => s.kind === "guidance-check")?.disposition,
+    engine.steps.find((s) => s.kind === "instructions-check")?.disposition,
     "gate",
   );
   assertEquals(

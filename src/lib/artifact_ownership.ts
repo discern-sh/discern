@@ -120,12 +120,13 @@ function providerArtifacts(): ArtifactPathEntry[] {
   for (const name of AGENT_NAMES) {
     const provider = PROVIDERS[name];
     entries.push({
-      id: `provider:${name}:guidance`,
-      path: provider.guidanceFile.path,
+      id: `provider:${name}:instructions`,
+      path: provider.instructionFile.path,
       pathKind: "file",
-      ownership: provider.guidanceFile.ownership,
-      writtenArtifact: provider.guidanceFile.writtenArtifact,
-      description: "Agent file compiled from the configured guidance sources.",
+      ownership: provider.instructionFile.ownership,
+      writtenArtifact: provider.instructionFile.writtenArtifact,
+      description:
+        "Agent file compiled from the configured instruction sources.",
     });
     if (provider.skillsDir !== undefined) {
       entries.push({

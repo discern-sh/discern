@@ -241,7 +241,7 @@ Deno.test("requested documentation remains intact in the Markdown projection", (
 });
 
 Deno.test("setup consent keeps the consent exchange ahead of its confirmed command", () => {
-  const guidance = "Ask the owner which checks must block completion.";
+  const instructions = "Ask the owner which checks must block completion.";
   const command = confirmedBeginCommand();
   const consent = fire(HINTS["setup-awaiting-confirmation"], {
     command: confirmedBeginCommandReference(),
@@ -252,13 +252,13 @@ Deno.test("setup consent keeps the consent exchange ahead of its confirmed comma
       verb: "setup",
       error: "awaiting_consent",
       message: "Setup needs the owner's consent before it writes anything.",
-      data: { guidance, command },
+      data: { instructions, command },
       hints: hintTexts([consent]),
     },
     resultPresenterForVerb("setup"),
   );
 
-  assertStringIncludes(rendered, guidance);
+  assertStringIncludes(rendered, instructions);
   assertStringIncludes(rendered, `then run \`${command}\``);
   assert(
     rendered.trimEnd().endsWith(consent.text),

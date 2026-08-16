@@ -26,7 +26,7 @@ export type ContentTokenName =
   | "map_dir"
   | "gotchas_doc"
   | "scopes_neutral"
-  | "scopes_guidance"
+  | "scopes_instructions"
   | "scopes_web"
   | "scopes_previewable"
   | "artifact_provenance_marker"

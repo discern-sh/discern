@@ -55,7 +55,7 @@ function proofConfig(mode: "local" | "fetch"): string {
     'trunk = "main"',
     `proof_notes = "${mode}"`,
     "",
-    "[guidance]",
+    "[instructions]",
     "sources = []",
     "",
   ].join("\n");

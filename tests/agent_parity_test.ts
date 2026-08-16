@@ -24,20 +24,20 @@
 import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
-import { guidancePathForNative } from "../src/shared/agent_catalogue.ts";
+import { instructionPathForNative } from "../src/shared/agent_catalogue.ts";
 import {
   agentArtifactPosture,
-  allGuidanceFilePaths,
+  allInstructionFilePaths,
   allLocalStateFiles,
   allSkillsDirs,
-  emitsGuidanceFile,
+  emitsInstructionFile,
   neutralAgentScopePaths,
   PROVIDER_BRAND_ASSET_ROOT,
   providerBrandSilhouette,
   providerFor,
   providersWithHooks,
 } from "../src/lib/providers.ts";
-import { defaultGuidanceScopes } from "../src/lib/config.ts";
+import { defaultInstructionScopes } from "../src/lib/config.ts";
 import {
   canonicalDiscernGitignoreBlock,
   ignoreCovers,
@@ -297,15 +297,15 @@ Deno.test("every known agent has registered mark, silhouette, and wordmark SVGs"
   );
 });
 
-Deno.test("registry aggregators stay total: one guidance file + a skills dir per known agent", () => {
-  const guidanceFiles = allGuidanceFilePaths();
+Deno.test("registry aggregators stay total: one instruction file + a skills dir per known agent", () => {
+  const instructionFiles = allInstructionFilePaths();
   const skillsDirs = allSkillsDirs();
   for (const name of AGENT_NAMES) {
     const p = providerFor(name);
     assert(p !== undefined, `no provider for ${name}`);
     assert(
-      guidanceFiles.includes(p.guidanceFile.path),
-      `allGuidanceFilePaths() is missing ${name}'s ${p.guidanceFile.path} — it must derive from PROVIDERS, not a literal list`,
+      instructionFiles.includes(p.instructionFile.path),
+      `allInstructionFilePaths() is missing ${name}'s ${p.instructionFile.path} — it must derive from PROVIDERS, not a literal list`,
     );
     if (p.skillsDir !== undefined) {
       assert(
@@ -318,35 +318,35 @@ Deno.test("registry aggregators stay total: one guidance file + a skills dir per
   // encoding) — one entry per kind, straight from the per-kind aggregators.
   const posture = agentArtifactPosture();
   assert(
-    posture.guidanceFiles.length === guidanceFiles.length &&
+    posture.instructionFiles.length === instructionFiles.length &&
       posture.materializedDirs.length === skillsDirs.length &&
       posture.localStateFiles.length === allLocalStateFiles().length,
     "agentArtifactPosture() must be the union of the per-kind aggregators",
   );
 });
 
-Deno.test("every provider's guidance path derives from the catalogue's declaration", () => {
-  // The catalogue owns the compiled-guidance path beside the native name and
+Deno.test("every provider's instruction path derives from the catalogue's declaration", () => {
+  // The catalogue owns the compiled-instruction path beside the native name and
   // label; a provider entry that reverts to a literal path could drift from
-  // the vocabulary the logbook's guidance-parity findings name.
+  // the vocabulary the logbook's instruction-parity findings name.
   for (const name of AGENT_NAMES) {
     const p = providerFor(name);
     assert(p !== undefined, `no provider for ${name}`);
     assertEquals(
-      p.guidanceFile.path,
-      guidancePathForNative(name),
-      `${name}: guidanceFile.path must come from guidancePathForNative`,
+      p.instructionFile.path,
+      instructionPathForNative(name),
+      `${name}: instructionFile.path must come from instructionPathForNative`,
     );
   }
 });
 
-Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonical reads it without duplicates", () => {
+Deno.test("instructions modelling stays sound: exactly one canonical, reuse-canonical reads it without duplicates", () => {
   // The invariant the reuse-canonical model rests on (deliverable 2): one provider
   // holds the canonical full body; a reuse-canonical provider reads THAT file and
   // discern emits no provider-specific file for it — so it can never leak a
   // duplicate.
   const canonicals = AGENT_NAMES
-    .map((n) => providerFor(n)?.guidanceFile)
+    .map((n) => providerFor(n)?.instructionFile)
     .filter((g) => g !== undefined && g.canonical)
     .map((g) => g?.path);
   assertEquals(
@@ -356,8 +356,8 @@ Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonica
   );
   const canonicalPath = canonicals[0];
   for (const name of AGENT_NAMES) {
-    const gf = providerFor(name)?.guidanceFile;
-    if (gf === undefined || emitsGuidanceFile(gf)) {
+    const gf = providerFor(name)?.instructionFile;
+    if (gf === undefined || emitsInstructionFile(gf)) {
       continue; // only inspect reuse-canonical providers
     }
     assertEquals(
@@ -373,11 +373,13 @@ Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonica
   }
   // The emitted set never carries a path twice — a reuse-canonical provider's path
   // collapses into the canonical's, so the aggregator stays free of duplicates.
-  const emitted = allGuidanceFilePaths();
+  const emitted = allInstructionFilePaths();
   assertEquals(
     emitted.length,
     new Set(emitted).size,
-    `allGuidanceFilePaths() must be duplicate-free, got: ${emitted.join(", ")}`,
+    `allInstructionFilePaths() must be duplicate-free, got: ${
+      emitted.join(", ")
+    }`,
   );
 });
 
@@ -431,15 +433,15 @@ Deno.test("every known agent declares trust metadata, naming the action when tru
   }
 });
 
-Deno.test("the seed .gitignore fragment TRACKS every known agent's compiled guidance file", () => {
-  // Tracked-by-default: the compiled guidance files are committed so a bare
+Deno.test("the seed .gitignore fragment TRACKS every known agent's compiled instruction file", () => {
+  // Tracked-by-default: the compiled instruction files are committed so a bare
   // clone (a cloud agent's only view) carries the same page a local session
   // reads. An ignore rule for one is the regression this guards against.
-  for (const path of allGuidanceFilePaths()) {
+  for (const path of allInstructionFilePaths()) {
     assert(
       !fragmentIgnoresFile(path),
-      `templates/.gitignore.fragment ignores the compiled guidance file ${path}. ` +
-        `Guidance files are tracked by default — remove the rule; the managed block ` +
+      `templates/.gitignore.fragment ignores the compiled instruction file ${path}. ` +
+        `Instruction files are tracked by default — remove the rule; the managed block ` +
         `enumerates only materialized dirs and machine-local state.`,
     );
   }
@@ -468,7 +470,7 @@ Deno.test("the seed .gitignore fragment ignores EVERY known agent's machine-loca
 Deno.test("every rule in the canonical block maps to a registry-declared materialized/local path", () => {
   // Enumerated ownership: the managed block claims exactly what discern
   // materializes or keeps machine-local, and nothing more — so a user's own
-  // file (a slash command under .claude/, a committed guidance file) can never
+  // file (a slash command under .claude/, a committed instruction file) can never
   // be swept up by an over-broad wildcard. Registry-driven: a new provider's
   // paths auto-enrol; a hand-added rule with no registry backing fails here.
   const posture = agentArtifactPosture();
@@ -491,12 +493,12 @@ Deno.test("every rule in the canonical block maps to a registry-declared materia
   }
 });
 
-Deno.test("the seed guidance scope neutralizes EVERY known agent's materialized skills dir", () => {
-  const guidance = defaultGuidanceScopes(); // TOML-quoted, e.g. '".claude/skills/"'
+Deno.test("the seed instructions scope neutralizes EVERY known agent's materialized skills dir", () => {
+  const instructions = defaultInstructionScopes(); // TOML-quoted, e.g. '".claude/skills/"'
   for (const dir of neutralAgentScopePaths()) {
     assert(
-      guidance.includes(`"${dir}"`),
-      `defaultGuidanceScopes() does not neutralize ${dir} — a materialized skill ` +
+      instructions.includes(`"${dir}"`),
+      `defaultInstructionScopes() does not neutralize ${dir} — a materialized skill ` +
         `would wrongly fire the gate. It must derive from neutralAgentScopePaths().`,
     );
   }
@@ -519,13 +521,13 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
     const p = providerFor(name);
     assert(p !== undefined, `no provider for ${name}`);
 
-    // 1. Compiled guidance file: TRACKED — never ignored by the seed fragment.
+    // 1. Compiled instruction file: TRACKED — never ignored by the seed fragment.
     // (A reuse-canonical provider's `path` is the canonical it reads, which the
     // canonical provider already covers — so this holds for emitting AND
     // reuse-canonical agents alike.)
     assert(
-      !fragmentIgnoresFile(p.guidanceFile.path),
-      `${name}: guidance file ${p.guidanceFile.path} is ignored by the seed fragment — compiled guidance is tracked by default`,
+      !fragmentIgnoresFile(p.instructionFile.path),
+      `${name}: instruction file ${p.instructionFile.path} is ignored by the seed fragment — compiled instructions are tracked by default`,
     );
 
     // 2. Materialized skills dir (when the agent has one): gitignored + neutral.
@@ -536,8 +538,8 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
       );
       const scopePath = `${p.skillsDir.path.replace(/\/+$/, "")}/`;
       assert(
-        defaultGuidanceScopes().includes(`"${scopePath}"`),
-        `${name}: materialized skills dir ${scopePath} not in the seed guidance scope`,
+        defaultInstructionScopes().includes(`"${scopePath}"`),
+        `${name}: materialized skills dir ${scopePath} not in the seed instructions scope`,
       );
     }
 
@@ -556,14 +558,14 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
       `${name}: empty binaries — the desk cannot launch it`,
     );
 
-    // 4. Guidance modelling: a reuse-canonical provider reads the canonical without
+    // 4. Instructions modelling: a reuse-canonical provider reads the canonical without
     // a duplicate provider file; an emitting provider's path is in the deduped
     // aggregator exactly once (deliverable 2).
-    if (emitsGuidanceFile(p.guidanceFile)) {
+    if (emitsInstructionFile(p.instructionFile)) {
       assert(
-        allGuidanceFilePaths().filter((x) => x === p.guidanceFile.path)
+        allInstructionFilePaths().filter((x) => x === p.instructionFile.path)
           .length === 1,
-        `${name}: emitted guidance ${p.guidanceFile.path} must appear once in allGuidanceFilePaths()`,
+        `${name}: emitted instructions ${p.instructionFile.path} must appear once in allInstructionFilePaths()`,
       );
     }
 

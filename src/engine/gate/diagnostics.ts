@@ -379,7 +379,7 @@ function normalizeJunit(
 
 /**
  * The machine formats diagnostic normalization recognizes, in detection order.
- * Parsing, setup guidance, improvement coaching, and documentation enrollment
+ * Parsing, setup instructions, improvement coaching, and documentation enrollment
  * all derive from or are checked against this registry.
  */
 export const DIAGNOSTIC_FORMATS = [

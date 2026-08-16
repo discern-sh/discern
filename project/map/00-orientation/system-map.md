@@ -20,16 +20,16 @@ One self-contained binary, `discern`, runs from `PATH`. Its installer verbs writ
 ┌──────────────────────────────┐   bundles    ┌──────────────────────────┐
 │   the `discern` binary       │ ◄─────────── │   bundled sources        │
 │  installer verbs + engine    │  (compiled   │  seeds · skills ·        │
-│  (one self-contained binary) │   in)        │  built-in guidance       │
+│  (one self-contained binary) │   in)        │  built-in instructions   │
 └──────┬───────────────────────┘              └──────────────────────────┘
        │  discern setup / upgrade
-       │  write seeds · merge · reconcile .gitignore · materialize skills · compile guidance
+       │  write seeds · merge · reconcile .gitignore · materialize skills · compile instructions
        ▼
 ┌────────────────────────────────────────────────────────────┐
 │                    An install: on disk                     │
 │  discern.toml: one root file (no engine, no manifest)      │
 │  + discern/: the visible, project-owned namespace:         │
-│      guidance.md · TODO.md ·                               │
+│      instructions.md · TODO.md ·                           │
 │      skills/ · scripts/ · brief.md (each config-pointable) │
 │  + map/ — the documentation map                            │
 │  + agent files (tracked): AGENTS.md · CLAUDE.md/GEMINI.md  │
@@ -81,5 +81,5 @@ main checkout ──discern start──►  worktree  ⟲  discern update
 
 - **No daemon, no server.** A verb starts a process that exits when the command returns. Work happens when you run `discern <verb>`.
 - **Persistent state lives in the repo.** `discern.toml` plus the git repository itself: branches, and linked worktrees in a sibling `<repo>.worktrees/` folder by default (configurable via `[worktree].root`). No manifest, no database, no external state.
-- **The engine's required external tool is `git`.** Your stack supplies the formatter, linter, and test runner invoked as jobs. discern embeds `discern tidy` for the Map, guidance, TODO, and root config whose conventions discern owns.
+- **The engine's required external tool is `git`.** Your stack supplies the formatter, linter, and test runner invoked as jobs. discern embeds `discern tidy` for the Map, instructions, TODO, and root config whose conventions discern owns.
 - **Concurrency is in-process.** During `done`, parallel stages run jobs as child processes and collect them before the stage returns. The first failure cancels its running siblings (see [the quality gate](../20-quality-gate/)).

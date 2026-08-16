@@ -131,7 +131,7 @@ dir = "agent-playbooks"
 dir = "tools/discern"
 `);
   assertEquals(discernMarkdownAttributePaths(config), [
-    { surface: "guidance", path: "discern/guidance.md" },
+    { surface: "instructions", path: "discern/instructions.md" },
     { surface: "map", path: "knowledge/**/*.md" },
     { surface: "skills", path: "agent-playbooks/**/*.md" },
     { surface: "scripts", path: "tools/discern/**/*.md" },

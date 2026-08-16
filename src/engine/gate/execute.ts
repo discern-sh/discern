@@ -6,7 +6,7 @@
  * first failure, so `done`, `prepare`, and `test` all execute jobs identically —
  * the same job runner, the same banners, the same captured-output diagnostics.
  *
- * `done` composes more on top (scope-gate selection, the guidance/merge checks),
+ * `done` composes more on top (scope-gate selection, the instructions/merge checks),
  * so it drives {@link runGroup} itself; `prepare`/`test` are exactly "run these
  * groups, serialize the result" and use {@link runJobGroups} wholesale.
  */

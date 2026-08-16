@@ -612,7 +612,7 @@ Deno.test("the repository's habitual and targeted test commands stay queue-wrapp
   assertEquals(
     /^deno test(?:\s|$)/m.exec(testingGuide),
     null,
-    "testing guidance must send runnable examples through the wrapped task",
+    "testing instructions must send runnable examples through the wrapped task",
   );
   assertStringIncludes(
     testingGuide,

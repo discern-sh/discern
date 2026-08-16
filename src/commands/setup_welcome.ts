@@ -94,7 +94,7 @@ export function resolveWelcomeStyle(
  * text (ADR 0075). The human blocks below say the same things in prose; these are
  * the structured mirror, kept in step with them by the welcome JSON tests.
  */
-const FRESH_AGENT_GUIDANCE =
+const FRESH_AGENT_INSTRUCTIONS =
   "You are discern's configuration engine for this project — the capable agent already in the loop, here to set discern up for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done), not a status to relay back and stop on; discern only guides you, and nothing is written until you run `discern setup begin`. Your next action now: run `discern setup verify` yourself to preview the plan and open the consent conversation — don't hand the welcome back as a report. It hands you the exact message to relay to your human (what discern is, what it will do and cost, and the points to confirm) — relay that, wait for their answers, then run `begin`.";
 
 const FRESH_HUMAN_FRAMING =
@@ -106,10 +106,10 @@ const FRESH_HUMAN_FRAMING =
 const FRESH_NON_GIT_NOTE =
   "This folder isn't a git repository yet — setup's first step is `git init` (git is what makes setup isolated, reversible, and easy to undo); `discern setup verify` walks you through it.";
 
-const IN_PROGRESS_AGENT_GUIDANCE =
+const IN_PROGRESS_AGENT_INSTRUCTIONS =
   "Finishing setup is YOUR job, not a status to report back. Continue the setup brief, then run `discern setup done` to validate and record completion — and don't tell the user setup is done until it passes. Reprint the brief any time with `discern setup begin` (idempotent; it won't touch your work).";
 
-const ABANDONED_AGENT_GUIDANCE =
+const ABANDONED_AGENT_INSTRUCTIONS =
   `Setup is already in progress on the \`${SETUP_BRANCH}\` branch — resume it there; do NOT start setup again from this branch (that would re-scaffold over the half-finished install). Check the branch out (\`git checkout ${SETUP_BRANCH}\`), reprint the brief with \`discern setup begin\`, continue it, then run \`discern setup done\` to finish.`;
 
 /**
@@ -145,7 +145,7 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
           phase: "in_progress",
           complete: false,
           next_action: `git checkout ${SETUP_BRANCH}`,
-          agent_guidance: ABANDONED_AGENT_GUIDANCE,
+          agent_instructions: ABANDONED_AGENT_INSTRUCTIONS,
         },
       });
       return 0;
@@ -181,14 +181,14 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
         // whether the caller chooses terminal, JSON, or Markdown delivery.
         ...(phase === "fresh"
           ? {
-            agent_guidance: FRESH_AGENT_GUIDANCE,
+            agent_instructions: FRESH_AGENT_INSTRUCTIONS,
             human_framing: gitRepo
               ? FRESH_HUMAN_FRAMING
               : `${FRESH_NON_GIT_NOTE} ${FRESH_HUMAN_FRAMING}`,
           }
           : {}),
         ...(phase === "in_progress"
-          ? { agent_guidance: IN_PROGRESS_AGENT_GUIDANCE }
+          ? { agent_instructions: IN_PROGRESS_AGENT_INSTRUCTIONS }
           : {}),
         // Same snake_case shape as status's `setup_unfinished`, so the two derived-
         // progress surfaces read identically.
@@ -296,7 +296,7 @@ const PLAIN_FRESH_GROUP_IDS = [
   "human-overview",
   "human-action",
   "reversibility",
-  "model-guidance",
+  "model-instructions",
   "agent-overview",
   "agent-next-action",
   "agent-command",
@@ -525,7 +525,7 @@ function inProgressWelcomeGroups(
 }
 
 /**
- * Render derived setup progress as human lines — what doc/guidance authoring is left
+ * Render derived setup progress as human lines — what doc/instructions authoring is left
  * (files still carrying a marker) and which known jobs are wired. Shared shape with
  * `status`, which reads the same {@link SetupProgress}. Exported so `status` renders
  * it identically.
@@ -534,10 +534,10 @@ export function renderProgressLines(progress: SetupProgress): string[] {
   const lines: string[] = ["Progress so far:"];
 
   if (progress.pendingMarkers.length === 0) {
-    lines.push("  • docs & guidance: all skeletons filled ✓");
+    lines.push("  • docs & instructions: all skeletons filled ✓");
   } else {
     lines.push(
-      `  • docs & guidance: ${progress.pendingMarkers.length} file(s) still need filling —`,
+      `  • docs & instructions: ${progress.pendingMarkers.length} file(s) still need filling —`,
     );
     for (const f of progress.pendingMarkers) {
       lines.push(`      ${f}`);

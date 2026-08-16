@@ -1115,7 +1115,7 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       cohortRun("claude", "CLAUDECODE", { branch: "agent/calm" }),
     ]),
   },
-  "guidance-parity": {
+  "instruction-parity": {
     // Modeled on the live differential this wave was tuned against: one
     // cohort repeatedly refused a precondition its peer never hit.
     firing: run([
@@ -4634,7 +4634,7 @@ Deno.test("patterns trajectory: the summary compares today's value with today's 
   const values = [825, 830, 850, 880, 900];
   const limits = [900, 900, 900, 837, 837];
   const events = run(values.map((value, i) => ({
-    standards: [reading("guidance", value, limits[i] ?? 837, "down")],
+    standards: [reading("instructions", value, limits[i] ?? 837, "down")],
   })));
   const outcome = runDetector(trajectory, buildStreamFacts(events, "main"));
   const finding = outcome.findings[0];

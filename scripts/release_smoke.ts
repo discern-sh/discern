@@ -237,7 +237,7 @@ export async function smokeReleaseBinary(
     for (
       const relative of [
         "discern.toml",
-        SOURCE_PATHS.guidance.defaultPath,
+        SOURCE_PATHS.instructions.defaultPath,
         join(SOURCE_PATHS.map.defaultPath, "README.md"),
       ]
     ) {

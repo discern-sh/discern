@@ -159,7 +159,7 @@ export const GATE_FAILED_STAGE_LABEL = {
   generated_drift: "Generated-artifact currency",
   refresh_drift: "Tracked refresh currency",
   tracked_artifacts: "Tracked-artifact ownership",
-  guidance: "Agent guidance currency",
+  instructions: "Agent instruction currency",
   skills: "Agent Skill currency",
   skill_frontmatter: "Agent Skill metadata",
   adr_numbers: "ADR numbering",

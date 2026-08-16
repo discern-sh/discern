@@ -1,22 +1,22 @@
 /**
- * The PURE guidance renderer (ADR 0034): compute the exact content `discern
+ * The PURE instruction renderer (ADR 0034): compute the exact content `discern
  * refresh` would write for each provider's agent file, with NO side effects.
  *
  * This is the SINGLE source of the compiled-file content. The writer
- * (`compileGuidelines`) renders here and writes; the currency checker
- * (`checkGuidanceCurrent`, consumed by `discern status` and `discern done`)
+ * (`compileInstructions`) renders here and writes; the currency checker
+ * (`checkInstructionCurrent`, consumed by `discern status` and `discern done`)
  * renders here and compares to disk. Because both go through
  * {@link renderAgentFiles}, the check can never disagree with what a refresh would
  * produce — there is no second copy of the compile logic, and no stored hash to
  * keep in sync.
  *
- * The compiled body is, in order: discern's built-in guidance sections, then the
- * user's `[guidance].sources`. Each
+ * The compiled body is, in order: discern's built-in instruction sections, then the
+ * user's `[instructions].sources`. Each
  * provider file is either that full body or — for a provider that declares a
  * `pointer` and is not itself canonical — a pointer importing the canonical file.
  *
  * This module is effect-free (reads only) and deliberately free of the skills/MCP
- * machinery in `guidelines.ts`, so the gate and `status` can import the check
+ * machinery in `instructions.ts`, so the gate and `status` can import the check
  * without pulling those in.
  */
 
@@ -27,34 +27,39 @@ import {
   projectDisplayName,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
-import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
 import {
-  emitsGuidanceFile,
-  emittedGuidancePaths,
-  type GuidanceFile,
+  resolveInstructionSources,
+  resolveTemplatesDir,
+} from "../lib/paths.ts";
+import {
+  emitsInstructionFile,
+  emittedInstructionPaths,
+  type InstructionFile,
   providerFor,
   skillsDirsForAgents,
 } from "../lib/providers.ts";
 import {
-  type GuidanceContext,
-  renderGuidanceTemplate,
-} from "./guidance_template.ts";
+  type InstructionContext,
+  renderInstructionTemplate,
+} from "./instruction_template.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { discoverDocs, docRegions } from "../lib/docs.ts";
 
-/** Opaque insertion point owned by the map guidance renderer, not the template
+/** Opaque insertion point owned by the map instruction renderer, not the template
  * language. Keeping it outside `{{...}}` preserves the shared config-only
- * guidance context used by bundled skills. */
+ * instruction context used by bundled skills. */
 const MAP_REGIONS_MARKER = "<!-- discern:map-regions -->";
 const MAP_REGIONS_WILDCARD = "\0discern:map-regions\0";
 
 /** One body discern could own: exact throughout, or variable only at the map slot. */
-export type GuidanceOwnershipPattern =
+export type InstructionOwnershipPattern =
   | { kind: "exact"; body: string }
   | { kind: "map-regions"; prefix: string; suffix: string };
 
 /** Turn an internal wildcard render into an exact-outside-the-slot pattern. */
-function guidanceOwnershipPattern(body: string): GuidanceOwnershipPattern {
+function instructionOwnershipPattern(
+  body: string,
+): InstructionOwnershipPattern {
   const comparable = body.trim();
   const at = comparable.indexOf(MAP_REGIONS_WILDCARD);
   if (at < 0) return { kind: "exact", body: comparable };
@@ -69,8 +74,8 @@ function guidanceOwnershipPattern(body: string): GuidanceOwnershipPattern {
 }
 
 /** Whether a candidate is discern's render, allowing only its map payload to vary. */
-export function matchesGuidanceOwnership(
-  pattern: GuidanceOwnershipPattern,
+export function matchesInstructionOwnership(
+  pattern: InstructionOwnershipPattern,
   candidate: string,
 ): boolean {
   const comparable = candidate.trim();
@@ -81,7 +86,7 @@ export function matchesGuidanceOwnership(
 }
 
 /**
- * The built-in guidance sections, in compile order. Every section always
+ * The built-in instruction sections, in compile order. Every section always
  * compiles; a section that applies only to a configured state gates itself with
  * a template conditional (standards.md renders only when at least one
  * `[standards]` table exists — activation by presence, ADR 0101) and an
@@ -97,11 +102,11 @@ const BUILTIN_SECTIONS: ReadonlyArray<{ file: string }> = [
 
 /**
  * The providers to emit: `[project].agents`, else the default pair.
- * Re-exported under the long-standing `guidanceAgents` name;
+ * Re-exported under the long-standing `instructionAgents` name;
  * the resolution itself lives in the shared schema module ({@link
  * resolveConfiguredAgents}) so the compiler and the skills currency check share it.
  */
-export const guidanceAgents = resolveConfiguredAgents;
+export const instructionAgents = resolveConfiguredAgents;
 
 /**
  * The template context the built-in sections render against — a PURE function of
@@ -115,10 +120,10 @@ export const guidanceAgents = resolveConfiguredAgents;
  * loaded config this reads. Keep it minimal: add a variable or predicate only when
  * a template actually uses it.
  */
-export function guidanceContext(config: DiscernConfig): GuidanceContext {
+export function instructionContext(config: DiscernConfig): InstructionContext {
   // The agent files and skills dirs THIS project actually generates, named from the
   // SAME registry source renderAgentFiles / materializeSkills write to (config
-  // agents → provider guidance-file paths / skills dirs), so the list base.md prints
+  // agents → provider instruction-file paths / skills dirs), so the list base.md prints
   // can never drift from what is produced. Each item is backticked since a
   // comma-joined list can't be wrapped per-item by the `{{var}}` template.
   const agents = resolveConfiguredAgents(config);
@@ -128,15 +133,15 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
   // provider contributes the canonical file when no canonical provider is present,
   // and repeated paths collapse — so the never-edit sentence names each generated
   // file once.
-  const agentFiles = emittedGuidancePaths(guidanceFilesFor(agents));
+  const agentFiles = emittedInstructionPaths(instructionFilesFor(agents));
   return {
     vars: {
-      // How the compiled guidance addresses the project: `[project].name`, else
+      // How the compiled instructions address the project: `[project].name`, else
       // the slug — so the file the user's agents read opens as the project's own.
       project_name: projectDisplayName(config),
       branch_prefix: config.repository.branch_prefix,
       map_dir: normalizeMapDir(config.map.dir),
-      // The deferred-work ledger's configured location. No built-in guidance
+      // The deferred-work ledger's configured location. No built-in instructions
       // section consumes it yet; bundled-skill rendering does (ADR 0102), and it
       // is exposed here so both surfaces read one context.
       todo_path: config.project.todo,
@@ -145,7 +150,7 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
       skills_dir: config.skills.dir,
       scripts_dir: config.scripts.dir,
       main_branch: config.repository.trunk,
-      guidance_sources: codeList(config.guidance.sources),
+      instruction_sources: codeList(config.instructions.sources),
       generated_agent_files: codeList(agentFiles),
       materialized_skills_dirs: codeList(skillsDirsForAgents(agents)),
     },
@@ -163,12 +168,12 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
 }
 
 /**
- * Read, template, and concatenate discern's built-in guidance sections, in
+ * Read, template, and concatenate discern's built-in instruction sections, in
  * {@link BUILTIN_SECTIONS} order. Each section is rendered
- * against {@link guidanceContext} so generic prose can name the project's real
+ * against {@link instructionContext} so generic prose can name the project's real
  * branch prefix / integration branch and drop config-gated content. ONLY built-in
- * sections are templated — the user's `[guidance].sources` are appended verbatim by
- * {@link composeGuidanceBody}. A missing section file is skipped defensively (the
+ * sections are templated — the user's `[instructions].sources` are appended verbatim by
+ * {@link composeInstructionBody}. A missing section file is skipped defensively (the
  * distribution ships them, but a custom templates tree might not).
  */
 async function renderMapRegions(root: string): Promise<string> {
@@ -181,13 +186,13 @@ async function renderMapRegions(root: string): Promise<string> {
     );
 }
 
-/** Load bundled operating guidance in canonical section order. */
-async function builtinGuidance(
+/** Load bundled operating instructions in canonical section order. */
+async function builtinInstructions(
   config: DiscernConfig,
   mapRegions: string,
 ): Promise<string> {
-  const dir = join(await resolveTemplatesDir(), "guidance");
-  const ctx = guidanceContext(config);
+  const dir = join(await resolveTemplatesDir(), "instructions");
+  const ctx = instructionContext(config);
   let out = "";
   for (const section of BUILTIN_SECTIONS) {
     let text: string;
@@ -199,7 +204,7 @@ async function builtinGuidance(
       }
       throw err;
     }
-    text = renderGuidanceTemplate(text, ctx);
+    text = renderInstructionTemplate(text, ctx);
     if (section.file === "map.md") {
       text = text.replaceAll(MAP_REGIONS_MARKER, mapRegions);
     }
@@ -218,18 +223,18 @@ async function builtinGuidance(
 }
 
 /**
- * The full compiled guidance body: the built-in sections followed by
- * the user's `[guidance].sources`. A single Markdown horizontal rule separates
- * shipped guidance from user-authored guidance, so the ownership boundary is
+ * The full compiled instruction body: the built-in sections followed by
+ * the user's `[instructions].sources`. A single Markdown horizontal rule separates
+ * shipped instructions from user-authored instructions, so the ownership boundary is
  * visible without changing either side's prose.
  */
-async function composeGuidanceBodyWithMapRegions(
+async function composeInstructionBodyWithMapRegions(
   root: string,
   config: DiscernConfig,
   mapRegions: string,
 ): Promise<string> {
-  let body = await builtinGuidance(config, mapRegions);
-  const sources = await resolveGuidanceSources(root, config);
+  let body = await builtinInstructions(config, mapRegions);
+  const sources = await resolveInstructionSources(root, config);
   if (sources.length > 0) {
     const builtIn = body.trimEnd();
     body = builtIn === "" ? "" : `${builtIn}\n\n---\n\n`;
@@ -241,29 +246,29 @@ async function composeGuidanceBodyWithMapRegions(
   return body;
 }
 
-/** Combine built-in policy and authored project guidance for provider rendering. */
-export async function composeGuidanceBody(
+/** Combine built-in policy and authored project instructions for provider rendering. */
+export async function composeInstructionBody(
   root: string,
   config: DiscernConfig,
 ): Promise<string> {
-  return await composeGuidanceBodyWithMapRegions(
+  return await composeInstructionBodyWithMapRegions(
     root,
     config,
     await renderMapRegions(root),
   );
 }
 
-/** The guidance-file entries for the configured agents, in order, dropping unknown
+/** The instruction-file entries for the configured agents, in order, dropping unknown
  * names (no provider). The input to {@link agentFileContents} and the emitted-paths
  * aggregator, so both read the same registry-resolved list. */
-function guidanceFilesFor(agents: readonly string[]): GuidanceFile[] {
+function instructionFilesFor(agents: readonly string[]): InstructionFile[] {
   return agents
-    .map((a) => providerFor(a)?.guidanceFile)
-    .filter((g): g is GuidanceFile => g !== undefined);
+    .map((a) => providerFor(a)?.instructionFile)
+    .filter((g): g is InstructionFile => g !== undefined);
 }
 
 /**
- * The agent-file content map for the given guidance entries and composed body —
+ * The agent-file content map for the given instructions entries and composed body —
  * PURE, keyed by project-relative path. Each entry gets the full body, or — when it
  * declares a `pointer` and a DIFFERENT canonical file is also emitted — that
  * pointer. A reuse-canonical entry adds no vendor-specific file; when no canonical
@@ -273,7 +278,7 @@ function guidanceFilesFor(agents: readonly string[]): GuidanceFile[] {
  * out so a synthetic provider set can be exercised in tests without an install.
  */
 export function agentFileContents(
-  files: readonly GuidanceFile[],
+  files: readonly InstructionFile[],
   body: string,
 ): Map<string, string> {
   // The canonical agent file the pointer mirrors import (codex → AGENTS.md). When a
@@ -284,7 +289,7 @@ export function agentFileContents(
     files.find((g) => g.reuseCanonical === true)?.path;
   const out = new Map<string, string>();
   for (const gf of files) {
-    if (!emitsGuidanceFile(gf)) {
+    if (!emitsInstructionFile(gf)) {
       if (configuredCanonical === undefined && gf.path === canonicalRel) {
         out.set(gf.path, body);
       }
@@ -310,15 +315,15 @@ export function agentFileContents(
 export async function agentFileOwnershipPatterns(
   root: string,
   config: DiscernConfig,
-  files: readonly GuidanceFile[],
-): Promise<GuidanceOwnershipPattern[]> {
-  const body = await composeGuidanceBodyWithMapRegions(
+  files: readonly InstructionFile[],
+): Promise<InstructionOwnershipPattern[]> {
+  const body = await composeInstructionBodyWithMapRegions(
     root,
     config,
     MAP_REGIONS_WILDCARD,
   );
   return [...agentFileContents(files, body).values()].map(
-    guidanceOwnershipPattern,
+    instructionOwnershipPattern,
   );
 }
 
@@ -336,22 +341,22 @@ export async function renderAgentFiles(
   config?: DiscernConfig,
 ): Promise<Map<string, string>> {
   const cfg = config ?? await loadConfig(root);
-  const body = await composeGuidanceBody(root, cfg);
-  return agentFileContents(guidanceFilesFor(guidanceAgents(cfg)), body);
+  const body = await composeInstructionBody(root, cfg);
+  return agentFileContents(instructionFilesFor(instructionAgents(cfg)), body);
 }
 
 /** Every compiled Agent-file path the current provider selection can emit. */
 export function agentFilePaths(config: DiscernConfig): string[] {
   return [
     ...agentFileContents(
-      guidanceFilesFor(guidanceAgents(config)),
+      instructionFilesFor(instructionAgents(config)),
       "",
     ).keys(),
   ];
 }
 
 /** One agent file that does not match what `refresh` would write. */
-export interface GuidanceDriftEntry {
+export interface InstructionDriftEntry {
   /** Project-relative path of the generated file. */
   path: string;
   /**
@@ -373,12 +378,12 @@ export interface GuidanceDriftEntry {
  * check (ADR 0034): recompile in memory via
  * {@link renderAgentFiles}, diff against disk — no stored hash. PURE: reads only.
  */
-export async function checkGuidanceCurrent(
+export async function checkInstructionCurrent(
   root: string,
   config?: DiscernConfig,
-): Promise<GuidanceDriftEntry[]> {
+): Promise<InstructionDriftEntry[]> {
   const expectedFiles = await renderAgentFiles(root, config);
-  const drift: GuidanceDriftEntry[] = [];
+  const drift: InstructionDriftEntry[] = [];
   for (const [rel, expected] of expectedFiles) {
     let actual: string;
     try {

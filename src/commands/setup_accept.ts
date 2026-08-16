@@ -41,7 +41,7 @@ export interface SetupAcceptOptions {
 }
 
 /** The exact command a user runs to land their setup — the one string `setup done`
- * and any guidance quote, so the verb name lives in one place. */
+ * and any instructions quote, so the verb name lives in one place. */
 export const ACCEPT_COMMAND = "discern setup accept";
 
 /** The same command as a typed reference, derived from the one string above,

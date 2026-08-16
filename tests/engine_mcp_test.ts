@@ -1625,7 +1625,7 @@ Deno.test("discern mcp: noisy Gate output stays inside the result under both str
           'slug = "mcp-gate-silence"',
           "agents = []",
           "",
-          "[guidance]",
+          "[instructions]",
           "sources = []",
           "",
           "[jobs]",
@@ -2881,7 +2881,7 @@ Deno.test("discern mcp: after discern_start, discern_status follows the re-aimed
   });
 });
 
-Deno.test("generic worktree guidance stays within agent-observable state", () => {
+Deno.test("generic worktree instructions stays within agent-observable state", () => {
   // An agent that cannot change its working root must read the SAME fallback —
   // prefix every shell command with `cd <path> &&`, and pass `path` to every
   // discern tool. A vendor UI may pause a tool call before execution without
@@ -2899,8 +2899,8 @@ Deno.test("generic worktree guidance stays within agent-observable state", () =>
   assert(worktreePolicy !== undefined, "missing worktree-first policy");
   assertStringIncludes(buildInstructions(), worktreePolicy.statement);
   const surfaces: Record<string, string> = {
-    "worktree guidance template": Deno.readTextFileSync(
-      new URL("../templates/guidance/worktrees.md", import.meta.url),
+    "worktree instructions template": Deno.readTextFileSync(
+      new URL("../templates/instructions/worktrees.md", import.meta.url),
     ),
     "discern_start MCP hint": mcpHint,
     "worktree-first operating policy": worktreePolicy.statement,
@@ -3273,7 +3273,7 @@ Deno.test("discern mcp: discern_refresh repairs stale generated artifacts", asyn
     assertEquals(refreshed.result.structuredContent.verb, "refresh");
     assert(
       !(await Deno.readTextFile(claude)).includes("stale edit"),
-      "discern_refresh should rewrite generated guidance just like the CLI refresh",
+      "discern_refresh should rewrite generated instructions just like the CLI refresh",
     );
 
     assertEquals(await mcp.close(), 0);
@@ -3692,7 +3692,7 @@ Deno.test("discern mcp: the rendered surface names the project's configured trun
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // Customise the trunk — the value the graduate_to / guidance.sources
+    // Customise the trunk — the value the graduate_to / instructions.sources
     // fixes proved the agent files must reflect. The MCP surface must reflect it too:
     // a description that names the branch shows the REAL one, never a baked-in "main".
     const set = await runAgent(dir, [

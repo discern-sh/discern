@@ -48,7 +48,7 @@ const CONFIG = [
   "[repository]",
   'trunk = "main"',
   "",
-  "[guidance]",
+  "[instructions]",
   "sources = []",
   "",
   "[jobs]",

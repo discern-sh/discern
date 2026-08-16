@@ -19,7 +19,7 @@
   # discern intentionally self-hosts every configurable authored source under
   # project/ to exercise path overrides; fresh installations keep shipped defaults.
 
-  # Display name (free text), used where compiled guidance addresses the project.
+  # Display name (free text), used when compiled instructions address the project.
   # Empty falls back to the slug.
   name = "discern"
 
@@ -52,7 +52,7 @@
   # Set false to stop all writes; existing history stays until you delete it.
   logbook = true
 
-  # Which agent integrations to enable. Guidance targets:
+  # Which agent integrations to enable. Agent file targets:
   #   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
   #   "cursor" -> AGENTS.md        "copilot" -> AGENTS.md
   agents = ["claude_code", "codex", "gemini", "cursor", "copilot"]
@@ -100,8 +100,8 @@
   dir = "project/map/"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
-# `discern refresh` compiles discern's built-in guidance (always
+# [instructions] — the author-once → compile-everywhere agent-instruction pipeline.
+# `discern refresh` compiles discern's built-in instructions (always
 # prepended) plus YOUR sources below into one generated file per
 # provider. The generated files are committed so every agent — cloud
 # included — reads them, but never hand-edited: edit your sources below and
@@ -109,10 +109,10 @@
 # file that has drifted from its source.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[guidance]
-  # Your guideline source file(s), relative to the project root. Globs are allowed.
-  # Read only if present; discern's built-in guidance is always prepended.
-  sources = ["project/guidance.md"]
+[instructions]
+  # Your instruction source file(s), relative to the project root. Globs are allowed.
+  # Read only if present; discern's built-in instructions are always prepended.
+  sources = ["project/instructions.md"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [skills] — focused, reusable task playbooks. The effective set is discern's
@@ -196,7 +196,7 @@
   # MORE gates, never fewer. Globs use ** for "any depth" — a directory prefix
   # ("src/**"), a standard glob ("src/**/*.ext", "src/*"), a "*.ext" suffix at
   # any depth, a "/seg/" segment, or an exact path.
-  #   neutral     = true   changes here need no gate (docs, agent guidance)
+  #   neutral     = true   changes here need no gate (docs, agent instructions)
   #   previewable = true   a person could see changes here — worth a preview link
   #   gate        = "..."  a command `discern done` runs when this scope changed
   #                        (a sub-component with its own self-contained gate)
@@ -214,14 +214,14 @@
     ]
     neutral = true
 
-  # Agent-instruction surfaces: authored guidance and skills, plus the exact
+  # Agent-instruction surfaces: authored instructions and skills, plus the exact
   # materialized-skills directories compiled from them. Gate-neutral like the map scope,
   # but deliberately outside [acceptance] — instructions steer every future
   # session, so landing them always gets owner review. Project Scripts and
   # provider-owned sibling files still run the gate.
-  [scopes.guidance]
+  [scopes.instructions]
     paths = [
-      "project/guidance.md",
+      "project/instructions.md",
       "project/skills/",
       ".claude/skills/",
       ".agents/skills/",
@@ -656,7 +656,7 @@
       "deno.json",
     ]
 
-  # Guidance-footprint standard — the bundled built-in guidance (templates/guidance/
+  # Instruction-footprint standard — the bundled built-in instructions (templates/instructions/
   # *.md) compiles into every end-user agent's context in every session, so its total
   # word count is a context-window budget we spend on their behalf.
   # A sentence earns static delivery only by the routing test (ADR 0192): it must be
@@ -665,15 +665,15 @@
   # belong to that channel, not here. Standing exemptions — the channel-down CLI
   # fallback, and destructive-class rules that verb-bypassing edits can violate
   # (trunk edits, worktree adoption) — stay static and may repeat.
-  # Raise the limit only for guidance that passes the routing test. Never pay for a
+  # Raise the limit only for instructions that passes the routing test. Never pay for a
   # necessary instruction by weakening another one; if no redundant wording remains,
   # report the intrinsic growth so the owner can move this growing-total ceiling.
-  [standards.guidance]
-    metric = "guidance_words"
+  [standards.instructions]
+    metric = "instruction_words"
     direction = "down"
     limit = 966
-    run = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
-    inputs = ["templates/guidance/**"]
+    run = "echo DISCERN_METRIC instruction_words $(cat templates/instructions/*.md | wc -w)"
+    inputs = ["templates/instructions/**"]
 
   # Bundled-skills surface — every skill description rides in every agent session
   # of every project discern is installed in, so the surface is held from growing
@@ -716,7 +716,7 @@
     margin = 1000000
     run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
 
-  # Public-manual leaf-density standard — hold the public guidance corpus at or
+  # Public-manual leaf-density standard — hold the public instructions corpus at or
   # above a rising floor of non-README Markdown leaves per 10,000 words. The
   # corpus is the projection every published surface serves, composed from the
   # document model's own predicates: underscore-prefixed subtrees (_private,

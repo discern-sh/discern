@@ -185,16 +185,16 @@ Deno.test("verify in a non-git directory serves git-init-first and promises no i
     // unconditional isolated-branch story, and the git-init consent point rides
     // the fenced message.
     assert(
-      !d.guidance.includes("so nothing touches your main branch"),
+      !d.instructions.includes("so nothing touches your main branch"),
       "the served message must not promise branch isolation without git",
     );
-    assertStringIncludes(d.guidance, "OK to initialize git here?");
+    assertStringIncludes(d.instructions, "OK to initialize git here?");
 
     // Parity (ADR 0086): a flag-less fresh `begin` re-serves the identical
     // conditioned message.
     const begin = await runAgent(dir, ["setup", "begin"]);
     assertEquals(begin.code, 1, begin.output);
-    assertStringIncludes(begin.stdout, d.guidance);
+    assertStringIncludes(begin.stdout, d.instructions);
   });
 });
 
@@ -439,7 +439,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
       .data;
     assertEquals(w.phase, "in_progress");
     assertStringIncludes(w.next_action, "git checkout discern-setup");
-    assertStringIncludes(w.agent_guidance, "do NOT start setup again");
+    assertStringIncludes(w.agent_instructions, "do NOT start setup again");
     const human = (await runAgent(dir, ["setup"])).stdout;
     assertStringIncludes(human, "IN PROGRESS");
     assertStringIncludes(human, "git checkout discern-setup");
@@ -457,7 +457,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
 
     // A re-begin from main RESUMES: the existing branch is checked out, the
     // materialized install is recognized (nothing re-scaffolded), and nothing of
-    // discern's own compiled output is imported into the guidance source.
+    // discern's own compiled output is imported into the instruction source.
     const re = await runAgent(dir, [
       "setup",
       "begin",
@@ -469,12 +469,12 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
     assertEquals(re.code, 0, re.output);
     const reData = JSON.parse(re.stdout).data;
     assertEquals(reData.written, [], "a resume must not re-scaffold");
-    const guidance = await Deno.readTextFile(
-      join(dir, SOURCE_PATHS.guidance.defaultPath),
+    const instructions = await Deno.readTextFile(
+      join(dir, SOURCE_PATHS.instructions.defaultPath),
     );
     assert(
-      !guidance.includes("Imported from"),
-      `discern's own compiled output was imported into guidance:\n${guidance}`,
+      !instructions.includes("Imported from"),
+      `discern's own compiled output was imported into instructions:\n${instructions}`,
     );
   });
 });
@@ -500,7 +500,7 @@ Deno.test("re-begin never imports a surviving agent file that matches discern's 
     assertStringIncludes(
       survivor,
       "`00-orientation` — Orientation",
-      "setup must return with guidance compiled from the map skeleton it laid",
+      "setup must return with instructions compiled from the map skeleton it laid",
     );
 
     // Add an unrelated future region after the compiled survivor: own-render
@@ -529,20 +529,20 @@ Deno.test("re-begin never imports a surviving agent file that matches discern's 
       "claude_code",
     ]);
     assertEquals(re.code, 0, re.output);
-    const guidance = await Deno.readTextFile(
-      join(dir, SOURCE_PATHS.guidance.defaultPath),
+    const instructions = await Deno.readTextFile(
+      join(dir, SOURCE_PATHS.instructions.defaultPath),
     );
     assert(
-      !guidance.includes("Imported from"),
-      `discern's own compiled output was imported into guidance:\n${guidance}`,
+      !instructions.includes("Imported from"),
+      `discern's own compiled output was imported into instructions:\n${instructions}`,
     );
     // …and the skip is reported, not silent.
     assertHasHint(
       JSON.parse(re.stdout),
-      HINTS["setup-guidance-own-render-skipped"],
+      HINTS["setup-instructions-own-render-skipped"],
       {
         paths: ["CLAUDE.md"],
-        guidanceRel: SOURCE_PATHS.guidance.defaultPath,
+        instructionRel: SOURCE_PATHS.instructions.defaultPath,
       },
     );
   });
@@ -1091,13 +1091,13 @@ Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' see
 });
 
 // The B48 × ADR 0125 seam: the re-scaffold's persisted-agents read goes through
-// resolveConfiguredAgents, so an explicit `[guidance] agents = []` (no agents, honored
+// resolveConfiguredAgents, so an explicit `[instructions] agents = []` (no agents, honored
 // verbatim per ADR 0125) must survive the flags round-trip — never decaying to
 // DEFAULT_AGENTS at any hop (loadConfig → effectiveFlags → resolveSetupConfig).
 // The fixture uses the declarative answers document: Cliffy drops an empty option
 // value (`--agents ""` parses as undefined), so the document and the persisted config
 // are the surfaces that can express "no agents" — the flag cannot.
-Deno.test("re-entry (B48): a --force re-scaffold honours an explicit [guidance] agents = [] — no seeds, never DEFAULT_AGENTS", async () => {
+Deno.test("re-entry (B48): a --force re-scaffold honours an explicit [instructions] agents = [] — no seeds, never DEFAULT_AGENTS", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);

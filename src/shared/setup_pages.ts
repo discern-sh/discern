@@ -81,8 +81,8 @@ export function parseSetupBrief(text: string): SetupBrief {
       const n = Number(step[1]);
       const title = (step[2] ?? "").trim();
       const body = lines.slice(start + 1, end);
-      const { spine, guidance } = splitSpineAndProse(body, n);
-      pages.push({ step: n, title, spine, guidance });
+      const { spine, instructions } = splitSpineAndProse(body, n);
+      pages.push({ step: n, title, spine, instructions });
     } else if (EPILOGUE_HEADING.test(heading)) {
       epilogue = lines.slice(start, end).join("\n").trimEnd();
     }
@@ -96,13 +96,13 @@ export function getSetupPage(text: string, n: number): SetupPage | undefined {
   return parseSetupBrief(text).pages.find((p) => p.step === n);
 }
 
-/** Split a step's body lines into its parsed spine and its prose guidance. The
- * spine is the first ` ```toml ` fence; the guidance is everything after it (a
+/** Split a step's body lines into its parsed spine and its prose instructions. The
+ * spine is the first ` ```toml ` fence; the instructions are everything after it (a
  * trailing `---` rule trimmed). Throws when the fence is missing or malformed. */
 function splitSpineAndProse(
   body: string[],
   n: number,
-): { spine: SetupPageSpine; guidance: string } {
+): { spine: SetupPageSpine; instructions: string } {
   let open = -1;
   let close = -1;
   for (let i = 0; i < body.length; i++) {
@@ -140,12 +140,12 @@ function splitSpineAndProse(
     );
   }
 
-  const guidance = body
+  const instructions = body
     .slice(close + 1)
     .join("\n")
     .replace(/\n+---\s*$/, "")
     .trim();
-  return { spine: parsed.data, guidance };
+  return { spine: parsed.data, instructions };
 }
 
 /**
@@ -162,7 +162,7 @@ export function renderSetupPage(page: SetupPage): string {
     "",
     spine.intent,
     "",
-    page.guidance,
+    page.instructions,
     "",
     `This step is complete when: ${spine.completion_check}`,
     `Next: ${spine.next_action}`,

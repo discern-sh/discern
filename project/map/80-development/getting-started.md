@@ -16,7 +16,7 @@ This page takes a fresh clone to a running project and a first green run of the 
 
 These work the same regardless of language or framework (shown here as `discern <verb>`):
 
-- **`discern start`** sets up an isolated workspace for one task (a Git worktree). See the worktree rule in the project guidance.
+- **`discern start`** sets up an isolated workspace for one task (a Git worktree). See the worktree rule in the project instructions.
 - **`discern prepare`** runs the fast inner loop: fix-stage work followed by check-stage work, with no build or tests.
 - **`discern done`** runs the full Gate. In a worktree, it starts with the fail-fast merge check, then runs fixers and build work, checks and tests in parallel, and any Gate declared by a changed scope. Run it on the intended final commit.
 - **`discern doctor`** reports whether hooks, configured job commands, Git worktree support, and required tools on `PATH` are ready.

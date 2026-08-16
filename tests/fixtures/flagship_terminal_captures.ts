@@ -45,7 +45,7 @@ const FIXTURE_CONFIG = [
   'trunk = "main"',
   'branch_prefix = "agent/"',
   "",
-  "[guidance]",
+  "[instructions]",
   "sources = []",
   "",
   "[jobs]",

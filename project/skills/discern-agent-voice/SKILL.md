@@ -1,6 +1,6 @@
 ---
 name: discern-agent-voice
-description: "Write or review communication whose primary reader is a coding agent. Use for MCP descriptions, JSON guidance, setup briefs, Skills, hints, `llms.txt`, machine-oriented documentation, and the public For Agents page. Declare operational or public mode before drafting."
+description: "Write or review communication whose primary reader is a coding agent. Use for MCP descriptions, JSON instructions, setup briefs, Skills, hints, `llms.txt`, machine-oriented documentation, and the public For Agents page. Declare operational or public mode before drafting."
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -27,7 +27,7 @@ It assumes capability. It does not assume memory, hidden state, stable context, 
 Use for:
 
 - MCP tool descriptions;
-- JSON result guidance;
+- JSON result instructions;
 - setup instructions;
 - Skills;
 - hints and guardrails;
@@ -104,7 +104,7 @@ Every line competes with the work itself.
 - End with the next valid action when no later qualification is required.
 - Point to complete evidence by stable path or target.
 - Return a small ranked result rather than an unbounded index.
-- Remove background explanation already guaranteed by the project guidance.
+- Remove background explanation already guaranteed by the project instructions.
 
 Compression must preserve the facts that change the next action.
 
@@ -180,7 +180,7 @@ In multi-agent programs:
 
 Important instructions should survive a model compressing earlier context.
 
-- Keep related behavioral guidance in one coherent passage.
+- Keep related behavioral instructions in one coherent passage.
 - Use explicit headings and stable identifiers.
 - Put critical stop conditions near the end as well as at the action point.
 - Avoid scattering one instruction across many independent fields.
@@ -232,7 +232,7 @@ Include:
 
 Keep the description self-contained. Do not assume the agent has read a neighbouring tool description.
 
-### Result guidance
+### Result instructions
 
 Recommended shape:
 
@@ -330,7 +330,7 @@ Good comic targets:
 
 Use this tone sparingly. The page still needs exact links to the machine contract.
 
-## `llms.txt` guidance
+## `llms.txt` instructions
 
 The file should optimize for accurate machine orientation, not human theatre.
 

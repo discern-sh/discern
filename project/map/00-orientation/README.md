@@ -16,13 +16,13 @@ The remaining pages answer common evaluation questions. [Design principles](desi
 
 The [glossary](glossary.md) defines each product term once, and every page uses the same name. After setup, [What setup added to your repo](../10-getting-started/after-setup.md) explains the diff file by file.
 
-| Read next                                    | What's in it                                                             |
-| -------------------------------------------- | ------------------------------------------------------------------------ |
-| [concepts.md](concepts.md)                   | The mental model in one pass: the gate, worktrees, guidance, ownership.  |
-| [design-principles.md](design-principles.md) | Why discern works this way, with each rule observable in your repo.      |
-| [trust-and-data.md](trust-and-data.md)       | What runs on your machine: no network, no telemetry, your commands only. |
-| [the-practice.md](the-practice.md)           | The tenets discern holds for every change, numbered and citable.         |
-| [system-map.md](system-map.md)               | The architecture as one picture.                                         |
-| [glossary.md](glossary.md)                   | Every discern term, defined once and alphabetized.                       |
+| Read next                                    | What's in it                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| [concepts.md](concepts.md)                   | The mental model in one pass: the gate, worktrees, instructions, ownership. |
+| [design-principles.md](design-principles.md) | Why discern works this way, with each rule observable in your repo.         |
+| [trust-and-data.md](trust-and-data.md)       | What runs on your machine: no network, no telemetry, your commands only.    |
+| [the-practice.md](the-practice.md)           | The tenets discern holds for every change, numbered and citable.            |
+| [system-map.md](system-map.md)               | The architecture as one picture.                                            |
+| [glossary.md](glossary.md)                   | Every discern term, defined once and alphabetized.                          |
 
 Return to the [manual's front page](../README.md) and choose the section for your task.

@@ -1,7 +1,7 @@
 /**
- * The map & guidance integrity check — the gate's documentation preflight.
+ * The map & instructions integrity check — the gate's documentation preflight.
  *
- * A project's map and guidance sources carry references that go stale silently:
+ * A project's map and instruction sources carry references that go stale silently:
  * links to files that moved, anchors to headings that were reworded, fenced
  * `discern …` examples quoting a retired verb or flag, metadata blocks the
  * lenient reader would swallow, published pages linking into the internal
@@ -13,7 +13,7 @@
  * PURE observation: `(root, config, cli) → findings`, reads only. The corpus is
  * the CURRENT configured map — every doc outside `_`-prefixed subtrees, root
  * docs included, discovered live so a new page auto-enrols — plus the
- * `[guidance].sources` files for the command and citation checks (guidance is
+ * `[instructions].sources` files for the command and citation checks (instructions are
  * prose for agents, not a page tree: no link, anchor, metadata, or audience
  * checks there). The `_`-trees are exempt by design: decision records are
  * dated (their examples describe the CLI as it stood), and the internal and
@@ -38,7 +38,7 @@ import {
 import { discoverDocs, type DocEntry, isPublicDoc } from "./docs.ts";
 import { frontmatterShapeIssues } from "./frontmatter.ts";
 import {
-  resolveGuidanceSources,
+  resolveInstructionSources,
   resolveMapDir,
   resolveScriptsDir,
 } from "./paths.ts";
@@ -288,10 +288,10 @@ export async function liveCliModel(): Promise<CliCommand> {
 }
 
 /**
- * Check the configured map and guidance sources for integrity defects. Pure
+ * Check the configured map and instruction sources for integrity defects. Pure
  * and read-only; returns every finding in corpus order (map pages first, then
- * guidance sources), empty when the documentation is sound. A project with no
- * map directory and no guidance sources has nothing to check and returns
+ * instruction sources), empty when the documentation is sound. A project with no
+ * map directory and no instruction sources has nothing to check and returns
  * empty — the preflight never invents work for a docs-less project.
  */
 export async function checkDocsIntegrity(
@@ -337,7 +337,7 @@ export async function checkDocsIntegrity(
     }
   }
 
-  for (const sourceAbs of await resolveGuidanceSources(root, config)) {
+  for (const sourceAbs of await resolveInstructionSources(root, config)) {
     const text = await Deno.readTextFile(sourceAbs);
     const rel = relative(root, sourceAbs);
     findings.push(...commandFindings(rel, text, cli, extraVerbs));

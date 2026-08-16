@@ -25,7 +25,7 @@ function config(
     'slug = "prepare-tty-test"',
     "agents = []",
     "",
-    "[guidance]",
+    "[instructions]",
     "sources = []",
     ...(gate.length > 0 ? ["", "[gate]", ...gate] : []),
     ...(jobs.length > 0 ? ["", "[jobs]", ...jobs] : []),

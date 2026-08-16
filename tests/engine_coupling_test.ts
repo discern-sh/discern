@@ -25,7 +25,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
-import { renderAgentFiles } from "../src/engine/guidance_render.ts";
+import { renderAgentFiles } from "../src/engine/instruction_render.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
@@ -53,7 +53,7 @@ import {
   CouplingOutputSchema,
 } from "../src/shared/result_schemas.ts";
 
-/** A bare set-up project (no capabilities; guidance/skills off so the gate is a clean
+/** A bare set-up project (no capabilities; instructions/skills off so the gate is a clean
  * green no-op) — coupling needs zero config, so the only thing a test varies is `in_gate`. */
 async function setup(dir: string, inGate = true): Promise<void> {
   await scaffoldEngine(dir);

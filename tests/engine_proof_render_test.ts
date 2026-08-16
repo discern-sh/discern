@@ -394,7 +394,7 @@ Deno.test("proof line: held standards claim one segment", () => {
 Deno.test("proof line: improved and deferred standards are counted", () => {
   const improved: GateStandard = {
     ...HELD,
-    name: "guidance_words",
+    name: "instruction_words",
     verdict: "improved",
   };
   const deferred: GateStandard = {

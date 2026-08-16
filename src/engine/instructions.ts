@@ -1,14 +1,14 @@
 /**
- * The guideline compiler (ADR 0020): the EFFECTFUL orchestrator that writes the
+ * The instruction compiler (ADR 0020): the EFFECTFUL orchestrator that writes the
  * generated per-provider agent files (CLAUDE.md, AGENTS.md, GEMINI.md, …),
  * materializes skills, and wires provider integration artifacts (MCP, worktree app
  * config, project rules). The pure content — what each file should contain — is
- * computed by `renderAgentFiles` in `./guidance_render.ts`, the single source this
+ * computed by `renderAgentFiles` in `./instruction_render.ts`, the single source this
  * writer and the `status`/`done` currency check both use, so a generated file can
  * never silently disagree with what a refresh produces (ADR 0034). It writes each
  * provider file named in `[project].agents`.
  *
- * The files carry no banner — they open with the guidance itself; `base.md`'s
+ * The files carry no banner — they open with the instructions itself; `base.md`'s
  * in-body "never hand-edit" section conveys their generated-ness to every agent,
  * and the currency check guards drift. Nothing is hand-edited: edit your sources,
  * or discern's built-ins, and recompile.
@@ -25,7 +25,7 @@ import { adrIndexState } from "../lib/adr_index.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { RefreshData } from "../shared/result_schemas.ts";
-import { resolveGuidanceSources } from "../lib/paths.ts";
+import { resolveInstructionSources } from "../lib/paths.ts";
 import { materializeSkills } from "../lib/skills.ts";
 import { providerFor, skillsDirsForAgents } from "../lib/providers.ts";
 import {
@@ -37,9 +37,9 @@ import {
 } from "../shared/hints.ts";
 import {
   agentFilePaths,
-  guidanceAgents,
+  instructionAgents,
   renderAgentFiles,
-} from "./guidance_render.ts";
+} from "./instruction_render.ts";
 import { Logger } from "../lib/log.ts";
 import { reconcileProofNotesFetch } from "./gate/proof_notes.ts";
 import {
@@ -50,8 +50,8 @@ import {
 import type { EnvReader } from "../shared/env.ts";
 import { reconcileTrackedProviderArtifacts } from "./tracked_refresh_providers.ts";
 
-/** What a single `compileGuidelines` run accomplished. */
-export interface GuidelinesResult {
+/** What a single `compileInstructions` run accomplished. */
+export interface InstructionsResult {
   /** Output paths (relative to `root`) written, in agent-config order. */
   agentsWritten: string[];
   /** Tracked Agent files and Shared files whose bytes or executable bit changed.
@@ -92,7 +92,7 @@ export interface GuidelinesResult {
   errors: string[];
 }
 
-export interface CompileGuidelinesOptions {
+export interface CompileInstructionsOptions {
   /** Process environment used by generated-file attribution and integrations. */
   readonly env?: EnvReader;
   /**
@@ -106,19 +106,19 @@ export interface CompileGuidelinesOptions {
 /** The non-blank refresh errors a caller should treat as failed artifacts.
  * Whitespace-only entries are ignored so accidental empty strings don't turn a
  * successful refresh into a failure. */
-export function guidanceRefreshErrors(
-  result: Pick<GuidelinesResult, "errors">,
+export function instructionRefreshErrors(
+  result: Pick<InstructionsResult, "errors">,
 ): string[] {
   return result.errors
     .map((error) => error.trim())
     .filter((error) => error.length > 0);
 }
 
-/** Whether a guidance refresh completed without any non-blank artifact errors. */
-export function guidanceRefreshSucceeded(
-  result: Pick<GuidelinesResult, "errors">,
+/** Whether an instruction refresh completed without any non-blank artifact errors. */
+export function instructionRefreshSucceeded(
+  result: Pick<InstructionsResult, "errors">,
 ): boolean {
-  return guidanceRefreshErrors(result).length === 0;
+  return instructionRefreshErrors(result).length === 0;
 }
 
 /** Reconcile generated merge attributes and reduce failures to refresh errors. */
@@ -157,7 +157,7 @@ async function reconcileGeneratedMergeAttributes(
 }
 
 /** Render the compile summary as the stable `refresh` data payload. */
-function refreshData(result: GuidelinesResult): RefreshData {
+function refreshData(result: InstructionsResult): RefreshData {
   return {
     agents_written: result.agentsWritten,
     mcp_wired: result.mcpWired,
@@ -171,7 +171,7 @@ function refreshData(result: GuidelinesResult): RefreshData {
       linked: result.skillsLinked,
       pruned: result.skillsPruned,
     },
-    errors: guidanceRefreshErrors(result),
+    errors: instructionRefreshErrors(result),
   };
 }
 
@@ -184,8 +184,8 @@ export async function refreshResult(
   root: string,
   logger = new Logger({ json: true, noColor: true }),
 ): Promise<DiscernResult> {
-  const result = await compileGuidelines(root, logger);
-  const errors = guidanceRefreshErrors(result);
+  const result = await compileInstructions(root, logger);
+  const errors = instructionRefreshErrors(result);
   const failed = errors.length > 0;
   const hints = failed
     ? mergeHintTexts(
@@ -223,16 +223,16 @@ function errText(error: unknown): string {
 }
 
 /**
- * Compile the agent files from the built-in guidance + the project's sources, and
+ * Compile the agent files from the built-in instructions + the project's sources, and
  * materialize skills. Resolves to a summary of
  * what changed. The worktree lifecycle and `upgrade` call this with the discovered
  * project `root`; the name and signature are a cross-module contract.
  */
-export async function compileGuidelines(
+export async function compileInstructions(
   root: string,
   logger?: Logger,
-  options: CompileGuidelinesOptions = {},
-): Promise<GuidelinesResult> {
+  options: CompileInstructionsOptions = {},
+): Promise<InstructionsResult> {
   // info/ok → stdout, UNLESS the caller passes
   // its own logger to control the stream — e.g. `upgrade --json` passes its
   // json-mode logger so this narration is suppressed and the JSON object stays
@@ -242,7 +242,7 @@ export async function compileGuidelines(
   const env = options.env ?? Deno.env;
 
   const config = await loadConfig(root);
-  const agents = guidanceAgents(config);
+  const agents = instructionAgents(config);
 
   // Per-artifact failures collected across all three jobs, so one (e.g. a sandbox
   // denial writing a skills dir) is isolated and reported rather than aborting the
@@ -407,7 +407,7 @@ export async function compileGuidelines(
     );
   }
   for (const agent of agents) {
-    const gf = providerFor(agent)?.guidanceFile;
+    const gf = providerFor(agent)?.instructionFile;
     if (gf === undefined) {
       log.warn(
         `refresh: unknown agent '${agent}' in [project].agents — skipping (no output mapping).`,
@@ -445,21 +445,21 @@ export async function compileGuidelines(
     }
   }
   if (rendered.size === 0) {
-    const knownGuidanceAgents = agents.filter((agent) =>
-      providerFor(agent)?.guidanceFile !== undefined
+    const knownInstructionAgents = agents.filter((agent) =>
+      providerFor(agent)?.instructionFile !== undefined
     );
-    const msg = knownGuidanceAgents.length === 0
+    const msg = knownInstructionAgents.length === 0
       ? 'refresh: no known providers in [project].agents — compiled nothing. Set agents = ["claude_code", …].'
-      : "refresh: configured guidance providers rendered no agent files — check [project].agents and provider guidance mappings.";
+      : "refresh: configured instructions providers rendered no agent files — check [project].agents and provider instructions mappings.";
     log.warn(msg);
   } else if (agentsWritten.length === 0) {
     log.warn(
       `refresh: rendered ${rendered.size} agent file(s) but wrote none; see warnings above.`,
     );
   } else {
-    const sourceCount = (await resolveGuidanceSources(root, config)).length;
+    const sourceCount = (await resolveInstructionSources(root, config)).length;
     log.ok(
-      `refresh: compiled ${sourceCount} source(s) + built-in guidance into ${agentsWritten.length} agent file(s): ${
+      `refresh: compiled ${sourceCount} source(s) + built-in instructions into ${agentsWritten.length} agent file(s): ${
         agentsWritten.join(",")
       }`,
     );
@@ -503,11 +503,11 @@ export async function compileGuidelines(
 export async function materializeLocalRefreshArtifacts(
   root: string,
   logger?: Logger,
-): Promise<GuidelinesResult> {
+): Promise<InstructionsResult> {
   const log = logger ??
     new Logger({ json: false, noColor: false, humanStream: "stdout" });
   const config = await loadConfig(root);
-  const agents = guidanceAgents(config);
+  const agents = instructionAgents(config);
   const errors: string[] = [];
   let skills = { copied: 0, linked: 0, pruned: 0 };
   try {
@@ -559,7 +559,7 @@ function summarize(
   hints: FiredHint[],
   skills: { copied: number; linked: number; pruned: number },
   errors: string[],
-): GuidelinesResult {
+): InstructionsResult {
   return {
     agentsWritten,
     trackedArtifactsChanged: [

@@ -62,17 +62,17 @@ import {
 } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan } from "../lib/plan_view.ts";
 import {
-  compileGuidelines,
-  guidanceRefreshErrors,
-  guidanceRefreshSucceeded,
-} from "../engine/guidelines.ts";
+  compileInstructions,
+  instructionRefreshErrors,
+  instructionRefreshSucceeded,
+} from "../engine/instructions.ts";
 import { diagnosticFormatList } from "../engine/gate/diagnostics.ts";
 import {
   agentFileOwnershipPatterns,
   agentFilePaths,
-  type GuidanceOwnershipPattern,
-  matchesGuidanceOwnership,
-} from "../engine/guidance_render.ts";
+  type InstructionOwnershipPattern,
+  matchesInstructionOwnership,
+} from "../engine/instruction_render.ts";
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
 import {
@@ -80,8 +80,8 @@ import {
   probeWorktreeViability,
 } from "../engine/worktree/lifecycle.ts";
 import {
-  allGuidanceFilePaths,
-  allGuidanceFiles,
+  allInstructionFilePaths,
+  allInstructionFiles,
   reactivationHandoff,
 } from "../lib/providers.ts";
 import { consentAgentSet, resolveDefaultAgents } from "../lib/detect_agents.ts";
@@ -154,7 +154,7 @@ import {
 } from "./setup_accept.ts";
 import { KNOWN_ENGINE_VERBS } from "../engine/dispatch.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
-import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
+import { instructionSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 import {
   clearSetupMachineryCommitEvidence,
   readSetupMachineryCommitEvidence,
@@ -329,7 +329,7 @@ export async function assembleInitPlan(params: {
   const tokens = tokensFromConfig(config, params.env ?? Deno.env);
 
   // `excludeNonSeed`: this scaffolds from the binary's own templates tree, whose
-  // skills/ + guidance/ are materialized/read from the binary, never seeded.
+  // skills/ + instructions/ are materialized/read from the binary, never seeded.
   const plan = await buildPlan({
     templatesDir,
     destDir,
@@ -544,25 +544,25 @@ function applyFillsToPlan(plan: Plan, fills: DiscernConfigDoc): void {
 /** What a scaffold pass produced (for the human summary and the JSON envelope). */
 interface ScaffoldOutcome {
   config: SetupConfig;
-  /** Where the starter guidance was (or would be) seeded — the resolved
-   * `[guidance].sources` seed location. */
-  guidanceRel: string;
+  /** Where the starter instructions were (or would be) seeded — the resolved
+   * `[instructions].sources` seed location. */
+  instructionRel: string;
   written: string[];
   compiled: string[];
   mcpWired: string[];
   hooksWired: string[];
   /** Project files written co-managing an agent app's worktree-lifecycle config
-   * (Codex's `environment.toml`) — `compileGuidelines`'s `worktreeAppWired`
+   * (Codex's `environment.toml`) — `compileInstructions`'s `worktreeAppWired`
    * passed through. Folded into {@link commitScaffoldedMachinery}'s commit
    * alongside `mcpWired`: it is the same kind of discern-owned wiring a coding
    * agent's safety classifier won't commit, just a different per-agent file. */
   worktreeAppWired: string[];
-  /** Project-local provider policy/rules files written by `compileGuidelines`. */
+  /** Project-local provider policy/rules files written by `compileInstructions`. */
   projectRulesWired: string[];
   /** Whether every refresh artifact completed without non-blank errors. */
-  guidelinesCompiled: boolean;
+  instructionsCompiled: boolean;
   /** Non-blank refresh artifact errors, trimmed for the JSON result. */
-  guidelinesErrors: string[];
+  instructionsErrors: string[];
   hints: string[];
 }
 
@@ -600,7 +600,7 @@ function scaffoldCategorySummary(scaffold: ScaffoldOutcome): string {
 /**
  * Phase 1 — Scaffold discern's machinery into `destDir`. Resolves the config
  * non-interactively (flags + `--config` + defaults; never requests terminal input), assembles and
- * applies the seed plan, then compiles guidance / materializes skills / wires MCP.
+ * applies the seed plan, then compiles instructions / materializes skills / wires MCP.
  * Returns the outcome, or `undefined` when an error was already emitted (caller
  * returns exit 1) or when `--dry-run` short-circuited (the plan was printed).
  */
@@ -746,23 +746,28 @@ async function scaffoldHarness(
     await recordProvenance(destDir, opts.model);
   }
 
-  // Seed the guidance source (the configured [guidance].sources, else the registry
+  // Seed the instruction source (the configured [instructions].sources, else the registry
   // default) BEFORE the first compile, and migrate any pre-existing, hand-authored
   // agent file into it so the compile that follows can't destroy the user's
   // instructions (ADR 0065). The freshly-applied plan wrote the config, so the
   // seed location resolves from it; a broken config falls back to the default.
-  let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
+  let instructionRel = SOURCE_PATHS.instructions.defaultPath;
   try {
-    guidanceRel = guidanceSeedRel(
-      (await loadConfig(destDir)).guidance.sources,
+    instructionRel = instructionSeedRel(
+      (await loadConfig(destDir)).instructions.sources,
     );
   } catch {
     // Unreadable config — seed at the registry default; doctor diagnoses the rest.
   }
-  const seeded = await seedGuidance(destDir, guidanceRel, config, freshInstall);
+  const seeded = await seedInstructions(
+    destDir,
+    instructionRel,
+    config,
+    freshInstall,
+  );
 
-  // Compile guidance, materialize skills, and wire each agent's MCP server — all
-  // via the one refresh core (compileGuidelines). Pass setup's logger so the
+  // Compile instructions, materialize skills, and wire each agent's MCP server — all
+  // via the one refresh core (compileInstructions). Pass setup's logger so the
   // narration follows its stream discipline (suppressed in --json). Non-fatal: a
   // broken templates tree shouldn't fail the scaffold.
   let compiled: string[] = [];
@@ -770,25 +775,25 @@ async function scaffoldHarness(
   let hooksWired: string[] = [];
   let worktreeAppWired: string[] = [];
   let projectRulesWired: string[] = [];
-  let guidelinesCompiled = true;
-  let guidelinesErrors: string[] = [];
+  let instructionsCompiled = true;
+  let instructionsErrors: string[] = [];
   let hints: string[] = hintTexts([]);
   try {
-    const g = await compileGuidelines(destDir, log);
+    const g = await compileInstructions(destDir, log);
     compiled = g.agentsWritten;
     mcpWired = g.mcpWired;
     hooksWired = g.hooksWired;
     worktreeAppWired = g.worktreeAppWired;
     projectRulesWired = g.projectRulesWired;
     hints = g.hints;
-    guidelinesErrors = guidanceRefreshErrors(g);
-    guidelinesCompiled = guidanceRefreshSucceeded(g);
+    instructionsErrors = instructionRefreshErrors(g);
+    instructionsCompiled = instructionRefreshSucceeded(g);
     // A per-artifact refresh failure is isolated (ADR 0065) — surface it so the
     // user knows a skills dir / agent file / the MCP wiring didn't complete.
-    if (guidelinesErrors.length > 0) {
+    if (instructionsErrors.length > 0) {
       hints = mergeHintTexts(
         hintTexts(
-          guidelinesErrors.map((message) =>
+          instructionsErrors.map((message) =>
             fire(HINTS["setup-refresh-artifact-failed"], { message })
           ),
         ),
@@ -796,9 +801,9 @@ async function scaffoldHarness(
       );
     }
   } catch (error) {
-    const message = `could not compile agent guidance: ${errMsg(error)}`;
-    guidelinesCompiled = false;
-    guidelinesErrors = [message];
+    const message = `could not compile agent instructions: ${errMsg(error)}`;
+    instructionsCompiled = false;
+    instructionsErrors = [message];
     hints = hintTexts([
       fire(HINTS["setup-refresh-artifact-failed"], { message }),
     ]);
@@ -807,9 +812,9 @@ async function scaffoldHarness(
   if (seeded.migrated.length > 0) {
     hints = mergeHintTexts(
       hintTexts([
-        fire(HINTS["setup-guidance-preserved"], {
+        fire(HINTS["setup-instructions-preserved"], {
           paths: seeded.migrated,
-          guidanceRel,
+          instructionRel,
         }),
       ]),
       hints,
@@ -818,9 +823,9 @@ async function scaffoldHarness(
   if (seeded.skippedOwnRender.length > 0) {
     hints = mergeHintTexts(
       hintTexts([
-        fire(HINTS["setup-guidance-own-render-skipped"], {
+        fire(HINTS["setup-instructions-own-render-skipped"], {
           paths: seeded.skippedOwnRender,
-          guidanceRel,
+          instructionRel,
         }),
       ]),
       hints,
@@ -828,37 +833,37 @@ async function scaffoldHarness(
   }
 
   const written = changed.map((op) => op.targetRel);
-  if (seeded.guidanceLaid) {
-    written.push(guidanceRel);
+  if (seeded.instructionLaid) {
+    written.push(instructionRel);
   }
   return {
     outcome: {
       config,
-      guidanceRel,
+      instructionRel,
       written,
       compiled,
       mcpWired,
       hooksWired,
       worktreeAppWired,
       projectRulesWired,
-      guidelinesCompiled,
-      guidelinesErrors,
+      instructionsCompiled,
+      instructionsErrors,
       hints,
     },
   };
 }
 
 /**
- * Seed the guidance source at `guidanceRel` (the resolved `[guidance].sources`
+ * Seed the instruction source at `instructionRel` (the resolved `[instructions].sources`
  * seed location) before the first compile, and — critically — migrate any
  * pre-existing, hand-authored agent file into it so the compile that follows
  * can't destroy the user's instructions (ADR 0065).
  *
  * The migration walks EVERY provider's instruction-file path
- * ({@link allGuidanceFilePaths}) — the same registry aggregator `setup verify`
+ * ({@link allInstructionFilePaths}) — the same registry aggregator `setup verify`
  * names the pre-existing files from — never just the configured agent set. The
  * scaffolded `.gitignore` covers the full provider surface and `uninstall`
- * deletes every provider guidance path, so a hand-authored file for an unwired
+ * deletes every provider instruction path, so a hand-authored file for an unwired
  * agent that was not folded here would silently fall out of version control and
  * later be deleted — the exact loss `verify`'s "nothing is lost" promise rules
  * out.
@@ -878,17 +883,17 @@ async function scaffoldHarness(
  * work; on a `--force` re-run the user's content is already in the source from
  * the first run, so migration is skipped.
  */
-async function seedGuidance(
+async function seedInstructions(
   root: string,
-  guidanceRel: string,
+  instructionRel: string,
   config: SetupConfig,
   freshInstall: boolean,
 ): Promise<{
-  guidanceLaid: boolean;
+  instructionLaid: boolean;
   migrated: string[];
   skippedOwnRender: string[];
 }> {
-  const guidancePath = join(root, guidanceRel);
+  const instructionPath = join(root, instructionRel);
 
   // Capture pre-existing user agent files (fresh install only — see above).
   const migrated: { file: string; body: string }[] = [];
@@ -900,19 +905,19 @@ async function seedGuidance(
     // so a survivor of an abandoned setup is recognized whichever agents that
     // run had wired. Unavailable (undefined) when the config can't load; the
     // migration then proceeds as before rather than blocking the scaffold.
-    let ownRenderPatterns: GuidanceOwnershipPattern[] | undefined;
+    let ownRenderPatterns: InstructionOwnershipPattern[] | undefined;
     try {
       const cfg = await loadConfig(root);
       ownRenderPatterns = await agentFileOwnershipPatterns(
         root,
         cfg,
-        allGuidanceFiles(),
+        allInstructionFiles(),
       );
     } catch {
       ownRenderPatterns = undefined;
     }
     const seen = new Set<string>();
-    for (const rel of allGuidanceFilePaths()) {
+    for (const rel of allInstructionFilePaths()) {
       let body: string;
       try {
         body = (await Deno.readTextFile(join(root, rel))).trim();
@@ -924,11 +929,11 @@ async function seedGuidance(
       }
       if (
         ownRenderPatterns?.some((pattern) =>
-          matchesGuidanceOwnership(pattern, body)
+          matchesInstructionOwnership(pattern, body)
         )
       ) {
         // A survivor of an abandoned setup, not the user's authoring — importing
-        // it would fold discern's own compiled guidance back into the source.
+        // it would fold discern's own compiled instructions back into the source.
         skippedOwnRender.push(rel);
         continue;
       }
@@ -939,16 +944,16 @@ async function seedGuidance(
 
   // Lay the stub when the source is absent (write-once: a re-run keeps the agent's).
   let content: string;
-  let guidanceLaid = false;
+  let instructionLaid = false;
   try {
-    content = await Deno.readTextFile(guidancePath);
+    content = await Deno.readTextFile(instructionPath);
   } catch {
-    const stub = join(await resolveSetupDir(), "skeleton", "guidance.md");
+    const stub = join(await resolveSetupDir(), "skeleton", "instructions.md");
     content = (await Deno.readTextFile(stub)).replaceAll(
       "{{project_name}}",
       config.projectName,
     );
-    guidanceLaid = true;
+    instructionLaid = true;
   }
 
   // Append each migrated body under a labelled heading, skipping any already present
@@ -965,12 +970,12 @@ async function seedGuidance(
       `${m.body}\n`;
   }
 
-  if (guidanceLaid || appended.length > 0) {
-    await ensureDir(dirname(guidancePath));
-    await Deno.writeTextFile(guidancePath, content + appended);
+  if (instructionLaid || appended.length > 0) {
+    await ensureDir(dirname(instructionPath));
+    await Deno.writeTextFile(instructionPath, content + appended);
   }
   return {
-    guidanceLaid,
+    instructionLaid,
     migrated: migrated.map((m) => m.file),
     skippedOwnRender,
   };
@@ -1070,7 +1075,7 @@ async function laySkeletons(
 interface SetupPathContext {
   mapDir: string;
   todoRel: string;
-  guidanceRel: string;
+  instructionRel: string;
 }
 
 /**
@@ -1086,7 +1091,7 @@ function renderSetupPaths(
   return instructions
     .replaceAll("{{map_dir}}", normalizeMapDir(paths.mapDir))
     .replaceAll("{{todo_path}}", paths.todoRel)
-    .replaceAll("{{guidance_path}}", paths.guidanceRel)
+    .replaceAll("{{instruction_path}}", paths.instructionRel)
     .replaceAll("{{brief_path}}", SOURCE_PATHS.brief.defaultPath)
     .replaceAll("{{diagnostic_formats}}", diagnosticFormatList());
 }
@@ -1299,7 +1304,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const todoRel = cfg?.project.todo ?? SOURCE_PATHS.todo.defaultPath;
   const { laid, skipped } = await laySkeletons(destDir, name, mapDir, todoRel);
 
-  // Guidance now derives its compact region list from the map. A fresh setup's
+  // Instructions now derive their compact region list from the map. A fresh setup's
   // first compile necessarily runs before the starter map exists, so converge
   // once after laying that tree. Without this pass, setup returns a stale agent
   // file and the next refresh dirties an otherwise committed checkout.
@@ -1308,12 +1313,12 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   let hooksWired = scaffold?.hooksWired ?? [];
   let worktreeAppWired = scaffold?.worktreeAppWired ?? [];
   let projectRulesWired = scaffold?.projectRulesWired ?? [];
-  let guidelinesCompiled = scaffold?.guidelinesCompiled ?? true;
-  let guidelinesErrors = scaffold?.guidelinesErrors ?? [];
+  let instructionsCompiled = scaffold?.instructionsCompiled ?? true;
+  let instructionsErrors = scaffold?.instructionsErrors ?? [];
   let setupHints = scaffold?.hints ?? [];
   if (laid.includes(normalizeMapDir(mapDir))) {
     try {
-      const refreshed = await compileGuidelines(
+      const refreshed = await compileInstructions(
         destDir,
         new Logger({ json: true, noColor: true }),
       );
@@ -1328,15 +1333,15 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         projectRulesWired,
         refreshed.projectRulesWired,
       );
-      guidelinesErrors = guidanceRefreshErrors(refreshed);
-      guidelinesCompiled = guidanceRefreshSucceeded(refreshed);
+      instructionsErrors = instructionRefreshErrors(refreshed);
+      instructionsCompiled = instructionRefreshSucceeded(refreshed);
       setupHints = mergeHintTexts(setupHints, refreshed.hints);
-      if (guidelinesErrors.length > 0) {
-        for (const message of guidelinesErrors) log.warn(message);
+      if (instructionsErrors.length > 0) {
+        for (const message of instructionsErrors) log.warn(message);
         setupHints = mergeHintTexts(
           setupHints,
           hintTexts(
-            guidelinesErrors.map((message) =>
+            instructionsErrors.map((message) =>
               fire(HINTS["setup-refresh-artifact-failed"], { message })
             ),
           ),
@@ -1344,12 +1349,12 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       }
     } catch (error) {
       const message =
-        `could not refresh agent guidance after laying the map skeleton: ${
+        `could not refresh agent instructions after laying the map skeleton: ${
           errMsg(error)
         }`;
       log.warn(message);
-      guidelinesCompiled = false;
-      guidelinesErrors = [message];
+      instructionsCompiled = false;
+      instructionsErrors = [message];
       setupHints = mergeHintTexts(
         setupHints,
         hintTexts([
@@ -1370,10 +1375,10 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   let instructions = renderSetupPaths(rawInstructions, {
     mapDir,
     todoRel,
-    guidanceRel: scaffold?.guidanceRel ??
+    instructionRel: scaffold?.instructionRel ??
       (cfg !== undefined
-        ? guidanceSeedRel(cfg.guidance.sources)
-        : SOURCE_PATHS.guidance.defaultPath),
+        ? instructionSeedRel(cfg.instructions.sources)
+        : SOURCE_PATHS.instructions.defaultPath),
   });
   let firstPage: SetupPage | undefined;
   try {
@@ -1385,14 +1390,14 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
 
   if (opts.json) {
-    const setupOk = guidelinesCompiled;
+    const setupOk = instructionsCompiled;
     log.result({
       ok: setupOk,
       verb: "setup",
       ...(setupOk ? {} : {
         error: "partial_refresh",
         message:
-          `${guidelinesErrors.length} artifact(s) failed to refresh; see data.guidelines_errors.`,
+          `${instructionsErrors.length} artifact(s) failed to refresh; see data.instructions_errors.`,
       }),
       hints: setupHints,
       data: {
@@ -1419,8 +1424,8 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         hooks_wired: hooksWired,
         worktree_app_wired: worktreeAppWired,
         project_rules_wired: projectRulesWired,
-        guidelines_compiled: setupOk,
-        guidelines_errors: guidelinesErrors,
+        instructions_compiled: setupOk,
+        instructions_errors: instructionsErrors,
         skeletons: laid,
         skipped,
         instructions,
@@ -1468,7 +1473,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
   if (machineryCommitted) {
     scaffoldLines.push(
-      "Committed discern's wiring (config, .gitignore, MCP + hooks) for you — the docs, guidance, and TODO below are yours to fill and commit.",
+      "Committed discern's wiring (config, .gitignore, MCP + hooks) for you — the docs, instructions, and TODO below are yours to fill and commit.",
     );
   } else if (machineryCommit?.state === "failed") {
     scaffoldLines.push(
@@ -1632,13 +1637,13 @@ async function ensureSetupBranch(
 /**
  * Authored-content seeds the coding agent fills and commits itself — NEVER swept into
  * the machinery commit. Both are scaffolded into {@link ScaffoldOutcome.written}:
- * the guidance stub (at the resolved seed location) and the brief (the captured
+ * the instruction stub (at the resolved seed location) and the brief (the captured
  * intent, present only when a brief was supplied — at its fixed registry path).
  * The other authored seeds — the docs skeletons and the deferred-work ledger —
  * are laid AFTER the commit (by {@link laySkeletons}), so they never reach it.
  */
-function authoredContentSeeds(guidanceRel: string): ReadonlySet<string> {
-  return new Set([guidanceRel, SOURCE_PATHS.brief.defaultPath]);
+function authoredContentSeeds(instructionRel: string): ReadonlySet<string> {
+  return new Set([instructionRel, SOURCE_PATHS.brief.defaultPath]);
 }
 
 /**
@@ -1655,7 +1660,7 @@ function authoredContentSeeds(guidanceRel: string): ReadonlySet<string> {
  * precedent — the engine commits its own output — and mirrors its shape: best-effort and
  * fail-open, so a commit failure (e.g. commit signing) never fails `begin`; the agent can
  * still commit by hand. Commits ONLY the derived machinery paths (never `git add -A`), so the
- * authored-content seeds (the guidance stub, the docs skeletons, the ledger) stay uncommitted
+ * authored-content seeds (the instruction stub, the docs skeletons, the ledger) stay uncommitted
  * for the agent. The caller gates this on being on the `discern-setup` branch (a fresh install
  * in a git repo), so it never runs when setup proceeds in place.
  *
@@ -1679,7 +1684,7 @@ async function commitScaffoldedMachinery(
       ...scaffold.projectRulesWired,
     ]),
   ]
-    .filter((p) => !authoredContentSeeds(scaffold.guidanceRel).has(p))
+    .filter((p) => !authoredContentSeeds(scaffold.instructionRel).has(p))
     .sort();
   return await commitMachineryPaths(root, paths);
 }
@@ -1827,14 +1832,14 @@ export async function runSetupStep(
   );
   let mapDir = SOURCE_PATHS.map.defaultPath;
   let todoRel = SOURCE_PATHS.todo.defaultPath;
-  let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
+  let instructionRel = SOURCE_PATHS.instructions.defaultPath;
   const root = await findRoot();
   if (root !== undefined) {
     try {
       const cfg = await loadConfig(root);
       mapDir = cfg.map.dir;
       todoRel = cfg.project.todo;
-      guidanceRel = guidanceSeedRel(cfg.guidance.sources);
+      instructionRel = instructionSeedRel(cfg.instructions.sources);
     } catch {
       // A broken config is diagnosed by strict verbs; keep the default paths here.
     }
@@ -1842,7 +1847,7 @@ export async function runSetupStep(
   const instructions = renderSetupPaths(rawInstructions, {
     mapDir,
     todoRel,
-    guidanceRel,
+    instructionRel,
   });
   let page: SetupPage | undefined;
   try {
@@ -1879,7 +1884,7 @@ export async function runSetupStep(
     return 1;
   }
   if (opts.json) {
-    // Both lanes: the machine `spine` AND the prose `guidance` (ADR 0078).
+    // Both lanes: the machine `spine` AND the prose `instructions` (ADR 0078).
     emitResult({ ok: true, verb: "setup step", data: page });
   } else {
     // Human: the off-ramp first (the page below is addressed to the agent), then
@@ -2006,7 +2011,7 @@ function emitSetupIncomplete(
 /**
  * The uncommitted changes that block `setup done` (the clean-tree precondition):
  * every uncommitted change to a TRACKED file, plus untracked files inside the
- * authored-setup footprint (the configured map tree, the guidance source, the
+ * authored-setup footprint (the configured map tree, the instruction source, the
  * deferred-work ledger, the brief). The completion proof and `setup accept` operate
  * on committed history only — the worktree probe branches from HEAD, so anything
  * uncommitted is invisible to it, and a completion recorded over it would claim a
@@ -2023,19 +2028,19 @@ async function uncommittedSetupWork(root: string): Promise<string[]> {
   // otherwise — a broken config is the proof's problem, not this check's).
   let mapDir = SOURCE_PATHS.map.defaultPath;
   let todoRel = SOURCE_PATHS.todo.defaultPath;
-  let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
+  let instructionRel = SOURCE_PATHS.instructions.defaultPath;
   try {
     const cfg = await loadConfig(root);
     mapDir = normalizeMapDir(cfg.map.dir);
     todoRel = cfg.project.todo;
-    guidanceRel = guidanceSeedRel(cfg.guidance.sources);
+    instructionRel = instructionSeedRel(cfg.instructions.sources);
   } catch {
     // Keep the defaults.
   }
   const footprint = [
     mapDir,
     todoRel,
-    guidanceRel,
+    instructionRel,
     SOURCE_PATHS.brief.defaultPath,
   ];
   return parsePorcelainZ(status.stdout)
@@ -2098,8 +2103,8 @@ interface DoneSuccessView {
   reactivation: ReturnType<typeof reactivationHandoff>;
   coachVerb: string;
   /** The ready-to-relay completion message — carried verbatim, identical to the
-   * `--json` `guidance` field (ADR 0086). */
-  guidance: string;
+   * `--json` `instructions` field (ADR 0086). */
+  instructions: string;
   /** Whether the worktree probe actually proved the project viable in a copy (ADR
    * 0090) — false when the probe was skipped (worktrees off, uncreatable, or forced),
    * so the render never claims coverage it didn't earn. */
@@ -2231,7 +2236,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
     landing,
     reactivation,
     coachVerb,
-    guidance,
+    instructions,
     worktreeProven,
     todoRel,
   } = view;
@@ -2292,13 +2297,13 @@ function printDoneSuccess(view: DoneSuccessView): void {
   );
 
   // The ready-to-relay completion message, carried verbatim (identical to the `--json`
-  // `guidance` field) so a courier agent can hand the human a warm close (ADR 0086).
+  // `instructions` field) so a courier agent can hand the human a warm close (ADR 0086).
   new Logger({ json: false, noColor: false }).line(renderHumanOutputGroups([
     { id: "completion", items: completionLines },
     { id: "assurance", items: assuranceGroupLines },
     { id: "worktree-proof", items: worktreeLines },
     { id: "next-actions", items: nextLines },
-    { id: "relay-guidance", items: [guidance] },
+    { id: "relay-instructions", items: [instructions] },
   ]));
 }
 
@@ -2320,7 +2325,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     return 1;
   }
 
-  // Structural completeness: no scaffolded doc (or the guidance source) may still
+  // Structural completeness: no scaffolded doc (or the instruction source) may still
   // carry a marker, AND every derived per-step check must pass (ADR 0078). The
   // checks SUPPLEMENT the marker walk — they catch a skeleton whose marker was
   // cleared without the file being filled. `--force` skips both.
@@ -2411,7 +2416,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   // The closing relay block — the ready-to-relay "message to your human" a courier agent
   // hands over, composed from the same pieces the structured surface carries (ADR 0086),
   // and rendered identically on both surfaces.
-  const guidance = completionMessage({ assurance, landing, reactivation });
+  const instructions = completionMessage({ assurance, landing, reactivation });
 
   const data: SetupDoneData = {
     bootstrapped: true,
@@ -2434,7 +2439,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     },
     reactivation,
     coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },
-    guidance,
+    instructions,
   };
   const result: DiscernResult<SetupDoneData> = {
     ok: true,
@@ -2457,7 +2462,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     landing,
     reactivation,
     coachVerb,
-    guidance,
+    instructions,
     worktreeProven,
     todoRel: cfg.project.todo,
   });
@@ -2488,20 +2493,20 @@ async function proveGateGreen(
   json: boolean,
 ): Promise<GateProof> {
   // 1. refresh — recompile the agent files + skills so finish's currency check sees
-  //    a current tree (the agent likely edited guidance.md and the docs just now).
+  //    a current tree (the agent likely edited instructions.md and the docs just now).
   try {
-    const refreshed = await compileGuidelines(
+    const refreshed = await compileInstructions(
       root,
       new Logger({ json, noColor: false, humanStream: "stdout" }),
     );
-    const errors = guidanceRefreshErrors(refreshed);
+    const errors = instructionRefreshErrors(refreshed);
     if (errors.length > 0) {
       return {
         ok: false,
         exitCode: emitDoneGateFailure(
           json,
           "refresh",
-          `guidance refresh did not fully complete: ${errors.join("; ")}`,
+          `instruction refresh did not fully complete: ${errors.join("; ")}`,
         ),
       };
     }
@@ -2511,7 +2516,7 @@ async function proveGateGreen(
       exitCode: emitDoneGateFailure(
         json,
         "refresh",
-        `could not compile the agent guidance: ${errMsg(error)}`,
+        `could not compile the agent instructions: ${errMsg(error)}`,
       ),
     };
   }
@@ -2690,7 +2695,7 @@ function emitDoneGateFailure(
  * plus the exact command to run once the human has answered. The refusal is the teaching
  * path (ADR 0086): rather than scaffold silently, discern hands an agent that skipped the
  * handshake the conversation to hold. Exit 1; nothing is written. Both surfaces carry the
- * identical `guidance` prose, so a courier agent gets the message to relay whichever it
+ * identical `instructions` prose, so a courier agent gets the message to relay whichever it
  * reads.
  */
 async function emitAwaitingConsent(
@@ -2698,7 +2703,7 @@ async function emitAwaitingConsent(
   opts: SetupOptions,
   destDir: string,
 ): Promise<number> {
-  const guidance = consentMessage(
+  const instructions = consentMessage(
     await deriveConsentContext(destDir, (await consentAgentSet()).set),
   );
   const command = confirmedBeginCommand();
@@ -2710,7 +2715,7 @@ async function emitAwaitingConsent(
       verb: "setup",
       error: AWAITING_CONSENT_SLUG,
       message,
-      data: { guidance, command },
+      data: { instructions, command },
       hints: hintTexts([
         fire(HINTS["setup-awaiting-confirmation"], {
           command: confirmedBeginCommandReference(),
@@ -2722,7 +2727,7 @@ async function emitAwaitingConsent(
     // relays and the command it runs after both land where it is looking.
     new Logger({ json: false, noColor: false }).line(renderHumanOutputGroups([
       { id: "consent-required", items: [message] },
-      { id: "consent-guidance", items: [guidance] },
+      { id: "consent-instructions", items: [instructions] },
     ]));
   }
   return 1;

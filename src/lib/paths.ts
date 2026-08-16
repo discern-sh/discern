@@ -2,7 +2,7 @@
  * Path resolution for a discern install and the bundled `templates/` tree.
  *
  * The whole footprint in a project is a single root file, `discern.toml` (ADR
- * 0020). Everything else a project opts into — guidance prose, authored skills,
+ * 0020). Everything else a project opts into — instructions prose, authored skills,
  * project scripts — lives at a config-pointed location with a sensible discoverable
  * default, read only when present. This module owns those defaults and resolvers,
  * plus the install-config locator and the `templates/` discovery.
@@ -18,10 +18,10 @@ import {
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
-import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
+import { instructionSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 // Runtime-only import (used inside a function body, never at module evaluation),
 // so the providers.ts → paths.ts edge in the other direction stays harmless.
-import { allGuidanceFilePaths } from "./providers.ts";
+import { allInstructionFilePaths } from "./providers.ts";
 
 // Re-export the install markers so installer-side callers can import them from
 // the lib layer (the canonical definitions live in the shared env module).
@@ -117,11 +117,11 @@ export function resolveBriefPath(root: string): ResolvedDir {
 }
 
 /**
- * The concrete file setup seeds the starter guidance into — the registry's
- * {@link guidanceSeedRel} over the configured `[guidance].sources`.
+ * The concrete file setup seeds the starter instructions into — the registry's
+ * {@link instructionSeedRel} over the configured `[instructions].sources`.
  */
-export function resolveGuidanceSeedRel(config: DiscernConfig): string {
-  return guidanceSeedRel(config.guidance.sources);
+export function resolveInstructionSeedRel(config: DiscernConfig): string {
+  return instructionSeedRel(config.instructions.sources);
 }
 
 /**
@@ -156,7 +156,7 @@ export function resolveWorktreeRoot(
 }
 
 /**
- * Expand `[guidance].sources` (default: the registry's guidance path) into the
+ * Expand `[instructions].sources` (default: the registry's instruction path) into the
  * matched source files under `root`, present-only: a pattern that matches
  * nothing simply contributes nothing. Globs are supported in the pattern; the
  * `root` itself is always treated literally (never parsed as glob syntax), so a
@@ -173,21 +173,23 @@ export function resolveWorktreeRoot(
  * freshly written file as a new source and reports `stale` forever, blocking
  * the gate with a remediation (`discern refresh`) that can never clear it.
  */
-export async function resolveGuidanceSources(
+export async function resolveInstructionSources(
   root: string,
   config: DiscernConfig,
 ): Promise<string[]> {
-  // The schema defaults an absent `[guidance].sources` to the registry default;
+  // The schema defaults an absent `[instructions].sources` to the registry default;
   // an explicit empty list also falls back to it (an install that compiles only
-  // the built-in guidance still wants the default source picked up when present).
-  const configured = config.guidance.sources;
+  // the built-in instructions still wants the default source picked up when present).
+  const configured = config.instructions.sources;
   const patterns = configured.length > 0
     ? configured
-    : [SOURCE_PATHS.guidance.defaultPath];
-  // Every guidance file discern can emit, across ALL providers (not just the
+    : [SOURCE_PATHS.instructions.defaultPath];
+  // Every instruction file discern can emit, across ALL providers (not just the
   // configured set): a leftover output for an unconfigured agent is just as
   // poisonous a source as a live one.
-  const outputs = new Set(allGuidanceFilePaths().map((rel) => join(root, rel)));
+  const outputs = new Set(
+    allInstructionFilePaths().map((rel) => join(root, rel)),
+  );
   const matched = new Set<string>();
   for (const pattern of patterns) {
     // A relative pattern resolves against `root` via expandGlob's `root` option —
@@ -195,7 +197,7 @@ export async function resolveGuidanceSources(
     // the glob string as `join(root, pattern)` would instead feed the absolute
     // project path through the glob parser, so a root containing a metacharacter
     // (`[`, `]`, `{`, `}`, `(`, `)`, a space, `*`) is read as a character class /
-    // brace expansion and matches nothing — silently dropping all user guidance.
+    // brace expansion and matches nothing — silently dropping all user instructions.
     // An absolute pattern is user-authored glob syntax by choice, honoured as-is.
     const [glob, opts] = pattern.startsWith("/")
       ? [pattern, { includeDirs: false } as const]
@@ -249,7 +251,7 @@ export const MANUAL_SECTION_REGISTRY: readonly ManualSectionRegistration[] = [
   { dir: "10-getting-started", audience: "public" },
   { dir: "20-quality-gate", audience: "public" },
   { dir: "30-worktrees", audience: "public" },
-  { dir: "40-agent-guidance", audience: "public" },
+  { dir: "40-agent-instructions", audience: "public" },
   { dir: "45-skills", audience: "public" },
   { dir: "50-engine-internals", audience: "contributor" },
   { dir: "60-agent-integrations", audience: "public" },

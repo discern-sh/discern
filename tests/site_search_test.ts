@@ -161,7 +161,7 @@ Deno.test("task-shaped searches land on the manual page that owns the procedure"
     ["check failed", "/docs/quality-gate/when-the-gate-fails"],
     [
       "remember this rule",
-      "/docs/agent-guidance/write-project-guidance",
+      "/docs/agent-instructions/write-project-instructions",
     ],
     ["update my branch", "/docs/worktrees/lifecycle"],
   ] as const;

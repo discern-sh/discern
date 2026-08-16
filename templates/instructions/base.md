@@ -1,6 +1,6 @@
 # Working in {{project_name}}
 
-discern's built-in guidance comes first; {{project_name}}'s own guidance fills the second half and wins on any conflict.
+discern's built-in instructions comes first; {{project_name}}'s own instructions fills the second half and wins on any conflict.
 
 ## Operating discern
 
@@ -15,4 +15,4 @@ This project uses **discern**, a stack-neutral agent-development system. Everyth
 
 ## Generated files — don't hand-edit
 
-discern compiles your guidance sources ({{guidance_sources}}) into the agent files ({{generated_agent_files}}) and materializes skills into their directories ({{materialized_skills_dirs}}). To change what you read, edit the source and run **`discern refresh`** — edits to a generated file are overwritten on the next compile.
+discern compiles your instruction sources ({{instruction_sources}}) into the agent files ({{generated_agent_files}}) and materializes skills into their directories ({{materialized_skills_dirs}}). To change what you read, edit the source and run **`discern refresh`** — edits to a generated file are overwritten on the next compile.

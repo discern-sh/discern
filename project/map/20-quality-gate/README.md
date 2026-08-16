@@ -13,7 +13,7 @@ _Start with the current failure, then follow the Gate from fast feedback to fina
 
 If `discern done` failed, go to [When the Gate fails](when-the-gate-fails.md). Each precondition or job failure includes a specific next action, the command, and its captured output.
 
-The Gate defines done. It requires latest trunk, non-weakened Standards, current [generated artifacts](../00-orientation/glossary.md#generated-artifact), and consistent Map and guidance. Its integrity check rejects broken references, metadata, and Skills ([ADR 0202](../_adr/0202-the-gate-ships-the-map-integrity-preflight.md)). It runs fix serially; build, check, test, Standards, and changed-scope gates follow. Undeclared generated output fails ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)), as does changing a tracked file that began clean ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).
+The Gate defines done. It requires latest trunk, non-weakened Standards, current [generated artifacts](../00-orientation/glossary.md#generated-artifact), and consistent Map and instructions. Its integrity check rejects broken references, metadata, and Skills ([ADR 0202](../_adr/0202-the-gate-ships-the-map-integrity-preflight.md)). It runs fix serially; build, check, test, Standards, and changed-scope gates follow. Undeclared generated output fails ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)), as does changing a tracked file that began clean ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).
 
 Use `discern prepare` before the final commit. It runs fix, every `generated:<name>` job, and check, then names omitted jobs.
 

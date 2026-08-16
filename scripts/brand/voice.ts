@@ -23,7 +23,7 @@ import {
 export const VOICES = {
   brand: {
     description:
-      "Write or review discern's public-facing brand copy: website pages, campaigns, launch material, social posts, founder essays, product marketing, and public explanations. Use this skill when the reader is deciding whether discern belongs in their future. Do not use it for CLI messages, exact documentation, MCP guidance, or operational agent instructions.",
+      "Write or review discern's public-facing brand copy: website pages, campaigns, launch material, social posts, founder essays, product marketing, and public explanations. Use this skill when the reader is deciding whether discern belongs in their future. Do not use it for CLI messages, exact documentation, MCP instructions, or operational agent instructions.",
     title: "discern brand voice",
     sections: [{
       kind: "prose",
@@ -509,13 +509,13 @@ Why it fails:
 
 ### Manual-like section: reject
 
-> Cross-provider guidance compilation
+> Cross-provider instructions compilation
 
 ### Brand section: stronger
 
 > Change agents without starting the project over.
 
-Supporting body can then explain the compiled guidance mechanism.`,
+Supporting body can then explain the compiled instructions mechanism.`,
     }, {
       kind: "prose",
       heading: "Calls to action",
@@ -949,7 +949,7 @@ Bad:
 
 Better:
 
-> Claude Code encountered eight \`docs not_found\` refusals in this period; peer cohorts encountered none. Review the guidance compiled for that provider before drawing conclusions about the agent.`,
+> Claude Code encountered eight \`docs not_found\` refusals in this period; peer cohorts encountered none. Review the instructions compiled for that provider before drawing conclusions about the agent.`,
     }, {
       kind: "prose",
       heading: "Examples",
@@ -1084,7 +1084,7 @@ Better:
   },
   agent: {
     description:
-      "Write or review communication whose primary reader is a coding agent. Use for MCP descriptions, JSON guidance, setup briefs, Skills, hints, `llms.txt`, machine-oriented documentation, and the public For Agents page. Declare operational or public mode before drafting.",
+      "Write or review communication whose primary reader is a coding agent. Use for MCP descriptions, JSON instructions, setup briefs, Skills, hints, `llms.txt`, machine-oriented documentation, and the public For Agents page. Declare operational or public mode before drafting.",
     title: "discern agent voice",
     sections: [{
       kind: "prose",
@@ -1105,7 +1105,7 @@ It assumes capability. It does not assume memory, hidden state, stable context, 
 Use for:
 
 - MCP tool descriptions;
-- JSON result guidance;
+- JSON result instructions;
 - setup instructions;
 - Skills;
 - hints and guardrails;
@@ -1184,7 +1184,7 @@ If a correctness-critical runtime assumption, working root, authority boundary, 
 - End with the next valid action when no later qualification is required.
 - Point to complete evidence by stable path or target.
 - Return a small ranked result rather than an unbounded index.
-- Remove background explanation already guaranteed by the project guidance.
+- Remove background explanation already guaranteed by the project instructions.
 
 Compression must preserve the facts that change the next action.`,
         },
@@ -1270,7 +1270,7 @@ Tell the agent:
           body:
             `Important instructions should survive a model compressing earlier context.
 
-- Keep related behavioral guidance in one coherent passage.
+- Keep related behavioral instructions in one coherent passage.
 - Use explicit headings and stable identifiers.
 - Put critical stop conditions near the end as well as at the action point.
 - Avoid scattering one instruction across many independent fields.
@@ -1327,7 +1327,7 @@ Include:
 
 Keep the description self-contained. Do not assume the agent has read a neighbouring tool description.
 
-### Result guidance
+### Result instructions
 
 Recommended shape:
 
@@ -1426,7 +1426,7 @@ Good comic targets:
 Use this tone sparingly. The page still needs exact links to the machine contract.`,
     }, {
       kind: "prose",
-      heading: "`llms.txt` guidance",
+      heading: "`llms.txt` instructions",
       body:
         `The file should optimize for accurate machine orientation, not human theatre.
 

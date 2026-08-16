@@ -1,6 +1,6 @@
 ---
 title: Claude Code
-description: How discern configures Guidance, Skills, MCP, hooks, permissions, and worktrees for Claude Code.
+description: How discern configures instructions, Skills, MCP, hooks, permissions, and worktrees for Claude Code.
 order: 10
 aliases:
   - Claude Code
@@ -10,7 +10,7 @@ aliases:
 
 # Claude Code integration
 
-_The Claude Code integration supplies shared Guidance and Skills, a Model Context Protocol (MCP) server entry, hooks, and project-local permission defaults._
+_The Claude Code integration supplies shared instructions and Skills, a Model Context Protocol (MCP) server entry, hooks, and project-local permission defaults._
 
 When Claude Code is enabled in `[project].agents`, discern writes or co-manages these project-local files:
 
@@ -23,7 +23,7 @@ When Claude Code is enabled in `[project].agents`, discern writes or co-manages 
 
 Claude Code may create `.claude/settings.local.json` for machine-local permissions. discern neither seeds nor tracks it. The shipped `.gitignore` keeps it local.
 
-## Guidance and Skills
+## Instructions and Skills
 
 Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so discern writes `CLAUDE.md` as an import pointer:
 
@@ -31,7 +31,7 @@ Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so discern writes `CLAUDE.md` as
 @AGENTS.md
 ```
 
-`AGENTS.md` remains canonical. discern compiles its built-in Guidance and `[guidance].sources` there. Edit the sources, then run `discern refresh`.
+`AGENTS.md` remains canonical. discern compiles its built-in instructions and `[instructions].sources` there. Edit the sources, then run `discern refresh`.
 
 Claude Code does not read the cross-tool `.agents/skills/` directory. discern therefore materializes the effective Skill set into `.claude/skills/` for Claude Code, while other agents can share `.agents/skills/`.
 

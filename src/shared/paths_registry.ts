@@ -29,7 +29,7 @@ export interface SourcePathEntry {
   /** Whether the write-surface contract admits one file or a directory tree. */
   readonly pathKind: "file" | "directory";
   /** How the write target is selected from config. */
-  readonly resolution: "configured" | "guidance-seed" | "default";
+  readonly resolution: "configured" | "instruction-seed" | "default";
   /** This authored path's required File ownership declaration. */
   readonly ownership: FileOwnershipDeclaration;
   /** Whether changes at this authored path skip the project gate by default. */
@@ -45,7 +45,7 @@ export const NAMESPACE_DIR = "discern/";
 /** The source-path names, in display order. The single source of truth for the
  * path vocabulary; {@link SOURCE_PATHS} is pinned to it at compile time. */
 export const SOURCE_PATH_NAMES = [
-  "guidance",
+  "instructions",
   "map",
   "skills",
   "scripts",
@@ -62,15 +62,15 @@ export type SourcePathName = (typeof SOURCE_PATH_NAMES)[number];
  * never drift.
  */
 export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
-  guidance: {
-    key: "guidance.sources",
-    defaultPath: "discern/guidance.md",
+  instructions: {
+    key: "instructions.sources",
+    defaultPath: "discern/instructions.md",
     pathKind: "file",
-    resolution: "guidance-seed",
+    resolution: "instruction-seed",
     ownership: { "project-owned": true },
     gateNeutral: true,
     description:
-      "The project's guidance source discern compiles into the agent files.",
+      "The project's instruction source, which discern compiles into the agent files.",
   },
   map: {
     key: "map.dir",
@@ -137,12 +137,12 @@ export function isConcretePath(pattern: string): boolean {
 }
 
 /**
- * The concrete file setup seeds the starter guidance into, given the configured
- * `[guidance].sources`: the first entry that is a plain path (no glob
+ * The concrete file setup seeds the starter instructions into, given the configured
+ * `[instructions].sources`: the first entry that is a plain path (no glob
  * metacharacters), else the registry default. One definition shared by the
- * seeding (`seedGuidance`) and the setup-progress checks, so "where does the
- * guidance stub live" is answered identically everywhere.
+ * seeding (`seedInstructions`) and the setup-progress checks, so "where does the
+ * instruction stub live?" is answered identically everywhere.
  */
-export function guidanceSeedRel(sources: readonly string[]): string {
-  return sources.find(isConcretePath) ?? SOURCE_PATHS.guidance.defaultPath;
+export function instructionSeedRel(sources: readonly string[]): string {
+  return sources.find(isConcretePath) ?? SOURCE_PATHS.instructions.defaultPath;
 }

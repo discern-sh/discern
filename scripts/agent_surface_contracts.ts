@@ -477,8 +477,8 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         ),
         target(
           "path",
-          "{{guidance_sources}}",
-          "the project guidance source ({{guidance_sources}})",
+          "{{instruction_sources}}",
+          "the project instruction source ({{instruction_sources}})",
         ),
       ],
       sequence: [

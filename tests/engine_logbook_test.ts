@@ -275,7 +275,7 @@ Deno.test("logbook: a refusal records with its slug and the looked-up target", a
     assertEquals(
       event.target,
       "no-such-topic",
-      "what was looked up is recorded — the guidance-gap signal",
+      "what was looked up is recorded — the instructions-gap signal",
     );
     assertEquals(
       event.hint_ids,

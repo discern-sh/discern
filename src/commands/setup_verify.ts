@@ -6,9 +6,9 @@
  * Grounded, not generic: it reports THIS repo's git state, whether the project has a
  * `docs/` folder of its own (the map lives at its own default home and never touches
  * it — the consent message reassures rather than offers to adopt it; ADR 0100, ADR
- * 0131), a pre-existing agent-instructions file `begin` will fold into the
- * guidance source, the agents detected as installed (ADR 0069), and the exact sibling
- * path the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `guidance`
+ * 0131), a pre-existing agent-instruction file `begin` will fold into the
+ * instruction source, the agents detected as installed (ADR 0069), and the exact sibling
+ * path the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `instructions`
  * block (the pre-composed "message to your human": what discern adds, what it will do
  * and cost, the model question, the worktree location) it relays and
  * then runs `begin`. The
@@ -26,7 +26,7 @@ import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
 import { consentAgentSet } from "../lib/detect_agents.ts";
-import { allGuidanceFilePaths } from "../lib/providers.ts";
+import { allInstructionFilePaths } from "../lib/providers.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import type {
@@ -143,9 +143,9 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   // identically in every result representation — never split into fields, which agents
   // summarize and weaken (ADR 0078). discern ships the script, not stage directions
   // (ADR 0086). Terminal and Markdown presentations lead with it; the structured
-  // result carries it verbatim under `guidance`; a flag-less fresh `begin`
+  // result carries it verbatim under `instructions`; a flag-less fresh `begin`
   // re-serves the same string.
-  const guidance = consentMessage({
+  const instructions = consentMessage({
     worktreePath,
     docsExists,
     gitRepo,
@@ -180,7 +180,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
       conflicts,
       // The consent conversation rides the prose field the agent relays verbatim,
       // identical in every presentation.
-      guidance,
+      instructions,
       // Carry the --model flag in the funnel so the model that runs setup is recorded
       // as provenance — substitute your own id, or omit it if you don't know it (the
       // engine ignores the placeholder, so a verbatim copy records nothing).
@@ -198,20 +198,20 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
     effectiveAgents,
     worktreePath,
     conflicts,
-    guidance,
+    instructions,
   });
   return 0;
 }
 
 /** The agent-instruction files (CLAUDE.md / AGENTS.md / GEMINI.md) present on disk.
  * On a fresh install (no discern.toml) these are the USER's — `begin` folds them into
- * `guidance.md` (ADR 0065) — so naming them lets the agent reassure the human nothing
- * is lost. Drawn from {@link allGuidanceFilePaths} — the SAME registry aggregator
+ * `instructions.md` (ADR 0065) — so naming them lets the agent reassure the human nothing
+ * is lost. Drawn from {@link allInstructionFilePaths} — the SAME registry aggregator
  * `begin`'s migration walks — so the set this preflight promises to preserve can
  * never name a file the migration would skip. */
 async function findExistingInstructions(destDir: string): Promise<string[]> {
   const found: string[] = [];
-  for (const p of allGuidanceFilePaths()) {
+  for (const p of allInstructionFilePaths()) {
     if (await pathExists(join(destDir, p))) {
       found.push(p);
     }
@@ -257,7 +257,7 @@ function buildConflicts(
       kind: "existing_instructions",
       detail: `Found existing agent instructions (${
         existingInstructions.join(", ")
-      }). begin preserves them by folding their content into ${SOURCE_PATHS.guidance.defaultPath} — nothing is lost, and you reconcile any overlap with discern's guidance at the end of setup.`,
+      }). begin preserves them by folding their content into ${SOURCE_PATHS.instructions.defaultPath} — nothing is lost, and you reconcile any overlap with discern's instructions at the end of setup.`,
     });
   }
   return conflicts;
@@ -275,7 +275,7 @@ function printPreflight(p: {
   effectiveAgents: string[];
   worktreePath: string;
   conflicts: SetupVerifyConflict[];
-  guidance: string;
+  instructions: string;
 }): void {
   const docs = p.docsExists
     ? `you have your own docs/ folder — begin leaves it untouched; discern's map lands separately at ${SOURCE_PATHS.map.defaultPath}`
@@ -283,8 +283,8 @@ function printPreflight(p: {
   const instructions = p.existingInstructions.length > 0
     ? `found ${
       p.existingInstructions.join(", ")
-    } — begin preserves it (folded into ${SOURCE_PATHS.guidance.defaultPath})`
-    : `none yet — begin seeds ${SOURCE_PATHS.guidance.defaultPath}`;
+    } — begin preserves it (folded into ${SOURCE_PATHS.instructions.defaultPath})`
+    : `none yet — begin seeds ${SOURCE_PATHS.instructions.defaultPath}`;
   const agents = p.detected.length > 0
     ? `detected on this machine: ${p.detected.join(", ")}`
     : `none detected on this machine — begin will default to ${
@@ -321,7 +321,7 @@ function printPreflight(p: {
   // exact next command (including `--confirmed`) — so nothing more is appended here.
   groups.push(
     { id: "consent-divider", items: [RULE] },
-    { id: "consent-guidance", items: [p.guidance] },
+    { id: "consent-instructions", items: [p.instructions] },
   );
 
   new Logger({ json: false, noColor: false }).line(

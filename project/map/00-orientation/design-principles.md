@@ -21,7 +21,7 @@ discern never hardcodes a language, test runner, or framework. The engine runs t
 
 ### 2. Every fact has one home
 
-A fact has one authored source. Guidance compiles from one source set, and the config reference generates from the config schema. When a closed vocabulary such as verbs, known jobs, or agent providers must appear in several places, a parity test ties each copy back to that source ([ADR 0051](../_adr/0051-canonical-set-parity.md)). A new member enrolls everywhere or fails the Gate.
+A fact has one authored source. Agent instructions compile from one source set, and the config reference generates from the config schema. When a closed vocabulary such as verbs, known jobs, or agent providers must appear in several places, a parity test ties each copy back to that source ([ADR 0051](../_adr/0051-canonical-set-parity.md)). A new member enrolls everywhere or fails the Gate.
 
 ### 3. Re-running respects file ownership
 
@@ -53,7 +53,7 @@ Worktrees you never start and Standards you never define do no work, so they hav
 
 ### 10. Required behavior belongs in checks
 
-When a behavior matters, discern encodes it as a check, a Standard, a parity test, or a refusal with a recovery action ([ADR 0077](../_adr/0077-setup-agent-is-the-configuration-engine.md)). Checks remain visible when an agent session runs short of context; prose guidance may not.
+When a behavior matters, discern encodes it as a check, a Standard, a parity test, or a refusal with a recovery action ([ADR 0077](../_adr/0077-setup-agent-is-the-configuration-engine.md)). Checks remain visible when an agent session runs short of context; prose instructions may not.
 
 ### 11. The map serves two readers
 
@@ -61,7 +61,7 @@ The documentation tree discern maintains is the agents' Map of the codebase. Age
 
 ### 12. Uninstall retains project content
 
-`discern uninstall` removes discern's wiring and keeps project-owned content. The guidance, Map, Skills, and scripts remain at the paths you chose or accepted, readable without discern ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)).
+`discern uninstall` removes discern's wiring and keeps project-owned content. The instructions, Map, Skills, and scripts remain at the paths you chose or accepted, readable without discern ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)).
 
 ### 13. The footprint is provable
 

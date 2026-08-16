@@ -70,7 +70,7 @@ export interface TenetUpheld {
 
 /** The fixed project inventory, in its one canonical order. */
 export const PROJECT_INVENTORY = [
-  "guidance",
+  "instructions",
   "working conditions",
   "checks",
   "evidence",
@@ -85,7 +85,7 @@ export const PROJECT_INVENTORY = [
  */
 export type ProjectInventoryItem = (typeof PROJECT_INVENTORY)[number];
 
-/** The inventory as the fixed public phrase: "its guidance, …, and its decisions". */
+/** The inventory as the fixed public phrase: "its instructions, …, and its decisions". */
 export function inventoryPhrase(): string {
   const items = PROJECT_INVENTORY.map((item) => `its ${item}`);
   return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
@@ -114,7 +114,7 @@ export const PRACTICE_FRAME: readonly PracticeRole[] = [
     id: "agent",
     title: "The agents",
     line:
-      "Coding agents operate the practice: they inherit the project's guidance, carry the work, and answer to its checks.",
+      "Coding agents operate the practice: they inherit the project's instructions, carry the work, and answer to its checks.",
   },
   {
     id: "project",
@@ -165,23 +165,23 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     id: "arrive-knowing",
     title: "Arrive knowing",
     obligation:
-      "Every session starts with the project's guidance, understanding, and methods already in hand.",
+      "Every session starts with the project's instructions, understanding, and methods already in hand.",
     body:
-      "One authored guidance body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.",
+      "One authored instruction body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.",
     arc: "loop",
     upheld: {
-      automated: ["verb:refresh", "config:guidance"],
+      automated: ["verb:refresh", "config:instructions"],
     },
     mechanisms: [
-      "guidance",
-      "guidance-compile",
+      "instructions",
+      "instructions-compile",
       "map",
       "discovery-funnel",
       "skills",
       "status",
     ],
     yields: ["keep-project-knowledge-working"],
-    holds: ["guidance"],
+    holds: ["instructions"],
   },
   {
     id: "one-task-one-place",
@@ -313,7 +313,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     obligation:
       "Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.",
     body:
-      "A correction becomes guidance, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.",
+      "A correction becomes instructions, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.",
     arc: "loop",
     upheld: {
       enforced: ["config:map"],
@@ -334,7 +334,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "skill-document-subsystem",
     ],
     yields: ["keep-project-knowledge-working"],
-    holds: ["guidance", "decisions"],
+    holds: ["instructions", "decisions"],
   },
   {
     id: "cure-the-class",
@@ -487,7 +487,7 @@ export const PRACTICE_PROPERTIES: readonly PracticeProperty[] = [
     id: "ordinary-files",
     title: "Ordinary files, yours",
     line:
-      "The practice is files in the repository — one root configuration plus the guidance, methods, and decisions it records — all readable and all project-owned.",
+      "The practice is files in the repository — one root configuration plus the instructions, methods, and decisions it records — all readable and all project-owned.",
     mechanisms: ["one-file-footprint", "ownership-buckets"],
   },
   {
@@ -503,7 +503,7 @@ export const PRACTICE_PROPERTIES: readonly PracticeProperty[] = [
     title: "Provider-neutral",
     line:
       "Every supported agent works through the same project-owned practice, so changing providers never means starting the project over.",
-    mechanisms: ["providers", "guidance-compile"],
+    mechanisms: ["providers", "instructions-compile"],
     yields: ["change-tools-without-starting-over"],
   },
   {
@@ -540,14 +540,14 @@ export const PRACTICE_DEFERRED_CONSUMERS: readonly DeferredConsumer[] = [
     id: "brand-concept-row",
     file: "scripts/brand/bridge.ts",
     what: "the practice row of the brand concept map",
-    sha256: "8e4a6cea5038e154c2a7b3fff570606783ddca30c986a548d4cf6f0e9e6d376b",
+    sha256: "01e486642f737b8ad7301bfe819c1d33ac462a9247063706856c481b5538f73f",
     until: "the brand registry derives its practice row from this canon",
   },
   {
     id: "machine-edition-loop",
     file: "site/text/discern.txt",
     what: "the practice block of the machine edition",
-    sha256: "57fb3c2f33210ef1965164896a6231e22b7cb6d4574b02d253c3cf61001b7d0c",
+    sha256: "aa6651f9d54237450e47041ad2b7c26dc565bb506ffd9638d02bc8173bfa8c90",
     until: "the machine edition renders its practice block from this canon",
   },
 ];

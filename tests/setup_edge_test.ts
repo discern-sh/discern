@@ -50,9 +50,9 @@ Deno.test("setup --json reports a partial refresh as top-level not-ok while keep
     const result = JSON.parse(stdout);
     assertEquals(result.ok, false);
     assertEquals(result.error, "partial_refresh");
-    assertEquals(result.data.guidelines_compiled, false);
+    assertEquals(result.data.instructions_compiled, false);
     assertStringIncludes(
-      result.data.guidelines_errors.join("\n"),
+      result.data.instructions_errors.join("\n"),
       "malformed JSON",
     );
     assert(await pathExists(join(dir, "discern.toml")));

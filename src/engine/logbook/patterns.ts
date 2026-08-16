@@ -6,7 +6,7 @@
  * recorded event stream. The result keeps findings ranked by evidence strength;
  * the human report points to the strongest attention findings, groups that same
  * order into canonical family sections, and collapses repeated detector
- * guidance into one block.
+ * instructions into one block.
  *
  * Like every verb it computes one {@link DiscernResult}; the human report, the
  * quiet CLI projections, and the MCP tool are renderings of the same object.
@@ -776,7 +776,7 @@ function renderClosingAccount(
 
 /** Render the recurring report for a person. The wire findings stay
  * strength-ranked; this projection groups them by canonical family and
- * collapses repeated detector guidance. */
+ * collapses repeated detector instructions. */
 function renderReport(out: Out, data: PatternsData, slug: string): void {
   const { presenter, width } = presentationFacts(out);
   const titleById = new Map(

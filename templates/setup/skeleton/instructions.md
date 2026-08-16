@@ -1,10 +1,10 @@
-# {{project_name}} — project guidance
+# {{project_name}} — project instructions
 
 <!-- setup fills this -->
 
 <!--
   `discern setup` has your coding agent fill this in from the repository. This file
-  holds ONLY this project's own conventions — discern's built-in guidance
+  holds ONLY this project's own conventions — discern's built-in instructions
   (docs, TODO, the worktree workflow, and the quality gate) is bundled and auto-prepended
   when the agent files compile, so don't repeat the standing disciplines here. Delete
   these comments as you fill each section.

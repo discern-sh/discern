@@ -30,11 +30,11 @@ In your project, tell your agent:
 
 > Set this project up with discern.
 
-The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing, discern serves a consent message for the agent to relay. The message names each planned change: a `discern.toml` file at the repository root, a visible `discern/` folder for project-owned content, the agent-maintained Map, the agent files each coding agent reads, and a delimited `.gitignore` block. Project-authored guidance, Map pages, and Skills remain plain Markdown. `discern uninstall` removes the wiring.
+The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing, discern serves a consent message for the agent to relay. The message names each planned change: a `discern.toml` file at the repository root, a visible `discern/` folder for project-owned content, the agent-maintained Map, the agent files each coding agent reads, and a delimited `.gitignore` block. Project-authored instructions, Map pages, and Skills remain plain Markdown. `discern uninstall` removes the wiring.
 
 Answer in plain language: "Yes. Set up Claude Code and Codex." Setup cannot proceed until the agent records your consent ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
-Setup writes ordinary files on a separate `discern-setup` branch, keeping those changes off `main` until you land them. The format job already contains `discern tidy` for discern-owned Markdown and the root config. The agent puts your stack's formatter before it, then wires lint, test, and the other commands your project runs. It fills in guidance and the first Map pages under that live Gate. From that point, each configured agent reads the same compiled instructions and runs the same commands.
+Setup writes ordinary files on a separate `discern-setup` branch, keeping those changes off `main` until you land them. The format job already contains `discern tidy` for discern-owned Markdown and the root config. The agent puts your stack's formatter before it, then wires lint, test, and the other commands your project runs. It fills in instructions and the first Map pages under that live Gate. From that point, each configured agent reads the same compiled instructions and runs the same commands.
 
 The Static Analysis Results Interchange Format (SARIF) is a machine-readable findings format. During setup, configure tools to emit SARIF or JUnit XML to captured `stdout` or `stderr`. Failed jobs become per-finding diagnostics. discern does not inspect report files. Other captured output remains raw.
 
