@@ -28,6 +28,6 @@ MCP delivers both representations because supported hosts expose the channels di
 
 `--markdown` and `--json` are mutually exclusive. Both suppress terminal decoration and subprocess narration around the result. `--md` is not an alias.
 
-An authored Markdown presentation selects facts from the registered result contract. It does not dump every JSON field. When present, sections occur in this order: current state, bounded evidence, authority and boundaries, then the next action. If several future actions matter, the immediate one closes the document. Requested map or manual pages and setup instructions remain intact inside the evidence section.
+An authored Markdown presentation selects facts from the registered result contract. It does not dump every JSON field. When present, sections occur in this order: current state, bounded evidence, authority and boundaries, then the next action. If several future actions matter, the immediate one closes the document. Whitespace-significant supporting payloads retain their exact content inside the evidence section, including leading and trailing spaces. These payloads include requested map or manual pages, setup instructions, diagnostic output, and terminal art.
 
 See [MCP tools and result contracts](mcp-and-results.md) for the tool registry, envelope fields, schemas, resources, and exit codes.
