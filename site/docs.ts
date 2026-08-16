@@ -658,10 +658,9 @@ export function createGlossaryProseRenderer(
 /**
  * Render one page (cached): frontmatter stripped, inline ADR citations
  * stripped (human-rendered prose; the raw `.md` edition keeps both), links
- * rewritten, then the engine's own HTML emitter — the same parse
- * `discern docs` renders from, so the site and the terminal can never
- * disagree about a doc's content. No rendering dependency exists to bloat
- * the compiled binary.
+ * rewritten, then the request-time React-free HTML emitter with the site's
+ * Workflow and glossary hooks. Terminal readers use the package Markdown
+ * Component instead; this browser boundary stays out of the compiled binary.
  */
 export async function renderDoc(
   page: RoutedDocPage,

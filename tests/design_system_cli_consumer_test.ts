@@ -31,7 +31,7 @@ import {
 import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.18.1";
+const SELECTED_VERSION = "0.19.0";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
@@ -47,7 +47,10 @@ interface DenoConfig {
 
 interface DenoLock {
   readonly specifiers: Readonly<Record<string, string>>;
-  readonly jsr: Readonly<Record<string, unknown>>;
+  readonly jsr: Readonly<
+    Record<string, { readonly dependencies?: readonly string[] }>
+  >;
+  readonly npm: Readonly<Record<string, unknown>>;
 }
 
 interface DenoInfoResolution {
@@ -61,7 +64,9 @@ interface DenoInfoDependency {
 }
 
 interface DenoInfoModule {
+  readonly kind?: string;
   readonly specifier?: string;
+  readonly npmPackage?: string;
   readonly dependencies?: readonly DenoInfoDependency[];
 }
 
@@ -461,9 +466,12 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
   assertStringIncludes(textarea, "line 12");
 });
 
-Deno.test("CLI-only design-system graphs stay external, exact, and React-free", async () => {
+Deno.test("CLI design-system graphs stay published, lock-resolved, and React-free", async () => {
   const entrypoint = join(ROOT, "tests/fixtures/design_system_cli_graph.ts");
   const info = await moduleGraph(entrypoint);
+  const lock = JSON.parse(
+    await Deno.readTextFile(join(ROOT, "deno.lock")),
+  ) as DenoLock;
   const modules = (info.modules ?? []).flatMap((module) =>
     module.specifier === undefined ? [] : [module.specifier]
   );
@@ -514,20 +522,38 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
   ]);
   const allowedOrigin =
     `https://jsr.io/@discern-sh/design-system/${SELECTED_VERSION}/`;
+  const packageLock = lock.jsr[`@discern-sh/design-system@${SELECTED_VERSION}`];
+  assert(packageLock !== undefined);
+  const declaredNpmPackages = (packageLock.dependencies ?? []).flatMap(
+    (dependency) =>
+      dependency.startsWith("npm:") ? [dependency.slice("npm:".length)] : [],
+  );
   for (const [publicRoot, resolvedRoot] of packageRoots) {
     const pending = [resolvedRoot];
-    const packageClosure = new Set<string>();
+    const publicClosure = new Set<string>();
     while (pending.length > 0) {
       const specifier = pending.pop();
       assert(specifier !== undefined);
-      if (packageClosure.has(specifier)) continue;
-      assert(
-        specifier.startsWith(allowedOrigin),
-        `${publicRoot} graph escaped ${allowedOrigin}: ${specifier}`,
-      );
-      packageClosure.add(specifier);
+      if (publicClosure.has(specifier)) continue;
+      publicClosure.add(specifier);
       const module = moduleBySpecifier.get(specifier);
       assert(module !== undefined, `missing resolved module ${specifier}`);
+      if (!specifier.startsWith(allowedOrigin)) {
+        assertEquals(
+          module.kind,
+          "npm",
+          `${publicRoot} graph escaped its published package: ${specifier}`,
+        );
+        const packageKey = module.npmPackage;
+        assert(
+          packageKey !== undefined && packageKey in lock.npm,
+          `${publicRoot} graph reached unlocked npm module ${specifier}`,
+        );
+        assert(
+          declaredNpmPackages.some((name) => packageKey.startsWith(`${name}@`)),
+          `${publicRoot} graph reached undeclared npm package ${packageKey}`,
+        );
+      }
       for (const dependency of module.dependencies ?? []) {
         for (const resolution of [dependency.code, dependency.type]) {
           if (resolution !== undefined) {
@@ -536,7 +562,7 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
         }
       }
     }
-    assert(packageClosure.size > 1, `${publicRoot} closure was not traversed`);
+    assert(publicClosure.size > 1, `${publicRoot} closure was not traversed`);
   }
 
   assertEquals(

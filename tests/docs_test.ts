@@ -299,7 +299,15 @@ Deno.test("docs terminal facts are inert while machine Markdown stays exact", as
     assertEquals(human.code, 0);
     assertEquals(unexpectedTerminalControls(human.stdout), []);
     assert(!/[\p{Cc}\p{Cf}]/u.test(human.stdout.replaceAll("\n", "")));
-    for (const visible of ["<U+200D>", "␛", "<U+0085>", "<U+202E>", "␇"]) {
+    for (
+      const visible of [
+        "\\u{200D}",
+        "\\u{1B}",
+        "\\u{85}",
+        "\\u{202E}",
+        "\\u{7}",
+      ]
+    ) {
       assertStringIncludes(human.stdout, visible);
     }
     for (const line of human.stdout.trimEnd().split("\n")) {

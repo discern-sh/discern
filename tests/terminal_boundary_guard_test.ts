@@ -486,7 +486,7 @@ function cliffyImportFindings(rel: string, source: string): Finding[] {
 }
 
 /**
- * Text-bearing leaves in the published 0.18.1 `*CliProps` contracts and their
+ * Text-bearing leaves in the published 0.19.0 `*CliProps` contracts and their
  * exported nested row shapes. Generic future renderer names deliberately
  * inherit this vocabulary; a package upgrade must re-audit the public types.
  */
@@ -1443,13 +1443,6 @@ interface ExactOutlawException {
 
 const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
   {
-    file: "src/lib/markdown.ts",
-    rule: "raw-terminal-control-literal",
-    authority: "osc8",
-    count: 1,
-    reason: "The central Markdown boundary owns the OSC-8 hyperlink protocol.",
-  },
-  {
     file: "src/engine/desk/desk.ts",
     rule: "raw-terminal-control-literal",
     authority: "clearBoard",
@@ -2364,27 +2357,27 @@ Deno.test("Cliffy lock law retains only the command-owned transitive closure", (
 });
 
 Deno.test("exact terminal exceptions reject a second violation in an exempt authority", () => {
-  const markdownException = EXACT_OUTLAW_EXCEPTIONS.filter((entry) =>
-    entry.file === "src/lib/markdown.ts"
+  const deskException = EXACT_OUTLAW_EXCEPTIONS.filter((entry) =>
+    entry.file === "src/engine/desk/desk.ts"
   );
-  assertEquals(markdownException.length, 1);
+  assertEquals(deskException.length, 1);
   const baseline = [{
-    file: "src/lib/markdown.ts",
+    file: "src/engine/desk/desk.ts",
     rule: "raw-terminal-control-literal",
-    authority: "osc8",
+    authority: "clearBoard",
   }];
   assertEquals(
-    unappliedOutlawFindingsWithExceptions(baseline, markdownException),
+    unappliedOutlawFindingsWithExceptions(baseline, deskException),
     [],
   );
   assertThrows(
     () =>
       unappliedOutlawFindingsWithExceptions(
         [...baseline, ...baseline],
-        markdownException,
+        deskException,
       ),
     Error,
-    "src/lib/markdown.ts:osc8 raw-terminal-control-literal exception moved, became stale, or changed count",
+    "src/engine/desk/desk.ts:clearBoard raw-terminal-control-literal exception moved, became stale, or changed count",
   );
 });
 
