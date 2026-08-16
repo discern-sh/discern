@@ -24,6 +24,7 @@ import {
   COPY_PROMPT_TEXT,
   INSTALL_COMMAND,
   renderLanding,
+  renderOldLanding,
 } from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
 import { providerBrandSilhouette, PROVIDERS } from "../src/lib/providers.ts";
@@ -523,10 +524,45 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   }
 });
 
-Deno.test("the public homepage presents the complete signed-off launch sequence", async () => {
-  assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
+Deno.test("the new homepage opts into Resonance without changing the archived hero", () => {
+  assert(
+    DESIGN_SYSTEM_BUNDLES.compositions.components.includes(
+      "resonance-ground",
+    ),
+  );
+  assertEquals(
+    DESIGN_SYSTEM_BUNDLES.docs.components.includes("resonance-ground"),
+    false,
+  );
+
+  const current = new JSDOM(renderLanding());
+  const currentHero = current.window.document.querySelector(
+    ".landing-hero--current",
+  );
+  assert(currentHero !== null);
+  const ground = currentHero.querySelector(
+    ".discern-hero-block__ground > .discern-resonance-ground.discern-ground",
+  );
+  assert(ground !== null);
+  assertEquals(ground.getAttribute("aria-hidden"), "true");
+  assertEquals(
+    currentHero.querySelectorAll(".discern-resonance-ground").length,
+    1,
+  );
+  current.window.close();
+
+  const archived = new JSDOM(renderOldLanding());
+  assertEquals(
+    archived.window.document.querySelector(".discern-resonance-ground"),
+    null,
+  );
+  archived.window.close();
+});
+
+Deno.test("the archived homepage preserves the complete signed-off launch sequence", async () => {
+  assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/old"));
   const response = await handler(
-    new Request("https://discern.sh/", { headers: BROWSER }),
+    new Request("https://discern.sh/old", { headers: BROWSER }),
   );
   assertEquals(response.status, 200);
   const html = await response.text();

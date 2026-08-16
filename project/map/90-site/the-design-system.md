@@ -80,10 +80,10 @@ Mixed Result summaries compose through the package's group renderer, which align
 
 [`site/design_system.ts`](../../../site/design_system.ts) contains the complete integration. Its `DESIGN_SYSTEM_BUNDLES` table declares:
 
-| Bundle         | Routes                      | Selection                                              | Optional assets |
-| -------------- | --------------------------- | ------------------------------------------------------ | --------------- |
-| `docs`         | `/docs` and its descendants | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
-| `compositions` | `/` and `/lipsum`           | Marketing, Editorial, and shared display parts         | fonts           |
+| Bundle         | Routes                      | Selection                                                 | Optional assets |
+| -------------- | --------------------------- | --------------------------------------------------------- | --------------- |
+| `docs`         | `/docs` and its descendants | Docs, shared chrome, and the 6 rendered Workflow roots    | fonts           |
+| `compositions` | `/`, `/old`, and `/lipsum`  | Marketing, Editorial, Resonance, and shared display parts | fonts           |
 
 The table also owns the discern theme choice and emitted public directories. [`site/build.ts`](../../../site/build.ts) passes each selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a manifest, and the requested assets. The discern integration reads those outputs instead of copying the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 
@@ -93,6 +93,6 @@ The docs bundle selects the `Docs` group plus the shared `icon`, `icon-button`, 
 
 Both bundles select the Core `Brand` component, which brings its `Logo` dependency with it. [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the canonical public lockup: the decorative `◮`, the visible `discern` name, the `mono` typeface, and an optional context tagline. The docs shell reuses its statically rendered markup. The homepage passes the same mark and name treatment into the Marketing `SiteHeader` campaign variant.
 
-The homepage also uses the Marketing `HeroBlock` showcase layout with its atmospheric surface and the `LogoCloud` strip variant. Its product-state composition remains site-owned inside the Display `Window` showcase variant, and its agent-result composition uses the Display `Terminal` showcase variant. Provider assets, page copy, and the inner product evidence remain consumer content; the shared scale, spacing, chrome, colour-scheme handling, and responsive behavior come from the published package. The browser receives semantic HTML, selected CSS, and any framework-neutral behavior script declared by that selection, with no React runtime.
+The homepage also uses the Marketing `HeroBlock` showcase layout with its atmospheric surface and the `LogoCloud` strip variant. The compositions bundle explicitly selects Artwork's `ResonanceGround`; the package resolves its shared `Ground` dependency, and the current `/` hero passes Resonance through `HeroBlock`'s decorative `ground` slot. The preserved `/old` hero keeps its original site-owned triangle treatment. Its product-state composition remains site-owned inside the Display `Window` showcase variant, and its agent-result composition uses the Display `Terminal` showcase variant. Provider assets, page copy, and the inner product evidence remain consumer content; the shared scale, spacing, chrome, colour-scheme handling, and responsive behavior come from the published package. The browser receives semantic HTML, selected CSS, and any framework-neutral behavior script declared by that selection, with no React runtime.
 
 The static page boundary, homepage composition, build commands, and manifest-driven consumer guards are recorded separately in [design-system-consumption.md](design-system-consumption.md).
