@@ -12,6 +12,7 @@ import { join } from "@std/path";
 import {
   EXPERIMENTAL_ENV_ENABLED_VALUE,
   EXPERIMENTAL_ENVIRONMENT_VARIABLES,
+  experimentalAwaitCallSeconds,
   experimentalEnvironmentEnabled,
 } from "../src/shared/experimental.ts";
 import { fakeEnv } from "./helpers.ts";
@@ -66,6 +67,26 @@ Deno.test("experimental flags use exact value 1", () => {
     experimentalEnvironmentEnabled("experimentalMcpPreload", fakeEnv()),
     false,
   );
+});
+
+Deno.test("the await call cap activates only on a positive whole number", () => {
+  const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES
+    .experimentalAwaitCallSeconds;
+  assertEquals(experimentalAwaitCallSeconds(fakeEnv({ [variable]: "1" })), 1);
+  assertEquals(
+    experimentalAwaitCallSeconds(fakeEnv({ [variable]: "1500" })),
+    1500,
+  );
+  for (
+    const value of ["", "0", "-300", "1.5", "300s", " 300", "3e2", "yes", "01"]
+  ) {
+    assertEquals(
+      experimentalAwaitCallSeconds(fakeEnv({ [variable]: value })),
+      undefined,
+      `value ${JSON.stringify(value)} stays off`,
+    );
+  }
+  assertEquals(experimentalAwaitCallSeconds(fakeEnv()), undefined);
 });
 
 Deno.test("every experimental environment name comes from the registry", async () => {
