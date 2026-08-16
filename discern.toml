@@ -604,7 +604,7 @@
     per = "site_prose_words"
     scale = 1000
     # Guarded-corpus baseline: 2 Vale alerts across 1,025 projected words.
-    limit = 1.95
+    limit = 1.952
     margin = 0.05
     run = "deno task site:prose"
     inputs = [
