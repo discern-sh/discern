@@ -6,7 +6,7 @@
 
 `await` holds one call for the longest bound its transport verifiably survives: 55 minutes for clients whose MCP tool timeout discern configures, 45-second lossless slices for strict and unknown clients. Those numbers live in the native timeout-policy registry and encode transport facts only.
 
-A second, independent ceiling exists on the caller's side: model providers expire prompt caches after an idle window, and a call that outlives that window makes the caller's next model turn a cold start over its full context. Cache lifetimes differ per provider and per account tier, and change at the vendor's discretion, so discern cannot detect a caller's true window — only the user knows it. The waiting machinery already answers "not yet" with a resume handle that preserves the original question, so ending a call early is lossless by construction; several cheap continuation turns inside the cache window can cost far less than one cold start after it.
+A second, independent ceiling exists on the caller's side: model providers expire prompt caches after an idle window, and a call that outlives that window makes the caller's next model turn a cold start over its full context. Cache lifetimes differ per provider and per account tier, and change at the vendor's discretion, so discern cannot detect a caller's true window — only the user knows it. The waiting machinery already answers "not yet" with a `resume` handle that preserves the original question, so ending a call early is lossless by construction; several cheap continuation turns inside the cache window can cost far less than one cold start after it.
 
 The open question was who owns the number: project config, per-provider defaults baked into the registry, or the user's environment.
 
@@ -14,7 +14,7 @@ The open question was who owns the number: project config, per-provider defaults
 
 `DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS` caps the automatic bound of one `await` call. It is the registry's first valued experiment: it activates only on a positive whole number of seconds, and every other value stays off.
 
-The engine takes the minimum of the caller profile's transport-safe bound and the cap. The cap can only shorten a call, never lengthen one — transport safety stays owned by the timeout-policy registry, and the environment expresses only economics. When the cap decides the bound, the result reports `timeout_basis: "experimental-cap"`, so the trial is observable from the envelope alone. An explicit CLI bound stays caller-owned and uncapped; a tool request above the effective bound is sliced to it losslessly, as strict-client requests already are.
+The engine takes the minimum of the caller profile's transport-safe bound and the cap. The cap can only shorten a call, never lengthen one — transport safety stays owned by the timeout-policy registry, and the environment expresses only economics. When the cap decides the bound, the result reports `timeout_basis: "experimental-cap"`, so the trial is observable from the envelope alone. An explicit CLI bound stays caller-owned and uncapped; a tool request above the effective bound is sliced to it with the question preserved, as strict-client requests already are.
 
 The explicit *no*s:
 
