@@ -22,6 +22,8 @@ import { renderDocHtml, renderShell, type SpanState } from "./html.ts";
 import { emitStudioAssets } from "./assets.ts";
 import { type GuardRunReport, runGuardFiles } from "./guards.ts";
 import { saveField, spawnSnapshot } from "./pipeline.ts";
+import { lintFieldText, valeFindings } from "./lint.ts";
+import { fieldSpecFor } from "./fields.ts";
 import type { RegistryName } from "./registry_ast.ts";
 import { PROSE_REGISTRIES } from "./registry_ast.ts";
 import {
@@ -373,6 +375,47 @@ export async function startStudio(
         guards: snapshot?.guards ?? [],
         reports: [...guardReports.values()],
         dirty: await gitDirty(),
+      });
+    }
+    if (path === "/api/lint" && request.method === "POST") {
+      const body = (await request.json()) as {
+        registry?: string;
+        kind?: string;
+        field?: string;
+        value?: string;
+        vale?: boolean;
+      };
+      const registry = PROSE_REGISTRIES.find(
+        (spec) => spec.name === body.registry,
+      )?.name;
+      if (
+        registry === undefined || body.field === undefined ||
+        typeof body.value !== "string"
+      ) {
+        return json({ error: "malformed lint request" }, 400);
+      }
+      const spec = fieldSpecFor(registry, body.kind ?? "node", body.field);
+      if (spec?.edit !== "prose") {
+        return json({ findings: [], grade: null });
+      }
+      const report = lintFieldText(
+        {
+          retired: snapshot?.lint.retired ?? [],
+          plainPoliced: snapshot?.lint.plainPoliced ?? [],
+        },
+        spec.register,
+        body.value,
+      );
+      const findings = body.vale === true
+        ? [
+          ...report.findings,
+          ...(await valeFindings(REPO_ROOT, spec.register, body.value)),
+        ]
+        : report.findings;
+      return json({
+        findings,
+        grade: report.grade ?? null,
+        register: spec.register,
       });
     }
     if (path === "/api/save" && request.method === "POST") {

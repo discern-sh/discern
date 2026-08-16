@@ -141,6 +141,7 @@ function renderRail(entry, activeField) {
             span,
             { registry: entry.registry, slug: entry.slug, field: active.path },
             active.value ?? "",
+            entry.kind,
           ),
       }),
     );
@@ -274,8 +275,53 @@ async function submitEditor() {
   editing.failure = failure;
 }
 
+/** Ask the server to judge the draft; on a pause, Vale joins the panel. */
+async function lintDraft(vale) {
+  if (!editing) return;
+  const { ref, box, lints, kind } = editing;
+  const response = await fetch("/api/lint", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      registry: ref.registry,
+      kind,
+      field: ref.field,
+      value: box.textContent,
+      vale,
+    }),
+  });
+  if (!response.ok || !editing || editing.box !== box) return;
+  const report = await response.json();
+  lints.textContent = "";
+  if (report.grade !== null && report.grade !== undefined) {
+    lints.append(el("span", {
+      class: "scr-chip",
+      text: `field grade ${report.grade.toFixed(1)}`,
+      title:
+        "Flesch–Kincaid over this field alone — the standard judges the whole corpus",
+    }));
+  }
+  for (const finding of report.findings) {
+    lints.append(el("span", {
+      class: finding.severity === "error"
+        ? "scr-chip scr-chip-fail"
+        : finding.severity === "warning"
+        ? "scr-chip scr-chip-dirty"
+        : "scr-chip",
+      text: `${
+        finding.severity === "suggestion" ? "· " : "⚠ "
+      }${finding.message}`,
+    }));
+  }
+  if (report.findings.length === 0 && vale) {
+    lints.append(
+      el("span", { class: "scr-chip scr-chip-ok", text: "✓ register clean" }),
+    );
+  }
+}
+
 /** Open the in-place editor over a span, seeded with the field's source. */
-function openEditor(span, ref, value) {
+function openEditor(span, ref, value, kind) {
   if (editing) closeEditor();
   const original = span.innerHTML;
   span.classList.add("scr-editing");
@@ -300,8 +346,28 @@ function openEditor(span, ref, value) {
     }),
     stageline,
   ]);
-  span.append(box, bar);
-  editing = { span, ref, box, bar, stageline, original, failure: null };
+  const lints = el("span", { class: "scr-lints" });
+  span.append(box, bar, lints);
+  editing = {
+    span,
+    ref,
+    box,
+    bar,
+    stageline,
+    lints,
+    kind,
+    original,
+    failure: null,
+  };
+  let fastTimer = null;
+  let valeTimer = null;
+  box.addEventListener("input", () => {
+    if (fastTimer) clearTimeout(fastTimer);
+    if (valeTimer) clearTimeout(valeTimer);
+    fastTimer = setTimeout(() => lintDraft(false), 160);
+    valeTimer = setTimeout(() => lintDraft(true), 900);
+  });
+  lintDraft(true);
   box.focus();
   const range = document.createRange();
   range.selectNodeContents(box);
@@ -329,7 +395,7 @@ async function editField(span, ref) {
   const field = entry.fields.find((candidate) => candidate.path === ref.field);
   if (!field || !field.editable) return;
   renderRail(entry, ref.field);
-  openEditor(span, ref, field.value ?? "");
+  openEditor(span, ref, field.value ?? "", entry.kind);
 }
 
 /** Select a provenance span and load its entry into the rail. */

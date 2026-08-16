@@ -214,6 +214,18 @@
     margin-top: 0.6rem;
     white-space: normal;
   }
+  .scr-lints {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+    font-family: var(--discern-font-ui);
+  }
+  .scr-lints .scr-chip {
+    white-space: normal;
+    line-height: 1.4;
+    text-align: left;
+  }
   .scr-locked:hover {
     background: var(--discern-color-surface-sunken);
     box-shadow: none;
