@@ -668,7 +668,7 @@
   # Raise the limit only for guidance that passes the routing test. Never pay for a
   # necessary instruction by weakening another one; if no redundant wording remains,
   # report the intrinsic growth so the owner can move this growing-total ceiling.
-  [standards.guidance]
+  [standards.instructions]
     metric = "guidance_words"
     direction = "down"
     limit = 966
