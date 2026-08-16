@@ -165,6 +165,55 @@
     cursor: not-allowed;
     border-bottom: 1px dotted var(--discern-color-ink-faint);
   }
+
+  /* ——— The pen ——— */
+  .scr-editing {
+    display: inline;
+    background: none;
+    box-shadow: none;
+  }
+  .scr-editor {
+    display: inline-block;
+    min-width: 14rem;
+    max-width: 100%;
+    padding: 0.35rem 0.55rem;
+    border: 1.5px solid var(--scr-rubric);
+    border-radius: var(--discern-radius-sm);
+    box-shadow: 0 0 0 3px var(--scr-rubric-soft);
+    background: var(--discern-color-surface);
+    font: inherit;
+    line-height: inherit;
+    outline: none;
+    white-space: pre-wrap;
+  }
+  .scr-editbar {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+    margin-left: 0.45rem;
+    vertical-align: middle;
+  }
+  .scr-btn-inline {
+    display: inline-block;
+    width: auto;
+    margin-top: 0;
+    padding: 0.28rem 0.6rem;
+  }
+  .scr-stage {
+    font-family: var(--discern-font-mono);
+    font-size: 0.64rem;
+    color: var(--discern-color-ink-faint);
+    white-space: nowrap;
+  }
+  .scr-saving .scr-editor {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .scr-twin {
+    display: block;
+    margin-top: 0.6rem;
+    white-space: normal;
+  }
   .scr-locked:hover {
     background: var(--discern-color-surface-sunken);
     box-shadow: none;

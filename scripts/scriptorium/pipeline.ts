@@ -1,0 +1,222 @@
+/**
+ * The save-and-prove loop. A save patches the registry in memory, formats it
+ * the way the repo would, swaps it into place, re-renders every projection in
+ * a fresh subprocess, rewrites the committed canon pages to the exact bytes
+ * the generator would produce, and runs the registry's own guard files — and
+ * if any step past the swap fails, every written byte is restored, so a save
+ * that cannot be proven leaves the tree exactly as it was. `discern done`
+ * stays the final authority; the studio only moves its judgment earlier.
+ */
+
+import { join } from "@std/path";
+import { stripAnnotationMarkers } from "./annotation.ts";
+import { patchRegistrySource, type PatchRequest } from "./patch.ts";
+import { fieldSpecFor, PLAIN_TWIN } from "./fields.ts";
+import { type GuardRunReport, metricProbe, runGuardFiles } from "./guards.ts";
+import type { Snapshot } from "./snapshot.ts";
+
+/** Where a refused save stopped. */
+export type SaveStage = "patch" | "format" | "render" | "guards";
+
+/** One page the save rewrote (or would rewrite). */
+export interface PageChange {
+  readonly id: string;
+  readonly rel: string;
+}
+
+/** The save verdict. */
+export type SaveReport =
+  | {
+    readonly ok: true;
+    readonly applied: boolean;
+    readonly pages: readonly PageChange[];
+    /** Whether the formatted patch differs from the file (preview mode). */
+    readonly registryChanged?: boolean;
+    readonly guards?: GuardRunReport;
+    readonly snapshot?: Snapshot;
+    /** The plain twin's field path, when the edited field has one. */
+    readonly twin?: string;
+    /** The corpus reading grade after the save, when it was re-measured. */
+    readonly grade?: number;
+  }
+  | {
+    readonly ok: false;
+    readonly stage: SaveStage;
+    readonly issue: string;
+    readonly guards?: GuardRunReport;
+  };
+
+/** What the pipeline needs from its host. */
+export interface SaveContext {
+  readonly root: string;
+  /** The registry's guard files, from the meta-registry roster. */
+  readonly guardsFor: (registry: string) => readonly string[];
+  /** A fresh evaluation of the registries — normally the subprocess. */
+  readonly buildSnapshot: () => Promise<Snapshot>;
+  /** Progress callback for the editor's stage chips. */
+  readonly onStage?: (stage: string) => void;
+  /** False previews the patch and format without touching the tree. */
+  readonly apply?: boolean;
+}
+
+/**
+ * Evaluate the registries in a fresh subprocess — the only way a just-written
+ * patch is re-imported from disk instead of served from this process's module
+ * cache. A crash in registry evaluation costs one snapshot run, not the host.
+ */
+export async function spawnSnapshot(root: string): Promise<Snapshot> {
+  const command = new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-env",
+      join("scripts", "scriptorium", "snapshot.ts"),
+    ],
+    cwd: root,
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const output = await command.output();
+  if (!output.success) {
+    throw new Error(new TextDecoder().decode(output.stderr).slice(-2000));
+  }
+  return JSON.parse(new TextDecoder().decode(output.stdout)) as Snapshot;
+}
+
+/** Format TypeScript text exactly as the repo's formatter would. */
+async function formatTs(
+  root: string,
+  text: string,
+): Promise<{ ok: true; text: string } | { ok: false; issue: string }> {
+  const child = new Deno.Command(Deno.execPath(), {
+    args: ["fmt", "--ext", "ts", "-"],
+    cwd: root,
+    stdin: "piped",
+    stdout: "piped",
+    stderr: "piped",
+  }).spawn();
+  const writer = child.stdin.getWriter();
+  await writer.write(new TextEncoder().encode(text));
+  await writer.close();
+  const output = await child.output();
+  if (!output.success) {
+    return {
+      ok: false,
+      issue: new TextDecoder().decode(output.stderr).slice(-1200),
+    };
+  }
+  return { ok: true, text: new TextDecoder().decode(output.stdout) };
+}
+
+/** Restore a set of files to their held bytes, tolerating missing entries. */
+async function restore(written: Map<string, string>): Promise<void> {
+  for (const [path, bytes] of written) {
+    await Deno.writeTextFile(path, bytes);
+  }
+}
+
+/**
+ * Run one save through the whole loop. On a red verdict nothing of the save
+ * survives on disk; on green the registry, the regenerated pages, and the
+ * fresh snapshot all agree.
+ */
+export async function saveField(
+  request: PatchRequest,
+  context: SaveContext,
+): Promise<SaveReport> {
+  const stage = (name: string): void => context.onStage?.(name);
+
+  stage("patch");
+  const patched = patchRegistrySource(context.root, request);
+  if (!patched.ok) return { ok: false, stage: "patch", issue: patched.issue };
+
+  stage("format");
+  const formatted = await formatTs(context.root, patched.text);
+  if (!formatted.ok) {
+    return { ok: false, stage: "format", issue: formatted.issue };
+  }
+
+  const registryPath = join(context.root, patched.file);
+  const registryBefore = await Deno.readTextFile(registryPath);
+  if (context.apply === false) {
+    return {
+      ok: true,
+      applied: false,
+      pages: [],
+      registryChanged: formatted.text !== registryBefore,
+    };
+  }
+
+  const held = new Map<string, string>([[registryPath, registryBefore]]);
+  await Deno.writeTextFile(registryPath, formatted.text);
+
+  stage("render");
+  let snapshot: Snapshot;
+  try {
+    snapshot = await context.buildSnapshot();
+  } catch (error) {
+    await restore(held);
+    return {
+      ok: false,
+      stage: "render",
+      issue: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  const changed: PageChange[] = [];
+  for (const page of snapshot.pages) {
+    if (!page.annotated) continue;
+    if (!page.rel.startsWith("project/map/")) continue;
+    const path = join(context.root, page.rel);
+    const expected = stripAnnotationMarkers(page.full);
+    let current = "";
+    try {
+      current = await Deno.readTextFile(path);
+    } catch {
+      // A missing page counts as changed and gets written fresh.
+    }
+    if (current === expected) continue;
+    held.set(path, current);
+    await Deno.writeTextFile(path, expected);
+    changed.push({ id: page.id, rel: page.rel });
+  }
+
+  stage("guards");
+  const guards = await runGuardFiles(
+    request.registry,
+    context.guardsFor(request.registry),
+  );
+  if (!guards.ok) {
+    await restore(held);
+    const failed = guards.results.filter((result) => !result.ok);
+    return {
+      ok: false,
+      stage: "guards",
+      issue: `${failed.length} guard file(s) red — the save was rolled back`,
+      guards,
+    };
+  }
+
+  const spec = fieldSpecFor(request.registry, "node", request.field);
+  const grade = spec?.edit === "prose" && spec.register === "plain" &&
+      request.registry === "feature"
+    ? await metricProbe(
+      join("scripts", "plain_reading_grade.ts"),
+      "plain_reading_grade",
+    )
+    : undefined;
+
+  const twin = request.registry === "feature"
+    ? PLAIN_TWIN[request.field]
+    : undefined;
+  return {
+    ok: true,
+    applied: true,
+    pages: changed,
+    guards,
+    snapshot,
+    ...(twin === undefined ? {} : { twin }),
+    ...(grade === undefined ? {} : { grade }),
+  };
+}

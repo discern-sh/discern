@@ -59,6 +59,11 @@ export interface SnapshotPage {
   readonly title: string;
   /** The formatted, annotated body with any frontmatter stripped for display. */
   readonly body: string;
+  /**
+   * The complete formatted, annotated text, frontmatter included — stripping
+   * its markers yields the exact bytes the committed page should hold.
+   */
+  readonly full: string;
   /** Whether the page carries annotation spans (the atlas does not). */
   readonly annotated: boolean;
 }
@@ -416,6 +421,7 @@ async function buildPages(): Promise<SnapshotPage[]> {
       rel: mapRel,
       title: titles[id] ?? id,
       body,
+      full: formatted,
       annotated,
     });
   }

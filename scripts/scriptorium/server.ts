@@ -21,6 +21,9 @@ import type { Snapshot, SnapshotEntry } from "./snapshot.ts";
 import { renderDocHtml, renderShell, type SpanState } from "./html.ts";
 import { emitStudioAssets } from "./assets.ts";
 import { type GuardRunReport, runGuardFiles } from "./guards.ts";
+import { saveField, spawnSnapshot } from "./pipeline.ts";
+import type { RegistryName } from "./registry_ast.ts";
+import { PROSE_REGISTRIES } from "./registry_ast.ts";
 import {
   portForId,
   resolveIdentity,
@@ -171,6 +174,8 @@ export async function startStudio(
   let snapshot: Snapshot | undefined;
   let snapshotError: string | undefined;
   let ast = new Map<string, AstRecord>();
+  let saving = false;
+  let skipNextWatchRefresh = false;
   const guardReports = new Map<string, GuardRunReport>();
   const guardRunning = new Set<string>();
   const sse = new Set<ReadableStreamDefaultController<Uint8Array>>();
@@ -205,29 +210,10 @@ export async function startStudio(
     ast = next;
   };
 
-  const spawnSnapshot = async (): Promise<Snapshot> => {
-    const command = new Deno.Command(Deno.execPath(), {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-env",
-        join("scripts", "scriptorium", "snapshot.ts"),
-      ],
-      cwd: REPO_ROOT,
-      stdin: "null",
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const output = await command.output();
-    if (!output.success) {
-      throw new Error(new TextDecoder().decode(output.stderr).slice(-2000));
-    }
-    return JSON.parse(new TextDecoder().decode(output.stdout)) as Snapshot;
-  };
-
   const refresh = async (): Promise<void> => {
     try {
-      snapshot = await (options.snapshotBuilder ?? spawnSnapshot)();
+      snapshot = await (options.snapshotBuilder ?? (() =>
+        spawnSnapshot(REPO_ROOT)))();
       snapshotError = undefined;
       buildAst();
     } catch (error) {
@@ -377,6 +363,7 @@ export async function startStudio(
     if (path === "/api/state") {
       return json({
         error: snapshotError ?? null,
+        saving,
         pages: snapshot?.pages.map((page) => ({
           id: page.id,
           title: page.title,
@@ -387,6 +374,85 @@ export async function startStudio(
         reports: [...guardReports.values()],
         dirty: await gitDirty(),
       });
+    }
+    if (path === "/api/save" && request.method === "POST") {
+      if (saving) {
+        return json({
+          ok: false,
+          stage: "patch",
+          issue: "a save is already running",
+        }, 409);
+      }
+      if (snapshot === undefined) {
+        return json(
+          { ok: false, stage: "patch", issue: "snapshot not ready" },
+          503,
+        );
+      }
+      const body = (await request.json()) as {
+        registry?: string;
+        slug?: string;
+        field?: string;
+        value?: string;
+      };
+      const registry = PROSE_REGISTRIES.find(
+        (spec) => spec.name === body.registry,
+      )?.name as RegistryName | undefined;
+      if (
+        registry === undefined || body.slug === undefined ||
+        body.field === undefined || typeof body.value !== "string"
+      ) {
+        return json(
+          { ok: false, stage: "patch", issue: "malformed save request" },
+          400,
+        );
+      }
+      saving = true;
+      try {
+        const roster = snapshot.guards;
+        const report = await saveField(
+          { registry, slug: body.slug, field: body.field, value: body.value },
+          {
+            root: REPO_ROOT,
+            guardsFor: (name) =>
+              roster.find((candidate) => candidate.registry === name)
+                ?.guards ?? [],
+            buildSnapshot: options.snapshotBuilder ??
+              (() => spawnSnapshot(REPO_ROOT)),
+            onStage: (stage) => notify({ type: "save", stage }),
+          },
+        );
+        if (report.ok && report.applied && report.snapshot !== undefined) {
+          snapshot = report.snapshot;
+          snapshotError = undefined;
+          buildAst();
+          skipNextWatchRefresh = true;
+          notify({ type: "snapshot", error: null });
+        }
+        if (report.ok && report.guards !== undefined) {
+          guardReports.set(registry, report.guards);
+        }
+        return json(
+          report.ok
+            ? {
+              ok: true,
+              applied: report.applied,
+              pages: report.pages,
+              registryChanged: report.registryChanged ?? null,
+              guards: report.guards ?? null,
+              twin: report.twin ?? null,
+              grade: report.grade ?? null,
+            }
+            : {
+              ok: false,
+              stage: report.stage,
+              issue: report.issue,
+              guards: report.guards ?? null,
+            },
+        );
+      } finally {
+        saving = false;
+      }
     }
     if (path === "/api/guards/run" && request.method === "POST") {
       const body = (await request.json()) as { registry?: string };
@@ -476,6 +542,12 @@ export async function startStudio(
         if (debounce !== undefined) clearTimeout(debounce);
         debounce = setTimeout(() => {
           debounce = undefined;
+          if (skipNextWatchRefresh) {
+            // The save pipeline just wrote the registry and adopted its own
+            // fresh snapshot; one watcher cycle stands down.
+            skipNextWatchRefresh = false;
+            return;
+          }
           void refresh();
         }, WATCH_DEBOUNCE_MS);
       }
