@@ -21,23 +21,17 @@ export interface GuardRunReport {
   readonly results: readonly GuardResult[];
 }
 
-const ANSI_ESCAPE = new RegExp(
-  String.fromCharCode(27) + String.raw`\[[0-9;]*m`,
-  "g",
-);
-
-/** Strip ANSI escapes so summaries stay legible in the panel. */
-function plain(text: string): string {
-  return text.replace(ANSI_ESCAPE, "");
-}
-
 /** The tail of a failing run, bounded for the panel. */
 function failureTail(output: string): string {
-  const text = plain(output).trimEnd();
+  const text = output.trimEnd();
   return text.length <= 1200 ? text : `…${text.slice(-1200)}`;
 }
 
-/** Run one guard test file; the registry's typecheck ran before the suite. */
+/**
+ * Run one guard test file; the registry's typecheck ran before the suite.
+ * The capture environment keeps the output plain enough for the panel — the
+ * same discipline the gate applies to its own jobs.
+ */
 async function runGuardFile(file: string): Promise<GuardResult> {
   const command = new Deno.Command(Deno.execPath(), {
     args: [
@@ -50,6 +44,7 @@ async function runGuardFile(file: string): Promise<GuardResult> {
       file,
     ],
     cwd: REPO_ROOT,
+    env: { NO_COLOR: "1", CI: "1", TERM: "dumb" },
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
@@ -58,7 +53,7 @@ async function runGuardFile(file: string): Promise<GuardResult> {
   const text = new TextDecoder().decode(output.stdout) +
     new TextDecoder().decode(output.stderr);
   if (output.success) {
-    const passed = plain(text).match(/ok \|.*$/m)?.[0] ?? "passed";
+    const passed = text.match(/ok \|.*$/m)?.[0] ?? "passed";
     return { file, ok: true, summary: passed.trim() };
   }
   return { file, ok: false, summary: failureTail(text) };
