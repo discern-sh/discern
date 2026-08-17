@@ -32,7 +32,7 @@ Contributors can go deeper in [engine internals](50-engine-internals/), [develop
 
 ## Browsing from the terminal
 
-`discern docs [target]` browses this manual. Bare interactive `discern docs` opens a full-height, grouped picker. Type to search titles and paths, move with the arrow or Page keys, and press Enter to open a document. When the terminal has room, the picker stays above an independently scrollable document pane; short terminals use one coherent pane at a time. Tab moves between panes, the arrow and Page keys scroll the focused pane, Home and End jump within it, and Escape or `q` closes the document without losing the picker state.
+`discern docs [target]` browses this manual. Bare interactive `discern docs` opens a full-height, grouped picker. Type to search titles and paths, move with the arrow or Page keys, and press Enter to open a document. When the terminal has room, the picker stays above a document pane with its own scroll position; short terminals use one coherent pane at a time. Tab moves between panes, the arrow and Page keys scroll the focused pane, Home and End jump within it, and Escape or `q` closes the document without losing the picker state.
 
 Use `[` and `]` to focus links and Enter to follow one. Admitted relative links and heading fragments stay inside the reader. HTTP and HTTPS links open through the system browser after discern restores the terminal. With mouse input enabled, the wheel scrolls the pane under the pointer, a click focuses a pane, and a link click follows it. Use your terminal's selection modifier when selecting terminal text while mouse tracking is active. Every mouse action has a keyboard equivalent.
 
