@@ -175,6 +175,13 @@ function quietResultRequested(argv: readonly string[]): boolean {
     argv.includes(ROOT_GLOBAL_FLAGS.markdown);
 }
 
+/** Preserve which quiet projection was requested before `--markdown` is routed. */
+function requestedResultFormat(): "json" | "markdown" | undefined {
+  if (activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.markdown)) return "markdown";
+  if (activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.json)) return "json";
+  return undefined;
+}
+
 /** Emit the selected-format refusal for a bare root invocation. */
 function emitRootResultRefusal(argv: readonly string[]): void {
   const flag = argv.includes(ROOT_GLOBAL_FLAGS.markdown)
@@ -597,7 +604,7 @@ export function buildCli(
   root
     .command("map [target:string]")
     .description(
-      "Browse and read the project map — its agent-maintained documentation tree.",
+      "Browse the project map in discern's interactive Markdown reader, or read a named document.",
     )
     .option(
       "--raw",
@@ -612,8 +619,8 @@ export function buildCli(
       "Search the map with task language or exact text; use a target to narrow it.",
     )
     .option(
-      "--no-pager",
-      "Print rendered output directly; interactive browsing exits after one selection.",
+      "--pager",
+      "Open rendered documents in an external pager (uses $PAGER or less -R).",
     )
     .option(
       "--dir <path:string>",
@@ -636,11 +643,11 @@ export function buildCli(
         const { runMap } = await import("./commands/docs.ts");
         return await runMap({
           json: options.json ?? false,
+          resultFormat: requestedResultFormat(),
           noColor: noColorFrom(options.color),
           raw: options.raw ?? false,
           list: options.list ?? false,
-          // Cliffy maps `--no-pager` to a negatable `pager` boolean (like --no-color).
-          noPager: options.pager === false,
+          pager: options.pager ?? false,
           dir: options.dir,
           width: options.width,
           target,
@@ -655,11 +662,13 @@ export function buildCli(
   // concepts, the gate/worktree/standard docs). Distinct from `map`, which serves
   // the project's tree. The doc set is fixed and bundled, so there is no
   // `--dir`; `--help`/`-h` (Cliffy usage) is a separate surface and coexists with
-  // it. Mirrors `map`'s read flags (target, --list/--raw/--json/--no-pager/--width)
+  // it. Mirrors `map`'s read flags (target, --list/--raw/--json/--pager/--width)
   // plus a public-only `--export`.
   root
     .command("docs [target:string]")
-    .description("Browse and read discern's own documentation.")
+    .description(
+      "Browse discern's documentation in the interactive Markdown reader, or read a named document.",
+    )
     .option(
       "--raw",
       "Print a doc's pristine Markdown source instead of rendering it.",
@@ -677,8 +686,8 @@ export function buildCli(
       "Browse decision records in a source checkout, or show their public location.",
     )
     .option(
-      "--no-pager",
-      "Print rendered output directly; interactive browsing exits after one selection.",
+      "--pager",
+      "Open rendered documents in an external pager (uses $PAGER or less -R).",
     )
     .option("--width <cols:number>", "Wrap width for rendered output.")
     .option(
@@ -696,11 +705,12 @@ export function buildCli(
       const { runDocs } = await import("./commands/docs.ts");
       return await runDocs({
         json: options.json ?? false,
+        resultFormat: requestedResultFormat(),
         noColor: noColorFrom(options.color),
         raw: options.raw ?? false,
         list: options.list ?? false,
         adr: options.adr ?? false,
-        noPager: options.pager === false,
+        pager: options.pager ?? false,
         width: options.width,
         target,
         search: options.search,

@@ -179,7 +179,7 @@ Deno.test("done human output leaves live activity facts and the compact TTY proo
       tty.output,
       "Proof: gate passed on agent/tty-proof",
     );
-    assertTerminalTextIncludes(tty.output, "Receipt: Gate proof");
+    assertTerminalTextIncludes(tty.output, "Gate proof");
     assertEquals(tty.output.includes("### Proof"), false);
     assertEquals(tty.output.includes("| ran | command | result |"), false);
     assertEquals(
@@ -233,7 +233,7 @@ Deno.test("done human output leaves live activity facts and the compact TTY proo
       });
       assertEquals(staticTty.code, 0, staticTty.output);
       assertTerminalTextIncludes(staticTty.output, "Gate progress");
-      assertTerminalTextIncludes(staticTty.output, "Receipt: Gate proof");
+      assertTerminalTextIncludes(staticTty.output, "Gate proof");
       assertTerminalTextIncludes(staticTty.output, "Proof: gate passed");
       assertEquals(staticTty.output.includes("pending"), false);
       assertEquals(staticTty.output.includes("running"), false);

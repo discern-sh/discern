@@ -16,6 +16,20 @@ import {
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
+/** Recover the visible terminal text from the package-owned HTML projection. */
+function terminalHtmlText(html: string): string {
+  const content = /<pre\b[^>]*>([\s\S]*)<\/pre>/u.exec(html)?.[1];
+  if (content === undefined) {
+    throw new Error("terminal projection did not render a pre element");
+  }
+  return content.replaceAll(/<[^>]+>/gu, "")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'")
+    .replaceAll("&amp;", "&");
+}
+
 Deno.test("flagship normalizers replace facts without hiding visible structure", () => {
   const source = [
     "At: /tmp/one/worktree",
@@ -97,7 +111,11 @@ Deno.test({
         const spans = projectTerminalSpans(firstCapture.screen);
         assertEquals(spans.length > 0, true, command.name);
         const html = renderTerminalCaptureHtml(firstCapture);
-        assertStringIncludes(html, spans[0]?.text ?? "");
+        assertEquals(
+          terminalHtmlText(html),
+          spans.map((span) => span.text).join(""),
+          `${command.name} HTML projection changed the visible terminal text`,
+        );
         assertEquals(
           await Deno.readTextFile(
             join(FLAGSHIP_CAPTURE_DIRECTORY, `${command.name}.json`),

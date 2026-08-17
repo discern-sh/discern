@@ -219,7 +219,7 @@ Deno.test({
     );
     assertStringIncludes(
       stripAnsi(result.transcript),
-      "▴ -> ◂ -> ▾ -> ▸ -> (repeat)",
+      "◐ -> ◓ -> ◑ -> ◒ -> (repeat)",
     );
   },
 });

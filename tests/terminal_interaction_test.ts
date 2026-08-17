@@ -20,6 +20,11 @@ import type {
   TerminalSize,
 } from "discern-design-system/cli/interactive";
 import {
+  encodeTerminalKeys,
+  encodeTerminalMouseEvent,
+  FakeTerminalIO,
+} from "discern-design-system/cli/interactive/testing";
+import {
   canInteract,
   confirmationAllowed,
   confirmDestructiveAction,
@@ -29,6 +34,8 @@ import {
   isInteractionCancelled,
   renderConfirmationDialog,
   renderDestructiveConfirmation,
+  requestCompactAcknowledgement,
+  requestMarkdownBrowser,
   requestSelection,
   requestSelections,
   requestText,
@@ -43,7 +50,12 @@ import {
   resolveTerminalContext,
   type TerminalContext,
 } from "../src/lib/terminal.ts";
-import { fakeEnv, pinnedTerminal, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  fakeEnv,
+  pinnedTerminal,
+  withTempDir,
+} from "./helpers.ts";
 
 const encoder = new TextEncoder();
 
@@ -327,6 +339,243 @@ Deno.test("grouped select keeps headings structural and ids stable across reorde
     }, scriptedRuntime(reordered)),
     "beta",
   );
+});
+
+Deno.test("choice descriptions stay semantic, searchable, and control-free", async () => {
+  const io = new ScriptedTerminal(["nested/path.md\r\r"]);
+  assertEquals(
+    await requestSelection({
+      message: "Choose",
+      options: groupedSelectionEntries([
+        {
+          id: "section",
+          label: "Section",
+          description: "00-section/\x1b",
+          items: [{
+            id: "nested",
+            name: "Nested document",
+            description: "nested/path.md",
+            value: "nested",
+          }],
+        },
+      ]),
+      search: true,
+      presentation: "browsing",
+      completion: "clear-frame",
+    }, scriptedRuntime(io)),
+    "nested",
+  );
+  const rendered = stripAnsi(io.writes.join(""));
+  assertStringIncludes(rendered, "00-section/␛");
+  assertStringIncludes(rendered, "nested/path.md");
+  assert(!rendered.includes("[active]"));
+  assertEquals(io.rawTransitions, [true, false]);
+});
+
+Deno.test("compact acknowledgement owns continuation input and cleanup", async () => {
+  const io = new ScriptedTerminal(["\r"]);
+  await requestCompactAcknowledgement(scriptedRuntime(io));
+  assertStringIncludes(
+    stripAnsi(io.writes.join("")),
+    "Press Enter to continue.",
+  );
+  assertEquals(io.rawTransitions, [true, false]);
+});
+
+Deno.test("Markdown browser adapter restores the terminal before product actions", async () => {
+  const io = new FakeTerminalIO([encodeTerminalKeys("enter")], {
+    ansiControl: true,
+    columns: 80,
+    rows: 24,
+  });
+  const result = await requestMarkdownBrowser({
+    message: "discern docs — 1 document in manual",
+    entries: [
+      { kind: "group-heading", id: "browse", name: "Browse" },
+      {
+        kind: "action",
+        id: "online",
+        name: "Read online",
+        value: { destination: "online" },
+      },
+      { kind: "group-heading", id: "documents", name: "Documents" },
+      {
+        kind: "document",
+        id: "readme",
+        name: "Welcome",
+        description: "README.md",
+        path: "README.md",
+        source: "# Welcome\n",
+      },
+      { kind: "group-heading", id: "actions", name: "Actions" },
+      { kind: "exit", id: "quit", name: "Quit" },
+    ],
+    mouse: true,
+  }, scriptedRuntime(io));
+
+  assertEquals(result.kind, "action");
+  if (result.kind !== "action") return;
+  assertEquals(result.id, "online");
+  assertEquals(result.value, { destination: "online" });
+  assertEquals(io.rawTransitions, [true, false]);
+  assertEquals(io.resizeListenerCount, 0);
+  assertTerminalTextIncludes(stripAnsi(io.output()), "DISCERN DOCS");
+});
+
+Deno.test("Markdown browser adapter returns only the package's typed refusals", async () => {
+  const io = new FakeTerminalIO([], {
+    ansiControl: false,
+    columns: 80,
+    rows: 24,
+  });
+  const result = await requestMarkdownBrowser({
+    message: "discern docs",
+    entries: [{ kind: "exit", id: "quit", name: "Quit" }],
+  }, scriptedRuntime(io));
+
+  assertEquals(result, {
+    kind: "refused",
+    reason: "ansi-control-unavailable",
+    columns: 80,
+    rows: 24,
+  });
+  assertEquals(io.writes, []);
+  assertEquals(io.rawTransitions, []);
+});
+
+Deno.test("Markdown browser adapter preserves external-link state and product document identity", async () => {
+  const io = new FakeTerminalIO([
+    encodeTerminalKeys("enter"),
+    "]",
+    encodeTerminalKeys("enter"),
+  ], { ansiControl: true, columns: 80, rows: 24, hyperlinks: true });
+  const result = await requestMarkdownBrowser({
+    message: "discern docs",
+    entries: [
+      {
+        kind: "document",
+        id: "welcome",
+        name: "Welcome",
+        path: "README.md",
+        source: "# Welcome\n\n[Website](https://example.com/docs)\n",
+      },
+      { kind: "exit", id: "quit", name: "Quit" },
+    ],
+  }, scriptedRuntime(io));
+
+  assertEquals(result.kind, "external-link");
+  if (result.kind !== "external-link") return;
+  assertEquals(result.destination, "https://example.com/docs");
+  assertEquals(result.sourceDocumentId, "welcome");
+  assertEquals(result.sourcePath, "README.md");
+  assertEquals(io.rawTransitions, [true, false]);
+  assertEquals(io.resizeListenerCount, 0);
+});
+
+for (
+  const testCase of [
+    { name: "Ctrl+C", chunks: [encodeTerminalKeys("ctrl-c")] },
+    { name: "end of input", chunks: [] },
+  ] as const
+) {
+  Deno.test(`Markdown browser adapter normalizes ${testCase.name} after cleanup`, async () => {
+    const io = new FakeTerminalIO(testCase.chunks, {
+      ansiControl: true,
+      columns: 80,
+      rows: 24,
+    });
+    let caught: unknown;
+    try {
+      await requestMarkdownBrowser({
+        message: "discern docs",
+        entries: [{ kind: "exit", id: "quit", name: "Quit" }],
+      }, scriptedRuntime(io));
+    } catch (error) {
+      caught = error;
+    }
+    assert(isInteractionCancelled(caught));
+    assertEquals(io.rawTransitions, [true, false]);
+    assertEquals(io.resizeListenerCount, 0);
+  });
+}
+
+Deno.test("Markdown browser adapter forwards live resize and mouse IO into coherent single panes", async () => {
+  const longDocument = `# Long document\n\n${
+    Array.from({ length: 40 }, (_, index) => `- Row ${index + 1}`).join("\n")
+  }\n`;
+  const io = new FakeTerminalIO([encodeTerminalKeys("enter")], {
+    ansiControl: true,
+    columns: 80,
+    holdOpen: true,
+    rows: 24,
+    mouseTracking: true,
+  });
+  const pending = requestMarkdownBrowser({
+    message: "discern docs",
+    entries: [
+      {
+        kind: "document",
+        id: "long",
+        name: "Long document",
+        path: "long.md",
+        source: longDocument,
+      },
+      {
+        kind: "action",
+        id: "return",
+        name: "Return",
+        value: "returned",
+      },
+      { kind: "exit", id: "quit", name: "Quit" },
+    ],
+    mouse: true,
+  }, scriptedRuntime(io));
+  io.enqueueResize(80, 13);
+  io.enqueue(encodeTerminalMouseEvent({
+    kind: "mouse",
+    action: "wheel",
+    direction: "down",
+    column: 12,
+    row: 6,
+    modifiers: { shift: false, alt: false, control: false },
+  }));
+  io.enqueueKeys("tab", "down", "enter");
+  const result = await pending;
+
+  assertEquals(result.kind, "action");
+  if (result.kind !== "action") return;
+  assertEquals(result.value, "returned");
+  assert(result.state.documentScrollOffset > 0);
+  assertEquals(io.rawTransitions, [true, false]);
+  assertEquals(io.resizeListenerCount, 0);
+});
+
+Deno.test("Markdown browser adapter preserves unexpected faults after package cleanup", async () => {
+  const captured = new FakeTerminalIO([], {
+    ansiControl: true,
+    columns: 80,
+    rows: 24,
+  });
+  const io: TerminalIO = {
+    isInteractive: () => captured.isInteractive(),
+    capabilities: () => captured.capabilities(),
+    size: () => captured.size(),
+    read: () => Promise.reject(new Error("browser read failed")),
+    setRawMode: (enabled) => captured.setRawMode(enabled),
+    write: (value) => captured.write(value),
+    listenResize: (handler) => captured.listenResize(handler),
+  };
+  await assertRejects(
+    () =>
+      requestMarkdownBrowser({
+        message: "discern docs",
+        entries: [{ kind: "exit", id: "quit", name: "Quit" }],
+      }, scriptedRuntime(io)),
+    Error,
+    "browser read failed",
+  );
+  assertEquals(captured.rawTransitions, [true, false]);
+  assertEquals(captured.resizeListenerCount, 0);
 });
 
 Deno.test("the shared choice adapter preserves wide frames and group breathing rows", async () => {

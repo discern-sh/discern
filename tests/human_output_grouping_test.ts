@@ -611,7 +611,7 @@ Deno.test("the live output grouping surface writes exactly one complete boundary
 
   assertEquals(
     chunks.join(""),
-    "first\n\nsecond\n\n◮ third\n\n  ── Fourth\nfourth\n",
+    "first\n\nsecond\n\n▸ third\n\n  ── Fourth\nfourth\n",
   );
 
   out.error("failure");
@@ -644,7 +644,7 @@ Deno.test("the live narration surface makes hostile caller facts inert but keeps
 
   assertEquals(
     chunks.join(""),
-    `◮ ${safe}\n✓ ${safe}\n\n${safe}\n\n  ── ${safeLabel}\n`,
+    `▸ ${safe}\n✓ ${safe}\n\n${safe}\n\n  ── ${safeLabel}\n`,
   );
   assertEquals(errors.join(""), `! ${safe}\n✕ ${safe}\n`);
 

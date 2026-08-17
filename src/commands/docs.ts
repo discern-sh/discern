@@ -7,9 +7,10 @@
  * discern's OWN documentation, bundled into every install. Both serve two
  * audiences, decided by how the verb is invoked:
  *
- *  - **A human at a terminal** gets an interactive, searchable picker (Cliffy's
- *    `Select`, with type-to-filter) and a rendered, paged view of whatever they
- *    pick. The tree is growing, so search is the primary way in.
+ *  - **A human at a terminal** gets an interactive Markdown browser with a
+ *    searchable picker, adaptive document pane, links, and mouse support. The
+ *    tree is growing, so search is the primary way in. An explicit `--pager`
+ *    hands rendered documents to the person's external pager instead.
  *  - **An agent or a script** gets non-interactive surfaces it can consume: a
  *    target to render straight to stdout, `--raw` for the pristine Markdown
  *    source, `--json` for a structured index (or a single doc's record),
@@ -38,7 +39,7 @@ import {
 } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
-import { renderAlignedRows } from "../lib/text.ts";
+import { renderAlignedRows, truncateText } from "../lib/text.ts";
 import {
   type TerminalContext,
   terminalContext,
@@ -53,6 +54,7 @@ import {
 import {
   canonicalDocTarget,
   discoverDocs,
+  docBrowseGroups,
   type DocEntry,
   type DocsTree,
   filterDocsByGroups,
@@ -100,8 +102,17 @@ import {
   canInteract,
   groupedSelectionEntries,
   isInteractionCancelled,
+  isSelectionHeading,
+  type MarkdownBrowserEntry,
+  type MarkdownBrowserLinkResolution,
+  type MarkdownBrowserLinkResolverInput,
+  type MarkdownBrowserResumeState,
+  plainModeEnabled,
+  requestCompactAcknowledgement,
+  requestMarkdownBrowser,
   requestSelection,
   requestSelections,
+  type SelectionGroup,
 } from "../lib/terminal_interaction.ts";
 import {
   ageSince,
@@ -113,24 +124,164 @@ import { DISCERN_DOCS_URL } from "../shared/brand.ts";
 /** The built-in concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
 
-const READ_DOCS_ONLINE = "\x00read-docs-online";
-const QUIT_BROWSE = "\x00quit";
+/** Typed picker values keep navigation actions distinct from real file paths. */
+export type DocsBrowserChoice =
+  | { readonly kind: "document"; readonly path: string }
+  | { readonly kind: "read-online" }
+  | { readonly kind: "quit" };
+
+/** One navigation choice projected into the shared product interaction seam. */
+export interface DocsBrowseNavigationChoice {
+  readonly id: string;
+  readonly name: string;
+  readonly value: DocsBrowserChoice;
+}
 
 /** Navigation actions for the interactive tree browser. Only discern's own
  * manual has an equivalent online home; a project's map stays local. */
 export function docsBrowseNavigationChoices(
   verb: "map" | "docs",
-  _color: boolean,
-): Array<{ name: string; value: string }> {
+): DocsBrowseNavigationChoice[] {
   return [
     ...(verb === "docs"
-      ? [{ name: "Read the docs online", value: READ_DOCS_ONLINE }]
+      ? [{
+        id: "read-docs-online",
+        name: "Read the docs online",
+        value: { kind: "read-online" as const },
+      }]
       : []),
     {
+      id: "quit-browser",
       name: "Quit",
-      value: QUIT_BROWSE,
+      value: { kind: "quit" as const },
     },
   ];
+}
+
+/** Admit only absolute web URLs to the product's browser-opening effect. */
+export function approvedDocsExternalUrl(
+  destination: string,
+): string | undefined {
+  if (destination.trim() !== destination || !/^https?:/iu.test(destination)) {
+    return undefined;
+  }
+  try {
+    const parsed = new URL(destination);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? destination
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Bounded in-frame feedback for a destination outside the admitted corpus. */
+function unresolvedDocsBrowserLink(
+  destination: string,
+): MarkdownBrowserLinkResolution {
+  const visible = truncateText(terminalLine(destination), 36, "…");
+  const target = visible === "" ? "This link" : `"${visible}"`;
+  return {
+    kind: "unresolved",
+    message:
+      `${target} is not in this documentation set. Choose a document from the picker.`,
+  };
+}
+
+/** Decode one URL path or fragment component without admitting hidden controls. */
+function decodedDocsLinkComponent(value: string): string | undefined {
+  try {
+    const decoded = decodeURIComponent(value);
+    return /[\p{Cc}\p{Cf}]/u.test(decoded) ? undefined : decoded;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Resolve a relative or corpus-root path without consulting the filesystem. */
+function resolvedDocsCorpusPath(
+  sourcePath: string,
+  destination: string,
+): string | undefined {
+  const rootRelative = destination.startsWith("/");
+  const relativeDestination = rootRelative ? destination.slice(1) : destination;
+  if (
+    relativeDestination === "" || relativeDestination.includes("\\") ||
+    relativeDestination.includes("?")
+  ) {
+    return undefined;
+  }
+  const decoded = decodedDocsLinkComponent(relativeDestination);
+  if (decoded === undefined || decoded.includes("\\")) return undefined;
+  const directory = decoded.endsWith("/");
+  const pathValue = directory ? decoded.slice(0, -1) : decoded;
+  const destinationSegments = pathValue.split("/");
+  if (destinationSegments.some((segment) => segment === "")) return undefined;
+  const resolved = rootRelative ? [] : sourcePath.split("/").slice(0, -1);
+  for (const segment of destinationSegments) {
+    if (segment === ".") continue;
+    if (segment === "..") {
+      if (resolved.length === 0) return undefined;
+      resolved.pop();
+      continue;
+    }
+    resolved.push(segment);
+  }
+  const path = resolved.join("/");
+  if (path.toLowerCase().endsWith(".md")) return path;
+  const leaf = resolved.at(-1);
+  return leaf !== undefined && !leaf.includes(".")
+    ? `${path}/README.md`
+    : undefined;
+}
+
+/**
+ * Resolve one package-admitted Markdown destination against the in-memory
+ * documentation corpus. Missing, private, unsafe, and non-document targets
+ * remain inert; no filesystem probe can widen the admitted tree.
+ */
+export function resolveDocsBrowserLink(
+  input: MarkdownBrowserLinkResolverInput,
+): MarkdownBrowserLinkResolution {
+  const approvedExternal = approvedDocsExternalUrl(input.destination);
+  if (approvedExternal !== undefined) {
+    return { kind: "external", destination: approvedExternal };
+  }
+  if (/^[A-Za-z][A-Za-z\d+.-]*:/u.test(input.destination)) {
+    return unresolvedDocsBrowserLink(input.destination);
+  }
+  const hash = input.destination.indexOf("#");
+  const pathPart = hash < 0
+    ? input.destination
+    : input.destination.slice(0, hash);
+  const fragmentPart = hash < 0 ? undefined : input.destination.slice(hash + 1);
+  const decodedFragment = fragmentPart === undefined
+    ? undefined
+    : decodedDocsLinkComponent(fragmentPart);
+  if (
+    fragmentPart !== undefined &&
+    (fragmentPart === "" || decodedFragment === undefined)
+  ) {
+    return unresolvedDocsBrowserLink(input.destination);
+  }
+  const fragment = fragmentPart === undefined ? undefined : `#${fragmentPart}`;
+  if (pathPart === "") {
+    return fragment === undefined
+      ? unresolvedDocsBrowserLink(input.destination)
+      : { kind: "fragment", fragment };
+  }
+  const path = resolvedDocsCorpusPath(input.sourcePath, pathPart);
+  const document = path === undefined
+    ? undefined
+    : input.availableDocuments.find((candidate) => candidate.path === path);
+  if (document === undefined) {
+    return unresolvedDocsBrowserLink(input.destination);
+  }
+  return {
+    kind: "document",
+    documentId: document.id,
+    ...(fragment === undefined ? {} : { fragment }),
+  };
 }
 
 /**
@@ -437,13 +588,15 @@ function terminalBody(
 /** Options accepted by the `map` command (global flags folded in). */
 export interface DocsOptions {
   json: boolean;
+  /** Exact quiet projection requested at the root, when one is active. */
+  resultFormat?: "json" | "markdown" | undefined;
   noColor: boolean;
   /** Print a doc's pristine Markdown source instead of rendering it. */
   raw: boolean;
   /** Print a plain table of contents and exit, even on a TTY. */
   list: boolean;
-  /** Never page rendered output through `$PAGER`. */
-  noPager: boolean;
+  /** Open rendered documents in `$PAGER` instead of discern. */
+  pager: boolean;
   /** Override the map directory (default: the project's `[map].dir`). */
   dir?: string | undefined;
   /** Override the wrap width (default: the terminal width, capped). */
@@ -737,33 +890,35 @@ async function pageThrough(text: string): Promise<boolean> {
   }
 }
 
-type PresentationDisposition = "paged" | "printed";
+type PresentationDisposition = "pager" | "internal";
 
-/** Show rendered text: paged on an interactive terminal, else straight to stdout. */
+/** Show rendered text internally unless the validated pager opt-in succeeds. */
 async function present(
   text: string,
-  noPager: boolean,
+  pager: boolean,
+  log: Logger,
 ): Promise<PresentationDisposition> {
-  if (!noPager && canInteract(false)) {
-    if (await pageThrough(text)) return "paged";
+  if (pager) {
+    if (await pageThrough(text)) return "pager";
+    log.warn("The pager failed. Showing the document in discern.");
   }
   console.log(text);
-  return "printed";
-}
-
-/** The semantic picker label; interaction rendering owns selection-state styling. */
-function optionLabel(e: DocEntry): string {
-  return terminalLine(`${e.relToDocs}  —  ${e.title}`);
+  return "internal";
 }
 
 /** The one-line corpus fact kept plain for the interaction seam. */
+function docsDocumentCount(count: number): string {
+  return `${count} document${count === 1 ? "" : "s"}`;
+}
+
+/** Keep the browser label and static header on one corpus fact. */
 function docsHeaderFact(
   verb: string,
   count: number,
   directory: string,
 ): string {
   return terminalLine(
-    `discern ${verb} — ${count} documents in ${directory}`,
+    `discern ${verb} — ${docsDocumentCount(count)} in ${directory}`,
   );
 }
 
@@ -780,7 +935,7 @@ export function renderDocsCorpusHeader(
   const safeDirectory = terminalLine(directory);
   return terminal.presenter.present(renderDocsHeaderCli, {
     brand: terminalLine(`discern ${verb}`),
-    middle: terminalLine(`— ${count} documents in ${safeDirectory}`),
+    middle: terminalLine(`— ${docsDocumentCount(count)} in ${safeDirectory}`),
     maxWidth: width,
   });
 }
@@ -802,47 +957,216 @@ function docsHeader(
   );
 }
 
-/** Browse repeatedly through a pager; a direct print exits with the doc visible. */
-async function browse(
+interface DocsBrowseProjection {
+  readonly groups: readonly SelectionGroup<DocsBrowserChoice>[];
+  readonly entriesByPath: ReadonlyMap<string, DocEntry>;
+  readonly documentChoice: (path: string) => DocsBrowserChoice;
+}
+
+interface DocsMarkdownBrowserCorpus {
+  readonly entries: readonly MarkdownBrowserEntry<DocsBrowserChoice>[];
+  readonly sourcesByPath: ReadonlyMap<string, string>;
+}
+
+/** Build the one ordered product projection shared by rich and sequential readers. */
+function docsBrowseProjection(
+  verb: "docs" | "map",
+  tree: DocsTree,
+): DocsBrowseProjection {
+  const documentChoices = new Map(
+    tree.entries.map((entry) => {
+      const value: DocsBrowserChoice = {
+        kind: "document",
+        path: entry.path,
+      };
+      return [entry.path, value] as const;
+    }),
+  );
+  const documentChoice = (path: string): DocsBrowserChoice => {
+    const choice = documentChoices.get(path);
+    if (choice === undefined) {
+      throw new TypeError(`Document choice is missing for ${path}.`);
+    }
+    return choice;
+  };
+  const navigation = docsBrowseNavigationChoices(verb);
+  const browseActions = navigation.filter((choice) =>
+    choice.value.kind === "read-online"
+  );
+  const quitActions = navigation.filter((choice) =>
+    choice.value.kind === "quit"
+  );
+  const groups: SelectionGroup<DocsBrowserChoice>[] = [
+    ...(browseActions.length === 0 ? [] : [{
+      id: "browse",
+      label: "Browse",
+      items: browseActions,
+    }]),
+    ...docBrowseGroups(tree.entries).map((group) => ({
+      id: `documents:${group.id}`,
+      label: group.label,
+      ...(group.description === undefined
+        ? {}
+        : { description: group.description }),
+      items: group.items.map((item) => ({
+        id: `document:${item.entry.path}`,
+        name: item.label,
+        description: item.description,
+        value: documentChoice(item.entry.path),
+      })),
+    })),
+    {
+      id: "actions",
+      label: "Actions",
+      items: quitActions,
+    },
+  ];
+  return {
+    groups,
+    entriesByPath: new Map(tree.entries.map((entry) => [entry.path, entry])),
+    documentChoice,
+  };
+}
+
+/** Stable package path for a document already admitted by discovery. */
+function docsCorpusPath(entry: DocEntry): string {
+  return entry.relToDocs.split(SEPARATOR).join("/");
+}
+
+/** Read the admitted corpus once before entering the alternate-screen browser. */
+async function docsMarkdownBrowserCorpus(
+  desc: DocsVerb,
+  projection: DocsBrowseProjection,
+): Promise<DocsMarkdownBrowserCorpus> {
+  const entries: MarkdownBrowserEntry<DocsBrowserChoice>[] = [];
+  const sourcesByPath = new Map<string, string>();
+  for (const item of groupedSelectionEntries(projection.groups)) {
+    if (isSelectionHeading(item)) {
+      entries.push(item);
+      continue;
+    }
+    if (item.id === undefined) {
+      throw new TypeError(
+        `Documentation browser entry ${JSON.stringify(item.name)} needs an id.`,
+      );
+    }
+    if (item.value.kind === "read-online") {
+      entries.push({
+        kind: "action",
+        id: item.id,
+        name: item.name,
+        ...(item.description === undefined
+          ? {}
+          : { description: item.description }),
+        value: item.value,
+      });
+      continue;
+    }
+    if (item.value.kind === "quit") {
+      entries.push({
+        kind: "exit",
+        id: item.id,
+        name: item.name,
+        ...(item.description === undefined
+          ? {}
+          : { description: item.description }),
+      });
+      continue;
+    }
+    const document = projection.entriesByPath.get(item.value.path);
+    if (document === undefined) {
+      throw new TypeError(
+        `Documentation browser entry is missing for ${item.value.path}.`,
+      );
+    }
+    let source: string;
+    try {
+      source = terminalBody(
+        desc,
+        document,
+        await Deno.readTextFile(document.absPath),
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `could not read ${document.path}: ${detail}`,
+        { cause: error },
+      );
+    }
+    sourcesByPath.set(document.path, source);
+    entries.push({
+      kind: "document",
+      id: item.id,
+      name: item.name,
+      ...(item.description === undefined
+        ? {}
+        : { description: item.description }),
+      path: docsCorpusPath(document),
+      source,
+    });
+  }
+  return { entries, sourcesByPath };
+}
+
+/** Product error with one valid path that remains available after failure. */
+function docsBrowserFailureMessage(error: unknown): string {
+  const detail = terminalLine(
+    error instanceof Error ? error.message : String(error),
+  ).replace(/[.!?]+$/u, "");
+  return terminalLine(
+    `discern couldn't continue the documentation browser: ${detail}. Use --pager or name a document directly.`,
+  );
+}
+
+/** Keep an external-effect failure visible before restoring the rich browser. */
+async function acknowledgeDocsBrowserFailure(
+  message: string,
+  log: Logger,
+): Promise<boolean> {
+  log.error(terminalLine(message));
+  try {
+    await requestCompactAcknowledgement();
+    return true;
+  } catch (error) {
+    if (!isInteractionCancelled(error)) throw error;
+    return false;
+  }
+}
+
+/** The 5A selection, print/page, acknowledge, and remembered-choice loop. */
+async function browseSequentially(
   desc: DocsVerb,
   tree: DocsTree,
+  projection: DocsBrowseProjection,
   options: DocsOptions,
   cwd: string,
   terminal: TerminalContext,
+  width: number,
+  log: Logger,
+  sourcesByPath: ReadonlyMap<string, string> = new Map(),
 ): Promise<number> {
-  const verb = desc.verb;
-  const width = resolveWidth(options.width, terminal);
-  const choices = tree.entries.map((e) => ({
-    name: optionLabel(e),
-    value: e.path,
-  }));
   // Keep the corpus context visible across every re-render of the picker (it
   // redraws each iteration), so the reader always knows which tree they are
   // filtering and how large it is — the same line the static `--list` TOC leads with.
   const message = terminalLine(
     `${
-      docsHeaderFact(verb, tree.entries.length, display(tree.docsDir, cwd))
+      docsHeaderFact(
+        desc.verb,
+        tree.entries.length,
+        display(tree.docsDir, cwd),
+      )
     }  ·  type to filter`,
   );
-  let rememberedDocument: string | undefined;
+  let rememberedDocument: DocsBrowserChoice | undefined;
   while (true) {
-    let choice: string;
+    let choice: DocsBrowserChoice;
     try {
       choice = await requestSelection({
         message,
-        options: groupedSelectionEntries([
-          {
-            id: "documents",
-            label: "Documents",
-            items: choices,
-          },
-          {
-            id: "browse-navigation",
-            label: "Browse",
-            items: docsBrowseNavigationChoices(verb, terminal.color),
-          },
-        ]),
+        options: groupedSelectionEntries(projection.groups),
         search: true,
+        presentation: "browsing",
+        completion: "clear-frame",
         ...(rememberedDocument === undefined
           ? {}
           : { default: rememberedDocument }),
@@ -852,37 +1176,188 @@ async function browse(
       // Ctrl-C or end-of-input leaves the browser without changing anything.
       return 0;
     }
-    if (choice === QUIT_BROWSE) return 0;
-    if (choice === READ_DOCS_ONLINE) {
+    if (choice.kind === "quit") return 0;
+    if (choice.kind === "read-online") {
       const opened = await openInBrowser(DISCERN_DOCS_URL);
       if (opened.status !== "opened") {
-        new Logger({ json: false, noColor: false }).error(
+        log.error(
           browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
         );
       }
       continue;
     }
-    const entry = tree.entries.find((e) => e.path === choice);
-    if (!entry) continue;
-    rememberedDocument = entry.path;
+    const entry = projection.entriesByPath.get(choice.path);
+    if (entry === undefined) continue;
+    rememberedDocument = projection.documentChoice(entry.path);
     observeVerbTarget(canonicalDocTarget(entry));
-    const content = terminalBody(
-      desc,
-      entry,
-      await Deno.readTextFile(entry.absPath),
-    );
+    let content = sourcesByPath.get(entry.path);
+    if (content === undefined) {
+      try {
+        content = terminalBody(
+          desc,
+          entry,
+          await Deno.readTextFile(entry.absPath),
+        );
+      } catch (error) {
+        log.error(docsBrowserFailureMessage(error));
+        return 1;
+      }
+    }
     const presentation = await present(
       renderMarkdown(content, {
         width,
         color: terminal.color,
         terminal,
       }),
-      options.noPager,
+      options.pager,
+      log,
     );
-    // A direct print must remain the terminal's final view. Reopening the
-    // full-height picker would push the selected document out of the viewport.
-    if (presentation === "printed") return 0;
+    if (presentation === "internal") {
+      try {
+        await requestCompactAcknowledgement();
+      } catch (error) {
+        if (!isInteractionCancelled(error)) throw error;
+        return 0;
+      }
+    }
   }
+}
+
+type RichDocsBrowseDisposition = number | "fallback";
+
+/** Run one or more package browser sessions around product-owned effects. */
+async function browseRichly(
+  desc: DocsVerb,
+  tree: DocsTree,
+  options: DocsOptions,
+  cwd: string,
+  corpus: DocsMarkdownBrowserCorpus,
+  log: Logger,
+  width: number,
+): Promise<RichDocsBrowseDisposition> {
+  let state: MarkdownBrowserResumeState | undefined;
+  while (true) {
+    try {
+      const result = await requestMarkdownBrowser({
+        message: docsHeaderFact(
+          desc.verb,
+          tree.entries.length,
+          display(tree.docsDir, cwd),
+        ),
+        entries: corpus.entries,
+        ...(state === undefined ? {} : { initialState: state }),
+        ...(options.width === undefined ? {} : { documentMeasure: width }),
+        mouse: true,
+        resolveLink: resolveDocsBrowserLink,
+      });
+      if (result.kind === "refused") return "fallback";
+      if (result.kind === "exit") return 0;
+      state = result.state;
+      if (result.kind === "action") {
+        if (result.value.kind !== "read-online") {
+          throw new TypeError(
+            "Documentation browser returned an unknown action.",
+          );
+        }
+        const opened = await openInBrowser(DISCERN_DOCS_URL);
+        if (
+          opened.status !== "opened" &&
+          !await acknowledgeDocsBrowserFailure(
+            browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
+            log,
+          )
+        ) {
+          return 0;
+        }
+        continue;
+      }
+      const destination = approvedDocsExternalUrl(result.destination);
+      if (destination === undefined) {
+        const visible = truncateText(
+          terminalLine(result.destination),
+          48,
+          "…",
+        );
+        if (
+          !await acknowledgeDocsBrowserFailure(
+            `discern didn't open "${visible}": only http:// and https:// links can leave the documentation browser.`,
+            log,
+          )
+        ) {
+          return 0;
+        }
+        continue;
+      }
+      const opened = await openInBrowser(destination);
+      if (
+        opened.status !== "opened" &&
+        !await acknowledgeDocsBrowserFailure(
+          browserOpenFailureMessage("the link", destination, opened),
+          log,
+        )
+      ) {
+        return 0;
+      }
+    } catch (error) {
+      if (isInteractionCancelled(error)) return 0;
+      log.error(docsBrowserFailureMessage(error));
+      return 1;
+    }
+  }
+}
+
+/** Browse, read, and return until the person chooses an action or cancels. */
+async function browse(
+  desc: DocsVerb,
+  tree: DocsTree,
+  options: DocsOptions,
+  cwd: string,
+  terminal: TerminalContext,
+): Promise<number> {
+  const width = resolveWidth(options.width, terminal);
+  const log = new Logger({ json: false, noColor: options.noColor });
+  const projection = docsBrowseProjection(desc.verb, tree);
+  if (options.pager) {
+    return await browseSequentially(
+      desc,
+      tree,
+      projection,
+      options,
+      cwd,
+      terminal,
+      width,
+      log,
+    );
+  }
+  let corpus: DocsMarkdownBrowserCorpus;
+  try {
+    corpus = await docsMarkdownBrowserCorpus(desc, projection);
+  } catch (error) {
+    log.error(docsBrowserFailureMessage(error));
+    return 1;
+  }
+  const rich = await browseRichly(
+    desc,
+    tree,
+    options,
+    cwd,
+    corpus,
+    log,
+    width,
+  );
+  return rich === "fallback"
+    ? await browseSequentially(
+      desc,
+      tree,
+      projection,
+      options,
+      cwd,
+      terminal,
+      width,
+      log,
+      corpus.sourcesByPath,
+    )
+    : rich;
 }
 
 /** Print a grouped, plain table of contents to stdout. */
@@ -1529,8 +2004,50 @@ async function viewTarget(
     color: terminal.color,
     terminal,
   });
-  await present(rendered, options.noPager);
+  await present(rendered, options.pager, log);
   return 0;
+}
+
+/** Name a pager conflict and both valid ways forward. */
+function pagerConflictMessage(flag: string): string {
+  return `--pager cannot be combined with ${flag}. Remove --pager to use ${flag}, or remove ${flag} to open rendered documents in a pager.`;
+}
+
+/** Validate the explicit external-pager request before any static projection. */
+function validatePagerRequest(
+  desc: DocsVerb,
+  options: DocsOptions,
+  log: Logger,
+): number | undefined {
+  if (!options.pager) return undefined;
+  const conflict = plainModeEnabled()
+    ? "--plain"
+    : options.raw
+    ? "--raw"
+    : options.list
+    ? "--list"
+    : options.search !== undefined
+    ? "--search"
+    : options.export !== undefined
+    ? "--export"
+    : options.output !== undefined
+    ? "--output"
+    : options.resultFormat === "markdown"
+    ? "--markdown"
+    : options.resultFormat === "json" || options.json
+    ? "--json"
+    : undefined;
+  if (conflict !== undefined) {
+    return invalidOptions(log, desc.verb, pagerConflictMessage(conflict));
+  }
+  if (!canInteract(false)) {
+    return invalidOptions(
+      log,
+      desc.verb,
+      "--pager requires an interactive terminal. Remove --pager to print rendered output.",
+    );
+  }
+  return undefined;
 }
 
 /**
@@ -1544,6 +2061,9 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   const cwd = Deno.cwd();
   const terminal = docsTerminal(options.noColor);
   const width = resolveWidth(options.width, terminal);
+
+  const pagerRefusal = validatePagerRequest(desc, options, log);
+  if (pagerRefusal !== undefined) return pagerRefusal;
 
   if (options.output && !options.export) {
     return invalidOptions(log, desc.verb, "--output requires --export.");
@@ -1563,7 +2083,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
       options.list ? "--list" : undefined,
       options.adr ? "--adr" : undefined,
       options.width !== undefined ? "--width" : undefined,
-      options.noPager ? "--no-pager" : undefined,
+      options.pager ? "--pager" : undefined,
     ].filter((value): value is string => value !== undefined);
     if (conflicts.length > 0) {
       return invalidOptions(

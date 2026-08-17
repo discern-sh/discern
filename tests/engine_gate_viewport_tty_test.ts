@@ -145,7 +145,7 @@ function assertInitialMode(
     firstFrame.split("\n").filter((line) => line.trim() === "│").length;
   if (mode === "full") {
     assertStringIncludes(firstFrame, title(verb));
-    assertEquals(blankTailRows, 6);
+    assertEquals(blankTailRows, 5);
     return;
   }
   assertStringIncludes(firstFrame, title(verb));
@@ -287,7 +287,7 @@ Deno.test({
         const frames = output.split(REPAINT);
         assert(
           frames.some((frame) =>
-            frame.split("\n").filter((line) => line.trim() === "│").length >= 6
+            frame.split("\n").filter((line) => line.trim() === "│").length >= 5
           ),
           result.output,
         );

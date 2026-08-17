@@ -9,6 +9,10 @@ import {
   TERMINAL_CAPTURE_GEOMETRIES,
   type TerminalCaptureGeometryName,
 } from "../tests/fixtures/terminal_command_capture.ts";
+import type {
+  PtyInputPhase,
+  PtyInputStep,
+} from "../tests/fixtures/pty_process.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -21,6 +25,8 @@ interface CaptureTaskOptions {
   readonly locale: string;
   readonly output: string;
   readonly theme: "dark" | "light";
+  readonly script?: string | undefined;
+  readonly keyframe?: string | undefined;
 }
 
 export const TERMINAL_REVIEW_GUIDE =
@@ -37,12 +43,14 @@ Usage:
   deno task terminal:capture <name> [options] [-- <discern arguments...>]
 
 Options:
-  --geometry <canonical|wide|tall>  Terminal dimensions (default: canonical)
+  --geometry <canonical|wide|tall|short>  Terminal dimensions (default: canonical)
   --output <path>                   HTML destination
   --cwd <path>                      Project to run in (default: current directory)
   --locale <locale>                 Captured locale (default: en_US.UTF-8)
   --no-color                        Capture package output without colour
   --theme <dark|light>              HTML background theme (default: dark)
+  --script <path>                   JSON readiness/input phases for an interactive capture
+  --keyframe <name>                 Render one named frame captured by --script
 
 With no arguments after --, <name> is the Discern verb. Use "help" for root
 --help. Artifacts default to .scratch/terminal-captures/.
@@ -84,6 +92,8 @@ function parseOptions(args: readonly string[]): CaptureTaskOptions {
   let cwd = Deno.cwd();
   let output: string | undefined;
   let theme: "dark" | "light" = "dark";
+  let script: string | undefined;
+  let keyframe: string | undefined;
   for (let at = 1; at < taskArgs.length; at += 1) {
     const arg = taskArgs[at];
     switch (arg) {
@@ -120,6 +130,14 @@ function parseOptions(args: readonly string[]): CaptureTaskOptions {
         at += 1;
         break;
       }
+      case "--script":
+        script = resolve(optionValue(taskArgs, at));
+        at += 1;
+        break;
+      case "--keyframe":
+        keyframe = optionValue(taskArgs, at);
+        at += 1;
+        break;
       default:
         throw new TypeError(`unknown terminal capture option: ${arg}`);
     }
@@ -135,6 +153,9 @@ function parseOptions(args: readonly string[]): CaptureTaskOptions {
     : isAbsolute(output)
     ? output
     : resolve(output);
+  if (keyframe !== undefined && script === undefined) {
+    throw new TypeError("--keyframe requires --script");
+  }
   return {
     name,
     args: commandArgs.length > 0
@@ -148,7 +169,82 @@ function parseOptions(args: readonly string[]): CaptureTaskOptions {
     locale,
     output: target,
     theme,
+    ...(script === undefined ? {} : { script }),
+    ...(keyframe === undefined ? {} : { keyframe }),
   };
+}
+
+/** Narrow a JSON object without letting unchecked input reach the PTY driver. */
+function record(value: unknown, label: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError(`${label} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+/** Parse one scripted input step from the review file. */
+function parseInputStep(value: unknown, label: string): PtyInputStep {
+  const source = record(value, label);
+  if (source.bytes !== undefined && typeof source.bytes !== "string") {
+    throw new TypeError(`${label}.bytes must be a string`);
+  }
+  if (
+    source.delayMs !== undefined &&
+    (typeof source.delayMs !== "number" || !Number.isFinite(source.delayMs) ||
+      source.delayMs < 0)
+  ) {
+    throw new TypeError(`${label}.delayMs must be a non-negative number`);
+  }
+  if (
+    source.allowLoneEscape !== undefined &&
+    typeof source.allowLoneEscape !== "boolean"
+  ) {
+    throw new TypeError(`${label}.allowLoneEscape must be a boolean`);
+  }
+  return {
+    ...(source.bytes === undefined ? {} : { bytes: source.bytes }),
+    ...(source.delayMs === undefined ? {} : { delayMs: source.delayMs }),
+    ...(source.allowLoneEscape === undefined
+      ? {}
+      : { allowLoneEscape: source.allowLoneEscape }),
+  };
+}
+
+/** Parse readiness-gated PTY phases from one ignored review script. */
+async function readInputScript(path: string): Promise<PtyInputPhase[]> {
+  const source: unknown = JSON.parse(await Deno.readTextFile(path));
+  if (!Array.isArray(source) || source.length === 0) {
+    throw new TypeError("capture script must be a non-empty array of phases");
+  }
+  return source.map((value, phaseIndex) => {
+    const label = `phase ${phaseIndex + 1}`;
+    const phase = record(value, label);
+    const markers = typeof phase.waitFor === "string"
+      ? phase.waitFor
+      : Array.isArray(phase.waitFor) && phase.waitFor.length > 0 &&
+          phase.waitFor.every((marker) => typeof marker === "string")
+      ? phase.waitFor as [string, ...string[]]
+      : undefined;
+    if (markers === undefined) {
+      throw new TypeError(`${label}.waitFor must be a string or string array`);
+    }
+    if (
+      phase.captureAs !== undefined && typeof phase.captureAs !== "string"
+    ) {
+      throw new TypeError(`${label}.captureAs must be a string`);
+    }
+    if (!Array.isArray(phase.steps) || phase.steps.length === 0) {
+      throw new TypeError(`${label}.steps must be a non-empty array`);
+    }
+    const steps = phase.steps.map((step, stepIndex) =>
+      parseInputStep(step, `${label} step ${stepIndex + 1}`)
+    ) as [PtyInputStep, ...PtyInputStep[]];
+    return {
+      waitFor: markers,
+      ...(phase.captureAs === undefined ? {} : { captureAs: phase.captureAs }),
+      steps,
+    };
+  });
 }
 
 /** Compile, capture, project, and report the one resulting artifact path. */
@@ -161,6 +257,9 @@ async function main(args: readonly string[]): Promise<void> {
   );
   try {
     await compileDiscernCaptureBinary(REPO_ROOT, executable);
+    const input = options.script === undefined
+      ? undefined
+      : await readInputScript(options.script);
     const capture = await captureDiscernCommand({
       executable,
       name: options.name,
@@ -170,13 +269,20 @@ async function main(args: readonly string[]): Promise<void> {
       color: options.color,
       locale: options.locale,
       env: {
+        DISCERN_DOCS_DIR: join(REPO_ROOT, "project", "map"),
         DISCERN_TEMPLATES_DIR: join(REPO_ROOT, "templates"),
       },
+      ...(input === undefined ? {} : { input, static: false }),
     });
     await ensureDir(dirname(options.output));
     await Deno.writeTextFile(
       options.output,
-      renderTerminalCaptureHtml(capture, { theme: options.theme }),
+      renderTerminalCaptureHtml(capture, {
+        theme: options.theme,
+        ...(options.keyframe === undefined
+          ? {}
+          : { keyframe: options.keyframe }),
+      }),
     );
     console.log(terminalCaptureHandoff(options.output));
     if (capture.exitCode !== 0) Deno.exitCode = capture.exitCode;
