@@ -661,16 +661,16 @@ Browse and read the project map — its agent-maintained documentation tree.
 
 Usage: `discern map [target] [options]`
 
-| Option             | Description                                                                     |
-| ------------------ | ------------------------------------------------------------------------------- |
-| `--raw`            | Print a doc's pristine Markdown source instead of rendering it.                 |
-| `--list`           | Print a plain table of contents and exit without interaction.                   |
-| `--search <query>` | Search the map with task language or exact text; use a target to narrow it.     |
-| `--no-pager`       | Print rendered output directly; interactive browsing exits after one selection. |
-| `--dir <path>`     | Map directory to browse (default: the project's [map].dir).                     |
-| `--width <cols>`   | Wrap width for rendered output.                                                 |
-| `--export <scope>` | Concatenate Markdown: public, all, select, or a configured scope name.          |
-| `--output <path>`  | Write an export to a file instead of stdout.                                    |
+| Option             | Description                                                                 |
+| ------------------ | --------------------------------------------------------------------------- |
+| `--raw`            | Print a doc's pristine Markdown source instead of rendering it.             |
+| `--list`           | Print a plain table of contents and exit without interaction.               |
+| `--search <query>` | Search the map with task language or exact text; use a target to narrow it. |
+| `--pager`          | Open rendered documents in an external pager (uses $PAGER or less -R).      |
+| `--dir <path>`     | Map directory to browse (default: the project's [map].dir).                 |
+| `--width <cols>`   | Wrap width for rendered output.                                             |
+| `--export <scope>` | Concatenate Markdown: public, all, select, or a configured scope name.      |
+| `--output <path>`  | Write an export to a file instead of stdout.                                |
 
 ### `discern docs`
 
@@ -684,7 +684,7 @@ Usage: `discern docs [target] [options]`
 | `--list`           | Print a plain table of contents and exit without interaction.                      |
 | `--search <query>` | Search discern's docs with task language or exact text; use a target to narrow it. |
 | `--adr`            | Browse decision records in a source checkout, or show their public location.       |
-| `--no-pager`       | Print rendered output directly; interactive browsing exits after one selection.    |
+| `--pager`          | Open rendered documents in an external pager (uses $PAGER or less -R).             |
 | `--width <cols>`   | Wrap width for rendered output.                                                    |
 | `--export <scope>` | Concatenate Markdown to stdout: public.                                            |
 | `--output <path>`  | Write an export to a file instead of stdout.                                       |

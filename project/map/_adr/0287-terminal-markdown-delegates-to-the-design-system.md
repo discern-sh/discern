@@ -1,5 +1,7 @@
 # ADR 0287: Terminal Markdown delegates to the design system
 
+> **Reader-contract amendment (2026-08-17; [ADR 0289](0289-discern-owns-the-default-interactive-markdown-reading-loop.md)):** Discern now consumes the immutable 0.20.0 release. The release retains the package Markdown renderer and adds the public selection-description, completion, continuation, and composite-browser contracts used by Discern's terminal readers.
+
 **Status**: accepted; supersedes [ADR 0015](./_superseded/0015-map-browser.md)
 
 ## Context
@@ -20,7 +22,7 @@ All terminal Markdown documents delegate to the exact published design-system re
 - `--raw`, `--json`, `--markdown`, Model Context Protocol payloads, and `map --export` retain their existing source or result projections. They do not enter terminal rendering.
 - The docs website's React-free HTML emitter, Workflow projections, glossary hooks, heading outline, and integrity helpers remain Discern-owned. They are named as a separate browser boundary rather than described as the terminal parser or as a shared cross-surface grammar.
 
-Discern consumes only the immutable `0.19.0` public exports. A generic Markdown parsing, safety, layout, or terminal-style defect is fixed and released in the design-system repository before Discern updates its pin; a sibling checkout or copied parser is not an admissible patch.
+Discern consumes only the immutable `0.20.0` public exports. A generic Markdown parsing, safety, layout, terminal-style, or interactive-reader defect is fixed and released in the design-system repository before Discern updates its pin; a sibling checkout or copied parser is not an admissible patch.
 
 ## Consequences
 

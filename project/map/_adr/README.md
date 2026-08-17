@@ -277,6 +277,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0286 — Configured source paths expose registry-derived live references](0286-configured-source-paths-expose-live-references.md)
 - [0287 — Terminal Markdown delegates to the design system](0287-terminal-markdown-delegates-to-the-design-system.md)
 - [0288 — Canon Editor edits the canon through its projections](0288-the-canon-editor-edits-the-canon-through-its-projections.md)
+- [0289 — Discern owns the default interactive Markdown reading loop](0289-discern-owns-the-default-interactive-markdown-reading-loop.md)
 
 <!-- END GENERATED: current ADR records -->
 

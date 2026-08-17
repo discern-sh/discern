@@ -32,7 +32,7 @@ Contributors can go deeper in [engine internals](50-engine-internals/), [develop
 
 ## Browsing from the terminal
 
-`discern docs [target]` browses this manual. In its interactive browser, choose `Read the docs online` to open [discern.sh/docs](https://discern.sh/docs) in the system browser. A successful pager returns to the browser; `--no-pager` prints one selection and exits so the document remains visible. `--list`, `--json`, and `--raw` support scripts and Model Context Protocol (MCP) clients. `discern map` browses your project's Map. `discern help [command]` mirrors `discern [command] --help` ([ADR 0218](_adr/0218-docs-owns-the-manual-help-owns-cli-reference.md)).
+`discern docs [target]` browses this manual. The interactive browser renders a selected document inside discern; `Press Enter to continue.` returns to the remembered selection. Choose `Read the docs online` to open [discern.sh/docs](https://discern.sh/docs) in the system browser, or add `--pager` to read through `$PAGER` and return when it exits. A direct target renders and exits without waiting. `--list`, `--json`, and `--raw` support scripts and Model Context Protocol (MCP) clients. `discern map` browses your project's Map. `discern help [command]` mirrors `discern [command] --help` ([ADR 0218](_adr/0218-docs-owns-the-manual-help-owns-cli-reference.md)).
 
 ## How agents maintain the manual
 
