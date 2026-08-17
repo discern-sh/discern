@@ -39,6 +39,7 @@ import {
   BENEFIT_CANON,
   parseSurfaceKey,
 } from "./feature_registry.ts";
+import { annotateProse } from "./canon_editor/annotation.ts";
 
 /**
  * A rendering lens over the flat canon: `loop` tenets govern how work moves
@@ -636,6 +637,14 @@ function upheldLine(tenet: PracticeTenet): string {
     .join(" · ");
 }
 
+/**
+ * Route one tenet field through Canon Editor's provenance channel; outside
+ * Canon Editor the text passes through unchanged.
+ */
+function tenetProse(tenet: PracticeTenet, field: string, text: string): string {
+  return annotateProse(text, { registry: "practice", entry: tenet.id, field });
+}
+
 /** The 1-based number of a tenet id; throws on an id the canon does not carry. */
 function tenetNumber(id: string): number {
   const index = PRACTICE_CANON.findIndex((tenet) => tenet.id === id);
@@ -696,11 +705,11 @@ export function renderPracticeCanonDoc(): string {
       .join(" · ");
     const yields = tenet.yields.map(citedClusterTitle).join(" · ");
     lines.push(
-      `### ${index + 1}. ${tenet.title}`,
+      `### ${index + 1}. ${tenetProse(tenet, "title", tenet.title)}`,
       "",
-      `> ${tenet.obligation}`,
+      `> ${tenetProse(tenet, "obligation", tenet.obligation)}`,
       "",
-      tenet.body,
+      tenetProse(tenet, "body", tenet.body),
       "",
       `- **Arc:** ${tenet.arc}`,
       `- **Upheld:** ${upheldLine(tenet)}`,
@@ -836,11 +845,11 @@ export function renderPracticePublicDoc(): string {
   lines.push("");
   PRACTICE_CANON.forEach((tenet, index) => {
     lines.push(
-      `### ${index + 1}. ${tenet.title}`,
+      `### ${index + 1}. ${tenetProse(tenet, "title", tenet.title)}`,
       "",
-      `> ${tenet.obligation}`,
+      `> ${tenetProse(tenet, "obligation", tenet.obligation)}`,
       "",
-      tenet.body,
+      tenetProse(tenet, "body", tenet.body),
       "",
     );
   });

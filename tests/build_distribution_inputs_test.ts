@@ -100,3 +100,28 @@ Deno.test("compile arguments bound distribution roots with exact exclusions", ()
     "templates/local.machine-state",
   ]);
 });
+
+Deno.test("compile arguments embed only npm packages in the product graph", () => {
+  const args = compileArguments(
+    {
+      triple: "x86_64-unknown-linux-gnu",
+      output: "discern-x86_64-unknown-linux-gnu",
+      runner: "fixture",
+    },
+    "dist/discern-x86_64-unknown-linux-gnu",
+    ".discern-bundled-docs",
+    ["templates", "src/lib/tidy_plugins"],
+    [],
+  );
+
+  assertEquals(
+    args.includes("--node-modules-dir=none"),
+    true,
+    "production compilation must not project the workspace's physical node_modules tree",
+  );
+  assertEquals(
+    args.includes("--exclude-unused-npm"),
+    true,
+    "an npm dependency used only by an unrelated development tool must stay outside the binary",
+  );
+});

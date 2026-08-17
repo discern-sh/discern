@@ -55,6 +55,7 @@
     "use-compiled-build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/use_compiled_build.ts",
     "check": "deno check",
     "gate": "deno task dev done",
+    "canon-editor": "deno run --allow-read --allow-write --allow-env --allow-run --allow-net=127.0.0.1 scripts/canon_editor/main.ts",
     "site:build": "deno run --allow-read --allow-write --allow-run --allow-env=NODE_ENV site/build.ts",
     "site:smoke": "deno task site:build && deno run --allow-read --allow-env --allow-net=127.0.0.1 scripts/site_smoke.ts --self-host",
     "site": "deno run --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts",
@@ -68,6 +69,7 @@
     "@modelcontextprotocol/sdk/server/stdio.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/stdio.js",
     "process": "node:process",
     "os": "node:os",
+    "ts-morph": "jsr:@ts-morph/ts-morph@^28.0.0",
     "zlib": "node:zlib",
     "@zod/zod": "jsr:@zod/zod@^4.4.3",
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
@@ -88,7 +90,7 @@
     "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
     "react-dom/client": "npm:react-dom@18.3.1/client",
     "react-dom/server": "npm:react-dom@18.3.1/server",
-    "discern-design-system": "jsr:@discern-sh/design-system@0.19.0"
+    "discern-design-system": "jsr:@discern-sh/design-system@0.20.0"
   },
   "fmt": {
     "proseWrap": "never",

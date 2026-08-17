@@ -92,6 +92,25 @@ export function normalizePtyLineEndings(output: string): string {
   return normalized;
 }
 
+/**
+ * Extract the settled full-frame repaint from one interactive PTY transcript.
+ * Package interactions redraw by erasing from the active frame origin and then
+ * emitting a complete replacement. Content after the final erase is therefore
+ * the visible frame, apart from cursor visibility and background-query controls
+ * that manage the terminal but occupy no cells.
+ */
+export function settledInteractiveTerminalFrame(output: string): string {
+  const normalized = normalizePtyLineEndings(output);
+  const erasures = [...normalized.matchAll(/\x1b\[(?:0)?J/gu)];
+  const last = erasures.at(-1);
+  const frame = last?.index === undefined
+    ? normalized
+    : normalized.slice(last.index + last[0].length);
+  return frame
+    .replaceAll(/\x1b\[\?25[hl]/gu, "")
+    .replaceAll("\x1b]11;?\x1b\\", "");
+}
+
 /** Apply named normalizers without changing their declared order. */
 function applyNormalizers(
   output: string,
@@ -145,7 +164,13 @@ export async function captureDiscernCommand(
     cwd: options.cwd,
   };
   const normalized = (output: string): string =>
-    applyNormalizers(normalizePtyLineEndings(output), normalizers, context);
+    applyNormalizers(
+      staticOutput
+        ? normalizePtyLineEndings(output)
+        : settledInteractiveTerminalFrame(output),
+      normalizers,
+      context,
+    );
   return {
     schemaVersion: 1,
     name: options.name,

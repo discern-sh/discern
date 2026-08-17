@@ -5,6 +5,7 @@ import {
   normalizePtyLineEndings,
   renderTerminalCaptureHtml,
   serializeTerminalCapture,
+  settledInteractiveTerminalFrame,
   TERMINAL_CAPTURE_GEOMETRIES,
   type TerminalCommandCapture,
 } from "./fixtures/terminal_command_capture.ts";
@@ -53,6 +54,16 @@ Deno.test("PTY line normalization preserves rows and rejects live repaint", () =
     () => normalizePtyLineEndings("progress\rcomplete"),
     Error,
     "live carriage-return repaint",
+  );
+});
+
+Deno.test("interactive capture extracts the last settled package frame", () => {
+  const transcript = "prior\r\n\x1b[?25lfirst\r\n" +
+    "\x1b[1G\x1b[2A\x1b[J\x1b]11;?\x1b\\\x1b[?25l" +
+    "\x1b[1msettled\x1b[0m\r\n\x1b[?25h";
+  assertEquals(
+    settledInteractiveTerminalFrame(transcript),
+    "\x1b[1msettled\x1b[0m\n",
   );
 });
 

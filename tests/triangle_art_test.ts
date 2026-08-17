@@ -61,7 +61,7 @@ function packageMotifFrames(
       terminalFacts,
     ),
     ribbon: renderPackagePattern(
-      { length: 24, thickness: 3, motif: DISCERN_TERMINAL_MOTIF },
+      { length: 24, motif: DISCERN_TERMINAL_MOTIF },
       terminalFacts,
     ),
     weave: renderPackagePattern(
@@ -69,7 +69,6 @@ function packageMotifFrames(
         length: 8,
         motif: DISCERN_TERMINAL_MOTIF,
         orientation: "vertical",
-        thickness: 4,
       },
       terminalFacts,
     ),

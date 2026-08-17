@@ -29,6 +29,7 @@ import {
   isInteractionCancelled,
   renderConfirmationDialog,
   renderDestructiveConfirmation,
+  requestCompactAcknowledgement,
   requestSelection,
   requestSelections,
   requestText,
@@ -327,6 +328,47 @@ Deno.test("grouped select keeps headings structural and ids stable across reorde
     }, scriptedRuntime(reordered)),
     "beta",
   );
+});
+
+Deno.test("choice descriptions stay semantic, searchable, and control-free", async () => {
+  const io = new ScriptedTerminal(["nested/path.md\r\r"]);
+  assertEquals(
+    await requestSelection({
+      message: "Choose",
+      options: groupedSelectionEntries([
+        {
+          id: "section",
+          label: "Section",
+          description: "00-section/\x1b",
+          items: [{
+            id: "nested",
+            name: "Nested document",
+            description: "nested/path.md",
+            value: "nested",
+          }],
+        },
+      ]),
+      search: true,
+      presentation: "browsing",
+      completion: "clear-frame",
+    }, scriptedRuntime(io)),
+    "nested",
+  );
+  const rendered = stripAnsi(io.writes.join(""));
+  assertStringIncludes(rendered, "00-section/␛");
+  assertStringIncludes(rendered, "nested/path.md");
+  assert(!rendered.includes("[active]"));
+  assertEquals(io.rawTransitions, [true, false]);
+});
+
+Deno.test("compact acknowledgement owns continuation input and cleanup", async () => {
+  const io = new ScriptedTerminal(["\r"]);
+  await requestCompactAcknowledgement(scriptedRuntime(io));
+  assertStringIncludes(
+    stripAnsi(io.writes.join("")),
+    "Press Enter to continue.",
+  );
+  assertEquals(io.rawTransitions, [true, false]);
 });
 
 Deno.test("the shared choice adapter preserves wide frames and group breathing rows", async () => {

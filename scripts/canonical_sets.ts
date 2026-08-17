@@ -993,7 +993,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "scripts/brand/claims.ts",
       exportName: "CLAIMS",
     },
-    guards: ["tests/brand_registry_codegen_test.ts"],
+    guards: [
+      "tests/brand_registry_codegen_test.ts",
+      "tests/canon_editor_parity_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: {
@@ -1598,6 +1601,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/glossary_enrolment_test.ts",
       "tests/vocab_drift_test.ts",
       "tests/feature_canon_plain_register_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {
@@ -1632,6 +1636,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/feature_canon_codegen_test.ts",
       "tests/feature_canon_enrolment_test.ts",
       "tests/feature_canon_plain_register_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {
@@ -1672,6 +1677,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/feature_canon_benefit_test.ts",
       "tests/feature_canon_codegen_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {
@@ -1704,7 +1710,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "scripts/practice_registry.ts",
       exportName: "PRACTICE_CANON",
     },
-    guards: ["tests/practice_canon_enrolment_test.ts"],
+    guards: [
+      "tests/practice_canon_enrolment_test.ts",
+      "tests/canon_editor_parity_test.ts",
+    ],
     artifacts: [
       {
         path: "project/map/_internal/practice-canon.md",

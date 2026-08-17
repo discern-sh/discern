@@ -7,9 +7,10 @@
  * discern's OWN documentation, bundled into every install. Both serve two
  * audiences, decided by how the verb is invoked:
  *
- *  - **A human at a terminal** gets an interactive, searchable picker (Cliffy's
- *    `Select`, with type-to-filter) and a rendered, paged view of whatever they
- *    pick. The tree is growing, so search is the primary way in.
+ *  - **A human at a terminal** gets an interactive, searchable picker and an
+ *    internally rendered view of whatever they pick. The tree is growing, so
+ *    search is the primary way in. An explicit `--pager` hands rendered
+ *    documents to the person's external pager instead.
  *  - **An agent or a script** gets non-interactive surfaces it can consume: a
  *    target to render straight to stdout, `--raw` for the pristine Markdown
  *    source, `--json` for a structured index (or a single doc's record),
@@ -53,6 +54,7 @@ import {
 import {
   canonicalDocTarget,
   discoverDocs,
+  docBrowseGroups,
   type DocEntry,
   type DocsTree,
   filterDocsByGroups,
@@ -100,6 +102,8 @@ import {
   canInteract,
   groupedSelectionEntries,
   isInteractionCancelled,
+  plainModeEnabled,
+  requestCompactAcknowledgement,
   requestSelection,
   requestSelections,
 } from "../lib/terminal_interaction.ts";
@@ -113,22 +117,36 @@ import { DISCERN_DOCS_URL } from "../shared/brand.ts";
 /** The built-in concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
 
-const READ_DOCS_ONLINE = "\x00read-docs-online";
-const QUIT_BROWSE = "\x00quit";
+/** Typed picker values keep navigation actions distinct from real file paths. */
+export type DocsBrowserChoice =
+  | { readonly kind: "document"; readonly path: string }
+  | { readonly kind: "read-online" }
+  | { readonly kind: "quit" };
+
+/** One navigation choice projected into the shared product interaction seam. */
+export interface DocsBrowseNavigationChoice {
+  readonly id: string;
+  readonly name: string;
+  readonly value: DocsBrowserChoice;
+}
 
 /** Navigation actions for the interactive tree browser. Only discern's own
  * manual has an equivalent online home; a project's map stays local. */
 export function docsBrowseNavigationChoices(
   verb: "map" | "docs",
-  _color: boolean,
-): Array<{ name: string; value: string }> {
+): DocsBrowseNavigationChoice[] {
   return [
     ...(verb === "docs"
-      ? [{ name: "Read the docs online", value: READ_DOCS_ONLINE }]
+      ? [{
+        id: "read-docs-online",
+        name: "Read the docs online",
+        value: { kind: "read-online" as const },
+      }]
       : []),
     {
+      id: "quit-browser",
       name: "Quit",
-      value: QUIT_BROWSE,
+      value: { kind: "quit" as const },
     },
   ];
 }
@@ -437,13 +455,15 @@ function terminalBody(
 /** Options accepted by the `map` command (global flags folded in). */
 export interface DocsOptions {
   json: boolean;
+  /** Exact quiet projection requested at the root, when one is active. */
+  resultFormat?: "json" | "markdown" | undefined;
   noColor: boolean;
   /** Print a doc's pristine Markdown source instead of rendering it. */
   raw: boolean;
   /** Print a plain table of contents and exit, even on a TTY. */
   list: boolean;
-  /** Never page rendered output through `$PAGER`. */
-  noPager: boolean;
+  /** Open rendered documents in `$PAGER` instead of discern. */
+  pager: boolean;
   /** Override the map directory (default: the project's `[map].dir`). */
   dir?: string | undefined;
   /** Override the wrap width (default: the terminal width, capped). */
@@ -737,23 +757,20 @@ async function pageThrough(text: string): Promise<boolean> {
   }
 }
 
-type PresentationDisposition = "paged" | "printed";
+type PresentationDisposition = "pager" | "internal";
 
-/** Show rendered text: paged on an interactive terminal, else straight to stdout. */
+/** Show rendered text internally unless the validated pager opt-in succeeds. */
 async function present(
   text: string,
-  noPager: boolean,
+  pager: boolean,
+  log: Logger,
 ): Promise<PresentationDisposition> {
-  if (!noPager && canInteract(false)) {
-    if (await pageThrough(text)) return "paged";
+  if (pager) {
+    if (await pageThrough(text)) return "pager";
+    log.warn("The pager failed. Showing the document in discern.");
   }
   console.log(text);
-  return "printed";
-}
-
-/** The semantic picker label; interaction rendering owns selection-state styling. */
-function optionLabel(e: DocEntry): string {
-  return terminalLine(`${e.relToDocs}  —  ${e.title}`);
+  return "internal";
 }
 
 /** The one-line corpus fact kept plain for the interaction seam. */
@@ -802,7 +819,7 @@ function docsHeader(
   );
 }
 
-/** Browse repeatedly through a pager; a direct print exits with the doc visible. */
+/** Browse, read, and return until the person chooses an action or cancels. */
 async function browse(
   desc: DocsVerb,
   tree: DocsTree,
@@ -812,10 +829,55 @@ async function browse(
 ): Promise<number> {
   const verb = desc.verb;
   const width = resolveWidth(options.width, terminal);
-  const choices = tree.entries.map((e) => ({
-    name: optionLabel(e),
-    value: e.path,
-  }));
+  const log = new Logger({ json: false, noColor: options.noColor });
+  const documentChoices = new Map(
+    tree.entries.map((entry) => {
+      const value: DocsBrowserChoice = {
+        kind: "document",
+        path: entry.path,
+      };
+      return [entry.path, value] as const;
+    }),
+  );
+  const documentChoice = (path: string): DocsBrowserChoice => {
+    const choice = documentChoices.get(path);
+    if (choice === undefined) {
+      throw new TypeError(`Document choice is missing for ${path}.`);
+    }
+    return choice;
+  };
+  const navigation = docsBrowseNavigationChoices(verb);
+  const browseActions = navigation.filter((choice) =>
+    choice.value.kind === "read-online"
+  );
+  const quitActions = navigation.filter((choice) =>
+    choice.value.kind === "quit"
+  );
+  const groups = [
+    ...(browseActions.length === 0 ? [] : [{
+      id: "browse",
+      label: "Browse",
+      items: browseActions,
+    }]),
+    ...docBrowseGroups(tree.entries).map((group) => ({
+      id: `documents:${group.id}`,
+      label: group.label,
+      ...(group.description === undefined
+        ? {}
+        : { description: group.description }),
+      items: group.items.map((item) => ({
+        id: `document:${item.entry.path}`,
+        name: item.label,
+        description: item.description,
+        value: documentChoice(item.entry.path),
+      })),
+    })),
+    {
+      id: "actions",
+      label: "Actions",
+      items: quitActions,
+    },
+  ];
   // Keep the corpus context visible across every re-render of the picker (it
   // redraws each iteration), so the reader always knows which tree they are
   // filtering and how large it is — the same line the static `--list` TOC leads with.
@@ -824,25 +886,16 @@ async function browse(
       docsHeaderFact(verb, tree.entries.length, display(tree.docsDir, cwd))
     }  ·  type to filter`,
   );
-  let rememberedDocument: string | undefined;
+  let rememberedDocument: DocsBrowserChoice | undefined;
   while (true) {
-    let choice: string;
+    let choice: DocsBrowserChoice;
     try {
       choice = await requestSelection({
         message,
-        options: groupedSelectionEntries([
-          {
-            id: "documents",
-            label: "Documents",
-            items: choices,
-          },
-          {
-            id: "browse-navigation",
-            label: "Browse",
-            items: docsBrowseNavigationChoices(verb, terminal.color),
-          },
-        ]),
+        options: groupedSelectionEntries(groups),
         search: true,
+        presentation: "browsing",
+        completion: "clear-frame",
         ...(rememberedDocument === undefined
           ? {}
           : { default: rememberedDocument }),
@@ -852,19 +905,21 @@ async function browse(
       // Ctrl-C or end-of-input leaves the browser without changing anything.
       return 0;
     }
-    if (choice === QUIT_BROWSE) return 0;
-    if (choice === READ_DOCS_ONLINE) {
+    if (choice.kind === "quit") return 0;
+    if (choice.kind === "read-online") {
       const opened = await openInBrowser(DISCERN_DOCS_URL);
       if (opened.status !== "opened") {
-        new Logger({ json: false, noColor: false }).error(
+        log.error(
           browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
         );
       }
       continue;
     }
-    const entry = tree.entries.find((e) => e.path === choice);
+    const entry = tree.entries.find((candidate) =>
+      candidate.path === choice.path
+    );
     if (!entry) continue;
-    rememberedDocument = entry.path;
+    rememberedDocument = documentChoice(entry.path);
     observeVerbTarget(canonicalDocTarget(entry));
     const content = terminalBody(
       desc,
@@ -877,11 +932,17 @@ async function browse(
         color: terminal.color,
         terminal,
       }),
-      options.noPager,
+      options.pager,
+      log,
     );
-    // A direct print must remain the terminal's final view. Reopening the
-    // full-height picker would push the selected document out of the viewport.
-    if (presentation === "printed") return 0;
+    if (presentation === "internal") {
+      try {
+        await requestCompactAcknowledgement();
+      } catch (error) {
+        if (!isInteractionCancelled(error)) throw error;
+        return 0;
+      }
+    }
   }
 }
 
@@ -1529,8 +1590,50 @@ async function viewTarget(
     color: terminal.color,
     terminal,
   });
-  await present(rendered, options.noPager);
+  await present(rendered, options.pager, log);
   return 0;
+}
+
+/** Name a pager conflict and both valid ways forward. */
+function pagerConflictMessage(flag: string): string {
+  return `--pager cannot be combined with ${flag}. Remove --pager to use ${flag}, or remove ${flag} to open rendered documents in a pager.`;
+}
+
+/** Validate the explicit external-pager request before any static projection. */
+function validatePagerRequest(
+  desc: DocsVerb,
+  options: DocsOptions,
+  log: Logger,
+): number | undefined {
+  if (!options.pager) return undefined;
+  const conflict = plainModeEnabled()
+    ? "--plain"
+    : options.raw
+    ? "--raw"
+    : options.list
+    ? "--list"
+    : options.search !== undefined
+    ? "--search"
+    : options.export !== undefined
+    ? "--export"
+    : options.output !== undefined
+    ? "--output"
+    : options.resultFormat === "markdown"
+    ? "--markdown"
+    : options.resultFormat === "json" || options.json
+    ? "--json"
+    : undefined;
+  if (conflict !== undefined) {
+    return invalidOptions(log, desc.verb, pagerConflictMessage(conflict));
+  }
+  if (!canInteract(false)) {
+    return invalidOptions(
+      log,
+      desc.verb,
+      "--pager requires an interactive terminal. Remove --pager to print rendered output.",
+    );
+  }
+  return undefined;
 }
 
 /**
@@ -1544,6 +1647,9 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   const cwd = Deno.cwd();
   const terminal = docsTerminal(options.noColor);
   const width = resolveWidth(options.width, terminal);
+
+  const pagerRefusal = validatePagerRequest(desc, options, log);
+  if (pagerRefusal !== undefined) return pagerRefusal;
 
   if (options.output && !options.export) {
     return invalidOptions(log, desc.verb, "--output requires --export.");
@@ -1563,7 +1669,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
       options.list ? "--list" : undefined,
       options.adr ? "--adr" : undefined,
       options.width !== undefined ? "--width" : undefined,
-      options.noPager ? "--no-pager" : undefined,
+      options.pager ? "--pager" : undefined,
     ].filter((value): value is string => value !== undefined);
     if (conflicts.length > 0) {
       return invalidOptions(

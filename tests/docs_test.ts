@@ -41,11 +41,11 @@ const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
 
 Deno.test("docs browser offers its online manual without adding it to map", () => {
   assertEquals(
-    docsBrowseNavigationChoices("docs", false).map((choice) => choice.name),
+    docsBrowseNavigationChoices("docs").map((choice) => choice.name),
     ["Read the docs online", "Quit"],
   );
   assertEquals(
-    docsBrowseNavigationChoices("map", false).map((choice) => choice.name),
+    docsBrowseNavigationChoices("map").map((choice) => choice.name),
     ["Quit"],
   );
 });
@@ -188,7 +188,8 @@ async function makeDocsFixture(
 }
 
 Deno.test({
-  name: "docs browser restores the remembered document through the real PTY",
+  name:
+    "docs browser renders internally, acknowledges, and restores the remembered document through the real PTY",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -205,21 +206,24 @@ Deno.test({
           "docs",
         ],
         cwd: dir,
-        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "cat" },
+        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
         input: [
-          // A search interaction starts without a highlighted choice. Select the
-          // first document, then submit the remembered highlight unchanged.
-          { waitFor: "○ Quit", steps: [{ bytes: "\x1b[B\r" }] },
+          // Browse is first, so the second selectable row is the root document.
           {
-            waitFor: ["Welcome.", "○ Quit"],
+            waitFor: "○ Quit",
+            captureAs: "initial",
+            steps: [{ bytes: "\x1b[B\x1b[B\r" }],
+          },
+          {
+            waitFor: ["Welcome.", "Press Enter to continue."],
+            captureAs: "document",
             steps: [{ bytes: "\r" }],
           },
-          // Leave the third browse iteration through its final navigation item.
-          // Search reserves End for its query editor, so walk the six selectable
-          // items explicitly; semantic headings are never part of this count.
           {
-            waitFor: ["Welcome.", "○ Quit"],
-            steps: [{ bytes: "\x1b[B".repeat(5) + "\r" }],
+            waitFor: ["discern documentation", "○ Quit"],
+            captureAs: "restored",
+            // From the remembered root document: three Intro documents, then Quit.
+            steps: [{ bytes: "\x1b[B".repeat(4) + "\r" }],
           },
         ],
         timeoutMs: 8_000,
@@ -227,55 +231,58 @@ Deno.test({
 
       assertEquals(process.code, 0, process.transcript);
       assertEquals(process.stderr, "", process.transcript);
-      assertEquals(
-        process.transcript.match(/Welcome\./gu)?.length,
-        2,
-        process.transcript,
-      );
+      assertEquals(process.transcript.match(/Welcome\./gu)?.length, 1);
       assertStringIncludes(process.transcript, "discern docs — 4 documents");
-      assertStringIncludes(process.transcript, "Quit");
+      assertStringIncludes(process.transcript, "Press Enter to continue.");
+      assert(!process.transcript.includes("The pager failed"));
+
+      const initial = process.keyframes.initial ?? "";
+      const groupOffsets = ["BROWSE", "OVERVIEW", "INTRO", "ACTIONS"].map(
+        (label) => initial.indexOf(label),
+      );
+      assert(groupOffsets.every((offset) => offset >= 0), initial);
+      assertEquals([...groupOffsets].sort((a, b) => a - b), groupOffsets);
+      for (
+        const visible of [
+          "Read the docs online",
+          "discern documentation",
+          "README.md",
+          "00-orientation/",
+          "Concepts at a glance",
+          "concepts.md",
+          "Quit",
+        ]
+      ) {
+        assertStringIncludes(initial, visible);
+      }
+      assertStringIncludes(
+        process.keyframes.restored ?? "",
+        "discern documentation",
+      );
     });
   },
 });
 
 for (
   const testCase of [
-    {
-      verb: "docs",
-      body: "Welcome.",
-      mode: "--no-pager",
-      args: ["--no-pager"],
-    },
-    {
-      verb: "map",
-      body: "The project's own docs.",
-      mode: "--no-pager",
-      args: ["--no-pager"],
-    },
-    {
-      verb: "docs",
-      body: "Welcome.",
-      mode: "pager fallback",
-      args: [],
-    },
-    {
-      verb: "map",
-      body: "The project's own docs.",
-      mode: "pager fallback",
-      args: [],
-    },
+    { query: "Concepts at a glance", body: "The concepts body" },
+    { query: "concepts.md", body: "The concepts body" },
+    { query: "nested/deep.md", body: "Nested path body" },
   ] as const
 ) {
   Deno.test({
-    name:
-      `${testCase.verb} browser leaves direct ${testCase.mode} output after the final picker`,
+    name: `docs picker finds a document by ${testCase.query}`,
     ignore: Deno.build.os === "windows",
     fn: async () => {
       await withTempDir(async (dir) => {
         const docs = await makeDocsFixture(dir);
-        const env: Record<string, string> = { NO_COLOR: "1" };
-        if (testCase.verb === "docs") env.DISCERN_DOCS_DIR = docs;
-        if (testCase.mode === "pager fallback") env.PAGER = "false";
+        await Deno.mkdir(join(docs, "00-orientation", "nested"), {
+          recursive: true,
+        });
+        await Deno.writeTextFile(
+          join(docs, "00-orientation", "nested", "deep.md"),
+          "# Deep document\n\nNested path body.\n",
+        );
         const process = await runPtyProcess({
           command: Deno.execPath(),
           args: [
@@ -285,27 +292,25 @@ for (
             DENO_JSON,
             "-A",
             MAIN_TS,
-            testCase.verb,
-            ...testCase.args,
+            "docs",
           ],
           cwd: dir,
-          env,
-          input: [{
-            waitFor: "○ Quit",
-            steps: [{ bytes: "\x1b[B\r" }],
-          }],
+          env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
+          input: [
+            {
+              waitFor: "nested/deep.md",
+              steps: [{ bytes: `${testCase.query}\x1b[B\r` }],
+            },
+            {
+              waitFor: [testCase.body, "Press Enter to continue."],
+              steps: [{ bytes: "\x03" }],
+            },
+          ],
           timeoutMs: 8_000,
         });
 
         assertEquals(process.code, 0, process.transcript);
-        assertEquals(process.stderr, "", process.transcript);
-        const bodyOffset = process.transcript.lastIndexOf(testCase.body);
-        const pickerOffset = process.transcript.lastIndexOf("type to filter");
-        assert(bodyOffset >= 0, process.transcript);
-        assert(
-          bodyOffset > pickerOffset,
-          `${testCase.verb} reopened its picker after rendering:\n${process.transcript}`,
-        );
+        assertStringIncludes(process.transcript, testCase.body);
       });
     },
   });
@@ -313,7 +318,7 @@ for (
 
 Deno.test({
   name:
-    "map browser selects and leaves the production interaction through a real PTY",
+    "map browser omits Browse and returns from its internal reader through a real PTY",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -330,12 +335,22 @@ Deno.test({
           "map",
         ],
         cwd: dir,
-        env: { NO_COLOR: "1", PAGER: "cat" },
+        env: { NO_COLOR: "1", PAGER: "false" },
         input: [
-          { waitFor: "○ Quit", steps: [{ bytes: "\x1b[B\r" }] },
-          // The remembered document is first; Quit is the next selectable row.
           {
-            waitFor: ["The project's own docs.", "○ Quit"],
+            waitFor: "○ Quit",
+            captureAs: "initial",
+            steps: [{ bytes: "\x1b[B\r" }],
+          },
+          {
+            waitFor: [
+              "The project's own docs.",
+              "Press Enter to continue.",
+            ],
+            steps: [{ bytes: "\r" }],
+          },
+          {
+            waitFor: ["Project Decoy", "○ Quit"],
             steps: [{ bytes: "\x1b[B\r" }],
           },
         ],
@@ -346,9 +361,280 @@ Deno.test({
       assertEquals(process.stderr, "", process.transcript);
       assertStringIncludes(process.transcript, "discern map — 1 document");
       assertStringIncludes(process.transcript, "The project's own docs.");
-      assertStringIncludes(process.transcript, "◉ Quit");
+      assertStringIncludes(process.transcript, "Press Enter to continue.");
+      assert(!(process.keyframes.initial ?? "").includes("BROWSE"));
+      assertStringIncludes(process.keyframes.initial ?? "", "ACTIONS");
+      assert(!process.transcript.includes("The pager failed"));
     });
   },
+});
+
+Deno.test({
+  name: "explicit pager exit restores the docs picker without acknowledgement",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      const docs = await makeDocsFixture(dir);
+      const process = await runPtyProcess({
+        command: Deno.execPath(),
+        args: [
+          "run",
+          "--no-check",
+          "--config",
+          DENO_JSON,
+          "-A",
+          MAIN_TS,
+          "docs",
+          "--pager",
+        ],
+        cwd: dir,
+        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "cat" },
+        input: [
+          {
+            waitFor: "○ Quit",
+            steps: [{ bytes: "\x1b[B\x1b[B\r" }],
+          },
+          {
+            waitFor: ["Welcome.", "○ Quit"],
+            steps: [{ bytes: "\x1b[B".repeat(4) + "\r" }],
+          },
+        ],
+        timeoutMs: 8_000,
+      });
+
+      assertEquals(process.code, 0, process.transcript);
+      assertStringIncludes(process.transcript, "Welcome.");
+      assert(!process.transcript.includes("Press Enter to continue."));
+      assert(!process.transcript.includes("The pager failed"));
+    });
+  },
+});
+
+Deno.test({
+  name:
+    "failed explicit pager warns, falls back internally, and restores the picker",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      const docs = await makeDocsFixture(dir);
+      const process = await runPtyProcess({
+        command: Deno.execPath(),
+        args: [
+          "run",
+          "--no-check",
+          "--config",
+          DENO_JSON,
+          "-A",
+          MAIN_TS,
+          "docs",
+          "--pager",
+        ],
+        cwd: dir,
+        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
+        input: [
+          {
+            waitFor: "○ Quit",
+            steps: [{ bytes: "\x1b[B\x1b[B\r" }],
+          },
+          {
+            waitFor: [
+              "Showing the document in discern.",
+              "Welcome.",
+              "Press Enter to continue.",
+            ],
+            steps: [{ bytes: "\r" }],
+          },
+          {
+            waitFor: ["discern documentation", "○ Quit"],
+            steps: [{ bytes: "\x1b[B".repeat(4) + "\r" }],
+          },
+        ],
+        timeoutMs: 8_000,
+      });
+
+      assertEquals(process.code, 0, process.transcript);
+      assertStringIncludes(
+        process.transcript,
+        "The pager failed.",
+      );
+      assertStringIncludes(process.transcript, "Press Enter to continue.");
+    });
+  },
+});
+
+for (
+  const testCase of [
+    {
+      name: "default internal target",
+      args: [] as string[],
+      pager: "false",
+      warning: false,
+      color: false,
+    },
+    {
+      name: "explicit target pager",
+      args: ["--pager"],
+      pager: "cat",
+      warning: false,
+      color: true,
+    },
+    {
+      name: "failed target pager fallback",
+      args: ["--pager"],
+      pager: "false",
+      warning: true,
+      color: false,
+    },
+  ] as const
+) {
+  Deno.test({
+    name: `${testCase.name} exits directly through a real PTY`,
+    ignore: Deno.build.os === "windows",
+    fn: async () => {
+      await withTempDir(async (dir) => {
+        const docs = await makeDocsFixture(dir);
+        const process = await runPtyProcess({
+          command: Deno.execPath(),
+          args: [
+            "run",
+            "--no-check",
+            "--config",
+            DENO_JSON,
+            "-A",
+            MAIN_TS,
+            "docs",
+            "concepts",
+            ...testCase.args,
+          ],
+          cwd: dir,
+          env: {
+            DISCERN_DOCS_DIR: docs,
+            PAGER: testCase.pager,
+            NO_COLOR: testCase.color ? "" : "1",
+            FORCE_COLOR: testCase.color ? "1" : "",
+          },
+          geometry: { columns: 80, rows: 24 },
+          keepInputOpen: true,
+          timeoutMs: 8_000,
+        });
+
+        assertEquals(process.code, 0, process.transcript);
+        assertStringIncludes(process.transcript, "The concepts body");
+        assertEquals(
+          process.transcript.includes("The pager failed"),
+          testCase.warning,
+        );
+        assert(!process.transcript.includes("Press Enter to continue."));
+        if (testCase.color) {
+          assertStringIncludes(process.transcript, "\x1b[");
+        }
+      });
+    },
+  });
+}
+
+Deno.test("docs and map expose only the explicit pager flag", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const env = { DISCERN_DOCS_DIR: docs };
+    for (const verb of ["docs", "map"]) {
+      const help = await runCli([verb, "--help"], dir, env);
+      assertEquals(help.code, 0, help.stderr);
+      assertStringIncludes(help.stdout, "--pager");
+      assert(!help.stdout.includes("--no-pager"), help.stdout);
+
+      const removed = await runCli([verb, "--no-pager"], dir, env);
+      assert(removed.code !== 0, removed.stdout + removed.stderr);
+      assertStringIncludes(removed.stdout + removed.stderr, "--no-pager");
+    }
+  });
+});
+
+Deno.test("pager refuses every static and machine projection with recovery", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const env = { DISCERN_DOCS_DIR: docs, PAGER: "cat" };
+    const humanCases = [
+      { args: ["docs", "README", "--pager", "--plain"], flag: "--plain" },
+      { args: ["docs", "README", "--pager", "--raw"], flag: "--raw" },
+      { args: ["docs", "--pager", "--list"], flag: "--list" },
+      {
+        args: ["docs", "--pager", "--search", "welcome"],
+        flag: "--search",
+      },
+      {
+        args: ["docs", "--pager", "--export", "public"],
+        flag: "--export",
+      },
+      {
+        args: ["docs", "--pager", "--output", "bundle.md"],
+        flag: "--output",
+      },
+    ];
+    for (const testCase of humanCases) {
+      const result = await runCli(testCase.args, dir, env);
+      assertEquals(result.code, 1, testCase.args.join(" "));
+      assertTerminalTextIncludes(
+        result.stderr,
+        `--pager cannot be combined with ${testCase.flag}`,
+      );
+      assertTerminalTextIncludes(result.stderr, "Remove --pager");
+      assertEquals(result.stdout, "");
+    }
+
+    const json = await runCli(
+      ["docs", "README", "--pager", "--json"],
+      dir,
+      env,
+    );
+    assertEquals(json.code, 1);
+    assertTerminalTextIncludes(
+      JSON.parse(json.stdout).message,
+      "--pager cannot be combined with --json",
+    );
+    assertEquals(json.stderr, "");
+
+    const markdown = await runCli(
+      ["docs", "README", "--pager", "--markdown"],
+      dir,
+      env,
+    );
+    assertEquals(markdown.code, 1);
+    assertTerminalTextIncludes(
+      markdown.stdout,
+      "--pager cannot be combined with --markdown",
+    );
+    assertEquals(markdown.stderr, "");
+
+    for (
+      const args of [
+        ["docs", "README", "--pager"],
+        ["map", "decoy", "--pager"],
+      ]
+    ) {
+      const result = await runCli(args, dir, env);
+      assertEquals(result.code, 1, args.join(" "));
+      assertTerminalTextIncludes(
+        result.stderr,
+        "--pager requires an interactive terminal",
+      );
+      assertTerminalTextIncludes(result.stderr, "Remove --pager");
+    }
+  });
+});
+
+Deno.test("a static rendered target never consults PAGER by default", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const result = await runCli(
+      ["docs", "concepts"],
+      dir,
+      { DISCERN_DOCS_DIR: docs, PAGER: "false" },
+    );
+    assertEquals(result.code, 0, result.stderr);
+    assertTerminalTextIncludes(result.stdout, "The concepts body");
+    assert(!result.stderr.includes("The pager failed"));
+  });
 });
 
 Deno.test("docs terminal facts are inert while machine Markdown stays exact", async () => {
@@ -363,7 +649,7 @@ Deno.test("docs terminal facts are inert while machine Markdown stays exact", as
     const env = { DISCERN_DOCS_DIR: docs };
 
     const human = await runCli(
-      ["docs", target, "--plain", "--no-pager", "--width", "48"],
+      ["docs", target, "--plain", "--width", "48"],
       dir,
       env,
     );
@@ -548,7 +834,7 @@ Deno.test("docs terminal render strips inline citations into a related-decisions
   await withTempDir(async (dir) => {
     const docs = await makeDocsFixture(dir);
     const rendered = await runCli(
-      ["docs", "concepts", "--plain", "--no-pager", "--no-color"],
+      ["docs", "concepts", "--plain", "--no-color"],
       dir,
       { DISCERN_DOCS_DIR: docs },
     );

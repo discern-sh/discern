@@ -11,8 +11,11 @@ import {
 } from "discern-design-system/cli";
 import {
   InteractionCancelled as PackageInteractionCancelled,
+  type InteractionChoicePresentation,
+  type InteractionCompletionPolicy,
   type InteractionEntry,
   type InteractionRuntime as PackageInteractionRuntime,
+  requestAcknowledgement as packageRequestAcknowledgement,
   requestConfirmation as packageRequestConfirmation,
   requestSearch as packageRequestSearch,
   requestSelection as packageRequestSelection,
@@ -146,6 +149,8 @@ export interface SelectionOption<T> {
   readonly kind?: "choice";
   readonly id?: string;
   readonly name: string;
+  /** Secondary product text, such as a filename or destination. */
+  readonly description?: string;
   readonly value: T;
   readonly disabled?: boolean;
   /** Initial multi-select state retained for the docs export picker. */
@@ -157,6 +162,8 @@ export interface SelectionHeading {
   readonly kind: "group-heading";
   readonly id: string;
   readonly name: string;
+  /** Secondary product text describing the grouped destination. */
+  readonly description?: string;
 }
 
 /** Choices and structural headings accepted by the product interaction adapter. */
@@ -169,6 +176,10 @@ export interface SelectionRequestOptions<T> {
   readonly default?: T;
   readonly hint?: string;
   readonly required?: boolean | string;
+  /** Successful-frame cleanup owned by the package request driver. */
+  readonly completion?: InteractionCompletionPolicy;
+  /** Form chrome or the quieter long-lived browsing treatment. */
+  readonly presentation?: InteractionChoicePresentation;
   readonly validate?: (value: T) => MaybePromise<InteractionValidation>;
   /** Use the package search request rather than a static selection request. */
   readonly search?: boolean;
@@ -187,6 +198,10 @@ export interface SelectionsRequestOptions<T> {
   readonly default?: readonly T[];
   readonly hint?: string;
   readonly minOptions?: number;
+  /** Successful-frame cleanup owned by the package request driver. */
+  readonly completion?: InteractionCompletionPolicy;
+  /** Form chrome or the quieter long-lived browsing treatment. */
+  readonly presentation?: InteractionChoicePresentation;
   readonly validate?: (
     value: readonly T[],
   ) => MaybePromise<InteractionValidation>;
@@ -213,7 +228,7 @@ export type TextRequestOptions = string | TextRequestSettings;
 
 export type SelectionGroup<T> =
   & HumanOutputGroup<SelectionOption<T>>
-  & { label: string };
+  & { label: string; description?: string };
 
 /** Injectable interaction runtime used by focused tests and terminal harnesses. */
 export interface TerminalInteractionRuntime {
@@ -264,17 +279,29 @@ export function withInteractionBoundary(target: TerminalIO): TerminalIO {
 export function groupedSelectionEntries<T>(
   groups: readonly SelectionGroup<T>[],
 ): SelectionEntry<T>[] {
-  return populatedHumanOutputGroups(groups).flatMap((group) => {
-    if (group.label === undefined) {
-      throw new TypeError(
-        `selection group ${JSON.stringify(group.id)} needs a label`,
-      );
-    }
-    return [
-      { kind: "group-heading", id: group.id, name: group.label } as const,
-      ...group.items,
-    ];
-  });
+  const populatedIds = new Set(
+    populatedHumanOutputGroups(groups).map((group) => group.id),
+  );
+  return groups.filter((group) => populatedIds.has(group.id)).flatMap(
+    (group) => {
+      if (group.label === undefined) {
+        throw new TypeError(
+          `selection group ${JSON.stringify(group.id)} needs a label`,
+        );
+      }
+      return [
+        {
+          kind: "group-heading",
+          id: group.id,
+          name: group.label,
+          ...(group.description === undefined
+            ? {}
+            : { description: group.description }),
+        } as const,
+        ...group.items,
+      ];
+    },
+  );
 }
 
 /**
@@ -498,6 +525,9 @@ function adaptChoices<T>(
         kind: "group-heading",
         id: productId,
         label,
+        ...(entry.description === undefined
+          ? {}
+          : { description: terminalLine(entry.description) }),
       };
     }
 
@@ -546,6 +576,9 @@ function adaptChoices<T>(
     return {
       id: productId,
       label: terminalLine(entry.name),
+      ...(entry.description === undefined
+        ? {}
+        : { description: terminalLine(entry.description) }),
       value: entry.value,
       ...(entry.disabled === undefined ? {} : { disabled: entry.disabled }),
     };
@@ -556,40 +589,6 @@ function adaptChoices<T>(
     idFor: (value) =>
       valueIds.find((candidate) => sameValue(candidate.value, value))?.id,
   };
-}
-
-/** Keep a semantic heading only when its group has a matching choice. */
-function filterChoices<T>(
-  entries: readonly InteractionEntry<T>[],
-  query: string,
-): readonly InteractionEntry<T>[] {
-  const needle = query.toLowerCase();
-  if (needle === "") return entries;
-  const matches = (label: string): boolean =>
-    label.toLowerCase().includes(needle);
-  const filtered: InteractionEntry<T>[] = [];
-  for (let index = 0; index < entries.length;) {
-    const entry = entries[index];
-    if (entry?.kind !== "group-heading") {
-      if (entry !== undefined && matches(entry.label)) filtered.push(entry);
-      index += 1;
-      continue;
-    }
-    const choices: InteractionEntry<T>[] = [];
-    let next = index + 1;
-    while (next < entries.length && entries[next]?.kind !== "group-heading") {
-      const choice = entries[next];
-      if (
-        choice !== undefined && (matches(entry.label) || matches(choice.label))
-      ) {
-        choices.push(choice);
-      }
-      next += 1;
-    }
-    if (choices.length > 0) filtered.push(entry, ...choices);
-    index = next;
-  }
-  return filtered;
 }
 
 /** Adapt the product validator's true/string convention to the package. */
@@ -717,6 +716,12 @@ export async function requestSelection<T>(
     choices: choices.entries,
     ...(options.hint === undefined ? {} : { hint: terminalLine(options.hint) }),
     ...(required === undefined ? {} : { required }),
+    ...(options.completion === undefined
+      ? {}
+      : { completion: options.completion }),
+    ...(options.presentation === undefined
+      ? {}
+      : { presentation: options.presentation }),
     ...(validate === undefined ? {} : {
       validate: async (value: T | undefined): Promise<string | undefined> =>
         value === undefined ? undefined : await validate(value),
@@ -729,9 +734,15 @@ export async function requestSelection<T>(
   const value = options.search === true
     ? await runInteractionRequest(packageRequestSearch<T>, {
       label: shared.label,
-      search: (query) => filterChoices(choices.entries, query),
+      search: choices.entries,
       ...(shared.hint === undefined ? {} : { hint: shared.hint }),
       ...(shared.required === undefined ? {} : { required: shared.required }),
+      ...(shared.completion === undefined
+        ? {}
+        : { completion: shared.completion }),
+      ...(shared.presentation === undefined
+        ? {}
+        : { presentation: shared.presentation }),
       ...(shared.validate === undefined ? {} : { validate: shared.validate }),
       ...(shared.reservedRows === undefined
         ? {}
@@ -793,6 +804,12 @@ export async function requestSelections<T>(
     initialIds: [...initialIds],
     ...(options.hint === undefined ? {} : { hint: terminalLine(options.hint) }),
     validate,
+    ...(options.completion === undefined
+      ? {}
+      : { completion: options.completion }),
+    ...(options.presentation === undefined
+      ? {}
+      : { presentation: options.presentation }),
     ...(options.reservedRows === undefined
       ? {}
       : { reservedRows: options.reservedRows }),
@@ -842,6 +859,18 @@ export async function requestConfirmation(
     label: terminalLine(message),
     initialValue: defaultTo,
   }, runtime);
+}
+
+/** Wait below caller-owned content through the package's compact continuation. */
+export async function requestCompactAcknowledgement(
+  runtime: TerminalInteractionRuntime = {},
+): Promise<void> {
+  requireInteraction("this continuation", runtime);
+  await runInteractionRequest(
+    packageRequestAcknowledgement,
+    { presentation: "compact" as const },
+    runtime,
+  );
 }
 
 /** Canonical whitespace policy shared by single-line product text requests. */
