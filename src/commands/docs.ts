@@ -102,6 +102,7 @@ import {
   canInteract,
   groupedSelectionEntries,
   isInteractionCancelled,
+  isSelectionHeading,
   type MarkdownBrowserEntry,
   type MarkdownBrowserLinkResolution,
   type MarkdownBrowserLinkResolverInput,
@@ -910,6 +911,7 @@ function docsDocumentCount(count: number): string {
   return `${count} document${count === 1 ? "" : "s"}`;
 }
 
+/** Keep the browser label and static header on one corpus fact. */
 function docsHeaderFact(
   verb: string,
   count: number,
@@ -1038,78 +1040,70 @@ async function docsMarkdownBrowserCorpus(
 ): Promise<DocsMarkdownBrowserCorpus> {
   const entries: MarkdownBrowserEntry<DocsBrowserChoice>[] = [];
   const sourcesByPath = new Map<string, string>();
-  for (const group of projection.groups) {
-    entries.push({
-      kind: "group-heading",
-      id: group.id,
-      name: group.label,
-      ...(group.description === undefined
-        ? {}
-        : { description: group.description }),
-    });
-    for (const item of group.items) {
-      if (item.id === undefined) {
-        throw new TypeError(
-          `Documentation browser entry ${
-            JSON.stringify(item.name)
-          } needs an id.`,
-        );
-      }
-      if (item.value.kind === "read-online") {
-        entries.push({
-          kind: "action",
-          id: item.id,
-          name: item.name,
-          ...(item.description === undefined
-            ? {}
-            : { description: item.description }),
-          value: item.value,
-        });
-        continue;
-      }
-      if (item.value.kind === "quit") {
-        entries.push({
-          kind: "exit",
-          id: item.id,
-          name: item.name,
-          ...(item.description === undefined
-            ? {}
-            : { description: item.description }),
-        });
-        continue;
-      }
-      const document = projection.entriesByPath.get(item.value.path);
-      if (document === undefined) {
-        throw new TypeError(
-          `Documentation browser entry is missing for ${item.value.path}.`,
-        );
-      }
-      let source: string;
-      try {
-        source = terminalBody(
-          desc,
-          document,
-          await Deno.readTextFile(document.absPath),
-        );
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        throw new Error(
-          `could not read ${document.path}: ${detail}`,
-          { cause: error },
-        );
-      }
-      sourcesByPath.set(document.path, source);
+  for (const item of groupedSelectionEntries(projection.groups)) {
+    if (isSelectionHeading(item)) {
+      entries.push(item);
+      continue;
+    }
+    if (item.id === undefined) {
+      throw new TypeError(
+        `Documentation browser entry ${JSON.stringify(item.name)} needs an id.`,
+      );
+    }
+    if (item.value.kind === "read-online") {
       entries.push({
-        kind: "document",
+        kind: "action",
         id: item.id,
         name: item.name,
         ...(item.description === undefined
           ? {}
           : { description: item.description }),
-        path: docsCorpusPath(document),
-        source,
+        value: item.value,
       });
+      continue;
     }
+    if (item.value.kind === "quit") {
+      entries.push({
+        kind: "exit",
+        id: item.id,
+        name: item.name,
+        ...(item.description === undefined
+          ? {}
+          : { description: item.description }),
+      });
+      continue;
+    }
+    const document = projection.entriesByPath.get(item.value.path);
+    if (document === undefined) {
+      throw new TypeError(
+        `Documentation browser entry is missing for ${item.value.path}.`,
+      );
+    }
+    let source: string;
+    try {
+      source = terminalBody(
+        desc,
+        document,
+        await Deno.readTextFile(document.absPath),
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `could not read ${document.path}: ${detail}`,
+        { cause: error },
+      );
+    }
+    sourcesByPath.set(document.path, source);
+    entries.push({
+      kind: "document",
+      id: item.id,
+      name: item.name,
+      ...(item.description === undefined
+        ? {}
+        : { description: item.description }),
+      path: docsCorpusPath(document),
+      source,
+    });
   }
   return { entries, sourcesByPath };
 }

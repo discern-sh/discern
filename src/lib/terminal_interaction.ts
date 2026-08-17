@@ -177,6 +177,13 @@ export interface SelectionHeading {
 /** Choices and structural headings accepted by the product interaction adapter. */
 export type SelectionEntry<T> = SelectionOption<T> | SelectionHeading;
 
+/** Narrow a shared selection entry without duplicating heading vocabulary. */
+export function isSelectionHeading<T>(
+  entry: SelectionEntry<T>,
+): entry is SelectionHeading {
+  return entry.kind === "group-heading";
+}
+
 /** One semantic heading in the product's Markdown-browser corpus. */
 export interface MarkdownBrowserGroupHeading {
   readonly kind: "group-heading";
@@ -911,6 +918,8 @@ interface PackageInteractionSessionOptions {
   readonly leadingBoundary: boolean;
   /** Inline painters need a final newline when an unexpected fault bypasses finish. */
   readonly terminateUnexpectedFrame: boolean;
+  /** Give a typed non-value outcome its own trace label before rethrowing it. */
+  readonly errorOutcome?: (error: unknown) => string | undefined;
 }
 
 /** Construct one package runtime after policy has allowed interaction. */
@@ -989,8 +998,12 @@ async function runInteractionRequest<Options, Value>(
   operation: PackageInteractionOperation<Options, Value>,
   options: Options,
   runtime: TerminalInteractionRuntime,
+  sessionOptions: PackageInteractionSessionOptions = {
+    leadingBoundary: true,
+    terminateUnexpectedFrame: true,
+  },
 ): Promise<Value> {
-  const session = packageInteractionRuntime(runtime);
+  const session = packageInteractionRuntime(runtime, sessionOptions);
   let outcome = "value";
   try {
     return await operation(options, session.runtime);
@@ -999,7 +1012,7 @@ async function runInteractionRequest<Options, Value>(
       outcome = "cancelled";
       throw new InteractionCancelled();
     }
-    outcome = "error";
+    outcome = sessionOptions.errorOutcome?.(error) ?? "error";
     session.terminateUnexpectedFrame();
     throw error;
   } finally {
@@ -1033,69 +1046,68 @@ export async function requestMarkdownBrowser<Action>(
         resolveMarkdownBrowserLink(input, entries, linkResolver),
     }),
   };
-  const session = packageInteractionRuntime(runtime, {
-    leadingBoundary: false,
-    terminateUnexpectedFrame: false,
-  });
-  let outcome = "value";
-  try {
-    const result = await packageRequestMarkdownBrowser(
-      packageOptions,
-      session.runtime,
+  const result = await (async () => {
+    try {
+      return await runInteractionRequest(
+        packageRequestMarkdownBrowser,
+        packageOptions,
+        runtime,
+        {
+          leadingBoundary: false,
+          terminateUnexpectedFrame: false,
+          errorOutcome: (error) =>
+            error instanceof PackageMarkdownBrowserRefusalError
+              ? `refused:${error.reason}`
+              : undefined,
+        },
+      );
+    } catch (error) {
+      if (error instanceof PackageMarkdownBrowserRefusalError) {
+        return {
+          kind: "refused" as const,
+          reason: error.reason,
+          columns: error.columns,
+          rows: error.rows,
+        };
+      }
+      throw error;
+    }
+  })();
+  if (result.kind === "refused") return result;
+  if (result.kind === "external-link") {
+    const sourceDocumentId = entries.productIdForPackageId(
+      result.sourceDocumentId,
     );
-    if (result.kind === "external-link") {
-      const sourceDocumentId = entries.productIdForPackageId(
-        result.sourceDocumentId,
-      );
-      if (sourceDocumentId === undefined) {
-        throw new TypeError(
-          "Markdown browser returned an unknown external-link source.",
-        );
-      }
-      return {
-        kind: result.kind,
-        id: result.id,
-        destination: result.destination,
-        sourceDocumentId,
-        sourcePath: result.sourcePath,
-        state: result.state,
-      };
-    }
-    const id = entries.productIdForPackageId(result.id);
-    if (id === undefined) {
+    if (sourceDocumentId === undefined) {
       throw new TypeError(
-        `Markdown browser returned unknown entry id ${
-          JSON.stringify(result.id)
-        }.`,
+        "Markdown browser returned an unknown external-link source.",
       );
     }
-    return result.kind === "action"
-      ? {
-        kind: result.kind,
-        id,
-        value: result.value,
-        state: result.state,
-      }
-      : { kind: result.kind, id, state: result.state };
-  } catch (error) {
-    if (error instanceof PackageInteractionCancelled) {
-      outcome = "cancelled";
-      throw new InteractionCancelled();
-    }
-    if (error instanceof PackageMarkdownBrowserRefusalError) {
-      outcome = `refused:${error.reason}`;
-      return {
-        kind: "refused",
-        reason: error.reason,
-        columns: error.columns,
-        rows: error.rows,
-      };
-    }
-    outcome = "error";
-    throw error;
-  } finally {
-    session.settleTrace?.(outcome);
+    return {
+      kind: result.kind,
+      id: result.id,
+      destination: result.destination,
+      sourceDocumentId,
+      sourcePath: result.sourcePath,
+      state: result.state,
+    };
   }
+  const id = entries.productIdForPackageId(result.id);
+  if (id === undefined) {
+    throw new TypeError(
+      `Markdown browser returned unknown entry id ${
+        JSON.stringify(result.id)
+      }.`,
+    );
+  }
+  return result.kind === "action"
+    ? {
+      kind: result.kind,
+      id,
+      value: result.value,
+      state: result.state,
+    }
+    : { kind: result.kind, id, state: result.state };
 }
 
 /** Guard policy before delegating to the package selection or search request. */

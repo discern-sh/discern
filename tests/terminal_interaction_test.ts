@@ -50,7 +50,12 @@ import {
   resolveTerminalContext,
   type TerminalContext,
 } from "../src/lib/terminal.ts";
-import { fakeEnv, pinnedTerminal, withTempDir } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  fakeEnv,
+  pinnedTerminal,
+  withTempDir,
+} from "./helpers.ts";
 
 const encoder = new TextEncoder();
 
@@ -414,7 +419,7 @@ Deno.test("Markdown browser adapter restores the terminal before product actions
   assertEquals(result.value, { destination: "online" });
   assertEquals(io.rawTransitions, [true, false]);
   assertEquals(io.resizeListenerCount, 0);
-  assertStringIncludes(stripAnsi(io.output()), "DISCERN DOCS");
+  assertTerminalTextIncludes(stripAnsi(io.output()), "DISCERN DOCS");
 });
 
 Deno.test("Markdown browser adapter returns only the package's typed refusals", async () => {
