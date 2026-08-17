@@ -23,15 +23,19 @@ import {
 import {
   InlineFramePainter,
   type InteractionEntry,
+  MarkdownBrowserRefusalError,
+  requestAcknowledgement,
+  requestMarkdownBrowser,
   requestSelection,
   senseTerminalBackground,
   type TerminalIO,
   type TerminalSize,
 } from "discern-design-system/cli/interactive";
+import { FakeTerminalIO } from "discern-design-system/cli/interactive/testing";
 import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.19.0";
+const SELECTED_VERSION = "0.20.0";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
@@ -151,7 +155,7 @@ function resolvedEdge(info: DenoInfo, specifier: string): string {
   return info.redirects?.[specifier] ?? specifier;
 }
 
-Deno.test("the selected release exposes all four public consumer graphs", async () => {
+Deno.test("the selected release exposes the complete public reader contract", async () => {
   const config = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.json")),
   ) as DenoConfig;
@@ -164,6 +168,10 @@ Deno.test("the selected release exposes all four public consumer graphs", async 
 
   assertEquals(packageManifest.package, "@discern-sh/design-system");
   assert(packageManifest.components.length > 0);
+  assertEquals(typeof requestAcknowledgement, "function");
+  assertEquals(typeof requestMarkdownBrowser, "function");
+  assertEquals(typeof MarkdownBrowserRefusalError, "function");
+  assertEquals(typeof FakeTerminalIO, "function");
 
   const capabilities: TerminalCapabilities = {
     ansiControl: true,
@@ -191,20 +199,43 @@ Deno.test("the selected release exposes all four public consumer graphs", async 
   assertStringIncludes(fleet, branch);
 
   const choices = [
-    { kind: "group-heading", id: "primary", label: "Primary" },
-    { id: "one", label: "One", value: "one" },
+    {
+      kind: "group-heading",
+      id: "primary",
+      label: "Primary",
+      description: "first/",
+    },
+    { id: "one", label: "One", description: "one.md", value: "one" },
     { kind: "group-heading", id: "secondary", label: "Secondary" },
     { id: "two", label: "Two", value: "two" },
   ] as const satisfies readonly InteractionEntry<string>[];
   const io = new ConsumerTerminal(["\x1b[B\r"]);
   assertEquals(
-    await requestSelection({ label: "Pick", choices, reservedRows: 2 }, { io }),
+    await requestSelection({
+      label: "Pick",
+      choices,
+      reservedRows: 2,
+      presentation: "browsing",
+      completion: "clear-frame",
+    }, { io }),
     "two",
   );
   assertEquals(io.rawTransitions, [true, false]);
   const terminalOutput = io.writes.join("");
   assertStringIncludes(terminalOutput, "PRIMARY");
   assertStringIncludes(terminalOutput, "SECONDARY");
+  assertStringIncludes(terminalOutput, "first/");
+  assertStringIncludes(terminalOutput, "one.md");
+
+  const acknowledgementIo = new ConsumerTerminal(["\r"]);
+  await requestAcknowledgement(
+    { presentation: "compact" },
+    { io: acknowledgementIo },
+  );
+  assertStringIncludes(
+    acknowledgementIo.writes.join(""),
+    "Press Enter to continue.",
+  );
 
   const choiceFrames = io.writes.filter((write) =>
     write.includes("One") && write.includes("Two")
@@ -313,7 +344,7 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
   assert(presenter.motif === DISCERN_TERMINAL_MOTIF);
   assertEquals(
     Array.from({ length: 4 }, (_, phase) => presenter.motifSpinnerFrame(phase)),
-    ["▴", "◂", "▾", "▸"],
+    ["◐", "◓", "◑", "◒"],
   );
   const customMotif = deriveTerminalMotif(DISCERN_TERMINAL_MOTIF, {
     unicode: { spinner: ["◴", "◷", "◶", "◵"] },
@@ -328,7 +359,7 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
     ["◴", "◷", "◶", "◵"],
   );
   assertEquals(presenter.motifSpinnerFrame(1, { motif: customMotif }), "◷");
-  assertEquals(presenter.motifSpinnerFrame(1), "◂");
+  assertEquals(presenter.motifSpinnerFrame(1), "◓");
 
   const section = presenter.motifSectionRule("Status", { width: 32 });
   assertStringIncludes(section, "STATUS");
@@ -398,14 +429,14 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
     confirm(false),
     "Proceed [active]\n" +
       "┌──────────────────────────────────────┐\n" +
-      "│› Keep waiting ●──○ Deploy now        │\n" +
+      "│› Keep waiting × ●──○   Deploy now    │\n" +
       "└──────────────────────────────────────┘\n",
   );
   assertEquals(
     confirm(true),
     "Proceed [active]\n" +
       "┌──────────────────────────────────────┐\n" +
-      "│› Keep waiting ○──● Deploy now        │\n" +
+      "│› Keep waiting   ○──● ✓ Deploy now    │\n" +
       "└──────────────────────────────────────┘\n",
   );
   for (const value of [false, true]) {
@@ -503,6 +534,8 @@ Deno.test("CLI design-system graphs stay published, lock-resolved, and React-fre
         dependency.specifier === "discern-design-system" ||
         dependency.specifier === "discern-design-system/cli" ||
         dependency.specifier === "discern-design-system/cli/interactive" ||
+        dependency.specifier ===
+          "discern-design-system/cli/interactive/testing" ||
         dependency.specifier === "discern-design-system/cli/projection"
       )
       .flatMap((dependency) =>
@@ -518,6 +551,7 @@ Deno.test("CLI design-system graphs stay published, lock-resolved, and React-fre
     "discern-design-system",
     "discern-design-system/cli",
     "discern-design-system/cli/interactive",
+    "discern-design-system/cli/interactive/testing",
     "discern-design-system/cli/projection",
   ]);
   const allowedOrigin =
