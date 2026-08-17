@@ -33,6 +33,7 @@ import {
   renderBridgeDoc,
 } from "./brand/bridge.ts";
 import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
+import { renderDemandCanonDoc } from "./brand/demand.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
 import { renderCopyPatternsDoc } from "./brand/patterns.ts";
 import { renderCopyReviewDoc } from "./brand/docs/copy_review.ts";
@@ -70,6 +71,14 @@ export const BRAND_DOCUMENTS = [
     job:
       "Defines audience circumstances, desires, objections, knowledge levels, and message translations.",
     mode: { kind: "authored", privateOverlay: true },
+  },
+  {
+    id: "demand-canon",
+    file: "demand-canon.md",
+    status: "Canonical",
+    job:
+      "States the struggling moments the benefits answer — evidence-tagged, with current alternatives and forces — and holds two-way coverage against the benefit canon.",
+    mode: { kind: "generated", render: renderDemandCanonDoc },
   },
   {
     id: "messaging",
