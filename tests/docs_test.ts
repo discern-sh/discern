@@ -588,7 +588,7 @@ Deno.test("pager refuses every static and machine projection with recovery", asy
       env,
     );
     assertEquals(json.code, 1);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       JSON.parse(json.stdout).message,
       "--pager cannot be combined with --json",
     );
@@ -600,7 +600,7 @@ Deno.test("pager refuses every static and machine projection with recovery", asy
       env,
     );
     assertEquals(markdown.code, 1);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       markdown.stdout,
       "--pager cannot be combined with --markdown",
     );
@@ -632,7 +632,7 @@ Deno.test("a static rendered target never consults PAGER by default", async () =
       { DISCERN_DOCS_DIR: docs, PAGER: "false" },
     );
     assertEquals(result.code, 0, result.stderr);
-    assertStringIncludes(result.stdout, "The concepts body");
+    assertTerminalTextIncludes(result.stdout, "The concepts body");
     assert(!result.stderr.includes("The pager failed"));
   });
 });

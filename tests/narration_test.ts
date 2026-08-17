@@ -118,7 +118,7 @@ Deno.test("the narrator renders the one glyph grammar over the sink", () => {
   narration.warn("careful");
   narration.error("failed");
   narration.detail("fine print");
-  assertEquals(stdout.join(""), "◮ step\n✓ done\n\nSection\n  fine print\n");
+  assertEquals(stdout.join(""), "▸ step\n✓ done\n\nSection\n  fine print\n");
   assertEquals(stderr.join(""), "! careful\n✕ failed\n");
 });
 
@@ -143,7 +143,7 @@ Deno.test("the narrator inherits package Unicode and ASCII degradation", () => {
   };
 
   assertEquals(render("en_GB.UTF-8"), {
-    stdout: "◮ step\n✓ done\n",
+    stdout: "▸ step\n✓ done\n",
     stderr: "! careful\n✕ failed\n",
   });
   assertEquals(render("C"), {
@@ -167,7 +167,7 @@ Deno.test("the narrator delegates hanging-indent wrapping to the package", () =>
 
   narration.info("one two three four five");
 
-  assertEquals(stdout.join(""), "◮ one two three four\n  five\n");
+  assertEquals(stdout.join(""), "▸ one two three four\n  five\n");
 });
 
 Deno.test("the one failure form is a danger line with one recovery group", () => {
