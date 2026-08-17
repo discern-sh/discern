@@ -47,6 +47,7 @@ export const READING_PATHS = [
     steps: [
       "`positioning.md`",
       "`audiences.md`",
+      "`demand-canon.md`",
       "`messaging.md`",
       "the `discern-brand-voice` skill",
       "the relevant section of `website-brief.md`",

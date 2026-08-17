@@ -188,7 +188,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         alternative:
           "Serialize the dependent work, or keep both sessions open and relay progress by hand.",
         cost:
-          "The person cannot leave the desk while dependent work is moving, and a missed relay stalls the downstream task silently.",
+          "The person cannot leave the desk while dependent work is moving, and a missed relay leaves the downstream task stalled until somebody notices.",
         forces: ["push"],
         segments: ["experienced engineers"],
         evidence: [FROM_POSITIONING],
@@ -202,7 +202,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         alternative:
           "Scroll the old conversation, diff the working tree by hand, and rebuild the plan from memory.",
         cost:
-          "The first stretch of every resumed session goes to reconstructing context, and some paused tasks are quietly abandoned because reconstruction costs more than the remaining work.",
+          "The first stretch of every resumed session goes to reconstructing context, and some paused tasks are abandoned because reconstruction costs more than the remaining work.",
         forces: ["push"],
         segments: ["experienced engineers", "new consequential builders"],
         evidence: [FROM_DISCOURSE],
@@ -222,7 +222,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         evidence: [FROM_DISCOURSE],
         answer: {
           gap:
-            "No current capability relates agent spend to landed outcomes; the Logbook records local activity metadata, not cost.",
+            "No current capability relates agent spend to landed outcomes; the Logbook records local activity metadata and does not measure spend.",
         },
       },
     ],
@@ -349,7 +349,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         alternative:
           "Search old transcripts and CI logs, or accept that the verification history of the codebase is unrecoverable.",
         cost:
-          "Post-incident work starts from ignorance about what was actually established, and the same doubt attaches to every landed change.",
+          "Post-incident work starts from ignorance about what was established, and the same doubt attaches to every landed change.",
         forces: ["push"],
         segments: ["experienced engineers"],
         evidence: [FROM_POSITIONING],
@@ -363,7 +363,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         alternative:
           "Standing instructions never to push, repeated in every prompt, and branch-protection rules bolted on where the platform allows them.",
         cost:
-          "The shared branch carries unreviewed states, and the person patrols for surprise commits instead of assuming the trunk is theirs.",
+          "The shared branch carries changes nobody reviewed, and the person patrols for surprise commits instead of assuming the trunk is theirs.",
         forces: ["push", "anxiety"],
         segments: ["experienced engineers", "new consequential builders"],
         evidence: [FROM_DISCOURSE],
@@ -419,9 +419,9 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
     entries: [
       {
         id: "quality-erosion",
-        title: "The number quietly gets worse",
+        title: "The measure drifts backward",
         situation:
-          "Coverage, bundle size, lint findings, and other measures drift the wrong way one small change at a time, and an agent under pressure will loosen a threshold to make its branch pass.",
+          "Coverage, bundle size, lint findings, and other measures give ground one small change at a time, and an agent under pressure will loosen a threshold to make its branch pass.",
         alternative:
           "Periodic audits that discover the drift after months, and code review as the only defense against a threshold edit.",
         cost:
@@ -501,7 +501,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         alternative:
           "Adjust prompts and instructions on intuition and see whether things feel better.",
         cost:
-          "Improvement effort lands where irritation is loudest rather than where time is actually lost, and nobody can say whether a change helped.",
+          "Improvement effort lands where irritation is loudest rather than where time is lost, and nobody can say whether a change helped.",
         forces: ["push"],
         segments: ["experienced engineers"],
         evidence: [FROM_POSITIONING],
@@ -554,7 +554,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         id: "relitigated-decisions",
         title: "The settled question reopens",
         situation:
-          "A choice made deliberately months ago — with context, trade-offs, and a rejected alternative — resurfaces as a fresh suggestion, and the rejected alternative is proposed with confidence.",
+          "A choice settled months ago — with context, trade-offs, and a rejected alternative — resurfaces as a fresh suggestion, and the rejected alternative is proposed with confidence.",
         alternative:
           "Institutional memory in one person's head, and a veto exercised each time the question returns.",
         cost:
@@ -570,7 +570,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         situation:
           "The failure has been seen before and its remedy written down, but the note lives where nobody looks while failing, so each recurrence is diagnosed from scratch.",
         alternative:
-          "A gotchas page, a runbook, or a wiki that must be remembered precisely when things are going wrong.",
+          "A gotchas page, an operations guide, or a wiki that must be remembered precisely when things are going wrong.",
         cost:
           "Documented knowledge performs as if it did not exist, and diagnosis time is spent re-earning it.",
         forces: ["push"],
@@ -625,7 +625,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         id: "integration-engineer-by-accident",
         title: "Adopting the tool means becoming its engineer",
         situation:
-          "Every serious workflow tool asks the person to study its configuration language, wire it to their project by hand, and debug the integration — expertise they were hoping to borrow, not acquire.",
+          "Every serious workflow tool asks the person to study its configuration language, wire it to their project by hand, and debug the integration — expertise they hoped to borrow rather than acquire.",
         alternative:
           "Spend the weekend on setup, adopt a diluted version of the practice, or postpone adoption again.",
         cost:
@@ -667,7 +667,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         id: "workspace-residue",
         title: "The experiments leave their equipment out",
         situation:
-          "Months of task workspaces leave the machine littered with directories, ports, and databases from efforts nobody remembers, and cleaning up risks deleting the one that held unlanded work.",
+          "Months of task workspaces leave the machine littered with directories, ports, and databases from efforts nobody remembers, and cleaning up risks deleting a workspace that still holds unlanded work.",
         alternative:
           "Periodic manual sweeps performed nervously, or letting the residue accumulate.",
         cost:
@@ -742,7 +742,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         alternative:
           "Version pins where the ecosystem allows them, and reading changelogs after the surprise rather than before.",
         cost:
-          "Behavior changes arrive uncontrolled and unreviewed, sometimes mid-flight in an automated run.",
+          "Behavior changes arrive without review at a moment nobody chose, sometimes mid-flight in an automated run.",
         forces: ["anxiety"],
         segments: ["experienced engineers", "new consequential builders"],
         evidence: [FROM_DISCOURSE],
@@ -911,10 +911,10 @@ export function renderDemandCanonDoc(): string {
     "## How to use this canon",
     "",
     "- Read a territory's tension first; its entries are the specific, recurring forms of it. An entry names the benefits that answer the struggle — the mechanism account stays in the benefit canon.",
-    "- Trust an entry no further than its evidence class. Demand evidence uses the claims ledger's market classes only — observational, anecdotal, hypothesis; structural and demonstrated describe the product and can never describe the market. Promote an entry by attaching stronger evidence, never by rewording it.",
+    "- Trust an entry no further than its evidence class. Demand evidence uses the claims ledger's market classes only — observational, anecdotal, hypothesis; structural and demonstrated describe the product and can never describe the market. An entry is promoted by attaching stronger evidence; rewording changes nothing.",
     "- Forces name what the moment does to the person: push drives them to seek help, pull attracts them to a new practice, anxiety makes them hesitate over it, and habit holds them to the current way. Anxiety and habit entries are the objections public copy must answer.",
-    "- A benefit no entry answers is recorded as a supply-push bet, neither deleted nor assumed wanted. An entry no benefit answers is a recorded gap — roadmap signal, not copy material.",
-    "- Dates mark when the evidence was recorded, not when it was last true. Treat an old hypothesis as expired until it is re-confirmed or promoted.",
+    "- A benefit no entry answers is recorded as a supply-push bet, neither deleted nor assumed wanted. An entry no benefit answers is a recorded gap, kept visible as roadmap signal and left out of public copy.",
+    "- Dates mark the moment the evidence was recorded. Treat an old hypothesis as expired until it is re-confirmed or promoted.",
     "- The Heard as lines collect pre-contact market language: what the struggle sounds like before the person knows any product vocabulary. Public copy should meet people in these words; the lines are themselves hypotheses until observed in real queries.",
     "- Write public copy from the benefit canon and the claims ledger; use this canon to choose which benefits to lead with and which objections to answer.",
     "",

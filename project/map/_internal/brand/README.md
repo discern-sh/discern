@@ -70,10 +70,11 @@ Read, in order:
 
 1. `positioning.md`
 2. `audiences.md`
-3. `messaging.md`
-4. the `discern-brand-voice` skill
-5. the relevant section of `website-brief.md`
-6. only the relevant claims from `claims-and-evidence.md`
+3. `demand-canon.md`
+4. `messaging.md`
+5. the `discern-brand-voice` skill
+6. the relevant section of `website-brief.md`
+7. only the relevant claims from `claims-and-evidence.md`
 
 Do **not** load the complete product canon as a style model. Consult product sources only to verify a claim or mechanism.
 

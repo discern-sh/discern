@@ -31,5 +31,5 @@ The explicit noes. The canon generates no copy — pieces choose which benefits 
 ## Alternatives considered
 
 - **An authored overlay document beside `audiences.md`.** Rejected: no typed guard can hold coverage against a file contributors do not have, and a list nothing enforces is a list that is wrong — the same reason ADR 0175 rejected a hand-written features document.
-- **Demand fields on the benefit entries themselves.** Rejected: benefits are deductive and demand is empirical. One entry mixing both lets a struggling moment borrow the certainty of a product fact; separate registries keep the epistemics typed and separately guarded.
+- **Demand fields on the benefit entries themselves.** Rejected: benefits are deductive and demand is empirical. One entry mixing both lets a struggling moment borrow the certainty of a product fact; separate registries keep the two kinds of claim separately typed and guarded.
 - **Waiting for real market evidence before recording anything.** Rejected: the untested hypothesis set is precisely what launch must be instrumented to falsify, and hypotheses recorded after the evidence arrives are predictions in name only.
