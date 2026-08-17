@@ -604,7 +604,7 @@ export function buildCli(
   root
     .command("map [target:string]")
     .description(
-      "Browse and read the project map — its agent-maintained documentation tree.",
+      "Browse the project map in discern's interactive Markdown reader, or read a named document.",
     )
     .option(
       "--raw",
@@ -666,7 +666,9 @@ export function buildCli(
   // plus a public-only `--export`.
   root
     .command("docs [target:string]")
-    .description("Browse and read discern's own documentation.")
+    .description(
+      "Browse discern's documentation in the interactive Markdown reader, or read a named document.",
+    )
     .option(
       "--raw",
       "Print a doc's pristine Markdown source instead of rendering it.",

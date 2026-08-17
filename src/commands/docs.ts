@@ -7,10 +7,10 @@
  * discern's OWN documentation, bundled into every install. Both serve two
  * audiences, decided by how the verb is invoked:
  *
- *  - **A human at a terminal** gets an interactive, searchable picker and an
- *    internally rendered view of whatever they pick. The tree is growing, so
- *    search is the primary way in. An explicit `--pager` hands rendered
- *    documents to the person's external pager instead.
+ *  - **A human at a terminal** gets an interactive Markdown browser with a
+ *    searchable picker, adaptive document pane, links, and mouse support. The
+ *    tree is growing, so search is the primary way in. An explicit `--pager`
+ *    hands rendered documents to the person's external pager instead.
  *  - **An agent or a script** gets non-interactive surfaces it can consume: a
  *    target to render straight to stdout, `--raw` for the pristine Markdown
  *    source, `--json` for a structured index (or a single doc's record),
