@@ -9707,7 +9707,8 @@
                     "cli",
                     "long-client",
                     "strict-client",
-                    "unknown-client"
+                    "unknown-client",
+                    "experimental-cap"
                   ]
                 },
                 "requested_timeout_seconds": {
@@ -9779,7 +9780,8 @@
                     "cli",
                     "long-client",
                     "strict-client",
-                    "unknown-client"
+                    "unknown-client",
+                    "experimental-cap"
                   ]
                 }
               },

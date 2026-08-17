@@ -82,6 +82,8 @@ import {
   AWAIT_CALL_SECONDS,
   type AwaitCallProfile,
 } from "../../shared/mcp_timeout_policy.ts";
+import { experimentalAwaitCallSeconds } from "../../shared/experimental.ts";
+import type { EnvReader } from "../../shared/env.ts";
 
 import { AWAIT_POLL_INTERVAL_MS, AWAIT_TIMEOUT_EXIT_CODE } from "./defaults.ts";
 import {
@@ -122,6 +124,8 @@ export interface AwaitOptions {
 /** Surface context that selects a transport-safe duration for one call. */
 export interface AwaitExecutionContext {
   callProfile: AwaitCallProfile;
+  /** Test seam for the environment consulted by the experimental cap. */
+  env?: EnvReader;
 }
 
 /** Versioned state saved behind one short continuation handle. */
@@ -431,19 +435,28 @@ interface AwaitTiming {
  * so repository duration estimates cannot improve on the transport-safe maximum;
  * shorter evidence-priced calls only add round trips. An explicit CLI bound is
  * uncapped. MCP bounds above the known profile are sliced, with the continuation
- * preserving the original question.
+ * preserving the original question. An environment-supplied experimental cap
+ * may shorten the profile's bound — never lengthen it — so a user can trade
+ * extra lossless slices for calls that end inside a chosen window.
  */
 function awaitTiming(
   requested: number | undefined,
   profile: AwaitCallProfile,
+  env: EnvReader = Deno.env,
 ): AwaitTiming {
-  const profileSeconds = AWAIT_CALL_SECONDS[profile];
+  const transportSeconds = AWAIT_CALL_SECONDS[profile];
+  const cap = experimentalAwaitCallSeconds(env);
+  const capped = cap !== undefined && cap < transportSeconds;
+  const profileSeconds = capped ? cap : transportSeconds;
+  const profileBasis: AwaitTiming["timeoutBasis"] = capped
+    ? "experimental-cap"
+    : profile;
   if (requested === undefined) {
     return {
       timeoutSeconds: profileSeconds,
-      timeoutBasis: profile,
+      timeoutBasis: profileBasis,
       retrySeconds: profileSeconds,
-      retryBasis: profile,
+      retryBasis: profileBasis,
     };
   }
   if (requested === 0) {
@@ -451,7 +464,7 @@ function awaitTiming(
       timeoutSeconds: 0,
       timeoutBasis: "explicit",
       retrySeconds: profileSeconds,
-      retryBasis: profile,
+      retryBasis: profileBasis,
     };
   }
   if (profile === "cli" || requested <= profileSeconds) {
@@ -464,10 +477,10 @@ function awaitTiming(
   }
   return {
     timeoutSeconds: profileSeconds,
-    timeoutBasis: profile,
+    timeoutBasis: profileBasis,
     requestedTimeoutSeconds: requested,
     retrySeconds: profileSeconds,
-    retryBasis: profile,
+    retryBasis: profileBasis,
   };
 }
 
@@ -704,7 +717,11 @@ export async function awaitResult(
       );
     }
   }
-  const timing = awaitTiming(opts.timeoutSeconds, context.callProfile);
+  const timing = awaitTiming(
+    opts.timeoutSeconds,
+    context.callProfile,
+    context.env,
+  );
   const timeoutSeconds = timing.timeoutSeconds;
   const timeoutBasis = timing.timeoutBasis;
   const trunkStart = resumed?.trunk_start ??
