@@ -23,15 +23,21 @@ import {
 import {
   InlineFramePainter,
   type InteractionEntry,
+  type MarkdownBrowserLinkResolution,
   MarkdownBrowserRefusalError,
   requestAcknowledgement,
   requestMarkdownBrowser,
   requestSelection,
   senseTerminalBackground,
   type TerminalIO,
+  type TerminalMouseEvent,
   type TerminalSize,
 } from "discern-design-system/cli/interactive";
-import { FakeTerminalIO } from "discern-design-system/cli/interactive/testing";
+import {
+  encodeTerminalKeys,
+  encodeTerminalMouseEvent,
+  FakeTerminalIO,
+} from "discern-design-system/cli/interactive/testing";
 import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -172,6 +178,20 @@ Deno.test("the selected release exposes the complete public reader contract", as
   assertEquals(typeof requestMarkdownBrowser, "function");
   assertEquals(typeof MarkdownBrowserRefusalError, "function");
   assertEquals(typeof FakeTerminalIO, "function");
+  const mouse: TerminalMouseEvent = {
+    kind: "mouse",
+    action: "wheel",
+    direction: "down",
+    column: 4,
+    row: 8,
+    modifiers: { shift: false, alt: false, control: false },
+  };
+  assertStringIncludes(encodeTerminalMouseEvent(mouse), "[<65;4;8M");
+  const linkResolution: MarkdownBrowserLinkResolution = {
+    kind: "document",
+    documentId: "guide",
+  };
+  assertEquals(linkResolution.kind, "document");
 
   const capabilities: TerminalCapabilities = {
     ansiControl: true,
@@ -226,6 +246,25 @@ Deno.test("the selected release exposes the complete public reader contract", as
   assertStringIncludes(terminalOutput, "SECONDARY");
   assertStringIncludes(terminalOutput, "first/");
   assertStringIncludes(terminalOutput, "one.md");
+
+  const browserIo = new FakeTerminalIO([encodeTerminalKeys("enter")], {
+    ansiControl: true,
+    columns: 80,
+    rows: 24,
+  });
+  const browserResult = await requestMarkdownBrowser({
+    label: "Published browser",
+    entries: [{
+      kind: "action",
+      id: "return",
+      label: "Return",
+      value: "returned",
+    }],
+    mouse: true,
+  }, { io: browserIo });
+  assertEquals(browserResult.kind, "action");
+  assertEquals(browserIo.rawTransitions, [true, false]);
+  assertEquals(browserIo.resizeListenerCount, 0);
 
   const acknowledgementIo = new ConsumerTerminal(["\r"]);
   await requestAcknowledgement(

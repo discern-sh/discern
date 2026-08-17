@@ -657,7 +657,7 @@ Usage: `discern patterns archive [options]`
 
 ### `discern map`
 
-Browse and read the project map — its agent-maintained documentation tree.
+Browse the project map in discern's interactive Markdown reader, or read a named document.
 
 Usage: `discern map [target] [options]`
 
@@ -674,7 +674,7 @@ Usage: `discern map [target] [options]`
 
 ### `discern docs`
 
-Browse and read discern's own documentation.
+Browse discern's documentation in the interactive Markdown reader, or read a named document.
 
 Usage: `discern docs [target] [options]`
 

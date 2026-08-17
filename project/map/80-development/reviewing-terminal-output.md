@@ -54,10 +54,11 @@ The name becomes the artifact label; arguments after `--` belong to discern. Roo
 deno task terminal:capture root-help -- --help
 ```
 
-The default geometry is `canonical` (80 columns by 24 rows). `wide` is 120 by 24; `tall` is 80 by 40. Select another scripted geometry, the light HTML theme, a locale, or color-off output explicitly:
+The default geometry is `canonical` (80 columns by 24 rows). `wide` is 120 by 24, `tall` is 80 by 40, and `short` is 80 by 13 for coherent single-pane states. Select another scripted geometry, the light HTML theme, a locale, or color-off output explicitly:
 
 ```sh
 deno task terminal:capture after-wide --geometry wide --theme light -- status
+deno task terminal:capture after-short --geometry short -- docs
 deno task terminal:capture after-plain --no-color --locale C -- doctor
 ```
 
@@ -99,7 +100,9 @@ Use `delayMs` only when elapsed time is itself part of the interaction. Prefer a
 
 [`terminal_command_capture.ts`](../../../tests/fixtures/terminal_command_capture.ts) composes the repository's shared PTY process driver ([`pty_process.ts`](../../../tests/fixtures/pty_process.ts)) with the published `@discern-sh/design-system/cli/projection` surface. The driver sets the kernel terminal size before the command starts. It also supports readiness-gated input and named intermediate frames for interactive command capture; non-interactive command captures need neither.
 
-The task compiles the current checkout to a temporary binary before the PTY run. This keeps Deno launcher's own startup controls out of discern's screen while ensuring the capture represents the current source rather than a frozen `dist/` build. The temporary binary is removed after the artifact is written. Interactive captures retain each named frame and project the last settled full-frame repaint instead of a transcript containing superseded picker frames.
+The task compiles the current checkout to a temporary binary before the PTY run. This keeps Deno launcher's own startup controls out of discern's screen while ensuring the capture represents the current source rather than a frozen `dist/` build. A `docs` capture points that binary at the checkout's current `project/map`, so it does not depend on docs bundled into an older executable. The temporary binary is removed after the artifact is written. Interactive captures retain each named frame and project the last settled full-frame repaint instead of a transcript containing superseded picker frames.
+
+The settled-frame projector recognizes both inline erases and complete alternate-screen repaints. It also normalizes the doubled carriage return that a PTY line discipline can add when a complete-frame writer has already returned to column zero. A remaining carriage return still refuses the artifact because it represents a live repaint rather than a settled screen.
 
 Every task run overrides the caller's terminal environment with explicit facts: `TERM=xterm-256color`, a scripted geometry, static CI output, the selected locale, and the selected color mode. The Gate may invoke the task with `CI=1`, `NO_COLOR=1`, and `TERM=dumb`; those inherited values do not change the capture. The static mode records the completed command surface rather than a history of progress-frame repaints.
 

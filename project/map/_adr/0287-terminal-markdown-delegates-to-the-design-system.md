@@ -1,6 +1,6 @@
 # ADR 0287: Terminal Markdown delegates to the design system
 
-> **Reader-contract amendment (2026-08-17; [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)):** Discern now consumes the immutable 0.20.0 release. The release retains the package Markdown renderer and adds the public selection-description, completion, continuation, and composite-browser contracts used by Discern's terminal readers.
+> **Reader-contract amendment (2026-08-17; [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)):** Discern consumes the immutable 0.20.0 Markdown browser as well as its static renderer. Discern supplies admitted, terminal-policy-adjusted source and a closed product link resolver; the package reuses its Markdown model for document layout, heading targets, links, pane scrolling, and mouse hit regions.
 
 **Status**: accepted; supersedes [ADR 0015](./_superseded/0015-map-browser.md)
 
@@ -28,7 +28,7 @@ Discern consumes only the immutable `0.20.0` public exports. A generic Markdown 
 
 - `discern map` and `discern docs` gain the package's complete supported dialect, nested lossless layout, semantic Components, safety limits, and deterministic degradation without carrying a second terminal grammar.
 - Terminal output changes to the Component-backed document composition. The change therefore requires exact adapter tests plus rendered before-and-after terminal evidence.
-- The compiled binary and notices carry the package's parser and reader stack. Under the product-reachable release graph in [ADR 0289](0289-production-binaries-embed-only-product-reachable-npm-packages.md), the 0.20.0 Linux x64 artifact measures 142,806,344 bytes: 440,384 above the 0.19.0 trunk measurement and 559,616 below the 143,365,960-byte ceiling. The reader release therefore consumes existing headroom without loosening the Standard.
+- The compiled binary and notices carry the package's parser and reader stack. Under the product-reachable release graph in [ADR 0289](0289-production-binaries-embed-only-product-reachable-npm-packages.md), the browser-enabled 0.20.0 Linux x64 artifact measures 142,862,200 bytes: 55,856 above the sequential 0.20.0 reader, 496,240 above the 0.19.0 trunk measurement, and 503,760 below the 143,365,960-byte ceiling. The reader consumes existing headroom without loosening the Standard.
 - Browser and terminal Markdown no longer claim one parser. The website keeps its current product projections and exact HTML contracts until a public package hook or a separately decided build-time projection can replace them without importing React into the production server.
 - ADR 0015 remains the history of why the map browser, TTY split, raw view, search, export, and pager exist, but its hand-rolled-renderer decision is superseded.
 
