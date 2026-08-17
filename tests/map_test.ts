@@ -904,7 +904,7 @@ Deno.test("map projections: frontmatter never reaches content, agents keep every
     assertEquals(raw.stdout, RICH_DOC);
 
     // Terminal render (piped target view): no frontmatter shows.
-    const rendered = await runCli(["map", "rich", "--no-pager"], dir);
+    const rendered = await runCli(["map", "rich"], dir);
     assertEquals(rendered.code, 0);
     assert(!rendered.stdout.includes("Short label"));
     assert(!rendered.stdout.includes("order:"));
@@ -1197,7 +1197,6 @@ Deno.test("map export validates scope and incompatible flags", async () => {
         ["map", "--export", "public", "--raw"],
         ["map", "--export", "public", "--list"],
         ["map", "--export", "public", "--width", "80"],
-        ["map", "--export", "public", "--no-pager"],
       ]
     ) {
       const result = await runCli(args, dir);
