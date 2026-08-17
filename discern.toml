@@ -713,7 +713,7 @@
   [standards.binary_size]
     metric = "binary_size_bytes"
     direction = "down"
-    limit = 183221744
+    limit = 143365960
     measure = "on-demand"
     # The binary's byte count drifts with every commit, so `discern standards --pin`
     # leaves 1 MB of headroom when it re-pins this ceiling — capturing a real size

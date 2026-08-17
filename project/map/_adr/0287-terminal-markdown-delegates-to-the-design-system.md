@@ -1,6 +1,6 @@
 # ADR 0287: Terminal Markdown delegates to the design system
 
-> **Reader-contract amendment (2026-08-17; [ADR 0289](0289-discern-owns-the-default-interactive-markdown-reading-loop.md)):** Discern now consumes the immutable 0.20.0 release. The release retains the package Markdown renderer and adds the public selection-description, completion, continuation, and composite-browser contracts used by Discern's terminal readers.
+> **Reader-contract amendment (2026-08-17; [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)):** Discern now consumes the immutable 0.20.0 release. The release retains the package Markdown renderer and adds the public selection-description, completion, continuation, and composite-browser contracts used by Discern's terminal readers.
 
 **Status**: accepted; supersedes [ADR 0015](./_superseded/0015-map-browser.md)
 

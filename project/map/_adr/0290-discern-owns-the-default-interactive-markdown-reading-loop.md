@@ -1,4 +1,4 @@
-# ADR 0289: Discern owns the default interactive Markdown reading loop
+# ADR 0290: Discern owns the default interactive Markdown reading loop
 
 **Status**: accepted; extends [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md) and [ADR 0287](0287-terminal-markdown-delegates-to-the-design-system.md)
 
