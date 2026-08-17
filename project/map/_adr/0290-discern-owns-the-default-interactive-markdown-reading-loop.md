@@ -4,7 +4,7 @@
 
 ## Context
 
-`discern docs` and `discern map` historically opened rendered Markdown in `$PAGER` whenever a terminal was available. The first internal-reader option inverted that behavior with `--no-pager`, but an internally rendered picker selection then ended the command. A configured pager could therefore bypass Discern's reading treatment by default, while choosing the internal treatment prevented continued browsing.
+`discern docs` and `discern map` historically opened rendered Markdown in `$PAGER` whenever a terminal was available. The first internal-reader option inverted that behavior through a negative pager flag, but an internally rendered picker selection then ended the command. A configured pager could therefore bypass Discern's reading treatment by default, while choosing the internal treatment prevented continued browsing.
 
 The documentation picker also led with paths inside one long Documents group. The discovered tree already owns reading order, section front doors, document titles, and admitted paths, so a second navigation taxonomy would create drift. Machine and static projections have a separate constraint: raw bodies, exports, results, JSON, authored Markdown results, and Model Context Protocol payloads must not acquire paging, terminal input, or human decoration.
 
@@ -29,7 +29,7 @@ Discern pins the immutable 0.20.0 package and keeps every terminal effect behind
 - Titles and section meaning lead the picker while paths remain visible for identity and search.
 - Static and machine consumers retain their existing bytes and do not wait for input. Invalid paging combinations fail instead of silently ignoring the request.
 - The sequential reader cannot independently scroll a document pane or keep the picker visible. Those capabilities arrive only when Discern adopts the published composite browser.
-- Replacing the short-lived `--no-pager` contract before launch is intentionally incompatible; no hidden alias preserves the inverted default.
+- Replacing the short-lived negative pager contract before launch is intentionally incompatible; no hidden alias preserves the inverted default.
 
 ## Alternatives considered
 
