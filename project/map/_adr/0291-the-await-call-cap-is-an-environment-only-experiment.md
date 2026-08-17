@@ -1,4 +1,4 @@
-# ADR 0288: The await call cap is an environment-only valued experiment
+# ADR 0291: The await call cap is an environment-only valued experiment
 
 **Status**: accepted; follows the experiment discipline of [ADR 0254](0254-mcp-preload-remains-an-environment-only-experiment.md).
 

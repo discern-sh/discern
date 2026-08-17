@@ -47,4 +47,4 @@ The cap exists for callers whose model-side prompt cache expires during a long i
 
 No refresh is involved: the engine reads the value on every `await`, from the environment of the process that runs it — the MCP server's for tool calls, the shell's for the CLI. Run an `await` with the value set and confirm `data.timeout_basis` reports `experimental-cap`; remove the value and the basis returns to the caller profile. The cap only ever shortens a call (a value at or above the profile's transport-safe bound changes nothing), and slicing is lossless either way, so the worst a wrong value costs is extra round trips.
 
-[ADR 0288](../_adr/0288-the-await-call-cap-is-an-environment-only-experiment.md) records the decision and removal criteria.
+[ADR 0291](../_adr/0291-the-await-call-cap-is-an-environment-only-experiment.md) records the decision and removal criteria.
