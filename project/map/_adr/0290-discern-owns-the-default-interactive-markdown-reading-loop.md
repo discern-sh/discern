@@ -20,7 +20,7 @@ The shared `docs` and `map` browser projects navigation from the canonical disco
 
 For an internal picker selection, the package clears the completed picker frame, Discern reads and renders the admitted document through its existing package-backed Markdown adapter, and the package presents `Press Enter to continue.` as a compact acknowledgement. Enter restores the picker and remembered document. Selection or continuation cancellation exits cleanly. A direct target never acknowledges because it has no picker to restore.
 
-Discern pins the immutable 0.20.0 package and keeps every terminal effect behind its existing process and interaction adapters. The sequential flow intentionally uses terminal scrollback for long documents. The package's composite Markdown browser — including split geometry, independent scrolling, internal-link navigation, mouse input, and restoration — is the only admissible richer implementation and remains deferred to the next integration wave.
+Discern pins the immutable 0.20.0 package and keeps every terminal effect behind its existing process and interaction adapters. The sequential flow intentionally leaves long documents in the terminal's saved output. The package's composite Markdown browser — including split geometry, independent scrolling, internal-link navigation, mouse input, and restoration — is the only admissible richer implementation and remains deferred to the next integration wave.
 
 ## Consequences
 
