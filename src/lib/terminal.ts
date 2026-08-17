@@ -16,6 +16,7 @@ import {
   type TerminalCapabilities,
   type TerminalColor,
   type TerminalColorTokenName,
+  type TerminalMotif,
   type TerminalSemanticTone,
   type TerminalTextRole,
   type TerminalTextStyle,
@@ -160,6 +161,8 @@ export interface TerminalContext {
   readonly size: TerminalSize;
   readonly theme: TerminalTheme;
   readonly themeVariant: TerminalThemeVariant;
+  /** Product motif passed unchanged to effectful package interactions. */
+  readonly motif: TerminalMotif;
   /** Open one command-owned live viewport observation. Pure views never call it. */
   observeViewport(): TerminalViewportObservation;
   /** Apply one explicit package text style under these resolved capabilities. */
@@ -331,6 +334,7 @@ function contextFromFacts(
     size,
     theme,
     themeVariant,
+    motif: DISCERN_TERMINAL_MOTIF,
     observeViewport,
     style: styled,
     themeColor: (token: TerminalColorTokenName): TerminalColor =>

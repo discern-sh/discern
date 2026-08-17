@@ -39,7 +39,7 @@ import {
 } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
-import { renderAlignedRows } from "../lib/text.ts";
+import { renderAlignedRows, truncateText } from "../lib/text.ts";
 import {
   type TerminalContext,
   terminalContext,
@@ -102,10 +102,16 @@ import {
   canInteract,
   groupedSelectionEntries,
   isInteractionCancelled,
+  type MarkdownBrowserEntry,
+  type MarkdownBrowserLinkResolution,
+  type MarkdownBrowserLinkResolverInput,
+  type MarkdownBrowserResumeState,
   plainModeEnabled,
   requestCompactAcknowledgement,
+  requestMarkdownBrowser,
   requestSelection,
   requestSelections,
+  type SelectionGroup,
 } from "../lib/terminal_interaction.ts";
 import {
   ageSince,
@@ -149,6 +155,132 @@ export function docsBrowseNavigationChoices(
       value: { kind: "quit" as const },
     },
   ];
+}
+
+/** Admit only absolute web URLs to the product's browser-opening effect. */
+export function approvedDocsExternalUrl(
+  destination: string,
+): string | undefined {
+  if (destination.trim() !== destination || !/^https?:/iu.test(destination)) {
+    return undefined;
+  }
+  try {
+    const parsed = new URL(destination);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? destination
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Bounded in-frame feedback for a destination outside the admitted corpus. */
+function unresolvedDocsBrowserLink(
+  destination: string,
+): MarkdownBrowserLinkResolution {
+  const visible = truncateText(terminalLine(destination), 36, "…");
+  const target = visible === "" ? "This link" : `"${visible}"`;
+  return {
+    kind: "unresolved",
+    message:
+      `${target} is not in this documentation set. Choose a document from the picker.`,
+  };
+}
+
+/** Decode one URL path or fragment component without admitting hidden controls. */
+function decodedDocsLinkComponent(value: string): string | undefined {
+  try {
+    const decoded = decodeURIComponent(value);
+    return /[\p{Cc}\p{Cf}]/u.test(decoded) ? undefined : decoded;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Resolve a relative or corpus-root path without consulting the filesystem. */
+function resolvedDocsCorpusPath(
+  sourcePath: string,
+  destination: string,
+): string | undefined {
+  const rootRelative = destination.startsWith("/");
+  const relativeDestination = rootRelative ? destination.slice(1) : destination;
+  if (
+    relativeDestination === "" || relativeDestination.includes("\\") ||
+    relativeDestination.includes("?")
+  ) {
+    return undefined;
+  }
+  const decoded = decodedDocsLinkComponent(relativeDestination);
+  if (decoded === undefined || decoded.includes("\\")) return undefined;
+  const directory = decoded.endsWith("/");
+  const pathValue = directory ? decoded.slice(0, -1) : decoded;
+  const destinationSegments = pathValue.split("/");
+  if (destinationSegments.some((segment) => segment === "")) return undefined;
+  const resolved = rootRelative ? [] : sourcePath.split("/").slice(0, -1);
+  for (const segment of destinationSegments) {
+    if (segment === ".") continue;
+    if (segment === "..") {
+      if (resolved.length === 0) return undefined;
+      resolved.pop();
+      continue;
+    }
+    resolved.push(segment);
+  }
+  const path = resolved.join("/");
+  if (path.toLowerCase().endsWith(".md")) return path;
+  const leaf = resolved.at(-1);
+  return leaf !== undefined && !leaf.includes(".")
+    ? `${path}/README.md`
+    : undefined;
+}
+
+/**
+ * Resolve one package-admitted Markdown destination against the in-memory
+ * documentation corpus. Missing, private, unsafe, and non-document targets
+ * remain inert; no filesystem probe can widen the admitted tree.
+ */
+export function resolveDocsBrowserLink(
+  input: MarkdownBrowserLinkResolverInput,
+): MarkdownBrowserLinkResolution {
+  const approvedExternal = approvedDocsExternalUrl(input.destination);
+  if (approvedExternal !== undefined) {
+    return { kind: "external", destination: approvedExternal };
+  }
+  if (/^[A-Za-z][A-Za-z\d+.-]*:/u.test(input.destination)) {
+    return unresolvedDocsBrowserLink(input.destination);
+  }
+  const hash = input.destination.indexOf("#");
+  const pathPart = hash < 0
+    ? input.destination
+    : input.destination.slice(0, hash);
+  const fragmentPart = hash < 0 ? undefined : input.destination.slice(hash + 1);
+  const decodedFragment = fragmentPart === undefined
+    ? undefined
+    : decodedDocsLinkComponent(fragmentPart);
+  if (
+    fragmentPart !== undefined &&
+    (fragmentPart === "" || decodedFragment === undefined)
+  ) {
+    return unresolvedDocsBrowserLink(input.destination);
+  }
+  const fragment = fragmentPart === undefined ? undefined : `#${fragmentPart}`;
+  if (pathPart === "") {
+    return fragment === undefined
+      ? unresolvedDocsBrowserLink(input.destination)
+      : { kind: "fragment", fragment };
+  }
+  const path = resolvedDocsCorpusPath(input.sourcePath, pathPart);
+  const document = path === undefined
+    ? undefined
+    : input.availableDocuments.find((candidate) => candidate.path === path);
+  if (document === undefined) {
+    return unresolvedDocsBrowserLink(input.destination);
+  }
+  return {
+    kind: "document",
+    documentId: document.id,
+    ...(fragment === undefined ? {} : { fragment }),
+  };
 }
 
 /**
@@ -774,13 +906,17 @@ async function present(
 }
 
 /** The one-line corpus fact kept plain for the interaction seam. */
+function docsDocumentCount(count: number): string {
+  return `${count} document${count === 1 ? "" : "s"}`;
+}
+
 function docsHeaderFact(
   verb: string,
   count: number,
   directory: string,
 ): string {
   return terminalLine(
-    `discern ${verb} — ${count} documents in ${directory}`,
+    `discern ${verb} — ${docsDocumentCount(count)} in ${directory}`,
   );
 }
 
@@ -797,7 +933,7 @@ export function renderDocsCorpusHeader(
   const safeDirectory = terminalLine(directory);
   return terminal.presenter.present(renderDocsHeaderCli, {
     brand: terminalLine(`discern ${verb}`),
-    middle: terminalLine(`— ${count} documents in ${safeDirectory}`),
+    middle: terminalLine(`— ${docsDocumentCount(count)} in ${safeDirectory}`),
     maxWidth: width,
   });
 }
@@ -819,17 +955,22 @@ function docsHeader(
   );
 }
 
-/** Browse, read, and return until the person chooses an action or cancels. */
-async function browse(
-  desc: DocsVerb,
+interface DocsBrowseProjection {
+  readonly groups: readonly SelectionGroup<DocsBrowserChoice>[];
+  readonly entriesByPath: ReadonlyMap<string, DocEntry>;
+  readonly documentChoice: (path: string) => DocsBrowserChoice;
+}
+
+interface DocsMarkdownBrowserCorpus {
+  readonly entries: readonly MarkdownBrowserEntry<DocsBrowserChoice>[];
+  readonly sourcesByPath: ReadonlyMap<string, string>;
+}
+
+/** Build the one ordered product projection shared by rich and sequential readers. */
+function docsBrowseProjection(
+  verb: "docs" | "map",
   tree: DocsTree,
-  options: DocsOptions,
-  cwd: string,
-  terminal: TerminalContext,
-): Promise<number> {
-  const verb = desc.verb;
-  const width = resolveWidth(options.width, terminal);
-  const log = new Logger({ json: false, noColor: options.noColor });
+): DocsBrowseProjection {
   const documentChoices = new Map(
     tree.entries.map((entry) => {
       const value: DocsBrowserChoice = {
@@ -853,7 +994,7 @@ async function browse(
   const quitActions = navigation.filter((choice) =>
     choice.value.kind === "quit"
   );
-  const groups = [
+  const groups: SelectionGroup<DocsBrowserChoice>[] = [
     ...(browseActions.length === 0 ? [] : [{
       id: "browse",
       label: "Browse",
@@ -878,12 +1019,148 @@ async function browse(
       items: quitActions,
     },
   ];
+  return {
+    groups,
+    entriesByPath: new Map(tree.entries.map((entry) => [entry.path, entry])),
+    documentChoice,
+  };
+}
+
+/** Stable package path for a document already admitted by discovery. */
+function docsCorpusPath(entry: DocEntry): string {
+  return entry.relToDocs.split(SEPARATOR).join("/");
+}
+
+/** Read the admitted corpus once before entering the alternate-screen browser. */
+async function docsMarkdownBrowserCorpus(
+  desc: DocsVerb,
+  projection: DocsBrowseProjection,
+): Promise<DocsMarkdownBrowserCorpus> {
+  const entries: MarkdownBrowserEntry<DocsBrowserChoice>[] = [];
+  const sourcesByPath = new Map<string, string>();
+  for (const group of projection.groups) {
+    entries.push({
+      kind: "group-heading",
+      id: group.id,
+      name: group.label,
+      ...(group.description === undefined
+        ? {}
+        : { description: group.description }),
+    });
+    for (const item of group.items) {
+      if (item.id === undefined) {
+        throw new TypeError(
+          `Documentation browser entry ${
+            JSON.stringify(item.name)
+          } needs an id.`,
+        );
+      }
+      if (item.value.kind === "read-online") {
+        entries.push({
+          kind: "action",
+          id: item.id,
+          name: item.name,
+          ...(item.description === undefined
+            ? {}
+            : { description: item.description }),
+          value: item.value,
+        });
+        continue;
+      }
+      if (item.value.kind === "quit") {
+        entries.push({
+          kind: "exit",
+          id: item.id,
+          name: item.name,
+          ...(item.description === undefined
+            ? {}
+            : { description: item.description }),
+        });
+        continue;
+      }
+      const document = projection.entriesByPath.get(item.value.path);
+      if (document === undefined) {
+        throw new TypeError(
+          `Documentation browser entry is missing for ${item.value.path}.`,
+        );
+      }
+      let source: string;
+      try {
+        source = terminalBody(
+          desc,
+          document,
+          await Deno.readTextFile(document.absPath),
+        );
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `could not read ${document.path}: ${detail}`,
+          { cause: error },
+        );
+      }
+      sourcesByPath.set(document.path, source);
+      entries.push({
+        kind: "document",
+        id: item.id,
+        name: item.name,
+        ...(item.description === undefined
+          ? {}
+          : { description: item.description }),
+        path: docsCorpusPath(document),
+        source,
+      });
+    }
+  }
+  return { entries, sourcesByPath };
+}
+
+/** Product error with one valid path that remains available after failure. */
+function docsBrowserFailureMessage(error: unknown): string {
+  const detail = terminalLine(
+    error instanceof Error ? error.message : String(error),
+  ).replace(/[.!?]+$/u, "");
+  return terminalLine(
+    `discern couldn't continue the documentation browser: ${detail}. Use --pager or name a document directly.`,
+  );
+}
+
+/** Keep an external-effect failure visible before restoring the rich browser. */
+async function acknowledgeDocsBrowserFailure(
+  message: string,
+  log: Logger,
+): Promise<boolean> {
+  log.error(terminalLine(message));
+  try {
+    await requestCompactAcknowledgement();
+    return true;
+  } catch (error) {
+    if (!isInteractionCancelled(error)) throw error;
+    return false;
+  }
+}
+
+/** The 5A selection, print/page, acknowledge, and remembered-choice loop. */
+async function browseSequentially(
+  desc: DocsVerb,
+  tree: DocsTree,
+  projection: DocsBrowseProjection,
+  options: DocsOptions,
+  cwd: string,
+  terminal: TerminalContext,
+  width: number,
+  log: Logger,
+  sourcesByPath: ReadonlyMap<string, string> = new Map(),
+): Promise<number> {
   // Keep the corpus context visible across every re-render of the picker (it
   // redraws each iteration), so the reader always knows which tree they are
   // filtering and how large it is — the same line the static `--list` TOC leads with.
   const message = terminalLine(
     `${
-      docsHeaderFact(verb, tree.entries.length, display(tree.docsDir, cwd))
+      docsHeaderFact(
+        desc.verb,
+        tree.entries.length,
+        display(tree.docsDir, cwd),
+      )
     }  ·  type to filter`,
   );
   let rememberedDocument: DocsBrowserChoice | undefined;
@@ -892,7 +1169,7 @@ async function browse(
     try {
       choice = await requestSelection({
         message,
-        options: groupedSelectionEntries(groups),
+        options: groupedSelectionEntries(projection.groups),
         search: true,
         presentation: "browsing",
         completion: "clear-frame",
@@ -915,17 +1192,23 @@ async function browse(
       }
       continue;
     }
-    const entry = tree.entries.find((candidate) =>
-      candidate.path === choice.path
-    );
-    if (!entry) continue;
-    rememberedDocument = documentChoice(entry.path);
+    const entry = projection.entriesByPath.get(choice.path);
+    if (entry === undefined) continue;
+    rememberedDocument = projection.documentChoice(entry.path);
     observeVerbTarget(canonicalDocTarget(entry));
-    const content = terminalBody(
-      desc,
-      entry,
-      await Deno.readTextFile(entry.absPath),
-    );
+    let content = sourcesByPath.get(entry.path);
+    if (content === undefined) {
+      try {
+        content = terminalBody(
+          desc,
+          entry,
+          await Deno.readTextFile(entry.absPath),
+        );
+      } catch (error) {
+        log.error(docsBrowserFailureMessage(error));
+        return 1;
+      }
+    }
     const presentation = await present(
       renderMarkdown(content, {
         width,
@@ -944,6 +1227,143 @@ async function browse(
       }
     }
   }
+}
+
+type RichDocsBrowseDisposition = number | "fallback";
+
+/** Run one or more package browser sessions around product-owned effects. */
+async function browseRichly(
+  desc: DocsVerb,
+  tree: DocsTree,
+  options: DocsOptions,
+  cwd: string,
+  corpus: DocsMarkdownBrowserCorpus,
+  log: Logger,
+  width: number,
+): Promise<RichDocsBrowseDisposition> {
+  let state: MarkdownBrowserResumeState | undefined;
+  while (true) {
+    try {
+      const result = await requestMarkdownBrowser({
+        message: docsHeaderFact(
+          desc.verb,
+          tree.entries.length,
+          display(tree.docsDir, cwd),
+        ),
+        entries: corpus.entries,
+        ...(state === undefined ? {} : { initialState: state }),
+        ...(options.width === undefined ? {} : { documentMeasure: width }),
+        mouse: true,
+        resolveLink: resolveDocsBrowserLink,
+      });
+      if (result.kind === "refused") return "fallback";
+      if (result.kind === "exit") return 0;
+      state = result.state;
+      if (result.kind === "action") {
+        if (result.value.kind !== "read-online") {
+          throw new TypeError(
+            "Documentation browser returned an unknown action.",
+          );
+        }
+        const opened = await openInBrowser(DISCERN_DOCS_URL);
+        if (
+          opened.status !== "opened" &&
+          !await acknowledgeDocsBrowserFailure(
+            browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
+            log,
+          )
+        ) {
+          return 0;
+        }
+        continue;
+      }
+      const destination = approvedDocsExternalUrl(result.destination);
+      if (destination === undefined) {
+        const visible = truncateText(
+          terminalLine(result.destination),
+          48,
+          "…",
+        );
+        if (
+          !await acknowledgeDocsBrowserFailure(
+            `discern didn't open "${visible}": only http:// and https:// links can leave the documentation browser.`,
+            log,
+          )
+        ) {
+          return 0;
+        }
+        continue;
+      }
+      const opened = await openInBrowser(destination);
+      if (
+        opened.status !== "opened" &&
+        !await acknowledgeDocsBrowserFailure(
+          browserOpenFailureMessage("the link", destination, opened),
+          log,
+        )
+      ) {
+        return 0;
+      }
+    } catch (error) {
+      if (isInteractionCancelled(error)) return 0;
+      log.error(docsBrowserFailureMessage(error));
+      return 1;
+    }
+  }
+}
+
+/** Browse, read, and return until the person chooses an action or cancels. */
+async function browse(
+  desc: DocsVerb,
+  tree: DocsTree,
+  options: DocsOptions,
+  cwd: string,
+  terminal: TerminalContext,
+): Promise<number> {
+  const width = resolveWidth(options.width, terminal);
+  const log = new Logger({ json: false, noColor: options.noColor });
+  const projection = docsBrowseProjection(desc.verb, tree);
+  if (options.pager) {
+    return await browseSequentially(
+      desc,
+      tree,
+      projection,
+      options,
+      cwd,
+      terminal,
+      width,
+      log,
+    );
+  }
+  let corpus: DocsMarkdownBrowserCorpus;
+  try {
+    corpus = await docsMarkdownBrowserCorpus(desc, projection);
+  } catch (error) {
+    log.error(docsBrowserFailureMessage(error));
+    return 1;
+  }
+  const rich = await browseRichly(
+    desc,
+    tree,
+    options,
+    cwd,
+    corpus,
+    log,
+    width,
+  );
+  return rich === "fallback"
+    ? await browseSequentially(
+      desc,
+      tree,
+      projection,
+      options,
+      cwd,
+      terminal,
+      width,
+      log,
+      corpus.sourcesByPath,
+    )
+    : rich;
 }
 
 /** Print a grouped, plain table of contents to stdout. */
