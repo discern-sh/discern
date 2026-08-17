@@ -1,10 +1,10 @@
 /**
- * The Scriptorium's server: the reading room. Serves the canon pages rendered
+ * Canon Editor's server. Serves the canon pages rendered
  * by the real renderers with provenance spans, the entry inspector API, IDE
- * jumps, the guard panel, and a change feed that refreshes the studio when a
+ * jumps, the guard panel, and a change feed that refreshes the editor when a
  * registry file moves on disk.
  *
- * Loopback only, one worktree's studio per derived port, everything
+ * Loopback only, one worktree's editor per derived port, everything
  * `cache-control: no-store` — this is repo-internal tooling, never shipped.
  */
 
@@ -19,7 +19,7 @@ import {
 } from "./registry_ast.ts";
 import type { Snapshot, SnapshotEntry } from "./snapshot.ts";
 import { renderDocHtml, renderShell, type SpanState } from "./html.ts";
-import { emitStudioAssets } from "./assets.ts";
+import { emitCanonEditorAssets } from "./assets.ts";
 import { type GuardRunReport, runGuardFiles } from "./guards.ts";
 import { saveField, spawnSnapshot } from "./pipeline.ts";
 import type { PatchRequest } from "./patch.ts";
@@ -42,10 +42,10 @@ const LOOPBACK_HOSTS: ReadonlySet<string> = new Set([
 ]);
 
 /** Header carrying the per-process authority for non-safe HTTP methods. */
-export const STUDIO_REQUEST_TOKEN_HEADER = "x-scriptorium-token";
+export const CANON_EDITOR_REQUEST_TOKEN_HEADER = "x-canon-editor-token";
 
 /** The fallback port when no worktree identity resolves. */
-export const DEFAULT_STUDIO_PORT = 4517;
+export const DEFAULT_CANON_EDITOR_PORT = 4517;
 
 const WATCH_DEBOUNCE_MS = 200;
 
@@ -57,7 +57,7 @@ const WATCHED_SOURCES: readonly string[] = [
   "scripts/glossary_registry.ts",
   "scripts/brand/claims.ts",
   "scripts/canonical_sets.ts",
-  "scripts/scriptorium/pickers.ts",
+  "scripts/canon_editor/pickers.ts",
   "src/shared/capabilities.ts",
   "src/shared/agent_catalogue.ts",
   "src/shared/config_schema.ts",
@@ -68,8 +68,8 @@ const WATCHED_SOURCES: readonly string[] = [
 ];
 
 /** Parse an explicit PORT override without silently accepting garbage. */
-export function parseStudioPort(value: string | undefined): number {
-  if (value === undefined) return DEFAULT_STUDIO_PORT;
+export function parseCanonEditorPort(value: string | undefined): number {
+  if (value === undefined) return DEFAULT_CANON_EDITOR_PORT;
   const port = Number(value);
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     throw new Error(
@@ -80,23 +80,23 @@ export function parseStudioPort(value: string | undefined): number {
 }
 
 /**
- * The studio's port: an explicit override, then a salt of the worktree's
- * identity (so the studio and the site dev server coexist in one worktree,
+ * The editor's port: an explicit override, then a salt of the worktree's
+ * identity (so the editor and the site dev server coexist in one worktree,
  * each deterministic), then the main-checkout default.
  */
-export async function resolveStudioPort(
+export async function resolveCanonEditorPort(
   value: string | undefined,
 ): Promise<number> {
-  if (value !== undefined) return parseStudioPort(value);
+  if (value !== undefined) return parseCanonEditorPort(value);
   try {
     if ((await Deno.stat(join(REPO_ROOT, ".git"))).isFile) {
       const identity = await resolveIdentity(REPO_ROOT, REPO_ROOT);
-      return portForId(`${identity.id}-scriptorium`);
+      return portForId(`${identity.id}-canon-editor`);
     }
   } catch {
     // Fall through to the main-checkout default.
   }
-  return DEFAULT_STUDIO_PORT;
+  return DEFAULT_CANON_EDITOR_PORT;
 }
 
 /** One entry's syntax-side positions, kept beside the evaluated snapshot. */
@@ -116,8 +116,8 @@ type FieldEditor =
   | { readonly kind: "prose" }
   | { readonly kind: "list"; readonly picker: PickerCatalogEntry };
 
-/** Options the tests use to run the studio hermetically. */
-export interface StudioOptions {
+/** Options the tests use to run the editor hermetically. */
+export interface CanonEditorOptions {
   readonly port?: number;
   /** Skip the design-system emit (tests exercise routes, not chrome). */
   readonly emitAssets?: boolean;
@@ -134,8 +134,8 @@ export interface StudioOptions {
   readonly requestToken?: string;
 }
 
-/** A running studio, closable. */
-export interface StudioHandle {
+/** A running editor, closable. */
+export interface CanonEditorHandle {
   readonly port: number;
   readonly url: string;
   /** The route handler itself, for socketless tests. */
@@ -155,7 +155,7 @@ function valueAt(data: unknown, path: string): unknown {
   return current;
 }
 
-/** JSON response with the studio's no-store discipline. */
+/** JSON response with the editor's no-store discipline. */
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -179,14 +179,14 @@ function requestAuthorityIssue(
   requestToken: string,
 ): string | undefined {
   if (!LOOPBACK_HOSTS.has(url.hostname)) {
-    return "the scriptorium only answers a loopback Host";
+    return "Canon Editor only answers requests for a loopback Host";
   }
   if (request.method === "GET" || request.method === "HEAD") return undefined;
   if (request.headers.get("origin") !== url.origin) {
-    return "the request did not originate from this scriptorium";
+    return "the request Origin does not match Canon Editor";
   }
-  if (request.headers.get(STUDIO_REQUEST_TOKEN_HEADER) !== requestToken) {
-    return "the request does not carry this scriptorium's authority";
+  if (request.headers.get(CANON_EDITOR_REQUEST_TOKEN_HEADER) !== requestToken) {
+    return "the request does not carry Canon Editor's write authority";
   }
   return undefined;
 }
@@ -215,11 +215,12 @@ async function file(path: string): Promise<Response> {
   }
 }
 
-/** Start the studio server; resolve once it is listening. */
-export async function startStudio(
-  options: StudioOptions = {},
-): Promise<StudioHandle> {
-  const port = options.port ?? (await resolveStudioPort(Deno.env.get("PORT")));
+/** Start the editor server; resolve once it is listening. */
+export async function startCanonEditor(
+  options: CanonEditorOptions = {},
+): Promise<CanonEditorHandle> {
+  const port = options.port ??
+    (await resolveCanonEditorPort(Deno.env.get("PORT")));
   const requestToken = options.requestToken ?? crypto.randomUUID();
 
   let snapshot: Snapshot | undefined;
@@ -372,8 +373,8 @@ export async function startStudio(
   };
 
   const gitDirty = async (): Promise<string[]> => {
-    // Only the files the pen can write: the registry sources and the
-    // committed canon pages. Ambient repo dirt is not the studio's news.
+    // Only the files the editor can write: the registry sources and the
+    // committed canon pages. Other repository changes are outside this feed.
     const writable = [
       ...PROSE_REGISTRIES.map((spec) => spec.file),
       ...(snapshot?.pages ?? [])
@@ -416,7 +417,7 @@ export async function startStudio(
     if (path.startsWith("/page/")) {
       if (snapshot === undefined) {
         return new Response(
-          `The studio's snapshot is not ready${
+          `Canon Editor's snapshot is not ready${
             snapshotError === undefined ? "" : `: ${snapshotError}`
           }`,
           { status: 503, headers: { "cache-control": "no-store" } },
@@ -440,7 +441,7 @@ export async function startStudio(
           snapshot,
           themeBootstrap: THEME_BOOTSTRAP,
           requestToken,
-          requestTokenHeader: STUDIO_REQUEST_TOKEN_HEADER,
+          requestTokenHeader: CANON_EDITOR_REQUEST_TOKEN_HEADER,
         }),
         {
           headers: {
@@ -690,7 +691,7 @@ export async function startStudio(
         join(
           REPO_ROOT,
           "scripts",
-          "scriptorium",
+          "canon_editor",
           "ui",
           path.slice("/assets/".length),
         ),
@@ -714,7 +715,7 @@ export async function startStudio(
         join(
           REPO_ROOT,
           ".scratch",
-          "scriptorium",
+          "canon-editor",
           "assets",
           "design-system",
           rest,
@@ -725,7 +726,7 @@ export async function startStudio(
   };
 
   if (options.emitAssets ?? true) {
-    await emitStudioAssets(REPO_ROOT);
+    await emitCanonEditorAssets(REPO_ROOT);
   }
   await refresh();
 
@@ -767,7 +768,7 @@ export async function startStudio(
         port,
         onListen: ({ port: bound }) => {
           console.log(
-            `The Scriptorium is open: http://${BROWSER_HOST}:${bound}/`,
+            `Canon Editor is open: http://${BROWSER_HOST}:${bound}/`,
           );
         },
       },

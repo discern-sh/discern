@@ -1,8 +1,8 @@
 /**
- * Server-side HTML for the studio: turn a snapshot page's annotated Markdown
+ * Server-side HTML for the editor: turn a snapshot page's annotated Markdown
  * into the reading surface — provenance spans in place of markers, heading
  * anchors identical to the committed page, canon-internal links rewritten to
- * studio routes — and wrap it in the studio shell.
+ * editor routes — and wrap it in the editor shell.
  */
 
 import {
@@ -20,7 +20,7 @@ export type SpanState = "editable" | "locked" | "unknown";
 /** Resolve a ref token to its span state. */
 export type SpanStates = (token: string) => SpanState;
 
-/** The canon pages' file names, mapped to their studio routes. */
+/** The canon pages' file names, mapped to their editor routes. */
 const PAGE_ROUTES: Readonly<Record<string, string>> = {
   "feature-canon.md": "feature-canon",
   "feature-canon-plain.md": "feature-canon-plain",
@@ -51,10 +51,10 @@ export function markersToSpans(
     spans += 1;
     const state = stateOf(token);
     const cls = state === "editable"
-      ? "scr-field"
+      ? "canon-editor-field"
       : state === "locked"
-      ? "scr-field scr-locked"
-      : "scr-field scr-unknown";
+      ? "canon-editor-field canon-editor-locked"
+      : "canon-editor-field canon-editor-unknown";
     return `<span class="${cls}" data-ref="${escapeHtml(token)}" tabindex="0">`;
   });
   out = out.replaceAll(MARK_CLOSE, "</span>");
@@ -87,7 +87,7 @@ export function restoreHeadingIds(
   );
 }
 
-/** Rewrite canon-internal links to studio routes; neutralize the rest. */
+/** Rewrite canon-internal links to editor routes; neutralize the rest. */
 export function rewriteDocLinks(html: string): string {
   return html.replace(
     /href="([^"]*)"/g,
@@ -128,7 +128,7 @@ interface NavRow {
   readonly count?: number | undefined;
 }
 
-/** The studio shell around one rendered page. */
+/** The editor shell around one rendered page. */
 export function renderShell(options: {
   readonly page: SnapshotPage;
   readonly docHtml: string;
@@ -187,13 +187,13 @@ export function renderShell(options: {
         const current = row.id === page.id ? ` aria-current="page"` : "";
         const count = row.count === undefined
           ? ""
-          : `<span class="scr-count">${row.count}</span>`;
+          : `<span class="canon-editor-count">${row.count}</span>`;
         return `<li><a href="/page/${row.id}"${current}>${
           escapeHtml(row.title)
         }${count}</a></li>`;
       })
       .join("");
-    return `<section class="scr-nav-group"><h2>${
+    return `<section class="canon-editor-nav-group"><h2>${
       escapeHtml(label)
     }</h2><ul>${items}</ul></section>`;
   };
@@ -202,7 +202,7 @@ export function renderShell(options: {
   );
   const gradeChip = grade?.value === undefined
     ? ""
-    : `<span class="scr-chip" id="scr-grade" title="plain_reading_grade — a ceiling that may only fall">grade ${grade.value}${
+    : `<span class="canon-editor-chip" id="canon-editor-grade" title="plain_reading_grade — a ceiling that may only fall">grade ${grade.value}${
       grade.limit === undefined ? "" : ` / ${grade.limit}`
     }</span>`;
   const boot = {
@@ -218,7 +218,7 @@ export function renderShell(options: {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${escapeHtml(page.title)} — The Scriptorium</title>
+<title>${escapeHtml(page.title)} — Canon Editor</title>
 <script>${themeBootstrap}</script>
 <link rel="stylesheet" href="/assets/design-system/fonts.css" />
 <link rel="stylesheet" href="/assets/design-system/discern.css" />
@@ -228,41 +228,41 @@ export function renderShell(options: {
 <script type="module" src="/assets/app.js"></script>
 </head>
 <body>
-<header class="scr-header">
-<a class="scr-brand" href="/page/feature-canon">The Scriptorium</a>
-<div class="scr-header-right">
+<header class="canon-editor-header">
+<a class="canon-editor-brand" href="/page/feature-canon">Canon Editor</a>
+<div class="canon-editor-header-right">
 ${gradeChip}
-<span class="scr-chip scr-chip-dirty" id="scr-dirty" hidden>● uncommitted changes</span>
-<button type="button" class="scr-chip" data-theme-toggle aria-pressed="false" aria-label="Switch to the dark theme">◐ theme</button>
+<span class="canon-editor-chip canon-editor-chip-dirty" id="canon-editor-dirty" hidden>● uncommitted changes</span>
+<button type="button" class="canon-editor-chip" data-theme-toggle aria-pressed="false" aria-label="Switch to the dark theme">◐ theme</button>
 </div>
 </header>
-<div class="scr-shell">
-<aside class="scr-nav" aria-label="Canons">
+<div class="canon-editor-shell">
+<aside class="canon-editor-nav" aria-label="Canons">
 ${navSection("Canons", canonRows)}
 ${navSection("All sets", atlasRows)}
 </aside>
-<main class="scr-doc">
-<article class="discern-prose scr-article" id="scr-doc">
+<main class="canon-editor-doc">
+<article class="discern-prose canon-editor-article" id="canon-editor-doc">
 ${docHtml}
 </article>
 </main>
-<aside class="scr-rail" id="scr-rail" aria-label="Entry inspector">
-<div class="scr-rail-empty">Select any rubricated span to inspect its entry — source, citations, and guards.</div>
+<aside class="canon-editor-rail" id="canon-editor-rail" aria-label="Entry inspector">
+<div class="canon-editor-rail-empty">Select an annotated span to inspect its entry, source, citations, and guards.</div>
 </aside>
 </div>
-<div class="scr-bench" id="scr-bench" hidden>
-<div class="scr-bench-row">
-<span class="scr-bench-path" id="scr-bench-path"></span>
-<span class="scr-bench-status" id="scr-bench-status"></span>
-<span class="scr-bench-actions">
-<button type="button" class="scr-btn" id="scr-bench-details-toggle" hidden aria-expanded="false">Details</button>
-<button type="button" class="scr-btn" id="scr-bench-cancel">Cancel</button>
-<button type="button" class="scr-btn scr-primary" id="scr-bench-save">Save</button>
+<div class="canon-editor-bench" id="canon-editor-bench" hidden>
+<div class="canon-editor-bench-row">
+<span class="canon-editor-bench-path" id="canon-editor-bench-path"></span>
+<span class="canon-editor-bench-status" id="canon-editor-bench-status"></span>
+<span class="canon-editor-bench-actions">
+<button type="button" class="canon-editor-btn" id="canon-editor-bench-details-toggle" hidden aria-expanded="false">Details</button>
+<button type="button" class="canon-editor-btn" id="canon-editor-bench-cancel">Cancel</button>
+<button type="button" class="canon-editor-btn canon-editor-primary" id="canon-editor-bench-save">Save</button>
 </span>
 </div>
-<pre class="scr-bench-details" id="scr-bench-details" hidden></pre>
+<pre class="canon-editor-bench-details" id="canon-editor-bench-details" hidden></pre>
 </div>
-<script id="scr-boot" type="application/json">${
+<script id="canon-editor-boot" type="application/json">${
     JSON.stringify(boot).replaceAll("</", "<\\/")
   }</script>
 </body>

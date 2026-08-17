@@ -1,6 +1,6 @@
 /**
  * The rung-0 jump: resolve a canon entry to its exact registry source line
- * and open the IDE there. This is also the studio's open-in-IDE plumbing —
+ * and open the IDE there. This is also the editor's open-in-IDE plumbing —
  * the server routes its jump links through the same resolution.
  */
 

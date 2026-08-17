@@ -1561,12 +1561,12 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
       "The effectful package request graph accepts a theme but cannot use the pure CLI presenter.",
   },
   {
-    file: "scripts/scriptorium/assets.ts",
+    file: "scripts/canon_editor/assets.ts",
     rule: "direct-theme-threading",
-    authority: "emitStudioAssets",
+    authority: "emitCanonEditorAssets",
     count: 1,
     reason:
-      "The studio's web bundle selects the design system's site theme, not a terminal theme.",
+      "Canon Editor's web bundle selects the design system's site theme, not a terminal theme.",
   },
   {
     file: "scripts/terminal_capture.ts",

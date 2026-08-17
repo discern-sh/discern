@@ -14,7 +14,7 @@ import {
   type EvidenceClass,
   type EvidenceClassDefinition,
 } from "./model.ts";
-import { annotateProse } from "../scriptorium/annotation.ts";
+import { annotateProse } from "../canon_editor/annotation.ts";
 
 /** The evidence-class table: meaning and permitted public use per class. */
 export const EVIDENCE_CLASSES: Readonly<
@@ -339,8 +339,8 @@ function classDisplayName(name: EvidenceClass): string {
 }
 
 /**
- * Route one ledger field through the scriptorium's provenance channel;
- * outside the scriptorium the text passes through unchanged.
+ * Route one ledger field through Canon Editor's provenance channel;
+ * outside Canon Editor the text passes through unchanged.
  */
 function claimProse(slug: string, field: string, text: string): string {
   return annotateProse(text, { registry: "claims", entry: slug, field });

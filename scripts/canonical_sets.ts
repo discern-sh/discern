@@ -995,7 +995,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/brand_registry_codegen_test.ts",
-      "tests/scriptorium_parity_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -1601,7 +1601,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/glossary_enrolment_test.ts",
       "tests/vocab_drift_test.ts",
       "tests/feature_canon_plain_register_test.ts",
-      "tests/scriptorium_parity_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {
@@ -1636,7 +1636,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/feature_canon_codegen_test.ts",
       "tests/feature_canon_enrolment_test.ts",
       "tests/feature_canon_plain_register_test.ts",
-      "tests/scriptorium_parity_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {
@@ -1677,7 +1677,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/feature_canon_benefit_test.ts",
       "tests/feature_canon_codegen_test.ts",
-      "tests/scriptorium_parity_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {
@@ -1712,7 +1712,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/practice_canon_enrolment_test.ts",
-      "tests/scriptorium_parity_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {

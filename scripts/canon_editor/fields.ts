@@ -1,8 +1,8 @@
 /**
- * Field semantics for the five prose registries: what the pen may do at each
+ * Field semantics for the five prose registries: what Canon Editor may do at each
  * declared field. Every map compiles `satisfies Record<keyof X, FieldSpec>`
  * against its registry interface, so adding a field to a registry breaks the
- * studio's typecheck until the editor says how to treat it — the enrolment
+ * editor's typecheck until the editor says how to treat it — the enrolment
  * forcing function that keeps the editor current by compiler error instead of
  * by noticing rot.
  *
@@ -51,7 +51,7 @@ export type FieldSpec =
   | {
     readonly edit: "list";
     readonly picker: PickerSource;
-    /** Present only when this exact field has in-studio write-back. */
+    /** Present only when this exact field has in-editor write-back. */
     readonly write?: "picker";
   }
   /** An object whose own fields carry the semantics — resolve one deeper. */
@@ -238,7 +238,7 @@ function topMap(registry: RegistryName, kind: string): FieldMap | undefined {
 /**
  * Resolve a dotted field path to its semantics. Numeric segments step through
  * array elements; a `nested` spec resolves one map deeper. Undefined means
- * the studio has no semantics for the path — the guard treats that as a
+ * the editor has no semantics for the path — the guard treats that as a
  * defect, not a shrug.
  */
 export function fieldSpecFor(

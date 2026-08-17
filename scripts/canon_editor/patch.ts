@@ -1,5 +1,5 @@
 /**
- * The scriptorium's pen: the narrowest possible write-back. A save replaces
+ * Canon Editor's narrow write-back path. A save replaces
  * exactly one editable literal — prose string or supported typed string list
  * — in memory, through the syntax view. Never a structural rewrite, template,
  * or id. Everything else the save-and-prove pipeline needs happens around
@@ -62,7 +62,7 @@ export function proseValueIssue(value: string): string | undefined {
   }
   for (const marker of [MARK_OPEN, MARK_SEP, MARK_CLOSE]) {
     if (value.includes(marker)) {
-      return "the value carries a studio annotation marker";
+      return "the value carries a Canon Editor annotation marker";
     }
   }
   return undefined;
@@ -124,7 +124,7 @@ export function patchRegistrySource(
   if (spec === undefined) {
     return {
       ok: false,
-      issue: `${request.field} has no studio semantics on a ${entry.kind}`,
+      issue: `${request.field} has no editor semantics on a ${entry.kind}`,
     };
   }
   if (request.mode === "prose" && spec.edit !== "prose") {
@@ -144,7 +144,7 @@ export function patchRegistrySource(
       issue: spec.edit === "locked"
         ? `${request.field} is locked: ${spec.reason}`
         : spec.edit === "list"
-        ? `${request.field} has no in-studio picker write-back`
+        ? `${request.field} has no in-editor picker write-back`
         : `${request.field} is ${spec.edit}, not a typed list`,
     };
   }
@@ -192,7 +192,7 @@ export function patchRegistrySource(
     return {
       ok: false,
       issue:
-        `${request.field} has no supported ${spec.picker} picker in this studio`,
+        `${request.field} has no supported ${spec.picker} picker in this editor`,
     };
   }
   const valueIssue = listValueIssue(request.value, picker);

@@ -1,7 +1,7 @@
 /**
  * Structural resolution over the five prose registries.
  *
- * The scriptorium reads the canon two independent ways: module evaluation for
+ * Canon Editor reads the canon two independent ways: module evaluation for
  * what the prose says (the snapshot), and this syntax-level view for where it
  * says it — the exact positions the IDE jump lands on and the literal nodes
  * write-back may replace. Field semantics (which paths are editable prose,
@@ -24,7 +24,7 @@ import type {
   SourceFile,
 } from "ts-morph";
 
-/** The five prose registries the scriptorium serves. */
+/** The five prose registries Canon Editor serves. */
 export type RegistryName =
   | "feature"
   | "benefit"

@@ -1,5 +1,5 @@
 /**
- * The pen's discipline. The patcher refuses everything but a plain
+ * The write-back boundary. The patcher refuses everything but a plain
  * string-literal prose field and edits nothing but that literal; the
  * save-and-prove pipeline leaves a proven save coherent on disk and rolls an
  * unprovable one back to the exact prior state. Every mutation runs against a
@@ -16,18 +16,18 @@ import {
   patchRegistrySource,
   type ProsePatchRequest,
   proseValueIssue,
-} from "../scripts/scriptorium/patch.ts";
-import { saveField } from "../scripts/scriptorium/pipeline.ts";
-import { PROSE_REGISTRIES } from "../scripts/scriptorium/registry_ast.ts";
+} from "../scripts/canon_editor/patch.ts";
+import { saveField } from "../scripts/canon_editor/pipeline.ts";
+import { PROSE_REGISTRIES } from "../scripts/canon_editor/registry_ast.ts";
 import type {
   Snapshot,
   SnapshotPage,
-} from "../scripts/scriptorium/snapshot.ts";
-import { MARK_OPEN } from "../scripts/scriptorium/annotation.ts";
-import { REPO_ROOT } from "../scripts/scriptorium/root.ts";
+} from "../scripts/canon_editor/snapshot.ts";
+import { MARK_OPEN } from "../scripts/canon_editor/annotation.ts";
+import { REPO_ROOT } from "../scripts/canon_editor/root.ts";
 import { allFeatureNodes } from "../scripts/feature_registry.ts";
 import { PRACTICE_CANON } from "../scripts/practice_registry.ts";
-import { buildPickerCatalog } from "../scripts/scriptorium/pickers.ts";
+import { buildPickerCatalog } from "../scripts/canon_editor/pickers.ts";
 
 const FEATURE_FILE = join(REPO_ROOT, "scripts", "feature_registry.ts");
 
@@ -99,7 +99,7 @@ async function writeGuard(
 async function withPipelineFixture(
   body: (root: string) => Promise<void>,
 ): Promise<void> {
-  const root = await Deno.makeTempDir({ prefix: "discern-scriptorium-" });
+  const root = await Deno.makeTempDir({ prefix: "discern-canon-editor-" });
   try {
     for (const rel of new Set(PROSE_REGISTRIES.map((entry) => entry.file))) {
       const target = join(root, rel);
@@ -177,7 +177,7 @@ Deno.test("the patcher refuses everything but editable prose literals", () => {
       registry: "feature",
       slug: "proof",
       field: "nonsense",
-      expect: /no studio semantics/,
+      expect: /no editor semantics/,
     },
     {
       registry: "feature",

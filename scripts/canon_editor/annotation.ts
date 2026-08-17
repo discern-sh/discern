@@ -1,12 +1,12 @@
 /**
- * The scriptorium's provenance channel through the real canon renderers.
+ * Canon Editor's provenance channel through the real canon renderers.
  *
  * A renderer wraps each prose field it emits in {@link annotateProse}. With no
  * annotator installed — codegen, the sync guards, every ordinary consumer —
  * the call is the identity function and the rendered page stays byte-identical
- * to today's. The scriptorium installs {@link markerAnnotator}, whose
+ * to today's. Canon Editor installs {@link markerAnnotator}, whose
  * private-use-area sentinels ride through Markdown untouched and strip back
- * out losslessly; the scriptorium parity guard holds that round trip exact.
+ * out losslessly; Canon Editor's parity guard holds that round trip exact.
  *
  * This module stays dependency-free on purpose: the registries import it, and
  * everything that imports a registry — codegen, the standards probes, the
@@ -88,7 +88,7 @@ export function parseRefToken(token: string): ProseRef | undefined {
 }
 
 /**
- * The scriptorium's standard annotator: wrap field text in private-use-area
+ * Canon Editor's standard annotator: wrap field text in private-use-area
  * sentinels that survive Markdown rendering as ordinary text and never occur
  * in authored prose.
  */
@@ -108,7 +108,7 @@ export function stripAnnotationMarkers(text: string): string {
 
 /**
  * Lowercase, dash-separated form of an id or term — the entry spelling refs
- * carry, shared with the AST layer so both sides of the scriptorium name an
+ * carry, shared with the AST layer so both sides of Canon Editor name an
  * entry identically.
  */
 export function slugify(text: string): string {

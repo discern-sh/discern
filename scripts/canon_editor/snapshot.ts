@@ -1,13 +1,13 @@
 /**
- * The scriptorium's evaluated view of the canon: every page rendered by the
+ * Canon Editor's evaluated view of the canon: every page rendered by the
  * real renderers with annotation markers installed, plus the structured data
- * the studio surfaces — entries, the citation web, the lint patterns, the
+ * the editor surfaces — entries, the citation web, the lint patterns, the
  * guard roster, and the standards the canons feed.
  *
  * The server runs this module as a fresh subprocess per refresh, so a
  * just-patched registry is re-imported from disk with no stale module cache,
  * and a registry that fails to evaluate takes down one snapshot run rather
- * than the studio.
+ * than the editor.
  */
 
 import { parse as parseToml } from "@std/toml";
@@ -69,9 +69,9 @@ export interface SnapshotPage {
   readonly annotated: boolean;
 }
 
-/** A cross-reference to another canon entry or an out-of-studio label. */
+/** A cross-reference to another canon entry or an out-of-editor label. */
 export interface CitationRef {
-  /** Present when the target is a studio entry the reader can navigate to. */
+  /** Present when the target is an editor entry the reader can navigate to. */
   readonly registry?: string;
   readonly slug?: string;
   readonly label: string;
@@ -107,7 +107,7 @@ export interface SnapshotEntry {
   readonly claimsCarried?: readonly string[];
 }
 
-/** A serialized lint pattern the studio applies as-you-type. */
+/** A serialized lint pattern the editor applies as-you-type. */
 export interface LintPattern {
   readonly name: string;
   readonly source: string;
@@ -130,7 +130,7 @@ export interface StandardReading {
   readonly direction?: string;
 }
 
-/** Everything the studio knows about the canon at one instant. */
+/** Everything the editor knows about the canon at one instant. */
 export interface Snapshot {
   readonly pages: readonly SnapshotPage[];
   readonly entries: readonly SnapshotEntry[];
@@ -352,7 +352,7 @@ function buildEntries(): SnapshotEntry[] {
 
 /** Render every canon page with markers installed, canonically formatted. */
 async function buildPages(): Promise<SnapshotPage[]> {
-  // The atlas is read-only in the studio, and re-rendering it would resolve
+  // The atlas is read-only in the editor, and re-rendering it would resolve
   // every declared set's members (one thunk shells out to git); the committed
   // page is the same bytes without the permissions.
   const atlas = await Deno.readTextFile(
@@ -496,7 +496,7 @@ async function buildStandards(): Promise<StandardReading[]> {
       }
     }
   } catch {
-    // The studio degrades to valueless readings when the config is unreadable.
+    // The editor degrades to valueless readings when the config is unreadable.
   }
   return readings;
 }

@@ -1,21 +1,23 @@
-/* The Scriptorium's reading-room behavior: span selection, the entry
+/* Canon Editor's browser behavior: span selection, the entry
    inspector rail, IDE jumps, guard runs, the live change feed, and the
    workbench — the fixed strip that carries all editing chrome so the
-   document itself never shifts while the pen works. */
+   document itself never shifts while a field editor is open. */
 
-const boot = JSON.parse(document.getElementById("scr-boot").textContent);
-const rail = document.getElementById("scr-rail");
-const doc = document.getElementById("scr-doc");
+const boot = JSON.parse(
+  document.getElementById("canon-editor-boot").textContent,
+);
+const rail = document.getElementById("canon-editor-rail");
+const doc = document.getElementById("canon-editor-doc");
 const railEmptyHtml = rail.innerHTML;
 
 const bench = {
-  root: document.getElementById("scr-bench"),
-  path: document.getElementById("scr-bench-path"),
-  status: document.getElementById("scr-bench-status"),
-  details: document.getElementById("scr-bench-details"),
-  detailsToggle: document.getElementById("scr-bench-details-toggle"),
-  cancel: document.getElementById("scr-bench-cancel"),
-  save: document.getElementById("scr-bench-save"),
+  root: document.getElementById("canon-editor-bench"),
+  path: document.getElementById("canon-editor-bench-path"),
+  status: document.getElementById("canon-editor-bench-status"),
+  details: document.getElementById("canon-editor-bench-details"),
+  detailsToggle: document.getElementById("canon-editor-bench-details-toggle"),
+  cancel: document.getElementById("canon-editor-bench-cancel"),
+  save: document.getElementById("canon-editor-bench-save"),
 };
 
 let selected = null;
@@ -23,10 +25,10 @@ let currentEntry = null;
 let editing = null;
 const runningGuards = new Set();
 
-/** The pending plain-twin reviews the pen has queued. */
+/** The pending plain-twin reviews that editing has queued. */
 function twinList() {
   try {
-    return JSON.parse(localStorage.getItem("scr-twins") ?? "[]");
+    return JSON.parse(localStorage.getItem("canon-editor-twins") ?? "[]");
   } catch {
     return [];
   }
@@ -34,7 +36,7 @@ function twinList() {
 
 /** Persist the twin list, bounded so it cannot grow forever. */
 function saveTwinList(list) {
-  localStorage.setItem("scr-twins", JSON.stringify(list.slice(-20)));
+  localStorage.setItem("canon-editor-twins", JSON.stringify(list.slice(-20)));
 }
 
 /** Queue a twin review after a technical-register save. */
@@ -46,7 +48,7 @@ function pushTwin(ref, field) {
   saveTwinList(list);
 }
 
-/** Clear a twin review once its plain field is visited by the pen. */
+/** Clear a twin review once its plain field is opened. */
 function clearTwin(ref) {
   saveTwinList(
     twinList().filter(
@@ -105,7 +107,7 @@ function citeLink(target) {
     claims: "claims-and-evidence",
   };
   return el("a", {
-    class: "scr-cite",
+    class: "canon-editor-cite",
     href: `/page/${pageByRegistry[target.registry] ?? "feature-canon"}`,
     "data-focus": `${target.registry}:${target.slug}`,
   }, [
@@ -117,11 +119,15 @@ function citeLink(target) {
 /** The verdict chip summarizing a registry's guard state. */
 function guardChip(registry, report) {
   if (runningGuards.has(registry)) {
-    return el("span", { class: "scr-chip", text: "⟳ running…" });
+    return el("span", { class: "canon-editor-chip", text: "⟳ running…" });
   }
-  if (!report) return el("span", { class: "scr-chip", text: "not run yet" });
+  if (!report) {
+    return el("span", { class: "canon-editor-chip", text: "not run yet" });
+  }
   return el("span", {
-    class: report.ok ? "scr-chip scr-chip-ok" : "scr-chip scr-chip-fail",
+    class: report.ok
+      ? "canon-editor-chip canon-editor-chip-ok"
+      : "canon-editor-chip canon-editor-chip-fail",
     text: report.ok ? "✓ guards green" : "✗ guards red",
   });
 }
@@ -130,10 +136,10 @@ let lastReports = new Map();
 
 /** The IDE-jump button with visible feedback for a jump that cannot land. */
 function ideButton(entry, activeField) {
-  const hint = el("div", { class: "scr-open-hint" });
+  const hint = el("div", { class: "canon-editor-open-hint" });
   hint.hidden = true;
   const button = el("button", {
-    class: "scr-btn",
+    class: "canon-editor-btn",
     text: "Open in PhpStorm",
   });
   button.addEventListener("click", async () => {
@@ -168,9 +174,9 @@ function renderRail(entry, activeField) {
   currentEntry = entry;
   rail.textContent = "";
   rail.append(
-    el("p", { class: "scr-rail-title", text: entry.title }),
+    el("p", { class: "canon-editor-rail-title", text: entry.title }),
     el("div", {
-      class: "scr-kind",
+      class: "canon-editor-kind",
       text: `${entry.registry} ${entry.kind} · ${entry.id}`,
     }),
   );
@@ -180,7 +186,7 @@ function renderRail(entry, activeField) {
     const span = selected;
     rail.append(
       el("button", {
-        class: "scr-btn scr-primary",
+        class: "canon-editor-btn canon-editor-primary",
         text: `Edit ${active.path}`,
         onclick: () =>
           openEditor(
@@ -196,7 +202,7 @@ function renderRail(entry, activeField) {
   rail.append(
     el("h3", { text: "Source" }),
     el("div", {
-      class: "scr-guardline",
+      class: "canon-editor-guardline",
       text: entry.file ? `${entry.file}:${entry.line}` : "position unknown",
     }),
     ideButton(entry, activeField),
@@ -205,14 +211,14 @@ function renderRail(entry, activeField) {
   for (const twin of pendingTwins) {
     rail.append(
       el("div", {
-        class: "scr-chip scr-chip-dirty scr-twin",
+        class: "canon-editor-chip canon-editor-chip-dirty canon-editor-twin",
         text: "● technical edited — review the plain twin",
       }),
       el("button", {
-        class: "scr-btn",
+        class: "canon-editor-btn",
         text: `Open ${twin.field} on the plain page`,
         onclick: () => {
-          sessionStorage.setItem("scr-focus", `feature:${twin.slug}`);
+          sessionStorage.setItem("canon-editor-focus", `feature:${twin.slug}`);
           location.href = "/page/feature-canon-plain";
         },
       }),
@@ -223,7 +229,7 @@ function renderRail(entry, activeField) {
     rail.append(el("h3", { text: "Fields" }));
     for (const field of entry.fields) {
       const row = el("div", {
-        class: "scr-fieldrow",
+        class: "canon-editor-fieldrow",
         "data-active": String(
           field.path === activeField ||
             (editing?.mode === "list" && editing.ref.field === field.path),
@@ -232,7 +238,7 @@ function renderRail(entry, activeField) {
       row.append(el("span", { text: field.path }));
       if (field.editor === "list") {
         row.append(el("button", {
-          class: "scr-field-action",
+          class: "canon-editor-field-action",
           type: "button",
           text: `Pick · ${field.value?.length ?? 0}`,
           title: `choose ${field.picker.source} values`,
@@ -272,20 +278,22 @@ function renderRail(entry, activeField) {
 
   rail.append(el("h3", { text: "Guards" }));
   const registryGuards = boot.guards.find((g) => g.registry === entry.registry);
-  rail.append(el("div", { class: "scr-guards" }, [
+  rail.append(el("div", { class: "canon-editor-guards" }, [
     guardChip(entry.registry, lastReports.get(entry.registry)),
     ...(registryGuards?.guards ?? []).map((file) =>
-      el("div", { class: "scr-guardline", text: file })
+      el("div", { class: "canon-editor-guardline", text: file })
     ),
   ]));
   const report = lastReports.get(entry.registry);
   if (report && !report.ok) {
     for (const result of report.results.filter((r) => !r.ok)) {
-      rail.append(el("pre", { class: "scr-failure", text: result.summary }));
+      rail.append(
+        el("pre", { class: "canon-editor-failure", text: result.summary }),
+      );
     }
   }
   const runButton = el("button", {
-    class: "scr-btn",
+    class: "canon-editor-btn",
     text: runningGuards.has(entry.registry)
       ? "⟳ Running guards…"
       : "Run this registry's guards",
@@ -302,7 +310,7 @@ function renderRail(entry, activeField) {
 
 /** Clear the selection and return the rail to its resting state. */
 function deselect() {
-  if (selected) selected.classList.remove("scr-selected");
+  if (selected) selected.classList.remove("canon-editor-selected");
   selected = null;
   currentEntry = null;
   rail.innerHTML = railEmptyHtml;
@@ -338,18 +346,18 @@ function benchStatusReset() {
   bench.status.textContent = "";
   if (editing?.diskNote) {
     bench.status.append(el("span", {
-      class: "scr-chip scr-chip-dirty",
+      class: "canon-editor-chip canon-editor-chip-dirty",
       text: "⚠ canon changed on disk — Save re-proves against it",
     }));
   }
   if (editing?.mode === "list") {
     bench.status.append(
       el("span", {
-        class: "scr-chip",
+        class: "canon-editor-chip",
         text: `${editing.values.length} selected`,
       }),
       el("span", {
-        class: "scr-bench-stage",
+        class: "canon-editor-bench-stage",
         text: "existing order is preserved; additions append",
       }),
     );
@@ -362,13 +370,13 @@ function benchOpen(ref) {
   benchState("lint");
   benchStatusReset();
   bench.root.hidden = false;
-  document.body.classList.add("scr-benched");
+  document.body.classList.add("canon-editor-benched");
 }
 
-/** Hide the workbench when the pen is put down. */
+/** Hide the workbench when field editing ends. */
 function benchClose() {
   bench.root.hidden = true;
-  document.body.classList.remove("scr-benched");
+  document.body.classList.remove("canon-editor-benched");
 }
 
 /** Close either editor, restoring the prose span or removing the picker. */
@@ -377,7 +385,7 @@ function closeEditor() {
   const closed = editing;
   if (closed.mode === "prose") {
     closed.span.innerHTML = closed.original;
-    closed.span.classList.remove("scr-editing", "scr-saving");
+    closed.span.classList.remove("canon-editor-editing", "canon-editor-saving");
   } else {
     closed.panel.remove();
     closed.row.dataset.active = "false";
@@ -385,9 +393,9 @@ function closeEditor() {
   editing = null;
   benchClose();
   if (closed.mode === "prose") {
-    if (selected) selected.classList.remove("scr-selected");
+    if (selected) selected.classList.remove("canon-editor-selected");
     selected = closed.span;
-    closed.span.classList.add("scr-selected");
+    closed.span.classList.add("canon-editor-selected");
   }
 }
 
@@ -413,21 +421,24 @@ async function submitEditor() {
   const { ref, expected } = activeEditor;
   benchState("saving");
   benchStatusReset();
-  const stage = el("span", { class: "scr-bench-stage", text: "⟳ saving…" });
+  const stage = el("span", {
+    class: "canon-editor-bench-stage",
+    text: "⟳ saving…",
+  });
   bench.status.append(stage);
   activeEditor.stageEl = stage;
   if (activeEditor.mode === "prose") {
-    activeEditor.span.classList.add("scr-saving");
+    activeEditor.span.classList.add("canon-editor-saving");
   } else {
-    activeEditor.panel.classList.add("scr-saving");
+    activeEditor.panel.classList.add("canon-editor-saving");
   }
   const response = await postJson("/api/save", { ...ref, expected, value });
   const report = await response.json();
   if (editing !== activeEditor) return;
   if (activeEditor.mode === "prose") {
-    activeEditor.span.classList.remove("scr-saving");
+    activeEditor.span.classList.remove("canon-editor-saving");
   } else {
-    activeEditor.panel.classList.remove("scr-saving");
+    activeEditor.panel.classList.remove("canon-editor-saving");
   }
   activeEditor.stageEl = null;
   if (report.ok) {
@@ -435,9 +446,9 @@ async function submitEditor() {
       if (report.twin) pushTwin(ref, report.twin);
       if (ref.field.startsWith("plain.")) clearTwin(ref);
     }
-    sessionStorage.setItem("scr-focus", `${ref.registry}:${ref.slug}`);
+    sessionStorage.setItem("canon-editor-focus", `${ref.registry}:${ref.slug}`);
     sessionStorage.setItem(
-      "scr-saved",
+      "canon-editor-saved",
       JSON.stringify({
         field: ref.field,
         pages: report.pages?.length ?? 0,
@@ -452,7 +463,7 @@ async function submitEditor() {
   benchStatusReset();
   const wrote = report.restored === true;
   bench.status.append(el("span", {
-    class: "scr-bench-verdict",
+    class: "canon-editor-bench-verdict",
     text: wrote
       ? `✗ rolled back while ${stageLabel(report.stage)} — every byte restored`
       : `✗ refused while ${stageLabel(report.stage)} — nothing was written`,
@@ -484,7 +495,7 @@ async function lintDraft(vale) {
   benchStatusReset();
   if (report.grade !== null && report.grade !== undefined) {
     bench.status.append(el("span", {
-      class: "scr-chip",
+      class: "canon-editor-chip",
       text: `field grade ${report.grade.toFixed(1)}`,
       title:
         "Flesch–Kincaid over this field alone — the standard judges the whole corpus",
@@ -493,10 +504,10 @@ async function lintDraft(vale) {
   for (const finding of report.findings) {
     bench.status.append(el("span", {
       class: finding.severity === "error"
-        ? "scr-chip scr-chip-fail"
+        ? "canon-editor-chip canon-editor-chip-fail"
         : finding.severity === "warning"
-        ? "scr-chip scr-chip-dirty"
-        : "scr-chip",
+        ? "canon-editor-chip canon-editor-chip-dirty"
+        : "canon-editor-chip",
       text: `${
         finding.severity === "suggestion" ? "· " : "⚠ "
       }${finding.message}`,
@@ -504,7 +515,10 @@ async function lintDraft(vale) {
   }
   if (report.findings.length === 0 && vale) {
     bench.status.append(
-      el("span", { class: "scr-chip scr-chip-ok", text: "✓ register clean" }),
+      el("span", {
+        class: "canon-editor-chip canon-editor-chip-ok",
+        text: "✓ register clean",
+      }),
     );
   }
 }
@@ -523,14 +537,14 @@ function openListEditor(entry, field, row) {
       live: false,
     })),
   ];
-  const panel = el("section", { class: "scr-picker" });
+  const panel = el("section", { class: "canon-editor-picker" });
   const search = el("input", {
-    class: "scr-picker-search",
+    class: "canon-editor-picker-search",
     type: "search",
     placeholder: `Filter ${field.picker.source} values…`,
     "aria-label": `Filter ${field.path} choices`,
   });
-  const choices = el("div", { class: "scr-picker-choices" });
+  const choices = el("div", { class: "canon-editor-picker-choices" });
   panel.append(search, choices);
   row.after(panel);
   row.dataset.active = "true";
@@ -568,8 +582,8 @@ function openListEditor(entry, field, row) {
         : `${option.value} — ${option.label}`;
       const choice = el("label", {
         class: option.live
-          ? "scr-picker-choice"
-          : "scr-picker-choice scr-stale",
+          ? "canon-editor-picker-choice"
+          : "canon-editor-picker-choice canon-editor-stale",
       }, [
         checkbox,
         el("span", { text: label }),
@@ -608,7 +622,7 @@ function openListEditor(entry, field, row) {
     }
     if (shown === 0) {
       choices.append(el("p", {
-        class: "scr-picker-empty",
+        class: "canon-editor-picker-empty",
         text: "No live values match that filter.",
       }));
     }
@@ -622,14 +636,14 @@ function openListEditor(entry, field, row) {
 /** Open the in-place editor over a span, seeded with the field's source. */
 function openEditor(span, ref, value, kind) {
   if (editing) closeEditor();
-  if (selected) selected.classList.remove("scr-selected");
+  if (selected) selected.classList.remove("canon-editor-selected");
   selected = span;
   const original = span.innerHTML;
-  span.classList.add("scr-editing");
-  span.classList.remove("scr-selected");
+  span.classList.add("canon-editor-editing");
+  span.classList.remove("canon-editor-selected");
   span.innerHTML = "";
   const box = el("span", {
-    class: "scr-editor",
+    class: "canon-editor-editor",
     contenteditable: "plaintext-only",
     spellcheck: "true",
   });
@@ -701,9 +715,9 @@ async function editField(span, ref) {
 
 /** Select a provenance span and load its entry into the rail. */
 async function selectSpan(span) {
-  if (selected) selected.classList.remove("scr-selected");
+  if (selected) selected.classList.remove("canon-editor-selected");
   selected = span;
-  span.classList.add("scr-selected");
+  span.classList.add("canon-editor-selected");
   const ref = parseRef(span.dataset.ref);
   const response = await fetch(`/api/entry/${ref.registry}/${ref.slug}`);
   if (!response.ok) return;
@@ -716,10 +730,10 @@ doc.addEventListener("click", (event) => {
   const outside = event.target.closest("a[data-outside]");
   if (outside) {
     event.preventDefault();
-    outside.title = `points outside the studio: ${outside.dataset.outside}`;
+    outside.title = `points outside the editor: ${outside.dataset.outside}`;
     return;
   }
-  const span = event.target.closest(".scr-field");
+  const span = event.target.closest(".canon-editor-field");
   if (!span) return;
   const ref = parseRef(span.dataset.ref);
   if (event.metaKey || event.ctrlKey) {
@@ -731,8 +745,8 @@ doc.addEventListener("click", (event) => {
 
 doc.addEventListener("dblclick", (event) => {
   if (editing?.mode === "list") return;
-  const span = event.target.closest(".scr-field");
-  if (!span || span.classList.contains("scr-locked")) return;
+  const span = event.target.closest(".canon-editor-field");
+  if (!span || span.classList.contains("canon-editor-locked")) return;
   if (editing?.mode === "prose" && editing.span === span) return;
   event.preventDefault();
   editField(span, parseRef(span.dataset.ref));
@@ -740,7 +754,7 @@ doc.addEventListener("dblclick", (event) => {
 
 doc.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
-  const span = event.target.closest?.(".scr-field");
+  const span = event.target.closest?.(".canon-editor-field");
   if (span) selectSpan(span);
 });
 
@@ -752,21 +766,20 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-/* Clicking anywhere that is not a span, the rail, the bench, or the header
-   returns the studio to its resting state — unless the pen is down, where
-   an accidental click must not discard the draft. */
+/* Clicking outside a span, the rail, the bench, or the header clears the
+   selection. An open field keeps its draft until an explicit action ends it. */
 document.addEventListener("click", (event) => {
   if (editing || !selected) return;
   const target = event.target;
   // A target no longer in the document was re-rendered by its own click
   // (the rail's guard button does this); its ancestry cannot be judged,
-  // and a click that changed the studio was never an "outside" click.
+  // and a click that changed the editor was never an "outside" click.
   if (target.isConnected === false) return;
   if (
-    target.closest?.(".scr-field") ||
-    target.closest?.("#scr-rail") ||
-    target.closest?.("#scr-bench") ||
-    target.closest?.(".scr-header")
+    target.closest?.(".canon-editor-field") ||
+    target.closest?.("#canon-editor-rail") ||
+    target.closest?.("#canon-editor-bench") ||
+    target.closest?.(".canon-editor-header")
   ) {
     return;
   }
@@ -790,15 +803,13 @@ async function refreshState() {
   lastReports = new Map(
     state.reports.map((report) => [report.registry, report]),
   );
-  const dirty = document.getElementById("scr-dirty");
+  const dirty = document.getElementById("canon-editor-dirty");
   if (dirty) {
     dirty.hidden = state.dirty.length === 0;
     dirty.textContent = `● ${state.dirty.length} to commit`;
-    dirty.title = `Uncommitted studio-writable files:\n${
-      state.dirty.join("\n")
-    }`;
+    dirty.title = `Uncommitted Canon Editor files:\n${state.dirty.join("\n")}`;
   }
-  const grade = document.getElementById("scr-grade");
+  const grade = document.getElementById("canon-editor-grade");
   const reading = state.standards.find((s) => s.name === "plain_reading_grade");
   if (grade && reading && reading.value !== undefined) {
     grade.textContent = `grade ${reading.value}${
@@ -817,16 +828,16 @@ async function refreshState() {
 document.addEventListener("click", (event) => {
   const cite = event.target.closest("a[data-focus]");
   if (!cite) return;
-  sessionStorage.setItem("scr-focus", cite.dataset.focus);
+  sessionStorage.setItem("canon-editor-focus", cite.dataset.focus);
 });
 
 /** After a cite-link navigation, scroll to and select the stored target. */
 function focusStored() {
-  const stored = sessionStorage.getItem("scr-focus");
+  const stored = sessionStorage.getItem("canon-editor-focus");
   if (!stored) return;
-  sessionStorage.removeItem("scr-focus");
+  sessionStorage.removeItem("canon-editor-focus");
   const span = doc.querySelector(
-    `.scr-field[data-ref^="${CSS.escape(stored)}:"]`,
+    `.canon-editor-field[data-ref^="${CSS.escape(stored)}:"]`,
   );
   if (span) {
     span.scrollIntoView({ block: "center" });
@@ -836,9 +847,9 @@ function focusStored() {
 
 /** After a green save's reload, confirm it plainly in the header for a bit. */
 function showSavedNote() {
-  const raw = sessionStorage.getItem("scr-saved");
+  const raw = sessionStorage.getItem("canon-editor-saved");
   if (!raw) return;
-  sessionStorage.removeItem("scr-saved");
+  sessionStorage.removeItem("canon-editor-saved");
   let note;
   try {
     note = JSON.parse(raw);
@@ -846,13 +857,13 @@ function showSavedNote() {
     return;
   }
   const chip = el("span", {
-    class: "scr-chip scr-chip-ok",
+    class: "canon-editor-chip canon-editor-chip-ok",
     text: `✓ saved ${note.field} — proven`,
     title: `${note.pages} page(s) rewritten${
       note.grade === null ? "" : `, corpus grade ${note.grade}`
     }`,
   });
-  const host = document.querySelector(".scr-header-right");
+  const host = document.querySelector(".canon-editor-header-right");
   host?.prepend(chip);
   setTimeout(() => chip.remove(), 6000);
 }
@@ -863,7 +874,7 @@ events.addEventListener("message", (event) => {
   if (payload.type === "snapshot") {
     if (editing) {
       // Our own save broadcasts a snapshot on adoption; only a change that
-      // arrives while the pen is idle over a draft is outside news.
+      // arrives while a draft is open comes from outside this save.
       if (bench.root.dataset.state !== "saving" && !editing.diskNote) {
         editing.diskNote = true;
         benchStatusReset();

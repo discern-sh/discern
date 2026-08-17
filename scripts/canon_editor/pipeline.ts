@@ -6,7 +6,7 @@
  * prose command, and runs the registry's own guard files — and if any step
  * past the swap fails, every written byte is restored, so a save that cannot
  * be proven leaves the tree exactly as it was. `discern done` stays the final
- * authority; the studio only moves its judgment earlier.
+ * authority; Canon Editor moves the same judgment earlier.
  */
 
 import { join } from "@std/path";
@@ -77,7 +77,7 @@ export async function spawnSnapshot(root: string): Promise<Snapshot> {
       "run",
       "--allow-read",
       "--allow-env",
-      join("scripts", "scriptorium", "snapshot.ts"),
+      join("scripts", "canon_editor", "snapshot.ts"),
     ],
     cwd: root,
     stdin: "null",

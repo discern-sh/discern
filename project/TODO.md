@@ -28,7 +28,7 @@ _Verified defects and correctness risks. Nothing outstanding._
 
 ## 🟡 Smaller fixes & polish
 
-- [ ] **The scriptorium's remaining structural rung (rung 3 of the commissioning proposal).** The studio (ADR 0288) ships reading, in-place prose and typed-list write-back, and live register lint. Deliberately deferred until real launch-copy mileage says which operations matter: scaffolded add/retire/reorder forms with absence records, a stage-and-commit composer, and the "brief an agent" escape hatch for campaign-sized changes. Evidence: `scripts/scriptorium/fields.ts`; `project/map/80-development/the-scriptorium.md` (§Limits).
+- [ ] **Canon Editor's remaining structural rung (rung 3 of the commissioning proposal).** Canon Editor (ADR 0288) ships reading, in-place prose and typed-list write-back, and live register lint. Deferred until real launch-copy mileage says which operations matter: scaffolded add/retire/reorder forms with absence records, a stage-and-commit composer, and the "brief an agent" escape hatch for campaign-sized changes. Evidence: `scripts/canon_editor/fields.ts`; `project/map/80-development/canon-editor.md` (§Limits).
 
 - [ ] **Verify effective generated-artifact attributes, not only the managed block.** Extend `doctor` beyond `.gitattributes` currency: resolve each tracked generated path through Git's full attribute-precedence rules and warn when its effective `merge` value is not `discern-generated`; in a discern worktree, also verify that the worktree-local driver is installed. Preserve project-owned attribute lines and report overrides without rewriting them. Evidence: `src/lib/agent_gitattributes.ts`; `src/commands/doctor.ts`; `src/engine/worktree/lifecycle.ts`.
 

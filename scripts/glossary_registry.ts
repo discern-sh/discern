@@ -29,7 +29,7 @@ import {
   NAMESPACE_DIR,
   sourcePathDefault,
 } from "../src/shared/paths_registry.ts";
-import { annotateProse, slugify } from "./scriptorium/annotation.ts";
+import { annotateProse, slugify } from "./canon_editor/annotation.ts";
 
 /** A place a retired phrase may still legally appear, and why. */
 export interface RetiredException {

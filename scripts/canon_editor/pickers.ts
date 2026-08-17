@@ -1,5 +1,5 @@
 /**
- * Typed list choices for the scriptorium. Field semantics own which exact
+ * Typed list choices for Canon Editor. Field semantics own which exact
  * list fields have write-back; this module exhaustively handles the option
  * sources those fields name. Every option derives from the registry that owns
  * the value, never from a copied browser list.
@@ -62,7 +62,7 @@ const PICKER_BUILDERS = {
   },
 } as const satisfies Partial<Record<PickerSource, PickerBuilder>>;
 
-/** A picker source whose complete option authority is wired into the studio. */
+/** A picker source whose complete option authority is wired into the editor. */
 export type WritablePickerSource = keyof typeof PICKER_BUILDERS;
 
 /** The supported source names, derived from the builder table. */

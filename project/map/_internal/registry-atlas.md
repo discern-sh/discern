@@ -130,6 +130,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/browser_art_rule_test.ts`                   | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_seal_test.ts`                   | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/built_in_step_labels_test.ts`               | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/canon_editor_parity_test.ts`                | [`brand-claims`](#brand-claims--brand-claims-ledger), [`glossary-terms`](#glossary-terms--glossary-terms), [`feature-canon`](#feature-canon--feature-canon), [`benefit-canon`](#benefit-canon--benefit-canon), [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                                                                  |
 | `tests/canonical_sets_enrolment_test.ts`           | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/cli_reference_codegen_test.ts`              | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/config_banner_parity_test.ts`               | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -209,7 +210,6 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/repo_authored_paths_test.ts`                | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/result_codegen_test.ts`                     | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts), [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts), [`public-schema-publications`](#public-schema-publications--public-schema-publications), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes) |
 | `tests/result_schemas_test.ts`                     | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields), [`step-kinds`](#step-kinds--step-kinds), [`hints`](#hints--hints), [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence), [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes)                              |
-| `tests/scriptorium_parity_test.ts`                 | [`brand-claims`](#brand-claims--brand-claims-ledger), [`glossary-terms`](#glossary-terms--glossary-terms), [`feature-canon`](#feature-canon--feature-canon), [`benefit-canon`](#benefit-canon--benefit-canon), [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                                                                  |
 | `tests/security_disclosure_test.ts`                | [`security-disclosure`](#security-disclosure--security-disclosure)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/site_serve_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/site_smoke_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -963,7 +963,7 @@ The public claims ledger behind brand copy: per-claim evidence classes, stronges
   - `map-mechanically-checked`
   - `agent-as-operator`
   - `runs-on-itself`
-- Guards: `tests/brand_registry_codegen_test.ts`, `tests/scriptorium_parity_test.ts`
+- Guards: `tests/brand_registry_codegen_test.ts`, `tests/canon_editor_parity_test.ts`
 - Glossary: not enrolled — the internal claims canon defines this public-wording vocabulary
 - Feature canon: not enrolled — public copy applies this evidence ledger to the product nodes it describes
 
@@ -1635,7 +1635,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Worktree`
   - `Worktree resource`
   - `Project-owned file`
-- Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`, `tests/feature_canon_plain_register_test.ts`, `tests/scriptorium_parity_test.ts`
+- Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`, `tests/feature_canon_plain_register_test.ts`, `tests/canon_editor_parity_test.ts`
 - Artifacts: `project/map/00-orientation/glossary.md`
 - Glossary: not enrolled — the registry is the Glossary, and its generated page is the definition surface
 - Feature canon: described by the `glossary-canon` node
@@ -1774,7 +1774,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `canonical-sets`
   - `dogfooding`
   - `interruption-safety`
-- Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/feature_canon_plain_register_test.ts`, `tests/scriptorium_parity_test.ts`
+- Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/feature_canon_plain_register_test.ts`, `tests/canon_editor_parity_test.ts`
 - Artifacts: `project/map/_internal/feature-canon.md`, `project/map/_internal/feature-canon-plain.md`
 - Glossary: not enrolled — this maintainer registry supplies the Feature canon's data
 - Feature canon: not enrolled — this is the enrolling registry; its nodes describe the product capabilities
@@ -1829,7 +1829,7 @@ The commercially ordered transposition of the feature registry: human value and 
   - `retain-work-after-uninstall`
   - `local-without-another-model`
   - `explicit-write-authority`
-- Guards: `tests/feature_canon_benefit_test.ts`, `tests/feature_canon_codegen_test.ts`, `tests/scriptorium_parity_test.ts`
+- Guards: `tests/feature_canon_benefit_test.ts`, `tests/feature_canon_codegen_test.ts`, `tests/canon_editor_parity_test.ts`
 - Artifacts: `project/map/_internal/feature-canon-benefits.md`
 - Glossary: not enrolled — this maintainer registry supplies the benefit canon's data
 - Feature canon: not enrolled — the benefit canon is the feature canon's own transposition; its entries cite feature nodes rather than claim surfaces
@@ -1852,7 +1852,7 @@ The practice registry behind the practice canon: the obligations upheld by enfor
   - `write-it-once`
   - `no-dead-ends`
   - `plan-then-apply`
-- Guards: `tests/practice_canon_enrolment_test.ts`, `tests/scriptorium_parity_test.ts`
+- Guards: `tests/practice_canon_enrolment_test.ts`, `tests/canon_editor_parity_test.ts`
 - Artifacts: `project/map/_internal/practice-canon.md`, `project/map/00-orientation/the-practice.md`
 - Glossary: the "Practice" entry carries the concept
 - Feature canon: not enrolled — the tenets are obligations the feature nodes implement; each cites its mechanisms rather than claiming surfaces

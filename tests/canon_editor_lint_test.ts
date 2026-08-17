@@ -11,9 +11,9 @@ import {
   lintFieldText,
   valeFindings,
   valeProbePath,
-} from "../scripts/scriptorium/lint.ts";
-import { buildSnapshot } from "../scripts/scriptorium/snapshot.ts";
-import { REPO_ROOT } from "../scripts/scriptorium/root.ts";
+} from "../scripts/canon_editor/lint.ts";
+import { buildSnapshot } from "../scripts/canon_editor/snapshot.ts";
+import { REPO_ROOT } from "../scripts/canon_editor/root.ts";
 
 const { lint } = await buildSnapshot();
 

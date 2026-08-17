@@ -1,16 +1,15 @@
-/* The Scriptorium's shell, layered after the design system's own layers.
-   Chrome is styled from design tokens; the one colour the studio adds is the
-   rubric — the working red that marks what the pen may touch. */
+/* Canon Editor's shell, layered after the design system's own layers.
+   Chrome is styled from design tokens; a local accent marks editable text. */
 
 @layer discern.consumer {
   :root {
-    --scr-rubric: #b0392c;
-    --scr-rubric-soft: #f6e4e1;
-    --scr-header-h: 3rem;
+    --canon-editor-accent: #b0392c;
+    --canon-editor-accent-soft: #f6e4e1;
+    --canon-editor-header-h: 3rem;
   }
   :root[data-discern-theme="dark"] {
-    --scr-rubric: #e0715d;
-    --scr-rubric-soft: #3a2622;
+    --canon-editor-accent: #e0715d;
+    --canon-editor-accent-soft: #3a2622;
   }
 
   body {
@@ -19,7 +18,7 @@
   }
 
   /* ——— Header ——— */
-  .scr-header {
+  .canon-editor-header {
     position: sticky;
     top: 0;
     z-index: 30;
@@ -27,24 +26,24 @@
     align-items: center;
     gap: 1rem;
     box-sizing: border-box;
-    min-height: var(--scr-header-h);
+    min-height: var(--canon-editor-header-h);
     padding: 0.5rem 1.1rem;
     background: var(--discern-color-surface);
     border-bottom: 1px solid var(--discern-color-border);
   }
-  .scr-brand {
+  .canon-editor-brand {
     font-family: var(--discern-font-display);
     font-size: var(--discern-font-size-md);
     color: var(--discern-color-ink);
     text-decoration: none;
   }
-  .scr-header-right {
+  .canon-editor-header-right {
     margin-left: auto;
     display: flex;
     gap: 0.5rem;
     align-items: center;
   }
-  .scr-chip {
+  .canon-editor-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.35em;
@@ -58,42 +57,42 @@
     color: var(--discern-color-ink-muted);
     cursor: default;
   }
-  button.scr-chip {
+  button.canon-editor-chip {
     cursor: pointer;
   }
-  .scr-chip-dirty {
+  .canon-editor-chip-dirty {
     color: var(--discern-color-warning-deep);
     border-color: var(--discern-color-warning);
     background: var(--discern-color-warning-soft);
   }
-  .scr-chip-ok {
+  .canon-editor-chip-ok {
     color: var(--discern-color-success-deep);
     border-color: var(--discern-color-success);
     background: var(--discern-color-success-soft);
   }
-  .scr-chip-fail {
+  .canon-editor-chip-fail {
     color: var(--discern-color-danger);
     border-color: var(--discern-color-danger);
     background: var(--discern-color-danger-soft);
   }
 
   /* ——— Shell ——— */
-  .scr-shell {
+  .canon-editor-shell {
     display: grid;
     grid-template-columns: 16rem minmax(0, 1fr) 22rem;
     max-width: 104rem;
     margin: 0 auto;
   }
-  .scr-nav {
+  .canon-editor-nav {
     border-right: 1px solid var(--discern-color-border);
     padding: 1.1rem 0.9rem 2rem;
     position: sticky;
-    top: var(--scr-header-h);
+    top: var(--canon-editor-header-h);
     align-self: start;
-    max-height: calc(100vh - var(--scr-header-h));
+    max-height: calc(100vh - var(--canon-editor-header-h));
     overflow-y: auto;
   }
-  .scr-nav-group h2 {
+  .canon-editor-nav-group h2 {
     font-family: var(--discern-font-mono);
     font-size: var(--discern-font-size-xs);
     letter-spacing: 0.12em;
@@ -102,15 +101,15 @@
     margin: 1.2rem 0 0.35rem 0.4rem;
     font-weight: 500;
   }
-  .scr-nav-group:first-child h2 {
+  .canon-editor-nav-group:first-child h2 {
     margin-top: 0;
   }
-  .scr-nav-group ul {
+  .canon-editor-nav-group ul {
     list-style: none;
     margin: 0;
     padding: 0;
   }
-  .scr-nav-group a {
+  .canon-editor-nav-group a {
     display: flex;
     justify-content: space-between;
     gap: 0.6rem;
@@ -122,17 +121,17 @@
     color: var(--discern-color-ink-muted);
     text-decoration: none;
   }
-  .scr-nav-group a:hover {
+  .canon-editor-nav-group a:hover {
     background: var(--discern-color-surface-sunken);
     color: var(--discern-color-ink);
   }
-  .scr-nav-group a[aria-current="page"] {
+  .canon-editor-nav-group a[aria-current="page"] {
     background: var(--discern-color-surface);
     color: var(--discern-color-ink);
     font-weight: 600;
-    box-shadow: inset 2px 0 0 var(--scr-rubric);
+    box-shadow: inset 2px 0 0 var(--canon-editor-accent);
   }
-  .scr-count {
+  .canon-editor-count {
     font-family: var(--discern-font-mono);
     font-size: var(--discern-font-size-xs);
     color: var(--discern-color-ink-faint);
@@ -140,75 +139,75 @@
   }
 
   /* ——— Reading surface ——— */
-  .scr-doc {
+  .canon-editor-doc {
     padding: 2rem 2.6rem 5rem;
     min-width: 0;
   }
-  .scr-article {
+  .canon-editor-article {
     max-width: var(--discern-measure);
   }
-  .scr-field {
+  .canon-editor-field {
     border-radius: 3px;
     transition: background-color 120ms ease-out;
     cursor: pointer;
     text-decoration-line: underline;
     text-decoration-style: dotted;
-    text-decoration-color: color-mix(in srgb, var(--scr-rubric) 40%,
+    text-decoration-color: color-mix(in srgb, var(--canon-editor-accent) 40%,
       transparent);
     text-decoration-thickness: 1px;
     text-underline-offset: 0.24em;
   }
-  .scr-field:hover {
-    background: var(--scr-rubric-soft);
-    box-shadow: 0 1px 0 var(--scr-rubric);
-    text-decoration-color: var(--scr-rubric);
+  .canon-editor-field:hover {
+    background: var(--canon-editor-accent-soft);
+    box-shadow: 0 1px 0 var(--canon-editor-accent);
+    text-decoration-color: var(--canon-editor-accent);
   }
-  .scr-field:focus-visible {
-    outline: 2px solid var(--scr-rubric);
+  .canon-editor-field:focus-visible {
+    outline: 2px solid var(--canon-editor-accent);
     outline-offset: 1px;
   }
-  .scr-field.scr-selected {
-    background: var(--scr-rubric-soft);
-    box-shadow: 0 0 0 1.5px var(--scr-rubric);
+  .canon-editor-field.canon-editor-selected {
+    background: var(--canon-editor-accent-soft);
+    box-shadow: 0 0 0 1.5px var(--canon-editor-accent);
   }
-  .scr-locked {
+  .canon-editor-locked {
     cursor: not-allowed;
     text-decoration-color: var(--discern-color-ink-faint);
   }
 
-  /* ——— The pen ——— */
-  .scr-field.scr-editing,
-  .scr-field.scr-editing:hover {
+  /* ——— Field editor ——— */
+  .canon-editor-field.canon-editor-editing,
+  .canon-editor-field.canon-editor-editing:hover {
     display: inline;
     background: none;
     box-shadow: none;
     text-decoration: none;
     cursor: auto;
   }
-  .scr-editor {
+  .canon-editor-editor {
     display: inline-block;
     min-width: 14rem;
     max-width: 100%;
     padding: 0.35rem 0.55rem;
-    border: 1.5px solid var(--scr-rubric);
+    border: 1.5px solid var(--canon-editor-accent);
     border-radius: var(--discern-radius-sm);
-    box-shadow: 0 0 0 3px var(--scr-rubric-soft);
+    box-shadow: 0 0 0 3px var(--canon-editor-accent-soft);
     background: var(--discern-color-surface);
     font: inherit;
     line-height: inherit;
     outline: none;
     white-space: pre-wrap;
   }
-  .scr-saving .scr-editor {
+  .canon-editor-saving .canon-editor-editor {
     opacity: 0.6;
     pointer-events: none;
   }
-  .scr-twin {
+  .canon-editor-twin {
     display: block;
     margin-top: 0.6rem;
     white-space: normal;
   }
-  .scr-locked:hover {
+  .canon-editor-locked:hover {
     background: var(--discern-color-surface-sunken);
     box-shadow: none;
   }
@@ -217,8 +216,8 @@
      All editing chrome lives on one fixed strip at the bottom of the
      viewport: the field's address, live register judgment, save progress,
      and the verdict. The document never has elements inserted into it, so
-     the prose stands still while the pen works. */
-  .scr-bench {
+     the prose stands still while a field editor is open. */
+  .canon-editor-bench {
     position: fixed;
     inset: auto 0 0 0;
     z-index: 40;
@@ -228,28 +227,28 @@
     box-sizing: border-box;
     padding: 0.6rem 1.1rem 0.7rem;
     background: var(--discern-color-surface);
-    border-top: 2px solid var(--scr-rubric);
+    border-top: 2px solid var(--canon-editor-accent);
     box-shadow: 0 -6px 24px rgb(0 0 0 / 0.09);
   }
-  .scr-bench[hidden] {
+  .canon-editor-bench[hidden] {
     display: none;
   }
-  .scr-bench[data-state="red"] {
+  .canon-editor-bench[data-state="red"] {
     border-top-color: var(--discern-color-danger);
   }
-  .scr-bench-row {
+  .canon-editor-bench-row {
     display: flex;
     align-items: center;
     gap: 0.9rem;
     flex-wrap: wrap;
   }
-  .scr-bench-path {
+  .canon-editor-bench-path {
     font-family: var(--discern-font-mono);
     font-size: var(--discern-font-size-xs);
     color: var(--discern-color-ink-muted);
     white-space: nowrap;
   }
-  .scr-bench-status {
+  .canon-editor-bench-status {
     flex: 1 1 14rem;
     display: flex;
     align-items: center;
@@ -259,32 +258,32 @@
     font-family: var(--discern-font-ui);
     font-size: var(--discern-font-size-sm);
   }
-  .scr-bench-status .scr-chip {
+  .canon-editor-bench-status .canon-editor-chip {
     white-space: normal;
     line-height: 1.35;
     text-align: left;
   }
-  .scr-bench-verdict {
+  .canon-editor-bench-verdict {
     color: var(--discern-color-danger);
     font-weight: 600;
   }
-  .scr-bench-stage {
+  .canon-editor-bench-stage {
     font-family: var(--discern-font-mono);
     font-size: var(--discern-font-size-xs);
     color: var(--discern-color-ink-muted);
   }
-  .scr-bench-actions {
+  .canon-editor-bench-actions {
     margin-left: auto;
     display: flex;
     gap: 0.4rem;
   }
-  .scr-bench .scr-btn {
+  .canon-editor-bench .canon-editor-btn {
     display: inline-block;
     width: auto;
     margin-top: 0;
     padding: 0.4rem 0.95rem;
   }
-  .scr-bench-details {
+  .canon-editor-bench-details {
     margin: 0;
     white-space: pre-wrap;
     font-family: var(--discern-font-mono);
@@ -297,10 +296,10 @@
   }
   /* Room under the article so the bench never sits over the line being
      edited at the bottom of the page. */
-  body.scr-benched .scr-doc {
+  body.canon-editor-benched .canon-editor-doc {
     padding-bottom: 14rem;
   }
-  .scr-open-hint {
+  .canon-editor-open-hint {
     margin-top: 0.35rem;
     font-size: var(--discern-font-size-xs);
     color: var(--discern-color-danger);
@@ -313,24 +312,24 @@
   }
 
   /* ——— Inspector rail ——— */
-  .scr-rail {
+  .canon-editor-rail {
     border-left: 1px solid var(--discern-color-border);
     padding: 1.1rem 1rem 2rem;
     position: sticky;
-    top: var(--scr-header-h);
+    top: var(--canon-editor-header-h);
     align-self: start;
-    max-height: calc(100vh - var(--scr-header-h));
+    max-height: calc(100vh - var(--canon-editor-header-h));
     overflow-y: auto;
     font-family: var(--discern-font-ui);
     font-size: var(--discern-font-size-sm);
   }
-  .scr-rail-empty {
+  .canon-editor-rail-empty {
     color: var(--discern-color-ink-faint);
     font-size: var(--discern-font-size-sm);
     line-height: 1.55;
     padding: 0.4rem;
   }
-  .scr-rail h3 {
+  .canon-editor-rail h3 {
     font-family: var(--discern-font-mono);
     font-size: var(--discern-font-size-xs);
     letter-spacing: 0.12em;
@@ -339,36 +338,36 @@
     margin: 1.1rem 0 0.35rem;
     font-weight: 500;
   }
-  .scr-rail h3:first-child {
+  .canon-editor-rail h3:first-child {
     margin-top: 0;
   }
-  .scr-rail-title {
+  .canon-editor-rail-title {
     font-family: var(--discern-font-display);
     font-size: var(--discern-font-size-lg);
     color: var(--discern-color-ink);
     margin: 0 0 0.2rem;
   }
-  .scr-rail .scr-kind {
+  .canon-editor-rail .canon-editor-kind {
     font-family: var(--discern-font-mono);
     font-size: var(--discern-font-size-xs);
     color: var(--discern-color-ink-faint);
   }
-  .scr-cite {
+  .canon-editor-cite {
     display: block;
     padding: 0.14rem 0;
     color: var(--discern-color-accent-600);
     text-decoration: none;
     font-size: var(--discern-font-size-sm);
   }
-  .scr-cite:hover {
+  .canon-editor-cite:hover {
     text-decoration: underline;
   }
-  .scr-cite small {
+  .canon-editor-cite small {
     font-family: var(--discern-font-mono);
     font-size: var(--discern-font-size-xs);
     color: var(--discern-color-ink-faint);
   }
-  .scr-fieldrow {
+  .canon-editor-fieldrow {
     display: flex;
     justify-content: space-between;
     gap: 0.6rem;
@@ -377,35 +376,35 @@
     font-size: var(--discern-font-size-xs);
     color: var(--discern-color-ink-muted);
   }
-  .scr-fieldrow[data-active="true"] {
-    color: var(--scr-rubric);
+  .canon-editor-fieldrow[data-active="true"] {
+    color: var(--canon-editor-accent);
     font-weight: 600;
   }
-  .scr-field-action {
+  .canon-editor-field-action {
     border: 0;
     padding: 0;
     background: transparent;
-    color: var(--scr-rubric);
+    color: var(--canon-editor-accent);
     font: inherit;
     font-weight: 600;
     cursor: pointer;
   }
-  .scr-field-action:hover {
+  .canon-editor-field-action:hover {
     text-decoration: underline;
   }
-  .scr-picker {
+  .canon-editor-picker {
     margin: 0.35rem 0 0.75rem;
     padding: 0.55rem;
-    border: 1px solid var(--scr-rubric);
+    border: 1px solid var(--canon-editor-accent);
     border-radius: var(--discern-radius-sm);
     background: var(--discern-color-surface);
-    box-shadow: 0 0 0 3px var(--scr-rubric-soft);
+    box-shadow: 0 0 0 3px var(--canon-editor-accent-soft);
   }
-  .scr-picker.scr-saving {
+  .canon-editor-picker.canon-editor-saving {
     opacity: 0.6;
     pointer-events: none;
   }
-  .scr-picker-search {
+  .canon-editor-picker-search {
     box-sizing: border-box;
     width: 100%;
     padding: 0.42rem 0.5rem;
@@ -416,10 +415,10 @@
     font: inherit;
     outline: none;
   }
-  .scr-picker-search:focus {
-    border-color: var(--scr-rubric);
+  .canon-editor-picker-search:focus {
+    border-color: var(--canon-editor-accent);
   }
-  .scr-picker-choices {
+  .canon-editor-picker-choices {
     display: flex;
     flex-direction: column;
     gap: 0.12rem;
@@ -427,7 +426,7 @@
     margin-top: 0.45rem;
     overflow-y: auto;
   }
-  .scr-picker-choice {
+  .canon-editor-picker-choice {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: start;
@@ -438,32 +437,32 @@
     cursor: pointer;
     overflow-wrap: anywhere;
   }
-  .scr-picker-choice:hover {
+  .canon-editor-picker-choice:hover {
     background: var(--discern-color-surface-sunken);
     color: var(--discern-color-ink);
   }
-  .scr-picker-choice input {
+  .canon-editor-picker-choice input {
     margin-top: 0.15rem;
-    accent-color: var(--scr-rubric);
+    accent-color: var(--canon-editor-accent);
   }
-  .scr-picker-choice small {
+  .canon-editor-picker-choice small {
     font-family: var(--discern-font-mono);
     font-size: var(--discern-font-size-xs);
     color: var(--discern-color-ink-faint);
   }
-  .scr-picker-choice.scr-stale {
+  .canon-editor-picker-choice.canon-editor-stale {
     color: var(--discern-color-warning-deep);
   }
-  .scr-picker-choice[data-removed="true"] {
+  .canon-editor-picker-choice[data-removed="true"] {
     opacity: 0.55;
     text-decoration: line-through;
   }
-  .scr-picker-empty {
+  .canon-editor-picker-empty {
     margin: 0.4rem 0.2rem;
     color: var(--discern-color-ink-faint);
     font-size: var(--discern-font-size-xs);
   }
-  .scr-btn {
+  .canon-editor-btn {
     display: block;
     width: 100%;
     box-sizing: border-box;
@@ -479,25 +478,25 @@
     margin-top: 0.5rem;
     cursor: pointer;
   }
-  .scr-btn:hover {
+  .canon-editor-btn:hover {
     background: var(--discern-color-surface-sunken);
   }
-  .scr-btn.scr-primary {
-    background: var(--scr-rubric);
-    border-color: var(--scr-rubric);
+  .canon-editor-btn.canon-editor-primary {
+    background: var(--canon-editor-accent);
+    border-color: var(--canon-editor-accent);
     color: #fff8f5;
   }
-  .scr-guards {
+  .canon-editor-guards {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
   }
-  .scr-guardline {
+  .canon-editor-guardline {
     font-family: var(--discern-font-mono);
     font-size: var(--discern-font-size-xs);
     overflow-wrap: anywhere;
   }
-  .scr-failure {
+  .canon-editor-failure {
     white-space: pre-wrap;
     font-family: var(--discern-font-mono);
     font-size: var(--discern-font-size-xs);
@@ -509,18 +508,18 @@
   }
 
   @media (max-width: 80rem) {
-    .scr-shell {
+    .canon-editor-shell {
       grid-template-columns: 14rem minmax(0, 1fr);
     }
-    .scr-rail {
+    .canon-editor-rail {
       display: none;
     }
   }
   @media (max-width: 56rem) {
-    .scr-shell {
+    .canon-editor-shell {
       grid-template-columns: minmax(0, 1fr);
     }
-    .scr-nav {
+    .canon-editor-nav {
       display: none;
     }
   }

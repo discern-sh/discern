@@ -39,7 +39,7 @@ import {
   BENEFIT_CANON,
   parseSurfaceKey,
 } from "./feature_registry.ts";
-import { annotateProse } from "./scriptorium/annotation.ts";
+import { annotateProse } from "./canon_editor/annotation.ts";
 
 /**
  * A rendering lens over the flat canon: `loop` tenets govern how work moves
@@ -638,8 +638,8 @@ function upheldLine(tenet: PracticeTenet): string {
 }
 
 /**
- * Route one tenet field through the scriptorium's provenance channel; outside
- * the scriptorium the text passes through unchanged.
+ * Route one tenet field through Canon Editor's provenance channel; outside
+ * Canon Editor the text passes through unchanged.
  */
 function tenetProse(tenet: PracticeTenet, field: string, text: string): string {
   return annotateProse(text, { registry: "practice", entry: tenet.id, field });

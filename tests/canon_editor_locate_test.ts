@@ -1,5 +1,5 @@
 /**
- * The scriptorium's entry resolution: every canon entry across the five prose
+ * Canon Editor's entry resolution: every canon entry across the five prose
  * registries enumerates with a source position that really is its own line,
  * lookups tier from exact to forgiving, and field paths classify literals the
  * way the editor relies on (plain strings editable, interpolation locked).
@@ -7,7 +7,7 @@
 
 import { join } from "@std/path";
 import { assert, assertEquals } from "@std/assert";
-import { REPO_ROOT } from "../scripts/scriptorium/root.ts";
+import { REPO_ROOT } from "../scripts/canon_editor/root.ts";
 import {
   type CanonEntryRef,
   fieldLeaves,
@@ -16,7 +16,7 @@ import {
   openRegistryProject,
   PROSE_REGISTRIES,
   registryEntries,
-} from "../scripts/scriptorium/registry_ast.ts";
+} from "../scripts/canon_editor/registry_ast.ts";
 
 const project = openRegistryProject(REPO_ROOT);
 const entries = registryEntries(project, REPO_ROOT);

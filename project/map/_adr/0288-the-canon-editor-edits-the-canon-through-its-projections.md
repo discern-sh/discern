@@ -1,4 +1,4 @@
-# ADR 0288: The scriptorium edits the canon through its projections
+# ADR 0288: Canon Editor edits the canon through its projections
 
 **Status**: accepted
 
@@ -8,19 +8,19 @@ The five prose registries — feature canon, benefit canon, practice canon, glos
 
 ## Decision
 
-Build the scriptorium: a repo-internal local web app under `scripts/scriptorium/`, launched as a project script, where the generated pages themselves are the editing surface and the registries stay the store.
+Build Canon Editor: a repo-internal local web app under `scripts/canon_editor/`, launched as a project script, where the generated pages themselves are the editing surface and the registries stay the store.
 
-- **One renderer, annotated.** The real render functions gain one seam: every prose field routes through `annotateProse`, an identity function until the studio installs a marker annotator. The committed pages are byte-identical with no annotator installed, and a parity guard (`tests/scriptorium_parity_test.ts`, registered against all five registries in the meta-registry) pins the annotated render to the plain render, through the canonical formatter, with every entry covered.
+- **One renderer, annotated.** The real render functions gain one seam: every prose field routes through `annotateProse`, an identity function until the editor installs a marker annotator. The committed pages are byte-identical with no annotator installed, and a parity guard (`tests/canon_editor_parity_test.ts`, registered against all five registries in the meta-registry) pins the annotated render to the plain render, through the canonical formatter, with every entry covered.
 - **Two views of one file, pinned to each other.** Module evaluation (a fresh subprocess per refresh) supplies what the prose says; a syntax-only ts-morph view supplies where it lives and what the editor may touch. Interpolated templates and computed values classify as locked from syntax alone, so the locked state has one authority and no hand-kept list. The parity guard holds both views to the same entry set.
-- **Write-back is deliberately narrow.** The local server answers requests addressed to `localhost` or `127.0.0.1` only, and every non-safe request carries a per-process browser authority. A save is compare-and-swap: it replaces exactly one editable literal only while the source still equals the value the editor opened. Editable literals are prose strings and the existing string arrays explicitly marked for typed picker write-back (`drawsOn`, `claims`, `surfaces`, and `hints`); computed lists stay locked, and list values must belong to their live registry authority. The save formats via the repository's formatter, re-renders in a fresh subprocess, rewrites the committed pages to the generator's exact bytes, and runs the registry's guard files from its `canonical_sets.ts` roster. Any red step restores every path to its prior bytes or prior absence. Field semantics compile `satisfies Record<keyof …>` against the registry interfaces, so a new field fails the studio's typecheck until classified.
-- **The gate stays the authority.** The studio runs the same guard files and the same measuring code (`plain_reading_grade_lib`, the glossary's retired patterns, `vale_lib` — the one sanctioned Vale spawn site) earlier, never differently, and adds no second path around `discern done`.
+- **Write-back is deliberately narrow.** The local server answers requests addressed to `localhost` or `127.0.0.1` only, and every non-safe request carries a per-process browser authority. A save is compare-and-swap: it replaces exactly one editable literal only while the source still equals the value the editor opened. Editable literals are prose strings and the existing string arrays explicitly marked for typed picker write-back (`drawsOn`, `claims`, `surfaces`, and `hints`); computed lists stay locked, and list values must belong to their live registry authority. The save formats via the repository's formatter, re-renders in a fresh subprocess, rewrites the committed pages to the generator's exact bytes, and runs the registry's guard files from its `canonical_sets.ts` roster. Any red step restores every path to its prior bytes or prior absence. Field semantics compile `satisfies Record<keyof …>` against the registry interfaces, so a new field fails the editor's typecheck until classified.
+- **The gate stays the authority.** The editor runs the same guard files and the same measuring code (`plain_reading_grade_lib`, the glossary's retired patterns, `vale_lib` — the one sanctioned Vale spawn site) earlier, never differently, and adds no second path around `discern done`.
 
 ## Consequences
 
 - Editorial passes edit in reading order with keystroke-latency register judgment; the save-and-prove loop measures well under a second warm, so proving every save is cheap enough to be the default.
 - A green save leaves the registry and its generated pages agreeing on disk — the natural unit for one atomic commit per wording change.
 - An IDE edit to the open field produces a conflict instead of being overwritten by a stale browser draft; reloading chooses the new base explicitly.
-- The studio is a second surface, but its maintenance failure mode is a compiler error or a red parity guard, not quiet rot: renderer drift, a new registry field, or an entry the editor cannot reach all fail the gate.
+- The editor is a second surface, but its maintenance failure mode is a compiler error or a red parity guard, not quiet rot: renderer drift, a new registry field, or an entry the editor cannot reach all fail the gate.
 - The annotation seam adds one call per rendered field to the registries' renderers, and the benefit canon's at-a-glance table stays unannotated because in-cell markers would widen the formatter's column padding.
 - Structural operations — adding, retiring, or reordering entries and fields, plus a commit composer — are deliberately out of scope; agent-mediated editing remains the tool for campaigns.
 

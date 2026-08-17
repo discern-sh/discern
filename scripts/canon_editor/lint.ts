@@ -101,8 +101,8 @@ export function lintFieldText(
 /** Where the Vale probe lives so the register's real section styles apply. */
 export function valeProbePath(register: ProseFieldRegister): string {
   return register === "brand"
-    ? join(".scratch", "scriptorium", "vale", "_internal", "brand", "probe.md")
-    : join(".scratch", "scriptorium", "vale", "probe.md");
+    ? join(".scratch", "canon-editor", "vale", "_internal", "brand", "probe.md")
+    : join(".scratch", "canon-editor", "vale", "probe.md");
 }
 
 interface ValeAlert {

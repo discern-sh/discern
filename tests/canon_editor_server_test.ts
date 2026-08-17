@@ -1,7 +1,7 @@
 /**
- * The studio server's reading room: pages render with provenance spans and no
+ * Canon Editor's server: pages render with provenance spans and no
  * leftover markers, heading anchors match the committed pages, derived spans
- * lock, canon-internal links reroute into the studio, and the entry API merges
+ * lock, canon-internal links reroute into the editor, and the entry API merges
  * the evaluated snapshot with the syntax-side positions. The suite runs
  * without net access, so the tests drive the route handler directly.
  */
@@ -12,29 +12,29 @@ import {
   MARK_CLOSE,
   MARK_OPEN,
   MARK_SEP,
-} from "../scripts/scriptorium/annotation.ts";
-import { mainCheckoutIssue, REPO_ROOT } from "../scripts/scriptorium/root.ts";
-import { buildSnapshot } from "../scripts/scriptorium/snapshot.ts";
-import { fieldSpecFor } from "../scripts/scriptorium/fields.ts";
-import { buildPickerCatalog } from "../scripts/scriptorium/pickers.ts";
+} from "../scripts/canon_editor/annotation.ts";
+import { mainCheckoutIssue, REPO_ROOT } from "../scripts/canon_editor/root.ts";
+import { buildSnapshot } from "../scripts/canon_editor/snapshot.ts";
+import { fieldSpecFor } from "../scripts/canon_editor/fields.ts";
+import { buildPickerCatalog } from "../scripts/canon_editor/pickers.ts";
 import {
   fieldLeaves,
   openRegistryProject,
   registryEntries,
-} from "../scripts/scriptorium/registry_ast.ts";
+} from "../scripts/canon_editor/registry_ast.ts";
 import {
-  startStudio,
-  STUDIO_REQUEST_TOKEN_HEADER,
-  type StudioHandle,
-} from "../scripts/scriptorium/server.ts";
+  CANON_EDITOR_REQUEST_TOKEN_HEADER,
+  type CanonEditorHandle,
+  startCanonEditor,
+} from "../scripts/canon_editor/server.ts";
 
-const TEST_REQUEST_TOKEN = "scriptorium-test-token";
+const TEST_REQUEST_TOKEN = "canon-editor-test-token";
 
-/** Run one test body against a hermetic, socketless studio. */
-async function withStudio(
-  body: (handle: StudioHandle) => Promise<void>,
+/** Run one test body against a hermetic, socketless editor. */
+async function withCanonEditor(
+  body: (handle: CanonEditorHandle) => Promise<void>,
 ): Promise<void> {
-  const handle = await startStudio({
+  const handle = await startCanonEditor({
     port: 0,
     emitAssets: false,
     watch: false,
@@ -49,37 +49,37 @@ async function withStudio(
   }
 }
 
-/** Drive one route through the studio's handler. */
+/** Drive one route through the editor's handler. */
 async function request(
-  studio: StudioHandle,
+  editor: CanonEditorHandle,
   path: string,
   init?: RequestInit,
 ): Promise<Response> {
-  return await studio.handler(
+  return await editor.handler(
     new Request(`http://localhost${path}`, init),
   );
 }
 
-/** Drive one same-origin JSON POST carrying the studio's request authority. */
+/** Drive one same-origin JSON POST carrying the editor's request authority. */
 async function trustedPost(
-  studio: StudioHandle,
+  editor: CanonEditorHandle,
   path: string,
   body: unknown,
 ): Promise<Response> {
-  return await request(studio, path, {
+  return await request(editor, path, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "origin": "http://localhost",
-      [STUDIO_REQUEST_TOKEN_HEADER]: TEST_REQUEST_TOKEN,
+      [CANON_EDITOR_REQUEST_TOKEN_HEADER]: TEST_REQUEST_TOKEN,
     },
     body: JSON.stringify(body),
   });
 }
 
-Deno.test("the reading room serves annotated pages with clean spans", async () => {
-  await withStudio(async (studio) => {
-    const response = await request(studio, "/page/feature-canon");
+Deno.test("Canon Editor serves annotated pages with clean spans", async () => {
+  await withCanonEditor(async (editor) => {
+    const response = await request(editor, "/page/feature-canon");
     assertEquals(response.status, 200);
     const html = await response.text();
     assert(html.includes('data-ref="feature:proof:what"'), "span refs render");
@@ -91,20 +91,20 @@ Deno.test("the reading room serves annotated pages with clean spans", async () =
       "heading anchors match the committed page",
     );
     assert(
-      /class="scr-field scr-locked"[^>]*data-ref="feature:jobs-table:what"/
+      /class="canon-editor-field canon-editor-locked"[^>]*data-ref="feature:jobs-table:what"/
         .test(html),
       "interpolated prose renders locked",
     );
     assert(
       html.includes('href="/page/feature-canon-plain"'),
-      "canon-internal links reroute into the studio",
+      "canon-internal links reroute into the editor",
     );
   });
 });
 
 Deno.test("the entry API merges evaluation with syntax positions", async () => {
-  await withStudio(async (studio) => {
-    const proof = await (await request(studio, "/api/entry/feature/proof"))
+  await withCanonEditor(async (editor) => {
+    const proof = await (await request(editor, "/api/entry/feature/proof"))
       .json() as {
         file: string;
         line: number;
@@ -140,28 +140,28 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
     assert(proof.inward.some((citation) => citation.registry === "benefit"));
 
     const term = await (
-      await request(studio, "/api/entry/glossary/file-ownership")
+      await request(editor, "/api/entry/glossary/file-ownership")
     ).json() as { fields: { path: string; kind: string }[] };
     assertEquals(
       term.fields.find((field) => field.path === "retired.0.pattern")?.kind,
       "template",
     );
 
-    const missing = await request(studio, "/api/entry/feature/nope");
+    const missing = await request(editor, "/api/entry/feature/nope");
     assertEquals(missing.status, 404);
     await missing.body?.cancel();
   });
 });
 
 Deno.test("literal editability never overrides a field's semantics", async () => {
-  await withStudio(async (studio) => {
+  await withCanonEditor(async (editor) => {
     const supportedPickers = new Set<string>(
       (await buildPickerCatalog()).map((picker) => picker.source),
     );
     const project = openRegistryProject(REPO_ROOT);
     for (const entry of registryEntries(project, REPO_ROOT)) {
       const response = await request(
-        studio,
+        editor,
         `/api/entry/${entry.registry}/${entry.slug}`,
       );
       assertEquals(response.status, 200, `${entry.registry}:${entry.slug}`);
@@ -187,10 +187,10 @@ Deno.test("literal editability never overrides a field's semantics", async () =>
       }
     }
 
-    const glossary = await request(studio, "/page/glossary");
+    const glossary = await request(editor, "/page/glossary");
     const html = await glossary.text();
     assert(
-      /class="scr-field scr-locked"[^>]*data-ref="glossary:file-ownership:term"/
+      /class="canon-editor-field canon-editor-locked"[^>]*data-ref="glossary:file-ownership:term"/
         .test(html),
       "a glossary identity renders as a locked jump, not an editor",
     );
@@ -198,8 +198,8 @@ Deno.test("literal editability never overrides a field's semantics", async () =>
 });
 
 Deno.test("untrusted hosts and POST requests are refused before routing", async () => {
-  await withStudio(async (studio) => {
-    const rebinding = await studio.handler(
+  await withCanonEditor(async (editor) => {
+    const rebinding = await editor.handler(
       new Request("http://attacker.example/page/feature-canon"),
     );
     assertEquals(rebinding.status, 403, "non-loopback Host is refused");
@@ -214,7 +214,7 @@ Deno.test("untrusted hosts and POST requests are refused before routing", async 
         "/api/a-future-post-route",
       ]
     ) {
-      const response = await studio.handler(
+      const response = await editor.handler(
         new Request(`http://localhost${path}`, {
           method: "POST",
           headers: {
@@ -228,20 +228,20 @@ Deno.test("untrusted hosts and POST requests are refused before routing", async 
       await response.body?.cancel();
     }
 
-    const trusted = await trustedPost(studio, "/api/lint", {
+    const trusted = await trustedPost(editor, "/api/lint", {
       registry: "feature",
       kind: "node",
       field: "what",
       value: "A trusted draft.",
     });
-    assertEquals(trusted.status, 200, "the studio's own browser may POST");
+    assertEquals(trusted.status, 200, "the editor's own browser may POST");
     await trusted.body?.cancel();
   });
 });
 
 Deno.test("a stale browser save receives a conflict without touching disk", async () => {
-  await withStudio(async (studio) => {
-    const response = await trustedPost(studio, "/api/save", {
+  await withCanonEditor(async (editor) => {
+    const response = await trustedPost(editor, "/api/save", {
       registry: "feature",
       slug: "proof",
       field: "why",
@@ -256,8 +256,8 @@ Deno.test("a stale browser save receives a conflict without touching disk", asyn
 });
 
 Deno.test("a list save refuses values outside its live picker", async () => {
-  await withStudio(async (studio) => {
-    const response = await trustedPost(studio, "/api/save", {
+  await withCanonEditor(async (editor) => {
+    const response = await trustedPost(editor, "/api/save", {
       registry: "feature",
       slug: "proof",
       field: "hints",
@@ -271,7 +271,7 @@ Deno.test("a list save refuses values outside its live picker", async () => {
   });
 });
 
-Deno.test("the studio serves worktrees only", async () => {
+Deno.test("the editor serves worktrees only", async () => {
   const dir = await Deno.makeTempDir();
   try {
     assert(
@@ -296,8 +296,8 @@ Deno.test("the studio serves worktrees only", async () => {
 });
 
 Deno.test("state and page routes answer sanely", async () => {
-  await withStudio(async (studio) => {
-    const state = await (await request(studio, "/api/state")).json() as {
+  await withCanonEditor(async (editor) => {
+    const state = await (await request(editor, "/api/state")).json() as {
       pages: { id: string }[];
       standards: { name: string }[];
     };
@@ -305,7 +305,7 @@ Deno.test("state and page routes answer sanely", async () => {
     assert(
       state.standards.some((item) => item.name === "plain_reading_grade"),
     );
-    const missing = await request(studio, "/page/nope");
+    const missing = await request(editor, "/page/nope");
     assertEquals(missing.status, 404);
     await missing.body?.cancel();
   });

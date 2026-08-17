@@ -1,5 +1,5 @@
 /**
- * The scriptorium's parity guard: the annotated render — the studio's editing
+ * Canon Editor's parity guard: the annotated render and the editing
  * surface — is pinned to the committed canon pages. Markers must strip back to
  * the plain render byte for byte, survive canonical formatting without
  * changing it, cover every canon entry, and the syntax-level enumeration must
@@ -20,21 +20,21 @@ import {
   setProseAnnotator,
   slugify,
   stripAnnotationMarkers,
-} from "../scripts/scriptorium/annotation.ts";
+} from "../scripts/canon_editor/annotation.ts";
 import {
   fieldLeaves,
   openRegistryProject,
   registryEntries,
-} from "../scripts/scriptorium/registry_ast.ts";
+} from "../scripts/canon_editor/registry_ast.ts";
 import {
   fieldSpecFor,
   type PickerSource,
-} from "../scripts/scriptorium/fields.ts";
+} from "../scripts/canon_editor/fields.ts";
 import {
   buildPickerCatalog,
   WRITABLE_PICKER_SOURCES,
-} from "../scripts/scriptorium/pickers.ts";
-import { REPO_ROOT } from "../scripts/scriptorium/root.ts";
+} from "../scripts/canon_editor/pickers.ts";
+import { REPO_ROOT } from "../scripts/canon_editor/root.ts";
 import {
   allBenefitEntries,
   allFeatureNodes,
@@ -179,14 +179,14 @@ Deno.test("every canon entry surfaces at least one annotated span", () => {
   }
 });
 
-Deno.test("every declared field resolves to studio semantics that fit its literal", () => {
+Deno.test("every declared field resolves to editor semantics that fit its literal", () => {
   const project = openRegistryProject(REPO_ROOT);
   for (const entry of registryEntries(project, REPO_ROOT)) {
     for (const leaf of fieldLeaves(entry)) {
       const spec = fieldSpecFor(entry.registry, entry.kind, leaf.path);
       assert(
         spec !== undefined,
-        `${entry.registry} ${entry.id} · ${leaf.path}: the studio has no semantics for this field`,
+        `${entry.registry} ${entry.id} · ${leaf.path}: the editor has no semantics for this field`,
       );
       if (spec.edit === "prose") {
         assert(

@@ -1,5 +1,0 @@
-#!/bin/sh
-# desc: The Scriptorium — the canon registries, where you read them (serve | open <entry>)
-set -eu
-cd "${DISCERN_ROOT:-$(dirname "$0")/../..}"
-exec deno task scriptorium "$@"

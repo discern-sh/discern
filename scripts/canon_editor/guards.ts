@@ -1,5 +1,5 @@
 /**
- * The studio's guard runner: the same test files the meta-registry declares
+ * The editor's guard runner: the same test files the meta-registry declares
  * for a registry, run one file per subprocess so the panel can show a verdict
  * per guard, plus the quick standards probes the canons feed.
  */
