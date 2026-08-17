@@ -34,6 +34,13 @@ import { THEME_BOOTSTRAP } from "../../site/theme.ts";
 
 const BIND_HOST = "127.0.0.1";
 const BROWSER_HOST = "localhost";
+const LOOPBACK_HOSTS: ReadonlySet<string> = new Set([
+  BROWSER_HOST,
+  BIND_HOST,
+]);
+
+/** Header carrying the per-process authority for non-safe HTTP methods. */
+export const STUDIO_REQUEST_TOKEN_HEADER = "x-scriptorium-token";
 
 /** The fallback port when no worktree identity resolves. */
 export const DEFAULT_STUDIO_PORT = 4517;
@@ -86,6 +93,7 @@ export async function resolveStudioPort(
 
 /** One entry's syntax-side positions, kept beside the evaluated snapshot. */
 interface AstRecord {
+  readonly kind: string;
   readonly file: string;
   readonly line: number;
   readonly leaves: readonly {
@@ -109,6 +117,8 @@ export interface StudioOptions {
   readonly listen?: boolean;
   /** Build the snapshot in-process instead of spawning the subprocess. */
   readonly snapshotBuilder?: () => Promise<Snapshot>;
+  /** Deterministic request authority for route tests; random in production. */
+  readonly requestToken?: string;
 }
 
 /** A running studio, closable. */
@@ -143,6 +153,25 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+/** Refuse DNS-rebound hosts and every non-safe request lacking browser proof. */
+function requestAuthorityIssue(
+  request: Request,
+  url: URL,
+  requestToken: string,
+): string | undefined {
+  if (!LOOPBACK_HOSTS.has(url.hostname)) {
+    return "the scriptorium only answers a loopback Host";
+  }
+  if (request.method === "GET" || request.method === "HEAD") return undefined;
+  if (request.headers.get("origin") !== url.origin) {
+    return "the request did not originate from this scriptorium";
+  }
+  if (request.headers.get(STUDIO_REQUEST_TOKEN_HEADER) !== requestToken) {
+    return "the request does not carry this scriptorium's authority";
+  }
+  return undefined;
+}
+
 /** Static file response typed by extension. */
 async function file(path: string): Promise<Response> {
   const types: Readonly<Record<string, string>> = {
@@ -172,6 +201,7 @@ export async function startStudio(
   options: StudioOptions = {},
 ): Promise<StudioHandle> {
   const port = options.port ?? (await resolveStudioPort(Deno.env.get("PORT")));
+  const requestToken = options.requestToken ?? crypto.randomUUID();
 
   let snapshot: Snapshot | undefined;
   let snapshotError: string | undefined;
@@ -200,6 +230,7 @@ export async function startStudio(
     const project = openRegistryProject(REPO_ROOT);
     for (const entry of registryEntries(project, REPO_ROOT)) {
       next.set(`${entry.registry}:${entry.slug}`, {
+        kind: entry.kind,
         file: entry.file,
         line: entry.line,
         leaves: fieldLeaves(entry).map((leaf) => ({
@@ -224,6 +255,20 @@ export async function startStudio(
     notify({ type: "snapshot", error: snapshotError ?? null });
   };
 
+  const fieldState = (
+    registry: string,
+    kind: string,
+    leaf: AstRecord["leaves"][number],
+  ): SpanState => {
+    const known = PROSE_REGISTRIES.find((item) => item.name === registry)?.name;
+    if (known === undefined) return "unknown";
+    const semantics = fieldSpecFor(known, kind, leaf.path);
+    if (semantics === undefined) return "unknown";
+    return leaf.kind === "string" && semantics.edit === "prose"
+      ? "editable"
+      : "locked";
+  };
+
   const spanState = (token: string): SpanState => {
     const [registry, slug, ...fieldParts] = token.split(":");
     const field = fieldParts.join(":");
@@ -232,8 +277,8 @@ export async function startStudio(
     }
     const record = ast.get(`${registry}:${slug}`);
     const leaf = record?.leaves.find((candidate) => candidate.path === field);
-    if (leaf === undefined) return "unknown";
-    return leaf.kind === "string" ? "editable" : "locked";
+    if (record === undefined || leaf === undefined) return "unknown";
+    return fieldState(registry, record.kind, leaf);
   };
 
   const entryPayload = (
@@ -255,7 +300,7 @@ export async function startStudio(
       path: leaf.path,
       kind: leaf.kind,
       line: leaf.line,
-      editable: leaf.kind === "string",
+      editable: fieldState(found.registry, found.kind, leaf) === "editable",
       value: valueAt(found.data, leaf.path) ?? null,
     })),
   });
@@ -307,6 +352,14 @@ export async function startStudio(
 
   const handler = async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
+    const authorityIssue = requestAuthorityIssue(
+      request,
+      url,
+      requestToken,
+    );
+    if (authorityIssue !== undefined) {
+      return json({ error: authorityIssue }, 403);
+    }
     const path = url.pathname;
     if (path === "/") {
       return Response.redirect(`${url.origin}/page/feature-canon`, 302);
@@ -337,6 +390,8 @@ export async function startStudio(
           docHtml: doc.html,
           snapshot,
           themeBootstrap: THEME_BOOTSTRAP,
+          requestToken,
+          requestTokenHeader: STUDIO_REQUEST_TOKEN_HEADER,
         }),
         {
           headers: {
@@ -452,6 +507,7 @@ export async function startStudio(
         registry?: string;
         slug?: string;
         field?: string;
+        expected?: string;
         value?: string;
       };
       const registry = PROSE_REGISTRIES.find(
@@ -459,7 +515,8 @@ export async function startStudio(
       )?.name as RegistryName | undefined;
       if (
         registry === undefined || body.slug === undefined ||
-        body.field === undefined || typeof body.value !== "string"
+        body.field === undefined || typeof body.expected !== "string" ||
+        typeof body.value !== "string"
       ) {
         return json(
           { ok: false, stage: "patch", issue: "malformed save request" },
@@ -470,7 +527,13 @@ export async function startStudio(
       try {
         const roster = snapshot.guards;
         const report = await saveField(
-          { registry, slug: body.slug, field: body.field, value: body.value },
+          {
+            registry,
+            slug: body.slug,
+            field: body.field,
+            expected: body.expected,
+            value: body.value,
+          },
           {
             root: REPO_ROOT,
             guardsFor: (name) =>
@@ -514,6 +577,7 @@ export async function startStudio(
               guards: report.guards ?? null,
               restored: report.restored ?? false,
             },
+          !report.ok && report.conflict === true ? 409 : 200,
         );
       } finally {
         saving = false;

@@ -23,13 +23,15 @@ export interface PatchRequest {
   readonly registry: RegistryName;
   readonly slug: string;
   readonly field: string;
+  /** The literal value the editor opened; write-back is compare-and-swap. */
+  readonly expected: string;
   readonly value: string;
 }
 
 /** The patch outcome: the whole patched source, or the refusal. */
 export type PatchOutcome =
   | { readonly ok: true; readonly file: string; readonly text: string }
-  | { readonly ok: false; readonly issue: string };
+  | { readonly ok: false; readonly issue: string; readonly conflict?: true };
 
 /** Refuse values that cannot be honest single-paragraph registry prose. */
 export function proseValueIssue(value: string): string | undefined {
@@ -101,6 +103,16 @@ export function patchRegistrySource(
       ok: false,
       issue:
         `${request.field} is ${target.kind} in the source — derived spans stay IDE jumps`,
+    };
+  }
+
+  const current = target.node.getLiteralValue();
+  if (current !== request.expected) {
+    return {
+      ok: false,
+      issue:
+        `${request.field} changed on disk after the editor opened — reload before saving so neither version is overwritten`,
+      conflict: true,
     };
   }
 

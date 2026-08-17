@@ -77,13 +77,21 @@ function parseRef(token) {
   };
 }
 
+/** Send one same-origin JSON POST with this process's write authority. */
+function postJson(path, body) {
+  return fetch(path, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      [boot.requestTokenHeader]: boot.requestToken,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 /** Ask the server to jump PhpStorm to an entry or one of its fields. */
 async function openInIde(ref) {
-  const response = await fetch("/api/open", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(ref),
-  });
+  const response = await postJson("/api/open", ref);
   return response.ok ? await response.json() : { opened: false };
 }
 
@@ -273,11 +281,7 @@ function renderRail(entry, activeField) {
     onclick: () => {
       runningGuards.add(entry.registry);
       renderRail(currentEntry, activeField);
-      fetch("/api/guards/run", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ registry: entry.registry }),
-      });
+      postJson("/api/guards/run", { registry: entry.registry });
     },
   });
   runButton.disabled = runningGuards.has(entry.registry);
@@ -360,18 +364,14 @@ function stageLabel(stage) {
 async function submitEditor() {
   if (!editing || bench.root.dataset.state === "saving") return;
   const value = editing.box.textContent;
-  const { span, ref } = editing;
+  const { span, ref, expected } = editing;
   benchState("saving");
   benchStatusReset();
   const stage = el("span", { class: "scr-bench-stage", text: "⟳ saving…" });
   bench.status.append(stage);
   editing.stageEl = stage;
   span.classList.add("scr-saving");
-  const response = await fetch("/api/save", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...ref, value }),
-  });
+  const response = await postJson("/api/save", { ...ref, expected, value });
   const report = await response.json();
   if (!editing || editing.span !== span) return;
   span.classList.remove("scr-saving");
@@ -415,16 +415,12 @@ async function submitEditor() {
 async function lintDraft(vale) {
   if (!editing) return;
   const { ref, box, kind } = editing;
-  const response = await fetch("/api/lint", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      registry: ref.registry,
-      kind,
-      field: ref.field,
-      value: box.textContent,
-      vale,
-    }),
+  const response = await postJson("/api/lint", {
+    registry: ref.registry,
+    kind,
+    field: ref.field,
+    value: box.textContent,
+    vale,
   });
   if (!response.ok || !editing || editing.box !== box) return;
   if (bench.root.dataset.state !== "lint") return;
@@ -473,7 +469,16 @@ function openEditor(span, ref, value, kind) {
   });
   box.textContent = value;
   span.append(box);
-  editing = { span, ref, box, kind, original, diskNote: false, stageEl: null };
+  editing = {
+    span,
+    ref,
+    box,
+    kind,
+    original,
+    expected: value,
+    diskNote: false,
+    stageEl: null,
+  };
   benchOpen(ref);
   let fastTimer = null;
   let valeTimer = null;

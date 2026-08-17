@@ -13,12 +13,21 @@ import {
   MARK_OPEN,
   MARK_SEP,
 } from "../scripts/scriptorium/annotation.ts";
-import { mainCheckoutIssue } from "../scripts/scriptorium/root.ts";
+import { mainCheckoutIssue, REPO_ROOT } from "../scripts/scriptorium/root.ts";
 import { buildSnapshot } from "../scripts/scriptorium/snapshot.ts";
+import { fieldSpecFor } from "../scripts/scriptorium/fields.ts";
+import {
+  fieldLeaves,
+  openRegistryProject,
+  registryEntries,
+} from "../scripts/scriptorium/registry_ast.ts";
 import {
   startStudio,
+  STUDIO_REQUEST_TOKEN_HEADER,
   type StudioHandle,
 } from "../scripts/scriptorium/server.ts";
+
+const TEST_REQUEST_TOKEN = "scriptorium-test-token";
 
 /** Run one test body against a hermetic, socketless studio. */
 async function withStudio(
@@ -30,6 +39,7 @@ async function withStudio(
     watch: false,
     listen: false,
     snapshotBuilder: buildSnapshot,
+    requestToken: TEST_REQUEST_TOKEN,
   });
   try {
     await body(handle);
@@ -45,8 +55,25 @@ async function request(
   init?: RequestInit,
 ): Promise<Response> {
   return await studio.handler(
-    new Request(`http://scriptorium.test${path}`, init),
+    new Request(`http://localhost${path}`, init),
   );
+}
+
+/** Drive one same-origin JSON POST carrying the studio's request authority. */
+async function trustedPost(
+  studio: StudioHandle,
+  path: string,
+  body: unknown,
+): Promise<Response> {
+  return await request(studio, path, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "origin": "http://localhost",
+      [STUDIO_REQUEST_TOKEN_HEADER]: TEST_REQUEST_TOKEN,
+    },
+    body: JSON.stringify(body),
+  });
 }
 
 Deno.test("the reading room serves annotated pages with clean spans", async () => {
@@ -105,6 +132,102 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
     const missing = await request(studio, "/api/entry/feature/nope");
     assertEquals(missing.status, 404);
     await missing.body?.cancel();
+  });
+});
+
+Deno.test("literal editability never overrides a field's semantics", async () => {
+  await withStudio(async (studio) => {
+    const project = openRegistryProject(REPO_ROOT);
+    for (const entry of registryEntries(project, REPO_ROOT)) {
+      const response = await request(
+        studio,
+        `/api/entry/${entry.registry}/${entry.slug}`,
+      );
+      assertEquals(response.status, 200, `${entry.registry}:${entry.slug}`);
+      const payload = await response.json() as {
+        fields: { path: string; kind: string; editable: boolean }[];
+      };
+      for (const leaf of fieldLeaves(entry)) {
+        const field = payload.fields.find((item) => item.path === leaf.path);
+        assert(field !== undefined, `${entry.id}.${leaf.path} is inventoried`);
+        const semantics = fieldSpecFor(
+          entry.registry,
+          entry.kind,
+          leaf.path,
+        );
+        assertEquals(
+          field.editable,
+          leaf.kind === "string" && semantics?.edit === "prose",
+          `${entry.registry} ${entry.id} · ${leaf.path}`,
+        );
+      }
+    }
+
+    const glossary = await request(studio, "/page/glossary");
+    const html = await glossary.text();
+    assert(
+      /class="scr-field scr-locked"[^>]*data-ref="glossary:file-ownership:term"/
+        .test(html),
+      "a glossary identity renders as a locked jump, not an editor",
+    );
+  });
+});
+
+Deno.test("untrusted hosts and POST requests are refused before routing", async () => {
+  await withStudio(async (studio) => {
+    const rebinding = await studio.handler(
+      new Request("http://attacker.example/page/feature-canon"),
+    );
+    assertEquals(rebinding.status, 403, "non-loopback Host is refused");
+    await rebinding.body?.cancel();
+
+    for (
+      const path of [
+        "/api/open",
+        "/api/lint",
+        "/api/save",
+        "/api/guards/run",
+        "/api/a-future-post-route",
+      ]
+    ) {
+      const response = await studio.handler(
+        new Request(`http://localhost${path}`, {
+          method: "POST",
+          headers: {
+            "content-type": "text/plain",
+            "origin": "https://attacker.example",
+          },
+          body: "{}",
+        }),
+      );
+      assertEquals(response.status, 403, `${path} rejects an untrusted caller`);
+      await response.body?.cancel();
+    }
+
+    const trusted = await trustedPost(studio, "/api/lint", {
+      registry: "feature",
+      kind: "node",
+      field: "what",
+      value: "A trusted draft.",
+    });
+    assertEquals(trusted.status, 200, "the studio's own browser may POST");
+    await trusted.body?.cancel();
+  });
+});
+
+Deno.test("a stale browser save receives a conflict without touching disk", async () => {
+  await withStudio(async (studio) => {
+    const response = await trustedPost(studio, "/api/save", {
+      registry: "feature",
+      slug: "proof",
+      field: "why",
+      expected: "a value that was never in the registry",
+      value: "A replacement that must never be applied.",
+    });
+    assertEquals(response.status, 409);
+    const report = await response.json() as { ok: boolean; issue: string };
+    assertEquals(report.ok, false);
+    assert(report.issue.includes("changed on disk"));
   });
 });
 

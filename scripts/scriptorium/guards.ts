@@ -32,7 +32,10 @@ function failureTail(output: string): string {
  * The capture environment keeps the output plain enough for the panel — the
  * same discipline the gate applies to its own jobs.
  */
-async function runGuardFile(file: string): Promise<GuardResult> {
+async function runGuardFile(
+  root: string,
+  file: string,
+): Promise<GuardResult> {
   const command = new Deno.Command(Deno.execPath(), {
     args: [
       "test",
@@ -43,7 +46,7 @@ async function runGuardFile(file: string): Promise<GuardResult> {
       "--no-check",
       file,
     ],
-    cwd: REPO_ROOT,
+    cwd: root,
     env: { NO_COLOR: "1", CI: "1", TERM: "dumb" },
     stdin: "null",
     stdout: "piped",
@@ -63,10 +66,11 @@ async function runGuardFile(file: string): Promise<GuardResult> {
 export async function runGuardFiles(
   registry: string,
   files: readonly string[],
+  root: string = REPO_ROOT,
 ): Promise<GuardRunReport> {
   const results: GuardResult[] = [];
   for (const file of files) {
-    results.push(await runGuardFile(file));
+    results.push(await runGuardFile(root, file));
   }
   return {
     registry,
@@ -79,10 +83,11 @@ export async function runGuardFiles(
 export async function metricProbe(
   script: string,
   metric: string,
+  root: string = REPO_ROOT,
 ): Promise<number | undefined> {
   const command = new Deno.Command(Deno.execPath(), {
     args: ["run", "--allow-read", "--allow-env", script],
-    cwd: REPO_ROOT,
+    cwd: root,
     stdin: "null",
     stdout: "piped",
     stderr: "null",

@@ -134,8 +134,17 @@ export function renderShell(options: {
   readonly docHtml: string;
   readonly snapshot: Snapshot;
   readonly themeBootstrap: string;
+  readonly requestToken: string;
+  readonly requestTokenHeader: string;
 }): string {
-  const { page, docHtml, snapshot, themeBootstrap } = options;
+  const {
+    page,
+    docHtml,
+    snapshot,
+    themeBootstrap,
+    requestToken,
+    requestTokenHeader,
+  } = options;
   const counts = new Map<string, number>();
   for (const entry of snapshot.entries) {
     counts.set(entry.registry, (counts.get(entry.registry) ?? 0) + 1);
@@ -201,6 +210,8 @@ export function renderShell(options: {
     rel: page.rel,
     guards: snapshot.guards,
     standards: snapshot.standards,
+    requestToken,
+    requestTokenHeader,
   };
   return `<!doctype html>
 <html lang="en" data-discern-root data-discern-theme="light">

@@ -47,6 +47,8 @@ export type SaveReport =
     readonly guards?: GuardRunReport;
     /** True when the loop had written files and restored every held byte. */
     readonly restored?: boolean;
+    /** The source literal differs from the value the editor opened. */
+    readonly conflict?: true;
   };
 
 /** What the pipeline needs from its host. */
@@ -112,10 +114,33 @@ async function formatTs(
   return { ok: true, text: new TextDecoder().decode(output.stdout) };
 }
 
-/** Restore a set of files to their held bytes, tolerating missing entries. */
-async function restore(written: Map<string, string>): Promise<void> {
-  for (const [path, bytes] of written) {
-    await Deno.writeTextFile(path, bytes);
+/** One path's exact state before the pipeline touched it. */
+type HeldFile =
+  | { readonly existed: true; readonly bytes: string }
+  | { readonly existed: false };
+
+/** Read one path's exact state, distinguishing absence from empty content. */
+async function holdFile(path: string): Promise<HeldFile> {
+  try {
+    return { existed: true, bytes: await Deno.readTextFile(path) };
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return { existed: false };
+    throw error;
+  }
+}
+
+/** Restore a set of files to their held bytes or prior absence. */
+async function restore(written: Map<string, HeldFile>): Promise<void> {
+  for (const [path, held] of written) {
+    if (held.existed) {
+      await Deno.writeTextFile(path, held.bytes);
+      continue;
+    }
+    try {
+      await Deno.remove(path);
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
   }
 }
 
@@ -203,7 +228,14 @@ export async function saveField(
 
   stage("patch");
   const patched = patchRegistrySource(context.root, request);
-  if (!patched.ok) return { ok: false, stage: "patch", issue: patched.issue };
+  if (!patched.ok) {
+    return {
+      ok: false,
+      stage: "patch",
+      issue: patched.issue,
+      ...(patched.conflict === true ? { conflict: true } : {}),
+    };
+  }
 
   stage("format");
   const formatted = await formatTs(context.root, patched.text);
@@ -222,7 +254,10 @@ export async function saveField(
     };
   }
 
-  const held = new Map<string, string>([[registryPath, registryBefore]]);
+  const held = new Map<string, HeldFile>([[
+    registryPath,
+    { existed: true, bytes: registryBefore },
+  ]]);
   await Deno.writeTextFile(registryPath, formatted.text);
 
   stage("render");
@@ -245,14 +280,10 @@ export async function saveField(
     if (!page.rel.startsWith("project/map/")) continue;
     const path = join(context.root, page.rel);
     const expected = stripAnnotationMarkers(page.full);
-    let current = "";
-    try {
-      current = await Deno.readTextFile(path);
-    } catch {
-      // A missing page counts as changed and gets written fresh.
-    }
+    const before = await holdFile(path);
+    const current = before.existed ? before.bytes : "";
     if (current === expected) continue;
-    held.set(path, current);
+    held.set(path, before);
     await Deno.writeTextFile(path, expected);
     changed.push({ id: page.id, rel: page.rel });
   }
@@ -273,6 +304,7 @@ export async function saveField(
   const guards = await runGuardFiles(
     request.registry,
     context.guardsFor(request.registry),
+    context.root,
   );
   if (!guards.ok) {
     await restore(held);
@@ -292,6 +324,7 @@ export async function saveField(
     ? await metricProbe(
       join("scripts", "plain_reading_grade.ts"),
       "plain_reading_grade",
+      context.root,
     )
     : undefined;
 

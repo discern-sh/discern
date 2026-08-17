@@ -2,27 +2,106 @@
  * The pen's discipline. The patcher refuses everything but a plain
  * string-literal prose field and edits nothing but that literal; the
  * save-and-prove pipeline leaves a proven save coherent on disk and rolls an
- * unprovable one back to the exact prior bytes. The two mutation tests below
- * run against the real tree — a no-op save (same value) and a red-guard
- * rollback — and restore the bytes they touched in `finally`, belt and
- * braces beside the pipeline's own rollback.
+ * unprovable one back to the exact prior state. Every mutation runs against a
+ * throwaway registry fixture so the repository's parallel test workers can
+ * never observe an in-flight save or inherit one after an interrupted test.
  */
 
-import { join } from "@std/path";
-import { assert, assertEquals } from "@std/assert";
+import { dirname, join } from "@std/path";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { Node, Project } from "ts-morph";
 import {
   patchRegistrySource,
+  type PatchRequest,
   proseValueIssue,
 } from "../scripts/scriptorium/patch.ts";
-import { saveField, spawnSnapshot } from "../scripts/scriptorium/pipeline.ts";
-import { buildSnapshot } from "../scripts/scriptorium/snapshot.ts";
+import { saveField } from "../scripts/scriptorium/pipeline.ts";
+import { PROSE_REGISTRIES } from "../scripts/scriptorium/registry_ast.ts";
+import type {
+  Snapshot,
+  SnapshotPage,
+} from "../scripts/scriptorium/snapshot.ts";
 import { MARK_OPEN } from "../scripts/scriptorium/annotation.ts";
 import { REPO_ROOT } from "../scripts/scriptorium/root.ts";
 import { allFeatureNodes } from "../scripts/feature_registry.ts";
 import { PRACTICE_CANON } from "../scripts/practice_registry.ts";
 
 const FEATURE_FILE = join(REPO_ROOT, "scripts", "feature_registry.ts");
+
+type ExpectedPatchRequest = PatchRequest & { readonly expected: string };
+
+/** One compare-and-swap request, explicit even before the type requires it. */
+function editRequest(
+  registry: PatchRequest["registry"],
+  slug: string,
+  field: string,
+  expected: string,
+  value: string,
+): ExpectedPatchRequest {
+  return { registry, slug, field, expected, value };
+}
+
+/** A minimal evaluated snapshot for one pipeline fixture. */
+function fixtureSnapshot(pages: readonly SnapshotPage[] = []): Snapshot {
+  return {
+    pages,
+    entries: [],
+    lint: { retired: [], plainPoliced: [] },
+    guards: [],
+    standards: [],
+  };
+}
+
+/** One annotated page the fake renderer says should exist. */
+function fixturePage(rel: string, full: string): SnapshotPage {
+  return {
+    id: "fixture-page",
+    rel,
+    title: "Fixture page",
+    body: full,
+    full,
+    annotated: true,
+  };
+}
+
+/** Install one tiny guard file inside a fixture root. */
+async function writeGuard(
+  root: string,
+  name: string,
+  ok: boolean,
+): Promise<string> {
+  const rel = join("tests", `${name}_test.ts`);
+  const path = join(root, rel);
+  await Deno.mkdir(dirname(path), { recursive: true });
+  await Deno.writeTextFile(
+    path,
+    `Deno.test("${name}", () => {${
+      ok ? "" : ' throw new Error("fixture guard red");'
+    }});\n`,
+  );
+  return rel;
+}
+
+/** Run a mutation assertion against copied registry sources under /tmp. */
+async function withPipelineFixture(
+  body: (root: string) => Promise<void>,
+): Promise<void> {
+  const root = await Deno.makeTempDir({ prefix: "discern-scriptorium-" });
+  try {
+    for (const rel of new Set(PROSE_REGISTRIES.map((entry) => entry.file))) {
+      const target = join(root, rel);
+      await Deno.mkdir(dirname(target), { recursive: true });
+      await Deno.copyFile(join(REPO_ROOT, rel), target);
+    }
+    await Deno.writeTextFile(
+      join(root, "scripts", "prose_check.ts"),
+      "Deno.exit(0);\n",
+    );
+    await body(root);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+}
 
 /** The live prose of one feature node's field, from the evaluated registry. */
 function liveFieldValue(id: string, field: "what" | "why"): string {
@@ -82,12 +161,16 @@ Deno.test("the patcher refuses everything but editable prose literals", () => {
     },
   ];
   for (const row of cases) {
-    const outcome = patchRegistrySource(REPO_ROOT, {
-      registry: row.registry,
-      slug: row.slug,
-      field: row.field,
-      value: "A replacement sentence.",
-    });
+    const outcome = patchRegistrySource(
+      REPO_ROOT,
+      editRequest(
+        row.registry,
+        row.slug,
+        row.field,
+        "",
+        "A replacement sentence.",
+      ),
+    );
     assert(!outcome.ok, `${row.slug}.${row.field} must be refused`);
     assert(
       row.expect.test(outcome.issue),
@@ -101,12 +184,10 @@ Deno.test("a patch replaces exactly one literal and nothing else", async () => {
   const oldValue = liveFieldValue("proof", "why");
   const value =
     "The owner reviews a verified claim — with a `code span` and an em—dash.";
-  const outcome = patchRegistrySource(REPO_ROOT, {
-    registry: "feature",
-    slug: "proof",
-    field: "why",
-    value,
-  });
+  const outcome = patchRegistrySource(
+    REPO_ROOT,
+    editRequest("feature", "proof", "why", oldValue, value),
+  );
   assert(outcome.ok, "the patch should land");
   assertEquals(outcome.file, "scripts/feature_registry.ts");
   assert(outcome.text.includes(value), "the new prose is in the source");
@@ -131,19 +212,40 @@ Deno.test("a patch replaces exactly one literal and nothing else", async () => {
   );
 });
 
+Deno.test("a patch refuses to overwrite a field that changed since opening", () => {
+  const current = liveFieldValue("proof", "why");
+  const outcome = patchRegistrySource(
+    REPO_ROOT,
+    editRequest(
+      "feature",
+      "proof",
+      "why",
+      `${current} Stale browser value.`,
+      `${current} Browser replacement.`,
+    ),
+  );
+  assert(!outcome.ok, "a stale compare-and-swap must be refused");
+  assert(
+    outcome.issue.includes("changed on disk"),
+    `the refusal should explain the conflict; got ${outcome.issue}`,
+  );
+});
+
 Deno.test("preview mode proves the patch without touching the tree", async () => {
   const before = await Deno.readTextFile(FEATURE_FILE);
+  const current = liveFieldValue("proof", "why");
   const report = await saveField(
-    {
-      registry: "feature",
-      slug: "proof",
-      field: "why",
-      value: liveFieldValue("proof", "why") + " Previewed.",
-    },
+    editRequest(
+      "feature",
+      "proof",
+      "why",
+      current,
+      current + " Previewed.",
+    ),
     {
       root: REPO_ROOT,
       guardsFor: () => [],
-      buildSnapshot,
+      buildSnapshot: () => Promise.resolve(fixtureSnapshot()),
       apply: false,
     },
   );
@@ -154,54 +256,57 @@ Deno.test("preview mode proves the patch without touching the tree", async () =>
 });
 
 Deno.test("a no-op save proves itself and leaves identical bytes", async () => {
-  const before = await Deno.readTextFile(FEATURE_FILE);
-  try {
+  await withPipelineFixture(async (root) => {
+    const featureFile = join(root, "scripts", "feature_registry.ts");
+    const before = await Deno.readTextFile(featureFile);
+    const current = liveFieldValue("proof", "why");
+    const guard = await writeGuard(root, "fixture_green", true);
     const report = await saveField(
+      editRequest("feature", "proof", "why", current, current),
       {
-        registry: "feature",
-        slug: "proof",
-        field: "why",
-        value: liveFieldValue("proof", "why"),
-      },
-      {
-        root: REPO_ROOT,
-        guardsFor: () => ["tests/feature_canon_plain_register_test.ts"],
-        buildSnapshot: () => spawnSnapshot(REPO_ROOT),
+        root,
+        guardsFor: () => [guard],
+        buildSnapshot: () => Promise.resolve(fixtureSnapshot()),
       },
     );
-    assert(report.ok, "an identical value must prove green");
+    assert(
+      report.ok,
+      `an identical value must prove green: ${JSON.stringify(report)}`,
+    );
     assert(report.applied);
     assertEquals(report.pages.length, 0, "no page moved for a no-op");
     assertEquals(report.guards?.ok, true);
     assertEquals(report.twin, "plain.why");
-  } finally {
-    await Deno.writeTextFile(FEATURE_FILE, before);
-  }
-  assertEquals(await Deno.readTextFile(FEATURE_FILE), before);
+    assertEquals(await Deno.readTextFile(featureFile), before);
+  });
 });
 
 Deno.test("a red guard rolls the whole save back", async () => {
-  const before = await Deno.readTextFile(FEATURE_FILE);
-  const pagePath = join(
-    REPO_ROOT,
-    "project",
-    "map",
-    "_internal",
-    "feature-canon.md",
-  );
-  const pageBefore = await Deno.readTextFile(pagePath);
-  try {
+  await withPipelineFixture(async (root) => {
+    const featureFile = join(root, "scripts", "feature_registry.ts");
+    const before = await Deno.readTextFile(featureFile);
+    const pageRel = join("project", "map", "fixture.md");
+    const pagePath = join(root, pageRel);
+    const pageBefore = "before the save\n";
+    await Deno.mkdir(dirname(pagePath), { recursive: true });
+    await Deno.writeTextFile(pagePath, pageBefore);
+    const guard = await writeGuard(root, "fixture_red", false);
+    const current = liveFieldValue("proof", "why");
     const report = await saveField(
+      editRequest(
+        "feature",
+        "proof",
+        "why",
+        current,
+        current + " This must not survive.",
+      ),
       {
-        registry: "feature",
-        slug: "proof",
-        field: "why",
-        value: liveFieldValue("proof", "why") + " This must not survive.",
-      },
-      {
-        root: REPO_ROOT,
-        guardsFor: () => ["tests/scriptorium_this_guard_does_not_exist.ts"],
-        buildSnapshot: () => spawnSnapshot(REPO_ROOT),
+        root,
+        guardsFor: () => [guard],
+        buildSnapshot: () =>
+          Promise.resolve(
+            fixtureSnapshot([fixturePage(pageRel, "after the save\n")]),
+          ),
       },
     );
     assert(!report.ok, "a red guard must refuse the save");
@@ -210,47 +315,54 @@ Deno.test("a red guard rolls the whole save back", async () => {
       report.ok === false && report.restored === true,
       "the report says the held bytes were restored",
     );
-  } finally {
-    await Deno.writeTextFile(FEATURE_FILE, before);
-    await Deno.writeTextFile(pagePath, pageBefore);
-  }
-  assertEquals(
-    await Deno.readTextFile(FEATURE_FILE),
-    before,
-    "the registry rolled back to its exact prior bytes",
-  );
-  assertEquals(await Deno.readTextFile(pagePath), pageBefore);
+    assertEquals(
+      await Deno.readTextFile(featureFile),
+      before,
+      "the registry rolled back to its exact prior bytes",
+    );
+    assertEquals(await Deno.readTextFile(pagePath), pageBefore);
+  });
 });
 
 Deno.test("a save the gate's prose voice refuses rolls back", async () => {
-  // A tenet obligation renders as paragraph prose on two pages, where the
-  // voice rules bite; the exclamation must red the prose stage, not guards.
-  const registryPath = join(REPO_ROOT, "scripts", "practice_registry.ts");
-  const before = await Deno.readTextFile(registryPath);
-  const held = new Map<string, string>();
-  for (
-    const rel of [
-      ["project", "map", "_internal", "practice-canon.md"],
-      ["project", "map", "00-orientation", "the-practice.md"],
-    ]
-  ) {
-    const path = join(REPO_ROOT, ...rel);
-    held.set(path, await Deno.readTextFile(path));
-  }
-  const tenet = PRACTICE_CANON.find((item) => item.id === "arrive-knowing");
-  assert(tenet !== undefined, "the probed tenet should exist");
-  try {
+  await withPipelineFixture(async (root) => {
+    const registryPath = join(root, "scripts", "practice_registry.ts");
+    const before = await Deno.readTextFile(registryPath);
+    const pageRel = join("project", "map", "practice-fixture.md");
+    const pagePath = join(root, pageRel);
+    const pageBefore = "before the prose check\n";
+    await Deno.mkdir(dirname(pagePath), { recursive: true });
+    await Deno.writeTextFile(pagePath, pageBefore);
+    const findings = JSON.stringify({
+      [pageRel]: [{
+        Line: 1,
+        Check: "Discern.Exclamation",
+        Message: "Exclamation marks are refused.",
+      }],
+    });
+    await Deno.writeTextFile(
+      join(root, "scripts", "prose_check.ts"),
+      `console.log(${JSON.stringify(findings)});\nDeno.exit(1);\n`,
+    );
+    const tenet = PRACTICE_CANON.find((item) => item.id === "arrive-knowing");
+    assert(tenet !== undefined, "the probed tenet should exist");
     const report = await saveField(
+      editRequest(
+        "practice",
+        "arrive-knowing",
+        "obligation",
+        tenet.obligation,
+        tenet.obligation + " Surprise, it works!",
+      ),
       {
-        registry: "practice",
-        slug: "arrive-knowing",
-        field: "obligation",
-        value: tenet.obligation + " Surprise, it works!",
-      },
-      {
-        root: REPO_ROOT,
+        root,
         guardsFor: () => [],
-        buildSnapshot: () => spawnSnapshot(REPO_ROOT),
+        buildSnapshot: () =>
+          Promise.resolve(
+            fixtureSnapshot([
+              fixturePage(pageRel, "after the prose check\n"),
+            ]),
+          ),
       },
     );
     assert(!report.ok, "an exclamation must refuse the save before guards");
@@ -263,12 +375,40 @@ Deno.test("a save the gate's prose voice refuses rolls back", async () => {
       report.ok === false && report.restored === true,
       "the report says the held bytes were restored",
     );
-  } finally {
-    await Deno.writeTextFile(registryPath, before);
-    for (const [path, bytes] of held) await Deno.writeTextFile(path, bytes);
-  }
-  assertEquals(await Deno.readTextFile(registryPath), before);
-  for (const [path, bytes] of held) {
-    assertEquals(await Deno.readTextFile(path), bytes);
-  }
+    assertEquals(await Deno.readTextFile(registryPath), before);
+    assertEquals(await Deno.readTextFile(pagePath), pageBefore);
+  });
+});
+
+Deno.test("rollback removes a generated page that was absent before save", async () => {
+  await withPipelineFixture(async (root) => {
+    const pageRel = join("project", "map", "new-fixture.md");
+    const pagePath = join(root, pageRel);
+    await Deno.mkdir(dirname(pagePath), { recursive: true });
+    const guard = await writeGuard(root, "fixture_missing_page_red", false);
+    const current = liveFieldValue("proof", "why");
+    const report = await saveField(
+      editRequest(
+        "feature",
+        "proof",
+        "why",
+        current,
+        current + " This must roll back.",
+      ),
+      {
+        root,
+        guardsFor: () => [guard],
+        buildSnapshot: () =>
+          Promise.resolve(
+            fixtureSnapshot([fixturePage(pageRel, "new page\n")]),
+          ),
+      },
+    );
+    assert(!report.ok, "the red guard must refuse the save");
+    assertEquals(report.ok === false && report.stage, "guards");
+    await assertRejects(
+      () => Deno.stat(pagePath),
+      Deno.errors.NotFound,
+    );
+  });
 });
