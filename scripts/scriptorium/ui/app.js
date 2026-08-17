@@ -176,7 +176,7 @@ function renderRail(entry, activeField) {
   );
 
   const active = entry.fields.find((field) => field.path === activeField);
-  if (active?.editable && selected) {
+  if (active?.editor === "prose" && selected) {
     const span = selected;
     rail.append(
       el("button", {
@@ -222,20 +222,31 @@ function renderRail(entry, activeField) {
   if (entry.fields.length > 0) {
     rail.append(el("h3", { text: "Fields" }));
     for (const field of entry.fields) {
-      rail.append(
-        el("div", {
-          class: "scr-fieldrow",
-          "data-active": String(field.path === activeField),
-        }, [
-          el("span", { text: field.path }),
-          el("span", {
-            text: field.editable ? "✎" : "🔒 " + field.kind,
-            title: field.editable
-              ? "editable prose"
-              : "derived or structured — edit at the source",
-          }),
-        ]),
-      );
+      const row = el("div", {
+        class: "scr-fieldrow",
+        "data-active": String(
+          field.path === activeField ||
+            (editing?.mode === "list" && editing.ref.field === field.path),
+        ),
+      });
+      row.append(el("span", { text: field.path }));
+      if (field.editor === "list") {
+        row.append(el("button", {
+          class: "scr-field-action",
+          type: "button",
+          text: `Pick · ${field.value?.length ?? 0}`,
+          title: `choose ${field.picker.source} values`,
+          onclick: () => openListEditor(entry, field, row),
+        }));
+      } else {
+        row.append(el("span", {
+          text: field.editor === "prose" ? "✎" : "🔒 " + field.kind,
+          title: field.editor === "prose"
+            ? "editable prose"
+            : "derived or structured — edit at the source",
+        }));
+      }
+      rail.append(row);
     }
   }
 
@@ -279,6 +290,7 @@ function renderRail(entry, activeField) {
       ? "⟳ Running guards…"
       : "Run this registry's guards",
     onclick: () => {
+      if (editing) return;
       runningGuards.add(entry.registry);
       renderRail(currentEntry, activeField);
       postJson("/api/guards/run", { registry: entry.registry });
@@ -296,11 +308,23 @@ function deselect() {
   rail.innerHTML = railEmptyHtml;
 }
 
+/** Ordered equality for typed-list drafts. */
+function sameValues(left, right) {
+  return left.length === right.length &&
+    left.every((value, index) => value === right[index]);
+}
+
+/** Whether the open editor currently carries a change worth saving. */
+function draftChanged() {
+  if (!editing || editing.mode === "prose") return true;
+  return !sameValues(editing.expected, editing.values);
+}
+
 /** Put the workbench into one of its states: lint, saving, or red. */
 function benchState(state) {
   bench.root.dataset.state = state;
   const busy = state === "saving";
-  bench.save.disabled = busy;
+  bench.save.disabled = busy || !draftChanged();
   bench.cancel.disabled = busy;
   if (state !== "red") {
     bench.details.hidden = true;
@@ -317,6 +341,18 @@ function benchStatusReset() {
       class: "scr-chip scr-chip-dirty",
       text: "⚠ canon changed on disk — Save re-proves against it",
     }));
+  }
+  if (editing?.mode === "list") {
+    bench.status.append(
+      el("span", {
+        class: "scr-chip",
+        text: `${editing.values.length} selected`,
+      }),
+      el("span", {
+        class: "scr-bench-stage",
+        text: "existing order is preserved; additions append",
+      }),
+    );
   }
 }
 
@@ -335,17 +371,24 @@ function benchClose() {
   document.body.classList.remove("scr-benched");
 }
 
-/** Close the inline editor, restoring the span's rendered content. */
+/** Close either editor, restoring the prose span or removing the picker. */
 function closeEditor() {
   if (!editing) return;
-  const { span, original } = editing;
-  span.innerHTML = original;
-  span.classList.remove("scr-editing", "scr-saving");
+  const closed = editing;
+  if (closed.mode === "prose") {
+    closed.span.innerHTML = closed.original;
+    closed.span.classList.remove("scr-editing", "scr-saving");
+  } else {
+    closed.panel.remove();
+    closed.row.dataset.active = "false";
+  }
   editing = null;
   benchClose();
-  if (selected) selected.classList.remove("scr-selected");
-  selected = span;
-  span.classList.add("scr-selected");
+  if (closed.mode === "prose") {
+    if (selected) selected.classList.remove("scr-selected");
+    selected = closed.span;
+    closed.span.classList.add("scr-selected");
+  }
 }
 
 /** Human wording for the save pipeline's stage names. */
@@ -363,22 +406,35 @@ function stageLabel(stage) {
 /** Submit the inline editor through the save-and-prove loop. */
 async function submitEditor() {
   if (!editing || bench.root.dataset.state === "saving") return;
-  const value = editing.box.textContent;
-  const { span, ref, expected } = editing;
+  const activeEditor = editing;
+  const value = activeEditor.mode === "prose"
+    ? activeEditor.box.textContent
+    : [...activeEditor.values];
+  const { ref, expected } = activeEditor;
   benchState("saving");
   benchStatusReset();
   const stage = el("span", { class: "scr-bench-stage", text: "⟳ saving…" });
   bench.status.append(stage);
-  editing.stageEl = stage;
-  span.classList.add("scr-saving");
+  activeEditor.stageEl = stage;
+  if (activeEditor.mode === "prose") {
+    activeEditor.span.classList.add("scr-saving");
+  } else {
+    activeEditor.panel.classList.add("scr-saving");
+  }
   const response = await postJson("/api/save", { ...ref, expected, value });
   const report = await response.json();
-  if (!editing || editing.span !== span) return;
-  span.classList.remove("scr-saving");
-  editing.stageEl = null;
+  if (editing !== activeEditor) return;
+  if (activeEditor.mode === "prose") {
+    activeEditor.span.classList.remove("scr-saving");
+  } else {
+    activeEditor.panel.classList.remove("scr-saving");
+  }
+  activeEditor.stageEl = null;
   if (report.ok) {
-    if (report.twin) pushTwin(ref, report.twin);
-    if (ref.field.startsWith("plain.")) clearTwin(ref);
+    if (activeEditor.mode === "prose") {
+      if (report.twin) pushTwin(ref, report.twin);
+      if (ref.field.startsWith("plain.")) clearTwin(ref);
+    }
     sessionStorage.setItem("scr-focus", `${ref.registry}:${ref.slug}`);
     sessionStorage.setItem(
       "scr-saved",
@@ -413,7 +469,7 @@ async function submitEditor() {
 
 /** Ask the server to judge the draft; on a pause, Vale joins the panel. */
 async function lintDraft(vale) {
-  if (!editing) return;
+  if (!editing || editing.mode !== "prose") return;
   const { ref, box, kind } = editing;
   const response = await postJson("/api/lint", {
     registry: ref.registry,
@@ -453,6 +509,116 @@ async function lintDraft(vale) {
   }
 }
 
+/** Open a searchable checkbox picker for one supported ordered-list field. */
+function openListEditor(entry, field, row) {
+  if (editing) closeEditor();
+  const expected = Array.isArray(field.value) ? [...field.value] : [];
+  const live = new Set(field.picker.options.map((option) => option.value));
+  const options = [
+    ...field.picker.options.map((option) => ({ ...option, live: true })),
+    ...expected.filter((value) => !live.has(value)).map((value) => ({
+      value,
+      label: "no longer live",
+      group: "stale",
+      live: false,
+    })),
+  ];
+  const panel = el("section", { class: "scr-picker" });
+  const search = el("input", {
+    class: "scr-picker-search",
+    type: "search",
+    placeholder: `Filter ${field.picker.source} values…`,
+    "aria-label": `Filter ${field.path} choices`,
+  });
+  const choices = el("div", { class: "scr-picker-choices" });
+  panel.append(search, choices);
+  row.after(panel);
+  row.dataset.active = "true";
+  const ref = {
+    registry: entry.registry,
+    slug: entry.slug,
+    field: field.path,
+  };
+  editing = {
+    mode: "list",
+    ref,
+    expected,
+    values: [...expected],
+    panel,
+    row,
+    diskNote: false,
+    stageEl: null,
+  };
+
+  const renderChoices = () => {
+    if (editing?.mode !== "list" || editing.panel !== panel) return;
+    const query = search.value.trim().toLowerCase();
+    choices.textContent = "";
+    let shown = 0;
+    for (const option of options) {
+      const haystack = `${option.value} ${option.label} ${option.group ?? ""}`
+        .toLowerCase();
+      if (query !== "" && !haystack.includes(query)) continue;
+      shown += 1;
+      const checked = editing.values.includes(option.value);
+      const checkbox = el("input", { type: "checkbox" });
+      checkbox.checked = checked;
+      const label = option.label === option.value
+        ? option.value
+        : `${option.value} — ${option.label}`;
+      const choice = el("label", {
+        class: option.live
+          ? "scr-picker-choice"
+          : "scr-picker-choice scr-stale",
+      }, [
+        checkbox,
+        el("span", { text: label }),
+        ...(option.group === undefined
+          ? []
+          : [el("small", { text: option.group })]),
+      ]);
+      checkbox.addEventListener("change", () => {
+        if (editing?.mode !== "list" || editing.panel !== panel) return;
+        const at = editing.values.indexOf(option.value);
+        if (checkbox.checked && at === -1) {
+          if (editing.expected.includes(option.value)) {
+            const selected = new Set([...editing.values, option.value]);
+            const additions = editing.values.filter((value) =>
+              !editing.expected.includes(value)
+            );
+            editing.values.splice(
+              0,
+              editing.values.length,
+              ...editing.expected.filter((value) => selected.has(value)),
+              ...additions,
+            );
+          } else {
+            editing.values.push(option.value);
+          }
+        }
+        if (!checkbox.checked && at !== -1) editing.values.splice(at, 1);
+        if (!option.live && !checkbox.checked) {
+          checkbox.disabled = true;
+          choice.dataset.removed = "true";
+        }
+        benchState("lint");
+        benchStatusReset();
+      });
+      choices.append(choice);
+    }
+    if (shown === 0) {
+      choices.append(el("p", {
+        class: "scr-picker-empty",
+        text: "No live values match that filter.",
+      }));
+    }
+  };
+  search.addEventListener("input", renderChoices);
+  renderChoices();
+  benchOpen(ref);
+  search.focus();
+}
+
 /** Open the in-place editor over a span, seeded with the field's source. */
 function openEditor(span, ref, value, kind) {
   if (editing) closeEditor();
@@ -470,6 +636,7 @@ function openEditor(span, ref, value, kind) {
   box.textContent = value;
   span.append(box);
   editing = {
+    mode: "prose",
     span,
     ref,
     box,
@@ -527,7 +694,7 @@ async function editField(span, ref) {
   if (!response.ok) return;
   const entry = await response.json();
   const field = entry.fields.find((candidate) => candidate.path === ref.field);
-  if (!field || !field.editable) return;
+  if (!field || field.editor !== "prose") return;
   renderRail(entry, ref.field);
   openEditor(span, ref, field.value ?? "", entry.kind);
 }
@@ -544,7 +711,8 @@ async function selectSpan(span) {
 }
 
 doc.addEventListener("click", (event) => {
-  if (editing && editing.span.contains(event.target)) return;
+  if (editing?.mode === "list") return;
+  if (editing?.mode === "prose" && editing.span.contains(event.target)) return;
   const outside = event.target.closest("a[data-outside]");
   if (outside) {
     event.preventDefault();
@@ -562,9 +730,10 @@ doc.addEventListener("click", (event) => {
 });
 
 doc.addEventListener("dblclick", (event) => {
+  if (editing?.mode === "list") return;
   const span = event.target.closest(".scr-field");
   if (!span || span.classList.contains("scr-locked")) return;
-  if (editing && editing.span === span) return;
+  if (editing?.mode === "prose" && editing.span === span) return;
   event.preventDefault();
   editField(span, parseRef(span.dataset.ref));
 });
@@ -636,7 +805,7 @@ async function refreshState() {
       reading.limit ? ` / ${reading.limit}` : ""
     }`;
   }
-  if (currentEntry) {
+  if (currentEntry && !editing) {
     renderRail(
       currentEntry,
       selected ? parseRef(selected.dataset.ref).field : undefined,
@@ -711,7 +880,7 @@ events.addEventListener("message", (event) => {
   if (payload.type === "guards") {
     if (payload.status === "running") {
       runningGuards.add(payload.registry);
-      if (currentEntry) {
+      if (currentEntry && !editing) {
         renderRail(
           currentEntry,
           selected ? parseRef(selected.dataset.ref).field : undefined,

@@ -54,6 +54,8 @@ export type SaveReport =
 /** What the pipeline needs from its host. */
 export interface SaveContext {
   readonly root: string;
+  /** The live typed-list choices observed before this save began. */
+  readonly pickers?: Snapshot["pickers"];
   /** The registry's guard files, from the meta-registry roster. */
   readonly guardsFor: (registry: string) => readonly string[];
   /** A fresh evaluation of the registries — normally the subprocess. */
@@ -227,7 +229,11 @@ export async function saveField(
   const stage = (name: string): void => context.onStage?.(name);
 
   stage("patch");
-  const patched = patchRegistrySource(context.root, request);
+  const patched = patchRegistrySource(
+    context.root,
+    request,
+    context.pickers === undefined ? {} : { pickers: context.pickers },
+  );
   if (!patched.ok) {
     return {
       ok: false,
@@ -319,7 +325,8 @@ export async function saveField(
   }
 
   const spec = fieldSpecFor(request.registry, "node", request.field);
-  const grade = spec?.edit === "prose" && spec.register === "plain" &&
+  const grade = request.mode === "prose" && spec?.edit === "prose" &&
+      spec.register === "plain" &&
       request.registry === "feature"
     ? await metricProbe(
       join("scripts", "plain_reading_grade.ts"),
@@ -328,7 +335,7 @@ export async function saveField(
     )
     : undefined;
 
-  const twin = request.registry === "feature"
+  const twin = request.mode === "prose" && request.registry === "feature"
     ? PLAIN_TWIN[request.field]
     : undefined;
   return {

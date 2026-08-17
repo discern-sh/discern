@@ -50,6 +50,7 @@ import { CANONICAL_SETS, REGISTRY_ATLAS_PAGE_REL } from "../canonical_sets.ts";
 import { plainReadingGrade } from "../plain_reading_grade_lib.ts";
 import { formatMarkdownText } from "../../src/lib/tidy_format.ts";
 import { readFrontmatterBlock } from "../../src/lib/frontmatter.ts";
+import { buildPickerCatalog, type PickerCatalogEntry } from "./pickers.ts";
 
 /** One rendered canon page, annotated and canonically formatted. */
 export interface SnapshotPage {
@@ -133,6 +134,8 @@ export interface StandardReading {
 export interface Snapshot {
   readonly pages: readonly SnapshotPage[];
   readonly entries: readonly SnapshotEntry[];
+  /** Typed list choices, derived from their live registry authorities. */
+  readonly pickers: readonly PickerCatalogEntry[];
   readonly lint: {
     readonly retired: readonly LintPattern[];
     readonly plainPoliced: readonly LintPattern[];
@@ -503,6 +506,7 @@ export async function buildSnapshot(): Promise<Snapshot> {
   return {
     pages: await buildPages(),
     entries: buildEntries(),
+    pickers: await buildPickerCatalog(),
     lint: buildLint(),
     guards: buildGuards(),
     standards: await buildStandards(),

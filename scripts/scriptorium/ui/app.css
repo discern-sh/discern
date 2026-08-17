@@ -381,6 +381,88 @@
     color: var(--scr-rubric);
     font-weight: 600;
   }
+  .scr-field-action {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--scr-rubric);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .scr-field-action:hover {
+    text-decoration: underline;
+  }
+  .scr-picker {
+    margin: 0.35rem 0 0.75rem;
+    padding: 0.55rem;
+    border: 1px solid var(--scr-rubric);
+    border-radius: var(--discern-radius-sm);
+    background: var(--discern-color-surface);
+    box-shadow: 0 0 0 3px var(--scr-rubric-soft);
+  }
+  .scr-picker.scr-saving {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .scr-picker-search {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.42rem 0.5rem;
+    border: 1px solid var(--discern-color-border);
+    border-radius: var(--discern-radius-sm);
+    background: var(--discern-color-canvas);
+    color: var(--discern-color-ink);
+    font: inherit;
+    outline: none;
+  }
+  .scr-picker-search:focus {
+    border-color: var(--scr-rubric);
+  }
+  .scr-picker-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    max-height: 19rem;
+    margin-top: 0.45rem;
+    overflow-y: auto;
+  }
+  .scr-picker-choice {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.4rem;
+    padding: 0.25rem 0.18rem;
+    border-radius: var(--discern-radius-sm);
+    color: var(--discern-color-ink-muted);
+    cursor: pointer;
+    overflow-wrap: anywhere;
+  }
+  .scr-picker-choice:hover {
+    background: var(--discern-color-surface-sunken);
+    color: var(--discern-color-ink);
+  }
+  .scr-picker-choice input {
+    margin-top: 0.15rem;
+    accent-color: var(--scr-rubric);
+  }
+  .scr-picker-choice small {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-ink-faint);
+  }
+  .scr-picker-choice.scr-stale {
+    color: var(--discern-color-warning-deep);
+  }
+  .scr-picker-choice[data-removed="true"] {
+    opacity: 0.55;
+    text-decoration: line-through;
+  }
+  .scr-picker-empty {
+    margin: 0.4rem 0.2rem;
+    color: var(--discern-color-ink-faint);
+    font-size: var(--discern-font-size-xs);
+  }
   .scr-btn {
     display: block;
     width: 100%;

@@ -26,7 +26,14 @@ import {
   openRegistryProject,
   registryEntries,
 } from "../scripts/scriptorium/registry_ast.ts";
-import { fieldSpecFor } from "../scripts/scriptorium/fields.ts";
+import {
+  fieldSpecFor,
+  type PickerSource,
+} from "../scripts/scriptorium/fields.ts";
+import {
+  buildPickerCatalog,
+  WRITABLE_PICKER_SOURCES,
+} from "../scripts/scriptorium/pickers.ts";
 import { REPO_ROOT } from "../scripts/scriptorium/root.ts";
 import {
   allBenefitEntries,
@@ -35,7 +42,9 @@ import {
   renderFeatureCanonBenefitsDoc,
   renderFeatureCanonDoc,
   renderFeatureCanonPlainDoc,
+  SURFACE_SETS,
 } from "../scripts/feature_registry.ts";
+import { liveFeatureSurfaceMembers } from "../scripts/feature_surface_catalog.ts";
 import {
   PRACTICE_CANON,
   renderPracticeCanonDoc,
@@ -43,6 +52,7 @@ import {
 } from "../scripts/practice_registry.ts";
 import { GLOSSARY, renderGlossaryDoc } from "../scripts/glossary_registry.ts";
 import { CLAIMS } from "../scripts/brand/claims.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { renderBrandDoc } from "../scripts/brand_registry.ts";
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 
@@ -196,6 +206,57 @@ Deno.test("every declared field resolves to studio semantics that fit its litera
         `${entry.registry} ${entry.id} · ${leaf.path}: a nested spec cannot terminate a leaf`,
       );
     }
+  }
+});
+
+Deno.test("picker write-back and option handlers stay in two-way parity", async () => {
+  const project = openRegistryProject(REPO_ROOT);
+  const used = new Set<PickerSource>();
+  const literalUses = new Set<PickerSource>();
+  for (const entry of registryEntries(project, REPO_ROOT)) {
+    for (const leaf of fieldLeaves(entry)) {
+      const spec = fieldSpecFor(entry.registry, entry.kind, leaf.path);
+      if (spec?.edit !== "list" || spec.write !== "picker") continue;
+      used.add(spec.picker);
+      if (leaf.kind === "string-array") literalUses.add(spec.picker);
+    }
+  }
+  assertEquals(
+    [...used].toSorted(),
+    [...WRITABLE_PICKER_SOURCES].toSorted(),
+    "every picker-marked field has one option handler, and no handler is orphaned",
+  );
+  assertEquals(
+    [...literalUses].toSorted(),
+    [...WRITABLE_PICKER_SOURCES].toSorted(),
+    "every picker handler reaches at least one writable string-array literal",
+  );
+
+  const catalog = new Map(
+    (await buildPickerCatalog()).map((entry) => [entry.source, entry.options]),
+  );
+  const values = (source: (typeof WRITABLE_PICKER_SOURCES)[number]): string[] =>
+    (catalog.get(source) ?? []).map((option) => option.value);
+  assertEquals(
+    values("feature-node"),
+    allFeatureNodes().map(({ node }) => node.id),
+  );
+  assertEquals(values("claim"), Object.keys(CLAIMS));
+  assertEquals(values("hint"), Object.keys(HINTS));
+  const surfaceMembers = await liveFeatureSurfaceMembers();
+  assertEquals(
+    values("surface"),
+    SURFACE_SETS.flatMap((set) =>
+      surfaceMembers[set].map((member) => `${set}:${member}`)
+    ),
+  );
+  for (const [source, options] of catalog) {
+    const optionValues = options.map((option) => option.value);
+    assertEquals(
+      new Set(optionValues).size,
+      optionValues.length,
+      `${source} picker values are unique`,
+    );
   }
 });
 

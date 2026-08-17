@@ -48,7 +48,12 @@ export type FieldSpec =
   /** In-place editable prose, judged in the named register. */
   | { readonly edit: "prose"; readonly register: ProseFieldRegister }
   /** A typed list over a live set — picker territory, not freehand prose. */
-  | { readonly edit: "list"; readonly picker: PickerSource }
+  | {
+    readonly edit: "list";
+    readonly picker: PickerSource;
+    /** Present only when this exact field has in-studio write-back. */
+    readonly write?: "picker";
+  }
   /** An object whose own fields carry the semantics — resolve one deeper. */
   | { readonly edit: "nested" }
   /** Child entries — entries of their own, never fields. */
@@ -70,9 +75,9 @@ export const FEATURE_NODE_FIELDS = {
   what: { edit: "prose", register: "technical" },
   why: { edit: "prose", register: "technical" },
   agent: { edit: "prose", register: "technical" },
-  hints: { edit: "list", picker: "hint" },
+  hints: { edit: "list", picker: "hint", write: "picker" },
   plain: { edit: "nested" },
-  surfaces: { edit: "list", picker: "surface" },
+  surfaces: { edit: "list", picker: "surface", write: "picker" },
   children: { edit: "structural" },
 } as const satisfies Record<keyof FeatureNode, FieldSpec>;
 
@@ -101,8 +106,8 @@ export const BENEFIT_ENTRY_FIELDS = {
   title: { edit: "prose", register: "technical" },
   value: { edit: "prose", register: "technical" },
   whyItFollows: { edit: "prose", register: "technical" },
-  drawsOn: { edit: "list", picker: "feature-node" },
-  claims: { edit: "list", picker: "claim" },
+  drawsOn: { edit: "list", picker: "feature-node", write: "picker" },
+  claims: { edit: "list", picker: "claim", write: "picker" },
 } as const satisfies Record<keyof BenefitEntry, FieldSpec>;
 
 /** A practice tenet's fields. */

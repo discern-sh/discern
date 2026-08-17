@@ -11,8 +11,10 @@ import { dirname, join } from "@std/path";
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { Node, Project } from "ts-morph";
 import {
+  type ListPatchRequest,
+  listValueIssue,
   patchRegistrySource,
-  type PatchRequest,
+  type ProsePatchRequest,
   proseValueIssue,
 } from "../scripts/scriptorium/patch.ts";
 import { saveField } from "../scripts/scriptorium/pipeline.ts";
@@ -25,20 +27,30 @@ import { MARK_OPEN } from "../scripts/scriptorium/annotation.ts";
 import { REPO_ROOT } from "../scripts/scriptorium/root.ts";
 import { allFeatureNodes } from "../scripts/feature_registry.ts";
 import { PRACTICE_CANON } from "../scripts/practice_registry.ts";
+import { buildPickerCatalog } from "../scripts/scriptorium/pickers.ts";
 
 const FEATURE_FILE = join(REPO_ROOT, "scripts", "feature_registry.ts");
 
-type ExpectedPatchRequest = PatchRequest & { readonly expected: string };
-
 /** One compare-and-swap request, explicit even before the type requires it. */
 function editRequest(
-  registry: PatchRequest["registry"],
+  registry: ProsePatchRequest["registry"],
   slug: string,
   field: string,
   expected: string,
   value: string,
-): ExpectedPatchRequest {
-  return { registry, slug, field, expected, value };
+): ProsePatchRequest {
+  return { mode: "prose", registry, slug, field, expected, value };
+}
+
+/** One ordered typed-list compare-and-swap request. */
+function listRequest(
+  registry: ListPatchRequest["registry"],
+  slug: string,
+  field: string,
+  expected: readonly string[],
+  value: readonly string[],
+): ListPatchRequest {
+  return { mode: "list", registry, slug, field, expected, value };
 }
 
 /** A minimal evaluated snapshot for one pipeline fixture. */
@@ -46,6 +58,7 @@ function fixtureSnapshot(pages: readonly SnapshotPage[] = []): Snapshot {
   return {
     pages,
     entries: [],
+    pickers: [],
     lint: { retired: [], plainPoliced: [] },
     guards: [],
     standards: [],
@@ -119,6 +132,25 @@ Deno.test("prose values are policed before any syntax work", () => {
     "annotation markers refused",
   );
   assertEquals(proseValueIssue("An honest sentence."), undefined);
+});
+
+Deno.test("typed list values admit each live option once", async () => {
+  const hint = (await buildPickerCatalog()).find((entry) =>
+    entry.source === "hint"
+  );
+  assert(hint !== undefined, "the hint picker is supported");
+  assertEquals(
+    listValueIssue(["gate-prove-it-works", "gate-relay-proof"], hint),
+    undefined,
+  );
+  assert(
+    listValueIssue(["gate-relay-proof", "gate-relay-proof"], hint)?.includes(
+      "repeats",
+    ),
+  );
+  assert(
+    listValueIssue(["not-a-registered-hint"], hint)?.includes("not a live"),
+  );
 });
 
 Deno.test("the patcher refuses everything but editable prose literals", () => {
@@ -212,6 +244,28 @@ Deno.test("a patch replaces exactly one literal and nothing else", async () => {
   );
 });
 
+Deno.test("a typed list patch replaces one ordered string array", async () => {
+  const original = await Deno.readTextFile(FEATURE_FILE);
+  const pickers = await buildPickerCatalog();
+  const expected = ["gate-prove-it-works", "gate-relay-proof"];
+  const value = ["gate-relay-proof"];
+  const outcome = patchRegistrySource(
+    REPO_ROOT,
+    listRequest("feature", "proof", "hints", expected, value),
+    { pickers },
+  );
+  assert(outcome.ok, "the list patch should land in memory");
+  assert(
+    outcome.text.includes('hints: ["gate-relay-proof"]'),
+    "the requested ordered list is in the source",
+  );
+  assertEquals(
+    await Deno.readTextFile(FEATURE_FILE),
+    original,
+    "the pure patch never touches the real file",
+  );
+});
+
 Deno.test("a patch refuses to overwrite a field that changed since opening", () => {
   const current = liveFieldValue("proof", "why");
   const outcome = patchRegistrySource(
@@ -229,6 +283,35 @@ Deno.test("a patch refuses to overwrite a field that changed since opening", () 
     outcome.issue.includes("changed on disk"),
     `the refusal should explain the conflict; got ${outcome.issue}`,
   );
+});
+
+Deno.test("a typed list patch refuses stale and unknown values", async () => {
+  const pickers = await buildPickerCatalog();
+  const stale = patchRegistrySource(
+    REPO_ROOT,
+    listRequest(
+      "feature",
+      "proof",
+      "hints",
+      ["gate-prove-it-works"],
+      ["gate-relay-proof"],
+    ),
+    { pickers },
+  );
+  assert(!stale.ok && stale.conflict === true);
+
+  const unknown = patchRegistrySource(
+    REPO_ROOT,
+    listRequest(
+      "feature",
+      "proof",
+      "hints",
+      ["gate-prove-it-works", "gate-relay-proof"],
+      ["not-a-registered-hint"],
+    ),
+    { pickers },
+  );
+  assert(!unknown.ok && unknown.issue.includes("not a live hint value"));
 });
 
 Deno.test("preview mode proves the patch without touching the tree", async () => {
@@ -278,6 +361,38 @@ Deno.test("a no-op save proves itself and leaves identical bytes", async () => {
     assertEquals(report.guards?.ok, true);
     assertEquals(report.twin, "plain.why");
     assertEquals(await Deno.readTextFile(featureFile), before);
+  });
+});
+
+Deno.test("a typed list save runs the same format and guard boundary", async () => {
+  await withPipelineFixture(async (root) => {
+    const featureFile = join(root, "scripts", "feature_registry.ts");
+    const guard = await writeGuard(root, "fixture_list_green", true);
+    const pickers = await buildPickerCatalog();
+    const report = await saveField(
+      listRequest(
+        "feature",
+        "proof",
+        "hints",
+        ["gate-prove-it-works", "gate-relay-proof"],
+        ["gate-relay-proof"],
+      ),
+      {
+        root,
+        pickers,
+        guardsFor: () => [guard],
+        buildSnapshot: () => Promise.resolve(fixtureSnapshot()),
+      },
+    );
+    assert(report.ok && report.applied);
+    assertEquals(report.guards?.ok, true);
+    assertEquals(report.twin, undefined, "list edits queue no prose twin");
+    assert(
+      (await Deno.readTextFile(featureFile)).includes(
+        'hints: ["gate-relay-proof"]',
+      ),
+      "the formatted typed list survives the proven save",
+    );
   });
 });
 

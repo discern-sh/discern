@@ -22,6 +22,7 @@ import { renderDocHtml, renderShell, type SpanState } from "./html.ts";
 import { emitStudioAssets } from "./assets.ts";
 import { type GuardRunReport, runGuardFiles } from "./guards.ts";
 import { saveField, spawnSnapshot } from "./pipeline.ts";
+import type { PatchRequest } from "./patch.ts";
 import { lintFieldText, valeFindings } from "./lint.ts";
 import { fieldSpecFor } from "./fields.ts";
 import type { RegistryName } from "./registry_ast.ts";
@@ -31,6 +32,7 @@ import {
   resolveIdentity,
 } from "../../src/engine/worktree/identity.ts";
 import { THEME_BOOTSTRAP } from "../../site/theme.ts";
+import { type PickerCatalogEntry, pickerFromCatalog } from "./pickers.ts";
 
 const BIND_HOST = "127.0.0.1";
 const BROWSER_HOST = "localhost";
@@ -50,13 +52,19 @@ const WATCH_DEBOUNCE_MS = 200;
 /** The files whose change means the canon (or its interpolations) moved. */
 const WATCHED_SOURCES: readonly string[] = [
   "scripts/feature_registry.ts",
+  "scripts/feature_surface_catalog.ts",
   "scripts/practice_registry.ts",
   "scripts/glossary_registry.ts",
   "scripts/brand/claims.ts",
   "scripts/canonical_sets.ts",
+  "scripts/scriptorium/pickers.ts",
   "src/shared/capabilities.ts",
   "src/shared/agent_catalogue.ts",
+  "src/shared/config_schema.ts",
+  "src/shared/hints.ts",
   "src/shared/paths_registry.ts",
+  "src/shared/verbs.ts",
+  "templates/skills",
 ];
 
 /** Parse an explicit PORT override without silently accepting garbage. */
@@ -102,6 +110,11 @@ interface AstRecord {
     readonly line: number;
   }[];
 }
+
+/** The browser control available for one syntax leaf. */
+type FieldEditor =
+  | { readonly kind: "prose" }
+  | { readonly kind: "list"; readonly picker: PickerCatalogEntry };
 
 /** Options the tests use to run the studio hermetically. */
 export interface StudioOptions {
@@ -151,6 +164,12 @@ function json(body: unknown, status = 200): Response {
       "cache-control": "no-store",
     },
   });
+}
+
+/** Whether an untrusted JSON value is a complete string list. */
+function isStringList(value: unknown): value is string[] {
+  return Array.isArray(value) &&
+    value.every((item) => typeof item === "string");
 }
 
 /** Refuse DNS-rebound hosts and every non-safe request lacking browser proof. */
@@ -255,6 +274,31 @@ export async function startStudio(
     notify({ type: "snapshot", error: snapshotError ?? null });
   };
 
+  const fieldEditor = (
+    registry: string,
+    kind: string,
+    leaf: AstRecord["leaves"][number],
+  ): FieldEditor | undefined => {
+    const known = PROSE_REGISTRIES.find((item) => item.name === registry)?.name;
+    if (known === undefined) return undefined;
+    const semantics = fieldSpecFor(known, kind, leaf.path);
+    if (semantics === undefined) return undefined;
+    if (leaf.kind === "string" && semantics.edit === "prose") {
+      return { kind: "prose" };
+    }
+    if (
+      leaf.kind === "string-array" && semantics.edit === "list" &&
+      semantics.write === "picker"
+    ) {
+      const picker = pickerFromCatalog(
+        snapshot?.pickers ?? [],
+        semantics.picker,
+      );
+      if (picker !== undefined) return { kind: "list", picker };
+    }
+    return undefined;
+  };
+
   const fieldState = (
     registry: string,
     kind: string,
@@ -264,9 +308,9 @@ export async function startStudio(
     if (known === undefined) return "unknown";
     const semantics = fieldSpecFor(known, kind, leaf.path);
     if (semantics === undefined) return "unknown";
-    return leaf.kind === "string" && semantics.edit === "prose"
-      ? "editable"
-      : "locked";
+    return fieldEditor(registry, kind, leaf) === undefined
+      ? "locked"
+      : "editable";
   };
 
   const spanState = (token: string): SpanState => {
@@ -296,13 +340,18 @@ export async function startStudio(
     outward: found.outward,
     inward: found.inward,
     claimsCarried: found.claimsCarried ?? [],
-    fields: (record?.leaves ?? []).map((leaf) => ({
-      path: leaf.path,
-      kind: leaf.kind,
-      line: leaf.line,
-      editable: fieldState(found.registry, found.kind, leaf) === "editable",
-      value: valueAt(found.data, leaf.path) ?? null,
-    })),
+    fields: (record?.leaves ?? []).map((leaf) => {
+      const editor = fieldEditor(found.registry, found.kind, leaf);
+      return {
+        path: leaf.path,
+        kind: leaf.kind,
+        line: leaf.line,
+        editable: editor !== undefined,
+        editor: editor?.kind ?? null,
+        picker: editor?.kind === "list" ? editor.picker : null,
+        value: valueAt(found.data, leaf.path) ?? null,
+      };
+    }),
   });
 
   const runGuards = (registry: string, files: readonly string[]): void => {
@@ -505,19 +554,47 @@ export async function startStudio(
       }
       const body = (await request.json()) as {
         registry?: string;
-        slug?: string;
-        field?: string;
-        expected?: string;
-        value?: string;
+        slug?: unknown;
+        field?: unknown;
+        expected?: unknown;
+        value?: unknown;
       };
       const registry = PROSE_REGISTRIES.find(
         (spec) => spec.name === body.registry,
       )?.name as RegistryName | undefined;
       if (
-        registry === undefined || body.slug === undefined ||
-        body.field === undefined || typeof body.expected !== "string" ||
-        typeof body.value !== "string"
+        registry === undefined || typeof body.slug !== "string" ||
+        typeof body.field !== "string"
       ) {
+        return json(
+          { ok: false, stage: "patch", issue: "malformed save request" },
+          400,
+        );
+      }
+      let patch: PatchRequest;
+      if (
+        typeof body.expected === "string" && typeof body.value === "string"
+      ) {
+        patch = {
+          mode: "prose",
+          registry,
+          slug: body.slug,
+          field: body.field,
+          expected: body.expected,
+          value: body.value,
+        };
+      } else if (
+        isStringList(body.expected) && isStringList(body.value)
+      ) {
+        patch = {
+          mode: "list",
+          registry,
+          slug: body.slug,
+          field: body.field,
+          expected: body.expected,
+          value: body.value,
+        };
+      } else {
         return json(
           { ok: false, stage: "patch", issue: "malformed save request" },
           400,
@@ -527,15 +604,10 @@ export async function startStudio(
       try {
         const roster = snapshot.guards;
         const report = await saveField(
-          {
-            registry,
-            slug: body.slug,
-            field: body.field,
-            expected: body.expected,
-            value: body.value,
-          },
+          patch,
           {
             root: REPO_ROOT,
+            pickers: snapshot.pickers,
             guardsFor: (name) =>
               roster.find((candidate) => candidate.registry === name)
                 ?.guards ?? [],

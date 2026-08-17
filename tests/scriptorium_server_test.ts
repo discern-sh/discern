@@ -16,6 +16,7 @@ import {
 import { mainCheckoutIssue, REPO_ROOT } from "../scripts/scriptorium/root.ts";
 import { buildSnapshot } from "../scripts/scriptorium/snapshot.ts";
 import { fieldSpecFor } from "../scripts/scriptorium/fields.ts";
+import { buildPickerCatalog } from "../scripts/scriptorium/pickers.ts";
 import {
   fieldLeaves,
   openRegistryProject,
@@ -108,7 +109,16 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
         file: string;
         line: number;
         claimsCarried: string[];
-        fields: { path: string; kind: string; editable: boolean }[];
+        fields: {
+          path: string;
+          kind: string;
+          editable: boolean;
+          editor: string | null;
+          picker: {
+            source: string;
+            options: { value: string }[];
+          } | null;
+        }[];
         inward: { registry: string }[];
       };
     assertEquals(proof.file, "scripts/feature_registry.ts");
@@ -118,7 +128,15 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
     assertEquals(what?.editable, true);
     const hints = proof.fields.find((field) => field.path === "hints");
     assertEquals(hints?.kind, "string-array");
-    assertEquals(hints?.editable, false);
+    assertEquals(hints?.editable, true);
+    assertEquals(hints?.editor, "list");
+    assertEquals(hints?.picker?.source, "hint");
+    assert(
+      hints?.picker?.options.some((option) =>
+        option.value === "gate-relay-proof"
+      ),
+      "the field carries live hint choices",
+    );
     assert(proof.inward.some((citation) => citation.registry === "benefit"));
 
     const term = await (
@@ -137,6 +155,9 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
 
 Deno.test("literal editability never overrides a field's semantics", async () => {
   await withStudio(async (studio) => {
+    const supportedPickers = new Set<string>(
+      (await buildPickerCatalog()).map((picker) => picker.source),
+    );
     const project = openRegistryProject(REPO_ROOT);
     for (const entry of registryEntries(project, REPO_ROOT)) {
       const response = await request(
@@ -157,7 +178,10 @@ Deno.test("literal editability never overrides a field's semantics", async () =>
         );
         assertEquals(
           field.editable,
-          leaf.kind === "string" && semantics?.edit === "prose",
+          (leaf.kind === "string" && semantics?.edit === "prose") ||
+            (leaf.kind === "string-array" && semantics?.edit === "list" &&
+              semantics.write === "picker" &&
+              supportedPickers.has(semantics.picker)),
           `${entry.registry} ${entry.id} · ${leaf.path}`,
         );
       }
@@ -228,6 +252,22 @@ Deno.test("a stale browser save receives a conflict without touching disk", asyn
     const report = await response.json() as { ok: boolean; issue: string };
     assertEquals(report.ok, false);
     assert(report.issue.includes("changed on disk"));
+  });
+});
+
+Deno.test("a list save refuses values outside its live picker", async () => {
+  await withStudio(async (studio) => {
+    const response = await trustedPost(studio, "/api/save", {
+      registry: "feature",
+      slug: "proof",
+      field: "hints",
+      expected: ["gate-prove-it-works", "gate-relay-proof"],
+      value: ["not-a-registered-hint"],
+    });
+    assertEquals(response.status, 200);
+    const report = await response.json() as { ok: boolean; issue: string };
+    assertEquals(report.ok, false);
+    assert(report.issue.includes("not a live hint value"));
   });
 });
 
