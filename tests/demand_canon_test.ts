@@ -316,7 +316,14 @@ Deno.test("the rendered account uses the short scan labels", () => {
   }
   const entries = allDemandEntries();
   for (
-    const label of ["Situation", "Today's alternative", "Cost", "Forces", "Segments", "Evidence"]
+    const label of [
+      "Situation",
+      "Today's alternative",
+      "Cost",
+      "Forces",
+      "Segments",
+      "Evidence",
+    ]
   ) {
     assertEquals(count(label), entries.length, `${label} labels`);
   }
