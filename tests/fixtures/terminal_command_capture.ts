@@ -17,6 +17,7 @@ export const TERMINAL_CAPTURE_GEOMETRIES = {
   canonical: { columns: 80, rows: 24 },
   wide: { columns: 120, rows: 24 },
   tall: { columns: 80, rows: 40 },
+  short: { columns: 80, rows: 13 },
 } as const satisfies Readonly<Record<string, PtyGeometry>>;
 
 export type TerminalCaptureGeometryName =
@@ -83,7 +84,10 @@ export interface TerminalCaptureHtmlOptions {
 
 /** Normalize only the line discipline added by script(1)'s PTY transport. */
 export function normalizePtyLineEndings(output: string): string {
-  const normalized = output.replaceAll("\r\n", "\n");
+  // Complete-frame writers already return to column zero before each newline;
+  // script(1)'s line discipline can add a second carriage return.
+  const normalized = output.replaceAll("\r\r\n", "\n")
+    .replaceAll("\r\n", "\n");
   if (normalized.includes("\r")) {
     throw new Error(
       "terminal capture contains a live carriage-return repaint; capture a static command state or a named settled keyframe",
@@ -101,12 +105,13 @@ export function normalizePtyLineEndings(output: string): string {
  */
 export function settledInteractiveTerminalFrame(output: string): string {
   const normalized = normalizePtyLineEndings(output);
-  const erasures = [...normalized.matchAll(/\x1b\[(?:0)?J/gu)];
+  const erasures = [...normalized.matchAll(/\x1b\[(?:[012])?J/gu)];
   const last = erasures.at(-1);
   const frame = last?.index === undefined
     ? normalized
     : normalized.slice(last.index + last[0].length);
   return frame
+    .replace(/^\x1b\[H/u, "")
     .replaceAll(/\x1b\[\?25[hl]/gu, "")
     .replaceAll("\x1b]11;?\x1b\\", "");
 }

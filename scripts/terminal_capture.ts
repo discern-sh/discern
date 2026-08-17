@@ -43,7 +43,7 @@ Usage:
   deno task terminal:capture <name> [options] [-- <discern arguments...>]
 
 Options:
-  --geometry <canonical|wide|tall>  Terminal dimensions (default: canonical)
+  --geometry <canonical|wide|tall|short>  Terminal dimensions (default: canonical)
   --output <path>                   HTML destination
   --cwd <path>                      Project to run in (default: current directory)
   --locale <locale>                 Captured locale (default: en_US.UTF-8)
@@ -269,6 +269,7 @@ async function main(args: readonly string[]): Promise<void> {
       color: options.color,
       locale: options.locale,
       env: {
+        DISCERN_DOCS_DIR: join(REPO_ROOT, "project", "map"),
         DISCERN_TEMPLATES_DIR: join(REPO_ROOT, "templates"),
       },
       ...(input === undefined ? {} : { input, static: false }),
