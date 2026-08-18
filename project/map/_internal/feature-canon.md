@@ -322,3 +322,4 @@ Every member of the product's closed sets, with the node that claims it. The enr
 ### Recorded absences
 
 - `verb:triangle` — intentionally enigmatic, and shrouded in mystery
+- `config:checkpoints` — the checkpoint engine's config surface landed ahead of its user-facing feature; the checkpoints node claims it when the gate interlock and verb ship

@@ -177,6 +177,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "short-handle continuation state — registry-resolved .git-internal state outside the project tree",
   ],
   [
+    "src/engine/checkpoints/episodes.ts",
+    "the checkpoint episode store — registry-resolved .git-internal state outside the project tree",
+  ],
+  [
     "src/engine/worktree/retired_paths.ts",
     "bounded evidence for removed worktree paths — registry-resolved .git-internal state outside the project tree",
   ],

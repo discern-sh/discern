@@ -322,3 +322,4 @@ Every member of the product's official fixed lists appears below beside the feat
 ### Missing entries
 
 - `verb:triangle` — intentionally enigmatic, and shrouded in mystery
+- `config:checkpoints` — the checkpoint engine's config surface landed ahead of its user-facing feature; the checkpoints node claims it when the gate interlock and verb ship

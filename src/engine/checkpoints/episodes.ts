@@ -310,8 +310,8 @@ export type ReconcileEpisodeResult =
  * Create or refresh one checkpoint's episode for the given definition hash and
  * subject — idempotent per (checkpoint, subject): an unchanged pair carries
  * the episode untouched (no write); a changed pair REOPENS it in place,
- * keeping any declaration record (it simply stops being current, since its
- * binding no longer matches). `now` exists for deterministic tests.
+ * keeping any declaration record (it simply stops being current: its
+ * binding differs from the episode's). `now` exists for deterministic tests.
  */
 export async function reconcileEpisode(
   cwd: string,

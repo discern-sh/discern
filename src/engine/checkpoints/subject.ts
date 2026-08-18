@@ -35,10 +35,10 @@ import type { ResolvedCheckpoint } from "./types.ts";
 /** Version tag mixed into the definition-hash material: bump it when the
  * canonicalization changes shape, so an old and a new engine can never read
  * the same bytes as the same definition. */
-const DEFINITION_MATERIAL_VERSION = "discern-checkpoint-definition/v1";
+const DEFINITION_MATERIAL_VERSION = "checkpoint-definition/v1";
 
 /** Version tag mixed into the subject-fingerprint material. */
-const SUBJECT_MATERIAL_VERSION = "discern-checkpoint-subject/v1";
+const SUBJECT_MATERIAL_VERSION = "checkpoint-subject/v1";
 
 /** Files per `git hash-object` invocation — bounds the argv length. */
 const HASH_OBJECT_BATCH = 500;

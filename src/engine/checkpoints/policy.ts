@@ -12,7 +12,7 @@
  * Resolution is deliberately LENIENT where the live loader is strict: the
  * governing config is history, not the file under the author's hands, so an
  * entry that cannot be resolved (an unknown scope, a missing criterion, a
- * config that no longer loads) drops out with an advisory instead of wedging
+ * config that does not load) drops out with an advisory instead of wedging
  * the effort — checkpoints FAIL OPEN on every uncertainty.
  *
  * `resolveCheckpoints` is the pure half: entry fields override a shipped

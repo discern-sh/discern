@@ -2177,6 +2177,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
  */
 export const FEATURES_DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
   "verb:triangle": "intentionally enigmatic, and shrouded in mystery",
+  "config:checkpoints":
+    "the checkpoint engine's config surface landed ahead of its user-facing feature; the checkpoints node claims it when the gate interlock and verb ship",
 };
 
 /**
