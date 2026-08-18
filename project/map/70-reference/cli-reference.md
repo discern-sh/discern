@@ -549,11 +549,11 @@ Find the highest-value next improvement, with the health audit and open reviews 
 
 Usage: `discern improvement [options]`
 
-| Option              | Description                                                                                   |
-| ------------------- | --------------------------------------------------------------------------------------------- |
-| `--json`            | Emit the coaching result as JSON (practice-health score, open reviews, and data.next_action). |
-| `--category <name>` | Review a single area (gate, setup, instructions, map, worktrees, standards, skills).          |
-| `--min-score <n>`   | Exit non-zero when the overall score is below this floor (a CI/agent gate).                   |
+| Option              | Description                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| `--json`            | Emit the coaching result as JSON (practice-health score, open reviews, and data.next_action).     |
+| `--category <name>` | Review a single area (gate, setup, instructions, map, worktrees, standards, checkpoints, skills). |
+| `--min-score <n>`   | Exit non-zero when the overall score is below this floor (a CI/agent gate).                       |
 
 ### `discern standards`
 

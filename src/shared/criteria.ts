@@ -238,6 +238,24 @@ export const CRITERIA: readonly Criterion[] = [
       "breaches the ceiling — only a real quality regression does.",
   },
   {
+    id: "checkpoints.opportunity",
+    violations: "accrued",
+    criterion:
+      "Review where this project's quality rules live. Is there a judgment a " +
+      "reviewer keeps raising that a narrow, deterministic change could trigger " +
+      "— a candidate for a [checkpoints.<id>] entry? And has any configured " +
+      "checkpoint's criterion become mechanically decidable, so a check could " +
+      "replace the judgment?",
+    teach:
+      "Place each rule at the cheapest rung that still catches its violations: " +
+      `${placementLadderProse()}. A criterion earns a checkpoint only when its ` +
+      "violations arrive with a diff; one that accrues by time or absence " +
+      "belongs to estate review like this one. When a checkpoint's criterion " +
+      "becomes mechanically decidable, move it down the ladder: the " +
+      "discern-set-the-standard skill's outlaw procedure turns it into a " +
+      "measured ceiling, then a permanent gate rule.",
+  },
+  {
     id: "skills.opportunity",
     violations: "accrued",
     criterion:

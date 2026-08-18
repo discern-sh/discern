@@ -7421,7 +7421,8 @@
                       "type": "string",
                       "enum": [
                         "fix",
-                        "review"
+                        "review",
+                        "decide"
                       ]
                     },
                     "category": {
@@ -7463,6 +7464,56 @@
                     "action",
                     "why"
                   ]
+                },
+                "recommendations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "enum": [
+                          "checkpoints.review",
+                          "checkpoints.graduate"
+                        ]
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "action": {
+                        "type": "string"
+                      },
+                      "why": {
+                        "type": "string"
+                      },
+                      "evidence": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string"
+                          },
+                          "excerpt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "excerpt"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "subject",
+                      "title",
+                      "action",
+                      "why",
+                      "evidence"
+                    ]
+                  }
                 },
                 "categories": {
                   "type": "array",
@@ -7557,6 +7608,28 @@
                                 "source",
                                 "excerpt"
                               ]
+                            },
+                            "boundary": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "checkpoint": {
+                                    "type": "string"
+                                  },
+                                  "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "stop",
+                                      "advise"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "checkpoint",
+                                  "mode"
+                                ]
+                              }
                             }
                           },
                           "required": [

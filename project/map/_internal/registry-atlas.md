@@ -65,7 +65,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`detector-families`](#detector-families--patterns-detector-families)                                                 | `src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES`                             | 4       | —                | node `patterns`             |
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 38      | "Patterns"       | node `patterns`             |
-| [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
+| [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 42      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 129     | —                | —                           |
 | [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 45      | —                | —                           |
@@ -1673,13 +1673,14 @@ Every detector the Patterns verb runs over the Logbook, in stable registry order
 The improvement catalog's categories, in display order. The runner ranks them weakest-first, while CLI help and the MCP tool derive category slugs from the catalog.
 
 - Source: `src/engine/improve/rules.ts` — `CATEGORIES`
-- Members: 7
+- Members: 8
   - `gate`
   - `setup`
   - `instructions`
   - `map`
   - `worktrees`
   - `standards`
+  - `checkpoints`
   - `skills`
 - Guards: `tests/improve_catalog_test.ts`
 - Glossary: not enrolled — the improvement reference documents these category slugs, and every surfaced list derives from this catalog

@@ -20,6 +20,7 @@ import { runImprovement } from "../src/engine/improve/improve.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { displayWidth } from "../src/lib/text.ts";
 import {
+  gitInit,
   runAgent,
   runAgentPty,
   scaffoldEngine,
@@ -80,6 +81,7 @@ interface ReviewJson {
   ask: string;
   teach: string;
   against?: { source: string; excerpt: string };
+  boundary?: { checkpoint: string; mode: string }[];
 }
 
 /** One category in the payload. */
@@ -104,7 +106,7 @@ interface ImprovementPayload {
     weak: number;
     open_reviews: number;
     next_action: {
-      kind: "fix" | "review";
+      kind: "fix" | "review" | "decide";
       category: string;
       id: string;
       title: string;
@@ -112,6 +114,14 @@ interface ImprovementPayload {
       why: string;
       against?: { source: string; excerpt: string };
     };
+    recommendations?: {
+      id: string;
+      subject: string;
+      title: string;
+      action: string;
+      why: string;
+      evidence: { source: string; excerpt: string };
+    }[];
     categories: CategoryJson[];
   };
 }
@@ -401,6 +411,139 @@ Deno.test("improvement --json: reviews carry the cited material", async () => {
         `expected the ${id} teaching review`,
       );
     }
+  });
+});
+
+Deno.test("improvement: a configured checkpoint's criterion renders in the estate audit", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      `${STRONG_CONFIG}
+[checkpoints.api-review]
+paths = ["src/api/**"]
+criterion = "A changed interface is described before it lands."
+`,
+    );
+    await writeStrongFiles(dir);
+
+    const { payload } = await improvementJson(dir);
+    const checkpoints = cat(payload, "checkpoints");
+    // The standing placement review teaches the ladder; the estate row carries
+    // the checkpoint's identity — same id and prose the checkpoints verb reports.
+    const placement = checkpoints.reviews.find(
+      (review) => review.id === "checkpoints.opportunity",
+    );
+    assert(placement !== undefined, "the placement review is standing");
+    assertStringIncludes(placement.teach, "→ a checkpoint");
+    assertStringIncludes(placement.teach, "outlaw procedure");
+    assertEquals(placement.against?.excerpt, "configured: api-review");
+    const estate = checkpoints.reviews.find(
+      (review) => review.id === "api-review",
+    );
+    assert(estate !== undefined, "the configured checkpoint renders a row");
+    assertEquals(
+      estate.ask,
+      "A changed interface is described before it lands.",
+    );
+    assertEquals(estate.boundary, [{ checkpoint: "api-review", mode: "stop" }]);
+    assertEquals(estate.against?.source, "[checkpoints.api-review]");
+
+    // The human report keeps the stock/flow line visible.
+    const focused = await runAgent(dir, [
+      "improvement",
+      "--category",
+      "checkpoints",
+      "--plain",
+    ]);
+    assertEquals(focused.code, 0);
+    assertTerminalTextIncludes(
+      focused.stdout,
+      "The estate behind checkpoint",
+    );
+    assertTerminalTextIncludes(focused.stdout, "'api-review' (stop)");
+    assertTerminalTextIncludes(focused.stdout, "audits the estate");
+  });
+});
+
+Deno.test("improvement: variance evidence becomes an owner decision, declared-unmet preserved", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      `${STRONG_CONFIG}
+[checkpoints.api-review]
+paths = ["src/api/**"]
+criterion = "A changed interface is described before it lands."
+`,
+    );
+    await writeStrongFiles(dir);
+    assertEquals((await runAgent(dir, ["refresh"])).code, 0);
+    await gitInit(dir);
+    // Three landed efforts where the checkpoint fired, each under an
+    // owner-authorized variance — the shared frequently-varied bar.
+    const event = (at: string, over: Record<string, unknown>) => ({
+      schema: 1,
+      at,
+      kind: "verb",
+      verb: "done",
+      surface: "cli",
+      writer: "9.9.9",
+      driver: { session: "cli:1", json: true, tty: false, ci: false },
+      head: "abc1234",
+      clean: true,
+      outcome: "ok",
+      duration_ms: 1_000,
+      epoch: "e1",
+      ...over,
+    });
+    const events: unknown[] = [];
+    for (let i = 0; i < 3; i++) {
+      const branch = `agent/effort-${i}`;
+      events.push(
+        event(`2026-07-01T0${i}:00:00.000Z`, {
+          branch,
+          checkpoints: { fired: [{ id: "api-review" }] },
+        }),
+        event(`2026-07-01T0${i}:30:00.000Z`, {
+          branch,
+          verb: "accept",
+          checkpoints: { variances: [{ id: "api-review" }] },
+        }),
+      );
+    }
+    const logbook = join(dir, ".git", "discern", "logbook");
+    await ensureDir(logbook);
+    await Deno.writeTextFile(
+      join(logbook, "2026-07.jsonl"),
+      events.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+    );
+
+    const { payload } = await improvementJson(dir);
+    assert(payload.data !== undefined);
+    const recommendations = payload.data.recommendations ?? [];
+    assertEquals(recommendations.length, 1);
+    const review = recommendations[0];
+    assert(review !== undefined);
+    assertEquals(review.id, "checkpoints.review");
+    assertEquals(review.subject, "api-review");
+    assertStringIncludes(review.evidence.excerpt, "3 of 3 landed efforts");
+    assertStringIncludes(review.why, "declared-unmet");
+    assertStringIncludes(review.why, "never records the criterion as met");
+    // With the baseline clear, the decision leads the next action.
+    assertEquals(payload.data.next_action.kind, "decide");
+    assertEquals(payload.data.next_action.id, "checkpoints.review");
+
+    // The human report renders the decision group with its evidence.
+    const { code, stdout } = await runAgent(dir, ["improvement", "--plain"]);
+    assertEquals(code, 0);
+    assert(
+      triangleSectionAt(stdout, "Owner decisions") >= 0,
+      "the owner-decisions section renders",
+    );
+    assertTerminalTextIncludes(stdout, "often lands under a variance");
+    assertTerminalTextIncludes(stdout, "Decide");
+    assertTerminalTextIncludes(stdout, "never records the criterion as met");
   });
 });
 

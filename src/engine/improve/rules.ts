@@ -37,12 +37,22 @@ import type {
   DeterministicRule,
   ImprovementContext,
   ReviewEvidence,
+  ReviewResult,
   SubjectiveRule,
 } from "./types.ts";
 import {
   improvementFindingData,
   inlineFindingRoutes,
 } from "../logbook/surfaces.ts";
+import {
+  analyzeCheckpointObservations,
+  type CheckpointVarianceSummary,
+  frequentlyVariedCheckpoints,
+} from "../logbook/checkpoint_economics.ts";
+import { buildStreamFacts } from "../logbook/detectors.ts";
+import { readLogbookStream } from "../logbook/read.ts";
+import { resolveCommonGitDir } from "../worktree/git.ts";
+import { estateReviews } from "./checkpoint_loop.ts";
 
 // ── gathering the facts ─────────────────────────────────────────────────────
 
@@ -136,6 +146,36 @@ async function anyAgentFile(root: string): Promise<boolean> {
 }
 
 /**
+ * Checkpoints clearing the shared frequently-varied bar, read from the full
+ * local logbook stream — variances are rare, cross-effort evidence a bounded
+ * recent tail would miss (the same full read the `checkpoints` verb's
+ * observed-history section performs). Advisory by construction: a missing
+ * repository, a disabled logbook, or any read trouble reads as no evidence.
+ */
+async function variedCheckpointEvidence(
+  root: string,
+  config: DiscernConfig,
+): Promise<CheckpointVarianceSummary[]> {
+  if (!config.project.logbook) {
+    return [];
+  }
+  try {
+    const commonGitDir = await resolveCommonGitDir(root);
+    if (commonGitDir === undefined) {
+      return [];
+    }
+    const stream = await readLogbookStream(commonGitDir);
+    return frequentlyVariedCheckpoints(
+      analyzeCheckpointObservations(
+        buildStreamFacts(stream.events, config.repository.trunk),
+      ),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Gather the project facts the improvement rules read — ONE pass of config access and
  * filesystem probing, so each rule stays a pure, synchronous function of the
  * returned context.
@@ -148,6 +188,9 @@ export async function buildContext(
     ? improvementFindingData(
       (await inlineFindingRoutes(root, config)).improvement,
     )
+    : [];
+  const variedCheckpoints = config.meta.bootstrapped
+    ? await variedCheckpointEvidence(root, config)
     : [];
   const sources = await resolveInstructionSources(root, config);
   let instructionText = "";
@@ -187,6 +230,7 @@ export async function buildContext(
     agentFilePresent: await anyAgentFile(root),
     authoredSkills: await countAuthoredSkills(root, config),
     historicalFindings,
+    variedCheckpoints,
   };
 }
 
@@ -641,6 +685,42 @@ const STANDARDS: Category = {
   ],
 };
 
+/** The criterion ids the catalog's subjective rules already review — the
+ * improvement membership's id set, derived at call time so a new subjective
+ * rule auto-enrols. The estate audit skips these: their catalog review
+ * carries the boundary mark instead, so each criterion renders once. */
+function improvementCriterionIds(): ReadonlySet<string> {
+  return new Set(
+    CATEGORIES.flatMap((category) =>
+      category.rules.filter(isSubjective).map((rule) => rule.id)
+    ),
+  );
+}
+
+/** Boundary checkpoints — the flow guard beside this estate audit. The static
+ * review teaches placement (the ladder and the conversion rule); the dynamic
+ * rows are the configured checkpoints' criteria, audited estate-wide. */
+const CHECKPOINTS: Category = {
+  name: "checkpoints",
+  title: "Boundary checkpoints",
+  rules: [
+    subjective("checkpoints.opportunity", {
+      title: "Rules sit on the right rung of the placement ladder",
+      against: (ctx): ReviewEvidence | undefined => {
+        const ids = Object.keys(ctx.config.checkpoints);
+        return {
+          source: "[checkpoints]",
+          excerpt: ids.length === 0
+            ? "no checkpoints configured yet"
+            : `configured: ${ids.join(", ")}`,
+        };
+      },
+    }),
+  ],
+  dynamicReviews: (ctx): ReviewResult[] =>
+    estateReviews(ctx.config, improvementCriterionIds()),
+};
+
 /** Skills — reusable task playbooks. A single subjective opportunity prompt. */
 const SKILLS: Category = {
   name: "skills",
@@ -676,6 +756,7 @@ export const CATEGORIES: readonly Category[] = [
   MAP,
   WORKTREES,
   STANDARDS,
+  CHECKPOINTS,
   SKILLS,
 ];
 

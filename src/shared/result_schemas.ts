@@ -1636,6 +1636,13 @@ export const ruleResultSchema = z.strictObject({
   teach: z.string(),
 });
 
+/** One boundary guard on a review's criterion: a configured checkpoint serving
+ * it, so the flow is guarded at the gate while the review audits the estate. */
+const boundaryGuardSchema = z.strictObject({
+  checkpoint: z.string(),
+  mode: z.enum(CHECKPOINT_MODES),
+});
+
 /** One open subjective review item for the agent to judge. */
 const reviewResultSchema = z.strictObject({
   id: z.string(),
@@ -1643,6 +1650,7 @@ const reviewResultSchema = z.strictObject({
   ask: z.string(),
   teach: z.string(),
   against: reviewEvidenceSchema.optional(),
+  boundary: z.array(boundaryGuardSchema).optional(),
 });
 
 /** One reviewed category's evaluated result. */
@@ -1656,9 +1664,11 @@ const improvementCategorySchema = z.strictObject({
   reviews: z.array(reviewResultSchema),
 });
 
-/** The coach's single prioritized next action. */
-const nextActionSchema = z.strictObject({
-  kind: z.enum(["fix", "review"]),
+/** The coach's single prioritized next action. Exported so the engine
+ * `NEXT_ACTION_KINDS` SSOT (which this shared module can't import) is tied to
+ * the `kind` enum by a guard in `improve_catalog_test.ts`. */
+export const nextActionSchema = z.strictObject({
+  kind: z.enum(["fix", "review", "decide"]),
   category: z.string(),
   id: z.string(),
   title: z.string(),
@@ -1667,12 +1677,28 @@ const nextActionSchema = z.strictObject({
   against: reviewEvidenceSchema.optional(),
 });
 
+/** One evidence-backed owner decision from the checkpoint loop: review a
+ * frequently-varied checkpoint, or graduate a recurring finding class into
+ * one. `evidence` is required — a recommendation without project-local counts
+ * behind it is a generic exhortation the coach never issues. Exported so the
+ * engine `CHECKPOINT_RECOMMENDATION_IDS` SSOT is tied to the `id` enum by a
+ * guard in `improve_catalog_test.ts`. */
+export const checkpointRecommendationSchema = z.strictObject({
+  id: z.enum(["checkpoints.review", "checkpoints.graduate"]),
+  subject: z.string(),
+  title: z.string(),
+  action: z.string(),
+  why: z.string(),
+  evidence: reviewEvidenceSchema,
+});
+
 /** `improvement` — baseline health, open reviews, and the prioritized next action. */
 export const ImprovementDataSchema = z.strictObject({
   score: z.number(),
   weak: z.number(),
   open_reviews: z.number(),
   next_action: nextActionSchema,
+  recommendations: z.array(checkpointRecommendationSchema).optional(),
   categories: z.array(improvementCategorySchema),
   history: z.strictObject({
     findings: z.array(PatternsFindingSchema),

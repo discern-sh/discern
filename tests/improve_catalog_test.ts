@@ -24,10 +24,16 @@ import {
   IMPROVEMENT_RULE_RESULT_STATE,
 } from "../src/engine/improve/improve.ts";
 import {
+  CHECKPOINT_RECOMMENDATION_IDS,
   type ImprovementContext,
+  NEXT_ACTION_KINDS,
   RULE_STATUSES,
 } from "../src/engine/improve/types.ts";
-import { ruleResultSchema } from "../src/shared/result_schemas.ts";
+import {
+  checkpointRecommendationSchema,
+  nextActionSchema,
+  ruleResultSchema,
+} from "../src/shared/result_schemas.ts";
 
 /** Build a full {@link ImprovementContext} from config TOML plus fact overrides. */
 function ctx(
@@ -99,6 +105,20 @@ Deno.test("improve presentation exhaustively adapts every RuleStatus", () => {
   assertEquals(
     Object.keys(IMPROVEMENT_RULE_RESULT_STATE).sort(),
     [...RULE_STATUSES].sort(),
+  );
+});
+
+Deno.test("improve wire schema's next-action kinds equal the NEXT_ACTION_KINDS SSOT", () => {
+  assertEquals(
+    [...nextActionSchema.shape.kind.options].sort(),
+    [...NEXT_ACTION_KINDS].sort(),
+  );
+});
+
+Deno.test("improve wire schema's recommendation ids equal the CHECKPOINT_RECOMMENDATION_IDS SSOT", () => {
+  assertEquals(
+    [...checkpointRecommendationSchema.shape.id.options].sort(),
+    [...CHECKPOINT_RECOMMENDATION_IDS].sort(),
   );
 });
 
@@ -257,4 +277,82 @@ Deno.test("improve scoring: `only` restricts evaluation to one category", () => 
   const report = evaluateReport(perfect(), "instructions");
   assertEquals(report.categories.length, 1);
   assertEquals(report.categories[0]?.name, "instructions");
+});
+
+/** The perfect fixture's config plus one authored checkpoint. */
+const CHECKPOINT_TOML = `
+[meta]
+bootstrapped = true
+[project]
+gotchas_doc = "docs/gotchas.md"
+[jobs]
+format = "true"
+lint = "true"
+test = "true"
+[standards.coverage]
+direction = "up"
+limit = 1
+run = "echo"
+[checkpoints.api-review]
+paths = ["src/api/**"]
+criterion = "A changed interface is described before it lands."
+`;
+
+Deno.test("the checkpoints category audits a configured checkpoint estate-wide", () => {
+  const report = evaluateReport(ctx(CHECKPOINT_TOML), "checkpoints");
+  const category = report.categories[0];
+  assertEquals(category?.name, "checkpoints");
+  // The standing placement review plus one estate row for the checkpoint.
+  const ids = category?.reviews.map((review) => review.id) ?? [];
+  assertEquals(ids, ["checkpoints.opportunity", "api-review"]);
+  const estate = category?.reviews.find((review) => review.id === "api-review");
+  assertEquals(
+    estate?.ask,
+    "A changed interface is described before it lands.",
+  );
+  assertEquals(estate?.boundary, [{ checkpoint: "api-review", mode: "stop" }]);
+  // The placement review cites the configured membership.
+  const placement = category?.reviews.find(
+    (review) => review.id === "checkpoints.opportunity",
+  );
+  assertEquals(placement?.against?.excerpt, "configured: api-review");
+});
+
+Deno.test("an evidence-backed owner decision leads once the baseline is clear", () => {
+  const varied = {
+    id: "api-review",
+    landed: 4,
+    variedLandings: 3,
+    variances: 5,
+  };
+  const clear = evaluateReport(ctx(CHECKPOINT_TOML, {
+    instructionPresent: true,
+    instructionText: "x".repeat(1000),
+    instructionChars: 1000,
+    gotchasDocSet: true,
+    gotchasDocExists: true,
+    mapTree: true,
+    adrCount: 3,
+    agentFilePresent: true,
+    authoredSkills: 1,
+    variedCheckpoints: [varied],
+  }));
+  assertEquals(clear.score, 100);
+  assertEquals(clear.recommendations.length, 1);
+  assertEquals(clear.nextAction.kind, "decide");
+  assertEquals(clear.nextAction.id, "checkpoints.review");
+  assertEquals(clear.nextAction.category, "checkpoints");
+  assert(
+    (clear.nextAction.against?.excerpt ?? "").includes("3 of 4"),
+    "the decision carries its project-local counts",
+  );
+
+  // An objective gap still outranks the recommendation.
+  const weak = evaluateReport(
+    ctx(CHECKPOINT_TOML.replace('test = "true"\n', ""), {
+      variedCheckpoints: [varied],
+    }),
+  );
+  assertEquals(weak.nextAction.kind, "fix");
+  assertEquals(weak.recommendations.length, 1, "the decision stays reported");
 });

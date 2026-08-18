@@ -2345,7 +2345,7 @@ export type DiscernImprovementResult = {
     weak: number;
     open_reviews: number;
     next_action: {
-      kind: "fix" | "review";
+      kind: "fix" | "review" | "decide";
       category: string;
       id: string;
       title: string;
@@ -2356,6 +2356,17 @@ export type DiscernImprovementResult = {
         excerpt: string;
       };
     };
+    recommendations?: Array<{
+      id: "checkpoints.review" | "checkpoints.graduate";
+      subject: string;
+      title: string;
+      action: string;
+      why: string;
+      evidence: {
+        source: string;
+        excerpt: string;
+      };
+    }>;
     categories: Array<{
       name: string;
       title: string;
@@ -2380,6 +2391,10 @@ export type DiscernImprovementResult = {
           source: string;
           excerpt: string;
         };
+        boundary?: Array<{
+          checkpoint: string;
+          mode: "stop" | "advise";
+        }>;
       }>;
     }>;
     history: {
