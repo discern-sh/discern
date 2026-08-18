@@ -76,6 +76,7 @@ import {
   AWAITING_DECLARATION_SLUG,
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import {
   type AcceptanceCheckpointState,
   inspectAcceptanceCheckpoints,
@@ -1751,9 +1752,13 @@ function acceptDeclarationsStaleResult(
   };
 }
 
-/** One declared-unmet conclusion's serving text in the variance refusal. */
+/** One declared-unmet conclusion's serving text in the variance refusal.
+ * This message renders verbatim on the --markdown surface — the owner's
+ * consent moment — so the agent's opaque rationale and the working-tree
+ * path names travel inside the code-span escaping boundary, never as live
+ * Markdown. */
 function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
-  const shown = unmet.matched.slice(0, 6).join(", ");
+  const shown = unmet.matched.slice(0, 6).map(markdownCodeSpan).join(", ");
   const more = unmet.matched.length > 6
     ? `, +${unmet.matched.length - 6} more`
     : "";
@@ -1761,7 +1766,7 @@ function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
     `${unmet.id} — declared unmet at ${unmet.declaredAt}`,
     `  Criterion: ${unmet.criterion.trim()}`,
     `  Changed: ${shown}${more}`,
-    `  Rationale: ${unmet.why}`,
+    `  Rationale: ${markdownCodeSpan(unmet.why)}`,
   ];
   if (unmet.teach !== undefined && unmet.teach.trim() !== "") {
     lines.push(`  Teach: ${unmet.teach.trim()}`);

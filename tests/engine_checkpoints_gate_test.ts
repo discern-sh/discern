@@ -865,3 +865,19 @@ Deno.test("episodes: the effort's state survives session restarts — each engin
     );
   });
 });
+
+Deno.test("done: the declaration refusal escapes matched paths on the markdown surface", async () => {
+  // The refusal message renders verbatim under --markdown, and matched paths
+  // are working-tree-controlled text — a hostile file name must arrive
+  // inside the code-span escaping boundary, never as live Markdown.
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
+    await Deno.writeTextFile(join(wt, "api", "*bold*.txt"), "hostile name\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "hostile path", "--no-gpg-sign");
+    const md = await runAgent(wt, ["done", "--markdown"]);
+    assertEquals(md.code, 1, md.output);
+    assertStringIncludes(md.stdout, "`api/*bold*.txt`");
+    assertStringIncludes(md.stdout, "`api/surface.txt`");
+  });
+});

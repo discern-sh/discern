@@ -114,6 +114,7 @@ import {
   type ServedCheckpoint,
 } from "../checkpoints/preflight.ts";
 import { AWAITING_DECLARATION_SLUG } from "../../shared/declarations.ts";
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import type {
   GateCheckpointsData,
   ProofCheckpointsData,
@@ -1680,7 +1681,10 @@ function proofCheckpointsData(
 /** One checkpoint's serving text in the batched refusal: id, evidence,
  * criterion, and any teaching — indented so the batch scans as a list. */
 function serveCheckpointText(served: ServedCheckpoint): string {
-  const shown = served.matched.slice(0, 6).join(", ");
+  // Matched paths are working-tree-controlled text and this message renders
+  // verbatim on the --markdown surface, so each path travels inside the
+  // code-span escaping boundary rather than as live Markdown.
+  const shown = served.matched.slice(0, 6).map(markdownCodeSpan).join(", ");
   const more = served.matched.length > 6
     ? `, +${served.matched.length - 6} more`
     : "";
