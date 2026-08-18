@@ -8,14 +8,19 @@
  *
  *   - every membership reference resolves (no dangling criterion id);
  *   - every criterion is referenced by at least one membership (no orphan);
- *   - a membership serves the canonical prose verbatim (no drifting copy).
+ *   - a membership serves the canonical prose verbatim (no drifting copy);
+ *   - the conversion rule holds: only a criterion whose violations are
+ *     introduced by diffs may join the checkpoint membership.
  */
 
 import { assert, assertEquals } from "@std/assert";
 import {
   CRITERIA,
   CRITERION_IDS,
+  CRITERION_VIOLATION_MODES,
   criterionById,
+  PLACEMENT_LADDER,
+  placementLadderProse,
 } from "../src/shared/criteria.ts";
 import {
   BUILT_IN_CHECKPOINTS,
@@ -41,6 +46,51 @@ Deno.test("criterion ids are unique and non-empty", () => {
     assert(
       criterion.teach.trim() !== "",
       `criterion '${criterion.id}' needs a teach`,
+    );
+    assert(
+      (CRITERION_VIOLATION_MODES as readonly string[]).includes(
+        criterion.violations,
+      ),
+      `criterion '${criterion.id}' needs a violation mode from ${
+        CRITERION_VIOLATION_MODES.join("/")
+      }`,
+    );
+  }
+});
+
+Deno.test("the conversion rule holds on the checkpoint membership: only diff-introduced criteria", () => {
+  // The stock-versus-flow line, machine-checked: a checkpoint serves its
+  // criterion when a diff completes, so a criterion whose violations accrue by
+  // time or absence has no moment to fire at — it stays audit-side. A future
+  // built-in referencing an accrued criterion fails here; either the pairing is
+  // wrong, or the criterion's violation mode was misjudged and the fix is a
+  // conscious reclassification in src/shared/criteria.ts.
+  for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
+    const criterion = criterionById(seed.criterion);
+    assert(
+      criterion !== undefined,
+      `built-in checkpoint '${id}' references unknown criterion '${seed.criterion}'`,
+    );
+    assertEquals(
+      criterion.violations,
+      "diff-introduced",
+      `built-in checkpoint '${id}' pairs a trigger with '${criterion.id}', whose ` +
+        `violations are ${criterion.violations} — the conversion rule keeps that ` +
+        `criterion audit-side`,
+    );
+  }
+});
+
+Deno.test("the placement ladder is complete and projects into its prose", () => {
+  // Five rungs, cheapest first — instructions, skill, checkpoint, gate, owner
+  // authority — and one prose projection every teaching surface interpolates.
+  assertEquals(PLACEMENT_LADDER.length, 5);
+  const prose = placementLadderProse();
+  for (const rung of PLACEMENT_LADDER) {
+    assert(rung.home.trim() !== "" && rung.when.trim() !== "");
+    assert(
+      prose.includes(rung.home) && prose.includes(rung.when),
+      `the ladder prose must carry the '${rung.home}' rung`,
     );
   }
 });

@@ -20,6 +20,13 @@
  * (`tests/criteria_registry_test.ts`) hold both directions: every membership
  * reference resolves here, and no criterion is orphaned by every membership.
  *
+ * Each criterion also declares HOW its violations arise ({@link
+ * CRITERION_VIOLATION_MODES}) — the **conversion rule**'s input: a criterion may
+ * pair with a checkpoint trigger only when a diff introduces its violations;
+ * one whose violations accrue by time or absence stays audit-side. The parity
+ * guards enforce that on the checkpoint membership, so "which side of the
+ * stock-versus-flow line a criterion sits on" is recorded data, not lore.
+ *
  * One entry interpolates {@link diagnosticFormatList} so the prose names exactly
  * the machine formats the gate's normalizer recognizes — citing the live
  * registry instead of a copy that would drift when a format is added.
@@ -27,16 +34,65 @@
 
 import { diagnosticFormatList } from "../engine/gate/diagnostics.ts";
 
+/**
+ * How a criterion's violations arise — the conversion rule's closed vocabulary:
+ *   - `diff-introduced`: a change brings the violation with it, so a
+ *     deterministic trigger can serve the criterion at the moment the change
+ *     completes; the criterion is eligible for the checkpoint membership.
+ *   - `accrued`: the violation builds up by time or absence (staleness, lost
+ *     navigability, a protection nobody has declared yet); no diff marks the
+ *     moment, so the criterion belongs to estate review only.
+ */
+export const CRITERION_VIOLATION_MODES = [
+  "diff-introduced",
+  "accrued",
+] as const;
+
+/** One violation mode ({@link CRITERION_VIOLATION_MODES}). */
+export type CriterionViolationMode = (typeof CRITERION_VIOLATION_MODES)[number];
+
 /** One canonical criterion: the judgment prose and its teaching. */
 export interface Criterion {
   /** Stable slug, namespaced by subject area (e.g. `gate.test-depth`). */
   readonly id: string;
+  /** How violations arise — the conversion rule's input ({@link CRITERION_VIOLATION_MODES}). */
+  readonly violations: CriterionViolationMode;
   /** The judgment prose the agent evaluates. */
   readonly criterion: string;
   /** Why the criterion matters and what good looks like. */
   readonly teach: string;
   /** Optional pointer to reference material carried into renderings. */
   readonly reference?: string;
+}
+
+/**
+ * The **placement ladder** — where a quality rule belongs, from the cheapest
+ * always-loaded rung to the most expensive owner ceremony. The coach
+ * (`discern improvement`) teaches it and the graduation loop cites it, both by
+ * interpolating {@link placementLadderProse} so the rungs can never drift
+ * between surfaces.
+ */
+export const PLACEMENT_LADDER: readonly { home: string; when: string }[] = [
+  {
+    home: "the instructions",
+    when: "prose an agent needs while shaping most decisions",
+  },
+  { home: "a skill", when: "a recurring method worth a playbook" },
+  {
+    home: "a checkpoint",
+    when: "a judgment catchable as a narrow change completes",
+  },
+  { home: "a gate job or a standard", when: "a rule a machine can decide" },
+  {
+    home: "consent or a recorded grant",
+    when: "a decision only the owner may make",
+  },
+];
+
+/** The ladder as one teaching sentence fragment: "when → home; when → home; …". */
+export function placementLadderProse(): string {
+  return PLACEMENT_LADDER.map((rung) => `${rung.when} → ${rung.home}`)
+    .join("; ");
 }
 
 /**
@@ -47,6 +103,7 @@ export interface Criterion {
 export const CRITERIA: readonly Criterion[] = [
   {
     id: "gate.fast-feedback",
+    violations: "accrued",
     criterion:
       "Given the test command below, and that `discern done` runs it on every " +
       "acceptance and whenever a change is called done — does the gate stay fast " +
@@ -62,6 +119,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "gate.test-depth",
+    violations: "accrued",
     criterion:
       "Inspect representative tests behind the configured command. Do they protect " +
       "observable behaviour at important boundaries — including failure paths and " +
@@ -75,6 +133,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "gate.structured-diagnostics",
+    violations: "accrued",
     criterion:
       "Inspect the reporter and output options for the configured check and test " +
       "jobs below. Where a tool can emit a format discern recognizes " +
@@ -89,6 +148,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "setup.failure-memory",
+    violations: "diff-introduced",
     criterion:
       "Read the configured gotchas document. Does each entry capture a recurring, " +
       "non-obvious failure with the symptom, likely cause, and proven recovery — or " +
@@ -102,6 +162,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "instructions.project-specific",
+    violations: "accrued",
     criterion:
       "Do the instructions below teach project-specific knowledge an agent " +
       "could NOT infer from the code itself — the testing philosophy, the architectural " +
@@ -114,6 +175,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "map.current",
+    violations: "accrued",
     criterion:
       "Pick a subsystem that changed recently. Does its documentation page still " +
       "describe how the code actually behaves now — present tense, no drift — or does " +
@@ -125,6 +187,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "map.navigation",
+    violations: "accrued",
     criterion:
       "Starting at the configured map root's README.md, can a new contributor find the system overview, " +
       "the relevant subsystem, and its detailed pages without already knowing their " +
@@ -138,6 +201,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "worktrees.resources",
+    violations: "accrued",
     criterion:
       "Does this project need per-worktree external resources to develop in isolation " +
       "— a database, an emulator, a container, a queue, a dev-server vhost? If so, are " +
@@ -149,6 +213,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "standards.opportunity",
+    violations: "accrued",
     criterion:
       "Is there a measurable quality signal in this project you only ever want to " +
       "improve — test coverage, bundle/binary size, type-error count, a performance " +
@@ -160,6 +225,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "standards.normalize",
+    violations: "accrued",
     criterion:
       "Do any ceiling standards count items over a tree that grows over time — lint " +
       "alerts, TODOs, type errors, doc nits? A raw count rises with the project, so it " +
@@ -173,6 +239,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "skills.opportunity",
+    violations: "accrued",
     criterion:
       "Is there a multi-step task that recurs in this project and would benefit from a " +
       "written playbook an agent can follow each time — a release dance, a data reset, a " +
@@ -184,6 +251,7 @@ export const CRITERIA: readonly Criterion[] = [
   },
   {
     id: "skills.executable",
+    violations: "diff-introduced",
     criterion:
       "Inspect the authored skills. Does each say when to use it, what context or " +
       "preconditions it needs, the concrete sequence to follow, how to verify success, " +
