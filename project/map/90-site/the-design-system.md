@@ -38,7 +38,7 @@ Release 0.21.0 derives Unicode repertoire from the locale declaration alone. An 
 
 The discern motif now has a plain register for ambient interface grammar and a brand register for ceremonial identity. Plain rendering uses `▲`, `△`, and `▲ ▷ ▼ ◁`; the brand register preserves `◮` and `◮ ⧩ ◭ ⧨`. Logo and Brand select the brand register by default. The product-owned pyramid and recursive gasket also derive their geometry from that register. Meter heads, Fleet, `Worklog`, and Process steps beacons, and Window and Terminal marks have fixed directional geometry and do not follow a consumer-selected motif register. Gate, improvement, Logbook, and status section rules select the brand register at their product composition call sites. Command mastheads and structured Procedures do the same, while picker and navigation groups and other reusable package motifs retain their plain default.
 
-The terminal Switch now omits Yes and No text by default and uses symmetric glyph-only geometry. The confirmation adapter accepts that package default; a caller that needs words supplies explicit labels through the package contract.
+The terminal Switch omits Yes and No text by default and uses symmetric glyph-only geometry. discern's confirmation adapter requires each product call to supply short action labels through the package contract, so the surrounding question carries the scope while both Switch sides name their effect.
 
 ## Release 0.20.0 reader contracts
 

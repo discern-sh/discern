@@ -208,7 +208,11 @@ async function runScenario(
         default: "remembered-value",
       });
     case "confirm-default-no":
-      return await requestConfirmation("Apply the destructive action?", false);
+      return await requestConfirmation("Reclaim the contained checkout?", {
+        defaultTo: false,
+        noLabel: "Keep",
+        yesLabel: "Reclaim",
+      });
     case "select":
       return await requestSelection({
         message: "Choose a value",

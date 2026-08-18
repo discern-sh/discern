@@ -1268,16 +1268,29 @@ export async function requestText(
   }, runtime);
 }
 
+/** Product-owned labels for the two sides of a confirmation Switch. */
+export interface ConfirmationLabels {
+  readonly noLabel: string;
+  readonly yesLabel: string;
+}
+
+/** Complete behavior and copy for one package-backed confirmation request. */
+export interface ConfirmationRequestOptions extends ConfirmationLabels {
+  readonly defaultTo: boolean;
+}
+
 /** Guard policy before asking a package-backed yes-or-no question. */
 export async function requestConfirmation(
   message: string,
-  defaultTo: boolean,
+  options: ConfirmationRequestOptions,
   runtime: TerminalInteractionRuntime = {},
 ): Promise<boolean> {
   requireInteraction("this confirmation", runtime);
   return await runInteractionRequest(packageRequestConfirmation, {
     label: terminalLine(message),
-    initialValue: defaultTo,
+    initialValue: options.defaultTo,
+    noLabel: terminalLine(options.noLabel),
+    yesLabel: terminalLine(options.yesLabel),
   }, runtime);
 }
 
@@ -1483,6 +1496,8 @@ export interface DestructiveConfirmationCopy {
   readonly authority?: string;
   /** The final yes-or-no continuation request. */
   readonly continuation: string;
+  /** Short action labels shown on the confirmation Switch. */
+  readonly labels: ConfirmationLabels;
 }
 
 /** Human delivery facts kept separate from the semantic confirmation copy. */
@@ -1503,6 +1518,8 @@ export interface ConfirmationDialogCopy {
   readonly consequence: string;
   /** The final yes-or-no continuation request. */
   readonly continuation: string;
+  /** Short action labels shown on the confirmation Switch. */
+  readonly labels: ConfirmationLabels;
 }
 
 /** Injectable confirmation effects that prove suppression and ordering. */
@@ -1510,7 +1527,7 @@ export interface ConfirmationRequestRuntime {
   readonly interactive?: (yes: boolean) => boolean;
   readonly request?: (
     message: string,
-    defaultTo: boolean,
+    options: ConfirmationRequestOptions,
   ) => Promise<boolean>;
 }
 
@@ -1550,10 +1567,14 @@ export function renderConfirmationDialog(
 /** Ask one cancellation-aware package confirmation through an injected request. */
 async function requestProceed(
   message: string,
-  request: (message: string, defaultTo: boolean) => Promise<boolean>,
+  labels: ConfirmationLabels,
+  request: (
+    message: string,
+    options: ConfirmationRequestOptions,
+  ) => Promise<boolean>,
 ): Promise<boolean> {
   try {
-    return await request(message, true);
+    return await request(message, { defaultTo: true, ...labels });
   } catch (error) {
     if (!isInteractionCancelled(error)) throw error;
     return false;
@@ -1572,13 +1593,14 @@ async function requestProceed(
  */
 export async function confirmProceed(
   message: string,
+  labels: ConfirmationLabels,
   yes: boolean,
   json = false,
 ): Promise<boolean> {
   if (!confirmationAllowed(yes, json)) {
     return true;
   }
-  return await requestProceed(message, requestConfirmation);
+  return await requestProceed(message, labels, requestConfirmation);
 }
 
 /**
@@ -1598,6 +1620,7 @@ export async function confirmDestructiveAction(
   options.present(renderDestructiveConfirmation(copy, options.terminal));
   return await requestProceed(
     copy.continuation,
+    copy.labels,
     runtime.request ?? requestConfirmation,
   );
 }
@@ -1618,6 +1641,7 @@ export async function confirmDialogAction(
   options.present(renderConfirmationDialog(copy, options.terminal));
   return await requestProceed(
     copy.continuation,
+    copy.labels,
     runtime.request ?? requestConfirmation,
   );
 }

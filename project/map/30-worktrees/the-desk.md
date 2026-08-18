@@ -60,6 +60,8 @@ The selected row offers only actions that fit its observed state:
 | Inspect                          | Shows commits, uncommitted changes, and a diffstat relative to the trunk.     |
 | Drop                             | Runs the guarded abandoned-work removal path.                                 |
 
+The confirmation Switches use compact action pairs because the question above them already names the selected branch or checkout and the consequence. Accept uses **Keep / Land**; pre-authorization uses **Keep / Allow**; revoke uses **Keep / Revoke**; update uses **Keep / Merge**; reclaim uses **Keep / Reclaim**; and drop uses **Keep / Drop**.
+
 The action menu separates **Landing**, **Work in this task**, **Review**, and **Worktree**. Navigation has its own **Task** group. The agent picker adds one group per configured provider, so fresh and continued sessions remain together.
 
 Every action echoes its CLI equivalent and calls the same core as the command. A landing pre-authorization belongs only to the selected effort: `accept` consumes it; revoke, drop, prune, and orphan cleanup remove it. Drop receives the selected row's absolute path. Dropping uncommitted or unlanded work requires the branch name typed back before the desk applies force.

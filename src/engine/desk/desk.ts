@@ -31,6 +31,7 @@ import {
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
 import {
   canInteract,
+  type ConfirmationRequestOptions,
   groupedSelectionEntries,
   isInteractionCancelled,
   requestConfirmation,
@@ -137,7 +138,10 @@ export interface DeskRuntime {
   makeOut(): Out;
   error(message: string): void;
   select(options: DeskSelectOptions): DeskMaybePromise<string>;
-  confirm(message: string, defaultTo: boolean): DeskMaybePromise<boolean>;
+  confirm(
+    message: string,
+    options: ConfirmationRequestOptions,
+  ): DeskMaybePromise<boolean>;
   input(options: TextRequestOptions): DeskMaybePromise<string>;
   pause(out: Out): DeskMaybePromise<void>;
   lifecycle(root: string): DeskMaybePromise<LifecycleContext>;
@@ -233,10 +237,10 @@ async function awaitEnter(out: Out): Promise<void> {
 /** A confirmation that treats a cancelled interaction (Ctrl-C / Esc) as "no". */
 async function confirmOrNo(
   message: string,
-  defaultTo: boolean,
+  options: ConfirmationRequestOptions,
 ): Promise<boolean> {
   try {
-    return await requestConfirmation(message, defaultTo);
+    return await requestConfirmation(message, options);
   } catch (error) {
     if (!isInteractionCancelled(error)) throw error;
     return false;
@@ -292,7 +296,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   makeOut: () => makeOut(colorEnabled()),
   error: (message) => deskLogger().error(message),
   select: (options) => requestSelection<string>(options),
-  confirm: (message, defaultTo) => confirmOrNo(message, defaultTo),
+  confirm: (message, options) => confirmOrNo(message, options),
   input: (options) => requestText(options),
   pause: (out) => awaitEnter(out),
   lifecycle: (root) => lifecycleContext(root, deskLogger()),
@@ -873,7 +877,11 @@ async function dispatchAction(
       const ctx = await runtime.lifecycle(row.entry.path);
       await runtime.accept(ctx, { dryRun: true });
       if (
-        !(await runtime.confirm(`Land ${row.entry.branch} on ${trunk}?`, true))
+        !(await runtime.confirm(`Land ${row.entry.branch} on ${trunk}?`, {
+          defaultTo: true,
+          noLabel: "Keep",
+          yesLabel: "Land",
+        }))
       ) {
         return false;
       }
@@ -888,7 +896,7 @@ async function dispatchAction(
       if (
         !(await runtime.confirm(
           `Allow ${row.entry.branch} to land once green without a further conversation?`,
-          false,
+          { defaultTo: false, noLabel: "Keep", yesLabel: "Allow" },
         ))
       ) {
         return false;
@@ -913,7 +921,7 @@ async function dispatchAction(
       if (
         !(await runtime.confirm(
           `Revoke landing pre-authorization for ${row.entry.branch}?`,
-          false,
+          { defaultTo: false, noLabel: "Keep", yesLabel: "Revoke" },
         ))
       ) {
         return false;
@@ -933,7 +941,7 @@ async function dispatchAction(
       if (
         !(await runtime.confirm(
           `Merge ${trunk} into ${row.entry.branch}?`,
-          true,
+          { defaultTo: true, noLabel: "Keep", yesLabel: "Merge" },
         ))
       ) {
         return false;
@@ -958,7 +966,7 @@ async function dispatchAction(
           `Reclaim ${target}? Branch ${row.entry.branch} is KEPT (its commits ` +
             `are contained in ${containedIn}); the checkout and its ` +
             `per-worktree state — gate proof included — are destroyed.`,
-          false,
+          { defaultTo: false, noLabel: "Keep", yesLabel: "Reclaim" },
         ))
       ) {
         return false;
@@ -979,7 +987,13 @@ async function dispatchAction(
       echoCommand(out, `discern worktree drop ${shellWord(dropTarget)}`);
       const ctx = await runtime.lifecycle(root);
       await runtime.drop(ctx, dropTarget, { dryRun: true });
-      if (!(await runtime.confirm(`Drop ${target}?`, false))) {
+      if (
+        !(await runtime.confirm(`Drop ${target}?`, {
+          defaultTo: false,
+          noLabel: "Keep",
+          yesLabel: "Drop",
+        }))
+      ) {
         return false;
       }
       try {

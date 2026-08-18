@@ -47,6 +47,8 @@ import { renderAlignedRows } from "../lib/text.ts";
 import { terminalLine } from "../lib/terminal.ts";
 import {
   canInteract,
+  type ConfirmationLabels,
+  type ConfirmationRequestOptions,
   isInteractionCancelled,
   plainModeEnabled,
   requestConfirmation,
@@ -76,16 +78,17 @@ export {
 
 type ConfirmationOperation = (
   message: string,
-  defaultTo: boolean,
+  options: ConfirmationRequestOptions,
 ) => Promise<boolean>;
 
 /** Supply the Logbook core a boolean default-No contract at dispatch time. */
 export async function logbookLifecycleConfirmation(
   message: string,
+  labels: ConfirmationLabels,
   operation: ConfirmationOperation = requestConfirmation,
 ): Promise<boolean> {
   try {
-    return await operation(message, false);
+    return await operation(message, { defaultTo: false, ...labels });
   } catch (error) {
     if (!isInteractionCancelled(error)) throw error;
     return false;

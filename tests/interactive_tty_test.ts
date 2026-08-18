@@ -217,7 +217,8 @@ Deno.test({
 });
 
 Deno.test({
-  name: "production wrappers preserve text, confirmation, and choice defaults",
+  name:
+    "production wrappers preserve text, labeled confirmation, and choice defaults",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const [text, confirmation, selection] = await Promise.all([
@@ -227,11 +228,8 @@ Deno.test({
     ]);
     assertValue(text, "remembered-value");
     assertValue(confirmation, false);
-    assertEquals(
-      /\b(?:Yes|No)\b/u.test(confirmation.process.transcript),
-      false,
-      `production confirmation must keep the package's glyph-only default:\n${confirmation.process.transcript}`,
-    );
+    assertStringIncludes(confirmation.process.transcript, "Keep");
+    assertStringIncludes(confirmation.process.transcript, "Reclaim");
     assertValue(selection, "beta");
   },
 });

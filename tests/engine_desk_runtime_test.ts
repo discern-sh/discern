@@ -20,6 +20,7 @@ import type {
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import { Logger } from "../src/lib/log.ts";
+import type { ConfirmationRequestOptions } from "../src/lib/terminal_interaction.ts";
 import { makeOut, type Out } from "../src/engine/output.ts";
 import {
   resolveTerminalContext,
@@ -417,7 +418,10 @@ Deno.test("desk grants and revokes one effort only through its human action", as
     QUIT,
   ];
   const menus: string[] = [];
-  const confirmations: string[] = [];
+  const confirmations: Array<{
+    message: string;
+    options: ConfirmationRequestOptions;
+  }> = [];
   const grants: Array<{ path: string; branch: string }> = [];
   const revokes: string[] = [];
   let granted = false;
@@ -438,8 +442,8 @@ Deno.test("desk grants and revokes one effort only through its human action", as
       menus.push(JSON.stringify(options.options));
       return choices.shift() ?? QUIT;
     },
-    confirm: (message) => {
-      confirmations.push(message);
+    confirm: (message, options) => {
+      confirmations.push({ message, options });
       return true;
     },
     grantEffort: (path, branch) => {
@@ -468,8 +472,15 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   assertEquals(revokes, [effort.path]);
   assertEquals(pauses, 2);
   assertEquals(confirmations, [
-    `Allow ${effort.branch} to land once green without a further conversation?`,
-    `Revoke landing pre-authorization for ${effort.branch}?`,
+    {
+      message:
+        `Allow ${effort.branch} to land once green without a further conversation?`,
+      options: { defaultTo: false, noLabel: "Keep", yesLabel: "Allow" },
+    },
+    {
+      message: `Revoke landing pre-authorization for ${effort.branch}?`,
+      options: { defaultTo: false, noLabel: "Keep", yesLabel: "Revoke" },
+    },
   ]);
   assertStringIncludes(
     menus.join("\n"),
@@ -1107,6 +1118,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   const updateOutput = transcript();
   const updateChoices = [effort.path, "accept", "update", QUIT];
   const confirmations = [false, true];
+  const confirmationOptions: ConfirmationRequestOptions[] = [];
   const acceptCalls: Array<{ dryRun?: boolean }> = [];
   const updateCalls: Array<{ dryRun?: boolean }> = [];
   let updatePauses = 0;
@@ -1116,7 +1128,10 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
       scriptedRuntime(updateOutput, {
         status: () => ({ ok: true, data }),
         select: () => updateChoices.shift() ?? QUIT,
-        confirm: () => confirmations.shift() ?? false,
+        confirm: (_message, options) => {
+          confirmationOptions.push(options);
+          return confirmations.shift() ?? false;
+        },
         accept: (_ctx, opts) => {
           acceptCalls.push(opts);
         },
@@ -1133,6 +1148,10 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   assertEquals(acceptCalls, [{ dryRun: true }]);
   assertEquals(updateCalls, [{ dryRun: true }, {}]);
   assertEquals(updatePauses, 1);
+  assertEquals(confirmationOptions, [
+    { defaultTo: true, noLabel: "Keep", yesLabel: "Land" },
+    { defaultTo: true, noLabel: "Keep", yesLabel: "Merge" },
+  ]);
 
   const acceptOutput = transcript();
   const acceptChoices = [effort.path, "accept", QUIT];
@@ -1167,6 +1186,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   const dropChoices = [abandoned.path, "drop", QUIT];
   const dropCalls: Array<{ dryRun?: boolean; force?: boolean }> = [];
   const dropTargets: string[] = [];
+  const dropConfirmations: ConfirmationRequestOptions[] = [];
   let dropPauses = 0;
   assertEquals(
     await runDesk(
@@ -1174,6 +1194,10 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
       scriptedRuntime(dropOutput, {
         status: () => ({ ok: true, data: dropData }),
         select: () => dropChoices.shift() ?? QUIT,
+        confirm: (_message, options) => {
+          dropConfirmations.push(options);
+          return true;
+        },
         input: () => abandoned.branch,
         drop: (_ctx, target, opts) => {
           dropTargets.push(target);
@@ -1196,6 +1220,11 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     abandoned.path,
   ]);
   assertEquals(dropPauses, 1);
+  assertEquals(dropConfirmations, [{
+    defaultTo: false,
+    noLabel: "Keep",
+    yesLabel: "Drop",
+  }]);
   assertStringIncludes(joined(dropOutput), "unlanded work would be discarded");
   assertStringIncludes(joined(dropOutput), "--force");
   assertStringIncludes(
@@ -1235,14 +1264,16 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   const declinedChoices = [spent.path, "reclaim", BACK, QUIT];
   const declinedReclaims: string[] = [];
   const confirmMessages: string[] = [];
+  const confirmOptions: ConfirmationRequestOptions[] = [];
   assertEquals(
     await runDesk(
       {},
       scriptedRuntime(declinedOutput, {
         status: () => ({ ok: true, data }),
         select: () => declinedChoices.shift() ?? QUIT,
-        confirm: (message) => {
+        confirm: (message, options) => {
           confirmMessages.push(message);
+          confirmOptions.push(options);
           return false;
         },
         reclaim: (_ctx, target) => {
@@ -1263,6 +1294,11 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   assertStringIncludes(message, "KEPT");
   assertStringIncludes(message, "agent/stage-b");
   assertStringIncludes(message, "gate proof included");
+  assertEquals(confirmOptions, [{
+    defaultTo: false,
+    noLabel: "Keep",
+    yesLabel: "Reclaim",
+  }]);
 
   // Confirmed: the validated core runs against the selected worktree, and the
   // action menu offered the reclaim with its containing branch named.

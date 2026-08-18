@@ -75,6 +75,7 @@ import {
   terminalLine,
   terminalMultiline,
 } from "../../lib/terminal.ts";
+import type { ConfirmationLabels } from "../../lib/terminal_interaction.ts";
 import { makeOut, type Out } from "../output.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import {
@@ -1856,10 +1857,11 @@ class LifecycleConfirmationFault extends Error {
 /** Ask one injected boolean confirmation without knowing its interaction source. */
 async function confirmLifecycle(
   message: string,
+  labels: ConfirmationLabels,
   confirm: LifecycleConfirmation,
 ): Promise<boolean> {
   try {
-    return await confirm(message);
+    return await confirm(message, labels);
   } catch (error) {
     throw new LifecycleConfirmationFault(error);
   }
@@ -2058,6 +2060,7 @@ async function applyReset(
       } across ${plural(reviewedData.removed.length, "file")} (${filenames}), ${
         formatHumanNumber(reviewedData.bytes)
       } bytes? This permanently resets the evidence listed above. Recording starts again with the next eligible command when enabled.`,
+      { noLabel: "Keep", yesLabel: "Delete" },
       confirm,
     );
     if (!accepted) {
@@ -2176,6 +2179,7 @@ async function applyArchive(
       } across ${plural(reviewedData.files.length, "file")} (${filenames}), ${
         formatHumanNumber(reviewedData.source_bytes)
       } bytes, as ${filename} and begin a fresh active Logbook? Recording restarts with the next eligible command when enabled.`,
+      { noLabel: "Keep", yesLabel: "Archive" },
       confirm,
     );
     if (!accepted) {
@@ -2289,7 +2293,10 @@ export interface RunPatternsLifecycleOptions {
 }
 
 /** One guarded terminal confirmation; false means decline. */
-export type LifecycleConfirmation = (message: string) => Promise<boolean>;
+export type LifecycleConfirmation = (
+  message: string,
+  labels: ConfirmationLabels,
+) => Promise<boolean>;
 
 type LifecycleHandler = (
   root: string,

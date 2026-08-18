@@ -27,6 +27,7 @@ import {
 import {
   canInteract,
   confirmationAllowed,
+  type ConfirmationRequestRuntime,
   confirmDestructiveAction,
   confirmDialogAction,
   groupedSelectionEntries,
@@ -35,6 +36,7 @@ import {
   renderConfirmationDialog,
   renderDestructiveConfirmation,
   requestCompactAcknowledgement,
+  requestConfirmation,
   requestMarkdownBrowser,
   requestSelection,
   requestSelections,
@@ -1142,6 +1144,7 @@ const DESTRUCTIVE_COPY = {
   recovery: "Restore committed files with Git.",
   authority: "Project owner",
   continuation: "Continue with removal?",
+  labels: { noLabel: "Keep", yesLabel: "Remove" },
 } as const;
 
 /** Stable colourless terminal facts for destructive-review rendering. */
@@ -1169,7 +1172,7 @@ Deno.test("destructive confirmation renders the package's semantic facts", () =>
 
 Deno.test("destructive confirmation presents only on the interactive human path", async () => {
   const presented: string[] = [];
-  const requests: string[] = [];
+  const requests: unknown[] = [];
   const options = {
     yes: false,
     json: false,
@@ -1178,8 +1181,11 @@ Deno.test("destructive confirmation presents only on the interactive human path"
       presented.push(frame);
     },
   };
-  const request = (message: string, defaultTo: boolean): Promise<boolean> => {
-    requests.push(`${message}:${defaultTo}`);
+  const request: NonNullable<ConfirmationRequestRuntime["request"]> = (
+    message,
+    options,
+  ) => {
+    requests.push({ message, options });
     return Promise.resolve(false);
   };
 
@@ -1202,7 +1208,14 @@ Deno.test("destructive confirmation presents only on the interactive human path"
   );
   assertEquals(presented.length, 1);
   assertStringIncludes(presented[0] ?? "", "Scope: /tmp/project");
-  assertEquals(requests, ["Continue with removal?:true"]);
+  assertEquals(requests, [{
+    message: "Continue with removal?",
+    options: {
+      defaultTo: true,
+      noLabel: "Keep",
+      yesLabel: "Remove",
+    },
+  }]);
 });
 
 const DIALOG_COPY = {
@@ -1211,6 +1224,7 @@ const DIALOG_COPY = {
   consequence:
     "Two missing files will be created. Existing files stay unchanged.",
   continuation: "Overlay the preset now?",
+  labels: { noLabel: "Keep", yesLabel: "Apply" },
 } as const;
 
 Deno.test("neutral confirmation renders and requests the same bounded act", async () => {
@@ -1225,7 +1239,7 @@ Deno.test("neutral confirmation renders and requests the same bounded act", asyn
   assertStringIncludes(rendered, "[Cancel]  [Continue]");
 
   const presented: string[] = [];
-  const requests: string[] = [];
+  const requests: unknown[] = [];
   assertEquals(
     await confirmDialogAction(
       DIALOG_COPY,
@@ -1239,8 +1253,8 @@ Deno.test("neutral confirmation renders and requests the same bounded act", asyn
       },
       {
         interactive: () => true,
-        request: (message, defaultTo) => {
-          requests.push(`${message}:${defaultTo}`);
+        request: (message, options) => {
+          requests.push({ message, options });
           return Promise.resolve(true);
         },
       },
@@ -1248,7 +1262,38 @@ Deno.test("neutral confirmation renders and requests the same bounded act", asyn
     true,
   );
   assertEquals(presented.length, 1);
-  assertEquals(requests, ["Overlay the preset now?:true"]);
+  assertEquals(requests, [{
+    message: "Overlay the preset now?",
+    options: {
+      defaultTo: true,
+      noLabel: "Keep",
+      yesLabel: "Apply",
+    },
+  }]);
+});
+
+Deno.test("confirmation action labels remain visible in a 24-column frame", async () => {
+  const io = new ScriptedTerminal(
+    ["\r"],
+    { colorDepth: "none", columns: 24, unicode: true },
+    { columns: 24, rows: 8 },
+  );
+  assertEquals(
+    await requestConfirmation(
+      "Reclaim the checkout?",
+      {
+        defaultTo: false,
+        noLabel: "Keep",
+        yesLabel: "Reclaim",
+      },
+      scriptedRuntime(io),
+    ),
+    false,
+  );
+  const rendered = stripAnsi(io.writes.join(""));
+  assertStringIncludes(rendered, "Keep");
+  assertStringIncludes(rendered, "Reclaim");
+  assert(widestTerminalLine(rendered) <= 24, rendered);
 });
 
 // ---- resolveSetupConfig (interaction suppressed via flags.yes) --------------
