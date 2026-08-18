@@ -399,7 +399,9 @@ Deno.test("checkpoints Markdown carries the declared vocabulary and the variance
             opened_at: "2026-08-18T00:00:00Z",
             declaration: {
               conclusion: "unmet",
-              why: "The docs lag the new surface.",
+              // Deliberately hostile: shell and Markdown metacharacters must
+              // survive the projection opaquely, never interpreted.
+              why: "The docs lag `rm -rf` and $(echo x) *the new surface*.",
               declared_at: "2026-08-18T00:01:00Z",
               current: true,
             },
@@ -435,7 +437,13 @@ Deno.test("checkpoints Markdown carries the declared vocabulary and the variance
   // Agent evidence stays qualified; the boundary names the owner's decision.
   assertStringIncludes(rendered, "declared unmet");
   assertStringIncludes(rendered, "owner variance required to land");
-  assertStringIncludes(rendered, "The docs lag the new surface.");
+  // The rationale renders through the code-span escaping boundary: the
+  // embedded backtick run forces a longer fence, so the hostile text arrives
+  // opaquely instead of as live Markdown emphasis or a broken span.
+  assertStringIncludes(
+    rendered,
+    "Rationale: ``The docs lag `rm -rf` and $(echo x) *the new surface*.``",
+  );
   assertStringIncludes(rendered, "authorize a variance");
   // A holding trigger serves its criterion; the seam states the empty history.
   assertStringIncludes(rendered, "would fire at done (1 matched)");

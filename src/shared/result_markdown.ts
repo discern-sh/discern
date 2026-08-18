@@ -999,7 +999,11 @@ function checkpointRowLine(row: Record<string, unknown>): string {
           episode.variance_required === true
             ? " — owner variance required to land"
             : ""
-        }${why === undefined ? "" : `. Rationale: ${why}`}.`;
+        }${
+          // The rationale is opaque agent evidence: in an interpreted
+          // Markdown document it renders only through the code-span escaping
+          // boundary, exactly as the Proof page renders it.
+          why === undefined ? "" : `. Rationale: ${code(why)}`}.`;
       case "reopened":
         return `${id} (${mode}): ${
           withCriterion(
