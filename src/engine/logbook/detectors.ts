@@ -4493,6 +4493,11 @@ function eraServings(
  * project's real changes never match, so the criterion it carries protects
  * nothing. The denominator counts gate-run efforts since the `[checkpoints]`
  * configuration last changed, so a fresh revision earns fresh evidence.
+ * The candidate set holds only checkpoints that COULD fire: one dormant by
+ * configuration — a selector expanded to the match-nothing empty pattern,
+ * such as a shipped entry tracking an unset scalar reference — is waiting
+ * for the configuration that arms it, not mis-scoped, so the caller's
+ * `firableCheckpointIds` never enrols it here.
  */
 const checkpointDead: Detector = {
   id: "checkpoint-dead",

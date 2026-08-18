@@ -17,8 +17,10 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import {
+  firableCheckpointIds,
   loadGoverningPolicy,
   resolveCheckpoints,
+  structurallyDormant,
 } from "../src/engine/checkpoints/policy.ts";
 import {
   checkpointDefinitionHash,
@@ -395,4 +397,42 @@ Deno.test("a seed whose scope the project does not define fails open with an adv
   assertEquals(checkpoints, []);
   assertEquals(advisories.length, 1);
   assertStringIncludes(advisories[0] ?? "", "unknown scope 'docs'");
+});
+
+Deno.test("firable ids exclude the dormant — a waiting checkpoint is not a dead one", () => {
+  const config = parseConfigOrThrow(
+    [
+      "[checkpoints.whole-diff]",
+      'criterion = "Whole-diff judgment."',
+      "",
+      "[checkpoints.scoped]",
+      'paths = ["src/**"]',
+      'criterion = "Scoped judgment."',
+      "",
+      // The shipped seed tracks ${project.gotchas_doc}; unset, the reference
+      // expands to the match-nothing empty pattern — dormant, not dead.
+      "[checkpoints.gotchas-playbook]",
+      "",
+    ].join("\n"),
+  );
+  assertEquals(firableCheckpointIds(config), ["scoped", "whole-diff"]);
+  for (const def of resolveCheckpoints(config).checkpoints) {
+    assertEquals(
+      structurallyDormant(def),
+      def.id === "gotchas-playbook",
+      def.id,
+    );
+  }
+
+  // Naming a doc arms the shipped entry: dormancy tracks the configuration.
+  const armed = parseConfigOrThrow(
+    [
+      "[project]",
+      'gotchas_doc = "notes/traps.md"',
+      "",
+      "[checkpoints.gotchas-playbook]",
+      "",
+    ].join("\n"),
+  );
+  assertEquals(firableCheckpointIds(armed), ["gotchas-playbook"]);
 });

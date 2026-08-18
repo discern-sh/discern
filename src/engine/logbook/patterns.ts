@@ -41,6 +41,7 @@ import {
   loadConfig,
   resolveConfiguredAgents,
 } from "../../shared/config_schema.ts";
+import { firableCheckpointIds } from "../checkpoints/policy.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import {
   DETECTOR_FAMILIES,
@@ -299,7 +300,11 @@ export async function patternsResult(
     stream.events,
     config.repository.trunk,
     resolveConfiguredAgents(config),
-    Object.keys(config.checkpoints).sort(),
+    // Only checkpoints that COULD fire are dead-checkpoint candidates: an
+    // entry that cannot govern, or one dormant by configuration (an unset
+    // scalar reference expanding to the match-nothing pattern), is waiting,
+    // not mis-scoped.
+    firableCheckpointIds(config),
   );
   const reports = runDetectors(facts);
   const ranked = routeDetectorReports(reports).patterns.map(

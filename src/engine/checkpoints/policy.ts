@@ -135,6 +135,34 @@ export function resolveCheckpoints(
   return { checkpoints, advisories };
 }
 
+/**
+ * Whether a resolved checkpoint is DORMANT by configuration: its selector
+ * exists but expands to nothing that could ever match — every glob is the
+ * empty pattern, which the shared dialect defines as matching nothing (the
+ * property that lets a shipped checkpoint reference an unset scalar such as
+ * the gotchas doc and stay quiet until the owner names one). A selector-less
+ * checkpoint watches the whole diff, so it is never dormant.
+ */
+export function structurallyDormant(def: ResolvedCheckpoint): boolean {
+  const selector = def.selector;
+  return selector !== undefined &&
+    selector.globs.every((glob) => glob === "");
+}
+
+/**
+ * The configured checkpoint ids whose triggers could structurally fire — the
+ * hygiene candidate set. An entry resolution drops (it cannot govern) or one
+ * dormant by configuration is excluded: "configured but never fired" is a
+ * scoping signal, and a checkpoint that CANNOT fire yet is not mis-scoped,
+ * it is waiting for the configuration that arms it.
+ */
+export function firableCheckpointIds(config: DiscernConfig): string[] {
+  return resolveCheckpoints(config).checkpoints
+    .filter((def) => !structurallyDormant(def))
+    .map((def) => def.id)
+    .sort();
+}
+
 /** The effort's merge-base with the trunk, or undefined when unanswerable. */
 export async function policyMergeBase(
   root: string,
