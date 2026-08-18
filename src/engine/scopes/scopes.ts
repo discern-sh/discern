@@ -141,8 +141,11 @@ function pathMatchesGlobs(paths: string[], path: string): boolean {
   return paths.some((pat) => pathMatchesPattern(path, pat));
 }
 
-/** Resolve live config references in one scope's path list. */
-function resolvedScopePaths(
+/** Resolve live config references in one scope's path list — the ONE
+ * spelling of "a scope's effective globs", shared by the classifier here and
+ * the checkpoint policy resolver (whose scope selectors must mean exactly
+ * what scope classification means). */
+export function resolvedScopePaths(
   config: DiscernConfig,
   scope: string,
 ): string[] {
