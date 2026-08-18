@@ -2026,6 +2026,33 @@ export const HINTS = {
       `decides at landing. Awaiting: ${ids.join(", ")}.`,
   }),
 
+  "checkpoint-preview": defineHint<
+    { id: string; criterion: string; matched: string[]; whenPending: boolean }
+  >({
+    id: "checkpoint-preview",
+    category: "notice",
+    audience: "all",
+    when:
+      "A previewing surface (`prepare`, `status`) finds a stop checkpoint's trigger holding against the current diff; the criterion is served early, without blocking.",
+    family: "checkpoint-preview",
+    example: {
+      id: "api-review",
+      criterion:
+        "A changed API surface is described in its docs before it lands.",
+      matched: ["src/api/surface.ext"],
+      whenPending: false,
+    },
+    template: ({ id, criterion, matched, whenPending }): string => {
+      const shown = matched.slice(0, 4).join(", ");
+      const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
+      const claim = whenPending
+        ? "may require a declared conclusion (its when command decides)"
+        : "will require a declared conclusion";
+      return `Checkpoint '${id}' ${claim} at ${CMD.done}: ${criterion} ` +
+        `Changed: ${shown}${more}.`;
+    },
+  }),
+
   "checkpoint-advise": defineHint<
     { id: string; criterion: string; matched: string[] }
   >({

@@ -24,6 +24,7 @@
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { CheckpointMode } from "../../shared/checkpoints.ts";
+import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { collectEffortDiff } from "./diff.ts";
 import {
   type CheckpointEpisode,
@@ -234,6 +235,47 @@ export async function previewCheckpointNotes(
   config: DiscernConfig,
 ): Promise<string[]> {
   return checkpointPreviewNotes(await previewCheckpoints(root, config));
+}
+
+/**
+ * Project a preview onto the advisory hint channel — the `prepare` and
+ * `status` seam. A holding `stop` trigger serves its criterion early ("will
+ * require a declared conclusion at done"; "may require" while a `when`
+ * command still decides); a holding `advise` trigger whose firing is already
+ * settled serves the same advisory it would at `done` (one still awaiting its
+ * `when` command stays silent — a preview spawns nothing, so it cannot know);
+ * fail-open accounts ride as notices. A checkpoint-free effort projects to
+ * nothing, keeping these surfaces exactly as quiet as before.
+ */
+export function checkpointPreviewHints(
+  preview: CheckpointPreview,
+): FiredHint[] {
+  const hints: FiredHint[] = preview.advisories.map((advisory) =>
+    fire(HINTS["checkpoint-advisory"], { advisory })
+  );
+  for (const { definition, outcome } of previewHoldingEntries(preview)) {
+    if (definition.mode === "advise") {
+      if (!outcome.whenPending) {
+        hints.push(
+          fire(HINTS["checkpoint-advise"], {
+            id: definition.id,
+            criterion: definition.criterion.trim(),
+            matched: [...outcome.matched],
+          }),
+        );
+      }
+      continue;
+    }
+    hints.push(
+      fire(HINTS["checkpoint-preview"], {
+        id: definition.id,
+        criterion: definition.criterion.trim(),
+        matched: [...outcome.matched],
+        whenPending: outcome.whenPending,
+      }),
+    );
+  }
+  return hints;
 }
 
 /**
