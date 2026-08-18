@@ -70,7 +70,7 @@ Read, in order:
 
 1. `positioning.md`
 2. `audiences.md`
-3. `demand-canon.md`
+3. the relevant territory and entries from `demand-canon.md`
 4. `messaging.md`
 5. the `discern-brand-voice` skill
 6. the relevant section of `website-brief.md`

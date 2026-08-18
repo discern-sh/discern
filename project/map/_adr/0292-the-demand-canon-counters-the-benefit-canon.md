@@ -1,4 +1,4 @@
-# ADR 0288: The demand canon counters the benefit canon
+# ADR 0292: The demand canon counters the benefit canon
 
 **Status**: accepted
 

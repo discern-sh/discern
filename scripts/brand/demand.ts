@@ -1,12 +1,14 @@
 /**
  * The demand canon — the market-side counterpart of the benefit canon
- * (ADR 0288). Where a benefit reasons forward from product facts to human
+ * (ADR 0292). Where a benefit reasons forward from product facts to human
  * value, a demand entry reasons backward from a struggling moment somebody
  * is hypothesized to be in: the trigger situation, what they do about it
  * today, and what it costs them. Demand claims are empirical rather than
  * deductive, so every entry carries dated evidence restricted to the claims
  * ledger's market classes (observational, anecdotal, hypothesis) — a
  * struggling moment can never borrow the certainty of a product fact.
+ * Its language addresses the person and describes the state of the work or
+ * workflow; it never casts the person as the agents' minder (ADR 0244).
  *
  * Coverage runs in both directions, mirroring the benefit canon's guard:
  * every benefit is answered by at least one entry or recorded as a
@@ -64,8 +66,11 @@ export interface DemandEvidence {
  * demand with no benefit home, kept as roadmap signal rather than deleted.
  */
 export type DemandAnswer =
-  | { readonly benefits: readonly [string, ...string[]] }
-  | { readonly gap: string };
+  | {
+    readonly benefits: readonly [string, ...string[]];
+    readonly gap?: never;
+  }
+  | { readonly benefits?: never; readonly gap: string };
 
 /** One demand entry: a recurring struggling moment, evidence-tagged. */
 export interface DemandEntry {
@@ -108,7 +113,7 @@ export const DEMAND_CANON_SITUATION =
 
 /** The demand canon's master tension: the struggle every territory shares. */
 export const DEMAND_CANON_TENSION =
-  "More implementation is moving than the person can personally supervise, and everything currently holding it together — status, memory, verification, coordination — is them.";
+  "More implementation is moving than the person can personally follow, and everything currently holding it together — status, memory, verification, coordination — is them.";
 
 const RECORDED = "2026-08-17";
 
@@ -160,7 +165,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         alternative:
           "Run one session at a time, improvise the brief in chat, and keep the rest of the backlog in their head until the current task lands.",
         cost:
-          "Backlog items sit idle while execution capacity goes unused, and each casual brief produces rework when the agent guesses wrong.",
+          "Backlog items sit idle while execution capacity goes unused, and each casual brief produces rework when required context stays unresolved.",
         forces: ["push"],
         segments: ["experienced engineers", "new consequential builders"],
         evidence: [FROM_POSITIONING],
@@ -228,23 +233,23 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
     ],
   },
   {
-    id: "supervision-tax",
-    title: "Babysitting the agents",
+    id: "workflow-attention-tax",
+    title: "Routine coordination crowds out the product",
     counterpart: "return-human-attention",
     tension:
-      "Each added agent task adds supervision: asking for status, checking whether routine commands ran, watching doomed runs, and re-teaching the tooling — attention spent on the workflow rather than the product.",
+      "As more work moves, routine coordination grows with it: checking status, confirming commands ran, waiting on long runs, and re-establishing project context. The workflow takes attention the person wants to spend on the product.",
     heardAs: [
-      "how do I know what my agents are doing",
-      "agent forgot to run the tests",
-      "the session spent twenty minutes on a broken build",
-      "stop re-explaining my project to the agent",
+      "how do I see which work needs me",
+      "how do I know which checks ran",
+      "the build failed after a long run",
+      "stop re-explaining my project every session",
     ],
     entries: [
       {
         id: "redundant-re-review",
-        title: "Re-running what the agent says it ran",
+        title: "Re-running the same checks by hand",
         situation:
-          "The person re-runs the formatter, linter, and tests on every finished task because the agent's account of what passed cannot be taken at face value.",
+          "A finished task arrives without a durable record of whether the formatter, linter, and tests passed against the same tree, so the person runs them again before reviewing it.",
         alternative:
           "A personal checklist run by hand, or a CI pipeline that reports long after the session has moved on.",
         cost:
@@ -256,13 +261,13 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
       },
       {
         id: "status-chasing",
-        title: "Opening every session to ask where it is",
+        title: "Opening every session to reconstruct status",
         situation:
-          "Work in flight is only visible inside each conversation, so the person tours their sessions asking for status and holds the merged picture in their head.",
+          "Work in flight is only visible inside each conversation, so reconstructing project state requires opening every session and combining its status by hand.",
         alternative:
-          "A terminal per session, a mental model per terminal, and a habit of interrupting agents to ask how it is going.",
+          "A terminal per session and a mental model per terminal, rebuilt manually whenever the person returns.",
         cost:
-          "Returning to the desk means an inspection round before any decision can be made, and a stalled session can wait hours before anyone notices.",
+          "Returning to the desk begins with reconstructing state before any decision can be made, and a stalled session can wait hours before anyone notices.",
         forces: ["push"],
         segments: ["experienced engineers", "new consequential builders"],
         evidence: [FROM_POSITIONING],
@@ -313,27 +318,27 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
     ],
   },
   {
-    id: "unverified-done",
-    title: "Completion is a claim, not a state",
+    id: "readiness-without-evidence",
+    title: "Readiness without durable evidence",
     counterpart: "know-what-is-ready",
     tension:
-      "The agent reports the work finished with fluent confidence, and nothing about that sentence distinguishes a change that passed every declared check from one that was never checked at all.",
+      "Finished work arrives through conversation, and the conversation alone cannot distinguish a change that passed every declared check from one that has not been evaluated against them.",
     heardAs: [
-      "agent said the tests pass but they fail",
-      "the agent merged broken code",
+      "how do I know which checks passed",
+      "keep unfinished work off the shared branch",
       "how to verify agent-written code",
-      "agent pushed without asking",
+      "keep landing authority with me",
     ],
     entries: [
       {
-        id: "confident-completion-claims",
-        title: "The confident claim that does not survive contact",
+        id: "completion-without-evidence",
+        title: "A completion message with no durable evidence",
         situation:
-          "The agent declares the task complete; the person pulls the branch and the build fails, the tests were never run, or the change solves a different problem than the brief.",
+          "A task is marked complete, but pulling the branch reveals a build failure, checks that did not run, or a change that solves a different problem than the brief.",
         alternative:
-          "Treat every completion message as unverified: pull the branch, run everything, and read the diff before believing anything.",
+          "Pull the branch, run everything, and read the diff to reconstruct readiness before making a decision.",
         cost:
-          "Verification consumes the time delegation was meant to return, and trust in delegated work resets to zero after every miss.",
+          "Reconstructing readiness consumes the time delegation was meant to return, and every task comes back with the same uncertainty.",
         forces: ["push", "anxiety"],
         segments: ["experienced engineers", "new consequential builders"],
         evidence: [FROM_DISCOURSE],
@@ -357,13 +362,13 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
       },
       {
         id: "premature-landing",
-        title: "The agent ships without asking",
+        title: "Work reaches the shared branch before review",
         situation:
-          "An agent pushes to the shared branch, or merges its own work, on its own initiative — sometimes correctly, which is worse, because the habit is now established.",
+          "A change reaches the shared branch before the responsible person accepts it. Even when the change is sound, the workflow has exercised landing authority the person did not grant.",
         alternative:
           "Standing instructions never to push, repeated in every prompt, and branch-protection rules bolted on where the platform allows them.",
         cost:
-          "The shared branch carries changes nobody reviewed, and the person patrols for surprise commits instead of assuming the trunk is theirs.",
+          "The shared branch carries changes nobody reviewed, and the boundary around who decides what lands becomes uncertain.",
         forces: ["push", "anxiety"],
         segments: ["experienced engineers", "new consequential builders"],
         evidence: [FROM_DISCOURSE],
@@ -411,7 +416,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
     tension:
       "Improvements do not stay improved: bugs return in new clothes, metrics drift back, migrations stall halfway, and every few months the same cleanup happens again under a new name.",
     heardAs: [
-      "the agent keeps reintroducing the same bug",
+      "the same bug keeps reappearing",
       "test coverage keeps dropping",
       "duplicate helpers everywhere after agent sessions",
       "the migration never finished",
@@ -421,7 +426,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         id: "quality-erosion",
         title: "The measure drifts backward",
         situation:
-          "Coverage, bundle size, lint findings, and other measures give ground one small change at a time, and an agent under pressure will loosen a threshold to make its branch pass.",
+          "Coverage, bundle size, lint findings, and other measures give ground one small change at a time, and a branch can loosen a threshold solely to make its new work pass.",
         alternative:
           "Periodic audits that discover the drift after months, and code review as the only defense against a threshold edit.",
         cost:
@@ -487,7 +492,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         alternative:
           "Fix documentation when a person happens to notice, and teach agents to distrust the docs.",
         cost:
-          "Every reader pays a verification toll on every page, and agents act confidently on instructions that are wrong.",
+          "Every reader pays a verification toll on every page, and wrong instructions produce confident but incorrect changes.",
         forces: ["push"],
         segments: ["experienced engineers", "new consequential builders"],
         evidence: [FROM_DISCOURSE],
@@ -516,7 +521,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
     tension:
       "Sessions end and take their understanding with them, so the person is the project's memory: re-teaching conventions, re-litigating settled decisions, and re-orienting every fresh agent by hand.",
     heardAs: [
-      "the agent ignores my project conventions",
+      "project conventions keep getting missed",
       "persistent project context for coding agents",
       "it suggested the approach we already rejected",
       "my instruction file is getting huge",
@@ -538,9 +543,9 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
       },
       {
         id: "opaque-agent-understanding",
-        title: "No way to see what the agents believe",
+        title: "No durable account of the project's working model",
         situation:
-          "The agents clearly hold a working model of the codebase, but it lives in session history — the person cannot read it, correct it, or know which parts are wrong until a change reveals the misunderstanding.",
+          "The working model used in each session lives in its history, so the person cannot read or correct it until a change reveals the misunderstanding.",
         alternative:
           "Judge understanding indirectly from the quality of the output, and re-explain after each surprise.",
         cost:
@@ -584,7 +589,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         situation:
           "A fresh or resumed session begins with orientation — what is this project, where are things, what changed, what is the command — before any of the actual task begins.",
         alternative:
-          "Paste a project tour into the prompt, or let the agent wander the tree until it finds its bearings.",
+          "Paste a project tour into the prompt, or let orientation consume the opening part of the session.",
         cost:
           "Every session pays a startup toll, and short tasks pay proportionally the most.",
         forces: ["push"],
@@ -881,10 +886,10 @@ export function renderDemandCanonDoc(): string {
   const flattened = allDemandEntries();
   const answered = new Set(
     flattened.flatMap(({ entry }) =>
-      "benefits" in entry.answer ? [...entry.answer.benefits] : []
+      entry.answer.benefits !== undefined ? [...entry.answer.benefits] : []
     ),
   );
-  const gaps = flattened.filter(({ entry }) => "gap" in entry.answer);
+  const gaps = flattened.filter(({ entry }) => entry.answer.gap !== undefined);
   const benefitCount = allBenefitEntries().length;
   const classCounts = new Map<DemandEvidenceClass, number>();
   for (const { entry } of flattened) {
@@ -960,7 +965,7 @@ export function renderDemandCanonDoc(): string {
         `- **Forces:** ${entry.forces.join(", ")}`,
         `- **Segments:** ${entry.segments.join(", ")}`,
         `- **Evidence:** ${renderEvidence(entry.evidence)}`,
-        "benefits" in entry.answer
+        entry.answer.benefits !== undefined
           ? `- **Answered by:** ${
             entry.answer.benefits
               .map((id) => answeringTitle(titles, id))
@@ -992,7 +997,7 @@ export function renderDemandCanonDoc(): string {
     lines.push("- None: every entry is answered by at least one benefit.");
   } else {
     for (const { entry } of gaps) {
-      if ("gap" in entry.answer) {
+      if (entry.answer.gap !== undefined) {
         lines.push(`- \`${entry.id}\` — ${entry.answer.gap}`);
       }
     }

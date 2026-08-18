@@ -1,5 +1,5 @@
 /**
- * Coverage guards for the demand canon (ADR 0288) — the benefit canon's
+ * Coverage guards for the demand canon (ADR 0292) — the benefit canon's
  * enrolment discipline run in reverse. Every benefit must be answered by a
  * demand entry or recorded in `SUPPLY_PUSH_RECORDS` with the reason,
  * exactly one of the two, so a new benefit cannot land without someone
@@ -22,6 +22,7 @@ import {
   DEMAND_CANON_SITUATION,
   DEMAND_CANON_TENSION,
   DEMAND_EVIDENCE_CLASS_NAMES,
+  type DemandAnswer,
   SUPPLY_PUSH_RECORDS,
 } from "../scripts/brand/demand.ts";
 import { EVIDENCE_CLASS_NAMES } from "../scripts/brand/model.ts";
@@ -31,6 +32,18 @@ import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SENTENCE = /[.!?]$/u;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const OWNER_DIMINISHING_LANGUAGE =
+  /\b(?:babysit(?:ter|ting)?|hall monitor|minder)\b/i;
+
+Deno.test("DemandAnswer excludes a simultaneous benefit answer and gap", () => {
+  const contradictoryShape = {
+    benefits: ["future-benefit"] as const,
+    gap: "A future gap.",
+  };
+  // @ts-expect-error — one demand cannot be answered and remain a gap
+  const contradictory: DemandAnswer = contradictoryShape;
+  assert("benefits" in contradictory && "gap" in contradictory);
+});
 
 Deno.test("demand ids are unique and do not collide with the benefit canon or the feature tree", () => {
   const taken = new Set<string>([
@@ -126,6 +139,18 @@ Deno.test("every demand statement is complete and stays in human language", () =
   }
 });
 
+Deno.test("demand language never casts the owner as the agents' minder", () => {
+  const doc = renderBrandDoc("demand-canon");
+  assert(
+    !OWNER_DIMINISHING_LANGUAGE.test(doc),
+    "describe the owner's attention and the work's state without casting them as a babysitter or hall monitor",
+  );
+  assert(
+    OWNER_DIMINISHING_LANGUAGE.test("Babysitting a worker"),
+    "control: the owner-framing guard must catch a fresh singular sibling",
+  );
+});
+
 Deno.test("demand evidence is dated, sourced, and confined to the ledger's market classes", () => {
   // The market classes are exactly the ledger's classes below the
   // product-truth pair, in the ledger's own strongest-first order — a new
@@ -170,7 +195,7 @@ Deno.test("every territory counters a live benefit cluster, and every cluster is
 Deno.test("every answering citation names a live benefit, exactly once per entry", () => {
   const benefitIds = new Set(allBenefitEntries().map(({ entry }) => entry.id));
   for (const { entry } of allDemandEntries()) {
-    if (!("benefits" in entry.answer)) continue;
+    if (entry.answer.benefits === undefined) continue;
     assertEquals(
       new Set(entry.answer.benefits).size,
       entry.answer.benefits.length,
@@ -188,7 +213,7 @@ Deno.test("every answering citation names a live benefit, exactly once per entry
 Deno.test("every benefit is answered by an entry or recorded supply-push — exactly one of the two", () => {
   const answered = new Set(
     allDemandEntries().flatMap(({ entry }) =>
-      "benefits" in entry.answer ? [...entry.answer.benefits] : []
+      entry.answer.benefits !== undefined ? [...entry.answer.benefits] : []
     ),
   );
   const benefitIds = new Set(allBenefitEntries().map(({ entry }) => entry.id));
@@ -223,7 +248,7 @@ Deno.test("every benefit is answered by an entry or recorded supply-push — exa
 
 Deno.test("every recorded gap states its reason as a complete sentence", () => {
   for (const { entry } of allDemandEntries()) {
-    if (!("gap" in entry.answer)) continue;
+    if (entry.answer.gap === undefined) continue;
     assert(
       SENTENCE.test(entry.answer.gap.trim()),
       `entry "gap" is not a complete sentence for: ${entry.id}`,
@@ -247,7 +272,9 @@ Deno.test("every discern command mentioned in demand prose is a live verb", () =
     texts.push([entry.id, entry.situation]);
     texts.push([entry.id, entry.alternative]);
     texts.push([entry.id, entry.cost]);
-    if ("gap" in entry.answer) texts.push([entry.id, entry.answer.gap]);
+    if (entry.answer.gap !== undefined) {
+      texts.push([entry.id, entry.answer.gap]);
+    }
   }
   for (const [id, reason] of Object.entries(SUPPLY_PUSH_RECORDS)) {
     texts.push([id, reason]);
@@ -296,7 +323,7 @@ Deno.test("the rendered page carries the banner, every territory, every entry, a
     );
   }
   for (const { entry } of allDemandEntries()) {
-    if (!("gap" in entry.answer)) continue;
+    if (entry.answer.gap === undefined) continue;
     assertStringIncludes(
       doc,
       `- \`${entry.id}\` — `,
@@ -327,7 +354,8 @@ Deno.test("the rendered account uses the short scan labels", () => {
   ) {
     assertEquals(count(label), entries.length, `${label} labels`);
   }
-  const gaps = entries.filter(({ entry }) => "gap" in entry.answer).length;
+  const gaps =
+    entries.filter(({ entry }) => entry.answer.gap !== undefined).length;
   assertEquals(count("Recorded gap"), gaps, "Recorded gap labels");
   assertEquals(
     count("Answered by"),

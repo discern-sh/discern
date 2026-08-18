@@ -20,7 +20,7 @@ _discern's internal account of the demand its benefits answer. It is the market-
 
 **Situation:** One person is responsible for a project whose implementation increasingly arrives from coding agents.
 
-> More implementation is moving than the person can personally supervise, and everything currently holding it together — status, memory, verification, coordination — is them.
+> More implementation is moving than the person can personally follow, and everything currently holding it together — status, memory, verification, coordination — is them.
 
 Every territory below is a recurring form of that tension. Where the tension is real and felt, the counterpart benefits have a buyer; where it is not, they have a bet.
 
@@ -29,8 +29,8 @@ Every territory below is a recurring form of that tension. Where the tension is 
 | Territory                                       | Counterpart                        | Tension                                                                                                                                                                                                                                  |
 | ----------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Becoming the operating layer**                | Build further                      | Coding agents multiplied the execution available to one person, and the coordination they require has landed on that person: scheduling tasks, preparing workspaces, relaying status, and holding every thread of unfinished work.       |
-| **Babysitting the agents**                      | Spend more time on the product     | Each added agent task adds supervision: asking for status, checking whether routine commands ran, watching doomed runs, and re-teaching the tooling — attention spent on the workflow rather than the product.                           |
-| **Completion is a claim, not a state**          | Know what is ready                 | The agent reports the work finished with fluent confidence, and nothing about that sentence distinguishes a change that passed every declared check from one that was never checked at all.                                              |
+| **Routine coordination crowds out the product** | Spend more time on the product     | As more work moves, routine coordination grows with it: checking status, confirming commands ran, waiting on long runs, and re-establishing project context. The workflow takes attention the person wants to spend on the product.      |
+| **Readiness without durable evidence**          | Know what is ready                 | Finished work arrives through conversation, and the conversation alone cannot distinguish a change that passed every declared check from one that has not been evaluated against them.                                                   |
 | **Re-fixing what was already fixed**            | Keep the gains the project earns   | Improvements do not stay improved: bugs return in new clothes, metrics drift back, migrations stall halfway, and every few months the same cleanup happens again under a new name.                                                       |
 | **Explaining the project again**                | Keep project knowledge available   | Sessions end and take their understanding with them, so the person is the project's memory: re-teaching conventions, re-litigating settled decisions, and re-orienting every fresh agent by hand.                                        |
 | **Wanting the practice, dreading the adoption** | Put a serious practice in place    | The person already believes their project needs a more serious way of working; what stalls them is the adoption itself — the configuration to learn, the services to run, and the doubt that the method survives contact with real work. |
@@ -47,7 +47,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 
 - **Situation:** The backlog holds more agent-sized work than the person can brief, so tasks wait in line behind their own explanations and delegation stalls at the cost of writing each handoff well.
 - **Today's alternative:** Run one session at a time, improvise the brief in chat, and keep the rest of the backlog in their head until the current task lands.
-- **Cost:** Backlog items sit idle while execution capacity goes unused, and each casual brief produces rework when the agent guesses wrong.
+- **Cost:** Backlog items sit idle while execution capacity goes unused, and each casual brief produces rework when required context stays unresolved.
 - **Forces:** push
 - **Segments:** experienced engineers, new consequential builders
 - **Evidence:** hypothesis — Transposed from the positioning document's human-tension account; not yet tested outside this repository. (recorded 2026-08-17)
@@ -93,15 +93,15 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Evidence:** hypothesis — A recurring theme in public discussion of agent-assisted development; no attributed instances collected yet. (recorded 2026-08-17)
 - **Recorded gap:** No current capability relates agent spend to landed outcomes; the Logbook records local activity metadata and does not measure spend.
 
-## Babysitting the agents
+## Routine coordination crowds out the product
 
 - **Counterpart:** Spend more time on the product (conversion benefit)
-- **Tension:** Each added agent task adds supervision: asking for status, checking whether routine commands ran, watching doomed runs, and re-teaching the tooling — attention spent on the workflow rather than the product.
-- **Heard as:** “how do I know what my agents are doing” · “agent forgot to run the tests” · “the session spent twenty minutes on a broken build” · “stop re-explaining my project to the agent”
+- **Tension:** As more work moves, routine coordination grows with it: checking status, confirming commands ran, waiting on long runs, and re-establishing project context. The workflow takes attention the person wants to spend on the product.
+- **Heard as:** “how do I see which work needs me” · “how do I know which checks ran” · “the build failed after a long run” · “stop re-explaining my project every session”
 
-### Re-running what the agent says it ran
+### Re-running the same checks by hand
 
-- **Situation:** The person re-runs the formatter, linter, and tests on every finished task because the agent's account of what passed cannot be taken at face value.
+- **Situation:** A finished task arrives without a durable record of whether the formatter, linter, and tests passed against the same tree, so the person runs them again before reviewing it.
 - **Today's alternative:** A personal checklist run by hand, or a CI pipeline that reports long after the session has moved on.
 - **Cost:** Every delegated task carries a fixed verification toll paid by the person, which caps how many tasks a day they can accept.
 - **Forces:** push
@@ -109,11 +109,11 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Evidence:** hypothesis — Transposed from the audiences document's desired-progress and objections accounts; not yet tested outside this repository. (recorded 2026-08-17)
 - **Answered by:** Review less, knowing what already passed.
 
-### Opening every session to ask where it is
+### Opening every session to reconstruct status
 
-- **Situation:** Work in flight is only visible inside each conversation, so the person tours their sessions asking for status and holds the merged picture in their head.
-- **Today's alternative:** A terminal per session, a mental model per terminal, and a habit of interrupting agents to ask how it is going.
-- **Cost:** Returning to the desk means an inspection round before any decision can be made, and a stalled session can wait hours before anyone notices.
+- **Situation:** Work in flight is only visible inside each conversation, so reconstructing project state requires opening every session and combining its status by hand.
+- **Today's alternative:** A terminal per session and a mental model per terminal, rebuilt manually whenever the person returns.
+- **Cost:** Returning to the desk begins with reconstructing state before any decision can be made, and a stalled session can wait hours before anyone notices.
 - **Forces:** push
 - **Segments:** experienced engineers, new consequential builders
 - **Evidence:** hypothesis — Transposed from the positioning document's human-tension account; not yet tested outside this repository. (recorded 2026-08-17)
@@ -149,17 +149,17 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Evidence:** hypothesis — A recurring theme in public discussion of agent-assisted development; no attributed instances collected yet. (recorded 2026-08-17)
 - **Answered by:** Use agent context on the task itself.
 
-## Completion is a claim, not a state
+## Readiness without durable evidence
 
 - **Counterpart:** Know what is ready (core value)
-- **Tension:** The agent reports the work finished with fluent confidence, and nothing about that sentence distinguishes a change that passed every declared check from one that was never checked at all.
-- **Heard as:** “agent said the tests pass but they fail” · “the agent merged broken code” · “how to verify agent-written code” · “agent pushed without asking”
+- **Tension:** Finished work arrives through conversation, and the conversation alone cannot distinguish a change that passed every declared check from one that has not been evaluated against them.
+- **Heard as:** “how do I know which checks passed” · “keep unfinished work off the shared branch” · “how to verify agent-written code” · “keep landing authority with me”
 
-### The confident claim that does not survive contact
+### A completion message with no durable evidence
 
-- **Situation:** The agent declares the task complete; the person pulls the branch and the build fails, the tests were never run, or the change solves a different problem than the brief.
-- **Today's alternative:** Treat every completion message as unverified: pull the branch, run everything, and read the diff before believing anything.
-- **Cost:** Verification consumes the time delegation was meant to return, and trust in delegated work resets to zero after every miss.
+- **Situation:** A task is marked complete, but pulling the branch reveals a build failure, checks that did not run, or a change that solves a different problem than the brief.
+- **Today's alternative:** Pull the branch, run everything, and read the diff to reconstruct readiness before making a decision.
+- **Cost:** Reconstructing readiness consumes the time delegation was meant to return, and every task comes back with the same uncertainty.
 - **Forces:** push, anxiety
 - **Segments:** experienced engineers, new consequential builders
 - **Evidence:** hypothesis — A recurring theme in public discussion of agent-assisted development; no attributed instances collected yet. (recorded 2026-08-17)
@@ -175,11 +175,11 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Evidence:** hypothesis — Transposed from the positioning document's human-tension account; not yet tested outside this repository. (recorded 2026-08-17)
 - **Answered by:** Keep the completion record with the code.
 
-### The agent ships without asking
+### Work reaches the shared branch before review
 
-- **Situation:** An agent pushes to the shared branch, or merges its own work, on its own initiative — sometimes correctly, which is worse, because the habit is now established.
+- **Situation:** A change reaches the shared branch before the responsible person accepts it. Even when the change is sound, the workflow has exercised landing authority the person did not grant.
 - **Today's alternative:** Standing instructions never to push, repeated in every prompt, and branch-protection rules bolted on where the platform allows them.
-- **Cost:** The shared branch carries changes nobody reviewed, and the person patrols for surprise commits instead of assuming the trunk is theirs.
+- **Cost:** The shared branch carries changes nobody reviewed, and the boundary around who decides what lands becomes uncertain.
 - **Forces:** push, anxiety
 - **Segments:** experienced engineers, new consequential builders
 - **Evidence:** hypothesis — A recurring theme in public discussion of agent-assisted development; no attributed instances collected yet. (recorded 2026-08-17)
@@ -209,11 +209,11 @@ Every territory below is a recurring form of that tension. Where the tension is 
 
 - **Counterpart:** Keep the gains the project earns (durable value)
 - **Tension:** Improvements do not stay improved: bugs return in new clothes, metrics drift back, migrations stall halfway, and every few months the same cleanup happens again under a new name.
-- **Heard as:** “the agent keeps reintroducing the same bug” · “test coverage keeps dropping” · “duplicate helpers everywhere after agent sessions” · “the migration never finished”
+- **Heard as:** “the same bug keeps reappearing” · “test coverage keeps dropping” · “duplicate helpers everywhere after agent sessions” · “the migration never finished”
 
 ### The measure drifts backward
 
-- **Situation:** Coverage, bundle size, lint findings, and other measures give ground one small change at a time, and an agent under pressure will loosen a threshold to make its branch pass.
+- **Situation:** Coverage, bundle size, lint findings, and other measures give ground one small change at a time, and a branch can loosen a threshold solely to make its new work pass.
 - **Today's alternative:** Periodic audits that discover the drift after months, and code review as the only defense against a threshold edit.
 - **Cost:** Ground gained in dedicated efforts is surrendered gradually and invisibly, and has to be retaken at full price.
 - **Forces:** push
@@ -255,7 +255,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 
 - **Situation:** The project's own documentation drifts: commands that no longer exist, links that no longer resolve, pages describing a structure three refactors old — and agents follow it literally.
 - **Today's alternative:** Fix documentation when a person happens to notice, and teach agents to distrust the docs.
-- **Cost:** Every reader pays a verification toll on every page, and agents act confidently on instructions that are wrong.
+- **Cost:** Every reader pays a verification toll on every page, and wrong instructions produce confident but incorrect changes.
 - **Forces:** push
 - **Segments:** experienced engineers, new consequential builders
 - **Evidence:** hypothesis — A recurring theme in public discussion of agent-assisted development; no attributed instances collected yet. (recorded 2026-08-17)
@@ -275,7 +275,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 
 - **Counterpart:** Keep project knowledge available (durable value)
 - **Tension:** Sessions end and take their understanding with them, so the person is the project's memory: re-teaching conventions, re-litigating settled decisions, and re-orienting every fresh agent by hand.
-- **Heard as:** “the agent ignores my project conventions” · “persistent project context for coding agents” · “it suggested the approach we already rejected” · “my instruction file is getting huge”
+- **Heard as:** “project conventions keep getting missed” · “persistent project context for coding agents” · “it suggested the approach we already rejected” · “my instruction file is getting huge”
 
 ### Teaching the same lesson every session
 
@@ -287,9 +287,9 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Evidence:** hypothesis — A recurring theme in public discussion of agent-assisted development; no attributed instances collected yet. (recorded 2026-08-17)
 - **Answered by:** Teach the project once.
 
-### No way to see what the agents believe
+### No durable account of the project's working model
 
-- **Situation:** The agents clearly hold a working model of the codebase, but it lives in session history — the person cannot read it, correct it, or know which parts are wrong until a change reveals the misunderstanding.
+- **Situation:** The working model used in each session lives in its history, so the person cannot read or correct it until a change reveals the misunderstanding.
 - **Today's alternative:** Judge understanding indirectly from the quality of the output, and re-explain after each surprise.
 - **Cost:** Misunderstandings persist invisibly across sessions and surface as defects instead of as correctable text.
 - **Forces:** push
@@ -320,7 +320,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 ### The first ten minutes of every session
 
 - **Situation:** A fresh or resumed session begins with orientation — what is this project, where are things, what changed, what is the command — before any of the actual task begins.
-- **Today's alternative:** Paste a project tour into the prompt, or let the agent wander the tree until it finds its bearings.
+- **Today's alternative:** Paste a project tour into the prompt, or let orientation consume the opening part of the session.
 - **Cost:** Every session pays a startup toll, and short tasks pay proportionally the most.
 - **Forces:** push
 - **Segments:** experienced engineers, new consequential builders

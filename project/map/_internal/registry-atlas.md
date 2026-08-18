@@ -43,6 +43,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
 | [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 18      | —                | —                           |
 | [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                  | `scripts/brand/claims.ts#CLAIMS`                                                  | 20      | —                | —                           |
+| [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                        | `scripts/brand/voice.ts#BRAND_FOUNDATION_READING_STEPS`                           | 4       | —                | —                           |
 | [`demand-canon`](#demand-canon--demand-canon)                                                                         | `scripts/brand/demand.ts#DEMAND_CANON`                                            | 46      | —                | —                           |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 4       | —                | —                           |
@@ -93,9 +94,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 82      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 83      | —                | node `canonical-sets`       |
 
-82 sets · 129 guard tests · 56 committed artifacts.
+83 sets · 129 guard tests · 56 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -116,7 +117,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/artifact_ownership_test.ts`                 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/brand_animation_test.ts`                    | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/brand_art_test.ts`                          | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `tests/brand_registry_codegen_test.ts`             | [`brand-documents`](#brand-documents--brand-documents), [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                                                                                                                                                                                                                                                                                                                          |
+| `tests/brand_registry_codegen_test.ts`             | [`brand-documents`](#brand-documents--brand-documents), [`brand-claims`](#brand-claims--brand-claims-ledger), [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                                                                                                                                                                                                                                                                          |
 | `tests/brand_vale_codegen_test.ts`                 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles), [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_alignment_test.ts`              | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_bifurcation_test.ts`            | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -973,6 +974,20 @@ The public claims ledger behind brand copy: per-claim evidence classes, stronges
 - Glossary: not enrolled — the internal claims canon defines this public-wording vocabulary
 - Feature canon: not enrolled — public copy applies this evidence ledger to the product nodes it describes
 
+## `brand-foundation-reading-steps` — Brand writing foundations
+
+The shared strategic-document sequence that the brand voice Skill and the homepage-or-campaign reading path both require before public copy is written.
+
+- Source: `scripts/brand/voice.ts` — `BRAND_FOUNDATION_READING_STEPS`
+- Members: 4
+  - `positioning`
+  - `audiences`
+  - `demand-canon`
+  - `messaging`
+- Guards: `tests/brand_registry_codegen_test.ts`
+- Glossary: not enrolled — the internal brand operating system owns this writing-context vocabulary
+- Feature canon: not enrolled — the reading sequence governs brand work rather than product behavior
+
 ## `demand-canon` — Demand canon
 
 The market-side counterpart of the benefit canon: evidence-tagged struggling moments with their current alternatives and forces, held to two-way coverage against the benefits and rendered into the demand page the brand-documents set owns.
@@ -980,8 +995,8 @@ The market-side counterpart of the benefit canon: evidence-tagged struggling mom
 - Source: `scripts/brand/demand.ts` — `DEMAND_CANON`
 - Members: 46
   - `operating-layer-trap`
-  - `supervision-tax`
-  - `unverified-done`
+  - `workflow-attention-tax`
+  - `readiness-without-evidence`
   - `eroding-gains`
   - `stateless-project-memory`
   - `adoption-hesitation`
@@ -997,7 +1012,7 @@ The market-side counterpart of the benefit canon: evidence-tagged struggling mom
   - `doomed-runs`
   - `missing-companion-file`
   - `context-burned-on-tooling`
-  - `confident-completion-claims`
+  - `completion-without-evidence`
   - `what-was-checked-when`
   - `premature-landing`
   - `approval-fatigue`
@@ -2442,10 +2457,10 @@ The numbered decision records in the Map, including records later superseded.
   - `0286`
   - `0287`
   - `0288`
-  - `0288`
   - `0289`
   - `0290`
   - `0291`
+  - `0292`
   - `0001`
   - `0002`
   - `0004`
@@ -2743,7 +2758,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Instruct
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 82
+- Members: 83
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2775,6 +2790,7 @@ This meta-registry: the closed set of closed sets.
   - `agent-integration-seams`
   - `brand-documents`
   - `brand-claims`
+  - `brand-foundation-reading-steps`
   - `demand-canon`
   - `setup-subverbs`
   - `authored-commit-sites`

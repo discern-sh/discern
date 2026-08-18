@@ -1017,6 +1017,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       Object.keys((await import("./brand/claims.ts")).CLAIMS),
   },
   {
+    id: "brand-foundation-reading-steps",
+    title: "Brand writing foundations",
+    what:
+      "The shared strategic-document sequence that the brand voice Skill and the homepage-or-campaign reading path both require before public copy is written.",
+    source: {
+      kind: "module",
+      module: "scripts/brand/voice.ts",
+      exportName: "BRAND_FOUNDATION_READING_STEPS",
+    },
+    guards: ["tests/brand_registry_codegen_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the internal brand operating system owns this writing-context vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the reading sequence governs brand work rather than product behavior",
+      },
+    },
+    members: async () =>
+      (await import("./brand/voice.ts")).BRAND_FOUNDATION_READING_STEPS.map(
+        (step) => step.id,
+      ),
+  },
+  {
     id: "demand-canon",
     title: "Demand canon",
     what:
