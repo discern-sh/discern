@@ -24,6 +24,8 @@ import {
 } from "discern-design-system/cli";
 import type { DiscernResult } from "../../shared/result.ts";
 import type {
+  CheckpointEconomics,
+  CheckpointEconomicsRow,
   CheckpointEpisodeData,
   CheckpointEpisodeState,
   CheckpointReportData,
@@ -47,6 +49,10 @@ import {
   declarationIsCurrent,
   readEpisodes,
 } from "./episodes.ts";
+import { checkpointEconomicsOf } from "../logbook/checkpoint_economics.ts";
+import { buildStreamFacts } from "../logbook/detectors.ts";
+import { readLogbookStream } from "../logbook/read.ts";
+import { resolveCommonGitDir } from "../worktree/git.ts";
 import { type CheckpointPreview, previewCheckpoints } from "./preflight.ts";
 import { checkpointDefinitionHash, computeSubject } from "./subject.ts";
 import type { ResolvedCheckpoint, StructuralTriggerOutcome } from "./types.ts";
@@ -161,17 +167,28 @@ function episodeData(
 }
 
 /**
- * Observed per-checkpoint economics from the logbook — the read seam the
- * observation workstream fills. The checkpoint observation events (fired,
- * declared, reopened, variance authorized, abandoned, with timing) are not
- * recorded yet, so this returns undefined and every rendering states "no
- * observed history yet". When the logbook starts recording those events,
- * implement the bounded, effort-local counts here and extend
- * `CheckpointsDataSchema` with the `economics` block the projections carry —
- * the renderings below already branch on this one function.
+ * Observed per-checkpoint economics from the local Logbook: the shared
+ * economics reader over the same tolerant stream `patterns` analyzes, bounded
+ * and local. Advisory by construction — the read can only add an `economics`
+ * block to an always-ok report, and any trouble (no repository, an unreadable
+ * Logbook) degrades to "no observed history yet", never a refusal.
  */
-export function observedCheckpointEconomics(_root: string): undefined {
-  return undefined;
+export async function observedCheckpointEconomics(
+  root: string,
+): Promise<CheckpointEconomics | undefined> {
+  try {
+    const config = await loadConfig(root);
+    const commonGitDir = await resolveCommonGitDir(root);
+    if (commonGitDir === undefined) {
+      return undefined;
+    }
+    const stream = await readLogbookStream(commonGitDir);
+    return checkpointEconomicsOf(
+      buildStreamFacts(stream.events, config.repository.trunk),
+    );
+  } catch {
+    return undefined;
+  }
 }
 
 // ── the core ────────────────────────────────────────────────────────────────
@@ -311,12 +328,14 @@ export async function checkpointsResult(
     episodes,
     bindings,
   );
+  const economics = await observedCheckpointEconomics(root);
   const data: CheckpointsData = {
     ...(preview.policyCommit === undefined
       ? {}
       : { policy: preview.policyCommit }),
     checkpoints: rows,
     ...(ungoverned.length === 0 ? {} : { ungoverned }),
+    ...(economics === undefined ? {} : { economics }),
     ...(advisories.length === 0 ? {} : { advisories: [...advisories] }),
   };
 
@@ -432,6 +451,68 @@ function rowPresentation(row: CheckpointReportData): {
       ? `Would serve its advisory at done (${matched} matched).`
       : `Would fire at done — a declared conclusion will be required (${matched} matched).`,
     attention: true,
+  };
+}
+
+/** A compact human duration from seconds: `42s`, `12m`, `1.5h`. */
+function humanSeconds(seconds: number): string {
+  if (seconds < 90) {
+    return `${Math.round(seconds)}s`;
+  }
+  if (seconds < 5_400) {
+    return `${Math.round(seconds / 60)}m`;
+  }
+  return `${Math.round(seconds / 360) / 10}h`;
+}
+
+/** One observed-economics row as two plain-count lines: the serving footprint
+ * with its effort denominator, then how its episodes concluded. Observation
+ * vocabulary only — counts beside denominators, never a verdict. */
+function economicsLines(
+  row: CheckpointEconomicsRow,
+  efforts: number,
+): { fact: string; detail?: string } {
+  const fact = `${row.id} — fired on ${row.efforts_fired} of ${efforts} ` +
+    `efforts · ${row.fires} serving${row.fires === 1 ? "" : "s"}`;
+  const conclusions: string[] = [];
+  if (row.declared > 0) {
+    const split: string[] = [];
+    if (row.declared_unchanged > 0) {
+      split.push(`${row.declared_unchanged} on an unchanged subject`);
+    }
+    if (row.declared_unmet > 0) {
+      split.push(`${row.declared_unmet} unmet`);
+    }
+    conclusions.push(
+      `Declared ${row.declared}${
+        split.length === 0 ? "" : ` (${split.join(", ")})`
+      }.`,
+    );
+  }
+  if (row.median_declare_s !== undefined) {
+    conclusions.push(
+      `Median time to declare: ${humanSeconds(row.median_declare_s)}.`,
+    );
+  }
+  const lifecycle: string[] = [];
+  if (row.reopened > 0) {
+    lifecycle.push(`${row.reopened} reopened`);
+  }
+  if (row.variances > 0) {
+    lifecycle.push(
+      `${row.variances} authorized variance${row.variances === 1 ? "" : "s"} ` +
+        `(${row.efforts_landed} of its efforts landed)`,
+    );
+  }
+  if (row.abandoned > 0) {
+    lifecycle.push(`${row.abandoned} abandoned`);
+  }
+  if (lifecycle.length > 0) {
+    conclusions.push(`${lifecycle.join(" · ")}.`);
+  }
+  return {
+    fact,
+    ...(conclusions.length === 0 ? {} : { detail: conclusions.join(" ") }),
   };
 }
 
@@ -577,7 +658,7 @@ export async function runCheckpoints(
   }
   if (data.checkpoints.length > 0) {
     renderGroup(out, "history", "Observed history");
-    const economics = observedCheckpointEconomics(root);
+    const economics = data.economics;
     if (economics === undefined) {
       out.raw(`${
         presenter.present(renderResultSummaryCli, {
@@ -586,6 +667,33 @@ export async function runCheckpoints(
           maxWidth: width,
         })
       }\n`);
+    } else {
+      for (const row of economics.rows) {
+        const lines = economicsLines(row, economics.efforts);
+        out.raw(`${
+          presenter.present(renderResultSummaryCli, {
+            state: "unchanged",
+            fact: terminalMultiline(lines.fact),
+            ...(lines.detail === undefined
+              ? {}
+              : { nextAction: terminalMultiline(lines.detail) }),
+            maxWidth: width,
+          })
+        }\n`);
+      }
+      if (economics.omitted > 0) {
+        out.raw(`${
+          presenter.present(renderResultSummaryCli, {
+            state: "unchanged",
+            fact: terminalLine(
+              `${economics.omitted} more checkpoint${
+                economics.omitted === 1 ? "" : "s"
+              } with observed history — counted, not listed.`,
+            ),
+            maxWidth: width,
+          })
+        }\n`);
+      }
     }
   }
   const hints = interactiveHintTexts(result.hints);

@@ -833,6 +833,10 @@ export const CheckpointsDataSchema = z.strictObject({
   checkpoints: z.array(CheckpointReportSchema),
   /** Episodes recorded here whose checkpoint is outside the governing policy. */
   ungoverned: z.array(UngovernedEpisodeSchema).optional(),
+  /** Observed per-checkpoint economics from the local Logbook — bounded rows
+   * of plain counts with their denominators. Absent until observed history
+   * exists (every rendering then states that plainly). */
+  economics: CheckpointEconomicsSchema.optional(),
   /** Plain-language fail-open accounts (policy, diff, or store trouble). */
   advisories: z.array(z.string()).optional(),
 });
@@ -1705,6 +1709,15 @@ export {
   PatternsResetDataSchema,
   PatternsStatsSchema,
 } from "./patterns_vocabulary.ts";
+export {
+  CHECKPOINT_ECONOMICS_ROWS_MAX,
+  CheckpointEconomicsRowSchema,
+  CheckpointEconomicsSchema,
+} from "./patterns_vocabulary.ts";
+export type {
+  CheckpointEconomics,
+  CheckpointEconomicsRow,
+} from "./patterns_vocabulary.ts";
 export type {
   DetectorFamily,
   DetectorScope,
@@ -1726,6 +1739,7 @@ export type {
   PatternsStats,
 } from "./patterns_vocabulary.ts";
 import {
+  CheckpointEconomicsSchema,
   PatternsArchiveDataSchema,
   PatternsArchivesDataSchema,
   PatternsDataSchema,
