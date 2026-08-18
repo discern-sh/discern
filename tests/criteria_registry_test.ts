@@ -174,8 +174,8 @@ Deno.test("the reserved word stays off every checkpoint-facing surface — tools
       if (param === "confirmed") {
         continue; // the consent flag's vetted, pre-existing wording
       }
-      const description =
-        (schema as { description?: string }).description ?? "";
+      const description = (schema as { description?: string }).description ??
+        "";
       assert(
         !reserved.test(description),
         `${tool.name}.${param}: parameter description uses reserved vocabulary`,
@@ -195,7 +195,9 @@ Deno.test("the reserved word stays off every checkpoint-facing surface — tools
     }
     assert(
       /conversation-consent attestation/.test(line),
-      `hints.ts:${index + 1} uses reserved vocabulary outside the vetted consent hint`,
+      `hints.ts:${
+        index + 1
+      } uses reserved vocabulary outside the vetted consent hint`,
     );
   }
 

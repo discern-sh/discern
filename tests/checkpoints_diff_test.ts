@@ -150,4 +150,3 @@ Deno.test("outside a repository the collector answers undefined (fail open)", as
     assertEquals(await collectEffortDiff(dir, "HEAD"), undefined);
   });
 });
-

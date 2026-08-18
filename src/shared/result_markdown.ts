@@ -1054,9 +1054,7 @@ function checkpointEconomicsLine(row: Record<string, unknown>): string {
       : `declared ${declared} (${unchanged} on an unchanged subject, ${unmet} unmet)`,
     variances === 0
       ? undefined
-      : `${
-        plural(variances, "authorized variance")
-      } across ${landed} landed`,
+      : `${plural(variances, "authorized variance")} across ${landed} landed`,
     median === undefined ? undefined : `median time to declare ${median}s`,
   ].filter((part): part is string => part !== undefined);
   return `Observed: ${code(row.id)} ${parts.join("; ")}.`;
