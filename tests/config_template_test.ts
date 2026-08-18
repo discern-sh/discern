@@ -32,6 +32,7 @@ import {
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
 import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
+import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
 
 /** The real committed config template text. */
 async function realTemplate(): Promise<string> {
@@ -416,4 +417,18 @@ Deno.test("each inert checkpoint example governs once uncommented, untouched", a
     assert((checkpoints[0]?.criterion ?? "").trim().length > 0, id);
     assert((checkpoints[0]?.selector?.globs.length ?? 0) > 0, id);
   }
+});
+
+Deno.test("the template's active checkpoint entries are exactly the built-in registry", async () => {
+  // A true double-entry with the single source: a new seed added to
+  // BUILT_IN_CHECKPOINTS fails here until the template ships its entry (fresh
+  // installs would otherwise never receive it), and an active template entry
+  // naming no seed fails too (a criterion-less authored entry would break the
+  // strict live loader on every fresh install). The ordered section list
+  // above pins presentation; this pins membership from the registry side.
+  const active = sectionNamesFromTemplate(await realTemplate())
+    .filter((section) => section.startsWith("checkpoints."))
+    .map((section) => section.slice("checkpoints.".length))
+    .sort();
+  assertEquals(active, Object.keys(BUILT_IN_CHECKPOINTS).sort());
 });

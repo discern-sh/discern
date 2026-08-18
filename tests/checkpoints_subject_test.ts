@@ -147,21 +147,53 @@ Deno.test("matched-set and definition changes each move the fingerprint", async 
   });
 });
 
+/** One perturbation per resolved field the definition hash must cover —
+ * shared by the moves-the-hash test and the completeness guard below. */
+const HASH_VARIANTS: Partial<ResolvedCheckpoint>[] = [
+  { mode: "advise" },
+  { criterion: "Other prose." },
+  { teach: "A lesson." },
+  { reference: "a-pointer" },
+  { selector: { globs: ["src/**"] } },
+  { selector: { scope: "code", globs: ["src/**"] } },
+  { unlessChanged: ["docs/**"] },
+  { minChangedFiles: 3 },
+  { deletionDominant: true },
+  { similarNewFile: true },
+  { when: "scripts/probe.sh" },
+];
+
+Deno.test("a new resolved-definition field cannot dodge the hash", () => {
+  // Two forcing steps, both named: the fixture is compiler-forced complete
+  // (a field added to ResolvedCheckpoint fails the Required<> satisfaction
+  // until populated here), and every fixture key must then be perturbed by
+  // some hash variant — so a trigger or review field the hash material
+  // misses fails this guard before it can silently stop reopening episodes.
+  const complete = {
+    id: "probe",
+    mode: "stop",
+    criterion: "The change is judged.",
+    teach: "A lesson.",
+    reference: "a-pointer",
+    selector: { scope: "code", globs: ["src/**"] },
+    unlessChanged: ["docs/**"],
+    minChangedFiles: 3,
+    deletionDominant: true,
+    similarNewFile: true,
+    when: "scripts/probe.sh",
+  } satisfies Required<ResolvedCheckpoint>;
+  const perturbed = new Set(HASH_VARIANTS.flatMap((over) => Object.keys(over)));
+  for (const key of Object.keys(complete)) {
+    if (key === "id") {
+      continue; // episodes key by id; the hash answers "did the MEANING change"
+    }
+    assert(perturbed.has(key), `no hash variant perturbs '${key}'`);
+  }
+});
+
 Deno.test("the definition hash covers every resolved trigger and review field", async () => {
   const baseline = await checkpointDefinitionHash(def());
-  const variants: Partial<ResolvedCheckpoint>[] = [
-    { mode: "advise" },
-    { criterion: "Other prose." },
-    { teach: "A lesson." },
-    { reference: "a-pointer" },
-    { selector: { globs: ["src/**"] } },
-    { selector: { scope: "code", globs: ["src/**"] } },
-    { unlessChanged: ["docs/**"] },
-    { minChangedFiles: 3 },
-    { deletionDominant: true },
-    { similarNewFile: true },
-    { when: "scripts/probe.sh" },
-  ];
+  const variants = HASH_VARIANTS;
   const hashes = await Promise.all(
     variants.map((over) => checkpointDefinitionHash(def(over))),
   );
