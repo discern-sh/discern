@@ -377,134 +377,203 @@
     ensure = []  # linked-worktree-only, e.g. ["<ready worktree resource>"]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [standards] — quality standards: numbers that can never get worse. Every
-# `discern done` run verifies no limit loosened versus the trunk (always — that
-# check has no off switch) and measures each standard in parallel with the
-# tests, so a branch can neither quietly loosen a limit nor quietly regress a
-# metric. None configured means none run — defining one is what turns the
-# subsystem on.
-#
-# Each limit may only improve: line coverage, a bundle-size budget, a lint/type-
-# error count, a perf budget. Sort the number before holding it: an invariant a
-# healthy project never adds (suppressions, a banned pattern) holds the raw
-# count; a quality that scales (coverage, alert density) holds a rate via
-# `per`; a total that grows with the product (a size, a word count) needs
-# `margin` and an owner willing to raise the limit as the product grows —
-# pinned at today's value it fails the next legitimate change.
-#
-# Each [standards.<name>] table declares one:
-#   metric     the metric name the run emits        (default: the standard name)
-#   direction  required:
-#              "up"   value should rise; limit is a FLOOR   (e.g. coverage)
-#              "down" value should fall; limit is a CEILING (e.g. a size budget)
-#   limit      the floor/ceiling — compared vs main, so a floor may only rise and
-#              a ceiling may only fall (you can't loosen the gate on a branch)
-#   run        the command that measures it — its output emits the metric line
-#              (run by the gate alongside the tests, and by `discern standards`)
-#   per        divide the metric to hold a RATE, not a raw count — so the number
-#              doesn't rise just because the project grew. Either a second metric the
-#              run emits, or a built-in extent discern measures itself:
-#              per = { words = "${map.dir}**" }  (files | lines | words | bytes over a pathspec)
-#   scale      multiply the rate so the limit reads in human units (e.g. 1000)
-#   margin     headroom `discern standards --pin` leaves when it tightens this limit
-#              to the measured value (default 0). Give a metric that drifts on
-#              unrelated commits (a size, a coverage %) a margin so a pinned limit
-#              isn't tripped by ordinary fluctuation.
-#   inputs     the paths the metric reads (scope-style globs). When nothing under
-#              them changed since the last recorded measurement, the gate replays
-#              that value instead of re-measuring — a docs-only change pays
-#              seconds, not a coverage run. Honest risk: too-narrow inputs delay
-#              detection until the next measured run. Omit to always measure.
-#   timeout    seconds; replaces the global [gate].timeout for this measurement
-#              job only (0 disables its bound)
-#   measure    "gate" (default) measures in every `discern done`; "on-demand"
-#              defers a metric genuinely too slow for every gate run to
-#              `discern standards` — the never-loosen limit check still runs on
-#              every gate. Reach for the smaller reliefs first: declare `inputs`
-#              so unchanged trees replay for free, or raise this job's `timeout`.
-#
-# A standard's `run` reports its number by printing a line:
-#   DISCERN_METRIC <name> <number>
-# (the LAST such line wins). There is no built-in or special standard — coverage
-# is just the conventional name for one. None are configured by default;
-# uncomment an example to enable it.
-#
-# Captured a gain? `discern standards --pin` tightens each improved limit to the
-# value just measured and commits it — the way to tighten a standard, never a
-# hand-edit (which can't tell a real gain from a quiet loosening).
-# ─────────────────────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # [standards] — quality standards: numbers that can never get worse. Every
+  # `discern done` run verifies no limit loosened versus the trunk (always — that
+  # check has no off switch) and measures each standard in parallel with the
+  # tests, so a branch can neither quietly loosen a limit nor quietly regress a
+  # metric. None configured means none run — defining one is what turns the
+  # subsystem on.
+  #
+  # Each limit may only improve: line coverage, a bundle-size budget, a lint/type-
+  # error count, a perf budget. Sort the number before holding it: an invariant a
+  # healthy project never adds (suppressions, a banned pattern) holds the raw
+  # count; a quality that scales (coverage, alert density) holds a rate via
+  # `per`; a total that grows with the product (a size, a word count) needs
+  # `margin` and an owner willing to raise the limit as the product grows —
+  # pinned at today's value it fails the next legitimate change.
+  #
+  # Each [standards.<name>] table declares one:
+  #   metric     the metric name the run emits        (default: the standard name)
+  #   direction  required:
+  #              "up"   value should rise; limit is a FLOOR   (e.g. coverage)
+  #              "down" value should fall; limit is a CEILING (e.g. a size budget)
+  #   limit      the floor/ceiling — compared vs main, so a floor may only rise and
+  #              a ceiling may only fall (you can't loosen the gate on a branch)
+  #   run        the command that measures it — its output emits the metric line
+  #              (run by the gate alongside the tests, and by `discern standards`)
+  #   per        divide the metric to hold a RATE, not a raw count — so the number
+  #              doesn't rise just because the project grew. Either a second metric the
+  #              run emits, or a built-in extent discern measures itself:
+  #              per = { words = "${map.dir}**" }  (files | lines | words | bytes over a pathspec)
+  #   scale      multiply the rate so the limit reads in human units (e.g. 1000)
+  #   margin     headroom `discern standards --pin` leaves when it tightens this limit
+  #              to the measured value (default 0). Give a metric that drifts on
+  #              unrelated commits (a size, a coverage %) a margin so a pinned limit
+  #              isn't tripped by ordinary fluctuation.
+  #   inputs     the paths the metric reads (scope-style globs). When nothing under
+  #              them changed since the last recorded measurement, the gate replays
+  #              that value instead of re-measuring — a docs-only change pays
+  #              seconds, not a coverage run. Honest risk: too-narrow inputs delay
+  #              detection until the next measured run. Omit to always measure.
+  #   timeout    seconds; replaces the global [gate].timeout for this measurement
+  #              job only (0 disables its bound)
+  #   measure    "gate" (default) measures in every `discern done`; "on-demand"
+  #              defers a metric genuinely too slow for every gate run to
+  #              `discern standards` — the never-loosen limit check still runs on
+  #              every gate. Reach for the smaller reliefs first: declare `inputs`
+  #              so unchanged trees replay for free, or raise this job's `timeout`.
+  #
+  # A standard's `run` reports its number by printing a line:
+  #   DISCERN_METRIC <name> <number>
+  # (the LAST such line wins). There is no built-in or special standard — coverage
+  # is just the conventional name for one. None are configured by default;
+  # uncomment an example to enable it.
+  #
+  # Captured a gain? `discern standards --pin` tightens each improved limit to the
+  # value just measured and commits it — the way to tighten a standard, never a
+  # hand-edit (which can't tell a real gain from a quiet loosening).
+  # ─────────────────────────────────────────────────────────────────────────────
 
-# Coverage — keep line coverage at or above a rising floor:
-# [standards.coverage]
-# direction = "up"
-# limit     = 80
-# run       = "your-coverage-tool"   # must emit: DISCERN_METRIC coverage <percent>
-#
-# Bundle size — a raw count is right here: shipped bytes are a true budget, they
-# don't grow just because the repo does. Keep the artifact under a falling ceiling:
-# [standards.bundle]
-# metric    = "bundle_bytes"
-# direction = "down"
-# limit     = 500000
-# run       = "printf 'DISCERN_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
-#
-# Lint density — a RATE, for a count that WOULD grow with the project. Divide by a
-# built-in extent so adding clean code never breaches it, only nittier code does:
-# [standards.lint_density]
-# metric    = "warnings"
-# direction = "down"
-# per       = { lines = "src/**" }   # discern counts the lines itself
-# scale     = 1000                   # express "warnings per 1,000 lines"
-# limit     = 5
-# run       = "your-linter --count"  # must emit: DISCERN_METRIC warnings <count>
+  # Coverage — keep line coverage at or above a rising floor:
+  # [standards.coverage]
+  # direction = "up"
+  # limit     = 80
+  # run       = "your-coverage-tool"   # must emit: DISCERN_METRIC coverage <percent>
+  #
+  # Bundle size — a raw count is right here: shipped bytes are a true budget, they
+  # don't grow just because the repo does. Keep the artifact under a falling ceiling:
+  # [standards.bundle]
+  # metric    = "bundle_bytes"
+  # direction = "down"
+  # limit     = 500000
+  # run       = "printf 'DISCERN_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
+  #
+  # Lint density — a RATE, for a count that WOULD grow with the project. Divide by a
+  # built-in extent so adding clean code never breaches it, only nittier code does:
+  # [standards.lint_density]
+  # metric    = "warnings"
+  # direction = "down"
+  # per       = { lines = "src/**" }   # discern counts the lines itself
+  # scale     = 1000                   # express "warnings per 1,000 lines"
+  # limit     = 5
+  # run       = "your-linter --count"  # must emit: DISCERN_METRIC warnings <count>
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [checkpoints.<name>] — change-triggered review rules. A deterministic trigger
-# decides when a diff makes a named criterion relevant; the agent judges the
-# criterion and records its conclusion, which travels with the gate's results
-# as agent judgment, kept distinct from machine results. The configuration that
-# governs an effort is the one at its merge-base with the trunk, so editing
-# these tables on a branch never changes that branch's own gate. None
-# configured means none fire.
-#
-# Each [checkpoints.<name>] table declares one:
-#   scope      selector: a configured [scopes.<name>] whose paths choose the
-#              matched set (one selector — use scope OR paths, never both)
-#   paths      selector: globs choosing the matched set (same dialect as scopes)
-#   unless_changed
-#              hold fire when any changed path matches one of these — each
-#              entry a glob, or a configured scope name ("flag this change
-#              class unless its counterpart moved too")
-#   min_changed_files
-#              fire only when at least this many matched files changed
-#   deletion_dominant
-#              fire only when removals clearly outweigh additions in the
-#              matched change (a big cut earns a look; an ordinary edit or a
-#              balanced refactor does not)
-#   similar_new_file
-#              fire only when the change adds a file whose name closely
-#              resembles an existing sibling in the same directory — the
-#              signature of a parallel implementation growing beside the
-#              original
-#   when       executable escape hatch for conditions the fields above cannot
-#              express: a command run pre-flight with a short fixed timeout.
-#              Exit 0 fires the trigger, exit 1 passes, and any other exit or
-#              a timeout fails open (no fire) with an advisory. It may print
-#              `DISCERN_MATCH <path>` lines to declare the matched paths
-#              precisely; with selectors present, they pre-scope the diff and
-#              `when` decides firing.
-#   mode       "stop" (the default): `discern done` refuses to run the gate
-#              until the agent declares the criterion met, or unmet with a
-#              short rationale. "advise": delivered as an advisory instead;
-#              never blocks.
-#   criterion  the judgment prose the agent evaluates against the matched
-#              change. Required for your own checkpoints; a table whose <name>
-#              is a shipped built-in id inherits its criterion.
-#   teach      optional lesson prose carried into renderings: why the
-#              criterion matters and what good looks like.
-# ─────────────────────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # [checkpoints.<name>] — change-triggered review rules. A deterministic trigger
+  # decides when a diff makes a named criterion relevant; the agent judges the
+  # criterion and records its conclusion, which travels with the gate's results
+  # as agent judgment, kept distinct from machine results. The configuration that
+  # governs an effort is the one at its merge-base with the trunk, so editing
+  # these tables on a branch never changes that branch's own gate. None
+  # configured means none fire.
+  #
+  # Each [checkpoints.<name>] table declares one:
+  #   scope      selector: a configured [scopes.<name>] whose paths choose the
+  #              matched set (one selector — use scope OR paths, never both)
+  #   paths      selector: globs choosing the matched set (same dialect as scopes)
+  #   unless_changed
+  #              hold fire when any changed path matches one of these — each
+  #              entry a glob, or a configured scope name ("flag this change
+  #              class unless its counterpart moved too")
+  #   min_changed_files
+  #              fire only when at least this many matched files changed
+  #   deletion_dominant
+  #              fire only when removals clearly outweigh additions in the
+  #              matched change (a big cut earns a look; an ordinary edit or a
+  #              balanced refactor does not)
+  #   similar_new_file
+  #              fire only when the change adds a file whose name closely
+  #              resembles an existing sibling in the same directory — the
+  #              signature of a parallel implementation growing beside the
+  #              original
+  #   when       executable escape hatch for conditions the fields above cannot
+  #              express: a command run pre-flight with a short fixed timeout.
+  #              Exit 0 fires the trigger, exit 1 passes, and any other exit or
+  #              a timeout fails open (no fire) with an advisory. It may print
+  #              `DISCERN_MATCH <path>` lines to declare the matched paths
+  #              precisely; with selectors present, they pre-scope the diff and
+  #              `when` decides firing.
+  #   mode       "stop" (the default): `discern done` refuses to run the gate
+  #              until the agent declares the criterion met, or unmet with a
+  #              short rationale. "advise": delivered as an advisory instead;
+  #              never blocks.
+  #   criterion  the judgment prose the agent evaluates against the matched
+  #              change. Required for your own checkpoints; a table whose <name>
+  #              is a shipped built-in id inherits its criterion.
+  #   teach      optional lesson prose carried into renderings: why the
+  #              criterion matters and what good looks like.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  # Shipped built-ins: referencing an id enables it — the trigger, mode, and
+  # criterion come from the built-in, and any field set here overrides its
+  # default (retune with min_changed_files, retarget with paths/scope, soften
+  # with mode = "advise"). Delete or comment out an entry to disable it.
+  # Overriding `criterion` replaces the shipped judgment with your own authored
+  # prose.
+  #
+  # Four stop checkpoints guard the knowledge estate — the surfaces that steer
+  # every future agent session. `discern done` pauses before the gate until the
+  # agent declares each fired criterion met, or unmet with a rationale:
+  [checkpoints.map-focus]           # a broad map change must reduce future reading
+  [checkpoints.instruction-economy] # always-loaded prose pays rent in every session
+  [checkpoints.skills-playbook]     # a skill is an executable playbook
+  [checkpoints.gotchas-playbook]    # failure memory stays symptom → cause → recovery
+  # (quiet until [project].gotchas_doc names a doc)
+
+  # Five advisory checkpoints read the shape of the change — never blocking,
+  # delivered with the gate's advisories when their pattern appears:
+  [checkpoints.deletion-heavy-change]   # a substantial cut: proven dead, recoverable?
+  [checkpoints.parallel-implementation] # a name-similar sibling file appeared
+  [checkpoints.effort-sprawl]           # one effort, or several riding along?
+  [checkpoints.docs-drift]              # code moved and the map did not
+  [checkpoints.commit-story]            # a large change: do the messages tell the why?
+
+# Stack-aware examples, inert until you name your paths: discern never guesses
+# your stack, so these ship commented out with the criterion already written.
+# Uncomment one, point its globs at your real files, and it governs new
+# efforts once the change lands on the trunk.
+
+# A new dependency is a liability the owner carries — license, supply chain,
+# upkeep. Point `paths` at your manifest(s), for example:
+#   package.json (JS/TS)        Cargo.toml (Rust)     go.mod (Go)
+#   pyproject.toml (Python)     Gemfile (Ruby)        composer.json (PHP)
+#   pom.xml, build.gradle* (JVM)                      *.csproj (.NET)
+# [checkpoints.new-dependency]
+# paths = ["package.json"]
+# mode  = "advise"
+# criterion = """
+# This change edits a dependency manifest. For each dependency added or
+# upgraded: is it worth the liability it adds — license fit, supply-chain
+# exposure, maintenance horizon — against writing the small part you need?
+# State what it buys.
+# """
+
+# A deleted or skipped test is a lowered guard. Point `paths` at your test
+# tree(s); deletion dominance keeps ordinary test refactors quiet:
+# [checkpoints.shrinking-tests]
+# paths             = ["tests/**"]
+# deletion_dominant = true
+# mode              = "advise"
+# criterion = """
+# This change removes clearly more test than it adds. Is every removed or
+# skipped case re-covered elsewhere, or is the narrowed protection deliberate?
+# Say which in the commit body — a guard lowered silently is how regressions
+# return.
+# """
+
+# Some regions deserve a stated risk before anything lands — authentication,
+# billing, data migrations, anything where a mistake leaks or breaks. Name
+# the regions the owner watches; `stop` (the default) holds `discern done`
+# until the agent declares its conclusion:
+# [checkpoints.sensitive-paths]
+# paths = ["src/auth/**", "migrations/**"]
+# criterion = """
+# This change touches a region the owner marked sensitive. What could break
+# or leak if this is wrong, what protects against that, and what should a
+# reviewer look at first?
+# """
 
 # A project-authored checkpoint: when the interface changed, its contract docs
 # were either updated too or consciously judged unaffected.

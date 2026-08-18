@@ -618,3 +618,43 @@ Deno.test("done: an unrelated trunk update preserves a conclusion; a matched-bas
     assertEquals(parseJson(reopened.stdout).error, AWAITING_DECLARATION_SLUG);
   });
 });
+
+Deno.test("done: a fresh install's shipped defaults govern out of the box", async () => {
+  await withTempDir(async (dir) => {
+    // The template's own activation, untouched: this is day one after setup.
+    await scaffoldEngine(dir, { keepCheckpoints: true });
+    await gitInit(dir);
+    // Grow the always-loaded instructions — the knowledge-estate moment the
+    // shipped `instruction-economy` stop guards.
+    await Deno.mkdir(join(dir, "discern"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "discern", "instructions.md"),
+      "# Project instructions\n\nAlways run the slow suite twice.\n",
+    );
+
+    const refused = await runAgent(dir, ["done", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    const env = parseJson(refused.stdout);
+    assertEquals(env.error, AWAITING_DECLARATION_SLUG);
+    assertEquals(env.data.checkpoints.outstanding?.length, 1);
+    assertEquals(
+      env.data.checkpoints.outstanding?.[0]?.id,
+      "instruction-economy",
+    );
+    assertStringIncludes(env.message, "always-loaded agent instructions");
+
+    // Declaring met clears the interlock and the same invocation proceeds
+    // into the gate: whatever it finds next, it is no longer the declaration.
+    const declared = await runAgent(
+      dir,
+      ["done", "--met", "instruction-economy", "--json"],
+    );
+    const after = parseJson(declared.stdout);
+    assertEquals(after.data.checkpoints.declared_met?.length, 1);
+    assertEquals(
+      after.data.checkpoints.declared_met?.[0]?.id,
+      "instruction-economy",
+    );
+    assert(after.error !== AWAITING_DECLARATION_SLUG, declared.output);
+  });
+});

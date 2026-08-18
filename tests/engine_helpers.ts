@@ -23,7 +23,11 @@ import { ensureDir } from "@std/fs";
 import { assembleInitPlan } from "../src/commands/setup.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
-import { TomlFormatError, writeDiscernToml } from "../src/lib/tidy_format.ts";
+import {
+  formatTomlText,
+  TomlFormatError,
+  writeDiscernToml,
+} from "../src/lib/tidy_format.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { ensureDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
@@ -218,7 +222,11 @@ export async function engineEnv(
  */
 export async function scaffoldEngine(
   dir: string,
-  opts: { bootstrapped?: boolean; agents?: AgentName[] } = {},
+  opts: {
+    bootstrapped?: boolean;
+    agents?: AgentName[];
+    keepCheckpoints?: boolean;
+  } = {},
 ): Promise<void> {
   const plan = await assembleInitPlan({
     templatesDir: REAL_TEMPLATES,
@@ -243,6 +251,43 @@ export async function scaffoldEngine(
   if (opts.bootstrapped !== false) {
     await markBootstrapped(join(dir, "discern.toml"));
   }
+  // The shipped template activates the built-in checkpoints, so a fresh
+  // scaffold's knowledge-estate edits meet the stop interlock at `done`.
+  // Unrelated engine tests want a quiet gate (the same accommodation as
+  // bootstrapping above); the fresh-install defaults are exercised where a
+  // test passes `keepCheckpoints` deliberately.
+  if (opts.keepCheckpoints !== true) {
+    await neutralizeSeededCheckpoints(join(dir, "discern.toml"));
+  }
+}
+
+/**
+ * Comment out every active `[checkpoints.<id>]` table — header and any body
+ * lines — in a scaffolded config, leaving comments and blank lines as they
+ * are. The rewrite is text-level and shape-agnostic, so a future template
+ * entry that grows fields is neutralized with its header rather than leaking
+ * orphaned keys into the preceding table.
+ */
+async function neutralizeSeededCheckpoints(path: string): Promise<void> {
+  const lines = (await Deno.readTextFile(path)).split("\n");
+  let inCheckpoint = false;
+  const out = lines.map((line) => {
+    if (/^\s*\[/.test(line)) {
+      inCheckpoint = /^\s*\[checkpoints[.\]]/.test(line);
+    }
+    const body = line.trim();
+    if (inCheckpoint && body !== "" && !body.startsWith("#")) {
+      return line.replace(/^(\s*)/, "$1# ");
+    }
+    return line;
+  });
+  // Re-canonicalize: commenting the tables changes what the depth indenter
+  // attaches surrounding comments to, and a scaffold must be the formatter's
+  // fixpoint or every `done` fails on fix-stage tree drift.
+  await Deno.writeTextFile(
+    path,
+    await formatTomlText(path, out.join("\n")),
+  );
 }
 
 /** One keyed registry path repointed at a non-default location. */
