@@ -40,7 +40,11 @@ import {
   evaluateStructuralTrigger,
   resolveTriggerOutcome,
 } from "./triggers.ts";
-import type { ResolvedCheckpoint, WhenOutcome } from "./types.ts";
+import type {
+  ResolvedCheckpoint,
+  StructuralTriggerOutcome,
+  WhenOutcome,
+} from "./types.ts";
 import { runWhenCommand } from "./when.ts";
 
 /** One checkpoint as served to the agent: the judgment and its evidence. */
@@ -135,47 +139,101 @@ function activeSetClause(active: readonly string[]): string {
     : `the active set is: ${active.join(", ")}`;
 }
 
+/** One governing checkpoint's structural preview against the current diff:
+ * the resolved definition beside its trigger outcome. */
+export interface CheckpointPreviewEntry {
+  definition: ResolvedCheckpoint;
+  outcome: StructuralTriggerOutcome;
+}
+
 /**
- * The dry-run preview of the checkpoint gate: which governing checkpoints
+ * The structural checkpoint preview every previewing surface projects from —
+ * `done --dry-run`, `prepare`, `status`, and the `checkpoints` verb all
+ * consume this one shape, so they can never disagree about what would fire.
+ */
+export interface CheckpointPreview {
+  /** The policy identity (the merge-base commit), when it resolved. */
+  policyCommit?: string;
+  /** The governing checkpoints, resolved. */
+  checkpoints: readonly ResolvedCheckpoint[];
+  /** Plain-language fail-open accounts (policy or diff trouble). */
+  advisories: string[];
+  /** One entry per governing checkpoint; absent entirely when the effort
+   * diff could not be read (nothing can fire on unknowable state). */
+  entries?: CheckpointPreviewEntry[];
+}
+
+/**
+ * The read-only preview of the checkpoint gate: which governing checkpoints
  * STRUCTURALLY hold against the current diff, without running any `when`
  * command and without touching the episode store — a preview must change
  * nothing and spawn nothing. A checkpoint whose `when` condition is still
  * pending is reported honestly as "may require".
  */
+export async function previewCheckpoints(
+  root: string,
+  config: DiscernConfig,
+): Promise<CheckpointPreview> {
+  const policy = await loadGoverningPolicy(root, config);
+  const preview: CheckpointPreview = {
+    ...(policy.policyCommit === undefined
+      ? {}
+      : { policyCommit: policy.policyCommit }),
+    checkpoints: policy.checkpoints,
+    advisories: [...policy.advisories],
+  };
+  if (policy.policyCommit === undefined || policy.checkpoints.length === 0) {
+    return preview;
+  }
+  const diff = await collectEffortDiff(root, policy.policyCommit);
+  if (diff === undefined) {
+    preview.advisories.push(
+      "the effort diff could not be read; no checkpoint fires.",
+    );
+    return preview;
+  }
+  preview.entries = policy.checkpoints.map((def) => ({
+    definition: def,
+    outcome: evaluateStructuralTrigger(def, diff),
+  }));
+  return preview;
+}
+
+/** The preview's holding entries — what would fire (or, `when` pending, may). */
+export function previewHoldingEntries(
+  preview: CheckpointPreview,
+): (CheckpointPreviewEntry & { outcome: { holds: true } })[] {
+  return (preview.entries ?? []).filter(
+    (entry): entry is CheckpointPreviewEntry & { outcome: { holds: true } } =>
+      entry.outcome.holds,
+  );
+}
+
+/** Project a preview onto the gate plan's note strings (`done --dry-run`). */
+export function checkpointPreviewNotes(preview: CheckpointPreview): string[] {
+  const notes = preview.advisories.map(
+    (advisory) => `Checkpoint advisory: ${advisory}`,
+  );
+  for (const { definition, outcome } of previewHoldingEntries(preview)) {
+    const claim = definition.mode === "advise"
+      ? "its advisory will be served"
+      : "a declared conclusion will be required";
+    const qualifier = outcome.whenPending
+      ? ` if its when command fires (${outcome.matched.length} matched)`
+      : ` (${outcome.matched.length} matched)`;
+    notes.push(
+      `Checkpoint '${definition.id}' (${definition.mode}): ${claim} at done${qualifier}.`,
+    );
+  }
+  return notes;
+}
+
+/** Compute and project the preview in one call — the `done --dry-run` seam. */
 export async function previewCheckpointNotes(
   root: string,
   config: DiscernConfig,
 ): Promise<string[]> {
-  const policy = await loadGoverningPolicy(root, config);
-  const notes = policy.advisories.map(
-    (advisory) => `Checkpoint advisory: ${advisory}`,
-  );
-  if (policy.policyCommit === undefined || policy.checkpoints.length === 0) {
-    return notes;
-  }
-  const diff = await collectEffortDiff(root, policy.policyCommit);
-  if (diff === undefined) {
-    notes.push(
-      "Checkpoint advisory: the effort diff could not be read; no checkpoint fires.",
-    );
-    return notes;
-  }
-  for (const def of policy.checkpoints) {
-    const structural = evaluateStructuralTrigger(def, diff);
-    if (!structural.holds) {
-      continue;
-    }
-    const claim = def.mode === "advise"
-      ? "its advisory will be served"
-      : "a declared conclusion will be required";
-    const qualifier = structural.whenPending
-      ? ` if its when command fires (${structural.matched.length} matched)`
-      : ` (${structural.matched.length} matched)`;
-    notes.push(
-      `Checkpoint '${def.id}' (${def.mode}): ${claim} at done${qualifier}.`,
-    );
-  }
-  return notes;
+  return checkpointPreviewNotes(await previewCheckpoints(root, config));
 }
 
 /**
