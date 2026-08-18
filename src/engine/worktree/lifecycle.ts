@@ -129,7 +129,11 @@ import {
   type StepResult,
   verbatimStepLabel,
 } from "../../shared/result.ts";
-import { observeResult } from "../../shared/result_capture.ts";
+import {
+  observeCheckpointActivity,
+  observeResult,
+} from "../../shared/result_capture.ts";
+import { declarationIsCurrent, readEpisodes } from "../checkpoints/episodes.ts";
 import type {
   AcceptanceEvidenceData,
   AcceptData,
@@ -2307,6 +2311,24 @@ async function executeAcceptPlan(
         "made against the current conclusions.",
     );
   }
+  // Observation, never a gate: which episodes will end this effort still
+  // awaiting a conclusion. Every governing stop conclusion was verified
+  // current just above, so anything still awaiting sits outside the governing
+  // stop set — a checkpoint edited away or re-moded since its episode opened.
+  // Read here while the worktree's store exists; recorded (with the
+  // authorized variances) only once the landing transition completes below.
+  const abandonedEpisodes = await (async (): Promise<{ id: string }[]> => {
+    const read = await readEpisodes(ctx.cwd);
+    if (read.status !== "ok") {
+      return []; // fail open: unreadable state observes nothing
+    }
+    return Object.values(read.episodes)
+      .filter((episode) =>
+        episode.declaration === undefined || !declarationIsCurrent(episode)
+      )
+      .map((episode) => ({ id: episode.checkpoint }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  })();
 
   await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
   const expired = await landingAuthorityExpiry(
@@ -2492,6 +2514,18 @@ async function executeAcceptPlan(
     );
   }
   progress.landing.trunk_landed = true;
+  // The landing is now fact, so its checkpoint observations are too: each
+  // owner-authorized variance (id and fingerprints only — the rationale is
+  // Proof evidence, never Logbook metadata) and each episode this effort ends
+  // while it still awaits a conclusion.
+  observeCheckpointActivity({
+    variances: variances.map((variance) => ({
+      id: variance.checkpoint,
+      definition: variance.definition_hash,
+      subject: variance.subject,
+    })),
+    abandoned: abandonedEpisodes,
+  });
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
   done("git", BUILT_IN_STEP_LABELS.fastForwardTrunk);
 

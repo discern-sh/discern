@@ -303,6 +303,10 @@ export type ReconcileEpisodeResult =
     outcome: "opened" | "reopened" | "carried";
     /** True when an unparseable store was rebuilt from empty on this write. */
     recovered: boolean;
+    /** On a reopen, when the replaced subject was last served (its reopen or
+     * open time) — the serving a declaration in this same invocation actually
+     * responds to, which the reopened episode's own timestamps no longer say. */
+    previousServedAt?: string;
   }
   | { ok: false; reason: string };
 
@@ -371,6 +375,9 @@ export async function reconcileEpisode(
     episode,
     outcome: existing === undefined ? "opened" : "reopened",
     recovered: store.recovered,
+    ...(existing === undefined
+      ? {}
+      : { previousServedAt: existing.reopenedAt ?? existing.openedAt }),
   };
 }
 

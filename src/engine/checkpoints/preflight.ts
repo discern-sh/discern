@@ -25,6 +25,10 @@
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { CheckpointMode } from "../../shared/checkpoints.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
+import {
+  type CheckpointDeclarationObservation,
+  observeCheckpointActivity,
+} from "../../shared/result_capture.ts";
 import { collectEffortDiff } from "./diff.ts";
 import {
   type CheckpointEpisode,
@@ -289,6 +293,7 @@ export async function runCheckpointPreflight(
   request: DeclarationRequest,
   now?: string,
 ): Promise<CheckpointPreflightOutcome> {
+  const at = now ?? new Date().toISOString();
   const policy = await loadGoverningPolicy(root, config);
   const advisories = [...policy.advisories];
   const preflight: CheckpointPreflight = {
@@ -346,6 +351,13 @@ export async function runCheckpointPreflight(
   // declaration must never bind to a subject the engine only guessed at.
   const episodes = new Map<string, CheckpointEpisode>();
   const interlocked: ServedCheckpoint[] = [];
+  // The serving each checkpoint's next declaration responds to: how this run's
+  // reconciliation concluded, and when that subject was served — observation
+  // facts the logbook records beside the interlock, never inputs to it.
+  const servings = new Map<
+    string,
+    { outcome: "opened" | "reopened" | "carried"; servedAt: string }
+  >();
   for (const [id, serving] of fired) {
     const def = policy.checkpoints.find((c) => c.id === id);
     if (def === undefined) {
@@ -353,6 +365,9 @@ export async function runCheckpointPreflight(
     }
     if (def.mode === "advise") {
       preflight.advise.push(serving);
+      // Advise servings write no episode; the serving itself is the recorded
+      // observation, so their firings still feed the observed economics.
+      observeCheckpointActivity({ advise: [{ id }] });
       continue;
     }
     const definitionHash = await checkpointDefinitionHash(def);
@@ -376,7 +391,7 @@ export async function runCheckpointPreflight(
         subject: subject.subject.fingerprint,
         matchedPaths: serving.matched,
       },
-      now,
+      at,
     );
     if (!reconciled.ok) {
       advisories.push(
@@ -388,6 +403,38 @@ export async function runCheckpointPreflight(
       advisories.push(
         "the checkpoint-episode record did not parse and was rebuilt; earlier conclusions must be declared again.",
       );
+    }
+    const observed = {
+      id,
+      definition: definitionHash,
+      subject: subject.subject.fingerprint,
+    };
+    switch (reconciled.outcome) {
+      case "opened":
+        observeCheckpointActivity({ fired: [observed] });
+        servings.set(id, {
+          outcome: "opened",
+          servedAt: reconciled.episode.openedAt,
+        });
+        break;
+      case "reopened":
+        observeCheckpointActivity({ reopened: [observed] });
+        servings.set(id, {
+          outcome: "reopened",
+          // The serving the agent actually responded to is the one this
+          // reconciliation replaced; the reopened episode's own reopen time is
+          // this very instant.
+          servedAt: reconciled.previousServedAt ??
+            reconciled.episode.reopenedAt ?? reconciled.episode.openedAt,
+        });
+        break;
+      case "carried":
+        servings.set(id, {
+          outcome: "carried",
+          servedAt: reconciled.episode.reopenedAt ??
+            reconciled.episode.openedAt,
+        });
+        break;
     }
     episodes.set(id, reconciled.episode);
     interlocked.push(serving);
@@ -458,9 +505,35 @@ export async function runCheckpointPreflight(
           definitionHash: episode.definitionHash,
           subject: episode.subject,
         };
-      const recorded = await recordDeclaration(root, evidence, id, now);
+      const recorded = await recordDeclaration(root, evidence, id, at);
       if (!recorded.ok) {
         return { kind: "invalid", message: recorded.reason };
+      }
+      if (recorded.changed) {
+        // Observation only, and metadata only: the conclusion, whether this
+        // same invocation reopened the subject first (a relevant revision
+        // preceded the declaration), the fingerprints, and the elapsed time
+        // since the serving. The unmet rationale never leaves the episode
+        // store and the Proof.
+        const serving = servings.get(id);
+        const servedAt = serving?.servedAt ??
+          episode.reopenedAt ?? episode.openedAt;
+        const declaration: CheckpointDeclarationObservation = {
+          id,
+          conclusion,
+          revised: serving?.outcome === "reopened",
+          definition: episode.definitionHash,
+          subject: episode.subject,
+        };
+        const servedMs = Date.parse(servedAt);
+        const declaredMs = Date.parse(at);
+        if (Number.isFinite(servedMs) && Number.isFinite(declaredMs)) {
+          declaration.elapsed_ms = Math.max(
+            0,
+            Math.round(declaredMs - servedMs),
+          );
+        }
+        observeCheckpointActivity({ declared: [declaration] });
       }
       episodes.set(id, recorded.episode);
       preflight.recorded.push(id);
