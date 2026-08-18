@@ -88,7 +88,7 @@ A read-only finding surface: [coupling](../20-quality-gate/coupling.md), [patter
 
 ### Checkpoint
 
-One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic criterion, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion; a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The definitions governing an effort come from its merge-base with the [trunk](#trunk), never the branch's own edits. `discern checkpoints` reports the governing policy, episode state, and a structural preview, read-only ([ADR 0299](../_adr/0299-checkpoint-read-surfaces-mirror-the-gate-without-effects.md)).
+One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic criterion, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion; a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The definitions governing an effort are read at its merge-base with the [trunk](#trunk); a branch's own edit takes effect only after it lands. `discern checkpoints` reports the governing policy, episode state, and a structural preview, read-only ([ADR 0299](../_adr/0299-checkpoint-read-surfaces-mirror-the-gate-without-effects.md)).
 
 ### Coupling
 
