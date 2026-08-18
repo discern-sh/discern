@@ -8210,6 +8210,12 @@
                               "reopened"
                             ]
                           },
+                          "definition_hash": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "string"
+                          },
                           "matched": {
                             "type": "array",
                             "items": {
@@ -8254,6 +8260,8 @@
                         },
                         "required": [
                           "state",
+                          "definition_hash",
+                          "subject",
                           "matched",
                           "opened_at"
                         ]
@@ -8287,6 +8295,12 @@
                               "reopened"
                             ]
                           },
+                          "definition_hash": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "string"
+                          },
                           "matched": {
                             "type": "array",
                             "items": {
@@ -8331,6 +8345,8 @@
                         },
                         "required": [
                           "state",
+                          "definition_hash",
+                          "subject",
                           "matched",
                           "opened_at"
                         ]

@@ -2550,6 +2550,8 @@ export type DiscernCheckpointsResult = {
           | "declared_met"
           | "declared_unmet"
           | "reopened";
+        definition_hash: string;
+        subject: string;
         matched: Array<string>;
         opened_at: string;
         reopened_at?: string;
@@ -2570,6 +2572,8 @@ export type DiscernCheckpointsResult = {
           | "declared_met"
           | "declared_unmet"
           | "reopened";
+        definition_hash: string;
+        subject: string;
         matched: Array<string>;
         opened_at: string;
         reopened_at?: string;

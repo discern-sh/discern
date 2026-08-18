@@ -141,6 +141,8 @@ function episodeData(
     : "reopened";
   return {
     state,
+    definition_hash: episode.definitionHash,
+    subject: episode.subject,
     matched: [...episode.matchedPaths],
     opened_at: episode.openedAt,
     ...(episode.reopenedAt === undefined

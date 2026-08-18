@@ -30,6 +30,7 @@ aliases:
   - discern_docs
   - discern_doctor
   - discern_improvement
+  - discern_checkpoints
 ---
 
 # Model Context Protocol tools and result contracts
@@ -59,6 +60,7 @@ Choose among terminal, Markdown, JSON, and MCP delivery through [Result formats 
 | `discern_docs`        | Index, search, or read discern's bundled public manual.                                                | Read-only, idempotent, and project-independent.                      |
 | `discern_doctor`      | Check config, commands, repository shape, and integration health.                                      | Read-only and idempotent.                                            |
 | `discern_improvement` | Rank the next improvement and return the supporting health audit.                                      | Read-only and idempotent.                                            |
+| `discern_checkpoints` | Report the governing checkpoints, each episode's declaration state, and a structural trigger preview.  | Read-only and idempotent.                                            |
 
 Every project-operating tool accepts an optional `path` that selects the discern project or worktree for that call. Pass an absolute filesystem path anywhere inside the intended checkout, including another repository in a multi-repo workspace. discern resolves the project root. Omit `path` to use the checkout the MCP server currently targets. Relative paths are rejected because the server's process directory is not the caller's directory. `discern_docs` needs no project. After a successful `discern_start`, later calls use the new worktree by default. After `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
 

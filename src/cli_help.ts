@@ -108,6 +108,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
     commands: [
       "improvement",
       "standards",
+      "checkpoints",
       "skills",
       "impact",
       "coupling",

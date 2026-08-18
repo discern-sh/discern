@@ -214,6 +214,18 @@ Rendered line:
 
 > `discern done` runs the project's final quality check. On clean saved work, a pass records Proof for the exact version and declared results.
 
+## `checkpoints-read-surface`
+
+- Relevance: Evergreen — the second quality lesson.
+- Predicate: —
+- Since: —
+- Teaches: `checkpoints`
+- Follow-through: `verb-run-after-tip` (`checkpoints`)
+
+Rendered line:
+
+> `discern checkpoints` shows which judgment stops govern this task, each recorded answer, and what the change in hand would set off. Read-only.
+
 ## `standards-first-rule`
 
 - Relevance: No quality rules are configured.

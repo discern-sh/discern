@@ -782,6 +782,11 @@ export type CheckpointEpisodeDeclarationData = z.infer<
  * declaration bound to it. */
 export const CheckpointEpisodeDataSchema = z.strictObject({
   state: z.enum(CHECKPOINT_EPISODE_STATES),
+  /** The resolved-definition hash the episode is about. */
+  definition_hash: z.string(),
+  /** The subject fingerprint the episode is about — what a declaration binds
+   * to, and what a variance authorization later names. */
+  subject: z.string(),
   /** The matched paths the episode recorded — the subject's evidence. */
   matched: z.array(z.string()),
   opened_at: z.string(),

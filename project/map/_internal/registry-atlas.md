@@ -51,7 +51,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 178     | "Advisory"       | node `hints`                |
-| [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
+| [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 43      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
 | [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                               | `art/terminal/triangle.ts#DISCERN_PRODUCT_TRIANGLE_ART`                           | 2       | —                | —                           |
@@ -68,7 +68,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 42      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 129     | —                | —                           |
-| [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 44      | —                | —                           |
+| [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 45      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 45      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
@@ -1315,7 +1315,7 @@ The advisory hint registry: every hint string enters results through it.
 The Desk tip registry: every teaching line the Desk can show enters through it, in curriculum order.
 
 - Source: `src/shared/tips.ts` — `TIPS`
-- Members: 42
+- Members: 43
   - `desk-is-home`
   - `status-orients-anywhere`
   - `start-isolates-a-task`
@@ -1333,6 +1333,7 @@ The Desk tip registry: every teaching line the Desk can show enters through it, 
   - `improvement-next-action`
   - `doctor-first-diagnostic`
   - `done-records-proof`
+  - `checkpoints-read-surface`
   - `standards-first-rule`
   - `standards-on-demand`
   - `standards-pin-gain`
@@ -1766,6 +1767,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `proof`
   - `proof-notes`
   - `unchanged-tree-rerun`
+  - `checkpoints`
   - `standards`
   - `standards-direction`
   - `standards-metric-protocol`
@@ -1775,7 +1777,6 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `standards-on-demand`
   - `standards-pin`
   - `standards-escalation`
-  - `checkpoints`
   - `worktrees`
   - `start`
   - `update`
@@ -1878,13 +1879,14 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
 The commercially ordered transposition of the feature registry: human value and the reason it follows, with explicit feature and public-claim traceability.
 
 - Source: `scripts/feature_registry.ts` — `BENEFIT_CANON`
-- Members: 44
+- Members: 45
   - `shape-substantial-work`
   - `parallel-work-on-one-machine`
   - `wait-without-relay`
   - `compose-staged-work`
   - `resume-later`
   - `reduce-routine-review`
+  - `judgment-at-the-change`
   - `decisions-in-one-view`
   - `useful-failures-sooner`
   - `catch-related-files`

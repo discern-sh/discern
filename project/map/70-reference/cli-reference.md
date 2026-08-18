@@ -568,6 +568,16 @@ Usage: `discern standards [names...] [options]`
 | `--force`   | Run standards on a dirty worktree; intended only while authoring standards.                                                                                                                                         |
 | `--pin`     | Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate proof forward. Requires a clean worktree. |
 
+### `discern checkpoints`
+
+Report the checkpoint contract for this effort: the governing policy (each criterion, trigger, and mode), every episode's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded; a configured when command is reported as undecided.
+
+Usage: `discern checkpoints [options]`
+
+| Option   | Description                                        |
+| -------- | -------------------------------------------------- |
+| `--json` | Emit the result as a JSON DiscernResult on stdout. |
+
 ### `discern skills <subcommand>`
 
 Manage skills: list the effective set, or eject a built-in to customize it.

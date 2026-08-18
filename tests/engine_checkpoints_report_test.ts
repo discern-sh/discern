@@ -11,7 +11,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -218,6 +218,10 @@ Deno.test("checkpoints: the report follows the episode through awaiting, declare
     assertEquals(met?.declaration?.conclusion, "met");
     assertEquals(met?.declaration?.current, true);
     assertEquals(met?.variance_required, undefined);
+    // The episode names its binding — the subject a declaration binds to and
+    // a variance authorization later cites.
+    assert((met?.definition_hash ?? "").length > 0);
+    assert((met?.subject ?? "").length > 0);
     assertLacksHint(env, HINTS["checkpoints-declare"], { ids: ["api-review"] });
 
     // Declared unmet: variance required, rationale carried, review routed.
@@ -355,10 +359,10 @@ Deno.test("checkpoints: the markdown projection carries the declared vocabulary 
     );
     const r = await runAgent(wt, ["checkpoints", "--markdown"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "declared unmet");
-    assertStringIncludes(r.stdout, "owner variance required to land");
-    assertStringIncludes(r.stdout, why);
-    assertStringIncludes(r.stdout, "authorize each variance");
+    assertTerminalTextIncludes(r.stdout, "declared unmet");
+    assertTerminalTextIncludes(r.stdout, "owner variance required to land");
+    assertTerminalTextIncludes(r.stdout, why);
+    assertTerminalTextIncludes(r.stdout, "authorize each variance");
   });
 });
 

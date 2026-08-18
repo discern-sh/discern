@@ -49,6 +49,7 @@ const CMD = {
   patterns: discernCommand("patterns"),
   patternsStats: discernCommand("patterns", flag("stats")),
   improvement: discernCommand("improvement"),
+  checkpoints: discernCommand("checkpoints"),
   doctor: discernCommand("doctor"),
   done: discernCommand("done"),
   standards: discernCommand("standards"),
@@ -456,6 +457,21 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.done} runs the project's final quality check. On clean saved ` +
       "work, a pass records Proof for the exact version and declared results.",
+  }),
+
+  defineTip({
+    id: "checkpoints-read-surface",
+    when: "Evergreen — the second quality lesson.",
+    features: ["checkpoints"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["checkpoints"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.checkpoints} shows which judgment stops govern this task, each ` +
+      "recorded answer, and what the change in hand would set off. Read-only.",
   }),
 
   defineTip({
