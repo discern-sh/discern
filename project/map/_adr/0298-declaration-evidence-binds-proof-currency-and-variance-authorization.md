@@ -19,7 +19,7 @@ ADR 0293 fixed what a declaration is and that a declared-unmet conclusion needs 
 ## Consequences
 
 - The Proof's three evidence rows are now enforced, not just rendered: machine results bind through the tree, agent declarations through the evidence identity, and owner authority through consent and variances — each staling independently and honestly.
-- A green Proof with a declared-unmet conclusion is deliberately unlandable until the owner's one complete decision; the refusal serves the criterion, evidence, and rationale, so the decision needs no second retrieval.
+- A green Proof with a declared-unmet conclusion deliberately cannot land until the owner's one complete decision; the refusal serves the criterion, evidence, and rationale, so the decision needs no second retrieval.
 - Old markers without the evidence component keep their tree-only semantics until the next run rewrites them — a bounded compatibility window instead of a migration.
 - The evidence identity covers the whole store, so a conclusion for a checkpoint that no longer fires still counts toward currency. Harmless: reconciliation is idempotent, and the alternative (a fired-set projection) would let stale store entries drift unnoticed.
 
