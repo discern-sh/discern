@@ -34,7 +34,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
 | [`step-kinds`](#step-kinds--step-kinds)                                                                               | `src/shared/result.ts#STEP_KINDS`                                                 | 19      | —                | node `doctor`               |
 | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 33      | —                | node `plan-apply`           |
-| [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 15      | —                | surface `config`            |
+| [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 16      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
 | [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 13      | —                | —                           |
@@ -776,7 +776,7 @@ The stable kebab-case operation labels discern authors in plans and applied resu
 Every top-level table in the config schema.
 
 - Source: `src/shared/config_schema.ts` — `configSchema`
-- Members: 15
+- Members: 16
   - `meta`
   - `project`
   - `repository`
@@ -789,6 +789,7 @@ Every top-level table in the config schema.
   - `acceptance`
   - `worktree`
   - `standards`
+  - `checkpoints`
   - `gate`
   - `coupling`
   - `scripts`

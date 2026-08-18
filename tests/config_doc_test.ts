@@ -318,6 +318,9 @@ const FULL_FILL_DOC: DiscernConfigDoc = {
   standards: {
     r1: { direction: "up", limit: 1, run: "measure-r1" },
   },
+  checkpoints: {
+    k1: { paths: ["s1/**"], criterion: "The change is judged." },
+  },
 };
 
 /** The config-doc keys that are NOT discern.toml fills: install inputs and

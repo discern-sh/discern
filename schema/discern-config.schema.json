@@ -872,6 +872,74 @@
         "additionalProperties": false
       }
     },
+    "checkpoints": {
+      "default": {},
+      "description": "[checkpoints.<id>] — change-triggered review rules: a deterministic trigger chooses when a diff makes a criterion relevant, the agent judges the criterion and records a declaration, and the record travels with the gate's results. The configuration that governs an effort is the one at its merge-base with the trunk, so a branch editing these tables does not change its own gate. None configured means none fire.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "description": "Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; use one selector, not both.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "paths": {
+            "description": "Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. Use `scope` or `paths`, not both. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unless_changed": {
+            "description": "The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express \"this change class is fine when its counterpart moved too\". Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "min_changed_files": {
+            "description": "Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "deletion_dominant": {
+            "description": "Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut is reviewed and an ordinary edit or balanced refactor is not.",
+            "type": "boolean"
+          },
+          "similar_new_file": {
+            "description": "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory (a copy/version/suffix variant) — the signature of a parallel implementation growing beside the original.",
+            "type": "boolean"
+          },
+          "when": {
+            "description": "Executable escape hatch for conditions the structured fields cannot express. The command runs pre-flight in the working tree with a short fixed timeout: exit 0 fires the trigger, exit 1 passes, and any other exit or a timeout fails open (no fire) with an advisory. It may print `DISCERN_MATCH <path>` lines to declare the exact matched paths; combined with selectors, the selectors pre-scope the diff and `when` decides firing.",
+            "type": "string"
+          },
+          "mode": {
+            "description": "\"stop\" (the default): the gate refuses to run until the agent declares the criterion met or unmet. \"advise\": the criterion and its evidence are delivered through the advisory channel and nothing blocks.",
+            "type": "string",
+            "enum": [
+              "stop",
+              "advise"
+            ]
+          },
+          "criterion": {
+            "description": "The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint; a table whose <id> names a shipped built-in inherits its criterion and may override it here.",
+            "type": "string"
+          },
+          "teach": {
+            "description": "Optional lesson prose carried into renderings: why the criterion matters and what good looks like.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "gate": {
       "description": "Ergonomics for the parallel gate stages (and scope gates). These affect how `discern done` runs its concurrent jobs.",
       "default": {},

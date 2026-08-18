@@ -6,7 +6,8 @@
  *   - `discern setup --config <file>` — drives a fresh, non-interactive install.
  *   - a preset's `preset.json` — the config half of an `preset` overlay.
  *
- * Both apply the document's `jobs` / `scopes` / `generated` / `standards` to
+ * Both apply the document's `jobs` / `scopes` / `generated` / `standards` /
+ * `checkpoints` to
  * a project's `discern.toml` through the comment-preserving `TomlEditor`.
  * Because this shape is a published contract (a JSON Schema ships at
  * `schema/discern-setup-config.schema.json`), it carries an optional `version`
@@ -21,6 +22,10 @@ import {
   type DiscernConfigDoc,
   toCommandList,
 } from "../shared/config_schema.ts";
+import {
+  CHECKPOINT_MODES,
+  isBuiltInCheckpoint,
+} from "../shared/checkpoints.ts";
 import type { InitFlags } from "./terminal_interaction.ts";
 import { TomlEditor } from "./toml_edit.ts";
 
@@ -145,7 +150,8 @@ export function docHasFills(doc: DiscernConfigDoc): boolean {
 }
 
 /**
- * Apply a document's `jobs`/`scopes`/`generated`/`standards` fills to a
+ * Apply a document's `jobs`/`scopes`/`generated`/`standards`/`checkpoints`
+ * fills to a
  * `TomlEditor` over a project's `discern.toml`. Validates names and
  * enum-ish values (known job name, stage, direction) the same way the `config`
  * subcommand does; throws on bad input so the caller can report it.
@@ -290,6 +296,79 @@ export function applyConfigDoc(
         editor.setNumber(`generated.${name}.timeout`, spec.timeout);
       }
     });
+  }
+
+  // Checkpoints: a criterion is required unless the id names a shipped
+  // built-in (which carries its own); one selector at most; mode from the
+  // closed pair. The remaining trigger fields write through as given.
+  for (const [name, spec] of Object.entries(doc.checkpoints ?? {})) {
+    assertName("checkpoint", name);
+    const criterion = spec.criterion;
+    if (
+      !isBuiltInCheckpoint(name) &&
+      (typeof criterion !== "string" || criterion.trim() === "")
+    ) {
+      throw new Error(
+        `checkpoint "${name}": a criterion is required (only a shipped built-in id may omit it)`,
+      );
+    }
+    if (spec.scope !== undefined && spec.paths !== undefined) {
+      throw new Error(
+        `checkpoint "${name}": use one selector — scope or paths, not both`,
+      );
+    }
+    if (spec.paths !== undefined && !Array.isArray(spec.paths)) {
+      throw new Error(`checkpoint "${name}": paths must be an array of globs`);
+    }
+    const mode = spec.mode as string | undefined;
+    if (
+      mode !== undefined && !(CHECKPOINT_MODES as readonly string[]).includes(
+        mode,
+      )
+    ) {
+      throw new Error(
+        `checkpoint "${name}": unknown mode "${mode}" (use ${
+          CHECKPOINT_MODES.join(", ")
+        })`,
+      );
+    }
+    write(
+      `checkpoints.${name}`,
+      editor.hasSection(`checkpoints.${name}`),
+      () => {
+        const key = `checkpoints.${name}`;
+        if (spec.scope !== undefined) {
+          editor.setString(`${key}.scope`, spec.scope);
+        }
+        if (spec.paths !== undefined) {
+          editor.setStringArray(`${key}.paths`, spec.paths);
+        }
+        if (spec.unless_changed !== undefined) {
+          editor.setStringArray(`${key}.unless_changed`, spec.unless_changed);
+        }
+        if (spec.min_changed_files !== undefined) {
+          editor.setNumber(`${key}.min_changed_files`, spec.min_changed_files);
+        }
+        if (spec.deletion_dominant !== undefined) {
+          editor.setBool(`${key}.deletion_dominant`, spec.deletion_dominant);
+        }
+        if (spec.similar_new_file !== undefined) {
+          editor.setBool(`${key}.similar_new_file`, spec.similar_new_file);
+        }
+        if (spec.when !== undefined) {
+          editor.setString(`${key}.when`, spec.when);
+        }
+        if (mode !== undefined) {
+          editor.setString(`${key}.mode`, mode);
+        }
+        if (typeof criterion === "string") {
+          editor.setString(`${key}.criterion`, criterion);
+        }
+        if (spec.teach !== undefined) {
+          editor.setString(`${key}.teach`, spec.teach);
+        }
+      },
+    );
   }
 
   // Standards: direction, run (emits the metric), and limit are required; metric

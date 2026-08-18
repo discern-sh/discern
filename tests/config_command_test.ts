@@ -636,14 +636,16 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
   // --limit/--run), so a fixture arg-list is mapped per kind and asserted to cover
   // exactly the sections — a new record section forces an entry here (or an
   // exemption). Generated groups are carried by the template and config documents,
-  // and worktree.resources has no `set-resource` subcommand: both are self-checking
+  // worktree.resources has no `set-resource` subcommand, and a checkpoint's
+  // criterion is paragraph prose better authored in the file (or a config
+  // document) than through CLI flags: all three are self-checking
   // exemptions from the CLI record-writer set.
   const SET_RECORD_ARGS: Record<string, string[]> = {
     job: ["--stage", "check", "--run", "x"],
     scope: ["src/**"],
     standard: ["--direction", "up", "--limit", "80", "--run", "m"],
   };
-  const EXEMPT = new Set(["generated", "worktree.resources"]);
+  const EXEMPT = new Set(["generated", "checkpoints", "worktree.resources"]);
   const all = recordConfigPaths();
   for (const p of EXEMPT) {
     assert(all.includes(p), `EXEMPT lists "${p}", no longer a record section`);

@@ -87,6 +87,18 @@ aliases:
   - standards.<name>.measure
   - standards.<name>.inputs
   - standards.<name>.timeout
+  - checkpoints
+  - checkpoints.<name>
+  - checkpoints.<name>.scope
+  - checkpoints.<name>.paths
+  - checkpoints.<name>.unless_changed
+  - checkpoints.<name>.min_changed_files
+  - checkpoints.<name>.deletion_dominant
+  - checkpoints.<name>.similar_new_file
+  - checkpoints.<name>.when
+  - checkpoints.<name>.mode
+  - checkpoints.<name>.criterion
+  - checkpoints.<name>.teach
   - gate
   - gate.stream
   - gate.fail_fast
@@ -106,7 +118,7 @@ The file that configures a discern install.
 
 Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so the documentation matches what the engine enforces.
 
-The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[generated.<name>]`, `[worktree.resources.<name>]`, `[standards.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
+The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[generated.<name>]`, `[worktree.resources.<name>]`, `[standards.<name>]`, `[checkpoints.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
 
 Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger. `[scopes.instructions]` carries the project brief, instruction sources, authored skills, and materialized skills directories. The `[acceptance]` example names only `map`, so agent-instruction changes require owner review. Upgrade leaves existing named scopes unchanged; owners of earlier installs split their scope manually to adopt this boundary.
 
@@ -275,6 +287,23 @@ Linked-worktree setup commands: one-shot `steps` (creation only) and identity-aw
 | `measure`   | `gate` \| `on-demand` | `"gate"` | "gate" (the default): the measurement runs inside every `discern done`, in parallel with the tests. "on-demand": the gate skips only the measurement (for a metric too slow for every gate run — a full coverage run, a release build); the never-loosen limit check still runs on every gate, and `discern standards` measures it when you ask. Before deferring, prefer the smaller reliefs: declare `inputs` so unchanged trees replay at no cost, or raise this one job's `timeout`.                                                                                    |
 | `inputs`    | string[]              | —        | The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to measure every time (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched. |
 | `timeout`   | number                | —        | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.                                                                                                                                                                                                                                                                                                                                                                                                                     |
+
+## `[checkpoints.<name>]`
+
+[checkpoints.<id>] — change-triggered review rules: a deterministic trigger chooses when a diff makes a criterion relevant, the agent judges the criterion and records a declaration, and the record travels with the gate's results. The configuration that governs an effort is the one at its merge-base with the trunk, so a branch editing these tables does not change its own gate. None configured means none fire.
+
+| Key                 | Type               | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------- | ------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scope`             | string             | —       | Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; use one selector, not both.                                                                                                                                                                                                                                                                               |
+| `paths`             | string[]           | —       | Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/_.ext, src/_), a *.ext suffix at any depth, a /seg/ segment, or an exact path. Use `scope` or `paths`, not both. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.                       |
+| `unless_changed`    | string[]           | —       | The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express "this change class is fine when its counterpart moved too". Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched. |
+| `min_changed_files` | number             | —       | Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).                                                                                                                                                                                                                                                                                                                                    |
+| `deletion_dominant` | boolean            | —       | Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut is reviewed and an ordinary edit or balanced refactor is not.                                                                                                                                                                                                                                       |
+| `similar_new_file`  | boolean            | —       | Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory (a copy/version/suffix variant) — the signature of a parallel implementation growing beside the original.                                                                                                                                                                                                                        |
+| `when`              | string             | —       | Executable escape hatch for conditions the structured fields cannot express. The command runs pre-flight in the working tree with a short fixed timeout: exit 0 fires the trigger, exit 1 passes, and any other exit or a timeout fails open (no fire) with an advisory. It may print `DISCERN_MATCH <path>` lines to declare the exact matched paths; combined with selectors, the selectors pre-scope the diff and `when` decides firing.   |
+| `mode`              | `stop` \| `advise` | —       | "stop" (the default): the gate refuses to run until the agent declares the criterion met or unmet. "advise": the criterion and its evidence are delivered through the advisory channel and nothing blocks.                                                                                                                                                                                                                                    |
+| `criterion`         | string             | —       | The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint; a table whose <id> names a shipped built-in inherits its criterion and may override it here.                                                                                                                                                                                                                                   |
+| `teach`             | string             | —       | Optional lesson prose carried into renderings: why the criterion matters and what good looks like.                                                                                                                                                                                                                                                                                                                                            |
 
 ## `[gate]`
 
