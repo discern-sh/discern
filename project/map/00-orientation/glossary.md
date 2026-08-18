@@ -88,7 +88,7 @@ A read-only finding surface: [coupling](../20-quality-gate/coupling.md), [patter
 
 ### Checkpoint
 
-One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic criterion, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk). Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).
+One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic criterion, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk), and `discern checkpoints` reports policy, episode state, and preview read-only. Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).
 
 ### Coupling
 

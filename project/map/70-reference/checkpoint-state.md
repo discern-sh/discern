@@ -1,7 +1,7 @@
 ---
 title: Checkpoint state & declarations
 description: The checkpoint episode states, the declaration and variance flags, and the surfaces that report them.
-order: 45
+order: 160
 aliases:
   - checkpoints
   - discern checkpoints
