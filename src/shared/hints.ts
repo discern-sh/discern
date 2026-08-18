@@ -3458,6 +3458,8 @@ export const ERROR_FAILURE_RECOVERY = {
   ambiguous: "tailored",
   apply_failed: "evidence",
   awaiting_consent: "tailored",
+  awaiting_declaration: "tailored",
+  awaiting_variance: "tailored",
   below_min_score: "tailored",
   brief_unparseable: "evidence",
   checkout_failed: "evidence",

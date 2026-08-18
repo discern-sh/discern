@@ -57,7 +57,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                               | `art/terminal/triangle.ts#DISCERN_PRODUCT_TRIANGLE_ART`                           | 2       | —                | —                           |
 | [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 19      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
-| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 64      | —                | node `hints`                |
+| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 66      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
 | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 7       | —                | node `logbook`              |
@@ -77,7 +77,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
 | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 4       | —                | node `published-contracts`  |
 | [`security-disclosure`](#security-disclosure--security-disclosure)                                                    | `site/security.ts#SECURITY_DISCLOSURE`                                            | 9       | —                | —                           |
-| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 64      | —                | node `published-contracts`  |
+| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 66      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
@@ -1451,11 +1451,13 @@ The result fields a generic recovery instruction may cite. A failure with neithe
 The audited recovery mode for every canonical error slug: use the generic floor only when the message or first diagnostic supplies the correction; otherwise require a tailored registered next step.
 
 - Source: `src/shared/hints.ts` — `ERROR_FAILURE_RECOVERY`
-- Members: 64
+- Members: 66
   - `active_worktrees: evidence`
   - `ambiguous: tailored`
   - `apply_failed: evidence`
   - `awaiting_consent: tailored`
+  - `awaiting_declaration: tailored`
+  - `awaiting_variance: tailored`
   - `below_min_score: tailored`
   - `brief_unparseable: evidence`
   - `checkout_failed: evidence`
@@ -2080,11 +2082,13 @@ The public reporting channels, policy location, language, and bounded security.t
 The machine-stable failure vocabulary accepted by live result envelopes and advertised to public-schema consumers.
 
 - Source: `src/shared/result.ts` — `ERROR_SLUGS`
-- Members: 64
+- Members: 66
   - `active_worktrees`
   - `ambiguous`
   - `apply_failed`
   - `awaiting_consent`
+  - `awaiting_declaration`
+  - `awaiting_variance`
   - `below_min_score`
   - `brief_unparseable`
   - `checkout_failed`
