@@ -2530,6 +2530,20 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       line.includes("The report is advisory")
     );
     assert(closingStart >= 0, "the closing account must render");
+    // The measured span is only honest while the closing account sits BELOW
+    // every family section: a renderer reorder that floated it upward would
+    // silently shrink the measured finding body to nothing.
+    const lastSectionLine = Math.max(
+      ...DETECTOR_FAMILIES.map((family) =>
+        lines.findIndex((line) =>
+          line.includes(PATTERNS_FAMILY_SECTIONS[family].heading.toUpperCase())
+        )
+      ),
+    );
+    assert(
+      closingStart > lastSectionLine,
+      "the closing account must follow the last family section",
+    );
     const findingLines = closingStart;
     const legacyLines = (data.findings_total ?? data.findings.length) * 4 + 7;
     assert(

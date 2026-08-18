@@ -41,7 +41,7 @@ A declaring invocation records every valid conclusion first, then continues into
 | Declarations            | Agent                   | The agent judged each criterion met or unmet.            |
 | Landing authority       | Owner or recorded grant | This work may land, with any named variances authorized. |
 
-The Proof renders declared conclusions separately from machine results, carries unmet rationales and the policy identity, and states when a decision is still open — a proof line ends with `1 declared unmet — owner variance required to land`. Acceptance consumes the Proof and resolves the third row. The vocabulary stays disjoint: machine results are verified, conclusions are declared, and variances are authorized.
+The Proof renders declared conclusions separately from machine results, carries unmet rationales and the policy identity, and states when a decision is still open — a proof line carries `1 declared unmet — owner variance required to land`. Acceptance consumes the Proof and resolves the third row. The vocabulary stays disjoint: machine results are verified, conclusions are declared, and variances are authorized.
 
 ## Subjects and reopening
 

@@ -4607,12 +4607,13 @@ const checkpointVaried: Detector = {
   scope: "project",
   tier: "batch",
   tone: "attention",
-  // The shared frequently-varied bar (checkpoint_economics.ts): three landed
-  // efforts where the checkpoint fired, at least half of them under a
-  // variance. The improvement coach's checkpoint-review recommendation holds
-  // the same bar by reading the same predicate. The literal here mirrors
-  // FREQUENTLY_VARIED_MIN_LANDED (module-init order forbids the import); the
-  // economics test ties the two, so they cannot drift.
+  // The shared frequently-varied bar (checkpoint_economics.ts): at least
+  // three variance-carrying landed efforts where the checkpoint fired, and
+  // those covering at least half of such landings. The improvement coach's
+  // checkpoint-review recommendation holds the same bar by reading the same
+  // predicate. The literal here mirrors FREQUENTLY_VARIED_MIN_LANDED
+  // (module-init order forbids the import); the economics test ties the two,
+  // so they cannot drift.
   threshold: 3,
   next_step:
     "Review the trigger, criterion, and mode with the owner — a criterion routinely judged unmet and varied may be aimed at the wrong boundary, or may belong in advise mode.",
