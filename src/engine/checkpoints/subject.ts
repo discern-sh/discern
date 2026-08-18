@@ -43,6 +43,12 @@ const SUBJECT_MATERIAL_VERSION = "checkpoint-subject/v1";
 /** Files per `git hash-object` invocation — bounds the argv length. */
 const HASH_OBJECT_BATCH = 500;
 
+/** Wall-clock bound on each git call a subject computation makes. Local
+ * plumbing answers in milliseconds; the bound exists so a pathological tree
+ * (or a special file git stalls on) degrades to a subject ERROR — which the
+ * caller fails open on — instead of wedging the gate. */
+const SUBJECT_GIT_TIMEOUT_MS = 30_000;
+
 /** One side of a path's state: its git file mode and blob (content) id. */
 export interface PathStateSide {
   mode: string;
@@ -152,7 +158,7 @@ export async function computeSubject(
         "--",
         ...paths.map((path) => `${prefix}${path}`),
       ],
-      { cwd: root },
+      { cwd: root, timeoutMs: SUBJECT_GIT_TIMEOUT_MS },
     );
     if (!listing.success) {
       return {
@@ -200,7 +206,7 @@ export async function computeSubject(
       }
       const hashed = await runGit(
         ["hash-object", "-t", "blob", "--stdin"],
-        { cwd: root, stdin: target },
+        { cwd: root, stdin: target, timeoutMs: SUBJECT_GIT_TIMEOUT_MS },
       );
       if (!hashed.success) {
         return { error: `git could not hash the symlink at ${path}` };
@@ -211,6 +217,15 @@ export async function computeSubject(
     if (info.isDirectory) {
       continue; // a directory has no content identity; it reads as absent
     }
+    if (!info.isFile) {
+      // A FIFO, socket, or device node: git would stall or refuse reading
+      // its "content", so the engine has no honest content identity to bind
+      // a declaration to — a subject error, which the caller fails open on.
+      return {
+        error: `the matched path ${path} is not a regular file, so its ` +
+          `content identity cannot be read`,
+      };
+    }
     currentStates.set(path, { mode: fileMode(info), blob: "" });
     regular.push(path);
   }
@@ -218,6 +233,7 @@ export async function computeSubject(
     const batch = regular.slice(i, i + HASH_OBJECT_BATCH);
     const hashed = await runGit(["hash-object", "--", ...batch], {
       cwd: root,
+      timeoutMs: SUBJECT_GIT_TIMEOUT_MS,
     });
     if (!hashed.success) {
       return {

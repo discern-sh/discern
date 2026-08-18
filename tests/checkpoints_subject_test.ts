@@ -9,7 +9,12 @@
  *   - dirty and untracked content is hashed; a rename reads as delete + add.
  */
 
-import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertNotEquals,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
@@ -311,5 +316,29 @@ Deno.test("unreadable state is an error, never a guessed subject", async () => {
     const withDir = await computeSubject(dir, hash, ["adir"], base);
     assert("subject" in withDir);
     assertEquals(withDir.subject.paths[0], { path: "adir" });
+  });
+});
+
+Deno.test("a special file among the matched paths is a subject error, never a hang", async () => {
+  // `git hash-object` on a FIFO blocks forever; the engine has no honest
+  // content identity for a non-regular file, so the computation returns an
+  // error naming the path and the caller fails open (invariant: a refusal
+  // must never wedge an effort).
+  await withTempDir(async (dir) => {
+    const base = await scaffold(dir);
+    const hash = await checkpointDefinitionHash(def());
+    const fifo = new Deno.Command("mkfifo", {
+      args: [join(dir, "pipe.fifo")],
+    });
+    assertEquals((await fifo.output()).success, true);
+    const out = await computeSubject(
+      dir,
+      hash,
+      ["matched.txt", "pipe.fifo"],
+      base,
+    );
+    assert("error" in out, JSON.stringify(out));
+    assertStringIncludes(out.error, "pipe.fifo");
+    assertStringIncludes(out.error, "not a regular file");
   });
 });
