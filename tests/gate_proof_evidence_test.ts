@@ -178,3 +178,47 @@ Deno.test("last-run marker: the recorded evidence identity round-trips", async (
     assertEquals(legacy.evidence, undefined);
   });
 });
+
+Deno.test("proof marker: a corrupt store stales the vouch; an unreadable one keeps it honored", async () => {
+  // The two fail-open directions, distinguished: a store that DID parse but
+  // was corrupted reads as empty — no standing claims, a CHANGED identity, so
+  // the vouch conservatively stales. A store that cannot be READ at all is an
+  // UNCERTAIN identity, and an uncertain identity is never treated as a
+  // changed one — the recorded vouch stands.
+  await withTempDir(async (dir) => {
+    await declaredRepo(dir);
+    const preflight = await preflightAdminStateWrites(dir);
+    assert(preflight.ok);
+    const recorded = await recordGateOutcome(
+      dir,
+      preflight.authority,
+      true,
+      await pinValidatedTree(dir),
+      undefined,
+      await identity(dir),
+    );
+    assertEquals(recorded.status, "recorded");
+    assertEquals((await inspectGateProof(dir)).status, "honored");
+
+    const store = await gitAdminStatePath(dir, "checkpointEpisodes");
+    assert(store !== undefined);
+    const bytes = await Deno.readTextFile(store);
+
+    // Corrupt: the standing claims vanish, so the identity changed — stale.
+    await Deno.writeTextFile(store, "not json\n");
+    const corrupt = await inspectGateProof(dir);
+    assertEquals(corrupt.status, "stale");
+    assertStringIncludes(corrupt.reason ?? "", "declarations changed");
+
+    // Unreadable (a directory at the store path): identity unavailable —
+    // fail open, the recorded vouch stays honored.
+    await Deno.remove(store);
+    await Deno.mkdir(store, { recursive: true });
+    assertEquals((await inspectGateProof(dir)).status, "honored");
+
+    // Restored bytes restore the exact claim — honored again, symmetrically.
+    await Deno.remove(store);
+    await Deno.writeTextFile(store, bytes);
+    assertEquals((await inspectGateProof(dir)).status, "honored");
+  });
+});

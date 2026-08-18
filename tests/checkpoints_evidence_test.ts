@@ -176,3 +176,17 @@ Deno.test("evidence: a corrupt store reads as empty (the rebuild-from-empty dire
     );
   });
 });
+
+Deno.test("evidence: an unreadable store is unavailable, never a guessed identity", async () => {
+  await withTempDir(async (dir) => {
+    await repo(dir);
+    // A DIRECTORY at the store path makes the read fail without being
+    // missing — the unavailable shape every consumer must fail open on (an
+    // uncertain identity is never treated as a changed one).
+    const path = await gitAdminStatePath(dir, "checkpointEpisodes");
+    assert(path !== undefined);
+    await Deno.mkdir(path, { recursive: true });
+    const evidence = await declarationEvidenceIdentity(dir);
+    assertEquals(evidence.status, "unavailable");
+  });
+});

@@ -10,9 +10,18 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { writeExecutable } from "./engine_helpers.ts";
 import {
+  CHECKPOINT_WHEN_TIMEOUT_SECONDS,
   parseDiscernMatches,
   runWhenCommand,
 } from "../src/engine/checkpoints/when.ts";
+
+Deno.test("when: the shipped budget is the ten-second pre-flight contract", () => {
+  // The fixed wall-clock budget is a published contract ("a pre-flight
+  // condition answers in seconds"): docs and criteria describe it, and every
+  // production call site relies on the default. Changing it is a deliberate
+  // decision that starts here.
+  assertEquals(CHECKPOINT_WHEN_TIMEOUT_SECONDS, 10);
+});
 
 Deno.test("when: exit 0 fires (no declared matches)", async () => {
   await withTempDir(async (dir) => {

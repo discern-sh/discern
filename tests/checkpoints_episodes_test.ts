@@ -281,7 +281,9 @@ Deno.test("unmet rationale validation: trim, one paragraph, 1-500 chars, no cont
     const out = validateUnmetRationale(bad);
     assert(!out.ok, JSON.stringify(bad.slice(0, 12)));
   }
-  // Exactly at the cap passes; the boundary belongs to the writer.
+  // Both inclusive bounds pass — a single character, and exactly the cap; the
+  // boundary belongs to the writer.
+  assert(validateUnmetRationale("x").ok);
   assert(validateUnmetRationale("x".repeat(UNMET_RATIONALE_MAX_LENGTH)).ok);
 
   // The store enforces the same rule before any write, whatever the caller did.
