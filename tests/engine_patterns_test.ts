@@ -2670,3 +2670,55 @@ Deno.test("patterns reset: even an empty apply refuses outside a terminal", asyn
     assertEquals((parsed.data as PatternsResetData).removed, []);
   });
 });
+
+Deno.test("patterns: dead-checkpoint candidates are the firable set — a dormant entry is waiting, not dead", async () => {
+  // The seam guard for the candidate set: the shipped gotchas entry with no
+  // doc configured expands to the match-nothing pattern (dormant by
+  // configuration), while an authored checkpoint with a real selector that
+  // simply never fired IS the dead-checkpoint signal.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "true"
+
+[checkpoints.gotchas-playbook]
+
+[checkpoints.ghost-rule]
+paths = ["never-touched/**"]
+criterion = "A judgment nothing here ever triggers."
+`,
+    );
+    await gitInit(dir);
+    const logDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(logDir, { recursive: true });
+    const lines: string[] = [];
+    for (let b = 0; b < 8; b++) {
+      lines.push(
+        seededEvent(
+          `2026-06-${String(b + 1).padStart(2, "0")}T10:00:00.000Z`,
+          "ok",
+          `agent/effort-${b}`,
+        ),
+      );
+    }
+    await Deno.writeTextFile(
+      join(logDir, "2026-06.jsonl"),
+      `${lines.join("\n")}\n`,
+    );
+    const result = await patternsResult(dir, { all: true });
+    assert(result.ok && result.data !== undefined);
+    const dead = result.data.findings.filter(
+      (finding) => finding.detector === "checkpoint-dead",
+    );
+    assertEquals(dead.map((finding) => finding.subject), ["ghost-rule"]);
+  });
+});
