@@ -41,6 +41,7 @@ import { renderResultMarkdown } from "../../shared/result_markdown.ts";
 import { projectStatusData } from "../../shared/result_wire.ts";
 import {
   observeResult,
+  takeCheckpointActivity,
   takeObservedResult,
   takeShownTipIds,
   takeSupplementalHintIds,
@@ -1551,6 +1552,9 @@ async function completeToolCall(
   takeSupplementalHintIds();
   takeShownTipIds();
   takeVerbTarget();
+  // Checkpoint observations belong to THIS call's recording; the take also
+  // guarantees nothing can leak into the next call on this long-lived server.
+  const checkpointActivity = takeCheckpointActivity();
   const recording = pending.recording;
   if (recording !== undefined) {
     const { flags, target } = mcpCallFacts(args);
@@ -1566,6 +1570,9 @@ async function completeToolCall(
       ...(result.dry_run === true ? { dryRun: true } : {}),
       ...(flags !== undefined ? { flags } : {}),
       ...(target !== undefined ? { target } : {}),
+      ...(checkpointActivity !== undefined
+        ? { checkpoints: checkpointActivity }
+        : {}),
       ...(pending.crash !== undefined ? { crash: pending.crash } : {}),
     });
   }
@@ -1720,6 +1727,7 @@ export async function runTool(
   // call starts. The final boundary drains again after observing this result.
   takeSupplementalHintIds();
   takeShownTipIds();
+  takeCheckpointActivity();
   // If the binary on disk changed since this server started, every result needs
   // the restart hint — including dispatch refusals.
   const stale = versionMismatchHint(

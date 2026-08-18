@@ -55,6 +55,7 @@ function run(overrides: Partial<VerbEvent>[]): LogbookEvent[] {
   return overrides.map((over, i) => verb({ at: t(i), ...over }));
 }
 
+/** Pre-digested stream facts over `events`, with the fixture trunk. */
 function facts(events: LogbookEvent[]): ReturnType<typeof buildStreamFacts> {
   return buildStreamFacts(events, "main");
 }
