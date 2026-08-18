@@ -41,7 +41,10 @@ import {
 } from "../src/engine/mcp/server.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { fire, firedHintsFromTexts, HINTS } from "../src/shared/hints.ts";
-import { observeSupplementalHints } from "../src/shared/result_capture.ts";
+import {
+  observeCheckpointActivity,
+  observeSupplementalHints,
+} from "../src/shared/result_capture.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { verbNeedsSetup } from "../src/shared/setup_state.ts";
 
@@ -408,6 +411,75 @@ Deno.test("logbook: a shown desk tip's id lands on the verb event verbatim", asy
       events[1]?.tip_ids,
       undefined,
       "a session that showed no tip carries no tip_ids field",
+    );
+  });
+});
+
+Deno.test("logbook: checkpoint observations drain onto the event on either surface, exactly once", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Both surfaces record through the one recorder, so the drain lives below
+    // them: the same observation attaches identically whether the invocation
+    // arrived through the CLI wrapper or the MCP chokepoint.
+    for (const surface of ["cli", "mcp"] as const) {
+      const recording = beginRecording(dir, {
+        verb: "done",
+        surface,
+        driver: Promise.resolve({}),
+      });
+      observeCheckpointActivity({
+        fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
+        declared: [{
+          id: "api-review",
+          conclusion: "met",
+          revised: false,
+          elapsed_ms: 5,
+        }],
+      });
+      await recording.finish({
+        verb: "done",
+        surface,
+        outcome: "ok",
+        durationMs: 1,
+      });
+    }
+    // A later invocation that observed nothing must carry nothing — begin
+    // discards stale accumulator state, finish takes exactly once.
+    observeCheckpointActivity({ advise: [{ id: "stale-from-elsewhere" }] });
+    const clean = beginRecording(dir, {
+      verb: "status",
+      surface: "cli",
+      driver: Promise.resolve({}),
+    });
+    await clean.finish({
+      verb: "status",
+      surface: "cli",
+      outcome: "ok",
+      durationMs: 1,
+    });
+
+    const events = verbEvents(await readEvents(dir));
+    assertEquals(events.length, 3);
+    const [cli, mcp, stale] = events;
+    for (const event of [cli, mcp]) {
+      assert(event !== undefined);
+      assertEquals(event.checkpoints, {
+        fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
+        declared: [{
+          id: "api-review",
+          conclusion: "met",
+          revised: false,
+          elapsed_ms: 5,
+        }],
+      });
+    }
+    assertEquals(cli?.surface, "cli");
+    assertEquals(mcp?.surface, "mcp");
+    assertEquals(
+      stale?.checkpoints,
+      undefined,
+      "stale accumulator state from outside an invocation never attaches",
     );
   });
 });

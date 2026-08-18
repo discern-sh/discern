@@ -219,6 +219,40 @@ Deno.test("logbook schema: every canonical outcome round-trips as a verb event",
   }
 });
 
+Deno.test("logbook schema: checkpoint observations round-trip as metadata, and their absence censors", () => {
+  // The block carries the episode and variance lifecycle: ids, conclusions,
+  // fingerprints, and timing. No rationale field exists in the shape — the
+  // metadata-only bar is structural, not a convention.
+  const block = {
+    fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
+    reopened: [{ id: "api-review", definition: "d1", subject: "s2" }],
+    declared: [{
+      id: "api-review",
+      conclusion: "met",
+      revised: true,
+      definition: "d1",
+      subject: "s2",
+      elapsed_ms: 42_000,
+    }],
+    advise: [{ id: "commit-story" }],
+    variances: [{ id: "api-review", definition: "d1", subject: "s2" }],
+    abandoned: [{ id: "retired-rule" }],
+  };
+  const parsed = parseLogbookLine(JSON.stringify({
+    ...sampleEvent(),
+    checkpoints: block,
+  }));
+  assert(parsed.kind === "event");
+  assert(parsed.event.kind === "verb");
+  assertEquals(parsed.event.checkpoints, block);
+  // An event written before checkpoint observation existed still parses, its
+  // block simply absent — readers censor what is missing, never break.
+  const older = parseLogbookLine(JSON.stringify(sampleEvent()));
+  assert(older.kind === "event");
+  assert(older.event.kind === "verb");
+  assertEquals(older.event.checkpoints, undefined);
+});
+
 Deno.test("logbook schema: unknown fields pass through untouched (forward compat)", () => {
   const line = JSON.stringify({
     ...sampleEvent(),
@@ -364,6 +398,34 @@ Deno.test("epoch: a job edit flips exactly the jobs section", () => {
   assert(edited.fingerprint !== before.fingerprint);
   assertEquals(changedSections(before.sections, edited.sections), [
     "jobs",
+  ]);
+});
+
+Deno.test("epoch: a checkpoint trigger or criterion edit flips exactly the checkpoints section", () => {
+  // Economics shifts must be attributable to definition changes: an edited
+  // trigger or criterion lands as a config-change event naming `checkpoints`,
+  // and nothing else moves.
+  const CHECKPOINT_CONFIG = (paths: string, criterion: string): string => `
+[checkpoints.api-review]
+paths = ["${paths}"]
+criterion = "${criterion}"
+`;
+  const before = configEpoch(
+    parseConfigOrThrow(CHECKPOINT_CONFIG("src/api/**", "Documented.")),
+  );
+  const criterionEdited = configEpoch(
+    parseConfigOrThrow(CHECKPOINT_CONFIG("src/api/**", "Documented, tested.")),
+  );
+  assert(criterionEdited.fingerprint !== before.fingerprint);
+  assertEquals(changedSections(before.sections, criterionEdited.sections), [
+    "checkpoints",
+  ]);
+  const triggerEdited = configEpoch(
+    parseConfigOrThrow(CHECKPOINT_CONFIG("src/api/v2/**", "Documented.")),
+  );
+  assert(triggerEdited.fingerprint !== before.fingerprint);
+  assertEquals(changedSections(before.sections, triggerEdited.sections), [
+    "checkpoints",
   ]);
 });
 

@@ -15,6 +15,7 @@ import {
   checkpointEconomicsOf,
   gateEffortsSince,
 } from "../src/engine/logbook/checkpoint_economics.ts";
+import { computeStats } from "../src/engine/logbook/stats.ts";
 import { buildStreamFacts } from "../src/engine/logbook/detectors.ts";
 import {
   LOGBOOK_SCHEMA_VERSION,
@@ -190,6 +191,23 @@ Deno.test("checkpoint economics: servings on an unknown branch count without att
   const tally = analysis.tallies.get("api-review");
   assertEquals(tally?.fires, 1);
   assertEquals(tally?.effortsFired.size, 0);
+});
+
+Deno.test("checkpoint economics: the stats card carries the same rows, and none without history", () => {
+  const active = computeStats(facts(run([
+    {
+      branch: "agent/one",
+      checkpoints: { fired: [{ id: "api-review" }] },
+    },
+  ])));
+  assertEquals(active.checkpoints?.rows.length, 1);
+  assertEquals(active.checkpoints?.rows[0]?.id, "api-review");
+  const silent = computeStats(facts(run([{ branch: "agent/one" }])));
+  assertEquals(
+    silent.checkpoints,
+    undefined,
+    "a stream without checkpoint activity adds no section to the card",
+  );
 });
 
 Deno.test("checkpoint economics: the config-change boundary restarts the hygiene denominator", () => {
