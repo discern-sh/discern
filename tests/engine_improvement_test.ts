@@ -471,6 +471,7 @@ Deno.test("improvement: every human report group has a visible section", async (
     const labels = [
       "Health",
       "Next action",
+      "Steps",
       "Areas",
       ...(payload.data?.categories.map((category) => category.title) ?? []),
       "Commands",

@@ -416,6 +416,7 @@ function renderJobRun(
     })),
     completion: "Every configured step reaches a final reported state.",
     completionLabel: "Complete when",
+    register: "brand",
     maxWidth: width,
   });
   const commands = run.rows.map((row) =>

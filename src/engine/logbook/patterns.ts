@@ -735,6 +735,7 @@ function renderInvestigations(
         }],
         completionLabel: terminalLine("Falsifier"),
         completion: terminalMultiline(investigation.falsifier),
+        register: "brand",
         maxWidth: width,
       })
     }\n`);

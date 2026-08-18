@@ -407,6 +407,7 @@ function renderReviewUnit(
       }],
       completion: terminalMultiline(review.ask),
       completionLabel: terminalLine("Review question"),
+      register: "brand",
       maxWidth: width,
     })
   }\n`);
@@ -471,6 +472,7 @@ function renderSummary(
         }],
         completion: terminalMultiline(report.nextAction.action),
         completionLabel: terminalLine("Do"),
+        register: "brand",
         maxWidth: width,
       })
     }\n`);
