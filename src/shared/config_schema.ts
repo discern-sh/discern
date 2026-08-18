@@ -33,9 +33,9 @@ import { logbookPoweredPhraseList } from "./logbook_powered.ts";
 import {
   GLOB_METACHARACTER_RE,
   isConcretePath,
-  SOURCE_PATH_REFERENCES,
   SOURCE_PATHS,
 } from "./paths_registry.ts";
+import { LIVE_PATH_REFERENCE_SPELLINGS } from "./source_path_references.ts";
 import {
   normalizeProjectRelativeDirectoryPath,
   normalizeProjectRelativeFilePath,
@@ -94,11 +94,12 @@ export class ConfigParseError extends Error {
 export const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** One schema-description sentence for every field that accepts the shared
- * scope-glob dialect. The reference list derives from SOURCE_PATHS, so the
- * generated config reference documents a future configured member immediately. */
+ * scope-glob dialect. The reference list derives from the live-reference
+ * membership (registry members plus the enumerated scalar docs), so the
+ * generated config reference documents a future member immediately. */
 const LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION =
-  `Registered source-path references (${
-    SOURCE_PATH_REFERENCES.map(({ reference }) => reference).join(", ")
+  `Registered path references (${
+    LIVE_PATH_REFERENCE_SPELLINGS.join(", ")
   }) resolve from this config before matching or execution; unregistered braced forms stay untouched.`;
 
 /** The native provider names are derived from the shared identity catalogue,

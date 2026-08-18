@@ -1,10 +1,13 @@
 /**
- * Live source-path references: membership comes from SOURCE_PATHS, and every
- * scope-glob dialect consumer expands that whole derived set. A future
- * `resolution = "configured"` registry entry enters these probes automatically.
+ * Live path references: membership is SOURCE_PATHS' configured members plus
+ * the enumerated scalar config docs, and every scope-glob dialect consumer
+ * expands the whole combined set. A future `resolution = "configured"`
+ * registry entry enters these probes automatically; a scalar member enrols
+ * through SCALAR_CONFIG_PATH_REFERENCES.
  */
 
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
+import { pathMatchesPattern } from "../src/engine/scopes/glob.ts";
 import { buildStandardPlan } from "../src/engine/gate/standard_plan.ts";
 import { planScopeGates } from "../src/engine/gate/plan.ts";
 import { jobsInStage } from "../src/engine/gate/stages.ts";
@@ -18,6 +21,8 @@ import {
 } from "../src/shared/paths_registry.ts";
 import {
   expandSourcePathReferences,
+  LIVE_PATH_REFERENCE_SPELLINGS,
+  SCALAR_CONFIG_PATH_REFERENCES,
   SOURCE_PATH_REFERENCES,
   type SourcePathReference,
   sourcePathReference,
@@ -165,4 +170,42 @@ Deno.test("every enrolled scope-glob dialect surface expands every live referenc
     measure: "files",
     globs: EXPECTED_SCOPE_PATTERNS,
   });
+});
+
+// ── scalar config-path references ───────────────────────────────────────────
+
+Deno.test("scalar config-path references expand from their configured value", () => {
+  const config = parseConfigOrThrow(
+    '[project]\ngotchas_doc = "notes/traps.md"\n',
+  );
+  assertEquals(
+    expandSourcePathReferences("probe ${project.gotchas_doc}", config),
+    "probe notes/traps.md",
+  );
+});
+
+Deno.test("an unset scalar reference expands to the empty pattern, which matches nothing", () => {
+  const config = parseConfigOrThrow("");
+  assertEquals(
+    expandSourcePathReferences("${project.gotchas_doc}", config),
+    "",
+  );
+  // The consumer contract that makes the empty expansion safe: a glob of ""
+  // matches no path, so a trigger or scope keyed on the unset value goes
+  // quiet instead of matching everything.
+  assertEquals(pathMatchesPattern("any/file.md", ""), false);
+});
+
+Deno.test("the live-reference membership is registry members plus the scalar docs", () => {
+  assertEquals(LIVE_PATH_REFERENCE_SPELLINGS, [
+    ...SOURCE_PATH_REFERENCES.map(({ reference }) => reference),
+    ...SCALAR_CONFIG_PATH_REFERENCES.map(({ reference }) => reference),
+  ]);
+  for (const member of SCALAR_CONFIG_PATH_REFERENCES) {
+    assertEquals(member.reference, `\${${member.key}}`);
+    assert(
+      SOURCE_PATH_REFERENCES.every((r) => r.key !== member.key),
+      `scalar member '${member.key}' shadows a registry member`,
+    );
+  }
 });

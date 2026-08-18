@@ -214,7 +214,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -256,7 +256,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -298,7 +298,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -340,7 +340,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -382,7 +382,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -424,7 +424,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -465,7 +465,7 @@
                     }
                   }
                 ],
-                "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
               },
               "provides": {
                 "description": "Optional free-text label, for humans / audit.",
@@ -503,7 +503,7 @@
             "items": {
               "type": "string"
             },
-            "description": "The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
           },
           "neutral": {
             "default": false,
@@ -516,7 +516,7 @@
             "type": "boolean"
           },
           "gate": {
-            "description": "A command discern done runs when this scope changed (a sub-component with its own self-contained gate). Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "A command discern done runs when this scope changed (a sub-component with its own self-contained gate). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "anyOf": [
               {
                 "type": "string"
@@ -557,7 +557,7 @@
             "items": {
               "type": "string"
             },
-            "description": "The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
           },
           "run": {
             "anyOf": [
@@ -571,7 +571,7 @@
                 }
               }
             ],
-            "description": "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
           },
           "linguist_generated": {
             "default": false,
@@ -759,10 +759,10 @@
                 }
               }
             ],
-            "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
           },
           "per": {
-            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise solely because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${map.dir}**\" } (files | lines | words | bytes over a git pathspec). Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise solely because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${map.dir}**\" } (files | lines | words | bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "anyOf": [
               {
                 "type": "string"
@@ -852,7 +852,7 @@
             ]
           },
           "inputs": {
-            "description": "The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to measure every time (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to measure every time (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
@@ -889,14 +889,14 @@
             "pattern": "^[A-Za-z0-9_-]+$"
           },
           "paths": {
-            "description": "Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. A checkpoint takes one selector: `scope` or `paths`. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. A checkpoint takes one selector: `scope` or `paths`. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "unless_changed": {
-            "description": "The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express \"this change class is fine when its counterpart moved too\". Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express \"this change class is fine when its counterpart moved too\". Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
