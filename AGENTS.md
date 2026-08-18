@@ -45,6 +45,10 @@ Standards are **numbers that can never get worse**: metrics held at a `limit` th
 
 When your change _improves_ a measure, the result hints you to offer to lock in the gain. `discern_standards` with `pin` tightens the limit to the measured value and commits that change on its own, so today's gain becomes the baseline every later branch inherits.
 
+## Checkpoints
+
+Configured checkpoints serve a **criterion** — a judgment — when a matching change completes; `discern_prepare` and `discern_status` name coming declarations early. A fired `stop` checkpoint refuses **`discern_done`**, serving the criterion and its matched evidence: judge the current subject, and fix what the criterion catches when the fix belongs to this effort. Then declare truthfully: pass `met` only for a criterion your change satisfies; else `unmet` with a short `why` naming the owner-relevant tradeoff — durable Proof evidence, no secrets. The gate still runs; a declared-unmet conclusion lands only when the owner authorizes a variance at `discern_accept`. Relay the Proof and rationale, then stop: grants never cover a variance, and `variance` follows only the owner's explicit acceptance in this conversation.
+
 ## Skills
 
 discern makes **skills** — focused, reusable task playbooks — discoverable to **you**; reach for one when a task matches. **`discern skills list`** shows the set.

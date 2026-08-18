@@ -779,6 +779,32 @@
     ]
 
 # ─────────────────────────────────────────────────────────────────────────────
+# [checkpoints.<name>] — change-triggered review rules: a deterministic trigger
+# decides when a diff makes a named criterion relevant; the agent judges it and
+# records a conclusion that travels with the Proof as agent evidence. The
+# config at an effort's merge-base with the trunk governs it, so these entries
+# take effect for new efforts once they land. This repo ships the built-in set
+# and runs under it: the full field reference lives in the config template and
+# `discern docs`.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Four stop checkpoints guard the knowledge estate — the surfaces that steer
+# every future agent session. `discern done` pauses before the gate until the
+# agent declares each fired criterion met, or unmet with a rationale:
+[checkpoints.map-focus]           # a broad map change must reduce future reading
+[checkpoints.instruction-economy] # always-loaded prose pays rent in every session
+[checkpoints.skills-playbook]     # a skill is an executable playbook
+[checkpoints.gotchas-playbook]    # failure memory stays symptom → cause → recovery
+
+# Five advisory checkpoints read the shape of the change — never blocking,
+# delivered with the gate's advisories when their pattern appears:
+[checkpoints.deletion-heavy-change]   # a substantial cut: proven dead, recoverable?
+[checkpoints.parallel-implementation] # a name-similar sibling file appeared
+[checkpoints.effort-sprawl]           # one effort, or several riding along?
+[checkpoints.docs-drift]              # code moved and the map did not
+[checkpoints.commit-story]            # a large change: do the messages tell the why?
+
+# ─────────────────────────────────────────────────────────────────────────────
 # [gate] — ergonomics for the parallel gate stages (and scope gates). These
 # affect how `discern done` runs its concurrent jobs.
 # ─────────────────────────────────────────────────────────────────────────────
