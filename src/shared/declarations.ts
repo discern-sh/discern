@@ -100,8 +100,8 @@ export type DeclarationGatedVerbId =
 export const VARIANCE_GATED_ACCEPTANCE = {
   slug: AWAITING_VARIANCE_SLUG,
   command: "accept",
-  /** Both are required together: the conversation attestation plus one
-   * `--variance <id>` per current declared-unmet checkpoint. */
+  /** Both are required together: the current-conversation consent flag plus
+   * one `--variance <id>` per current declared-unmet checkpoint. */
   flags: ["--confirmed", VARIANCE_FLAG],
   surfaces: ["terminal", "json", "markdown", "mcp"],
 } as const;

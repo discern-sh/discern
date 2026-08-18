@@ -960,12 +960,11 @@ export const TOOLS: McpTool[] = orderTools([
           "are checked directly; do not assert them through this flag.",
       ),
       variance: z.array(z.string()).optional().describe(
-        "Attestation that the owner authorized landing each named " +
-          "declared-unmet checkpoint without changing it (requires " +
-          "confirmed). The ids must equal the current declared-unmet set, " +
-          "id for id — the awaiting_variance refusal serves it with each " +
-          "criterion and rationale — and recorded grants never authorize " +
-          "a variance.",
+        "The owner's authorization to land each named declared-unmet " +
+          "checkpoint without changing it (requires confirmed). The ids " +
+          "must equal the current declared-unmet set, id for id — the " +
+          "awaiting_variance refusal serves it with each criterion and " +
+          "rationale — and recorded grants never authorize a variance.",
       ),
       ...PATH_PARAM,
     },

@@ -879,7 +879,7 @@ export function attachEngineCommands(
     )
     .option(
       "--variance <id:string>",
-      "Attest that your owner authorized landing this declared-unmet " +
+      "Record that your owner authorized landing this declared-unmet " +
         "checkpoint without changing it (repeatable; requires --confirmed). " +
         "The ids must equal the current declared-unmet set, id for id, and " +
         "recorded grants never authorize a variance.",

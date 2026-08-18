@@ -163,7 +163,7 @@ export type VarianceInterlockResolution =
     kind: "awaiting";
     unmet: StandingUnmetConclusion[];
     /** The ids still missing from the request (equal to every unmet id when
-     * the attestation itself is absent). */
+     * `--confirmed` itself is absent). */
     missing: string[];
     confirmed: boolean;
   }

@@ -154,3 +154,57 @@ Deno.test("shipped criterion prose keeps the reserved vocabulary", () => {
     }
   }
 });
+
+Deno.test("the reserved word stays off every checkpoint-facing surface — tools, hints, contracts", async () => {
+  // "attestation" is reserved for a planned supply-chain feature in its
+  // term-of-art sense. Default-deny across the surfaces an agent or owner
+  // reads at checkpoint moments; the consent feature's own pre-existing
+  // `confirmed`-flag wording is the one vetted carrier, allowlisted
+  // explicitly so anything NEW fails here until a human vets it.
+  const reserved = /attestation/i;
+
+  // MCP tool and parameter descriptions (runtime data, every tool).
+  const { TOOLS } = await import("../src/engine/mcp/server.ts");
+  for (const tool of TOOLS) {
+    assert(
+      !reserved.test(tool.description),
+      `${tool.name}: tool description uses reserved vocabulary`,
+    );
+    for (const [param, schema] of Object.entries(tool.inputSchema)) {
+      if (param === "confirmed") {
+        continue; // the consent flag's vetted, pre-existing wording
+      }
+      const description =
+        (schema as { description?: string }).description ?? "";
+      assert(
+        !reserved.test(description),
+        `${tool.name}.${param}: parameter description uses reserved vocabulary`,
+      );
+    }
+  }
+
+  // Hint templates and metadata: scan the module source so template
+  // functions cannot hide an occurrence; every hit must be the vetted
+  // consent hint's own line.
+  const hintsSource = await Deno.readTextFile(
+    new URL("../src/shared/hints.ts", import.meta.url),
+  );
+  for (const [index, line] of hintsSource.split("\n").entries()) {
+    if (!reserved.test(line)) {
+      continue;
+    }
+    assert(
+      /conversation-consent attestation/.test(line),
+      `hints.ts:${index + 1} uses reserved vocabulary outside the vetted consent hint`,
+    );
+  }
+
+  // The declaration and variance contract module carries none at all.
+  const contractsSource = await Deno.readTextFile(
+    new URL("../src/shared/declarations.ts", import.meta.url),
+  );
+  assert(
+    !reserved.test(contractsSource),
+    "declarations.ts uses reserved vocabulary",
+  );
+});
