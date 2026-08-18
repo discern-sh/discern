@@ -32,6 +32,19 @@ export type CheckpointMode = (typeof CHECKPOINT_MODES)[number];
 /** The mode an entry that names none receives. */
 export const DEFAULT_CHECKPOINT_MODE: CheckpointMode = "stop";
 
+/** Why a structural trigger did not hold — the closed veto vocabulary, named
+ * so previews can explain and wire schemas can enumerate. */
+export const TRIGGER_VETOES = [
+  "empty_matched_set",
+  "unless_changed",
+  "min_changed_files",
+  "deletion_dominant",
+  "similar_new_file",
+] as const;
+
+/** One structural-trigger veto ({@link TRIGGER_VETOES}). */
+export type TriggerVeto = (typeof TRIGGER_VETOES)[number];
+
 /**
  * One shipped checkpoint seed: the criterion it serves plus the trigger and
  * mode defaults a bare `[checkpoints.<id>]` reference receives. Every field a

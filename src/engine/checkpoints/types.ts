@@ -11,7 +11,9 @@
  * half.
  */
 
-import type { CheckpointMode } from "../../shared/checkpoints.ts";
+import type { CheckpointMode, TriggerVeto } from "../../shared/checkpoints.ts";
+
+export type { TriggerVeto };
 
 // ── the effort diff ─────────────────────────────────────────────────────────
 
@@ -83,18 +85,9 @@ export interface ResolvedCheckpoint {
 
 // ── trigger outcomes ────────────────────────────────────────────────────────
 
-/** Why a structural trigger did not hold — the closed veto vocabulary, named
- * so previews can explain and wire schemas can enumerate. */
-export const TRIGGER_VETOES = [
-  "empty_matched_set",
-  "unless_changed",
-  "min_changed_files",
-  "deletion_dominant",
-  "similar_new_file",
-] as const;
-
-/** One structural-trigger veto ({@link TRIGGER_VETOES}). */
-export type TriggerVeto = (typeof TRIGGER_VETOES)[number];
+// (The trigger-veto vocabulary lives in `shared/checkpoints.ts`, beside the
+// mode pair, so wire schemas can enumerate it without reaching into the
+// engine; the type is re-exported above for the engine's own consumers.)
 
 /** One name-similar pair the `similar_new_file` predicate found: the added
  * file and the existing merge-base sibling it resembles. */
