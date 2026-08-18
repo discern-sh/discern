@@ -14,7 +14,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { decodeBase64 } from "@std/encoding/base64";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -440,7 +440,7 @@ Deno.test("accept: the variance refusal escapes the rationale and paths on the m
     );
     const md = await runAgent(wt, ["accept", "--markdown"]);
     assertEquals(md.code, 1, md.output);
-    assertStringIncludes(md.stdout, "Rationale: ``" + hostile + "``");
+    assertTerminalTextIncludes(md.stdout, "Rationale: ``" + hostile + "``");
     assertStringIncludes(md.stdout, "`api/*wild*.txt`");
   });
 });
