@@ -787,6 +787,27 @@ interface FollowThroughFamily {
   hintIds: ReadonlySet<string>;
 }
 
+/** The rule kinds resolved by scanning forward from one firing EVENT. The
+ * checkpoint kind is excluded: its episodes are enumerated per checkpoint id
+ * from the events' recorded observation blocks (a stream walk), not per
+ * delivered hint. */
+type EventFollowThroughRule = Exclude<
+  HintFollowThroughRule,
+  { kind: "checkpoint-revision-before-declaration" }
+>;
+
+/** A family whose episodes open per firing event. */
+interface EventFollowThroughFamily extends FollowThroughFamily {
+  rule: EventFollowThroughRule;
+}
+
+/** Whether a family's episodes come from per-event hint firings. */
+function isEventFamily(
+  family: FollowThroughFamily,
+): family is EventFollowThroughFamily {
+  return family.rule.kind !== "checkpoint-revision-before-declaration";
+}
+
 type EpisodeOutcome = "followed" | "not-followed" | "censored";
 
 /** Derive every measurable family from the hint registry. No detector-side
@@ -943,7 +964,7 @@ function mainWorktreeOutcome(
 function episodeOutcome(
   events: readonly VerbEvent[],
   index: number,
-  family: FollowThroughFamily,
+  family: EventFollowThroughFamily,
   trunk: string,
 ): EpisodeOutcome {
   switch (family.rule.kind) {
@@ -961,6 +982,69 @@ interface FollowThroughCounts {
   followed: number;
   notFollowed: number;
   censored: number;
+}
+
+/**
+ * Walk the stream once for the checkpoint-declaration family: episodes are
+ * enumerated per (branch, checkpoint id) from the events' recorded checkpoint
+ * observations, so every configured checkpoint — present and future — enrols
+ * without naming itself anywhere. A serving (fired or reopened) opens one
+ * pending episode; a reopen while one is pending folds into it (the same
+ * awaited conclusion, its subject moved). The declaration that resolves it
+ * says whether a relevant revision replaced the subject first (`followed`)
+ * or the subject was unchanged (`not followed`). Conservative censoring: a
+ * family hint delivered by a writer without the observation block, a missing
+ * branch, a declaration without the revision flag, and pending episodes at
+ * the end of history all censor rather than claim.
+ */
+function checkpointDeclarationEpisodes(
+  events: readonly VerbEvent[],
+  family: FollowThroughFamily,
+  counts: FollowThroughCounts,
+): void {
+  const pending = new Set<string>();
+  for (const event of events) {
+    const block = event.checkpoints;
+    if (block === undefined) {
+      if (firesFamily(event, family)) {
+        counts.fired += 1;
+        counts.censored += 1;
+      }
+      continue;
+    }
+    const servings = [...(block.fired ?? []), ...(block.reopened ?? [])];
+    if (event.branch === null) {
+      counts.fired += servings.length;
+      counts.censored += servings.length;
+      continue;
+    }
+    const key = (id: string): string => `${event.branch}\u0000${id}`;
+    for (const serving of servings) {
+      if (!pending.has(key(serving.id))) {
+        pending.add(key(serving.id));
+        counts.fired += 1;
+      }
+    }
+    for (const declaration of block.declared ?? []) {
+      const opened = key(declaration.id);
+      if (!pending.has(opened)) {
+        // Replacing a standing conclusion (the other verdict, a new
+        // rationale) opens no episode: nothing was served to follow.
+        continue;
+      }
+      pending.delete(opened);
+      if (typeof declaration.revised !== "boolean") {
+        counts.censored += 1;
+        continue;
+      }
+      if (declaration.revised) {
+        counts.followed += 1;
+      } else {
+        counts.notFollowed += 1;
+      }
+    }
+  }
+  counts.censored += pending.size;
 }
 
 /**
@@ -994,8 +1078,9 @@ const hintFollowThrough: Detector = {
       });
     }
 
+    const eventFamilies = families.filter(isEventFamily);
     for (const [index, event] of facts.agentish.entries()) {
-      for (const family of families) {
+      for (const family of eventFamilies) {
         if (!firesFamily(event, family)) {
           continue;
         }
@@ -1018,6 +1103,16 @@ const hintFollowThrough: Detector = {
             break;
         }
       }
+    }
+    for (const family of families) {
+      if (isEventFamily(family)) {
+        continue;
+      }
+      const familyCounts = counts.get(family.family);
+      if (familyCounts === undefined) {
+        continue;
+      }
+      checkpointDeclarationEpisodes(facts.agentish, family, familyCounts);
     }
 
     const findings: DetectorFinding[] = [];

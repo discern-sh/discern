@@ -90,6 +90,17 @@ export type HintFollowThroughRule =
     family: string;
     kind: "main-session-start-before-dirty";
     actionVerb: string;
+  }>
+  | Readonly<{
+    /** A checkpoint serving invites a relevant in-scope revision before its
+     * declaration. Episodes come from the events' recorded checkpoint
+     * observations — per checkpoint id, so every configured checkpoint
+     * (present and future) enrols without naming itself anywhere: a serving
+     * opens an episode, a declaration after a relevant revision resolves it
+     * followed, one on the unchanged subject resolves it not followed, and a
+     * missing block, a missing revision flag, or the end of history censors. */
+    family: string;
+    kind: "checkpoint-revision-before-declaration";
   }>;
 
 /** One registered hint: a stable id, its classification, and a typed template. */
@@ -150,6 +161,13 @@ const MAIN_WORKTREE_FOLLOW_THROUGH = Object.freeze(
     family: "main-worktree-first",
     kind: "main-session-start-before-dirty",
     actionVerb: "start",
+  } as const satisfies HintFollowThroughRule,
+);
+
+const CHECKPOINT_DECLARATION_FOLLOW_THROUGH = Object.freeze(
+  {
+    family: "checkpoint-declaration",
+    kind: "checkpoint-revision-before-declaration",
   } as const satisfies HintFollowThroughRule,
 );
 
@@ -2014,6 +2032,7 @@ export const HINTS = {
     when:
       "`done` refuses because a governing stop checkpoint has no current conclusion.",
     family: "checkpoint-declaration",
+    followThrough: CHECKPOINT_DECLARATION_FOLLOW_THROUGH,
     example: { ids: ["api-review"] },
     template: ({ ids }): string =>
       `Judge each criterion above against its changed paths, then record your ` +
