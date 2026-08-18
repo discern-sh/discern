@@ -611,6 +611,7 @@ Deno.test("Gate plan section rules inherit the bound terminal theme", () => {
     terminal: terminal({ color: "truecolor", theme: "dark" }),
   });
   assertEquals(stripAnsi(light), stripAnsi(dark));
+  assertStringIncludes(stripAnsi(light), "◮");
   assert(light !== dark, "light and dark section-rule styling must differ");
 });
 

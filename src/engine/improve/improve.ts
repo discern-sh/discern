@@ -373,6 +373,7 @@ function renderGroup(out: Out, id: string, label: string): void {
   out.group(id);
   out.raw(`${
     presenter.motifSectionRule(terminalLine(label), {
+      register: "brand",
       width,
     })
   }\n`);

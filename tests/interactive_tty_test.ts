@@ -227,6 +227,11 @@ Deno.test({
     ]);
     assertValue(text, "remembered-value");
     assertValue(confirmation, false);
+    assertEquals(
+      /\b(?:Yes|No)\b/u.test(confirmation.process.transcript),
+      false,
+      `production confirmation must keep the package's glyph-only default:\n${confirmation.process.transcript}`,
+    );
     assertValue(selection, "beta");
   },
 });

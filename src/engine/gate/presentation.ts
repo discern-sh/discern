@@ -743,6 +743,7 @@ export function renderGatePlan(
   const width = presentationWidth(options.width);
   const presenter = options.terminal.presenter;
   const title = presenter.motifSectionRule(safeLine(plan.title), {
+    register: "brand",
     width,
   });
   const context = plan.details.length === 0

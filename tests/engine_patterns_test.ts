@@ -11,6 +11,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { stripAnsi } from "discern-design-system/cli";
+import { DISCERN_MARK } from "../src/shared/brand.ts";
 import {
   assertTerminalTextIncludes,
   unexpectedTerminalControls,
@@ -1603,6 +1604,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     for (const label of Object.values(STATS_SECTIONS)) {
       assertStringIncludes(card, label.toUpperCase());
     }
+    assertStringIncludes(card, DISCERN_MARK);
     assertStringIncludes(
       card,
       "2 changes accepted from 2 branches · 4 commits",
