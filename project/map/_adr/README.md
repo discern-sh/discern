@@ -281,6 +281,11 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0290 — Discern owns the default interactive Markdown reading loop](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)
 - [0291 — The await call cap is an environment-only valued experiment](0291-the-await-call-cap-is-an-environment-only-experiment.md)
 - [0292 — The demand canon counters the benefit canon](0292-the-demand-canon-counters-the-benefit-canon.md)
+- [0293 — Checkpoint declarations interlock the gate through episodes and relevance-sensitive subjects](0293-checkpoint-declarations-interlock-the-gate.md)
+- [0294 — The merge-base governs checkpoint policy](0294-the-merge-base-governs-checkpoint-policy.md)
+- [0295 — One criterion vocabulary serves the improvement and checkpoint memberships](0295-one-criterion-vocabulary-serves-two-memberships.md)
+- [0296 — `when` delegates trigger conditions to the project under an explicit v1 execution boundary](0296-when-delegates-trigger-conditions-under-a-v1-boundary.md)
+- [0297 — Checkpoint modes are the closed stop/advise pair](0297-checkpoint-modes-are-the-stop-advise-pair.md)
 
 <!-- END GENERATED: current ADR records -->
 
