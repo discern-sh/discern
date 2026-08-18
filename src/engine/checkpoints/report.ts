@@ -51,6 +51,7 @@ import {
   type CheckpointPreview,
   previewCheckpoints,
 } from "./preflight.ts";
+import { checkpointDefinitionHash, computeSubject } from "./subject.ts";
 import type { ResolvedCheckpoint, StructuralTriggerOutcome } from "./types.ts";
 
 // ── the trigger summary ─────────────────────────────────────────────────────
@@ -112,15 +113,30 @@ function triggerPreviewData(
   };
 }
 
+/** The binding a bare `done` would reconcile an episode to right now — the
+ * current resolved-definition hash and subject fingerprint. `error` fails
+ * open (the report shows the recorded state). */
+type CurrentBinding =
+  | { definitionHash: string; subject: string }
+  | { error: string };
+
 /** Project one stored episode onto the wire shape. `stop` says whether the
  * checkpoint currently governs in stop mode — only then can a current
- * declared-unmet conclusion require an owner variance at landing. */
+ * declared-unmet conclusion require an owner variance at landing. `binding`,
+ * when computable, is what `done` would reconcile the episode to now: a
+ * differing binding means the next gate run REOPENS it, so the recorded
+ * conclusion is reported as no longer current rather than as standing. */
 function episodeData(
   episode: CheckpointEpisode,
   stop: boolean,
+  binding?: CurrentBinding,
 ): CheckpointEpisodeData {
   const declaration = episode.declaration;
-  const current = declaration !== undefined && declarationIsCurrent(episode);
+  const rebindPending = binding !== undefined && !("error" in binding) &&
+    (binding.definitionHash !== episode.definitionHash ||
+      binding.subject !== episode.subject);
+  const current = declaration !== undefined && declarationIsCurrent(episode) &&
+    !rebindPending;
   const state: CheckpointEpisodeState = declaration === undefined
     ? "awaiting_declaration"
     : current
@@ -173,6 +189,7 @@ interface ReportRouting {
 function assembleReport(
   preview: CheckpointPreview,
   episodes: Readonly<Record<string, CheckpointEpisode>>,
+  bindings: ReadonlyMap<string, CurrentBinding>,
 ): {
   rows: CheckpointReportData[];
   ungoverned: UngovernedEpisodeData[];
@@ -190,7 +207,7 @@ function assembleReport(
     const episode = episodes[def.id];
     const data = episode === undefined
       ? undefined
-      : episodeData(episode, stop);
+      : episodeData(episode, stop, bindings.get(def.id));
     if (stop) {
       if (data !== undefined) {
         if (data.state === "awaiting_declaration" || data.state === "reopened") {
@@ -256,7 +273,43 @@ export async function checkpointsResult(
     );
   }
 
-  const { rows, ungoverned, routing } = assembleReport(preview, episodes);
+  // What a bare `done` would reconcile each recorded episode to right now.
+  // Only a settled stop firing reconciles there, so only that case is
+  // recomputed here; a computation failure FAILS OPEN into the recorded
+  // state, with the account beside it.
+  const bindings = new Map<string, CurrentBinding>();
+  for (const { definition, outcome } of preview.entries ?? []) {
+    if (
+      definition.mode !== "stop" || episodes[definition.id] === undefined ||
+      !outcome.holds || outcome.whenPending
+    ) {
+      continue;
+    }
+    const definitionHash = await checkpointDefinitionHash(definition);
+    const subject = await computeSubject(
+      root,
+      definitionHash,
+      outcome.matched,
+      preview.policyCommit ?? "",
+    );
+    if ("error" in subject) {
+      bindings.set(definition.id, { error: subject.error });
+      advisories.push(
+        `checkpoint '${definition.id}': its current subject could not be computed (${subject.error}); the report shows the recorded state.`,
+      );
+      continue;
+    }
+    bindings.set(definition.id, {
+      definitionHash,
+      subject: subject.subject.fingerprint,
+    });
+  }
+
+  const { rows, ungoverned, routing } = assembleReport(
+    preview,
+    episodes,
+    bindings,
+  );
   const data: CheckpointsData = {
     ...(preview.policyCommit === undefined
       ? {}
