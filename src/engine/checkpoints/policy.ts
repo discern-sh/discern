@@ -33,7 +33,7 @@ import { criterionById } from "../../shared/criteria.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { resolvedScopePaths } from "../scopes/scopes.ts";
+import { resolvedScopePaths } from "../scopes/scope_paths.ts";
 import type { ResolvedCheckpoint } from "./types.ts";
 
 /** The governing policy for one effort. */
