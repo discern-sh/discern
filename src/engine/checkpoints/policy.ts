@@ -73,8 +73,14 @@ export function resolveCheckpoints(
       continue;
     }
 
-    const scope = entry.scope ?? seed?.scope;
-    const paths = entry.paths ?? seed?.paths;
+    // The selector is ONE slot (`scope` xor `paths`): an entry that sets either
+    // half replaces the seed's whole selector. Merging per field would pair an
+    // entry's `paths` with a seed's `scope` and silently resolve the seed's
+    // side, discarding the override.
+    const entrySetsSelector = entry.scope !== undefined ||
+      entry.paths !== undefined;
+    const scope = entrySetsSelector ? entry.scope : seed?.scope;
+    const paths = entrySetsSelector ? entry.paths : seed?.paths;
     if (entry.scope !== undefined && entry.paths !== undefined) {
       advisories.push(
         `checkpoint '${id}' sets both scope and paths; it does not govern this run.`,

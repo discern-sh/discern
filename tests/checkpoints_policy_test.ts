@@ -25,6 +25,8 @@ import {
   computeSubject,
 } from "../src/engine/checkpoints/subject.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import type { BuiltInCheckpointSeed } from "../src/shared/checkpoints.ts";
+import { criterionById } from "../src/shared/criteria.ts";
 
 /** A minimal governing config with one authored checkpoint. */
 function configText(criterion: string): string {
@@ -292,4 +294,99 @@ Deno.test("a checkpoint with no selector governs the whole diff and defaults hol
     deletionDominant: false,
     similarNewFile: false,
   });
+});
+
+// ── built-in seed merging ───────────────────────────────────────────────────
+
+/** Synthetic seeds (real criterion ids) exercising every seed-provided field,
+ * so the merge contract is provable independently of the shipped set. */
+const SEEDS: Readonly<Record<string, BuiltInCheckpointSeed>> = {
+  "scoped-seed": {
+    criterion: "skills.executable",
+    scope: "docs",
+    min_changed_files: 3,
+    unless_changed: ["CHANGELOG.md"],
+  },
+  "pathed-seed": {
+    criterion: "setup.failure-memory",
+    mode: "advise",
+    paths: ["${map.dir}**"],
+    deletion_dominant: true,
+  },
+};
+
+/** A config carrying the map/scope fixtures plus the given checkpoint entries.
+ * Entries are injected post-parse: the LIVE loader's completeness rule knows
+ * only the SHIPPED built-in ids, while the resolver's seed injection exists so
+ * merging is provable with synthetic ids — the same lenient path a governing
+ * (historical) config takes. */
+function seedConfig(
+  entries: Record<string, Record<string, unknown>>,
+): ReturnType<typeof parseConfigOrThrow> {
+  const config = parseConfigOrThrow(
+    ["[map]", 'dir = "guide/"', "", "[scopes.docs]", 'paths = ["docs/**"]', ""]
+      .join("\n"),
+  );
+  Object.assign(config.checkpoints, entries);
+  return config;
+}
+
+Deno.test("a bare reference enables a built-in with the seed's trigger, mode, and canonical criterion", () => {
+  const config = seedConfig({ "scoped-seed": {}, "pathed-seed": {} });
+  const { checkpoints, advisories } = resolveCheckpoints(config, SEEDS);
+  assertEquals(advisories, []);
+  const scoped = checkpoints.find((c) => c.id === "scoped-seed");
+  assertEquals(scoped?.selector, { scope: "docs", globs: ["docs/**"] });
+  assertEquals(scoped?.minChangedFiles, 3);
+  assertEquals(scoped?.unlessChanged, ["CHANGELOG.md"]);
+  assertEquals(scoped?.mode, "stop"); // the default, seed named none
+  assertEquals(scoped?.criterion, criterionById("skills.executable")?.criterion);
+  assertEquals(scoped?.teach, criterionById("skills.executable")?.teach);
+  const pathed = checkpoints.find((c) => c.id === "pathed-seed");
+  assertEquals(pathed?.selector, { globs: ["guide/**"] }); // reference expanded
+  assertEquals(pathed?.mode, "advise");
+  assertEquals(pathed?.deletionDominant, true);
+});
+
+Deno.test("entry fields override the seed's, field by field", () => {
+  const config = seedConfig({
+    "scoped-seed": { min_changed_files: 7, mode: "advise" },
+  });
+  const { checkpoints } = resolveCheckpoints(config, SEEDS);
+  const resolved = checkpoints[0];
+  assertEquals(resolved?.minChangedFiles, 7);
+  assertEquals(resolved?.mode, "advise");
+  // Untouched fields keep the seed's values — including the canonical prose.
+  assertEquals(resolved?.criterion, criterionById("skills.executable")?.criterion);
+  assertEquals(resolved?.selector, { scope: "docs", globs: ["docs/**"] });
+});
+
+Deno.test("an entry overriding the criterion serves its own prose", () => {
+  const config = seedConfig({
+    "scoped-seed": { criterion: "My own judgment." },
+  });
+  const { checkpoints } = resolveCheckpoints(config, SEEDS);
+  assertEquals(checkpoints[0]?.criterion, "My own judgment.");
+});
+
+Deno.test("the selector is one slot: an entry's paths replace a seed's scope, and vice versa", () => {
+  const config = seedConfig({
+    "scoped-seed": { paths: ["src/**"] },
+    "pathed-seed": { scope: "docs" },
+  });
+  const { checkpoints, advisories } = resolveCheckpoints(config, SEEDS);
+  assertEquals(advisories, []);
+  const pathsOverScope = checkpoints.find((c) => c.id === "scoped-seed");
+  assertEquals(pathsOverScope?.selector, { globs: ["src/**"] });
+  const scopeOverPaths = checkpoints.find((c) => c.id === "pathed-seed");
+  assertEquals(scopeOverPaths?.selector, { scope: "docs", globs: ["docs/**"] });
+});
+
+Deno.test("a seed whose scope the project does not define fails open with an advisory", () => {
+  const config = parseConfigOrThrow("");
+  Object.assign(config.checkpoints, { "scoped-seed": {} });
+  const { checkpoints, advisories } = resolveCheckpoints(config, SEEDS);
+  assertEquals(checkpoints, []);
+  assertEquals(advisories.length, 1);
+  assertStringIncludes(advisories[0] ?? "", "unknown scope 'docs'");
 });
