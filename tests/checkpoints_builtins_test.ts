@@ -191,7 +191,10 @@ Deno.test("gotchas-playbook stays quiet in a project that never configured a got
   const { checkpoints, advisories } = resolveCheckpoints(noDoc);
   assertEquals(advisories, []);
   const def = checkpoints[0];
-  assert(def !== undefined, "the checkpoint still governs — it just never fires");
+  assert(
+    def !== undefined,
+    "the checkpoint still governs — it just never fires",
+  );
   assertEquals(def.selector?.globs, [""]);
   const outcome = evaluateStructuralTrigger(
     def,

@@ -97,10 +97,9 @@ export const NAME_RE = /^[A-Za-z0-9_-]+$/;
  * scope-glob dialect. The reference list derives from the live-reference
  * membership (registry members plus the enumerated scalar docs), so the
  * generated config reference documents a future member immediately. */
-const LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION =
-  `Registered path references (${
-    LIVE_PATH_REFERENCE_SPELLINGS.join(", ")
-  }) resolve from this config before matching or execution; unregistered braced forms stay untouched.`;
+const LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION = `Registered path references (${
+  LIVE_PATH_REFERENCE_SPELLINGS.join(", ")
+}) resolve from this config before matching or execution; unregistered braced forms stay untouched.`;
 
 /** The native provider names are derived from the shared identity catalogue,
  * then reused by the document's `agents` enum, generated editor JSON Schema,

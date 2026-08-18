@@ -340,7 +340,10 @@ Deno.test("a bare reference enables a built-in with the seed's trigger, mode, an
   assertEquals(scoped?.minChangedFiles, 3);
   assertEquals(scoped?.unlessChanged, ["CHANGELOG.md"]);
   assertEquals(scoped?.mode, "stop"); // the default, seed named none
-  assertEquals(scoped?.criterion, criterionById("skills.executable")?.criterion);
+  assertEquals(
+    scoped?.criterion,
+    criterionById("skills.executable")?.criterion,
+  );
   assertEquals(scoped?.teach, criterionById("skills.executable")?.teach);
   const pathed = checkpoints.find((c) => c.id === "pathed-seed");
   assertEquals(pathed?.selector, { globs: ["guide/**"] }); // reference expanded
@@ -357,7 +360,10 @@ Deno.test("entry fields override the seed's, field by field", () => {
   assertEquals(resolved?.minChangedFiles, 7);
   assertEquals(resolved?.mode, "advise");
   // Untouched fields keep the seed's values — including the canonical prose.
-  assertEquals(resolved?.criterion, criterionById("skills.executable")?.criterion);
+  assertEquals(
+    resolved?.criterion,
+    criterionById("skills.executable")?.criterion,
+  );
   assertEquals(resolved?.selector, { scope: "docs", globs: ["docs/**"] });
 });
 

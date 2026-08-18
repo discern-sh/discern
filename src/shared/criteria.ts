@@ -362,8 +362,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "change.commit-story",
     violations: "diff-introduced",
-    criterion:
-      "This change is large enough that its history is part of the " +
+    criterion: "This change is large enough that its history is part of the " +
       "deliverable. Could the owner reconstruct the why of the work from the " +
       "commit messages alone — decision by decision — or does the story live " +
       "only in this session's context?",
