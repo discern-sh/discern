@@ -299,6 +299,7 @@ export async function patternsResult(
     stream.events,
     config.repository.trunk,
     resolveConfiguredAgents(config),
+    Object.keys(config.checkpoints).sort(),
   );
   const reports = runDetectors(facts);
   const ranked = routeDetectorReports(reports).patterns.map(

@@ -839,6 +839,43 @@ function measuredTip(id: string): MeasuredTip {
 
 const PATTERNS_TIP = measuredTip("patterns-practice-report");
 
+/** Distinct gate-run efforts with no checkpoint activity, `offset` onward. */
+function gateEfforts(count: number, offset = 0): Partial<VerbEvent>[] {
+  return Array.from({ length: count }, (_, i) => ({
+    branch: `agent/e${offset + i}`,
+  }));
+}
+
+/** Distinct gate-run efforts each served one checkpoint firing. */
+function servedEfforts(id: string, count: number): Partial<VerbEvent>[] {
+  return Array.from({ length: count }, (_, i) => ({
+    branch: `agent/e${i}`,
+    checkpoints: { fired: [{ id, subject: `s${i}` }] },
+  }));
+}
+
+/** One landed effort where a checkpoint fired — with or without an
+ * owner-authorized variance carried by the landing. */
+function variedEffort(
+  id: string,
+  index: number,
+  withVariance: boolean,
+): Partial<VerbEvent>[] {
+  return [
+    {
+      branch: `agent/v${index}`,
+      checkpoints: { fired: [{ id, subject: `s${index}` }] },
+    },
+    {
+      branch: `agent/v${index}`,
+      verb: "accept",
+      ...(withVariance
+        ? { checkpoints: { variances: [{ id, subject: `s${index}` }] } }
+        : {}),
+    },
+  ];
+}
+
 // ── the fixture table (keyed by detector id — the forcing tie) ──────────────
 
 /** A quiet state that cannot exist gets a recorded reason instead of events. */
@@ -854,6 +891,9 @@ interface DetectorFixtures {
   /** Configured native providers the stream is read against, for detectors
    * whose verdict depends on config context (shared by all three streams). */
   configured_agents?: string[];
+  /** Configured checkpoint ids the stream is read against, for the checkpoint
+   * hygiene detectors (shared by all three streams). */
+  configured_checkpoints?: string[];
 }
 
 const FIXTURES: Record<string, DetectorFixtures> = {
@@ -1628,6 +1668,45 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       verb({ at: "2026-07-02T10:00:00.000Z", ...redDone() }),
     ],
   },
+  "checkpoint-dead": {
+    firing: run(gateEfforts(8)),
+    quiet: run([
+      ...gateEfforts(8),
+      {
+        branch: "agent/e0",
+        checkpoints: { fired: [{ id: "silent-rule" }] },
+      },
+    ]),
+    sparse: run(gateEfforts(7)),
+    configured_checkpoints: ["silent-rule"],
+  },
+  "checkpoint-noisy": {
+    firing: run([
+      ...servedEfforts("chatty-rule", 8),
+      ...gateEfforts(2, 8),
+    ]),
+    quiet: run([
+      ...servedEfforts("chatty-rule", 3),
+      ...gateEfforts(7, 3),
+    ]),
+    sparse: run(servedEfforts("chatty-rule", 7)),
+  },
+  "checkpoint-varied": {
+    firing: run([
+      ...variedEffort("soft-rule", 0, true),
+      ...variedEffort("soft-rule", 1, true),
+      ...variedEffort("soft-rule", 2, true),
+    ]),
+    quiet: run([
+      ...variedEffort("soft-rule", 0, true),
+      ...variedEffort("soft-rule", 1, false),
+      ...variedEffort("soft-rule", 2, false),
+    ]),
+    sparse: run([
+      ...variedEffort("soft-rule", 0, true),
+      ...variedEffort("soft-rule", 1, true),
+    ]),
+  },
 };
 
 // ── the registry invariants ─────────────────────────────────────────────────
@@ -1847,7 +1926,12 @@ function fixturesOf(d: Detector): DetectorFixtures {
 function report(d: Detector, events: LogbookEvent[]): DetectorReport {
   return runDetector(
     d,
-    buildStreamFacts(events, "main", fixturesOf(d).configured_agents ?? []),
+    buildStreamFacts(
+      events,
+      "main",
+      fixturesOf(d).configured_agents ?? [],
+      fixturesOf(d).configured_checkpoints ?? [],
+    ),
   );
 }
 
