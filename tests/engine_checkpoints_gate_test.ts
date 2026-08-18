@@ -658,3 +658,196 @@ Deno.test("done: a fresh install's shipped defaults govern out of the box", asyn
     assert(after.error !== AWAITING_DECLARATION_SLUG, declared.output);
   });
 });
+
+/** The `checkpoints` verb's wire fields these restart assertions read. */
+interface CheckpointsEnvelope {
+  ok: boolean;
+  data: {
+    checkpoints: {
+      id: string;
+      episode?: {
+        state: string;
+        declaration?: { conclusion: string; current: boolean };
+      };
+    }[];
+  };
+}
+
+Deno.test("done: a trunk policy edit reaches the effort only through update, and arrives beside a tree change", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+    const met = await runAgent(wt, ["done", "--met", "api-review", "--json"]);
+    assertEquals(met.code, 0, met.output);
+    const governed = parseJson(met.stdout).data.checkpoints.policy;
+
+    // The trunk lands a SECOND stop checkpoint on the same paths. The effort's
+    // merge-base has not moved, so its governing policy has not either.
+    await writeConfig(
+      dir,
+      `${CONFIG_ONE_CHECKPOINT}
+[checkpoints.risk-notes]
+paths = ["api/**"]
+criterion = "${CRITERION_NOTES}"
+`,
+    );
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "trunk adds a checkpoint", "--no-gpg-sign");
+
+    // Before `update`: the unchanged tree meets the RERUN guard, never a
+    // demand from the not-yet-governing checkpoint — and the policy identity
+    // still names the old merge-base.
+    const before = await runAgent(wt, ["done", "--json"]);
+    assertEquals(before.code, 1, before.output);
+    assertEquals(parseJson(before.stdout).error, UNCHANGED_TREE_RERUN_SLUG);
+    assert(!before.output.includes("risk-notes"), before.output);
+    const preUpdate = await runAgent(wt, ["checkpoints", "--json"]);
+    assertStringIncludes(preUpdate.stdout, `"policy":"${governed}"`);
+    assert(!preUpdate.stdout.includes("risk-notes"), preUpdate.stdout);
+
+    // `update` advances the merge-base — and with it, the policy — beside a
+    // tree change (the merge commit), so the new checkpoint can never appear
+    // against an already-green unchanged tree: the reopened gate is a fresh
+    // run, not a rerun needing --confirmed.
+    const updated = await runAgent(wt, ["update", "--json"]);
+    assertEquals(updated.code, 0, updated.output);
+    const after = await runAgent(wt, ["done", "--json"]);
+    assertEquals(after.code, 1, after.output);
+    const afterEnv = parseJson(after.stdout);
+    assertEquals(afterEnv.error, AWAITING_DECLARATION_SLUG);
+    assertEquals(
+      afterEnv.data.checkpoints.outstanding?.map((entry) => entry.id),
+      ["risk-notes"],
+    );
+    // The untouched checkpoint's conclusion still binds across the advance.
+    assertEquals(afterEnv.data.checkpoints.declared_met?.[0]?.id, "api-review");
+    assert(afterEnv.data.checkpoints.policy !== governed);
+    assertEquals(
+      (await runAgent(wt, ["done", "--met", "risk-notes", "--json"])).code,
+      0,
+    );
+  });
+});
+
+Deno.test("done: the when text governs from the merge-base while it executes from the worktree", async () => {
+  await withTempDir(async (dir) => {
+    // Trunk: a `when` probe that FIRES, named by the governing config.
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "sh check.sh"
+
+[checkpoints.spec-drift]
+paths = ["api/**"]
+when = "sh probe.sh"
+criterion = "${CRITERION_API}"
+`,
+    );
+    await writeExecutable(join(dir, "check.sh"), CHECK_OK);
+    await writeExecutable(
+      join(dir, "probe.sh"),
+      "#!/usr/bin/env sh\necho trunk-probe >> probe-ran.log\nexit 0\n",
+    );
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "checkpointed");
+    await Deno.mkdir(join(wt, "api"), { recursive: true });
+    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint\n");
+    // The branch rewrites the probe to PASS — and tries to hijack the policy
+    // by pointing its own config at a command that would fire.
+    await writeExecutable(
+      join(wt, "probe.sh"),
+      "#!/usr/bin/env sh\necho wt-probe >> probe-ran.log\nexit 1\n",
+    );
+    await writeExecutable(
+      join(wt, "hijack.sh"),
+      "#!/usr/bin/env sh\necho hijack >> hijack-ran.log\nexit 0\n",
+    );
+    await writeConfig(
+      wt,
+      `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "sh check.sh"
+
+[checkpoints.spec-drift]
+paths = ["api/**"]
+when = "sh hijack.sh"
+criterion = "${CRITERION_API}"
+`,
+    );
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feat: extend the api", "--no-gpg-sign");
+
+    // The governing TEXT is the merge-base's `sh probe.sh`; the script it
+    // resolves is the WORKTREE's copy, which passes — so nothing fires, and
+    // the branch's hijack command never ran.
+    const quiet = await runAgent(wt, ["done", "--json"]);
+    assertEquals(quiet.code, 0, quiet.output);
+    const ran = await Deno.readTextFile(join(wt, "probe-ran.log"));
+    assertStringIncludes(ran, "wt-probe");
+    assert(!ran.includes("trunk-probe"), ran);
+    assertEquals(
+      await Deno.stat(join(wt, "hijack-ran.log")).then(() => true).catch(() =>
+        false
+      ),
+      false,
+      "the branch's own `when` text must never run",
+    );
+
+    // The same governing text over a firing worktree probe interlocks.
+    await writeExecutable(
+      join(wt, "probe.sh"),
+      "#!/usr/bin/env sh\necho wt-probe >> probe-ran.log\nexit 0\n",
+    );
+    await git(wt, "add", "probe.sh");
+    await git(wt, "commit", "-q", "-m", "probe fires", "--no-gpg-sign");
+    const fired = await runAgent(wt, ["done", "--json"]);
+    assertEquals(fired.code, 1, fired.output);
+    const env = parseJson(fired.stdout);
+    assertEquals(env.error, AWAITING_DECLARATION_SLUG);
+    assertEquals(env.data.checkpoints.outstanding?.[0]?.id, "spec-drift");
+  });
+});
+
+Deno.test("episodes: the effort's state survives session restarts — each engine process reads what the last recorded", async () => {
+  // Every invocation below is its own OS process over the per-worktree store:
+  // the refusal's episode, read back by a fresh `checkpoints` run, resolved by
+  // a third process's declaration — the spec's session-restart claim, named.
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+
+    const read = await runAgent(wt, ["checkpoints", "--json"]);
+    assertEquals(read.code, 0, read.output);
+    const awaiting = JSON.parse(read.stdout.trim()) as CheckpointsEnvelope;
+    assertEquals(
+      awaiting.data.checkpoints[0]?.episode?.state,
+      "awaiting_declaration",
+    );
+
+    assertEquals(
+      (await runAgent(wt, ["done", "--met", "api-review", "--json"])).code,
+      0,
+    );
+    const settled = await runAgent(wt, ["checkpoints", "--json"]);
+    const met = JSON.parse(settled.stdout.trim()) as CheckpointsEnvelope;
+    assertEquals(met.data.checkpoints[0]?.episode?.state, "declared_met");
+    assertEquals(
+      met.data.checkpoints[0]?.episode?.declaration?.current,
+      true,
+    );
+  });
+});
