@@ -81,7 +81,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 288     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 289     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -2215,7 +2215,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 288
+- Members: 289
   - `0003`
   - `0005`
   - `0006`
@@ -2485,6 +2485,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0296`
   - `0297`
   - `0298`
+  - `0299`
   - `0001`
   - `0002`
   - `0004`

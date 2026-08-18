@@ -821,8 +821,7 @@ export const TOOLS: McpTool[] = orderTools([
     title: "Read the checkpoint contract",
     outputSchema: CheckpointsOutputSchema.shape,
     annotations: READ_ONLY,
-    description:
-      "Report the checkpoint contract for this effort, read-only. " +
+    description: "Report the checkpoint contract for this effort, read-only. " +
       "data.checkpoints lists each governing checkpoint: its criterion (the " +
       "judgment the caller records at the gate), one-line trigger summary, " +
       "mode (stop interlocks the gate; advise never blocks), a structural " +

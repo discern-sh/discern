@@ -47,10 +47,7 @@ import {
   declarationIsCurrent,
   readEpisodes,
 } from "./episodes.ts";
-import {
-  type CheckpointPreview,
-  previewCheckpoints,
-} from "./preflight.ts";
+import { type CheckpointPreview, previewCheckpoints } from "./preflight.ts";
 import { checkpointDefinitionHash, computeSubject } from "./subject.ts";
 import type { ResolvedCheckpoint, StructuralTriggerOutcome } from "./types.ts";
 
@@ -210,7 +207,9 @@ function assembleReport(
       : episodeData(episode, stop, bindings.get(def.id));
     if (stop) {
       if (data !== undefined) {
-        if (data.state === "awaiting_declaration" || data.state === "reopened") {
+        if (
+          data.state === "awaiting_declaration" || data.state === "reopened"
+        ) {
           routing.awaiting.push(def.id);
         }
         if (data.variance_required === true) {
@@ -388,7 +387,9 @@ function rowPresentation(row: CheckpointReportData): {
         return {
           state: ROW_STATES.awaiting,
           fact: `Reopened — a relevant change unbound the declared ` +
-            `${episode.declaration?.conclusion ?? ""} conclusion; declare again.`,
+            `${
+              episode.declaration?.conclusion ?? ""
+            } conclusion; declare again.`,
           attention: true,
         };
       case "awaiting_declaration":
@@ -419,8 +420,7 @@ function rowPresentation(row: CheckpointReportData): {
   if (preview.when_pending === true) {
     return {
       state: ROW_STATES.fires,
-      fact:
-        `May fire at done — its when command decides (${matched} matched).`,
+      fact: `May fire at done — its when command decides (${matched} matched).`,
       attention: true,
     };
   }
@@ -549,7 +549,9 @@ export async function runCheckpoints(
         presenter.present(renderResultSummaryCli, {
           state: "unchanged",
           fact: terminalLine(
-            `Policy identity: ${data.policy.slice(0, 12)} (the merge-base configuration governs).`,
+            `Policy identity: ${
+              data.policy.slice(0, 12)
+            } (the merge-base configuration governs).`,
           ),
           maxWidth: width,
         })

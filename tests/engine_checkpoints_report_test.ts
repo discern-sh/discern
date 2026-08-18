@@ -51,6 +51,7 @@ interface HintedEnvelope {
   plan?: { details?: string[] };
 }
 
+/** Decode one JSON envelope down to its hint channel. */
 function parseHinted(stdout: string): HintedEnvelope {
   return JSON.parse(stdout.trim()) as HintedEnvelope;
 }

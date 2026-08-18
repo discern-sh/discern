@@ -1007,7 +1007,9 @@ function checkpointRowLine(row: Record<string, unknown>): string {
           )
         }.`;
       default:
-        return `${id} (${mode}): ${withCriterion("awaiting a declared conclusion")}.`;
+        return `${id} (${mode}): ${
+          withCriterion("awaiting a declared conclusion")
+        }.`;
     }
   }
   if (preview === undefined) {
@@ -1019,10 +1021,14 @@ function checkpointRowLine(row: Record<string, unknown>): string {
   const matched = strings(preview.matched).length;
   if (preview.when_pending === true) {
     return `${id} (${mode}): ${
-      withCriterion(`may fire at done — its when command decides (${matched} matched)`)
+      withCriterion(
+        `may fire at done — its when command decides (${matched} matched)`,
+      )
     }.`;
   }
-  return `${id} (${mode}): ${withCriterion(`would fire at done (${matched} matched)`)}.`;
+  return `${id} (${mode}): ${
+    withCriterion(`would fire at done (${matched} matched)`)
+  }.`;
 }
 
 const presentCheckpoints: ResultMarkdownPresenter = (result) => {
@@ -1041,7 +1047,9 @@ const presentCheckpoints: ResultMarkdownPresenter = (result) => {
         ? "No checkpoint governs this effort."
         : `${plural(rows.length, "checkpoint")} govern${
           rows.length === 1 ? "s" : ""
-        } this effort${policy === undefined ? "" : ` (policy ${policy.slice(0, 12)})`}.`,
+        } this effort${
+          policy === undefined ? "" : ` (policy ${policy.slice(0, 12)})`
+        }.`,
     ),
     evidence: unique([
       ...rows.slice(0, MAX_LIST_ITEMS).map(checkpointRowLine),
@@ -1049,7 +1057,9 @@ const presentCheckpoints: ResultMarkdownPresenter = (result) => {
         ? omitted(rows.length - MAX_LIST_ITEMS, "checkpoint")
         : undefined,
       ...ungoverned.slice(0, MAX_LIST_ITEMS).map((entry) =>
-        `${code(entry.id)}: a recorded episode stands, but the current governing policy no longer contains it.`
+        `${
+          code(entry.id)
+        }: a recorded episode stands, but the current governing policy no longer contains it.`
       ),
       ...advisories.map((advisory) => `Fail-open: ${advisory}`),
       rows.length === 0 ? undefined : "No observed checkpoint history yet.",
