@@ -703,3 +703,51 @@ Deno.test("durations and byte sizes render at readable units", () => {
   assertStringIncludes(archive, "Size: 16 MB.");
   assert(!archive.includes("16000000"), archive);
 });
+
+Deno.test("checkpoints Markdown renders observed economics when history exists", () => {
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "checkpoints",
+      data: {
+        policy: "abc123def4567890",
+        checkpoints: [
+          {
+            id: "api-review",
+            mode: "stop",
+            criterion: "A changed API surface is described in its docs.",
+            trigger: "paths api/**",
+            preview: { holds: false, vetoed_by: "empty_matched_set" },
+          },
+        ],
+        economics: {
+          efforts: 2,
+          omitted: 0,
+          rows: [
+            {
+              id: "api-review",
+              efforts_fired: 1,
+              efforts_landed: 1,
+              fires: 2,
+              declared: 2,
+              declared_unchanged: 1,
+              declared_unmet: 1,
+              reopened: 1,
+              variances: 1,
+              abandoned: 0,
+              median_declare_s: 30,
+            },
+          ],
+        },
+      },
+    },
+    resultPresenterForVerb("checkpoints"),
+  );
+  assertStringIncludes(
+    rendered,
+    "Observed: `api-review` fired on 1 effort (2 servings); declared 2 " +
+      "(1 on an unchanged subject, 1 unmet); 1 authorized variance across " +
+      "1 landed; median time to declare 30s.",
+  );
+  assert(!rendered.includes("No observed checkpoint history yet."), rendered);
+});

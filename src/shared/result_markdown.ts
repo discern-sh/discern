@@ -1035,12 +1035,41 @@ function checkpointRowLine(row: Record<string, unknown>): string {
   }.`;
 }
 
+/** One observed-economics row as a compact Markdown line. */
+function checkpointEconomicsLine(row: Record<string, unknown>): string {
+  const firedOn = number(row.efforts_fired) ?? 0;
+  const fires = number(row.fires) ?? 0;
+  const declared = number(row.declared) ?? 0;
+  const unchanged = number(row.declared_unchanged) ?? 0;
+  const unmet = number(row.declared_unmet) ?? 0;
+  const variances = number(row.variances) ?? 0;
+  const landed = number(row.efforts_landed) ?? 0;
+  const median = number(row.median_declare_s);
+  const parts = [
+    `fired on ${firedOn} effort${firedOn === 1 ? "" : "s"} (${
+      plural(fires, "serving")
+    })`,
+    declared === 0
+      ? undefined
+      : `declared ${declared} (${unchanged} on an unchanged subject, ${unmet} unmet)`,
+    variances === 0
+      ? undefined
+      : `${
+        plural(variances, "authorized variance")
+      } across ${landed} landed`,
+    median === undefined ? undefined : `median time to declare ${median}s`,
+  ].filter((part): part is string => part !== undefined);
+  return `Observed: ${code(row.id)} ${parts.join("; ")}.`;
+}
+
 const presentCheckpoints: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const rows = records(data.checkpoints);
   const ungoverned = records(data.ungoverned);
   const advisories = strings(data.advisories);
   const policy = text(data.policy);
+  const economics = object(data.economics);
+  const economicsRows = records(economics?.rows);
   const varianceIds = rows.filter((row) =>
     object(row.episode)?.variance_required === true
   ).map((row) => code(row.id));
@@ -1066,7 +1095,16 @@ const presentCheckpoints: ResultMarkdownPresenter = (result) => {
         }: a recorded episode stands, but the current governing policy does not contain it.`
       ),
       ...advisories.map((advisory) => `Fail-open: ${advisory}`),
-      rows.length === 0 ? undefined : "No observed checkpoint history yet.",
+      ...economicsRows.slice(0, MAX_LIST_ITEMS).map(checkpointEconomicsLine),
+      economicsRows.length > MAX_LIST_ITEMS
+        ? omitted(
+          economicsRows.length - MAX_LIST_ITEMS,
+          "observed checkpoint",
+        )
+        : undefined,
+      rows.length === 0 || economicsRows.length > 0
+        ? undefined
+        : "No observed checkpoint history yet.",
     ]),
     boundary: varianceIds.length === 0 ? [] : [
       `Landing requires the owner to authorize a variance for: ${
