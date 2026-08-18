@@ -363,12 +363,17 @@ export async function checkpointsResult(
 
 // ── human rendering ─────────────────────────────────────────────────────────
 
-/** The one attention scale the terminal rows map onto. */
+/** The one attention scale the terminal rows map onto. A declaration row
+ * never takes the `passed` state: the renderer prints the state as the row's
+ * label, and "Passed" is machine-verdict vocabulary — agent evidence reads
+ * "declared met" through the fact, on a neutral state whose label is also
+ * literally true (a current declaration means its subject is unchanged since
+ * it was judged). */
 const ROW_STATES = {
   idle: "unchanged",
   fires: "changed",
   awaiting: "changed",
-  declaredMet: "passed",
+  declaredMet: "unchanged",
   declaredUnmet: "changed",
 } as const satisfies Readonly<Record<string, ResultSummaryCliProps["state"]>>;
 

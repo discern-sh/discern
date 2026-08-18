@@ -464,3 +464,26 @@ Deno.test("previews: a checkpoint-free effort adds no checkpoint hints to prepar
     }
   });
 });
+
+Deno.test("checkpoints: the human surface labels a declaration as declared, never as Passed", async () => {
+  // The terminal renderer prints the row's state as its label, and "Passed"
+  // is machine-verdict vocabulary — a declared-met row must read through the
+  // declared vocabulary on the human surface too.
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_STOP);
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+    assertEquals(
+      (await runAgent(wt, ["done", "--met", "api-review", "--json"])).code,
+      0,
+    );
+    const human = await runAgent(wt, ["checkpoints"], {
+      env: { COLUMNS: "120", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertTerminalTextIncludes(human.output, "Declared met");
+    assert(
+      !human.output.includes("Passed"),
+      `a declaration row must not carry the Passed label:\n${human.output}`,
+    );
+  });
+});
