@@ -29,14 +29,33 @@ import {
   AWAITING_DECLARATION_SLUG,
   AWAITING_VARIANCE_SLUG,
 } from "../src/shared/declarations.ts";
+import type {
+  AcceptanceEvidenceData,
+  AuthorizedVarianceData,
+} from "../src/shared/result_schemas.ts";
 import { AWAITING_CONSENT_SLUG } from "../src/shared/consent.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
+/** The wire fields these black-box assertions read from an `accept`
+ * envelope. Presence claims are static; a field the engine omits fails its
+ * assertion at runtime with `undefined`, which is the signal wanted. */
+interface AcceptEnvelope {
+  ok: boolean;
+  verb: string;
+  error?: string;
+  message: string;
+  hints?: string[];
+  data: {
+    consent?: { source: string; scopes?: string[] };
+    variances?: AuthorizedVarianceData[];
+    proof_line?: string;
+  };
+}
+
 /** Decode a JSON result envelope. */
-// deno-lint-ignore no-explicit-any
-function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
+function parseJson(stdout: string): AcceptEnvelope {
+  return JSON.parse(stdout.trim()) as AcceptEnvelope;
 }
 
 const CRITERION = "A changed surface is described in its docs before it lands.";
@@ -113,12 +132,17 @@ async function greenWithUnmet(wt: string): Promise<void> {
   assertEquals(green.code, 0, green.output);
 }
 
+/** The payload fields the landed-note assertions read. */
+interface LandedNotePayload {
+  subject: { commit: string };
+  acceptance?: AcceptanceEvidenceData;
+}
+
 /** Decode the landed Proof note's DSSE payload at `commit`. */
 async function landedNotePayload(
   dir: string,
   commit: string,
-  // deno-lint-ignore no-explicit-any
-): Promise<any> {
+): Promise<LandedNotePayload> {
   const note = await gitOut(
     dir,
     "notes",
@@ -126,8 +150,10 @@ async function landedNotePayload(
     "show",
     commit,
   );
-  const envelope = JSON.parse(note);
-  return JSON.parse(new TextDecoder().decode(decodeBase64(envelope.payload)));
+  const envelope = JSON.parse(note) as { payload: string };
+  return JSON.parse(
+    new TextDecoder().decode(decodeBase64(envelope.payload)),
+  ) as LandedNotePayload;
 }
 
 Deno.test("accept: a declared-unmet conclusion refuses with the complete owner decision, before any effect", async () => {
@@ -205,21 +231,21 @@ Deno.test("accept: the owner's complete decision lands, binding the variance int
     assertEquals(env.ok, true);
     assertEquals(env.data.consent, { source: "conversation" });
     // The authorized variance is distinct evidence in the result…
-    assertEquals(env.data.variances.length, 1);
-    assertEquals(env.data.variances[0].checkpoint, "api-review");
-    assertEquals(env.data.variances[0].why, RATIONALE);
-    assert(env.data.variances[0].definition_hash.length > 0);
-    assert(env.data.variances[0].subject.length > 0);
+    assertEquals(env.data.variances?.length, 1);
+    assertEquals(env.data.variances?.[0]?.checkpoint, "api-review");
+    assertEquals(env.data.variances?.[0]?.why, RATIONALE);
+    assert((env.data.variances?.[0]?.definition_hash.length ?? 0) > 0);
+    assert((env.data.variances?.[0]?.subject.length ?? 0) > 0);
     // …and on the landing proof line, separate from consent.
     assertStringIncludes(
-      env.data.proof_line,
+      env.data.proof_line ?? "",
       "landed with conversation consent",
     );
     assertStringIncludes(
-      env.data.proof_line,
+      env.data.proof_line ?? "",
       "1 variance authorized by the owner",
     );
-    assertStringIncludes(env.data.proof_line, "declared unmet");
+    assertStringIncludes(env.data.proof_line ?? "", "declared unmet");
 
     // The landing happened.
     assertEquals(await exists(wt), false, r.output);
@@ -229,17 +255,17 @@ Deno.test("accept: the owner's complete decision lands, binding the variance int
     // evidence: conversation consent plus the exact variance binding.
     const payload = await landedNotePayload(dir, landedSha);
     assertEquals(payload.subject.commit, landedSha);
-    assertEquals(payload.acceptance.consent, { source: "conversation" });
-    assertEquals(payload.acceptance.variances.length, 1);
-    assertEquals(payload.acceptance.variances[0].checkpoint, "api-review");
-    assertEquals(payload.acceptance.variances[0].why, RATIONALE);
+    assertEquals(payload.acceptance?.consent, { source: "conversation" });
+    assertEquals(payload.acceptance?.variances.length, 1);
+    assertEquals(payload.acceptance?.variances[0]?.checkpoint, "api-review");
+    assertEquals(payload.acceptance?.variances[0]?.why, RATIONALE);
     assertEquals(
-      payload.acceptance.variances[0].definition_hash,
-      env.data.variances[0].definition_hash,
+      payload.acceptance?.variances[0]?.definition_hash,
+      env.data.variances?.[0]?.definition_hash,
     );
     assertEquals(
-      payload.acceptance.variances[0].subject,
-      env.data.variances[0].subject,
+      payload.acceptance?.variances[0]?.subject,
+      env.data.variances?.[0]?.subject,
     );
   });
 });
@@ -310,7 +336,7 @@ Deno.test("accept: standing grants land declared-met work but never authorize a 
     const landed = await runAgent(wt, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
     const env = parseJson(landed.stdout);
-    assertEquals(env.data.consent.source, "standing-grant");
+    assertEquals(env.data.consent?.source, "standing-grant");
     assertEquals(env.data.variances, undefined);
     assertEquals(await exists(wt), false);
   });
@@ -383,7 +409,7 @@ Deno.test("accept: declared-met work needs no variance and keeps the ordinary co
     assertEquals(env.data.variances, undefined);
     const landedSha = await gitOut(dir, "rev-parse", "main");
     const payload = await landedNotePayload(dir, landedSha);
-    assertEquals(payload.acceptance.consent, { source: "conversation" });
-    assertEquals(payload.acceptance.variances, []);
+    assertEquals(payload.acceptance?.consent, { source: "conversation" });
+    assertEquals(payload.acceptance?.variances, []);
   });
 });

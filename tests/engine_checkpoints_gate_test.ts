@@ -23,16 +23,34 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import type { GateCheckpointsData } from "../src/shared/result_schemas.ts";
 import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
 import { UNCHANGED_TREE_RERUN_SLUG } from "../src/engine/gate/proof.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { readEpisodes } from "../src/engine/checkpoints/episodes.ts";
 
+/** The wire fields these black-box assertions read from a `done` envelope.
+ * Presence claims are static; a field the engine omits fails its assertion
+ * at runtime with `undefined`, which is exactly the signal wanted. */
+interface DoneEnvelope {
+  ok: boolean;
+  verb: string;
+  dry_run?: boolean;
+  error?: string;
+  message: string;
+  hints?: string[];
+  plan?: { details?: string[] };
+  data: {
+    checkpoints: GateCheckpointsData;
+    proof?: { line: string };
+    gate_proof?: { status: string };
+  };
+}
+
 /** Decode a JSON result envelope. */
-// deno-lint-ignore no-explicit-any
-function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
+function parseJson(stdout: string): DoneEnvelope {
+  return JSON.parse(stdout.trim()) as DoneEnvelope;
 }
 
 /** The recorded gate-proof marker's raw content — the full Proof page and its
@@ -153,10 +171,10 @@ Deno.test("done: a fired stop checkpoint refuses before any job, serving the cri
     assertStringIncludes(env.message, "tree is unchanged");
     assertHasHint(env, HINTS["checkpoint-declare"], { ids: ["api-review"] });
     // Structured serving for machine callers.
-    assertEquals(env.data.checkpoints.outstanding.length, 1);
-    assertEquals(env.data.checkpoints.outstanding[0].id, "api-review");
-    assertEquals(env.data.checkpoints.outstanding[0].mode, "stop");
-    assertEquals(env.data.checkpoints.outstanding[0].matched, [
+    assertEquals(env.data.checkpoints.outstanding?.length, 1);
+    assertEquals(env.data.checkpoints.outstanding?.[0]?.id, "api-review");
+    assertEquals(env.data.checkpoints.outstanding?.[0]?.mode, "stop");
+    assertEquals(env.data.checkpoints.outstanding?.[0]?.matched, [
       "api/surface.txt",
     ]);
     // No gate job ran: the check job's side effect never happened.
@@ -184,8 +202,8 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
     assertEquals(r.code, 0, r.output);
     const env = parseJson(r.stdout);
     assertEquals(env.ok, true);
-    assertEquals(env.data.checkpoints.declared_met.length, 1);
-    assertEquals(env.data.checkpoints.declared_met[0].id, "api-review");
+    assertEquals(env.data.checkpoints.declared_met?.length, 1);
+    assertEquals(env.data.checkpoints.declared_met?.[0]?.id, "api-review");
     assertEquals(env.data.checkpoints.outstanding, undefined);
     // The Proof renders the conclusion separately from machine results, with
     // the policy identity, qualified as DECLARED. The wire envelope carries
@@ -194,7 +212,7 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
     const proof = env.data.proof;
     assert(proof !== undefined, "a green run over a clean tree earns a Proof");
     assertStringIncludes(proof.line, "1 checkpoint declared met");
-    assertEquals(env.data.gate_proof.status, "recorded");
+    assertEquals(env.data.gate_proof?.status, "recorded");
     const marker = await proofMarker(wt);
     assertStringIncludes(marker, "Checkpoint conclusions");
     assertStringIncludes(marker, "declared met");
@@ -237,9 +255,9 @@ Deno.test("done: declarations replace conclusions without --confirmed, and the r
     ]);
     assertEquals(flipped.code, 0, flipped.output);
     const env = parseJson(flipped.stdout);
-    assertEquals(env.data.checkpoints.declared_unmet.length, 1);
+    assertEquals(env.data.checkpoints.declared_unmet?.length, 1);
     assertStringIncludes(
-      env.data.checkpoints.declared_unmet[0].why,
+      env.data.checkpoints.declared_unmet?.[0]?.why ?? "",
       "docs lag",
     );
     const proof = env.data.proof;
@@ -275,7 +293,7 @@ Deno.test("done: a batched refusal serves every awaiting checkpoint at once, and
     const env = parseJson(r.stdout);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
-      env.data.checkpoints.outstanding.map((c: { id: string }) => c.id).sort(),
+      env.data.checkpoints.outstanding?.map((c) => c.id).sort(),
       ["api-review", "risk-notes"],
     );
     assertStringIncludes(env.message, CRITERION_API);
@@ -292,7 +310,7 @@ Deno.test("done: a batched refusal serves every awaiting checkpoint at once, and
     const remaining = parseJson(partial.stdout);
     assertEquals(remaining.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
-      remaining.data.checkpoints.outstanding.map((c: { id: string }) => c.id),
+      remaining.data.checkpoints.outstanding?.map((c) => c.id),
       ["risk-notes"],
     );
     // The already-recorded conclusion survives and the whole set completes.
@@ -300,8 +318,7 @@ Deno.test("done: a batched refusal serves every awaiting checkpoint at once, and
     assertEquals(done.code, 0, done.output);
     const final = parseJson(done.stdout);
     assertEquals(
-      final.data.checkpoints.declared_met.map((c: { id: string }) => c.id)
-        .sort(),
+      final.data.checkpoints.declared_met?.map((c) => c.id).sort(),
       ["api-review", "risk-notes"],
     );
   });
@@ -401,7 +418,7 @@ Deno.test("done: a rationale of shell and Markdown metacharacters round-trips op
     assertEquals(r.code, 0, r.output);
     const env = parseJson(r.stdout);
     // The exact bytes survive into the envelope (JSON escaping only)…
-    assertEquals(env.data.checkpoints.declared_unmet[0].why, hostile);
+    assertEquals(env.data.checkpoints.declared_unmet?.[0]?.why, hostile);
     // …and the store holds them verbatim, uninterpreted — no interpolation
     // shaved or expanded the text.
     const episodes = await readEpisodes(wt);
@@ -435,7 +452,7 @@ Deno.test("done: advise mode serves the criterion through the advisory channel a
       criterion: CRITERION_API,
       matched: ["api/surface.txt"],
     });
-    assertEquals(env.data.checkpoints.advise.length, 1);
+    assertEquals(env.data.checkpoints.advise?.length, 1);
     assertEquals(env.data.checkpoints.outstanding, undefined);
     // No declaration exists or is required; the recorded Proof carries no
     // conclusion block for an advise-only run.
@@ -511,7 +528,7 @@ Deno.test("done: --dry-run never refuses; it previews the checkpoints that would
     const env = parseJson(r.stdout);
     assertEquals(env.ok, true);
     assertEquals(env.dry_run, true);
-    const details: string[] = env.plan.details ?? [];
+    const details: string[] = env.plan?.details ?? [];
     assert(
       details.some((line) =>
         line.includes("api-review") && line.includes("required")
@@ -576,7 +593,7 @@ Deno.test("done: an unrelated trunk update preserves a conclusion; a matched-bas
     const after = await runAgent(wt, ["done", "--json"]);
     assertEquals(after.code, 0, after.output);
     const env = parseJson(after.stdout);
-    assertEquals(env.data.checkpoints.declared_met[0].id, "api-review");
+    assertEquals(env.data.checkpoints.declared_met?.[0]?.id, "api-review");
 
     // Matched-base trunk advance: main edits the far end of the SAME matched
     // file; the update merges cleanly but moves the subject's base (and

@@ -35,10 +35,18 @@ import {
 import { ERROR_SLUGS } from "../src/shared/result.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 
+/** The wire fields these refusal probes read from an envelope. */
+interface RefusalEnvelope {
+  ok: boolean;
+  verb: string;
+  error?: string;
+  message?: string;
+  hints?: string[];
+}
+
 /** Decode a JSON result envelope. */
-// deno-lint-ignore no-explicit-any
-function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
+function parseJson(stdout: string): RefusalEnvelope {
+  return JSON.parse(stdout.trim()) as RefusalEnvelope;
 }
 
 const CRITERION = "A changed surface is described in its docs before it lands.";
@@ -146,7 +154,7 @@ const PROBES = {
         json: {
           refused: json.code === 1 && env.ok === false,
           slug: env.error,
-          evidence: [env.message, ...(env.hints ?? [])].join("\n"),
+          evidence: [env.message ?? "", ...(env.hints ?? [])].join("\n"),
         },
         // Markdown and terminal are prose surfaces: the machine slug rides
         // json/mcp, while these must refuse with the same complete serving.
@@ -202,7 +210,7 @@ const PROBES = {
         json: {
           refused: json.code === 1 && env.ok === false,
           slug: env.error,
-          evidence: [env.message, ...(env.hints ?? [])].join("\n"),
+          evidence: [env.message ?? "", ...(env.hints ?? [])].join("\n"),
         },
         markdown: {
           refused: markdown.code === 1,
@@ -320,7 +328,7 @@ Deno.test("variance contract: every declared surface serves the same complete de
       json: {
         refused: json.code === 1 && env.ok === false,
         slug: env.error,
-        evidence: [env.message, ...(env.hints ?? [])].join("\n"),
+        evidence: [env.message ?? "", ...(env.hints ?? [])].join("\n"),
       },
       markdown: {
         refused: markdown.code === 1,
