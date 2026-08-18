@@ -500,7 +500,7 @@ Rendered line:
 
 Rendered line:
 
-> `discern-set-a-checkpoint` turns a point a reviewer keeps raising into a change-triggered judgment the gate serves and records.
+> `discern-set-a-checkpoint` turns a point a reviewer keeps raising into a change-triggered judgment the final quality check serves and records.
 
 ## `identity-stable-values`
 

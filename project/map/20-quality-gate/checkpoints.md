@@ -1,7 +1,7 @@
 ---
 title: Checkpoints
 description: Change-triggered judgment stops — a deterministic trigger serves a criterion, the agent records a conclusion, and the Proof carries it as agent evidence.
-order: 25
+order: 30
 aliases:
   - checkpoints guide
   - judgment stop

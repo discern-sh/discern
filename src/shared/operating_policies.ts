@@ -63,8 +63,8 @@ export const OPERATING_POLICIES = [
     id: "worktree-first",
     statement:
       "On the trunk, discern_start opens a new effort's isolated worktree and " +
-      "re-aims these tools. Move your OWN file operations there too (re-root, " +
-      "or prefix each shell command with `cd <path> &&` and pass `path`), or " +
+      "re-aims the tools. Move your OWN file operations too (re-root, or " +
+      "prefix shell commands with `cd <path> &&` and pass `path`); otherwise " +
       "edits land on the trunk while the gate runs in the worktree.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/(own|isolated) worktree/i, /discern_start/],

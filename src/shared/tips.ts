@@ -776,7 +776,8 @@ export const TIPS: readonly RegisteredTip[] = [
     example: undefined,
     template: (): string =>
       "`discern-set-a-checkpoint` turns a point a reviewer keeps raising " +
-      "into a change-triggered judgment the gate serves and records.",
+      "into a change-triggered judgment the final quality check serves " +
+      "and records.",
   }),
 
   defineTip({

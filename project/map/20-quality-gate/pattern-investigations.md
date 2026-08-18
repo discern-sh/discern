@@ -1,7 +1,7 @@
 ---
 title: Pattern investigations
 description: Trace related Pattern findings into bounded, evidence-backed diagnostic paths.
-order: 150
+order: 160
 aliases:
   - finding synthesis
   - investigation paths

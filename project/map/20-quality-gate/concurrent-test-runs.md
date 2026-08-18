@@ -1,7 +1,7 @@
 ---
 title: The fleet test-run cap
 description: Cap how many test-stage runs execute at once across every checkout of the repository with [gate].concurrent_test_runs.
-order: 110
+order: 120
 aliases:
   - concurrent_test_runs
   - test slots

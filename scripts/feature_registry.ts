@@ -2956,7 +2956,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
           "The review questions that need a person's kind of judgment are asked at the moment a matching change exists, and the recorded answer travels with the evidence — qualified as the agent's declared judgment, with the final say on an unmet one held by the responsible person.",
         whyItFollows:
           "A checkpoint pairs a deterministic trigger with a criterion; a fired stop checkpoint refuses the Gate until a conclusion is declared, the Proof carries declared conclusions separately from machine results, and a declared-unmet conclusion lands only under an owner-authorized variance.",
-        drawsOn: ["checkpoints"],
+        drawsOn: ["checkpoints", "skill-set-a-checkpoint"],
       },
       {
         id: "decisions-in-one-view",

@@ -1,7 +1,7 @@
 ---
 title: Practice patterns
 description: "Read what the Logbook shows about local workflow patterns: command loops, Gate fit, funnel flow, and each Standard's trajectory."
-order: 90
+order: 100
 aliases:
   - discern patterns
   - patterns

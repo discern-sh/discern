@@ -1,7 +1,7 @@
 ---
 title: The Proof
 description: Read the review summary a clean green Gate records for the exact commit that passed.
-order: 30
+order: 40
 aliases:
   - gate proof
   - review proof

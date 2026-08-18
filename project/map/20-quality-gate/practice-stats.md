@@ -1,7 +1,7 @@
 ---
 title: Practice stats
 description: "Read the Logbook for accepted changes, validation routes, green streaks, cycle times, Standards trends, and agent cohorts in plain counts."
-order: 120
+order: 130
 aliases:
   - discern patterns --stats
   - stats
