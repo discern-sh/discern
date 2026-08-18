@@ -143,4 +143,10 @@ When a project-specific failure needs context beyond its diagnostic, record it h
 - A test-isolation trap unique to your framework or test runner.
 - A toolchain step a merge can invalidate (a generated file, a native build, a cache) that needs regenerating before the gate is green.
 
-_(No project-specific traps recorded yet.)_
+### A new import into the logbook graph fails the no-network guard with unrelated dependencies
+
+**Symptom.** `tests/logbook_no_network_test.ts` fails naming external dependencies your change never imported (formatter or parser packages from the installer stack) after you added an import to a module under `src/engine/logbook/`.
+
+**Cause.** The guard walks import specifiers over raw source text on purpose, comments included, so a doc comment's `{@link import("…")}` reference is followed like a real edge. Importing a broad module such as the scope classifier can pull a documentation link to verb machinery, and from there the installer's dependency stack, into the walked graph even though the runtime graph (`deno info`) stays clean.
+
+**Fix.** Restructure instead of allowlisting: move the needed function into a leaf module with minimal imports and point both consumers at it (`src/engine/scopes/scope_paths.ts` is the precedent). Widen `ALLOWED_EXTERNAL_PREFIXES` only for a genuinely vetted new dependency.
