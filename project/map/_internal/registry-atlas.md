@@ -41,8 +41,10 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
 | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 12      | —                | —                           |
 | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
-| [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 17      | —                | —                           |
+| [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 18      | —                | —                           |
 | [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                  | `scripts/brand/claims.ts#CLAIMS`                                                  | 20      | —                | —                           |
+| [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                        | `scripts/brand/voice.ts#BRAND_FOUNDATION_READING_STEPS`                           | 4       | —                | —                           |
+| [`demand-canon`](#demand-canon--demand-canon)                                                                         | `scripts/brand/demand.ts#DEMAND_CANON`                                            | 46      | —                | —                           |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 4       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
@@ -79,7 +81,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 281     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 282     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -92,9 +94,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 81      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 83      | —                | node `canonical-sets`       |
 
-81 sets · 128 guard tests · 55 committed artifacts.
+83 sets · 129 guard tests · 56 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -115,7 +117,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/artifact_ownership_test.ts`                 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/brand_animation_test.ts`                    | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/brand_art_test.ts`                          | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `tests/brand_registry_codegen_test.ts`             | [`brand-documents`](#brand-documents--brand-documents), [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                                                                                                                                                                                                                                                                                                                          |
+| `tests/brand_registry_codegen_test.ts`             | [`brand-documents`](#brand-documents--brand-documents), [`brand-claims`](#brand-claims--brand-claims-ledger), [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                                                                                                                                                                                                                                                                          |
 | `tests/brand_vale_codegen_test.ts`                 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles), [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_alignment_test.ts`              | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_bifurcation_test.ts`            | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -130,7 +132,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/browser_art_rule_test.ts`                   | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_seal_test.ts`                   | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/built_in_step_labels_test.ts`               | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `tests/canon_editor_parity_test.ts`                | [`brand-claims`](#brand-claims--brand-claims-ledger), [`glossary-terms`](#glossary-terms--glossary-terms), [`feature-canon`](#feature-canon--feature-canon), [`benefit-canon`](#benefit-canon--benefit-canon), [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                                                                  |
+| `tests/canon_editor_parity_test.ts`                | [`brand-claims`](#brand-claims--brand-claims-ledger), [`demand-canon`](#demand-canon--demand-canon), [`glossary-terms`](#glossary-terms--glossary-terms), [`feature-canon`](#feature-canon--feature-canon), [`benefit-canon`](#benefit-canon--benefit-canon), [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                   |
 | `tests/canonical_sets_enrolment_test.ts`           | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/cli_reference_codegen_test.ts`              | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/config_banner_parity_test.ts`               | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -139,6 +141,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/config_set_schema_guard_test.ts`            | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/contributor_governance_test.ts`             | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/cross_agent_reference_codegen_test.ts`      | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `tests/demand_canon_test.ts`                       | [`demand-canon`](#demand-canon--demand-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/dev_vocab_guard_test.ts`                    | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/diagnostic_formats_enrolment_test.ts`       | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/discern_commit_enrolment_test.ts`           | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -263,6 +266,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `project/map/_internal/brand/claims-and-evidence.md`       | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
 | `project/map/_internal/brand/copy-patterns.md`             | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
 | `project/map/_internal/brand/copy-review.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/map/_internal/brand/demand-canon.md`              | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
 | `project/map/_internal/brand/messaging.md`                 | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
 | `project/map/_internal/brand/positioning.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
 | `project/map/_internal/brand/register-bridge.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
@@ -916,10 +920,11 @@ The integration seams discern wires for each coding agent. The operational-inter
 The Brand Operating System's document map: every brand document as one typed row, where generated pages compile from the registry through the codegen chokepoint and authored overlay documents stay declared path-and-job rows without content.
 
 - Source: `scripts/brand_registry.ts` — `BRAND_DOCUMENTS`
-- Members: 17
+- Members: 18
   - `readme`
   - `positioning`
   - `audiences`
+  - `demand-canon`
   - `messaging`
   - `register-bridge`
   - `claims-and-evidence`
@@ -935,7 +940,7 @@ The Brand Operating System's document map: every brand document as one typed row
   - `copy-review`
   - `decisions`
 - Guards: `tests/brand_registry_codegen_test.ts`
-- Artifacts: `project/map/_internal/brand/README.md`, `project/map/_internal/brand/claims-and-evidence.md`, `project/map/_internal/brand/copy-patterns.md`, `project/map/_internal/brand/copy-review.md`, `project/map/_internal/brand/messaging.md`, `project/map/_internal/brand/positioning.md`, `project/map/_internal/brand/register-bridge.md`, `project/map/_internal/brand/visual-identity.md`, `project/skills/discern-brand-voice/SKILL.md`, `project/skills/discern-product-voice/SKILL.md`, `project/skills/discern-agent-voice/SKILL.md`
+- Artifacts: `project/map/_internal/brand/README.md`, `project/map/_internal/brand/claims-and-evidence.md`, `project/map/_internal/brand/copy-patterns.md`, `project/map/_internal/brand/copy-review.md`, `project/map/_internal/brand/demand-canon.md`, `project/map/_internal/brand/messaging.md`, `project/map/_internal/brand/positioning.md`, `project/map/_internal/brand/register-bridge.md`, `project/map/_internal/brand/visual-identity.md`, `project/skills/discern-brand-voice/SKILL.md`, `project/skills/discern-product-voice/SKILL.md`, `project/skills/discern-agent-voice/SKILL.md`
 - Glossary: not enrolled — the internal brand canon defines this strategy vocabulary
 - Feature canon: not enrolled — public copy applies this internal strategy to the product nodes it describes
 
@@ -968,6 +973,76 @@ The public claims ledger behind brand copy: per-claim evidence classes, stronges
 - Guards: `tests/brand_registry_codegen_test.ts`, `tests/canon_editor_parity_test.ts`
 - Glossary: not enrolled — the internal claims canon defines this public-wording vocabulary
 - Feature canon: not enrolled — public copy applies this evidence ledger to the product nodes it describes
+
+## `brand-foundation-reading-steps` — Brand writing foundations
+
+The shared strategic-document sequence that the brand voice Skill and the homepage-or-campaign reading path both require before public copy is written.
+
+- Source: `scripts/brand/voice.ts` — `BRAND_FOUNDATION_READING_STEPS`
+- Members: 4
+  - `positioning`
+  - `audiences`
+  - `demand-canon`
+  - `messaging`
+- Guards: `tests/brand_registry_codegen_test.ts`
+- Glossary: not enrolled — the internal brand operating system owns this writing-context vocabulary
+- Feature canon: not enrolled — the reading sequence governs brand work rather than product behavior
+
+## `demand-canon` — Demand canon
+
+The market-side counterpart of the benefit canon: evidence-tagged struggling moments with their current alternatives and forces, held to two-way coverage against the benefits and rendered into the demand page the brand-documents set owns.
+
+- Source: `scripts/brand/demand.ts` — `DEMAND_CANON`
+- Members: 46
+  - `operating-layer-trap`
+  - `workflow-attention-tax`
+  - `readiness-without-evidence`
+  - `eroding-gains`
+  - `stateless-project-memory`
+  - `adoption-hesitation`
+  - `stranded-investment`
+  - `control-anxiety`
+  - `backlog-outruns-attention`
+  - `checkout-collisions`
+  - `human-message-bus`
+  - `abandoned-session-amnesia`
+  - `spend-anxiety`
+  - `redundant-re-review`
+  - `status-chasing`
+  - `doomed-runs`
+  - `missing-companion-file`
+  - `context-burned-on-tooling`
+  - `completion-without-evidence`
+  - `what-was-checked-when`
+  - `premature-landing`
+  - `approval-fatigue`
+  - `half-applied-state`
+  - `quality-erosion`
+  - `regressions-reappear`
+  - `migrations-that-never-finish`
+  - `slop-accumulation`
+  - `docs-rot`
+  - `anecdote-driven-tuning`
+  - `repeated-explanation`
+  - `opaque-agent-understanding`
+  - `relitigated-decisions`
+  - `known-failure-forgotten`
+  - `slow-session-starts`
+  - `practice-does-not-travel`
+  - `integration-engineer-by-accident`
+  - `another-service-fatigue`
+  - `does-anyone-run-this`
+  - `workspace-residue`
+  - `provider-churn`
+  - `per-stack-fragmentation`
+  - `scripting-against-prose`
+  - `surprise-upgrades`
+  - `hostage-data-fear`
+  - `another-model-another-bill`
+  - `invisible-write-boundaries`
+- Guards: `tests/demand_canon_test.ts`, `tests/canon_editor_parity_test.ts`
+- Glossary: not enrolled — the internal demand canon defines this market-evidence vocabulary
+- Feature canon: not enrolled — demand entries cite the benefits that answer them rather than product nodes
 
 ## `setup-subverbs` — Setup sub-verbs
 
@@ -2122,7 +2197,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 281
+- Members: 282
   - `0003`
   - `0005`
   - `0006`
@@ -2385,6 +2460,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0289`
   - `0290`
   - `0291`
+  - `0292`
   - `0001`
   - `0002`
   - `0004`
@@ -2682,7 +2758,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Instruct
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 81
+- Members: 83
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2714,6 +2790,8 @@ This meta-registry: the closed set of closed sets.
   - `agent-integration-seams`
   - `brand-documents`
   - `brand-claims`
+  - `brand-foundation-reading-steps`
+  - `demand-canon`
   - `setup-subverbs`
   - `authored-commit-sites`
   - `restricted-writer-modules`

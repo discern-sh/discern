@@ -1,5 +1,5 @@
 /**
- * Canon Editor's entry resolution: every canon entry across the five prose
+ * Canon Editor's entry resolution: every canon entry across the prose
  * registries enumerates with a source position that really is its own line,
  * lookups tier from exact to forgiving, and field paths classify literals the
  * way the editor relies on (plain strings editable, interpolation locked).
@@ -84,6 +84,7 @@ Deno.test("lookups tier from exact id to slug to title substring", () => {
   assertEquals(only("file-ownership").title, "File ownership");
   assertEquals(only("reduced-review-burden").registry, "claims");
   assertEquals(only("context-for-the-task").registry, "benefit");
+  assertEquals(only("checkout-collisions").registry, "demand");
   assertEquals(only("only-better").registry, "practice");
   assertEquals(
     only("worktree").registry,
@@ -109,6 +110,14 @@ Deno.test("field paths resolve and classify the literals the editor handles", ()
 
   const benefit = only("context-for-the-task");
   assertEquals(fieldTarget(benefit, "drawsOn")?.kind, "string-array");
+
+  const demand = only("checkout-collisions");
+  assertEquals(fieldTarget(demand, "situation")?.kind, "string");
+  assertEquals(
+    fieldTarget(demand, "answer.benefits")?.kind,
+    "string-array",
+  );
+  assertEquals(fieldTarget(demand, "evidence")?.kind, "array");
 
   const ownership = only("file-ownership");
   assertEquals(fieldTarget(ownership, "retired.0.pattern")?.kind, "template");

@@ -239,6 +239,7 @@
   [scopes.big-picture]
     paths = [
       "${map.dir}_internal/brand/positioning.md",
+      "${map.dir}_internal/brand/demand-canon.md",
       "${map.dir}00-orientation/glossary.md",
       "${map.dir}_internal/feature-canon.md",
       "${map.dir}70-reference/config-reference.md",
@@ -312,6 +313,7 @@
       "${map.dir}_internal/brand/claims-and-evidence.md",
       "${map.dir}_internal/brand/copy-patterns.md",
       "${map.dir}_internal/brand/copy-review.md",
+      "${map.dir}_internal/brand/demand-canon.md",
       "${map.dir}_internal/brand/messaging.md",
       "${map.dir}_internal/brand/positioning.md",
       "${map.dir}_internal/brand/register-bridge.md",

@@ -8,7 +8,7 @@
  */
 
 import { brandDocHrefFromGenerated, type BrandDocument } from "../model.ts";
-import { voiceSkillRel } from "../voice.ts";
+import { BRAND_FOUNDATION_READING_STEPS, voiceSkillRel } from "../voice.ts";
 
 /** One task-scoped reading path. */
 export interface ReadingPath {
@@ -45,9 +45,7 @@ export const READING_PATHS = [
     heading: "Homepage or campaign copy",
     intro: "Read, in order:",
     steps: [
-      "`positioning.md`",
-      "`audiences.md`",
-      "`messaging.md`",
+      ...BRAND_FOUNDATION_READING_STEPS.map((step) => step.instruction),
       "the `discern-brand-voice` skill",
       "the relevant section of `website-brief.md`",
       "only the relevant claims from `claims-and-evidence.md`",

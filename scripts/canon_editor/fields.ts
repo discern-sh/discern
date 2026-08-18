@@ -1,5 +1,5 @@
 /**
- * Field semantics for the five prose registries: what Canon Editor may do at each
+ * Field semantics for the prose registries: what Canon Editor may do at each
  * declared field. Every map compiles `satisfies Record<keyof X, FieldSpec>`
  * against its registry interface, so adding a field to a registry breaks the
  * editor's typecheck until the editor says how to treat it — the enrolment
@@ -25,11 +25,17 @@ import type {
   RetiredSynonym,
 } from "../glossary_registry.ts";
 import type { Claim } from "../brand/model.ts";
+import type {
+  DemandAnswer,
+  DemandEntry,
+  DemandTerritory,
+} from "../brand/demand.ts";
 import type { RegistryName } from "./registry_ast.ts";
 
 /** The live set a list field's picker draws from. */
 export type PickerSource =
   | "feature-node"
+  | "benefit-entry"
   | "benefit-cluster"
   | "claim"
   | "hint"
@@ -109,6 +115,41 @@ export const BENEFIT_ENTRY_FIELDS = {
   drawsOn: { edit: "list", picker: "feature-node", write: "picker" },
   claims: { edit: "list", picker: "claim", write: "picker" },
 } as const satisfies Record<keyof BenefitEntry, FieldSpec>;
+
+/** A demand territory's fields. */
+export const DEMAND_TERRITORY_FIELDS = {
+  id: IDENTITY_LOCK,
+  title: { edit: "prose", register: "brand" },
+  counterpart: {
+    edit: "locked",
+    reason: "the benefit-cluster relationship is structural",
+  },
+  tension: { edit: "prose", register: "brand" },
+  heardAs: { edit: "list", picker: "free" },
+  entries: { edit: "structural" },
+} as const satisfies Record<keyof DemandTerritory, FieldSpec>;
+
+/** A demand entry's fields. */
+export const DEMAND_ENTRY_FIELDS = {
+  id: IDENTITY_LOCK,
+  title: { edit: "prose", register: "brand" },
+  situation: { edit: "prose", register: "brand" },
+  alternative: { edit: "prose", register: "brand" },
+  cost: { edit: "prose", register: "brand" },
+  forces: { edit: "list", picker: "free" },
+  segments: { edit: "list", picker: "audience" },
+  evidence: {
+    edit: "locked",
+    reason: "evidence rows are shared source constants; edit them in the IDE",
+  },
+  answer: { edit: "nested" },
+} as const satisfies Record<keyof DemandEntry, FieldSpec>;
+
+/** A demand entry's benefit answer or recorded gap. */
+export const DEMAND_ANSWER_FIELDS = {
+  benefits: { edit: "list", picker: "benefit-entry", write: "picker" },
+  gap: { edit: "prose", register: "brand" },
+} as const satisfies Record<keyof DemandAnswer, FieldSpec>;
 
 /** A practice tenet's fields. */
 export const PRACTICE_TENET_FIELDS = {
@@ -215,6 +256,9 @@ function nestedMap(
   head: string,
 ): FieldMap | undefined {
   if (registry === "feature" && head === "plain") return PLAIN_ACCOUNT_FIELDS;
+  if (registry === "demand" && head === "answer") {
+    return DEMAND_ANSWER_FIELDS;
+  }
   if (registry === "practice" && head === "upheld") return TENET_UPHELD_FIELDS;
   if (registry === "glossary" && head === "plain") return GLOSSARY_PLAIN_FIELDS;
   if (registry === "glossary" && head === "retired") {
@@ -228,6 +272,9 @@ function topMap(registry: RegistryName, kind: string): FieldMap | undefined {
   if (registry === "feature") return FEATURE_NODE_FIELDS;
   if (registry === "benefit") {
     return kind === "cluster" ? BENEFIT_CLUSTER_FIELDS : BENEFIT_ENTRY_FIELDS;
+  }
+  if (registry === "demand") {
+    return kind === "territory" ? DEMAND_TERRITORY_FIELDS : DEMAND_ENTRY_FIELDS;
   }
   if (registry === "practice") return PRACTICE_TENET_FIELDS;
   if (registry === "glossary") return GLOSSARY_ENTRY_FIELDS;

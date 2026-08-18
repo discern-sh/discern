@@ -28,6 +28,7 @@ import { REPO_ROOT } from "../scripts/canon_editor/root.ts";
 import { allFeatureNodes } from "../scripts/feature_registry.ts";
 import { PRACTICE_CANON } from "../scripts/practice_registry.ts";
 import { buildPickerCatalog } from "../scripts/canon_editor/pickers.ts";
+import { allDemandEntries } from "../scripts/brand/demand.ts";
 
 const FEATURE_FILE = join(REPO_ROOT, "scripts", "feature_registry.ts");
 
@@ -263,6 +264,44 @@ Deno.test("a typed list patch replaces one ordered string array", async () => {
     await Deno.readTextFile(FEATURE_FILE),
     original,
     "the pure patch never touches the real file",
+  );
+});
+
+Deno.test("Demand Canon prose and benefit answers patch through the shared boundary", async () => {
+  const row = allDemandEntries().find(({ entry }) =>
+    entry.id === "checkout-collisions"
+  );
+  assert(row !== undefined, "the demand fixture exists");
+  const prose = patchRegistrySource(
+    REPO_ROOT,
+    editRequest(
+      "demand",
+      row.entry.id,
+      "situation",
+      row.entry.situation,
+      row.entry.situation + " The collision is visible immediately.",
+    ),
+  );
+  assert(prose.ok, "demand prose patches in memory");
+  assertEquals(prose.file, "scripts/brand/demand.ts");
+
+  const expected = row.entry.answer.benefits;
+  assert(expected !== undefined, "the demand fixture has a benefit answer");
+  const answer = patchRegistrySource(
+    REPO_ROOT,
+    listRequest(
+      "demand",
+      row.entry.id,
+      "answer.benefits",
+      expected,
+      ["resume-later"],
+    ),
+    { pickers: await buildPickerCatalog() },
+  );
+  assert(answer.ok, "demand benefit answers use the live picker authority");
+  assert(
+    answer.text.includes('answer: { benefits: ["resume-later"] }'),
+    "the requested benefit answer is in the patched source",
   );
 });
 

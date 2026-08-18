@@ -1,5 +1,5 @@
 /**
- * Structural resolution over the five prose registries.
+ * Structural resolution over the prose registries.
  *
  * Canon Editor reads the canon two independent ways: module evaluation for
  * what the prose says (the snapshot), and this syntax-level view for where it
@@ -10,13 +10,17 @@
  * path".
  *
  * Everything here is syntax-only: no type checking, no module evaluation, no
- * import resolution — opening the five registry files stays fast and can never
+ * import resolution — opening the registry files stays fast and can never
  * execute registry code.
  */
 
 import { join } from "@std/path";
 import { Node, Project } from "ts-morph";
-import { slugify } from "./annotation.ts";
+import {
+  PROSE_REGISTRY_NAMES,
+  type ProseRegistry,
+  slugify,
+} from "./annotation.ts";
 import type {
   Expression,
   ObjectLiteralExpression,
@@ -24,13 +28,8 @@ import type {
   SourceFile,
 } from "ts-morph";
 
-/** The five prose registries Canon Editor serves. */
-export type RegistryName =
-  | "feature"
-  | "benefit"
-  | "practice"
-  | "glossary"
-  | "claims";
+/** A prose registry Canon Editor serves. */
+export type RegistryName = ProseRegistry;
 
 /** Where one registry lives and how its entries are keyed and nested. */
 export interface RegistrySpec {
@@ -45,7 +44,7 @@ export interface RegistrySpec {
    */
   readonly keyField: "id" | "term" | "key";
   /** The property holding nested child entries, when the registry nests. */
-  readonly childField?: "children" | "benefits";
+  readonly childField?: "children" | "benefits" | "entries";
   /** Entry kind labels by nesting depth; the last label covers deeper levels. */
   readonly kinds: readonly string[];
 }
@@ -69,6 +68,14 @@ export const PROSE_REGISTRIES: readonly RegistrySpec[] = [
     kinds: ["cluster", "benefit"],
   },
   {
+    name: "demand",
+    file: "scripts/brand/demand.ts",
+    exportName: "DEMAND_CANON",
+    keyField: "id",
+    childField: "entries",
+    kinds: ["territory", "demand"],
+  },
+  {
     name: "practice",
     file: "scripts/practice_registry.ts",
     exportName: "PRACTICE_CANON",
@@ -89,7 +96,16 @@ export const PROSE_REGISTRIES: readonly RegistrySpec[] = [
     keyField: "key",
     kinds: ["claim"],
   },
-];
+] as const satisfies readonly RegistrySpec[];
+
+if (
+  PROSE_REGISTRIES.length !== PROSE_REGISTRY_NAMES.length ||
+  PROSE_REGISTRIES.some((spec, index) =>
+    spec.name !== PROSE_REGISTRY_NAMES[index]
+  )
+) {
+  throw new Error("Canon Editor's registry specifications are out of order");
+}
 
 /** One canon entry resolved to its source position. */
 export interface CanonEntryRef {
@@ -352,7 +368,7 @@ function registryInitializer(
 }
 
 /**
- * Enumerate every canon entry across the five registries, in authoring order.
+ * Enumerate every canon entry across the registries, in authoring order.
  * Authoring order is page order everywhere in the canons, so this listing and
  * the rendered documents agree on sequence by construction.
  */

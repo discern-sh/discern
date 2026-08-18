@@ -13,13 +13,18 @@
  * guard tests — inherits its import graph.
  */
 
+/** The prose registries Canon Editor knows, in their reading order. */
+export const PROSE_REGISTRY_NAMES = [
+  "feature",
+  "benefit",
+  "demand",
+  "practice",
+  "glossary",
+  "claims",
+] as const;
+
 /** Which registry a rendered prose span belongs to. */
-export type ProseRegistry =
-  | "feature"
-  | "benefit"
-  | "practice"
-  | "glossary"
-  | "claims";
+export type ProseRegistry = (typeof PROSE_REGISTRY_NAMES)[number];
 
 /** The provenance of one rendered prose span. */
 export interface ProseRef {
@@ -76,14 +81,9 @@ export function parseRefToken(token: string): ProseRef | undefined {
   ) {
     return undefined;
   }
-  const known: readonly string[] = [
-    "feature",
-    "benefit",
-    "practice",
-    "glossary",
-    "claims",
-  ];
-  if (!known.includes(registry)) return undefined;
+  if (!(PROSE_REGISTRY_NAMES as readonly string[]).includes(registry)) {
+    return undefined;
+  }
   return { registry: registry as ProseRegistry, entry, field };
 }
 

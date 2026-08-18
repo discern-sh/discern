@@ -19,6 +19,24 @@ import {
   type VoiceSection,
 } from "./model.ts";
 
+/** The shared strategic documents every public-brand writing path reads. */
+export const BRAND_FOUNDATION_READING_STEPS = [
+  { id: "positioning", instruction: "`positioning.md`" },
+  { id: "audiences", instruction: "`audiences.md`" },
+  {
+    id: "demand-canon",
+    instruction: "the relevant territory and entries from `demand-canon.md`",
+  },
+  { id: "messaging", instruction: "`messaging.md`" },
+] as const;
+
+const BRAND_SKILL_READING_LIST = [
+  ...BRAND_FOUNDATION_READING_STEPS.map((step) => step.instruction),
+  "the relevant section of `website-brief.md`",
+  "relevant claim slugs from `claims-and-evidence.md`",
+  "`register-bridge.md` when product concepts must enter",
+].map((step, index) => `${index + 1}. ${step}`).join("\n");
+
 /** The three registers, keyed so a missing register cannot compile. */
 export const VOICES = {
   brand: {
@@ -39,12 +57,7 @@ Product truth constrains the brand. Product prose does not dictate the brand's s
       heading: "Read before writing",
       body: `Read only the context the surface requires:
 
-1. \`positioning.md\`
-2. \`audiences.md\`
-3. \`messaging.md\`
-4. the relevant section of \`website-brief.md\`
-5. relevant claim slugs from \`claims-and-evidence.md\`
-6. \`register-bridge.md\` when product concepts must enter
+${BRAND_SKILL_READING_LIST}
 
 For manifesto, founder philosophy, motion, or extended visual work, also read \`visual-identity.md\` and \`launch-narrative.md\`. Treat the metaphysical interpretation as the founder's account. Do not assign it to the reader.
 

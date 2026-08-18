@@ -45,12 +45,18 @@ import {
   retiredSynonyms,
 } from "../glossary_registry.ts";
 import { CLAIMS } from "../brand/claims.ts";
+import {
+  DEMAND_CANON,
+  type DemandEntry,
+  type DemandTerritory,
+} from "../brand/demand.ts";
 import { renderBrandDoc } from "../brand_registry.ts";
 import { CANONICAL_SETS, REGISTRY_ATLAS_PAGE_REL } from "../canonical_sets.ts";
 import { plainReadingGrade } from "../plain_reading_grade_lib.ts";
 import { formatMarkdownText } from "../../src/lib/tidy_format.ts";
 import { readFrontmatterBlock } from "../../src/lib/frontmatter.ts";
 import { buildPickerCatalog, type PickerCatalogEntry } from "./pickers.ts";
+import type { ProseRegistry } from "./annotation.ts";
 
 /** One rendered canon page, annotated and canonically formatted. */
 export interface SnapshotPage {
@@ -144,10 +150,11 @@ export interface Snapshot {
   readonly standards: readonly StandardReading[];
 }
 
-/** The set ids the five prose registries carry in the meta-registry. */
-const REGISTRY_SET_IDS: Readonly<Record<string, string>> = {
+/** The set ids the prose registries carry in the meta-registry. */
+const REGISTRY_SET_IDS: Readonly<Record<ProseRegistry, string>> = {
   feature: "feature-canon",
   benefit: "benefit-canon",
+  demand: "demand-canon",
   practice: "practice-tenets",
   glossary: "glossary-terms",
   claims: "brand-claims",
@@ -173,6 +180,9 @@ function buildEntries(): SnapshotEntry[] {
   const titles = featureTitles();
   const clusterTitles = new Map(
     BENEFIT_CANON.map((cluster) => [cluster.id, cluster.title]),
+  );
+  const benefitTitles = new Map(
+    allBenefitEntries().map(({ entry }) => [entry.id, entry.title]),
   );
   const inward = new Map<string, InwardCitation[]>();
   const carried = new Map<string, Set<string>>();
@@ -206,6 +216,24 @@ function buildEntries(): SnapshotEntry[] {
     const from = { registry: "practice", slug: tenet.id, label: tenet.title };
     for (const id of tenet.mechanisms) cite("feature", id, from, "mechanisms");
     for (const id of tenet.yields) cite("benefit", id, from, "yields");
+  }
+  for (const territory of DEMAND_CANON) {
+    cite(
+      "benefit",
+      territory.counterpart,
+      {
+        registry: "demand",
+        slug: territory.id,
+        label: territory.title,
+      },
+      "counterpart",
+    );
+    for (const entry of territory.entries) {
+      const from = { registry: "demand", slug: entry.id, label: entry.title };
+      for (const id of entry.answer.benefits ?? []) {
+        cite("benefit", id, from, "answer.benefits");
+      }
+    }
   }
 
   const entries: SnapshotEntry[] = [];
@@ -285,6 +313,50 @@ function buildEntries(): SnapshotEntry[] {
   for (const cluster of BENEFIT_CANON) {
     push(clusterEntry(cluster));
     for (const entry of cluster.benefits) push(benefitEntry(cluster, entry));
+  }
+
+  const territoryEntry = (territory: DemandTerritory): SnapshotEntry => ({
+    registry: "demand",
+    id: territory.id,
+    slug: territory.id,
+    title: territory.title,
+    kind: "territory",
+    data: prune(territory as unknown as Record<string, unknown>, "entries"),
+    outward: [{
+      field: "counterpart",
+      refs: [{
+        registry: "benefit",
+        slug: territory.counterpart,
+        label: clusterTitles.get(territory.counterpart) ??
+          territory.counterpart,
+      }],
+    }],
+    inward: inwardOf("demand", territory.id),
+  });
+  const demandEntry = (
+    territory: DemandTerritory,
+    entry: DemandEntry,
+  ): SnapshotEntry => ({
+    registry: "demand",
+    id: entry.id,
+    slug: entry.id,
+    title: entry.title,
+    kind: "demand",
+    parent: territory.id,
+    data: entry as unknown as Record<string, unknown>,
+    outward: entry.answer.benefits === undefined ? [] : [{
+      field: "answer.benefits",
+      refs: entry.answer.benefits.map((id) => ({
+        registry: "benefit",
+        slug: id,
+        label: benefitTitles.get(id) ?? id,
+      })),
+    }],
+    inward: inwardOf("demand", entry.id),
+  });
+  for (const territory of DEMAND_CANON) {
+    push(territoryEntry(territory));
+    for (const entry of territory.entries) push(demandEntry(territory, entry));
   }
 
   const tenetEntry = (tenet: PracticeTenet): SnapshotEntry => ({
@@ -376,6 +448,12 @@ async function buildPages(): Promise<SnapshotPage[]> {
         true,
       ],
       [
+        "demand-canon",
+        join("_internal", "brand", "demand-canon.md"),
+        renderBrandDoc("demand-canon"),
+        true,
+      ],
+      [
         "practice-canon",
         PRACTICE_CANON_PAGE_REL,
         renderPracticeCanonDoc(),
@@ -408,6 +486,7 @@ async function buildPages(): Promise<SnapshotPage[]> {
     "feature-canon": "Feature canon",
     "feature-canon-plain": "The complete feature guide",
     "feature-canon-benefits": "Benefit canon",
+    "demand-canon": "Demand canon",
     "practice-canon": "Practice canon",
     "the-practice": "The practice",
     "glossary": "Glossary",
@@ -461,7 +540,7 @@ function buildLint(): Snapshot["lint"] {
   return { retired, plainPoliced };
 }
 
-/** The five registries' guard rosters, straight from the meta-registry. */
+/** The registries' guard rosters, straight from the meta-registry. */
 function buildGuards(): RegistryGuards[] {
   const rosters: RegistryGuards[] = [];
   for (const [registry, setId] of Object.entries(REGISTRY_SET_IDS)) {

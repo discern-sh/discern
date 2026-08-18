@@ -6,7 +6,11 @@
  */
 
 import { HINTS } from "../../src/shared/hints.ts";
-import { allFeatureNodes, SURFACE_SETS } from "../feature_registry.ts";
+import {
+  allBenefitEntries,
+  allFeatureNodes,
+  SURFACE_SETS,
+} from "../feature_registry.ts";
 import { liveFeatureSurfaceMembers } from "../feature_surface_catalog.ts";
 import { CLAIMS } from "../brand/claims.ts";
 import type { PickerSource } from "./fields.ts";
@@ -38,6 +42,12 @@ const PICKER_BUILDERS = {
       value: node.id,
       label: node.title,
       ...(parent === undefined ? {} : { group: parent }),
+    })),
+  "benefit-entry": (): readonly PickerOption[] =>
+    allBenefitEntries().map(({ cluster, entry }) => ({
+      value: entry.id,
+      label: entry.title,
+      group: cluster.title,
     })),
   claim: (): readonly PickerOption[] =>
     Object.entries(CLAIMS).map(([value, claim]) => ({

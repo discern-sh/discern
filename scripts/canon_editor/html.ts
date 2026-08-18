@@ -25,6 +25,8 @@ const PAGE_ROUTES: Readonly<Record<string, string>> = {
   "feature-canon.md": "feature-canon",
   "feature-canon-plain.md": "feature-canon-plain",
   "feature-canon-benefits.md": "feature-canon-benefits",
+  "demand-canon.md": "demand-canon",
+  "brand/demand-canon.md": "demand-canon",
   "practice-canon.md": "practice-canon",
   "the-practice.md": "the-practice",
   "glossary.md": "glossary",
@@ -164,6 +166,11 @@ export function renderShell(options: {
       id: "feature-canon-benefits",
       title: "Benefit canon",
       count: counts.get("benefit"),
+    },
+    {
+      id: "demand-canon",
+      title: "Demand canon",
+      count: counts.get("demand"),
     },
     {
       id: "practice-canon",
