@@ -245,16 +245,49 @@ export async function readEpisodes(cwd: string): Promise<EpisodesRead> {
     : { status: "ok", episodes };
 }
 
-/** Persist the whole store as one line of JSON. */
+/** Persist every byte, retrying partial writes and rejecting a zero-byte write. */
+async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
+  let offset = 0;
+  while (offset < bytes.length) {
+    const written = await file.write(bytes.subarray(offset));
+    if (written === 0) {
+      throw new Error("short write while recording checkpoint episodes");
+    }
+    offset += written;
+  }
+}
+
+/** Persist the whole store as one line of JSON — written to a same-directory
+ * temp file, synced, then atomically renamed into place (the acceptance
+ * journal's durability pattern), so an interrupted write can garble only the
+ * abandoned temp, never the standing store of recorded judgments. */
 async function writeEpisodes(
   path: string,
   episodes: Record<string, CheckpointEpisode>,
 ): Promise<void> {
   await Deno.mkdir(dirname(path), { recursive: true });
-  await Deno.writeTextFile(
-    path,
-    `${JSON.stringify({ version: EPISODES_STORE_VERSION, episodes })}\n`,
-  );
+  const temp = `${path}.tmp-${crypto.randomUUID()}`;
+  try {
+    const file = await Deno.open(temp, { createNew: true, write: true });
+    try {
+      await writeAll(
+        file,
+        new TextEncoder().encode(
+          `${JSON.stringify({ version: EPISODES_STORE_VERSION, episodes })}\n`,
+        ),
+      );
+      await file.sync();
+    } finally {
+      file.close();
+    }
+    await Deno.rename(temp, path);
+  } finally {
+    try {
+      await Deno.remove(temp);
+    } catch {
+      // Already renamed into place (the ordinary case) or never created.
+    }
+  }
 }
 
 /** Load the store for a write: current episodes, or a fresh table (with
