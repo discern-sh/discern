@@ -12,10 +12,10 @@ One row per set, in registry order. The detail sections use the same order and c
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
-| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 33      | per member       | surface `verb`              |
+| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 34      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 3       | —                | —                           |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 22      | —                | node `plan-apply`           |
-| [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
+| [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 18      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
 | [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 39      | —                | —                           |
 | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)       | `src/shared/experimental.ts#EXPERIMENTAL_ENVIRONMENT_VARIABLES`                   | 2       | —                | —                           |
@@ -50,7 +50,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 175     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 178     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
@@ -70,7 +70,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 128     | —                | —                           |
 | [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 44      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
-| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 44      | —                | node `published-contracts`  |
+| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 45      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
@@ -302,7 +302,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 The top-level command vocabulary: every verb the dispatcher accepts through the command-line interface (CLI) and Model Context Protocol (MCP).
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
-- Members: 33
+- Members: 34
   - `setup`
   - `upgrade`
   - `uninstall`
@@ -321,6 +321,7 @@ The top-level command vocabulary: every verb the dispatcher accepts through the 
   - `await`
   - `improvement`
   - `standards`
+  - `checkpoints`
   - `refresh`
   - `tidy`
   - `impact`
@@ -391,7 +392,7 @@ Every command path that registers `--dry-run`. These plan/apply verbs must produ
 The MCP tool table; verb parity ties every tool to a CLI verb, and the live tools/list guard binds each definition to its advertised schema.
 
 - Source: `src/engine/mcp/server.ts` — `TOOLS`
-- Members: 17
+- Members: 18
   - `discern_status`
   - `discern_start`
   - `discern_prepare`
@@ -404,6 +405,7 @@ The MCP tool table; verb parity ties every tool to a CLI verb, and the live tool
   - `discern_impact`
   - `discern_coupling`
   - `discern_patterns`
+  - `discern_checkpoints`
   - `discern_refresh`
   - `discern_map`
   - `discern_docs`
@@ -1124,7 +1126,7 @@ The `@…@` runtime tokens substituted into a Worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 175
+- Members: 178
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -1210,11 +1212,14 @@ The advisory hint registry: every hint string enters results through it.
   - `done-unchanged-tree-red`
   - `done-unchanged-tree-green`
   - `checkpoint-declare`
+  - `checkpoint-preview`
   - `checkpoint-advise`
   - `checkpoint-advisory`
   - `gate-variance-required`
   - `accept-declarations-stale`
   - `accept-authorize-variance`
+  - `checkpoints-declare`
+  - `checkpoints-variance-review`
   - `gate-failure-gotchas`
   - `gate-failure-gotcha-matched`
   - `gotchas-matcher-invalid`
@@ -1949,7 +1954,7 @@ The practice registry behind the practice canon: the obligations upheld by enfor
 The per-verb result contracts behind the published JSON schema and type declarations.
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
-- Members: 44
+- Members: 45
   - `discern`
   - `setup`
   - `setupVerify`
@@ -1969,6 +1974,7 @@ The per-verb result contracts behind the published JSON schema and type declarat
   - `prepare`
   - `test`
   - `improvement`
+  - `checkpoints`
   - `standards`
   - `refresh`
   - `tidy`

@@ -2137,6 +2137,41 @@ export const HINTS = {
       }. Recorded standing and effort grants never authorize a variance.`,
   }),
 
+  "checkpoints-declare": defineHint<{ ids: string[] }>({
+    id: "checkpoints-declare",
+    category: "next-step",
+    audience: "all",
+    when:
+      "The checkpoints report finds a stop criterion awaiting the caller's conclusion — a trigger that holds, or an episode without a current declaration.",
+    family: "checkpoint-declaration",
+    example: { ids: ["api-review"] },
+    template: ({ ids }): string =>
+      `Judge each criterion above against its changed paths, then record ` +
+      `your conclusion at the gate: ${
+        discernCommand("done", flag("met", "<id>"))
+      } (repeatable) for a criterion your change satisfies, or ${
+        discernCommand("done", flag("unmet", "<id>"))
+      } with its required one-paragraph rationale (${WHY_FLAG}, one per ` +
+      `invocation) to record that it is not satisfied — the gate still runs, ` +
+      `and the owner decides at landing. Awaiting: ${ids.join(", ")}.`,
+  }),
+
+  "checkpoints-variance-review": defineHint<{ ids: string[] }>({
+    id: "checkpoints-variance-review",
+    category: "notice",
+    audience: "all",
+    when:
+      "The checkpoints report finds a current declared-unmet conclusion standing.",
+    family: "checkpoint-variance",
+    example: { ids: ["api-review"] },
+    template: ({ ids }): string =>
+      `A declared-unmet conclusion stands on: ${ids.join(", ")}. Landing ` +
+      `requires the owner to authorize each variance in the current ` +
+      `conversation — recorded standing and effort grants never cover one. ` +
+      `Relay each criterion and rationale above to the owner; the decision ` +
+      `is served at ${CMD.accept}.`,
+  }),
+
   "gate-failure-gotchas": defineHint<
     { command: CommandRef; path?: never } | { path: string; command?: never }
   >({

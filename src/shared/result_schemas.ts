@@ -40,7 +40,7 @@ import {
   STEP_OUTCOMES,
 } from "./result.ts";
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
-import { CHECKPOINT_MODES } from "./checkpoints.ts";
+import { CHECKPOINT_MODES, TRIGGER_VETOES } from "./checkpoints.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "./public_schemas.ts";
@@ -730,6 +730,108 @@ export const GateCheckpointsDataSchema = z.strictObject({
   advisories: z.array(z.string()).optional(),
 });
 export type GateCheckpointsData = z.infer<typeof GateCheckpointsDataSchema>;
+
+// checkpoints (the read verb) ──────────────────────────────────────────────
+
+/** One checkpoint's structural trigger preview against the current diff. A
+ * read surface never runs a `when` command, so a configured one is reported
+ * honestly as still pending rather than decided. */
+export const CheckpointTriggerPreviewSchema = z.strictObject({
+  /** Whether every structural predicate holds against the current diff. */
+  holds: z.boolean(),
+  /** Present (true) when the trigger holds but a configured `when` command
+   * still has the last word at `done`. */
+  when_pending: z.boolean().optional(),
+  /** The matched paths, when the trigger holds. */
+  matched: z.array(z.string()).optional(),
+  /** The first predicate that vetoed, when it does not hold. */
+  vetoed_by: z.enum(TRIGGER_VETOES).optional(),
+});
+export type CheckpointTriggerPreviewData = z.infer<
+  typeof CheckpointTriggerPreviewSchema
+>;
+
+/** The episode states the checkpoints report distinguishes. `reopened` marks
+ * a recorded conclusion a later relevant change unbound — it must be declared
+ * again before `done` proceeds. */
+export const CHECKPOINT_EPISODE_STATES = [
+  "awaiting_declaration",
+  "declared_met",
+  "declared_unmet",
+  "reopened",
+] as const;
+export type CheckpointEpisodeState = (typeof CHECKPOINT_EPISODE_STATES)[number];
+
+/** The declaration recorded on one episode — agent evidence, so every
+ * rendering says "declared met" / "declared unmet", never bare "met". */
+export const CheckpointEpisodeDeclarationSchema = z.strictObject({
+  conclusion: z.enum(["met", "unmet"]),
+  /** The agent's one-paragraph rationale (unmet only) — opaque evidence,
+   * rendered only through escaping boundaries. */
+  why: z.string().optional(),
+  declared_at: z.string(),
+  /** False when a later relevant change reopened the episode: the recorded
+   * conclusion no longer binds to the current subject. */
+  current: z.boolean(),
+});
+export type CheckpointEpisodeDeclarationData = z.infer<
+  typeof CheckpointEpisodeDeclarationSchema
+>;
+
+/** One checkpoint's effort-scoped episode: the record that it fired, and any
+ * declaration bound to it. */
+export const CheckpointEpisodeDataSchema = z.strictObject({
+  state: z.enum(CHECKPOINT_EPISODE_STATES),
+  /** The matched paths the episode recorded — the subject's evidence. */
+  matched: z.array(z.string()),
+  opened_at: z.string(),
+  reopened_at: z.string().optional(),
+  declaration: CheckpointEpisodeDeclarationSchema.optional(),
+  /** Present (true) on a current declared-unmet conclusion: landing requires
+   * an owner-authorized variance. */
+  variance_required: z.boolean().optional(),
+});
+export type CheckpointEpisodeData = z.infer<typeof CheckpointEpisodeDataSchema>;
+
+/** One governing checkpoint's report row: the resolved policy entry, its
+ * structural preview against the current diff, and this effort's episode. */
+export const CheckpointReportSchema = z.strictObject({
+  id: z.string(),
+  mode: z.enum(CHECKPOINT_MODES),
+  criterion: z.string(),
+  teach: z.string().optional(),
+  reference: z.string().optional(),
+  /** One-line deterministic trigger summary (selector, thresholds, `when`). */
+  trigger: z.string(),
+  /** Absent when the effort diff could not be read (nothing can fire). */
+  preview: CheckpointTriggerPreviewSchema.optional(),
+  /** Absent when this checkpoint has not fired for this effort. */
+  episode: CheckpointEpisodeDataSchema.optional(),
+});
+export type CheckpointReportData = z.infer<typeof CheckpointReportSchema>;
+
+/** One recorded episode whose checkpoint the current governing policy no
+ * longer contains (removed, renamed, or landed differently) — kept visible so
+ * recorded judgments never silently vanish, though no declaration can act on
+ * it until a governing trigger fires again. */
+export const UngovernedEpisodeSchema = z.strictObject({
+  id: z.string(),
+  episode: CheckpointEpisodeDataSchema,
+});
+export type UngovernedEpisodeData = z.infer<typeof UngovernedEpisodeSchema>;
+
+/** `checkpoints` — the read verb: governing policy, effort state, preview. */
+export const CheckpointsDataSchema = z.strictObject({
+  /** The merge-base commit whose `[checkpoints]` configuration governs. */
+  policy: z.string().optional(),
+  /** The governing checkpoints, one report row each. */
+  checkpoints: z.array(CheckpointReportSchema),
+  /** Episodes recorded here whose checkpoint no longer governs. */
+  ungoverned: z.array(UngovernedEpisodeSchema).optional(),
+  /** Plain-language fail-open accounts (policy, diff, or store trouble). */
+  advisories: z.array(z.string()).optional(),
+});
+export type CheckpointsData = z.infer<typeof CheckpointsDataSchema>;
 
 /** `done` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
  * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
@@ -2315,6 +2417,12 @@ export const UpdateOutputSchema = resultOutputSchema(
 export const ImprovementOutputSchema = resultOutputSchema(
   "improvement",
   ImprovementDataSchema,
+);
+
+/** `checkpoints` output: envelope + the checkpoint report `data`. */
+export const CheckpointsOutputSchema = resultOutputSchema(
+  "checkpoints",
+  CheckpointsDataSchema,
 );
 
 /** `map` output: envelope + the project-map `data`. */

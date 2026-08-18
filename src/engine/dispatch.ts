@@ -119,6 +119,7 @@ export const SUGGESTABLE_ENGINE_COMMANDS: readonly string[] = [
   "await",
   "improvement",
   "standards",
+  "checkpoints",
   "refresh",
   "tidy",
   "impact",
@@ -415,6 +416,25 @@ export function attachEngineCommands(
             category: o.category,
             minScore: o.minScore,
           },
+        );
+      }),
+    );
+
+  root
+    .command("checkpoints")
+    .description(
+      "Report the checkpoint contract for this effort: the governing policy (each criterion, trigger, and mode), every episode's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded; a configured when command is reported as undecided.",
+    )
+    .option(
+      "--json",
+      "Emit the result as a JSON DiscernResult on stdout.",
+    )
+    .action(
+      recordedExit("checkpoints", async (o) => {
+        const { runCheckpoints } = await import("./checkpoints/report.ts");
+        return await runCheckpoints(
+          await requireRoot("checkpoints", o.json ?? false),
+          { json: o.json ?? false },
         );
       }),
     );

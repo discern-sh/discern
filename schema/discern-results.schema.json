@@ -7900,6 +7900,493 @@
         "verb"
       ]
     },
+    "DiscernCheckpointsResult": {
+      "title": "DiscernCheckpointsResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "instructions-check",
+                      "skills-check",
+                      "tracked-refresh-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "instructions-check",
+                  "skills-check",
+                  "tracked-refresh-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped",
+                  "cancelled"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "checkpoints"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "policy": {
+                  "type": "string"
+                },
+                "checkpoints": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "stop",
+                          "advise"
+                        ]
+                      },
+                      "criterion": {
+                        "type": "string"
+                      },
+                      "teach": {
+                        "type": "string"
+                      },
+                      "reference": {
+                        "type": "string"
+                      },
+                      "trigger": {
+                        "type": "string"
+                      },
+                      "preview": {
+                        "type": "object",
+                        "properties": {
+                          "holds": {
+                            "type": "boolean"
+                          },
+                          "when_pending": {
+                            "type": "boolean"
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "vetoed_by": {
+                            "type": "string",
+                            "enum": [
+                              "empty_matched_set",
+                              "unless_changed",
+                              "min_changed_files",
+                              "deletion_dominant",
+                              "similar_new_file"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "holds"
+                        ]
+                      },
+                      "episode": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "awaiting_declaration",
+                              "declared_met",
+                              "declared_unmet",
+                              "reopened"
+                            ]
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "opened_at": {
+                            "type": "string"
+                          },
+                          "reopened_at": {
+                            "type": "string"
+                          },
+                          "declaration": {
+                            "type": "object",
+                            "properties": {
+                              "conclusion": {
+                                "type": "string",
+                                "enum": [
+                                  "met",
+                                  "unmet"
+                                ]
+                              },
+                              "why": {
+                                "type": "string"
+                              },
+                              "declared_at": {
+                                "type": "string"
+                              },
+                              "current": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "conclusion",
+                              "declared_at",
+                              "current"
+                            ]
+                          },
+                          "variance_required": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "state",
+                          "matched",
+                          "opened_at"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "mode",
+                      "criterion",
+                      "trigger"
+                    ]
+                  }
+                },
+                "ungoverned": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "episode": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "awaiting_declaration",
+                              "declared_met",
+                              "declared_unmet",
+                              "reopened"
+                            ]
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "opened_at": {
+                            "type": "string"
+                          },
+                          "reopened_at": {
+                            "type": "string"
+                          },
+                          "declaration": {
+                            "type": "object",
+                            "properties": {
+                              "conclusion": {
+                                "type": "string",
+                                "enum": [
+                                  "met",
+                                  "unmet"
+                                ]
+                              },
+                              "why": {
+                                "type": "string"
+                              },
+                              "declared_at": {
+                                "type": "string"
+                              },
+                              "current": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "conclusion",
+                              "declared_at",
+                              "current"
+                            ]
+                          },
+                          "variance_required": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "state",
+                          "matched",
+                          "opened_at"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "episode"
+                    ]
+                  }
+                },
+                "advisories": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "checkpoints"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "issues"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ]
+    },
     "DiscernStandardsResult": {
       "title": "DiscernStandardsResult",
       "type": "object",
@@ -18624,6 +19111,44 @@
         "isError"
       ]
     },
+    "DiscernCheckpointsMcpToolResult": {
+      "title": "DiscernCheckpointsMcpToolResult",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "text"
+              },
+              "text": {
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ]
+          }
+        },
+        "structuredContent": {
+          "$ref": "#/$defs/DiscernCheckpointsResult",
+          "description": "The compact structured projection, sufficient without text content."
+        },
+        "isError": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "content",
+        "structuredContent",
+        "isError"
+      ]
+    },
     "DiscernStandardsMcpToolResult": {
       "title": "DiscernStandardsMcpToolResult",
       "type": "object",
@@ -19066,6 +19591,9 @@
           "$ref": "#/$defs/DiscernImprovementResult"
         },
         {
+          "$ref": "#/$defs/DiscernCheckpointsResult"
+        },
+        {
           "$ref": "#/$defs/DiscernStandardsResult"
         },
         {
@@ -19163,6 +19691,7 @@
           "prepare": "#/$defs/DiscernPrepareResult",
           "test": "#/$defs/DiscernTestResult",
           "improvement": "#/$defs/DiscernImprovementResult",
+          "checkpoints": "#/$defs/DiscernCheckpointsResult",
           "standards": "#/$defs/DiscernStandardsResult",
           "refresh": "#/$defs/DiscernRefreshResult",
           "tidy": "#/$defs/DiscernTidyResult",
@@ -19215,6 +19744,9 @@
         },
         {
           "$ref": "#/$defs/DiscernImprovementMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernCheckpointsMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernStandardsMcpToolResult"
@@ -19425,6 +19957,16 @@
       "mcpTool": "discern_improvement",
       "schema": "#/$defs/DiscernImprovementResult",
       "mcpToolResultSchema": "#/$defs/DiscernImprovementMcpToolResult"
+    },
+    {
+      "id": "checkpoints",
+      "verb": "checkpoints",
+      "commands": [
+        "checkpoints"
+      ],
+      "mcpTool": "discern_checkpoints",
+      "schema": "#/$defs/DiscernCheckpointsResult",
+      "mcpToolResultSchema": "#/$defs/DiscernCheckpointsMcpToolResult"
     },
     {
       "id": "standards",

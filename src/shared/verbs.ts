@@ -18,6 +18,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "await",
   "improvement",
   "standards",
+  "checkpoints",
   "refresh",
   "tidy",
   "impact",
@@ -69,6 +70,7 @@ export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
  * classified below.
  */
 export const LOGBOOK_PURE_OBSERVATION_VERBS: ReadonlySet<string> = new Set([
+  "checkpoints",
   "coupling",
   "doctor",
   "identity",

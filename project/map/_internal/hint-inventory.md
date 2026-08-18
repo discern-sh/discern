@@ -232,6 +232,39 @@ Rendered example:
 
 > Judge each criterion above against its changed paths, then record your conclusion and re-run the gate in one step: `discern done --met <id>` (repeatable) for a criterion your change satisfies, or `discern done --unmet <id>` with its required one-paragraph rationale (one per invocation) to record that it is not satisfied — the gate still runs, and the owner decides at landing. Awaiting: api-review.
 
+## `checkpoint-preview`
+
+- Category: `notice`
+- Audience: `all`
+- Family: `checkpoint-preview`
+- Emitting context: A previewing surface (`prepare`, `status`) finds a stop checkpoint's trigger holding against the current diff; the criterion is served early, without blocking.
+
+Rendered example:
+
+> Checkpoint 'api-review' will require a declared conclusion at `discern done`: A changed API surface is described in its docs before it lands. Changed: src/api/surface.ext.
+
+## `checkpoints-declare`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `checkpoint-declaration`
+- Emitting context: The checkpoints report finds a stop criterion awaiting the caller's conclusion — a trigger that holds, or an episode without a current declaration.
+
+Rendered example:
+
+> Judge each criterion above against its changed paths, then record your conclusion at the gate: `discern done --met <id>` (repeatable) for a criterion your change satisfies, or `discern done --unmet <id>` with its required one-paragraph rationale (--why, one per invocation) to record that it is not satisfied — the gate still runs, and the owner decides at landing. Awaiting: api-review.
+
+## `checkpoints-variance-review`
+
+- Category: `notice`
+- Audience: `all`
+- Family: `checkpoint-variance`
+- Emitting context: The checkpoints report finds a current declared-unmet conclusion standing.
+
+Rendered example:
+
+> A declared-unmet conclusion stands on: api-review. Landing requires the owner to authorize each variance in the current conversation — recorded standing and effort grants never cover one. Relay each criterion and rationale above to the owner; the decision is served at `discern accept`.
+
 ## `config-job-deferred`
 
 - Category: `next-step`

@@ -979,6 +979,89 @@ const presentImprovement: ResultMarkdownPresenter = (result) => {
   };
 };
 
+/** One checkpoint row's compact state phrase, from the serialized fields. */
+function checkpointRowLine(row: Record<string, unknown>): string {
+  const id = code(row.id);
+  const mode = text(row.mode) ?? "stop";
+  const episode = object(row.episode);
+  const preview = object(row.preview);
+  const criterion = text(row.criterion);
+  const withCriterion = (phrase: string): string =>
+    criterion === undefined ? phrase : `${phrase} — ${criterion}`;
+  if (episode !== undefined) {
+    const declaration = object(episode.declaration);
+    const why = text(declaration?.why);
+    switch (text(episode.state)) {
+      case "declared_met":
+        return `${id} (${mode}): declared met.`;
+      case "declared_unmet":
+        return `${id} (${mode}): declared unmet${
+          episode.variance_required === true
+            ? " — owner variance required to land"
+            : ""
+        }${why === undefined ? "" : `. Rationale: ${why}`}.`;
+      case "reopened":
+        return `${id} (${mode}): ${
+          withCriterion(
+            "reopened — a relevant change unbound the declared conclusion; declare again",
+          )
+        }.`;
+      default:
+        return `${id} (${mode}): ${withCriterion("awaiting a declared conclusion")}.`;
+    }
+  }
+  if (preview === undefined) {
+    return `${id} (${mode}): state unknown — the effort diff could not be read.`;
+  }
+  if (preview.holds !== true) {
+    return `${id} (${mode}): idle.`;
+  }
+  const matched = strings(preview.matched).length;
+  if (preview.when_pending === true) {
+    return `${id} (${mode}): ${
+      withCriterion(`may fire at done — its when command decides (${matched} matched)`)
+    }.`;
+  }
+  return `${id} (${mode}): ${withCriterion(`would fire at done (${matched} matched)`)}.`;
+}
+
+const presentCheckpoints: ResultMarkdownPresenter = (result) => {
+  const data = dataOf(result);
+  const rows = records(data.checkpoints);
+  const ungoverned = records(data.ungoverned);
+  const advisories = strings(data.advisories);
+  const policy = text(data.policy);
+  const varianceIds = rows.filter((row) =>
+    object(row.episode)?.variance_required === true
+  ).map((row) => code(row.id));
+  return {
+    state: defaultState(
+      result,
+      rows.length === 0
+        ? "No checkpoint governs this effort."
+        : `${plural(rows.length, "checkpoint")} govern${
+          rows.length === 1 ? "s" : ""
+        } this effort${policy === undefined ? "" : ` (policy ${policy.slice(0, 12)})`}.`,
+    ),
+    evidence: unique([
+      ...rows.slice(0, MAX_LIST_ITEMS).map(checkpointRowLine),
+      rows.length > MAX_LIST_ITEMS
+        ? omitted(rows.length - MAX_LIST_ITEMS, "checkpoint")
+        : undefined,
+      ...ungoverned.slice(0, MAX_LIST_ITEMS).map((entry) =>
+        `${code(entry.id)}: a recorded episode stands, but the current governing policy no longer contains it.`
+      ),
+      ...advisories.map((advisory) => `Fail-open: ${advisory}`),
+      rows.length === 0 ? undefined : "No observed checkpoint history yet.",
+    ]),
+    boundary: varianceIds.length === 0 ? [] : [
+      `Landing requires the owner to authorize a variance for: ${
+        varianceIds.join(", ")
+      }. Recorded standing and effort grants never cover one.`,
+    ],
+  };
+};
+
 const presentStandards: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const standards = records(data.standards);
@@ -1432,6 +1515,7 @@ export const RESULT_MARKDOWN_PRESENTERS = {
   config: presentConfig,
   gate: presentGate,
   improvement: presentImprovement,
+  checkpoints: presentCheckpoints,
   standards: presentStandards,
   refresh: presentRefresh,
   impact: presentImpact,

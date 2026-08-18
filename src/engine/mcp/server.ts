@@ -70,6 +70,7 @@ import {
   type AcceptData,
   AcceptOutputSchema,
   AwaitOutputSchema,
+  CheckpointsOutputSchema,
   CouplingOutputSchema,
   type DocsData,
   DocsOutputSchema,
@@ -107,6 +108,7 @@ import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
 import { standardsResult } from "../gate/standards.ts";
 import { improvementResult } from "../improve/improve.ts";
+import { checkpointsResult } from "../checkpoints/report.ts";
 import { CATEGORY_NAMES } from "../improve/rules.ts";
 import { impactResult } from "../scopes/scopes.ts";
 import { couplingResult } from "../coupling/coupling.ts";
@@ -333,6 +335,7 @@ const TOOL_PRIORITY = [
   "discern_impact",
   "discern_coupling",
   "discern_patterns",
+  "discern_checkpoints",
   "discern_refresh",
   "discern_map",
   "discern_docs",
@@ -812,6 +815,31 @@ export const TOOLS: McpTool[] = orderTools([
         category: args.category,
         minScore: args.min_score,
       }),
+  }),
+  defineTool({
+    name: "discern_checkpoints",
+    title: "Read the checkpoint contract",
+    outputSchema: CheckpointsOutputSchema.shape,
+    annotations: READ_ONLY,
+    description:
+      "Report the checkpoint contract for this effort, read-only. " +
+      "data.checkpoints lists each governing checkpoint: its criterion (the " +
+      "judgment the caller records at the gate), one-line trigger summary, " +
+      "mode (stop interlocks the gate; advise never blocks), a structural " +
+      "preview of whether the current change fires it, and this effort's " +
+      "episode state — awaiting_declaration, declared_met, declared_unmet " +
+      "(variance_required marks a conclusion only the owner can authorize a " +
+      "variance for at landing), or reopened (a relevant change unbound the " +
+      "recorded conclusion; declare again). data.policy is the merge-base " +
+      "commit whose configuration governs — never the branch's own edits. " +
+      "Nothing runs and nothing is recorded: a configured when command is " +
+      "reported as undecided (when_pending), and conclusions are recorded " +
+      "only by discern_done (met / unmet with why). Follow hints[] for the " +
+      "valid next step.",
+    inputSchema: {
+      ...PATH_PARAM,
+    },
+    run: (root) => checkpointsResult(root),
   }),
   defineTool({
     name: "discern_map",

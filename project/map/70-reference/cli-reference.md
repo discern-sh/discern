@@ -32,6 +32,7 @@ aliases:
   - discern test
   - discern queue
   - discern improvement
+  - discern checkpoints
   - discern mcp
   - discern scripts
   - discern standards

@@ -1,0 +1,540 @@
+/**
+ * `discern checkpoints` — the checkpoint contract's read surface. One
+ * read-only report answers, from a single command: which checkpoints govern
+ * this effort (criterion, trigger, mode, and the policy identity), what state
+ * each episode is in (awaiting a declaration, declared met, declared unmet —
+ * variance required, or reopened), and what the current change would fire — a
+ * structural preview through the same projection `prepare`, `status`, and
+ * `done --dry-run` share, so no surface can disagree about what fires.
+ *
+ * Like every result verb it computes one {@link DiscernResult}; the human
+ * report, `--json`/`--markdown`, and the MCP tool are renderings of the same
+ * evaluated data. {@link checkpointsResult} is the unrendered core the MCP
+ * server calls; {@link runCheckpoints} is the CLI.
+ *
+ * Read-only means READ-ONLY: no `when` command runs (a pending one is
+ * reported honestly as undecided), no episode is created or touched, and
+ * every uncertainty fails open into an advisory — never a refusal.
+ */
+
+import { loadConfig } from "../../shared/config_schema.ts";
+import {
+  renderResultSummaryCli,
+  type ResultSummaryCliProps,
+} from "discern-design-system/cli";
+import type { DiscernResult } from "../../shared/result.ts";
+import type {
+  CheckpointEpisodeData,
+  CheckpointEpisodeState,
+  CheckpointReportData,
+  CheckpointsData,
+  CheckpointTriggerPreviewData,
+  UngovernedEpisodeData,
+} from "../../shared/result_schemas.ts";
+import type { TriggerVeto } from "../../shared/checkpoints.ts";
+import { emitResult } from "../../shared/emit.ts";
+import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
+import { interactiveHintTexts } from "../../shared/hints.ts";
+import { makeOut, type Out } from "../output.ts";
+import {
+  type TerminalContext,
+  terminalContext,
+  terminalLine,
+  terminalMultiline,
+} from "../../lib/terminal.ts";
+import {
+  type CheckpointEpisode,
+  declarationIsCurrent,
+  readEpisodes,
+} from "./episodes.ts";
+import {
+  type CheckpointPreview,
+  previewCheckpoints,
+} from "./preflight.ts";
+import type { ResolvedCheckpoint, StructuralTriggerOutcome } from "./types.ts";
+
+// ── the trigger summary ─────────────────────────────────────────────────────
+
+/** Longest `when` command text shown before elision. */
+const WHEN_SUMMARY_MAX = 48;
+
+/** Cap a glob list for one summary line. */
+function capList(items: readonly string[], max: number): string {
+  const shown = items.slice(0, max).join(", ");
+  return items.length > max ? `${shown}, +${items.length - max} more` : shown;
+}
+
+/** One-line deterministic summary of a resolved trigger — what makes this
+ * checkpoint relevant, readable at a glance beside its criterion. */
+export function triggerSummary(def: ResolvedCheckpoint): string {
+  const parts: string[] = [];
+  if (def.selector === undefined) {
+    parts.push("any change");
+  } else if (def.selector.scope !== undefined) {
+    parts.push(`scope ${def.selector.scope}`);
+  } else {
+    parts.push(`paths ${capList(def.selector.globs, 3)}`);
+  }
+  if (def.unlessChanged.length > 0) {
+    parts.push(`unless ${capList(def.unlessChanged, 2)} changed`);
+  }
+  if (def.minChangedFiles !== undefined) {
+    parts.push(`≥${def.minChangedFiles} files`);
+  }
+  if (def.deletionDominant) {
+    parts.push("deletion-dominant");
+  }
+  if (def.similarNewFile) {
+    parts.push("similar new file");
+  }
+  if (def.when !== undefined) {
+    const command = def.when.length > WHEN_SUMMARY_MAX
+      ? `${def.when.slice(0, WHEN_SUMMARY_MAX)}…`
+      : def.when;
+    parts.push(`when: ${command}`);
+  }
+  return parts.join(" · ");
+}
+
+// ── projections ─────────────────────────────────────────────────────────────
+
+/** Project one structural outcome onto the wire preview shape. */
+function triggerPreviewData(
+  outcome: StructuralTriggerOutcome,
+): CheckpointTriggerPreviewData {
+  if (!outcome.holds) {
+    return { holds: false, vetoed_by: outcome.vetoedBy };
+  }
+  return {
+    holds: true,
+    ...(outcome.whenPending ? { when_pending: true } : {}),
+    matched: [...outcome.matched],
+  };
+}
+
+/** Project one stored episode onto the wire shape. `stop` says whether the
+ * checkpoint currently governs in stop mode — only then can a current
+ * declared-unmet conclusion require an owner variance at landing. */
+function episodeData(
+  episode: CheckpointEpisode,
+  stop: boolean,
+): CheckpointEpisodeData {
+  const declaration = episode.declaration;
+  const current = declaration !== undefined && declarationIsCurrent(episode);
+  const state: CheckpointEpisodeState = declaration === undefined
+    ? "awaiting_declaration"
+    : current
+    ? (declaration.conclusion === "met" ? "declared_met" : "declared_unmet")
+    : "reopened";
+  return {
+    state,
+    matched: [...episode.matchedPaths],
+    opened_at: episode.openedAt,
+    ...(episode.reopenedAt === undefined
+      ? {}
+      : { reopened_at: episode.reopenedAt }),
+    ...(declaration === undefined ? {} : {
+      declaration: {
+        conclusion: declaration.conclusion,
+        ...(declaration.conclusion === "unmet" ? { why: declaration.why } : {}),
+        declared_at: declaration.declaredAt,
+        current,
+      },
+    }),
+    ...(stop && state === "declared_unmet" ? { variance_required: true } : {}),
+  };
+}
+
+/**
+ * Observed per-checkpoint economics from the logbook — the read seam the
+ * observation workstream fills. The checkpoint observation events (fired,
+ * declared, reopened, variance authorized, abandoned, with timing) are not
+ * recorded yet, so this returns undefined and every rendering states "no
+ * observed history yet". When the logbook starts recording those events,
+ * implement the bounded, effort-local counts here and extend
+ * `CheckpointsDataSchema` with the `economics` block the projections carry —
+ * the renderings below already branch on this one function.
+ */
+export function observedCheckpointEconomics(_root: string): undefined {
+  return undefined;
+}
+
+// ── the core ────────────────────────────────────────────────────────────────
+
+/** What the assembled report routes the caller toward. */
+interface ReportRouting {
+  /** Stop criteria awaiting the caller's conclusion at `done`. */
+  awaiting: string[];
+  /** Current declared-unmet conclusions — owner variance required to land. */
+  varianceRequired: string[];
+}
+
+/** Assemble the report rows plus the routing facts the hints fire from. */
+function assembleReport(
+  preview: CheckpointPreview,
+  episodes: Readonly<Record<string, CheckpointEpisode>>,
+): {
+  rows: CheckpointReportData[];
+  ungoverned: UngovernedEpisodeData[];
+  routing: ReportRouting;
+} {
+  const outcomes = new Map(
+    (preview.entries ?? []).map((
+      entry,
+    ) => [entry.definition.id, entry.outcome]),
+  );
+  const routing: ReportRouting = { awaiting: [], varianceRequired: [] };
+  const rows = preview.checkpoints.map((def): CheckpointReportData => {
+    const stop = def.mode === "stop";
+    const outcome = outcomes.get(def.id);
+    const episode = episodes[def.id];
+    const data = episode === undefined
+      ? undefined
+      : episodeData(episode, stop);
+    if (stop) {
+      if (data !== undefined) {
+        if (data.state === "awaiting_declaration" || data.state === "reopened") {
+          routing.awaiting.push(def.id);
+        }
+        if (data.variance_required === true) {
+          routing.varianceRequired.push(def.id);
+        }
+      } else if (
+        outcome !== undefined && outcome.holds && !outcome.whenPending
+      ) {
+        // A settled fire with no episode yet: `done` will serve it, and both
+        // conclusions are already declarable in that same invocation.
+        routing.awaiting.push(def.id);
+      }
+    }
+    return {
+      id: def.id,
+      mode: def.mode,
+      criterion: def.criterion,
+      ...(def.teach === undefined ? {} : { teach: def.teach }),
+      ...(def.reference === undefined ? {} : { reference: def.reference }),
+      trigger: triggerSummary(def),
+      ...(outcome === undefined
+        ? {}
+        : { preview: triggerPreviewData(outcome) }),
+      ...(data === undefined ? {} : { episode: data }),
+    };
+  });
+  const governed = new Set(preview.checkpoints.map((def) => def.id));
+  const ungoverned = Object.values(episodes)
+    .filter((episode) => !governed.has(episode.checkpoint))
+    .map((episode): UngovernedEpisodeData => ({
+      id: episode.checkpoint,
+      episode: episodeData(episode, false),
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return { rows, ungoverned, routing };
+}
+
+/**
+ * Compute the `checkpoints` {@link DiscernResult} without printing or exiting
+ * — the entry point the MCP server renders and the CLI serializes. Always
+ * `ok`: this is an account of state, and every uncertainty (an unresolvable
+ * policy, an unreadable diff or store) degrades to an advisory.
+ */
+export async function checkpointsResult(
+  root: string,
+): Promise<DiscernResult<CheckpointsData>> {
+  const config = await loadConfig(root);
+  const preview = await previewCheckpoints(root, config);
+  const advisories = [...preview.advisories];
+
+  const read = await readEpisodes(root);
+  const episodes = read.status === "ok" ? read.episodes : {};
+  if (read.status === "invalid") {
+    advisories.push(
+      "the checkpoint-episode record did not parse; conclusions must be declared again at `discern done`.",
+    );
+  } else if (read.status === "unavailable") {
+    advisories.push(
+      `the checkpoint-episode record could not be read (${read.reason}); this effort's episode state is unknown.`,
+    );
+  }
+
+  const { rows, ungoverned, routing } = assembleReport(preview, episodes);
+  const data: CheckpointsData = {
+    ...(preview.policyCommit === undefined
+      ? {}
+      : { policy: preview.policyCommit }),
+    checkpoints: rows,
+    ...(ungoverned.length === 0 ? {} : { ungoverned }),
+    ...(advisories.length === 0 ? {} : { advisories: [...advisories] }),
+  };
+
+  const hints: FiredHint[] = advisories.map((advisory) =>
+    fire(HINTS["checkpoint-advisory"], { advisory })
+  );
+  if (routing.awaiting.length > 0) {
+    hints.push(fire(HINTS["checkpoints-declare"], { ids: routing.awaiting }));
+  }
+  if (routing.varianceRequired.length > 0) {
+    hints.push(
+      fire(HINTS["checkpoints-variance-review"], {
+        ids: routing.varianceRequired,
+      }),
+    );
+  }
+
+  return {
+    ok: true,
+    verb: "checkpoints",
+    data,
+    ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
+  };
+}
+
+// ── human rendering ─────────────────────────────────────────────────────────
+
+/** The one attention scale the terminal rows map onto. */
+const ROW_STATES = {
+  idle: "unchanged",
+  fires: "changed",
+  awaiting: "changed",
+  declaredMet: "passed",
+  declaredUnmet: "changed",
+} as const satisfies Readonly<Record<string, ResultSummaryCliProps["state"]>>;
+
+/** The human wording for a veto — why an idle trigger did not hold. */
+const VETO_WORDING: Readonly<Record<TriggerVeto, string>> = {
+  empty_matched_set: "no matched change",
+  unless_changed: "its unless_changed counterpart also changed",
+  min_changed_files: "below its file threshold",
+  deletion_dominant: "the change is not deletion-dominant",
+  similar_new_file: "no name-similar new file",
+};
+
+/** One row's state sentence plus its visual weight. */
+function rowPresentation(row: CheckpointReportData): {
+  state: ResultSummaryCliProps["state"];
+  fact: string;
+  attention: boolean;
+} {
+  const episode = row.episode;
+  if (episode !== undefined) {
+    switch (episode.state) {
+      case "declared_met":
+        return {
+          state: ROW_STATES.declaredMet,
+          fact: `Declared met (${episode.declaration?.declared_at ?? ""}).`,
+          attention: false,
+        };
+      case "declared_unmet":
+        return {
+          state: ROW_STATES.declaredUnmet,
+          fact: episode.variance_required === true
+            ? "Declared unmet — owner variance required to land."
+            : "Declared unmet.",
+          attention: true,
+        };
+      case "reopened":
+        return {
+          state: ROW_STATES.awaiting,
+          fact: `Reopened — a relevant change unbound the declared ` +
+            `${episode.declaration?.conclusion ?? ""} conclusion; declare again.`,
+          attention: true,
+        };
+      case "awaiting_declaration":
+        return {
+          state: ROW_STATES.awaiting,
+          fact: "Awaiting a declared conclusion.",
+          attention: true,
+        };
+    }
+  }
+  const preview = row.preview;
+  if (preview === undefined) {
+    return {
+      state: ROW_STATES.idle,
+      fact: "Unknown — the effort diff could not be read.",
+      attention: false,
+    };
+  }
+  if (!preview.holds) {
+    const veto = preview.vetoed_by;
+    return {
+      state: ROW_STATES.idle,
+      fact: `Idle (${veto === undefined ? "no fire" : VETO_WORDING[veto]}).`,
+      attention: false,
+    };
+  }
+  const matched = preview.matched?.length ?? 0;
+  if (preview.when_pending === true) {
+    return {
+      state: ROW_STATES.fires,
+      fact:
+        `May fire at done — its when command decides (${matched} matched).`,
+      attention: true,
+    };
+  }
+  return {
+    state: ROW_STATES.fires,
+    fact: row.mode === "advise"
+      ? `Would serve its advisory at done (${matched} matched).`
+      : `Would fire at done — a declared conclusion will be required (${matched} matched).`,
+    attention: true,
+  };
+}
+
+/** Bounded evidence line for a row's matched paths. */
+function matchedLine(paths: readonly string[] | undefined): string | undefined {
+  if (paths === undefined || paths.length === 0) {
+    return undefined;
+  }
+  const shown = paths.slice(0, 4).join(", ");
+  const more = paths.length > 4 ? `, +${paths.length - 4} more` : "";
+  return `Changed: ${shown}${more}.`;
+}
+
+/** Presentation facts for the package renderers (mirrors the verb peers). */
+function presentationFacts(out: Out): {
+  readonly presenter: Out["terminal"]["presenter"];
+  readonly width: number;
+} {
+  const width = Math.max(20, Math.min(104, out.terminal.size.columns));
+  return { presenter: out.terminal.presenter, width };
+}
+
+/** Preserve the stable human-output group id while the package owns its rule. */
+function renderGroup(out: Out, id: string, label: string): void {
+  const { presenter, width } = presentationFacts(out);
+  out.group(id);
+  out.raw(`${
+    presenter.motifSectionRule(terminalLine(label), {
+      register: "brand",
+      width,
+    })
+  }\n`);
+}
+
+/** Render one governing checkpoint's full serving. */
+function renderRow(out: Out, row: CheckpointReportData): void {
+  const { presenter, width } = presentationFacts(out);
+  const { state, fact, attention } = rowPresentation(row);
+  const evidence = matchedLine(
+    row.episode?.matched ?? row.preview?.matched,
+  );
+  const why = row.episode?.declaration?.why;
+  const detail = [
+    attention ? `Criterion: ${row.criterion.trim()}` : undefined,
+    attention && row.teach !== undefined && row.teach.trim() !== ""
+      ? `Teach: ${row.teach.trim()}`
+      : undefined,
+    why === undefined ? undefined : `Rationale: ${why}`,
+    attention ? evidence : undefined,
+  ].filter((line): line is string => line !== undefined);
+  out.raw(`${
+    presenter.present(renderResultSummaryCli, {
+      state,
+      fact: terminalMultiline(
+        `${row.id} (${row.mode}) · ${row.trigger}\n${fact}`,
+      ),
+      ...(detail.length === 0
+        ? {}
+        : { nextAction: terminalMultiline(detail.join("\n")) }),
+      maxWidth: width,
+    })
+  }\n`);
+}
+
+/** Options accepted by the checkpoints CLI. */
+export interface RunCheckpointsOptions {
+  json: boolean;
+  /** Explicit human presentation facts; CLI callers use the installed context. */
+  terminal?: TerminalContext;
+  /** Injectable writers retained for deterministic human-entrypoint coverage. */
+  stdout?: (text: string) => void;
+  stderr?: (text: string) => void;
+}
+
+/** Run `discern checkpoints`. Returns a process exit code (0 = reported). */
+export async function runCheckpoints(
+  root: string,
+  opts: RunCheckpointsOptions,
+): Promise<number> {
+  const result = await checkpointsResult(root);
+  if (opts.json) {
+    emitResult(result);
+    return result.ok ? 0 : 1;
+  }
+  const terminal = opts.terminal ?? terminalContext();
+  const out = makeOut(terminal.color, {
+    terminal,
+    ...(opts.stdout === undefined ? {} : { stdout: opts.stdout }),
+    ...(opts.stderr === undefined ? {} : { stderr: opts.stderr }),
+  });
+  const config = await loadConfig(root);
+  const data = result.data ?? { checkpoints: [] };
+  const { presenter, width } = presentationFacts(out);
+
+  out.heading(
+    terminalLine(
+      `discern checkpoints${
+        config.project.slug ? ` · ${config.project.slug}` : ""
+      }`,
+    ),
+  );
+  renderGroup(out, "policy", "Governing checkpoints");
+  if (data.checkpoints.length === 0) {
+    out.raw(`${
+      presenter.present(renderResultSummaryCli, {
+        state: "unchanged",
+        fact: terminalLine("No checkpoint governs this effort."),
+        maxWidth: width,
+      })
+    }\n`);
+  } else {
+    for (const row of data.checkpoints) {
+      renderRow(out, row);
+    }
+    if (data.policy !== undefined) {
+      out.raw(`${
+        presenter.present(renderResultSummaryCli, {
+          state: "unchanged",
+          fact: terminalLine(
+            `Policy identity: ${data.policy.slice(0, 12)} (the merge-base configuration governs).`,
+          ),
+          maxWidth: width,
+        })
+      }\n`);
+    }
+  }
+  if (data.ungoverned !== undefined && data.ungoverned.length > 0) {
+    renderGroup(out, "ungoverned", "Recorded but no longer governed");
+    for (const entry of data.ungoverned) {
+      out.raw(`${
+        presenter.present(renderResultSummaryCli, {
+          state: "unchanged",
+          fact: terminalMultiline(
+            `${entry.id} — its episode stands (${entry.episode.state}), but ` +
+              `the current governing policy no longer contains it.`,
+          ),
+          maxWidth: width,
+        })
+      }\n`);
+    }
+  }
+  if (data.checkpoints.length > 0) {
+    renderGroup(out, "history", "Observed history");
+    const economics = observedCheckpointEconomics(root);
+    if (economics === undefined) {
+      out.raw(`${
+        presenter.present(renderResultSummaryCli, {
+          state: "unchanged",
+          fact: terminalLine("No observed checkpoint history yet."),
+          maxWidth: width,
+        })
+      }\n`);
+    }
+  }
+  const hints = interactiveHintTexts(result.hints);
+  if (hints.length > 0) out.group("next");
+  for (const hint of hints) {
+    out.info(hint);
+  }
+  return result.ok ? 0 : 1;
+}
