@@ -43,12 +43,12 @@ From the main checkout, bare `discern` opens the human view over work in progres
 
 ## Where next
 
-| Want to understand…                            | Read                                            |
-| ---------------------------------------------- | ----------------------------------------------- |
-| Install, setup, and upgrades                   | [Getting started](../10-getting-started/)       |
-| `discern done`: jobs, scopes, Standards, and checkpoints | [the quality gate](../20-quality-gate/) |
-| The worktree lifecycle and its resources       | [worktrees](../30-worktrees/)                   |
-| Instruction compilation                        | [agent instructions](../40-agent-instructions/) |
-| Bundled and project-authored Skills            | [Skills](../45-skills/)                         |
-| The files discern writes for each coding agent | [agent integrations](../60-agent-integrations/) |
-| Why the system is shaped this way              | [design principles](design-principles.md)       |
+| Want to understand…                                      | Read                                            |
+| -------------------------------------------------------- | ----------------------------------------------- |
+| Install, setup, and upgrades                             | [Getting started](../10-getting-started/)       |
+| `discern done`: jobs, scopes, Standards, and checkpoints | [the quality gate](../20-quality-gate/)         |
+| The worktree lifecycle and its resources                 | [worktrees](../30-worktrees/)                   |
+| Instruction compilation                                  | [agent instructions](../40-agent-instructions/) |
+| Bundled and project-authored Skills                      | [Skills](../45-skills/)                         |
+| The files discern writes for each coding agent           | [agent integrations](../60-agent-integrations/) |
+| Why the system is shaped this way                        | [design principles](design-principles.md)       |

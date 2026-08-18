@@ -271,7 +271,12 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Stop / advise",
-    matches: ["stop checkpoint", "advise checkpoint", "stop mode", "advise mode"],
+    matches: [
+      "stop checkpoint",
+      "advise checkpoint",
+      "stop mode",
+      "advise mode",
+    ],
     plain: {
       phrase: "a stopping rule or a notice-only one",
       match: false,
