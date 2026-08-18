@@ -43,6 +43,7 @@ import {
   SLUG_RULE,
   slugify,
 } from "./config.ts";
+import type { ConfirmationLabels } from "../shared/confirmation.ts";
 import { PROVIDERS } from "./providers.ts";
 import type { Logger } from "./log.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
@@ -1266,12 +1267,6 @@ export async function requestText(
       : { transform: settings.transform }),
     ...(validate === undefined ? {} : { validate }),
   }, runtime);
-}
-
-/** Product-owned labels for the two sides of a confirmation Switch. */
-export interface ConfirmationLabels {
-  readonly noLabel: string;
-  readonly yesLabel: string;
 }
 
 /** Complete behavior and copy for one package-backed confirmation request. */

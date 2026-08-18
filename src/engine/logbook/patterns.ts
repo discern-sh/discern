@@ -75,7 +75,7 @@ import {
   terminalLine,
   terminalMultiline,
 } from "../../lib/terminal.ts";
-import type { ConfirmationLabels } from "../../lib/terminal_interaction.ts";
+import type { ConfirmationLabels } from "../../shared/confirmation.ts";
 import { makeOut, type Out } from "../output.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import {

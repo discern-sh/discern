@@ -47,12 +47,12 @@ import { renderAlignedRows } from "../lib/text.ts";
 import { terminalLine } from "../lib/terminal.ts";
 import {
   canInteract,
-  type ConfirmationLabels,
   type ConfirmationRequestOptions,
   isInteractionCancelled,
   plainModeEnabled,
   requestConfirmation,
 } from "../lib/terminal_interaction.ts";
+import type { ConfirmationLabels } from "../shared/confirmation.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
 import type { LifecycleContext } from "./worktree/lifecycle.ts";
 import { colorEnabled } from "./output.ts";
