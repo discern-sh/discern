@@ -480,7 +480,7 @@ Rendered line:
 
 ## `await-with-one-call`
 
-- Relevance: Evergreen — the final reusable guide lesson.
+- Relevance: Evergreen — a reusable guide lesson.
 - Predicate: —
 - Since: —
 - Teaches: `skill-await-the-fleet`
@@ -489,6 +489,18 @@ Rendered line:
 Rendered line:
 
 > `discern-await-the-fleet` guides a coding agent to wait for another task with one bounded call, then build on what arrives.
+
+## `set-a-checkpoint`
+
+- Relevance: Evergreen — the final reusable guide lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skill-set-a-checkpoint`
+- Follow-through: —
+
+Rendered line:
+
+> `discern-set-a-checkpoint` turns a point a reviewer keeps raising into a change-triggered judgment the gate serves and records.
 
 ## `identity-stable-values`
 

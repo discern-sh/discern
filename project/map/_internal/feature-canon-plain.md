@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md)._
 
-10 main areas · 129 detailed entries · 11 statements of benefit · 40 accounts of what the coding agent experiences · 75 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 130 detailed entries · 11 statements of benefit · 40 accounts of what the coding agent experiences · 76 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -134,6 +134,7 @@ _A reusable method becomes one file available to every future session._
 - **A small, carefully chosen built-in set** — The built-in guides teach discern's preferred way of working — their names begin with `discern-`, `discern skills list` shows them, and each must clear a bar: it must teach something even the most capable coding agent would not reliably do unasked. A method prompted by an ordinary request ships as a guide; advice tied to a particular discern instruction ships as a registered advice note shown at that moment. _Every guide's description takes up part of every session's limited reading space, so the collection stays small and each member earns its keep._
   - **Cure a bug** — One careful bug method with three routes: prove the cause (make the failure happen and rule out wrong explanations before changing anything), cure the family (fix every occurrence and leave a permanent protection), and inspect existing protections for cover that protects less than it appears to.
   - **Set the standard** — Put a quality measurement behind a standing rule — a defendable number, added under `[standards]`, with its first limit set at today's value — including a drive-to-zero route that outlaws an unwanted old pattern: a detector, a steadily falling maximum, then a permanent rule at zero.
+  - **Set up a judgment stop** — Turn a point a reviewer keeps raising into a rule the project keeps. Choose which changes set it off, and whether it stops work or only advises. Write the short question the coding agent must answer, check the rule is in force, and review later how often it fires and how it was answered.
   - **Clear the decks** — Sweep out the clutter that projects built by coding agents tend to collect — small helpers written twice, dead code from abandoned approaches, layers used from only one place, leftover starter material — every removal proved safe and saved as a small behavior-preserving step, with a quality rule capping the mess afterwards.
   - **Delegate work** — Turn the work under discussion into complete, self-contained briefs for fresh coding agents in their own separate working copies — one hand-off, several at once, or staged briefs — then review what comes back with a skeptical eye.
   - **Wait for another task** — Wait for another line of work with one bounded request — a sibling task passing its final check, its work joining the main shared version, or the main shared version moving — choosing the right condition, waiting on the exact task name, then following the returned next step to build on what arrived.
@@ -309,6 +310,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `discern-cure-a-bug` — skill-cure-a-bug
 - `discern-delegate-work` — skill-delegate-work
 - `discern-document-subsystem` — skill-document-subsystem
+- `discern-set-a-checkpoint` — skill-set-a-checkpoint
 - `discern-set-the-standard` — skill-set-the-standard
 - `discern-teach-the-project` — skill-teach-the-project
 - `discern-write-adr` — skill-write-adr

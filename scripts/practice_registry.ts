@@ -322,6 +322,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
         "skill:discern-teach-the-project",
         "skill:discern-write-adr",
         "skill:discern-document-subsystem",
+        "skill:discern-set-a-checkpoint",
       ],
     },
     mechanisms: [
@@ -333,6 +334,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "skill-teach-the-project",
       "skill-write-adr",
       "skill-document-subsystem",
+      "skill-set-a-checkpoint",
     ],
     yields: ["keep-project-knowledge-working"],
     holds: ["instructions", "decisions"],

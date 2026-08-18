@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same canon in plain language is [feature-canon-plain.md](feature-canon-plain.md), and the commercially ordered human-value account is [feature-canon-benefits.md](feature-canon-benefits.md)._
 
-10 pillars · 129 nodes · 11 benefit statements · 40 agent-experience accounts · 75 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+10 pillars · 130 nodes · 11 benefit statements · 40 agent-experience accounts · 76 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
@@ -134,6 +134,7 @@ _A reusable procedure becomes one file available to every future session._
 - **A curated bundled set** — The built-ins ship the practice discern teaches — prefixed `discern-`, listed by `discern skills list`, and held to a bar: a bundled skill must teach what a frontier model wouldn't do unprompted. A playbook whose trigger is a conversational ask ships as a skill; a discipline whose trigger is a verb moment ships as a registered hint fired at that moment. _Every description spends context in every session, so the set stays small and each member earns its keep._
   - **Cure a bug** — One bug discipline with three routed modes: prove the cause (reproduce the failure and falsify hypotheses before any fix), cure the class (fix every instance and leave a permanent guard), and audit existing guards for coverage that guards less than it appears to.
   - **Set the standard** — Put a quality metric behind a standard — a defendable number, wired into `[standards]`, limited at today's value — with a drive-to-zero mode that outlaws a legacy pattern: a detector, a falling ceiling, then a permanent gate rule at zero.
+  - **Set a checkpoint** — Walk from a recurring review judgment to a wired `[checkpoints.<id>]` entry: place the rule on the placement ladder, choose a deterministic trigger and the stop or advise mode, write a short criterion with a real unmet answer, verify it governs from the trunk, and review its observed economics later.
   - **Clear the decks** — Sweep out the clutter agent-built codebases accumulate — duplicated helpers, dead code from abandoned approaches, one-caller indirection, leftover scaffolding — every cut proven safe, landed as small behavior-preserving commits, with the entropy capped by a standard.
   - **Delegate work** — Turn the work under discussion into complete, self-contained prompts for fresh agents in their own worktrees — one handoff, a parallel fan-out, or staged briefs — then review what lands adversarially.
   - **Await the fleet** — Wait for another effort with one blocking `discern_await` call — a sibling branch green, its work landed, or the trunk moved — choosing the condition from the need, awaiting the exact returned branch, then following the met hint to compose what arrived.
@@ -309,6 +310,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `discern-cure-a-bug` — skill-cure-a-bug
 - `discern-delegate-work` — skill-delegate-work
 - `discern-document-subsystem` — skill-document-subsystem
+- `discern-set-a-checkpoint` — skill-set-a-checkpoint
 - `discern-set-the-standard` — skill-set-the-standard
 - `discern-teach-the-project` — skill-teach-the-project
 - `discern-write-adr` — skill-write-adr

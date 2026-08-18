@@ -1,6 +1,6 @@
 ---
 name: discern-teach-the-project
-description: Route a lesson this session produced into the project's own surfaces — an instruction line, an authored skill, a project script, a doc, or an ADR — so every future agent session inherits it. Use when the user says "remember this", "add this to the instructions", "capture this", or wants a rule or procedure to stick. Also offer it proactively, at a natural pause and never mid-task, after the user corrects your approach, after you derive a non-obvious procedure the hard way, or when a decision gets made that no file records. Bundled with discern.
+description: Route a lesson this session produced into the project's own surfaces — an instruction line, an authored skill, a checkpoint, a project script, a doc, or an ADR — so every future agent session inherits it. Use when the user says "remember this", "add this to the instructions", "capture this", or wants a rule or procedure to stick. Also offer it proactively, at a natural pause and never mid-task, after the user corrects your approach, after you derive a non-obvious procedure the hard way, or when a decision gets made that no file records. Bundled with discern.
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -41,11 +41,12 @@ Pick the **smallest surface that fully carries the lesson**, and give it exactly
 | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | A standing rule every session must follow ("always X here", "never Y")            | **A instructions line** — the project instruction source ({{instruction_sources}}), compiled into every agent's file | Always in context, so it's never missed — and always _paying_ context, so it must earn its line |
 | A repeatable, multi-step procedure needing judgement                              | **An authored skill** — a `SKILL.md` under `{{skills_dir}}`                                                | Discoverable when the task matches; costs context only when used                                |
+| A review judgment a diff makes relevant ("when X changes, weigh Y before landing") | **A checkpoint** — a `[checkpoints.<id>]` entry (the `discern-set-a-checkpoint` skill walks the authoring) | Served at the gate the moment a matching change completes; costs nothing until then             |
 | A deterministic action — a command sequence you'd otherwise re-derive             | **A project script** — an executable in `{{scripts_dir}}` (run it with `discern scripts <name>`)            | A script executes exactly; prose about commands drifts                                          |
 | Durable context — how a subsystem works, what's true and why it's shaped this way | **A docs page** — under `{{map_dir}}` (the `discern-document-subsystem` skill maintains subtrees)          | Read on demand; the reference the other surfaces can point at                                   |
 | A decision — hard to reverse, surprising without context, a real trade-off        | **An ADR** — via the `discern-write-adr` skill                                                             | Records _why_, so it isn't silently re-litigated                                                |
 
-Two rules across all five: **check for an existing home first** — a lesson that updates a stale instructions line, an existing skill, or a current doc belongs _there_, not in a duplicate; and **never split one lesson across surfaces** — if a rule needs its rationale, the rule goes in instructions with a link to the ADR that explains it.
+Two rules across every home: **check for an existing home first** — a lesson that updates a stale instructions line, an existing skill, or a current doc belongs _there_, not in a duplicate; and **never split one lesson across surfaces** — if a rule needs its rationale, the rule goes in instructions with a link to the ADR that explains it.
 
 ---
 

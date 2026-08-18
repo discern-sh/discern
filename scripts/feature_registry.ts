@@ -1231,6 +1231,18 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             surfaces: ["skill:discern-set-the-standard"],
           },
           {
+            id: "skill-set-a-checkpoint",
+            title: "Set a checkpoint",
+            what:
+              "Walk from a recurring review judgment to a wired `[checkpoints.<id>]` entry: place the rule on the placement ladder, choose a deterministic trigger and the stop or advise mode, write a short criterion with a real unmet answer, verify it governs from the trunk, and review its observed economics later.",
+            plain: {
+              title: "Set up a judgment stop",
+              what:
+                "Turn a point a reviewer keeps raising into a rule the project keeps. Choose which changes set it off, and whether it stops work or only advises. Write the short question the coding agent must answer, check the rule is in force, and review later how often it fires and how it was answered.",
+            },
+            surfaces: ["skill:discern-set-a-checkpoint"],
+          },
+          {
             id: "skill-clear-the-decks",
             title: "Clear the decks",
             what:

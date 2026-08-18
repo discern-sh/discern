@@ -761,12 +761,22 @@ export const TIPS: readonly RegisteredTip[] = [
 
   defineTip({
     id: "await-with-one-call",
-    when: "Evergreen — the final reusable guide lesson.",
+    when: "Evergreen — a reusable guide lesson.",
     features: ["skill-await-the-fleet"],
     example: undefined,
     template: (): string =>
       "`discern-await-the-fleet` guides a coding agent to wait for another " +
       "task with one bounded call, then build on what arrives.",
+  }),
+
+  defineTip({
+    id: "set-a-checkpoint",
+    when: "Evergreen — the final reusable guide lesson.",
+    features: ["skill-set-a-checkpoint"],
+    example: undefined,
+    template: (): string =>
+      "`discern-set-a-checkpoint` turns a point a reviewer keeps raising " +
+      "into a change-triggered judgment the gate serves and records.",
   }),
 
   defineTip({
