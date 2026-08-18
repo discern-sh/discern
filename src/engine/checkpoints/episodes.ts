@@ -102,11 +102,15 @@ export function validateUnmetRationale(raw: string): RationaleValidation {
         `the rationale is ${rationale.length} characters; keep it one paragraph of at most ${UNMET_RATIONALE_MAX_LENGTH}.`,
     };
   }
-  if (/\p{Cc}/u.test(rationale)) {
+  // Beside the control characters: the format class (Cf — bidi overrides and
+  // zero-width characters can make displayed text diverge from recorded
+  // text) and the Unicode line/paragraph separators (Zl, Zp — they break the
+  // one-paragraph shape without being Cc).
+  if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(rationale)) {
     return {
       ok: false,
       reason:
-        "the rationale must be one paragraph: no newlines, tabs, or other control characters.",
+        "the rationale must be one paragraph: no newlines, tabs, or other control or invisible formatting characters.",
     };
   }
   return { ok: true, rationale };

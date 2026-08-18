@@ -275,6 +275,16 @@ Deno.test("unmet rationale validation: trim, one paragraph, 1-500 chars, no cont
       "a\rb",
       "a\u0000b",
       "a\u009fb",
+      // Invisible formatting (Cf): bidi override and isolates, zero-width
+      // space — displayed text must never diverge from recorded text.
+      "a\u202eb",
+      "a\u2066b",
+      "a\u2069b",
+      "a\u200bb",
+      // Unicode line and paragraph separators (Zl, Zp) break the
+      // one-paragraph shape without being control characters.
+      "a\u2028b",
+      "a\u2029b",
       "x".repeat(UNMET_RATIONALE_MAX_LENGTH + 1),
     ]
   ) {
