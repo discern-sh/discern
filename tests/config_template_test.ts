@@ -26,7 +26,12 @@ import { PROVIDERS } from "../src/lib/providers.ts";
 import { RECORD_CONFIG_PATHS } from "../src/lib/config_reconcile.ts";
 import { indentToml } from "../src/lib/toml_indent.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
-import { AGENT_NAMES, configSchema } from "../src/shared/config_schema.ts";
+import {
+  AGENT_NAMES,
+  configSchema,
+  parseConfigOrThrow,
+} from "../src/shared/config_schema.ts";
+import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
 
 /** The real committed config template text. */
 async function realTemplate(): Promise<string> {
@@ -369,4 +374,46 @@ Deno.test("scanManagedBanners bounds a banner at its closing rule, never a follo
   assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), [
     { family: "standards", start: 0, end: 3 },
   ]);
+});
+
+/** The commented example table for one inert checkpoint id: the contiguous
+ * comment block from `# [checkpoints.<id>]` through its closing `# """`,
+ * with the comment prefix stripped — exactly what a user's uncomment
+ * produces. */
+function uncommentedExample(template: string, id: string): string {
+  const lines = template.split("\n");
+  const start = lines.findIndex((line) =>
+    line.trim() === `# [checkpoints.${id}]`
+  );
+  assert(start !== -1, `no commented example for '${id}'`);
+  const block: string[] = [];
+  for (let i = start; i < lines.length; i++) {
+    const body = (lines[i] ?? "").trim();
+    if (!body.startsWith("#")) break;
+    block.push(body.replace(/^#\s?/, ""));
+    if (body === '# """' && block.length > 1) break;
+  }
+  return block.join("\n");
+}
+
+Deno.test("each inert checkpoint example governs once uncommented, untouched", async () => {
+  // The teaching promise: a user succeeds by uncommenting and pointing the
+  // globs at real files — no other edit. The stripped block must parse under
+  // the LIVE loader and resolve into a governing checkpoint as authored.
+  const template = await realTemplate();
+  const expectations = [
+    { id: "new-dependency", mode: "advise" },
+    { id: "shrinking-tests", mode: "advise" },
+    { id: "sensitive-paths", mode: "stop" },
+  ] as const;
+  for (const { id, mode } of expectations) {
+    const config = parseConfigOrThrow(uncommentedExample(template, id));
+    const { checkpoints, advisories } = resolveCheckpoints(config, {});
+    assertEquals(advisories, [], id);
+    assertEquals(checkpoints.length, 1, id);
+    assertEquals(checkpoints[0]?.id, id);
+    assertEquals(checkpoints[0]?.mode, mode);
+    assert((checkpoints[0]?.criterion ?? "").trim().length > 0, id);
+    assert((checkpoints[0]?.selector?.globs.length ?? 0) > 0, id);
+  }
 });
