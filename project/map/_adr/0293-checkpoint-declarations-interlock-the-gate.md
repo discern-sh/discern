@@ -15,17 +15,17 @@ discern's quality model verified two kinds of evidence: machine facts (gate jobs
 - A declared-unmet checkpoint lets the gate run but requires an owner-authorized **variance** to land — bound to the declaration and the landed tree, never to future efforts. Standing and effort grants never cover a variance. Landing authority stays a separate evidence kind; checkpoints do not join the consent registry because a declaration is the caller's own act, not the owner's.
 - The record that a checkpoint fired is an **episode**: effort-scoped state in the per-worktree Git administrative area (the registered `checkpointEpisodes` entry), surviving session restarts and vanishing with the worktree. An episode is the only thing a declaration can act on — ids are public config; the episode, not secrecy, forces the criterion-serving moment.
 - A declaration binds to a **subject**: the checkpoint's definition hash plus each sorted matched path's base and current mode/blob (or absence), with dirty and untracked content hashed through git's own content addressing and renames kept as a deletion plus an addition. Reopening is therefore relevance-sensitive: unrelated branch edits and unrelated trunk updates leave a declaration current; any change to matched content, the matched set, or the definition reopens it. Every store and subject operation is idempotent per (checkpoint, subject, declaration evidence).
-- Everything fails OPEN on uncertainty — unreadable state, a corrupt store, an uncomputable subject — with an advisory; a refusal must never wedge an effort.
+- Everything fails OPEN on uncertainty — unreadable state, a corrupt store, a subject that cannot be computed — with an advisory; a refusal must never wedge an effort.
 
 ## Consequences
 
 - The proof gains a third, lexically distinct evidence row: machine results, agent declarations, owner authority. Consumers can trust each row for exactly what it claims.
-- A declaration survives rebases of attention (new sessions, restarts) but not relevance: revising the matched change re-asks the question. That is the point, and the cost — an agent may re-declare after every relevant revision.
+- A declaration survives new sessions and restarts but not relevance: revising the matched change re-asks the question. That is the point, and the cost — an agent may re-declare after every relevant revision.
 - The gate stays reproducible and model-free: triggers are mechanical facts about the diff; the only intelligence involved is the agent's, and its output is recorded rather than trusted.
 - The interlock, previews, verb surface, and acceptance wiring build on these primitives in later workstreams; this record fixes the contract they compose.
 
 ## Alternatives considered
 
 - **Verify declarations with a model call inside the gate.** Rejected: the gate must stay deterministic, offline, and cacheable; a probabilistic verdict would counterfeit the machine-evidence row.
-- **Bind declarations to the whole tree (HEAD) instead of subjects.** Rejected: every unrelated edit would stale every declaration, training agents to redeclare ritually — the opposite of judgment.
+- **Bind declarations to the whole tree (HEAD) instead of subjects.** Rejected: every unrelated edit would stale every declaration, training agents to repeat declarations ritually — the opposite of judgment.
 - **Advisory-only conclusions (never block).** Rejected as the only mode: an advisory is ignorable at exactly the moment it matters; `advise` exists, but the default mode makes the judgment unavoidable while leaving the verdict honest.

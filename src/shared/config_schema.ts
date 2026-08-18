@@ -313,10 +313,10 @@ const standardValue = z.strictObject({
  * unset field can still inherit a built-in's value. */
 const checkpointValue = z.strictObject({
   scope: z.string().regex(NAME_RE).optional().describe(
-    "Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; use one selector, not both.",
+    "Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a checkpoint takes one selector.",
   ),
   paths: z.array(z.string()).optional().describe(
-    `Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. Use \`scope\` or \`paths\`, not both. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+    `Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. A checkpoint takes one selector: \`scope\` or \`paths\`. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   unless_changed: z.array(z.string()).optional().describe(
     `The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express "this change class is fine when its counterpart moved too". ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
@@ -349,7 +349,7 @@ const checkpointValue = z.strictObject({
 
 const checkpointsSection = z.record(z.string().regex(NAME_RE), checkpointValue)
   .default({}).describe(
-    "[checkpoints.<id>] — change-triggered review rules: a deterministic trigger chooses when a diff makes a criterion relevant, the agent judges the criterion and records a declaration, and the record travels with the gate's results. The configuration that governs an effort is the one at its merge-base with the trunk, so a branch editing these tables does not change its own gate. None configured means none fire.",
+    "[checkpoints.<id>] — change-triggered review rules: a deterministic trigger chooses when a diff makes a criterion relevant, the agent judges the criterion and records a declaration, and the record travels with the gate's results. The configuration at the effort's merge-base with the trunk governs, so a branch editing these tables does not change its own gate. None configured means none fire.",
   );
 
 // ── the live `discern.toml` schema ─────────────────────────────────────────────

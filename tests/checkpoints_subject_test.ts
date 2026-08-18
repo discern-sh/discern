@@ -20,6 +20,7 @@ import {
 import type { CheckpointSubject } from "../src/engine/checkpoints/subject.ts";
 import type { ResolvedCheckpoint } from "../src/engine/checkpoints/types.ts";
 
+/** A resolved checkpoint with quiet defaults. */
 function def(over: Partial<ResolvedCheckpoint> = {}): ResolvedCheckpoint {
   return {
     id: "probe",
