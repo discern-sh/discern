@@ -51,11 +51,8 @@ const WATCH_DEBOUNCE_MS = 200;
 
 /** The files whose change means the canon (or its interpolations) moved. */
 const WATCHED_SOURCES: readonly string[] = [
-  "scripts/feature_registry.ts",
+  ...new Set(PROSE_REGISTRIES.map((registry) => registry.file)),
   "scripts/feature_surface_catalog.ts",
-  "scripts/practice_registry.ts",
-  "scripts/glossary_registry.ts",
-  "scripts/brand/claims.ts",
   "scripts/canonical_sets.ts",
   "scripts/canon_editor/pickers.ts",
   "src/shared/capabilities.ts",

@@ -1,7 +1,7 @@
 /**
  * Canon Editor's command line. `serve` (the default) opens the browser editor;
  * `open <entry>` resolves any canon id, slug, or
- * title across the five prose registries and jumps the IDE to its exact
+ * title across the prose registries and jumps the IDE to its exact
  * source line.
  */
 

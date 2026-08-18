@@ -23,6 +23,7 @@ import {
   BENEFIT_CANON,
   type BenefitAudience,
 } from "../feature_registry.ts";
+import { annotateProse } from "../canon_editor/annotation.ts";
 import type { EvidenceClass } from "./model.ts";
 
 /**
@@ -876,6 +877,15 @@ function renderEvidence(evidence: readonly DemandEvidence[]): string {
     .join("; ");
 }
 
+/** Route one rendered Demand Canon field through Canon Editor's provenance seam. */
+function annotateDemand(
+  entry: string,
+  field: string,
+  text: string,
+): string {
+  return annotateProse(text, { registry: "demand", entry, field });
+}
+
 /**
  * Render the demand-canon page: the demand center, the territories with
  * their evidence-tagged entries, and the coverage appendix. The brand
@@ -946,32 +956,60 @@ export function renderDemandCanonDoc(): string {
   for (const territory of DEMAND_CANON) {
     const counterpart = clusterById(territory.counterpart);
     lines.push(
-      `## ${territory.title}`,
+      `## ${annotateDemand(territory.id, "title", territory.title)}`,
       "",
-      `- **Counterpart:** ${counterpart.title} (${counterpart.role})`,
-      `- **Tension:** ${territory.tension}`,
+      `- **Counterpart:** ${
+        annotateDemand(
+          territory.id,
+          "counterpart",
+          `${counterpart.title} (${counterpart.role})`,
+        )
+      }`,
+      `- **Tension:** ${
+        annotateDemand(territory.id, "tension", territory.tension)
+      }`,
       `- **Heard as:** ${
-        territory.heardAs.map((phrase) => `“${phrase}”`).join(" · ")
+        annotateDemand(
+          territory.id,
+          "heardAs",
+          territory.heardAs.map((phrase) => `“${phrase}”`).join(" · "),
+        )
       }`,
       "",
     );
     for (const entry of territory.entries) {
       lines.push(
-        `### ${entry.title}`,
+        `### ${annotateDemand(entry.id, "title", entry.title)}`,
         "",
-        `- **Situation:** ${entry.situation}`,
-        `- **Today's alternative:** ${entry.alternative}`,
-        `- **Cost:** ${entry.cost}`,
-        `- **Forces:** ${entry.forces.join(", ")}`,
-        `- **Segments:** ${entry.segments.join(", ")}`,
-        `- **Evidence:** ${renderEvidence(entry.evidence)}`,
+        `- **Situation:** ${
+          annotateDemand(entry.id, "situation", entry.situation)
+        }`,
+        `- **Today's alternative:** ${
+          annotateDemand(entry.id, "alternative", entry.alternative)
+        }`,
+        `- **Cost:** ${annotateDemand(entry.id, "cost", entry.cost)}`,
+        `- **Forces:** ${
+          annotateDemand(entry.id, "forces", entry.forces.join(", "))
+        }`,
+        `- **Segments:** ${
+          annotateDemand(entry.id, "segments", entry.segments.join(", "))
+        }`,
+        `- **Evidence:** ${
+          annotateDemand(entry.id, "evidence", renderEvidence(entry.evidence))
+        }`,
         entry.answer.benefits !== undefined
           ? `- **Answered by:** ${
-            entry.answer.benefits
-              .map((id) => answeringTitle(titles, id))
-              .join(" · ")
+            annotateDemand(
+              entry.id,
+              "answer.benefits",
+              entry.answer.benefits
+                .map((id) => answeringTitle(titles, id))
+                .join(" · "),
+            )
           }.`
-          : `- **Recorded gap:** ${entry.answer.gap}`,
+          : `- **Recorded gap:** ${
+            annotateDemand(entry.id, "answer.gap", entry.answer.gap)
+          }`,
         "",
       );
     }

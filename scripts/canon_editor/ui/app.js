@@ -102,6 +102,7 @@ function citeLink(target) {
   const pageByRegistry = {
     feature: "feature-canon",
     benefit: "feature-canon-benefits",
+    demand: "demand-canon",
     practice: "practice-canon",
     glossary: "glossary",
     claims: "claims-and-evidence",

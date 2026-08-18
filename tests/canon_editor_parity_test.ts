@@ -4,8 +4,9 @@
  * the plain render byte for byte, survive canonical formatting without
  * changing it, cover every canon entry, and the syntax-level enumeration must
  * agree with the evaluated registries (scripts/feature_registry.ts,
- * scripts/practice_registry.ts, scripts/glossary_registry.ts,
- * scripts/brand/claims.ts) on exactly which entries exist. Any drift here
+ * scripts/brand/demand.ts, scripts/practice_registry.ts,
+ * scripts/glossary_registry.ts, scripts/brand/claims.ts) on exactly which
+ * entries exist. Any drift here
  * means the editor is showing something the canon does not say.
  */
 
@@ -16,6 +17,7 @@ import {
   MARK_SEP,
   markerAnnotator,
   parseRefToken,
+  PROSE_REGISTRY_NAMES,
   refToken,
   setProseAnnotator,
   slugify,
@@ -24,6 +26,7 @@ import {
 import {
   fieldLeaves,
   openRegistryProject,
+  PROSE_REGISTRIES,
   registryEntries,
 } from "../scripts/canon_editor/registry_ast.ts";
 import {
@@ -52,6 +55,7 @@ import {
 } from "../scripts/practice_registry.ts";
 import { GLOSSARY, renderGlossaryDoc } from "../scripts/glossary_registry.ts";
 import { CLAIMS } from "../scripts/brand/claims.ts";
+import { allDemandEntries, DEMAND_CANON } from "../scripts/brand/demand.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { renderBrandDoc } from "../scripts/brand_registry.ts";
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
@@ -78,6 +82,11 @@ const PAGES: readonly CanonPage[] = [
     id: "feature-canon-benefits",
     rel: "project/map/_internal/feature-canon-benefits.md",
     render: renderFeatureCanonBenefitsDoc,
+  },
+  {
+    id: "demand-canon",
+    rel: "project/map/_internal/brand/demand-canon.md",
+    render: () => renderBrandDoc("demand-canon"),
   },
   {
     id: "practice-canon",
@@ -241,6 +250,10 @@ Deno.test("picker write-back and option handlers stay in two-way parity", async 
     values("feature-node"),
     allFeatureNodes().map(({ node }) => node.id),
   );
+  assertEquals(
+    values("benefit-entry"),
+    allBenefitEntries().map(({ entry }) => entry.id),
+  );
   assertEquals(values("claim"), Object.keys(CLAIMS));
   assertEquals(values("hint"), Object.keys(HINTS));
   const surfaceMembers = await liveFeatureSurfaceMembers();
@@ -261,6 +274,11 @@ Deno.test("picker write-back and option handlers stay in two-way parity", async 
 });
 
 Deno.test("the syntax enumeration and the evaluated registries agree on ids", () => {
+  assertEquals(
+    PROSE_REGISTRIES.map((registry) => registry.name),
+    [...PROSE_REGISTRY_NAMES],
+    "the registry specifications cover the name authority in reading order",
+  );
   const project = openRegistryProject(REPO_ROOT);
   const byRegistry = new Map<string, string[]>();
   for (const entry of registryEntries(project, REPO_ROOT)) {
@@ -277,6 +295,13 @@ Deno.test("the syntax enumeration and the evaluated registries agree on ids", ()
     [
       ...BENEFIT_CANON.map((cluster) => cluster.id),
       ...allBenefitEntries().map(({ entry }) => entry.id),
+    ].toSorted(),
+  );
+  assertEquals(
+    byRegistry.get("demand")?.toSorted(),
+    [
+      ...DEMAND_CANON.map((territory) => territory.id),
+      ...allDemandEntries().map(({ entry }) => entry.id),
     ].toSorted(),
   );
   assertEquals(

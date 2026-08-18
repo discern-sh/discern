@@ -1053,7 +1053,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "scripts/brand/demand.ts",
       exportName: "DEMAND_CANON",
     },
-    guards: ["tests/demand_canon_test.ts"],
+    guards: [
+      "tests/demand_canon_test.ts",
+      "tests/canon_editor_parity_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: {

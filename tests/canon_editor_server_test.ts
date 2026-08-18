@@ -102,6 +102,23 @@ Deno.test("Canon Editor serves annotated pages with clean spans", async () => {
   });
 });
 
+Deno.test("the Demand Canon page exposes editable struggle prose", async () => {
+  await withCanonEditor(async (editor) => {
+    const response = await request(editor, "/page/demand-canon");
+    assertEquals(response.status, 200);
+    const html = await response.text();
+    assert(
+      html.includes('data-ref="demand:checkout-collisions:situation"'),
+      "demand situation spans render",
+    );
+    assert(
+      /class="canon-editor-field canon-editor-locked"[^>]*data-ref="demand:checkout-collisions:evidence"/
+        .test(html),
+      "shared evidence rows stay locked to IDE editing",
+    );
+  });
+});
+
 Deno.test("the entry API merges evaluation with syntax positions", async () => {
   await withCanonEditor(async (editor) => {
     const proof = await (await request(editor, "/api/entry/feature/proof"))
@@ -138,6 +155,34 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
       "the field carries live hint choices",
     );
     assert(proof.inward.some((citation) => citation.registry === "benefit"));
+
+    const demand = await (
+      await request(editor, "/api/entry/demand/checkout-collisions")
+    ).json() as {
+      file: string;
+      fields: {
+        path: string;
+        editable: boolean;
+        editor: string | null;
+        picker: { source: string; options: { value: string }[] } | null;
+      }[];
+    };
+    assertEquals(demand.file, "scripts/brand/demand.ts");
+    assertEquals(
+      demand.fields.find((field) => field.path === "situation")?.editable,
+      true,
+    );
+    const answers = demand.fields.find((field) =>
+      field.path === "answer.benefits"
+    );
+    assertEquals(answers?.editor, "list");
+    assertEquals(answers?.picker?.source, "benefit-entry");
+    assert(
+      answers?.picker?.options.some((option) =>
+        option.value === "parallel-work-on-one-machine"
+      ),
+      "the answer picker derives live benefit ids",
+    );
 
     const term = await (
       await request(editor, "/api/entry/glossary/file-ownership")
@@ -301,7 +346,14 @@ Deno.test("state and page routes answer sanely", async () => {
       pages: { id: string }[];
       standards: { name: string }[];
     };
-    assertEquals(state.pages.length, 8);
+    assertEquals(state.pages.length, 9);
+    const shell = await (await request(editor, "/page/feature-canon")).text();
+    for (const page of state.pages) {
+      assert(
+        shell.includes(`href="/page/${page.id}"`),
+        `${page.id} is reachable from the editor navigation`,
+      );
+    }
     assert(
       state.standards.some((item) => item.name === "plain_reading_grade"),
     );
