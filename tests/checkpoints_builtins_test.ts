@@ -341,3 +341,77 @@ Deno.test("commit-story advises at 15 changed files and not at 14", () => {
   );
   assertEquals(narrower, { holds: false, vetoedBy: "min_changed_files" });
 });
+
+// ── the completeness forcing function ───────────────────────────────────────
+
+/** One firing and one quiet diff per built-in, keyed by the registry: a new
+ * seed fails the table-completeness assertion below until it proves both
+ * halves of its trigger here. */
+const TRIGGER_FIXTURES: Readonly<
+  Record<string, { firing: EffortDiff; quiet: EffortDiff }>
+> = {
+  "map-focus": {
+    firing: diff([file("guide/a.md"), file("guide/b.md"), file("guide/c.md")]),
+    quiet: diff([file("guide/a.md")]),
+  },
+  "instruction-economy": {
+    firing: diff([file("agent-instructions.md")]),
+    quiet: diff([file("src/mod0.ext")]),
+  },
+  "skills-playbook": {
+    firing: diff([file("playbooks/review/SKILL.md")]),
+    quiet: diff([file("src/mod0.ext")]),
+  },
+  "gotchas-playbook": {
+    firing: diff([file("notes/gate-traps.md")]),
+    quiet: diff([file("notes/other.md")]),
+  },
+  "deletion-heavy-change": {
+    firing: diff([file("src/dead.ext", "deleted", 0, 400)]),
+    quiet: diff([file("src/mod0.ext")]),
+  },
+  "parallel-implementation": {
+    firing: diff(
+      [file("src/service_v2.ext", "added")],
+      ["src/service.ext"],
+    ),
+    quiet: diff([file("src/service.ext")], ["src/service.ext"]),
+  },
+  "effort-sprawl": {
+    firing: diff(sourceFiles(25)),
+    quiet: diff(sourceFiles(24)),
+  },
+  "docs-drift": {
+    firing: diff(sourceFiles(5)),
+    quiet: diff([...sourceFiles(5), file("guide/a.md")]),
+  },
+  "commit-story": {
+    firing: diff(sourceFiles(15)),
+    quiet: diff(sourceFiles(14)),
+  },
+};
+
+Deno.test("every built-in proves it fires and stays quiet — a new seed fails until its fixtures exist", () => {
+  assertEquals(
+    Object.keys(TRIGGER_FIXTURES).sort(),
+    Object.keys(BUILT_IN_CHECKPOINTS).sort(),
+    "the fixture table must cover exactly the registry",
+  );
+  const { checkpoints, advisories } = resolveCheckpoints(CONFIG);
+  assertEquals(advisories, []);
+  assertEquals(checkpoints.length, Object.keys(BUILT_IN_CHECKPOINTS).length);
+  for (const def of checkpoints) {
+    const fixtures = TRIGGER_FIXTURES[def.id];
+    assert(fixtures !== undefined, def.id);
+    assertEquals(
+      evaluateStructuralTrigger(def, fixtures.firing).holds,
+      true,
+      `${def.id} must fire on its firing fixture`,
+    );
+    assertEquals(
+      evaluateStructuralTrigger(def, fixtures.quiet).holds,
+      false,
+      `${def.id} must stay quiet on its quiet fixture`,
+    );
+  }
+});

@@ -378,9 +378,9 @@ Deno.test("scanManagedBanners bounds a banner at its closing rule, never a follo
 });
 
 /** The commented example table for one inert checkpoint id: the contiguous
- * comment block from `# [checkpoints.<id>]` through its closing `# """`,
+ * comment block from `# [checkpoints.<id>]` to the first non-comment line,
  * with the comment prefix stripped — exactly what a user's uncomment
- * produces. */
+ * produces, however many fenced strings the example carries. */
 function uncommentedExample(template: string, id: string): string {
   const lines = template.split("\n");
   const start = lines.findIndex((line) =>
@@ -392,22 +392,38 @@ function uncommentedExample(template: string, id: string): string {
     const body = (lines[i] ?? "").trim();
     if (!body.startsWith("#")) break;
     block.push(body.replace(/^#\s?/, ""));
-    if (body === '# """' && block.length > 1) break;
   }
   return block.join("\n");
+}
+
+/** Every inert checkpoint example id the template ships, discovered from its
+ * own `# [checkpoints.<id>]` headers so a new example auto-enrols. */
+function inertExampleIds(template: string): string[] {
+  const ids: string[] = [];
+  for (const line of template.split("\n")) {
+    const m = line.trim().match(/^# \[checkpoints\.([a-z0-9-]+)\]$/);
+    if (m !== null && m[1] !== undefined) {
+      ids.push(m[1]);
+    }
+  }
+  return ids.sort();
 }
 
 Deno.test("each inert checkpoint example governs once uncommented, untouched", async () => {
   // The teaching promise: a user succeeds by uncommenting and pointing the
   // globs at real files — no other edit. The stripped block must parse under
   // the LIVE loader and resolve into a governing checkpoint as authored.
+  // The id set comes from the template's own headers (a new example fails
+  // here until it takes a row), and the per-id mode is the double-entry.
   const template = await realTemplate();
-  const expectations = [
-    { id: "new-dependency", mode: "advise" },
-    { id: "shrinking-tests", mode: "advise" },
-    { id: "sensitive-paths", mode: "stop" },
-  ] as const;
-  for (const { id, mode } of expectations) {
+  const expectedModes: Readonly<Record<string, "stop" | "advise">> = {
+    "new-dependency": "advise",
+    "shrinking-tests": "advise",
+    "sensitive-paths": "stop",
+    "interface-review": "stop",
+  };
+  assertEquals(inertExampleIds(template), Object.keys(expectedModes).sort());
+  for (const [id, mode] of Object.entries(expectedModes)) {
     const config = parseConfigOrThrow(uncommentedExample(template, id));
     const { checkpoints, advisories } = resolveCheckpoints(config, {});
     assertEquals(advisories, [], id);
