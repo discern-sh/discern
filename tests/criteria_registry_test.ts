@@ -138,3 +138,19 @@ Deno.test("no criterion is orphaned by every membership", () => {
       "built-in checkpoint — remove the orphan or add its membership",
   );
 });
+
+Deno.test("shipped criterion prose keeps the reserved vocabulary", () => {
+  // "attestation" is reserved for a planned supply-chain feature in its
+  // term-of-art sense; no checkpoint surface may use it, the shipped judgment
+  // prose included.
+  for (const criterion of CRITERIA) {
+    for (
+      const text of [criterion.criterion, criterion.teach, criterion.reference]
+    ) {
+      assert(
+        !/attestation/i.test(text ?? ""),
+        `criterion '${criterion.id}' uses reserved vocabulary`,
+      );
+    }
+  }
+});

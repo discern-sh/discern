@@ -174,12 +174,32 @@ export const CRITERIA: readonly Criterion[] = [
       "constraint isn't written down, add it. Edit your instruction source and run `discern refresh`.",
   },
   {
-    id: "map.current",
-    violations: "accrued",
+    id: "instructions.economy",
+    violations: "diff-introduced",
     criterion:
-      "Pick a subsystem that changed recently. Does its documentation page still " +
-      "describe how the code actually behaves now — present tense, no drift — or does " +
-      "it describe a previous design? A stale doc is a bug.",
+      "This change touches the always-loaded agent instructions — prose every " +
+      "future session pays for before its first decision. Does each added or " +
+      "reworded line shape most sessions' behaviour, or does it belong on a " +
+      "cheaper rung: a skill invoked on demand, a documentation page found " +
+      "when relevant, a checkpoint served on a matching change, or a machine " +
+      "check?",
+    teach:
+      "Always-loaded prose is the most expensive home a rule can have. The " +
+      `placement ladder: ${placementLadderProse()}. Keep the instructions ` +
+      "for what shapes most decisions, and give everything else the cheapest " +
+      "rung that still catches its moment.",
+  },
+  {
+    // Diff-introduced: a page goes stale only when the code it describes
+    // changes without it — the diff marks the moment; time alone never
+    // creates the violation. Estate review still audits the accumulated
+    // backlog through the improvement membership.
+    id: "map.current",
+    violations: "diff-introduced",
+    criterion:
+      "Take code that changed recently. Does the documentation describing it " +
+      "still say how the code actually behaves now — present tense, no drift — " +
+      "or does a page describe a previous design? A stale doc is a bug.",
     teach:
       "Docs are only worth trusting if they track the code. When a change alters " +
       "documented behaviour, update the page in the same change. The discern-document-subsystem " +
@@ -198,6 +218,21 @@ export const CRITERIA: readonly Criterion[] = [
       "small and oriented around reader journeys, give each subsystem an overview, " +
       "and link detail from the nearest useful context so discoverability does not " +
       "depend on repository archaeology.",
+  },
+  {
+    id: "map.focus",
+    violations: "diff-introduced",
+    criterion:
+      "Read the changed documentation as its future reader. Does each changed " +
+      "entry reduce the repository reading needed to make a correct decision — " +
+      "behaviour, boundaries, intent, where to start — or does it restate what " +
+      "the code already says: symbol inventories, file-by-file summaries, " +
+      "change history?",
+    teach:
+      "Documentation earns its place by what a reader no longer has to open. " +
+      "Record what the code cannot say, in the present tense, and cut anything " +
+      "a reader could regenerate mechanically from the code — derivable " +
+      "content is stale the day after it is written.",
   },
   {
     id: "worktrees.resources",
@@ -279,6 +314,64 @@ export const CRITERIA: readonly Criterion[] = [
       "A good skill packages judgement, not just reminders. Give it a sharp trigger, " +
       "progressively disclose only the needed references, make effects and stop " +
       "conditions explicit, and end with observable proof that the task succeeded.",
+  },
+  {
+    id: "change.deletion-safety",
+    violations: "diff-introduced",
+    criterion:
+      "This change removes clearly more than it adds. Is every cut proven " +
+      "safe — no remaining callers, references, or configuration reaching the " +
+      "removed code, tests and docs moved in step — and is what was removed " +
+      "recoverable from history rather than silently lost?",
+    teach:
+      "A substantial cut is often right — unused code is a liability — but " +
+      "'unused' must be proved, not assumed: check dynamic references, " +
+      "configuration-driven call sites, and external consumers before " +
+      "trusting a quiet search. Put the proof in the commit body so the " +
+      "review reads as evidence.",
+  },
+  {
+    id: "change.parallel-implementation",
+    violations: "diff-introduced",
+    criterion:
+      "This change adds a file whose name closely resembles an existing " +
+      "sibling — the signature of a second implementation growing beside the " +
+      "original. Should the original have been changed in place? If a sibling " +
+      "is genuinely needed, does its name state its distinct purpose rather " +
+      "than its vintage?",
+    teach:
+      "Parallel copies fork every future fix: callers drift between variants " +
+      "and neither stays authoritative. Evolve the original in place and let " +
+      "the tests protect the change; when two must exist, name each for its " +
+      "role and record why both are needed.",
+  },
+  {
+    id: "change.effort-scope",
+    violations: "diff-introduced",
+    criterion:
+      "This diff has grown wide. Is it still one coherent effort a reviewer " +
+      "can hold in their head, or have unrelated fixes and opportunistic " +
+      "cleanups ridden along? Would any part land more safely as its own " +
+      "change?",
+    teach:
+      "One effort per change keeps review sharp and reversion cheap. Park " +
+      "drive-by discoveries in the deferred-work ledger or their own " +
+      "worktree instead of widening this change — a diff whose scope needs " +
+      "explaining is usually two.",
+  },
+  {
+    id: "change.commit-story",
+    violations: "diff-introduced",
+    criterion:
+      "This change is large enough that its history is part of the " +
+      "deliverable. Could the owner reconstruct the why of the work from the " +
+      "commit messages alone — decision by decision — or does the story live " +
+      "only in this session's context?",
+    teach:
+      "Commit messages are the only narration that survives the session. " +
+      "Keep commits atomic, with imperative subjects and bodies that say " +
+      "why, so review, archaeology, and selective reversion work without " +
+      "you.",
   },
 ];
 

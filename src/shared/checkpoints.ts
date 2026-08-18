@@ -12,9 +12,9 @@
  * reference to a shipped checkpoint" from "an authored checkpoint missing its
  * criterion" without reaching into the engine.
  *
- * The registry ships EMPTY until the built-in set lands; the parity guard
- * (`tests/criteria_registry_test.ts`) already walks it, so each future entry
- * must resolve to a canonical criterion from the moment it is added.
+ * The parity guards (`tests/criteria_registry_test.ts`) walk the registry:
+ * every entry must resolve to a canonical criterion whose violations are
+ * diff-introduced (the conversion rule), so an accrued pairing can never ship.
  */
 
 /**
@@ -72,12 +72,83 @@ export interface BuiltInCheckpointSeed {
 
 /**
  * The built-in checkpoints, by id — the checkpoint membership of the canonical
- * criterion vocabulary. Empty until the shipped set lands; the id set is the
- * single source config validation and policy resolution consult.
+ * criterion vocabulary, and the single source config validation and policy
+ * resolution consult. A project enables one by declaring `[checkpoints.<id>]`;
+ * every field the entry sets overrides the seed's.
+ *
+ * Selectors use live path references, never scope names, wherever a reference
+ * exists: a reference resolves in every project, while a scope name governs
+ * only where the project defines that scope. `instruction-economy` accepts
+ * that trade — the instruction surface is a glob list with no single-value
+ * config key to reference, and the instructions scope is the project's own
+ * declaration of it. `gotchas-playbook` tracks `[project].gotchas_doc`:
+ * unset, the reference expands to the empty pattern, which matches nothing,
+ * so the checkpoint stays quiet until the owner names a doc.
+ *
+ * The four `stop` members fire on the knowledge estate — map, instructions,
+ * skills, gotchas — where a weak entry quietly misleads every later session.
+ * Code-facing members are all `advise`: no shipped default ever interlocks a
+ * code change.
  */
 export const BUILT_IN_CHECKPOINTS: Readonly<
   Record<string, BuiltInCheckpointSeed>
-> = {};
+> = {
+  // ── stop: the knowledge estate ─────────────────────────────────────────────
+  "map-focus": {
+    criterion: "map.focus",
+    paths: ["${map.dir}**"],
+    // A one-page touch-up is routine; a documentation change this broad is
+    // where unfocused, code-derivable prose usually arrives.
+    min_changed_files: 3,
+  },
+  "instruction-economy": {
+    criterion: "instructions.economy",
+    scope: "instructions",
+  },
+  "skills-playbook": {
+    criterion: "skills.executable",
+    paths: ["${skills.dir}/"],
+  },
+  "gotchas-playbook": {
+    criterion: "setup.failure-memory",
+    paths: ["${project.gotchas_doc}"],
+  },
+  // ── advise: the shape of the change ────────────────────────────────────────
+  "deletion-heavy-change": {
+    criterion: "change.deletion-safety",
+    mode: "advise",
+    deletion_dominant: true,
+  },
+  "parallel-implementation": {
+    criterion: "change.parallel-implementation",
+    mode: "advise",
+    similar_new_file: true,
+  },
+  "effort-sprawl": {
+    criterion: "change.effort-scope",
+    mode: "advise",
+    // Whole-diff breadth: an ordinary single effort rarely spans this many
+    // files.
+    min_changed_files: 25,
+  },
+  "docs-drift": {
+    criterion: "map.current",
+    mode: "advise",
+    // Fires when a substantial change moved nothing in the map. Any map edit
+    // vetoes; the threshold keeps small fixes — and regenerated artifacts
+    // alone — from asking for documentation they do not need.
+    unless_changed: ["${map.dir}**"],
+    min_changed_files: 5,
+  },
+  "commit-story": {
+    criterion: "change.commit-story",
+    mode: "advise",
+    // The closed menu counts matched files, not commits; breadth is the
+    // deterministic stand-in — a change this wide carries a history worth
+    // telling however it was committed.
+    min_changed_files: 15,
+  },
+};
 
 /** Whether `id` names a shipped built-in checkpoint. */
 export function isBuiltInCheckpoint(id: string): boolean {

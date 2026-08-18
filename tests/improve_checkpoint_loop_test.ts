@@ -14,9 +14,9 @@
  *     observation it cites, and variance evidence keeps the declared-unmet
  *     conclusion — it never reads as the criterion having been met.
  *
- * Built-in seeds are injected synthetically here (the shipped registry is
- * empty until the built-in set lands); a registry-driven loop arms the same
- * assertions for every future shipped seed.
+ * Built-in seeds are injected synthetically here so the contract is provable
+ * independently of the shipped set; a registry-driven loop then arms the same
+ * assertions for every shipped seed.
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
@@ -229,7 +229,14 @@ Deno.test("estate: every shipped built-in auto-enrols the moment it exists", () 
   // canonical criterion exactly once — marked on the catalog review when the
   // improvement membership covers it, as an estate row otherwise.
   for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
-    const cfg = config("", { [id]: {} });
+    // A seed naming a scope only governs where the project defines it; the
+    // fixture supplies whatever scope the seed asks for, registry-driven.
+    const cfg = config(
+      seed.scope === undefined
+        ? ""
+        : `[scopes.${seed.scope}]\npaths = ["zz-fixture/**"]\n`,
+      { [id]: {} },
+    );
     const canonical = criterionById(seed.criterion);
     assert(canonical !== undefined, id);
     const guards = boundaryGuardsByCriterion(cfg);
@@ -256,7 +263,8 @@ Deno.test("estate: every shipped built-in auto-enrols the moment it exists", () 
 
 Deno.test("conversion fidelity: a route to an accrued criterion refuses construction", () => {
   assertThrows(
-    () => graduationRoute({ detector: "docs-gap", criterion: "map.current" }),
+    () =>
+      graduationRoute({ detector: "docs-gap", criterion: "map.navigation" }),
     Error,
     "audit-side",
   );
@@ -286,7 +294,7 @@ Deno.test("conversion fidelity: an accrued route injected raw yields no recommen
     config(""),
     { findings: [finding("docs-gap")], varied: [] },
     {},
-    [{ detector: "docs-gap", criterion: "map.current" }],
+    [{ detector: "docs-gap", criterion: "map.navigation" }],
   );
   assertEquals(recommendations, []);
 });
