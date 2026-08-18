@@ -43,7 +43,7 @@ There is no push mapping. Configuring one would change plain `git push`, so publ
 
 Like a `Makefile` or an npm `scripts` block, discern runs the commands you wrote in `discern.toml`. The Gate runs your `format`, `lint`, and `test` commands. A scope gate or Standard runs the command you supplied. discern adds no project command beyond its built-in Git and file operations.
 
-The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, the docs browser, and CLI help) run none of your commands and change none of your files. Unless recording is off, each run appends a line to the local Logbook. Commands from your config run when you invoke a Gate verb: `discern done`, `prepare`, `test`, or `standards`. Reading project status executes none of those commands. `discern.toml` lists everything the Gate will run.
+The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, `discern checkpoints`, the docs browser, and CLI help) run none of your commands and change none of your files. A checkpoint's configured `when` command runs only at the Gate, never from a read verb. Unless recording is off, each run appends a line to the local Logbook. Commands from your config run when you invoke a Gate verb: `discern done`, `prepare`, `test`, or `standards`. Reading project status executes none of those commands. `discern.toml` lists everything the Gate will run.
 
 ## A small, checkable footprint
 
