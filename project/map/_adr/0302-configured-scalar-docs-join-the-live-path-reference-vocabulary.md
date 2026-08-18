@@ -26,4 +26,4 @@ Adding the gotchas doc to the paths registry itself is the wrong shape. Registry
 ## Alternatives considered
 
 - **A paths-registry entry with an empty default.** Rejected: every registry satellite treats the default as a real location; an empty default would need per-satellite exemptions, spreading the special case instead of containing it.
-- **Copying the configured doc path into the template entry at setup.** Rejected: it duplicates a configured fact, so repointing `[project].gotchas_doc` would silently strand the checkpoint.
+- **Copying the configured doc path into the template entry at setup.** Rejected: it duplicates a configured fact, so later moving `[project].gotchas_doc` would silently strand the checkpoint.

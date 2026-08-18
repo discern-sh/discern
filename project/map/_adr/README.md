@@ -290,6 +290,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0299 — Checkpoint read surfaces mirror the gate without effects](0299-checkpoint-read-surfaces-mirror-the-gate-without-effects.md)
 - [0300 — Checkpoint observation is drained metadata, never a verdict](0300-checkpoint-observation-is-drained-metadata-never-a-verdict.md)
 - [0301 — The improvement coach closes the checkpoint loop](0301-the-coach-closes-the-checkpoint-loop.md)
+- [0302 — Configured scalar docs join the live path-reference vocabulary](0302-configured-scalar-docs-join-the-live-path-reference-vocabulary.md)
+- [0303 — The shipped checkpoint set — four stops on the knowledge estate, five advisories on the change](0303-the-shipped-checkpoint-set.md)
 
 <!-- END GENERATED: current ADR records -->
 
