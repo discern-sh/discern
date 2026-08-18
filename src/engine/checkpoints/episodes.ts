@@ -305,7 +305,8 @@ export type ReconcileEpisodeResult =
     recovered: boolean;
     /** On a reopen, when the replaced subject was last served (its reopen or
      * open time) — the serving a declaration in this same invocation actually
-     * responds to, which the reopened episode's own timestamps no longer say. */
+     * responds to; the reopened episode's own timestamps carry the reopen
+     * instant instead. */
     previousServedAt?: string;
   }
   | { ok: false; reason: string };

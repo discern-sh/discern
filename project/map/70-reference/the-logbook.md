@@ -34,6 +34,7 @@ Setting `[project].logbook = false` stops new evidence for every feature below. 
 - advisory findings on `status`, the `done` Proof, and `improvement`
 - wait estimates when concurrent test runs queue, and contention readings
 - the in-flight check on the contained-worktree offer; an installation with recording off uses a one-hour inactivity period
+- observed checkpoint economics (`discern checkpoints`)
 
 ## Where findings appear
 

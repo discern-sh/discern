@@ -569,12 +569,25 @@ async function seedStatsLogbook(dir: string): Promise<void> {
     outcome: "failed",
     failed_stage: "check/test",
     duration_ms: 3_600_000,
+    checkpoints: {
+      fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
+    },
   });
   add(2, {
     verb: "done",
     branch: "agent/b1",
     duration_ms: 3_600_000,
     standards: [{ name: "coverage", direction: "up", limit: 80, value: 80 }],
+    checkpoints: {
+      declared: [{
+        id: "api-review",
+        conclusion: "met",
+        revised: false,
+        definition: "d1",
+        subject: "s1",
+        elapsed_ms: 60_000,
+      }],
+    },
   });
   add(3, {
     verb: "accept",
@@ -1495,6 +1508,23 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       current_green_streak: 2,
       check_hours: 3,
     });
+    assertEquals(stats.checkpoints, {
+      efforts: 2,
+      omitted: 0,
+      rows: [{
+        id: "api-review",
+        efforts_fired: 1,
+        efforts_landed: 1,
+        fires: 1,
+        declared: 1,
+        declared_unchanged: 1,
+        declared_unmet: 0,
+        reopened: 0,
+        variances: 0,
+        abandoned: 0,
+        median_declare_s: 60,
+      }],
+    });
     assertEquals(stats.validation_workflows.cycles, {
       total: 2,
       branches: 2,
@@ -1622,6 +1652,11 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     assertStringIncludes(card, "2 of 3 `done` runs green (67%)");
     assertStringIncludes(card, "1 of 2 branches green first try (50%)");
     assertStringIncludes(card, "1 red run stopped at the Gate");
+    assertStringIncludes(
+      card,
+      "`api-review` fired on 1 of 2 efforts (1 serving); declared 1 " +
+        "(1 on an unchanged subject); median time to declare 60s",
+    );
     assertStringIncludes(
       card,
       "`done`: 3 runs across 2 branches · 3 clean · 0 dirty · 0 unknown · 2 ok · 1 failed · 1 retry",
@@ -2487,11 +2522,19 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
 
     // The old renderer spent four lines per finding, plus seven fixed lines.
     // This corpus is intentionally repetition-heavy: the recurring report must
-    // stay at or below half that legacy account of the full corpus.
+    // stay at or below half that legacy account of the full corpus. The
+    // closing account is measured out first: its length scales with the
+    // detector registry (every quiet or young title is named), not with
+    // findings, so registry growth must not read as a compactness regression.
+    const closingStart = lines.findIndex((line) =>
+      line.includes("The report is advisory")
+    );
+    assert(closingStart >= 0, "the closing account must render");
+    const findingLines = closingStart;
     const legacyLines = (data.findings_total ?? data.findings.length) * 4 + 7;
     assert(
-      lines.length <= Math.floor(legacyLines / 2),
-      `compact report used ${lines.length} lines; legacy shape used ${legacyLines}`,
+      findingLines <= Math.floor(legacyLines / 2),
+      `compact report used ${findingLines} lines; legacy shape used ${legacyLines}`,
     );
 
     const narrow = await runAgent(dir, ["patterns"], {
