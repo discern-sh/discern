@@ -227,8 +227,8 @@ export function checkpointRecommendations(
 
   for (const summary of evidence.varied) {
     if (config.checkpoints[summary.id] === undefined) {
-      // A checkpoint no longer configured needs no review; its history stays
-      // readable under `discern patterns`.
+      // Only a configured checkpoint earns a review; an absent one's history
+      // stays readable under `discern patterns`.
       continue;
     }
     recommendations.push({
