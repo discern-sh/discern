@@ -8358,6 +8358,98 @@
                     ]
                   }
                 },
+                "economics": {
+                  "type": "object",
+                  "properties": {
+                    "efforts": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "rows": {
+                      "maxItems": 16,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "efforts_fired": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "efforts_landed": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "fires": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "declared": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "declared_unchanged": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "declared_unmet": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "reopened": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "variances": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "abandoned": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "median_declare_s": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "efforts_fired",
+                          "efforts_landed",
+                          "fires",
+                          "declared",
+                          "declared_unchanged",
+                          "declared_unmet",
+                          "reopened",
+                          "variances",
+                          "abandoned"
+                        ]
+                      }
+                    },
+                    "omitted": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "efforts",
+                    "rows",
+                    "omitted"
+                  ]
+                },
                 "advisories": {
                   "type": "array",
                   "items": {
@@ -12175,6 +12267,98 @@
                         "detected",
                         "identities",
                         "unattributed_runs"
+                      ]
+                    },
+                    "checkpoints": {
+                      "type": "object",
+                      "properties": {
+                        "efforts": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "rows": {
+                          "maxItems": 16,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "efforts_fired": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "efforts_landed": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "fires": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "declared": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "declared_unchanged": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "declared_unmet": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "reopened": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "variances": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "abandoned": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "median_declare_s": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "efforts_fired",
+                              "efforts_landed",
+                              "fires",
+                              "declared",
+                              "declared_unchanged",
+                              "declared_unmet",
+                              "reopened",
+                              "variances",
+                              "abandoned"
+                            ]
+                          }
+                        },
+                        "omitted": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "efforts",
+                        "rows",
+                        "omitted"
                       ]
                     },
                     "breadth": {

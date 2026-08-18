@@ -2586,6 +2586,23 @@ export type DiscernCheckpointsResult = {
         variance_required?: boolean;
       };
     }>;
+    economics?: {
+      efforts: number;
+      rows: Array<{
+        id: string;
+        efforts_fired: number;
+        efforts_landed: number;
+        fires: number;
+        declared: number;
+        declared_unchanged: number;
+        declared_unmet: number;
+        reopened: number;
+        variances: number;
+        abandoned: number;
+        median_declare_s?: number;
+      }>;
+      omitted: number;
+    };
     advisories?: Array<string>;
   } | {
     issues: Array<{
@@ -3605,6 +3622,23 @@ export type DiscernPatternsResult = {
           runs: number;
         };
         unattributed_runs: number;
+      };
+      checkpoints?: {
+        efforts: number;
+        rows: Array<{
+          id: string;
+          efforts_fired: number;
+          efforts_landed: number;
+          fires: number;
+          declared: number;
+          declared_unchanged: number;
+          declared_unmet: number;
+          reopened: number;
+          variances: number;
+          abandoned: number;
+          median_declare_s?: number;
+        }>;
+        omitted: number;
       };
       breadth: {
         branches: number;
