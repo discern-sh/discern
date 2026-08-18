@@ -28,6 +28,7 @@ import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
 import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
+import { DISCERN_MARK } from "../src/shared/brand.ts";
 import {
   executionModelHumanGroups,
   renderDoctorCheck,
@@ -118,6 +119,7 @@ Deno.test("doctor terminal Components make dynamic facts inert without mutating 
   const header = renderDoctorHeader(environment, terminal);
   const okOutput = renderDoctorCheckLine(okCheck, terminal);
 
+  assertStringIncludes(stripAnsi(header), DISCERN_MARK);
   assertStringIncludes(okCheck.line, "\n");
   assertEquals(
     stripAnsi(okOutput).split("\n").length,

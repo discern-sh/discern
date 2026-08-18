@@ -302,7 +302,7 @@ Deno.test("logbook: a successful map fetch records the canonical page on CLI and
     // would say what was typed, not which page the map actually served.
     const cli = await runAgent(dir, ["map", "concepts", "--json"]);
     assertEquals(cli.code, 0, cli.output);
-    const human = await runAgent(dir, ["map", "concepts", "--no-pager"]);
+    const human = await runAgent(dir, ["map", "concepts"]);
     assertEquals(human.code, 0, human.output);
 
     const map = TOOLS.find((tool) => tool.name === "discern_map");

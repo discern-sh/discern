@@ -416,6 +416,7 @@ function renderJobRun(
     })),
     completion: "Every configured step reaches a final reported state.",
     completionLabel: "Complete when",
+    register: "brand",
     maxWidth: width,
   });
   const commands = run.rows.map((row) =>
@@ -743,6 +744,7 @@ export function renderGatePlan(
   const width = presentationWidth(options.width);
   const presenter = options.terminal.presenter;
   const title = presenter.motifSectionRule(safeLine(plan.title), {
+    register: "brand",
     width,
   });
   const context = plan.details.length === 0

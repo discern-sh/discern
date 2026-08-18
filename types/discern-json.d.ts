@@ -3019,7 +3019,8 @@ export type DiscernAwaitResult = {
       | "cli"
       | "long-client"
       | "strict-client"
-      | "unknown-client";
+      | "unknown-client"
+      | "experimental-cap";
     requested_timeout_seconds?: number;
     observed: {
       proof_status?:
@@ -3046,7 +3047,8 @@ export type DiscernAwaitResult = {
       | "cli"
       | "long-client"
       | "strict-client"
-      | "unknown-client";
+      | "unknown-client"
+      | "experimental-cap";
   } | {
     issues: Array<{
       path: string;

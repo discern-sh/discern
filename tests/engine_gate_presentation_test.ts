@@ -481,8 +481,8 @@ Deno.test("Gate activity follows package fitting from full through compact to ap
   assertStringIncludes(compact, "lint started");
   assertEquals(
     compact.split("\n").filter((line) => line.trim() === "│").length,
-    1,
-    "the package removes tail rows before giving up cursor control",
+    0,
+    "the package removes the tail before giving up cursor control",
   );
 
   const beforeAppend = writes.length;
@@ -611,6 +611,7 @@ Deno.test("Gate plan section rules inherit the bound terminal theme", () => {
     terminal: terminal({ color: "truecolor", theme: "dark" }),
   });
   assertEquals(stripAnsi(light), stripAnsi(dark));
+  assertStringIncludes(stripAnsi(light), "◮");
   assert(light !== dark, "light and dark section-rule styling must differ");
 });
 
@@ -746,11 +747,11 @@ Deno.test("Gate Proof receipts present every recording and currency state truthf
       { width: 76, terminal: PLAIN },
     );
     const state = GATE_PROOF_RECORD_PRESENTATION[status];
-    assertStringIncludes(rendered, `Receipt: Gate proof`);
+    assertStringIncludes(rendered, "Gate proof");
     assertStringIncludes(rendered, state.stateLabel);
     assertStringIncludes(rendered, state.summary);
     assertStringIncludes(rendered, "1 passed, 1 skipped");
-    assertEquals(rendered.includes("[PASS]"), status === "recorded");
+    assertEquals(rendered.includes("[✓]"), status === "recorded");
     assertEquals(rendered.split("\n").at(-1), PROOF.line);
   }
 
@@ -766,7 +767,7 @@ Deno.test("Gate Proof receipts present every recording and currency state truthf
     const state = GATE_PROOF_CHECK_PRESENTATION[status];
     assertStringIncludes(rendered, state.stateLabel);
     assertStringIncludes(rendered, state.summary);
-    assertEquals(rendered.includes("[PASS]"), status === "honored");
+    assertEquals(rendered.includes("[✓]"), status === "honored");
     assertEquals(rendered.includes(PROOF.line), status === "honored");
   }
 });

@@ -31,25 +31,16 @@ import {
   SURFACE_SETS,
   type SurfaceSet,
 } from "../scripts/feature_registry.ts";
+import { liveFeatureSurfaceMembers } from "../scripts/feature_surface_catalog.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
-import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
-import { configSchema } from "../src/shared/config_schema.ts";
 import {
   AGENT_NAMES,
   agentLabelForNative,
 } from "../src/shared/agent_catalogue.ts";
-import { bundledSkillNames } from "../src/lib/skills.ts";
 
 /** The closed sets the canon must account for, from their single sources. */
-const CLOSED_SETS: Readonly<Record<SurfaceSet, readonly string[]>> = {
-  verb: [...KNOWN_VERBS].sort(),
-  job: Object.keys(KNOWN_JOBS),
-  stage: STAGES,
-  config: Object.keys(configSchema.shape).sort(),
-  skill: (await bundledSkillNames()).sort(),
-  agent: [...AGENT_NAMES],
-};
+const CLOSED_SETS: Readonly<Record<SurfaceSet, readonly string[]>> =
+  await liveFeatureSurfaceMembers();
 
 interface ProviderLabel {
   readonly member: string;

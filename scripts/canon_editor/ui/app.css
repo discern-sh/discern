@@ -1,0 +1,526 @@
+/* Canon Editor's shell, layered after the design system's own layers.
+   Chrome is styled from design tokens; a local accent marks editable text. */
+
+@layer discern.consumer {
+  :root {
+    --canon-editor-accent: #b0392c;
+    --canon-editor-accent-soft: #f6e4e1;
+    --canon-editor-header-h: 3rem;
+  }
+  :root[data-discern-theme="dark"] {
+    --canon-editor-accent: #e0715d;
+    --canon-editor-accent-soft: #3a2622;
+  }
+
+  body {
+    margin: 0;
+    background: var(--discern-color-canvas);
+  }
+
+  /* ——— Header ——— */
+  .canon-editor-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-sizing: border-box;
+    min-height: var(--canon-editor-header-h);
+    padding: 0.5rem 1.1rem;
+    background: var(--discern-color-surface);
+    border-bottom: 1px solid var(--discern-color-border);
+  }
+  .canon-editor-brand {
+    font-family: var(--discern-font-display);
+    font-size: var(--discern-font-size-md);
+    color: var(--discern-color-ink);
+    text-decoration: none;
+  }
+  .canon-editor-header-right {
+    margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .canon-editor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    line-height: 1;
+    padding: 0.32em 0.6em;
+    border-radius: var(--discern-radius-pill);
+    border: 1px solid var(--discern-color-border);
+    background: var(--discern-color-surface);
+    color: var(--discern-color-ink-muted);
+    cursor: default;
+  }
+  button.canon-editor-chip {
+    cursor: pointer;
+  }
+  .canon-editor-chip-dirty {
+    color: var(--discern-color-warning-deep);
+    border-color: var(--discern-color-warning);
+    background: var(--discern-color-warning-soft);
+  }
+  .canon-editor-chip-ok {
+    color: var(--discern-color-success-deep);
+    border-color: var(--discern-color-success);
+    background: var(--discern-color-success-soft);
+  }
+  .canon-editor-chip-fail {
+    color: var(--discern-color-danger);
+    border-color: var(--discern-color-danger);
+    background: var(--discern-color-danger-soft);
+  }
+
+  /* ——— Shell ——— */
+  .canon-editor-shell {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr) 22rem;
+    max-width: 104rem;
+    margin: 0 auto;
+  }
+  .canon-editor-nav {
+    border-right: 1px solid var(--discern-color-border);
+    padding: 1.1rem 0.9rem 2rem;
+    position: sticky;
+    top: var(--canon-editor-header-h);
+    align-self: start;
+    max-height: calc(100vh - var(--canon-editor-header-h));
+    overflow-y: auto;
+  }
+  .canon-editor-nav-group h2 {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--discern-color-ink-faint);
+    margin: 1.2rem 0 0.35rem 0.4rem;
+    font-weight: 500;
+  }
+  .canon-editor-nav-group:first-child h2 {
+    margin-top: 0;
+  }
+  .canon-editor-nav-group ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .canon-editor-nav-group a {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.3rem 0.5rem;
+    border-radius: var(--discern-radius-sm);
+    font-family: var(--discern-font-ui);
+    font-size: var(--discern-font-size-sm);
+    color: var(--discern-color-ink-muted);
+    text-decoration: none;
+  }
+  .canon-editor-nav-group a:hover {
+    background: var(--discern-color-surface-sunken);
+    color: var(--discern-color-ink);
+  }
+  .canon-editor-nav-group a[aria-current="page"] {
+    background: var(--discern-color-surface);
+    color: var(--discern-color-ink);
+    font-weight: 600;
+    box-shadow: inset 2px 0 0 var(--canon-editor-accent);
+  }
+  .canon-editor-count {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ——— Reading surface ——— */
+  .canon-editor-doc {
+    padding: 2rem 2.6rem 5rem;
+    min-width: 0;
+  }
+  .canon-editor-article {
+    max-width: var(--discern-measure);
+  }
+  .canon-editor-field {
+    border-radius: 3px;
+    transition: background-color 120ms ease-out;
+    cursor: pointer;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: color-mix(in srgb, var(--canon-editor-accent) 40%,
+      transparent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.24em;
+  }
+  .canon-editor-field:hover {
+    background: var(--canon-editor-accent-soft);
+    box-shadow: 0 1px 0 var(--canon-editor-accent);
+    text-decoration-color: var(--canon-editor-accent);
+  }
+  .canon-editor-field:focus-visible {
+    outline: 2px solid var(--canon-editor-accent);
+    outline-offset: 1px;
+  }
+  .canon-editor-field.canon-editor-selected {
+    background: var(--canon-editor-accent-soft);
+    box-shadow: 0 0 0 1.5px var(--canon-editor-accent);
+  }
+  .canon-editor-locked {
+    cursor: not-allowed;
+    text-decoration-color: var(--discern-color-ink-faint);
+  }
+
+  /* ——— Field editor ——— */
+  .canon-editor-field.canon-editor-editing,
+  .canon-editor-field.canon-editor-editing:hover {
+    display: inline;
+    background: none;
+    box-shadow: none;
+    text-decoration: none;
+    cursor: auto;
+  }
+  .canon-editor-editor {
+    display: inline-block;
+    min-width: 14rem;
+    max-width: 100%;
+    padding: 0.35rem 0.55rem;
+    border: 1.5px solid var(--canon-editor-accent);
+    border-radius: var(--discern-radius-sm);
+    box-shadow: 0 0 0 3px var(--canon-editor-accent-soft);
+    background: var(--discern-color-surface);
+    font: inherit;
+    line-height: inherit;
+    outline: none;
+    white-space: pre-wrap;
+  }
+  .canon-editor-saving .canon-editor-editor {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .canon-editor-twin {
+    display: block;
+    margin-top: 0.6rem;
+    white-space: normal;
+  }
+  .canon-editor-locked:hover {
+    background: var(--discern-color-surface-sunken);
+    box-shadow: none;
+  }
+
+  /* ——— The workbench ———
+     All editing chrome lives on one fixed strip at the bottom of the
+     viewport: the field's address, live register judgment, save progress,
+     and the verdict. The document never has elements inserted into it, so
+     the prose stands still while a field editor is open. */
+  .canon-editor-bench {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    box-sizing: border-box;
+    padding: 0.6rem 1.1rem 0.7rem;
+    background: var(--discern-color-surface);
+    border-top: 2px solid var(--canon-editor-accent);
+    box-shadow: 0 -6px 24px rgb(0 0 0 / 0.09);
+  }
+  .canon-editor-bench[hidden] {
+    display: none;
+  }
+  .canon-editor-bench[data-state="red"] {
+    border-top-color: var(--discern-color-danger);
+  }
+  .canon-editor-bench-row {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+  }
+  .canon-editor-bench-path {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-ink-muted);
+    white-space: nowrap;
+  }
+  .canon-editor-bench-status {
+    flex: 1 1 14rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    min-height: 1.7rem;
+    font-family: var(--discern-font-ui);
+    font-size: var(--discern-font-size-sm);
+  }
+  .canon-editor-bench-status .canon-editor-chip {
+    white-space: normal;
+    line-height: 1.35;
+    text-align: left;
+  }
+  .canon-editor-bench-verdict {
+    color: var(--discern-color-danger);
+    font-weight: 600;
+  }
+  .canon-editor-bench-stage {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-ink-muted);
+  }
+  .canon-editor-bench-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 0.4rem;
+  }
+  .canon-editor-bench .canon-editor-btn {
+    display: inline-block;
+    width: auto;
+    margin-top: 0;
+    padding: 0.4rem 0.95rem;
+  }
+  .canon-editor-bench-details {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    background: var(--discern-color-surface-sunken);
+    border-radius: var(--discern-radius-sm);
+    padding: 0.5rem 0.7rem;
+    max-height: 11rem;
+    overflow: auto;
+  }
+  /* Room under the article so the bench never sits over the line being
+     edited at the bottom of the page. */
+  body.canon-editor-benched .canon-editor-doc {
+    padding-bottom: 14rem;
+  }
+  .canon-editor-open-hint {
+    margin-top: 0.35rem;
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-danger);
+    line-height: 1.4;
+  }
+  a[data-outside] {
+    color: var(--discern-color-ink-muted);
+    text-decoration-style: dotted;
+    cursor: help;
+  }
+
+  /* ——— Inspector rail ——— */
+  .canon-editor-rail {
+    border-left: 1px solid var(--discern-color-border);
+    padding: 1.1rem 1rem 2rem;
+    position: sticky;
+    top: var(--canon-editor-header-h);
+    align-self: start;
+    max-height: calc(100vh - var(--canon-editor-header-h));
+    overflow-y: auto;
+    font-family: var(--discern-font-ui);
+    font-size: var(--discern-font-size-sm);
+  }
+  .canon-editor-rail-empty {
+    color: var(--discern-color-ink-faint);
+    font-size: var(--discern-font-size-sm);
+    line-height: 1.55;
+    padding: 0.4rem;
+  }
+  .canon-editor-rail h3 {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--discern-color-ink-faint);
+    margin: 1.1rem 0 0.35rem;
+    font-weight: 500;
+  }
+  .canon-editor-rail h3:first-child {
+    margin-top: 0;
+  }
+  .canon-editor-rail-title {
+    font-family: var(--discern-font-display);
+    font-size: var(--discern-font-size-lg);
+    color: var(--discern-color-ink);
+    margin: 0 0 0.2rem;
+  }
+  .canon-editor-rail .canon-editor-kind {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-ink-faint);
+  }
+  .canon-editor-cite {
+    display: block;
+    padding: 0.14rem 0;
+    color: var(--discern-color-accent-600);
+    text-decoration: none;
+    font-size: var(--discern-font-size-sm);
+  }
+  .canon-editor-cite:hover {
+    text-decoration: underline;
+  }
+  .canon-editor-cite small {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-ink-faint);
+  }
+  .canon-editor-fieldrow {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.16rem 0;
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-ink-muted);
+  }
+  .canon-editor-fieldrow[data-active="true"] {
+    color: var(--canon-editor-accent);
+    font-weight: 600;
+  }
+  .canon-editor-field-action {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--canon-editor-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .canon-editor-field-action:hover {
+    text-decoration: underline;
+  }
+  .canon-editor-picker {
+    margin: 0.35rem 0 0.75rem;
+    padding: 0.55rem;
+    border: 1px solid var(--canon-editor-accent);
+    border-radius: var(--discern-radius-sm);
+    background: var(--discern-color-surface);
+    box-shadow: 0 0 0 3px var(--canon-editor-accent-soft);
+  }
+  .canon-editor-picker.canon-editor-saving {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .canon-editor-picker-search {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.42rem 0.5rem;
+    border: 1px solid var(--discern-color-border);
+    border-radius: var(--discern-radius-sm);
+    background: var(--discern-color-canvas);
+    color: var(--discern-color-ink);
+    font: inherit;
+    outline: none;
+  }
+  .canon-editor-picker-search:focus {
+    border-color: var(--canon-editor-accent);
+  }
+  .canon-editor-picker-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    max-height: 19rem;
+    margin-top: 0.45rem;
+    overflow-y: auto;
+  }
+  .canon-editor-picker-choice {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.4rem;
+    padding: 0.25rem 0.18rem;
+    border-radius: var(--discern-radius-sm);
+    color: var(--discern-color-ink-muted);
+    cursor: pointer;
+    overflow-wrap: anywhere;
+  }
+  .canon-editor-picker-choice:hover {
+    background: var(--discern-color-surface-sunken);
+    color: var(--discern-color-ink);
+  }
+  .canon-editor-picker-choice input {
+    margin-top: 0.15rem;
+    accent-color: var(--canon-editor-accent);
+  }
+  .canon-editor-picker-choice small {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    color: var(--discern-color-ink-faint);
+  }
+  .canon-editor-picker-choice.canon-editor-stale {
+    color: var(--discern-color-warning-deep);
+  }
+  .canon-editor-picker-choice[data-removed="true"] {
+    opacity: 0.55;
+    text-decoration: line-through;
+  }
+  .canon-editor-picker-empty {
+    margin: 0.4rem 0.2rem;
+    color: var(--discern-color-ink-faint);
+    font-size: var(--discern-font-size-xs);
+  }
+  .canon-editor-btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    font-family: var(--discern-font-ui);
+    font-size: var(--discern-font-size-sm);
+    font-weight: 600;
+    border-radius: var(--discern-radius-sm);
+    border: 1px solid var(--discern-color-border);
+    background: var(--discern-color-surface);
+    color: var(--discern-color-ink);
+    padding: 0.45rem 0.6rem;
+    margin-top: 0.5rem;
+    cursor: pointer;
+  }
+  .canon-editor-btn:hover {
+    background: var(--discern-color-surface-sunken);
+  }
+  .canon-editor-btn.canon-editor-primary {
+    background: var(--canon-editor-accent);
+    border-color: var(--canon-editor-accent);
+    color: #fff8f5;
+  }
+  .canon-editor-guards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .canon-editor-guardline {
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    overflow-wrap: anywhere;
+  }
+  .canon-editor-failure {
+    white-space: pre-wrap;
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
+    background: var(--discern-color-surface-sunken);
+    border-radius: var(--discern-radius-sm);
+    padding: 0.5rem;
+    max-height: 14rem;
+    overflow: auto;
+  }
+
+  @media (max-width: 80rem) {
+    .canon-editor-shell {
+      grid-template-columns: 14rem minmax(0, 1fr);
+    }
+    .canon-editor-rail {
+      display: none;
+    }
+  }
+  @media (max-width: 56rem) {
+    .canon-editor-shell {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .canon-editor-nav {
+      display: none;
+    }
+  }
+}

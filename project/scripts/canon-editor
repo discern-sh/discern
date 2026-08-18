@@ -1,0 +1,5 @@
+#!/bin/sh
+# desc: Canon Editor: edit the canon through its generated pages (serve | open <entry>)
+set -eu
+cd "${DISCERN_ROOT:-$(dirname "$0")/../..}"
+exec deno task canon-editor "$@"
