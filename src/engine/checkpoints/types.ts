@@ -83,13 +83,18 @@ export interface ResolvedCheckpoint {
 
 // ── trigger outcomes ────────────────────────────────────────────────────────
 
-/** Why a structural trigger did not hold — named so previews can explain. */
-export type TriggerVeto =
-  | "empty_matched_set"
-  | "unless_changed"
-  | "min_changed_files"
-  | "deletion_dominant"
-  | "similar_new_file";
+/** Why a structural trigger did not hold — the closed veto vocabulary, named
+ * so previews can explain and wire schemas can enumerate. */
+export const TRIGGER_VETOES = [
+  "empty_matched_set",
+  "unless_changed",
+  "min_changed_files",
+  "deletion_dominant",
+  "similar_new_file",
+] as const;
+
+/** One structural-trigger veto ({@link TRIGGER_VETOES}). */
+export type TriggerVeto = (typeof TRIGGER_VETOES)[number];
 
 /** One name-similar pair the `similar_new_file` predicate found: the added
  * file and the existing merge-base sibling it resembles. */
