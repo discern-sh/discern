@@ -239,16 +239,41 @@
   [scopes.big-picture]
     paths = [
       "${map.dir}_internal/brand/positioning.md",
+      "${map.dir}_private/brand/audiences.md",
       "${map.dir}_internal/brand/demand-canon.md",
+      "${map.dir}00-orientation/concepts.md",
       "${map.dir}00-orientation/glossary.md",
       "${map.dir}_internal/feature-canon.md",
       "${map.dir}70-reference/config-reference.md",
       "${map.dir}70-reference/cli-reference.md",
       "${map.dir}_internal/hint-inventory.md",
       "${map.dir}_internal/tip-inventory.md",
+      "${map.dir}00-orientation/trust-and-data.md",
+      "${map.dir}_internal/brand/claims-and-evidence.md",
+      "${map.dir}_internal/brand/register-bridge.md",
+      "${map.dir}_internal/brand/visual-identity.md",
       "${map.dir}_internal/brand/messaging.md",
       "${map.dir}_internal/feature-canon-benefits.md",
       "${map.dir}_internal/practice-canon.md",
+    ]
+    neutral = true
+
+  # The Commercial Picture: a compact, strategy-first reading list for an
+  # external reader who needs the audience, demand, value, evidence, boundaries,
+  # and brand expression without the full product-reference inventories.
+  [scopes.commercial-picture]
+    paths = [
+      "${map.dir}_internal/brand/positioning.md",
+      "${map.dir}_private/brand/audiences.md",
+      "${map.dir}_internal/brand/demand-canon.md",
+      "${map.dir}00-orientation/concepts.md",
+      "${map.dir}_internal/feature-canon-benefits.md",
+      "${map.dir}_internal/practice-canon.md",
+      "${map.dir}00-orientation/trust-and-data.md",
+      "${map.dir}_internal/brand/claims-and-evidence.md",
+      "${map.dir}_internal/brand/register-bridge.md",
+      "${map.dir}_internal/brand/visual-identity.md",
+      "${map.dir}_internal/brand/messaging.md",
     ]
     neutral = true
 
