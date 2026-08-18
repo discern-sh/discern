@@ -2040,9 +2040,9 @@ export const HINTS = {
         discernCommand("done", flag("met", "<id>"))
       } (repeatable) for a criterion your change satisfies, or ${
         discernCommand("done", flag("unmet", "<id>"))
-      } with its required one-paragraph rationale (one per invocation) to ` +
-      `record that it is not satisfied — the gate still runs, and the owner ` +
-      `decides at landing. Awaiting: ${ids.join(", ")}.`,
+      } with its required one-paragraph rationale (${WHY_FLAG}, one per ` +
+      `invocation) to record that it is not satisfied — the gate still runs, ` +
+      `and the owner decides at landing. Awaiting: ${ids.join(", ")}.`,
   }),
 
   "checkpoint-preview": defineHint<

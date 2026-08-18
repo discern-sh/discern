@@ -13,8 +13,6 @@
 
 import type { CheckpointMode, TriggerVeto } from "../../shared/checkpoints.ts";
 
-export type { TriggerVeto };
-
 // ── the effort diff ─────────────────────────────────────────────────────────
 
 /** How one file changed between the effort's merge-base and its working tree. */
