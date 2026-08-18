@@ -692,7 +692,14 @@ criterion = "${CRITERION_NOTES}"
 `,
     );
     await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "trunk adds a checkpoint", "--no-gpg-sign");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "trunk adds a checkpoint",
+      "--no-gpg-sign",
+    );
 
     // Before `update`: the unchanged tree meets the RERUN guard, never a
     // demand from the not-yet-governing checkpoint — and the policy identity
@@ -789,7 +796,14 @@ criterion = "${CRITERION_API}"
 `,
     );
     await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "feat: extend the api", "--no-gpg-sign");
+    await git(
+      wt,
+      "commit",
+      "-q",
+      "-m",
+      "feat: extend the api",
+      "--no-gpg-sign",
+    );
 
     // The governing TEXT is the merge-base's `sh probe.sh`; the script it
     // resolves is the WORKTREE's copy, which passes — so nothing fires, and
