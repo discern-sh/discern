@@ -69,7 +69,7 @@ Deno.test("renderAgentFiles: Cursor configuration does not change the generic wo
     assert(agents !== undefined);
     assertStringIncludes(agents, "from the main checkout");
     assertStringIncludes(agents, "Keep one worktree for the whole effort");
-    assertStringIncludes(agents, "Can't change your working root?");
+    assertStringIncludes(agents, "If you can't change your working root");
     assert(
       !/(external file protection|approval-gates external edits)/i.test(agents),
       "compiled instructions must not condition an agent on Cursor's human-visible approval state",
@@ -428,15 +428,15 @@ Deno.test("renderAgentFiles: the built-in instructions reflect config (interpola
         ],
         [
           "start explains how to move the agent into the returned checkout",
-          "re-root into the returned path: cd in, or start a session there",
+          "re-root into the returned path using your native worktree-entering tool when available",
         ],
         [
           "later fixes and sessions keep the returned checkout",
-          "Continue there through later fixes and sessions",
+          "Continue in the worktree throughout the entire effort",
         ],
         [
           "the no-re-root fallback applies to every shell command and discern tool",
-          "Prefix every shell command with `cd <path> &&` and pass `path` to every discern tool",
+          "prefix every shell command with `cd <path> &&` and pass `path` to every discern tool",
         ],
         [
           "update replaces pre-checks and hand merges",
@@ -468,7 +468,7 @@ Deno.test("renderAgentFiles: the built-in instructions reflect config (interpola
         ],
         [
           "atomic history survives acceptance",
-          "commit each logical step — acceptance lands your branch history as-is",
+          "commit each logical step. Acceptance lands your branch history as-is",
         ],
         [
           "the gate proof belongs to the final clean commit",
