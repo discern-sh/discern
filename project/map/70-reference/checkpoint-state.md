@@ -22,7 +22,7 @@ A [checkpoint](../00-orientation/glossary.md#checkpoint) pairs a deterministic t
 
 ## Episode states
 
-A fired `stop` checkpoint opens an effort-scoped **episode** — the record a declaration binds to, carrying the resolved-definition hash and the subject fingerprint of the matched content.
+A fired `stop` checkpoint opens an effort-scoped **[episode](../00-orientation/glossary.md#episode)** — the record a declaration binds to, carrying the resolved-definition hash and the subject fingerprint of the matched content.
 
 | State                  | Meaning                                                                       | Resolved by                                            |
 | ---------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------ |
@@ -35,7 +35,7 @@ Reopening is relevance-sensitive: a declaration stales only when the checkpoint'
 
 ## Declarations at the gate
 
-`discern done --met <id>` (repeatable) records a declared-met conclusion; `discern done --unmet <id> --why "<rationale>"` records a declared-unmet conclusion, one per invocation, with a required rationale of 1–500 characters in one paragraph. A declaring invocation records every valid conclusion first, then proceeds into the gate in the same run. Recording a conclusion is the caller's own act; every surface qualifies it as **declared met** or **declared unmet** — recorded judgment, distinct from machine-verified results. The Proof carries declared conclusions separately, and changed declaration evidence stales a recorded Proof even at an unchanged `HEAD`.
+`discern done --met <id>` (repeatable) records a declared-met conclusion; `discern done --unmet <id> --why "<rationale>"` records a declared-unmet conclusion, one per invocation, with a required rationale of 1–500 characters in one paragraph. A declaring invocation records every valid conclusion first, then proceeds into the gate in the same run. Recording a conclusion is the caller's own act; every surface qualifies it as **[declared met](../00-orientation/glossary.md#declared-met)** or **[declared unmet](../00-orientation/glossary.md#declared-unmet)** — recorded judgment, distinct from machine-verified results. The Proof carries declared conclusions separately, and changed declaration evidence stales a recorded Proof even at an unchanged `HEAD`.
 
 ## Variance at acceptance
 

@@ -12,10 +12,15 @@ aliases:
   - agent file
   - checkpoint
   - coupling
+  - criterion
+  - declaration
+  - declared met
+  - declared unmet
   - desk
   - discern
   - discern version
   - engine
+  - episode
   - file ownership
   - fleet
   - gate
@@ -43,10 +48,13 @@ aliases:
   - skill
   - stage
   - standard
+  - stop / advise
+  - subject
   - tidy
   - tip
   - trunk
   - update
+  - variance
   - worktree
   - worktree resource
   - compiled agent file
@@ -88,11 +96,27 @@ A read-only finding surface: [coupling](../20-quality-gate/coupling.md), [patter
 
 ### Checkpoint
 
-One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic criterion, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk), and `discern checkpoints` reports policy, episode state, and preview read-only. Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).
+One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic criterion, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk), and `discern checkpoints` reports policy, episode state, and preview read-only. Covered in [checkpoints](../20-quality-gate/checkpoints.md).
 
 ### Coupling
 
 What `discern coupling` reports: files that historically change together, pointing out a sibling the current change may be missing. It is [advisory](#advisory) only and self-calibrates to the repo's own commit history ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)). Covered in [coupling](../20-quality-gate/coupling.md).
+
+### Criterion
+
+The judgment prose a [checkpoint](#checkpoint) serves and [estate review](../20-quality-gate/improvement.md) evaluates: a stable id, the question itself, and a `teach` saying why it matters. A criterion is semantic by design (the agent evaluates it, discern does not), and the recorded answer stays [declared met](#declared-met) or [declared unmet](#declared-unmet), apart from machine-verified results. Covered in [checkpoints](../20-quality-gate/checkpoints.md).
+
+### Declaration
+
+The agent's recorded conclusion about one served [criterion](#criterion): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why "…"`. It binds to the [episode](#episode)'s exact [subject](#subject) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).
+
+### Declared met
+
+The agent's recorded conclusion that a served [criterion](#criterion) holds for the current [subject](#subject). It is a [declaration](#declaration), and every surface reports it as declared rather than verified — machine results are verified, conclusions are declared, and a landing is authorized. It stands as evidence until a relevant change reopens it.
+
+### Declared unmet
+
+The agent's recorded conclusion that a served [criterion](#criterion) does not hold, carrying a required one-paragraph rationale written for the owner. The gate still runs, the [Proof](#proof) carries the rationale as durable evidence that never enters the [Logbook](#logbook), and landing waits for an owner-authorized [variance](#variance) at `discern accept`.
 
 ### Desk
 
@@ -109,6 +133,10 @@ The `discern` binary's semantic version, shown by `discern --version`. A newer b
 ### Engine
 
 The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no command from the project's stack; its verbs run the jobs, scopes, standards, and worktree settings a project declares, while its embedded [tidy](#tidy) formatter is limited to discern-owned surfaces. Contributors: see [engine internals](../50-engine-internals/).
+
+### Episode
+
+The effort-scoped record that a `stop` [checkpoint](#checkpoint) fired: opened by `discern done`, stored in the worktree's Git administrative area, surviving session restarts, and removed with the worktree. An episode is the only state a [declaration](#declaration) can act on; `discern checkpoints` reports each episode's state read-only. Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).
 
 ### File ownership
 
@@ -218,6 +246,14 @@ The scheduling bucket gate work runs in: `fix`, `build`, `check`, or `test`. Der
 
 A quality number that can never get worse: a floor or ceiling declared under `[standards]` and held against the [trunk](#trunk) on every gate run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). Untouched `inputs` replay the recorded value, while `measure = "on-demand"` defers measurement to `discern standards`; the never-loosen limit check alone is unconditional. `discern standards --pin` captures a gain. Covered in [standards](../20-quality-gate/standards.md).
 
+### Stop / advise
+
+The two [checkpoint](#checkpoint) modes. `stop` (the default) refuses `discern done` before any [gate job](#gate-job) until the agent records a conclusion; `advise` serves the criterion through the [advisory](#advisory) channel and never blocks. There is no middle severity: a checkpoint either waits for a recorded judgment or informs. Heuristic triggers ship as `advise`, and the declared-unmet path with an owner [variance](#variance) keeps `stop` from trapping a legitimate exception.
+
+### Subject
+
+What a [declaration](#declaration) is about: the checkpoint's resolved definition plus each matched path's base and current content. A conclusion stands until its subject changes. An unrelated edit or trunk advance leaves it standing; a change to matched content or to the definition reopens the [episode](#episode). Covered in [checkpoints](../20-quality-gate/checkpoints.md).
+
 ### Tidy
 
 What `discern tidy` does: canonically format the configured [map](#map), deferred-work ledger, and [instruction sources](#instruction-source) as Markdown, plus the root `discern.toml` as TOML. Fresh installs invoke it through the [format job](#gate-job); removing that command is the opt-out. Covered in [Format discern-owned surfaces](../20-quality-gate/tidy.md).
@@ -233,6 +269,10 @@ The shared branch accepted work lands on: `[repository].trunk`, usually `main`. 
 ### Update
 
 What `discern update` does: merge the latest trunk into the current worktree's branch and refresh the generated files, in one step ([ADR 0055](../_adr/0055-update-verb.md)). It is the move the gate's merge check points a behind branch at, and the complement of [accept](#accept): update brings trunk into the branch; accept lands the branch on trunk.
+
+### Variance
+
+Owner authorization to land one current [declared unmet](#declared-unmet) checkpoint without changing it, given with `discern accept --confirmed --variance <id>` in the current conversation. Recorded standing and effort grants never cover one. Each authorization binds to the exact [declaration](#declaration) and the landed commit, and changes no future policy. Covered in [checkpoints](../20-quality-gate/checkpoints.md).
 
 ### Worktree
 
