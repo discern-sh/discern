@@ -13,10 +13,18 @@ import {
   analyzeCheckpointObservations,
   checkpointConfigBoundary,
   checkpointEconomicsOf,
+  checkpointVarianceSummaries,
+  FREQUENTLY_VARIED_MIN_LANDED,
+  frequentlyVariedCheckpoints,
   gateEffortsSince,
+  variedObservation,
 } from "../src/engine/logbook/checkpoint_economics.ts";
 import { computeStats } from "../src/engine/logbook/stats.ts";
-import { buildStreamFacts } from "../src/engine/logbook/detectors.ts";
+import {
+  buildStreamFacts,
+  DETECTORS,
+  runDetector,
+} from "../src/engine/logbook/detectors.ts";
 import {
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
@@ -209,6 +217,96 @@ Deno.test("checkpoint economics: the stats card carries the same rows, and none 
     undefined,
     "a stream without checkpoint activity adds no section to the card",
   );
+});
+
+/** `count` landed efforts firing `id`, the first `varied` variance-carrying. */
+function landedEfforts(
+  id: string,
+  count: number,
+  varied: number,
+): Partial<VerbEvent>[] {
+  return Array.from({ length: count }, (_, i) => {
+    const branch = `agent/${id}-${i}`;
+    return [
+      { branch, checkpoints: { fired: [{ id }] } },
+      {
+        branch,
+        verb: "accept" as const,
+        ...(i < varied ? { checkpoints: { variances: [{ id }] } } : {}),
+      },
+    ];
+  }).flat();
+}
+
+Deno.test("frequently varied: the bar needs three landed, three varied, and half the share", () => {
+  const events = run([
+    ...landedEfforts("qualifies", 3, 3), // 3 of 3 varied
+    ...landedEfforts("thin-share", 3, 1), // 1 of 3 — below half
+    ...landedEfforts("thin-landed", 2, 2), // 2 landed — below three
+    ...landedEfforts("thin-varied", 4, 2), // half the share, 2 varied — below three
+  ]);
+  const analysis = analyzeCheckpointObservations(facts(events));
+  const qualifying = frequentlyVariedCheckpoints(analysis);
+  assertEquals(qualifying.map((summary) => summary.id), ["qualifies"]);
+  assertEquals(qualifying[0], {
+    id: "qualifies",
+    landed: 3,
+    variedLandings: 3,
+    variances: 3,
+  });
+  // Non-qualifying checkpoints keep their denominators readable.
+  const summaries = checkpointVarianceSummaries(analysis);
+  assertEquals(summaries.find((s) => s.id === "thin-landed")?.landed, 2);
+  // The observation sentence carries counts beside denominators.
+  const observed = variedObservation(
+    qualifying[0] ?? {
+      id: "",
+      landed: 0,
+      variedLandings: 0,
+      variances: 0,
+    },
+  );
+  assertEquals(
+    observed,
+    "`qualifies` landed under an owner-authorized variance on 3 of 3 landed " +
+      "efforts where it fired (3 variances in all).",
+  );
+});
+
+Deno.test("frequently varied: the detector and the shared predicate qualify the same set", () => {
+  // One bar, two consumers: the checkpoint-varied hygiene detector and the
+  // improvement coach's checkpoint-review recommendation must never disagree
+  // about which checkpoints cleared it.
+  const events = run([
+    ...landedEfforts("qualifies", 3, 3),
+    ...landedEfforts("also-fits", 4, 3),
+    ...landedEfforts("thin-share", 5, 1),
+  ]);
+  const streamFacts = facts(events);
+  const detector = DETECTORS.find((d) => d.id === "checkpoint-varied");
+  assert(
+    detector !== undefined,
+    "the checkpoint-varied detector is registered",
+  );
+  assertEquals(
+    detector.threshold,
+    FREQUENTLY_VARIED_MIN_LANDED,
+    "the detector's registry threshold mirrors the shared bar (module-init " +
+      "order forbids the import, so this tie holds them together)",
+  );
+  const report = runDetector(detector, streamFacts);
+  const analysis = analyzeCheckpointObservations(streamFacts);
+  assertEquals(
+    report.findings.map((finding) => finding.subject).sort(),
+    frequentlyVariedCheckpoints(analysis).map((summary) => summary.id).sort(),
+  );
+  for (const finding of report.findings) {
+    const summary = frequentlyVariedCheckpoints(analysis).find(
+      (s) => s.id === finding.subject,
+    );
+    assert(summary !== undefined);
+    assertEquals(finding.observed, variedObservation(summary));
+  }
 });
 
 Deno.test("checkpoint economics: the config-change boundary restarts the hygiene denominator", () => {

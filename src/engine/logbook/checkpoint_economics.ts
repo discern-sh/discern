@@ -18,6 +18,7 @@ import {
   type CheckpointEconomics,
   type CheckpointEconomicsRow,
 } from "../../shared/patterns_vocabulary.ts";
+import { formatHumanNumber } from "../../shared/human_number.ts";
 import { median, round1, type StreamFacts } from "./detectors.ts";
 import type { VerbEvent } from "./schema.ts";
 
@@ -207,6 +208,81 @@ export function checkpointEconomicsOf(
     rows: rows.slice(0, CHECKPOINT_ECONOMICS_ROWS_MAX),
     omitted: Math.max(0, rows.length - CHECKPOINT_ECONOMICS_ROWS_MAX),
   };
+}
+
+// ── the frequently-varied evidence bar ──────────────────────────────────────
+
+/**
+ * One checkpoint's variance footprint across landed efforts — the evidence
+ * shape behind "frequently varied". Distilled here once so the hygiene
+ * detector (`detectors.ts`) and the improvement coach's checkpoint-review
+ * recommendation read the same numbers and hold the same bar.
+ */
+export interface CheckpointVarianceSummary {
+  id: string;
+  /** Landed efforts where the checkpoint fired. */
+  landed: number;
+  /** Landed efforts whose landing carried a variance for this checkpoint. */
+  variedLandings: number;
+  /** Owner-authorized variances observed in all. */
+  variances: number;
+}
+
+/**
+ * The bar: at least three landed efforts where the checkpoint fired, at least
+ * three of them variance-carrying, and variances on at least half. Each
+ * variance is an explicit owner ceremony, so three of them is deliberate
+ * evidence, not an odd afternoon.
+ */
+export const FREQUENTLY_VARIED_MIN_LANDED = 3;
+/** Minimum variance-carrying landed efforts ({@link FREQUENTLY_VARIED_MIN_LANDED}'s sibling). */
+export const FREQUENTLY_VARIED_MIN_VARIED = 3;
+/** Minimum share of landed-where-fired efforts that carried a variance. */
+export const FREQUENTLY_VARIED_MIN_SHARE = 0.5;
+
+/** Whether one summary clears the frequently-varied bar. */
+export function isFrequentlyVaried(
+  summary: CheckpointVarianceSummary,
+): boolean {
+  return summary.landed >= FREQUENTLY_VARIED_MIN_LANDED &&
+    summary.variedLandings >= FREQUENTLY_VARIED_MIN_VARIED &&
+    summary.variedLandings / summary.landed >= FREQUENTLY_VARIED_MIN_SHARE;
+}
+
+/** Every checkpoint's variance summary, id-sorted — qualifying or not, so a
+ * consumer can also read denominators (the detector's `considered`). */
+export function checkpointVarianceSummaries(
+  analysis: CheckpointObservationsAnalysis,
+): CheckpointVarianceSummary[] {
+  return [...analysis.tallies.values()]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((tally) => ({
+      id: tally.id,
+      landed:
+        [...tally.effortsFired].filter((branch) =>
+          analysis.landedEfforts.has(branch)
+        ).length,
+      variedLandings: tally.varianceEfforts.size,
+      variances: tally.variances,
+    }));
+}
+
+/** The checkpoints clearing the frequently-varied bar, id-sorted. */
+export function frequentlyVariedCheckpoints(
+  analysis: CheckpointObservationsAnalysis,
+): CheckpointVarianceSummary[] {
+  return checkpointVarianceSummaries(analysis).filter(isFrequentlyVaried);
+}
+
+/** One summary as the observation sentence every consumer cites — counts
+ * beside denominators, authorization vocabulary only, never a verdict. */
+export function variedObservation(summary: CheckpointVarianceSummary): string {
+  return `\`${summary.id}\` landed under an owner-authorized variance ` +
+    `on ${formatHumanNumber(summary.variedLandings)} of ${
+      formatHumanNumber(summary.landed)
+    } landed efforts where it fired (${
+      formatHumanNumber(summary.variances)
+    } variances in all).`;
 }
 
 /**

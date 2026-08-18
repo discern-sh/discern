@@ -82,7 +82,10 @@ import { byBranch } from "./read.ts";
 import {
   analyzeCheckpointObservations,
   checkpointConfigBoundary,
+  checkpointVarianceSummaries,
   gateEffortsSince,
+  isFrequentlyVaried,
+  variedObservation,
 } from "./checkpoint_economics.ts";
 import {
   crossContextValidationGroups,
@@ -4599,9 +4602,12 @@ const checkpointVaried: Detector = {
   scope: "project",
   tier: "batch",
   tone: "attention",
-  // Three landed efforts where the checkpoint fired: each variance is an
-  // explicit owner ceremony, so three of them is deliberate evidence, not an
-  // odd afternoon.
+  // The shared frequently-varied bar (checkpoint_economics.ts): three landed
+  // efforts where the checkpoint fired, at least half of them under a
+  // variance. The improvement coach's checkpoint-review recommendation holds
+  // the same bar by reading the same predicate. The literal here mirrors
+  // FREQUENTLY_VARIED_MIN_LANDED (module-init order forbids the import); the
+  // economics test ties the two, so they cannot drift.
   threshold: 3,
   next_step:
     "Review the trigger, criterion, and mode with the owner — a criterion routinely judged unmet and varied may be aimed at the wrong boundary, or may belong in advise mode.",
@@ -4609,37 +4615,21 @@ const checkpointVaried: Detector = {
     const analysis = analyzeCheckpointObservations(facts);
     const findings: DetectorFinding[] = [];
     let considered = 0;
-    for (
-      const tally of [...analysis.tallies.values()].sort((a, b) =>
-        a.id.localeCompare(b.id)
-      )
-    ) {
-      const landed = [...tally.effortsFired].filter((branch) =>
-        analysis.landedEfforts.has(branch)
-      ).length;
-      considered = Math.max(considered, landed);
-      if (landed < 3) {
-        continue;
-      }
-      const varied = tally.varianceEfforts.size;
-      if (varied < 3 || varied / landed < 0.5) {
+    for (const summary of checkpointVarianceSummaries(analysis)) {
+      considered = Math.max(considered, summary.landed);
+      if (!isFrequentlyVaried(summary)) {
         continue;
       }
       findings.push({
-        subject: tally.id,
+        subject: summary.id,
         summary: "This checkpoint often lands with an authorized variance.",
-        observed: `\`${tally.id}\` landed under an owner-authorized variance ` +
-          `on ${formatHumanNumber(varied)} of ${
-            formatHumanNumber(landed)
-          } landed efforts where it fired (${
-            formatHumanNumber(tally.variances)
-          } variances in all).`,
+        observed: variedObservation(summary),
         evidence: {
-          landed,
-          variance_landings: varied,
-          variances: tally.variances,
+          landed: summary.landed,
+          variance_landings: summary.variedLandings,
+          variances: summary.variances,
         },
-        strength: varied,
+        strength: summary.variedLandings,
       });
     }
     return { considered, findings };
