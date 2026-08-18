@@ -26,6 +26,7 @@
 import { type DiscernConfig, parseConfig } from "../../shared/config_schema.ts";
 import {
   BUILT_IN_CHECKPOINTS,
+  type BuiltInCheckpointSeed,
   DEFAULT_CHECKPOINT_MODE,
 } from "../../shared/checkpoints.ts";
 import { criterionById } from "../../shared/criteria.ts";
@@ -45,14 +46,18 @@ export interface GoverningPolicy {
   advisories: string[];
 }
 
-/** Resolve every `[checkpoints.<id>]` entry of `config` (pure). */
+/** Resolve every `[checkpoints.<id>]` entry of `config` (pure). `seeds`
+ * defaults to the shipped built-in membership; tests inject synthetic seeds so
+ * the resolution path is provable before (and independent of) the shipped
+ * set. */
 export function resolveCheckpoints(
   config: DiscernConfig,
+  seeds: Readonly<Record<string, BuiltInCheckpointSeed>> = BUILT_IN_CHECKPOINTS,
 ): { checkpoints: ResolvedCheckpoint[]; advisories: string[] } {
   const checkpoints: ResolvedCheckpoint[] = [];
   const advisories: string[] = [];
   for (const [id, entry] of Object.entries(config.checkpoints)) {
-    const seed = BUILT_IN_CHECKPOINTS[id];
+    const seed = seeds[id];
     const seedCriterion = seed === undefined
       ? undefined
       : criterionById(seed.criterion);
