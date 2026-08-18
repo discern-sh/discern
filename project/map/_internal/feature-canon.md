@@ -4,12 +4,13 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same canon in plain language is [feature-canon-plain.md](feature-canon-plain.md), and the commercially ordered human-value account is [feature-canon-benefits.md](feature-canon-benefits.md)._
 
-10 pillars · 128 nodes · 11 benefit statements · 39 agent-experience accounts · 73 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+11 pillars · 129 nodes · 11 benefit statements · 40 agent-experience accounts · 75 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
 - **The quality gate** — The project's command result is the authority on whether work is done. An agent's confidence remains advisory.
 - **Standards** — Quality limits move in one direction. A floor may only rise, a ceiling may only fall, and a branch that loosens either fails the gate.
+- **Checkpoints** — The review moments that need judgment arrive while the change is being made, and every recorded conclusion stays qualified as the agent's declared judgment — never presented as machine-verified.
 - **Isolated worktrees** — Each parallel task has a separate checkout, identity, and declared resources, including the maintainer's main checkout.
 - **Agent instructions** — Every provider reads one authored instruction body, including cloud agents.
 - **Skills** — A reusable procedure becomes one file available to every future session.
@@ -25,6 +26,7 @@ _The nodes carrying an agent-experience account — the interaction design an ag
 
 - **The quality gate** — the pillar itself · Job time budgets · Write authority proven first · Generated artifact declarations · Normalized diagnostics · The gotchas pointer · Proof · A rerun on an unchanged tree is attested
 - **Standards** — Input-keyed replay
+- **Checkpoints** — the pillar itself
 - **Isolated worktrees** — the pillar itself · Start · Update · Accept · Per-worktree resources · Crash-safe provisioning · Bounded drop recovery · Orphan reclamation · The fleet view · Awaiting a fleet condition
 - **The map** — The discovery funnel · The docs integrity preflight
 - **Advisories and the logbook** — the pillar itself · Status · The logbook · Registered hints
@@ -81,6 +83,14 @@ _Quality limits move in one direction. A floor may only rise, a ceiling may only
 - **On-demand measurement** — `measure = "on-demand"` defers a metric too slow for every gate run to `discern standards`; the limit check itself has no off switch.
 - **Capturing a gain** — `discern standards --pin` tightens each improved limit to the newly measured value and commits the change on its own, carrying Proof across the pin commit. It measures once: a green check records the measurement that the pin replays. _Tightening is mechanical and provable; a hand-edit can't tell a real gain from a quiet loosening._
 - **Breach escalation** — A limit the work itself breached is an owner decision: the built-in instructions have agents cut waste they added and report genuine growth, rather than move a limit to pass.
+
+## Checkpoints
+
+Change-triggered judgment stops under `[checkpoints]`: a deterministic trigger (a scope or path selector, `unless_changed`, thresholds, delta-shape predicates, or an executable `when` condition) pairs a semantic criterion with the change that makes it relevant. A fired `stop` checkpoint refuses `discern done` before any gate job until the agent judges the criterion and records a conclusion — `--met`, or `--unmet` with a one-paragraph rationale — bound to the exact definition and content it judged; `advise` mode serves the criterion without blocking. The governing definitions come from the effort's merge-base with the trunk, never the branch's own edits, and a declared-unmet conclusion lands only after the owner authorizes that variance at `discern accept` in the current conversation. `discern checkpoints` reports the whole contract read-only — the governing policy, each episode's declaration state, and a structural preview of what the current change would fire — and `prepare`/`status` serve each coming criterion early.
+
+_The review moments that need judgment arrive while the change is being made, and every recorded conclusion stays qualified as the agent's declared judgment — never presented as machine-verified._
+
+**Agent:** _The refusal batches every awaiting checkpoint with its criterion, matched evidence, and both recoveries in one serving; recording a conclusion is the agent's own act with no owner round-trip, and revising the subject or replacing a conclusion never trips the unchanged-tree rerun refusal._
 
 ## Isolated worktrees
 
@@ -234,6 +244,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 
 - `accept` — accept
 - `await` — await
+- `checkpoints` — checkpoints
 - `config` — config-command
 - `coupling` — coupling
 - `desk` — desk
@@ -284,6 +295,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 ### `config`
 
 - `acceptance` — consent-attestations
+- `checkpoints` — checkpoints
 - `coupling` — insight
 - `gate` — gate
 - `generated` — generated-artifact-declarations
@@ -322,4 +334,3 @@ Every member of the product's closed sets, with the node that claims it. The enr
 ### Recorded absences
 
 - `verb:triangle` — intentionally enigmatic, and shrouded in mystery
-- `config:checkpoints` — the checkpoint engine's config surface landed ahead of its user-facing feature; the checkpoints node claims it when the gate interlock and verb ship

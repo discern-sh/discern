@@ -292,7 +292,7 @@ Deno.test("checkpoints: a when condition is reported as undecided and never run"
   });
 });
 
-Deno.test("checkpoints: an episode the governing policy no longer contains stays visible", async () => {
+Deno.test("checkpoints: an episode outside the governing policy stays visible", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_STOP);
     // The engine's own episode API plants a record for a checkpoint id the

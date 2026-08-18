@@ -4,12 +4,13 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md)._
 
-10 main areas · 128 detailed entries · 11 statements of benefit · 39 accounts of what the coding agent experiences · 73 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+11 main areas · 129 detailed entries · 11 statements of benefit · 40 accounts of what the coding agent experiences · 75 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
 - **The final quality check** — The result of the project's check decides when the work counts as finished. The coding agent's confidence remains advice rather than evidence.
 - **Quality rules** — Quality limits move in one direction only. A minimum may only rise, a maximum may only fall, and a change that weakens either one fails.
+- **Judgment stops** — The moments that need judgment arrive while the change is being made, and every recorded answer is presented as the coding agent's own judgment — never as something a machine proved.
 - **Separate working copies** — Each simultaneous task has its own project copy, identity, network number, private settings, and supporting services, separate from the copy used by the person in charge.
 - **Instructions for coding agents** — Write the instructions once, and every coding agent (including one working on another computer) reads the same page.
 - **Reusable how-to guides** — A reusable method becomes one file available to every future session.
@@ -25,6 +26,7 @@ _The entries below directly describe what a coding agent experiences. Each full 
 
 - **The final quality check** — the main area itself · Time limits for each piece of work · Proving permission to write first · Files made by a tool · Clear and consistent failure reports · A pointer to known traps · Evidence that every required check passed (Proof) · A repeat check on unchanged work is a recorded choice
 - **Quality rules** — Reusing a measurement when nothing it reads has changed
+- **Judgment stops** — the main area itself
 - **Separate working copies** — the main area itself · Start · Update · Accept · Separate supporting services for each copy · Safe setup even when interrupted · A way back from a mistaken removal · Cleaning up leftovers · The overview of all work in progress · Waiting for a condition across the tasks
 - **The project guide** — Finding the right page · Checking that the guide still works
 - **Helpful advice and the activity record** — the main area itself · Current state · The activity record · Registered advice notes
@@ -81,6 +83,14 @@ _Quality limits move in one direction only. A minimum may only rise, a maximum m
 - **Measuring only when asked** — `measure = "on-demand"` moves a measurement too slow for every run into `discern standards`; the check that a limit was not weakened has no off switch.
 - **Saving an improvement** — `discern standards --pin` tightens each improved limit to the newly measured value, and saves that change on its own, carrying Proof across the save. It measures once: a passing check records the measurement, and the pin reuses it. _Tightening is mechanical and provable; a hand-edited number cannot show whether it was a real gain or a quiet weakening._
 - **When the work itself crosses a limit** — A limit the work itself crossed is a decision for the person in charge: discern's built-in instructions tells coding agents to remove waste they added and to report genuine growth, rather than to move a limit so the work passes.
+
+## Judgment stops
+
+Rules the project keeps under `[checkpoints]`. Each rule watches for a certain kind of change and carries a written question that matters for it. When a change matches a stopping rule, the final check refuses to start until the coding agent weighs the question and records its answer: satisfied (`--met`), or not satisfied (`--unmet`) with a short reason. A notice-only rule shows its question without stopping anything. The rules come from the main shared version, not from the task's own edits, and a "not satisfied" answer can join the main shared version only after the person in charge allows that named exception at `discern accept`. `discern checkpoints` shows the whole picture without changing anything — the rules, each recorded answer, and what the current change would set off — and `discern prepare` and `discern status` show each coming question early.
+
+_The moments that need judgment arrive while the change is being made, and every recorded answer is presented as the coding agent's own judgment — never as something a machine proved._
+
+**Coding agent:** _The refusal gathers every waiting rule with its question, the matching files, and both ways to answer, in one message. Recording an answer is the coding agent's own act, with no waiting on the person in charge, and changing the files or the answer never sets off the repeat-run refusal._
 
 ## Separate working copies
 
@@ -234,6 +244,7 @@ Every member of the product's official fixed lists appears below beside the feat
 
 - `accept` — accept
 - `await` — await
+- `checkpoints` — checkpoints
 - `config` — config-command
 - `coupling` — coupling
 - `desk` — desk
@@ -284,6 +295,7 @@ Every member of the product's official fixed lists appears below beside the feat
 ### Main settings section (`config`)
 
 - `acceptance` — consent-attestations
+- `checkpoints` — checkpoints
 - `coupling` — insight
 - `gate` — gate
 - `generated` — generated-artifact-declarations
@@ -322,4 +334,3 @@ Every member of the product's official fixed lists appears below beside the feat
 ### Missing entries
 
 - `verb:triangle` — intentionally enigmatic, and shrouded in mystery
-- `config:checkpoints` — the checkpoint engine's config surface landed ahead of its user-facing feature; the checkpoints node claims it when the gate interlock and verb ship

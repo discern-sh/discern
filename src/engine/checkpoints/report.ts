@@ -122,7 +122,7 @@ type CurrentBinding =
  * declared-unmet conclusion require an owner variance at landing. `binding`,
  * when computable, is what `done` would reconcile the episode to now: a
  * differing binding means the next gate run REOPENS it, so the recorded
- * conclusion is reported as no longer current rather than as standing. */
+ * conclusion is reported as reopened rather than as standing. */
 function episodeData(
   episode: CheckpointEpisode,
   stop: boolean,
@@ -559,14 +559,14 @@ export async function runCheckpoints(
     }
   }
   if (data.ungoverned !== undefined && data.ungoverned.length > 0) {
-    renderGroup(out, "ungoverned", "Recorded but no longer governed");
+    renderGroup(out, "ungoverned", "Outside the governing policy");
     for (const entry of data.ungoverned) {
       out.raw(`${
         presenter.present(renderResultSummaryCli, {
           state: "unchanged",
           fact: terminalMultiline(
             `${entry.id} — its episode stands (${entry.episode.state}), but ` +
-              `the current governing policy no longer contains it.`,
+              `the current governing policy does not contain it.`,
           ),
           maxWidth: width,
         })

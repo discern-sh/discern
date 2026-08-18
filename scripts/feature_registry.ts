@@ -699,6 +699,27 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
   },
   // ──────────────────────────────────────────────────────────────────────────
   {
+    id: "checkpoints",
+    title: "Checkpoints",
+    what:
+      "Change-triggered judgment stops under `[checkpoints]`: a deterministic trigger (a scope or path selector, `unless_changed`, thresholds, delta-shape predicates, or an executable `when` condition) pairs a semantic criterion with the change that makes it relevant. A fired `stop` checkpoint refuses `discern done` before any gate job until the agent judges the criterion and records a conclusion — `--met`, or `--unmet` with a one-paragraph rationale — bound to the exact definition and content it judged; `advise` mode serves the criterion without blocking. The governing definitions come from the effort's merge-base with the trunk, never the branch's own edits, and a declared-unmet conclusion lands only after the owner authorizes that variance at `discern accept` in the current conversation. `discern checkpoints` reports the whole contract read-only — the governing policy, each episode's declaration state, and a structural preview of what the current change would fire — and `prepare`/`status` serve each coming criterion early.",
+    why:
+      "The review moments that need judgment arrive while the change is being made, and every recorded conclusion stays qualified as the agent's declared judgment — never presented as machine-verified.",
+    agent:
+      "The refusal batches every awaiting checkpoint with its criterion, matched evidence, and both recoveries in one serving; recording a conclusion is the agent's own act with no owner round-trip, and revising the subject or replacing a conclusion never trips the unchanged-tree rerun refusal.",
+    plain: {
+      title: "Judgment stops",
+      what:
+        "Rules the project keeps under `[checkpoints]`. Each rule watches for a certain kind of change and carries a written question that matters for it. When a change matches a stopping rule, the final check refuses to start until the coding agent weighs the question and records its answer: satisfied (`--met`), or not satisfied (`--unmet`) with a short reason. A notice-only rule shows its question without stopping anything. The rules come from the main shared version, not from the task's own edits, and a \"not satisfied\" answer can join the main shared version only after the person in charge allows that named exception at `discern accept`. `discern checkpoints` shows the whole picture without changing anything — the rules, each recorded answer, and what the current change would set off — and `discern prepare` and `discern status` show each coming question early.",
+      why:
+        "The moments that need judgment arrive while the change is being made, and every recorded answer is presented as the coding agent's own judgment — never as something a machine proved.",
+      agent:
+        "The refusal gathers every waiting rule with its question, the matching files, and both ways to answer, in one message. Recording an answer is the coding agent's own act, with no waiting on the person in charge, and changing the files or the answer never sets off the repeat-run refusal.",
+    },
+    surfaces: ["verb:checkpoints", "config:checkpoints"],
+  },
+  // ──────────────────────────────────────────────────────────────────────────
+  {
     id: "worktrees",
     title: "Isolated worktrees",
     what:
@@ -2177,8 +2198,6 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
  */
 export const FEATURES_DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
   "verb:triangle": "intentionally enigmatic, and shrouded in mystery",
-  "config:checkpoints":
-    "the checkpoint engine's config surface landed ahead of its user-facing feature; the checkpoints node claims it when the gate interlock and verb ship",
 };
 
 /**

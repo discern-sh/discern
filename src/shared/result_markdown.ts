@@ -1059,7 +1059,7 @@ const presentCheckpoints: ResultMarkdownPresenter = (result) => {
       ...ungoverned.slice(0, MAX_LIST_ITEMS).map((entry) =>
         `${
           code(entry.id)
-        }: a recorded episode stands, but the current governing policy no longer contains it.`
+        }: a recorded episode stands, but the current governing policy does not contain it.`
       ),
       ...advisories.map((advisory) => `Fail-open: ${advisory}`),
       rows.length === 0 ? undefined : "No observed checkpoint history yet.",

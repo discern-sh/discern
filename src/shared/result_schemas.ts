@@ -771,7 +771,7 @@ export const CheckpointEpisodeDeclarationSchema = z.strictObject({
   why: z.string().optional(),
   declared_at: z.string(),
   /** False when a later relevant change reopened the episode: the recorded
-   * conclusion no longer binds to the current subject. */
+   * conclusion does not bind to the current subject. */
   current: z.boolean(),
 });
 export type CheckpointEpisodeDeclarationData = z.infer<
@@ -810,10 +810,10 @@ export const CheckpointReportSchema = z.strictObject({
 });
 export type CheckpointReportData = z.infer<typeof CheckpointReportSchema>;
 
-/** One recorded episode whose checkpoint the current governing policy no
- * longer contains (removed, renamed, or landed differently) — kept visible so
- * recorded judgments never silently vanish, though no declaration can act on
- * it until a governing trigger fires again. */
+/** One recorded episode whose checkpoint sits outside the current
+ * governing policy (removed, renamed, or landed differently) — kept visible
+ * so recorded judgments never silently vanish, though no declaration can act
+ * on it until a governing trigger fires again. */
 export const UngovernedEpisodeSchema = z.strictObject({
   id: z.string(),
   episode: CheckpointEpisodeDataSchema,
@@ -826,7 +826,7 @@ export const CheckpointsDataSchema = z.strictObject({
   policy: z.string().optional(),
   /** The governing checkpoints, one report row each. */
   checkpoints: z.array(CheckpointReportSchema),
-  /** Episodes recorded here whose checkpoint no longer governs. */
+  /** Episodes recorded here whose checkpoint is outside the governing policy. */
   ungoverned: z.array(UngovernedEpisodeSchema).optional(),
   /** Plain-language fail-open accounts (policy, diff, or store trouble). */
   advisories: z.array(z.string()).optional(),
