@@ -26,7 +26,7 @@ A [checkpoint](../00-orientation/glossary.md#checkpoint) is one configured rule 
 
 ## What happens at the gate
 
-When a fired [`stop`](../00-orientation/glossary.md#stop-advise) checkpoint awaits a conclusion, `discern done` refuses before any gate job with `error: "awaiting_declaration"`, batching every awaiting criterion with its matched paths in one refusal. No gate job ran and the project tree is unchanged; the [episode](../00-orientation/glossary.md#episode) record and a logbook line are the writes. The refusal names both recoveries:
+When a fired [`stop`](../00-orientation/glossary.md#stop--advise) checkpoint awaits a conclusion, `discern done` refuses before any gate job with `error: "awaiting_declaration"`, batching every awaiting criterion with its matched paths in one refusal. No gate job ran and the project tree is unchanged; the [episode](../00-orientation/glossary.md#episode) record and a logbook line are the writes. The refusal names both recoveries:
 
 - `discern done --met <id>` (repeatable) records that the criterion is satisfied for the current subject.
 - `discern done --unmet <id> --why "<rationale>"` (one per invocation) records that it is not.
