@@ -19,7 +19,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   DENO_JSON,
@@ -47,6 +47,7 @@ import {
   AWAIT_CALL_PROFILES,
   type AwaitCallProfile,
 } from "../src/shared/mcp_timeout_policy.ts";
+import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { writeProofNote } from "../src/engine/gate/proof_notes.ts";
 import { resolveCommonGitDir } from "../src/engine/worktree/git.ts";
 
@@ -913,6 +914,88 @@ Deno.test("await uses the longest reliable call for every caller profile", async
     assertEquals(cliExplicit.data?.timeout_seconds, 4_000);
     assertEquals(cliExplicit.data?.timeout_basis, "explicit");
     assertEquals(cliExplicit.data?.requested_timeout_seconds, undefined);
+  });
+});
+
+Deno.test("the experimental cap shortens automatic bounds and never lengthens one", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "dep");
+    const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES
+      .experimentalAwaitCallSeconds;
+    const capped = fakeEnv({ [variable]: "1500" });
+    const answered = (): AbortSignal => {
+      const abort = new AbortController();
+      abort.abort();
+      return abort.signal;
+    };
+
+    // The cap decides an automatic bound below the profile's, and the
+    // continuation inherits it so every lossless slice stays inside the window.
+    const automatic = await awaitResult(
+      dir,
+      { green: "agent/dep" },
+      answered(),
+      { callProfile: "long-client", env: capped },
+    );
+    assertEquals(automatic.data?.timeout_seconds, 1_500);
+    assertEquals(automatic.data?.timeout_basis, "experimental-cap");
+    assertEquals(automatic.data?.retry_after_seconds, 1_500);
+    assertEquals(automatic.data?.retry_basis, "experimental-cap");
+
+    // A cap above the profile's bound changes nothing: min, never max.
+    const above = await awaitResult(
+      dir,
+      { green: "agent/dep" },
+      answered(),
+      { callProfile: "strict-client", env: fakeEnv({ [variable]: "10000" }) },
+    );
+    assertEquals(above.data?.timeout_seconds, AWAIT_STRICT_CALL_SECONDS);
+    assertEquals(above.data?.timeout_basis, "strict-client");
+
+    // An explicit request inside the cap stays caller-owned.
+    const inside = await awaitResult(
+      dir,
+      { green: "agent/dep", timeoutSeconds: 60 },
+      answered(),
+      { callProfile: "long-client", env: capped },
+    );
+    assertEquals(inside.data?.timeout_seconds, 60);
+    assertEquals(inside.data?.timeout_basis, "explicit");
+
+    // An MCP request above the cap is sliced to it, the request recorded.
+    const sliced = await awaitResult(
+      dir,
+      { green: "agent/dep", timeoutSeconds: 3_000 },
+      answered(),
+      { callProfile: "long-client", env: capped },
+    );
+    assertEquals(sliced.data?.timeout_seconds, 1_500);
+    assertEquals(sliced.data?.timeout_basis, "experimental-cap");
+    assertEquals(sliced.data?.requested_timeout_seconds, 3_000);
+
+    // The direct CLI's explicit bound stays uncapped, as without the cap.
+    const cliExplicit = await awaitResult(
+      dir,
+      { green: "agent/dep", timeoutSeconds: 4_000 },
+      answered(),
+      { callProfile: "cli", env: capped },
+    );
+    assertEquals(cliExplicit.data?.timeout_seconds, 4_000);
+    assertEquals(cliExplicit.data?.timeout_basis, "explicit");
+
+    // A value outside the exact syntax leaves the experiment off.
+    for (const value of ["0", "-300", "1.5", "abc", ""]) {
+      const off = await awaitResult(
+        dir,
+        { green: "agent/dep" },
+        answered(),
+        { callProfile: "long-client", env: fakeEnv({ [variable]: value }) },
+      );
+      assertEquals(off.data?.timeout_seconds, AWAIT_LONG_CALL_SECONDS);
+      assertEquals(off.data?.timeout_basis, "long-client");
+    }
   });
 });
 
