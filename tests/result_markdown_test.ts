@@ -378,6 +378,73 @@ Deno.test("documentation suggestions and coupling commits survive text-only deli
   assertStringIncludes(coupling, "Keep result projections aligned");
 });
 
+Deno.test("checkpoints Markdown carries the declared vocabulary and the variance boundary", () => {
+  const result = {
+    ok: true,
+    verb: "checkpoints",
+    data: {
+      policy: "abc123def4567890",
+      checkpoints: [
+        {
+          id: "api-review",
+          mode: "stop",
+          criterion: "A changed API surface is described in its docs.",
+          trigger: "paths api/**",
+          preview: { holds: true, matched: ["api/surface.ext"] },
+          episode: {
+            state: "declared_unmet",
+            definition_hash: "d".repeat(64),
+            subject: "s".repeat(64),
+            matched: ["api/surface.ext"],
+            opened_at: "2026-08-18T00:00:00Z",
+            declaration: {
+              conclusion: "unmet",
+              why: "The docs lag the new surface.",
+              declared_at: "2026-08-18T00:01:00Z",
+              current: true,
+            },
+            variance_required: true,
+          },
+        },
+        {
+          id: "risk-notes",
+          mode: "advise",
+          criterion: "A risky change names what could break.",
+          trigger: "paths api/**",
+          preview: { holds: true, matched: ["api/surface.ext"] },
+        },
+      ],
+      ungoverned: [
+        {
+          id: "ghost",
+          episode: {
+            state: "awaiting_declaration",
+            definition_hash: "d".repeat(64),
+            subject: "s".repeat(64),
+            matched: ["api/surface.ext"],
+            opened_at: "2026-08-18T00:00:00Z",
+          },
+        },
+      ],
+    },
+  };
+  const rendered = renderResultMarkdown(
+    result,
+    resultPresenterForVerb("checkpoints"),
+  );
+  // Agent evidence stays qualified; the boundary names the owner's decision.
+  assertStringIncludes(rendered, "declared unmet");
+  assertStringIncludes(rendered, "owner variance required to land");
+  assertStringIncludes(rendered, "The docs lag the new surface.");
+  assertStringIncludes(rendered, "authorize a variance");
+  // A holding trigger serves its criterion; the seam states the empty history.
+  assertStringIncludes(rendered, "would fire at done (1 matched)");
+  assertStringIncludes(rendered, "A risky change names what could break.");
+  assertStringIncludes(rendered, "No observed checkpoint history yet.");
+  assertStringIncludes(rendered, "`ghost`");
+  assert(!rendered.includes("\u001b["), rendered);
+});
+
 Deno.test("unregistered router results use the bounded envelope presenter", () => {
   const presenter: ResultMarkdownPresenter = resultPresenterForVerb(
     "retired-command",
