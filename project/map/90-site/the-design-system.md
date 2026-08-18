@@ -15,7 +15,7 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.20.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.21.0"
 ```
 
 Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
@@ -26,11 +26,19 @@ When a package defect affects discern, release the fix from the package reposito
 
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts).
 
-Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.20.0/` origin; an external npm root must be declared by that published package and resolve to an exact node in `deno.lock`. A local path, workspace override, source import, mixed version, unlocked parser, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.21.0/` origin; an external npm root must be declared by that published package and resolve to an exact node in `deno.lock`. A local path, workspace override, source import, mixed version, unlocked parser, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
 
 ## Release 0.19.0 Markdown contracts
 
 Release 0.19.0 makes Markdown a first-class Editorial Component. Its public React-free `renderMarkdownCli` renderer owns CommonMark, GitHub Flavored Markdown tables, task lists, deleted text and automatic links, GitHub alerts, and footnotes through one pinned parser and exhaustive package model. Paragraph, Heading, List, Blockquote, `Callout`, Code block, Divider, Table, and Footnotes remain the presentation authorities. The renderer preserves nested structure and targets under narrow measures, makes hostile controls visible, leaves unsafe destinations non-actionable, and follows the bound theme, motif, colour, Unicode, and hyperlink capabilities. The same release measures Recommended for General Interchange emoji-presentation sequences, including flags and digit symbols, as two terminal cells while ordinary text pictographs retain their East Asian Width.
+
+## Release 0.21.0 terminal contracts
+
+Release 0.21.0 derives Unicode repertoire from the locale declaration alone. An undeclared locale and bare language tags use Unicode; exact `C` or `POSIX` and explicitly non-UTF-8 character sets use ASCII. Terminal attachment governs cursor and control behavior. Locale governs character repertoire. Agent shells and redirected output therefore retain Unicode glyphs, including `◮` where a composition selects the brand register, unless they explicitly declare an ASCII-only locale.
+
+The discern motif now has a plain register for ambient interface grammar and a brand register for ceremonial identity. Plain rendering uses `▲`, `△`, and `▲ ▷ ▼ ◁`; the brand register preserves `◮` and `◮ ⧩ ◭ ⧨`. Logo and Brand select the brand register by default. The product-owned pyramid and recursive gasket also derive their geometry from that register. Meter heads, Fleet, `Worklog`, and Process steps beacons, and Window and Terminal marks have fixed directional geometry and do not follow a consumer-selected motif register. Section rules select their register at their product composition call site.
+
+The terminal Switch now omits Yes and No text by default and uses symmetric glyph-only geometry. The confirmation adapter accepts that package default; a caller that needs words supplies explicit labels through the package contract.
 
 ## Release 0.20.0 reader contracts
 

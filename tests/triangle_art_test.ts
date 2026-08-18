@@ -12,6 +12,7 @@ import {
   renderTimelineCli as renderPackageTimeline,
   stripAnsi,
   type TerminalCapabilities,
+  terminalMotifRegisterRoles,
   terminalMotifRepertoire,
 } from "discern-design-system/cli";
 import {
@@ -104,8 +105,14 @@ function packageMotifFrames(
 }
 
 Deno.test("Discern derives product triangle geometry from the published motif preset", () => {
-  const unicode = DISCERN_TERMINAL_MOTIF.unicode.pattern;
-  const ascii = DISCERN_TERMINAL_MOTIF.ascii.pattern;
+  const unicode = terminalMotifRegisterRoles(
+    DISCERN_TERMINAL_MOTIF.unicode,
+    "brand",
+  ).pattern;
+  const ascii = terminalMotifRegisterRoles(
+    DISCERN_TERMINAL_MOTIF.ascii,
+    "brand",
+  ).pattern;
   assertEquals(DISCERN_TRIANGLE_GLYPHS, {
     upRight: unicode[0],
     upLeft: unicode[2],
@@ -223,8 +230,22 @@ Deno.test("product pyramid and gasket derive Unicode and ASCII from package fact
   const asciiPyramid = renderTrianglePyramid({ rows: 8, capabilities: ASCII });
   for (
     const [label, pyramid, authority] of [
-      ["Unicode", unicodePyramid, DISCERN_TERMINAL_MOTIF.unicode.pattern],
-      ["ASCII", asciiPyramid, DISCERN_TERMINAL_MOTIF.ascii.pattern],
+      [
+        "Unicode",
+        unicodePyramid,
+        terminalMotifRegisterRoles(
+          DISCERN_TERMINAL_MOTIF.unicode,
+          "brand",
+        ).pattern,
+      ],
+      [
+        "ASCII",
+        asciiPyramid,
+        terminalMotifRegisterRoles(
+          DISCERN_TERMINAL_MOTIF.ascii,
+          "brand",
+        ).pattern,
+      ],
     ] as const
   ) {
     const authorityGlyphs = new Set<string>(authority);

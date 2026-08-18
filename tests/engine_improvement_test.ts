@@ -12,6 +12,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { TRIANGLES } from "discern-design-system/cli";
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { stripAnsi } from "discern-design-system/cli";
@@ -31,6 +32,13 @@ import {
   withTempDir,
 } from "./helpers.ts";
 
+const PACKAGE_SECTION_TRIANGLES = new Set([
+  ...Object.values(DISCERN_TRIANGLE_GLYPHS),
+  ...Object.values(TRIANGLES).flatMap((family) =>
+    Object.values(family).map((triangle) => triangle.unicode)
+  ),
+]);
+
 /** Locate one package triangle section at or after a previous section. */
 function triangleSectionAt(
   output: string,
@@ -44,7 +52,7 @@ function triangleSectionAt(
     const lineEnd = end < 0 ? output.length : end;
     const line = output.slice(cursor, lineEnd);
     const decoration = line.replace(renderedLabel, "");
-    const hasTriangle = Object.values(DISCERN_TRIANGLE_GLYPHS).some((glyph) =>
+    const hasTriangle = [...PACKAGE_SECTION_TRIANGLES].some((glyph) =>
       decoration.includes(glyph)
     );
     if (
