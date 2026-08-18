@@ -657,7 +657,7 @@ Usage: `discern patterns archive [options]`
 
 ### `discern map`
 
-Browse and read the project map — its agent-maintained documentation tree.
+Browse the project map in discern's interactive Markdown reader, or read a named document.
 
 Usage: `discern map [target] [options]`
 
@@ -666,7 +666,7 @@ Usage: `discern map [target] [options]`
 | `--raw`            | Print a doc's pristine Markdown source instead of rendering it.             |
 | `--list`           | Print a plain table of contents and exit without interaction.               |
 | `--search <query>` | Search the map with task language or exact text; use a target to narrow it. |
-| `--no-pager`       | Don't page rendered output through $PAGER.                                  |
+| `--pager`          | Open rendered documents in an external pager (uses $PAGER or less -R).      |
 | `--dir <path>`     | Map directory to browse (default: the project's [map].dir).                 |
 | `--width <cols>`   | Wrap width for rendered output.                                             |
 | `--export <scope>` | Concatenate Markdown: public, all, select, or a configured scope name.      |
@@ -674,7 +674,7 @@ Usage: `discern map [target] [options]`
 
 ### `discern docs`
 
-Browse and read discern's own documentation.
+Browse discern's documentation in the interactive Markdown reader, or read a named document.
 
 Usage: `discern docs [target] [options]`
 
@@ -684,7 +684,7 @@ Usage: `discern docs [target] [options]`
 | `--list`           | Print a plain table of contents and exit without interaction.                      |
 | `--search <query>` | Search discern's docs with task language or exact text; use a target to narrow it. |
 | `--adr`            | Browse decision records in a source checkout, or show their public location.       |
-| `--no-pager`       | Don't page rendered output through $PAGER.                                         |
+| `--pager`          | Open rendered documents in an external pager (uses $PAGER or less -R).             |
 | `--width <cols>`   | Wrap width for rendered output.                                                    |
 | `--export <scope>` | Concatenate Markdown to stdout: public.                                            |
 | `--output <path>`  | Write an export to a file instead of stdout.                                       |

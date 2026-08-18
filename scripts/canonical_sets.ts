@@ -934,6 +934,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         banner: true,
       },
       {
+        path: "project/map/_internal/brand/demand-canon.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
         path: "project/map/_internal/brand/messaging.md",
         kind: "generated-file",
         banner: true,
@@ -993,7 +998,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "scripts/brand/claims.ts",
       exportName: "CLAIMS",
     },
-    guards: ["tests/brand_registry_codegen_test.ts"],
+    guards: [
+      "tests/brand_registry_codegen_test.ts",
+      "tests/canon_editor_parity_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: {
@@ -1007,6 +1015,66 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members: async () =>
       Object.keys((await import("./brand/claims.ts")).CLAIMS),
+  },
+  {
+    id: "brand-foundation-reading-steps",
+    title: "Brand writing foundations",
+    what:
+      "The shared strategic-document sequence that the brand voice Skill and the homepage-or-campaign reading path both require before public copy is written.",
+    source: {
+      kind: "module",
+      module: "scripts/brand/voice.ts",
+      exportName: "BRAND_FOUNDATION_READING_STEPS",
+    },
+    guards: ["tests/brand_registry_codegen_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the internal brand operating system owns this writing-context vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the reading sequence governs brand work rather than product behavior",
+      },
+    },
+    members: async () =>
+      (await import("./brand/voice.ts")).BRAND_FOUNDATION_READING_STEPS.map(
+        (step) => step.id,
+      ),
+  },
+  {
+    id: "demand-canon",
+    title: "Demand canon",
+    what:
+      "The market-side counterpart of the benefit canon: evidence-tagged struggling moments with their current alternatives and forces, held to two-way coverage against the benefits and rendered into the demand page the brand-documents set owns.",
+    source: {
+      kind: "module",
+      module: "scripts/brand/demand.ts",
+      exportName: "DEMAND_CANON",
+    },
+    guards: [
+      "tests/demand_canon_test.ts",
+      "tests/canon_editor_parity_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the internal demand canon defines this market-evidence vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "demand entries cite the benefits that answer them rather than product nodes",
+      },
+    },
+    members: async () => {
+      const demand = await import("./brand/demand.ts");
+      return [
+        ...demand.DEMAND_CANON.map((territory) => territory.id),
+        ...demand.allDemandEntries().map(({ entry }) => entry.id),
+      ];
+    },
   },
   {
     id: "setup-subverbs",
@@ -1598,6 +1666,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/glossary_enrolment_test.ts",
       "tests/vocab_drift_test.ts",
       "tests/feature_canon_plain_register_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {
@@ -1632,6 +1701,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/feature_canon_codegen_test.ts",
       "tests/feature_canon_enrolment_test.ts",
       "tests/feature_canon_plain_register_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {
@@ -1672,6 +1742,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/feature_canon_benefit_test.ts",
       "tests/feature_canon_codegen_test.ts",
+      "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {
@@ -1704,7 +1775,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "scripts/practice_registry.ts",
       exportName: "PRACTICE_CANON",
     },
-    guards: ["tests/practice_canon_enrolment_test.ts"],
+    guards: [
+      "tests/practice_canon_enrolment_test.ts",
+      "tests/canon_editor_parity_test.ts",
+    ],
     artifacts: [
       {
         path: "project/map/_internal/practice-canon.md",

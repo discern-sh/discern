@@ -15,10 +15,10 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.18.1"
+"discern-design-system": "jsr:@discern-sh/design-system@0.21.0"
 ```
 
-Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI consumer additionally uses the documented `./cli`, `./cli/interactive`, and `./cli/projection` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
+Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
 
 When a package defect affects discern, release the fix from the package repository and update this repository to the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
@@ -46,7 +46,27 @@ discern scripts site-design-system -- --build-only /absolute/path/to/design-syst
 
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts).
 
-Consumer conformance proves the package root and all three CLI graphs are React-free where required and that every module in each closure resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.18.1/` origin. A local path, workspace override, source import, mixed version, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.21.0/` origin; an external npm root must be declared by that published package and resolve to an exact node in `deno.lock`. A local path, workspace override, source import, mixed version, unlocked parser, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+
+## Release 0.19.0 Markdown contracts
+
+Release 0.19.0 makes Markdown a first-class Editorial Component. Its public React-free `renderMarkdownCli` renderer owns CommonMark, GitHub Flavored Markdown tables, task lists, deleted text and automatic links, GitHub alerts, and footnotes through one pinned parser and exhaustive package model. Paragraph, Heading, List, Blockquote, `Callout`, Code block, Divider, Table, and Footnotes remain the presentation authorities. The renderer preserves nested structure and targets under narrow measures, makes hostile controls visible, leaves unsafe destinations non-actionable, and follows the bound theme, motif, colour, Unicode, and hyperlink capabilities. The same release measures Recommended for General Interchange emoji-presentation sequences, including flags and digit symbols, as two terminal cells while ordinary text pictographs retain their East Asian Width.
+
+## Release 0.21.0 terminal contracts
+
+Release 0.21.0 derives Unicode repertoire from the locale declaration alone. An undeclared locale and bare language tags use Unicode; exact `C` or `POSIX` and explicitly non-UTF-8 character sets use ASCII. Terminal attachment governs cursor and control behavior. Locale governs character repertoire. Agent shells and redirected output therefore retain Unicode glyphs, including `◮` where a composition selects the brand register, unless they explicitly declare an ASCII-only locale.
+
+The discern motif now has a plain register for ambient interface grammar and a brand register for ceremonial identity. Plain rendering uses `▲`, `△`, and `▲ ▷ ▼ ◁`; the brand register preserves `◮` and `◮ ⧩ ◭ ⧨`. Logo and Brand select the brand register by default. The product-owned pyramid and recursive gasket also derive their geometry from that register. Meter heads, Fleet, `Worklog`, and Process steps beacons, and Window and Terminal marks have fixed directional geometry and do not follow a consumer-selected motif register. Gate, improvement, Logbook, and status section rules select the brand register at their product composition call sites. Command mastheads and structured Procedures do the same, while picker and navigation groups and other reusable package motifs retain their plain default.
+
+The terminal Switch omits Yes and No text by default and uses symmetric glyph-only geometry. discern's confirmation adapter requires each product call to supply short action labels through the package contract, so the surrounding question carries the scope while both Switch sides name their effect.
+
+## Release 0.20.0 reader contracts
+
+Release 0.20.0 adds secondary descriptions to choices and group headings, searching across labels and descriptions, a quieter browsing presentation, successful-frame cleanup policies, and a compact acknowledgement. Its public interactive graph also supplies the adaptive Markdown browser, internal-link navigation, mouse input, typed capability refusals, and terminal restoration needed by the integrated reader. The 5A `discern` browser consumes the selection and continuation contracts; the composite Markdown browser remains package-owned when discern adopts it.
+
+[`src/lib/markdown.ts`](../../../src/lib/markdown.ts) is the compatibility adapter for terminal readers. `discern map` and `discern docs` pass source plus their resolved measure through the process-bound presenter and carry no local terminal grammar. [`tests/markdown_test.ts`](../../../tests/markdown_test.ts) requires the adapter to remain byte-for-byte the public package renderer over the downstream dialect fixture and explicit colour, width, and repertoire cases. Raw, export, JSON, authored Markdown-result, and Model Context Protocol (MCP) surfaces do not enter this presentation path ([ADR 0287](../_adr/0287-terminal-markdown-delegates-to-the-design-system.md)).
+
+The request-time docs website keeps its React-free, product-specific HTML emitter. Workflow directives, glossary summaries, heading outlines, and link-integrity probes need hooks the generic package API does not expose; that boundary no longer claims to share the terminal parser. The package's browser Markdown Component is therefore not selected into the docs runtime bundle by this release.
 
 ## Release 0.18.1 semantic motif contracts
 

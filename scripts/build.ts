@@ -13,6 +13,10 @@
  *    subtrees are staged; internal decision and maintainer trees are never
  *    embedded in a customer binary.
  *
+ * npm packages are resolved without the workspace's physical `node_modules`
+ * and restricted to the product module graph. Dependencies used only by tests,
+ * the site, or repo-internal tools stay development inputs, not release files.
+ *
  * Output goes to `dist/`.
  *
  * Run: `deno task build` (optionally `deno task build <target>` to build one).
@@ -184,7 +188,9 @@ async function prepareBundledDocs(): Promise<string> {
 /**
  * Construct one `deno compile` invocation. Distribution roots stay directory
  * includes so their embedded paths remain stable; exact exclusions bound them
- * to the authored projection.
+ * to the authored projection. npm resolution deliberately bypasses the
+ * workspace's physical `node_modules`: repo-internal tools may have large npm
+ * dependencies that are not part of discern's product graph.
  */
 export function compileArguments(
   target: BuildTarget,
@@ -196,6 +202,8 @@ export function compileArguments(
   return [
     "compile",
     ...PERMISSIONS,
+    "--node-modules-dir=none",
+    "--exclude-unused-npm",
     ...distributionRoots.flatMap((path) => ["--include", path]),
     ...exclusions.flatMap((path) => ["--exclude", path]),
     "--include",

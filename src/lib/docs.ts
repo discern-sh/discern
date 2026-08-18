@@ -108,6 +108,31 @@ export interface DocGroup {
   entries: DocEntry[];
 }
 
+/** One title-first document choice in the interactive browser projection. */
+export interface DocBrowseItem {
+  /** Stable indexed document carried back from the picker. */
+  entry: DocEntry;
+  /** Document heading shown as the primary choice label. */
+  label: string;
+  /** Filename or section-relative path shown as secondary text. */
+  description: string;
+}
+
+/** One canonical top-level group in the interactive browser projection. */
+export interface DocBrowseGroup {
+  /** Stable top-level directory identity, including `(root)`. */
+  id: string;
+  /** Section front-door title, or the bounded root-documents label. */
+  label: string;
+  /** Top-level directory shown as secondary text when one exists. */
+  description?: string;
+  /** Documents in discovery's existing reading order. */
+  items: DocBrowseItem[];
+}
+
+/** Bounded label for documents stored directly at the documentation root. */
+export const ROOT_DOC_BROWSE_LABEL = "Overview";
+
 /** One non-internal top-level documentation subtree and its entries. */
 export interface DocRegion {
   /** Exact region target, such as `20-quality-gate`. */
@@ -816,6 +841,35 @@ export function groupDocs(entries: readonly DocEntry[]): DocGroup[] {
     group.entries.push(entry);
   }
   return [...groups.values()];
+}
+
+/**
+ * Project the canonical documentation tree into title-first browse groups.
+ * Group and document order both remain the discovery order, so new sections
+ * and nested pages enroll without another section registry.
+ */
+export function docBrowseGroups(
+  entries: readonly DocEntry[],
+): DocBrowseGroup[] {
+  return groupDocs(entries).flatMap((group) => {
+    const frontDoor = group.entries.find((entry) =>
+      entry.slug.toLowerCase() === "readme"
+    ) ?? group.entries[0];
+    if (frontDoor === undefined) return [];
+    const root = group.name === "(root)";
+    return [{
+      id: group.name,
+      label: root ? ROOT_DOC_BROWSE_LABEL : frontDoor.title,
+      ...(root ? {} : { description: `${group.name}/` }),
+      items: group.entries.map((entry) => ({
+        entry,
+        label: entry.title,
+        description: root
+          ? entry.relToDocs
+          : entry.relToDocs.slice(group.name.length + 1),
+      })),
+    }];
+  });
 }
 
 /**

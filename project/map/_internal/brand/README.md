@@ -42,6 +42,7 @@ The public brand should make that seriousness feel like an earned privilege: mor
 | ------------------------------------------------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | [`positioning.md`](positioning.md)                                                                | Canonical       | Defines why discern exists, who it serves, the market boundary, and the strategic choices that govern the brand.                                                            |                         |
 | [`audiences.md`](../../_private/brand/audiences.md)                                               | Canonical       | Defines audience circumstances, desires, objections, knowledge levels, and message translations.                                                                            | private overlay (local) |
+| [`demand-canon.md`](demand-canon.md)                                                              | Canonical       | States the struggling moments the benefits answer — evidence-tagged, with current alternatives and forces — and holds two-way coverage against the benefit canon.           |                         |
 | [`messaging.md`](messaging.md)                                                                    | Canonical       | Turns the positioning into message territories, descriptions, proof order, CTAs, and approved creative directions.                                                          |                         |
 | [`register-bridge.md`](register-bridge.md)                                                        | Canonical       | Prevents product ontology from directly dictating brand copy; maps product truth into human situations and benefits.                                                        |                         |
 | [`claims-and-evidence.md`](claims-and-evidence.md)                                                | Canonical       | States the strongest defensible public claims, evidence, conditions, and forbidden inferences.                                                                              |                         |
@@ -69,10 +70,11 @@ Read, in order:
 
 1. `positioning.md`
 2. `audiences.md`
-3. `messaging.md`
-4. the `discern-brand-voice` skill
-5. the relevant section of `website-brief.md`
-6. only the relevant claims from `claims-and-evidence.md`
+3. the relevant territory and entries from `demand-canon.md`
+4. `messaging.md`
+5. the `discern-brand-voice` skill
+6. the relevant section of `website-brief.md`
+7. only the relevant claims from `claims-and-evidence.md`
 
 Do **not** load the complete product canon as a style model. Consult product sources only to verify a claim or mechanism.
 

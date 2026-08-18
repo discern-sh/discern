@@ -373,6 +373,7 @@ function renderGroup(out: Out, id: string, label: string): void {
   out.group(id);
   out.raw(`${
     presenter.motifSectionRule(terminalLine(label), {
+      register: "brand",
       width,
     })
   }\n`);
@@ -406,6 +407,7 @@ function renderReviewUnit(
       }],
       completion: terminalMultiline(review.ask),
       completionLabel: terminalLine("Review question"),
+      register: "brand",
       maxWidth: width,
     })
   }\n`);
@@ -470,6 +472,7 @@ function renderSummary(
         }],
         completion: terminalMultiline(report.nextAction.action),
         completionLabel: terminalLine("Do"),
+        register: "brand",
         maxWidth: width,
       })
     }\n`);

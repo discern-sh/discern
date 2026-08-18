@@ -25,7 +25,6 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0009 — 1.0 — drop backward compatibility, with a one-shot `upgrade`](0009-one-point-zero-drop-backward-compat.md)
 - [0011 — Adopt the isolated-worktree workflow for discern's own development](0011-adopt-worktree-workflow.md)
 - [0014 — A versioned, reversible migration system for upgrades](0014-versioned-migration-system.md)
-- [0015 — `discern map` — an in-binary project-map browser with a hand-rolled terminal Markdown renderer](0015-map-browser.md)
 - [0017 — Declare capabilities, derive the gate — retire slots + phases](0017-capabilities-model.md)
 - [0018 — Consolidate discern vocabulary into four layers](0018-vocabulary-consolidation.md)
 - [0019 — Collapse into one binary with a TypeScript-native engine](0019-single-binary-ts-engine.md)
@@ -276,6 +275,12 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0284 — The practice canon enumerates the tenets](0284-the-practice-canon-enumerates-the-tenets.md)
 - [0285 — Agent instructions replace Guidance throughout the live product](0285-agent-instructions-replace-guidance.md)
 - [0286 — Configured source paths expose registry-derived live references](0286-configured-source-paths-expose-live-references.md)
+- [0287 — Terminal Markdown delegates to the design system](0287-terminal-markdown-delegates-to-the-design-system.md)
+- [0288 — Canon Editor edits the canon through its projections](0288-the-canon-editor-edits-the-canon-through-its-projections.md)
+- [0289 — Production binaries embed only product-reachable npm packages](0289-production-binaries-embed-only-product-reachable-npm-packages.md)
+- [0290 — Discern owns the default interactive Markdown reading loop](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)
+- [0291 — The await call cap is an environment-only valued experiment](0291-the-await-call-cap-is-an-environment-only-experiment.md)
+- [0292 — The demand canon counters the benefit canon](0292-the-demand-canon-counters-the-benefit-canon.md)
 
 <!-- END GENERATED: current ADR records -->
 
@@ -293,6 +298,7 @@ These records remain under [`_superseded/`](_superseded/) because the path to th
 - [0010 — Self-host the harness — install discern into its own repo](_superseded/0010-self-host-the-harness.md)
 - [0012 — Run the engine under `set -f` (noglob) by default](_superseded/0012-engine-noglob-default.md)
 - [0013 — User-facing output speaks the product's command vocabulary](_superseded/0013-product-vocabulary-in-user-output.md)
+- [0015 — `discern map` — an in-binary project-map browser with a hand-rolled terminal Markdown renderer](_superseded/0015-map-browser.md)
 - [0016 — Consolidate the install surface under `.discern/`](_superseded/0016-consolidate-install-surface.md)
 - [0024 — Setup is a command, not a skill](_superseded/0024-setup-command-not-skill.md)
 - [0030 — `--json` is quiet — the envelope is the entire machine output](_superseded/0030-quiet-json-output.md)

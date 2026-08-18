@@ -245,8 +245,8 @@ Deno.test("done TTY render: the package workflow leads into a truthful receipt",
       "lint [passed]",
       "test [passed]",
       "scope:web [skipped]",
-      "Receipt: Gate proof",
-      "[PASS]",
+      "Gate proof",
+      "[✓]",
       "3 passed, 1 skipped",
       "Proof record",
       "recorded",
@@ -255,7 +255,7 @@ Deno.test("done TTY render: the package workflow leads into a truthful receipt",
     assertStringIncludes(rendered, fact);
   }
   assertEquals(rendered.split("\n").at(-1), proof.line);
-  assert(rendered.indexOf("Gate progress") < rendered.indexOf("Receipt"));
+  assert(rendered.indexOf("Gate progress") < rendered.indexOf("Gate proof"));
 });
 
 Deno.test("done TTY render: color paints success and the proof without widening lines", () => {

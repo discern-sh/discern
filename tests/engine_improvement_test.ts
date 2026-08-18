@@ -31,6 +31,10 @@ import {
   withTempDir,
 } from "./helpers.ts";
 
+const PACKAGE_SECTION_TRIANGLES = new Set(
+  Object.values(DISCERN_TRIANGLE_GLYPHS),
+);
+
 /** Locate one package triangle section at or after a previous section. */
 function triangleSectionAt(
   output: string,
@@ -44,7 +48,7 @@ function triangleSectionAt(
     const lineEnd = end < 0 ? output.length : end;
     const line = output.slice(cursor, lineEnd);
     const decoration = line.replace(renderedLabel, "");
-    const hasTriangle = Object.values(DISCERN_TRIANGLE_GLYPHS).some((glyph) =>
+    const hasTriangle = [...PACKAGE_SECTION_TRIANGLES].some((glyph) =>
       decoration.includes(glyph)
     );
     if (
@@ -467,6 +471,7 @@ Deno.test("improvement: every human report group has a visible section", async (
     const labels = [
       "Health",
       "Next action",
+      "Steps",
       "Areas",
       ...(payload.data?.categories.map((category) => category.title) ?? []),
       "Commands",

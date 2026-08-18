@@ -5,11 +5,21 @@ import {
   normalizePtyLineEndings,
   renderTerminalCaptureHtml,
   serializeTerminalCapture,
+  settledInteractiveTerminalFrame,
   TERMINAL_CAPTURE_GEOMETRIES,
   type TerminalCommandCapture,
 } from "./fixtures/terminal_command_capture.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
+
+Deno.test("terminal capture names each review geometry", () => {
+  assertEquals(TERMINAL_CAPTURE_GEOMETRIES, {
+    canonical: { columns: 80, rows: 24 },
+    wide: { columns: 120, rows: 24 },
+    tall: { columns: 80, rows: 40 },
+    short: { columns: 80, rows: 13 },
+  });
+});
 
 Deno.test({
   name: "command capture forces its geometry and terminal environment",
@@ -49,10 +59,33 @@ Deno.test({
 
 Deno.test("PTY line normalization preserves rows and rejects live repaint", () => {
   assertEquals(normalizePtyLineEndings("one\r\ntwo\r\n"), "one\ntwo\n");
+  assertEquals(
+    normalizePtyLineEndings("complete frame\r\r\nnext row\r\r\n"),
+    "complete frame\nnext row\n",
+  );
   assertThrows(
     () => normalizePtyLineEndings("progress\rcomplete"),
     Error,
     "live carriage-return repaint",
+  );
+});
+
+Deno.test("interactive capture extracts the last settled package frame", () => {
+  const transcript = "prior\r\n\x1b[?25lfirst\r\n" +
+    "\x1b[1G\x1b[2A\x1b[J\x1b]11;?\x1b\\\x1b[?25l" +
+    "\x1b[1msettled\x1b[0m\r\n\x1b[?25h";
+  assertEquals(
+    settledInteractiveTerminalFrame(transcript),
+    "\x1b[1msettled\x1b[0m\n",
+  );
+});
+
+Deno.test("interactive capture extracts a complete alternate-screen repaint", () => {
+  const transcript = "\x1b[?1049h\x1b[?1000h\x1b[2J\x1b[H" +
+    "complete frame\r\r\nsecond row\r\r\n";
+  assertEquals(
+    settledInteractiveTerminalFrame(transcript),
+    "complete frame\nsecond row\n",
   );
 });
 

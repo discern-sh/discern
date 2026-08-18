@@ -1,10 +1,12 @@
 # ADR 0015: `discern map` — an in-binary project-map browser with a hand-rolled terminal Markdown renderer
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script for the former project Recipe surface; the decision and reasoning are unchanged.
+> **Superseded by [ADR 0287](../0287-terminal-markdown-delegates-to-the-design-system.md).** The in-binary browse, search, raw, export, and non-interactive decisions remain; the hand-rolled terminal parser and its approximate syntax contract do not.
 
-> **Presentation and interaction amendment (2026-08-13; [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md)):** The browse → select → page product flow survives. Selection now routes through Discern's package-backed prompt choke point, and terminal tables render through the package `./cli` graph. `@cliffy/command` remains the parser; Discern has no direct Cliffy Table or prompt dependency. Command's own transitive Table lock node is not a presentation authority for the map browser.
+> **Vocabulary amendment ([ADR 0120](../0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](../0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script for the former project Recipe surface; the decision and reasoning are unchanged.
 
-**Status**: accepted
+> **Presentation and interaction amendment (2026-08-13; [ADR 0279](../0279-external-terminal-rendering-crosses-one-process-boundary.md)):** The browse → select → page product flow survives. Selection now routes through Discern's package-backed prompt choke point, and terminal tables render through the package `./cli` graph. `@cliffy/command` remains the parser; Discern has no direct Cliffy Table or prompt dependency. Command's own transitive Table lock node is not a presentation authority for the map browser.
+
+**Status**: superseded by ADR 0287
 
 ## Context
 

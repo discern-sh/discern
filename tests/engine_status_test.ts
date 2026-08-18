@@ -1135,7 +1135,7 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     // reserves the stored Markdown page for --verbose.
     const plain = await runAgent(wt, ["status"]);
     assertEquals(plain.code, 0, plain.output);
-    assertTerminalTextIncludes(plain.output, "Receipt: agent/alpha Proof");
+    assertTerminalTextIncludes(plain.output, "agent/alpha Proof");
     assertStringIncludes(plain.output, "Proof");
     assertStatusFactLine(plain.output, "Proof", "honored");
     assert(
@@ -1260,8 +1260,8 @@ Deno.test("status: a landed proof carries its commit time for the human age", as
       JSON.stringify(result.data.landed_proof),
     );
     const human = await runAgent(dir, ["status"]);
-    assertTerminalTextIncludes(human.output, "Receipt: Last landing");
-    assertStringIncludes(human.output, "[PASS]");
+    assertTerminalTextIncludes(human.output, "Last landing");
+    assertStringIncludes(human.output, "[✓]");
     assertTerminalTextIncludes(human.output, "just now");
   });
 });

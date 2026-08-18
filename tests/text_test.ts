@@ -20,6 +20,15 @@ import {
 } from "../src/lib/text.ts";
 
 const ESC = String.fromCharCode(27);
+const EMOJI_PRESENTATION_SAMPLES = [
+  "☑️",
+  "©️",
+  "😀",
+  "👩‍💻",
+  "1️⃣",
+  "🇬🇧",
+  "🧑🏽",
+] as const;
 
 Deno.test("displayWidth measures ANSI, combining, wide, and emoji graphemes", () => {
   assertEquals(displayWidth("plain"), 5);
@@ -28,9 +37,9 @@ Deno.test("displayWidth measures ANSI, combining, wide, and emoji graphemes", ()
   assertEquals(displayWidth("e\u0301"), 1);
   assertEquals(displayWidth("界"), 2);
   assertEquals(displayWidth("A界"), 3);
-  assertEquals(displayWidth("👩‍💻"), 2);
-  assertEquals(displayWidth("🇬🇧"), 1);
-  assertEquals(displayWidth("1️⃣"), 1);
+  for (const sample of EMOJI_PRESENTATION_SAMPLES) {
+    assertEquals(displayWidth(sample), 2, sample);
+  }
   assertEquals(displayWidth(`${ESC}[31m界${ESC}[0m`), 2);
 });
 
@@ -40,9 +49,7 @@ Deno.test("generic text facades stay exact delegates of the package authority", 
     `${ESC}[31mred${ESC}[0m`,
     "e\u0301",
     "界",
-    "👩‍💻",
-    "🇬🇧",
-    "1️⃣",
+    ...EMOJI_PRESENTATION_SAMPLES,
   ];
   for (const sample of samples) {
     assertEquals(displayWidth(sample), measureText(sample));

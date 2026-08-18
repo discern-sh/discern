@@ -7,11 +7,11 @@
  * gate tests (tests/docs_integrity_test.ts, tests/map_integrity_test.ts)
  * prove they bite and hold this repo's own corpus to them.
  *
- * Links and anchors are read off {@link renderMarkdownHtml} — the SAME renderer
- * every published surface uses — so the guard checks exactly what a reader
- * receives: a link inside a code span or an HTML comment is not a link, and an
- * anchor is precisely the id the renderer stamps on the heading. Source line
- * numbers are recovered afterwards, best-effort, for readable diagnostics.
+ * Links and anchors are read off {@link renderMarkdownHtml}, the React-free
+ * website renderer whose link and heading contracts the guard protects. A link
+ * inside a code span or an HTML comment is not a link, and an anchor is
+ * precisely the id the browser stamps on the heading. Source line numbers are
+ * recovered afterwards, best-effort, for readable diagnostics.
  */
 
 import { parseFrontmatter } from "./frontmatter.ts";
@@ -51,8 +51,8 @@ function occurrenceLines(source: string, needle: string): number[] {
 }
 
 /**
- * Every link target the RENDERED page carries, in document order. Driven off
- * the shared renderer, so only real links count — `[x](y)` inside a fenced
+ * Every link target the rendered browser page carries, in document order.
+ * Driven off the website renderer, so only real links count — `[x](y)` inside a fenced
  * block, a code span, or a comment never surfaces here, exactly as it never
  * surfaces to a reader.
  */

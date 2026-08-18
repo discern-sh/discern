@@ -4598,6 +4598,7 @@ export async function worktreePrune(
             "Git-tracked work can be recovered from Git; untracked files and external resources may have no automatic recovery.",
           authority: "Repository owner after reviewing the candidate plan",
           continuation: "Remove the prune candidates above?",
+          labels: { noLabel: "Keep", yesLabel: "Remove" },
         },
         {
           yes: false,

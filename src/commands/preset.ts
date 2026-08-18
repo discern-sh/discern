@@ -299,6 +299,7 @@ export async function runPreset(
           plannedConfigFills === 1 ? "" : "s"
         } will be applied. Existing files and config values stay unchanged.`,
         continuation: `Overlay preset "${name}" now?`,
+        labels: { noLabel: "Keep", yesLabel: "Apply" },
       },
       {
         yes: options.yes,

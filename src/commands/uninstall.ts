@@ -733,6 +733,7 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
           "Committed files can be restored with Git; runtime records may have no automatic recovery.",
         authority: "Project owner after reviewing this bounded plan",
         continuation: "Remove discern's wiring from this project?",
+        labels: { noLabel: "Keep", yesLabel: "Remove" },
       },
       {
         yes: options.yes,

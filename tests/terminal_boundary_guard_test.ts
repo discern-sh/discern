@@ -24,6 +24,10 @@ const LIVE_VIEWPORT_CONTROLLER = "src/engine/gate/gate_tty.ts";
 const TRIANGLE_ART_AUTHORITY = "art/terminal/triangle.ts";
 const CLI_MODULE = "discern-design-system/cli";
 const INTERACTIVE_MODULE = "discern-design-system/cli/interactive";
+const CEREMONIAL_COMPONENT_RENDERERS = new Set([
+  "renderDocsHeaderCli",
+  "renderProcedureCli",
+]);
 
 /** Raw foundations are presenter-owned except inside the package-motif adapter. */
 const PRESENTER_FOUNDATION_RENDERERS = new Set([
@@ -486,7 +490,7 @@ function cliffyImportFindings(rel: string, source: string): Finding[] {
 }
 
 /**
- * Text-bearing leaves in the published 0.18.1 `*CliProps` contracts and their
+ * Text-bearing leaves in the published 0.21.0 `*CliProps` contracts and their
  * exported nested row shapes. Generic future renderer names deliberately
  * inherit this vocabulary; a package upgrade must re-audit the public types.
  */
@@ -955,6 +959,91 @@ function inspectableComponentProps(node: Deno.lint.Node): boolean {
       inspectableComponentProps(expression.right);
   }
   return false;
+}
+
+/** Whether a semantic Component call selects the ceremonial product register. */
+function explicitlySelectsBrandRegister(node: Deno.lint.Node): boolean {
+  const expression = unwrappedExpression(node);
+  return expression.type === "ObjectExpression" &&
+    expression.properties.some((property) => {
+      if (
+        property.type !== "Property" ||
+        propertyName(property.key) !== "register"
+      ) return false;
+      const value = unwrappedExpression(property.value);
+      return value.type === "Literal" && value.value === "brand";
+    });
+}
+
+/**
+ * Every command masthead and structured procedure is ceremonial. Enrol direct
+ * calls, presenter calls, import aliases, and local aliases across authored
+ * runtime TypeScript so a new component container cannot regain plain motifs.
+ */
+function ceremonialBrandRegisterFindings(
+  rel: string,
+  source: string,
+): Finding[] {
+  const findings: Finding[] = [];
+  const renderers = new Map<string, string>();
+  const add = (
+    renderer: string,
+    props: Deno.lint.Node | undefined,
+  ): void => {
+    if (props !== undefined && explicitlySelectsBrandRegister(props)) return;
+    findings.push({
+      file: rel,
+      rule: `missing-ceremonial-brand-register:${renderer}`,
+    });
+  };
+  const plugin = {
+    name: "discern-ceremonial-brand-register",
+    rules: {
+      collect: {
+        create(_context: Deno.lint.RuleContext): Deno.lint.LintVisitor {
+          return {
+            ImportDeclaration(node): void {
+              if (node.source.value !== CLI_MODULE) return;
+              for (const entry of node.specifiers) {
+                if (entry.type !== "ImportSpecifier") continue;
+                const imported = propertyName(entry.imported);
+                if (
+                  imported !== undefined &&
+                  CEREMONIAL_COMPONENT_RENDERERS.has(imported)
+                ) renderers.set(entry.local.name, imported);
+              }
+            },
+            VariableDeclarator(node): void {
+              if (
+                node.id.type === "Identifier" &&
+                node.init?.type === "Identifier"
+              ) {
+                const renderer = renderers.get(node.init.name);
+                if (renderer !== undefined) {
+                  renderers.set(node.id.name, renderer);
+                }
+              }
+            },
+            CallExpression(node): void {
+              if (node.callee.type === "Identifier") {
+                const renderer = renderers.get(node.callee.name);
+                if (renderer !== undefined) add(renderer, node.arguments[0]);
+              }
+              for (const [index, argument] of node.arguments.entries()) {
+                if (argument.type !== "Identifier") continue;
+                const renderer = renderers.get(argument.name);
+                if (renderer !== undefined) {
+                  add(renderer, node.arguments[index + 1]);
+                }
+              }
+            },
+          };
+        },
+      },
+    },
+  } satisfies Deno.lint.Plugin;
+  Deno.lint.runPlugin(plugin, rel, source);
+  return findings;
 }
 
 /**
@@ -1443,13 +1532,6 @@ interface ExactOutlawException {
 
 const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
   {
-    file: "src/lib/markdown.ts",
-    rule: "raw-terminal-control-literal",
-    authority: "osc8",
-    count: 1,
-    reason: "The central Markdown boundary owns the OSC-8 hyperlink protocol.",
-  },
-  {
     file: "src/engine/desk/desk.ts",
     rule: "raw-terminal-control-literal",
     authority: "clearBoard",
@@ -1566,6 +1648,14 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
     count: 1,
     reason:
       "The effectful package request graph accepts a theme but cannot use the pure CLI presenter.",
+  },
+  {
+    file: "scripts/canon_editor/assets.ts",
+    rule: "direct-theme-threading",
+    authority: "emitCanonEditorAssets",
+    count: 1,
+    reason:
+      "Canon Editor's web bundle selects the design system's site theme, not a terminal theme.",
   },
   {
     file: "scripts/terminal_capture.ts",
@@ -2281,6 +2371,37 @@ Deno.test("terminal outlaw TypeScript member detector is direct-member aware", (
   );
 });
 
+Deno.test("ceremonial Components require the brand register in every container", () => {
+  const unsafe = ceremonialBrandRegisterFindings(
+    "src/engine/orbit/view.ts",
+    [
+      'import { renderDocsHeaderCli as masthead, renderProcedureCli as workflow, renderSectionCli } from "discern-design-system/cli";',
+      "const renamed = workflow;",
+      'presenter.present(masthead, { brand: "discern orbit" });',
+      'renamed({ title: "Ship", steps: [], completion: "Done" }, capabilities);',
+      'presenter.present(renderSectionCli, { title: "Ambient", body: "" });',
+    ].join("\n"),
+  );
+  assertEquals(
+    unsafe.map((finding) => finding.rule),
+    [
+      "missing-ceremonial-brand-register:renderDocsHeaderCli",
+      "missing-ceremonial-brand-register:renderProcedureCli",
+    ],
+  );
+  assertEquals(
+    ceremonialBrandRegisterFindings(
+      "src/engine/orbit/view.ts",
+      [
+        'import { renderDocsHeaderCli as masthead, renderProcedureCli as workflow } from "discern-design-system/cli";',
+        'presenter.present(masthead, { brand: "discern orbit", register: "brand" });',
+        'workflow({ title: "Ship", steps: [], completion: "Done", register: "brand" }, capabilities);',
+      ].join("\n"),
+    ),
+    [],
+  );
+});
+
 Deno.test("Cliffy lock law retains only the command-owned transitive closure", () => {
   const config: DenoConfigShape = {
     imports: { "@cliffy/command": "jsr:@cliffy/command@^1" },
@@ -2364,27 +2485,27 @@ Deno.test("Cliffy lock law retains only the command-owned transitive closure", (
 });
 
 Deno.test("exact terminal exceptions reject a second violation in an exempt authority", () => {
-  const markdownException = EXACT_OUTLAW_EXCEPTIONS.filter((entry) =>
-    entry.file === "src/lib/markdown.ts"
+  const deskException = EXACT_OUTLAW_EXCEPTIONS.filter((entry) =>
+    entry.file === "src/engine/desk/desk.ts"
   );
-  assertEquals(markdownException.length, 1);
+  assertEquals(deskException.length, 1);
   const baseline = [{
-    file: "src/lib/markdown.ts",
+    file: "src/engine/desk/desk.ts",
     rule: "raw-terminal-control-literal",
-    authority: "osc8",
+    authority: "clearBoard",
   }];
   assertEquals(
-    unappliedOutlawFindingsWithExceptions(baseline, markdownException),
+    unappliedOutlawFindingsWithExceptions(baseline, deskException),
     [],
   );
   assertThrows(
     () =>
       unappliedOutlawFindingsWithExceptions(
         [...baseline, ...baseline],
-        markdownException,
+        deskException,
       ),
     Error,
-    "src/lib/markdown.ts:osc8 raw-terminal-control-literal exception moved, became stale, or changed count",
+    "src/engine/desk/desk.ts:clearBoard raw-terminal-control-literal exception moved, became stale, or changed count",
   );
 });
 
@@ -2406,6 +2527,7 @@ Deno.test("authored terminal outlaw is zero and exceptions remain exact", async 
     findings.push(
       ...legacyTypeApiFindings(rel, source),
       ...constantRowBudgetFindings(rel, source),
+      ...ceremonialBrandRegisterFindings(rel, source),
     );
   }
   assertEquals(unappliedOutlawFindings(findings), []);

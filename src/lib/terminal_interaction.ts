@@ -11,9 +11,20 @@ import {
 } from "discern-design-system/cli";
 import {
   InteractionCancelled as PackageInteractionCancelled,
+  type InteractionChoicePresentation,
+  type InteractionCompletionPolicy,
   type InteractionEntry,
   type InteractionRuntime as PackageInteractionRuntime,
+  type MarkdownBrowserEntry as PackageMarkdownBrowserEntry,
+  type MarkdownBrowserLinkResolution as PackageMarkdownBrowserLinkResolution,
+  type MarkdownBrowserLinkResolverInput
+    as PackageMarkdownBrowserLinkResolverInput,
+  type MarkdownBrowserOptions as PackageMarkdownBrowserOptions,
+  MarkdownBrowserRefusalError as PackageMarkdownBrowserRefusalError,
+  type MarkdownBrowserResumableState as PackageMarkdownBrowserResumableState,
+  requestAcknowledgement as packageRequestAcknowledgement,
   requestConfirmation as packageRequestConfirmation,
+  requestMarkdownBrowser as packageRequestMarkdownBrowser,
   requestSearch as packageRequestSearch,
   requestSelection as packageRequestSelection,
   requestSelections as packageRequestSelections,
@@ -32,6 +43,7 @@ import {
   SLUG_RULE,
   slugify,
 } from "./config.ts";
+import type { ConfirmationLabels } from "../shared/confirmation.ts";
 import { PROVIDERS } from "./providers.ts";
 import type { Logger } from "./log.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
@@ -146,6 +158,8 @@ export interface SelectionOption<T> {
   readonly kind?: "choice";
   readonly id?: string;
   readonly name: string;
+  /** Secondary product text, such as a filename or destination. */
+  readonly description?: string;
   readonly value: T;
   readonly disabled?: boolean;
   /** Initial multi-select state retained for the docs export picker. */
@@ -157,10 +171,133 @@ export interface SelectionHeading {
   readonly kind: "group-heading";
   readonly id: string;
   readonly name: string;
+  /** Secondary product text describing the grouped destination. */
+  readonly description?: string;
 }
 
 /** Choices and structural headings accepted by the product interaction adapter. */
 export type SelectionEntry<T> = SelectionOption<T> | SelectionHeading;
+
+/** Narrow a shared selection entry without duplicating heading vocabulary. */
+export function isSelectionHeading<T>(
+  entry: SelectionEntry<T>,
+): entry is SelectionHeading {
+  return entry.kind === "group-heading";
+}
+
+/** One semantic heading in the product's Markdown-browser corpus. */
+export interface MarkdownBrowserGroupHeading {
+  readonly kind: "group-heading";
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string;
+}
+
+/** One admitted Markdown document supplied to the package browser. */
+export interface MarkdownBrowserDocument {
+  readonly kind: "document";
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string;
+  /** Stable forward-slash path relative to the admitted corpus root. */
+  readonly path: string;
+  /** Markdown source; the package remains the rendering and safety authority. */
+  readonly source: string;
+}
+
+/** One product action returned only after the package restores the terminal. */
+export interface MarkdownBrowserAction<Action> {
+  readonly kind: "action";
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly value: Action;
+}
+
+/** One explicit browser exit kept distinct from product actions. */
+export interface MarkdownBrowserExit {
+  readonly kind: "exit";
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string;
+}
+
+/** Product-owned corpus data accepted by the Markdown-browser adapter. */
+export type MarkdownBrowserEntry<Action> =
+  | MarkdownBrowserGroupHeading
+  | MarkdownBrowserDocument
+  | MarkdownBrowserAction<Action>
+  | MarkdownBrowserExit;
+
+/** Admitted document fact supplied to product link resolution. */
+export interface MarkdownBrowserDocumentFact {
+  readonly id: string;
+  readonly name: string;
+  readonly path: string;
+}
+
+/** Product context for resolving one link inside the admitted corpus. */
+export interface MarkdownBrowserLinkResolverInput {
+  readonly sourceDocumentId: string;
+  readonly sourcePath: string;
+  readonly destination: string;
+  readonly availableDocuments: readonly MarkdownBrowserDocumentFact[];
+}
+
+/** Closed product outcomes for an admitted Markdown destination. */
+export type MarkdownBrowserLinkResolution =
+  | {
+    readonly kind: "document";
+    readonly documentId: string;
+    readonly fragment?: string;
+  }
+  | { readonly kind: "fragment"; readonly fragment: string }
+  | { readonly kind: "external"; readonly destination: string }
+  | { readonly kind: "unresolved"; readonly message?: string };
+
+/** Package state retained opaquely across product-owned external effects. */
+export type MarkdownBrowserResumeState = PackageMarkdownBrowserResumableState;
+
+/** Framework-neutral options for one complete Markdown browsing request. */
+export interface MarkdownBrowserRequestOptions<Action> {
+  readonly message: string;
+  readonly entries: readonly MarkdownBrowserEntry<Action>[];
+  readonly searchLabel?: string;
+  readonly initialState?: MarkdownBrowserResumeState;
+  readonly documentMeasure?: number;
+  readonly mouse?: boolean;
+  readonly resolveLink?: (
+    input: MarkdownBrowserLinkResolverInput,
+  ) => MaybePromise<MarkdownBrowserLinkResolution>;
+}
+
+/** Product result after the complete-frame terminal has been restored. */
+export type MarkdownBrowserRequestResult<Action> =
+  | {
+    readonly kind: "action";
+    readonly id: string;
+    readonly value: Action;
+    readonly state: MarkdownBrowserResumeState;
+  }
+  | {
+    readonly kind: "external-link";
+    readonly id: string;
+    readonly destination: string;
+    readonly sourceDocumentId: string;
+    readonly sourcePath: string;
+    readonly state: MarkdownBrowserResumeState;
+  }
+  | {
+    readonly kind: "exit";
+    readonly id: string;
+    readonly state: MarkdownBrowserResumeState;
+  }
+  | {
+    readonly kind: "refused";
+    readonly reason: "ansi-control-unavailable" | "terminal-too-small";
+    readonly columns: number;
+    readonly rows: number;
+  };
 
 /** Framework-neutral options for one product selection request. */
 export interface SelectionRequestOptions<T> {
@@ -169,6 +306,10 @@ export interface SelectionRequestOptions<T> {
   readonly default?: T;
   readonly hint?: string;
   readonly required?: boolean | string;
+  /** Successful-frame cleanup owned by the package request driver. */
+  readonly completion?: InteractionCompletionPolicy;
+  /** Form chrome or the quieter long-lived browsing treatment. */
+  readonly presentation?: InteractionChoicePresentation;
   readonly validate?: (value: T) => MaybePromise<InteractionValidation>;
   /** Use the package search request rather than a static selection request. */
   readonly search?: boolean;
@@ -187,6 +328,10 @@ export interface SelectionsRequestOptions<T> {
   readonly default?: readonly T[];
   readonly hint?: string;
   readonly minOptions?: number;
+  /** Successful-frame cleanup owned by the package request driver. */
+  readonly completion?: InteractionCompletionPolicy;
+  /** Form chrome or the quieter long-lived browsing treatment. */
+  readonly presentation?: InteractionChoicePresentation;
   readonly validate?: (
     value: readonly T[],
   ) => MaybePromise<InteractionValidation>;
@@ -213,7 +358,7 @@ export type TextRequestOptions = string | TextRequestSettings;
 
 export type SelectionGroup<T> =
   & HumanOutputGroup<SelectionOption<T>>
-  & { label: string };
+  & { label: string; description?: string };
 
 /** Injectable interaction runtime used by focused tests and terminal harnesses. */
 export interface TerminalInteractionRuntime {
@@ -244,6 +389,11 @@ export function isInteractionCancelled(
  * write receives the one newline that separates it from prior output. */
 export function withInteractionBoundary(target: TerminalIO): TerminalIO {
   let boundaryPending = true;
+  const listenResize = target.listenResize === undefined
+    ? undefined
+    : (handler: () => void): () => void =>
+      target.listenResize?.(handler) ??
+        (() => {});
   return {
     isInteractive: () => target.isInteractive(),
     capabilities: () => target.capabilities(),
@@ -257,6 +407,7 @@ export function withInteractionBoundary(target: TerminalIO): TerminalIO {
       }
       target.write(value);
     },
+    ...(listenResize === undefined ? {} : { listenResize }),
   };
 }
 
@@ -264,17 +415,29 @@ export function withInteractionBoundary(target: TerminalIO): TerminalIO {
 export function groupedSelectionEntries<T>(
   groups: readonly SelectionGroup<T>[],
 ): SelectionEntry<T>[] {
-  return populatedHumanOutputGroups(groups).flatMap((group) => {
-    if (group.label === undefined) {
-      throw new TypeError(
-        `selection group ${JSON.stringify(group.id)} needs a label`,
-      );
-    }
-    return [
-      { kind: "group-heading", id: group.id, name: group.label } as const,
-      ...group.items,
-    ];
-  });
+  const populatedIds = new Set(
+    populatedHumanOutputGroups(groups).map((group) => group.id),
+  );
+  return groups.filter((group) => populatedIds.has(group.id)).flatMap(
+    (group) => {
+      if (group.label === undefined) {
+        throw new TypeError(
+          `selection group ${JSON.stringify(group.id)} needs a label`,
+        );
+      }
+      return [
+        {
+          kind: "group-heading",
+          id: group.id,
+          name: group.label,
+          ...(group.description === undefined
+            ? {}
+            : { description: group.description }),
+        } as const,
+        ...group.items,
+      ];
+    },
+  );
 }
 
 /**
@@ -327,6 +490,11 @@ function traceInteractionIo(target: string, io: TerminalIO): InteractionTrace {
   const writes: InteractionTraceWrite[] = [];
   const budget = pendingBudgetTrace;
   pendingBudgetTrace = undefined;
+  const listenResize = io.listenResize === undefined
+    ? undefined
+    : (handler: () => void): () => void =>
+      io.listenResize?.(handler) ??
+        (() => {});
   return {
     io: {
       isInteractive: () => io.isInteractive(),
@@ -349,6 +517,7 @@ function traceInteractionIo(target: string, io: TerminalIO): InteractionTrace {
           });
         }
       },
+      ...(listenResize === undefined ? {} : { listenResize }),
     },
     settle: (outcome): void => {
       try {
@@ -460,6 +629,16 @@ function encodedIdentity(value: string): string {
     .join("");
 }
 
+/** Package identity for one product semantic group. */
+function packageGroupId(id: string): string {
+  return `group:${encodedIdentity(id)}`;
+}
+
+/** Package identity for one explicitly named product choice or browser row. */
+function packageExplicitChoiceId(id: string): string {
+  return `id:${encodedIdentity(id)}`;
+}
+
 interface AdaptedChoices<T> {
   readonly entries: readonly InteractionEntry<T>[];
   readonly idFor: (value: T) => string | undefined;
@@ -492,12 +671,15 @@ function adaptChoices<T>(
         );
       }
       groupIds.add(entry.id);
-      const productId = `group:${encodedIdentity(entry.id)}`;
+      const productId = packageGroupId(entry.id);
       productIds.add(productId);
       return {
         kind: "group-heading",
         id: productId,
         label,
+        ...(entry.description === undefined
+          ? {}
+          : { description: terminalLine(entry.description) }),
       };
     }
 
@@ -535,7 +717,7 @@ function adaptChoices<T>(
     }
     const productId = entry.id === undefined
       ? `value:${encodedIdentity(implicit ?? "")}`
-      : `id:${encodedIdentity(entry.id)}`;
+      : packageExplicitChoiceId(entry.id);
     if (productIds.has(productId)) {
       throw new TypeError(
         `selection choice id ${JSON.stringify(entry.id)} is repeated`,
@@ -546,6 +728,9 @@ function adaptChoices<T>(
     return {
       id: productId,
       label: terminalLine(entry.name),
+      ...(entry.description === undefined
+        ? {}
+        : { description: terminalLine(entry.description) }),
       value: entry.value,
       ...(entry.disabled === undefined ? {} : { disabled: entry.disabled }),
     };
@@ -558,38 +743,156 @@ function adaptChoices<T>(
   };
 }
 
-/** Keep a semantic heading only when its group has a matching choice. */
-function filterChoices<T>(
-  entries: readonly InteractionEntry<T>[],
-  query: string,
-): readonly InteractionEntry<T>[] {
-  const needle = query.toLowerCase();
-  if (needle === "") return entries;
-  const matches = (label: string): boolean =>
-    label.toLowerCase().includes(needle);
-  const filtered: InteractionEntry<T>[] = [];
-  for (let index = 0; index < entries.length;) {
-    const entry = entries[index];
-    if (entry?.kind !== "group-heading") {
-      if (entry !== undefined && matches(entry.label)) filtered.push(entry);
-      index += 1;
-      continue;
-    }
-    const choices: InteractionEntry<T>[] = [];
-    let next = index + 1;
-    while (next < entries.length && entries[next]?.kind !== "group-heading") {
-      const choice = entries[next];
-      if (
-        choice !== undefined && (matches(entry.label) || matches(choice.label))
-      ) {
-        choices.push(choice);
+interface AdaptedMarkdownBrowserEntries<Action> {
+  readonly entries: readonly PackageMarkdownBrowserEntry<Action>[];
+  readonly productIdForPackageId: (id: string) => string | undefined;
+  readonly packageDocumentIdForProductId: (id: string) => string | undefined;
+}
+
+/** Validate and map a complete product corpus through the shared ID authority. */
+function adaptMarkdownBrowserEntries<Action>(
+  entries: readonly MarkdownBrowserEntry<Action>[],
+): AdaptedMarkdownBrowserEntries<Action> {
+  const groupIds = new Set<string>();
+  const selectableIds = new Set<string>();
+  const productByPackage = new Map<string, string>();
+  const documentPackageByProduct = new Map<string, string>();
+  const adapted = entries.map(
+    (entry, index): PackageMarkdownBrowserEntry<Action> => {
+      const group = entry.kind === "group-heading";
+      const ids = group ? groupIds : selectableIds;
+      if (entry.id.trim() === "") {
+        throw new TypeError(
+          `Markdown browser ${group ? "group" : "entry"} ${
+            index + 1
+          } has a blank id.`,
+        );
       }
-      next += 1;
-    }
-    if (choices.length > 0) filtered.push(entry, ...choices);
-    index = next;
+      if (ids.has(entry.id)) {
+        throw new TypeError(
+          `Markdown browser ${group ? "group" : "entry"} id ${
+            JSON.stringify(entry.id)
+          } is repeated.`,
+        );
+      }
+      ids.add(entry.id);
+      const packageId = group
+        ? packageGroupId(entry.id)
+        : packageExplicitChoiceId(entry.id);
+      productByPackage.set(packageId, entry.id);
+      const label = terminalLine(entry.name);
+      if (label.trim() === "") {
+        throw new TypeError(
+          `Markdown browser entry ${
+            JSON.stringify(entry.id)
+          } has a blank label.`,
+        );
+      }
+      const description = entry.description === undefined
+        ? undefined
+        : terminalLine(entry.description);
+      switch (entry.kind) {
+        case "group-heading":
+          return {
+            kind: entry.kind,
+            id: packageId,
+            label,
+            ...(description === undefined ? {} : { description }),
+          };
+        case "document":
+          documentPackageByProduct.set(entry.id, packageId);
+          return {
+            kind: entry.kind,
+            id: packageId,
+            label,
+            ...(description === undefined ? {} : { description }),
+            path: entry.path,
+            source: entry.source,
+          };
+        case "action":
+          return {
+            kind: entry.kind,
+            id: packageId,
+            label,
+            ...(description === undefined ? {} : { description }),
+            value: entry.value,
+          };
+        case "exit":
+          return {
+            kind: entry.kind,
+            id: packageId,
+            label,
+            ...(description === undefined ? {} : { description }),
+          };
+      }
+    },
+  );
+  return {
+    entries: adapted,
+    productIdForPackageId: (id) => productByPackage.get(id),
+    packageDocumentIdForProductId: (id) => documentPackageByProduct.get(id),
+  };
+}
+
+/** Translate one product resolver outcome back into package corpus identity. */
+function packageMarkdownBrowserResolution<Action>(
+  resolution: MarkdownBrowserLinkResolution,
+  entries: AdaptedMarkdownBrowserEntries<Action>,
+): PackageMarkdownBrowserLinkResolution {
+  if (resolution.kind !== "document") return resolution;
+  const documentId = entries.packageDocumentIdForProductId(
+    resolution.documentId,
+  );
+  if (documentId === undefined) {
+    throw new TypeError(
+      `Markdown browser resolver returned unknown document id ${
+        JSON.stringify(resolution.documentId)
+      }.`,
+    );
   }
-  return filtered;
+  return {
+    kind: "document",
+    documentId,
+    ...(resolution.fragment === undefined
+      ? {}
+      : { fragment: resolution.fragment }),
+  };
+}
+
+/** Adapt package link facts into the product's stable corpus identities. */
+async function resolveMarkdownBrowserLink<Action>(
+  input: PackageMarkdownBrowserLinkResolverInput,
+  entries: AdaptedMarkdownBrowserEntries<Action>,
+  resolver: NonNullable<MarkdownBrowserRequestOptions<Action>["resolveLink"]>,
+): Promise<PackageMarkdownBrowserLinkResolution> {
+  const sourceDocumentId = entries.productIdForPackageId(
+    input.sourceDocumentId,
+  );
+  if (sourceDocumentId === undefined) {
+    throw new TypeError(
+      "Markdown browser link source is not an admitted product document.",
+    );
+  }
+  const availableDocuments = input.availableDocuments.map((document) => {
+    const id = entries.productIdForPackageId(document.id);
+    if (id === undefined) {
+      throw new TypeError(
+        "Markdown browser link inventory contains an unknown document.",
+      );
+    }
+    return {
+      id,
+      name: terminalLine(document.label),
+      path: document.path,
+    };
+  });
+  const resolution = await resolver({
+    sourceDocumentId,
+    sourcePath: input.sourcePath,
+    destination: input.destination,
+    availableDocuments,
+  });
+  return packageMarkdownBrowserResolution(resolution, entries);
 }
 
 /** Adapt the product validator's true/string convention to the package. */
@@ -611,32 +914,54 @@ interface PackageInteractionSession {
   readonly settleTrace?: (outcome: string) => void;
 }
 
+interface PackageInteractionSessionOptions {
+  /** Inline requests need one boundary; alternate-screen requests do not. */
+  readonly leadingBoundary: boolean;
+  /** Inline painters need a final newline when an unexpected fault bypasses finish. */
+  readonly terminateUnexpectedFrame: boolean;
+  /** Give a typed non-value outcome its own trace label before rethrowing it. */
+  readonly errorOutcome?: (error: unknown) => string | undefined;
+}
+
 /** Construct one package runtime after policy has allowed interaction. */
 function packageInteractionRuntime(
   runtime: TerminalInteractionRuntime,
+  options: PackageInteractionSessionOptions = {
+    leadingBoundary: true,
+    terminateUnexpectedFrame: true,
+  },
 ): PackageInteractionSession {
   let target: TerminalIO;
   let theme: PackageInteractionRuntime["theme"];
+  let motif: PackageInteractionRuntime["motif"];
   if (runtime.io !== undefined) {
     target = runtime.io;
   } else {
     const terminal = terminalContext();
     target = terminalInteractionIo(terminal);
     theme = terminal.themeVariant;
+    motif = terminal.motif;
   }
 
-  const boundary = withInteractionBoundary(target);
+  const output = options.leadingBoundary
+    ? withInteractionBoundary(target)
+    : target;
+  const listenResize = output.listenResize === undefined
+    ? undefined
+    : (handler: () => void): () => void =>
+      output.listenResize?.(handler) ?? (() => {});
   let wrote = false;
   const io: TerminalIO = {
-    isInteractive: () => boundary.isInteractive(),
-    capabilities: () => boundary.capabilities(),
-    size: () => boundary.size(),
-    read: () => boundary.read(),
-    setRawMode: (enabled) => boundary.setRawMode(enabled),
+    isInteractive: () => output.isInteractive(),
+    capabilities: () => output.capabilities(),
+    size: () => output.size(),
+    read: () => output.read(),
+    setRawMode: (enabled) => output.setRawMode(enabled),
     write: (value): void => {
-      boundary.write(value);
+      output.write(value);
       if (value.length > 0) wrote = true;
     },
+    ...(listenResize === undefined ? {} : { listenResize }),
   };
   const tracePath = interactionTraceTarget(runtime.env);
   const trace = tracePath === undefined
@@ -646,10 +971,11 @@ function packageInteractionRuntime(
     runtime: {
       io: trace?.io ?? io,
       ...(theme === undefined ? {} : { theme }),
+      ...(motif === undefined ? {} : { motif }),
     },
     ...(trace === undefined ? {} : { settleTrace: trace.settle }),
     terminateUnexpectedFrame: (): void => {
-      if (!wrote) return;
+      if (!options.terminateUnexpectedFrame || !wrote) return;
       try {
         // The public driver restores raw mode and the cursor on every exception,
         // but only its submitted/cancelled paths finish the painter. This
@@ -673,8 +999,12 @@ async function runInteractionRequest<Options, Value>(
   operation: PackageInteractionOperation<Options, Value>,
   options: Options,
   runtime: TerminalInteractionRuntime,
+  sessionOptions: PackageInteractionSessionOptions = {
+    leadingBoundary: true,
+    terminateUnexpectedFrame: true,
+  },
 ): Promise<Value> {
-  const session = packageInteractionRuntime(runtime);
+  const session = packageInteractionRuntime(runtime, sessionOptions);
   let outcome = "value";
   try {
     return await operation(options, session.runtime);
@@ -683,12 +1013,102 @@ async function runInteractionRequest<Options, Value>(
       outcome = "cancelled";
       throw new InteractionCancelled();
     }
-    outcome = "error";
+    outcome = sessionOptions.errorOutcome?.(error) ?? "error";
     session.terminateUnexpectedFrame();
     throw error;
   } finally {
     session.settleTrace?.(outcome);
   }
+}
+
+/** Request the package's complete Markdown browser through the product boundary. */
+export async function requestMarkdownBrowser<Action>(
+  options: MarkdownBrowserRequestOptions<Action>,
+  runtime: TerminalInteractionRuntime = {},
+): Promise<MarkdownBrowserRequestResult<Action>> {
+  requireInteraction("the documentation browser", runtime);
+  const entries = adaptMarkdownBrowserEntries(options.entries);
+  const linkResolver = options.resolveLink;
+  const packageOptions: PackageMarkdownBrowserOptions<Action> = {
+    label: terminalLine(options.message),
+    entries: entries.entries,
+    ...(options.searchLabel === undefined
+      ? {}
+      : { placeholder: terminalLine(options.searchLabel) }),
+    ...(options.initialState === undefined
+      ? {}
+      : { initialState: options.initialState }),
+    ...(options.documentMeasure === undefined
+      ? {}
+      : { documentMeasure: options.documentMeasure }),
+    ...(options.mouse === undefined ? {} : { mouse: options.mouse }),
+    ...(linkResolver === undefined ? {} : {
+      resolveLink: (input: PackageMarkdownBrowserLinkResolverInput) =>
+        resolveMarkdownBrowserLink(input, entries, linkResolver),
+    }),
+  };
+  const result = await (async () => {
+    try {
+      return await runInteractionRequest(
+        packageRequestMarkdownBrowser,
+        packageOptions,
+        runtime,
+        {
+          leadingBoundary: false,
+          terminateUnexpectedFrame: false,
+          errorOutcome: (error) =>
+            error instanceof PackageMarkdownBrowserRefusalError
+              ? `refused:${error.reason}`
+              : undefined,
+        },
+      );
+    } catch (error) {
+      if (error instanceof PackageMarkdownBrowserRefusalError) {
+        return {
+          kind: "refused" as const,
+          reason: error.reason,
+          columns: error.columns,
+          rows: error.rows,
+        };
+      }
+      throw error;
+    }
+  })();
+  if (result.kind === "refused") return result;
+  if (result.kind === "external-link") {
+    const sourceDocumentId = entries.productIdForPackageId(
+      result.sourceDocumentId,
+    );
+    if (sourceDocumentId === undefined) {
+      throw new TypeError(
+        "Markdown browser returned an unknown external-link source.",
+      );
+    }
+    return {
+      kind: result.kind,
+      id: result.id,
+      destination: result.destination,
+      sourceDocumentId,
+      sourcePath: result.sourcePath,
+      state: result.state,
+    };
+  }
+  const id = entries.productIdForPackageId(result.id);
+  if (id === undefined) {
+    throw new TypeError(
+      `Markdown browser returned unknown entry id ${
+        JSON.stringify(result.id)
+      }.`,
+    );
+  }
+  return result.kind === "action"
+    ? {
+      kind: result.kind,
+      id,
+      value: result.value,
+      state: result.state,
+    }
+    : { kind: result.kind, id, state: result.state };
 }
 
 /** Guard policy before delegating to the package selection or search request. */
@@ -717,6 +1137,12 @@ export async function requestSelection<T>(
     choices: choices.entries,
     ...(options.hint === undefined ? {} : { hint: terminalLine(options.hint) }),
     ...(required === undefined ? {} : { required }),
+    ...(options.completion === undefined
+      ? {}
+      : { completion: options.completion }),
+    ...(options.presentation === undefined
+      ? {}
+      : { presentation: options.presentation }),
     ...(validate === undefined ? {} : {
       validate: async (value: T | undefined): Promise<string | undefined> =>
         value === undefined ? undefined : await validate(value),
@@ -729,9 +1155,15 @@ export async function requestSelection<T>(
   const value = options.search === true
     ? await runInteractionRequest(packageRequestSearch<T>, {
       label: shared.label,
-      search: (query) => filterChoices(choices.entries, query),
+      search: choices.entries,
       ...(shared.hint === undefined ? {} : { hint: shared.hint }),
       ...(shared.required === undefined ? {} : { required: shared.required }),
+      ...(shared.completion === undefined
+        ? {}
+        : { completion: shared.completion }),
+      ...(shared.presentation === undefined
+        ? {}
+        : { presentation: shared.presentation }),
       ...(shared.validate === undefined ? {} : { validate: shared.validate }),
       ...(shared.reservedRows === undefined
         ? {}
@@ -793,6 +1225,12 @@ export async function requestSelections<T>(
     initialIds: [...initialIds],
     ...(options.hint === undefined ? {} : { hint: terminalLine(options.hint) }),
     validate,
+    ...(options.completion === undefined
+      ? {}
+      : { completion: options.completion }),
+    ...(options.presentation === undefined
+      ? {}
+      : { presentation: options.presentation }),
     ...(options.reservedRows === undefined
       ? {}
       : { reservedRows: options.reservedRows }),
@@ -831,17 +1269,36 @@ export async function requestText(
   }, runtime);
 }
 
+/** Complete behavior and copy for one package-backed confirmation request. */
+export interface ConfirmationRequestOptions extends ConfirmationLabels {
+  readonly defaultTo: boolean;
+}
+
 /** Guard policy before asking a package-backed yes-or-no question. */
 export async function requestConfirmation(
   message: string,
-  defaultTo: boolean,
+  options: ConfirmationRequestOptions,
   runtime: TerminalInteractionRuntime = {},
 ): Promise<boolean> {
   requireInteraction("this confirmation", runtime);
   return await runInteractionRequest(packageRequestConfirmation, {
     label: terminalLine(message),
-    initialValue: defaultTo,
+    initialValue: options.defaultTo,
+    noLabel: terminalLine(options.noLabel),
+    yesLabel: terminalLine(options.yesLabel),
   }, runtime);
+}
+
+/** Wait below caller-owned content through the package's compact continuation. */
+export async function requestCompactAcknowledgement(
+  runtime: TerminalInteractionRuntime = {},
+): Promise<void> {
+  requireInteraction("this continuation", runtime);
+  await runInteractionRequest(
+    packageRequestAcknowledgement,
+    { presentation: "compact" as const },
+    runtime,
+  );
 }
 
 /** Canonical whitespace policy shared by single-line product text requests. */
@@ -1034,6 +1491,8 @@ export interface DestructiveConfirmationCopy {
   readonly authority?: string;
   /** The final yes-or-no continuation request. */
   readonly continuation: string;
+  /** Short action labels shown on the confirmation Switch. */
+  readonly labels: ConfirmationLabels;
 }
 
 /** Human delivery facts kept separate from the semantic confirmation copy. */
@@ -1054,6 +1513,8 @@ export interface ConfirmationDialogCopy {
   readonly consequence: string;
   /** The final yes-or-no continuation request. */
   readonly continuation: string;
+  /** Short action labels shown on the confirmation Switch. */
+  readonly labels: ConfirmationLabels;
 }
 
 /** Injectable confirmation effects that prove suppression and ordering. */
@@ -1061,7 +1522,7 @@ export interface ConfirmationRequestRuntime {
   readonly interactive?: (yes: boolean) => boolean;
   readonly request?: (
     message: string,
-    defaultTo: boolean,
+    options: ConfirmationRequestOptions,
   ) => Promise<boolean>;
 }
 
@@ -1101,10 +1562,14 @@ export function renderConfirmationDialog(
 /** Ask one cancellation-aware package confirmation through an injected request. */
 async function requestProceed(
   message: string,
-  request: (message: string, defaultTo: boolean) => Promise<boolean>,
+  labels: ConfirmationLabels,
+  request: (
+    message: string,
+    options: ConfirmationRequestOptions,
+  ) => Promise<boolean>,
 ): Promise<boolean> {
   try {
-    return await request(message, true);
+    return await request(message, { defaultTo: true, ...labels });
   } catch (error) {
     if (!isInteractionCancelled(error)) throw error;
     return false;
@@ -1123,13 +1588,14 @@ async function requestProceed(
  */
 export async function confirmProceed(
   message: string,
+  labels: ConfirmationLabels,
   yes: boolean,
   json = false,
 ): Promise<boolean> {
   if (!confirmationAllowed(yes, json)) {
     return true;
   }
-  return await requestProceed(message, requestConfirmation);
+  return await requestProceed(message, labels, requestConfirmation);
 }
 
 /**
@@ -1149,6 +1615,7 @@ export async function confirmDestructiveAction(
   options.present(renderDestructiveConfirmation(copy, options.terminal));
   return await requestProceed(
     copy.continuation,
+    copy.labels,
     runtime.request ?? requestConfirmation,
   );
 }
@@ -1169,6 +1636,7 @@ export async function confirmDialogAction(
   options.present(renderConfirmationDialog(copy, options.terminal));
   return await requestProceed(
     copy.continuation,
+    copy.labels,
     runtime.request ?? requestConfirmation,
   );
 }

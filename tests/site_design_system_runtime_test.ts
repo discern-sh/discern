@@ -35,7 +35,7 @@ import { JSDOM } from "jsdom";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
-const DESIGN_SYSTEM_VERSION = "0.18.1";
+const DESIGN_SYSTEM_VERSION = "0.21.0";
 const DESIGN_SYSTEM_SPECIFIER =
   `jsr:@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}`;
 

@@ -23,15 +23,25 @@ import {
 import {
   InlineFramePainter,
   type InteractionEntry,
+  type MarkdownBrowserLinkResolution,
+  MarkdownBrowserRefusalError,
+  requestAcknowledgement,
+  requestMarkdownBrowser,
   requestSelection,
   senseTerminalBackground,
   type TerminalIO,
+  type TerminalMouseEvent,
   type TerminalSize,
 } from "discern-design-system/cli/interactive";
+import {
+  encodeTerminalKeys,
+  encodeTerminalMouseEvent,
+  FakeTerminalIO,
+} from "discern-design-system/cli/interactive/testing";
 import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.18.1";
+const SELECTED_VERSION = "0.21.0";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
@@ -47,7 +57,10 @@ interface DenoConfig {
 
 interface DenoLock {
   readonly specifiers: Readonly<Record<string, string>>;
-  readonly jsr: Readonly<Record<string, unknown>>;
+  readonly jsr: Readonly<
+    Record<string, { readonly dependencies?: readonly string[] }>
+  >;
+  readonly npm: Readonly<Record<string, unknown>>;
 }
 
 interface DenoInfoResolution {
@@ -61,7 +74,9 @@ interface DenoInfoDependency {
 }
 
 interface DenoInfoModule {
+  readonly kind?: string;
   readonly specifier?: string;
+  readonly npmPackage?: string;
   readonly dependencies?: readonly DenoInfoDependency[];
 }
 
@@ -146,7 +161,7 @@ function resolvedEdge(info: DenoInfo, specifier: string): string {
   return info.redirects?.[specifier] ?? specifier;
 }
 
-Deno.test("the selected release exposes all four public consumer graphs", async () => {
+Deno.test("the selected release exposes the complete public reader contract", async () => {
   const config = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.json")),
   ) as DenoConfig;
@@ -159,6 +174,24 @@ Deno.test("the selected release exposes all four public consumer graphs", async 
 
   assertEquals(packageManifest.package, "@discern-sh/design-system");
   assert(packageManifest.components.length > 0);
+  assertEquals(typeof requestAcknowledgement, "function");
+  assertEquals(typeof requestMarkdownBrowser, "function");
+  assertEquals(typeof MarkdownBrowserRefusalError, "function");
+  assertEquals(typeof FakeTerminalIO, "function");
+  const mouse: TerminalMouseEvent = {
+    kind: "mouse",
+    action: "wheel",
+    direction: "down",
+    column: 4,
+    row: 8,
+    modifiers: { shift: false, alt: false, control: false },
+  };
+  assertStringIncludes(encodeTerminalMouseEvent(mouse), "[<65;4;8M");
+  const linkResolution: MarkdownBrowserLinkResolution = {
+    kind: "document",
+    documentId: "guide",
+  };
+  assertEquals(linkResolution.kind, "document");
 
   const capabilities: TerminalCapabilities = {
     ansiControl: true,
@@ -186,20 +219,62 @@ Deno.test("the selected release exposes all four public consumer graphs", async 
   assertStringIncludes(fleet, branch);
 
   const choices = [
-    { kind: "group-heading", id: "primary", label: "Primary" },
-    { id: "one", label: "One", value: "one" },
+    {
+      kind: "group-heading",
+      id: "primary",
+      label: "Primary",
+      description: "first/",
+    },
+    { id: "one", label: "One", description: "one.md", value: "one" },
     { kind: "group-heading", id: "secondary", label: "Secondary" },
     { id: "two", label: "Two", value: "two" },
   ] as const satisfies readonly InteractionEntry<string>[];
   const io = new ConsumerTerminal(["\x1b[B\r"]);
   assertEquals(
-    await requestSelection({ label: "Pick", choices, reservedRows: 2 }, { io }),
+    await requestSelection({
+      label: "Pick",
+      choices,
+      reservedRows: 2,
+      presentation: "browsing",
+      completion: "clear-frame",
+    }, { io }),
     "two",
   );
   assertEquals(io.rawTransitions, [true, false]);
   const terminalOutput = io.writes.join("");
   assertStringIncludes(terminalOutput, "PRIMARY");
   assertStringIncludes(terminalOutput, "SECONDARY");
+  assertStringIncludes(terminalOutput, "first/");
+  assertStringIncludes(terminalOutput, "one.md");
+
+  const browserIo = new FakeTerminalIO([encodeTerminalKeys("enter")], {
+    ansiControl: true,
+    columns: 80,
+    rows: 24,
+  });
+  const browserResult = await requestMarkdownBrowser({
+    label: "Published browser",
+    entries: [{
+      kind: "action",
+      id: "return",
+      label: "Return",
+      value: "returned",
+    }],
+    mouse: true,
+  }, { io: browserIo });
+  assertEquals(browserResult.kind, "action");
+  assertEquals(browserIo.rawTransitions, [true, false]);
+  assertEquals(browserIo.resizeListenerCount, 0);
+
+  const acknowledgementIo = new ConsumerTerminal(["\r"]);
+  await requestAcknowledgement(
+    { presentation: "compact" },
+    { io: acknowledgementIo },
+  );
+  assertStringIncludes(
+    acknowledgementIo.writes.join(""),
+    "Press Enter to continue.",
+  );
 
   const choiceFrames = io.writes.filter((write) =>
     write.includes("One") && write.includes("Two")
@@ -308,7 +383,7 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
   assert(presenter.motif === DISCERN_TERMINAL_MOTIF);
   assertEquals(
     Array.from({ length: 4 }, (_, phase) => presenter.motifSpinnerFrame(phase)),
-    ["▴", "◂", "▾", "▸"],
+    ["◐", "◓", "◑", "◒"],
   );
   const customMotif = deriveTerminalMotif(DISCERN_TERMINAL_MOTIF, {
     unicode: { spinner: ["◴", "◷", "◶", "◵"] },
@@ -323,7 +398,7 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
     ["◴", "◷", "◶", "◵"],
   );
   assertEquals(presenter.motifSpinnerFrame(1, { motif: customMotif }), "◷");
-  assertEquals(presenter.motifSpinnerFrame(1), "◂");
+  assertEquals(presenter.motifSpinnerFrame(1), "◓");
 
   const section = presenter.motifSectionRule("Status", { width: 32 });
   assertStringIncludes(section, "STATUS");
@@ -393,14 +468,14 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
     confirm(false),
     "Proceed [active]\n" +
       "┌──────────────────────────────────────┐\n" +
-      "│› Keep waiting ●──○ Deploy now        │\n" +
+      "│› Keep waiting × ●──○   Deploy now    │\n" +
       "└──────────────────────────────────────┘\n",
   );
   assertEquals(
     confirm(true),
     "Proceed [active]\n" +
       "┌──────────────────────────────────────┐\n" +
-      "│› Keep waiting ○──● Deploy now        │\n" +
+      "│› Keep waiting   ○──● ✓ Deploy now    │\n" +
       "└──────────────────────────────────────┘\n",
   );
   for (const value of [false, true]) {
@@ -461,9 +536,12 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
   assertStringIncludes(textarea, "line 12");
 });
 
-Deno.test("CLI-only design-system graphs stay external, exact, and React-free", async () => {
+Deno.test("CLI design-system graphs stay published, lock-resolved, and React-free", async () => {
   const entrypoint = join(ROOT, "tests/fixtures/design_system_cli_graph.ts");
   const info = await moduleGraph(entrypoint);
+  const lock = JSON.parse(
+    await Deno.readTextFile(join(ROOT, "deno.lock")),
+  ) as DenoLock;
   const modules = (info.modules ?? []).flatMap((module) =>
     module.specifier === undefined ? [] : [module.specifier]
   );
@@ -495,6 +573,8 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
         dependency.specifier === "discern-design-system" ||
         dependency.specifier === "discern-design-system/cli" ||
         dependency.specifier === "discern-design-system/cli/interactive" ||
+        dependency.specifier ===
+          "discern-design-system/cli/interactive/testing" ||
         dependency.specifier === "discern-design-system/cli/projection"
       )
       .flatMap((dependency) =>
@@ -510,24 +590,43 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
     "discern-design-system",
     "discern-design-system/cli",
     "discern-design-system/cli/interactive",
+    "discern-design-system/cli/interactive/testing",
     "discern-design-system/cli/projection",
   ]);
   const allowedOrigin =
     `https://jsr.io/@discern-sh/design-system/${SELECTED_VERSION}/`;
+  const packageLock = lock.jsr[`@discern-sh/design-system@${SELECTED_VERSION}`];
+  assert(packageLock !== undefined);
+  const declaredNpmPackages = (packageLock.dependencies ?? []).flatMap(
+    (dependency) =>
+      dependency.startsWith("npm:") ? [dependency.slice("npm:".length)] : [],
+  );
   for (const [publicRoot, resolvedRoot] of packageRoots) {
     const pending = [resolvedRoot];
-    const packageClosure = new Set<string>();
+    const publicClosure = new Set<string>();
     while (pending.length > 0) {
       const specifier = pending.pop();
       assert(specifier !== undefined);
-      if (packageClosure.has(specifier)) continue;
-      assert(
-        specifier.startsWith(allowedOrigin),
-        `${publicRoot} graph escaped ${allowedOrigin}: ${specifier}`,
-      );
-      packageClosure.add(specifier);
+      if (publicClosure.has(specifier)) continue;
+      publicClosure.add(specifier);
       const module = moduleBySpecifier.get(specifier);
       assert(module !== undefined, `missing resolved module ${specifier}`);
+      if (!specifier.startsWith(allowedOrigin)) {
+        assertEquals(
+          module.kind,
+          "npm",
+          `${publicRoot} graph escaped its published package: ${specifier}`,
+        );
+        const packageKey = module.npmPackage;
+        assert(
+          packageKey !== undefined && packageKey in lock.npm,
+          `${publicRoot} graph reached unlocked npm module ${specifier}`,
+        );
+        assert(
+          declaredNpmPackages.some((name) => packageKey.startsWith(`${name}@`)),
+          `${publicRoot} graph reached undeclared npm package ${packageKey}`,
+        );
+      }
       for (const dependency of module.dependencies ?? []) {
         for (const resolution of [dependency.code, dependency.type]) {
           if (resolution !== undefined) {
@@ -536,7 +635,7 @@ Deno.test("CLI-only design-system graphs stay external, exact, and React-free", 
         }
       }
     }
-    assert(packageClosure.size > 1, `${publicRoot} closure was not traversed`);
+    assert(publicClosure.size > 1, `${publicRoot} closure was not traversed`);
   }
 
   assertEquals(

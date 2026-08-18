@@ -16,6 +16,7 @@ import {
 import { join } from "@std/path";
 import {
   discoverDocs,
+  docBrowseGroups,
   type DocEntry,
   docRegions,
   extractTitle,
@@ -197,6 +198,50 @@ Deno.test("groupDocs creates ordered top-level picker groups", () => {
       "docs/README.md",
       "docs/notes.md",
       "docs/_adr/0001-first.md",
+    ],
+  );
+});
+
+Deno.test("title-first browse groups auto-enroll sections and nested paths", () => {
+  const entries = [
+    { ...entry("docs/README.md"), title: "Documentation home" },
+    { ...entry("docs/12-new/first.md"), title: "New section" },
+    { ...entry("docs/12-new/nested/deep.md"), title: "Deep page" },
+    { ...entry("docs/_adr/0001-first.md"), title: "First decision" },
+  ];
+
+  assertEquals(
+    docBrowseGroups(entries).map((group) => ({
+      id: group.id,
+      label: group.label,
+      description: group.description,
+      items: group.items.map((item) => ({
+        label: item.label,
+        description: item.description,
+      })),
+    })),
+    [
+      {
+        id: "(root)",
+        label: "Overview",
+        description: undefined,
+        items: [{ label: "Documentation home", description: "README.md" }],
+      },
+      {
+        id: "12-new",
+        label: "New section",
+        description: "12-new/",
+        items: [
+          { label: "New section", description: "first.md" },
+          { label: "Deep page", description: "nested/deep.md" },
+        ],
+      },
+      {
+        id: "_adr",
+        label: "First decision",
+        description: "_adr/",
+        items: [{ label: "First decision", description: "0001-first.md" }],
+      },
     ],
   );
 });
@@ -859,7 +904,7 @@ Deno.test("map projections: frontmatter never reaches content, agents keep every
     assertEquals(raw.stdout, RICH_DOC);
 
     // Terminal render (piped target view): no frontmatter shows.
-    const rendered = await runCli(["map", "rich", "--no-pager"], dir);
+    const rendered = await runCli(["map", "rich"], dir);
     assertEquals(rendered.code, 0);
     assert(!rendered.stdout.includes("Short label"));
     assert(!rendered.stdout.includes("order:"));
@@ -1152,7 +1197,6 @@ Deno.test("map export validates scope and incompatible flags", async () => {
         ["map", "--export", "public", "--raw"],
         ["map", "--export", "public", "--list"],
         ["map", "--export", "public", "--width", "80"],
-        ["map", "--export", "public", "--no-pager"],
       ]
     ) {
       const result = await runCli(args, dir);

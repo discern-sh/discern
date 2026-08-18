@@ -268,6 +268,16 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
         "Set to `1` for `discern refresh` to request eager discern MCP loading from configured Claude Code and GitHub Copilot integrations.",
     },
   },
+  experimentalAwaitCallSeconds: {
+    name: "DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS",
+    group: "experimental-features",
+    lifecycle: "live",
+    documentation: {
+      public: false,
+      reason:
+        "Caps the automatic bound of one `await` call below the transport-safe maximum; the contributor experimental-behaviors page records the trial.",
+    },
+  },
 
   crashProbe: {
     name: "DISCERN_CRASH_PROBE",

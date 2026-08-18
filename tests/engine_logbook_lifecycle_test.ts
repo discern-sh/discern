@@ -322,6 +322,11 @@ Deno.test({
             result.output,
             "Aborted. Nothing changed.",
           );
+          assertTerminalTextIncludes(result.output, "Keep");
+          assertTerminalTextIncludes(
+            result.output,
+            action === "reset" ? "Delete" : "Archive",
+          );
           assertEquals(await Deno.readTextFile(active), before);
           assertEquals(
             await exists(join(dir, ".git", "discern", "logbook-archives")),
@@ -339,22 +344,29 @@ Deno.test({
 });
 
 Deno.test("Logbook dispatch maps only product cancellation to default No", async () => {
-  let observedDefault: boolean | undefined;
+  let observedOptions: unknown;
+  const labels = { noLabel: "Keep", yesLabel: "Delete" } as const;
   assertEquals(
     await logbookLifecycleConfirmation(
       "Confirm",
-      (_message, defaultTo) => {
-        observedDefault = defaultTo;
+      labels,
+      (_message, options) => {
+        observedOptions = options;
         return Promise.reject(new InteractionCancelled());
       },
     ),
     false,
   );
-  assertEquals(observedDefault, false);
+  assertEquals(observedOptions, { defaultTo: false, ...labels });
 
   const fault = new Error("synthetic confirmation fault");
   const caught = await assertRejects(
-    () => logbookLifecycleConfirmation("Confirm", () => Promise.reject(fault)),
+    () =>
+      logbookLifecycleConfirmation(
+        "Confirm",
+        labels,
+        () => Promise.reject(fault),
+      ),
     Error,
     fault.message,
   );
