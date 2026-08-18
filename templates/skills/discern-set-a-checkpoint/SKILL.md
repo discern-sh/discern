@@ -38,6 +38,8 @@ Triggers are deterministic and closed. A small menu, no expression language:
 
 Narrow beats broad: a trigger that fires on most changes turns its criterion into wallpaper. When the menu cannot express the condition, use the escape hatch in step 6.
 
+Calibrate thresholds by replay, not intuition. Recent landed work already shows how this project changes: enumerate it with `git log --first-parent --merges -n 40 --format='%H'`, and for each merge diff its parents (`git diff --name-only <sha>^1...<sha>^2`) to count how often the candidate trigger would have fired. A `stop` that would have fired on most efforts is mis-calibrated before it ships; generated artifacts committed alongside a change inflate breadth counts, so a repo with heavy codegen usually wants higher file thresholds than the shipped defaults.
+
 ## 3. Write the criterion
 
 The criterion is served verbatim to a capable agent mid-task, on the refusal, the previews, and `discern checkpoints`. Write it in second person, present tense, a few sentences:
