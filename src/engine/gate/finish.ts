@@ -1710,11 +1710,10 @@ function awaitingDeclarationRefusal(
 ): DiscernResult<GateData> {
   const outstanding = preflight.outstanding;
   const ids = outstanding.map((served) => served.id);
-  const count = outstanding.length === 1
-    ? "one checkpoint requires"
-    : `${outstanding.length} checkpoints require`;
-  const message =
-    `This change makes ${count} your judgment before any gate job runs:\n\n` +
+  const heading = outstanding.length === 1
+    ? "This change fired one checkpoint that requires your judgment"
+    : `This change fired ${outstanding.length} checkpoints that require your judgment`;
+  const message = `${heading} before any gate job runs:\n\n` +
     outstanding.map(serveCheckpointText).join("\n\n") +
     "\n\nJudge each criterion against the changed paths, then record your " +
     "conclusion: `discern done --met <id>` (repeatable) when the criterion " +

@@ -931,6 +931,14 @@ export const TOOLS: McpTool[] = orderTools([
           "conversation. Set it only then. Recorded standing and effort grants " +
           "are checked directly; do not assert them through this flag.",
       ),
+      variance: z.array(z.string()).optional().describe(
+        "Attestation that the owner authorized landing each named " +
+          "declared-unmet checkpoint without changing it (requires " +
+          "confirmed). The ids must equal the current declared-unmet set, " +
+          "id for id — the awaiting_variance refusal serves it with each " +
+          "criterion and rationale — and recorded grants never authorize " +
+          "a variance.",
+      ),
       ...PATH_PARAM,
     },
     // Acceptance can remove the worktree before a later cleanup fails. Re-aim from
@@ -948,6 +956,7 @@ export const TOOLS: McpTool[] = orderTools([
       acceptToolResult(root, {
         dryRun: args.dry_run === true,
         confirmed: args.confirmed === true,
+        ...(args.variance === undefined ? {} : { variance: args.variance }),
       }),
   }),
   defineTool({
@@ -1155,7 +1164,7 @@ function renderMcpHintText(authored: string): string {
  */
 async function acceptToolResult(
   root: string,
-  opts: { dryRun?: boolean; confirmed?: boolean },
+  opts: { dryRun?: boolean; confirmed?: boolean; variance?: string[] },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,

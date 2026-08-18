@@ -249,21 +249,29 @@ export function renderProofLine(
 /**
  * Add the consent evidence to a gate proof once that tree has landed. The
  * underlying gate proof stays a claim about validation; this derived line is
- * the acceptance record agents relay after the worktree is gone.
+ * the acceptance record agents relay after the worktree is gone. An
+ * owner-authorized variance is its own evidence kind, so the count rides the
+ * line distinctly from the consent segment.
  */
 export function renderLandingProofLine(
   proofLine: string,
   consent: LandingConsent,
+  varianceCount = 0,
 ): string {
+  const varianceSegment = varianceCount > 0
+    ? ` · ${varianceCount} variance${
+      varianceCount === 1 ? "" : "s"
+    } authorized by the owner`
+    : "";
   switch (consent.source) {
     case "conversation":
-      return `${proofLine} · landed with conversation consent`;
+      return `${proofLine} · landed with conversation consent${varianceSegment}`;
     case "effort-grant":
-      return `${proofLine} · landed under effort grant`;
+      return `${proofLine} · landed under effort grant${varianceSegment}`;
     case "standing-grant":
       return `${proofLine} · landed under standing grant: ${
         consent.scopes?.join(", ") ?? "(none)"
-      }`;
+      }${varianceSegment}`;
   }
 }
 

@@ -857,6 +857,14 @@ export function attachEngineCommands(
         "only. Without applicable evidence, acceptance refuses read-only; a " +
         "dry-run needs none.",
     )
+    .option(
+      "--variance <id:string>",
+      "Attest that your owner authorized landing this declared-unmet " +
+        "checkpoint without changing it (repeatable; requires --confirmed). " +
+        "The ids must equal the current declared-unmet set, id for id, and " +
+        "recorded grants never authorize a variance.",
+      { collect: true },
+    )
     .action(recordedExit("accept", async (o) => {
       const json = o.json ?? false;
       return await runWorktreeOp(
@@ -865,6 +873,7 @@ export function attachEngineCommands(
             json,
             dryRun: o.dryRun ?? false,
             confirmed: o.confirmed ?? false,
+            variance: o.variance ?? [],
           }),
         { json, verb: "accept" },
       );
