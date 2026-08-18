@@ -101,6 +101,70 @@
       ],
       "description": "The proof line and Markdown page derived from the gate result for human inspection. Verification policy uses the structured claim, never these renderings."
     },
+    "DiscernAcceptanceEvidence": {
+      "title": "DiscernAcceptanceEvidence",
+      "type": "object",
+      "properties": {
+        "consent": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "conversation",
+                "standing-grant",
+                "effort-grant"
+              ]
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "source"
+          ]
+        },
+        "variances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DiscernAuthorizedVariance"
+          }
+        }
+      },
+      "required": [
+        "consent",
+        "variances"
+      ],
+      "description": "How one landing was authorized: the consent evidence, plus each owner-authorized variance for a declared-unmet checkpoint. A reader can therefore distinguish a conclusion awaiting a decision from one the owner authorized to land."
+    },
+    "DiscernAuthorizedVariance": {
+      "title": "DiscernAuthorizedVariance",
+      "type": "object",
+      "properties": {
+        "checkpoint": {
+          "type": "string"
+        },
+        "definition_hash": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "checkpoint",
+        "definition_hash",
+        "subject",
+        "why"
+      ],
+      "description": "Owner authorization to land one declared-unmet checkpoint, bound to the exact declaration (checkpoint, definition hash, subject fingerprint, rationale) and the commit it landed with. Never a future policy."
+    },
     "DiscernProofNotePayload": {
       "title": "DiscernProofNotePayload",
       "type": "object",
@@ -122,6 +186,9 @@
         },
         "presentation": {
           "$ref": "#/$defs/DiscernProofPresentation"
+        },
+        "acceptance": {
+          "$ref": "#/$defs/DiscernAcceptanceEvidence"
         },
         "issuer": {
           "type": "object",
@@ -151,7 +218,7 @@
         "proof",
         "presentation"
       ],
-      "description": "The proof claim carried as UTF-8 JSON in the DSSE payload: the landed commit, structured gate facts, separate human presentation, and optional issuer assertion and intent reference."
+      "description": "The proof claim carried as UTF-8 JSON in the DSSE payload: the landed commit, structured gate facts, separate human presentation, optional acceptance evidence (consent plus authorized variances), and optional issuer assertion and intent reference."
     }
   }
 }

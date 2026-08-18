@@ -136,6 +136,49 @@ function activeSetClause(active: readonly string[]): string {
 }
 
 /**
+ * The dry-run preview of the checkpoint gate: which governing checkpoints
+ * STRUCTURALLY hold against the current diff, without running any `when`
+ * command and without touching the episode store — a preview must change
+ * nothing and spawn nothing. A checkpoint whose `when` condition is still
+ * pending is reported honestly as "may require".
+ */
+export async function previewCheckpointNotes(
+  root: string,
+  config: DiscernConfig,
+): Promise<string[]> {
+  const policy = await loadGoverningPolicy(root, config);
+  const notes = policy.advisories.map(
+    (advisory) => `Checkpoint advisory: ${advisory}`,
+  );
+  if (policy.policyCommit === undefined || policy.checkpoints.length === 0) {
+    return notes;
+  }
+  const diff = await collectEffortDiff(root, policy.policyCommit);
+  if (diff === undefined) {
+    notes.push(
+      "Checkpoint advisory: the effort diff could not be read; no checkpoint fires.",
+    );
+    return notes;
+  }
+  for (const def of policy.checkpoints) {
+    const structural = evaluateStructuralTrigger(def, diff);
+    if (!structural.holds) {
+      continue;
+    }
+    const claim = def.mode === "advise"
+      ? "its advisory will be served"
+      : "a declared conclusion will be required";
+    const qualifier = structural.whenPending
+      ? ` if its when command fires (${structural.matched.length} matched)`
+      : ` (${structural.matched.length} matched)`;
+    notes.push(
+      `Checkpoint '${def.id}' (${def.mode}): ${claim} at done${qualifier}.`,
+    );
+  }
+  return notes;
+}
+
+/**
  * Run the checkpoint pre-flight at `root` with the LIVE `config` (it
  * contributes the trunk name; the governing tables come from the merge-base).
  * `now` exists for deterministic tests.

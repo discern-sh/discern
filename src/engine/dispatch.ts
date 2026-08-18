@@ -271,14 +271,68 @@ export function attachEngineCommands(
         "judged — a flake probe, or a re-measure — and record it. Without the " +
         "flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it.",
     )
+    .option(
+      "--met <id:string>",
+      "Declare a served checkpoint's criterion met (repeatable). Valid only " +
+        "for a checkpoint with an active episode here; the declaration is " +
+        "recorded as your judgment, and the gate runs in the same invocation " +
+        "once every awaiting checkpoint has a conclusion.",
+      { collect: true },
+    )
+    .option(
+      "--unmet <id:string>",
+      "Declare a served checkpoint's criterion unmet (one per invocation; " +
+        "requires --why). The gate still runs; landing then needs the owner " +
+        "to authorize a variance for it.",
+      { collect: true },
+    )
+    .option(
+      "--why <rationale:string>",
+      "The required rationale for --unmet: one paragraph, 1-500 characters, " +
+        "no newlines or control characters. Recorded opaquely as Proof " +
+        "evidence for the owner's landing decision.",
+    )
     .action(
       recordedExit("done", async (o) => {
+        const json = o.json ?? false;
+        const invalid = (message: string): number => {
+          if (json) {
+            emitResult({
+              ok: false,
+              verb: "done",
+              error: "invalid_arguments",
+              message,
+            });
+          } else {
+            makeLogger().error(message);
+          }
+          return 1;
+        };
+        const unmetIds = o.unmet ?? [];
+        if (unmetIds.length > 1) {
+          return invalid(
+            "--unmet accepts one checkpoint per invocation; declare the others in follow-up invocations.",
+          );
+        }
+        const unmetId = unmetIds[0];
+        if (unmetId !== undefined && o.why === undefined) {
+          return invalid(
+            '--unmet requires --why "<rationale>" — one paragraph on why the criterion is not satisfied.',
+          );
+        }
+        if (unmetId === undefined && o.why !== undefined) {
+          return invalid("--why accompanies --unmet <id>; pass both.");
+        }
         const { runFinish } = await import("./gate/finish.ts");
-        return await runFinish(await requireRoot("done", o.json ?? false), {
-          json: o.json ?? false,
+        return await runFinish(await requireRoot("done", json), {
+          json,
           dryRun: o.dryRun ?? false,
           confirmed: o.confirmed ?? false,
           plain: plainModeEnabled(),
+          ...(o.met === undefined ? {} : { met: o.met }),
+          ...(unmetId === undefined || o.why === undefined
+            ? {}
+            : { unmet: { id: unmetId, why: o.why } }),
         });
       }),
     );

@@ -78,6 +78,13 @@ export type DiscernProofSummary = {
   line: string;
 };
 
+export type DiscernAuthorizedVariance = {
+  checkpoint: string;
+  definition_hash: string;
+  subject: string;
+  why: string;
+};
+
 export type DiscernDiscernResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -2001,6 +2008,35 @@ export type DiscernDoneResult = {
       status: "verified" | "loosened" | "unverified" | "parse_failed";
       trunk: string;
       reason?: string;
+    };
+    checkpoints?: {
+      policy?: string;
+      outstanding?: Array<{
+        id: string;
+        mode: "stop" | "advise";
+        criterion: string;
+        teach?: string;
+        reference?: string;
+        matched: Array<string>;
+      }>;
+      declared_met?: Array<{
+        id: string;
+        declared_at: string;
+      }>;
+      declared_unmet?: Array<{
+        id: string;
+        why: string;
+        declared_at: string;
+      }>;
+      advise?: Array<{
+        id: string;
+        mode: "stop" | "advise";
+        criterion: string;
+        teach?: string;
+        reference?: string;
+        matched: Array<string>;
+      }>;
+      advisories?: Array<string>;
     };
     gate_proof?: {
       status:
@@ -4321,6 +4357,7 @@ export type DiscernAcceptResult = {
     };
     authority_warnings?: Array<string>;
     proof_line?: string;
+    variances?: Array<DiscernAuthorizedVariance>;
     proof_note?: {
       fetch: {
         mode: "local" | "fetch";

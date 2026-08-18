@@ -6347,6 +6347,140 @@
                     "trunk"
                   ]
                 },
+                "checkpoints": {
+                  "type": "object",
+                  "properties": {
+                    "policy": {
+                      "type": "string"
+                    },
+                    "outstanding": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "stop",
+                              "advise"
+                            ]
+                          },
+                          "criterion": {
+                            "type": "string"
+                          },
+                          "teach": {
+                            "type": "string"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "mode",
+                          "criterion",
+                          "matched"
+                        ]
+                      }
+                    },
+                    "declared_met": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "declared_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "declared_at"
+                        ],
+                        "description": "One checkpoint criterion the agent declared met, with the declaration time. Agent evidence: recorded, not machine-verified."
+                      }
+                    },
+                    "declared_unmet": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "why": {
+                            "type": "string"
+                          },
+                          "declared_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "why",
+                          "declared_at"
+                        ],
+                        "description": "One checkpoint criterion the agent declared unmet, with its rationale and declaration time. Landing requires an owner-authorized variance."
+                      }
+                    },
+                    "advise": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "stop",
+                              "advise"
+                            ]
+                          },
+                          "criterion": {
+                            "type": "string"
+                          },
+                          "teach": {
+                            "type": "string"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "mode",
+                          "criterion",
+                          "matched"
+                        ]
+                      }
+                    },
+                    "advisories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
                 "gate_proof": {
                   "type": "object",
                   "properties": {
@@ -14666,6 +14800,12 @@
                 "proof_line": {
                   "type": "string"
                 },
+                "variances": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/DiscernAuthorizedVariance"
+                  }
+                },
                 "proof_note": {
                   "type": "object",
                   "properties": {
@@ -18192,6 +18332,31 @@
         "line"
       ],
       "description": "The compact Proof claim: branch, trunk, validated commit, whole-diff statistics, and the one-line rendered proof."
+    },
+    "DiscernAuthorizedVariance": {
+      "title": "DiscernAuthorizedVariance",
+      "type": "object",
+      "properties": {
+        "checkpoint": {
+          "type": "string"
+        },
+        "definition_hash": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "checkpoint",
+        "definition_hash",
+        "subject",
+        "why"
+      ],
+      "description": "Owner authorization to land one declared-unmet checkpoint, bound to the exact declaration (checkpoint, definition hash, subject fingerprint, rationale) and the commit it landed with. Never a future policy."
     },
     "DiscernDoctorMcpToolResult": {
       "title": "DiscernDoctorMcpToolResult",

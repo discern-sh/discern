@@ -28,6 +28,7 @@ import { runGit } from "../../shared/subprocess.ts";
 import type {
   GateStandard,
   Proof,
+  ProofCheckpointsData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
 import type { StepResult } from "../../shared/result.ts";
@@ -156,6 +157,66 @@ function lineStandardsSegment(
     : "standards held";
 }
 
+/**
+ * The page's checkpoint section: the agent-declared conclusions, kept
+ * lexically separate from the machine-verified rows — every conclusion is
+ * "declared met" or "declared unmet", never bare "met" or "passed". Unmet
+ * rationales render through the code-span escaping boundary (they are opaque
+ * evidence), and the section closes with the landing consequence when any
+ * conclusion is declared unmet. Empty when no checkpoint governed the run.
+ */
+function checkpointsSection(
+  checkpoints: ProofCheckpointsData | undefined,
+): string[] {
+  if (checkpoints === undefined) {
+    return [];
+  }
+  const lines: string[] = [
+    "",
+    `Checkpoint conclusions (agent-declared; policy ${
+      code(checkpoints.policy.slice(0, 12))
+    }):`,
+    "",
+  ];
+  for (const met of checkpoints.declared_met) {
+    lines.push(`- ${met.id} — declared met`);
+  }
+  for (const unmet of checkpoints.declared_unmet) {
+    lines.push(
+      `- ${unmet.id} — declared unmet; rationale: ${code(unmet.why)}`,
+    );
+  }
+  if (checkpoints.declared_unmet.length > 0) {
+    lines.push(
+      "",
+      "A declared-unmet conclusion requires an owner-authorized variance to " +
+        "land; recorded grants never cover one.",
+    );
+  }
+  return lines;
+}
+
+/** The line's checkpoint segment: declared-conclusion counts, with the
+ * variance consequence attached whenever any conclusion is declared unmet —
+ * or `undefined` when no checkpoint governed the run. */
+function lineCheckpointsSegment(
+  checkpoints: ProofCheckpointsData | undefined,
+): string | undefined {
+  if (checkpoints === undefined) {
+    return undefined;
+  }
+  const met = checkpoints.declared_met.length;
+  const unmet = checkpoints.declared_unmet.length;
+  if (unmet > 0) {
+    return `${unmet} declared unmet — owner variance required to land` +
+      (met > 0 ? ` (${met} declared met)` : "");
+  }
+  if (met > 0) {
+    return `${met} checkpoint${met === 1 ? "" : "s"} declared met`;
+  }
+  return undefined;
+}
+
 /** The diffstat fragment both renderings share: `2 files +42 −7`. */
 function diffstat(facts: ProofFacts): string {
   const files = `${facts.files_total} file${
@@ -174,10 +235,12 @@ export function renderProofLine(
   limits?: StandardsLimitsData,
 ): string {
   const standardsSegment = lineStandardsSegment(standards, limits);
+  const checkpointsSegment = lineCheckpointsSegment(facts.checkpoints);
   const segments = [
     `gate passed on ${facts.branch} @ ${facts.head}`,
     `${diffstat(facts)} vs ${facts.trunk}`,
     ...(standardsSegment !== undefined ? [standardsSegment] : []),
+    ...(checkpointsSegment !== undefined ? [checkpointsSegment] : []),
     "full proof: discern status --verbose",
   ];
   return `Proof: ${segments.join(" · ")}`;
@@ -223,6 +286,7 @@ export function renderProofMarkdown(
   ];
 
   lines.push(...standardsSection(standards, limits));
+  lines.push(...checkpointsSection(facts.checkpoints));
 
   lines.push("");
   const jobSteps = steps.filter(
@@ -266,6 +330,7 @@ export async function buildGateProof(
   steps: StepResult[],
   standards: GateStandard[] = [],
   limits?: StandardsLimitsData,
+  checkpoints?: ProofCheckpointsData,
 ): Promise<Proof | undefined> {
   if (!(await isWorktreeFullyClean(root))) {
     return undefined;
@@ -296,6 +361,7 @@ export async function buildGateProof(
     files_total: delta.filesTotal,
     insertions: delta.insertions,
     deletions: delta.deletions,
+    ...(checkpoints === undefined ? {} : { checkpoints }),
   };
   return {
     ...facts,

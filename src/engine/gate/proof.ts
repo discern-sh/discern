@@ -39,6 +39,7 @@
  */
 
 import { dirname, join } from "@std/path";
+import { declarationEvidenceIdentity } from "../checkpoints/evidence.ts";
 import {
   GIT_ADMIN_STATE,
   gitAdminStatePath,
@@ -321,6 +322,10 @@ export async function recordGateOutcome(
   passed: boolean,
   pin: ValidatedTreePin,
   proof?: Proof,
+  /** The declaration-evidence identity the vouch binds to, when known —
+   * changing a conclusion or rationale then stales this proof the same way a
+   * new commit would. */
+  evidence?: string,
 ): Promise<GateProofRecordData> {
   const path = authorityPath(cwd, authority, "gateProof");
   if (path === undefined) {
@@ -369,17 +374,21 @@ export async function recordGateOutcome(
     }
     try {
       // Marker format: the sha, then (when the run rendered a proof) its
-      // compatibility `line: ` component, structured form, and page markdown.
-      // Markers that omit either component also parse.
+      // compatibility `line: ` component, structured form, declaration
+      // evidence identity, and page markdown. Markers that omit any
+      // component also parse.
       const data = proof === undefined
         ? ""
         : `data: ${JSON.stringify(proof)}\n`;
       const line = proof?.line === undefined || proof.line === ""
         ? ""
         : `line: ${proof.line}\n`;
+      const evidenceLine = evidence === undefined
+        ? ""
+        : `evidence: ${evidence}\n`;
       const body = proof?.markdown === undefined || proof.markdown === ""
-        ? `${pin.head}\n`
-        : `${pin.head}\n${line}${data}\n${proof.markdown.trim()}\n`;
+        ? `${pin.head}\n${evidenceLine}`
+        : `${pin.head}\n${line}${data}${evidenceLine}\n${proof.markdown.trim()}\n`;
       await Deno.writeTextFile(path, body);
       return proofRecord("recorded", { path });
     } catch (error) {
@@ -423,6 +432,10 @@ export interface LastGateRun {
   readonly tree?: string;
   /** Whether the gate passed. */
   readonly passed: boolean;
+  /** The declaration-evidence identity at the end of the run, when known —
+   * a changed conclusion or rationale makes the next invocation a different
+   * run, so the rerun guard must not refuse it. */
+  readonly evidence?: string;
 }
 
 /** A tree identity `done` can compare against a {@link LastGateRun}. */
@@ -472,6 +485,7 @@ export async function recordLastGateRun(
   cwd: string,
   authority: AdminStateWriteAuthority,
   passed: boolean,
+  evidence?: string,
 ): Promise<void> {
   const path = authorityPath(cwd, authority, "lastGateRun");
   if (path === undefined) {
@@ -485,7 +499,13 @@ export async function recordLastGateRun(
     }
     await Deno.writeTextFile(
       path,
-      `${JSON.stringify({ ...identity, passed })}\n`,
+      `${
+        JSON.stringify({
+          ...identity,
+          passed,
+          ...(evidence === undefined ? {} : { evidence }),
+        })
+      }\n`,
     );
   } catch {
     // Best-effort by design; the precondition fails open without a marker.
@@ -527,10 +547,14 @@ export async function inspectLastGateRun(
   if (record.tree !== undefined && typeof record.tree !== "string") {
     return undefined;
   }
+  if (record.evidence !== undefined && typeof record.evidence !== "string") {
+    return undefined;
+  }
   return {
     head: record.head,
     passed: record.passed,
     ...(record.tree !== undefined ? { tree: record.tree } : {}),
+    ...(record.evidence !== undefined ? { evidence: record.evidence } : {}),
   };
 }
 
@@ -561,15 +585,20 @@ export async function inspectGateProof(
     }
     return { status: "read_failed", path, reason: failureReason(error) };
   }
-  // First line: the validated HEAD sha. Then, when present: `line: ` and
-  // `data: ` components in either order, followed by the proof page Markdown.
-  // A marker may omit either component; absent pieces are simply empty.
+  // First line: the validated HEAD sha. Then, when present: `line: `,
+  // `data: `, and `evidence: ` components in any order, followed by the proof
+  // page Markdown. A marker may omit any component; absent pieces are simply
+  // empty.
   const newline = content.indexOf("\n");
   const recorded = (newline < 0 ? content : content.slice(0, newline)).trim();
   let rest = newline < 0 ? "" : content.slice(newline + 1);
   let proofData: Proof | undefined;
   let line = "";
-  while (rest.startsWith("data: ") || rest.startsWith("line: ")) {
+  let recordedEvidence: string | undefined;
+  while (
+    rest.startsWith("data: ") || rest.startsWith("line: ") ||
+    rest.startsWith("evidence: ")
+  ) {
     const eol = rest.indexOf("\n");
     if (rest.startsWith("data: ")) {
       const raw = eol < 0
@@ -586,6 +615,10 @@ export async function inspectGateProof(
         // vouch. Acceptance honors the commit and reports that no structured
         // proof was available to publish.
       }
+    } else if (rest.startsWith("evidence: ")) {
+      recordedEvidence = (eol < 0
+        ? rest.slice("evidence: ".length)
+        : rest.slice("evidence: ".length, eol)).trim();
     } else {
       line = (eol < 0 ? rest.slice("line: ".length) : rest.slice(
         "line: ".length,
@@ -612,6 +645,26 @@ export async function inspectGateProof(
   }
   if (!(await isWorktreeFullyClean(cwd))) {
     return { status: "dirty", path, recorded, head };
+  }
+  // The vouch also binds to the declaration evidence it was recorded with: a
+  // changed conclusion or rationale stales it even at an unchanged HEAD. A
+  // marker without the component (an older writer) skips the comparison, and
+  // an UNREADABLE store fails open — an uncertain identity is never treated
+  // as a changed one.
+  if (recordedEvidence !== undefined) {
+    const evidenceNow = await declarationEvidenceIdentity(cwd);
+    if (
+      evidenceNow.status === "ok" && evidenceNow.identity !== recordedEvidence
+    ) {
+      return {
+        status: "stale",
+        path,
+        recorded,
+        head,
+        reason:
+          "the checkpoint declarations changed since this proof was recorded",
+      };
+    }
   }
   return {
     status: "honored",

@@ -466,6 +466,25 @@ export const TOOLS: McpTool[] = orderTools([
           "judged — a flake probe, or a re-measure — and record it. Without " +
           "the flag, an unchanged-tree rerun refuses read-only (default false).",
       ),
+      met: z.array(z.string()).optional().describe(
+        "Checkpoint ids whose served criterion your change satisfies — your " +
+          "recorded judgment, valid only for checkpoints with an active " +
+          "episode here (the awaiting_declaration refusal lists them). The " +
+          "gate runs in the same call once every awaiting checkpoint has a " +
+          "conclusion.",
+      ),
+      unmet: z.strictObject({
+        id: z.string().describe("The checkpoint id declared unmet."),
+        why: z.string().describe(
+          "The required rationale: one paragraph, 1-500 characters, no " +
+            "newlines or control characters. Recorded opaquely as Proof " +
+            "evidence for the owner's landing decision.",
+        ),
+      }).optional().describe(
+        "Declare ONE served checkpoint's criterion not satisfied. " +
+          "The gate still runs; landing then needs the owner to authorize a " +
+          "variance for it.",
+      ),
       ...PATH_PARAM,
     },
     run: (root, args, signal) =>
@@ -473,6 +492,8 @@ export const TOOLS: McpTool[] = orderTools([
         surface: { kind: "quiet" },
         dryRun: args.dry_run === true,
         confirmed: args.confirmed === true,
+        ...(args.met === undefined ? {} : { met: args.met }),
+        ...(args.unmet === undefined ? {} : { unmet: args.unmet }),
         signal,
       }),
   }),

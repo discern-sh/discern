@@ -8,6 +8,17 @@ Entries follow id order. Emitting context states when an entry fires. Each examp
 
 Audience `all` renders on every surface. Audience `agent` marks an instruction only an agent can execute: the interactive terminal presentation drops it, while JSON, Markdown, and Model Context Protocol (MCP) results always carry it.
 
+## `accept-authorize-variance`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `checkpoint-variance`
+- Emitting context: `accept` refuses because a current declared-unmet conclusion has no owner-authorized variance.
+
+Rendered example:
+
+> Relay each criterion and rationale above to the owner. Once the owner accepts the landing AND each named variance in the current conversation, re-run `discern accept --confirmed --variance api-review`. Recorded standing and effort grants never authorize a variance.
+
 ## `accept-awaiting-confirmation`
 
 - Category: `next-step`
@@ -29,6 +40,17 @@ Rendered example:
 Rendered example:
 
 > Review `git status` in /workspace/project. Acceptance landed on main, but post-landing convergence changed tracked files there.
+
+## `accept-declarations-stale`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `checkpoint-declaration`
+- Emitting context: `accept` finds a governing stop checkpoint whose conclusion is missing or no longer current.
+
+Rendered example:
+
+> Run `discern done` — it serves each checkpoint's criterion and evidence and records your conclusion (--met, or --unmet with --why). Missing or stale: api-review.
 
 ## `accept-publish-proof-note`
 
@@ -176,6 +198,39 @@ Rendered example:
 Rendered example:
 
 > `main` moved while you waited — run `discern update` to bring the latest beneath this branch.
+
+## `checkpoint-advise`
+
+- Category: `notice`
+- Audience: `all`
+- Family: `checkpoint-advise`
+- Emitting context: An advise-mode checkpoint's trigger fired; its criterion is served without blocking.
+
+Rendered example:
+
+> Checkpoint 'deletion-heavy-change' (advisory — nothing blocks): Is the cut proven dead, and recovery bounded? Changed: src/legacy_module.ext.
+
+## `checkpoint-advisory`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: A checkpoint could not govern or fire (unreadable state, a failing when command) and failed open.
+
+Rendered example:
+
+> Checkpoint fail-open: checkpoint 'api-review': the when command did not finish within 10s; the trigger fails open and did not fire.
+
+## `checkpoint-declare`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `checkpoint-declaration`
+- Emitting context: `done` refuses because a governing stop checkpoint has no current conclusion.
+
+Rendered example:
+
+> Judge each criterion above against its changed paths, then record your conclusion and re-run the gate in one step: `discern done --met <id>` (repeatable) for a criterion your change satisfies, or `discern done --unmet <id> --why "<one-paragraph rationale>"` (one per invocation) to record that it is not satisfied — the gate still runs, and the owner decides at landing. Awaiting: api-review.
 
 ## `config-job-deferred`
 
@@ -820,6 +875,17 @@ Rendered example:
 Rendered example:
 
 > Before reporting completion, compare the changed behavior with the map pages that cover the edited files. Update every page whose facts changed.
+
+## `gate-variance-required`
+
+- Category: `notice`
+- Audience: `all`
+- Family: `checkpoint-variance`
+- Emitting context: The gate passed while a declared-unmet checkpoint conclusion stands.
+
+Rendered example:
+
+> A declared-unmet conclusion stands on: api-review. The gate is green, but landing needs the owner to authorize each variance in the current conversation — recorded grants never cover one. Relay the Proof and the rationale; the decision is served at `discern accept`.
 
 ## `generated-agent-files-missing`
 
