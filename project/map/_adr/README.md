@@ -288,6 +288,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0297 — Checkpoint modes are the closed stop/advise pair](0297-checkpoint-modes-are-the-stop-advise-pair.md)
 - [0298 — Declaration evidence binds Proof currency and variance authorization](0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)
 - [0299 — Checkpoint read surfaces mirror the gate without effects](0299-checkpoint-read-surfaces-mirror-the-gate-without-effects.md)
+- [0300 — Checkpoint observation is drained metadata, never a verdict](0300-checkpoint-observation-is-drained-metadata-never-a-verdict.md)
 
 <!-- END GENERATED: current ADR records -->
 
