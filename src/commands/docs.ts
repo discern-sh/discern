@@ -936,6 +936,7 @@ export function renderDocsCorpusHeader(
   return terminal.presenter.present(renderDocsHeaderCli, {
     brand: terminalLine(`discern ${verb}`),
     middle: terminalLine(`— ${docsDocumentCount(count)} in ${safeDirectory}`),
+    register: "brand",
     maxWidth: width,
   });
 }
@@ -1442,6 +1443,7 @@ function printMapOverview(
               regions.length === 1 ? "" : "s"
             } in ${directory}`,
           ),
+          register: "brand",
           maxWidth: width,
         })
         : summary,
@@ -1515,6 +1517,7 @@ function printSearchResults(
             `${count} result${count === 1 ? "" : "s"}`,
           ),
           middle: terminalLine(`for "${query}"${scope}`),
+          register: "brand",
           maxWidth: width,
         })
         : `${count} result${count === 1 ? "" : "s"} for "${query}"${scope}`,

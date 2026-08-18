@@ -656,6 +656,7 @@ function section(
 ): string {
   return [
     terminal.presenter.motifSectionRule(terminalLine(label), {
+      register: "brand",
       width,
     }),
     ...lines.map(renderSectionLine),

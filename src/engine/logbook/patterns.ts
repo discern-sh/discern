@@ -426,6 +426,7 @@ function renderGroup(out: Out, id: string, label: string): void {
   out.group(id);
   out.raw(`${
     presenter.motifSectionRule(terminalLine(label), {
+      register: "brand",
       width,
     })
   }\n`);
@@ -734,6 +735,7 @@ function renderInvestigations(
         }],
         completionLabel: terminalLine("Falsifier"),
         completion: terminalMultiline(investigation.falsifier),
+        register: "brand",
         maxWidth: width,
       })
     }\n`);

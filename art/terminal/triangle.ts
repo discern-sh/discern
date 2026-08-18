@@ -14,6 +14,7 @@ import {
   renderMotifWorkflowStepper,
   type TerminalCapabilities,
   type TerminalMotifCycle,
+  terminalMotifRegisterRoles,
   terminalMotifRepertoire,
 } from "discern-design-system/cli";
 import { displayWidth } from "../../src/lib/text.ts";
@@ -45,12 +46,12 @@ function triangleGlyphsFromPattern(
 
 /** Named Unicode geometry used only by Discern's product triangle art. */
 export const DISCERN_TRIANGLE_GLYPHS = triangleGlyphsFromPattern(
-  DISCERN_TERMINAL_MOTIF.unicode.pattern,
+  terminalMotifRegisterRoles(DISCERN_TERMINAL_MOTIF.unicode, "brand").pattern,
 );
 
 /** Named ASCII geometry used only by Discern's product triangle art. */
 export const DISCERN_TRIANGLE_ASCII_GLYPHS = triangleGlyphsFromPattern(
-  DISCERN_TERMINAL_MOTIF.ascii.pattern,
+  terminalMotifRegisterRoles(DISCERN_TERMINAL_MOTIF.ascii, "brand").pattern,
 );
 
 /** Maximum visible cells one product-specific triangle frame may contain. */
@@ -130,9 +131,12 @@ function productGlyph(
   phase: number,
   capabilities: TerminalCapabilities,
 ): string {
-  const pattern = terminalMotifRepertoire(
-    DISCERN_TERMINAL_MOTIF,
-    capabilities.unicode,
+  const pattern = terminalMotifRegisterRoles(
+    terminalMotifRepertoire(
+      DISCERN_TERMINAL_MOTIF,
+      capabilities.unicode,
+    ),
+    "brand",
   ).pattern;
   return pattern[normalizedIndex(position + phase, pattern.length)] ??
     pattern[0];

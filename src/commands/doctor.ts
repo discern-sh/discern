@@ -1455,6 +1455,7 @@ export function renderDoctorHeader(
   return terminal.presenter.present(renderDocsHeaderCli, {
     brand: "discern doctor",
     middle: terminalLine(summary),
+    register: "brand",
     maxWidth: width,
   });
 }

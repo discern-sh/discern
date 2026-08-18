@@ -1,5 +1,7 @@
 # ADR 0279: External terminal rendering crosses one Discern-owned process boundary
 
+> **Repertoire-register amendment (2026-08-18):** Discern consumes the immutable 0.21.0 release. Locale alone selects Unicode or ASCII repertoire; terminal attachment continues to govern control behaviour. The bound discern motif speaks plain triangles by default and exposes its half-filled brand register per composition. Product-owned pyramid and gasket art select the brand register explicitly; fixed directional Component geometry does not follow motif selection.
+
 > **Reader-loop amendment (2026-08-17; [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)):** Discern consumes the immutable 0.20.0 composite Markdown browser through `terminal_interaction.ts`. The process boundary supplies package IO, theme, motif, and resize observation; the package owns the alternate screen, raw input, mouse modes, pane state, and restoration. Product and external-link actions cross back only after restoration, while typed capability refusals select the compact sequential reader.
 
 > **Markdown amendment (2026-08-16; [ADR 0287](0287-terminal-markdown-delegates-to-the-design-system.md)):** Discern now consumes the immutable 0.19.0 release. `discern map` and `discern docs` pass source and an explicit measure through the bound presenter to the package's complete Markdown Component; Discern keeps no terminal grammar or Component dispatch table.

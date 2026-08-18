@@ -30,6 +30,7 @@ import {
   COMMAND_SYNONYM_SUGGESTIONS,
   RETIRED_COMMAND_REDIRECTS,
 } from "../src/shared/vocabulary.ts";
+import { DISCERN_MARK } from "../src/shared/brand.ts";
 import { stageBundledDocs } from "../scripts/build.ts";
 import {
   approvedDocsExternalUrl,
@@ -181,6 +182,7 @@ Deno.test("docs headers preserve exact facts at narrow and wide TTY widths", () 
       );
     }
     assertStringIncludes(rendered, "DISCERN DOCS");
+    assertStringIncludes(rendered, DISCERN_MARK);
     assertEquals(
       rendered.split("\n").slice(1).join("").replaceAll(/\s+/gu, ""),
       `— 17 documents in ${directory}`.replaceAll(/\s+/gu, ""),
