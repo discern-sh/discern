@@ -2020,15 +2020,10 @@ export const HINTS = {
       `conclusion and re-run the gate in one step: ${
         discernCommand("done", flag("met", "<id>"))
       } (repeatable) for a criterion your change satisfies, or ${
-        discernCommand(
-          "done",
-          flag("unmet", "<id>"),
-          flag("why", '"<one-paragraph rationale>"'),
-        )
-      } (one per invocation) to record that it is not satisfied — the ` +
-      `gate still runs, and the owner decides at landing. Awaiting: ${
-        ids.join(", ")
-      }.`,
+        discernCommand("done", flag("unmet", "<id>"))
+      } with its required one-paragraph rationale (one per invocation) to ` +
+      `record that it is not satisfied — the gate still runs, and the owner ` +
+      `decides at landing. Awaiting: ${ids.join(", ")}.`,
   }),
 
   "checkpoint-advise": defineHint<

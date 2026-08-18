@@ -230,7 +230,7 @@ Rendered example:
 
 Rendered example:
 
-> Judge each criterion above against its changed paths, then record your conclusion and re-run the gate in one step: `discern done --met <id>` (repeatable) for a criterion your change satisfies, or `discern done --unmet <id> --why "<one-paragraph rationale>"` (one per invocation) to record that it is not satisfied — the gate still runs, and the owner decides at landing. Awaiting: api-review.
+> Judge each criterion above against its changed paths, then record your conclusion and re-run the gate in one step: `discern done --met <id>` (repeatable) for a criterion your change satisfies, or `discern done --unmet <id>` with its required one-paragraph rationale (one per invocation) to record that it is not satisfied — the gate still runs, and the owner decides at landing. Awaiting: api-review.
 
 ## `config-job-deferred`
 

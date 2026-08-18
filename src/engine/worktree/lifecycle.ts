@@ -1723,7 +1723,7 @@ const ACCEPT_NOTHING_LANDED =
 
 /**
  * The precondition refusal when a governing stop checkpoint's conclusion is
- * missing or no longer current at acceptance: the declaration is recorded at
+ * missing or stale at acceptance: the declaration is recorded at
  * `done`, so the refusal routes back there. Shares the interlock's slug — the
  * thing awaited is the agent's own conclusion; the envelope's verb
  * disambiguates the act.
@@ -2290,7 +2290,7 @@ async function executeAcceptPlan(
     ctx.config,
   );
   const bindingKey = (v: AuthorizedVarianceData): string =>
-    [v.checkpoint, v.definition_hash, v.subject, v.why].join(" ");
+    [v.checkpoint, v.definition_hash, v.subject, v.why].join("\u0000");
   const liveBindings = checkpointsNow.unmet
     .map((unmet) => bindingKey(varianceBinding(unmet)))
     .sort();

@@ -37,11 +37,16 @@ async function declaredRepo(dir: string): Promise<void> {
     matchedPaths: ["seed.txt"],
   }, T0);
   assert(opened.ok);
-  const met = await recordDeclaration(dir, {
-    conclusion: "met",
-    definitionHash: "def1",
-    subject: "sub1",
-  }, "probe", T0);
+  const met = await recordDeclaration(
+    dir,
+    {
+      conclusion: "met",
+      definitionHash: "def1",
+      subject: "sub1",
+    },
+    "probe",
+    T0,
+  );
   assert(met.ok);
 }
 
@@ -70,34 +75,49 @@ Deno.test("proof marker: a changed conclusion stales the vouch at an unchanged H
     assertEquals((await inspectGateProof(dir)).status, "honored");
 
     // Replace the conclusion: same HEAD, different evidence — stale.
-    const unmet = await recordDeclaration(dir, {
-      conclusion: "unmet",
-      why: "revisited on review",
-      definitionHash: "def1",
-      subject: "sub1",
-    }, "probe", T0);
+    const unmet = await recordDeclaration(
+      dir,
+      {
+        conclusion: "unmet",
+        why: "revisited on review",
+        definitionHash: "def1",
+        subject: "sub1",
+      },
+      "probe",
+      T0,
+    );
     assert(unmet.ok);
     const stale = await inspectGateProof(dir);
     assertEquals(stale.status, "stale");
     assertStringIncludes(stale.reason ?? "", "declarations changed");
 
     // A changed RATIONALE alone is also different evidence.
-    const reworded = await recordDeclaration(dir, {
-      conclusion: "unmet",
-      why: "revisited on review; follow-up filed",
-      definitionHash: "def1",
-      subject: "sub1",
-    }, "probe", T0);
+    const reworded = await recordDeclaration(
+      dir,
+      {
+        conclusion: "unmet",
+        why: "revisited on review; follow-up filed",
+        definitionHash: "def1",
+        subject: "sub1",
+      },
+      "probe",
+      T0,
+    );
     assert(reworded.ok);
     assertEquals((await inspectGateProof(dir)).status, "stale");
 
     // Restoring the recorded claim restores the vouch: identity is the
     // claim, never the record instance.
-    const restored = await recordDeclaration(dir, {
-      conclusion: "met",
-      definitionHash: "def1",
-      subject: "sub1",
-    }, "probe", T0);
+    const restored = await recordDeclaration(
+      dir,
+      {
+        conclusion: "met",
+        definitionHash: "def1",
+        subject: "sub1",
+      },
+      "probe",
+      T0,
+    );
     assert(restored.ok);
     assertEquals((await inspectGateProof(dir)).status, "honored");
   });
@@ -119,12 +139,17 @@ Deno.test("proof marker: a pre-evidence marker keeps its tree-only semantics (fa
     assertEquals((await inspectGateProof(dir)).status, "honored");
 
     // Evidence changes; the old marker has nothing to compare — still honored.
-    const unmet = await recordDeclaration(dir, {
-      conclusion: "unmet",
-      why: "revisited",
-      definitionHash: "def1",
-      subject: "sub1",
-    }, "probe", T0);
+    const unmet = await recordDeclaration(
+      dir,
+      {
+        conclusion: "unmet",
+        why: "revisited",
+        definitionHash: "def1",
+        subject: "sub1",
+      },
+      "probe",
+      T0,
+    );
     assert(unmet.ok);
     assertEquals((await inspectGateProof(dir)).status, "honored");
   });

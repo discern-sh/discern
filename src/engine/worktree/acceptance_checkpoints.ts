@@ -49,8 +49,8 @@ export interface StandingUnmetConclusion {
 
 /** The checkpoint state acceptance verifies before any effect. */
 export interface AcceptanceCheckpointState {
-  /** Governing stop checkpoints whose conclusion is missing or no longer
-   * current — a precondition failure that routes back to `done`. */
+  /** Governing stop checkpoints whose conclusion is missing or stale —
+   * a precondition failure that routes back to `done`. */
   stale: string[];
   /** Current declared-unmet conclusions — each needs an owner variance. */
   unmet: StandingUnmetConclusion[];
