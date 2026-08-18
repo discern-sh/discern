@@ -38,7 +38,12 @@ Triggers are deterministic and closed. A small menu, no expression language:
 
 Narrow beats broad: a trigger that fires on most changes turns its criterion into wallpaper. When the menu cannot express the condition, use the escape hatch in step 6.
 
-Calibrate thresholds by replay, not intuition. Recent landed work already shows how this project changes: enumerate it with `git log --first-parent --merges -n 40 --format='%H'`, and for each merge diff its parents (`git diff --name-only <sha>^1...<sha>^2`) to count how often the candidate trigger would have fired. A `stop` that would have fired on most efforts is mis-calibrated before it ships; generated artifacts committed alongside a change inflate breadth counts, so a repo with heavy codegen usually wants higher file thresholds than the shipped defaults.
+Calibrate thresholds by replay, not intuition — recent landed work already shows how this project changes. Enumerate landed efforts the way your trunk actually lands them:
+
+- A trunk that lands **merge commits**: the merges on its first-parent chain (`git log --first-parent --merges -n 40 --format='%H'`), each effort's diff being `git diff --name-only <sha>^1...<sha>^2` (first parent: the previous trunk tip; second parent: the branch).
+- A **fast-forward** trunk — discern's landing model: any merge commits in its history are update merges with those roles reversed, so the recipe above would measure the trunk's side of each update, not the effort. Enumerate landing boundaries instead: discern's landed Proof notes mark each landed head (`git notes --ref=discern list`), and each effort's diff runs from one noted boundary to the next along the trunk's first-parent history.
+
+Count how often the candidate trigger would have fired across those diffs. A `stop` that would have fired on most efforts is mis-calibrated before it ships; generated artifacts committed alongside a change inflate breadth counts, so a repo with heavy codegen usually wants higher file thresholds than the shipped defaults.
 
 ## 3. Write the criterion
 
