@@ -423,7 +423,7 @@ export function attachEngineCommands(
   root
     .command("checkpoints")
     .description(
-      "Report the checkpoint contract for this effort: the governing policy (each criterion, trigger, and mode), every episode's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded; a configured when command is reported as undecided.",
+      "Report the governing checkpoint policy, each episode's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.",
     )
     .option(
       "--json",
