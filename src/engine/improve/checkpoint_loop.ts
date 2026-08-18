@@ -186,13 +186,23 @@ export function graduationRoute(route: GraduationRoute): GraduationRoute {
 }
 
 /**
- * The shipped graduation routes. Empty until a shipped detector evidences a
- * diff-introduced criterion class; each future entry is built with
+ * The shipped graduation routes. Each entry is built with
  * {@link graduationRoute}, so the conversion rule is checked the moment it is
  * added, and the recommendation builder below picks it up with no further
- * wiring.
+ * wiring. A route must be HONEST: its detector's findings must be recurring
+ * instances of exactly the class its criterion names.
  */
-export const GRADUATION_ROUTES: readonly GraduationRoute[] = [];
+export const GRADUATION_ROUTES: readonly GraduationRoute[] = [
+  // Single giant-commit landings are recurring evidence of exactly the class
+  // `change.commit-story` guards: a large change landing without a narrated
+  // history. Wherever that criterion is already boundary-guarded (the shipped
+  // `commit-story` default), the builder suppresses the recommendation — so
+  // this route speaks only to projects that disabled or never enabled it.
+  graduationRoute({
+    detector: "giant-commit-landing",
+    criterion: "change.commit-story",
+  }),
+];
 
 // ── the recommendations ─────────────────────────────────────────────────────
 
