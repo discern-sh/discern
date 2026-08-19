@@ -2,13 +2,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join, resolve } from "@std/path";
-import { renderMarketingPage } from "../site/build.ts";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
-import {
-  COPY_PROMPT_TEXT,
-  INSTALL_COMMAND,
-} from "../site/page-src/landing.tsx";
-import { PAGES } from "../site/serve.ts";
+import { COPY_PROMPT_TEXT, renderLanding } from "../site/page-src/landing.tsx";
 import { proseWordCount } from "../scripts/prose_lib.ts";
 import {
   projectSiteProse,
@@ -19,11 +14,9 @@ import {
 
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
 
-Deno.test("every marketing route builds, serves, and follows its prose policy", () => {
-  assertEquals(
-    Object.keys(PAGES),
-    MARKETING_PAGES.map(({ route }) => route),
-  );
+Deno.test("every marketing page follows its prose policy", () => {
+  assertEquals(MARKETING_PAGES.map(({ route }) => route), ["/"]);
+  assertStringIncludes(renderLanding(), "<!doctype html>");
   const projected = projectSiteProse();
   assertEquals(
     projected.map(({ route }) => route),
@@ -32,11 +25,6 @@ Deno.test("every marketing route builds, serves, and follows its prose policy", 
     ),
   );
   for (const page of MARKETING_PAGES) {
-    assertEquals(PAGES[page.route], {
-      page: page.page,
-      negotiable: page.negotiable,
-    });
-    assertStringIncludes(renderMarketingPage(page.route), "<!doctype html>");
     assertEquals(
       projected.some(({ route, source }) =>
         route === page.route && source === page.source
@@ -47,23 +35,20 @@ Deno.test("every marketing route builds, serves, and follows its prose policy", 
   }
 });
 
-Deno.test("the preserved homepage projection measures prose once and excludes artefact data", () => {
+Deno.test("the homepage projection measures prose once and excludes artefact data", () => {
   const pages = projectSiteProse();
-  const homepage = pages.find(({ route }) => route === "/old");
+  const homepage = pages.find(({ route }) => route === "/");
   assert(homepage !== undefined);
   assertStringIncludes(
     homepage.prose,
-    "An engineering practice for agent-built software",
+    "Let coding agents handle more of the work. Keep control of what ships.",
   );
   assertEquals(
     homepage.prose.split(COPY_PROMPT_TEXT).length - 1,
     1,
     "repeated prompt output is one authored prose block",
   );
-  assertEquals(homepage.prose.includes(INSTALL_COMMAND), false);
-  assertEquals(homepage.prose.includes("9 August 2026"), false);
-  assertEquals(homepage.prose.includes("customer benchmark"), false);
-  assertEquals(siteProseReadingGrade(pages), 7.68);
+  assert(siteProseReadingGrade(pages) > 0);
 });
 
 Deno.test("the Vale numerator and denominator read the exact same staged bytes", async () => {

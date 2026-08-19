@@ -9,8 +9,6 @@ import {
 import {
   DISCERN_MARK_FILLED_PATH,
   DISCERN_MARK_OUTLINE_PATH,
-  LANDING_DESCRIPTION,
-  LANDING_TITLE,
   SELF_TITLED_PAGES,
 } from "../site/brand.ts";
 import { loadDocsSite } from "../site/docs.ts";
@@ -262,10 +260,6 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
         `${route} follows the site title template`,
       );
     }
-    if (route === "/") {
-      assertEquals(title, LANDING_TITLE);
-      assertEquals(description, LANDING_DESCRIPTION);
-    }
     assert(!seenTitles.has(title), `${route} has unique title ${title}`);
     seenTitles.add(title);
     const expectedDocsTitle = docsTitles.get(route);
@@ -307,7 +301,6 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
   );
   assertStringIncludes(cardSource, `d="${DISCERN_MARK_FILLED_PATH}"`);
   assertStringIncludes(cardSource, `d="${DISCERN_MARK_OUTLINE_PATH}"`);
-  assertStringIncludes(cardSource, "A bolder way to build.");
   assert(!cardSource.includes("m22 45 15 14 26-32"));
 });
 

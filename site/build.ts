@@ -16,24 +16,20 @@ import {
 } from "./design_system.ts";
 import { renderDiscernBrand } from "./page-src/branding.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
-import { renderLanding, renderOldLanding } from "./page-src/landing.tsx";
-import { renderLipsum } from "./page-src/lipsum.ts";
-import { MARKETING_PAGES, type MarketingPageRoute } from "./marketing_pages.ts";
+import { renderLanding } from "./page-src/landing.tsx";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
 
 /** Public files produced by the site build and therefore forbidden from Git. */
 export const GENERATED_SITE_OUTPUTS = [
-  ...MARKETING_PAGES.map(({ page }) => page),
+  "pages/index.html",
   "pages/assets/design-system/",
   "pages/fragments/",
 ] as const;
 
 /** Page-owned assets copied verbatim into the compositions bundle. */
 export const COPIED_PAGE_ASSETS = [
-  "specimens.css",
-  "landing.css",
   "landing-v3.css",
   "landing.js",
 ] as const;
@@ -47,24 +43,12 @@ export const RETIRED_SITE_OUTPUTS = [
 
 const ASSET_ROOT = new URL("pages/assets/design-system/", SITE_ROOT);
 const FRAGMENT_ROOT = new URL("pages/fragments/", SITE_ROOT);
+const HOME_PAGE_OUTPUT = new URL("pages/index.html", SITE_ROOT);
 const BRAND_FRAGMENT_OUTPUT = new URL("brand.html", FRAGMENT_ROOT);
 const COMPOSITION_ASSET_ROOT = new URL(
   DESIGN_SYSTEM_BUNDLES.compositions.output,
   SITE_ROOT,
 );
-
-const MARKETING_PAGE_RENDERERS: Readonly<
-  Record<MarketingPageRoute, () => string>
-> = {
-  "/": renderLanding,
-  "/old": renderOldLanding,
-  "/lipsum": renderLipsum,
-};
-
-/** Render one registry-owned marketing route from its authored source. */
-export function renderMarketingPage(route: MarketingPageRoute): string {
-  return MARKETING_PAGE_RENDERERS[route]();
-}
 
 /** Remove an output URL recursively while accepting a missing destination. */
 async function removeIfPresent(url: URL): Promise<void> {
@@ -112,14 +96,10 @@ export async function buildSite(): Promise<void> {
   for (const asset of COPIED_PAGE_ASSETS) {
     await writeGeneratedCopy(asset, asset);
   }
-  for (const page of MARKETING_PAGES) {
-    const output = new URL(page.page, SITE_ROOT);
-    await Deno.mkdir(new URL(".", output), { recursive: true });
-    await Deno.writeTextFile(
-      output,
-      await formatGeneratedText(renderMarketingPage(page.route), "html"),
-    );
-  }
+  await Deno.writeTextFile(
+    HOME_PAGE_OUTPUT,
+    await formatGeneratedText(renderLanding(), "html"),
+  );
   await Deno.writeTextFile(BRAND_FRAGMENT_OUTPUT, renderDiscernBrand());
 
   console.log(

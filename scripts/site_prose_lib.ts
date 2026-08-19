@@ -1,15 +1,15 @@
 /**
  * One deterministic public-site prose projection shared by the Vale gate and
- * both site Standards. The canonical marketing-page registry supplies every
- * route, renderer, source path, and register; markup, attributes, code, and
- * duplicate rendered strings never enter the measured bytes.
+ * both site Standards. The marketing-page registry supplies enrollment and
+ * source metadata; markup, attributes, code, and duplicate rendered strings
+ * never enter the measured bytes.
  */
 
 import { dirname, join, resolve } from "@std/path";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { renderMarketingPage } from "../site/build.ts";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
+import { renderLanding } from "../site/page-src/landing.tsx";
 import {
   countProse,
   fleschKincaidGrade,
@@ -157,7 +157,7 @@ export function projectSiteProse(): ProjectedSiteProsePage[] {
   return MARKETING_PAGES
     .filter((page) => page.prose === "guarded")
     .map((page) => {
-      const projected = visibleSiteProse(renderMarketingPage(page.route));
+      const projected = visibleSiteProse(renderLanding());
       return {
         route: page.route,
         source: page.source,

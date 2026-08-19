@@ -42,7 +42,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
   },
   compositions: {
     output: "pages/assets/design-system/compositions/",
-    routes: ["/", "/old", "/lipsum"],
+    routes: ["/"],
     groups: ["Marketing", "Editorial"],
     components: [
       "icon",
@@ -56,7 +56,6 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "kicker",
       "tag",
       "window",
-      "terminal",
       "skip-link",
     ],
     assets: ["fonts"],
