@@ -62,9 +62,9 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ### Start the next task before the last one lands
 
-- **Value:** A dependent task can build from a proven sibling commit while the earlier branch waits for acceptance. Staged programs can keep moving while each landing decision remains separate.
-- **Mechanism:** `discern start` and `discern update` accept a source ref, so the next effort can fork from the precise commit it depends on and later reconcile with the trunk through the normal update path.
-- **Product basis:** Composing unlanded work · Update.
+- **Value:** A dependent task can build from a proven sibling commit while the earlier branch waits for acceptance. Several branches can be assembled and checked as one combined tree before anything reaches the trunk, while each landing decision remains separate.
+- **Mechanism:** `discern start` and `discern update` accept a source ref, so an integration effort can fork from one precise commit, pull in sibling branches, and run the ordinary Gate over their combined tree; only `discern accept` can move the trunk.
+- **Product basis:** Composing unlanded work · Update · The quality gate · Accept.
 
 ### Walk away mid-task and pick up where you left off
 
@@ -130,9 +130,9 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ### Get proof of what passed, tied to the commit it passed on
 
-- **Value:** A Proof names the commit, the size of the change, and the checks that passed. A later edit invalidates it, so the user can tell that the evidence belongs to the same work they are considering.
-- **Mechanism:** The Gate pins a clean committed tree before evaluation and rechecks it when Proof is minted; any later commit or working-tree edit changes the state and makes the recorded Proof stale.
-- **Product basis:** Proof.
+- **Value:** A Proof names the commit, the size of the change, and the checks that passed. A later edit invalidates it, so the user can tell that the evidence belongs to the same work they are considering. While the tree stays unchanged, acceptance can reuse that result instead of repeating the full Gate.
+- **Mechanism:** The Gate pins a clean committed tree before evaluation and rechecks it when Proof is minted; any later commit or working-tree edit makes the recorded Proof stale, and `discern accept` reuses it only while it still matches the clean current `HEAD`.
+- **Product basis:** Proof · Accept.
 
 ### Keep the completion record with the code
 
@@ -158,10 +158,10 @@ More of the backlog can move at once. The person spends less time running the wo
 - **Mechanism:** `discern start` creates an isolated worktree from the trunk, and `discern accept` lands only the authorized branch after its exact tree has satisfied the acceptance conditions.
 - **Product basis:** Isolated worktrees · Start · Accept.
 
-### Recover cleanly from interrupted operations
+### Preview changes and recover cleanly
 
-- **Value:** An interrupted action leaves enough recorded state to resume or repair it without guessing which effects already happened. Less time is lost untangling convincing but incomplete states.
-- **Mechanism:** Effectful verbs compute a plan before applying it, expose dry runs, record provisioning intent before acting, and use interruption-safe cleanup and recovery paths.
+- **Value:** Before a command changes the project, its planned effects can be inspected without applying them. If an operation is interrupted, enough state remains to resume or repair it without guessing which effects happened. Less time is lost to avoidable surprises and incomplete states.
+- **Mechanism:** Effectful verbs compute a read-only plan before a thin executor applies it; `--dry-run` renders that plan and applies nothing. Provisioning intent and transition state are recorded before acting, and cleanup and recovery paths handle interruptions.
 - **Product basis:** Plan and apply · Crash-safe provisioning · Clean under interruption.
 
 ## Keep the gains the project earns
