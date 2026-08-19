@@ -32,6 +32,7 @@ aliases:
   - discern test
   - discern queue
   - discern improvement
+  - discern checkpoints
   - discern mcp
   - discern scripts
   - discern standards
@@ -126,11 +127,14 @@ Run finishing steps that may change files, then verify the gate — the project'
 
 Usage: `discern done [options]`
 
-| Option        | Description                                                                                                                                                                                                          |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`      | Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).                                                                                                                                        |
-| `--dry-run`   | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                         |
-| `--confirmed` | Attest this rerun: run the full gate again on the exact tree it last judged — a flake probe, or a re-measure — and record it. Without the flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it. |
+| Option              | Description                                                                                                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`            | Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).                                                                                                                                                                                   |
+| `--dry-run`         | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                                                                    |
+| `--confirmed`       | Attest this rerun: run the full gate again on the exact tree it last judged — a flake probe, or a re-measure — and record it. Without the flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it.                                            |
+| `--met <id>`        | Declare a served checkpoint's question met (repeatable). Valid only for a checkpoint with an active open question here; the declaration is recorded as your judgment, and the gate runs in the same invocation once every awaiting checkpoint has a conclusion. |
+| `--unmet <id>`      | Declare a served checkpoint's question unmet (one per invocation; requires --why). The gate still runs; landing then needs the owner to authorize a variance for it.                                                                                            |
+| `--why <rationale>` | The required rationale for --unmet: one paragraph, 1-500 characters, no newlines or control characters. Recorded opaquely as Proof evidence for the owner's landing decision.                                                                                   |
 
 ### `discern test`
 
@@ -209,11 +213,12 @@ Accept and land this worktree's finished branch on the trunk, the shared landing
 
 Usage: `discern accept [options]`
 
-| Option        | Description                                                                                                                                                                                                                                                                                                       |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`      | Emit one JSON result on stdout.                                                                                                                                                                                                                                                                                   |
-| `--dry-run`   | Show the acceptance plan; touch nothing.                                                                                                                                                                                                                                                                          |
-| `--confirmed` | Attest that your owner accepted this landing in the current conversation. Recorded standing and effort grants are checked directly. Consent bound to an interrupted transaction may authorize recovery of that transaction only. Without applicable evidence, acceptance refuses read-only; a dry-run needs none. |
+| Option            | Description                                                                                                                                                                                                                                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`          | Emit one JSON result on stdout.                                                                                                                                                                                                                                                                                   |
+| `--dry-run`       | Show the acceptance plan; touch nothing.                                                                                                                                                                                                                                                                          |
+| `--confirmed`     | Attest that your owner accepted this landing in the current conversation. Recorded standing and effort grants are checked directly. Consent bound to an interrupted transaction may authorize recovery of that transaction only. Without applicable evidence, acceptance refuses read-only; a dry-run needs none. |
+| `--variance <id>` | Record that your owner authorized landing this declared-unmet checkpoint without changing it (repeatable; requires --confirmed). The ids must equal the current declared-unmet set, id for id, and recorded grants never authorize a variance.                                                                    |
 
 ### `discern worktree <subcommand>`
 
@@ -544,11 +549,11 @@ Find the highest-value next improvement, with the health audit and open reviews 
 
 Usage: `discern improvement [options]`
 
-| Option              | Description                                                                                   |
-| ------------------- | --------------------------------------------------------------------------------------------- |
-| `--json`            | Emit the coaching result as JSON (practice-health score, open reviews, and data.next_action). |
-| `--category <name>` | Review a single area (gate, setup, instructions, map, worktrees, standards, skills).          |
-| `--min-score <n>`   | Exit non-zero when the overall score is below this floor (a CI/agent gate).                   |
+| Option              | Description                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| `--json`            | Emit the coaching result as JSON (practice-health score, open reviews, and data.next_action).     |
+| `--category <name>` | Review a single area (gate, setup, instructions, map, worktrees, standards, checkpoints, skills). |
+| `--min-score <n>`   | Exit non-zero when the overall score is below this floor (a CI/agent gate).                       |
 
 ### `discern standards`
 
@@ -562,6 +567,16 @@ Usage: `discern standards [names...] [options]`
 | `--dry-run` | Show the standards that would be measured; touch nothing.                                                                                                                                                           |
 | `--force`   | Run standards on a dirty worktree; intended only while authoring standards.                                                                                                                                         |
 | `--pin`     | Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate proof forward. Requires a clean worktree. |
+
+### `discern checkpoints`
+
+Report the governing checkpoint policy, each open question's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.
+
+Usage: `discern checkpoints [options]`
+
+| Option   | Description                                        |
+| -------- | -------------------------------------------------- |
+| `--json` | Emit the result as a JSON DiscernResult on stdout. |
 
 ### `discern skills <subcommand>`
 

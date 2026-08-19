@@ -823,6 +823,8 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
  * it should shrink as evidence arrives.
  */
 export const SUPPLY_PUSH_RECORDS: Readonly<Record<string, string>> = {
+  "judgment-at-the-change":
+    "Built ahead of an identified struggle: checkpoints landed with their engine waves, and the demand account for judgment stops is authored with the launch story once the built-in set ships.",
   "export-project-briefing":
     "Built ahead of an identified struggle: ordered briefing export serves discern's own onboarding flow, and no independent struggling moment is hypothesized for it yet.",
 };

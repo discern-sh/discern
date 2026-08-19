@@ -16,6 +16,7 @@ import {
 import {
   AcceptOutputSchema,
   AwaitOutputSchema,
+  CheckpointsOutputSchema,
   ConfigOutputSchema,
   CouplingOutputSchema,
   DeskOutputSchema,
@@ -280,6 +281,14 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     schema: ImprovementOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.improvement,
     mcpTool: "discern_improvement",
+  },
+  {
+    id: "checkpoints",
+    commands: ["checkpoints"],
+    verb: "checkpoints",
+    schema: CheckpointsOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.checkpoints,
+    mcpTool: "discern_checkpoints",
   },
   {
     id: "standards",

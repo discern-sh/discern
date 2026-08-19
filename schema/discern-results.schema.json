@@ -6347,6 +6347,140 @@
                     "trunk"
                   ]
                 },
+                "checkpoints": {
+                  "type": "object",
+                  "properties": {
+                    "policy": {
+                      "type": "string"
+                    },
+                    "outstanding": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "stop",
+                              "advise"
+                            ]
+                          },
+                          "question": {
+                            "type": "string"
+                          },
+                          "teach": {
+                            "type": "string"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "mode",
+                          "question",
+                          "matched"
+                        ]
+                      }
+                    },
+                    "declared_met": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "declared_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "declared_at"
+                        ],
+                        "description": "One checkpoint question the agent declared met, with the declaration time. Agent evidence: recorded, not machine-verified."
+                      }
+                    },
+                    "declared_unmet": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "why": {
+                            "type": "string"
+                          },
+                          "declared_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "why",
+                          "declared_at"
+                        ],
+                        "description": "One checkpoint question the agent declared unmet, with its rationale and declaration time. Landing requires an owner-authorized variance."
+                      }
+                    },
+                    "advise": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "stop",
+                              "advise"
+                            ]
+                          },
+                          "question": {
+                            "type": "string"
+                          },
+                          "teach": {
+                            "type": "string"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "mode",
+                          "question",
+                          "matched"
+                        ]
+                      }
+                    },
+                    "advisories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
                 "gate_proof": {
                   "type": "object",
                   "properties": {
@@ -7287,7 +7421,8 @@
                       "type": "string",
                       "enum": [
                         "fix",
-                        "review"
+                        "review",
+                        "decide"
                       ]
                     },
                     "category": {
@@ -7329,6 +7464,56 @@
                     "action",
                     "why"
                   ]
+                },
+                "recommendations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "enum": [
+                          "checkpoints.review",
+                          "checkpoints.graduate"
+                        ]
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "action": {
+                        "type": "string"
+                      },
+                      "why": {
+                        "type": "string"
+                      },
+                      "evidence": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string"
+                          },
+                          "excerpt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "excerpt"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "subject",
+                      "title",
+                      "action",
+                      "why",
+                      "evidence"
+                    ]
+                  }
                 },
                 "categories": {
                   "type": "array",
@@ -7423,6 +7608,28 @@
                                 "source",
                                 "excerpt"
                               ]
+                            },
+                            "boundary": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "checkpoint": {
+                                    "type": "string"
+                                  },
+                                  "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "stop",
+                                      "advise"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "checkpoint",
+                                  "mode"
+                                ]
+                              }
                             }
                           },
                           "required": [
@@ -7730,6 +7937,601 @@
                 "next_action",
                 "categories",
                 "history"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "issues"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ]
+    },
+    "DiscernCheckpointsResult": {
+      "title": "DiscernCheckpointsResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "instructions-check",
+                      "skills-check",
+                      "tracked-refresh-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "instructions-check",
+                  "skills-check",
+                  "tracked-refresh-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped",
+                  "cancelled"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "checkpoints"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "policy": {
+                  "type": "string"
+                },
+                "checkpoints": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "stop",
+                          "advise"
+                        ]
+                      },
+                      "question": {
+                        "type": "string"
+                      },
+                      "teach": {
+                        "type": "string"
+                      },
+                      "reference": {
+                        "type": "string"
+                      },
+                      "trigger": {
+                        "type": "string"
+                      },
+                      "preview": {
+                        "type": "object",
+                        "properties": {
+                          "holds": {
+                            "type": "boolean"
+                          },
+                          "when_pending": {
+                            "type": "boolean"
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "vetoed_by": {
+                            "type": "string",
+                            "enum": [
+                              "empty_matched_set",
+                              "unless_changed",
+                              "min_changed_files",
+                              "deletion_dominant",
+                              "similar_new_file"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "holds"
+                        ]
+                      },
+                      "open_question": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "awaiting_declaration",
+                              "declared_met",
+                              "declared_unmet",
+                              "reopened"
+                            ]
+                          },
+                          "definition_hash": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "string"
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "opened_at": {
+                            "type": "string"
+                          },
+                          "reopened_at": {
+                            "type": "string"
+                          },
+                          "declaration": {
+                            "type": "object",
+                            "properties": {
+                              "conclusion": {
+                                "type": "string",
+                                "enum": [
+                                  "met",
+                                  "unmet"
+                                ]
+                              },
+                              "why": {
+                                "type": "string"
+                              },
+                              "declared_at": {
+                                "type": "string"
+                              },
+                              "current": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "conclusion",
+                              "declared_at",
+                              "current"
+                            ]
+                          },
+                          "variance_required": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "state",
+                          "definition_hash",
+                          "subject",
+                          "matched",
+                          "opened_at"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "mode",
+                      "question",
+                      "trigger"
+                    ]
+                  }
+                },
+                "ungoverned": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "open_question": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "awaiting_declaration",
+                              "declared_met",
+                              "declared_unmet",
+                              "reopened"
+                            ]
+                          },
+                          "definition_hash": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "string"
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "opened_at": {
+                            "type": "string"
+                          },
+                          "reopened_at": {
+                            "type": "string"
+                          },
+                          "declaration": {
+                            "type": "object",
+                            "properties": {
+                              "conclusion": {
+                                "type": "string",
+                                "enum": [
+                                  "met",
+                                  "unmet"
+                                ]
+                              },
+                              "why": {
+                                "type": "string"
+                              },
+                              "declared_at": {
+                                "type": "string"
+                              },
+                              "current": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "conclusion",
+                              "declared_at",
+                              "current"
+                            ]
+                          },
+                          "variance_required": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "state",
+                          "definition_hash",
+                          "subject",
+                          "matched",
+                          "opened_at"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "open_question"
+                    ]
+                  }
+                },
+                "economics": {
+                  "type": "object",
+                  "properties": {
+                    "efforts": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "rows": {
+                      "maxItems": 16,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "efforts_fired": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "efforts_landed": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "fires": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "declared": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "declared_unchanged": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "declared_unmet": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "reopened": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "variances": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "abandoned": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "median_declare_s": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "efforts_fired",
+                          "efforts_landed",
+                          "fires",
+                          "declared",
+                          "declared_unchanged",
+                          "declared_unmet",
+                          "reopened",
+                          "variances",
+                          "abandoned"
+                        ]
+                      }
+                    },
+                    "omitted": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "efforts",
+                    "rows",
+                    "omitted"
+                  ]
+                },
+                "advisories": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "checkpoints"
               ]
             },
             {
@@ -11540,6 +12342,98 @@
                         "unattributed_runs"
                       ]
                     },
+                    "checkpoints": {
+                      "type": "object",
+                      "properties": {
+                        "efforts": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "rows": {
+                          "maxItems": 16,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "efforts_fired": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "efforts_landed": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "fires": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "declared": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "declared_unchanged": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "declared_unmet": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "reopened": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "variances": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "abandoned": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "median_declare_s": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "efforts_fired",
+                              "efforts_landed",
+                              "fires",
+                              "declared",
+                              "declared_unchanged",
+                              "declared_unmet",
+                              "reopened",
+                              "variances",
+                              "abandoned"
+                            ]
+                          }
+                        },
+                        "omitted": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "efforts",
+                        "rows",
+                        "omitted"
+                      ]
+                    },
                     "breadth": {
                       "type": "object",
                       "properties": {
@@ -14665,6 +15559,12 @@
                 },
                 "proof_line": {
                   "type": "string"
+                },
+                "variances": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/DiscernAuthorizedVariance"
+                  }
                 },
                 "proof_note": {
                   "type": "object",
@@ -18193,6 +19093,31 @@
       ],
       "description": "The compact Proof claim: branch, trunk, validated commit, whole-diff statistics, and the one-line rendered proof."
     },
+    "DiscernAuthorizedVariance": {
+      "title": "DiscernAuthorizedVariance",
+      "type": "object",
+      "properties": {
+        "checkpoint": {
+          "type": "string"
+        },
+        "definition_hash": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "checkpoint",
+        "definition_hash",
+        "subject",
+        "why"
+      ],
+      "description": "Owner authorization to land one declared-unmet checkpoint, bound to the exact declaration (checkpoint, definition hash, subject fingerprint, rationale) and the commit it landed with. Never a future policy."
+    },
     "DiscernDoctorMcpToolResult": {
       "title": "DiscernDoctorMcpToolResult",
       "type": "object",
@@ -18447,6 +19372,44 @@
         },
         "structuredContent": {
           "$ref": "#/$defs/DiscernImprovementResult",
+          "description": "The compact structured projection, sufficient without text content."
+        },
+        "isError": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "content",
+        "structuredContent",
+        "isError"
+      ]
+    },
+    "DiscernCheckpointsMcpToolResult": {
+      "title": "DiscernCheckpointsMcpToolResult",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "text"
+              },
+              "text": {
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ]
+          }
+        },
+        "structuredContent": {
+          "$ref": "#/$defs/DiscernCheckpointsResult",
           "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
@@ -18901,6 +19864,9 @@
           "$ref": "#/$defs/DiscernImprovementResult"
         },
         {
+          "$ref": "#/$defs/DiscernCheckpointsResult"
+        },
+        {
           "$ref": "#/$defs/DiscernStandardsResult"
         },
         {
@@ -18998,6 +19964,7 @@
           "prepare": "#/$defs/DiscernPrepareResult",
           "test": "#/$defs/DiscernTestResult",
           "improvement": "#/$defs/DiscernImprovementResult",
+          "checkpoints": "#/$defs/DiscernCheckpointsResult",
           "standards": "#/$defs/DiscernStandardsResult",
           "refresh": "#/$defs/DiscernRefreshResult",
           "tidy": "#/$defs/DiscernTidyResult",
@@ -19050,6 +20017,9 @@
         },
         {
           "$ref": "#/$defs/DiscernImprovementMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernCheckpointsMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernStandardsMcpToolResult"
@@ -19260,6 +20230,16 @@
       "mcpTool": "discern_improvement",
       "schema": "#/$defs/DiscernImprovementResult",
       "mcpToolResultSchema": "#/$defs/DiscernImprovementMcpToolResult"
+    },
+    {
+      "id": "checkpoints",
+      "verb": "checkpoints",
+      "commands": [
+        "checkpoints"
+      ],
+      "mcpTool": "discern_checkpoints",
+      "schema": "#/$defs/DiscernCheckpointsResult",
+      "mcpToolResultSchema": "#/$defs/DiscernCheckpointsMcpToolResult"
     },
     {
       "id": "standards",
@@ -19487,6 +20467,8 @@
     "ambiguous",
     "apply_failed",
     "awaiting_consent",
+    "awaiting_declaration",
+    "awaiting_variance",
     "below_min_score",
     "brief_unparseable",
     "checkout_failed",

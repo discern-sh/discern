@@ -134,9 +134,12 @@ async function noteAt(root: string, commit: string): Promise<Proof> {
     ...payload.proof,
     ...payload.presentation,
   });
+  // Byte-faithful under either writer: a direct gate-side write carries no
+  // acceptance block, while a landing records consent plus its authorized
+  // variances (their content is pinned by the acceptance suites).
   assertEquals(
     payloadText,
-    canonicalProofNotePayload(proof, commit),
+    canonicalProofNotePayload(proof, commit, payload.acceptance),
   );
   assertEquals(payload.subject.commit, commit);
   assertEquals(payload.issuer, undefined);

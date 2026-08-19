@@ -49,6 +49,7 @@ const CMD = {
   patterns: discernCommand("patterns"),
   patternsStats: discernCommand("patterns", flag("stats")),
   improvement: discernCommand("improvement"),
+  checkpoints: discernCommand("checkpoints"),
   doctor: discernCommand("doctor"),
   done: discernCommand("done"),
   standards: discernCommand("standards"),
@@ -459,6 +460,21 @@ export const TIPS: readonly RegisteredTip[] = [
   }),
 
   defineTip({
+    id: "checkpoints-read-surface",
+    when: "Evergreen — the second quality lesson.",
+    features: ["checkpoints"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["checkpoints"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.checkpoints} shows which judgment stops govern this task, each ` +
+      "recorded answer, and what the change in hand would set off. Read-only.",
+  }),
+
+  defineTip({
     id: "standards-first-rule",
     when: "No quality rules are configured.",
     predicate: { kind: "standards-empty" },
@@ -745,12 +761,23 @@ export const TIPS: readonly RegisteredTip[] = [
 
   defineTip({
     id: "await-with-one-call",
-    when: "Evergreen — the final reusable guide lesson.",
+    when: "Evergreen — a reusable guide lesson.",
     features: ["skill-await-the-fleet"],
     example: undefined,
     template: (): string =>
       "`discern-await-the-fleet` guides a coding agent to wait for another " +
       "task with one bounded call, then build on what arrives.",
+  }),
+
+  defineTip({
+    id: "place-a-checkpoint",
+    when: "Evergreen — the final reusable guide lesson.",
+    features: ["skill-place-a-checkpoint"],
+    example: undefined,
+    template: (): string =>
+      "`discern-place-a-checkpoint` turns a point a reviewer keeps raising " +
+      "into a change-triggered judgment the final quality check serves " +
+      "and records.",
   }),
 
   defineTip({

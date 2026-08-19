@@ -62,12 +62,10 @@ export const OPERATING_POLICIES = [
   {
     id: "worktree-first",
     statement:
-      "On the trunk, call discern_start only for a new effort with no worktree. " +
-      "It returns an isolated worktree's path and re-aims these tools. You must " +
-      "still move your OWN file operations into that path: re-root there, or if " +
-      "you can't change your working root, prefix every shell command with " +
-      "`cd <path> &&` and pass `path` to every discern tool. Otherwise edits " +
-      "land on the trunk while the gate runs in the worktree.",
+      "On the trunk, discern_start opens a new effort's isolated worktree and " +
+      "re-aims the tools. Move your OWN file operations too (re-root, or " +
+      "prefix shell commands with `cd <path> &&` and pass `path`); otherwise " +
+      "edits land on the trunk while the gate runs in the worktree.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/(own|isolated) worktree/i, /discern_start/],
   },
@@ -79,8 +77,7 @@ export const OPERATING_POLICIES = [
   },
   {
     id: "iterate-fast-loop",
-    statement:
-      "Use discern_prepare while iterating; discern_test runs the tests.",
+    statement: "Iterate with discern_prepare; discern_test runs the tests.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/discern_prepare/, /iterat/i],
   },
@@ -129,6 +126,24 @@ export const OPERATING_POLICIES = [
       /explicit\w*[^.\n]{0,80}(consent|hand\s?-?off)/i,
       /machine-verified[^.\n]{0,40}authority/i,
       /discern_accept/,
+    ],
+  },
+  {
+    id: "checkpoint-declarations",
+    statement:
+      "Checkpoints served at discern_done are yours to judge: met, or unmet " +
+      "with a short why (durable Proof evidence, no secrets). A variance is " +
+      "the owner's call at discern_accept: relay the Proof and stop; grants " +
+      "never cover one.",
+    surfaces: OPERATING_POLICY_SURFACES,
+    probes: [
+      /checkpoints?/i,
+      /(declare\w*|judge)[^.\n]{0,80}\bmet\b/i,
+      /unmet[^.\n]{0,80}why/i,
+      /no secrets/i,
+      /(owner[^.\n]{0,60}variance|variance[^.\n]{0,60}owner)/i,
+      /grants never cover/i,
+      /relay[^.\n]{0,60}proof/i,
     ],
   },
 ] as const satisfies readonly OperatingPolicy[];

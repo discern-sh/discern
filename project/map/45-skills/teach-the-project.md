@@ -1,6 +1,6 @@
 ---
 title: Teach the project
-description: Capture a durable lesson from an agent session in instructions, a Skill, a script, documentation, or an ADR.
+description: Capture a durable lesson from an agent session in instructions, a Skill, a checkpoint, a script, documentation, or an ADR.
 order: 50
 aliases:
   - remember this
@@ -24,6 +24,7 @@ The Skill checks for an existing source before adding anything. Update the curre
 | --------------------------------------- | -------------------------------------------------------------------------------- |
 | A standing rule every session needs     | The [Instruction source](../40-agent-instructions/write-project-instructions.md) |
 | A repeatable procedure needing judgment | An [authored Skill](author-a-skill.md)                                           |
+| A review judgment a diff makes relevant | A [checkpoint](../20-quality-gate/checkpoints.md)                                |
 | A deterministic command sequence        | A Project Script                                                                 |
 | Durable subsystem facts                 | The documentation Map                                                            |
 | A significant decision and its reason   | An ADR                                                                           |
@@ -35,7 +36,7 @@ Record each lesson in one authoritative source. An instruction can link to the A
 1. **Catch the lesson.** Keep corrections and procedures that remain useful beyond the current session. Drop facts the code already records or details that expire with the task.
 2. **Offer at a pause.** When the user did not request capture, ask after implementation or during review. Batch related lessons into one offer.
 3. **Route it.** Choose the smallest home for the knowledge and check for an existing entry first.
-4. **Match the destination.** Instructions stay short and imperative. A Skill carries a full playbook. A script executes deterministically. Documentation states current facts. An ADR records a decision's context and trade-off.
+4. **Match the destination.** Instructions stay short and imperative. A Skill carries a full playbook. A checkpoint serves a judgment when a matching change completes. A script executes deterministically. Documentation states current facts. An ADR records a decision's context and trade-off.
 5. **Update generated surfaces.** Refresh Agent files, verify a new Skill with the catalog, or run the relevant documentation and script checks. Report what changed and where it lives.
 
 ## Current state & gotchas

@@ -12,14 +12,14 @@ One row per set, in registry order. The detail sections use the same order and c
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
-| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 33      | per member       | surface `verb`              |
+| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 34      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 3       | —                | —                           |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 22      | —                | node `plan-apply`           |
-| [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
+| [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 18      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
 | [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 40      | —                | —                           |
 | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)       | `src/shared/experimental.ts#EXPERIMENTAL_ENVIRONMENT_VARIABLES`                   | 2       | —                | —                           |
-| [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 9       | —                | —                           |
+| [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 10      | —                | —                           |
 | [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `cli-help`             |
 | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                    | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                       | 2       | —                | node `consent-attestations` |
 | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                        | `src/shared/consent.ts#LANDING_CONSENT_SOURCES`                                   | 3       | —                | node `consent-attestations` |
@@ -28,16 +28,16 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 10      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 24      | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 25      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
 | [`step-kinds`](#step-kinds--step-kinds)                                                                               | `src/shared/result.ts#STEP_KINDS`                                                 | 19      | —                | node `doctor`               |
 | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 33      | —                | node `plan-apply`           |
-| [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 15      | —                | surface `config`            |
+| [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 16      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
-| [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
-| [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 13      | —                | —                           |
+| [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 10      | "Skill"          | surface `skill`             |
+| [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 14      | —                | —                           |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
 | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 12      | —                | —                           |
 | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
@@ -50,38 +50,38 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 169     | "Advisory"       | node `hints`                |
-| [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 178     | "Advisory"       | node `hints`                |
+| [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 44      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
 | [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                               | `art/terminal/triangle.ts#DISCERN_PRODUCT_TRIANGLE_ART`                           | 2       | —                | —                           |
 | [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 19      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
-| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 64      | —                | node `hints`                |
+| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 66      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
-| [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 7       | —                | node `logbook`              |
+| [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 8       | —                | node `logbook`              |
 | [`logbook-lifecycle-actions`](#logbook-lifecycle-actions--logbook-lifecycle-actions)                                  | `src/shared/logbook_lifecycle.ts#LOGBOOK_LIFECYCLE_ACTIONS`                       | 2       | —                | node `patterns`             |
 | [`detector-families`](#detector-families--patterns-detector-families)                                                 | `src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES`                             | 4       | —                | node `patterns`             |
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
-| [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 35      | "Patterns"       | node `patterns`             |
-| [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 41      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 128     | —                | —                           |
-| [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 44      | —                | —                           |
+| [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 38      | "Patterns"       | node `patterns`             |
+| [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 50      | —                | node `glossary-canon`       |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 130     | —                | —                           |
+| [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 45      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
-| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 44      | —                | node `published-contracts`  |
+| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 45      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
 | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 4       | —                | node `published-contracts`  |
 | [`security-disclosure`](#security-disclosure--security-disclosure)                                                    | `site/security.ts#SECURITY_DISCLOSURE`                                            | 9       | —                | —                           |
-| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 64      | —                | node `published-contracts`  |
+| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 66      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 282     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 294     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -302,7 +302,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 The top-level command vocabulary: every verb the dispatcher accepts through the command-line interface (CLI) and Model Context Protocol (MCP).
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
-- Members: 33
+- Members: 34
   - `setup`
   - `upgrade`
   - `uninstall`
@@ -321,6 +321,7 @@ The top-level command vocabulary: every verb the dispatcher accepts through the 
   - `await`
   - `improvement`
   - `standards`
+  - `checkpoints`
   - `refresh`
   - `tidy`
   - `impact`
@@ -391,7 +392,7 @@ Every command path that registers `--dry-run`. These plan/apply verbs must produ
 The MCP tool table; verb parity ties every tool to a CLI verb, and the live tools/list guard binds each definition to its advertised schema.
 
 - Source: `src/engine/mcp/server.ts` — `TOOLS`
-- Members: 17
+- Members: 18
   - `discern_status`
   - `discern_start`
   - `discern_prepare`
@@ -404,6 +405,7 @@ The MCP tool table; verb parity ties every tool to a CLI verb, and the live tool
   - `discern_impact`
   - `discern_coupling`
   - `discern_patterns`
+  - `discern_checkpoints`
   - `discern_refresh`
   - `discern_map`
   - `discern_docs`
@@ -499,7 +501,7 @@ The environment-only switches for reversible trials, with one exact activation r
 The core policy statements carried by bundled instructions and MCP server instructions, with probes that recognize each authored restatement.
 
 - Source: `src/shared/operating_policies.ts` — `OPERATING_POLICIES`
-- Members: 9
+- Members: 10
   - `worktree-continuity`
   - `worktree-first`
   - `never-adopt`
@@ -509,6 +511,7 @@ The core policy statements carried by bundled instructions and MCP server instru
   - `update-behind`
   - `await-longest-safe`
   - `accept-on-handoff`
+  - `checkpoint-declarations`
 - Guards: `tests/agent_policy_parity_test.ts`
 - Glossary: not enrolled — existing Glossary entries define the reader-facing concepts behind these internal policy identifiers
 - Feature canon: not enrolled — the instruction, Worktree, Standard, and MCP nodes own the enforced behaviors
@@ -629,7 +632,7 @@ The Desk's per-Worktree action vocabulary and menu order. The legality table exe
 Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 24
+- Members: 25
   - `resources`
   - `logbook`
   - `logbookArchives`
@@ -647,6 +650,7 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `lastGateRun`
   - `standardMeasurements`
   - `ignoredBaseline`
+  - `checkpointOpenQuestions`
   - `effortGrant`
   - `effortGrantClaims`
   - `acceptanceTransaction`
@@ -777,7 +781,7 @@ The stable kebab-case operation labels discern authors in plans and applied resu
 Every top-level table in the config schema.
 
 - Source: `src/shared/config_schema.ts` — `configSchema`
-- Members: 15
+- Members: 16
   - `meta`
   - `project`
   - `repository`
@@ -790,6 +794,7 @@ Every top-level table in the config schema.
   - `acceptance`
   - `worktree`
   - `standards`
+  - `checkpoints`
   - `gate`
   - `coupling`
   - `scripts`
@@ -819,12 +824,13 @@ The authored-source locations: instructions, Map, Skills, Project Scripts, TODO,
 The Skills the binary ships and materializes into a project.
 
 - Source: `src/lib/skills.ts` — `bundledSkillNames`
-- Members: 9
+- Members: 10
   - `discern-await-the-fleet`
   - `discern-clear-the-decks`
   - `discern-cure-a-bug`
   - `discern-delegate-work`
   - `discern-document-subsystem`
+  - `discern-place-a-checkpoint`
   - `discern-set-the-standard`
   - `discern-teach-the-project`
   - `discern-write-adr`
@@ -838,7 +844,7 @@ The Skills the binary ships and materializes into a project.
 The effective Skills and setup briefs joined to repository-only classifications, exact agent-facing prose evidence, materialized-output protection, and generated agent-copy lexical rules.
 
 - Source: `scripts/agent_surface_contracts.ts` — `operationalAgentSurfaces`
-- Members: 13
+- Members: 14
   - `setup:instructions`
   - `skill:discern-agent-voice`
   - `skill:discern-await-the-fleet`
@@ -847,6 +853,7 @@ The effective Skills and setup briefs joined to repository-only classifications,
   - `skill:discern-cure-a-bug`
   - `skill:discern-delegate-work`
   - `skill:discern-document-subsystem`
+  - `skill:discern-place-a-checkpoint`
   - `skill:discern-product-voice`
   - `skill:discern-set-the-standard`
   - `skill:discern-teach-the-project`
@@ -1123,7 +1130,7 @@ The `@…@` runtime tokens substituted into a Worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 169
+- Members: 178
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -1208,6 +1215,15 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-proof-clear-failed`
   - `done-unchanged-tree-red`
   - `done-unchanged-tree-green`
+  - `checkpoint-declare`
+  - `checkpoint-preview`
+  - `checkpoint-advise`
+  - `checkpoint-advisory`
+  - `gate-variance-required`
+  - `accept-declarations-stale`
+  - `accept-authorize-variance`
+  - `checkpoints-declare`
+  - `checkpoints-variance-review`
   - `gate-failure-gotchas`
   - `gate-failure-gotcha-matched`
   - `gotchas-matcher-invalid`
@@ -1303,7 +1319,7 @@ The advisory hint registry: every hint string enters results through it.
 The Desk tip registry: every teaching line the Desk can show enters through it, in curriculum order.
 
 - Source: `src/shared/tips.ts` — `TIPS`
-- Members: 42
+- Members: 44
   - `desk-is-home`
   - `status-orients-anywhere`
   - `start-isolates-a-task`
@@ -1321,6 +1337,7 @@ The Desk tip registry: every teaching line the Desk can show enters through it, 
   - `improvement-next-action`
   - `doctor-first-diagnostic`
   - `done-records-proof`
+  - `checkpoints-read-surface`
   - `standards-first-rule`
   - `standards-on-demand`
   - `standards-pin-gain`
@@ -1343,6 +1360,7 @@ The Desk tip registry: every teaching line the Desk can show enters through it, 
   - `record-a-decision`
   - `delegate-with-a-complete-brief`
   - `await-with-one-call`
+  - `place-a-checkpoint`
   - `identity-stable-values`
   - `resources-follow-the-copy`
   - `scripts-from-desk`
@@ -1450,11 +1468,13 @@ The result fields a generic recovery instruction may cite. A failure with neithe
 The audited recovery mode for every canonical error slug: use the generic floor only when the message or first diagnostic supplies the correction; otherwise require a tailored registered next step.
 
 - Source: `src/shared/hints.ts` — `ERROR_FAILURE_RECOVERY`
-- Members: 64
+- Members: 66
   - `active_worktrees: evidence`
   - `ambiguous: tailored`
   - `apply_failed: evidence`
   - `awaiting_consent: tailored`
+  - `awaiting_declaration: tailored`
+  - `awaiting_variance: tailored`
   - `below_min_score: tailored`
   - `brief_unparseable: evidence`
   - `checkout_failed: evidence`
@@ -1553,7 +1573,7 @@ The event kinds written to the local Logbook and interpreted by its advisory rea
 The advisory capabilities that switch off with `[project].logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.
 
 - Source: `src/shared/logbook_powered.ts` — `LOGBOOK_POWERED`
-- Members: 7
+- Members: 8
   - `patterns-report`
   - `fleet-actions`
   - `fleet-activity-freshness`
@@ -1561,6 +1581,7 @@ The advisory capabilities that switch off with `[project].logbook = false`. Ever
   - `inline-findings`
   - `test-wait-estimate`
   - `contained-idle-check`
+  - `checkpoint-economics`
 - Guards: `tests/logbook_powered_test.ts`
 - Glossary: not enrolled — the Logbook reference documents these capability names and their opt-out behavior
 - Feature canon: described by the `logbook` node
@@ -1609,7 +1630,7 @@ The presentation-only vocabulary a Patterns finding uses to distinguish favorabl
 Every detector the Patterns verb runs over the Logbook, in stable registry order. Companion families, scopes, tiers, and statuses from `src/shared/patterns_vocabulary.ts` type each entry. The parameterized class test requires fixtures for every new detector.
 
 - Source: `src/engine/logbook/detectors.ts` — `DETECTORS`
-- Members: 35
+- Members: 38
   - `done-thrash`
   - `refusal-loop`
   - `hint-follow-through`
@@ -1645,6 +1666,9 @@ Every detector the Patterns verb runs over the Logbook, in stable registry order
   - `update-friction`
   - `standard-trajectory`
   - `red-rate-history`
+  - `checkpoint-dead`
+  - `checkpoint-noisy`
+  - `checkpoint-varied`
 - Guards: `tests/patterns_test.ts`, `tests/logbook_routing_test.ts`, `tests/engine_patterns_test.ts`
 - Glossary: the "Patterns" entry carries the concept
 - Feature canon: described by the `patterns` node
@@ -1654,13 +1678,14 @@ Every detector the Patterns verb runs over the Logbook, in stable registry order
 The improvement catalog's categories, in display order. The runner ranks them weakest-first, while CLI help and the MCP tool derive category slugs from the catalog.
 
 - Source: `src/engine/improve/rules.ts` — `CATEGORIES`
-- Members: 7
+- Members: 8
   - `gate`
   - `setup`
   - `instructions`
   - `map`
   - `worktrees`
   - `standards`
+  - `checkpoints`
   - `skills`
 - Guards: `tests/improve_catalog_test.ts`
 - Glossary: not enrolled — the improvement reference documents these category slugs, and every surfaced list derives from this catalog
@@ -1671,11 +1696,19 @@ The improvement catalog's categories, in display order. The runner ranks them we
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans. Each entry also carries the term's plain-register rendering, so the vocabulary and its plain translation are one record.
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
-- Members: 41
+- Members: 50
   - `Accept`
   - `Advisory`
   - `discern version`
   - `Gate job`
+  - `Checkpoint`
+  - `Question`
+  - `Open question`
+  - `Declaration`
+  - `Declared met`
+  - `Declared unmet`
+  - `Variance`
+  - `Stop / advise`
   - `Coupling`
   - `Shared file`
   - `Agent file`
@@ -1695,6 +1728,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Migration`
   - `Namespace`
   - `Patterns`
+  - `Improvement review`
   - `Placement is consent`
   - `Practice`
   - `Preset`
@@ -1723,7 +1757,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 128
+- Members: 130
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -1751,6 +1785,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `proof`
   - `proof-notes`
   - `unchanged-tree-rerun`
+  - `checkpoints`
   - `standards`
   - `standards-direction`
   - `standards-metric-protocol`
@@ -1792,6 +1827,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `skills-curation`
   - `skill-cure-a-bug`
   - `skill-set-the-standard`
+  - `skill-place-a-checkpoint`
   - `skill-clear-the-decks`
   - `skill-delegate-work`
   - `skill-await-the-fleet`
@@ -1862,13 +1898,14 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
 The commercially ordered transposition of the feature registry: human value and the reason it follows, with explicit feature and public-claim traceability.
 
 - Source: `scripts/feature_registry.ts` — `BENEFIT_CANON`
-- Members: 44
+- Members: 45
   - `shape-substantial-work`
   - `parallel-work-on-one-machine`
   - `wait-without-relay`
   - `compose-staged-work`
   - `resume-later`
   - `reduce-routine-review`
+  - `judgment-at-the-change`
   - `decisions-in-one-view`
   - `useful-failures-sooner`
   - `catch-related-files`
@@ -1940,7 +1977,7 @@ The practice registry behind the practice canon: the obligations upheld by enfor
 The per-verb result contracts behind the published JSON schema and type declarations.
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
-- Members: 44
+- Members: 45
   - `discern`
   - `setup`
   - `setupVerify`
@@ -1960,6 +1997,7 @@ The per-verb result contracts behind the published JSON schema and type declarat
   - `prepare`
   - `test`
   - `improvement`
+  - `checkpoints`
   - `standards`
   - `refresh`
   - `tidy`
@@ -2079,11 +2117,13 @@ The public reporting channels, policy location, language, and bounded security.t
 The machine-stable failure vocabulary accepted by live result envelopes and advertised to public-schema consumers.
 
 - Source: `src/shared/result.ts` — `ERROR_SLUGS`
-- Members: 64
+- Members: 66
   - `active_worktrees`
   - `ambiguous`
   - `apply_failed`
   - `awaiting_consent`
+  - `awaiting_declaration`
+  - `awaiting_variance`
   - `below_min_score`
   - `brief_unparseable`
   - `checkout_failed`
@@ -2198,7 +2238,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 282
+- Members: 294
   - `0003`
   - `0005`
   - `0006`
@@ -2462,6 +2502,18 @@ The numbered decision records in the Map, including records later superseded.
   - `0290`
   - `0291`
   - `0292`
+  - `0293`
+  - `0294`
+  - `0295`
+  - `0296`
+  - `0297`
+  - `0298`
+  - `0299`
+  - `0300`
+  - `0301`
+  - `0302`
+  - `0303`
+  - `0304`
   - `0001`
   - `0002`
   - `0004`

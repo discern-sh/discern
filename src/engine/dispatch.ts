@@ -119,6 +119,7 @@ export const SUGGESTABLE_ENGINE_COMMANDS: readonly string[] = [
   "await",
   "improvement",
   "standards",
+  "checkpoints",
   "refresh",
   "tidy",
   "impact",
@@ -271,14 +272,68 @@ export function attachEngineCommands(
         "judged — a flake probe, or a re-measure — and record it. Without the " +
         "flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it.",
     )
+    .option(
+      "--met <id:string>",
+      "Declare a served checkpoint's question met (repeatable). Valid only " +
+        "for a checkpoint with an active open question here; the declaration is " +
+        "recorded as your judgment, and the gate runs in the same invocation " +
+        "once every awaiting checkpoint has a conclusion.",
+      { collect: true },
+    )
+    .option(
+      "--unmet <id:string>",
+      "Declare a served checkpoint's question unmet (one per invocation; " +
+        "requires --why). The gate still runs; landing then needs the owner " +
+        "to authorize a variance for it.",
+      { collect: true },
+    )
+    .option(
+      "--why <rationale:string>",
+      "The required rationale for --unmet: one paragraph, 1-500 characters, " +
+        "no newlines or control characters. Recorded opaquely as Proof " +
+        "evidence for the owner's landing decision.",
+    )
     .action(
       recordedExit("done", async (o) => {
+        const json = o.json ?? false;
+        const invalid = (message: string): number => {
+          if (json) {
+            emitResult({
+              ok: false,
+              verb: "done",
+              error: "invalid_arguments",
+              message,
+            });
+          } else {
+            makeLogger().error(message);
+          }
+          return 1;
+        };
+        const unmetIds = o.unmet ?? [];
+        if (unmetIds.length > 1) {
+          return invalid(
+            "--unmet accepts one checkpoint per invocation; declare the others in follow-up invocations.",
+          );
+        }
+        const unmetId = unmetIds[0];
+        if (unmetId !== undefined && o.why === undefined) {
+          return invalid(
+            '--unmet requires --why "<rationale>" — one paragraph on why the question is not satisfied.',
+          );
+        }
+        if (unmetId === undefined && o.why !== undefined) {
+          return invalid("--why accompanies --unmet <id>; pass both.");
+        }
         const { runFinish } = await import("./gate/finish.ts");
-        return await runFinish(await requireRoot("done", o.json ?? false), {
-          json: o.json ?? false,
+        return await runFinish(await requireRoot("done", json), {
+          json,
           dryRun: o.dryRun ?? false,
           confirmed: o.confirmed ?? false,
           plain: plainModeEnabled(),
+          ...(o.met === undefined ? {} : { met: o.met }),
+          ...(unmetId === undefined || o.why === undefined
+            ? {}
+            : { unmet: { id: unmetId, why: o.why } }),
         });
       }),
     );
@@ -361,6 +416,25 @@ export function attachEngineCommands(
             category: o.category,
             minScore: o.minScore,
           },
+        );
+      }),
+    );
+
+  root
+    .command("checkpoints")
+    .description(
+      "Report the governing checkpoint policy, each open question's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.",
+    )
+    .option(
+      "--json",
+      "Emit the result as a JSON DiscernResult on stdout.",
+    )
+    .action(
+      recordedExit("checkpoints", async (o) => {
+        const { runCheckpoints } = await import("./checkpoints/report.ts");
+        return await runCheckpoints(
+          await requireRoot("checkpoints", o.json ?? false),
+          { json: o.json ?? false },
         );
       }),
     );
@@ -803,6 +877,14 @@ export function attachEngineCommands(
         "only. Without applicable evidence, acceptance refuses read-only; a " +
         "dry-run needs none.",
     )
+    .option(
+      "--variance <id:string>",
+      "Record that your owner authorized landing this declared-unmet " +
+        "checkpoint without changing it (repeatable; requires --confirmed). " +
+        "The ids must equal the current declared-unmet set, id for id, and " +
+        "recorded grants never authorize a variance.",
+      { collect: true },
+    )
     .action(recordedExit("accept", async (o) => {
       const json = o.json ?? false;
       return await runWorktreeOp(
@@ -811,6 +893,7 @@ export function attachEngineCommands(
             json,
             dryRun: o.dryRun ?? false,
             confirmed: o.confirmed ?? false,
+            variance: o.variance ?? [],
           }),
         { json, verb: "accept" },
       );

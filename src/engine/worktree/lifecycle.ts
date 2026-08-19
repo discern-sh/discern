@@ -73,6 +73,18 @@ import {
   type LandingConsent,
 } from "../../shared/consent.ts";
 import {
+  AWAITING_DECLARATION_SLUG,
+  AWAITING_VARIANCE_SLUG,
+} from "../../shared/declarations.ts";
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
+import {
+  type AcceptanceCheckpointState,
+  inspectAcceptanceCheckpoints,
+  resolveVarianceInterlock,
+  type StandingUnmetConclusion,
+  varianceBinding,
+} from "./acceptance_checkpoints.ts";
+import {
   classifyOrphans,
   createResources,
   destroyResources,
@@ -118,11 +130,20 @@ import {
   type StepResult,
   verbatimStepLabel,
 } from "../../shared/result.ts";
-import { observeResult } from "../../shared/result_capture.ts";
+import {
+  observeCheckpointActivity,
+  observeResult,
+} from "../../shared/result_capture.ts";
+import {
+  declarationIsCurrent,
+  readOpenQuestions,
+} from "../checkpoints/open_questions.ts";
 import type {
+  AcceptanceEvidenceData,
   AcceptData,
   AcceptLandingState,
   AcceptProofNoteData,
+  AuthorizedVarianceData,
   GateData,
   Proof,
   StartData,
@@ -289,9 +310,12 @@ export interface WorktreeOpOptions {
 /** `accept`'s flags: the worktree-verb set plus the landing consent attestation
  * (ADR 0134). `confirmed` asserts the owner accepted this landing in the current
  * conversation. Recorded standing and effort grants are checked directly.
- * It lives on accept alone — the other worktree verbs are not consent-gated. */
+ * It lives on accept alone — the other worktree verbs are not consent-gated.
+ * `variance` names each declared-unmet checkpoint the owner authorizes landing
+ * (repeatable); the set must equal the current declared-unmet set exactly. */
 export interface AcceptOpOptions extends WorktreeOpOptions {
   confirmed?: boolean;
+  variance?: string[];
 }
 
 /**
@@ -1701,6 +1725,143 @@ function acceptAwaitingConsentResult(
   };
 }
 
+/** The shared no-effects clause every pre-effect acceptance refusal ends with. */
+const ACCEPT_NOTHING_LANDED =
+  "Nothing has been landed — the worktree, its branch, and the trunk are untouched.";
+
+/**
+ * The precondition refusal when a governing stop checkpoint's conclusion is
+ * missing or stale at acceptance: the declaration is recorded at
+ * `done`, so the refusal routes back there. Shares the interlock's slug — the
+ * thing awaited is the agent's own conclusion; the envelope's verb
+ * disambiguates the act.
+ */
+function acceptDeclarationsStaleResult(
+  ids: readonly string[],
+): DiscernResult<AcceptData> {
+  return {
+    ok: false,
+    verb: "accept",
+    error: AWAITING_DECLARATION_SLUG,
+    message:
+      `Landing needs a current conclusion for every governing checkpoint, and ${
+        ids.length === 1 ? "one is" : `${ids.length} are`
+      } missing or no longer current: ${ids.join(", ")}. Run \`discern ` +
+      "done` — it serves each question with its evidence and records your " +
+      `conclusion — then re-run \`discern accept\`. ${ACCEPT_NOTHING_LANDED}`,
+    hints: hintTexts([
+      fire(HINTS["accept-declarations-stale"], { ids: [...ids] }),
+    ]),
+  };
+}
+
+/** One declared-unmet conclusion's serving text in the variance refusal.
+ * This message renders verbatim on the --markdown surface — the owner's
+ * consent moment — so the agent's opaque rationale and the working-tree
+ * path names travel inside the code-span escaping boundary, never as live
+ * Markdown. */
+function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
+  const shown = unmet.matched.slice(0, 6).map(markdownCodeSpan).join(", ");
+  const more = unmet.matched.length > 6
+    ? `, +${unmet.matched.length - 6} more`
+    : "";
+  const lines = [
+    `${unmet.id} — declared unmet at ${unmet.declaredAt}`,
+    `  Question: ${unmet.question.trim()}`,
+    `  Changed: ${shown}${more}`,
+    `  Rationale: ${markdownCodeSpan(unmet.why)}`,
+  ];
+  if (unmet.teach !== undefined && unmet.teach.trim() !== "") {
+    lines.push(`  Teach: ${unmet.teach.trim()}`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * The read-only refusal `accept` serves while a current declared-unmet
+ * conclusion stands without the owner's complete decision: every such
+ * checkpoint batched with its question, evidence, and the agent's rationale,
+ * and ONE recovery — the owner accepts the landing and each named variance in
+ * the current conversation (`--confirmed` plus one `--variance <id>` each).
+ * Standing and effort grants never authorize a variance. Its own typed
+ * contract, distinct from awaiting_consent: consent accepts the landing; a
+ * variance additionally authorizes landing a question the agent judged
+ * unmet.
+ */
+function acceptAwaitingVarianceResult(
+  unmet: readonly StandingUnmetConclusion[],
+  missing: readonly string[],
+  confirmed: boolean,
+): DiscernResult<AcceptData> {
+  const ids = unmet.map((entry) => entry.id);
+  const decision = confirmed
+    ? `The landing decision must also cover every declared-unmet checkpoint; ` +
+      `missing: ${missing.join(", ")}.`
+    : `Landing is the owner's decision, and ${
+      unmet.length === 1
+        ? "one declared-unmet conclusion additionally requires"
+        : `${unmet.length} declared-unmet conclusions additionally require`
+    } the owner to authorize a variance.`;
+  const command = `discern accept --confirmed ${
+    ids.map((id) => `--variance ${id}`).join(" ")
+  }`;
+  return {
+    ok: false,
+    verb: "accept",
+    error: AWAITING_VARIANCE_SLUG,
+    message:
+      `${decision}\n\n${
+        unmet.map(serveUnmetConclusion).join("\n\n")
+      }\n\nRelay each question and rationale to the owner. Once the owner ` +
+      `accepts this landing AND each named variance in the current ` +
+      `conversation, re-run \`${command}\`. Recorded standing and effort ` +
+      `grants never authorize a variance. ${ACCEPT_NOTHING_LANDED}`,
+    hints: hintTexts([
+      fire(HINTS["accept-authorize-variance"], { ids }),
+      fire(HINTS["accept-review-via-status"]),
+    ]),
+  };
+}
+
+/**
+ * Enforce the checkpoint side of acceptance before any effect: verify every
+ * required declaration is current (missing or stale routes back to `done`),
+ * then resolve the variance interlock. Returns the exact authorized variance
+ * set (possibly empty); throws the typed refusal or error otherwise.
+ */
+function enforceAcceptanceCheckpoints(
+  state: AcceptanceCheckpointState,
+  request: { confirmed: boolean; varianceIds: readonly string[] },
+): AuthorizedVarianceData[] {
+  const interlock = resolveVarianceInterlock(state, request);
+  switch (interlock.kind) {
+    case "declarations-stale": {
+      const result = acceptDeclarationsStaleResult(interlock.ids);
+      throw new WorktreeResultError(result.message ?? "", result);
+    }
+    case "invalid-variances":
+      throw new WorktreeResultError(
+        `${interlock.message} ${ACCEPT_NOTHING_LANDED}`,
+        {
+          ok: false,
+          verb: "accept",
+          error: "invalid_value",
+          message: `${interlock.message} ${ACCEPT_NOTHING_LANDED}`,
+        },
+      );
+    case "awaiting": {
+      const result = acceptAwaitingVarianceResult(
+        interlock.unmet,
+        interlock.missing,
+        interlock.confirmed,
+      );
+      throw new WorktreeResultError(result.message ?? "", result);
+    }
+    case "authorized":
+      return interlock.variances;
+  }
+}
+
 /** Resolve the consent this apply lands under, or throw the awaiting-consent
  * refusal. An unreadable committed policy already blocked every recorded
  * source upstream; the conversation attestation never rests on that record —
@@ -2030,6 +2191,7 @@ async function executeAcceptPlan(
   authority: LandingAuthorityResolution,
   consent: LandingConsent,
   progress: AcceptExecutionProgress,
+  variances: readonly AuthorizedVarianceData[],
 ): Promise<{
   steps: StepResult[];
   gateValidation: NonNullable<AcceptData["gate_validation"]>;
@@ -2130,6 +2292,53 @@ async function executeAcceptPlan(
     throw new WorktreeGitError(trackedRefreshAcceptRefusal(trackedRefresh));
   }
 
+  // The variance authorization binds to the exact declarations it covered.
+  // The gate validation above can change them (a fresh run reconciles
+  // open questions), so re-verify the live declared-unmet set still equals the
+  // authorized set — an owner's decision must never land onto different
+  // evidence than the one it was given for.
+  const checkpointsNow = await inspectAcceptanceCheckpoints(
+    ctx.cwd,
+    ctx.config,
+  );
+  const bindingKey = (v: AuthorizedVarianceData): string =>
+    [v.checkpoint, v.definition_hash, v.subject, v.why].join("\u0000");
+  const liveBindings = checkpointsNow.unmet
+    .map((unmet) => bindingKey(varianceBinding(unmet)))
+    .sort();
+  const authorizedBindings = variances.map(bindingKey).sort();
+  if (
+    checkpointsNow.stale.length > 0 ||
+    JSON.stringify(liveBindings) !== JSON.stringify(authorizedBindings)
+  ) {
+    throw new WorktreeGitError(
+      "The checkpoint conclusions changed while this acceptance was " +
+        "validating the branch, so the recorded authorization no longer " +
+        "matches the declarations it covered. Nothing was landed and the " +
+        "worktree is intact. Re-run `discern accept` so the decision is " +
+        "made against the current conclusions.",
+    );
+  }
+  // Observation, never a gate: which open questions will end this effort still
+  // awaiting a conclusion. Every governing stop conclusion was verified
+  // current just above, so anything still awaiting sits outside the governing
+  // stop set — a checkpoint edited away or re-moded since its open question opened.
+  // Read here while the worktree's store exists; recorded (with the
+  // authorized variances) only once the landing transition completes below.
+  const abandonedOpenQuestions = await (async (): Promise<{ id: string }[]> => {
+    const read = await readOpenQuestions(ctx.cwd);
+    if (read.status !== "ok") {
+      return []; // fail open: unreadable state observes nothing
+    }
+    return Object.values(read.openQuestions)
+      .filter((openQuestion) =>
+        openQuestion.declaration === undefined ||
+        !declarationIsCurrent(openQuestion)
+      )
+      .map((openQuestion) => ({ id: openQuestion.checkpoint }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  })();
+
   await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
   const expired = await landingAuthorityExpiry(
     ctx.cwd,
@@ -2145,7 +2354,7 @@ async function executeAcceptPlan(
     );
   }
   if (proofLine !== undefined) {
-    proofLine = renderLandingProofLine(proofLine, consent);
+    proofLine = renderLandingProofLine(proofLine, consent, variances.length);
   }
   if (proofMarkdown !== undefined) {
     progress.proofMarkdown = proofMarkdown;
@@ -2261,6 +2470,7 @@ async function executeAcceptPlan(
     target: validatedSha,
     effortClaim: consent.source === "effort-grant",
     consent,
+    variances,
   });
   if (transition.kind === "authority-changed") {
     const detail = transition.claim.status === "invalid" ||
@@ -2313,6 +2523,18 @@ async function executeAcceptPlan(
     );
   }
   progress.landing.trunk_landed = true;
+  // The landing is now fact, so its checkpoint observations are too: each
+  // owner-authorized variance (id and fingerprints only — the rationale is
+  // Proof evidence, never Logbook metadata) and each open question this effort ends
+  // while it still awaits a conclusion.
+  observeCheckpointActivity({
+    variances: variances.map((variance) => ({
+      id: variance.checkpoint,
+      definition: variance.definition_hash,
+      subject: variance.subject,
+    })),
+    abandoned: abandonedOpenQuestions,
+  });
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
   done("git", BUILT_IN_STEP_LABELS.fastForwardTrunk);
 
@@ -2353,10 +2575,16 @@ async function executeAcceptPlan(
     );
   }
 
+  const acceptanceEvidence: AcceptanceEvidenceData = {
+    consent: cloneLandingConsent(consent),
+    variances: variances.map((variance) => ({ ...variance })),
+  };
   const proofWrite = await writeProofNote(
     mainRepo,
     validatedSha,
     proofData,
+    Deno.env,
+    acceptanceEvidence,
   );
   const proofNote: AcceptProofNoteData = {
     fetch: proofFetch,
@@ -2637,6 +2865,7 @@ export async function accept(
   const result = await acceptResult(ctx, {
     dryRun: opts.dryRun ?? false,
     confirmed: opts.confirmed ?? false,
+    variance: opts.variance ?? [],
   });
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
 }
@@ -2653,17 +2882,18 @@ export async function accept(
  */
 export async function acceptResult(
   ctx: LifecycleContext,
-  opts: { dryRun?: boolean; confirmed?: boolean } = {},
+  opts: { dryRun?: boolean; confirmed?: boolean; variance?: string[] } = {},
 ): Promise<DiscernResult<AcceptData>> {
   const dryRun = opts.dryRun ?? false;
   const confirmed = opts.confirmed ?? false;
+  const variance = opts.variance ?? [];
   if (!dryRun) {
     return await withAcceptanceTransactionLock(
       ctx.cwd,
-      () => executeAcceptResult(ctx, false, confirmed),
+      () => executeAcceptResult(ctx, false, confirmed, variance),
     );
   }
-  return await executeAcceptResult(ctx, true, confirmed);
+  return await executeAcceptResult(ctx, true, confirmed, variance);
 }
 
 /**
@@ -2675,6 +2905,7 @@ async function executeAcceptResult(
   ctx: LifecycleContext,
   dryRun: boolean,
   confirmed: boolean,
+  varianceIds: readonly string[] = [],
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
   // Resolve authority before the ordinary preconditions so an uncovered
@@ -2685,6 +2916,7 @@ async function executeAcceptResult(
     ctx.config.repository.trunk,
   );
   const recoverySteps: StepResult[] = [];
+  let authorizedVariances: AuthorizedVarianceData[] = [];
   let effectRoot: string | undefined;
   let effectConsent: LandingConsent | undefined;
   let effectProgress: AcceptExecutionProgress | undefined;
@@ -2763,7 +2995,24 @@ async function executeAcceptResult(
           );
         }
       }
-      landingConsentForApply(authority, confirmed);
+      // The checkpoint contract precedes ordinary consent: a missing or
+      // stale declaration routes back to `done`, and a current declared-unmet
+      // conclusion serves the owner's ONE complete decision (landing plus
+      // each named variance) instead of a bare consent refusal.
+      const checkpointState = await inspectAcceptanceCheckpoints(
+        ctx.cwd,
+        ctx.config,
+      );
+      for (const advisory of checkpointState.advisories) {
+        ctx.log.warn(advisory);
+      }
+      authorizedVariances = enforceAcceptanceCheckpoints(checkpointState, {
+        confirmed,
+        varianceIds,
+      });
+      if (authorizedVariances.length === 0) {
+        landingConsentForApply(authority, confirmed);
+      }
     }
     const run = makeGitRunner(ctx);
     const plan = await buildAcceptPlan(ctx, run);
@@ -2777,13 +3026,35 @@ async function executeAcceptResult(
     );
     if (dryRun) {
       const enginePlan = acceptPlanToEngine(plan);
+      const checkpointState = await inspectAcceptanceCheckpoints(
+        ctx.cwd,
+        ctx.config,
+      );
       enginePlan.details.push(
         `Authority:     ${landingAuthorityDetail(authority, confirmed)}`,
         ...authority.warnings.map((warning) => `Authority warning: ${warning}`),
+        ...(checkpointState.stale.length > 0
+          ? [
+            `Checkpoints:   conclusions missing or stale (route to done): ${
+              checkpointState.stale.join(", ")
+            }`,
+          ]
+          : []),
+        ...checkpointState.unmet.map((unmet) =>
+          `Checkpoints:   '${unmet.id}' declared unmet — owner variance required to land`
+        ),
+        ...checkpointState.advisories.map((advisory) =>
+          `Checkpoint advisory: ${advisory}`
+        ),
       );
       return previewResult("accept", enginePlan);
     }
-    const consent = landingConsentForApply(authority, confirmed);
+    // A variance forces current-conversation consent — the interlock above
+    // verified the complete decision — so recorded grants are never consulted
+    // when one stands.
+    const consent: LandingConsent = authorizedVariances.length > 0
+      ? { source: "conversation" }
+      : landingConsentForApply(authority, confirmed);
     const progress = freshAcceptExecutionProgress(
       recoverySteps,
       changedLandingScopes(authority),
@@ -2801,6 +3072,7 @@ async function executeAcceptResult(
       authority,
       consent,
       progress,
+      authorizedVariances,
     );
     const result: DiscernResult<AcceptData> = appliedResult(
       "accept",
@@ -2812,6 +3084,9 @@ async function executeAcceptResult(
     result.data = {
       root: plan.mainRepo,
       consent: cloneLandingConsent(consent),
+      ...(authorizedVariances.length === 0
+        ? {}
+        : { variances: authorizedVariances.map((v) => ({ ...v })) }),
       ...(progress.scopesChanged.length === 0
         ? {}
         : { scopes_changed: [...progress.scopesChanged] }),

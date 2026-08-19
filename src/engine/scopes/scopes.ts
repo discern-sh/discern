@@ -17,7 +17,7 @@ import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import { pathMatchesPattern } from "./glob.ts";
-import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
+import { resolvedScopePaths } from "./scope_paths.ts";
 
 /**
  * The two derived markers a classification emits ALONGSIDE the scope names: `code`
@@ -139,16 +139,6 @@ export async function collectPaths(
 /** Does `path` match any glob in `paths`? */
 function pathMatchesGlobs(paths: string[], path: string): boolean {
   return paths.some((pat) => pathMatchesPattern(path, pat));
-}
-
-/** Resolve live config references in one scope's path list. */
-function resolvedScopePaths(
-  config: DiscernConfig,
-  scope: string,
-): string[] {
-  return (config.scopes[scope]?.paths ?? []).map((path) =>
-    expandSourcePathReferences(path, config)
-  );
 }
 
 /**

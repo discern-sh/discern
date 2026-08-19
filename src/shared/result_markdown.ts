@@ -979,6 +979,139 @@ const presentImprovement: ResultMarkdownPresenter = (result) => {
   };
 };
 
+/** One checkpoint row's compact state phrase, from the serialized fields. */
+function checkpointRowLine(row: Record<string, unknown>): string {
+  const id = code(row.id);
+  const mode = text(row.mode) ?? "stop";
+  const openQuestion = object(row.open_question);
+  const preview = object(row.preview);
+  const question = text(row.question);
+  const withQuestion = (phrase: string): string =>
+    question === undefined ? phrase : `${phrase} — ${question}`;
+  if (openQuestion !== undefined) {
+    const declaration = object(openQuestion.declaration);
+    const why = text(declaration?.why);
+    switch (text(openQuestion.state)) {
+      case "declared_met":
+        return `${id} (${mode}): declared met.`;
+      case "declared_unmet":
+        return `${id} (${mode}): declared unmet${
+          openQuestion.variance_required === true
+            ? " — owner variance required to land"
+            : ""
+        }${
+          // The rationale is opaque agent evidence: in an interpreted
+          // Markdown document it renders only through the code-span escaping
+          // boundary, exactly as the Proof page renders it.
+          why === undefined ? "" : `. Rationale: ${code(why)}`}.`;
+      case "reopened":
+        return `${id} (${mode}): ${
+          withQuestion(
+            "reopened — a relevant change unbound the declared conclusion; declare again",
+          )
+        }.`;
+      default:
+        return `${id} (${mode}): ${
+          withQuestion("awaiting a declared conclusion")
+        }.`;
+    }
+  }
+  if (preview === undefined) {
+    return `${id} (${mode}): state unknown — the effort diff could not be read.`;
+  }
+  if (preview.holds !== true) {
+    return `${id} (${mode}): idle.`;
+  }
+  const matched = strings(preview.matched).length;
+  if (preview.when_pending === true) {
+    return `${id} (${mode}): ${
+      withQuestion(
+        `may fire at done — its when command decides (${matched} matched)`,
+      )
+    }.`;
+  }
+  return `${id} (${mode}): ${
+    withQuestion(`would fire at done (${matched} matched)`)
+  }.`;
+}
+
+/** One observed-economics row as a compact Markdown line. */
+function checkpointEconomicsLine(row: Record<string, unknown>): string {
+  const firedOn = number(row.efforts_fired) ?? 0;
+  const fires = number(row.fires) ?? 0;
+  const declared = number(row.declared) ?? 0;
+  const unchanged = number(row.declared_unchanged) ?? 0;
+  const unmet = number(row.declared_unmet) ?? 0;
+  const variances = number(row.variances) ?? 0;
+  const landed = number(row.efforts_landed) ?? 0;
+  const median = number(row.median_declare_s);
+  const parts = [
+    `fired on ${firedOn} effort${firedOn === 1 ? "" : "s"} (${
+      plural(fires, "serving")
+    })`,
+    declared === 0
+      ? undefined
+      : `declared ${declared} (${unchanged} on an unchanged subject, ${unmet} unmet)`,
+    variances === 0
+      ? undefined
+      : `${plural(variances, "authorized variance")} across ${landed} landed`,
+    median === undefined ? undefined : `median time to declare ${median}s`,
+  ].filter((part): part is string => part !== undefined);
+  return `Observed: ${code(row.id)} ${parts.join("; ")}.`;
+}
+
+const presentCheckpoints: ResultMarkdownPresenter = (result) => {
+  const data = dataOf(result);
+  const rows = records(data.checkpoints);
+  const ungoverned = records(data.ungoverned);
+  const advisories = strings(data.advisories);
+  const policy = text(data.policy);
+  const economics = object(data.economics);
+  const economicsRows = records(economics?.rows);
+  const varianceIds = rows.filter((row) =>
+    object(row.open_question)?.variance_required === true
+  ).map((row) => code(row.id));
+  return {
+    state: defaultState(
+      result,
+      rows.length === 0
+        ? "No checkpoint governs this effort."
+        : `${plural(rows.length, "checkpoint")} govern${
+          rows.length === 1 ? "s" : ""
+        } this effort${
+          policy === undefined ? "" : ` (policy ${policy.slice(0, 12)})`
+        }.`,
+    ),
+    evidence: unique([
+      ...rows.slice(0, MAX_LIST_ITEMS).map(checkpointRowLine),
+      rows.length > MAX_LIST_ITEMS
+        ? omitted(rows.length - MAX_LIST_ITEMS, "checkpoint")
+        : undefined,
+      ...ungoverned.slice(0, MAX_LIST_ITEMS).map((entry) =>
+        `${
+          code(entry.id)
+        }: a recorded open question stands, but the current governing policy does not contain it.`
+      ),
+      ...advisories.map((advisory) => `Fail-open: ${advisory}`),
+      ...economicsRows.slice(0, MAX_LIST_ITEMS).map(checkpointEconomicsLine),
+      economicsRows.length > MAX_LIST_ITEMS
+        ? omitted(
+          economicsRows.length - MAX_LIST_ITEMS,
+          "observed checkpoint",
+        )
+        : undefined,
+      rows.length === 0 || economicsRows.length > 0
+        ? undefined
+        : "No observed checkpoint history yet.",
+    ]),
+    boundary: varianceIds.length === 0 ? [] : [
+      `Landing requires the owner to authorize a variance for: ${
+        varianceIds.join(", ")
+      }. Recorded standing and effort grants never cover one.`,
+    ],
+  };
+};
+
 const presentStandards: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const standards = records(data.standards);
@@ -1432,6 +1565,7 @@ export const RESULT_MARKDOWN_PRESENTERS = {
   config: presentConfig,
   gate: presentGate,
   improvement: presentImprovement,
+  checkpoints: presentCheckpoints,
   standards: presentStandards,
   refresh: presentRefresh,
   impact: presentImpact,

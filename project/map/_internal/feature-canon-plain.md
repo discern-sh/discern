@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md)._
 
-10 main areas · 128 detailed entries · 11 statements of benefit · 39 accounts of what the coding agent experiences · 73 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 130 detailed entries · 11 statements of benefit · 40 accounts of what the coding agent experiences · 76 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -23,7 +23,7 @@ _Every feature and benefit appears here once, in plain language, at every level 
 
 _The entries below directly describe what a coding agent experiences. Each full account also appears beside the feature it belongs to, marked **Coding agent:**._
 
-- **The final quality check** — the main area itself · Time limits for each piece of work · Proving permission to write first · Files made by a tool · Clear and consistent failure reports · A pointer to known traps · Evidence that every required check passed (Proof) · A repeat check on unchanged work is a recorded choice
+- **The final quality check** — the main area itself · Time limits for each piece of work · Proving permission to write first · Files made by a tool · Clear and consistent failure reports · A pointer to known traps · Evidence that every required check passed (Proof) · A repeat check on unchanged work is a recorded choice · Judgment stops
 - **Quality rules** — Reusing a measurement when nothing it reads has changed
 - **Separate working copies** — the main area itself · Start · Update · Accept · Separate supporting services for each copy · Safe setup even when interrupted · A way back from a mistaken removal · Cleaning up leftovers · The overview of all work in progress · Waiting for a condition across the tasks
 - **The project guide** — Finding the right page · Checking that the guide still works
@@ -66,6 +66,7 @@ _The result of the project's check decides when the work counts as finished. The
 - **Evidence that every required check passed (Proof)** — When `discern done` passes on clean, saved work that is ahead of the main shared version, it produces evidence that every required check passed, called Proof. Proof names the task, the exact saved point it checked (called `HEAD` by the version-history system), the saved changes, the changed files, the check results, and the quality rules still held. `discern accept` may reuse Proof while the same saved point and working copy stand; saving a later change makes it invalid. The same passing run also reminds the coding agent to try the real result along the routes the change touched before offering Proof. _The person in charge reviews a verified claim that names the exact work it vouches for._ **Coding agent:** _A change saved while the check was running cannot earn Proof: discern pins the exact state before the first piece of work runs and checks it again at the moment of stamping. When a passing run cannot record Proof because unsaved edits remain, the refusal names the blocking files. Before the coding agent claims completion, an advice note states the remaining action: try the real result, pass on Proof, and wait._ (advice notes: `gate-prove-it-works`, `gate-relay-proof`)
   - **A lasting note of the evidence** — After finished work joins the main shared version, `discern accept` attaches the evidence that every required check passed (Proof) to that exact saved change, as a note kept beside the version history — adding nothing to the project's timeline. A setting lets other copies of the project receive these notes during their ordinary updates; sending them out remains a separate step. _The evidence outlives the removed working copy and stays with the exact saved change it vouches for._
 - **A repeat check on unchanged work is a recorded choice** — Each completed `discern done` records what it judged — the saved point plus a fingerprint of every unsaved edit — and the verdict, in the version history's housekeeping area. Asked to run again on identical work, `done` refuses without touching anything; `discern done --confirmed` runs it anyway as a recorded probe. Any change to the files runs as normal, and so does `--dry-run`. _Unchanged work should expect an unchanged verdict. Repeating a pass spends the full running time on an answer `discern status` already shows, and retrying a failure until it passes teaches that a failure is negotiable._ **Coding agent:** _The refusal names the verdict that already stands and both ways forward: change the files, or confirm the probe. A confirmed re-run lands in the activity record, where the recurring-behavior report watches for it — so an unreliable trial suite surfaces as evidence, the detector names the exact work whose verdict flipped, and routine use of `--confirmed` is itself a finding._ (advice notes: `done-unchanged-tree-red`, `done-unchanged-tree-green`)
+- **Judgment stops** — Rules the project keeps under `[checkpoints]`. Each rule watches for a certain kind of change and carries a written question that matters for it. When a change matches a stopping rule, the final check refuses to start until the coding agent weighs the question and records its answer: satisfied (`--met`), or not satisfied (`--unmet`) with a short reason. A notice-only rule shows its question without stopping anything. The rules come from the main shared version, not from the task's own edits, and a not-satisfied answer can join the main shared version only after the person in charge allows that named exception at `discern accept`. `discern checkpoints` shows the rules, each recorded answer, and what the current change would set off, without changing anything; `discern prepare` and `discern status` show each coming question early. _The moments that need judgment arrive while the change is being made, and every recorded answer is presented as the coding agent's own judgment — never as something a machine proved._ **Coding agent:** _The refusal gathers every waiting rule with its question, the matching files, and both ways to answer, in one message. Recording an answer is the coding agent's own act, with no waiting on the person in charge, and changing the files or the answer never sets off the repeat-run refusal._
 
 ## Quality rules
 
@@ -133,6 +134,7 @@ _A reusable method becomes one file available to every future session._
 - **A small, carefully chosen built-in set** — The built-in guides teach discern's preferred way of working — their names begin with `discern-`, `discern skills list` shows them, and each must clear a bar: it must teach something even the most capable coding agent would not reliably do unasked. A method prompted by an ordinary request ships as a guide; advice tied to a particular discern instruction ships as a registered advice note shown at that moment. _Every guide's description takes up part of every session's limited reading space, so the collection stays small and each member earns its keep._
   - **Cure a bug** — One careful bug method with three routes: prove the cause (make the failure happen and rule out wrong explanations before changing anything), cure the family (fix every occurrence and leave a permanent protection), and inspect existing protections for cover that protects less than it appears to.
   - **Set the standard** — Put a quality measurement behind a standing rule — a defendable number, added under `[standards]`, with its first limit set at today's value — including a drive-to-zero route that outlaws an unwanted old pattern: a detector, a steadily falling maximum, then a permanent rule at zero.
+  - **Set up a judgment stop** — Turn a point a reviewer keeps raising into a rule the project keeps. Choose which changes set it off, and whether it stops work or only advises. Write the short question the coding agent must answer, check the rule is in force, and review later how often it fires and how it was answered.
   - **Clear the decks** — Sweep out the clutter that projects built by coding agents tend to collect — small helpers written twice, dead code from abandoned approaches, layers used from only one place, leftover starter material — every removal proved safe and saved as a small behavior-preserving step, with a quality rule capping the mess afterwards.
   - **Delegate work** — Turn the work under discussion into complete, self-contained briefs for fresh coding agents in their own separate working copies — one hand-off, several at once, or staged briefs — then review what comes back with a skeptical eye.
   - **Wait for another task** — Wait for another line of work with one bounded request — a sibling task passing its final check, its work joining the main shared version, or the main shared version moving — choosing the right condition, waiting on the exact task name, then following the returned next step to build on what arrived.
@@ -234,6 +236,7 @@ Every member of the product's official fixed lists appears below beside the feat
 
 - `accept` — accept
 - `await` — await
+- `checkpoints` — checkpoints
 - `config` — config-command
 - `coupling` — coupling
 - `desk` — desk
@@ -284,6 +287,7 @@ Every member of the product's official fixed lists appears below beside the feat
 ### Main settings section (`config`)
 
 - `acceptance` — consent-attestations
+- `checkpoints` — checkpoints
 - `coupling` — insight
 - `gate` — gate
 - `generated` — generated-artifact-declarations
@@ -306,6 +310,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `discern-cure-a-bug` — skill-cure-a-bug
 - `discern-delegate-work` — skill-delegate-work
 - `discern-document-subsystem` — skill-document-subsystem
+- `discern-place-a-checkpoint` — skill-place-a-checkpoint
 - `discern-set-the-standard` — skill-set-the-standard
 - `discern-teach-the-project` — skill-teach-the-project
 - `discern-write-adr` — skill-write-adr

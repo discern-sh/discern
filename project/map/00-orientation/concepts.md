@@ -25,7 +25,7 @@ discern is a self-contained binary on your `PATH`; its engine requires `git`. An
 
 ## The pieces
 
-**The Gate is the project's definition of done.** `discern done` runs the declared [jobs](glossary.md#gate-job), the scope gates for regions that changed, and each quality measure that can only improve (a [Standard](glossary.md#standard)). Known job names derive their [stage](glossary.md#stage); custom names declare one. Every unit of work has a label, so a failure result includes the exact command and its output. Use `discern prepare` for the faster iteration loop. [The quality gate](../20-quality-gate/) covers the full mechanism.
+**The Gate is the project's definition of done.** `discern done` runs the declared [jobs](glossary.md#gate-job), the scope gates for regions that changed, and each quality measure that can only improve (a [Standard](glossary.md#standard)). A configured [checkpoint](glossary.md#checkpoint) can pause the same moment for judgment: a matching change serves a [question](glossary.md#question) the agent answers on the record before any job runs. Known job names derive their [stage](glossary.md#stage); custom names declare one. Every unit of work has a label, so a failure result includes the exact command and its output. Use `discern prepare` for the faster iteration loop. [The quality gate](../20-quality-gate/) covers the full mechanism.
 
 **Worktrees isolate each effort.** `discern start` gives an effort one checkout and branch, retained through review feedback and resumed sessions. The workflow keeps the main checkout available while several efforts run at once. A worktree gets a deterministic dev-server port and any [resources](glossary.md#worktree-resource) your project declares, such as a database or emulator. discern creates those resources when the worktree starts and destroys them when the change lands. `discern update` brings the latest [trunk](glossary.md#trunk) into the branch; `discern accept` lands the reviewed branch and removes the worktree. [Worktrees](../30-worktrees/) covers the lifecycle.
 
@@ -43,12 +43,12 @@ From the main checkout, bare `discern` opens the human view over work in progres
 
 ## Where next
 
-| Want to understand…                            | Read                                            |
-| ---------------------------------------------- | ----------------------------------------------- |
-| Install, setup, and upgrades                   | [Getting started](../10-getting-started/)       |
-| `discern done`: jobs, scopes, and Standards    | [the quality gate](../20-quality-gate/)         |
-| The worktree lifecycle and its resources       | [worktrees](../30-worktrees/)                   |
-| Instruction compilation                        | [agent instructions](../40-agent-instructions/) |
-| Bundled and project-authored Skills            | [Skills](../45-skills/)                         |
-| The files discern writes for each coding agent | [agent integrations](../60-agent-integrations/) |
-| Why the system is shaped this way              | [design principles](design-principles.md)       |
+| Want to understand…                                      | Read                                            |
+| -------------------------------------------------------- | ----------------------------------------------- |
+| Install, setup, and upgrades                             | [Getting started](../10-getting-started/)       |
+| `discern done`: jobs, scopes, Standards, and checkpoints | [the quality gate](../20-quality-gate/)         |
+| The worktree lifecycle and its resources                 | [worktrees](../30-worktrees/)                   |
+| Instruction compilation                                  | [agent instructions](../40-agent-instructions/) |
+| Bundled and project-authored Skills                      | [Skills](../45-skills/)                         |
+| The files discern writes for each coding agent           | [agent integrations](../60-agent-integrations/) |
+| Why the system is shaped this way                        | [design principles](design-principles.md)       |

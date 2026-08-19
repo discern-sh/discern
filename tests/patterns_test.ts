@@ -612,7 +612,38 @@ function firedHint(
         hint_ids: [hint.id],
         ...over,
       };
+    case "checkpoint-revision-before-declaration":
+      return {
+        verb: "done",
+        outcome: "refused",
+        error: "awaiting_declaration",
+        hint_ids: [hint.id],
+        checkpoints: {
+          fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
+        },
+        ...over,
+      };
   }
+}
+
+/** The declaring event that resolves one checkpoint-declaration episode. */
+function declaredCheckpoint(revised: boolean): Partial<VerbEvent> {
+  return {
+    verb: "done",
+    checkpoints: {
+      ...(revised
+        ? { reopened: [{ id: "api-review", definition: "d1", subject: "s2" }] }
+        : {}),
+      declared: [{
+        id: "api-review",
+        conclusion: "met",
+        revised,
+        definition: "d1",
+        subject: revised ? "s2" : "s1",
+        elapsed_ms: 60_000,
+      }],
+    },
+  };
 }
 
 /** Three resolved episodes plus one censored firing, for one live registry
@@ -700,6 +731,16 @@ function followThroughFixture(
           },
         },
       );
+      break;
+    case "checkpoint-revision-before-declaration":
+      for (let i = 0; i < 3; i += 1) {
+        events.push(
+          firedHint(hint),
+          declaredCheckpoint(verdict === "followed"),
+        );
+      }
+      // A trailing serving the history ends on stays censored.
+      events.push(firedHint(hint));
       break;
   }
   return run(events);
@@ -798,6 +839,43 @@ function measuredTip(id: string): MeasuredTip {
 
 const PATTERNS_TIP = measuredTip("patterns-practice-report");
 
+/** Distinct gate-run efforts with no checkpoint activity, `offset` onward. */
+function gateEfforts(count: number, offset = 0): Partial<VerbEvent>[] {
+  return Array.from({ length: count }, (_, i) => ({
+    branch: `agent/e${offset + i}`,
+  }));
+}
+
+/** Distinct gate-run efforts each served one checkpoint firing. */
+function servedEfforts(id: string, count: number): Partial<VerbEvent>[] {
+  return Array.from({ length: count }, (_, i) => ({
+    branch: `agent/e${i}`,
+    checkpoints: { fired: [{ id, subject: `s${i}` }] },
+  }));
+}
+
+/** One landed effort where a checkpoint fired — with or without an
+ * owner-authorized variance carried by the landing. */
+function variedEffort(
+  id: string,
+  index: number,
+  withVariance: boolean,
+): Partial<VerbEvent>[] {
+  return [
+    {
+      branch: `agent/v${index}`,
+      checkpoints: { fired: [{ id, subject: `s${index}` }] },
+    },
+    {
+      branch: `agent/v${index}`,
+      verb: "accept",
+      ...(withVariance
+        ? { checkpoints: { variances: [{ id, subject: `s${index}` }] } }
+        : {}),
+    },
+  ];
+}
+
 // ── the fixture table (keyed by detector id — the forcing tie) ──────────────
 
 /** A quiet state that cannot exist gets a recorded reason instead of events. */
@@ -813,6 +891,9 @@ interface DetectorFixtures {
   /** Configured native providers the stream is read against, for detectors
    * whose verdict depends on config context (shared by all three streams). */
   configured_agents?: string[];
+  /** Configured checkpoint ids the stream is read against, for the checkpoint
+   * hygiene detectors (shared by all three streams). */
+  configured_checkpoints?: string[];
 }
 
 const FIXTURES: Record<string, DetectorFixtures> = {
@@ -1587,6 +1668,45 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       verb({ at: "2026-07-02T10:00:00.000Z", ...redDone() }),
     ],
   },
+  "checkpoint-dead": {
+    firing: run(gateEfforts(8)),
+    quiet: run([
+      ...gateEfforts(8),
+      {
+        branch: "agent/e0",
+        checkpoints: { fired: [{ id: "silent-rule" }] },
+      },
+    ]),
+    sparse: run(gateEfforts(7)),
+    configured_checkpoints: ["silent-rule"],
+  },
+  "checkpoint-noisy": {
+    firing: run([
+      ...servedEfforts("chatty-rule", 8),
+      ...gateEfforts(2, 8),
+    ]),
+    quiet: run([
+      ...servedEfforts("chatty-rule", 3),
+      ...gateEfforts(7, 3),
+    ]),
+    sparse: run(servedEfforts("chatty-rule", 7)),
+  },
+  "checkpoint-varied": {
+    firing: run([
+      ...variedEffort("soft-rule", 0, true),
+      ...variedEffort("soft-rule", 1, true),
+      ...variedEffort("soft-rule", 2, true),
+    ]),
+    quiet: run([
+      ...variedEffort("soft-rule", 0, true),
+      ...variedEffort("soft-rule", 1, false),
+      ...variedEffort("soft-rule", 2, false),
+    ]),
+    sparse: run([
+      ...variedEffort("soft-rule", 0, true),
+      ...variedEffort("soft-rule", 1, true),
+    ]),
+  },
 };
 
 // ── the registry invariants ─────────────────────────────────────────────────
@@ -1806,7 +1926,12 @@ function fixturesOf(d: Detector): DetectorFixtures {
 function report(d: Detector, events: LogbookEvent[]): DetectorReport {
   return runDetector(
     d,
-    buildStreamFacts(events, "main", fixturesOf(d).configured_agents ?? []),
+    buildStreamFacts(
+      events,
+      "main",
+      fixturesOf(d).configured_agents ?? [],
+      fixturesOf(d).configured_checkpoints ?? [],
+    ),
   );
 }
 
@@ -2767,6 +2892,154 @@ Deno.test("hint follow-through: every declaring registry entry resolves followed
       `${hint.id}: all-followed evidence stays informational`,
     );
   }
+});
+
+Deno.test("checkpoint declaration follow-through: any checkpoint id enrols without registration", () => {
+  // The class: episodes are enumerated from the events' recorded checkpoint
+  // observations per checkpoint id, so a checkpoint that exists nowhere in
+  // any registry — a project-authored id this test invents — is measured the
+  // moment its observations appear. A detector-side id table would fail this.
+  const id = "invented-project-checkpoint";
+  const serving = {
+    verb: "done",
+    outcome: "refused" as const,
+    error: "awaiting_declaration",
+    hint_ids: ["checkpoint-declare"],
+    checkpoints: { fired: [{ id, definition: "d9", subject: "s9" }] },
+  };
+  const declare = (revised: boolean): Partial<VerbEvent> => ({
+    verb: "done",
+    checkpoints: {
+      declared: [{ id, conclusion: "unmet", revised }],
+    },
+  });
+  const outcome = runDetector(
+    detector("hint-follow-through"),
+    buildStreamFacts(
+      run([
+        serving,
+        declare(false),
+        serving,
+        declare(true),
+        serving,
+        declare(false),
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(outcome.status, "fired");
+  const finding = outcome.findings.find((f) =>
+    f.subject === "checkpoint-declaration"
+  );
+  assert(finding !== undefined, "the invented checkpoint id was not measured");
+  assertEquals(finding.evidence, {
+    fired: 3,
+    followed: 1,
+    not_followed: 2,
+    censored: 0,
+  });
+});
+
+Deno.test("checkpoint declaration follow-through: evidence gaps censor rather than claim", () => {
+  const familyCounts = (events: LogbookEvent[]): Record<string, number> => {
+    const outcome = runDetector(
+      detector("hint-follow-through"),
+      buildStreamFacts(events, "main"),
+    );
+    const finding = outcome.findings.find((f) =>
+      f.subject === "checkpoint-declaration"
+    );
+    return finding?.evidence ?? { fired: 0 };
+  };
+
+  // An old writer delivered the refusal hint without the observation block:
+  // the firing is real, its resolution can never be correlated.
+  const oldWriter = run([
+    { verb: "done", outcome: "refused", hint_ids: ["checkpoint-declare"] },
+  ]);
+  const oldOutcome = runDetector(
+    detector("hint-follow-through"),
+    buildStreamFacts(oldWriter, "main"),
+  );
+  assertEquals(oldOutcome.status, "insufficient-evidence");
+
+  // A declaration recorded without the revision flag (schema evolution)
+  // resolves nothing: the episode censors instead of guessing a verdict.
+  const flagless = (): Partial<VerbEvent>[] => [
+    {
+      verb: "done",
+      checkpoints: { fired: [{ id: "api-review" }] },
+    },
+    {
+      verb: "done",
+      checkpoints: { declared: [{ id: "api-review", conclusion: "met" }] },
+    },
+  ];
+  assertEquals(
+    familyCounts(run([...flagless(), ...flagless(), ...flagless()])),
+    { fired: 0 },
+    "censored-only families never clear the resolved-episode bar",
+  );
+
+  // A reopen while one episode is pending folds into it — the same awaited
+  // conclusion whose subject moved — and the declaration resolves it once.
+  const folded = familyCounts(run([
+    {
+      verb: "done",
+      checkpoints: { fired: [{ id: "api-review", subject: "s1" }] },
+    },
+    {
+      verb: "done",
+      checkpoints: { reopened: [{ id: "api-review", subject: "s2" }] },
+    },
+    {
+      verb: "done",
+      checkpoints: {
+        declared: [{ id: "api-review", conclusion: "met", revised: false }],
+      },
+    },
+    // Three more resolved episodes clear the family's reporting bar.
+    {
+      verb: "done",
+      checkpoints: { fired: [{ id: "other", subject: "s1" }] },
+    },
+    {
+      verb: "done",
+      checkpoints: {
+        declared: [{ id: "other", conclusion: "met", revised: true }],
+      },
+    },
+    {
+      verb: "done",
+      checkpoints: { reopened: [{ id: "other", subject: "s3" }] },
+    },
+    {
+      verb: "done",
+      checkpoints: {
+        declared: [{ id: "other", conclusion: "met", revised: false }],
+      },
+    },
+  ]));
+  assertEquals(folded, {
+    fired: 3,
+    followed: 1,
+    not_followed: 2,
+    censored: 0,
+  });
+
+  // A declaration with no pending serving — replacing a standing conclusion —
+  // opens no episode: nothing was served to follow.
+  assertEquals(
+    familyCounts(run([
+      {
+        verb: "done",
+        checkpoints: {
+          declared: [{ id: "api-review", conclusion: "unmet", revised: false }],
+        },
+      },
+    ])),
+    { fired: 0 },
+  );
 });
 
 Deno.test("hint follow-through stays distinct from skipped prepare", () => {

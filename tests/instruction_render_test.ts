@@ -718,6 +718,15 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
       ].join("\n"),
       expect: true,
     },
+    has_checkpoints: {
+      toml: [
+        "[checkpoints.zz-probe-review]",
+        'paths = ["zz-probe/**"]',
+        'question = "A probe change states what it verified."',
+        "",
+      ].join("\n"),
+      expect: true,
+    },
     has_teach_skill: {
       toml: '[skills]\nexclude = ["discern-teach-the-project"]\n',
       expect: false,

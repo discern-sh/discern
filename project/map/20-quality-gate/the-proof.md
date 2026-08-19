@@ -1,7 +1,7 @@
 ---
 title: The Proof
 description: Read the review summary a clean green Gate records for the exact commit that passed.
-order: 30
+order: 40
 aliases:
   - gate proof
   - review proof
@@ -54,7 +54,7 @@ discern stores the validated commit, structured Proof, and both renderings in th
 | `discern status` | Reports whether the marker still matches the clean current `HEAD`. JSON, Markdown, MCP, and the status resource return Proof status plus compact facts; terminal `--verbose` retrieves the page. Status also reads a landed trunk-tip Proof from the local or fetched notes ref as `data.landed_proof`. |
 | `discern accept` | Uses an honored marker to avoid repeating the Gate jobs and checks the current tracked-refresh plan before the fast-forward. It returns consent-qualified `data.proof_line` and records the complete structured Proof plus presentation as a Git note after landing.                                    |
 
-Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the Gate Proof forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
+Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. A changed checkpoint conclusion or rationale invalidates it the same way at an unchanged `HEAD`: the marker binds to the declaration evidence it recorded, so acceptance never honors a Proof whose agent-declared conclusions have moved ([ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)). `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the Gate Proof forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
 
 ## After landing
 
@@ -62,7 +62,7 @@ After the trunk fast-forward, acceptance writes separate result and presentation
 
 ## Re-running an unchanged tree
 
-Beside the Proof, every completed run records the exact tree it judged and the verdict in a last-run marker, including red runs. Ask `discern done` to run again on that identical tree and it refuses read-only before any job or fixer runs. An unchanged tree expects an unchanged verdict. A green rerun repeats the full Gate for the result `discern status` already shows; retrying a red run until it passes can hide a flake. `discern done --confirmed` reruns it as an attested, recorded probe. Any edit, commit, or `--dry-run` runs as normal ([ADR 0185](../_adr/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)).
+Beside the Proof, every completed run records the exact tree it judged, its checkpoint declaration evidence, and the verdict in a last-run marker, including red runs. Ask `discern done` to run again on that identical state and it refuses read-only before any job or fixer runs. An unchanged tree expects an unchanged verdict. A green rerun repeats the full Gate for the result `discern status` already shows; retrying a red run until it passes can hide a flake. `discern done --confirmed` reruns it as an attested, recorded probe. Any edit, commit, changed checkpoint conclusion, or `--dry-run` runs as normal ([ADR 0185](../_adr/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md), [ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)).
 
 The public result fields are in [MCP tools & results](../70-reference/mcp-and-results.md).
 

@@ -1,7 +1,7 @@
 ---
 title: Proof notes
 description: Keep a landed green Proof with its trunk commit, and opt into fetch transport when another clone needs it.
-order: 40
+order: 50
 aliases:
   - refs/notes/discern
   - fetch proof notes

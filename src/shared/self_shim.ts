@@ -37,6 +37,7 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 import { gitAdminStatePath } from "./git_admin_state.ts";
+import { sha256Hex } from "./sha256.ts";
 import { makeTempArtifactDir } from "./temp_artifacts.ts";
 
 /** Single-quote `value` for literal embedding in the shim script. */
@@ -69,14 +70,7 @@ function shimContent(): string {
 
 /** Hex digits of SHA-256(`text`) naming an identity subdirectory. */
 async function identityName(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(text),
-  );
-  return Array.from(
-    new Uint8Array(digest),
-    (byte) => byte.toString(16).padStart(2, "0"),
-  ).join("").slice(0, 16);
+  return (await sha256Hex(text)).slice(0, 16);
 }
 
 /** Best-effort mtime refresh: the keep-alive the temp-artifact reaper honors

@@ -61,6 +61,7 @@ export const RECORD_CONFIG_PATHS = [
   "scopes",
   "generated",
   "standards",
+  "checkpoints",
   "worktree.resources",
 ] as const;
 

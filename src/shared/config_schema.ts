@@ -33,9 +33,9 @@ import { logbookPoweredPhraseList } from "./logbook_powered.ts";
 import {
   GLOB_METACHARACTER_RE,
   isConcretePath,
-  SOURCE_PATH_REFERENCES,
   SOURCE_PATHS,
 } from "./paths_registry.ts";
+import { LIVE_PATH_REFERENCE_SPELLINGS } from "./source_path_references.ts";
 import {
   normalizeProjectRelativeDirectoryPath,
   normalizeProjectRelativeFilePath,
@@ -45,6 +45,7 @@ import {
 } from "./project_path.ts";
 import { deadConfigPosition, retiredConfigKeySuccessor } from "./vocabulary.ts";
 import { AGENT_NAMES } from "./agent_catalogue.ts";
+import { CHECKPOINT_MODES, isBuiltInCheckpoint } from "./checkpoints.ts";
 
 export { AGENT_NAMES } from "./agent_catalogue.ts";
 
@@ -93,12 +94,12 @@ export class ConfigParseError extends Error {
 export const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** One schema-description sentence for every field that accepts the shared
- * scope-glob dialect. The reference list derives from SOURCE_PATHS, so the
- * generated config reference documents a future configured member immediately. */
-const LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION =
-  `Registered source-path references (${
-    SOURCE_PATH_REFERENCES.map(({ reference }) => reference).join(", ")
-  }) resolve from this config before matching or execution; unregistered braced forms stay untouched.`;
+ * scope-glob dialect. The reference list derives from the live-reference
+ * membership (registry members plus the enumerated scalar docs), so the
+ * generated config reference documents a future member immediately. */
+const LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION = `Registered path references (${
+  LIVE_PATH_REFERENCE_SPELLINGS.join(", ")
+}) resolve from this config before matching or execution; unregistered braced forms stay untouched.`;
 
 /** The native provider names are derived from the shared identity catalogue,
  * then reused by the document's `agents` enum, generated editor JSON Schema,
@@ -304,6 +305,52 @@ const standardValue = z.strictObject({
   ),
   timeout: jobTimeout,
 });
+
+/** A `[checkpoints.<id>]` table — one change-triggered review rule: a
+ * deterministic trigger, a semantic question the agent judges, and a mode.
+ * Every field is optional so a bare table can reference a shipped built-in by
+ * id; trigger and mode defaults are applied when the rule is resolved, so an
+ * unset field can still inherit a built-in's value. */
+const checkpointValue = z.strictObject({
+  scope: z.string().regex(NAME_RE).optional().describe(
+    "Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a checkpoint takes one selector.",
+  ),
+  paths: z.array(z.string()).optional().describe(
+    `Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. A checkpoint takes one selector: \`scope\` or \`paths\`. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+  ),
+  unless_changed: z.array(z.string()).optional().describe(
+    `The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express "this change class is fine when its counterpart moved too". ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+  ),
+  min_changed_files: z.number().int().min(
+    1,
+    "min_changed_files is a matched-set size threshold and must be at least 1.",
+  ).optional().describe(
+    "Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).",
+  ),
+  deletion_dominant: z.boolean().optional().describe(
+    "Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut is reviewed and an ordinary edit or balanced refactor is not.",
+  ),
+  similar_new_file: z.boolean().optional().describe(
+    "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory (a copy/version/suffix variant) — the signature of a parallel implementation growing beside the original.",
+  ),
+  when: z.string().optional().describe(
+    "Executable escape hatch for conditions the structured fields cannot express. The command runs pre-flight in the working tree with a short fixed timeout: exit 0 fires the trigger, exit 1 passes, and any other exit or a timeout fails open (no fire) with an advisory. It may print `DISCERN_MATCH <path>` lines to declare the exact matched paths; combined with selectors, the selectors pre-scope the diff and `when` decides firing.",
+  ),
+  mode: z.enum(CHECKPOINT_MODES).optional().describe(
+    '"stop" (the default): the gate refuses to run until the agent declares the question met or unmet. "advise": the question and its evidence are delivered through the advisory channel and nothing blocks.',
+  ),
+  question: z.string().optional().describe(
+    "The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint; a table whose <id> names a shipped built-in inherits its question and may override it here.",
+  ),
+  teach: z.string().optional().describe(
+    "Optional lesson prose carried into renderings: why the question matters and what good looks like.",
+  ),
+});
+
+const checkpointsSection = z.record(z.string().regex(NAME_RE), checkpointValue)
+  .default({}).describe(
+    "[checkpoints.<id>] — change-triggered review rules: a deterministic trigger chooses when a diff makes a question relevant, the agent judges the question and records a declaration, and the record travels with the gate's results. The configuration at the effort's merge-base with the trunk governs, so a branch editing these tables does not change its own gate. None configured means none fire.",
+  );
 
 // ── the live `discern.toml` schema ─────────────────────────────────────────────
 
@@ -523,6 +570,7 @@ export const RECORD_ENTRY_SCHEMAS = {
   scopes: scopeValue,
   generated: generatedValue,
   standards: standardValue,
+  checkpoints: checkpointValue,
   "worktree.resources": resourceValue,
 } as const;
 
@@ -619,6 +667,7 @@ export const configSchema = z.strictObject({
   acceptance: acceptanceSection,
   worktree: worktreeSection,
   standards: standardsSection,
+  checkpoints: checkpointsSection,
   gate: gateSection,
   coupling: couplingSection,
   scripts: scriptsSection,
@@ -673,6 +722,10 @@ export type ScopeConfig = z.infer<typeof scopeValue>;
 export type GeneratedConfig = z.infer<typeof generatedValue>;
 /** One `[standards.<name>]` entry, fully defaulted. */
 export type StandardConfig = z.infer<typeof standardValue>;
+/** One `[checkpoints.<id>]` entry. Every field stays optional in the parsed
+ * shape: presence is meaningful (an unset field inherits a built-in's default
+ * at resolution), so the schema applies no value defaults of its own. */
+export type CheckpointConfig = z.infer<typeof checkpointValue>;
 /** One `[worktree.resources.<name>]` entry, fully defaulted. */
 export type ResourceConfig = z.infer<typeof resourceValue>;
 
@@ -737,6 +790,10 @@ export const configDocSchema = z.strictObject({
   standards: z.record(z.string().regex(NAME_RE), standardValue).optional()
     .describe(
       "[standards.<name>] tables. Coverage is just a conventional name.",
+    ),
+  checkpoints: z.record(z.string().regex(NAME_RE), checkpointValue).optional()
+    .describe(
+      "[checkpoints.<id>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.",
     ),
 }).describe(
   "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
@@ -861,6 +918,69 @@ function jobFormIssues(parsed: unknown): ConfigIssue[] {
   return issues;
 }
 
+/**
+ * Cross-section `[checkpoints]` REFERENCE rules that JSON Schema cannot express
+ * alone — shapes that are wrong however complete the entry becomes, so they
+ * block programmatic writes as well as loads: a `scope` selector naming no
+ * configured scope, and both selectors set at once.
+ */
+function checkpointReferenceIssues(parsed: unknown): ConfigIssue[] {
+  if (!isRecord(parsed) || !isRecord(parsed.checkpoints)) {
+    return [];
+  }
+  const scopes = isRecord(parsed.scopes)
+    ? Object.keys(parsed.scopes).sort()
+    : [];
+  const defined = scopes.length === 0 ? "(none)" : scopes.join(", ");
+  const issues: ConfigIssue[] = [];
+  for (const [id, entry] of Object.entries(parsed.checkpoints)) {
+    if (!isRecord(entry)) {
+      continue; // the schema reports the shape problem
+    }
+    if (typeof entry.scope === "string" && !scopes.includes(entry.scope)) {
+      issues.push({
+        path: `checkpoints.${id}.scope`,
+        message:
+          `unknown scope "${entry.scope}". Define it under [scopes.${entry.scope}] or use \`paths\`; defined scopes: ${defined}.`,
+      });
+    }
+    if (entry.scope !== undefined && entry.paths !== undefined) {
+      issues.push({
+        path: `checkpoints.${id}`,
+        message:
+          "a checkpoint takes ONE selector — `scope` or `paths`, not both.",
+      });
+    }
+  }
+  return issues;
+}
+
+/**
+ * `[checkpoints]` COMPLETENESS rules, enforced at load only: a checkpoint that
+ * is not a shipped built-in must define its question. Kept out of the
+ * write-time check so an entry can be built incrementally, the same allowance
+ * every record family's missing required keys receive.
+ */
+function checkpointCompletenessIssues(parsed: unknown): ConfigIssue[] {
+  if (!isRecord(parsed) || !isRecord(parsed.checkpoints)) {
+    return [];
+  }
+  const issues: ConfigIssue[] = [];
+  for (const [id, entry] of Object.entries(parsed.checkpoints)) {
+    if (!isRecord(entry) || isBuiltInCheckpoint(id)) {
+      continue;
+    }
+    if (typeof entry.question !== "string" || entry.question.trim() === "") {
+      issues.push({
+        path: `checkpoints.${id}.question`,
+        message:
+          `"${id}" names no shipped checkpoint, so it must define \`question\` — the judgment prose the agent evaluates when the trigger fires.`,
+      });
+    }
+  }
+  return issues;
+}
+
 /** Cross-section `[acceptance]` rules that JSON Schema cannot express alone. */
 function acceptanceGrantIssues(parsed: unknown): ConfigIssue[] {
   if (!isRecord(parsed) || !isRecord(parsed.acceptance)) {
@@ -903,7 +1023,12 @@ export function parseConfig(
     throw new ConfigParseError(tomlSyntaxHint(err));
   }
   const jobIssues = jobFormIssues(parsed);
-  const formIssues = [...jobIssues, ...acceptanceGrantIssues(parsed)];
+  const formIssues = [
+    ...jobIssues,
+    ...acceptanceGrantIssues(parsed),
+    ...checkpointReferenceIssues(parsed),
+    ...checkpointCompletenessIssues(parsed),
+  ];
   const result = configSchema.safeParse(parsed);
   if (result.success) {
     if (formIssues.length > 0) {
@@ -1180,6 +1305,7 @@ export function configWriteIssues(text: string): ConfigIssue[] {
   const semanticIssues = [
     ...jobFormIssues(parsed),
     ...acceptanceGrantIssues(parsed),
+    ...checkpointReferenceIssues(parsed),
   ];
   const result = configSchema.safeParse(parsed);
   if (result.success) {

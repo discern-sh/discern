@@ -123,6 +123,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  checkpointOpenQuestions: {
+    path: "discern/checkpoint-open-questions",
+    scope: "worktree",
+    kind: "file",
+    validation: false,
+  },
   effortGrant: {
     path: "discern/effort-grant",
     scope: "worktree",

@@ -205,6 +205,87 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       } derive their [stage](#stage), while a custom name declares one. The run also schedules fired [scope](#scope) gates and [standard](#standard) measurements as labeled jobs. Covered in [the quality gate](../20-quality-gate/).`,
   },
   {
+    term: "Checkpoint",
+    plain: {
+      phrase: "a judgment stop",
+      match: String.raw`\bcheckpoints?\b`,
+    },
+    definition:
+      "One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic question, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk), and `discern checkpoints` reports policy, open-question state, and preview read-only. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
+  },
+  {
+    term: "Question",
+    plain: {
+      // The term is ordinary English; the register guard cannot police it
+      // mechanically without banning the word everywhere. Review owns it.
+      phrase: "the question the agent judges",
+      match: false,
+    },
+    matches: ["question", "questions"],
+    retired: [
+      {
+        // The launch-era working name for the judgment prose. Singular only:
+        // plural "criteria" stays ordinary English (acceptance criteria,
+        // removal criteria) on unrelated surfaces.
+        phrase: "criterion",
+        pattern: String.raw`\bcriterion\b`,
+      },
+    ],
+    definition:
+      "The judgment prose a [checkpoint](#checkpoint) serves and the [improvement review](../20-quality-gate/improvement.md) evaluates: a stable id, the question itself, and a `teach` saying why it matters. A question is semantic by design (the agent evaluates it, discern does not), and the recorded answer stays [declared met](#declared-met) or [declared unmet](#declared-unmet), apart from machine-verified results. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
+  },
+  {
+    term: "Open question",
+    plain: { phrase: "a record that a judgment stop fired" },
+    definition:
+      "The effort-scoped record that a `stop` [checkpoint](#checkpoint) fired: opened by `discern done`, stored in the worktree's Git administrative area, surviving session restarts, and removed with the worktree. An open question is the only state a [declaration](#declaration) can act on; `discern checkpoints` reports each open question's state read-only. Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).",
+  },
+  {
+    term: "Declaration",
+    plain: {
+      phrase: "the agent's recorded answer",
+      match: false,
+    },
+    definition:
+      "The agent's recorded conclusion about one served [question](#question): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why \"…\"`. It binds to the [open question](#open-question)'s exact subject (the resolved definition plus the matched content) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).",
+  },
+  {
+    term: "Declared met",
+    plain: { phrase: "the agent's recorded yes" },
+    definition:
+      "The agent's recorded conclusion that a served [question](#question) holds for its current subject — the resolved definition and matched content. It is a [declaration](#declaration), and every surface reports it as declared rather than verified — machine results are verified, conclusions are declared, and a landing is authorized. It stands as evidence until a relevant change reopens it.",
+  },
+  {
+    term: "Declared unmet",
+    plain: { phrase: "the agent's recorded no, with the reason" },
+    definition:
+      "The agent's recorded conclusion that a served [question](#question) does not hold, carrying a required one-paragraph rationale written for the owner. The gate still runs, the [Proof](#proof) carries the rationale as durable evidence that never enters the [Logbook](#logbook), and landing waits for an owner-authorized [variance](#variance) at `discern accept`.",
+  },
+  {
+    term: "Variance",
+    plain: {
+      phrase: "the owner's recorded OK to land it anyway",
+      match: String.raw`\bvariances?\b`,
+    },
+    definition:
+      "Owner authorization to land one current [declared unmet](#declared-unmet) checkpoint without changing it, given with `discern accept --confirmed --variance <id>` in the current conversation. Recorded standing and effort grants never cover one. Each authorization binds to the exact [declaration](#declaration) and the landed commit, and changes no future policy. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
+  },
+  {
+    term: "Stop / advise",
+    matches: [
+      "stop checkpoint",
+      "advise checkpoint",
+      "stop mode",
+      "advise mode",
+    ],
+    plain: {
+      phrase: "a stopping rule or a notice-only one",
+      match: false,
+    },
+    definition:
+      "The two [checkpoint](#checkpoint) modes. `stop` (the default) refuses `discern done` before any [gate job](#gate-job) until the agent records a conclusion; `advise` serves the question through the [advisory](#advisory) channel and never blocks. There is no middle severity: a checkpoint either waits for a recorded judgment or informs. Heuristic triggers ship as `advise`, and the declared-unmet path with an owner [variance](#variance) keeps `stop` from trapping a legitimate exception.",
+  },
+  {
     term: "Coupling",
     plain: { phrase: "files that usually change together" },
     definition:
@@ -412,6 +493,22 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     matches: ["discern patterns"],
     definition:
       "What `discern patterns` reports: findings mined from the [logbook](#logbook) by a registry of named detectors (behavior loops, gate fit, funnel flow, and each [standard](#standard)'s trajectory), each stated in plain counts with a recommended next step ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It is [advisory](#advisory) only, and below a detector's evidence threshold it reports insufficient evidence instead of guessing. Covered in [practice patterns](../20-quality-gate/patterns.md).",
+  },
+  {
+    term: "Improvement review",
+    plain: { phrase: "the project-wide quality review" },
+    matches: ["improvement review", "improvement audit"],
+    definition:
+      "The audit `discern improvement` serves: subjective [questions](#question) evaluated across what already exists in the project, beside the deterministic placement rules. It is the stock-side partner of the [checkpoint](#checkpoint) boundary — the gate stops new violations as a change completes; this review audits what the project already holds, including violations a boundary tolerates because they predate it. Covered in [improvement](../20-quality-gate/improvement.md).",
+    retired: [
+      {
+        // The launch-era name for the review's object ("estate review",
+        // "the knowledge estate"). Live surfaces now say the improvement
+        // review / audit and the knowledge surfaces instead.
+        phrase: "estate",
+        pattern: String.raw`\bestates?\b`,
+      },
+    ],
   },
   {
     term: "Placement is consent",
@@ -654,8 +751,6 @@ export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
     "reads a worktree's provisioned values from inside it; a verb the CLI reference and built-in instructions document, not a term of art",
   "verb:impact":
     "read-only advisory of what a change touches; no page uses it as a term of art",
-  "verb:improvement":
-    "read-only advisory of the ranked next action; no page uses it as a term of art",
   "verb:licenses":
     "prints first-party licenses and third-party notices; a utility verb with no concept behind it",
   "verb:mcp":

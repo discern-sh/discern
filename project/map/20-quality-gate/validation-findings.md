@@ -1,7 +1,7 @@
 ---
 title: Validation findings
 description: "How Patterns compares per-job validation outcomes under matched and controlled recorded conditions."
-order: 130
+order: 140
 aliases:
   - same-tree-flake
   - execution-context-divergence

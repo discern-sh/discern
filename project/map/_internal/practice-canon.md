@@ -4,7 +4,7 @@
 
 _The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the value they yield. The [feature canon](feature-canon.md) owns the mechanism account and the [benefit canon](feature-canon-benefits.md) owns the human value; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._
 
-12 tenets · 9 bundled skills claimed · 71 feature nodes cited · 7 of 8 benefit clusters yielded · 6 properties.
+12 tenets · 10 bundled skills claimed · 72 feature nodes cited · 7 of 8 benefit clusters yielded · 6 properties.
 
 ## The frame
 
@@ -109,8 +109,8 @@ Acceptance resolves its authority per invocation (a conversation attestation, a 
 A correction becomes instructions, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
 
 - **Arc:** loop
-- **Upheld:** enforced via `[map]` · taught by `discern-teach-the-project`, `discern-write-adr`, `discern-document-subsystem`
-- **Mechanisms:** The map · Decision records · The docs integrity preflight · File-linked freshness · The vocabulary canon · Teach the project · Write an ADR · Document a subsystem.
+- **Upheld:** enforced via `[map]` · taught by `discern-teach-the-project`, `discern-write-adr`, `discern-document-subsystem`, `discern-place-a-checkpoint`
+- **Mechanisms:** The map · Decision records · The docs integrity preflight · File-linked freshness · The vocabulary canon · Teach the project · Write an ADR · Document a subsystem · Place a checkpoint.
 - **Yields:** Keep project knowledge available.
 - **Maintains:** its instructions, its decisions.
 

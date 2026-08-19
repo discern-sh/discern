@@ -107,3 +107,107 @@ export function takeVerbTarget(): string | undefined {
   observedTarget = undefined;
   return target;
 }
+
+// ── checkpoint observations ─────────────────────────────────────────────────
+
+/** One checkpoint serving observed during an invocation: the checkpoint id
+ * plus the definition hash and subject fingerprint it was served with, when
+ * they exist (an advise serving has no open question and so no fingerprints). */
+export type CheckpointServingObservation = {
+  id: string;
+  definition?: string;
+  subject?: string;
+};
+
+/** One recorded declaration, reduced to observation metadata. The conclusion,
+ * fingerprints, whether a relevant revision replaced the subject between the
+ * serving and this declaration, and the elapsed time from serving to
+ * declaration. The unmet rationale is durable Proof evidence and NEVER
+ * appears here — this shape is what the metadata-only logbook records. */
+export type CheckpointDeclarationObservation = {
+  id: string;
+  conclusion: "met" | "unmet";
+  /** True when the subject was reopened by a relevant revision in the same
+   * invocation that declared — the serving's subject was revised before the
+   * conclusion bound to it. */
+  revised: boolean;
+  definition?: string;
+  subject?: string;
+  /** Milliseconds from the last serving (open or reopen) to the declaration. */
+  elapsed_ms?: number;
+};
+
+/** One openQuestion still awaiting a conclusion when its effort ended. */
+export type CheckpointAbandonedObservation = {
+  id: string;
+};
+
+/**
+ * Everything the checkpoint machinery observed during one invocation —
+ * accumulated here at the moment each fact becomes true (the gate pre-flight,
+ * the acceptance transition) and drained by the logbook recorder into the
+ * invocation's event. Ids, conclusions, fingerprints, and timing only; the
+ * unmet rationale never enters (the metadata-only bar).
+ */
+export type CheckpointObservations = {
+  /** OpenQuestions opened this invocation (the checkpoint fired). */
+  fired?: CheckpointServingObservation[];
+  /** OpenQuestions reopened this invocation (a relevant change replaced the subject). */
+  reopened?: CheckpointServingObservation[];
+  /** Declarations newly recorded this invocation. */
+  declared?: CheckpointDeclarationObservation[];
+  /** Advise-mode servings (no openQuestion exists; the id is the observation). */
+  advise?: CheckpointServingObservation[];
+  /** Owner-authorized variances a completed landing carried. */
+  variances?: CheckpointServingObservation[];
+  /** OpenQuestions awaiting a conclusion when the effort ended. */
+  abandoned?: CheckpointAbandonedObservation[];
+};
+
+let checkpointObservations: CheckpointObservations | undefined;
+
+/** The two lists joined, or the existing one when nothing was added. */
+function appended<T>(
+  existing: T[] | undefined,
+  added: readonly T[] | undefined,
+): T[] | undefined {
+  if (added === undefined || added.length === 0) {
+    return existing;
+  }
+  return [...(existing ?? []), ...added];
+}
+
+/** Append one group of checkpoint observations to the invocation's record. */
+export function observeCheckpointActivity(
+  partial: CheckpointObservations,
+): void {
+  const merged: CheckpointObservations = checkpointObservations ?? {};
+  const fired = appended(merged.fired, partial.fired);
+  if (fired !== undefined) merged.fired = fired;
+  const reopened = appended(merged.reopened, partial.reopened);
+  if (reopened !== undefined) merged.reopened = reopened;
+  const declared = appended(merged.declared, partial.declared);
+  if (declared !== undefined) merged.declared = declared;
+  const advise = appended(merged.advise, partial.advise);
+  if (advise !== undefined) merged.advise = advise;
+  const variances = appended(merged.variances, partial.variances);
+  if (variances !== undefined) merged.variances = variances;
+  const abandoned = appended(merged.abandoned, partial.abandoned);
+  if (abandoned !== undefined) merged.abandoned = abandoned;
+  checkpointObservations = merged;
+}
+
+/** Take (and clear) the accumulated checkpoint observations, or undefined
+ * when nothing was observed. The recorder drains this exactly once at verb
+ * completion (and discards stale state at verb start), so an observation can
+ * never leak into a later invocation. */
+export function takeCheckpointActivity(): CheckpointObservations | undefined {
+  const observations = checkpointObservations;
+  checkpointObservations = undefined;
+  if (observations === undefined) {
+    return undefined;
+  }
+  return Object.values(observations).some((list) => list.length > 0)
+    ? observations
+    : undefined;
+}

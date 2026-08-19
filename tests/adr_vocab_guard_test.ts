@@ -34,6 +34,8 @@ import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import { stringLiterals } from "./vocab_scan.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { QUESTIONS } from "../src/shared/questions.ts";
+import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
 
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
@@ -181,6 +183,41 @@ Deno.test("active ADRs that retain Recipe history carry an ADR 0137 amendment", 
     `untriaged project script vocabulary remains in the active ADR set:\n  ${
       offenders.join("\n  ")
     }`,
+  );
+});
+
+Deno.test("shipped question vocabulary and checkpoint seeds carry no ADR citations", () => {
+  // The src/ literal scan above already covers both registry modules; this
+  // guard reads the registry VALUES, so interpolated prose is covered too,
+  // and the shipped judgment text stays in the guard's scan set even if a
+  // registry is ever relocated or its prose assembled at runtime.
+  const offenders: string[] = [];
+  for (const question of QUESTIONS) {
+    const texts = [question.question, question.teach, question.reference];
+    for (const text of texts) {
+      for (const hit of citationsIn(text ?? "")) {
+        offenders.push(`question '${question.id}' carries "${hit}"`);
+      }
+    }
+  }
+  for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
+    const values = [
+      seed.question,
+      seed.scope,
+      ...(seed.paths ?? []),
+      ...(seed.unless_changed ?? []),
+    ];
+    for (const value of values) {
+      for (const hit of citationsIn(value ?? "")) {
+        offenders.push(`built-in checkpoint '${id}' carries "${hit}"`);
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    "shipped question text must stand alone for other projects:\n  " +
+      offenders.join("\n  "),
   );
 });
 

@@ -1,7 +1,7 @@
 ---
 title: Patterns decision evidence
 description: Read the project-local evidence required before Patterns recommends a Gate configuration or Standard pin.
-order: 140
+order: 150
 aliases:
   - decision-grade patterns
   - fail-fast tradeoff

@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same canon in plain language is [feature-canon-plain.md](feature-canon-plain.md), and the commercially ordered human-value account is [feature-canon-benefits.md](feature-canon-benefits.md)._
 
-10 pillars · 128 nodes · 11 benefit statements · 39 agent-experience accounts · 73 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+10 pillars · 130 nodes · 11 benefit statements · 40 agent-experience accounts · 76 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
@@ -23,7 +23,7 @@ _Every product feature and benefit, enumerated once, at every resolution. Creati
 
 _The nodes carrying an agent-experience account — the interaction design an agent meets directly. Each account renders inline at its node, marked **Agent:**._
 
-- **The quality gate** — the pillar itself · Job time budgets · Write authority proven first · Generated artifact declarations · Normalized diagnostics · The gotchas pointer · Proof · A rerun on an unchanged tree is attested
+- **The quality gate** — the pillar itself · Job time budgets · Write authority proven first · Generated artifact declarations · Normalized diagnostics · The gotchas pointer · Proof · A rerun on an unchanged tree is attested · Checkpoints
 - **Standards** — Input-keyed replay
 - **Isolated worktrees** — the pillar itself · Start · Update · Accept · Per-worktree resources · Crash-safe provisioning · Bounded drop recovery · Orphan reclamation · The fleet view · Awaiting a fleet condition
 - **The map** — The discovery funnel · The docs integrity preflight
@@ -66,6 +66,7 @@ _The project's command result is the authority on whether work is done. An agent
 - **Proof** — A green `discern done` over a clean, committed tree ahead of the trunk emits Proof: a review summary containing the branch and pinned `HEAD`, commits, changed files, check results, and held standards. `discern accept` can reuse it while that commit and worktree stand; a later commit invalidates it. The same green run fires a registered hint to exercise the real artifact along the changed paths before offering Proof. _The owner reviews a verified claim that names the tree it vouches for._ **Agent:** _A commit made while the gate ran cannot earn Proof: the tree is pinned before the first job and re-checked at stamp time. When a green run cannot record Proof because the tree is dirty, the refusal names the blocking paths. Before the agent claims completion, a hint states the remaining action: exercise the artifact, relay Proof, and wait._ (hints: `gate-prove-it-works`, `gate-relay-proof`)
   - **Durable proof notes** — After a landing, `discern accept` writes the structured Proof to the landed trunk commit as a Git note in a versioned envelope ready for later signing, adding no commit to trunk history. `[repository].proof_notes = "fetch"` carries notes through ordinary fetches; publishing them stays an explicit push. _The review evidence outlives the worktree's removal and travels with the exact commit it vouches for._
 - **A rerun on an unchanged tree is attested** — Each completed `discern done` records the exact tree it judged — `HEAD` plus a fingerprint of everything uncommitted — and the verdict, in the worktree's Git admin area. Asked to run again on that identical tree, `done` refuses read-only before the fix stage can touch a file; `discern done --confirmed` re-runs it as an attested, recorded probe. Any change to the tree runs as normal, and so does `--dry-run`. _An unchanged tree expects an unchanged verdict. A green rerun pays full gate time for Proof that `discern status` already shows; retrying an unchanged red tree would make the recorded verdict look negotiable._ **Agent:** _The refusal names the verdict that already stands and both recoveries: change the tree, or attest the probe. A confirmed rerun lands in the logbook as a flag the patterns reader watches, so repeated verdict changes surface as evidence — validation findings name the job and recorded conditions, and routine `--confirmed` is itself a finding._ (hints: `done-unchanged-tree-red`, `done-unchanged-tree-green`)
+- **Checkpoints** — Change-triggered judgment stops under `[checkpoints]`: a deterministic trigger (a scope or path selector, `unless_changed`, thresholds, delta-shape predicates, or an executable `when` condition) pairs a semantic question with the change that makes it relevant. A fired `stop` checkpoint refuses `discern done` before any gate job until the agent judges the question and records a conclusion — `--met`, or `--unmet` with a one-paragraph rationale — bound to the exact definition and content it judged; `advise` mode serves the question without blocking. The governing definitions are read at the effort's merge-base with the trunk — a branch's own edit takes effect only after it lands — and a declared-unmet conclusion lands only after the owner authorizes that variance at `discern accept` in the current conversation. `discern checkpoints` reports, read-only: the governing policy, each open question's declaration state, and a structural preview of what the current change would fire; `prepare`/`status` serve each coming question early. _The review moments that need judgment arrive while the change is being made, and every recorded conclusion stays qualified as the agent's declared judgment — never presented as machine-verified._ **Agent:** _The refusal batches every awaiting checkpoint with its question, matched evidence, and both recoveries in one serving; recording a conclusion is the agent's own act with no owner round-trip, and revising the subject or replacing a conclusion never trips the unchanged-tree rerun refusal._
 
 ## Standards
 
@@ -133,6 +134,7 @@ _A reusable procedure becomes one file available to every future session._
 - **A curated bundled set** — The built-ins ship the practice discern teaches — prefixed `discern-`, listed by `discern skills list`, and held to a bar: a bundled skill must teach what a frontier model wouldn't do unprompted. A playbook whose trigger is a conversational ask ships as a skill; a discipline whose trigger is a verb moment ships as a registered hint fired at that moment. _Every description spends context in every session, so the set stays small and each member earns its keep._
   - **Cure a bug** — One bug discipline with three routed modes: prove the cause (reproduce the failure and falsify hypotheses before any fix), cure the class (fix every instance and leave a permanent guard), and audit existing guards for coverage that guards less than it appears to.
   - **Set the standard** — Put a quality metric behind a standard — a defendable number, wired into `[standards]`, limited at today's value — with a drive-to-zero mode that outlaws a legacy pattern: a detector, a falling ceiling, then a permanent gate rule at zero.
+  - **Place a checkpoint** — Walk from a recurring review judgment to a wired `[checkpoints.<id>]` entry: place the rule on the placement ladder, choose a deterministic trigger and the stop or advise mode, write a short question with a real unmet answer, verify it governs from the trunk, and review its observed economics later.
   - **Clear the decks** — Sweep out the clutter agent-built codebases accumulate — duplicated helpers, dead code from abandoned approaches, one-caller indirection, leftover scaffolding — every cut proven safe, landed as small behavior-preserving commits, with the entropy capped by a standard.
   - **Delegate work** — Turn the work under discussion into complete, self-contained prompts for fresh agents in their own worktrees — one handoff, a parallel fan-out, or staged briefs — then review what lands adversarially.
   - **Await the fleet** — Wait for another effort with one blocking `discern_await` call — a sibling branch green, its work landed, or the trunk moved — choosing the condition from the need, awaiting the exact returned branch, then following the met hint to compose what arrived.
@@ -234,6 +236,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 
 - `accept` — accept
 - `await` — await
+- `checkpoints` — checkpoints
 - `config` — config-command
 - `coupling` — coupling
 - `desk` — desk
@@ -284,6 +287,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 ### `config`
 
 - `acceptance` — consent-attestations
+- `checkpoints` — checkpoints
 - `coupling` — insight
 - `gate` — gate
 - `generated` — generated-artifact-declarations
@@ -306,6 +310,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `discern-cure-a-bug` — skill-cure-a-bug
 - `discern-delegate-work` — skill-delegate-work
 - `discern-document-subsystem` — skill-document-subsystem
+- `discern-place-a-checkpoint` — skill-place-a-checkpoint
 - `discern-set-the-standard` — skill-set-the-standard
 - `discern-teach-the-project` — skill-teach-the-project
 - `discern-write-adr` — skill-write-adr

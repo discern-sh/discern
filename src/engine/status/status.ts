@@ -34,6 +34,10 @@ import {
   HINTS,
   hintTexts,
 } from "../../shared/hints.ts";
+import {
+  checkpointPreviewHints,
+  previewCheckpoints,
+} from "../checkpoints/preflight.ts";
 import type {
   GateProofCheckData,
   Location,
@@ -599,6 +603,14 @@ export async function statusResult(
     ? await detectSilentDivergence(root, mainBranch)
     : undefined;
 
+  // The checkpoint preview (one seam shared with `prepare` and
+  // `done --dry-run`): serve each coming stop question early. Suppressed
+  // while setup is unfinished — the lead hint owns that session, and no
+  // governing policy exists to preview yet.
+  const checkpointPreview = setupPending === undefined
+    ? checkpointPreviewHints(await previewCheckpoints(root, cfg))
+    : [];
+
   const hints = await buildStatusHints({
     root,
     location,
@@ -627,6 +639,7 @@ export async function statusResult(
     gateProof,
     landingAuthority,
     logbookEnabled: cfg.project.logbook,
+    checkpointPreview,
   });
   const result: DiscernResult<StatusData> = {
     ok: true,
@@ -923,6 +936,10 @@ interface HintContext {
   landingAuthority: LandingAuthorityResolution | undefined;
   /** Whether logbook-backed fleet activity can be read. */
   logbookEnabled: boolean;
+  /** The checkpoint preview's advisory projection (shared with `prepare` and
+   * `done --dry-run`): each stop question this change would make a `done`
+   * declaration of, served early. Empty while setup is unfinished. */
+  checkpointPreview: FiredHint[];
 }
 
 /**
@@ -1300,6 +1317,10 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       );
     }
   }
+
+  // The checkpoint preview rides last: forward-looking servings about the
+  // NEXT gate run, after every observation about the current state.
+  hints.push(...ctx.checkpointPreview);
 
   return hints;
 }

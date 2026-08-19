@@ -281,6 +281,18 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0290 — Discern owns the default interactive Markdown reading loop](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)
 - [0291 — The await call cap is an environment-only valued experiment](0291-the-await-call-cap-is-an-environment-only-experiment.md)
 - [0292 — The demand canon counters the benefit canon](0292-the-demand-canon-counters-the-benefit-canon.md)
+- [0293 — Checkpoint declarations interlock the gate through open questions and relevance-sensitive subjects](0293-checkpoint-declarations-interlock-the-gate.md)
+- [0294 — The merge-base governs checkpoint policy](0294-the-merge-base-governs-checkpoint-policy.md)
+- [0295 — One question vocabulary serves the improvement and checkpoint memberships](0295-one-question-vocabulary-serves-two-memberships.md)
+- [0296 — `when` delegates trigger conditions to the project under an explicit v1 execution boundary](0296-when-delegates-trigger-conditions-under-a-v1-boundary.md)
+- [0297 — Checkpoint modes are the closed stop/advise pair](0297-checkpoint-modes-are-the-stop-advise-pair.md)
+- [0298 — Declaration evidence binds Proof currency and variance authorization](0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)
+- [0299 — Checkpoint read surfaces mirror the gate without effects](0299-checkpoint-read-surfaces-mirror-the-gate-without-effects.md)
+- [0300 — Checkpoint observation is drained metadata, never a verdict](0300-checkpoint-observation-is-drained-metadata-never-a-verdict.md)
+- [0301 — The improvement coach closes the checkpoint loop](0301-the-coach-closes-the-checkpoint-loop.md)
+- [0302 — Configured scalar docs join the live path-reference vocabulary](0302-configured-scalar-docs-join-the-live-path-reference-vocabulary.md)
+- [0303 — The shipped checkpoint set — four stops on the knowledge surfaces, five advisories on the change](0303-the-shipped-checkpoint-set.md)
+- [0304 — A tenth bundled skill places the checkpoint](0304-a-tenth-bundled-skill-places-the-checkpoint.md)
 
 <!-- END GENERATED: current ADR records -->
 
