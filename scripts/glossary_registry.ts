@@ -241,29 +241,19 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "The effort-scoped record that a `stop` [checkpoint](#checkpoint) fired: opened by `discern done`, stored in the worktree's Git administrative area, surviving session restarts, and removed with the worktree. An open question is the only state a [declaration](#declaration) can act on; `discern checkpoints` reports each open question's state read-only. Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).",
   },
   {
-    term: "Subject",
-    matches: [],
-    plain: {
-      phrase: "the content the answer covers",
-      match: false,
-    },
-    definition:
-      "What a [declaration](#declaration) is about: the checkpoint's resolved definition plus each matched path's base and current content. A conclusion stands until its subject changes. An unrelated edit or trunk advance leaves it standing; a change to matched content or to the definition reopens the [open question](#open-question). Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
-  },
-  {
     term: "Declaration",
     plain: {
       phrase: "the agent's recorded answer",
       match: false,
     },
     definition:
-      "The agent's recorded conclusion about one served [question](#question): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why \"…\"`. It binds to the [open question](#open-question)'s exact [subject](#subject) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).",
+      "The agent's recorded conclusion about one served [question](#question): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why \"…\"`. It binds to the [open question](#open-question)'s exact subject (the resolved definition plus the matched content) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).",
   },
   {
     term: "Declared met",
     plain: { phrase: "the agent's recorded yes" },
     definition:
-      "The agent's recorded conclusion that a served [question](#question) holds for the current [subject](#subject). It is a [declaration](#declaration), and every surface reports it as declared rather than verified — machine results are verified, conclusions are declared, and a landing is authorized. It stands as evidence until a relevant change reopens it.",
+      "The agent's recorded conclusion that a served [question](#question) holds for its current subject — the resolved definition and matched content. It is a [declaration](#declaration), and every surface reports it as declared rather than verified — machine results are verified, conclusions are declared, and a landing is authorized. It stands as evidence until a relevant change reopens it.",
   },
   {
     term: "Declared unmet",

@@ -45,7 +45,7 @@ The Proof renders declared conclusions separately from machine results, carries 
 
 ## Subjects and reopening
 
-A fired `stop` checkpoint opens an effort-scoped open question in the worktree's Git administrative area; it survives session restarts and disappears with the worktree. A declaration binds to its [subject](../00-orientation/glossary.md#subject): the resolved definition plus the matched paths' base and current content. Reopening is relevance-sensitive. An unrelated edit or an unrelated trunk advance leaves a conclusion standing; a change to matched content, to the matched set, or to the definition reopens it, and `discern checkpoints` reports `reopened` until a fresh declaration replaces it. Either conclusion may replace the other, and changed declaration evidence stales a recorded Proof at an unchanged `HEAD` without tripping the unchanged-tree rerun refusal.
+A fired `stop` checkpoint opens an effort-scoped open question in the worktree's Git administrative area; it survives session restarts and disappears with the worktree. A declaration binds to its subject: the resolved definition plus the matched paths' base and current content. Reopening is relevance-sensitive. An unrelated edit or an unrelated trunk advance leaves a conclusion standing; a change to matched content, to the matched set, or to the definition reopens it, and `discern checkpoints` reports `reopened` until a fresh declaration replaces it. Either conclusion may replace the other, and changed declaration evidence stales a recorded Proof at an unchanged `HEAD` without tripping the unchanged-tree rerun refusal.
 
 ## The trunk governs
 

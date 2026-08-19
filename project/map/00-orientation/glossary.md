@@ -50,7 +50,6 @@ aliases:
   - stage
   - standard
   - stop / advise
-  - subject
   - tidy
   - tip
   - trunk
@@ -107,11 +106,11 @@ What `discern coupling` reports: files that historically change together, pointi
 
 ### Declaration
 
-The agent's recorded conclusion about one served [question](#question): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why "…"`. It binds to the [open question](#open-question)'s exact [subject](#subject) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).
+The agent's recorded conclusion about one served [question](#question): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why "…"`. It binds to the [open question](#open-question)'s exact subject (the resolved definition plus the matched content) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).
 
 ### Declared met
 
-The agent's recorded conclusion that a served [question](#question) holds for the current [subject](#subject). It is a [declaration](#declaration), and every surface reports it as declared rather than verified — machine results are verified, conclusions are declared, and a landing is authorized. It stands as evidence until a relevant change reopens it.
+The agent's recorded conclusion that a served [question](#question) holds for its current subject — the resolved definition and matched content. It is a [declaration](#declaration), and every surface reports it as declared rather than verified — machine results are verified, conclusions are declared, and a landing is authorized. It stands as evidence until a relevant change reopens it.
 
 ### Declared unmet
 
@@ -256,10 +255,6 @@ A quality number that can never get worse: a floor or ceiling declared under `[s
 ### Stop / advise
 
 The two [checkpoint](#checkpoint) modes. `stop` (the default) refuses `discern done` before any [gate job](#gate-job) until the agent records a conclusion; `advise` serves the question through the [advisory](#advisory) channel and never blocks. There is no middle severity: a checkpoint either waits for a recorded judgment or informs. Heuristic triggers ship as `advise`, and the declared-unmet path with an owner [variance](#variance) keeps `stop` from trapping a legitimate exception.
-
-### Subject
-
-What a [declaration](#declaration) is about: the checkpoint's resolved definition plus each matched path's base and current content. A conclusion stands until its subject changes. An unrelated edit or trunk advance leaves it standing; a change to matched content or to the definition reopens the [open question](#open-question). Covered in [checkpoints](../20-quality-gate/checkpoints.md).
 
 ### Tidy
 
