@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# desc: Serve discern.sh against a local design-system checkout without changing the JSR pin
+set -eu
+
+ROOT="${DISCERN_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
+cd "$ROOT"
+
+exec deno run --config "$ROOT/deno.json" \
+  --allow-read --allow-write --allow-run \
+  --allow-env=DISCERN_DESIGN_SYSTEM_PATH \
+  "$ROOT/scripts/site_local_design_system.ts" "$@"

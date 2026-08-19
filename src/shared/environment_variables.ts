@@ -346,6 +346,16 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
         "Selects the reporter for discern's own repository gate test command.",
     },
   },
+  designSystemPath: {
+    name: "DISCERN_DESIGN_SYSTEM_PATH",
+    group: "repository-development",
+    lifecycle: "live",
+    documentation: {
+      public: false,
+      reason:
+        "Selects a local design-system checkout for the repository's preview helper.",
+    },
+  },
 
   deskSession: {
     name: "DISCERN_DESK_SESSION",

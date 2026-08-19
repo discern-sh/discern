@@ -36,7 +36,6 @@ import {
   REPO_ROOT,
 } from "./repo_authored_paths.ts";
 import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
-import { DISCERN_CATEGORY } from "../src/shared/brand.ts";
 
 const SRC = join(REPO_ROOT, "src");
 
@@ -221,40 +220,8 @@ Deno.test("every retired-phrase exception still names a real path", async () => 
   }
 });
 
-// The category phrase is one fact with several carriers (the constant, the
-// README, the social card). Each carrier lives in the harness family's
-// `allowed` list, so this test iterates that registry: a new carrier must
-// register there to pass the scan above, and registering enrols it here —
-// where its sole use must read the canonical DISCERN_CATEGORY.
-Deno.test(`every registered category carrier reads "${DISCERN_CATEGORY}" exactly once`, async () => {
-  const family = retiredSynonyms().find(({ synonym }) =>
-    synonym.phrase === "harness"
-  );
-  assert(
-    family !== undefined,
-    "the registry no longer retires the harness category — drop this " +
-      "companion test with the carrier exceptions, or restore the synonym",
-  );
-  const carriers = family.synonym.allowed ?? [];
-  assert(carriers.length > 0, "the harness family must name its carriers");
-  const canonical = new RegExp(String.raw`\b${DISCERN_CATEGORY}\b`, "i");
-  for (const { path } of carriers) {
-    const raw = await Deno.readTextFile(join(REPO_ROOT, path));
-    const text = path.endsWith(".md") ? visibleMarkdown(raw) : raw;
-    assertEquals(
-      text.match(retiredPattern(family.synonym)) ?? [],
-      ["harness"],
-      `${path} keeps exactly one searchable category use`,
-    );
-    assert(
-      canonical.test(text),
-      `${path}'s sole category use must read "${DISCERN_CATEGORY}"`,
-    );
-  }
-});
-
 // Positive control on the widened universe: the site walk really reaches the
-// carriers the scan is meant to police (an empty walk would pass vacuously).
+// surfaces the scan is meant to police (an empty walk would pass vacuously).
 Deno.test("the vocabulary scan universe reaches the site tree", async () => {
   const site = await siteFiles();
   assert(

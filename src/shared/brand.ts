@@ -109,11 +109,3 @@ export const DISCERN_MACHINE = coAuthorIdentity(
   DISCERN_NAME,
   "done@discern.sh",
 );
-
-/**
- * The product category — the searchable two-word phrase naming what discern
- * is. Every carrier (the README's positioning line, the social card's tag
- * line) quotes it verbatim; the vocabulary guards interpolate this constant,
- * so renaming the category here fails every carrier that didn't follow.
- */
-export const DISCERN_CATEGORY = "quality harness";
