@@ -955,7 +955,7 @@ discern's conceptual product boundaries and their three generated projections: b
 - Source: `scripts/brand/boundaries.ts` — `BOUNDARIES`
 - Members: 102
   - `landing-authority`
-  - `harness-security-boundary`
+  - `provider-security-boundary`
   - `model-free-verdict`
   - `non-authoring-system`
   - `project-owned-quality`

@@ -8,7 +8,7 @@ One conceptual boundary may appear in more than one projection. The shared recor
 
 ## Scope rule
 
-Unless a record says otherwise, a boundary applies to discern-owned code and effects. Project jobs, resource commands, provider hooks, coding-agent clients, and the surrounding harness keep their own capabilities: they may use models, networks, credentials, nondeterminism, or additional privileges without changing what the discern engine itself contains.
+Unless a record says otherwise, a boundary applies to discern-owned code and effects. Project jobs, resource commands, provider hooks, coding-agent clients, and the surrounding coding-agent host keep their own capabilities: they may use models, networks, credentials, nondeterminism, or additional privileges without changing what the discern engine itself contains.
 
 Stability labels mean:
 
@@ -22,8 +22,8 @@ These statements oblige behavior. A violation is a product defect.
 
 1. **Never lands without authority** — A green Gate establishes readiness evidence. Landing still requires explicit conversation consent or a recorded, machine-checked grant.
    - Projection: `authority-before-accept`; boundary: [`landing-authority`](#landing-authority).
-2. **Does not restrict the agent** — discern supplies no general command filter, blocklist, or permission model. The coding harness owns that boundary.
-   - Projection: `no-general-agent-restriction`; boundary: [`harness-security-boundary`](#harness-security-boundary).
+2. **Does not restrict the agent** — discern supplies no general command filter, blocklist, or permission model. The coding-agent provider owns that boundary.
+   - Projection: `no-general-agent-restriction`; boundary: [`provider-security-boundary`](#provider-security-boundary).
 3. **No model in the verdict** — discern never asks an LLM whether work is done. The verdict is a computation over declared conditions.
    - Projection: `no-model-in-verdict`; boundary: [`model-free-verdict`](#model-free-verdict).
 4. **Writes no application code** — discern conditions the work of code-writing tools; it does not generate the project's application code.
@@ -81,7 +81,7 @@ Each entry names a category people may use and the discriminating fact that rule
    - Projection: `not-an-agent-framework`; boundary: [`agent-runtime-boundary`](#agent-runtime-boundary).
 6. **Not a fleet orchestrator** — It coordinates repository evidence and may open configured clients, but it does not choose, route, or schedule the fleet's work.
    - Projection: `not-a-fleet-orchestrator`; boundary: [`agent-runtime-boundary`](#agent-runtime-boundary).
-7. **Not a `CLAUDE.md` generator** — Compiled agent files are one output; the substance is the Gate, worktrees, Standards, Map, Skills, and evidence behind them.
+7. **Not a `CLAUDE.md` generator** — Agent files are one output; the substance is the Gate, worktrees, Standards, Map, Skills, and evidence behind them.
    - Projection: `not-agent-file-generator`; boundary: [`installed-practice`](#installed-practice).
 8. **Not a prompt pack or rules library** — Its authority comes from installed machinery that can refuse. Prose carries instructions but cannot enforce them alone.
    - Projection: `not-a-prompt-pack`; boundary: [`installed-practice`](#installed-practice).
@@ -98,9 +98,9 @@ Each entry names a category people may use and the discriminating fact that rule
 14. **Not code-quality SaaS** — Standards are repository-owned ratchets, without a hosted dashboard or vendor grade.
     - Projection: `not-code-quality-saas`; boundary: [`project-owned-quality`](#project-owned-quality).
 15. **Not a security scanner** — It runs analysis the project configures and contributes no security-analysis engine of its own.
-    - Projection: `not-a-security-scanner`; boundary: [`harness-security-boundary`](#harness-security-boundary).
+    - Projection: `not-a-security-scanner`; boundary: [`provider-security-boundary`](#provider-security-boundary).
 16. **Not a sandbox or safety layer** — It disciplines project work; it does not contain the process doing that work.
-    - Projection: `not-a-sandbox`; boundary: [`harness-security-boundary`](#harness-security-boundary).
+    - Projection: `not-a-sandbox`; boundary: [`provider-security-boundary`](#provider-security-boundary).
 17. **Not LLM observability or model evaluation** — The Logbook records project events and Patterns derives bounded project facts; neither records model traces nor scores model behavior.
     - Projection: `not-llm-observability-evals`; boundary: [`worker-neutral-measurement`](#worker-neutral-measurement).
 18. **Not an agent-memory product** — Retention is committed, reviewable text and Git evidence—Map pages, ADRs, instructions, Skills, and the Logbook—not embeddings or hidden conversational state.
@@ -132,7 +132,7 @@ These statements name inspectable properties of the product or edition. Qualific
    - Projection: `no-account-or-activation`; boundary: [`accountless-local-edition`](#accountless-local-edition).
 5. **No cloud service** — The local edition has no discern-hosted service that must be reachable for the product to work.
    - Projection: `no-cloud-backend`; boundary: [`accountless-local-edition`](#accountless-local-edition).
-6. **No daemon** — The local edition installs no resident watcher or service. Closing the invoking Desk or harness ends its live processes.
+6. **No daemon** — The local edition installs no resident watcher or service. Closing the invoking Desk or coding-agent client ends its live processes.
    - Projection: `no-daemon`; boundary: [`invoked-process-lifecycle`](#invoked-process-lifecycle).
 7. **No footprint in the application dependency graph** — discern is a self-contained binary. It adds no application package, runtime import, lockfile entry, or build dependency.
    - Projection: `no-application-footprint`; boundary: [`application-independent-binary`](#application-independent-binary).
@@ -144,9 +144,9 @@ These statements name inspectable properties of the product or edition. Qualific
     - Projection: `no-shadow-vcs`; boundary: [`local-git-landing`](#local-git-landing).
 11. **No proprietary formats** — Authored and generated product state uses TOML, Markdown, JSON, and Git objects that ordinary tools can inspect.
     - Projection: `no-proprietary-formats`; boundary: [`repository-native-state`](#repository-native-state).
-12. **No repository lock-in** — `uninstall` removes discern's machinery while leaving the repository, authored knowledge, and useful compiled agent files readable without it.
+12. **No repository lock-in** — `uninstall` removes discern's machinery while leaving the repository, authored knowledge, and useful Agent files readable without it.
     - Projection: `no-lock-in`; boundary: [`repository-native-state`](#repository-native-state).
-13. **No Git hooks installed** — discern tolerates project Git hooks and installs none of its own. Provider lifecycle hooks are a separate harness integration.
+13. **No Git hooks installed** — discern tolerates project Git hooks and installs none of its own. Provider lifecycle hooks are a separate coding-agent integration.
     - Projection: `no-git-hooks-installed`; boundary: [`owner-bypass`](#owner-bypass).
 14. **No embedded dead weight** — The production binary embeds only product-reachable packages; development-only dependencies stay outside the artifact.
     - Projection: `no-embedded-dead-weight`; boundary: [`production-dependency-closure`](#production-dependency-closure).
@@ -180,9 +180,9 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 - Decision: `project/map/_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md` — defines the machine-checked grant model.
 - Guard: `tests/engine_accept_authority_test.ts` — exercises every landing-authority source end to end.
 
-### harness-security-boundary
+### provider-security-boundary
 
-**Boundary:** Harness security boundary\
+**Boundary:** Provider security boundary\
 **Stability:** enduring\
 **Scope:** The permissions and containment applied to a coding-agent process.
 
@@ -190,7 +190,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Evidence:**
 
-- Decision: `project/map/_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md` — places the security boundary with the vendor harness.
+- Decision: `project/map/_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md` — places the security boundary with the coding-agent provider.
 - Guard: `tests/fs_plan_test.ts` — holds the narrow Claude environment-file protection.
 - Source: `src/lib/providers.ts` — owns provider-specific integration rules.
 
@@ -265,7 +265,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Evidence:**
 
-- Decision: `project/map/_adr/0116-receipts-vouch-only-for-the-pinned-tree.md` — binds evidence to one pinned tree.
+- Source: `project/map/20-quality-gate/the-proof.md` — defines Proof for one clean committed tree.
 - Guard: `tests/engine_proof_render_test.ts` — holds the commit-bound Proof projection.
 
 ### mechanical-update
@@ -277,7 +277,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 **Evidence:**
 
 - Source: `src/engine/worktree/git.ts` — performs the merge and reports semantic overlap.
-- Guard: `tests/engine_update_summary_test.ts` — holds overlap reporting and continuation guidance.
+- Guard: `tests/engine_update_summary_test.ts` — holds overlap reporting and continuation instructions.
 
 ### local-git-landing
 
@@ -285,14 +285,14 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 **Stability:** edition\
 **Scope:** Git transport and landing in the local edition.
 
-**Qualification:** Proof fetch mode may add remote fetch configuration so another workflow can fetch receipts. It does not start that fetch or configure push.
+**Qualification:** Proof fetch mode may add remote fetch configuration so another workflow can fetch Proof notes. It does not start that fetch or configure push.
 
 **Horizon:** A team edition may add a remote workflow, with its authority and transport boundaries stated separately.
 
 **Evidence:**
 
 - Decision: `project/map/_adr/0110-the-landing-model.md` — defines local fast-forward landing.
-- Source: `src/engine/gate/proof_notes.ts` — adds receipt-fetch configuration without fetching.
+- Source: `src/engine/gate/proof_notes.ts` — adds Proof-note fetch configuration without fetching.
 - Guard: `tests/engine_accept_gate_test.ts` — exercises local acceptance.
 
 ### agent-runtime-boundary
@@ -331,7 +331,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Evidence:**
 
-- Decision: `project/map/_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md` — keeps control with the harness and operator.
+- Decision: `project/map/_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md` — keeps control with the coding-agent provider and operator.
 - Guard: `tests/engine_hooks_test.ts` — covers explicit project hooks without installing Git hooks.
 
 ### artifact-ownership
@@ -365,7 +365,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 **Stability:** edition\
 **Scope:** Notifications, watchers, the Desk, and the MCP server.
 
-**Qualification:** Provider lifecycle hooks can invoke discern as part of a harness session. The Desk and MCP server live only for the process that opened them.
+**Qualification:** Provider lifecycle hooks can invoke discern as part of a coding-agent session. The Desk and MCP server live only for the process that opened them.
 
 **Horizon:** A future team edition may add an explicitly installed service; the local edition has no resident process.
 
@@ -430,7 +430,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Evidence:**
 
-- Decision: `project/map/_adr/0112-standard-measurement-receipt.md` — binds Standard measurements to the Gate receipt.
+- Source: `src/engine/gate/standards.ts` — binds Standard measurements to the Gate Proof.
 - Guard: `tests/engine_standards_replay_test.ts` — limits replay to untouched inputs and recorded values.
 
 ### proof-scope
@@ -443,7 +443,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Evidence:**
 
-- Decision: `project/map/_adr/0245-receipt-renamed-to-proof.md` — defines Proof as scoped engineering evidence.
+- Source: `project/map/20-quality-gate/the-proof.md` — defines Proof as scoped engineering evidence.
 - Source: `src/engine/gate/proof_render.ts` — renders the conditions and commit the Proof covers.
 
 ### pre-share-lifecycle

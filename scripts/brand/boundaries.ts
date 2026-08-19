@@ -99,8 +99,8 @@ export const BOUNDARIES = [
     ],
   },
   {
-    id: "harness-security-boundary",
-    title: "Harness security boundary",
+    id: "provider-security-boundary",
+    title: "Provider security boundary",
     stability: "enduring",
     scope: "The permissions and containment applied to a coding-agent process.",
     qualification:
@@ -110,7 +110,7 @@ export const BOUNDARIES = [
         kind: "decision",
         path:
           "project/map/_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md",
-        summary: "places the security boundary with the vendor harness",
+        summary: "places the security boundary with the coding-agent provider",
       },
       {
         kind: "guard",
@@ -128,7 +128,7 @@ export const BOUNDARIES = [
       id: "no-general-agent-restriction",
       title: "Does not restrict the agent",
       statement:
-        "discern supplies no general command filter, blocklist, or permission model. The coding harness owns that boundary.",
+        "discern supplies no general command filter, blocklist, or permission model. The coding-agent provider owns that boundary.",
     }],
     identities: [
       {
@@ -355,10 +355,9 @@ export const BOUNDARIES = [
     claims: ["proof-exact-tree"],
     evidence: [
       {
-        kind: "decision",
-        path:
-          "project/map/_adr/0116-receipts-vouch-only-for-the-pinned-tree.md",
-        summary: "binds evidence to one pinned tree",
+        kind: "source",
+        path: "project/map/20-quality-gate/the-proof.md",
+        summary: "defines Proof for one clean committed tree",
       },
       {
         kind: "guard",
@@ -388,7 +387,7 @@ export const BOUNDARIES = [
       {
         kind: "guard",
         path: "tests/engine_update_summary_test.ts",
-        summary: "holds overlap reporting and continuation guidance",
+        summary: "holds overlap reporting and continuation instructions",
       },
     ],
     refusals: [{
@@ -405,7 +404,7 @@ export const BOUNDARIES = [
     stability: "edition",
     scope: "Git transport and landing in the local edition.",
     qualification:
-      "Proof fetch mode may add remote fetch configuration so another workflow can fetch receipts. It does not start that fetch or configure push.",
+      "Proof fetch mode may add remote fetch configuration so another workflow can fetch Proof notes. It does not start that fetch or configure push.",
     horizon:
       "A team edition may add a remote workflow, with its authority and transport boundaries stated separately.",
     evidence: [
@@ -417,7 +416,7 @@ export const BOUNDARIES = [
       {
         kind: "source",
         path: "src/engine/gate/proof_notes.ts",
-        summary: "adds receipt-fetch configuration without fetching",
+        summary: "adds Proof-note fetch configuration without fetching",
       },
       {
         kind: "guard",
@@ -549,7 +548,7 @@ export const BOUNDARIES = [
         kind: "decision",
         path:
           "project/map/_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md",
-        summary: "keeps control with the harness and operator",
+        summary: "keeps control with the coding-agent provider and operator",
       },
       {
         kind: "guard",
@@ -578,7 +577,7 @@ export const BOUNDARIES = [
       id: "no-git-hooks-installed",
       title: "No Git hooks installed",
       statement:
-        "discern tolerates project Git hooks and installs none of its own. Provider lifecycle hooks are a separate harness integration.",
+        "discern tolerates project Git hooks and installs none of its own. Provider lifecycle hooks are a separate coding-agent integration.",
     }],
   },
   {
@@ -646,7 +645,7 @@ export const BOUNDARIES = [
     stability: "edition",
     scope: "Notifications, watchers, the Desk, and the MCP server.",
     qualification:
-      "Provider lifecycle hooks can invoke discern as part of a harness session. The Desk and MCP server live only for the process that opened them.",
+      "Provider lifecycle hooks can invoke discern as part of a coding-agent session. The Desk and MCP server live only for the process that opened them.",
     horizon:
       "A future team edition may add an explicitly installed service; the local edition has no resident process.",
     evidence: [
@@ -673,7 +672,7 @@ export const BOUNDARIES = [
       id: "no-daemon",
       title: "No daemon",
       statement:
-        "The local edition installs no resident watcher or service. Closing the invoking Desk or harness ends its live processes.",
+        "The local edition installs no resident watcher or service. Closing the invoking Desk or coding-agent client ends its live processes.",
     }],
   },
   {
@@ -805,9 +804,9 @@ export const BOUNDARIES = [
     scope: "Every Standard value used by the Gate.",
     evidence: [
       {
-        kind: "decision",
-        path: "project/map/_adr/0112-standard-measurement-receipt.md",
-        summary: "binds Standard measurements to the Gate receipt",
+        kind: "source",
+        path: "src/engine/gate/standards.ts",
+        summary: "binds Standard measurements to the Gate Proof",
       },
       {
         kind: "guard",
@@ -831,8 +830,8 @@ export const BOUNDARIES = [
     claims: ["proof-exact-tree", "gate-grants-no-authority"],
     evidence: [
       {
-        kind: "decision",
-        path: "project/map/_adr/0245-receipt-renamed-to-proof.md",
+        kind: "source",
+        path: "project/map/20-quality-gate/the-proof.md",
         summary: "defines Proof as scoped engineering evidence",
       },
       {
@@ -911,7 +910,7 @@ export const BOUNDARIES = [
         id: "not-agent-file-generator",
         title: "Not a `CLAUDE.md` generator",
         discriminatingFact:
-          "Compiled agent files are one output; the substance is the Gate, worktrees, Standards, Map, Skills, and evidence behind them.",
+          "Agent files are one output; the substance is the Gate, worktrees, Standards, Map, Skills, and evidence behind them.",
       },
       {
         order: 8,
@@ -1151,7 +1150,7 @@ export const BOUNDARIES = [
       id: "no-lock-in",
       title: "No repository lock-in",
       statement:
-        "`uninstall` removes discern's machinery while leaving the repository, authored knowledge, and useful compiled agent files readable without it.",
+        "`uninstall` removes discern's machinery while leaving the repository, authored knowledge, and useful Agent files readable without it.",
     }],
   },
   {
@@ -1443,7 +1442,7 @@ export function renderBoundaryCanonDoc(): string {
     "",
     "## Scope rule",
     "",
-    "Unless a record says otherwise, a boundary applies to discern-owned code and effects. Project jobs, resource commands, provider hooks, coding-agent clients, and the surrounding harness keep their own capabilities: they may use models, networks, credentials, nondeterminism, or additional privileges without changing what the discern engine itself contains.",
+    "Unless a record says otherwise, a boundary applies to discern-owned code and effects. Project jobs, resource commands, provider hooks, coding-agent clients, and the surrounding coding-agent host keep their own capabilities: they may use models, networks, credentials, nondeterminism, or additional privileges without changing what the discern engine itself contains.",
     "",
     "Stability labels mean:",
     "",
