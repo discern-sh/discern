@@ -203,7 +203,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Forces:** push, anxiety
 - **Segments:** experienced engineers, new consequential builders
 - **Evidence:** hypothesis — A recurring theme in public discussion of agent-assisted development; no attributed instances collected yet. (recorded 2026-08-17)
-- **Answered by:** Recover cleanly from interrupted operations.
+- **Answered by:** Preview changes and recover cleanly.
 
 ## Re-fixing what was already fixed
 
