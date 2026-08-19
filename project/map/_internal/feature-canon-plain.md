@@ -310,7 +310,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `discern-cure-a-bug` — skill-cure-a-bug
 - `discern-delegate-work` — skill-delegate-work
 - `discern-document-subsystem` — skill-document-subsystem
-- `discern-set-a-checkpoint` — skill-set-a-checkpoint
+- `discern-place-a-checkpoint` — skill-place-a-checkpoint
 - `discern-set-the-standard` — skill-set-the-standard
 - `discern-teach-the-project` — skill-teach-the-project
 - `discern-write-adr` — skill-write-adr

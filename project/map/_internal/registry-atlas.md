@@ -830,7 +830,7 @@ The Skills the binary ships and materializes into a project.
   - `discern-cure-a-bug`
   - `discern-delegate-work`
   - `discern-document-subsystem`
-  - `discern-set-a-checkpoint`
+  - `discern-place-a-checkpoint`
   - `discern-set-the-standard`
   - `discern-teach-the-project`
   - `discern-write-adr`
@@ -853,8 +853,8 @@ The effective Skills and setup briefs joined to repository-only classifications,
   - `skill:discern-cure-a-bug`
   - `skill:discern-delegate-work`
   - `skill:discern-document-subsystem`
+  - `skill:discern-place-a-checkpoint`
   - `skill:discern-product-voice`
-  - `skill:discern-set-a-checkpoint`
   - `skill:discern-set-the-standard`
   - `skill:discern-teach-the-project`
   - `skill:discern-write-adr`
@@ -1360,7 +1360,7 @@ The Desk tip registry: every teaching line the Desk can show enters through it, 
   - `record-a-decision`
   - `delegate-with-a-complete-brief`
   - `await-with-one-call`
-  - `set-a-checkpoint`
+  - `place-a-checkpoint`
   - `identity-stable-values`
   - `resources-follow-the-copy`
   - `scripts-from-desk`
@@ -1827,7 +1827,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `skills-curation`
   - `skill-cure-a-bug`
   - `skill-set-the-standard`
-  - `skill-set-a-checkpoint`
+  - `skill-place-a-checkpoint`
   - `skill-clear-the-decks`
   - `skill-delegate-work`
   - `skill-await-the-fleet`

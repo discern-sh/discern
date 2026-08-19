@@ -1,12 +1,12 @@
 ---
-name: discern-set-a-checkpoint
-description: Set a checkpoint — a change-triggered judgment stop. A deterministic trigger serves a written question the agent judges and records before the gate runs. Decide whether the rule belongs here on the placement ladder, choose the trigger and the stop or advise mode, write a short question with a real unmet answer, wire it as [checkpoints.<id>] in discern.toml, and review its economics later. Use when the user wants changes to certain files reviewed or questioned before landing ("make agents check X", "flag risky changes to Y"), when a reviewer keeps raising the same non-mechanical point, when enabling or tuning the built-in checkpoints, or when one fires too often, never, or lands under frequent variances. Bundled with discern.
+name: discern-place-a-checkpoint
+description: Place a checkpoint — a change-triggered judgment stop. A deterministic trigger serves a written question the agent judges and records before the gate runs. Decide whether the rule belongs here on the placement ladder, choose the trigger and the stop or advise mode, write a short question with a real unmet answer, wire it as [checkpoints.<id>] in discern.toml, and review its economics later. Use when the user wants changes to certain files reviewed or questioned before landing ("make agents check X", "flag risky changes to Y"), when a reviewer keeps raising the same non-mechanical point, when enabling or tuning the built-in checkpoints, or when one fires too often, never, or lands under frequent variances. Bundled with discern.
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
 ---
 
-# Set a checkpoint
+# Place a checkpoint
 
 A checkpoint is a change-triggered judgment stop: a deterministic **trigger** chooses the moment a diff makes a question relevant, and a written **question** puts that question to the agent at `discern done`, before any gate job runs. The agent records the conclusion — met, or unmet with a short rationale — and the record travels with the Proof as agent judgment, kept apart from machine-verified results. discern never verifies the conclusion's truth and never calls a model: the trigger is mechanical, the judgment is the agent's, and the record is what the owner reviews.
 

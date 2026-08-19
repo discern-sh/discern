@@ -490,17 +490,17 @@ Rendered line:
 
 > `discern-await-the-fleet` guides a coding agent to wait for another task with one bounded call, then build on what arrives.
 
-## `set-a-checkpoint`
+## `place-a-checkpoint`
 
 - Relevance: Evergreen — the final reusable guide lesson.
 - Predicate: —
 - Since: —
-- Teaches: `skill-set-a-checkpoint`
+- Teaches: `skill-place-a-checkpoint`
 - Follow-through: —
 
 Rendered line:
 
-> `discern-set-a-checkpoint` turns a point a reviewer keeps raising into a change-triggered judgment the final quality check serves and records.
+> `discern-place-a-checkpoint` turns a point a reviewer keeps raising into a change-triggered judgment the final quality check serves and records.
 
 ## `identity-stable-values`
 

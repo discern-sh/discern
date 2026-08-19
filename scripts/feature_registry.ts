@@ -1231,8 +1231,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             surfaces: ["skill:discern-set-the-standard"],
           },
           {
-            id: "skill-set-a-checkpoint",
-            title: "Set a checkpoint",
+            id: "skill-place-a-checkpoint",
+            title: "Place a checkpoint",
             what:
               "Walk from a recurring review judgment to a wired `[checkpoints.<id>]` entry: place the rule on the placement ladder, choose a deterministic trigger and the stop or advise mode, write a short question with a real unmet answer, verify it governs from the trunk, and review its observed economics later.",
             plain: {
@@ -1240,7 +1240,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
               what:
                 "Turn a point a reviewer keeps raising into a rule the project keeps. Choose which changes set it off, and whether it stops work or only advises. Write the short question the coding agent must answer, check the rule is in force, and review later how often it fires and how it was answered.",
             },
-            surfaces: ["skill:discern-set-a-checkpoint"],
+            surfaces: ["skill:discern-place-a-checkpoint"],
           },
           {
             id: "skill-clear-the-decks",
@@ -2956,7 +2956,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
           "The review questions that need a person's kind of judgment are asked at the moment a matching change exists, and the recorded answer travels with the evidence — qualified as the agent's declared judgment, with the final say on an unmet one held by the responsible person.",
         whyItFollows:
           "A checkpoint pairs a deterministic trigger with a question; a fired stop checkpoint refuses the Gate until a conclusion is declared, the Proof carries declared conclusions separately from machine results, and a declared-unmet conclusion lands only under an owner-authorized variance.",
-        drawsOn: ["checkpoints", "skill-set-a-checkpoint"],
+        drawsOn: ["checkpoints", "skill-place-a-checkpoint"],
       },
       {
         id: "decisions-in-one-view",

@@ -25,7 +25,7 @@ A standard blocks pushes, so the number behind it must be _defendable_:
 
 Classic candidates: test coverage (floor), uses of a deprecated pattern (ceiling), lint/type suppressions (ceiling), build or bundle size (ceiling), documentation-lint density (ceiling).
 
-A rule that needs judgment rather than measurement ("is this large cut proven safe?") belongs in a checkpoint — the `discern-set-a-checkpoint` skill walks that authoring; when a checkpoint's question later becomes mechanically decidable, it graduates here through the outlaw procedure.
+A rule that needs judgment rather than measurement ("is this large cut proven safe?") belongs in a checkpoint — the `discern-place-a-checkpoint` skill walks that authoring; when a checkpoint's question later becomes mechanically decidable, it graduates here through the outlaw procedure.
 
 ---
 

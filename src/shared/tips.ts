@@ -770,12 +770,12 @@ export const TIPS: readonly RegisteredTip[] = [
   }),
 
   defineTip({
-    id: "set-a-checkpoint",
+    id: "place-a-checkpoint",
     when: "Evergreen — the final reusable guide lesson.",
-    features: ["skill-set-a-checkpoint"],
+    features: ["skill-place-a-checkpoint"],
     example: undefined,
     template: (): string =>
-      "`discern-set-a-checkpoint` turns a point a reviewer keeps raising " +
+      "`discern-place-a-checkpoint` turns a point a reviewer keeps raising " +
       "into a change-triggered judgment the final quality check serves " +
       "and records.",
   }),

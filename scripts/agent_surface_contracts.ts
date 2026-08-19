@@ -427,7 +427,7 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
     },
   ],
   [
-    "skill:discern-set-a-checkpoint",
+    "skill:discern-place-a-checkpoint",
     {
       effectful: true,
       cross_worktree: false,
