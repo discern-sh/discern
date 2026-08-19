@@ -47,21 +47,9 @@ Deno.test("homepage and docs share one system-aware theme bootstrap", async () =
   assertStringIncludes(homeBootstrap, "discern-theme");
   assertStringIncludes(homeHtml, 'src="/assets/theme.js"');
   assertStringIncludes(docsHtml, 'src="/assets/theme.js"');
-  for (const html of [homeHtml, docsHtml]) {
-    const dom = new JSDOM(html);
-    const controls = [...dom.window.document.querySelectorAll(
-      "[data-theme-toggle]",
-    )];
-    assertEquals(controls.length > 0, true);
-    assertEquals(
-      controls.map((control) => control.getAttribute("aria-pressed")),
-      controls.map(() => null),
-    );
-    dom.window.close();
-  }
 });
 
-Deno.test("fresh-name theme controls share one reversible system override", async () => {
+Deno.test("theme controls follow the system until either fresh-name control overrides it", async () => {
   const client = await Deno.readTextFile(
     new URL("../site/pages/assets/theme.js", import.meta.url),
   );
@@ -93,7 +81,7 @@ Deno.test("fresh-name theme controls share one reversible system override", asyn
   );
   assertEquals(
     controls.map((control) => control.getAttribute("aria-pressed")),
-    [null, null],
+    ["true", "true"],
   );
   assertEquals(
     window.document.querySelector("[data-theme-label]")?.textContent,
@@ -113,32 +101,7 @@ Deno.test("fresh-name theme controls share one reversible system override", asyn
   assertEquals(
     window.document.documentElement.dataset.discernTheme,
     "light",
-    "an explicit override stays pinned when the system comes to match it",
-  );
-  assertEquals(window.localStorage.getItem("discern-theme"), "light");
-
-  media.matches = true;
-  mediaListener?.({ matches: true });
-  assertEquals(
-    window.document.documentElement.dataset.discernTheme,
-    "light",
-    "the explicit override survives a later divergence",
-  );
-
-  controls[0]?.click();
-  assertEquals(window.document.documentElement.dataset.discernTheme, "dark");
-  assertEquals(
-    window.localStorage.getItem("discern-theme"),
-    null,
-    "choosing the current system theme removes the override",
-  );
-
-  media.matches = false;
-  mediaListener?.({ matches: false });
-  assertEquals(
-    window.document.documentElement.dataset.discernTheme,
-    "light",
-    "after the override is removed the page follows the system again",
+    "a stored user override wins over later system changes",
   );
   dom.window.close();
 });

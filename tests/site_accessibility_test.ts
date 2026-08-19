@@ -491,9 +491,9 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
       /restoreFocus/.test(client),
     ],
     [
-      "theme destination is exposed",
-      /Switch to the light theme/.test(themeClient) &&
-      /Switch to the dark theme/.test(themeClient),
+      "theme state is exposed",
+      /aria-pressed/.test(themeClient) &&
+      /Switch to the light theme/.test(themeClient),
     ],
     [
       "copy outcomes are live",

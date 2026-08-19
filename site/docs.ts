@@ -885,7 +885,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
     </div>
     <div class="discern-docs-header__actions">
       <button class="discern-theme-toggle docs-theme" type="button"
-        aria-label="Switch to the dark theme" data-theme-toggle>
+        aria-label="Switch to the dark theme" aria-pressed="false" data-theme-toggle>
         <span class="discern-theme-toggle__glyph docs-theme-glyphs" aria-hidden="true">
           <span class="discern-icon docs-theme-icon docs-theme-sun" data-theme-toggle-glyph="light">${ICONS.sun}</span>
           <span class="discern-icon docs-theme-icon docs-theme-moon" data-theme-toggle-glyph="dark">${ICONS.moon}</span>
