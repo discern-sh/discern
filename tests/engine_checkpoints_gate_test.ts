@@ -120,6 +120,22 @@ mode = "advise"
 criterion = "${CRITERION_API}"
 `;
 
+const CONFIG_UNLESS_CHANGED = `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "sh check.sh"
+
+[checkpoints.api-review]
+paths = ["api/**"]
+unless_changed = ["docs/**"]
+criterion = "${CRITERION_API}"
+`;
+
 const CHECK_OK = "#!/usr/bin/env sh\nexit 0\n";
 
 /** Marker file the check job writes when it RUNS — proof of "no gate job ran". */
@@ -519,6 +535,51 @@ Deno.test("done: a corrupt episode store fails open into a clean re-ask", async 
   });
 });
 
+Deno.test("done: an opened stop episode remains interlocked after its trigger becomes inactive", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_UNLESS_CHANGED);
+
+    // The API-only effort opens the episode. A later docs change makes the
+    // current trigger inactive, but cannot retract a criterion already served.
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+    await Deno.mkdir(join(wt, "docs"), { recursive: true });
+    await Deno.writeTextFile(join(wt, "docs", "api.md"), "documented\n");
+    await git(wt, "add", "docs/api.md");
+    await git(
+      wt,
+      "commit",
+      "-q",
+      "-m",
+      "docs: describe the api",
+      "--no-gpg-sign",
+    );
+
+    const stillAwaiting = await runAgent(wt, ["done", "--json"]);
+    assertEquals(stillAwaiting.code, 1, stillAwaiting.output);
+    const awaiting = parseJson(stillAwaiting.stdout);
+    assertEquals(awaiting.error, AWAITING_DECLARATION_SLUG);
+    assertEquals(awaiting.data.checkpoints.outstanding?.[0]?.id, "api-review");
+    assertEquals(awaiting.data.checkpoints.outstanding?.[0]?.matched, [
+      "api/surface.txt",
+    ]);
+
+    // A conclusion recorded while the trigger remains inactive is still part
+    // of this run's checkpoint evidence, including the variance requirement.
+    const concluded = await runAgent(wt, [
+      "done",
+      "--unmet",
+      "api-review",
+      "--why",
+      "The changed docs do not yet describe the compatibility trade-off.",
+      "--json",
+    ]);
+    assertEquals(concluded.code, 0, concluded.output);
+    const env = parseJson(concluded.stdout);
+    assertEquals(env.data.checkpoints.declared_unmet?.[0]?.id, "api-review");
+    assertStringIncludes(env.data.proof?.line ?? "", "variance required");
+  });
+});
+
 Deno.test("done: --dry-run never refuses; it previews the checkpoints that would require declarations", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
@@ -833,6 +894,23 @@ criterion = "${CRITERION_API}"
     const env = parseJson(fired.stdout);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
     assertEquals(env.data.checkpoints.outstanding?.[0]?.id, "spec-drift");
+
+    // Once served, the checkpoint remains interlocked even if the same
+    // worktree probe later passes. Trigger state controls opening, not erasure.
+    await writeExecutable(
+      join(wt, "probe.sh"),
+      "#!/usr/bin/env sh\necho wt-probe >> probe-ran.log\nexit 1\n",
+    );
+    await git(wt, "add", "probe.sh");
+    await git(wt, "commit", "-q", "-m", "probe passes", "--no-gpg-sign");
+    const inactive = await runAgent(wt, ["done", "--json"]);
+    assertEquals(inactive.code, 1, inactive.output);
+    const inactiveEnv = parseJson(inactive.stdout);
+    assertEquals(inactiveEnv.error, AWAITING_DECLARATION_SLUG);
+    assertEquals(
+      inactiveEnv.data.checkpoints.outstanding?.[0]?.id,
+      "spec-drift",
+    );
   });
 });
 

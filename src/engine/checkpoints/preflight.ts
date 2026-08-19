@@ -5,9 +5,9 @@
  *   1. load the GOVERNING policy (the merge-base config — never the branch's
  *      own edits) and evaluate every checkpoint's trigger against the effort
  *      diff, running `when` conditions under their fixed budget;
- *   2. reconcile episodes for the fired `stop` checkpoints — create
- *      idempotently, reopen on a definition- or subject-fingerprint change,
- *      carry a declaration that still binds;
+ *   2. reconcile episodes for fired `stop` checkpoints and earlier active
+ *      episodes — create idempotently, reopen on a definition- or
+ *      subject-fingerprint change, carry a declaration that still binds;
  *   3. record this invocation's declarations (`--met` / `--unmet --why`),
  *      validating every id and the rationale BEFORE any write — an invalid
  *      invocation records nothing;
@@ -66,13 +66,13 @@ export interface ServedCheckpoint {
   matched: readonly string[];
 }
 
-/** One current declared-met conclusion among the governing fired set. */
+/** One current declared-met conclusion among the governing active set. */
 export interface DeclaredMetConclusion {
   id: string;
   declaredAt: string;
 }
 
-/** One current declared-unmet conclusion among the governing fired set. */
+/** One current declared-unmet conclusion among the governing active set. */
 export interface DeclaredUnmetConclusion {
   id: string;
   /** The validated rationale — opaque evidence, rendered only through
@@ -313,9 +313,29 @@ export async function runCheckpointPreflight(
     policy.checkpoints.filter((c) => c.mode === "stop").map((c) => c.id),
   );
 
+  // A trigger opens an episode; it does not own that episode's lifetime.
+  // Load earlier governing stop episodes before evaluating this run so a
+  // later veto or passing `when` cannot retract a criterion already served.
+  // Unreadable state fails open, with the missing interlock stated plainly.
+  let storedEpisodes: Record<string, CheckpointEpisode> = {};
+  if (stopIds.size > 0) {
+    const stored = await readEpisodes(root);
+    if (stored.status === "ok") {
+      storedEpisodes = stored.episodes;
+    } else if (stored.status === "invalid") {
+      advisories.push(
+        "the checkpoint-episode record did not parse; earlier active episodes cannot interlock this run and must be served again before they can receive declarations.",
+      );
+    } else if (stored.status === "unavailable") {
+      advisories.push(
+        `the checkpoint-episode record could not be read (${stored.reason}); earlier active episodes cannot interlock this run.`,
+      );
+    }
+  }
+
   // Trigger evaluation needs both a policy identity and a readable diff;
-  // without either, nothing fires (fail open) and only declarations against
-  // already-active episodes remain possible.
+  // without either, nothing new fires (fail open). Readable active episodes
+  // still interlock and remain declarable.
   const fired = new Map<string, ServedCheckpoint>();
   if (policy.policyCommit !== undefined && policy.checkpoints.length > 0) {
     const diff = await collectEffortDiff(root, policy.policyCommit);
@@ -346,9 +366,10 @@ export async function runCheckpointPreflight(
     }
   }
 
-  // Reconcile episodes for the fired stop checkpoints. Subject or store
-  // trouble drops the checkpoint from the interlock with an advisory — a
-  // declaration must never bind to a subject the engine only guessed at.
+  // Reconcile episodes for every fired stop checkpoint and every earlier
+  // active episode still governed as a stop. Subject or store trouble drops
+  // the checkpoint from the interlock with an advisory — a declaration must
+  // never bind to a subject the engine only guessed at.
   const episodes = new Map<string, CheckpointEpisode>();
   const interlocked: ServedCheckpoint[] = [];
   // The serving each checkpoint's next declaration responds to: how this run's
@@ -358,17 +379,25 @@ export async function runCheckpointPreflight(
     string,
     { outcome: "opened" | "reopened" | "carried"; servedAt: string }
   >();
-  for (const [id, serving] of fired) {
-    const def = policy.checkpoints.find((c) => c.id === id);
-    if (def === undefined) {
-      continue; // structurally impossible: `fired` is keyed from the policy
-    }
+  for (const def of policy.checkpoints) {
+    const id = def.id;
+    let serving = fired.get(id);
     if (def.mode === "advise") {
+      if (serving === undefined) {
+        continue;
+      }
       preflight.advise.push(serving);
       // Advise servings write no episode; the serving itself is the recorded
       // observation, so their firings still feed the observed economics.
       observeCheckpointActivity({ advise: [{ id }] });
       continue;
+    }
+    if (serving === undefined) {
+      const earlier = storedEpisodes[id];
+      if (earlier === undefined) {
+        continue;
+      }
+      serving = served(def, earlier.matchedPaths);
     }
     const definitionHash = await checkpointDefinitionHash(def);
     const subject = await computeSubject(
@@ -444,16 +473,13 @@ export async function runCheckpointPreflight(
   // checkpoints. Validate the whole invocation BEFORE any write, so an error
   // records nothing.
   if (hasDeclarations(request)) {
-    // Episodes may be active from an earlier run without firing now (an
-    // unrelated revision, a fail-open `when`); read the store once to know
-    // the full declarable set.
-    const stored = await readEpisodes(root);
+    // A subject/store failure may have kept an earlier episode out of this
+    // run's interlock. Its persisted subject is still exact, so it remains
+    // declarable even though the current run cannot refresh it.
     const active = new Map<string, CheckpointEpisode>(episodes);
-    if (stored.status === "ok") {
-      for (const [id, episode] of Object.entries(stored.episodes)) {
-        if (stopIds.has(id) && !active.has(id)) {
-          active.set(id, episode);
-        }
+    for (const [id, episode] of Object.entries(storedEpisodes)) {
+      if (stopIds.has(id) && !active.has(id)) {
+        active.set(id, episode);
       }
     }
     const activeIds = [...active.keys()].sort();
@@ -541,7 +567,7 @@ export async function runCheckpointPreflight(
   }
 
   // What still lacks a current conclusion, and what the current conclusions
-  // are, among the checkpoints interlocking THIS run.
+  // are, among the governing active checkpoints interlocking this run.
   for (const serving of interlocked) {
     const episode = episodes.get(serving.id);
     if (episode === undefined) {
