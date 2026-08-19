@@ -349,3 +349,51 @@ Deno.test("checkpoint economics: the config-change boundary restarts the hygiene
     ["agent/one"],
   );
 });
+
+Deno.test("checkpoint-dead: pre-boundary servings do not satisfy revised definitions", () => {
+  const events: LogbookEvent[] = [
+    verb({
+      at: t(0),
+      branch: "agent/old",
+      checkpoints: {
+        fired: [{ id: "revised-rule" }, { id: "current-rule" }],
+      },
+    }),
+    {
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: t(1),
+      kind: "config-change",
+      branch: "agent/reconfigure",
+      sections: ["checkpoints"],
+      epoch: "e2",
+    },
+    ...Array.from({ length: 8 }, (_, i) =>
+      verb({
+        at: t(i + 2),
+        branch: `agent/new-${i}`,
+        epoch: "e2",
+        ...(i === 0
+          ? { checkpoints: { fired: [{ id: "current-rule" }] } }
+          : {}),
+      })),
+  ];
+  const detector = DETECTORS.find((entry) => entry.id === "checkpoint-dead");
+  assert(detector !== undefined);
+  const report = runDetector(
+    detector,
+    buildStreamFacts(
+      events,
+      "main",
+      [],
+      ["revised-rule", "current-rule"],
+    ),
+  );
+
+  assertEquals(report.status, "fired");
+  assertEquals(report.considered, 8);
+  assertEquals(
+    report.findings.map((finding) => finding.subject),
+    ["revised-rule"],
+  );
+  assertEquals(report.findings[0]?.evidence, { efforts: 8, fires: 0 });
+});

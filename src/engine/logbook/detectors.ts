@@ -4514,11 +4514,11 @@ const checkpointDead: Detector = {
   detect(facts): DetectorOutcome {
     const boundary = checkpointConfigBoundary(facts);
     const efforts = gateEffortsSince(facts, boundary);
-    const everServed = eraServings(facts, undefined);
+    const served = eraServings(facts, boundary);
     const findings: DetectorFinding[] = [];
     for (const id of [...facts.configuredCheckpoints].sort()) {
-      const served = everServed.get(id);
-      if (served !== undefined && served.fires > 0) {
+      const entry = served.get(id);
+      if (entry !== undefined && entry.fires > 0) {
         continue;
       }
       findings.push({
