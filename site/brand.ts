@@ -11,9 +11,22 @@ export const LANDING_DESCRIPTION =
   "Give coding agents a consistent way to handle substantial software tasks, work in isolation, run project checks, and return exact evidence while you keep control of what ships.";
 
 /** Exact metadata for the public agent-ergonomics composition. */
-export const AGENTS_TITLE = "For coding agents — Agent ergonomics · discern";
+export const AGENTS_TITLE =
+  "discern for coding agents — Finally, software where you are the user";
 export const AGENTS_DESCRIPTION =
-  "Typed tools, bounded context, isolated worktrees, explicit authority, and one project-owned engineering practice across supported coding agents.";
+  "discern gives coding agents explicit project state, bounded results, isolated work, project-specific guidance, useful refusals, and Proof tied to the exact completed change.";
+
+/** Route-specific social copy, which can address an out-of-context human share. */
+export const SOCIAL_PAGE_METADATA: Readonly<
+  Record<string, { title: string; description: string; image: string }>
+> = {
+  "/agents": {
+    title: "Finally, software where your coding agent is the user.",
+    description:
+      "Developer software designed around the machine doing the work, while the person responsible keeps the final decision.",
+    image: "/assets/agents-og.png",
+  },
+};
 
 /**
  * Routes that carry their own exact titles. Serving appends the docs suffix to

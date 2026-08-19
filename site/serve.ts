@@ -50,13 +50,32 @@ const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
 
 /** Routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
 export const PAGES: Readonly<
-  Record<string, { page: string; negotiable: boolean }>
+  Record<
+    string,
+    { page: string; markdownPage?: string; negotiable: boolean }
+  >
 > = Object.fromEntries(
-  MARKETING_PAGES.map(({ route, page, negotiable }) => [
-    route,
-    { page, negotiable },
+  MARKETING_PAGES.map((entry) => [
+    entry.route,
+    {
+      page: entry.page,
+      negotiable: entry.negotiable,
+      ...("markdownPage" in entry
+        ? { markdownPage: entry.markdownPage }
+        : {}),
+    },
   ]),
 );
+
+/** Explicit Markdown companions, kept out of the HTML sitemap. */
+export const MARKDOWN_PAGES: Readonly<Record<string, string>> = Object
+  .fromEntries(
+    MARKETING_PAGES.flatMap((entry) =>
+      "markdownPage" in entry
+        ? [[`${entry.route}.md`, entry.markdownPage] as const]
+        : []
+    ),
+  );
 
 /** The plaintext edition: served to text clients on negotiable routes and at /llms.txt. */
 export const TEXT_EDITION = "text/discern.txt";
@@ -70,6 +89,7 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".md": "text/markdown; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
@@ -342,6 +362,9 @@ async function routeResponse(
     });
   }
 
+  const markdownPage = MARKDOWN_PAGES[path];
+  if (markdownPage !== undefined) return await serveFile(markdownPage);
+
   if (path === "/docs" || path === "/docs.md" || path.startsWith("/docs/")) {
     return await serveDocs(path, wantsText(req));
   }
@@ -351,7 +374,9 @@ async function routeResponse(
     if (route.negotiable) {
       const vary = { vary: "Accept, User-Agent" };
       return wantsText(req)
-        ? await textEditionResponse(vary)
+        ? route.markdownPage === undefined
+          ? await textEditionResponse(vary)
+          : await serveFile(route.markdownPage, vary)
         : await serveFile(route.page, vary);
     }
     return await serveFile(route.page);
@@ -446,6 +471,7 @@ async function handleRequest(
   const routing = routingFixture ?? await siteRouting();
   const addressable = new Set([
     ...routing.liveRoutes,
+    ...Object.keys(MARKDOWN_PAGES),
     ...routing.redirects.redirects.keys(),
   ]);
   const variant = canonicalPathVariant(decoded, addressable);
