@@ -914,6 +914,63 @@ criterion = "${CRITERION_API}"
   });
 });
 
+Deno.test("done: when matches cannot escape their structural selector", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "sh check.sh"
+
+[checkpoints.api-review]
+paths = ["api/**"]
+when = "sh probe.sh"
+criterion = "${CRITERION_API}"
+`,
+    );
+    await writeExecutable(join(dir, "check.sh"), CHECK_OK);
+    await writeExecutable(
+      join(dir, "probe.sh"),
+      "#!/usr/bin/env sh\necho 'DISCERN_MATCH README.md'\nexit 0\n",
+    );
+    await Deno.writeTextFile(join(dir, "README.md"), "stable context\n");
+    await gitInit(dir);
+
+    const wt = await addWorktree(dir, "checkpointed");
+    await Deno.mkdir(join(wt, "api"), { recursive: true });
+    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "v1\n");
+    await git(wt, "add", "api/surface.txt");
+    await git(wt, "commit", "-q", "-m", "add api", "--no-gpg-sign");
+
+    const opened = await runAgent(wt, ["done", "--json"]);
+    assertEquals(opened.code, 1, opened.output);
+    const openedEnv = parseJson(opened.stdout);
+    assertEquals(openedEnv.data.checkpoints.outstanding?.[0]?.matched, [
+      "api/surface.txt",
+    ]);
+    assertEquals(
+      (await runAgent(wt, ["done", "--met", "api-review", "--json"])).code,
+      0,
+    );
+
+    // The selector-matched content is the subject. Revising it must reopen the
+    // episode even though the probe keeps declaring an unrelated stable path.
+    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "v2\n");
+    await git(wt, "add", "api/surface.txt");
+    await git(wt, "commit", "-q", "-m", "revise api", "--no-gpg-sign");
+    const reopened = await runAgent(wt, ["done", "--json"]);
+    assertEquals(reopened.code, 1, reopened.output);
+    assertEquals(parseJson(reopened.stdout).error, AWAITING_DECLARATION_SLUG);
+  });
+});
+
 Deno.test("episodes: the effort's state survives session restarts — each engine process reads what the last recorded", async () => {
   // Every invocation below is its own OS process over the per-worktree store:
   // the refusal's episode, read back by a fresh `checkpoints` run, resolved by

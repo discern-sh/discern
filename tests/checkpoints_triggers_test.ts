@@ -334,10 +334,26 @@ Deno.test("resolveTriggerOutcome: `when` decides a pending trigger", () => {
     matched: ["a.ts", "b.ts"],
     whenPending: true,
   } as const;
-  // Fire with declared matches: they narrow the subject, sorted.
+  // Declared matches can narrow only within the structural matched set.
   assertEquals(
-    resolveTriggerOutcome(pending, { kind: "fire", matches: ["z.ts", "a.ts"] }),
-    { fired: true, matched: ["a.ts", "z.ts"] },
+    resolveTriggerOutcome(pending, { kind: "fire", matches: ["b.ts"] }),
+    { fired: true, matched: ["b.ts"] },
+  );
+  // Mixed output keeps the valid subset and drops paths outside the selector.
+  assertEquals(
+    resolveTriggerOutcome(pending, {
+      kind: "fire",
+      matches: ["outside.txt", "a.ts"],
+    }),
+    { fired: true, matched: ["a.ts"] },
+  );
+  // With no valid declared match, the structural set stands.
+  assertEquals(
+    resolveTriggerOutcome(pending, {
+      kind: "fire",
+      matches: ["outside.txt"],
+    }),
+    { fired: true, matched: ["a.ts", "b.ts"] },
   );
   // Fire without matches: the structural matched set stands.
   assertEquals(

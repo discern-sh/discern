@@ -14,9 +14,10 @@
  *     (does not fire) and the outcome carries a plain-language advisory;
  *   - `DISCERN_MATCH <path>` output lines declare the subject paths precisely.
  *     The marker may sit anywhere on a line (a tool may prefix its own text);
- *     the rest of the line is the project-root-relative path. Without any, the
- *     subject falls back to the structural matched set, which reopens more
- *     coarsely — commands declare matches when precision matters.
+ *     the rest of the line is the project-root-relative path. Trigger
+ *     composition keeps only paths in the structural matched set. Without a
+ *     valid declared match, the subject falls back to that full set, which
+ *     reopens more coarsely — commands declare matches when precision matters.
  *
  * Execution funnels through the gate's job runner, so the command inherits the
  * same capture environment, `discern` self-resolution, and process-tree
@@ -54,7 +55,8 @@ function outputExcerpt(output: Uint8Array): string {
  * trailing whitespace cannot survive a line protocol). A declared path that is
  * empty, absolute, or escapes the project root is dropped: the subject then
  * falls back on the structural matched set rather than binding to a path the
- * engine could never have matched.
+ * engine could never have matched. Trigger composition later drops paths
+ * outside the structural matched set.
  */
 export function parseDiscernMatches(output: string): string[] {
   const seen = new Set<string>();

@@ -114,8 +114,9 @@ export type StructuralTriggerOutcome =
 export type WhenOutcome =
   | {
     kind: "fire";
-    /** Subject paths the command declared via its match protocol; empty means
-     * fall back to the structural matched set. */
+    /** Subject paths the command declared via its match protocol. Composition
+     * intersects them with the structural matched set; no surviving path
+     * means fall back to that full set. */
     matches: readonly string[];
   }
   | { kind: "pass" }

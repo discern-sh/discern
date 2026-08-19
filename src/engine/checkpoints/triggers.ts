@@ -249,8 +249,8 @@ export function evaluateStructuralTrigger(
  * was pending) into the final trigger verdict:
  *
  *   - structural veto → not fired;
- *   - `when` exit 0 → fired, the declared match set narrowing the subject
- *     (falling back to the structural matched set when none was declared);
+ *   - `when` exit 0 → fired, valid declared matches narrowing the structural
+ *     matched set (falling back to that set when none remains);
  *   - `when` exit 1 → not fired;
  *   - `when` error or timeout → FAIL OPEN: not fired, advisory attached.
  *
@@ -273,13 +273,18 @@ export function resolveTriggerOutcome(
     );
   }
   switch (when.kind) {
-    case "fire":
+    case "fire": {
+      const structurallyMatched = new Set(structural.matched);
+      const narrowed = [
+        ...new Set(
+          when.matches.filter((path) => structurallyMatched.has(path)),
+        ),
+      ].sort();
       return {
         fired: true,
-        matched: when.matches.length > 0
-          ? [...when.matches].sort()
-          : structural.matched,
+        matched: narrowed.length > 0 ? narrowed : structural.matched,
       };
+    }
     case "pass":
       return { fired: false };
     case "error":
