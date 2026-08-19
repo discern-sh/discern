@@ -25,7 +25,10 @@ import type { DiscernConfig } from "../src/shared/config_schema.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
 import type { BuiltInCheckpointSeed } from "../src/shared/checkpoints.ts";
 import { criterionById, placementLadderProse } from "../src/shared/criteria.ts";
-import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
+import {
+  resolveCheckpoints,
+  structurallyDormant,
+} from "../src/engine/checkpoints/policy.ts";
 import { triggerSummary } from "../src/engine/checkpoints/report.ts";
 import { variedObservation } from "../src/engine/logbook/checkpoint_economics.ts";
 import type { CheckpointVarianceSummary } from "../src/engine/logbook/checkpoint_economics.ts";
@@ -137,6 +140,35 @@ Deno.test("marking: an authored checkpoint marks nothing canonical", () => {
   assertEquals(boundaryGuardsByCriterion(config(AUTHORED)).size, 0);
 });
 
+Deno.test("marking: a structurally dormant checkpoint claims no active boundary", () => {
+  const seeds = seedsFor({
+    "waiting-rule": {
+      criterion: "setup.failure-memory",
+      paths: ["${project.gotchas_doc}"],
+    },
+  });
+  const dormant = config("", { "waiting-rule": {} });
+  const resolved = resolveCheckpoints(dormant, seeds).checkpoints[0];
+  assert(resolved !== undefined && structurallyDormant(resolved));
+  assertEquals(boundaryGuardsByCriterion(dormant, seeds).size, 0);
+  const row = estateReviews(dormant, new Set(), seeds)[0];
+  assert(row !== undefined);
+  assertEquals(row.boundary, undefined);
+  assert(
+    !row.teach.includes("guards the flow"),
+    "a dormant selector must not claim to guard matching changes",
+  );
+
+  const armed = config(
+    '[project]\ngotchas_doc = "notes/failures.md"\n',
+    { "waiting-rule": {} },
+  );
+  assertEquals(
+    boundaryGuardsByCriterion(armed, seeds).get("setup.failure-memory"),
+    [{ checkpoint: "waiting-rule", mode: "stop" }],
+  );
+});
+
 Deno.test("marking: the boundary line keeps stock and flow distinct", () => {
   const line = boundaryLine([{ checkpoint: "api-review", mode: "stop" }]);
   assert(line.includes("'api-review' (stop)"));
@@ -239,8 +271,16 @@ Deno.test("estate: every shipped built-in auto-enrols the moment it exists", () 
     );
     const canonical = criterionById(seed.criterion);
     assert(canonical !== undefined, id);
+    const def = resolveCheckpoints(cfg).checkpoints.find((entry) =>
+      entry.id === id
+    );
+    assert(def !== undefined, id);
+    const dormant = structurallyDormant(def);
     const guards = boundaryGuardsByCriterion(cfg);
-    assertEquals(guards.get(seed.criterion)?.[0]?.checkpoint, id);
+    assertEquals(
+      guards.get(seed.criterion)?.[0]?.checkpoint,
+      dormant ? undefined : id,
+    );
     const uncovered = estateReviews(cfg, new Set());
     assertEquals(
       uncovered.filter((row) => row.id === id).length,
@@ -250,6 +290,10 @@ Deno.test("estate: every shipped built-in auto-enrols the moment it exists", () 
     assertEquals(
       uncovered.find((row) => row.id === id)?.ask,
       canonical.criterion,
+    );
+    assertEquals(
+      uncovered.find((row) => row.id === id)?.boundary,
+      dormant ? undefined : [{ checkpoint: id, mode: def.mode }],
     );
     assertEquals(
       estateReviews(cfg, new Set([seed.criterion])).length,
@@ -362,6 +406,28 @@ Deno.test("graduation is suppressed once a configured checkpoint guards the crit
     [],
     "post-adoption fit belongs to the hygiene detectors and the review recommendation",
   );
+});
+
+Deno.test("graduation is not suppressed by a dormant checkpoint", () => {
+  const seeds = seedsFor({
+    "waiting-rule": {
+      criterion: "setup.failure-memory",
+      paths: [""],
+    },
+  });
+  const routes = [
+    graduationRoute({
+      detector: "recurring-class",
+      criterion: "setup.failure-memory",
+    }),
+  ];
+  const recommendations = checkpointRecommendations(
+    config("", { "waiting-rule": {} }),
+    { findings: [finding("recurring-class")], varied: [] },
+    seeds,
+    routes,
+  );
+  assertEquals(recommendations[0]?.id, "checkpoints.graduate");
 });
 
 Deno.test("a frequently-varied configured checkpoint earns a review recommendation", () => {

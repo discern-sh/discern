@@ -7,8 +7,8 @@
  * predate it. This module keeps the two speaking one vocabulary:
  *
  *   - {@link boundaryGuardsByCriterion} marks catalog reviews whose canonical
- *     criterion a configured checkpoint also serves, so the owner sees which
- *     criteria have flow protection and which are audit-only;
+ *     criterion an active configured checkpoint also serves, so the owner
+ *     sees which criteria have flow protection and which are audit-only;
  *   - {@link estateReviews} renders every other configured checkpoint's
  *     criterion as an estate review row — identical id and prose to what the
  *     `checkpoints` verb reports, both projected from the same resolver;
@@ -30,7 +30,10 @@ import {
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { criterionById, placementLadderProse } from "../../shared/criteria.ts";
 import type { PatternsFinding } from "../../shared/patterns_vocabulary.ts";
-import { resolveCheckpoints } from "../checkpoints/policy.ts";
+import {
+  resolveCheckpoints,
+  structurallyDormant,
+} from "../checkpoints/policy.ts";
 import { triggerSummary } from "../checkpoints/report.ts";
 import {
   type CheckpointVarianceSummary,
@@ -70,6 +73,9 @@ export function boundaryGuardsByCriterion(
 ): Map<string, BoundaryGuard[]> {
   const guards = new Map<string, BoundaryGuard[]>();
   for (const def of resolveCheckpoints(config, seeds).checkpoints) {
+    if (structurallyDormant(def)) {
+      continue;
+    }
     const canonical = servedCanonicalCriterion(
       config.checkpoints[def.id]?.criterion,
       seeds[def.id],
@@ -98,19 +104,27 @@ export function boundaryLine(guards: readonly BoundaryGuard[]): string {
 
 // ── the estate audit rows ───────────────────────────────────────────────────
 
-/** The estate framing for a checkpoint whose definition carries no teach. */
+/** The estate framing for an active checkpoint whose definition has no teach. */
 export const ESTATE_AUDIT_TEACH =
   "A checkpoint guards the flow: it serves this criterion as a matching " +
   "change completes, so new violations meet a judgment before they land. The " +
   "stock is this review's half — audit what already exists against the same " +
   "criterion, and decide whether to clear it or keep tolerating it.";
 
+/** The estate framing for a dormant checkpoint whose definition has no teach. */
+const DORMANT_ESTATE_AUDIT_TEACH =
+  "This checkpoint's selector currently expands to no matchable path, so it " +
+  "serves no flow judgment. Audit what already exists against this criterion. " +
+  "Configure a matchable selector if new violations should meet the Gate.";
+
 /**
  * The configured checkpoints whose criterion the improvement catalog does not
  * already review, each as one estate review row. `covered` is the catalog's
  * criterion-id set; a checkpoint serving a covered canonical criterion is
  * skipped because that catalog review carries the boundary mark instead —
- * every checkpoint-member criterion renders exactly once.
+ * every checkpoint-member criterion renders exactly once. A structurally
+ * dormant checkpoint still contributes its criterion to the estate audit but
+ * claims no boundary until its selector can match.
  *
  * Identity parity with the `checkpoints` verb is by construction: id,
  * criterion, and teach are field copies of the same resolver's output, and
@@ -123,6 +137,7 @@ export function estateReviews(
 ): ReviewResult[] {
   const rows: ReviewResult[] = [];
   for (const def of resolveCheckpoints(config, seeds).checkpoints) {
+    const dormant = structurallyDormant(def);
     const canonical = servedCanonicalCriterion(
       config.checkpoints[def.id]?.criterion,
       seeds[def.id],
@@ -134,12 +149,15 @@ export function estateReviews(
       id: def.id,
       title: `The estate behind checkpoint '${def.id}'`,
       ask: def.criterion,
-      teach: def.teach ?? ESTATE_AUDIT_TEACH,
+      teach: def.teach ??
+        (dormant ? DORMANT_ESTATE_AUDIT_TEACH : ESTATE_AUDIT_TEACH),
       against: {
         source: `[checkpoints.${def.id}]`,
         excerpt: `${def.mode} · ${triggerSummary(def)}`,
       },
-      boundary: [{ checkpoint: def.id, mode: def.mode }],
+      ...(dormant
+        ? {}
+        : { boundary: [{ checkpoint: def.id, mode: def.mode }] }),
     });
   }
   return rows;
