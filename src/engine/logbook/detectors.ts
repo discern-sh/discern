@@ -4448,7 +4448,7 @@ const redRateHistory: Detector = {
 //
 // Three observations about checkpoint CONFIGURATION fit, read from the same
 // tallies the economics rows come from. Each speaks about a trigger or
-// criterion an owner configured — its counts beside their denominators — and
+// question an owner configured — its counts beside their denominators — and
 // none evaluates an agent: a checkpoint usually declared unchanged can still
 // be earning its keep (the agent may review before invoking the gate), so
 // these advise reviewing the definition, never judging the driver.
@@ -4490,7 +4490,7 @@ function eraServings(
 /**
  * A configured checkpoint that has never fired across sufficient history is
  * likely mis-scoped: its trigger names paths, scopes, or thresholds the
- * project's real changes never match, so the criterion it carries protects
+ * project's real changes never match, so the question it carries protects
  * nothing. The denominator counts gate-run efforts since the `[checkpoints]`
  * configuration last changed, so a fresh revision earns fresh evidence.
  * The candidate set holds only checkpoints that COULD fire: one dormant by
@@ -4541,7 +4541,7 @@ const checkpointDead: Detector = {
 
 /**
  * A checkpoint that fires on most efforts taxes every one of them with a
- * served criterion, which is the failure mode scarcity guards against: a
+ * served question, which is the failure mode scarcity guards against: a
  * judgment served everywhere changes decisions nowhere. The counts say how
  * broad the trigger runs; narrowing it is the owner's call.
  */
@@ -4556,7 +4556,7 @@ const checkpointNoisy: Detector = {
   // fewer distinct changes reads the project's week, not its shape.
   threshold: 8,
   next_step:
-    "Narrow the trigger — a tighter scope or path set, a higher file threshold, or an unless_changed counterpart — so the criterion is served where it can change a decision.",
+    "Narrow the trigger — a tighter scope or path set, a higher file threshold, or an unless_changed counterpart — so the question is served where it can change a decision.",
   detect(facts): DetectorOutcome {
     const boundary = checkpointConfigBoundary(facts);
     const efforts = gateEffortsSince(facts, boundary);
@@ -4595,9 +4595,9 @@ const checkpointNoisy: Detector = {
 
 /**
  * A checkpoint that often lands under an owner-authorized variance is telling
- * the owner something about its own definition: the criterion is routinely
+ * the owner something about its own definition: the question is routinely
  * judged unmet and the owner routinely authorizes landing anyway. The counts
- * report that shape; whether the trigger, the criterion wording, or the mode
+ * report that shape; whether the trigger, the question wording, or the mode
  * should move is the owner's review.
  */
 const checkpointVaried: Detector = {
@@ -4616,7 +4616,7 @@ const checkpointVaried: Detector = {
   // so they cannot drift.
   threshold: 3,
   next_step:
-    "Review the trigger, criterion, and mode with the owner — a criterion routinely judged unmet and varied may be aimed at the wrong boundary, or may belong in advise mode.",
+    "Review the trigger, question, and mode with the owner — a question routinely judged unmet and varied may be aimed at the wrong boundary, or may belong in advise mode.",
   detect(facts): DetectorOutcome {
     const analysis = analyzeCheckpointObservations(facts);
     const findings: DetectorFinding[] = [];

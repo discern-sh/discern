@@ -1,7 +1,7 @@
 /**
  * The variance contract at `discern accept` (black-box, through the real
  * engine): a current declared-unmet conclusion refuses landing before any
- * effect with the `awaiting_variance` contract — criterion, evidence, and
+ * effect with the `awaiting_variance` contract — question, evidence, and
  * rationale served, one complete decision required — until
  * `--confirmed --variance <id>` covers the exact declared-unmet set. Standing
  * grants never authorize a variance; the variance-id set must be exact; the
@@ -58,7 +58,7 @@ function parseJson(stdout: string): AcceptEnvelope {
   return JSON.parse(stdout.trim()) as AcceptEnvelope;
 }
 
-const CRITERION = "A changed surface is described in its docs before it lands.";
+const QUESTION = "A changed surface is described in its docs before it lands.";
 const RATIONALE = "The docs lag the new surface; a follow-up covers them.";
 
 const CONFIG = `
@@ -73,7 +73,7 @@ lint = "sh check.sh"
 
 [checkpoints.api-review]
 paths = ["api/**"]
-criterion = "${CRITERION}"
+question = "${QUESTION}"
 `;
 
 /** The same gate plus a trunk-recorded standing grant covering EVERY path the
@@ -93,7 +93,7 @@ paths = ["api/**"]
 
 [checkpoints.api-review]
 scope = "api"
-criterion = "${CRITERION}"
+question = "${QUESTION}"
 
 [acceptance]
 pre_authorized = ["api"]
@@ -169,9 +169,9 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
     assertEquals(env.ok, false);
     assertEquals(env.verb, "accept");
     assertEquals(env.error, AWAITING_VARIANCE_SLUG);
-    // The serving: criterion, evidence, rationale, and the one decision.
+    // The serving: question, evidence, rationale, and the one decision.
     assertStringIncludes(env.message, "api-review");
-    assertStringIncludes(env.message, CRITERION);
+    assertStringIncludes(env.message, QUESTION);
     assertStringIncludes(env.message, "api/surface.txt");
     assertStringIncludes(env.message, RATIONALE);
     assertStringIncludes(env.message, "declared unmet");

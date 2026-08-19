@@ -15,7 +15,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
-import { criterionById } from "../src/shared/criteria.ts";
+import { questionById } from "../src/shared/questions.ts";
 import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
 import { evaluateStructuralTrigger } from "../src/engine/checkpoints/triggers.ts";
 import type {
@@ -103,13 +103,13 @@ Deno.test("the shipped set is four stop members on the knowledge estate and five
   ]);
 });
 
-Deno.test("every built-in resolves by bare reference and serves its canonical criterion verbatim", () => {
+Deno.test("every built-in resolves by bare reference and serves its canonical question verbatim", () => {
   assertEquals(RESOLUTION.advisories, []);
   for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
     const def = resolved(id);
-    const canonical = criterionById(seed.criterion);
+    const canonical = questionById(seed.question);
     assert(canonical !== undefined, id);
-    assertEquals(def.criterion, canonical.criterion, id);
+    assertEquals(def.question, canonical.question, id);
     assertEquals(def.teach, canonical.teach, id);
   }
 });

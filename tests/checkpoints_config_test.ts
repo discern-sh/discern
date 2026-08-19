@@ -4,7 +4,7 @@
  * (banner parity, settable paths, key legality) enrol the section
  * automatically; these tests pin the checkpoint-specific validation split:
  * reference issues (unknown scope, both selectors) block writes AND loads,
- * while completeness (a non-built-in entry's missing criterion) blocks loads
+ * while completeness (a non-built-in entry's missing question) blocks loads
  * only, so an entry can be built incrementally like any record family's.
  */
 
@@ -27,7 +27,7 @@ paths = ["docs/**"]
 scope = "docs"
 min_changed_files = 3
 mode = "advise"
-criterion = "Changed pages still reduce the reading needed for a correct decision."
+question = "Changed pages still reduce the reading needed for a correct decision."
 teach = "Behaviour and where to look, never inventories."
 `;
 
@@ -47,7 +47,7 @@ Deno.test("unset checkpoint fields stay absent (presence is meaningful at resolu
   const { config } = parseConfig(`
 [checkpoints.plain]
 paths = ["src/**"]
-criterion = "The change is judged."
+question = "The change is judged."
 `);
   assert(config !== undefined);
   const entry = config.checkpoints.plain;
@@ -63,7 +63,7 @@ Deno.test("a checkpoint scope selector must name a configured scope", () => {
   const { config, issues } = parseConfig(`
 [checkpoints.x]
 scope = "nope"
-criterion = "Judged."
+question = "Judged."
 `);
   assertEquals(config, undefined);
   const issue = issues.find((i) => i.path === "checkpoints.x.scope");
@@ -85,7 +85,7 @@ paths = ["docs/**"]
 [checkpoints.x]
 scope = "docs"
 paths = ["docs/**"]
-criterion = "Judged."
+question = "Judged."
 `;
   const { config, issues } = parseConfig(both);
   assertEquals(config, undefined);
@@ -95,34 +95,34 @@ criterion = "Judged."
   assert(configWriteIssues(both).some((i) => i.path === "checkpoints.x"));
 });
 
-Deno.test("an authored checkpoint without a criterion fails the LOAD, not the incremental write", () => {
+Deno.test("an authored checkpoint without a question fails the LOAD, not the incremental write", () => {
   const incomplete = `
 [checkpoints.mine]
 paths = ["src/**"]
 `;
   const { config, issues } = parseConfig(incomplete);
   assertEquals(config, undefined);
-  const issue = issues.find((i) => i.path === "checkpoints.mine.criterion");
+  const issue = issues.find((i) => i.path === "checkpoints.mine.question");
   assert(issue !== undefined);
-  assertStringIncludes(issue.message, "criterion");
+  assertStringIncludes(issue.message, "question");
   // Incremental construction stays legal: the write-time check excuses the
-  // missing criterion exactly as it excuses a standards entry's missing run.
+  // missing question exactly as it excuses a standards entry's missing run.
   assertEquals(configWriteIssues(incomplete), []);
 });
 
-Deno.test("a whitespace-only criterion reads as missing", () => {
+Deno.test("a whitespace-only question reads as missing", () => {
   const { config, issues } = parseConfig(`
 [checkpoints.mine]
-criterion = "   "
+question = "   "
 `);
   assertEquals(config, undefined);
-  assert(issues.some((i) => i.path === "checkpoints.mine.criterion"));
+  assert(issues.some((i) => i.path === "checkpoints.mine.question"));
 });
 
 Deno.test("min_changed_files rejects zero and non-integers", () => {
   for (const bad of ["min_changed_files = 0", "min_changed_files = 1.5"]) {
     const { config, issues } = parseConfig(
-      `[checkpoints.x]\ncriterion = "Judged."\n${bad}\n`,
+      `[checkpoints.x]\nquestion = "Judged."\n${bad}\n`,
     );
     assertEquals(config, undefined, bad);
     assert(
@@ -135,14 +135,14 @@ Deno.test("min_changed_files rejects zero and non-integers", () => {
 Deno.test("mode accepts only the closed pair", () => {
   const { config, issues } = parseConfig(`
 [checkpoints.x]
-criterion = "Judged."
+question = "Judged."
 mode = "block"
 `);
   assertEquals(config, undefined);
   assert(issues.some((i) => i.path === "checkpoints.x.mode"));
   for (const mode of ["stop", "advise"]) {
     const ok = parseConfig(
-      `[checkpoints.x]\ncriterion = "Judged."\nmode = "${mode}"\n`,
+      `[checkpoints.x]\nquestion = "Judged."\nmode = "${mode}"\n`,
     );
     assertEquals(ok.issues, [], mode);
   }
@@ -151,7 +151,7 @@ mode = "block"
 Deno.test("an unknown key inside a checkpoint entry is a load error", () => {
   const { config, issues } = parseConfig(`
 [checkpoints.x]
-criterion = "Judged."
+question = "Judged."
 serverity = "high"
 `);
   assertEquals(config, undefined);
@@ -167,7 +167,7 @@ Deno.test("a config document applies a checkpoint that the live schema then load
         scope: "docs",
         min_changed_files: 2,
         mode: "advise",
-        criterion: "Changed pages still earn their place.",
+        question: "Changed pages still earn their place.",
         teach: "Prose the reader needed, not an inventory.",
       },
     },
@@ -179,7 +179,7 @@ Deno.test("a config document applies a checkpoint that the live schema then load
   assertEquals(config.checkpoints["docs-review"]?.min_changed_files, 2);
 });
 
-Deno.test("a config document refuses an authored checkpoint without a criterion", () => {
+Deno.test("a config document refuses an authored checkpoint without a question", () => {
   assertThrows(
     () =>
       applyConfigDoc(
@@ -189,7 +189,7 @@ Deno.test("a config document refuses an authored checkpoint without a criterion"
         } as unknown as DiscernConfigDoc,
       ),
     Error,
-    'checkpoint "mine": a criterion is required',
+    'checkpoint "mine": a question is required',
   );
 });
 
@@ -200,7 +200,7 @@ Deno.test("a config document refuses two checkpoint selectors", () => {
         new TomlEditor(""),
         {
           checkpoints: {
-            x: { scope: "docs", paths: ["docs/**"], criterion: "Judged." },
+            x: { scope: "docs", paths: ["docs/**"], question: "Judged." },
           },
         } as unknown as DiscernConfigDoc,
       ),

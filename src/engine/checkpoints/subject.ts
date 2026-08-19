@@ -4,7 +4,7 @@
  *
  *   - the **definition hash** covers the canonical RESOLVED definition (every
  *     trigger field with scopes and references already expanded, the mode, the
- *     criterion/teach/reference prose, and the `when` command text), so a
+ *     question/teach/reference prose, and the `when` command text), so a
  *     changed definition reopens its episode without dragging the merge-base
  *     commit into every subject;
  *   - the **subject fingerprint** covers the definition hash plus each sorted
@@ -87,7 +87,7 @@ export async function checkpointDefinitionHash(
   def: ResolvedCheckpoint,
 ): Promise<string> {
   const material = JSON.stringify({
-    criterion: def.criterion,
+    question: def.question,
     deletion_dominant: def.deletionDominant,
     min_changed_files: def.minChangedFiles ?? null,
     mode: def.mode,

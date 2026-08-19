@@ -1,27 +1,27 @@
 /**
- * Forcing-function guards for the canonical criterion vocabulary
- * (`src/shared/criteria.ts`) and its two memberships: the improvement catalog's
+ * Forcing-function guards for the canonical question vocabulary
+ * (`src/shared/questions.ts`) and its two memberships: the improvement catalog's
  * subjective rules and the built-in checkpoint seeds. Driven off the single
- * sources of truth — the CRITERIA registry, the improvement CATEGORIES, and
- * BUILT_IN_CHECKPOINTS — so a new criterion, subjective rule, or built-in
+ * sources of truth — the QUESTIONS registry, the improvement CATEGORIES, and
+ * BUILT_IN_CHECKPOINTS — so a new question, subjective rule, or built-in
  * checkpoint auto-enrols:
  *
- *   - every membership reference resolves (no dangling criterion id);
- *   - every criterion is referenced by at least one membership (no orphan);
+ *   - every membership reference resolves (no dangling question id);
+ *   - every question is referenced by at least one membership (no orphan);
  *   - a membership serves the canonical prose verbatim (no drifting copy);
- *   - the conversion rule holds: only a criterion whose violations are
+ *   - the conversion rule holds: only a question whose violations are
  *     introduced by diffs may join the checkpoint membership.
  */
 
 import { assert, assertEquals } from "@std/assert";
 import {
-  CRITERIA,
-  CRITERION_IDS,
-  CRITERION_VIOLATION_MODES,
-  criterionById,
   PLACEMENT_LADDER,
   placementLadderProse,
-} from "../src/shared/criteria.ts";
+  QUESTION_IDS,
+  QUESTION_VIOLATION_MODES,
+  questionById,
+  QUESTIONS,
+} from "../src/shared/questions.ts";
 import {
   BUILT_IN_CHECKPOINTS,
   CHECKPOINT_MODES,
@@ -35,48 +35,48 @@ function improvementMembership(): SubjectiveRule[] {
   return CATEGORIES.flatMap((category) => category.rules.filter(isSubjective));
 }
 
-Deno.test("criterion ids are unique and non-empty", () => {
-  assertEquals(new Set(CRITERION_IDS).size, CRITERIA.length);
-  for (const criterion of CRITERIA) {
-    assert(criterion.id.trim() !== "", "a criterion needs an id");
+Deno.test("question ids are unique and non-empty", () => {
+  assertEquals(new Set(QUESTION_IDS).size, QUESTIONS.length);
+  for (const question of QUESTIONS) {
+    assert(question.id.trim() !== "", "a question needs an id");
     assert(
-      criterion.criterion.trim() !== "",
-      `criterion '${criterion.id}' needs judgment prose`,
+      question.question.trim() !== "",
+      `question '${question.id}' needs judgment prose`,
     );
     assert(
-      criterion.teach.trim() !== "",
-      `criterion '${criterion.id}' needs a teach`,
+      question.teach.trim() !== "",
+      `question '${question.id}' needs a teach`,
     );
     assert(
-      (CRITERION_VIOLATION_MODES as readonly string[]).includes(
-        criterion.violations,
+      (QUESTION_VIOLATION_MODES as readonly string[]).includes(
+        question.violations,
       ),
-      `criterion '${criterion.id}' needs a violation mode from ${
-        CRITERION_VIOLATION_MODES.join("/")
+      `question '${question.id}' needs a violation mode from ${
+        QUESTION_VIOLATION_MODES.join("/")
       }`,
     );
   }
 });
 
-Deno.test("the conversion rule holds on the checkpoint membership: only diff-introduced criteria", () => {
+Deno.test("the conversion rule holds on the checkpoint membership: only diff-introduced questions", () => {
   // The stock-versus-flow line, machine-checked: a checkpoint serves its
-  // criterion when a diff completes, so a criterion whose violations accrue by
+  // question when a diff completes, so a question whose violations accrue by
   // time or absence has no moment to fire at — it stays audit-side. A future
-  // built-in referencing an accrued criterion fails here; either the pairing is
-  // wrong, or the criterion's violation mode was misjudged and the fix is a
-  // conscious reclassification in src/shared/criteria.ts.
+  // built-in referencing an accrued question fails here; either the pairing is
+  // wrong, or the question's violation mode was misjudged and the fix is a
+  // conscious reclassification in src/shared/questions.ts.
   for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
-    const criterion = criterionById(seed.criterion);
+    const question = questionById(seed.question);
     assert(
-      criterion !== undefined,
-      `built-in checkpoint '${id}' references unknown criterion '${seed.criterion}'`,
+      question !== undefined,
+      `built-in checkpoint '${id}' references unknown question '${seed.question}'`,
     );
     assertEquals(
-      criterion.violations,
+      question.violations,
       "diff-introduced",
-      `built-in checkpoint '${id}' pairs a trigger with '${criterion.id}', whose ` +
-        `violations are ${criterion.violations} — the conversion rule keeps that ` +
-        `criterion audit-side`,
+      `built-in checkpoint '${id}' pairs a trigger with '${question.id}', whose ` +
+        `violations are ${question.violations} — the conversion rule keeps that ` +
+        `question audit-side`,
     );
   }
 });
@@ -95,26 +95,26 @@ Deno.test("the placement ladder is complete and projects into its prose", () => 
   }
 });
 
-Deno.test("every improvement subjective rule references a canonical criterion, verbatim", () => {
+Deno.test("every improvement subjective rule references a canonical question, verbatim", () => {
   const membership = improvementMembership();
   assert(membership.length > 0, "the improvement catalog has subjective rules");
   for (const rule of membership) {
-    const criterion = criterionById(rule.id);
+    const question = questionById(rule.id);
     assert(
-      criterion !== undefined,
-      `improvement rule '${rule.id}' references no canonical criterion — add it to CRITERIA in src/shared/criteria.ts`,
+      question !== undefined,
+      `improvement rule '${rule.id}' references no canonical question — add it to QUESTIONS in src/shared/questions.ts`,
     );
     // The membership must serve the canonical prose, not a drifting copy.
-    assertEquals(rule.ask, criterion.criterion, rule.id);
-    assertEquals(rule.teach, criterion.teach, rule.id);
+    assertEquals(rule.ask, question.question, rule.id);
+    assertEquals(rule.teach, question.teach, rule.id);
   }
 });
 
-Deno.test("every built-in checkpoint references a canonical criterion and a valid mode", () => {
+Deno.test("every built-in checkpoint references a canonical question and a valid mode", () => {
   for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
     assert(
-      criterionById(seed.criterion) !== undefined,
-      `built-in checkpoint '${id}' references unknown criterion '${seed.criterion}' — add it to CRITERIA in src/shared/criteria.ts`,
+      questionById(seed.question) !== undefined,
+      `built-in checkpoint '${id}' references unknown question '${seed.question}' — add it to QUESTIONS in src/shared/questions.ts`,
     );
     if (seed.mode !== undefined) {
       assert(
@@ -125,31 +125,31 @@ Deno.test("every built-in checkpoint references a canonical criterion and a vali
   }
 });
 
-Deno.test("no criterion is orphaned by every membership", () => {
+Deno.test("no question is orphaned by every membership", () => {
   const referenced = new Set<string>([
     ...improvementMembership().map((rule) => rule.id),
-    ...Object.values(BUILT_IN_CHECKPOINTS).map((seed) => seed.criterion),
+    ...Object.values(BUILT_IN_CHECKPOINTS).map((seed) => seed.question),
   ]);
-  const orphans = CRITERION_IDS.filter((id) => !referenced.has(id));
+  const orphans = QUESTION_IDS.filter((id) => !referenced.has(id));
   assertEquals(
     orphans,
     [],
-    "every canonical criterion must be served by the improvement catalog or a " +
+    "every canonical question must be served by the improvement catalog or a " +
       "built-in checkpoint — remove the orphan or add its membership",
   );
 });
 
-Deno.test("shipped criterion prose keeps the reserved vocabulary", () => {
+Deno.test("shipped question prose keeps the reserved vocabulary", () => {
   // "attestation" is reserved for a planned supply-chain feature in its
   // term-of-art sense; no checkpoint surface may use it, the shipped judgment
   // prose included.
-  for (const criterion of CRITERIA) {
+  for (const question of QUESTIONS) {
     for (
-      const text of [criterion.criterion, criterion.teach, criterion.reference]
+      const text of [question.question, question.teach, question.reference]
     ) {
       assert(
         !/attestation/i.test(text ?? ""),
-        `criterion '${criterion.id}' uses reserved vocabulary`,
+        `question '${question.id}' uses reserved vocabulary`,
       );
     }
   }

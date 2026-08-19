@@ -211,17 +211,28 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bcheckpoints?\b`,
     },
     definition:
-      "One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic criterion, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk), and `discern checkpoints` reports policy, episode state, and preview read-only. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
+      "One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic question, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk), and `discern checkpoints` reports policy, episode state, and preview read-only. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
   },
   {
-    term: "Criterion",
+    term: "Question",
     plain: {
+      // The term is ordinary English; the register guard cannot police it
+      // mechanically without banning the word everywhere. Review owns it.
       phrase: "the question the agent judges",
-      match: String.raw`\bcriteri(?:on|a)\b`,
+      match: false,
     },
-    matches: ["criterion", "criteria"],
+    matches: ["question", "questions"],
+    retired: [
+      {
+        // The launch-era working name for the judgment prose. Singular only:
+        // plural "criteria" stays ordinary English (acceptance criteria,
+        // removal criteria) on unrelated surfaces.
+        phrase: "criterion",
+        pattern: String.raw`\bcriterion\b`,
+      },
+    ],
     definition:
-      "The judgment prose a [checkpoint](#checkpoint) serves and [estate review](../20-quality-gate/improvement.md) evaluates: a stable id, the question itself, and a `teach` saying why it matters. A criterion is semantic by design (the agent evaluates it, discern does not), and the recorded answer stays [declared met](#declared-met) or [declared unmet](#declared-unmet), apart from machine-verified results. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
+      "The judgment prose a [checkpoint](#checkpoint) serves and [estate review](../20-quality-gate/improvement.md) evaluates: a stable id, the question itself, and a `teach` saying why it matters. A question is semantic by design (the agent evaluates it, discern does not), and the recorded answer stays [declared met](#declared-met) or [declared unmet](#declared-unmet), apart from machine-verified results. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
   },
   {
     term: "Episode",
@@ -246,19 +257,19 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: false,
     },
     definition:
-      "The agent's recorded conclusion about one served [criterion](#criterion): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why \"…\"`. It binds to the [episode](#episode)'s exact [subject](#subject) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).",
+      "The agent's recorded conclusion about one served [question](#question): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why \"…\"`. It binds to the [episode](#episode)'s exact [subject](#subject) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).",
   },
   {
     term: "Declared met",
     plain: { phrase: "the agent's recorded yes" },
     definition:
-      "The agent's recorded conclusion that a served [criterion](#criterion) holds for the current [subject](#subject). It is a [declaration](#declaration), and every surface reports it as declared rather than verified — machine results are verified, conclusions are declared, and a landing is authorized. It stands as evidence until a relevant change reopens it.",
+      "The agent's recorded conclusion that a served [question](#question) holds for the current [subject](#subject). It is a [declaration](#declaration), and every surface reports it as declared rather than verified — machine results are verified, conclusions are declared, and a landing is authorized. It stands as evidence until a relevant change reopens it.",
   },
   {
     term: "Declared unmet",
     plain: { phrase: "the agent's recorded no, with the reason" },
     definition:
-      "The agent's recorded conclusion that a served [criterion](#criterion) does not hold, carrying a required one-paragraph rationale written for the owner. The gate still runs, the [Proof](#proof) carries the rationale as durable evidence that never enters the [Logbook](#logbook), and landing waits for an owner-authorized [variance](#variance) at `discern accept`.",
+      "The agent's recorded conclusion that a served [question](#question) does not hold, carrying a required one-paragraph rationale written for the owner. The gate still runs, the [Proof](#proof) carries the rationale as durable evidence that never enters the [Logbook](#logbook), and landing waits for an owner-authorized [variance](#variance) at `discern accept`.",
   },
   {
     term: "Variance",
@@ -282,7 +293,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: false,
     },
     definition:
-      "The two [checkpoint](#checkpoint) modes. `stop` (the default) refuses `discern done` before any [gate job](#gate-job) until the agent records a conclusion; `advise` serves the criterion through the [advisory](#advisory) channel and never blocks. There is no middle severity: a checkpoint either waits for a recorded judgment or informs. Heuristic triggers ship as `advise`, and the declared-unmet path with an owner [variance](#variance) keeps `stop` from trapping a legitimate exception.",
+      "The two [checkpoint](#checkpoint) modes. `stop` (the default) refuses `discern done` before any [gate job](#gate-job) until the agent records a conclusion; `advise` serves the question through the [advisory](#advisory) channel and never blocks. There is no middle severity: a checkpoint either waits for a recorded judgment or informs. Heuristic triggers ship as `advise`, and the declared-unmet path with an owner [variance](#variance) keeps `stop` from trapping a legitimate exception.",
   },
   {
     term: "Coupling",

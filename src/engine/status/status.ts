@@ -604,7 +604,7 @@ export async function statusResult(
     : undefined;
 
   // The checkpoint preview (one seam shared with `prepare` and
-  // `done --dry-run`): serve each coming stop criterion early. Suppressed
+  // `done --dry-run`): serve each coming stop question early. Suppressed
   // while setup is unfinished — the lead hint owns that session, and no
   // governing policy exists to preview yet.
   const checkpointPreview = setupPending === undefined
@@ -937,7 +937,7 @@ interface HintContext {
   /** Whether logbook-backed fleet activity can be read. */
   logbookEnabled: boolean;
   /** The checkpoint preview's advisory projection (shared with `prepare` and
-   * `done --dry-run`): each stop criterion this change would make a `done`
+   * `done --dry-run`): each stop question this change would make a `done`
    * declaration of, served early. Empty while setup is unfinished. */
   checkpointPreview: FiredHint[];
 }

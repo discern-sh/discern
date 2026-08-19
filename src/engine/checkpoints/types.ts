@@ -2,8 +2,8 @@
  * The **checkpoint vocabulary** — the types the checkpoint engine is built on.
  *
  * A checkpoint is one configured rule: a deterministic **trigger** decides when
- * an effort's diff makes a **criterion** relevant; the agent judges the
- * criterion and records a declaration. This module holds the pure data shapes
+ * an effort's diff makes a **question** relevant; the agent judges the
+ * question and records a declaration. This module holds the pure data shapes
  * the engine's halves share — the effort diff (`diff.ts` collects it), the
  * resolved definition (`policy.ts` produces it from the governing config), and
  * the trigger outcomes (`triggers.ts` evaluates them; `when.ts` runs the
@@ -58,7 +58,7 @@ export interface ResolvedCheckpoint {
   id: string;
   mode: CheckpointMode;
   /** The judgment prose the agent evaluates. */
-  criterion: string;
+  question: string;
   /** Optional lesson prose carried into renderings. */
   teach?: string;
   /** Optional reference material carried into renderings. */

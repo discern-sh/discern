@@ -11,7 +11,7 @@
  *
  * Resolution is deliberately LENIENT where the live loader is strict: the
  * governing config is history, not the file under the author's hands, so an
- * entry that cannot be resolved (an unknown scope, a missing criterion, a
+ * entry that cannot be resolved (an unknown scope, a missing question, a
  * config that does not load) drops out with an advisory instead of wedging
  * the effort — checkpoints FAIL OPEN on every uncertainty.
  *
@@ -29,7 +29,7 @@ import {
   type BuiltInCheckpointSeed,
   DEFAULT_CHECKPOINT_MODE,
 } from "../../shared/checkpoints.ts";
-import { criterionById } from "../../shared/criteria.ts";
+import { questionById } from "../../shared/questions.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 import { runGit } from "../../shared/subprocess.ts";
@@ -58,17 +58,17 @@ export function resolveCheckpoints(
   const advisories: string[] = [];
   for (const [id, entry] of Object.entries(config.checkpoints)) {
     const seed = seeds[id];
-    const seedCriterion = seed === undefined
+    const seedQuestion = seed === undefined
       ? undefined
-      : criterionById(seed.criterion);
+      : questionById(seed.question);
 
-    const criterion = entry.criterion !== undefined &&
-        entry.criterion.trim() !== ""
-      ? entry.criterion
-      : seedCriterion?.criterion;
-    if (criterion === undefined) {
+    const question = entry.question !== undefined &&
+        entry.question.trim() !== ""
+      ? entry.question
+      : seedQuestion?.question;
+    if (question === undefined) {
       advisories.push(
-        `checkpoint '${id}' names no shipped checkpoint and defines no criterion; it does not govern this run.`,
+        `checkpoint '${id}' names no shipped checkpoint and defines no question; it does not govern this run.`,
       );
       continue;
     }
@@ -110,8 +110,8 @@ export function resolveCheckpoints(
             : [expandSourcePathReferences(item, config)],
       );
 
-    const teach = entry.teach ?? seedCriterion?.teach;
-    const reference = seedCriterion?.reference;
+    const teach = entry.teach ?? seedQuestion?.teach;
+    const reference = seedQuestion?.reference;
     const when = entry.when !== undefined && entry.when.trim() !== ""
       ? entry.when
       : undefined;
@@ -119,7 +119,7 @@ export function resolveCheckpoints(
     checkpoints.push({
       id,
       mode: entry.mode ?? seed?.mode ?? DEFAULT_CHECKPOINT_MODE,
-      criterion,
+      question,
       ...(teach === undefined ? {} : { teach }),
       ...(reference === undefined ? {} : { reference }),
       ...(selector === undefined ? {} : { selector }),

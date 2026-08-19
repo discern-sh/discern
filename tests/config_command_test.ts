@@ -637,7 +637,7 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
   // exactly the sections — a new record section forces an entry here (or an
   // exemption). Generated groups are carried by the template and config documents,
   // worktree.resources has no `set-resource` subcommand, and a checkpoint's
-  // criterion is paragraph prose better authored in the file (or a config
+  // question is paragraph prose better authored in the file (or a config
   // document) than through CLI flags: all three are self-checking
   // exemptions from the CLI record-writer set.
   const SET_RECORD_ARGS: Record<string, string[]> = {

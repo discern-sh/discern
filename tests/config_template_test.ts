@@ -430,7 +430,7 @@ Deno.test("each inert checkpoint example governs once uncommented, untouched", a
     assertEquals(checkpoints.length, 1, id);
     assertEquals(checkpoints[0]?.id, id);
     assertEquals(checkpoints[0]?.mode, mode);
-    assert((checkpoints[0]?.criterion ?? "").trim().length > 0, id);
+    assert((checkpoints[0]?.question ?? "").trim().length > 0, id);
     assert((checkpoints[0]?.selector?.globs.length ?? 0) > 0, id);
   }
 });
@@ -439,7 +439,7 @@ Deno.test("the template's active checkpoint entries are exactly the built-in reg
   // A true double-entry with the single source: a new seed added to
   // BUILT_IN_CHECKPOINTS fails here until the template ships its entry (fresh
   // installs would otherwise never receive it), and an active template entry
-  // naming no seed fails too (a criterion-less authored entry would break the
+  // naming no seed fails too (a question-less authored entry would break the
   // strict live loader on every fresh install). The ordered section list
   // above pins presentation; this pins membership from the registry side.
   const active = sectionNamesFromTemplate(await realTemplate())

@@ -49,7 +49,7 @@ function parseJson(stdout: string): RefusalEnvelope {
   return JSON.parse(stdout.trim()) as RefusalEnvelope;
 }
 
-const CRITERION = "A changed surface is described in its docs before it lands.";
+const QUESTION = "A changed surface is described in its docs before it lands.";
 const RATIONALE = "The docs lag the new surface; a follow-up covers them.";
 
 const CONFIG = `
@@ -64,7 +64,7 @@ lint = "sh check.sh"
 
 [checkpoints.api-review]
 paths = ["api/**"]
-criterion = "${CRITERION}"
+question = "${QUESTION}"
 `;
 
 /** Scaffold main + a worktree with one committed change under `api/`. */
@@ -114,7 +114,7 @@ interface SurfaceObservation {
 }
 
 /** The meaning every declared surface must carry without paraphrase: the
- * served checkpoint, its criterion, the no-effects claim, and the resolution. */
+ * served checkpoint, its question, the no-effects claim, and the resolution. */
 interface DeclarationProbeResult {
   readonly mutated: boolean;
   readonly meaning: readonly string[];
@@ -143,7 +143,7 @@ const PROBES = {
       mutated,
       meaning: [
         "api-review",
-        CRITERION,
+        QUESTION,
         "--met",
         "--unmet",
         "--why",
@@ -308,7 +308,7 @@ Deno.test("variance contract: every declared surface serves the same complete de
 
     const meaning = [
       "api-review",
-      CRITERION,
+      QUESTION,
       RATIONALE,
       "declared unmet",
       "--confirmed",

@@ -88,7 +88,7 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Ask the judgment questions when the change happens
 
 - **Value:** The review questions that need a person's kind of judgment are asked at the moment a matching change exists, and the recorded answer travels with the evidence — qualified as the agent's declared judgment, with the final say on an unmet one held by the responsible person.
-- **Mechanism:** A checkpoint pairs a deterministic trigger with a criterion; a fired stop checkpoint refuses the Gate until a conclusion is declared, the Proof carries declared conclusions separately from machine results, and a declared-unmet conclusion lands only under an owner-authorized variance.
+- **Mechanism:** A checkpoint pairs a deterministic trigger with a question; a fired stop checkpoint refuses the Gate until a conclusion is declared, the Proof carries declared conclusions separately from machine results, and a declared-unmet conclusion lands only under an owner-authorized variance.
 - **Product basis:** Checkpoints · Set a checkpoint.
 
 ### See which tasks need a decision

@@ -835,7 +835,7 @@
 
   # ─────────────────────────────────────────────────────────────────────────────
   # [checkpoints.<name>] — change-triggered review rules: a deterministic trigger
-  # decides when a diff makes a named criterion relevant; the agent judges it and
+  # decides when a diff makes a named question relevant; the agent judges it and
   # records a conclusion that travels with the Proof as agent evidence. The
   # config at an effort's merge-base with the trunk governs it, so these entries
   # take effect for new efforts once they land. This repo ships the built-in set
@@ -845,7 +845,7 @@
 
   # Four stop checkpoints guard the knowledge estate — the surfaces that steer
   # every future agent session. `discern done` pauses before the gate until the
-  # agent declares each fired criterion met, or unmet with a rationale.
+  # agent declares each fired question met, or unmet with a rationale.
   # Known and accepted: this repo writes its map beside nearly every change,
   # so map-focus fires on most launch-phase efforts (38 of the last 40
   # landings touched 3+ map files; no honest threshold separates). One

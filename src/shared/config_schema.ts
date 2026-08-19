@@ -307,7 +307,7 @@ const standardValue = z.strictObject({
 });
 
 /** A `[checkpoints.<id>]` table — one change-triggered review rule: a
- * deterministic trigger, a semantic criterion the agent judges, and a mode.
+ * deterministic trigger, a semantic question the agent judges, and a mode.
  * Every field is optional so a bare table can reference a shipped built-in by
  * id; trigger and mode defaults are applied when the rule is resolved, so an
  * unset field can still inherit a built-in's value. */
@@ -337,19 +337,19 @@ const checkpointValue = z.strictObject({
     "Executable escape hatch for conditions the structured fields cannot express. The command runs pre-flight in the working tree with a short fixed timeout: exit 0 fires the trigger, exit 1 passes, and any other exit or a timeout fails open (no fire) with an advisory. It may print `DISCERN_MATCH <path>` lines to declare the exact matched paths; combined with selectors, the selectors pre-scope the diff and `when` decides firing.",
   ),
   mode: z.enum(CHECKPOINT_MODES).optional().describe(
-    '"stop" (the default): the gate refuses to run until the agent declares the criterion met or unmet. "advise": the criterion and its evidence are delivered through the advisory channel and nothing blocks.',
+    '"stop" (the default): the gate refuses to run until the agent declares the question met or unmet. "advise": the question and its evidence are delivered through the advisory channel and nothing blocks.',
   ),
-  criterion: z.string().optional().describe(
-    "The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint; a table whose <id> names a shipped built-in inherits its criterion and may override it here.",
+  question: z.string().optional().describe(
+    "The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint; a table whose <id> names a shipped built-in inherits its question and may override it here.",
   ),
   teach: z.string().optional().describe(
-    "Optional lesson prose carried into renderings: why the criterion matters and what good looks like.",
+    "Optional lesson prose carried into renderings: why the question matters and what good looks like.",
   ),
 });
 
 const checkpointsSection = z.record(z.string().regex(NAME_RE), checkpointValue)
   .default({}).describe(
-    "[checkpoints.<id>] — change-triggered review rules: a deterministic trigger chooses when a diff makes a criterion relevant, the agent judges the criterion and records a declaration, and the record travels with the gate's results. The configuration at the effort's merge-base with the trunk governs, so a branch editing these tables does not change its own gate. None configured means none fire.",
+    "[checkpoints.<id>] — change-triggered review rules: a deterministic trigger chooses when a diff makes a question relevant, the agent judges the question and records a declaration, and the record travels with the gate's results. The configuration at the effort's merge-base with the trunk governs, so a branch editing these tables does not change its own gate. None configured means none fire.",
   );
 
 // ── the live `discern.toml` schema ─────────────────────────────────────────────
@@ -793,7 +793,7 @@ export const configDocSchema = z.strictObject({
     ),
   checkpoints: z.record(z.string().regex(NAME_RE), checkpointValue).optional()
     .describe(
-      "[checkpoints.<id>] tables — change-triggered review rules: trigger fields, mode, and the criterion the agent judges.",
+      "[checkpoints.<id>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.",
     ),
 }).describe(
   "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
@@ -957,7 +957,7 @@ function checkpointReferenceIssues(parsed: unknown): ConfigIssue[] {
 
 /**
  * `[checkpoints]` COMPLETENESS rules, enforced at load only: a checkpoint that
- * is not a shipped built-in must define its criterion. Kept out of the
+ * is not a shipped built-in must define its question. Kept out of the
  * write-time check so an entry can be built incrementally, the same allowance
  * every record family's missing required keys receive.
  */
@@ -970,11 +970,11 @@ function checkpointCompletenessIssues(parsed: unknown): ConfigIssue[] {
     if (!isRecord(entry) || isBuiltInCheckpoint(id)) {
       continue;
     }
-    if (typeof entry.criterion !== "string" || entry.criterion.trim() === "") {
+    if (typeof entry.question !== "string" || entry.question.trim() === "") {
       issues.push({
-        path: `checkpoints.${id}.criterion`,
+        path: `checkpoints.${id}.question`,
         message:
-          `"${id}" names no shipped checkpoint, so it must define \`criterion\` — the judgment prose the agent evaluates when the trigger fires.`,
+          `"${id}" names no shipped checkpoint, so it must define \`question\` — the judgment prose the agent evaluates when the trigger fires.`,
       });
     }
   }

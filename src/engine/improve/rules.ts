@@ -5,11 +5,11 @@
  * Each category groups related rules. Each rule is either deterministic (discern
  * decides it) or subjective (discern surfaces it for the agent to judge against the
  * cited material). A subjective rule is the improvement MEMBERSHIP of a canonical
- * criterion (`shared/criteria.ts`): the judgment prose and teach live in that one
+ * question (`shared/questions.ts`): the judgment prose and teach live in that one
  * vocabulary, and this catalog contributes the estate-review framing (title +
  * evidence). The catalog is data, not control flow: the runner in `improve.ts`
  * walks it. To add a best practice, add a rule here — a subjective one first adds
- * its criterion to the vocabulary.
+ * its question to the vocabulary.
  *
  * The bar for a deterministic rule: its verdict must be *certain* from the gathered
  * facts (no guessing). Anything that needs judgement is a subjective rule instead,
@@ -31,7 +31,7 @@ import {
 import { allInstructionFilePaths } from "../../lib/providers.ts";
 import { normalizeMapDir } from "../../shared/map_path.ts";
 import { SOURCE_PATHS } from "../../shared/paths_registry.ts";
-import { criterionById } from "../../shared/criteria.ts";
+import { questionById } from "../../shared/questions.ts";
 import type {
   Category,
   DeterministicRule,
@@ -261,12 +261,12 @@ function excerpt(text: string, max = 240): string {
 }
 
 /**
- * One subjective rule — the improvement MEMBERSHIP of a canonical criterion
- * (`shared/criteria.ts`). The criterion carries the judgment prose (`ask`) and
+ * One subjective rule — the improvement MEMBERSHIP of a canonical question
+ * (`shared/questions.ts`). The question carries the judgment prose (`ask`) and
  * `teach`; the membership adds what estate-wide review needs: a display title
  * and the project evidence to judge `against`. A membership naming an unknown
- * criterion fails at module load, so the catalog can never ship a dangling
- * reference (the parity guard in `tests/criteria_registry_test.ts` reports the
+ * question fails at module load, so the catalog can never ship a dangling
+ * reference (the parity guard in `tests/questions_registry_test.ts` reports the
  * same defect with its remedy).
  */
 function subjective(
@@ -276,18 +276,18 @@ function subjective(
     against: (ctx: ImprovementContext) => ReviewEvidence | undefined;
   },
 ): SubjectiveRule {
-  const criterion = criterionById(id);
-  if (criterion === undefined) {
+  const question = questionById(id);
+  if (question === undefined) {
     throw new Error(
-      `improvement rule '${id}' references no canonical criterion`,
+      `improvement rule '${id}' references no canonical question`,
     );
   }
   return {
     kind: "subjective",
     id,
     title: membership.title,
-    ask: criterion.criterion,
-    teach: criterion.teach,
+    ask: question.question,
+    teach: question.teach,
     against: membership.against,
   };
 }
@@ -685,11 +685,11 @@ const STANDARDS: Category = {
   ],
 };
 
-/** The criterion ids the catalog's subjective rules already review — the
+/** The question ids the catalog's subjective rules already review — the
  * improvement membership's id set, derived at call time so a new subjective
  * rule auto-enrols. The estate audit skips these: their catalog review
- * carries the boundary mark instead, so each criterion renders once. */
-function improvementCriterionIds(): ReadonlySet<string> {
+ * carries the boundary mark instead, so each question renders once. */
+function improvementQuestionIds(): ReadonlySet<string> {
   return new Set(
     CATEGORIES.flatMap((category) =>
       category.rules.filter(isSubjective).map((rule) => rule.id)
@@ -699,7 +699,7 @@ function improvementCriterionIds(): ReadonlySet<string> {
 
 /** Boundary checkpoints — the flow guard beside this estate audit. The static
  * review teaches placement (the ladder and the conversion rule); the dynamic
- * rows are the configured checkpoints' criteria, audited estate-wide. */
+ * rows are the configured checkpoints' questions, audited estate-wide. */
 const CHECKPOINTS: Category = {
   name: "checkpoints",
   title: "Boundary checkpoints",
@@ -718,7 +718,7 @@ const CHECKPOINTS: Category = {
     }),
   ],
   dynamicReviews: (ctx): ReviewResult[] =>
-    estateReviews(ctx.config, improvementCriterionIds()),
+    estateReviews(ctx.config, improvementQuestionIds()),
 };
 
 /** Skills — reusable task playbooks. A single subjective opportunity prompt. */

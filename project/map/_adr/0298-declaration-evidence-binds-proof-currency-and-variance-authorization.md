@@ -19,7 +19,7 @@ ADR 0293 fixed what a declaration is and that a declared-unmet conclusion needs 
 ## Consequences
 
 - The Proof's three evidence rows are now enforced, not just rendered: machine results bind through the tree, agent declarations through the evidence identity, and owner authority through consent and variances — each staling independently and honestly.
-- A green Proof with a declared-unmet conclusion deliberately cannot land until the owner's one complete decision; the refusal serves the criterion, evidence, and rationale, so the decision needs no second retrieval.
+- A green Proof with a declared-unmet conclusion deliberately cannot land until the owner's one complete decision; the refusal serves the question, evidence, and rationale, so the decision needs no second retrieval.
 - Old markers without the evidence component keep their tree-only semantics until the next run rewrites them — a bounded compatibility window instead of a migration.
 - The evidence identity covers the whole store, so a conclusion for a checkpoint that no longer fires still counts toward currency. Harmless: reconciliation is idempotent, and the alternative (a fired-set projection) would let stale store entries drift unnoticed.
 
@@ -27,5 +27,5 @@ ADR 0293 fixed what a declaration is and that a declared-unmet conclusion needs 
 
 - **Stale the Proof through the tree alone.** Rejected: conclusions can change at an unchanged HEAD (that is the point of a revisable judgment), and a Proof that survives a flipped conclusion vouches for evidence that no longer exists.
 - **Include timestamps in the evidence identity.** Rejected: identity would then track record instances rather than claims, staling a Proof whose semantic evidence is unchanged and inviting ritual re-declaration.
-- **Let a standing grant cover a variance.** Rejected: a grant authorizes a class of routine landings in advance; a variance is a judgment about one named criterion the agent just declared unmet — advance authority for it would be consent to unread evidence.
+- **Let a standing grant cover a variance.** Rejected: a grant authorizes a class of routine landings in advance; a variance is a judgment about one named question the agent just declared unmet — advance authority for it would be consent to unread evidence.
 - **A separate variance ledger outside the journal.** Rejected: the journal already binds one expected-to-target transition with its consent; a second store could disagree with it mid-recovery, which is the failure the journal exists to prevent.

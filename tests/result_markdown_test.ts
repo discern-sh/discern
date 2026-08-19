@@ -388,7 +388,7 @@ Deno.test("checkpoints Markdown carries the declared vocabulary and the variance
         {
           id: "api-review",
           mode: "stop",
-          criterion: "A changed API surface is described in its docs.",
+          question: "A changed API surface is described in its docs.",
           trigger: "paths api/**",
           preview: { holds: true, matched: ["api/surface.ext"] },
           episode: {
@@ -411,7 +411,7 @@ Deno.test("checkpoints Markdown carries the declared vocabulary and the variance
         {
           id: "risk-notes",
           mode: "advise",
-          criterion: "A risky change names what could break.",
+          question: "A risky change names what could break.",
           trigger: "paths api/**",
           preview: { holds: true, matched: ["api/surface.ext"] },
         },
@@ -445,7 +445,7 @@ Deno.test("checkpoints Markdown carries the declared vocabulary and the variance
     "Rationale: ``The docs lag `rm -rf` and $(echo x) *the new surface*.``",
   );
   assertStringIncludes(rendered, "authorize a variance");
-  // A holding trigger serves its criterion; the seam states the empty history.
+  // A holding trigger serves its question; the seam states the empty history.
   assertStringIncludes(rendered, "would fire at done (1 matched)");
   assertStringIncludes(rendered, "A risky change names what could break.");
   assertStringIncludes(rendered, "No observed checkpoint history yet.");
@@ -715,7 +715,7 @@ Deno.test("checkpoints Markdown renders observed economics when history exists",
           {
             id: "api-review",
             mode: "stop",
-            criterion: "A changed API surface is described in its docs.",
+            question: "A changed API surface is described in its docs.",
             trigger: "paths api/**",
             preview: { holds: false, vetoed_by: "empty_matched_set" },
           },

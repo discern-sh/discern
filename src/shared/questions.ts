@@ -1,31 +1,31 @@
 /**
- * The canonical **criterion vocabulary** — the judgment prose an agent evaluates
- * when discern cannot decide a question mechanically. One criterion is a stable
- * id, the criterion prose itself, a `teach` describing what good looks like, and
+ * The canonical **question vocabulary** — the judgment prose an agent evaluates
+ * when discern cannot decide a question mechanically. One question is a stable
+ * id, the question prose itself, a `teach` describing what good looks like, and
  * optional reference material.
  *
- * Criteria are pure vocabulary: they carry no trigger, no schedule, and no
- * severity. WHERE a criterion is evaluated is a separate **membership**
+ * Questions are pure vocabulary: they carry no trigger, no schedule, and no
+ * severity. WHERE a question is evaluated is a separate **membership**
  * decision, and there are two:
  *
  *   - the **improvement membership** (`engine/improve/rules.ts`): the subjective
- *     rules of the improvement catalog reference criteria by id for estate-wide
+ *     rules of the improvement catalog reference questions by id for estate-wide
  *     review — the audit of what already exists.
  *   - the **checkpoint membership** (`shared/checkpoints.ts`): a built-in
- *     checkpoint pairs a criterion with a deterministic diff trigger, so the
- *     criterion is served at the moment a change makes it relevant.
+ *     checkpoint pairs a question with a deterministic diff trigger, so the
+ *     question is served at the moment a change makes it relevant.
  *
- * "This criterion blocks `done`" is therefore an explicit membership decision,
- * never a side effect of a field on the criterion itself. Parity guards
- * (`tests/criteria_registry_test.ts`) hold both directions: every membership
- * reference resolves here, and no criterion is orphaned by every membership.
+ * "This question blocks `done`" is therefore an explicit membership decision,
+ * never a side effect of a field on the question itself. Parity guards
+ * (`tests/questions_registry_test.ts`) hold both directions: every membership
+ * reference resolves here, and no question is orphaned by every membership.
  *
- * Each criterion also declares HOW its violations arise ({@link
- * CRITERION_VIOLATION_MODES}) — the **conversion rule**'s input: a criterion may
+ * Each question also declares HOW its violations arise ({@link
+ * QUESTION_VIOLATION_MODES}) — the **conversion rule**'s input: a question may
  * pair with a checkpoint trigger only when a diff introduces its violations;
  * one whose violations accrue by time or absence stays audit-side. The parity
  * guards enforce that on the checkpoint membership, so "which side of the
- * stock-versus-flow line a criterion sits on" is recorded data, not lore.
+ * stock-versus-flow line a question sits on" is recorded data, not lore.
  *
  * One entry interpolates {@link diagnosticFormatList} so the prose names exactly
  * the machine formats the gate's normalizer recognizes — citing the live
@@ -35,31 +35,31 @@
 import { diagnosticFormatList } from "../engine/gate/diagnostics.ts";
 
 /**
- * How a criterion's violations arise — the conversion rule's closed vocabulary:
+ * How a question's violations arise — the conversion rule's closed vocabulary:
  *   - `diff-introduced`: a change brings the violation with it, so a
- *     deterministic trigger can serve the criterion at the moment the change
- *     completes; the criterion is eligible for the checkpoint membership.
+ *     deterministic trigger can serve the question at the moment the change
+ *     completes; the question is eligible for the checkpoint membership.
  *   - `accrued`: the violation builds up by time or absence (staleness, lost
  *     navigability, a protection nobody has declared yet); no diff marks the
- *     moment, so the criterion belongs to estate review only.
+ *     moment, so the question belongs to estate review only.
  */
-export const CRITERION_VIOLATION_MODES = [
+export const QUESTION_VIOLATION_MODES = [
   "diff-introduced",
   "accrued",
 ] as const;
 
-/** One violation mode ({@link CRITERION_VIOLATION_MODES}). */
-export type CriterionViolationMode = (typeof CRITERION_VIOLATION_MODES)[number];
+/** One violation mode ({@link QUESTION_VIOLATION_MODES}). */
+export type QuestionViolationMode = (typeof QUESTION_VIOLATION_MODES)[number];
 
-/** One canonical criterion: the judgment prose and its teaching. */
-export interface Criterion {
+/** One canonical question: the judgment prose and its teaching. */
+export interface Question {
   /** Stable slug, namespaced by subject area (e.g. `gate.test-depth`). */
   readonly id: string;
-  /** How violations arise — the conversion rule's input ({@link CRITERION_VIOLATION_MODES}). */
-  readonly violations: CriterionViolationMode;
+  /** How violations arise — the conversion rule's input ({@link QUESTION_VIOLATION_MODES}). */
+  readonly violations: QuestionViolationMode;
   /** The judgment prose the agent evaluates. */
-  readonly criterion: string;
-  /** Why the criterion matters and what good looks like. */
+  readonly question: string;
+  /** Why the question matters and what good looks like. */
   readonly teach: string;
   /** Optional pointer to reference material carried into renderings. */
   readonly reference?: string;
@@ -96,15 +96,15 @@ export function placementLadderProse(): string {
 }
 
 /**
- * The canonical criteria, in catalog order. The single source every membership
+ * The canonical questions, in catalog order. The single source every membership
  * references by id; prose lives here ONCE, so the improvement catalog and any
- * checkpoint serving the same criterion can never drift apart.
+ * checkpoint serving the same question can never drift apart.
  */
-export const CRITERIA: readonly Criterion[] = [
+export const QUESTIONS: readonly Question[] = [
   {
     id: "gate.fast-feedback",
     violations: "accrued",
-    criterion:
+    question:
       "Given the test command below, and that `discern done` runs it on every " +
       "acceptance and whenever a change is called done — does the gate stay fast " +
       "as the suite grows, and is the runner using the parallelism it offers? " +
@@ -120,7 +120,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "gate.test-depth",
     violations: "accrued",
-    criterion:
+    question:
       "Inspect representative tests behind the configured command. Do they protect " +
       "observable behaviour at important boundaries — including failure paths and " +
       "edge cases — or mostly mirror implementation details and prove that happy-path " +
@@ -134,7 +134,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "gate.structured-diagnostics",
     violations: "accrued",
-    criterion:
+    question:
       "Inspect the reporter and output options for the configured check and test " +
       "jobs below. Where a tool can emit a format discern recognizes " +
       `(${diagnosticFormatList()}), does its command ` +
@@ -149,7 +149,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "setup.failure-memory",
     violations: "diff-introduced",
-    criterion:
+    question:
       "Read the configured gotchas document. Does each entry capture a recurring, " +
       "non-obvious failure with the symptom, likely cause, and proven recovery — or " +
       "is it generic advice, stale history, or a list that still makes the next agent " +
@@ -163,7 +163,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "instructions.project-specific",
     violations: "accrued",
-    criterion:
+    question:
       "Do the instructions below teach project-specific knowledge an agent " +
       "could NOT infer from the code itself — the testing philosophy, the architectural " +
       "boundaries that must hold, the non-obvious gotchas, the 'we tried X, it failed' " +
@@ -176,7 +176,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "instructions.economy",
     violations: "diff-introduced",
-    criterion:
+    question:
       "This change touches the always-loaded agent instructions — prose every " +
       "future session pays for before its first decision. Does each added or " +
       "reworded line shape most sessions' behaviour, or does it belong on a " +
@@ -196,7 +196,7 @@ export const CRITERIA: readonly Criterion[] = [
     // backlog through the improvement membership.
     id: "map.current",
     violations: "diff-introduced",
-    criterion:
+    question:
       "Take code that changed recently. Does the documentation describing it " +
       "still say how the code actually behaves now — present tense, no drift — " +
       "or does a page describe a previous design? A stale doc is a bug.",
@@ -208,7 +208,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "map.navigation",
     violations: "accrued",
-    criterion:
+    question:
       "Starting at the configured map root's README.md, can a new contributor find the system overview, " +
       "the relevant subsystem, and its detailed pages without already knowing their " +
       "filenames? Do subtree READMEs explain scope and link their leaves, or is the " +
@@ -222,7 +222,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "map.focus",
     violations: "diff-introduced",
-    criterion:
+    question:
       "Read the changed documentation as its future reader. Does each changed " +
       "entry reduce the repository reading needed to make a correct decision — " +
       "behaviour, boundaries, intent, where to start — or does it restate what " +
@@ -237,7 +237,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "worktrees.resources",
     violations: "accrued",
-    criterion:
+    question:
       "Does this project need per-worktree external resources to develop in isolation " +
       "— a database, an emulator, a container, a queue, a dev-server vhost? If so, are " +
       "they all declared under [worktree.resources.<name>] so each worktree gets its own?",
@@ -249,7 +249,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "standards.opportunity",
     violations: "accrued",
-    criterion:
+    question:
       "Is there a measurable quality signal in this project you only ever want to " +
       "improve — test coverage, bundle/binary size, type-error count, a performance " +
       "budget, lint-warning count — that is NOT yet protected by a standard?",
@@ -261,7 +261,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "standards.normalize",
     violations: "accrued",
-    criterion:
+    question:
       "Do any ceiling standards count items over a tree that grows over time — lint " +
       "alerts, TODOs, type errors, doc nits? A raw count rises with the project, so it " +
       "fails on growth, not regressions, and the only way to pass is to loosen it. Hold " +
@@ -275,17 +275,17 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "checkpoints.opportunity",
     violations: "accrued",
-    criterion:
+    question:
       "Review where this project's quality rules live. Is there a judgment a " +
       "reviewer keeps raising that a narrow, deterministic change could trigger " +
       "— a candidate for a [checkpoints.<id>] entry? And has any configured " +
-      "checkpoint's criterion become mechanically decidable, so a check could " +
+      "checkpoint's question become mechanically decidable, so a check could " +
       "replace the judgment?",
     teach:
       "Place each rule at the cheapest rung that still catches its violations: " +
-      `${placementLadderProse()}. A criterion earns a checkpoint only when its ` +
+      `${placementLadderProse()}. A question earns a checkpoint only when its ` +
       "violations arrive with a diff; one that accrues by time or absence " +
-      "belongs to estate review like this one. When a checkpoint's criterion " +
+      "belongs to estate review like this one. When a checkpoint's question " +
       "becomes mechanically decidable, move it down the ladder: the " +
       "discern-set-the-standard skill's outlaw procedure turns it into a " +
       "measured ceiling, then a permanent gate rule.",
@@ -293,7 +293,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "skills.opportunity",
     violations: "accrued",
-    criterion:
+    question:
       "Is there a multi-step task that recurs in this project and would benefit from a " +
       "written playbook an agent can follow each time — a release dance, a data reset, a " +
       "subsystem-specific workflow? Authored skills under the skills dir capture exactly that.",
@@ -305,7 +305,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "skills.executable",
     violations: "diff-introduced",
-    criterion:
+    question:
       "Inspect the authored skills. Does each say when to use it, what context or " +
       "preconditions it needs, the concrete sequence to follow, how to verify success, " +
       "and how to recover or clean up when the workflow can fail? Could a fresh agent " +
@@ -318,7 +318,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "change.deletion-safety",
     violations: "diff-introduced",
-    criterion:
+    question:
       "This change removes clearly more than it adds. Is every cut proven " +
       "safe — no remaining callers, references, or configuration reaching the " +
       "removed code, tests and docs moved in step — and is what was removed " +
@@ -333,7 +333,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "change.parallel-implementation",
     violations: "diff-introduced",
-    criterion:
+    question:
       "This change adds a file whose name closely resembles an existing " +
       "sibling — the signature of a second implementation growing beside the " +
       "original. Should the original have been changed in place? If a sibling " +
@@ -348,7 +348,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "change.effort-scope",
     violations: "diff-introduced",
-    criterion:
+    question:
       "This diff has grown wide. Is it still one coherent effort a reviewer " +
       "can hold in their head, or have unrelated fixes and opportunistic " +
       "cleanups ridden along? Would any part land more safely as its own " +
@@ -362,7 +362,7 @@ export const CRITERIA: readonly Criterion[] = [
   {
     id: "change.commit-story",
     violations: "diff-introduced",
-    criterion: "This change is large enough that its history is part of the " +
+    question: "This change is large enough that its history is part of the " +
       "deliverable. Could the owner reconstruct the why of the work from the " +
       "commit messages alone — decision by decision — or does the story live " +
       "only in this session's context?",
@@ -374,10 +374,10 @@ export const CRITERIA: readonly Criterion[] = [
   },
 ];
 
-/** The canonical criterion ids, in catalog order. */
-export const CRITERION_IDS: readonly string[] = CRITERIA.map((c) => c.id);
+/** The canonical question ids, in catalog order. */
+export const QUESTION_IDS: readonly string[] = QUESTIONS.map((c) => c.id);
 
-/** Look one criterion up by id, or undefined for an unknown id. */
-export function criterionById(id: string): Criterion | undefined {
-  return CRITERIA.find((c) => c.id === id);
+/** Look one question up by id, or undefined for an unknown id. */
+export function questionById(id: string): Question | undefined {
+  return QUESTIONS.find((c) => c.id === id);
 }

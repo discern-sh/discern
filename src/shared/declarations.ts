@@ -19,11 +19,11 @@
  *     (`--confirmed --variance <id>`): standing and effort grants never cover
  *     a variance. It is not folded into ordinary landing consent — consent
  *     accepts the landing; a variance additionally authorizes landing a named
- *     criterion the agent judged unmet.
+ *     question the agent judged unmet.
  *
  * One refusal batches every checkpoint it is about: the declaration refusal
- * lists each awaiting checkpoint with its criterion and both recoveries; the
- * variance refusal lists each declared-unmet checkpoint with its criterion,
+ * lists each awaiting checkpoint with its question and both recoveries; the
+ * variance refusal lists each declared-unmet checkpoint with its question,
  * evidence, and rationale, and the one complete decision that resolves it.
  */
 
@@ -58,7 +58,7 @@ export interface DeclarationGatedVerb {
   /** The CLI command a human types, sans the leading `discern`. */
   readonly command: string;
   /**
-   * How this verb's refusal resolves: `declare` serves the criteria and takes
+   * How this verb's refusal resolves: `declare` serves the questions and takes
    * the conclusions right here; `route-to-done` names `discern done` as the
    * place conclusions are recorded.
    */

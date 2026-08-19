@@ -438,7 +438,7 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         target("path", "discern.toml", "## 4. Wire it in `discern.toml`"),
         target(
           "stable",
-          "the served criterion and its deterministic trigger",
+          "the served question and its deterministic trigger",
           "Triggers are deterministic and closed.",
         ),
       ],
@@ -454,7 +454,7 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
       ],
       recovery: [
         evidence(
-          "Frequent variance points at the rule: tighten the trigger, rewrite the criterion, soften to advise, or delete the entry.",
+          "Frequent variance points at the rule: tighten the trigger, rewrite the question, soften to advise, or delete the entry.",
         ),
       ],
       relay: {

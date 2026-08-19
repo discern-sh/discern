@@ -722,7 +722,7 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
       toml: [
         "[checkpoints.zz-probe-review]",
         'paths = ["zz-probe/**"]',
-        'criterion = "A probe change states what it verified."',
+        'question = "A probe change states what it verified."',
         "",
       ].join("\n"),
       expect: true,

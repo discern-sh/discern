@@ -1252,7 +1252,7 @@ async function runGate(
     : [];
   const proofHint = gateProofHint(gateProof, failedStage);
   // Checkpoint deliveries ride the envelope's one advisory channel: fail-open
-  // accounts as notices, each fired advise-mode criterion served in full, and
+  // accounts as notices, each fired advise-mode question served in full, and
   // — on a green run with a declared-unmet conclusion standing — the landing
   // consequence, so a green Proof is never mistaken for a landable one.
   const checkpointAdvisoryHints = (checkpointPreflight?.advisories ?? []).map(
@@ -1261,7 +1261,7 @@ async function runGate(
   const adviseHints = (checkpointPreflight?.advise ?? []).map((served) =>
     fire(HINTS["checkpoint-advise"], {
       id: served.id,
-      criterion: served.criterion.trim(),
+      question: served.question.trim(),
       matched: [...served.matched],
     })
   );
@@ -1603,7 +1603,7 @@ function servedCheckpointData(served: ServedCheckpoint): ServedCheckpointData {
   return {
     id: served.id,
     mode: served.mode,
-    criterion: served.criterion,
+    question: served.question,
     ...(served.teach === undefined ? {} : { teach: served.teach }),
     ...(served.reference === undefined ? {} : { reference: served.reference }),
     matched: [...served.matched],
@@ -1679,7 +1679,7 @@ function proofCheckpointsData(
 }
 
 /** One checkpoint's serving text in the batched refusal: id, evidence,
- * criterion, and any teaching — indented so the batch scans as a list. */
+ * question, and any teaching — indented so the batch scans as a list. */
 function serveCheckpointText(served: ServedCheckpoint): string {
   // Matched paths are working-tree-controlled text and this message renders
   // verbatim on the --markdown surface, so each path travels inside the
@@ -1690,7 +1690,7 @@ function serveCheckpointText(served: ServedCheckpoint): string {
     : "";
   const lines = [
     `${served.id} — changed: ${shown}${more}`,
-    `  Criterion: ${served.criterion.trim()}`,
+    `  Question: ${served.question.trim()}`,
   ];
   if (served.teach !== undefined && served.teach.trim() !== "") {
     lines.push(`  Teach: ${served.teach.trim()}`);
@@ -1704,7 +1704,7 @@ function serveCheckpointText(served: ServedCheckpoint): string {
 /**
  * The read-only-in-effect refusal `done` serves while a governing `stop`
  * checkpoint has no current conclusion: every such checkpoint is batched into
- * ONE refusal with its criterion, matched evidence, and both recoveries. The
+ * ONE refusal with its question, matched evidence, and both recoveries. The
  * claim on every surface: no gate job ran and the project tree is unchanged —
  * the episode record and the logbook line are the only writes, and the text
  * states them. Fires BEFORE the rerun guard and before any job or fixer.
@@ -1719,8 +1719,8 @@ function awaitingDeclarationRefusal(
     : `This change fired ${outstanding.length} checkpoints that require your judgment`;
   const message = `${heading} before any gate job runs:\n\n` +
     outstanding.map(serveCheckpointText).join("\n\n") +
-    "\n\nJudge each criterion against the changed paths, then record your " +
-    "conclusion: `discern done --met <id>` (repeatable) when the criterion " +
+    "\n\nJudge each question against the changed paths, then record your " +
+    "conclusion: `discern done --met <id>` (repeatable) when the question " +
     'is satisfied, or `discern done --unmet <id> --why "<rationale>"` (one ' +
     "per invocation) when it is not — the gate still runs, and the " +
     "owner decides the declared-unmet landing. No gate job ran and the " +

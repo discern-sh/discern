@@ -32,7 +32,7 @@ import {
 } from "../src/lib/skills.ts";
 import { resolveBundledSkillsDir } from "../src/lib/paths.ts";
 import { allSkillsDirs, skillsDirsForAgents } from "../src/lib/providers.ts";
-import { placementLadderProse } from "../src/shared/criteria.ts";
+import { placementLadderProse } from "../src/shared/questions.ts";
 import { modeOf, withTempDir } from "./helpers.ts";
 
 /** The single Claude Code skills dir — pins the per-dir materialization mechanics
@@ -291,8 +291,8 @@ Deno.test("delegate-work keeps dispatch consent and staged dependency contracts"
 });
 
 Deno.test("set-a-checkpoint quotes the canonical placement ladder verbatim", async () => {
-  // The ladder has one authority (PLACEMENT_LADDER in src/shared/criteria.ts);
-  // the criterion teaches interpolate it, and the authoring skill must quote
+  // The ladder has one authority (PLACEMENT_LADDER in src/shared/questions.ts);
+  // the question teaches interpolate it, and the authoring skill must quote
   // the same prose so the rungs can never drift between surfaces. A reworded
   // ladder updates both or fails here.
   const bundledDir = await resolveBundledSkillsDir();
@@ -302,7 +302,7 @@ Deno.test("set-a-checkpoint quotes the canonical placement ladder verbatim", asy
   assert(
     text.includes(placementLadderProse()),
     "discern-set-a-checkpoint must render the shared placement-ladder prose " +
-      "verbatim — change src/shared/criteria.ts and the skill together",
+      "verbatim — change src/shared/questions.ts and the skill together",
   );
 });
 

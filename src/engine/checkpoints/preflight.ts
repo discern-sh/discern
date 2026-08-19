@@ -57,7 +57,7 @@ export interface ServedCheckpoint {
   id: string;
   mode: CheckpointMode;
   /** The judgment prose the agent evaluates. */
-  criterion: string;
+  question: string;
   /** Optional lesson prose carried into renderings. */
   teach?: string;
   /** Optional reference material carried into renderings. */
@@ -129,7 +129,7 @@ function served(
   return {
     id: def.id,
     mode: def.mode,
-    criterion: def.criterion,
+    question: def.question,
     ...(def.teach === undefined ? {} : { teach: def.teach }),
     ...(def.reference === undefined ? {} : { reference: def.reference }),
     matched,
@@ -243,7 +243,7 @@ export async function previewCheckpointNotes(
 
 /**
  * Project a preview onto the advisory hint channel — the `prepare` and
- * `status` seam. A holding `stop` trigger serves its criterion early ("will
+ * `status` seam. A holding `stop` trigger serves its question early ("will
  * require a declared conclusion at done"; "may require" while a `when`
  * command still decides); a holding `advise` trigger whose firing is already
  * settled serves the same advisory it would at `done` (one still awaiting its
@@ -263,7 +263,7 @@ export function checkpointPreviewHints(
         hints.push(
           fire(HINTS["checkpoint-advise"], {
             id: definition.id,
-            criterion: definition.criterion.trim(),
+            question: definition.question.trim(),
             matched: [...outcome.matched],
           }),
         );
@@ -273,7 +273,7 @@ export function checkpointPreviewHints(
     hints.push(
       fire(HINTS["checkpoint-preview"], {
         id: definition.id,
-        criterion: definition.criterion.trim(),
+        question: definition.question.trim(),
         matched: [...outcome.matched],
         whenPending: outcome.whenPending,
       }),
@@ -315,7 +315,7 @@ export async function runCheckpointPreflight(
 
   // A trigger opens an episode; it does not own that episode's lifetime.
   // Load earlier governing stop episodes before evaluating this run so a
-  // later veto or passing `when` cannot retract a criterion already served.
+  // later veto or passing `when` cannot retract a question already served.
   // Unreadable state fails open, with the missing interlock stated plainly.
   let storedEpisodes: Record<string, CheckpointEpisode> = {};
   if (stopIds.size > 0) {

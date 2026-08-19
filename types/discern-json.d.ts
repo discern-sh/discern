@@ -2014,7 +2014,7 @@ export type DiscernDoneResult = {
       outstanding?: Array<{
         id: string;
         mode: "stop" | "advise";
-        criterion: string;
+        question: string;
         teach?: string;
         reference?: string;
         matched: Array<string>;
@@ -2031,7 +2031,7 @@ export type DiscernDoneResult = {
       advise?: Array<{
         id: string;
         mode: "stop" | "advise";
-        criterion: string;
+        question: string;
         teach?: string;
         reference?: string;
         matched: Array<string>;
@@ -2544,7 +2544,7 @@ export type DiscernCheckpointsResult = {
     checkpoints: Array<{
       id: string;
       mode: "stop" | "advise";
-      criterion: string;
+      question: string;
       teach?: string;
       reference?: string;
       trigger: string;

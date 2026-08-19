@@ -572,11 +572,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "checkpoints",
         title: "Checkpoints",
         what:
-          "Change-triggered judgment stops under `[checkpoints]`: a deterministic trigger (a scope or path selector, `unless_changed`, thresholds, delta-shape predicates, or an executable `when` condition) pairs a semantic criterion with the change that makes it relevant. A fired `stop` checkpoint refuses `discern done` before any gate job until the agent judges the criterion and records a conclusion — `--met`, or `--unmet` with a one-paragraph rationale — bound to the exact definition and content it judged; `advise` mode serves the criterion without blocking. The governing definitions are read at the effort's merge-base with the trunk — a branch's own edit takes effect only after it lands — and a declared-unmet conclusion lands only after the owner authorizes that variance at `discern accept` in the current conversation. `discern checkpoints` reports, read-only: the governing policy, each episode's declaration state, and a structural preview of what the current change would fire; `prepare`/`status` serve each coming criterion early.",
+          "Change-triggered judgment stops under `[checkpoints]`: a deterministic trigger (a scope or path selector, `unless_changed`, thresholds, delta-shape predicates, or an executable `when` condition) pairs a semantic question with the change that makes it relevant. A fired `stop` checkpoint refuses `discern done` before any gate job until the agent judges the question and records a conclusion — `--met`, or `--unmet` with a one-paragraph rationale — bound to the exact definition and content it judged; `advise` mode serves the question without blocking. The governing definitions are read at the effort's merge-base with the trunk — a branch's own edit takes effect only after it lands — and a declared-unmet conclusion lands only after the owner authorizes that variance at `discern accept` in the current conversation. `discern checkpoints` reports, read-only: the governing policy, each episode's declaration state, and a structural preview of what the current change would fire; `prepare`/`status` serve each coming question early.",
         why:
           "The review moments that need judgment arrive while the change is being made, and every recorded conclusion stays qualified as the agent's declared judgment — never presented as machine-verified.",
         agent:
-          "The refusal batches every awaiting checkpoint with its criterion, matched evidence, and both recoveries in one serving; recording a conclusion is the agent's own act with no owner round-trip, and revising the subject or replacing a conclusion never trips the unchanged-tree rerun refusal.",
+          "The refusal batches every awaiting checkpoint with its question, matched evidence, and both recoveries in one serving; recording a conclusion is the agent's own act with no owner round-trip, and revising the subject or replacing a conclusion never trips the unchanged-tree rerun refusal.",
         plain: {
           title: "Judgment stops",
           what:
@@ -1234,7 +1234,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "skill-set-a-checkpoint",
             title: "Set a checkpoint",
             what:
-              "Walk from a recurring review judgment to a wired `[checkpoints.<id>]` entry: place the rule on the placement ladder, choose a deterministic trigger and the stop or advise mode, write a short criterion with a real unmet answer, verify it governs from the trunk, and review its observed economics later.",
+              "Walk from a recurring review judgment to a wired `[checkpoints.<id>]` entry: place the rule on the placement ladder, choose a deterministic trigger and the stop or advise mode, write a short question with a real unmet answer, verify it governs from the trunk, and review its observed economics later.",
             plain: {
               title: "Set up a judgment stop",
               what:
@@ -2955,7 +2955,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         value:
           "The review questions that need a person's kind of judgment are asked at the moment a matching change exists, and the recorded answer travels with the evidence — qualified as the agent's declared judgment, with the final say on an unmet one held by the responsible person.",
         whyItFollows:
-          "A checkpoint pairs a deterministic trigger with a criterion; a fired stop checkpoint refuses the Gate until a conclusion is declared, the Proof carries declared conclusions separately from machine results, and a declared-unmet conclusion lands only under an owner-authorized variance.",
+          "A checkpoint pairs a deterministic trigger with a question; a fired stop checkpoint refuses the Gate until a conclusion is declared, the Proof carries declared conclusions separately from machine results, and a declared-unmet conclusion lands only under an owner-authorized variance.",
         drawsOn: ["checkpoints", "skill-set-a-checkpoint"],
       },
       {

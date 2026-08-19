@@ -1310,7 +1310,7 @@ Deno.test("checkpoints result is faithful (empty, fired, ungoverned episode)", a
         "",
         "[checkpoints.api-review]",
         'paths = ["api/**"]',
-        'criterion = "A changed API surface is described in its docs."',
+        'question = "A changed API surface is described in its docs."',
         "",
       ].join("\n"),
     );

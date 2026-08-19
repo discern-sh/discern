@@ -8,7 +8,7 @@
  * id, definition hash, subject fingerprint, rationale) and the commit it
  * lands with, never to future efforts. Standing and effort grants never cover
  * one: any unmet conclusion forces current-conversation landing consent, so
- * the owner receives the criterion, the evidence, the agent's rationale, and
+ * the owner receives the question, the evidence, the agent's rationale, and
  * one complete decision (`--confirmed` plus one `--variance <id>` per unmet
  * checkpoint) before anything lands.
  *
@@ -35,7 +35,7 @@ import { loadGoverningPolicy } from "../checkpoints/policy.ts";
  * decision moment must serve. */
 export interface StandingUnmetConclusion {
   id: string;
-  criterion: string;
+  question: string;
   teach?: string;
   /** The matched paths the episode recorded — the subject's evidence. */
   matched: readonly string[];
@@ -118,7 +118,7 @@ export async function inspectAcceptanceCheckpoints(
     }
     state.unmet.push({
       id,
-      criterion: def.criterion,
+      question: def.question,
       ...(def.teach === undefined ? {} : { teach: def.teach }),
       matched: episode.matchedPaths,
       why: declaration.why,

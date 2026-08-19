@@ -46,7 +46,7 @@ import {
 } from "../../lib/terminal.ts";
 import { buildContext, CATEGORIES, isDeterministic } from "./rules.ts";
 import {
-  boundaryGuardsByCriterion,
+  boundaryGuardsByQuestion,
   boundaryLine,
   checkpointRecommendations,
 } from "./checkpoint_loop.ts";
@@ -77,7 +77,7 @@ function credit(status: RuleStatus): number {
 }
 
 /** Evaluate one category's rules against the gathered context. `guards` marks
- * a review whose canonical criterion a configured checkpoint also serves —
+ * a review whose canonical question a configured checkpoint also serves —
  * the flow is guarded at the gate; the review audits the estate. */
 function evaluateCategory(
   cat: Category,
@@ -144,7 +144,7 @@ export function evaluateReport(
   ctx: ImprovementContext,
   only?: string,
 ): ImprovementReport {
-  const guards = boundaryGuardsByCriterion(ctx.config);
+  const guards = boundaryGuardsByQuestion(ctx.config);
   const categories: CategoryResult[] = [];
   for (const cat of CATEGORIES) {
     if (only !== undefined && cat.name !== only) {

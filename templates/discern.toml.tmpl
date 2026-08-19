@@ -462,8 +462,8 @@
 
   # ─────────────────────────────────────────────────────────────────────────────
   # [checkpoints.<name>] — change-triggered review rules. A deterministic trigger
-  # decides when a diff makes a named criterion relevant; the agent judges the
-  # criterion and records its conclusion, which travels with the gate's results
+  # decides when a diff makes a named question relevant; the agent judges the
+  # question and records its conclusion, which travels with the gate's results
   # as agent judgment, kept distinct from machine results. The configuration that
   # governs an effort is the one at its merge-base with the trunk, so editing
   # these tables on a branch never changes that branch's own gate. None
@@ -496,26 +496,26 @@
   #              precisely; with selectors present, they pre-scope the diff and
   #              `when` decides firing.
   #   mode       "stop" (the default): `discern done` refuses to run the gate
-  #              until the agent declares the criterion met, or unmet with a
+  #              until the agent declares the question met, or unmet with a
   #              short rationale. "advise": delivered as an advisory instead;
   #              never blocks.
-  #   criterion  the judgment prose the agent evaluates against the matched
+  #   question  the judgment prose the agent evaluates against the matched
   #              change. Required for your own checkpoints; a table whose <name>
-  #              is a shipped built-in id inherits its criterion.
+  #              is a shipped built-in id inherits its question.
   #   teach      optional lesson prose carried into renderings: why the
-  #              criterion matters and what good looks like.
+  #              question matters and what good looks like.
   # ─────────────────────────────────────────────────────────────────────────────
 
   # Shipped built-ins: referencing an id enables it — the trigger, mode, and
-  # criterion come from the built-in, and any field set here overrides its
+  # question come from the built-in, and any field set here overrides its
   # default (retune with min_changed_files, retarget with paths/scope, soften
   # with mode = "advise"). Delete or comment out an entry to disable it.
-  # Overriding `criterion` replaces the shipped judgment with your own authored
+  # Overriding `question` replaces the shipped judgment with your own authored
   # prose.
   #
   # Four stop checkpoints guard the knowledge estate — the surfaces that steer
   # every future agent session. `discern done` pauses before the gate until the
-  # agent declares each fired criterion met, or unmet with a rationale:
+  # agent declares each fired question met, or unmet with a rationale:
   [checkpoints.map-focus]           # a broad map change must reduce future reading
   [checkpoints.instruction-economy] # always-loaded prose pays rent in every session
   [checkpoints.skills-playbook]     # a skill is an executable playbook
@@ -531,7 +531,7 @@
   [checkpoints.commit-story]            # a large change: do the messages tell the why?
 
 # Stack-aware examples, inert until you name your paths: discern never guesses
-# your stack, so these ship commented out with the criterion already written.
+# your stack, so these ship commented out with the question already written.
 # Uncomment one, point its globs at your real files, and it governs new
 # efforts once the change lands on the trunk.
 
@@ -543,7 +543,7 @@
 # [checkpoints.new-dependency]
 # paths = ["package.json"]
 # mode  = "advise"
-# criterion = """
+# question = """
 # This change edits a dependency manifest. For each dependency added or
 # upgraded: is it worth the liability it adds — license fit, supply-chain
 # exposure, maintenance horizon — against writing the small part you need?
@@ -556,7 +556,7 @@
 # paths             = ["tests/**"]
 # deletion_dominant = true
 # mode              = "advise"
-# criterion = """
+# question = """
 # This change removes clearly more test than it adds. Is every removed or
 # skipped case re-covered elsewhere, or is the narrowed protection deliberate?
 # Say which in the commit body — a guard lowered silently is how regressions
@@ -569,7 +569,7 @@
 # until the agent declares its conclusion:
 # [checkpoints.sensitive-paths]
 # paths = ["src/auth/**", "migrations/**"]
-# criterion = """
+# question = """
 # This change touches a region the owner marked sensitive. What could break
 # or leak if this is wrong, what protects against that, and what should a
 # reviewer look at first?
@@ -580,7 +580,7 @@
 # [checkpoints.interface-review]
 # paths          = ["src/api/**"]
 # unless_changed = ["docs/api/**"]
-# criterion      = """
+# question      = """
 # A changed interface is described in its docs before it lands: new entry points
 # state their failure modes; changed contracts note what callers must revisit.
 # """

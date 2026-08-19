@@ -471,7 +471,7 @@ export const TOOLS: McpTool[] = orderTools([
           "the flag, an unchanged-tree rerun refuses read-only (default false).",
       ),
       met: z.array(z.string()).optional().describe(
-        "Checkpoint ids whose served criterion your change satisfies — your " +
+        "Checkpoint ids whose served question your change satisfies — your " +
           "recorded judgment, valid only for checkpoints with an active " +
           "episode here (the awaiting_declaration refusal lists them). The " +
           "gate runs in the same call once every awaiting checkpoint has a " +
@@ -485,7 +485,7 @@ export const TOOLS: McpTool[] = orderTools([
             "evidence for the owner's landing decision.",
         ),
       }).optional().describe(
-        "Declare ONE served checkpoint's criterion not satisfied. " +
+        "Declare ONE served checkpoint's question not satisfied. " +
           "The gate still runs; landing then needs the owner to authorize a " +
           "variance for it.",
       ),
@@ -823,7 +823,7 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: CheckpointsOutputSchema.shape,
     annotations: READ_ONLY,
     description: "Report the checkpoint contract for this effort, read-only. " +
-      "data.checkpoints lists each governing checkpoint: its criterion (the " +
+      "data.checkpoints lists each governing checkpoint: its question (the " +
       "judgment the caller records at the gate), one-line trigger summary, " +
       "mode (stop interlocks the gate; advise never blocks), a structural " +
       "preview of whether the current change fires it, and this effort's " +
@@ -963,7 +963,7 @@ export const TOOLS: McpTool[] = orderTools([
         "The owner's authorization to land each named declared-unmet " +
           "checkpoint without changing it (requires confirmed). The ids " +
           "must equal the current declared-unmet set, id for id — the " +
-          "awaiting_variance refusal serves it with each criterion and " +
+          "awaiting_variance refusal serves it with each question and " +
           "rationale — and recorded grants never authorize a variance.",
       ),
       ...PATH_PARAM,

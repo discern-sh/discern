@@ -62,9 +62,9 @@ async function proofMarker(wt: string): Promise<string> {
   return await Deno.readTextFile(path);
 }
 
-const CRITERION_API =
+const QUESTION_API =
   "A changed API surface is described in its docs before it lands.";
-const CRITERION_NOTES = "A risky change names what could break, for review.";
+const QUESTION_NOTES = "A risky change names what could break, for review.";
 
 /** A gate whose one check always passes, plus one stop checkpoint watching
  * `api/**`. The config is committed by `gitInit`, so the worktree's
@@ -81,7 +81,7 @@ lint = "sh check.sh"
 
 [checkpoints.api-review]
 paths = ["api/**"]
-criterion = "${CRITERION_API}"
+question = "${QUESTION_API}"
 teach = "State the failure modes; note what callers must revisit."
 `;
 
@@ -97,11 +97,11 @@ lint = "sh check.sh"
 
 [checkpoints.api-review]
 paths = ["api/**"]
-criterion = "${CRITERION_API}"
+question = "${QUESTION_API}"
 
 [checkpoints.risk-notes]
 paths = ["api/**"]
-criterion = "${CRITERION_NOTES}"
+question = "${QUESTION_NOTES}"
 `;
 
 const CONFIG_ADVISE = `
@@ -117,7 +117,7 @@ lint = "sh check.sh"
 [checkpoints.api-review]
 paths = ["api/**"]
 mode = "advise"
-criterion = "${CRITERION_API}"
+question = "${QUESTION_API}"
 `;
 
 const CONFIG_UNLESS_CHANGED = `
@@ -133,7 +133,7 @@ lint = "sh check.sh"
 [checkpoints.api-review]
 paths = ["api/**"]
 unless_changed = ["docs/**"]
-criterion = "${CRITERION_API}"
+question = "${QUESTION_API}"
 `;
 
 const CHECK_OK = "#!/usr/bin/env sh\nexit 0\n";
@@ -161,7 +161,7 @@ async function worktreeWithApiChange(
   return wt;
 }
 
-Deno.test("done: a fired stop checkpoint refuses before any job, serving the criterion and both recoveries", async () => {
+Deno.test("done: a fired stop checkpoint refuses before any job, serving the question and both recoveries", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(
       dir,
@@ -175,10 +175,10 @@ Deno.test("done: a fired stop checkpoint refuses before any job, serving the cri
     assertEquals(env.ok, false);
     assertEquals(env.verb, "done");
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
-    // The serving: id, matched evidence, criterion, and both recoveries.
+    // The serving: id, matched evidence, question, and both recoveries.
     assertStringIncludes(env.message, "api-review");
     assertStringIncludes(env.message, "api/surface.txt");
-    assertStringIncludes(env.message, CRITERION_API);
+    assertStringIncludes(env.message, QUESTION_API);
     assertStringIncludes(env.message, "--met");
     assertStringIncludes(env.message, "--unmet");
     assertStringIncludes(env.message, "--why");
@@ -210,7 +210,7 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
 
-    // Serve the criterion (and open the episode).
+    // Serve the question (and open the episode).
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
 
     // Declare met: the same invocation runs the gate to green.
@@ -312,8 +312,8 @@ Deno.test("done: a batched refusal serves every awaiting checkpoint at once, and
       env.data.checkpoints.outstanding?.map((c) => c.id).sort(),
       ["api-review", "risk-notes"],
     );
-    assertStringIncludes(env.message, CRITERION_API);
-    assertStringIncludes(env.message, CRITERION_NOTES);
+    assertStringIncludes(env.message, QUESTION_API);
+    assertStringIncludes(env.message, QUESTION_NOTES);
 
     // One declaration records FIRST; the refusal then names only the rest.
     const partial = await runAgent(wt, [
@@ -455,7 +455,7 @@ Deno.test("done: a rationale of shell and Markdown metacharacters round-trips op
   });
 });
 
-Deno.test("done: advise mode serves the criterion through the advisory channel and never blocks", async () => {
+Deno.test("done: advise mode serves the question through the advisory channel and never blocks", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_ADVISE);
 
@@ -465,7 +465,7 @@ Deno.test("done: advise mode serves the criterion through the advisory channel a
     assertEquals(env.ok, true);
     assertHasHint(env, HINTS["checkpoint-advise"], {
       id: "api-review",
-      criterion: CRITERION_API,
+      question: QUESTION_API,
       matched: ["api/surface.txt"],
     });
     assertEquals(env.data.checkpoints.advise?.length, 1);
@@ -540,7 +540,7 @@ Deno.test("done: an opened stop episode remains interlocked after its trigger be
     const wt = await worktreeWithApiChange(dir, CONFIG_UNLESS_CHANGED);
 
     // The API-only effort opens the episode. A later docs change makes the
-    // current trigger inactive, but cannot retract a criterion already served.
+    // current trigger inactive, but cannot retract a question already served.
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
     await Deno.mkdir(join(wt, "docs"), { recursive: true });
     await Deno.writeTextFile(join(wt, "docs", "api.md"), "documented\n");
@@ -749,7 +749,7 @@ Deno.test("done: a trunk policy edit reaches the effort only through update, and
       `${CONFIG_ONE_CHECKPOINT}
 [checkpoints.risk-notes]
 paths = ["api/**"]
-criterion = "${CRITERION_NOTES}"
+question = "${QUESTION_NOTES}"
 `,
     );
     await git(dir, "add", "-A");
@@ -816,7 +816,7 @@ lint = "sh check.sh"
 [checkpoints.spec-drift]
 paths = ["api/**"]
 when = "sh probe.sh"
-criterion = "${CRITERION_API}"
+question = "${QUESTION_API}"
 `,
     );
     await writeExecutable(join(dir, "check.sh"), CHECK_OK);
@@ -853,7 +853,7 @@ lint = "sh check.sh"
 [checkpoints.spec-drift]
 paths = ["api/**"]
 when = "sh hijack.sh"
-criterion = "${CRITERION_API}"
+question = "${QUESTION_API}"
 `,
     );
     await git(wt, "add", "-A");
@@ -932,7 +932,7 @@ lint = "sh check.sh"
 [checkpoints.api-review]
 paths = ["api/**"]
 when = "sh probe.sh"
-criterion = "${CRITERION_API}"
+question = "${QUESTION_API}"
 `,
     );
     await writeExecutable(join(dir, "check.sh"), CHECK_OK);

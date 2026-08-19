@@ -21,7 +21,7 @@
  * still decide, and {@link resolveTriggerOutcome} composes the two halves into
  * the final verdict — including the fail-open rule for a `when` error.
  *
- * Semantics live only in the criterion the agent judges; these predicates are
+ * Semantics live only in the question the agent judges; these predicates are
  * mechanical facts about the diff.
  */
 

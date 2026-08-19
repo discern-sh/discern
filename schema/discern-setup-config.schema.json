@@ -643,7 +643,7 @@
       }
     },
     "checkpoints": {
-      "description": "[checkpoints.<id>] tables — change-triggered review rules: trigger fields, mode, and the criterion the agent judges.",
+      "description": "[checkpoints.<id>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -690,19 +690,19 @@
             "type": "string"
           },
           "mode": {
-            "description": "\"stop\" (the default): the gate refuses to run until the agent declares the criterion met or unmet. \"advise\": the criterion and its evidence are delivered through the advisory channel and nothing blocks.",
+            "description": "\"stop\" (the default): the gate refuses to run until the agent declares the question met or unmet. \"advise\": the question and its evidence are delivered through the advisory channel and nothing blocks.",
             "type": "string",
             "enum": [
               "stop",
               "advise"
             ]
           },
-          "criterion": {
-            "description": "The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint; a table whose <id> names a shipped built-in inherits its criterion and may override it here.",
+          "question": {
+            "description": "The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint; a table whose <id> names a shipped built-in inherits its question and may override it here.",
             "type": "string"
           },
           "teach": {
-            "description": "Optional lesson prose carried into renderings: why the criterion matters and what good looks like.",
+            "description": "Optional lesson prose carried into renderings: why the question matters and what good looks like.",
             "type": "string"
           }
         },

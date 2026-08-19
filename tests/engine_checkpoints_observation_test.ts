@@ -27,7 +27,7 @@ import {
   type VerbEvent,
 } from "../src/engine/logbook/schema.ts";
 
-const CRITERION = "A changed surface is described in its docs before it lands.";
+const QUESTION = "A changed surface is described in its docs before it lands.";
 
 /** A rationale no other fixture text contains — the exclusion sentinel. */
 const RATIONALE_SENTINEL =
@@ -45,7 +45,7 @@ lint = "sh check.sh"
 
 [checkpoints.api-review]
 paths = ["api/**"]
-criterion = "${CRITERION}"
+question = "${QUESTION}"
 `;
 
 const CONFIG_ADVISE = `
@@ -61,7 +61,7 @@ lint = "sh check.sh"
 [checkpoints.api-review]
 paths = ["api/**"]
 mode = "advise"
-criterion = "${CRITERION}"
+question = "${QUESTION}"
 `;
 
 /** The abandoned-episode flow runs `update`, which re-materializes provider
@@ -80,7 +80,7 @@ lint = "sh check.sh"
 
 [checkpoints.api-review]
 paths = ["api/**"]
-criterion = "${CRITERION}"
+question = "${QUESTION}"
 `;
 
 /** The same gate with no checkpoint at all — the trunk edit that retires one. */

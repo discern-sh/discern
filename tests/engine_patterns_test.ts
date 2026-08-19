@@ -2708,7 +2708,7 @@ lint = "true"
 
 [checkpoints.ghost-rule]
 paths = ["never-touched/**"]
-criterion = "A judgment nothing here ever triggers."
+question = "A judgment nothing here ever triggers."
 `,
     );
     await gitInit(dir);

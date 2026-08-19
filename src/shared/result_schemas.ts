@@ -280,7 +280,7 @@ export const CheckpointMetConclusionSchema = z.strictObject({
   declared_at: z.string(),
 }).meta({
   description:
-    "One checkpoint criterion the agent declared met, with the declaration " +
+    "One checkpoint question the agent declared met, with the declaration " +
     "time. Agent evidence: recorded, not machine-verified.",
 });
 export type CheckpointMetConclusionData = z.infer<
@@ -296,7 +296,7 @@ export const CheckpointUnmetConclusionSchema = z.strictObject({
   declared_at: z.string(),
 }).meta({
   description:
-    "One checkpoint criterion the agent declared unmet, with its rationale " +
+    "One checkpoint question the agent declared unmet, with its rationale " +
     "and declaration time. Landing requires an owner-authorized variance.",
 });
 export type CheckpointUnmetConclusionData = z.infer<
@@ -701,12 +701,12 @@ const LandingAuthoritySummarySchema = LandingAuthorityDataSchema.omit({
   uncovered_total: z.number().int().nonnegative().optional(),
 });
 
-/** One checkpoint as served to the agent: the criterion to judge and the
+/** One checkpoint as served to the agent: the question to judge and the
  * matched evidence behind its trigger. */
 export const ServedCheckpointDataSchema = z.strictObject({
   id: z.string(),
   mode: z.enum(CHECKPOINT_MODES),
-  criterion: z.string(),
+  question: z.string(),
   teach: z.string().optional(),
   reference: z.string().optional(),
   /** The changed paths the trigger matched — the subject's evidence. */
@@ -803,7 +803,7 @@ export type CheckpointEpisodeData = z.infer<typeof CheckpointEpisodeDataSchema>;
 export const CheckpointReportSchema = z.strictObject({
   id: z.string(),
   mode: z.enum(CHECKPOINT_MODES),
-  criterion: z.string(),
+  question: z.string(),
   teach: z.string().optional(),
   reference: z.string().optional(),
   /** One-line deterministic trigger summary (selector, thresholds, `when`). */
@@ -1636,7 +1636,7 @@ export const ruleResultSchema = z.strictObject({
   teach: z.string(),
 });
 
-/** One boundary guard on a review's criterion: a configured checkpoint serving
+/** One boundary guard on a review's question: a configured checkpoint serving
  * it, so the flow is guarded at the gate while the review audits the estate. */
 const boundaryGuardSchema = z.strictObject({
   checkpoint: z.string(),

@@ -1,7 +1,7 @@
 /**
  * `discern checkpoints` — the checkpoint contract's read surface. One
  * read-only report answers, from a single command: which checkpoints govern
- * this effort (criterion, trigger, mode, and the policy identity), what state
+ * this effort (question, trigger, mode, and the policy identity), what state
  * each episode is in (awaiting a declaration, declared met, declared unmet —
  * variance required, or reopened), and what the current change would fire — a
  * structural preview through the same projection `prepare`, `status`, and
@@ -69,7 +69,7 @@ function capList(items: readonly string[], max: number): string {
 }
 
 /** One-line deterministic summary of a resolved trigger — what makes this
- * checkpoint relevant, readable at a glance beside its criterion. */
+ * checkpoint relevant, readable at a glance beside its question. */
 export function triggerSummary(def: ResolvedCheckpoint): string {
   const parts: string[] = [];
   if (def.selector === undefined) {
@@ -195,7 +195,7 @@ export async function observedCheckpointEconomics(
 
 /** What the assembled report routes the caller toward. */
 interface ReportRouting {
-  /** Stop criteria awaiting the caller's conclusion at `done`. */
+  /** Stop questions awaiting the caller's conclusion at `done`. */
   awaiting: string[];
   /** Current declared-unmet conclusions — owner variance required to land. */
   varianceRequired: string[];
@@ -245,7 +245,7 @@ function assembleReport(
     return {
       id: def.id,
       mode: def.mode,
-      criterion: def.criterion,
+      question: def.question,
       ...(def.teach === undefined ? {} : { teach: def.teach }),
       ...(def.reference === undefined ? {} : { reference: def.reference }),
       trigger: triggerSummary(def),
@@ -561,7 +561,7 @@ function renderRow(out: Out, row: CheckpointReportData): void {
   );
   const why = row.episode?.declaration?.why;
   const detail = [
-    attention ? `Criterion: ${row.criterion.trim()}` : undefined,
+    attention ? `Question: ${row.question.trim()}` : undefined,
     attention && row.teach !== undefined && row.teach.trim() !== ""
       ? `Teach: ${row.teach.trim()}`
       : undefined,

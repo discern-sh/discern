@@ -48,7 +48,7 @@ function def(over: Partial<ResolvedCheckpoint> = {}): ResolvedCheckpoint {
   return {
     id: "probe",
     mode: "stop",
-    criterion: "The change is judged.",
+    question: "The change is judged.",
     unlessChanged: [],
     deletionDominant: false,
     similarNewFile: false,

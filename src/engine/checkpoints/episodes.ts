@@ -7,7 +7,7 @@
  *
  * An episode is the ONLY thing a declaration can act on: recording one for a
  * checkpoint with no episode is an error, which is what forces the
- * criterion-serving moment — checkpoint ids are public config, and the
+ * question-serving moment — checkpoint ids are public config, and the
  * episode, not secrecy, gates the act. A declaration is one exhaustive
  * conclusion: `met`, or `unmet` with its required rationale; both bind to the
  * definition hash and subject fingerprint they judged. The unmet rationale is

@@ -1702,7 +1702,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `discern version`
   - `Gate job`
   - `Checkpoint`
-  - `Criterion`
+  - `Question`
   - `Episode`
   - `Subject`
   - `Declaration`

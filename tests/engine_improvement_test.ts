@@ -414,7 +414,7 @@ Deno.test("improvement --json: reviews carry the cited material", async () => {
   });
 });
 
-Deno.test("improvement: a configured checkpoint's criterion renders in the estate audit", async () => {
+Deno.test("improvement: a configured checkpoint's question renders in the estate audit", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -422,7 +422,7 @@ Deno.test("improvement: a configured checkpoint's criterion renders in the estat
       `${STRONG_CONFIG}
 [checkpoints.api-review]
 paths = ["src/api/**"]
-criterion = "A changed interface is described before it lands."
+question = "A changed interface is described before it lands."
 `,
     );
     await writeStrongFiles(dir);
@@ -474,7 +474,7 @@ Deno.test("improvement: variance evidence becomes an owner decision, declared-un
       `${STRONG_CONFIG}
 [checkpoints.api-review]
 paths = ["src/api/**"]
-criterion = "A changed interface is described before it lands."
+question = "A changed interface is described before it lands."
 `,
     );
     await writeStrongFiles(dir);
@@ -529,7 +529,7 @@ criterion = "A changed interface is described before it lands."
     assertEquals(review.subject, "api-review");
     assertStringIncludes(review.evidence.excerpt, "3 of 3 landed efforts");
     assertStringIncludes(review.why, "declared-unmet");
-    assertStringIncludes(review.why, "never records the criterion as met");
+    assertStringIncludes(review.why, "never records the question as met");
     // With the baseline clear, the decision leads the next action.
     assertEquals(payload.data.next_action.kind, "decide");
     assertEquals(payload.data.next_action.id, "checkpoints.review");
@@ -543,7 +543,7 @@ criterion = "A changed interface is described before it lands."
     );
     assertTerminalTextIncludes(stdout, "often lands under a variance");
     assertTerminalTextIncludes(stdout, "Decide");
-    assertTerminalTextIncludes(stdout, "never records the criterion as met");
+    assertTerminalTextIncludes(stdout, "never records the question as met");
   });
 });
 

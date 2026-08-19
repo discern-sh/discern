@@ -30,7 +30,7 @@ function def(over: Partial<ResolvedCheckpoint> = {}): ResolvedCheckpoint {
   return {
     id: "probe",
     mode: "stop",
-    criterion: "The change is judged.",
+    question: "The change is judged.",
     unlessChanged: [],
     deletionDominant: false,
     similarNewFile: false,
@@ -144,7 +144,7 @@ Deno.test("matched-set and definition changes each move the fingerprint", async 
     assertNotEquals(wider.fingerprint, one.fingerprint);
 
     const otherHash = await checkpointDefinitionHash(
-      def({ criterion: "A different judgment." }),
+      def({ question: "A different judgment." }),
     );
     assertNotEquals(otherHash, hash);
     const otherSubject = await subject(dir, otherHash, ["matched.txt"], base);
@@ -156,7 +156,7 @@ Deno.test("matched-set and definition changes each move the fingerprint", async 
  * shared by the moves-the-hash test and the completeness guard below. */
 const HASH_VARIANTS: Partial<ResolvedCheckpoint>[] = [
   { mode: "advise" },
-  { criterion: "Other prose." },
+  { question: "Other prose." },
   { teach: "A lesson." },
   { reference: "a-pointer" },
   { selector: { globs: ["src/**"] } },
@@ -177,7 +177,7 @@ Deno.test("a new resolved-definition field cannot dodge the hash", () => {
   const complete = {
     id: "probe",
     mode: "stop",
-    criterion: "The change is judged.",
+    question: "The change is judged.",
     teach: "A lesson.",
     reference: "a-pointer",
     selector: { scope: "code", globs: ["src/**"] },

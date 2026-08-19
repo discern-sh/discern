@@ -6368,7 +6368,7 @@
                               "advise"
                             ]
                           },
-                          "criterion": {
+                          "question": {
                             "type": "string"
                           },
                           "teach": {
@@ -6387,7 +6387,7 @@
                         "required": [
                           "id",
                           "mode",
-                          "criterion",
+                          "question",
                           "matched"
                         ]
                       }
@@ -6408,7 +6408,7 @@
                           "id",
                           "declared_at"
                         ],
-                        "description": "One checkpoint criterion the agent declared met, with the declaration time. Agent evidence: recorded, not machine-verified."
+                        "description": "One checkpoint question the agent declared met, with the declaration time. Agent evidence: recorded, not machine-verified."
                       }
                     },
                     "declared_unmet": {
@@ -6431,7 +6431,7 @@
                           "why",
                           "declared_at"
                         ],
-                        "description": "One checkpoint criterion the agent declared unmet, with its rationale and declaration time. Landing requires an owner-authorized variance."
+                        "description": "One checkpoint question the agent declared unmet, with its rationale and declaration time. Landing requires an owner-authorized variance."
                       }
                     },
                     "advise": {
@@ -6449,7 +6449,7 @@
                               "advise"
                             ]
                           },
-                          "criterion": {
+                          "question": {
                             "type": "string"
                           },
                           "teach": {
@@ -6468,7 +6468,7 @@
                         "required": [
                           "id",
                           "mode",
-                          "criterion",
+                          "question",
                           "matched"
                         ]
                       }
@@ -8229,7 +8229,7 @@
                           "advise"
                         ]
                       },
-                      "criterion": {
+                      "question": {
                         "type": "string"
                       },
                       "teach": {
@@ -8343,7 +8343,7 @@
                     "required": [
                       "id",
                       "mode",
-                      "criterion",
+                      "question",
                       "trigger"
                     ]
                   }

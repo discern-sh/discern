@@ -3,7 +3,7 @@
  * `discern checkpoints` reports the governing policy, each episode's
  * declaration state, and a structural preview — without running a `when`
  * command, creating an episode, or recording anything — and routes an
- * awaiting criterion to the two valid `done` conclusions and a declared-unmet
+ * awaiting question to the two valid `done` conclusions and a declared-unmet
  * one to the owner's variance review. `prepare` and `status` serve the same
  * preview through the advisory hint channel, projected from the ONE shape
  * `done --dry-run` also renders, so the three surfaces cannot disagree.
@@ -56,7 +56,7 @@ function parseHinted(stdout: string): HintedEnvelope {
   return JSON.parse(stdout.trim()) as HintedEnvelope;
 }
 
-const CRITERION_API =
+const QUESTION_API =
   "A changed API surface is described in its docs before it lands.";
 
 const CONFIG_STOP = `
@@ -71,7 +71,7 @@ lint = "sh check.sh"
 
 [checkpoints.api-review]
 paths = ["api/**"]
-criterion = "${CRITERION_API}"
+question = "${QUESTION_API}"
 teach = "State the failure modes; note what callers must revisit."
 `;
 
@@ -88,7 +88,7 @@ lint = "sh check.sh"
 [checkpoints.api-review]
 paths = ["api/**"]
 mode = "advise"
-criterion = "${CRITERION_API}"
+question = "${QUESTION_API}"
 `;
 
 const CONFIG_WHEN = `
@@ -104,7 +104,7 @@ lint = "sh check.sh"
 [checkpoints.api-review]
 paths = ["api/**"]
 when = "sh when-probe.sh"
-criterion = "${CRITERION_API}"
+question = "${QUESTION_API}"
 `;
 
 const CONFIG_NO_CHECKPOINTS = `
@@ -168,7 +168,7 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row, prev
     assert(row !== undefined);
     assertEquals(row.id, "api-review");
     assertEquals(row.mode, "stop");
-    assertEquals(row.criterion, CRITERION_API);
+    assertEquals(row.question, QUESTION_API);
     assertEquals(
       row.teach,
       "State the failure modes; note what callers must revisit.",
@@ -194,7 +194,7 @@ Deno.test("checkpoints: the report follows the episode through awaiting, declare
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_STOP);
 
-    // A bare done opens the episode (its refusal serves the criterion).
+    // A bare done opens the episode (its refusal serves the question).
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
     let env = parseCheckpoints(
       (await runAgent(wt, ["checkpoints", "--json"])).stdout,
@@ -371,7 +371,7 @@ Deno.test("previews: prepare, status, and done --dry-run project the one preview
     const wt = await worktreeWithApiChange(dir, CONFIG_STOP);
     const params = {
       id: "api-review",
-      criterion: CRITERION_API,
+      question: QUESTION_API,
       matched: ["api/surface.txt"],
       whenPending: false,
     };
@@ -414,7 +414,7 @@ Deno.test("previews: an advise checkpoint rides the advisory channel on prepare 
     const wt = await worktreeWithApiChange(dir, CONFIG_ADVISE);
     const params = {
       id: "api-review",
-      criterion: CRITERION_API,
+      question: QUESTION_API,
       matched: ["api/surface.txt"],
     };
     const prepare = parseHinted(
@@ -436,7 +436,7 @@ Deno.test("previews: a when-pending stop checkpoint is served as may-require", a
     );
     const text = assertHasHint(prepare, HINTS["checkpoint-preview"], {
       id: "api-review",
-      criterion: CRITERION_API,
+      question: QUESTION_API,
       matched: ["api/surface.txt"],
       whenPending: true,
     });

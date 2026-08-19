@@ -28,17 +28,17 @@ import {
 } from "../src/engine/checkpoints/subject.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import type { BuiltInCheckpointSeed } from "../src/shared/checkpoints.ts";
-import { criterionById } from "../src/shared/criteria.ts";
+import { questionById } from "../src/shared/questions.ts";
 
 /** A minimal governing config with one authored checkpoint. */
-function configText(criterion: string): string {
+function configText(question: string): string {
   return [
     "[scopes.docs]",
     'paths = ["docs/**"]',
     "",
     "[checkpoints.docs-review]",
     'scope = "docs"',
-    `criterion = "${criterion}"`,
+    `question = "${question}"`,
     "",
   ].join("\n");
 }
@@ -61,11 +61,11 @@ Deno.test("a branch editing its own checkpoint config is not governed by the edi
   await withTempDir(async (dir) => {
     await repoWithConfig(dir, configText("The governed judgment."));
     await git(dir, "checkout", "-q", "-b", "agent/probe");
-    // The branch rewrites the criterion AND adds a new checkpoint — commits it.
+    // The branch rewrites the question AND adds a new checkpoint — commits it.
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       configText("A weaker judgment.") +
-        '\n[checkpoints.extra]\npaths = ["src/**"]\ncriterion = "Extra."\n',
+        '\n[checkpoints.extra]\npaths = ["src/**"]\nquestion = "Extra."\n',
     );
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "edit policy", "--no-gpg-sign");
@@ -73,7 +73,7 @@ Deno.test("a branch editing its own checkpoint config is not governed by the edi
     const policy = await loadGoverningPolicy(dir, LIVE);
     assertEquals(policy.advisories, []);
     assertEquals(policy.checkpoints.map((c) => c.id), ["docs-review"]);
-    assertEquals(policy.checkpoints[0]?.criterion, "The governed judgment.");
+    assertEquals(policy.checkpoints[0]?.question, "The governed judgment.");
   });
 });
 
@@ -104,13 +104,13 @@ Deno.test("the policy identity is the merge-base and stays put until it moves", 
     await git(dir, "checkout", "-q", "agent/probe");
     const drifted = await loadGoverningPolicy(dir, LIVE);
     assertEquals(drifted.policyCommit, base);
-    assertEquals(drifted.checkpoints[0]?.criterion, "The governed judgment.");
+    assertEquals(drifted.checkpoints[0]?.question, "The governed judgment.");
 
     // …until the update lands the trunk into the branch: THEN policy advances.
     await git(dir, "merge", "-q", "--no-edit", "main");
     const updated = await loadGoverningPolicy(dir, LIVE);
     assertEquals(updated.policyCommit, trunkTip);
-    assertEquals(updated.checkpoints[0]?.criterion, "A future judgment.");
+    assertEquals(updated.checkpoints[0]?.question, "A future judgment.");
   });
 });
 
@@ -192,7 +192,7 @@ Deno.test("an unresolvable merge-base fails open with an advisory", async () => 
 
 Deno.test("an unloadable governing config fails open with an advisory", async () => {
   await withTempDir(async (dir) => {
-    // Valid TOML, invalid schema: an authored checkpoint with no criterion.
+    // Valid TOML, invalid schema: an authored checkpoint with no question.
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       '[checkpoints.bare]\npaths = ["src/**"]\n',
@@ -219,7 +219,7 @@ Deno.test("resolveCheckpoints expands scope selectors, references, and unless_ch
       "",
       "[checkpoints.docs-review]",
       'scope = "docs"',
-      'criterion = "Judged."',
+      'question = "Judged."',
       "",
       "[checkpoints.code-review]",
       'paths = ["src/**", "${map.dir}extra/**"]',
@@ -228,7 +228,7 @@ Deno.test("resolveCheckpoints expands scope selectors, references, and unless_ch
       "deletion_dominant = true",
       'when = "scripts/probe.sh"',
       'mode = "advise"',
-      'criterion = "Also judged."',
+      'question = "Also judged."',
       'teach = "A lesson."',
       "",
     ].join("\n"),
@@ -260,20 +260,20 @@ Deno.test("resolveCheckpoints drops what cannot govern, one advisory each", () =
       'paths = ["docs/**"]',
       "",
       "[checkpoints.ok]",
-      'criterion = "Judged."',
+      'question = "Judged."',
       "",
     ].join("\n"),
   );
   // Simulate historical entries the current loader would refuse.
-  config.checkpoints["no-criterion"] = { paths: ["src/**"] };
+  config.checkpoints["no-question"] = { paths: ["src/**"] };
   config.checkpoints["ghost-scope"] = {
     scope: "ghost",
-    criterion: "Judged.",
+    question: "Judged.",
   };
   config.checkpoints["both-selectors"] = {
     scope: "docs",
     paths: ["docs/**"],
-    criterion: "Judged.",
+    question: "Judged.",
   };
   const { checkpoints, advisories } = resolveCheckpoints(config);
   assertEquals(checkpoints.map((c) => c.id), ["ok"]);
@@ -285,13 +285,13 @@ Deno.test("resolveCheckpoints drops what cannot govern, one advisory each", () =
 
 Deno.test("a checkpoint with no selector governs the whole diff and defaults hold", () => {
   const config = parseConfigOrThrow(
-    '[checkpoints.everywhere]\ncriterion = "Judged."\n',
+    '[checkpoints.everywhere]\nquestion = "Judged."\n',
   );
   const { checkpoints } = resolveCheckpoints(config);
   assertEquals(checkpoints[0], {
     id: "everywhere",
     mode: "stop",
-    criterion: "Judged.",
+    question: "Judged.",
     unlessChanged: [],
     deletionDominant: false,
     similarNewFile: false,
@@ -300,17 +300,17 @@ Deno.test("a checkpoint with no selector governs the whole diff and defaults hol
 
 // ── built-in seed merging ───────────────────────────────────────────────────
 
-/** Synthetic seeds (real criterion ids) exercising every seed-provided field,
+/** Synthetic seeds (real question ids) exercising every seed-provided field,
  * so the merge contract is provable independently of the shipped set. */
 const SEEDS: Readonly<Record<string, BuiltInCheckpointSeed>> = {
   "scoped-seed": {
-    criterion: "skills.executable",
+    question: "skills.executable",
     scope: "docs",
     min_changed_files: 3,
     unless_changed: ["CHANGELOG.md"],
   },
   "pathed-seed": {
-    criterion: "setup.failure-memory",
+    question: "setup.failure-memory",
     mode: "advise",
     paths: ["${map.dir}**"],
     deletion_dominant: true,
@@ -333,7 +333,7 @@ function seedConfig(
   return config;
 }
 
-Deno.test("a bare reference enables a built-in with the seed's trigger, mode, and canonical criterion", () => {
+Deno.test("a bare reference enables a built-in with the seed's trigger, mode, and canonical question", () => {
   const config = seedConfig({ "scoped-seed": {}, "pathed-seed": {} });
   const { checkpoints, advisories } = resolveCheckpoints(config, SEEDS);
   assertEquals(advisories, []);
@@ -343,10 +343,10 @@ Deno.test("a bare reference enables a built-in with the seed's trigger, mode, an
   assertEquals(scoped?.unlessChanged, ["CHANGELOG.md"]);
   assertEquals(scoped?.mode, "stop"); // the default, seed named none
   assertEquals(
-    scoped?.criterion,
-    criterionById("skills.executable")?.criterion,
+    scoped?.question,
+    questionById("skills.executable")?.question,
   );
-  assertEquals(scoped?.teach, criterionById("skills.executable")?.teach);
+  assertEquals(scoped?.teach, questionById("skills.executable")?.teach);
   const pathed = checkpoints.find((c) => c.id === "pathed-seed");
   assertEquals(pathed?.selector, { globs: ["guide/**"] }); // reference expanded
   assertEquals(pathed?.mode, "advise");
@@ -363,18 +363,18 @@ Deno.test("entry fields override the seed's, field by field", () => {
   assertEquals(resolved?.mode, "advise");
   // Untouched fields keep the seed's values — including the canonical prose.
   assertEquals(
-    resolved?.criterion,
-    criterionById("skills.executable")?.criterion,
+    resolved?.question,
+    questionById("skills.executable")?.question,
   );
   assertEquals(resolved?.selector, { scope: "docs", globs: ["docs/**"] });
 });
 
-Deno.test("an entry overriding the criterion serves its own prose", () => {
+Deno.test("an entry overriding the question serves its own prose", () => {
   const config = seedConfig({
-    "scoped-seed": { criterion: "My own judgment." },
+    "scoped-seed": { question: "My own judgment." },
   });
   const { checkpoints } = resolveCheckpoints(config, SEEDS);
-  assertEquals(checkpoints[0]?.criterion, "My own judgment.");
+  assertEquals(checkpoints[0]?.question, "My own judgment.");
 });
 
 Deno.test("the selector is one slot: an entry's paths replace a seed's scope, and vice versa", () => {
@@ -403,11 +403,11 @@ Deno.test("firable ids exclude the dormant — a waiting checkpoint is not a dea
   const config = parseConfigOrThrow(
     [
       "[checkpoints.whole-diff]",
-      'criterion = "Whole-diff judgment."',
+      'question = "Whole-diff judgment."',
       "",
       "[checkpoints.scoped]",
       'paths = ["src/**"]',
-      'criterion = "Scoped judgment."',
+      'question = "Scoped judgment."',
       "",
       // The shipped seed tracks ${project.gotchas_doc}; unset, the reference
       // expands to the match-nothing empty pattern — dormant, not dead.

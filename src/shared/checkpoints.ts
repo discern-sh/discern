@@ -3,25 +3,25 @@
  * the closed **mode** pair and the **built-in checkpoint membership**.
  *
  * A checkpoint is one configured rule — deterministic trigger + semantic
- * criterion + mode — evaluated by the engine in `src/engine/checkpoints/`. The
- * criterion prose lives in the canonical vocabulary (`shared/criteria.ts`); a
- * BUILT-IN checkpoint is the checkpoint MEMBERSHIP of one of those criteria: it
- * pairs the criterion with a shipped trigger, and a project enables it by
+ * question + mode — evaluated by the engine in `src/engine/checkpoints/`. The
+ * question prose lives in the canonical vocabulary (`shared/questions.ts`); a
+ * BUILT-IN checkpoint is the checkpoint MEMBERSHIP of one of those questions: it
+ * pairs the question with a shipped trigger, and a project enables it by
  * declaring `[checkpoints.<id>]` with that id (fields it sets override the
  * seed's). This module owns the id set so config validation can tell "a
  * reference to a shipped checkpoint" from "an authored checkpoint missing its
- * criterion" without reaching into the engine.
+ * question" without reaching into the engine.
  *
- * The parity guards (`tests/criteria_registry_test.ts`) walk the registry:
- * every entry must resolve to a canonical criterion whose violations are
+ * The parity guards (`tests/questions_registry_test.ts`) walk the registry:
+ * every entry must resolve to a canonical question whose violations are
  * diff-introduced (the conversion rule), so an accrued pairing can never ship.
  */
 
 /**
  * The two checkpoint modes:
  *   - `stop`: `discern done` refuses to run any gate job until the agent
- *     declares the criterion met or unmet (the default).
- *   - `advise`: the criterion and its evidence are delivered through the
+ *     declares the question met or unmet (the default).
+ *   - `advise`: the question and its evidence are delivered through the
  *     advisory channel; nothing blocks.
  */
 export const CHECKPOINT_MODES = ["stop", "advise"] as const;
@@ -46,14 +46,14 @@ export const TRIGGER_VETOES = [
 export type TriggerVeto = (typeof TRIGGER_VETOES)[number];
 
 /**
- * One shipped checkpoint seed: the criterion it serves plus the trigger and
+ * One shipped checkpoint seed: the question it serves plus the trigger and
  * mode defaults a bare `[checkpoints.<id>]` reference receives. Every field a
  * project sets on its entry overrides the seed's value; fields carry the same
  * meaning as the `[checkpoints.<id>]` config keys.
  */
 export interface BuiltInCheckpointSeed {
-  /** The canonical criterion id this checkpoint serves (`shared/criteria.ts`). */
-  readonly criterion: string;
+  /** The canonical question id this checkpoint serves (`shared/questions.ts`). */
+  readonly question: string;
   /** Default mode; absent means {@link DEFAULT_CHECKPOINT_MODE}. */
   readonly mode?: CheckpointMode;
   /** Default selector: a configured scope name the trigger matches. */
@@ -72,7 +72,7 @@ export interface BuiltInCheckpointSeed {
 
 /**
  * The built-in checkpoints, by id — the checkpoint membership of the canonical
- * criterion vocabulary, and the single source config validation and policy
+ * question vocabulary, and the single source config validation and policy
  * resolution consult. A project enables one by declaring `[checkpoints.<id>]`;
  * every field the entry sets overrides the seed's.
  *
@@ -95,44 +95,44 @@ export const BUILT_IN_CHECKPOINTS: Readonly<
 > = {
   // ── stop: the knowledge estate ─────────────────────────────────────────────
   "map-focus": {
-    criterion: "map.focus",
+    question: "map.focus",
     paths: ["${map.dir}**"],
     // A one-page touch-up is routine; a documentation change this broad is
     // where unfocused, code-derivable prose usually arrives.
     min_changed_files: 3,
   },
   "instruction-economy": {
-    criterion: "instructions.economy",
+    question: "instructions.economy",
     scope: "instructions",
   },
   "skills-playbook": {
-    criterion: "skills.executable",
+    question: "skills.executable",
     paths: ["${skills.dir}/"],
   },
   "gotchas-playbook": {
-    criterion: "setup.failure-memory",
+    question: "setup.failure-memory",
     paths: ["${project.gotchas_doc}"],
   },
   // ── advise: the shape of the change ────────────────────────────────────────
   "deletion-heavy-change": {
-    criterion: "change.deletion-safety",
+    question: "change.deletion-safety",
     mode: "advise",
     deletion_dominant: true,
   },
   "parallel-implementation": {
-    criterion: "change.parallel-implementation",
+    question: "change.parallel-implementation",
     mode: "advise",
     similar_new_file: true,
   },
   "effort-sprawl": {
-    criterion: "change.effort-scope",
+    question: "change.effort-scope",
     mode: "advise",
     // Whole-diff breadth: an ordinary single effort rarely spans this many
     // files.
     min_changed_files: 25,
   },
   "docs-drift": {
-    criterion: "map.current",
+    question: "map.current",
     mode: "advise",
     // Fires when a substantial change moved nothing in the map. Any map edit
     // vetoes; the threshold keeps small fixes — and regenerated artifacts
@@ -141,7 +141,7 @@ export const BUILT_IN_CHECKPOINTS: Readonly<
     min_changed_files: 5,
   },
   "commit-story": {
-    criterion: "change.commit-story",
+    question: "change.commit-story",
     mode: "advise",
     // The closed menu counts matched files, not commits; breadth is the
     // deterministic stand-in — a change this wide carries a history worth

@@ -2,17 +2,17 @@
  * The stock-versus-flow loop between the improvement coach and the checkpoint
  * boundary (`src/engine/improve/checkpoint_loop.ts`). What must hold:
  *
- *   - marking: a configured checkpoint serving a canonical criterion verbatim
- *     marks that criterion boundary-guarded; an overridden criterion is an
+ *   - marking: a configured checkpoint serving a canonical question verbatim
+ *     marks that question boundary-guarded; an overridden question is an
  *     authored one and never claims the canonical mark;
- *   - estate parity: every configured checkpoint's criterion renders exactly
+ *   - estate parity: every configured checkpoint's question renders exactly
  *     once, with the id and prose the `checkpoints` verb reports — both sides
  *     project from the same resolver, and this suite proves the projection;
- *   - conversion-rule fidelity: an accrued criterion can never be the target
+ *   - conversion-rule fidelity: an accrued question can never be the target
  *     of a graduation route, at construction or at build time;
  *   - evidence gating: no recommendation exists without the project-local
  *     observation it cites, and variance evidence keeps the declared-unmet
- *     conclusion — it never reads as the criterion having been met.
+ *     conclusion — it never reads as the question having been met.
  *
  * Built-in seeds are injected synthetically here so the contract is provable
  * independently of the shipped set; a registry-driven loop then arms the same
@@ -24,7 +24,7 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import type { DiscernConfig } from "../src/shared/config_schema.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
 import type { BuiltInCheckpointSeed } from "../src/shared/checkpoints.ts";
-import { criterionById, placementLadderProse } from "../src/shared/criteria.ts";
+import { placementLadderProse, questionById } from "../src/shared/questions.ts";
 import {
   resolveCheckpoints,
   structurallyDormant,
@@ -33,7 +33,7 @@ import { triggerSummary } from "../src/engine/checkpoints/report.ts";
 import { variedObservation } from "../src/engine/logbook/checkpoint_economics.ts";
 import type { CheckpointVarianceSummary } from "../src/engine/logbook/checkpoint_economics.ts";
 import {
-  boundaryGuardsByCriterion,
+  boundaryGuardsByQuestion,
   boundaryLine,
   checkpointRecommendations,
   ESTATE_AUDIT_TEACH,
@@ -53,7 +53,7 @@ function config(
   return { ...parsed, checkpoints: { ...parsed.checkpoints, ...checkpoints } };
 }
 
-/** A synthetic shipped membership: one seed per canonical criterion named. */
+/** A synthetic shipped membership: one seed per canonical question named. */
 function seedsFor(
   entries: Record<string, BuiltInCheckpointSeed>,
 ): Readonly<Record<string, BuiltInCheckpointSeed>> {
@@ -84,19 +84,19 @@ function finding(detector: string): PatternsFinding {
 const AUTHORED = `
 [checkpoints.api-review]
 paths = ["src/api/**"]
-criterion = "A changed interface is described before it lands."
+question = "A changed interface is described before it lands."
 `;
 
 // ── the boundary marking ────────────────────────────────────────────────────
 
-Deno.test("marking: a bare built-in reference guards its canonical criterion", () => {
+Deno.test("marking: a bare built-in reference guards its canonical question", () => {
   const seeds = seedsFor({
     "failure-memory-gate": {
-      criterion: "setup.failure-memory",
+      question: "setup.failure-memory",
       mode: "advise",
     },
   });
-  const guards = boundaryGuardsByCriterion(
+  const guards = boundaryGuardsByQuestion(
     config("", { "failure-memory-gate": {} }),
     seeds,
   );
@@ -108,11 +108,11 @@ Deno.test("marking: a bare built-in reference guards its canonical criterion", (
 Deno.test("marking: an entry's mode override wins over the seed's", () => {
   const seeds = seedsFor({
     "failure-memory-gate": {
-      criterion: "setup.failure-memory",
+      question: "setup.failure-memory",
       mode: "advise",
     },
   });
-  const guards = boundaryGuardsByCriterion(
+  const guards = boundaryGuardsByQuestion(
     config("", { "failure-memory-gate": { mode: "stop" } }),
     seeds,
   );
@@ -121,14 +121,14 @@ Deno.test("marking: an entry's mode override wins over the seed's", () => {
   ]);
 });
 
-Deno.test("marking: an overridden criterion is authored — no canonical mark", () => {
+Deno.test("marking: an overridden question is authored — no canonical mark", () => {
   const seeds = seedsFor({
-    "failure-memory-gate": { criterion: "setup.failure-memory" },
+    "failure-memory-gate": { question: "setup.failure-memory" },
   });
-  const guards = boundaryGuardsByCriterion(
+  const guards = boundaryGuardsByQuestion(
     config("", {
       "failure-memory-gate": {
-        criterion: "Entirely different judgment prose.",
+        question: "Entirely different judgment prose.",
       },
     }),
     seeds,
@@ -137,20 +137,20 @@ Deno.test("marking: an overridden criterion is authored — no canonical mark", 
 });
 
 Deno.test("marking: an authored checkpoint marks nothing canonical", () => {
-  assertEquals(boundaryGuardsByCriterion(config(AUTHORED)).size, 0);
+  assertEquals(boundaryGuardsByQuestion(config(AUTHORED)).size, 0);
 });
 
 Deno.test("marking: a structurally dormant checkpoint claims no active boundary", () => {
   const seeds = seedsFor({
     "waiting-rule": {
-      criterion: "setup.failure-memory",
+      question: "setup.failure-memory",
       paths: ["${project.gotchas_doc}"],
     },
   });
   const dormant = config("", { "waiting-rule": {} });
   const resolved = resolveCheckpoints(dormant, seeds).checkpoints[0];
   assert(resolved !== undefined && structurallyDormant(resolved));
-  assertEquals(boundaryGuardsByCriterion(dormant, seeds).size, 0);
+  assertEquals(boundaryGuardsByQuestion(dormant, seeds).size, 0);
   const row = estateReviews(dormant, new Set(), seeds)[0];
   assert(row !== undefined);
   assertEquals(row.boundary, undefined);
@@ -164,7 +164,7 @@ Deno.test("marking: a structurally dormant checkpoint claims no active boundary"
     { "waiting-rule": {} },
   );
   assertEquals(
-    boundaryGuardsByCriterion(armed, seeds).get("setup.failure-memory"),
+    boundaryGuardsByQuestion(armed, seeds).get("setup.failure-memory"),
     [{ checkpoint: "waiting-rule", mode: "stop" }],
   );
 });
@@ -199,7 +199,7 @@ Deno.test("estate: a checkpoint's own teach travels verbatim", () => {
   const cfg = config(`
 [checkpoints.api-review]
 paths = ["src/api/**"]
-criterion = "A changed interface is described before it lands."
+question = "A changed interface is described before it lands."
 teach = "Describe the change where its callers will look."
 `);
   assertEquals(
@@ -208,9 +208,9 @@ teach = "Describe the change where its callers will look."
   );
 });
 
-Deno.test("estate: a covered canonical criterion defers to the marked catalog review", () => {
+Deno.test("estate: a covered canonical question defers to the marked catalog review", () => {
   const seeds = seedsFor({
-    "failure-memory-gate": { criterion: "setup.failure-memory" },
+    "failure-memory-gate": { question: "setup.failure-memory" },
   });
   const cfg = config("", { "failure-memory-gate": {} });
   // Covered by the catalog → the catalog row carries the mark; no estate row.
@@ -221,13 +221,13 @@ Deno.test("estate: a covered canonical criterion defers to the marked catalog re
   // Not covered → the estate row serves the canonical prose verbatim.
   const rows = estateReviews(cfg, new Set(), seeds);
   assertEquals(rows.length, 1);
-  assertEquals(rows[0]?.ask, criterionById("setup.failure-memory")?.criterion);
+  assertEquals(rows[0]?.ask, questionById("setup.failure-memory")?.question);
 });
 
 Deno.test("estate parity: rows carry the resolver's id, prose, and trigger — the flow side's identity", () => {
   const seeds = seedsFor({
     "failure-memory-gate": {
-      criterion: "setup.failure-memory",
+      question: "setup.failure-memory",
       mode: "advise",
     },
   });
@@ -242,7 +242,7 @@ Deno.test("estate parity: rows carry the resolver's id, prose, and trigger — t
   for (const def of resolved) {
     const row = rows.find((candidate) => candidate.id === def.id);
     assert(row !== undefined, def.id);
-    assertEquals(row.ask, def.criterion, "criterion prose is byte-identical");
+    assertEquals(row.ask, def.question, "question prose is byte-identical");
     if (def.teach !== undefined) {
       assertEquals(row.teach, def.teach, "teach prose is byte-identical");
     }
@@ -258,7 +258,7 @@ Deno.test("estate parity: rows carry the resolver's id, prose, and trigger — t
 Deno.test("estate: every shipped built-in auto-enrols the moment it exists", () => {
   // Registry-driven: vacuous while BUILT_IN_CHECKPOINTS is empty, armed for
   // every future seed. A bare `[checkpoints.<id>]` reference must render its
-  // canonical criterion exactly once — marked on the catalog review when the
+  // canonical question exactly once — marked on the catalog review when the
   // improvement membership covers it, as an estate row otherwise.
   for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
     // A seed naming a scope only governs where the project defines it; the
@@ -269,16 +269,16 @@ Deno.test("estate: every shipped built-in auto-enrols the moment it exists", () 
         : `[scopes.${seed.scope}]\npaths = ["zz-fixture/**"]\n`,
       { [id]: {} },
     );
-    const canonical = criterionById(seed.criterion);
+    const canonical = questionById(seed.question);
     assert(canonical !== undefined, id);
     const def = resolveCheckpoints(cfg).checkpoints.find((entry) =>
       entry.id === id
     );
     assert(def !== undefined, id);
     const dormant = structurallyDormant(def);
-    const guards = boundaryGuardsByCriterion(cfg);
+    const guards = boundaryGuardsByQuestion(cfg);
     assertEquals(
-      guards.get(seed.criterion)?.[0]?.checkpoint,
+      guards.get(seed.question)?.[0]?.checkpoint,
       dormant ? undefined : id,
     );
     const uncovered = estateReviews(cfg, new Set());
@@ -289,14 +289,14 @@ Deno.test("estate: every shipped built-in auto-enrols the moment it exists", () 
     );
     assertEquals(
       uncovered.find((row) => row.id === id)?.ask,
-      canonical.criterion,
+      canonical.question,
     );
     assertEquals(
       uncovered.find((row) => row.id === id)?.boundary,
       dormant ? undefined : [{ checkpoint: id, mode: def.mode }],
     );
     assertEquals(
-      estateReviews(cfg, new Set([seed.criterion])).length,
+      estateReviews(cfg, new Set([seed.question])).length,
       0,
       `'${id}' must defer to the marked catalog review when covered`,
     );
@@ -305,24 +305,23 @@ Deno.test("estate: every shipped built-in auto-enrols the moment it exists", () 
 
 // ── the conversion rule on graduation ───────────────────────────────────────
 
-Deno.test("conversion fidelity: a route to an accrued criterion refuses construction", () => {
+Deno.test("conversion fidelity: a route to an accrued question refuses construction", () => {
   assertThrows(
-    () =>
-      graduationRoute({ detector: "docs-gap", criterion: "map.navigation" }),
+    () => graduationRoute({ detector: "docs-gap", question: "map.navigation" }),
     Error,
     "audit-side",
   );
   assertThrows(
-    () => graduationRoute({ detector: "docs-gap", criterion: "no.such" }),
+    () => graduationRoute({ detector: "docs-gap", question: "no.such" }),
     Error,
-    "no canonical criterion",
+    "no canonical question",
   );
-  // A diff-introduced criterion constructs.
+  // A diff-introduced question constructs.
   assertEquals(
     graduationRoute({
       detector: "some-detector",
-      criterion: "setup.failure-memory",
-    }).criterion,
+      question: "setup.failure-memory",
+    }).question,
     "setup.failure-memory",
   );
 });
@@ -338,7 +337,7 @@ Deno.test("conversion fidelity: an accrued route injected raw yields no recommen
     config(""),
     { findings: [finding("docs-gap")], varied: [] },
     {},
-    [{ detector: "docs-gap", criterion: "map.navigation" }],
+    [{ detector: "docs-gap", question: "map.navigation" }],
   );
   assertEquals(recommendations, []);
 });
@@ -349,7 +348,7 @@ Deno.test("graduation fires only with its finding, and cites it", () => {
   const routes = [
     graduationRoute({
       detector: "recurring-class",
-      criterion: "setup.failure-memory",
+      question: "setup.failure-memory",
     }),
   ];
   const cfg = config("");
@@ -385,14 +384,14 @@ Deno.test("graduation fires only with its finding, and cites it", () => {
   );
 });
 
-Deno.test("graduation is suppressed once a configured checkpoint guards the criterion", () => {
+Deno.test("graduation is suppressed once a configured checkpoint guards the question", () => {
   const seeds = seedsFor({
-    "failure-memory-gate": { criterion: "setup.failure-memory" },
+    "failure-memory-gate": { question: "setup.failure-memory" },
   });
   const routes = [
     graduationRoute({
       detector: "recurring-class",
-      criterion: "setup.failure-memory",
+      question: "setup.failure-memory",
     }),
   ];
   const recommendations = checkpointRecommendations(
@@ -411,14 +410,14 @@ Deno.test("graduation is suppressed once a configured checkpoint guards the crit
 Deno.test("graduation is not suppressed by a dormant checkpoint", () => {
   const seeds = seedsFor({
     "waiting-rule": {
-      criterion: "setup.failure-memory",
+      question: "setup.failure-memory",
       paths: [""],
     },
   });
   const routes = [
     graduationRoute({
       detector: "recurring-class",
-      criterion: "setup.failure-memory",
+      question: "setup.failure-memory",
     }),
   ];
   const recommendations = checkpointRecommendations(
@@ -482,29 +481,29 @@ Deno.test("variance evidence preserves the declared-unmet conclusion", () => {
     "the teaching names the declared-unmet conclusion",
   );
   assert(
-    review.why.includes("never records the criterion as met"),
+    review.why.includes("never records the question as met"),
     "a variance is authorization, not a met conclusion",
   );
-  // The vocabulary discipline: no surface may read as the criterion having
+  // The vocabulary discipline: no surface may read as the question having
   // been met. Strip the declared-unmet phrase and the explicit negation, then
   // demand no bare met-claim survives.
   const stripped = rendered
     .replaceAll("declared-unmet", "")
-    .replaceAll("never records the criterion as met", "");
+    .replaceAll("never records the question as met", "");
   assert(
-    !/\b(criterion|declared|conclusion)\s+met\b/i.test(stripped),
-    `variance prose must never claim the criterion was met:\n${rendered}`,
+    !/\b(question|declared|conclusion)\s+met\b/i.test(stripped),
+    `variance prose must never claim the question was met:\n${rendered}`,
   );
 });
 
 Deno.test("reviews of existing checkpoints lead the recommendation order", () => {
   const seeds = seedsFor({
-    "failure-memory-gate": { criterion: "setup.failure-memory" },
+    "failure-memory-gate": { question: "setup.failure-memory" },
   });
   const routes = [
     graduationRoute({
       detector: "recurring-class",
-      criterion: "skills.executable",
+      question: "skills.executable",
     }),
   ];
   const recommendations = checkpointRecommendations(

@@ -17,7 +17,7 @@ Audience `all` renders on every surface. Audience `agent` marks an instruction o
 
 Rendered example:
 
-> Relay each criterion and rationale above to the owner. Once the owner accepts the landing AND each named variance in the current conversation, re-run `discern accept --confirmed --variance api-review`. Recorded standing and effort grants never authorize a variance.
+> Relay each question and rationale above to the owner. Once the owner accepts the landing AND each named variance in the current conversation, re-run `discern accept --confirmed --variance api-review`. Recorded standing and effort grants never authorize a variance.
 
 ## `accept-awaiting-confirmation`
 
@@ -50,7 +50,7 @@ Rendered example:
 
 Rendered example:
 
-> Run `discern done` — it serves each checkpoint's criterion and evidence and records your conclusion (--met, or --unmet with --why). Missing or stale: api-review.
+> Run `discern done` — it serves each checkpoint's question and evidence and records your conclusion (--met, or --unmet with --why). Missing or stale: api-review.
 
 ## `accept-publish-proof-note`
 
@@ -204,7 +204,7 @@ Rendered example:
 - Category: `notice`
 - Audience: `all`
 - Family: `checkpoint-advise`
-- Emitting context: An advise-mode checkpoint's trigger fired; its criterion is served without blocking.
+- Emitting context: An advise-mode checkpoint's trigger fired; its question is served without blocking.
 
 Rendered example:
 
@@ -230,14 +230,14 @@ Rendered example:
 
 Rendered example:
 
-> Judge each criterion above against its changed paths, then record your conclusion and re-run the gate in one step: `discern done --met <id>` (repeatable) for a criterion your change satisfies, or `discern done --unmet <id>` with its required one-paragraph rationale (--why, one per invocation) to record that it is not satisfied — the gate still runs, and the owner decides at landing. Awaiting: api-review.
+> Judge each question above against its changed paths, then record your conclusion and re-run the gate in one step: `discern done --met <id>` (repeatable) for a question your change satisfies, or `discern done --unmet <id>` with its required one-paragraph rationale (--why, one per invocation) to record that it is not satisfied — the gate still runs, and the owner decides at landing. Awaiting: api-review.
 
 ## `checkpoint-preview`
 
 - Category: `notice`
 - Audience: `all`
 - Family: `checkpoint-preview`
-- Emitting context: A previewing surface (`prepare`, `status`) finds a stop checkpoint's trigger holding against the current diff; the criterion is served early, without blocking.
+- Emitting context: A previewing surface (`prepare`, `status`) finds a stop checkpoint's trigger holding against the current diff; the question is served early, without blocking.
 
 Rendered example:
 
@@ -248,11 +248,11 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: `checkpoint-declaration`
-- Emitting context: The checkpoints report finds a stop criterion awaiting the caller's conclusion — a trigger that holds, or an episode without a current declaration.
+- Emitting context: The checkpoints report finds a stop question awaiting the caller's conclusion — a trigger that holds, or an episode without a current declaration.
 
 Rendered example:
 
-> Judge each criterion above against its changed paths, then record your conclusion at the gate: `discern done --met <id>` (repeatable) for a criterion your change satisfies, or `discern done --unmet <id>` with its required one-paragraph rationale (--why, one per invocation) to record that it is not satisfied — the gate still runs, and the owner decides at landing. Awaiting: api-review.
+> Judge each question above against its changed paths, then record your conclusion at the gate: `discern done --met <id>` (repeatable) for a question your change satisfies, or `discern done --unmet <id>` with its required one-paragraph rationale (--why, one per invocation) to record that it is not satisfied — the gate still runs, and the owner decides at landing. Awaiting: api-review.
 
 ## `checkpoints-variance-review`
 
@@ -263,7 +263,7 @@ Rendered example:
 
 Rendered example:
 
-> A declared-unmet conclusion stands on: api-review. Landing requires the owner to authorize each variance in the current conversation — recorded standing and effort grants never cover one. Relay each criterion and rationale above to the owner; the decision is served at `discern accept`.
+> A declared-unmet conclusion stands on: api-review. Landing requires the owner to authorize each variance in the current conversation — recorded standing and effort grants never cover one. Relay each question and rationale above to the owner; the decision is served at `discern accept`.
 
 ## `config-job-deferred`
 

@@ -157,7 +157,7 @@ export interface RuleResult {
   teach: string;
 }
 
-/** One boundary guard on a criterion: an active checkpoint serving it. */
+/** One boundary guard on a question: an active checkpoint serving it. */
 export interface BoundaryGuard {
   /** The configured checkpoint id (`[checkpoints.<id>]`). */
   checkpoint: string;
@@ -165,7 +165,7 @@ export interface BoundaryGuard {
 }
 
 /** One open subjective review item for the agent to judge. A review whose
- * criterion an active configured checkpoint also serves carries that
+ * question an active configured checkpoint also serves carries that
  * `boundary` — the flow is guarded at the gate; the review audits the estate
  * (the stock of existing violations the boundary tolerates). */
 export interface ReviewResult {
@@ -230,7 +230,7 @@ export type CheckpointRecommendationId =
  */
 export interface CheckpointRecommendation {
   id: CheckpointRecommendationId;
-  /** What the decision is about: a checkpoint id, or a criterion id. */
+  /** What the decision is about: a checkpoint id, or a question id. */
   subject: string;
   title: string;
   /** The decision to make, phrased as the owner's. */

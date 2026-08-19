@@ -274,7 +274,7 @@ export function attachEngineCommands(
     )
     .option(
       "--met <id:string>",
-      "Declare a served checkpoint's criterion met (repeatable). Valid only " +
+      "Declare a served checkpoint's question met (repeatable). Valid only " +
         "for a checkpoint with an active episode here; the declaration is " +
         "recorded as your judgment, and the gate runs in the same invocation " +
         "once every awaiting checkpoint has a conclusion.",
@@ -282,7 +282,7 @@ export function attachEngineCommands(
     )
     .option(
       "--unmet <id:string>",
-      "Declare a served checkpoint's criterion unmet (one per invocation; " +
+      "Declare a served checkpoint's question unmet (one per invocation; " +
         "requires --why). The gate still runs; landing then needs the owner " +
         "to authorize a variance for it.",
       { collect: true },
@@ -318,7 +318,7 @@ export function attachEngineCommands(
         const unmetId = unmetIds[0];
         if (unmetId !== undefined && o.why === undefined) {
           return invalid(
-            '--unmet requires --why "<rationale>" — one paragraph on why the criterion is not satisfied.',
+            '--unmet requires --why "<rationale>" — one paragraph on why the question is not satisfied.',
           );
         }
         if (unmetId === undefined && o.why !== undefined) {

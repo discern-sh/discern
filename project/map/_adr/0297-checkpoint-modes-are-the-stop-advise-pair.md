@@ -11,13 +11,13 @@ A checkpoint needs exactly one operational question answered: when its trigger f
 **Two modes, closed: `stop` (the default) and `advise`.**
 
 - `stop`: `discern done` refuses before any gate job until the agent records a met or unmet conclusion for the current subject. The default, because a checkpoint worth configuring is worth answering — and a declared-unmet answer plus an owner variance is always available, so `stop` never traps a legitimate exception.
-- `advise`: the criterion and its matched evidence are delivered through the existing advisory channels and never require a declaration; firings are still recorded for economics. This is the home for heuristic triggers (delta shapes, name similarity) whose false positives would make a hard interlock corrosive.
+- `advise`: the question and its matched evidence are delivered through the existing advisory channels and never require a declaration; firings are still recorded for economics. This is the home for heuristic triggers (delta shapes, name similarity) whose false positives would make a hard interlock corrosive.
 - The pair is a closed vocabulary (`CHECKPOINT_MODES`), carried by the config schema's enum and every consumer through the one constant, so a third mode is a deliberate schema change, not a drive-by string.
 - Scarcity stays a design value the modes serve: batching, fire-once episodes, `advise` for heuristics, and measured economics exist so `stop` can stay rare and meaningful.
 
 ## Consequences
 
-- Every fired checkpoint has an unambiguous operational meaning: either the gate waits for a recorded judgment, or nobody is blocked and the criterion arrives as counsel.
+- Every fired checkpoint has an unambiguous operational meaning: either the gate waits for a recorded judgment, or nobody is blocked and the question arrives as counsel.
 - Tuning pressure has one honest lever: a too-noisy `stop` checkpoint becomes `advise` or narrows its trigger — there is no middle severity to hide in.
 - Hygiene signals (dead, noisy, frequently varied checkpoints) come from observed economics later in the programme, not from more modes now.
 

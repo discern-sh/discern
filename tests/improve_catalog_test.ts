@@ -295,7 +295,7 @@ limit = 1
 run = "echo"
 [checkpoints.api-review]
 paths = ["src/api/**"]
-criterion = "A changed interface is described before it lands."
+question = "A changed interface is described before it lands."
 `;
 
 Deno.test("the checkpoints category audits a configured checkpoint estate-wide", () => {

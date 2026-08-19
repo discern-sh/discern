@@ -319,7 +319,7 @@ const FULL_FILL_DOC: DiscernConfigDoc = {
     r1: { direction: "up", limit: 1, run: "measure-r1" },
   },
   checkpoints: {
-    k1: { paths: ["s1/**"], criterion: "The change is judged." },
+    k1: { paths: ["s1/**"], question: "The change is judged." },
   },
 };
 

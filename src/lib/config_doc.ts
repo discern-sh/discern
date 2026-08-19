@@ -298,18 +298,18 @@ export function applyConfigDoc(
     });
   }
 
-  // Checkpoints: a criterion is required unless the id names a shipped
+  // Checkpoints: a question is required unless the id names a shipped
   // built-in (which carries its own); one selector at most; mode from the
   // closed pair. The remaining trigger fields write through as given.
   for (const [name, spec] of Object.entries(doc.checkpoints ?? {})) {
     assertName("checkpoint", name);
-    const criterion = spec.criterion;
+    const question = spec.question;
     if (
       !isBuiltInCheckpoint(name) &&
-      (typeof criterion !== "string" || criterion.trim() === "")
+      (typeof question !== "string" || question.trim() === "")
     ) {
       throw new Error(
-        `checkpoint "${name}": a criterion is required (only a shipped built-in id may omit it)`,
+        `checkpoint "${name}": a question is required (only a shipped built-in id may omit it)`,
       );
     }
     if (spec.scope !== undefined && spec.paths !== undefined) {
@@ -361,8 +361,8 @@ export function applyConfigDoc(
         if (mode !== undefined) {
           editor.setString(`${key}.mode`, mode);
         }
-        if (typeof criterion === "string") {
-          editor.setString(`${key}.criterion`, criterion);
+        if (typeof question === "string") {
+          editor.setString(`${key}.question`, question);
         }
         if (spec.teach !== undefined) {
           editor.setString(`${key}.teach`, spec.teach);

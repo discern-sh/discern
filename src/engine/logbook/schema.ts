@@ -252,7 +252,7 @@ const checkpointDeclarationSchema = z.looseObject({
  * The checkpoint observations one invocation produced — how the episode and
  * variance lifecycle actually behaved, without judging it: what fired or
  * reopened, what was declared (and whether the subject had been revised),
- * which advise criteria were served, which variances a completed landing
+ * which advise questions were served, which variances a completed landing
  * carried, and which episodes were still awaiting a conclusion when the
  * effort ended. Loose and wholly optional: readers censor missing pieces.
  */

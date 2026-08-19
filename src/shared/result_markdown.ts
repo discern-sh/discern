@@ -985,9 +985,9 @@ function checkpointRowLine(row: Record<string, unknown>): string {
   const mode = text(row.mode) ?? "stop";
   const episode = object(row.episode);
   const preview = object(row.preview);
-  const criterion = text(row.criterion);
-  const withCriterion = (phrase: string): string =>
-    criterion === undefined ? phrase : `${phrase} — ${criterion}`;
+  const question = text(row.question);
+  const withQuestion = (phrase: string): string =>
+    question === undefined ? phrase : `${phrase} — ${question}`;
   if (episode !== undefined) {
     const declaration = object(episode.declaration);
     const why = text(declaration?.why);
@@ -1006,13 +1006,13 @@ function checkpointRowLine(row: Record<string, unknown>): string {
           why === undefined ? "" : `. Rationale: ${code(why)}`}.`;
       case "reopened":
         return `${id} (${mode}): ${
-          withCriterion(
+          withQuestion(
             "reopened — a relevant change unbound the declared conclusion; declare again",
           )
         }.`;
       default:
         return `${id} (${mode}): ${
-          withCriterion("awaiting a declared conclusion")
+          withQuestion("awaiting a declared conclusion")
         }.`;
     }
   }
@@ -1025,13 +1025,13 @@ function checkpointRowLine(row: Record<string, unknown>): string {
   const matched = strings(preview.matched).length;
   if (preview.when_pending === true) {
     return `${id} (${mode}): ${
-      withCriterion(
+      withQuestion(
         `may fire at done — its when command decides (${matched} matched)`,
       )
     }.`;
   }
   return `${id} (${mode}): ${
-    withCriterion(`would fire at done (${matched} matched)`)
+    withQuestion(`would fire at done (${matched} matched)`)
   }.`;
 }
 

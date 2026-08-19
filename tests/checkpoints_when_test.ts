@@ -17,7 +17,7 @@ import {
 
 Deno.test("when: the shipped budget is the ten-second pre-flight contract", () => {
   // The fixed wall-clock budget is a published contract ("a pre-flight
-  // condition answers in seconds"): docs and criteria describe it, and every
+  // condition answers in seconds"): docs and questions describe it, and every
   // production call site relies on the default. Changing it is a deliberate
   // decision that starts here.
   assertEquals(CHECKPOINT_WHEN_TIMEOUT_SECONDS, 10);

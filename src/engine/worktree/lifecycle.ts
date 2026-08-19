@@ -1744,7 +1744,7 @@ function acceptDeclarationsStaleResult(
       `Landing needs a current conclusion for every governing checkpoint, and ${
         ids.length === 1 ? "one is" : `${ids.length} are`
       } missing or no longer current: ${ids.join(", ")}. Run \`discern ` +
-      "done` — it serves each criterion with its evidence and records your " +
+      "done` — it serves each question with its evidence and records your " +
       `conclusion — then re-run \`discern accept\`. ${ACCEPT_NOTHING_LANDED}`,
     hints: hintTexts([
       fire(HINTS["accept-declarations-stale"], { ids: [...ids] }),
@@ -1764,7 +1764,7 @@ function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
     : "";
   const lines = [
     `${unmet.id} — declared unmet at ${unmet.declaredAt}`,
-    `  Criterion: ${unmet.criterion.trim()}`,
+    `  Question: ${unmet.question.trim()}`,
     `  Changed: ${shown}${more}`,
     `  Rationale: ${markdownCodeSpan(unmet.why)}`,
   ];
@@ -1777,12 +1777,12 @@ function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
 /**
  * The read-only refusal `accept` serves while a current declared-unmet
  * conclusion stands without the owner's complete decision: every such
- * checkpoint batched with its criterion, evidence, and the agent's rationale,
+ * checkpoint batched with its question, evidence, and the agent's rationale,
  * and ONE recovery — the owner accepts the landing and each named variance in
  * the current conversation (`--confirmed` plus one `--variance <id>` each).
  * Standing and effort grants never authorize a variance. Its own typed
  * contract, distinct from awaiting_consent: consent accepts the landing; a
- * variance additionally authorizes landing a criterion the agent judged
+ * variance additionally authorizes landing a question the agent judged
  * unmet.
  */
 function acceptAwaitingVarianceResult(
@@ -1809,7 +1809,7 @@ function acceptAwaitingVarianceResult(
     message:
       `${decision}\n\n${
         unmet.map(serveUnmetConclusion).join("\n\n")
-      }\n\nRelay each criterion and rationale to the owner. Once the owner ` +
+      }\n\nRelay each question and rationale to the owner. Once the owner ` +
       `accepts this landing AND each named variance in the current ` +
       `conversation, re-run \`${command}\`. Recorded standing and effort ` +
       `grants never authorize a variance. ${ACCEPT_NOTHING_LANDED}`,

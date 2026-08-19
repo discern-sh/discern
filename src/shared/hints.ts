@@ -2035,10 +2035,10 @@ export const HINTS = {
     followThrough: CHECKPOINT_DECLARATION_FOLLOW_THROUGH,
     example: { ids: ["api-review"] },
     template: ({ ids }): string =>
-      `Judge each criterion above against its changed paths, then record your ` +
+      `Judge each question above against its changed paths, then record your ` +
       `conclusion and re-run the gate in one step: ${
         discernCommand("done", flag("met", "<id>"))
-      } (repeatable) for a criterion your change satisfies, or ${
+      } (repeatable) for a question your change satisfies, or ${
         discernCommand("done", flag("unmet", "<id>"))
       } with its required one-paragraph rationale (${WHY_FLAG}, one per ` +
       `invocation) to record that it is not satisfied — the gate still runs, ` +
@@ -2046,50 +2046,50 @@ export const HINTS = {
   }),
 
   "checkpoint-preview": defineHint<
-    { id: string; criterion: string; matched: string[]; whenPending: boolean }
+    { id: string; question: string; matched: string[]; whenPending: boolean }
   >({
     id: "checkpoint-preview",
     category: "notice",
     audience: "all",
     when:
-      "A previewing surface (`prepare`, `status`) finds a stop checkpoint's trigger holding against the current diff; the criterion is served early, without blocking.",
+      "A previewing surface (`prepare`, `status`) finds a stop checkpoint's trigger holding against the current diff; the question is served early, without blocking.",
     family: "checkpoint-preview",
     example: {
       id: "api-review",
-      criterion:
+      question:
         "A changed API surface is described in its docs before it lands.",
       matched: ["src/api/surface.ext"],
       whenPending: false,
     },
-    template: ({ id, criterion, matched, whenPending }): string => {
+    template: ({ id, question, matched, whenPending }): string => {
       const shown = matched.slice(0, 4).join(", ");
       const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
       const claim = whenPending
         ? "may require a declared conclusion (its when command decides)"
         : "will require a declared conclusion";
-      return `Checkpoint '${id}' ${claim} at ${CMD.done}: ${criterion} ` +
+      return `Checkpoint '${id}' ${claim} at ${CMD.done}: ${question} ` +
         `Changed: ${shown}${more}.`;
     },
   }),
 
   "checkpoint-advise": defineHint<
-    { id: string; criterion: string; matched: string[] }
+    { id: string; question: string; matched: string[] }
   >({
     id: "checkpoint-advise",
     category: "notice",
     audience: "all",
     when:
-      "An advise-mode checkpoint's trigger fired; its criterion is served without blocking.",
+      "An advise-mode checkpoint's trigger fired; its question is served without blocking.",
     family: "checkpoint-advise",
     example: {
       id: "deletion-heavy-change",
-      criterion: "Is the cut proven dead, and recovery bounded?",
+      question: "Is the cut proven dead, and recovery bounded?",
       matched: ["src/legacy_module.ext"],
     },
-    template: ({ id, criterion, matched }): string => {
+    template: ({ id, question, matched }): string => {
       const shown = matched.slice(0, 4).join(", ");
       const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
-      return `Checkpoint '${id}' (advisory — nothing blocks): ${criterion} ` +
+      return `Checkpoint '${id}' (advisory — nothing blocks): ${question} ` +
         `Changed: ${shown}${more}.`;
     },
   }),
@@ -2131,7 +2131,7 @@ export const HINTS = {
     family: "checkpoint-declaration",
     example: { ids: ["api-review"] },
     template: ({ ids }): string =>
-      `Run ${CMD.done} — it serves each checkpoint's criterion and evidence ` +
+      `Run ${CMD.done} — it serves each checkpoint's question and evidence ` +
       `and records your conclusion (${MET_FLAG}, or ${UNMET_FLAG} with ` +
       `${WHY_FLAG}). Missing or stale: ${ids.join(", ")}.`,
   }),
@@ -2145,7 +2145,7 @@ export const HINTS = {
     family: "checkpoint-variance",
     example: { ids: ["api-review"] },
     template: ({ ids }): string =>
-      `Relay each criterion and rationale above to the owner. Once the owner ` +
+      `Relay each question and rationale above to the owner. Once the owner ` +
       `accepts the landing AND each named variance in the current ` +
       `conversation, re-run ${
         discernCommand(
@@ -2161,14 +2161,14 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "The checkpoints report finds a stop criterion awaiting the caller's conclusion — a trigger that holds, or an episode without a current declaration.",
+      "The checkpoints report finds a stop question awaiting the caller's conclusion — a trigger that holds, or an episode without a current declaration.",
     family: "checkpoint-declaration",
     example: { ids: ["api-review"] },
     template: ({ ids }): string =>
-      `Judge each criterion above against its changed paths, then record ` +
+      `Judge each question above against its changed paths, then record ` +
       `your conclusion at the gate: ${
         discernCommand("done", flag("met", "<id>"))
-      } (repeatable) for a criterion your change satisfies, or ${
+      } (repeatable) for a question your change satisfies, or ${
         discernCommand("done", flag("unmet", "<id>"))
       } with its required one-paragraph rationale (${WHY_FLAG}, one per ` +
       `invocation) to record that it is not satisfied — the gate still runs, ` +
@@ -2187,7 +2187,7 @@ export const HINTS = {
       `A declared-unmet conclusion stands on: ${ids.join(", ")}. Landing ` +
       `requires the owner to authorize each variance in the current ` +
       `conversation — recorded standing and effort grants never cover one. ` +
-      `Relay each criterion and rationale above to the owner; the decision ` +
+      `Relay each question and rationale above to the owner; the decision ` +
       `is served at ${CMD.accept}.`,
   }),
 

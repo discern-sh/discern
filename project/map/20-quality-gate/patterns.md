@@ -78,7 +78,7 @@ Tip adoption derives its measured entries and invited verbs from the tip registr
 
 ### Checkpoint hygiene
 
-`checkpoint-dead`, `checkpoint-noisy`, and `checkpoint-varied` read the shared economics tallies and advise on configuration fit; no finding evaluates an agent. The first two count gate-run efforts since the newest `[checkpoints]` config change, so a revised definition earns fresh evidence: after 8, a checkpoint that never fired reads as mis-scoped, and one served on at least 80% reads as taxing every change. `checkpoint-varied` speaks after 3 landed efforts where the checkpoint fired, at least half under owner-authorized variance. Findings give counts beside denominators and recommend a trigger, criterion, or mode review.
+`checkpoint-dead`, `checkpoint-noisy`, and `checkpoint-varied` read the shared economics tallies and advise on configuration fit; no finding evaluates an agent. The first two count gate-run efforts since the newest `[checkpoints]` config change, so a revised definition earns fresh evidence: after 8, a checkpoint that never fired reads as mis-scoped, and one served on at least 80% reads as taxing every change. `checkpoint-varied` speaks after 3 landed efforts where the checkpoint fired, at least half under owner-authorized variance. Findings give counts beside denominators and recommend a trigger, question, or mode review.
 
 ### Landing authority findings
 

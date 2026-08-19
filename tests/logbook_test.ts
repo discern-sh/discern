@@ -401,23 +401,23 @@ Deno.test("epoch: a job edit flips exactly the jobs section", () => {
   ]);
 });
 
-Deno.test("epoch: a checkpoint trigger or criterion edit flips exactly the checkpoints section", () => {
+Deno.test("epoch: a checkpoint trigger or question edit flips exactly the checkpoints section", () => {
   // Economics shifts must be attributable to definition changes: an edited
-  // trigger or criterion lands as a config-change event naming `checkpoints`,
+  // trigger or question lands as a config-change event naming `checkpoints`,
   // and nothing else moves.
-  const CHECKPOINT_CONFIG = (paths: string, criterion: string): string => `
+  const CHECKPOINT_CONFIG = (paths: string, question: string): string => `
 [checkpoints.api-review]
 paths = ["${paths}"]
-criterion = "${criterion}"
+question = "${question}"
 `;
   const before = configEpoch(
     parseConfigOrThrow(CHECKPOINT_CONFIG("src/api/**", "Documented.")),
   );
-  const criterionEdited = configEpoch(
+  const questionEdited = configEpoch(
     parseConfigOrThrow(CHECKPOINT_CONFIG("src/api/**", "Documented, tested.")),
   );
-  assert(criterionEdited.fingerprint !== before.fingerprint);
-  assertEquals(changedSections(before.sections, criterionEdited.sections), [
+  assert(questionEdited.fingerprint !== before.fingerprint);
+  assertEquals(changedSections(before.sections, questionEdited.sections), [
     "checkpoints",
   ]);
   const triggerEdited = configEpoch(
