@@ -298,19 +298,21 @@ paths = ["src/api/**"]
 question = "A changed interface is described before it lands."
 `;
 
-Deno.test("the checkpoints category audits a configured checkpoint estate-wide", () => {
+Deno.test("the checkpoints category audits a configured checkpoint project-wide", () => {
   const report = evaluateReport(ctx(CHECKPOINT_TOML), "checkpoints");
   const category = report.categories[0];
   assertEquals(category?.name, "checkpoints");
-  // The standing placement review plus one estate row for the checkpoint.
+  // The standing placement review plus one audit row for the checkpoint.
   const ids = category?.reviews.map((review) => review.id) ?? [];
   assertEquals(ids, ["checkpoints.opportunity", "api-review"]);
-  const estate = category?.reviews.find((review) => review.id === "api-review");
+  const audited = category?.reviews.find((review) =>
+    review.id === "api-review"
+  );
   assertEquals(
-    estate?.ask,
+    audited?.ask,
     "A changed interface is described before it lands.",
   );
-  assertEquals(estate?.boundary, [{ checkpoint: "api-review", mode: "stop" }]);
+  assertEquals(audited?.boundary, [{ checkpoint: "api-review", mode: "stop" }]);
   // The placement review cites the configured membership.
   const placement = category?.reviews.find(
     (review) => review.id === "checkpoints.opportunity",

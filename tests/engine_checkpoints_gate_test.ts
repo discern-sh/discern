@@ -688,7 +688,7 @@ Deno.test("done: a fresh install's shipped defaults govern out of the box", asyn
     // The template's own activation, untouched: this is day one after setup.
     await scaffoldEngine(dir, { keepCheckpoints: true });
     await gitInit(dir);
-    // Grow the always-loaded instructions — the knowledge-estate moment the
+    // Grow the always-loaded instructions — the knowledge-surface moment the
     // shipped `instruction-economy` stop guards.
     await Deno.mkdir(join(dir, "discern"), { recursive: true });
     await Deno.writeTextFile(

@@ -232,7 +232,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       },
     ],
     definition:
-      "The judgment prose a [checkpoint](#checkpoint) serves and [estate review](../20-quality-gate/improvement.md) evaluates: a stable id, the question itself, and a `teach` saying why it matters. A question is semantic by design (the agent evaluates it, discern does not), and the recorded answer stays [declared met](#declared-met) or [declared unmet](#declared-unmet), apart from machine-verified results. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
+      "The judgment prose a [checkpoint](#checkpoint) serves and the [improvement review](../20-quality-gate/improvement.md) evaluates: a stable id, the question itself, and a `teach` saying why it matters. A question is semantic by design (the agent evaluates it, discern does not), and the recorded answer stays [declared met](#declared-met) or [declared unmet](#declared-unmet), apart from machine-verified results. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
   },
   {
     term: "Open question",
@@ -503,6 +503,22 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     matches: ["discern patterns"],
     definition:
       "What `discern patterns` reports: findings mined from the [logbook](#logbook) by a registry of named detectors (behavior loops, gate fit, funnel flow, and each [standard](#standard)'s trajectory), each stated in plain counts with a recommended next step ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It is [advisory](#advisory) only, and below a detector's evidence threshold it reports insufficient evidence instead of guessing. Covered in [practice patterns](../20-quality-gate/patterns.md).",
+  },
+  {
+    term: "Improvement review",
+    plain: { phrase: "the project-wide quality review" },
+    matches: ["improvement review", "improvement audit"],
+    definition:
+      "The audit `discern improvement` serves: subjective [questions](#question) evaluated across what already exists in the project, beside the deterministic placement rules. It is the stock-side partner of the [checkpoint](#checkpoint) boundary — the gate stops new violations as a change completes; this review audits what the project already holds, including violations a boundary tolerates because they predate it. Covered in [improvement](../20-quality-gate/improvement.md).",
+    retired: [
+      {
+        // The launch-era name for the review's object ("estate review",
+        // "the knowledge estate"). Live surfaces now say the improvement
+        // review / audit and the knowledge surfaces instead.
+        phrase: "estate",
+        pattern: String.raw`\bestates?\b`,
+      },
+    ],
   },
   {
     term: "Placement is consent",

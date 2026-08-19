@@ -252,7 +252,7 @@ export async function scaffoldEngine(
     await markBootstrapped(join(dir, "discern.toml"));
   }
   // The shipped template activates the built-in checkpoints, so a fresh
-  // scaffold's knowledge-estate edits meet the stop interlock at `done`.
+  // scaffold's knowledge-surface edits meet the stop interlock at `done`.
   // Unrelated engine tests want a quiet gate (the same accommodation as
   // bootstrapping above); the fresh-install defaults are exercised where a
   // test passes `keepCheckpoints` deliberately.

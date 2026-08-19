@@ -138,7 +138,7 @@ export interface Category {
   title: string;
   rules: Rule[];
   /** Extra review items derived from configuration at evaluation time — the
-   * checkpoint estate audit builds its rows here. The static rules stay the
+   * checkpoint improvement audit builds its rows here. The static rules stay the
    * catalog's single source; a builder only projects config the owner wrote. */
   dynamicReviews?: (ctx: ImprovementContext) => ReviewResult[];
 }
@@ -166,7 +166,7 @@ export interface BoundaryGuard {
 
 /** One open subjective review item for the agent to judge. A review whose
  * question an active configured checkpoint also serves carries that
- * `boundary` — the flow is guarded at the gate; the review audits the estate
+ * `boundary` — the flow is guarded at the gate; the review audits what already exists
  * (the stock of existing violations the boundary tolerates). */
 export interface ReviewResult {
   id: string;

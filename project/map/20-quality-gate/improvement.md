@@ -41,7 +41,7 @@ This group is separate from the static catalogue. It changes no category score, 
 
 ## The checkpoint loop
 
-Configured checkpoints join the estate audit ([ADR 0301](../_adr/0301-the-coach-closes-the-checkpoint-loop.md)): one serving a canonical question verbatim marks that review boundary-guarded; any other renders an estate row under `checkpoints`, identical in id and prose to `discern checkpoints`. Recorded evidence (a frequently-varied checkpoint, a recurring diff-introduced finding class) surfaces under `recommendations` as an owner decision with its counts, and variance prose keeps the declared-unmet conclusion.
+Configured checkpoints join the improvement audit ([ADR 0301](../_adr/0301-the-coach-closes-the-checkpoint-loop.md)): one serving a canonical question verbatim marks that review boundary-guarded; any other renders an audit row under `checkpoints`, identical in id and prose to `discern checkpoints`. Recorded evidence (a frequently-varied checkpoint, a recurring diff-introduced finding class) surfaces under `recommendations` as an owner decision with its counts, and variance prose keeps the declared-unmet conclusion.
 
 ## How the next action is chosen
 
@@ -57,7 +57,7 @@ Objective gaps lead. The coach chooses the fix that recovers the most weighted s
 | `map`          | A navigable Map, decision records, and documentation accuracy.                                    |
 | `worktrees`    | Isolation for shared external resources.                                                          |
 | `standards`    | At least one defended Standard and sensible use of rates.                                         |
-| `checkpoints`  | The placement ladder and configured checkpoints audited estate-wide.                              |
+| `checkpoints`  | The placement ladder and configured checkpoints audited project-wide.                             |
 | `skills`       | Repeated workflows captured as executable, verifiable Skills.                                     |
 
 Every category applies to every install; discern has no feature-toggle layer ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).

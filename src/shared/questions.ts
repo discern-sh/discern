@@ -9,7 +9,7 @@
  * decision, and there are two:
  *
  *   - the **improvement membership** (`engine/improve/rules.ts`): the subjective
- *     rules of the improvement catalog reference questions by id for estate-wide
+ *     rules of the improvement catalog reference questions by id for project-wide
  *     review — the audit of what already exists.
  *   - the **checkpoint membership** (`shared/checkpoints.ts`): a built-in
  *     checkpoint pairs a question with a deterministic diff trigger, so the
@@ -41,7 +41,7 @@ import { diagnosticFormatList } from "../engine/gate/diagnostics.ts";
  *     completes; the question is eligible for the checkpoint membership.
  *   - `accrued`: the violation builds up by time or absence (staleness, lost
  *     navigability, a protection nobody has declared yet); no diff marks the
- *     moment, so the question belongs to estate review only.
+ *     moment, so the question belongs to the improvement review only.
  */
 export const QUESTION_VIOLATION_MODES = [
   "diff-introduced",
@@ -192,7 +192,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     // Diff-introduced: a page goes stale only when the code it describes
     // changes without it — the diff marks the moment; time alone never
-    // creates the violation. Estate review still audits the accumulated
+    // creates the violation. The improvement review still audits the accumulated
     // backlog through the improvement membership.
     id: "map.current",
     violations: "diff-introduced",
@@ -285,7 +285,7 @@ export const QUESTIONS: readonly Question[] = [
       "Place each rule at the cheapest rung that still catches its violations: " +
       `${placementLadderProse()}. A question earns a checkpoint only when its ` +
       "violations arrive with a diff; one that accrues by time or absence " +
-      "belongs to estate review like this one. When a checkpoint's question " +
+      "belongs to the improvement review like this one. When a checkpoint's question " +
       "becomes mechanically decidable, move it down the ladder: the " +
       "discern-set-the-standard skill's outlaw procedure turns it into a " +
       "measured ceiling, then a permanent gate rule.",

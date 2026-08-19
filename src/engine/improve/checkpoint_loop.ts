@@ -2,7 +2,7 @@
  * The **stock-versus-flow loop** between the improvement coach and the
  * checkpoint boundary. Checkpoints guard the flow: a configured trigger serves
  * a question as a matching change completes, so new violations meet a
- * judgment before they land. The coach audits the stock: the estate of what
+ * judgment before they land. The coach audits the stock: what
  * already exists, including the violations a boundary tolerates because they
  * predate it. This module keeps the two speaking one vocabulary:
  *
@@ -10,7 +10,7 @@
  *     question an active configured checkpoint also serves, so the owner
  *     sees which questions have flow protection and which are audit-only;
  *   - {@link estateReviews} renders every other configured checkpoint's
- *     question as an estate review row — identical id and prose to what the
+ *     question as an improvement review row — identical id and prose to what the
  *     `checkpoints` verb reports, both projected from the same resolver;
  *   - {@link checkpointRecommendations} turns project-local evidence into
  *     owner decisions: review a frequently-varied checkpoint, or graduate a
@@ -99,19 +99,19 @@ export function boundaryLine(guards: readonly BoundaryGuard[]): string {
   return `Boundary: ${noun} ${list} ${
     guards.length === 1 ? "serves" : "serve"
   } this question as a matching change completes — new violations meet the ` +
-    `gate there; this review audits the estate the boundary already tolerates.`;
+    `gate there; this review audits what the boundary already tolerates.`;
 }
 
-// ── the estate audit rows ───────────────────────────────────────────────────
+// ── the improvement audit rows ───────────────────────────────────────────────────
 
-/** The estate framing for an active checkpoint whose definition has no teach. */
+/** The audit framing for an active checkpoint whose definition has no teach. */
 export const ESTATE_AUDIT_TEACH =
   "A checkpoint guards the flow: it serves this question as a matching " +
   "change completes, so new violations meet a judgment before they land. The " +
   "stock is this review's half — audit what already exists against the same " +
   "question, and decide whether to clear it or keep tolerating it.";
 
-/** The estate framing for a dormant checkpoint whose definition has no teach. */
+/** The audit framing for a dormant checkpoint whose definition has no teach. */
 const DORMANT_ESTATE_AUDIT_TEACH =
   "This checkpoint's selector currently expands to no matchable path, so it " +
   "serves no flow judgment. Audit what already exists against this question. " +
@@ -119,11 +119,11 @@ const DORMANT_ESTATE_AUDIT_TEACH =
 
 /**
  * The configured checkpoints whose question the improvement catalog does not
- * already review, each as one estate review row. `covered` is the catalog's
+ * already review, each as one improvement review row. `covered` is the catalog's
  * question-id set; a checkpoint serving a covered canonical question is
  * skipped because that catalog review carries the boundary mark instead —
  * every checkpoint-member question renders exactly once. A structurally
- * dormant checkpoint still contributes its question to the estate audit but
+ * dormant checkpoint still contributes its question to the improvement audit but
  * claims no boundary until its selector can match.
  *
  * Identity parity with the `checkpoints` verb is by construction: id,
@@ -147,7 +147,7 @@ export function estateReviews(
     }
     rows.push({
       id: def.id,
-      title: `The estate behind checkpoint '${def.id}'`,
+      title: `The existing work behind checkpoint '${def.id}'`,
       ask: def.question,
       teach: def.teach ??
         (dormant ? DORMANT_ESTATE_AUDIT_TEACH : ESTATE_AUDIT_TEACH),
@@ -236,7 +236,7 @@ export interface CheckpointLoopEvidence {
 const VARIANCE_WHY =
   "A variance is the owner's authorization to land one declared-unmet " +
   "conclusion; it never records the question as met. Repeated variances are " +
-  "evidence about the checkpoint's fit, not evidence that the estate " +
+  "evidence about the checkpoint's fit, not evidence that the existing work " +
   "satisfies the question.";
 
 /**

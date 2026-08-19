@@ -6,7 +6,7 @@
  * decides it) or subjective (discern surfaces it for the agent to judge against the
  * cited material). A subjective rule is the improvement MEMBERSHIP of a canonical
  * question (`shared/questions.ts`): the judgment prose and teach live in that one
- * vocabulary, and this catalog contributes the estate-review framing (title +
+ * vocabulary, and this catalog contributes the improvement-review framing (title +
  * evidence). The catalog is data, not control flow: the runner in `improve.ts`
  * walks it. To add a best practice, add a rule here — a subjective one first adds
  * its question to the vocabulary.
@@ -263,7 +263,7 @@ function excerpt(text: string, max = 240): string {
 /**
  * One subjective rule — the improvement MEMBERSHIP of a canonical question
  * (`shared/questions.ts`). The question carries the judgment prose (`ask`) and
- * `teach`; the membership adds what estate-wide review needs: a display title
+ * `teach`; the membership adds what project-wide improvement review needs: a display title
  * and the project evidence to judge `against`. A membership naming an unknown
  * question fails at module load, so the catalog can never ship a dangling
  * reference (the parity guard in `tests/questions_registry_test.ts` reports the
@@ -687,7 +687,7 @@ const STANDARDS: Category = {
 
 /** The question ids the catalog's subjective rules already review — the
  * improvement membership's id set, derived at call time so a new subjective
- * rule auto-enrols. The estate audit skips these: their catalog review
+ * rule auto-enrols. The improvement audit skips these: their catalog review
  * carries the boundary mark instead, so each question renders once. */
 function improvementQuestionIds(): ReadonlySet<string> {
   return new Set(
@@ -697,9 +697,9 @@ function improvementQuestionIds(): ReadonlySet<string> {
   );
 }
 
-/** Boundary checkpoints — the flow guard beside this estate audit. The static
+/** Boundary checkpoints — the flow guard beside this improvement audit. The static
  * review teaches placement (the ladder and the conversion rule); the dynamic
- * rows are the configured checkpoints' questions, audited estate-wide. */
+ * rows are the configured checkpoints' questions, audited project-wide. */
 const CHECKPOINTS: Category = {
   name: "checkpoints",
   title: "Boundary checkpoints",

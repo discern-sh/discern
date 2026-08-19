@@ -85,7 +85,7 @@ export interface BuiltInCheckpointSeed {
  * unset, the reference expands to the empty pattern, which matches nothing,
  * so the checkpoint stays quiet until the owner names a doc.
  *
- * The four `stop` members fire on the knowledge estate — map, instructions,
+ * The four `stop` members fire on the knowledge surfaces — map, instructions,
  * skills, gotchas — where a weak entry quietly misleads every later session.
  * Code-facing members are all `advise`: no shipped default ever interlocks a
  * code change.
@@ -93,7 +93,7 @@ export interface BuiltInCheckpointSeed {
 export const BUILT_IN_CHECKPOINTS: Readonly<
   Record<string, BuiltInCheckpointSeed>
 > = {
-  // ── stop: the knowledge estate ─────────────────────────────────────────────
+  // ── stop: the knowledge surfaces ─────────────────────────────────────────────
   "map-focus": {
     question: "map.focus",
     paths: ["${map.dir}**"],

@@ -4,7 +4,7 @@
 
 ## Context
 
-discern's quality model verified two kinds of evidence: machine facts (gate jobs, standards) and owner authority (acceptance and its grants). Nothing carried the middle kind — a judgment only the agent in the loop can make, delivered at the moment a diff makes it relevant, with the conclusion recorded. Estate-wide review (`improvement`) audits what already exists; nothing stopped a new violation at the boundary of one change. A question that no machine can decide cannot become a gate job, and pretending otherwise would put a model call or a fake verdict inside a reproducible gate.
+discern's quality model verified two kinds of evidence: machine facts (gate jobs, standards) and owner authority (acceptance and its grants). Nothing carried the middle kind — a judgment only the agent in the loop can make, delivered at the moment a diff makes it relevant, with the conclusion recorded. The project-wide improvement review (`improvement`) audits what already exists; nothing stopped a new violation at the boundary of one change. A question that no machine can decide cannot become a gate job, and pretending otherwise would put a model call or a fake verdict inside a reproducible gate.
 
 ## Decision
 

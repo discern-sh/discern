@@ -25,6 +25,7 @@ aliases:
   - gate job
   - generated artifact
   - generated file
+  - improvement review
   - installer
   - instruction source
   - landing authority
@@ -63,6 +64,7 @@ aliases:
   - binary version
   - file dispositions
   - the binary's files
+  - estate
   - guidance
   - discern script
   - receipt
@@ -155,6 +157,10 @@ A committed file wholly derived from the rest of the tree, declared under `[gene
 
 An [agent file](#agent-file) or materialized skill that discern produces and re-produces. It is safe to overwrite because you edit its reviewable sources instead. Drift between a generated file and its source fails the gate ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
 
+### Improvement review
+
+The audit `discern improvement` serves: subjective [questions](#question) evaluated across what already exists in the project, beside the deterministic placement rules. It is the stock-side partner of the [checkpoint](#checkpoint) boundary — the gate stops new violations as a change completes; this review audits what the project already holds, including violations a boundary tolerates because they predate it. Covered in [improvement](../20-quality-gate/improvement.md).
+
 ### Installer
 
 The verbs that install and maintain discern in a project: `setup`, `upgrade`, [doctor](../70-reference/cli-reference.md#discern-doctor), `config`, and `preset`. Some inspect and some write; all run and exit, and discern is never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).
@@ -221,7 +227,7 @@ The repository-resident JSON record of a landed [proof](#proof), attached to the
 
 ### Question
 
-The judgment prose a [checkpoint](#checkpoint) serves and [estate review](../20-quality-gate/improvement.md) evaluates: a stable id, the question itself, and a `teach` saying why it matters. A question is semantic by design (the agent evaluates it, discern does not), and the recorded answer stays [declared met](#declared-met) or [declared unmet](#declared-unmet), apart from machine-verified results. Covered in [checkpoints](../20-quality-gate/checkpoints.md).
+The judgment prose a [checkpoint](#checkpoint) serves and the [improvement review](../20-quality-gate/improvement.md) evaluates: a stable id, the question itself, and a `teach` saying why it matters. A question is semantic by design (the agent evaluates it, discern does not), and the recorded answer stays [declared met](#declared-met) or [declared unmet](#declared-unmet), apart from machine-verified results. Covered in [checkpoints](../20-quality-gate/checkpoints.md).
 
 ### Schema version
 

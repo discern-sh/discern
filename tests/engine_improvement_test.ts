@@ -414,7 +414,7 @@ Deno.test("improvement --json: reviews carry the cited material", async () => {
   });
 });
 
-Deno.test("improvement: a configured checkpoint's question renders in the estate audit", async () => {
+Deno.test("improvement: a configured checkpoint's question renders in the improvement audit", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -429,7 +429,7 @@ question = "A changed interface is described before it lands."
 
     const { payload } = await improvementJson(dir);
     const checkpoints = cat(payload, "checkpoints");
-    // The standing placement review teaches the ladder; the estate row carries
+    // The standing placement review teaches the ladder; the audited row carries
     // the checkpoint's identity — same id and prose the checkpoints verb reports.
     const placement = checkpoints.reviews.find(
       (review) => review.id === "checkpoints.opportunity",
@@ -438,16 +438,19 @@ question = "A changed interface is described before it lands."
     assertStringIncludes(placement.teach, "→ a checkpoint");
     assertStringIncludes(placement.teach, "outlaw procedure");
     assertEquals(placement.against?.excerpt, "configured: api-review");
-    const estate = checkpoints.reviews.find(
+    const audited = checkpoints.reviews.find(
       (review) => review.id === "api-review",
     );
-    assert(estate !== undefined, "the configured checkpoint renders a row");
+    assert(audited !== undefined, "the configured checkpoint renders a row");
     assertEquals(
-      estate.ask,
+      audited.ask,
       "A changed interface is described before it lands.",
     );
-    assertEquals(estate.boundary, [{ checkpoint: "api-review", mode: "stop" }]);
-    assertEquals(estate.against?.source, "[checkpoints.api-review]");
+    assertEquals(audited.boundary, [{
+      checkpoint: "api-review",
+      mode: "stop",
+    }]);
+    assertEquals(audited.against?.source, "[checkpoints.api-review]");
 
     // The human report keeps the stock/flow line visible.
     const focused = await runAgent(dir, [
@@ -459,10 +462,13 @@ question = "A changed interface is described before it lands."
     assertEquals(focused.code, 0);
     assertTerminalTextIncludes(
       focused.stdout,
-      "The estate behind checkpoint",
+      "The existing work behind checkpoint",
     );
     assertTerminalTextIncludes(focused.stdout, "'api-review' (stop)");
-    assertTerminalTextIncludes(focused.stdout, "audits the estate");
+    assertTerminalTextIncludes(
+      focused.stdout,
+      "audits what the boundary already tolerates",
+    );
   });
 });
 

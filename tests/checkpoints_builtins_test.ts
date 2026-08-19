@@ -83,7 +83,7 @@ function resolved(id: string): ResolvedCheckpoint {
 
 // ── composition: the shipped contract, pinned ───────────────────────────────
 
-Deno.test("the shipped set is four stop members on the knowledge estate and five advise members on the change", () => {
+Deno.test("the shipped set is four stop members on the knowledge surfaces and five advise members on the change", () => {
   const stop = RESOLUTION.checkpoints.filter((c) => c.mode === "stop")
     .map((c) => c.id).sort();
   const advise = RESOLUTION.checkpoints.filter((c) => c.mode === "advise")

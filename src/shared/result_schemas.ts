@@ -1639,7 +1639,7 @@ export const ruleResultSchema = z.strictObject({
 });
 
 /** One boundary guard on a review's question: a configured checkpoint serving
- * it, so the flow is guarded at the gate while the review audits the estate. */
+ * it, so the flow is guarded at the gate while the improvement review audits what already exists. */
 const boundaryGuardSchema = z.strictObject({
   checkpoint: z.string(),
   mode: z.enum(CHECKPOINT_MODES),

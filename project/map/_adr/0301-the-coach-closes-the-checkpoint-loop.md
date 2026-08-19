@@ -4,7 +4,7 @@
 
 ## Context
 
-Checkpoints guard the flow: a trigger serves a question as a matching change completes. `improvement` audits the stock: the estate of what already exists. After the vocabulary extraction the two shared prose but not a loop — the estate audit did not know which questions the boundary guards, nothing recommended promoting a recurring finding into a checkpoint, and the conversion rule ("a question becomes a checkpoint exactly when diffs introduce its violations") lived only in decision records, where no test could hold it.
+Checkpoints guard the flow: a trigger serves a question as a matching change completes. `improvement` audits the stock: what already exists. After the vocabulary extraction the two shared prose but not a loop — the improvement audit did not know which questions the boundary guards, nothing recommended promoting a recurring finding into a checkpoint, and the conversion rule ("a question becomes a checkpoint exactly when diffs introduce its violations") lived only in decision records, where no test could hold it.
 
 ## Decision
 
@@ -12,7 +12,7 @@ Checkpoints guard the flow: a trigger serves a question as a matching change com
 
 - Every canonical question declares how its violations arise: `diff-introduced` or `accrued` (`src/shared/questions.ts`). The registry guard forbids an accrued question in the checkpoint membership, and a graduation route to one refuses construction — the stock-versus-flow line is machine-checked, not lore.
 - A configured checkpoint serving a canonical question **verbatim** (a built-in reference without a question override) marks that catalog review boundary-guarded. An overridden question is an authored one: the mark would claim protection the boundary does not give, so it never appears.
-- Every other configured checkpoint renders as an estate review row in the `checkpoints` category. Both surfaces project id, question, teach, and trigger summary from `resolveCheckpoints` — parity with `discern checkpoints` is by construction, and the resolver takes an injectable seed set so tests prove enrolment before the shipped built-ins land.
+- Every other configured checkpoint renders as an improvement review row in the `checkpoints` category. Both surfaces project id, question, teach, and trigger summary from `resolveCheckpoints` — parity with `discern checkpoints` is by construction, and the resolver takes an injectable seed set so tests prove enrolment before the shipped built-ins land.
 - Recommendations are evidence-backed owner decisions (`data.recommendations`): a frequently-varied checkpoint (the economics reader's shared bar — the same predicate the hygiene detector runs) earns a review of its trigger, question, or mode; a recurring finding class routed through `GRADUATION_ROUTES` earns a capture-as-checkpoint decision, suppressed once the question is guarded. No qualifying evidence, no recommendation. Variance prose preserves the declared-unmet conclusion.
 - With the objective baseline clear, the first recommendation leads `next_action` as the `decide` kind. This deliberately narrows the old "findings never touch `next_action`" contract: a finding may now back the led decision, while score, `ok`, `--min-score`, reviews, and rule verdicts still never read the logbook, and no reader gates a verb.
 - The `checkpoints.opportunity` review is the placement ladder's teaching home; the ladder itself is shared vocabulary with one prose projection, and the same teach points a mechanically decidable question at the set-the-standard outlaw procedure.
@@ -20,7 +20,7 @@ Checkpoints guard the flow: a trigger serves a question as a matching change com
 ## Consequences
 
 - An owner running `improvement` sees which questions have flow protection, which are audit-only, what evidence would justify promoting one, and which checkpoints repeatedly land under variance.
-- A built-in checkpoint added to the registry enrols in the estate audit, the marking, and the parity guards with no further wiring; an accrued pairing fails the gate.
+- A built-in checkpoint added to the registry enrols in the improvement audit, the marking, and the parity guards with no further wiring; an accrued pairing fails the gate.
 - The graduation registry ships empty: no current detector evidences a diff-introduced class honestly, and a forced mapping would breach the evidence bar. The machinery is proven with synthetic routes.
 - One more surface reads the full logbook stream (variance evidence in `buildContext`), accepted because a bounded tail would censor the rare, cross-effort events the bar needs.
 

@@ -22,7 +22,7 @@ Every quality rule has a cheapest rung that still catches its violations:
 
 A checkpoint earns the middle rung when three things hold:
 
-- **A diff introduces the violation.** "This deletion may cut something live" arrives with a change. "The docs have gone stale" accrues over time and belongs to estate review (`discern improvement`) instead of a trigger.
+- **A diff introduces the violation.** "This deletion may cut something live" arrives with a change. "The docs have gone stale" accrues over time and belongs to the improvement review (`discern improvement`) instead of a trigger.
 - **No machine can decide it.** If a script could print pass or fail, wire a gate job or a standard; `discern-set-the-standard` holds that procedure, including the outlaw path that drives a pattern to zero.
 - **A good reviewer would raise it** often enough to justify stopping every matching change. That is the scarcity bar: a `stop` checkpoint taxes each matching change with a required judgment, and twenty active stops is the failure mode. Heuristic patterns — a wide diff, a deletion-heavy change — belong in `advise` mode, which serves the question without blocking anything.
 

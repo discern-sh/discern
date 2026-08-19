@@ -26,7 +26,7 @@ The owner raised the standards on `main` before the programme: `skills_count` to
 
 - The authoring ask routes to a procedure instead of improvised config edits: placement is decided before syntax, and the scarcity bar is applied where the entry is born rather than discovered through noise later.
 - Every agent session in every installed project pays 127 additional ambient frontmatter words; `[skills].exclude` remains the opt-out.
-- The ladder now renders on three guarded surfaces — the question teaches, the estate review, and this skill — with one authority behind all of them.
+- The ladder now renders on three guarded surfaces — the question teaches, the improvement review, and this skill — with one authority behind all of them.
 - The catalog and canon guards enrolled the tenth member on addition, so a rename or removal strands its claims and fails the gate, as designed.
 
 ## Alternatives considered

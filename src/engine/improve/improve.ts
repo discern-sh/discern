@@ -78,7 +78,7 @@ function credit(status: RuleStatus): number {
 
 /** Evaluate one category's rules against the gathered context. `guards` marks
  * a review whose canonical question a configured checkpoint also serves —
- * the flow is guarded at the gate; the review audits the estate. */
+ * the flow is guarded at the gate; the review audits what already exists. */
 function evaluateCategory(
   cat: Category,
   ctx: ImprovementContext,
@@ -419,7 +419,7 @@ function renderGroup(out: Out, id: string, label: string): void {
 
 /** Render an open qualitative review as one evidence-preserving procedure. A
  * boundary-guarded review names its checkpoints, keeping stock and flow
- * distinct: the gate stops new violations; the review audits the estate. */
+ * distinct: the gate stops new violations; the review audits what already exists. */
 function renderReviewUnit(
   out: Out,
   review: {

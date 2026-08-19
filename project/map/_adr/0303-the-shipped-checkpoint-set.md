@@ -1,4 +1,4 @@
-# ADR 0303: The shipped checkpoint set — four stops on the knowledge estate, five advisories on the change
+# ADR 0303: The shipped checkpoint set — four stops on the knowledge surfaces, five advisories on the change
 
 **Status**: accepted; implements the built-in set required by [ADR 0293](0293-checkpoint-declarations-interlock-the-gate.md), classifies questions under the conversion rule of [ADR 0295](0295-one-question-vocabulary-serves-two-memberships.md) and [ADR 0301](0301-the-coach-closes-the-checkpoint-loop.md), and uses the scalar reference of [ADR 0302](0302-configured-scalar-docs-join-the-live-path-reference-vocabulary.md).
 
@@ -8,7 +8,7 @@ Built-in checkpoints are the reason a new project feels the checkpoint contract 
 
 ## Decision
 
-**Nine active built-ins. The four `stop` members fire only on the knowledge estate — the surfaces that steer every future agent session. Code-facing members are all `advise`: no shipped default ever interlocks a code change.**
+**Nine active built-ins. The four `stop` members fire only on the knowledge surfaces — the ones that steer every future agent session. Code-facing members are all `advise`: no shipped default ever interlocks a code change.**
 
 | id                        | mode   | trigger                                 | question                               |
 | ------------------------- | ------ | --------------------------------------- | -------------------------------------- |
@@ -27,7 +27,7 @@ Built-in checkpoints are the reason a new project feels the checkpoint contract 
 **Question classifications**, each made on the question's nature:
 
 - `skills.executable` and `setup.failure-memory` were already diff-introduced; the checkpoint membership shares them — one authority per fact, and the improvement catalog's reviews gain the boundary mark wherever these checkpoints are configured.
-- `map.current` is **reclassified** accrued → diff-introduced: a page goes stale only when a diff changes the documented subject without it; time alone never creates the violation. What accrues is the unnoticed backlog, which estate review keeps auditing through the unchanged improvement membership. The prose was reworded moment-neutrally so one authority serves both the estate audit and the boundary.
+- `map.current` is **reclassified** accrued → diff-introduced: a page goes stale only when a diff changes the documented subject without it; time alone never creates the violation. What accrues is the unnoticed backlog, which the improvement review keeps auditing through the unchanged improvement membership. The prose was reworded moment-neutrally so one authority serves both the improvement audit and the boundary.
 - Six new questions are diff-introduced by construction: `map.focus`, `instructions.economy`, and the four `change.*` questions that read the shape of the diff itself.
 
 **`commit-story` measures breadth, not commits.** The closed trigger menu counts matched files; a commit-count predicate does not exist, and the seed vocabulary deliberately ships no executable `when`. Matched-set breadth is the deterministic stand-in: a change that wide carries a history worth telling however it was committed. If a commit-count predicate ever joins the menu, re-express the trigger.
@@ -38,7 +38,7 @@ Built-in checkpoints are the reason a new project feels the checkpoint contract 
 
 ## Consequences
 
-- Day one delivers the contract's feel: documentation-estate changes meet a judgment at `discern done`; code changes are advised, never stopped, by shipped defaults.
+- Day one delivers the contract's feel: knowledge-surface changes meet a judgment at `discern done`; code changes are advised, never stopped, by shipped defaults.
 - The composition is pinned by a double-entry test; changing an id, mode, or threshold is a conscious decision that fails a named guard first.
 - Thresholds (3 map files, 25 sprawl, 15 story, 5 drift) are shipped defaults, tunable per project by field override; this repo's own tuning is a separate, deliberate adoption step.
 - The engine test scaffolds inherit the active set, so the suite permanently exercises the fresh-install experience.

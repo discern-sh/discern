@@ -5,7 +5,7 @@
  *   - marking: a configured checkpoint serving a canonical question verbatim
  *     marks that question boundary-guarded; an overridden question is an
  *     authored one and never claims the canonical mark;
- *   - estate parity: every configured checkpoint's question renders exactly
+ *   - audit parity: every configured checkpoint's question renders exactly
  *     once, with the id and prose the `checkpoints` verb reports — both sides
  *     project from the same resolver, and this suite proves the projection;
  *   - conversion-rule fidelity: an accrued question can never be the target
@@ -172,7 +172,7 @@ Deno.test("marking: a structurally dormant checkpoint claims no active boundary"
 Deno.test("marking: the boundary line keeps stock and flow distinct", () => {
   const line = boundaryLine([{ checkpoint: "api-review", mode: "stop" }]);
   assert(line.includes("'api-review' (stop)"));
-  assert(line.includes("audits the estate"), line);
+  assert(line.includes("audits what the boundary already tolerates"), line);
   const plural = boundaryLine([
     { checkpoint: "a", mode: "stop" },
     { checkpoint: "b", mode: "advise" },
@@ -180,9 +180,9 @@ Deno.test("marking: the boundary line keeps stock and flow distinct", () => {
   assert(plural.includes("checkpoints 'a' (stop), 'b' (advise) serve"));
 });
 
-// ── the estate rows and their parity with the flow side ─────────────────────
+// ── the audit rows and their parity with the flow side ─────────────────────
 
-Deno.test("estate: an authored checkpoint renders one estate review row", () => {
+Deno.test("audit: an authored checkpoint renders one improvement review row", () => {
   const cfg = config(AUTHORED);
   const rows = estateReviews(cfg, new Set());
   assertEquals(rows.length, 1);
@@ -195,7 +195,7 @@ Deno.test("estate: an authored checkpoint renders one estate review row", () => 
   assertEquals(row.boundary, [{ checkpoint: "api-review", mode: "stop" }]);
 });
 
-Deno.test("estate: a checkpoint's own teach travels verbatim", () => {
+Deno.test("audit: a checkpoint's own teach travels verbatim", () => {
   const cfg = config(`
 [checkpoints.api-review]
 paths = ["src/api/**"]
@@ -208,23 +208,23 @@ teach = "Describe the change where its callers will look."
   );
 });
 
-Deno.test("estate: a covered canonical question defers to the marked catalog review", () => {
+Deno.test("audit: a covered canonical question defers to the marked catalog review", () => {
   const seeds = seedsFor({
     "failure-memory-gate": { question: "setup.failure-memory" },
   });
   const cfg = config("", { "failure-memory-gate": {} });
-  // Covered by the catalog → the catalog row carries the mark; no estate row.
+  // Covered by the catalog → the catalog row carries the mark; no audit row.
   assertEquals(
     estateReviews(cfg, new Set(["setup.failure-memory"]), seeds),
     [],
   );
-  // Not covered → the estate row serves the canonical prose verbatim.
+  // Not covered → the audit row serves the canonical prose verbatim.
   const rows = estateReviews(cfg, new Set(), seeds);
   assertEquals(rows.length, 1);
   assertEquals(rows[0]?.ask, questionById("setup.failure-memory")?.question);
 });
 
-Deno.test("estate parity: rows carry the resolver's id, prose, and trigger — the flow side's identity", () => {
+Deno.test("audit parity: rows carry the resolver's id, prose, and trigger — the flow side's identity", () => {
   const seeds = seedsFor({
     "failure-memory-gate": {
       question: "setup.failure-memory",
@@ -237,7 +237,7 @@ Deno.test("estate parity: rows carry the resolver's id, prose, and trigger — t
   assertEquals(
     rows.map((row) => row.id).sort(),
     resolved.map((def) => def.id).sort(),
-    "every governing checkpoint renders in the estate audit",
+    "every governing checkpoint renders in the improvement audit",
   );
   for (const def of resolved) {
     const row = rows.find((candidate) => candidate.id === def.id);
@@ -255,11 +255,11 @@ Deno.test("estate parity: rows carry the resolver's id, prose, and trigger — t
   }
 });
 
-Deno.test("estate: every shipped built-in auto-enrols the moment it exists", () => {
+Deno.test("audit: every shipped built-in auto-enrols the moment it exists", () => {
   // Registry-driven: vacuous while BUILT_IN_CHECKPOINTS is empty, armed for
   // every future seed. A bare `[checkpoints.<id>]` reference must render its
   // canonical question exactly once — marked on the catalog review when the
-  // improvement membership covers it, as an estate row otherwise.
+  // improvement membership covers it, as an audit row otherwise.
   for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
     // A seed naming a scope only governs where the project defines it; the
     // fixture supplies whatever scope the seed asks for, registry-driven.
@@ -285,7 +285,7 @@ Deno.test("estate: every shipped built-in auto-enrols the moment it exists", () 
     assertEquals(
       uncovered.filter((row) => row.id === id).length,
       1,
-      `'${id}' must render as an estate row when no catalog review covers it`,
+      `'${id}' must render as an audit row when no catalog review covers it`,
     );
     assertEquals(
       uncovered.find((row) => row.id === id)?.ask,
