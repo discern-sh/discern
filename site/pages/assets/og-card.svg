@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
   viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
   <title id="title">discern</title>
-  <desc id="desc">A bolder way to build.</desc>
+  <desc
+    id="desc">Let coding agents handle more of the work. Keep control of what ships.</desc>
   <defs>
     <radialGradient id="halo" cx="50%" cy="10%" r="72%">
       <stop offset="0" stop-color="#315fae" stop-opacity=".46" />
@@ -32,21 +33,25 @@
       font-weight="700">discern</text>
   </g>
 
-  <g transform="translate(704 48)">
-    <rect width="420" height="42" rx="21" fill="#252b3b" stroke="#4a5876" />
+  <g transform="translate(734 48)">
+    <rect width="390" height="42" rx="21" fill="#252b3b" stroke="#4a5876" />
     <circle cx="22" cy="21" r="4" fill="#79a8ff" />
     <text x="38" y="27" fill="#c5ccda"
       font-family="Inter, system-ui, sans-serif" font-size="13"
       font-weight="650" letter-spacing="1"
-      style="text-transform: uppercase">quality harness for agent-built software</text>
+      style="text-transform: uppercase">Software Engineering Tool for Coding Agents</text>
   </g>
 
-  <text x="76" y="242" fill="#f5f3f7"
-    font-family="'Crimson Pro', Georgia, serif" font-size="110"
-    font-weight="650" letter-spacing="-4">A bolder way</text>
-  <text x="76" y="346" fill="#79a8ff"
-    font-family="'Crimson Pro', Georgia, serif" font-size="110"
-    font-weight="650" font-style="italic" letter-spacing="-4">to build.</text>
+  <text x="76" y="195" fill="#f5f3f7"
+    font-family="'Crimson Pro', Georgia, serif" font-size="76"
+    font-weight="650" letter-spacing="-3">Let coding agents handle</text>
+  <text x="76" y="273" fill="#79a8ff"
+    font-family="'Crimson Pro', Georgia, serif" font-size="76"
+    font-weight="650" font-style="italic"
+    letter-spacing="-3">more of the work.</text>
+  <text x="76" y="351" fill="#f5f3f7"
+    font-family="'Crimson Pro', Georgia, serif" font-size="76"
+    font-weight="650" letter-spacing="-3">Keep control of what ships.</text>
 
   <g transform="translate(76 420)">
     <rect width="1048" height="142" rx="24" fill="url(#panel)"
@@ -56,23 +61,23 @@
       letter-spacing="1.4">PROJECT IN MOTION</text>
     <text x="28" y="73" fill="#f0f2f7"
       font-family="'Crimson Pro', Georgia, serif" font-size="30"
-      font-weight="650">One ambition, returned ready for a decision</text>
+      font-weight="650">One task, returned with exact-commit evidence</text>
     <g transform="translate(28 96)" fill="#aeb7ca"
       font-family="Inter, system-ui, sans-serif" font-size="14">
-      <text x="0" y="16">Brief</text>
-      <text x="64" y="16" fill="#7183a7">→</text>
-      <text x="92" y="16">Work</text>
-      <text x="150" y="16" fill="#7183a7">→</text>
-      <text x="178" y="16">Evidence</text>
-      <text x="264" y="16" fill="#7183a7">→</text>
-      <text x="292" y="16" fill="#79a8ff" font-weight="700">Decision</text>
+      <text x="0" y="16">Request</text>
+      <text x="82" y="16" fill="#7183a7">→</text>
+      <text x="110" y="16">Working</text>
+      <text x="184" y="16" fill="#7183a7">→</text>
+      <text x="212" y="16">Checked</text>
+      <text x="286" y="16" fill="#7183a7">→</text>
+      <text x="314" y="16" fill="#79a8ff" font-weight="700">Your decision</text>
     </g>
     <g transform="translate(828 29)">
       <rect width="190" height="40" rx="20" fill="#18382c" stroke="#367a5c" />
       <circle cx="22" cy="20" r="4" fill="#70d99f" />
       <text x="38" y="25" fill="#a9ecc4"
         font-family="Inter, system-ui, sans-serif" font-size="14"
-        font-weight="650">Gate passed</text>
+        font-weight="650">Proof valid</text>
     </g>
     <text x="916" y="114" fill="#8290aa"
       font-family="'JetBrains Mono', ui-monospace, monospace"

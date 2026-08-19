@@ -10,9 +10,9 @@ export const DISCERN_FAVICON_PATH = "/assets/favicon.svg";
  * values, so the public identity line has one source.
  */
 export const LANDING_TITLE =
-  "discern · Build further. Stand behind what comes back.";
+  "discern — A Software Engineering Tool for Coding Agents";
 export const LANDING_DESCRIPTION =
-  "An engineering practice for agent-built software. Give coding agents a project-owned way to work, and come back to changes ready for a decision.";
+  "Give coding agents a consistent way to handle substantial software tasks, work in isolation, run project checks, and return exact evidence while you keep control of what ships.";
 
 /** Unique metadata title for the complete homepage preserved at /old. */
 export const OLD_LANDING_TITLE = "discern · Previous homepage";

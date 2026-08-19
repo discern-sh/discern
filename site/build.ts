@@ -34,6 +34,7 @@ export const GENERATED_SITE_OUTPUTS = [
 export const COPIED_PAGE_ASSETS = [
   "specimens.css",
   "landing.css",
+  "landing-v3.css",
   "landing.js",
 ] as const;
 

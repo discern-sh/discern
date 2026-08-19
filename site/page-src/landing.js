@@ -20,17 +20,18 @@
     const status = targetId === null
       ? null
       : document.getElementById(`${targetId}-status`);
+    const idleLabel = control.getAttribute("data-copy-label") ?? "Copy prompt";
+    const copiedLabel = control.getAttribute("data-copied-label") ??
+      "Prompt copied";
     if (!target || !label) continue;
 
     let resetTimer = null;
     const reflect = (copied) => {
-      label.textContent = copied
-        ? "Copied! Now paste it to your agent."
-        : "Copy prompt";
+      label.textContent = copied ? copiedLabel : idleLabel;
       control.toggleAttribute("data-prompt-copied", copied);
       if (status) {
         status.textContent = copied
-          ? "Copied! Now paste it to your agent."
+          ? "Paste this into a coding-agent session rooted in your project."
           : "";
       }
     };
