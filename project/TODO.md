@@ -64,7 +64,7 @@ _Nothing outstanding._
 
 _Product positioning, messaging, and launch/content tasks._
 
-- [ ] **Before site go-live, tighten the public-site reading-grade margin.** Lower `[standards.site_reading_grade].margin` from `0.5` once the V3 landing copy has settled, then pin the smallest defensible headroom. Evidence: `discern.toml`; `scripts/site_reading_grade.ts`.
+- [ ] **Before site go-live, lower the public-site reading-grade ceiling.** Tighten `[standards.site_reading_grade].limit` from `8.43` once the V3 landing copy has settled, then review its `0.5` pinning margin and keep only defensible headroom. Evidence: `discern.toml`; `scripts/site_reading_grade.ts`.
 - [ ] **Restore the public-site prose-density Standard after the final wording settles.** Uncomment `[standards.site_prose]`, measure the final public corpus, and set its baseline before launch. Evidence: `discern.toml`; `scripts/site_prose.ts`.
 - [ ] **Site launch blocker: make `brew install discern` real.** The plaintext edition leads with it. Stand up the tap or switch the copy to the install path that will exist at launch. Evidence: `site/text/discern.txt`.
 - [ ] **Site launch: create the Deno Deploy org + app and point DNS.** One-time account/DNS work only the maintainer can do, on the new `console.deno.com` (Deploy Classic shuts down 2026-07-20); the steps are written up in `project/map/90-site/publishing.md`.

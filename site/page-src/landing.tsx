@@ -28,7 +28,7 @@ const LICENSE = GITHUB + "/blob/main/LICENSE";
 
 /** The commissioning instruction shared by every copy control on the page. */
 export const COPY_PROMPT_TEXT =
-  "Read https://discern.sh/llms.txt and set up discern in this project. Follow the setup process exactly, study the repository before changing it, and bring me every decision or consent point that requires my input.";
+  "Read https://discern.sh/llms.txt and set up discern in this project. Follow the setup process, study the repository before changing it, and bring me every decision or consent point that requires my input.";
 
 /** The supported provider set, in the catalogue's canonical display order. */
 const PROVIDER_LOGOS = AGENT_NAMES.map((name) => {
@@ -662,7 +662,7 @@ function V3OutcomesSection() {
           </div>
           <p className="v3-section-lead__aside">
             Three practical outcomes. Each one comes from a concrete part of the
-            workflow—not a promise that the model will simply try harder.
+            workflow—not a promise that the model will try harder.
           </p>
         </header>
 

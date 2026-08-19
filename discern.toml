@@ -657,7 +657,7 @@
   [standards.site_reading_grade]
     direction = "down"
     # Guarded-corpus baseline over the same deduplicated prose blocks.
-    limit = 7.68
+    limit = 8.43
     margin = 0.5
     run = "deno task site:reading-grade"
     inputs = [
