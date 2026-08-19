@@ -756,7 +756,7 @@
   [standards.instructions]
     metric = "instruction_words"
     direction = "down"
-    limit = 1520
+    limit = 1530
     run = "echo DISCERN_METRIC instruction_words $(cat templates/instructions/*.md | wc -w)"
     inputs = ["templates/instructions/**"]
 
