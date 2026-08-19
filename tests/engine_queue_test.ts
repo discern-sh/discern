@@ -12,10 +12,9 @@ import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
-  DENO_JSON,
   engineEnv,
+  engineRunArgs,
   gitInit,
-  MAIN_TS,
   runAgent,
   type RunResult,
   scaffoldEngine,
@@ -137,7 +136,7 @@ async function spawnAgent(
   env: Record<string, string> = {},
 ): Promise<RunningAgent> {
   const child = new Deno.Command("deno", {
-    args: ["run", "--no-check", "--config", DENO_JSON, "-A", MAIN_TS, ...args],
+    args: engineRunArgs(args),
     cwd: dir,
     env: await engineEnv(env),
     stdin: "null",
