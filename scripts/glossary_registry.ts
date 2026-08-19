@@ -751,8 +751,6 @@ export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
     "reads a worktree's provisioned values from inside it; a verb the CLI reference and built-in instructions document, not a term of art",
   "verb:impact":
     "read-only advisory of what a change touches; no page uses it as a term of art",
-  "verb:improvement":
-    "read-only advisory of the ranked next action; no page uses it as a term of art",
   "verb:licenses":
     "prints first-party licenses and third-party notices; a utility verb with no concept behind it",
   "verb:mcp":
