@@ -406,7 +406,7 @@ const V3_WORKFLOW_STAGES = [
     number: "02",
     title: "Start in a separate checkout",
     copy:
-      "The task gets its own branch, working copy, guidance, and resources.",
+      "The task gets its own branch, working copy, instruction source, and resources.",
   },
   {
     state: "proof",
@@ -527,7 +527,7 @@ function V3WorkflowSurface() {
                 </dd>
               </div>
             </dl>
-            <ul className="v3-work-guidance">
+            <ul className="v3-work-instructions">
               <li>
                 <span>✓</span> Project instructions loaded
               </li>
@@ -765,7 +765,7 @@ function V3OutcomesSection() {
                 quality rules.
               </h3>
               <p>
-                Guidance, reusable procedures, decisions, documentation, and
+                Instructions, reusable procedures, decisions, documentation, and
                 quality limits live in project-owned files. Fresh sessions and
                 supported providers receive the same sources.
               </p>
@@ -819,7 +819,7 @@ function V3OutcomesSection() {
             Read the Proof model <span>↗</span>
           </a>
           <a href="/docs/agent-instructions">
-            See how project guidance works <span>↗</span>
+            See how project instructions work <span>↗</span>
           </a>
         </nav>
       </div>
@@ -850,7 +850,7 @@ function V3ProofSection() {
         "Your coding agent supplies the intelligence. discern adds no model call or credential of its own.",
     },
     {
-      title: "Project-owned guidance",
+      title: "Project-owned instructions",
       copy:
         "Instructions, procedures, scripts, settings, and documentation remain ordinary repository files.",
     },
@@ -1001,6 +1001,7 @@ function V3ProofSection() {
             <Button
               href="/docs/orientation/trust-and-data"
               variant="secondary"
+              className="v3-proof__trust-link"
             >
               Review the trust boundaries
             </Button>
@@ -1050,12 +1051,12 @@ const V3_FAQ = [
   {
     question: "Can I change coding agents later?",
     answer:
-      "Yes. The project’s guidance, procedures, checks, quality limits, and other authored material remain project-owned while supported provider integrations can change.",
+      "Yes. The project’s instructions, procedures, checks, quality limits, and other authored material remain project-owned while supported provider integrations can change.",
   },
   {
     question: "What happens if I uninstall discern?",
     answer:
-      "The uninstall process removes discern’s integration wiring while keeping the project’s authored guidance, documentation, procedures, scripts, and configuration.",
+      "The uninstall process removes discern’s integration wiring while keeping the project’s authored instructions, documentation, procedures, scripts, and configuration.",
   },
 ] as const;
 

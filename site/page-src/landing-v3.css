@@ -767,7 +767,7 @@
     font-family: var(--discern-font-ui);
   }
 
-  .v3-work-guidance {
+  .v3-work-instructions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--discern-space-3);
@@ -776,7 +776,7 @@
     list-style: none;
   }
 
-  .v3-work-guidance li {
+  .v3-work-instructions li {
     padding: var(--discern-space-3) var(--discern-space-4);
     border-radius: 999px;
     background: var(--discern-color-success-soft);
@@ -786,7 +786,7 @@
     font-weight: 700;
   }
 
-  .v3-work-guidance span {
+  .v3-work-instructions span {
     margin-inline-end: var(--discern-space-2);
   }
 
@@ -1394,7 +1394,7 @@
       var(--discern-color-inverse-ink) 15%, transparent);
   }
 
-  .v3-proof__boundary > .discern-button--secondary {
+  .v3-proof__trust-link {
     justify-self: start;
     border-color: color-mix(in oklab,
       var(--discern-color-inverse-ink) 35%, transparent);

@@ -64,6 +64,8 @@ _Nothing outstanding._
 
 _Product positioning, messaging, and launch/content tasks._
 
+- [ ] **Before site go-live, tighten the public-site reading-grade margin.** Lower `[standards.site_reading_grade].margin` from `0.5` once the V3 landing copy has settled, then pin the smallest defensible headroom. Evidence: `discern.toml`; `scripts/site_reading_grade.ts`.
+- [ ] **Restore the public-site prose-density Standard after the final wording settles.** Uncomment `[standards.site_prose]`, measure the final public corpus, and set its baseline before launch. Evidence: `discern.toml`; `scripts/site_prose.ts`.
 - [ ] **Site launch blocker: make `brew install discern` real.** The plaintext edition leads with it. Stand up the tap or switch the copy to the install path that will exist at launch. Evidence: `site/text/discern.txt`.
 - [ ] **Site launch: create the Deno Deploy org + app and point DNS.** One-time account/DNS work only the maintainer can do, on the new `console.deno.com` (Deploy Classic shuts down 2026-07-20); the steps are written up in `project/map/90-site/publishing.md`.
 - [ ] **Make "author once → compile everywhere" + per-agent wiring a first-class message.** discern compiles one `project/instructions.md` into every vendor's agent files and wires each agent's exact instruction file, skills dir, MCP, and hooks — most tools just say "supports Claude, Codex, Gemini". Elevate this from a buried detail to a headline principle in external docs and landing copy.
