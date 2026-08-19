@@ -417,6 +417,7 @@ function ContinuitySection() {
             {PROVIDER_OUTPUTS.map((provider) => (
               <article key={provider.name}>
                 <div
+                  className="agents-provider-mark"
                   style={{
                     "--provider-mask": `url("${provider.mask}")`,
                   } as CSSProperties}

@@ -126,6 +126,11 @@
     color: var(--agents-blue);
   }
 
+  .agents-footer .discern-site-footer__description,
+  .agents-footer .discern-site-footer__base {
+    color: var(--agents-muted);
+  }
+
   .agents-footer .discern-site-footer__base {
     align-items: flex-end;
   }
@@ -645,6 +650,13 @@
     font-size: 0.85rem;
   }
 
+  .agents-refusal-figure > figcaption .discern-badge {
+    --discern-badge-bg: rgb(240 195 107 / 10%);
+    --discern-badge-border: rgb(240 195 107 / 42%);
+    --discern-badge-text: var(--agents-yellow);
+    color: var(--agents-yellow);
+  }
+
   .agents-refusal-figure__panes {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -733,6 +745,7 @@
 
   .agents-context__features h3 {
     margin: 0;
+    color: var(--agents-paper-ink);
     font-family: var(--discern-font-display);
     font-size: 1.55rem;
     line-height: 1.15;
@@ -768,6 +781,22 @@
 
   .agents-diagnostic-window .discern-window__body {
     padding: 0;
+    background: #111722;
+  }
+
+  .agents-diagnostic-window .discern-window__bar {
+    border-color: var(--agents-line);
+    background: #0c111a;
+  }
+
+  .agents-diagnostic-window .discern-window__title {
+    color: var(--agents-muted);
+  }
+
+  .agents-diagnostic-window .discern-badge {
+    --discern-badge-bg: rgb(240 195 107 / 10%);
+    --discern-badge-border: rgb(240 195 107 / 42%);
+    --discern-badge-text: var(--agents-yellow);
   }
 
   .agents-diagnostic {
@@ -1053,10 +1082,30 @@
     content: "";
   }
 
-  .agents-compiler__outputs img {
+  .agents-provider-mark {
+    position: relative;
+    display: grid;
+    place-items: center;
     inline-size: 1.65rem;
     block-size: 1.65rem;
+    color: #b5bfd0;
+  }
+
+  .agents-provider-mark::after {
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    content: "";
+    -webkit-mask: var(--provider-mask) center / contain no-repeat;
+    mask: var(--provider-mask) center / contain no-repeat;
+    pointer-events: none;
+  }
+
+  .agents-provider-mark img {
+    inline-size: 100%;
+    block-size: 100%;
     object-fit: contain;
+    opacity: 0;
   }
 
   .agents-compiler__outputs span {
@@ -1592,6 +1641,7 @@
 
   .agents-authority__states h3 {
     margin: 3rem 0 0;
+    color: var(--agents-paper-ink);
     font-family: var(--discern-font-display);
     font-size: 1.45rem;
     line-height: 1.15;
