@@ -281,6 +281,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0290 — Discern owns the default interactive Markdown reading loop](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)
 - [0291 — The await call cap is an environment-only valued experiment](0291-the-await-call-cap-is-an-environment-only-experiment.md)
 - [0292 — The demand canon counters the benefit canon](0292-the-demand-canon-counters-the-benefit-canon.md)
+- [0293 — The Boundary Canon owns discern's noes](0293-the-boundary-canon-owns-discerns-noes.md)
 
 <!-- END GENERATED: current ADR records -->
 
