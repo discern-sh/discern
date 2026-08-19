@@ -189,7 +189,7 @@ function WaveTask({ task }: { readonly task: DelegationTask }) {
 }
 
 /** Compact illustrative plan for opening a project to beta users. */
-function DelegationWavePlan() {
+export function DelegationWavePlan() {
   return (
     <DataFigure
       className="delegation-figure"
@@ -266,7 +266,7 @@ function DelegationWavePlan() {
 }
 
 /** Staged commissioning narrative from repository study to a fresh worktree probe. */
-function CommissioningTimeline() {
+export function CommissioningTimeline() {
   return (
     <DataFigure
       className="commissioning-figure"
@@ -416,8 +416,94 @@ function CommissioningTimeline() {
   );
 }
 
+/** The two current values shared by the compact and annotated trajectories. */
+function StandardTrajectorySummary() {
+  return (
+    <div className="standard-trajectory__summary">
+      <div>
+        <span>Measured count</span>
+        <strong>
+          31 <i aria-hidden="true">→</i> 25
+        </strong>
+        <small>six suppressions removed</small>
+      </div>
+      <div>
+        <span>Falling ceiling</span>
+        <strong>
+          31 <i aria-hidden="true">→</i> 26
+        </strong>
+        <small>gain pinned on 29 July</small>
+      </div>
+    </div>
+  );
+}
+
+/** The shared visual trajectory without the specimen sheet's annotations. */
+function StandardTrajectoryChart() {
+  return (
+    <div className="standard-chart">
+      <svg
+        viewBox="0 0 640 300"
+        role="img"
+        aria-label="Lint suppressions fell from 31 on 28 July to 26 on 29 July and 25 on 9 August. The ceiling fell from 31 to 26 and held."
+      >
+        <title>lint_suppressions Standard trajectory</title>
+        <desc>Three dated observations. Lower values are improvements.</desc>
+        <g className="standard-chart__grid" aria-hidden="true">
+          <line x1="72" y1="48" x2="584" y2="48" />
+          <line x1="72" y1="144" x2="584" y2="144" />
+          <line x1="72" y1="240" x2="584" y2="240" />
+          <text x="56" y="53">31</text>
+          <text x="56" y="149">28</text>
+          <text x="56" y="245">25</text>
+        </g>
+        <path
+          className="standard-chart__ceiling"
+          d="M 88 48 L 320 208 L 560 208"
+          fill="none"
+        />
+        <path
+          className="standard-chart__measure"
+          d="M 88 48 L 320 208 L 560 240"
+          fill="none"
+        />
+        <g className="standard-chart__points">
+          <circle cx="88" cy="48" r="6" />
+          <circle cx="320" cy="208" r="6" />
+          <circle cx="560" cy="240" r="6" />
+        </g>
+        <g className="standard-chart__labels">
+          <text x="88" y="276" textAnchor="middle">28 Jul</text>
+          <text x="320" y="276" textAnchor="middle">29 Jul</text>
+          <text x="560" y="276" textAnchor="middle">9 Aug</text>
+        </g>
+        <g className="standard-chart__notes">
+          <text x="106" y="38">baseline · 31</text>
+          <text x="320" y="187" textAnchor="middle">
+            gain pinned · 26
+          </text>
+          <text x="552" y="224" textAnchor="end">latest · 25</text>
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+/** Landing-page projection of the Standard trajectory's essential evidence. */
+export function CompactStandardTrajectory() {
+  return (
+    <div
+      className="standard-trajectory standard-trajectory--compact"
+      aria-label="Lint suppression Standard trajectory"
+    >
+      <StandardTrajectorySummary />
+      <StandardTrajectoryChart />
+    </div>
+  );
+}
+
 /** Dated internal trajectory of the real lint-suppression falling ceiling. */
-function StandardTrajectory() {
+export function StandardTrajectory() {
   return (
     <DataFigure
       className="standard-figure"
@@ -433,70 +519,9 @@ function StandardTrajectory() {
             Lower is better. Every authored Deno source file is enrolled.
           </p>
 
-          <div className="standard-trajectory__summary">
-            <div>
-              <span>Measured count</span>
-              <strong>
-                31 <i aria-hidden="true">→</i> 25
-              </strong>
-              <small>six suppressions removed</small>
-            </div>
-            <div>
-              <span>Falling ceiling</span>
-              <strong>
-                31 <i aria-hidden="true">→</i> 26
-              </strong>
-              <small>gain pinned on 29 July</small>
-            </div>
-          </div>
+          <StandardTrajectorySummary />
 
-          <div className="standard-chart">
-            <svg
-              viewBox="0 0 640 300"
-              role="img"
-              aria-label="Lint suppressions fell from 31 on 28 July to 26 on 29 July and 25 on 9 August. The ceiling fell from 31 to 26 and held."
-            >
-              <title>lint_suppressions Standard trajectory</title>
-              <desc>
-                Three dated observations. Lower values are improvements.
-              </desc>
-              <g className="standard-chart__grid" aria-hidden="true">
-                <line x1="72" y1="48" x2="584" y2="48" />
-                <line x1="72" y1="144" x2="584" y2="144" />
-                <line x1="72" y1="240" x2="584" y2="240" />
-                <text x="56" y="53">31</text>
-                <text x="56" y="149">28</text>
-                <text x="56" y="245">25</text>
-              </g>
-              <path
-                className="standard-chart__ceiling"
-                d="M 88 48 L 320 208 L 560 208"
-                fill="none"
-              />
-              <path
-                className="standard-chart__measure"
-                d="M 88 48 L 320 208 L 560 240"
-                fill="none"
-              />
-              <g className="standard-chart__points">
-                <circle cx="88" cy="48" r="6" />
-                <circle cx="320" cy="208" r="6" />
-                <circle cx="560" cy="240" r="6" />
-              </g>
-              <g className="standard-chart__labels">
-                <text x="88" y="276" textAnchor="middle">28 Jul</text>
-                <text x="320" y="276" textAnchor="middle">29 Jul</text>
-                <text x="560" y="276" textAnchor="middle">9 Aug</text>
-              </g>
-              <g className="standard-chart__notes">
-                <text x="106" y="38">baseline · 31</text>
-                <text x="320" y="187" textAnchor="middle">
-                  gain pinned · 26
-                </text>
-                <text x="552" y="224" textAnchor="end">latest · 25</text>
-              </g>
-            </svg>
-          </div>
+          <StandardTrajectoryChart />
 
           <table className="standard-data">
             <caption>Committed and observed trajectory</caption>
@@ -571,7 +596,7 @@ function StandardTrajectory() {
 }
 
 /** Exact-tree completion evidence from the landed homepage-brief amendment. */
-function ProofSpecimen() {
+export function ProofSpecimen() {
   return (
     <DataFigure
       className="proof-figure"
@@ -842,7 +867,6 @@ export function renderSpecimens(): string {
     styles: [
       "fonts.css",
       "discern.css",
-      "grain.css",
       "specimens.css",
     ],
     scripts: [],

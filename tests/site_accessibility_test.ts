@@ -9,7 +9,7 @@ import axe from "axe-core";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 import { loadDocsSite } from "../site/docs.ts";
-import { handler } from "../site/serve.ts";
+import { handler, PAGES } from "../site/serve.ts";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -58,10 +58,11 @@ async function seriousAxeFindings(path: string): Promise<string[]> {
     );
 }
 
-Deno.test("representative built docs pages have no serious or critical WCAG 2.2 AA findings", async () => {
+Deno.test("public marketing and representative docs pages have no serious or critical WCAG 2.2 AA findings", async () => {
   const site = await loadDocsSite();
   const decision = site.decisions.pages[0];
   const routes = [
+    ...Object.keys(PAGES),
     "/docs",
     ...site.sections.map((section) =>
       section.pages.find((page) => !page.isIndex)?.route ?? section.index.route

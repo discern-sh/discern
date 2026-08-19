@@ -7,6 +7,9 @@ import {
   DEFAULT_SITE_DEV_PORT,
   LOCAL_SITE_BUILD_TASKS,
   localHandler,
+  localSiteBuildCommandArgs,
+  localSiteWatchInputPaths,
+  parseSiteDevArgs,
   parseSiteDevPort,
   resolveSiteDevPort,
   SITE_DEV_BIND_HOST,
@@ -225,6 +228,47 @@ Deno.test("the local runner builds only the consumer site and adds no catalogue 
     assertEquals(local.status, production.status, route);
     assertEquals(await local.text(), await production.text(), route);
   }
+});
+
+Deno.test("an explicit build config and future package tree reach every linked-preview rebuild", () => {
+  const futureConfig = "/tmp/future-preview/deno.json";
+  const futureSources = "/tmp/future-component-system/src";
+  assertEquals(
+    parseSiteDevArgs([
+      "--watch",
+      "--build-config",
+      futureConfig,
+      "--watch-input",
+      futureSources,
+    ]),
+    {
+      buildConfig: futureConfig,
+      extraWatchInputs: [futureSources],
+      watch: true,
+    },
+  );
+  assertEquals(
+    localSiteBuildCommandArgs(futureConfig),
+    [
+      "run",
+      "--config",
+      futureConfig,
+      "--allow-read",
+      "--allow-write",
+      "--allow-run",
+      "--allow-env=NODE_ENV",
+      join(REPO, "site/build.ts"),
+    ],
+  );
+  assertEquals(
+    localSiteWatchInputPaths([futureSources]).slice(-1),
+    [futureSources],
+  );
+  assertThrows(
+    () => parseSiteDevArgs(["--build-config"]),
+    Error,
+    "--build-config requires",
+  );
 });
 
 Deno.test("the watch task delegates to the source-driven site watcher", async () => {

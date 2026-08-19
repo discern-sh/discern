@@ -18,15 +18,12 @@ import {
   designSystemAssetPath,
   type DesignSystemBundleName,
 } from "../site/design_system.ts";
+import { MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { renderDiscernBrand } from "../site/page-src/branding.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
-import { renderLanding } from "../site/page-src/landing.tsx";
+import { renderMarketingPage } from "../site/page-src/renderers.ts";
 import { handler } from "../site/serve.ts";
-import { providerBrandSilhouette, PROVIDERS } from "../src/lib/providers.ts";
-import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
-// @ts-types="@types/jsdom"
-import { JSDOM } from "jsdom";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
@@ -40,12 +37,21 @@ const BROWSER = {
 };
 
 interface DenoConfig {
+  readonly links?: readonly string[];
   readonly workspace?: readonly string[];
   readonly imports: Readonly<Record<string, string>>;
   readonly minimumDependencyAge?: {
     readonly age: string;
     readonly exclude: readonly string[];
   };
+}
+
+/** Report committed dependency containers that can replace registry packages locally. */
+function committedLocalOverrideViolations(config: DenoConfig): string[] {
+  return [
+    ...(config.workspace === undefined ? [] : ["workspace"]),
+    ...(config.links ?? []).map((path) => `links:${path}`),
+  ];
 }
 
 interface DenoLock {
@@ -108,16 +114,6 @@ function bundleRoot(name: DesignSystemBundleName): string {
   return join(ROOT, "site", DESIGN_SYSTEM_BUNDLES[name].output);
 }
 
-/** Extract a required selector's declarations and fail on a missing or unterminated rule. */
-function cssRuleBody(css: string, selector: string): string {
-  const start = css.indexOf(`${selector} {`);
-  assert(start >= 0, `missing CSS rule for ${selector}`);
-  const bodyStart = css.indexOf("{", start) + 1;
-  const end = css.indexOf("}", bodyStart);
-  assert(end > bodyStart, `unterminated CSS rule for ${selector}`);
-  return css.slice(bodyStart, end);
-}
-
 /** Decode the runtime manifest emitted beside a selected design-system bundle. */
 async function bundleManifest(
   name: DesignSystemBundleName,
@@ -174,11 +170,21 @@ function componentOwnedSelectors(
   return [...selectors].toSorted();
 }
 
+Deno.test("the committed-override detector catches a freshly named linked package", () => {
+  assertEquals(
+    committedLocalOverrideViolations({
+      imports: {},
+      links: ["../future-component-system"],
+    }),
+    ["links:../future-component-system"],
+  );
+});
+
 Deno.test("Discern pins one exact public design-system dependency", async () => {
   const config = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.json")),
   ) as DenoConfig;
-  assertEquals(config.workspace, undefined);
+  assertEquals(committedLocalOverrideViolations(config), []);
   assertEquals(
     Object.entries(config.imports).filter(([key, value]) =>
       key.includes("design-system") || value.includes("design-system")
@@ -323,10 +329,12 @@ Deno.test("generated output is ignored and reproducible from its selections", as
     assertEquals(ignored.code, 0, `${path} must be ignored`);
   }
 
-  assertEquals(
-    await Deno.readTextFile(join(ROOT, "site/pages/index.html")),
-    await formatGeneratedText(renderLanding(), "html"),
-  );
+  for (const page of MARKETING_PAGES) {
+    assertEquals(
+      await Deno.readTextFile(join(ROOT, "site", page.page)),
+      await formatGeneratedText(renderMarketingPage(page.route), "html"),
+    );
+  }
   assertEquals(
     await Deno.readTextFile(join(ROOT, "site/pages/fragments/brand.html")),
     renderDiscernBrand(),
@@ -347,255 +355,6 @@ Deno.test("generated output is ignored and reproducible from its selections", as
       output,
     );
   }
-});
-
-Deno.test("the public homepage presents engineering discipline for coding agents", async () => {
-  assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
-  const response = await handler(
-    new Request("https://discern.sh/", { headers: BROWSER }),
-  );
-  assertEquals(response.status, 200);
-  const html = await response.text();
-  const dom = new JSDOM(html);
-  const body = dom.window.document.body;
-  const text = body.textContent ?? "";
-
-  // The first screen names the product category and the operational change.
-  assertEquals(body.querySelectorAll("h1").length, 1);
-  assertEquals(
-    body.querySelector("h1")?.textContent?.trim(),
-    "Engineering discipline for coding agents",
-  );
-  assertStringIncludes(text, "same project knowledge");
-  assertStringIncludes(text, "separate worktrees");
-  assertStringIncludes(text, "requires proof");
-  assertEquals(text.includes("definition of done"), false);
-
-  // The product introduction keeps the shared accessible page structure.
-  assertEquals(body.querySelectorAll("main#main").length, 1);
-  const articleHeader = body.querySelector(".discern-article-header");
-  assert(articleHeader !== null);
-  assert(body.querySelector(".discern-skip-link") !== null);
-  assertEquals(body.querySelector(".discern-article-layout"), null);
-  for (const placeholder of ["Placeholder", "Lorem ipsum", "The ask"]) {
-    assertEquals(text.includes(placeholder), false, placeholder);
-  }
-
-  // The masthead, calls to action, logo cloud, and footer use their
-  // design-system contracts rather than page-owned approximations.
-  assert(body.querySelector(".landing-masthead .discern-brand--lg") !== null);
-  assert(
-    body.querySelector(
-      ".landing-masthead .discern-theme-toggle--quiet",
-    ) !== null,
-  );
-  assertEquals(body.querySelectorAll(".landing-brand-name").length, 2);
-  const actionCluster = body.querySelector(
-    ".discern-article-header__actions > .discern-cluster",
-  );
-  assert(actionCluster !== null);
-  assertEquals(
-    actionCluster.getAttribute("style"),
-    "--discern-cluster-gap:var(--discern-space-4)",
-  );
-  const actions = [
-    ...actionCluster.querySelectorAll("a"),
-  ];
-  assertEquals(
-    actions.map((action) => action.textContent?.trim()),
-    ["Install discern", "Read the manual"],
-  );
-  assertEquals(
-    actions.map((action) => action.getAttribute("href")),
-    ["/docs/getting-started/quickstart", "/docs"],
-  );
-  assertEquals(
-    [
-      ...body.querySelectorAll(".discern-article-header__meta li"),
-    ].map((item) => item.textContent?.trim()),
-    [
-      "Free and Fair Source",
-      "Runs offline",
-      "No API key",
-      "Not an AI",
-    ],
-  );
-
-  const control = body.querySelector(".landing-control");
-  assertEquals(control, null);
-  assertEquals(
-    text.includes("Your project decides when work is finished."),
-    false,
-  );
-  const landingSource = await Deno.readTextFile(
-    join(ROOT, "site/page-src/landing.tsx"),
-  );
-  const controlSourceIndex = landingSource.indexOf(
-    'className="landing-control"',
-  );
-  const commentStart = landingSource.lastIndexOf("/*", controlSourceIndex);
-  const commentEnd = landingSource.indexOf("*/", controlSourceIndex);
-  const commentPrefix = landingSource.slice(0, commentStart).trimEnd();
-  const commentSuffix = landingSource.slice(commentEnd + 2).trimStart();
-  assert(
-    commentStart >= 0 &&
-      controlSourceIndex > commentStart &&
-      commentEnd > controlSourceIndex &&
-      commentPrefix.endsWith("{") &&
-      commentSuffix.startsWith("}"),
-    "the hidden control section must remain in a JSX comment for review",
-  );
-  assertStringIncludes(
-    landingSource.slice(commentStart, commentEnd),
-    "Your project decides when work is finished.",
-  );
-
-  const integrationItems = [
-    ...body.querySelectorAll(".discern-logo-cloud li"),
-  ];
-  const integrationImages = integrationItems.map((item) =>
-    item.querySelector("img")
-  );
-  assertEquals(
-    integrationItems.map((item) => item.lastElementChild?.textContent?.trim()),
-    AGENT_NAMES.map((name) => PROVIDERS[name].label),
-  );
-  assertEquals(
-    integrationImages.map((image) => image?.getAttribute("src")),
-    AGENT_NAMES.map((name) => PROVIDERS[name].brand.mark.path),
-  );
-  assertEquals(
-    integrationImages.map((image) => image?.getAttribute("alt")),
-    AGENT_NAMES.map(() => ""),
-  );
-  assertEquals(
-    integrationImages.map((image) => image?.getAttribute("class")),
-    AGENT_NAMES.map(() => "landing-provider-logo"),
-  );
-  assertEquals(
-    integrationItems.map((item) =>
-      item.querySelector(".landing-provider-logo-frame")?.getAttribute("style")
-    ),
-    AGENT_NAMES.map((name) =>
-      `--landing-provider-logo-mask:url("${
-        providerBrandSilhouette(PROVIDERS[name].brand).path
-      }")`
-    ),
-  );
-  assertEquals(
-    body.querySelector(".discern-logo-cloud")?.getAttribute("aria-label"),
-    `${AGENT_NAMES.length} native coding agent integrations`,
-  );
-  const integrationCloud = body.querySelector(".discern-logo-cloud");
-  assert(integrationCloud !== null);
-  assertEquals(
-    [...articleHeader.children].map((child) => child.className),
-    [
-      "discern-article-header__inner",
-      "discern-logo-cloud discern-logo-cloud--center landing-integrations",
-    ],
-  );
-  assertEquals(
-    integrationCloud.querySelector(".discern-logo-cloud__label"),
-    null,
-  );
-  assertEquals(text.includes("Native coding agent integrations"), false);
-  assertEquals(articleHeader.nextElementSibling, null);
-  const main = body.querySelector("main#main");
-  assert(main !== null);
-  assertEquals(main.children.length, 1);
-  assertEquals(main.firstElementChild, articleHeader);
-  assertEquals(
-    body.querySelector(".landing-benefit, .landing-footprint"),
-    null,
-  );
-  assertEquals(html.includes("landing.js"), false);
-  const footer = body.querySelector(".discern-site-footer");
-  assert(footer !== null);
-  assertEquals(main.nextElementSibling, footer);
-  assertEquals(
-    body.querySelectorAll(".discern-site-footer__nav > div").length,
-    2,
-  );
-  assertEquals(
-    footer.querySelector(".discern-site-footer__description")?.textContent
-      ?.trim(),
-    "Discern makes AI coding agents work like a disciplined engineering team. It coordinates their changes, separates parallel tasks, and proves their work is correct before it ships.",
-  );
-  assertEquals(
-    [...footer.querySelectorAll(".discern-site-footer__base a")].map(
-      (link) => [
-        link.textContent?.trim(),
-        link.getAttribute("href"),
-      ],
-    ),
-    [
-      ["GitHub ↗", "https://github.com/jackwh/discern"],
-      ["llms.txt", "/llms.txt"],
-    ],
-  );
-  assertEquals(
-    footer.querySelector(".discern-site-footer__base > span:last-child")
-      ?.textContent?.trim(),
-    "© 2026 Jack Webb-Heller.",
-  );
-  assertEquals(text.includes("macOS · Linux · WSL2"), false);
-  assertEquals(text.includes("Open source under Apache-2.0."), false);
-  assertEquals(text.includes("Free and open source"), false);
-  const landingCss = await Deno.readTextFile(
-    join(ROOT, "site/page-src/landing.css"),
-  );
-  assertStringIncludes(
-    landingCss,
-    "grid-template-columns: repeat(3, minmax(0, 1fr))",
-  );
-  const mastheadRule = cssRuleBody(landingCss, ".landing-masthead");
-  assertStringIncludes(
-    mastheadRule,
-    "width: min(100% - 2 * var(--discern-space-6), var(--discern-page-max));",
-  );
-  assertEquals(mastheadRule.includes("max-inline-size"), false);
-  assertStringIncludes(landingCss, "inset-block-start: 3px;");
-  assertStringIncludes(landingCss, "inset-block-start: -3px;");
-  assertStringIncludes(landingCss, ".landing-provider-logo");
-  assertStringIncludes(
-    cssRuleBody(
-      landingCss,
-      'html[data-discern-theme="dark"] .landing-provider-logo-frame',
-    ),
-    "background: transparent;",
-  );
-  const darkSilhouetteRule = cssRuleBody(
-    landingCss,
-    'html[data-discern-theme="dark"] .landing-provider-logo-frame::before',
-  );
-  assertStringIncludes(darkSilhouetteRule, "background: currentColor;");
-  assertStringIncludes(
-    darkSilhouetteRule,
-    "mask: var(--landing-provider-logo-mask)",
-  );
-  assertStringIncludes(
-    cssRuleBody(
-      landingCss,
-      'html[data-discern-theme="dark"] .landing-provider-logo',
-    ),
-    "opacity: 0;",
-  );
-  assertEquals(landingCss.includes(".landing-benefit"), false);
-  assertEquals(landingCss.includes(".landing-footprint"), false);
-  assertEquals(landingCss.includes(".landing-provider-logo--"), false);
-
-  // Static output: local runtime assets only, and no React browser runtime.
-  assert(
-    runtimeAssetReferences(html).every((path) => path.startsWith("/")),
-  );
-  assertEquals(
-    ["fonts.googleapis.com", "cdn.jsdelivr.net", "jsr.io", "react"].filter(
-      (origin) => html.includes(origin),
-    ),
-    [],
-  );
-  dom.window.close();
 });
 
 Deno.test("consumer CSS never targets a package-manifest-owned class", async () => {

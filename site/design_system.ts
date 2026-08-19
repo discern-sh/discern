@@ -42,7 +42,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
   },
   compositions: {
     output: "pages/assets/design-system/compositions/",
-    routes: ["/"],
+    routes: ["/", "/agents"],
     groups: ["Marketing", "Editorial"],
     components: [
       "icon",
@@ -55,9 +55,10 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "heading",
       "kicker",
       "tag",
+      "window",
       "skip-link",
     ],
-    assets: ["fonts", "grain"],
+    assets: ["fonts"],
     theme: "discern",
   },
 } as const satisfies Record<string, SiteDesignSystemBundle>;

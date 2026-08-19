@@ -14,23 +14,26 @@ import {
   DESIGN_SYSTEM_BUNDLES,
   type DesignSystemBundleName,
 } from "./design_system.ts";
+import { MARKETING_PAGES } from "./marketing_pages.ts";
 import { renderDiscernBrand } from "./page-src/branding.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
-import { renderLanding } from "./page-src/landing.tsx";
+import { renderMarketingPage } from "./page-src/renderers.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
 
 /** Public files produced by the site build and therefore forbidden from Git. */
 export const GENERATED_SITE_OUTPUTS = [
-  "pages/index.html",
+  ...MARKETING_PAGES.map(({ page }) => page),
   "pages/assets/design-system/",
   "pages/fragments/",
 ] as const;
 
 /** Page-owned assets copied verbatim into the compositions bundle. */
 export const COPIED_PAGE_ASSETS = [
-  "landing.css",
+  "agents.css",
+  "landing-v3.css",
+  "landing.js",
 ] as const;
 
 /** Old generated pages removed on every build so local previews cannot retain them. */
@@ -40,9 +43,8 @@ export const RETIRED_SITE_OUTPUTS = [
   "pages/v2.html",
 ] as const;
 
-const HOME_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
-const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
-const FRAGMENT_ROOT = new URL(GENERATED_SITE_OUTPUTS[2], SITE_ROOT);
+const ASSET_ROOT = new URL("pages/assets/design-system/", SITE_ROOT);
+const FRAGMENT_ROOT = new URL("pages/fragments/", SITE_ROOT);
 const BRAND_FRAGMENT_OUTPUT = new URL("brand.html", FRAGMENT_ROOT);
 const COMPOSITION_ASSET_ROOT = new URL(
   DESIGN_SYSTEM_BUNDLES.compositions.output,
@@ -95,14 +97,16 @@ export async function buildSite(): Promise<void> {
   for (const asset of COPIED_PAGE_ASSETS) {
     await writeGeneratedCopy(asset, asset);
   }
-  await Deno.writeTextFile(
-    HOME_PAGE_OUTPUT,
-    await formatGeneratedText(renderLanding(), "html"),
-  );
+  for (const page of MARKETING_PAGES) {
+    await Deno.writeTextFile(
+      new URL(page.page, SITE_ROOT),
+      await formatGeneratedText(renderMarketingPage(page.route), "html"),
+    );
+  }
   await Deno.writeTextFile(BRAND_FRAGMENT_OUTPUT, renderDiscernBrand());
 
   console.log(
-    `Built the shared Brand fragment, homepage, and design-system bundles from ${summary.components} components and ${summary.tokens} tokens.`,
+    `Built the shared Brand fragment, ${MARKETING_PAGES.length} marketing pages, and design-system bundles from ${summary.components} components and ${summary.tokens} tokens.`,
   );
 }
 

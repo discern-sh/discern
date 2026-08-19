@@ -348,25 +348,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         // The pattern covers the inflection family a single phrase can't.
         phrase: "harness",
         pattern: String.raw`\bharness(?:es|ing)?\b`,
-        // The category carriers: each keeps exactly one use, asserted (against
-        // the DISCERN_CATEGORY constant) by the companion carrier test — a new
-        // carrier must register here to pass the scan, and registering here
-        // enrols it in that assertion.
-        allowed: [
-          {
-            path: "src/shared/brand.ts",
-            reason: "declares the category constant every carrier quotes",
-          },
-          {
-            path: "README.md",
-            reason:
-              "keeps exactly one searchable category use, asserted separately",
-          },
-          {
-            path: "site/pages/assets/og-card.svg",
-            reason: "the social card's single category tag line",
-          },
-        ],
       },
     ],
   },

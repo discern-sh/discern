@@ -58,7 +58,7 @@ Every verb takes `--json` and returns one structured envelope; the MCP tools (`d
 
 ## Any repository, any stack
 
-The engine never learns what "a test" is. It runs the commands your project names and judges nothing except their results — which is how one quality harness fits any repository, in any language, under whichever agent is driving.
+The engine never learns what "a test" is. It runs the commands your project names and judges nothing except their results. That makes the same engineering practice fit any repository, in any language, under whichever agent is driving.
 
 ## Built under its own Gate
 

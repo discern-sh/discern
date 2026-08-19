@@ -22,6 +22,26 @@ Site imports use only that package root and its documented `./runtime` and `./re
 
 When a package defect affects discern, release the fix from the package repository and update this repository to the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
+## Local package iteration
+
+Use the `site-design-system` Project Script to review changes that span both repositories before publication. Give it the root directory of the active design-system checkout or worktree:
+
+```sh
+discern scripts site-design-system /absolute/path/to/design-system-worktree
+```
+
+The script validates the package name, semantic version, and the root, React, and Runtime exports. It creates a temporary copy of discern's Deno configuration, aligns only that copy's package alias with the selected checkout's declared version, and links the checkout there. This lets Deno accept an ahead or behind local package while the committed exact JSR pin remains unchanged. The temporary configuration has no lockfile or `node_modules` directory. Before building, the script proves that the public Runtime export resolves from the selected checkout rather than JSR.
+
+The script serves the normal site on this worktree's assigned port. Its watcher covers discern's site inputs, the linked package's `src/` tree, and its `deno.json`. Every rebuild uses the same temporary configuration. Stopping the script removes that configuration. The script also verifies that the committed `deno.json` and `deno.lock` remained unchanged.
+
+Use a one-shot build when another process already serves the generated site:
+
+```sh
+discern scripts site-design-system -- --build-only /absolute/path/to/design-system-worktree
+```
+
+`DISCERN_DESIGN_SYSTEM_PATH` may supply the checkout instead of the positional path. The local link provides visual and integration evidence only. The full Gate, release workflow, and production build continue to resolve the exact JSR version. After a release reaches JSR, update the committed pin and return to the ordinary production build.
+
 ## CLI-owned integration
 
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts).
@@ -83,14 +103,16 @@ Mixed Result summaries compose through the package's group renderer, which align
 | Bundle         | Routes                      | Selection                                              | Optional assets |
 | -------------- | --------------------------- | ------------------------------------------------------ | --------------- |
 | `docs`         | `/docs` and its descendants | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
-| `compositions` | `/`                         | Marketing, Editorial, and shared display parts         | fonts and grain |
+| `compositions` | `/` and `/agents`           | Marketing, Editorial, and shared display parts         | fonts           |
 
 The table also owns the discern theme choice and emitted public directories. [`site/build.ts`](../../../site/build.ts) passes each selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a manifest, and the requested assets. The discern integration reads those outputs instead of copying the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 
-The docs shell loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The homepage loads the full selected bundle from `/assets/design-system/compositions/`. That selection currently emits no package browser script. Both bundles select fonts. Only the compositions bundle selects grain, and the docs bundle neither emits nor loads it. Generated output stays ignored beneath `site/pages/assets/design-system/`.
+The docs shell loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. Both public marketing pages load the full selected bundle from `/assets/design-system/compositions/`. That selection currently emits no package browser script. Both bundles select fonts; neither selects the optional grain asset. Generated output stays ignored beneath `site/pages/assets/design-system/`.
 
 The docs bundle selects the `Docs` group plus the shared `icon`, `icon-button`, `theme-toggle`, `brand`, `divider`, `heading`, `kicker`, `table`, `breadcrumbs`, and `table-of-contents` components. Its explicit Workflow roots are `procedure`, `command`, `result-summary`, `path-reference`, `ownership-badge`, and `branch-choice`; the package adds their dependencies in manifest order. A selected Workflow root must appear on a real manual journey, and a rendered root must resolve into this bundle.
 
-Both bundles select the Core `Brand` component, which brings its `Logo` dependency with it. [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the canonical public lockup: the decorative `◮`, the visible `discern` name, the `mono` typeface, and an optional context tagline. The docs shell reuses its statically rendered markup, and the homepage can compose its React adapter. The browser receives the component's semantic HTML, selected CSS, and any framework-neutral behavior script declared by that selection, with no React runtime.
+Both bundles select the Core `Brand` component, which brings its `Logo` dependency with it. [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the canonical public lockup: the decorative `◮`, the visible `discern` name, the `mono` typeface, and an optional context tagline. The docs shell reuses its statically rendered markup. Both marketing compositions pass the same mark and name treatment into the Marketing `SiteHeader` campaign variant.
 
-The static page boundary, homepage composition, build commands, and manifest-driven consumer guards are recorded separately in [design-system-consumption.md](design-system-consumption.md).
+The homepage also uses the Marketing `HeroBlock` showcase layout with its atmospheric surface and the `LogoCloud` strip variant. Its product-state composition remains site-owned inside the Display `Window` showcase variant, and its agent-result composition uses the Display `Terminal` showcase variant. Provider assets, page copy, and the inner product evidence remain consumer content; the shared scale, spacing, chrome, colour-scheme handling, and responsive behavior come from the published package. The browser receives semantic HTML, selected CSS, and any framework-neutral behavior script declared by that selection, with no React runtime.
+
+The static page boundary, marketing compositions, build commands, and manifest-driven consumer guards are recorded separately in [design-system-consumption.md](design-system-consumption.md).

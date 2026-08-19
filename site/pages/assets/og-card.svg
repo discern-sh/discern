@@ -1,31 +1,86 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
   viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
   <title id="title">discern</title>
-  <desc id="desc">Code got fast. Trust didn’t.</desc>
-  <rect width="1200" height="630" style="fill: oklch(20% 0.018 225)" />
-  <text x="84" y="118" style="fill: oklch(93% 0.012 225)"
-    font-family="'Crimson Pro', Georgia, serif" font-size="46"
-    font-weight="700">discern</text>
-  <g transform="translate(1032 66)">
-    <rect width="84" height="84" rx="20" style="fill: oklch(14.5% 0.018 225)"
-      stroke-width="2" stroke="oklch(35% 0.04 259)" />
-    <g transform="translate(6 6) scale(.72)"
-      style="color: oklch(67% 0.165 259)">
+  <desc
+    id="desc">Let coding agents handle more of the work. Keep control of what ships.</desc>
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="10%" r="72%">
+      <stop offset="0" stop-color="#315fae" stop-opacity=".46" />
+      <stop offset=".52" stop-color="#202a43" stop-opacity=".2" />
+      <stop offset="1" stop-color="#151821" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#252b3b" />
+      <stop offset="1" stop-color="#1b1e29" />
+    </linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#a9b5d0" stroke-opacity=".045" />
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="#151821" />
+  <rect width="1200" height="630" fill="url(#halo)" />
+  <rect width="1200" height="630" fill="url(#grid)" />
+
+  <g transform="translate(76 58)">
+    <g transform="translate(0 -3) scale(.4)" color="#79a8ff">
       <path d="M50 12 90 84H50Z" fill="currentColor" />
       <path d="M50 12 90 84H10Z" fill="none" stroke="currentColor"
         stroke-width="7" stroke-linejoin="round" />
     </g>
+    <text x="48" y="28" fill="#f1f3fa"
+      font-family="'JetBrains Mono', ui-monospace, monospace" font-size="28"
+      font-weight="700">discern</text>
   </g>
-  <text x="80" y="330" style="fill: oklch(93% 0.012 225)"
-    font-family="'Crimson Pro', Georgia, serif" font-size="118"
-    font-weight="650" letter-spacing="-2">Code got fast.</text>
-  <text x="80" y="452" style="fill: oklch(74% 0.14 259)"
-    font-family="'Crimson Pro', Georgia, serif" font-size="118"
+
+  <g transform="translate(734 48)">
+    <rect width="390" height="42" rx="21" fill="#252b3b" stroke="#4a5876" />
+    <circle cx="22" cy="21" r="4" fill="#79a8ff" />
+    <text x="38" y="27" fill="#c5ccda"
+      font-family="Inter, system-ui, sans-serif" font-size="13"
+      font-weight="650" letter-spacing="1"
+      style="text-transform: uppercase">Software Engineering Tool for Coding Agents</text>
+  </g>
+
+  <text x="76" y="195" fill="#f5f3f7"
+    font-family="'Crimson Pro', Georgia, serif" font-size="76"
+    font-weight="650" letter-spacing="-3">Let coding agents handle</text>
+  <text x="76" y="273" fill="#79a8ff"
+    font-family="'Crimson Pro', Georgia, serif" font-size="76"
     font-weight="650" font-style="italic"
-    letter-spacing="-2">Trust didn’t.</text>
-  <path d="M84 528h1032" style="stroke: oklch(32% 0.025 225)"
-    stroke-width="2" />
-  <text x="84" y="576" style="fill: oklch(62% 0.02 225)"
-    font-family="'JetBrains Mono', ui-monospace, monospace"
-    font-size="21">discern.sh · a quality harness for coding agents — and the humans who run them</text>
+    letter-spacing="-3">more of the work.</text>
+  <text x="76" y="351" fill="#f5f3f7"
+    font-family="'Crimson Pro', Georgia, serif" font-size="76"
+    font-weight="650" letter-spacing="-3">Keep control of what ships.</text>
+
+  <g transform="translate(76 420)">
+    <rect width="1048" height="142" rx="24" fill="url(#panel)"
+      stroke="#3f4961" />
+    <text x="28" y="35" fill="#8290aa"
+      font-family="'JetBrains Mono', ui-monospace, monospace" font-size="13"
+      letter-spacing="1.4">PROJECT IN MOTION</text>
+    <text x="28" y="73" fill="#f0f2f7"
+      font-family="'Crimson Pro', Georgia, serif" font-size="30"
+      font-weight="650">One task, returned with exact-commit evidence</text>
+    <g transform="translate(28 96)" fill="#aeb7ca"
+      font-family="Inter, system-ui, sans-serif" font-size="14">
+      <text x="0" y="16">Request</text>
+      <text x="82" y="16" fill="#7183a7">→</text>
+      <text x="110" y="16">Working</text>
+      <text x="184" y="16" fill="#7183a7">→</text>
+      <text x="212" y="16">Checked</text>
+      <text x="286" y="16" fill="#7183a7">→</text>
+      <text x="314" y="16" fill="#79a8ff" font-weight="700">Your decision</text>
+    </g>
+    <g transform="translate(828 29)">
+      <rect width="190" height="40" rx="20" fill="#18382c" stroke="#367a5c" />
+      <circle cx="22" cy="20" r="4" fill="#70d99f" />
+      <text x="38" y="25" fill="#a9ecc4"
+        font-family="Inter, system-ui, sans-serif" font-size="14"
+        font-weight="650">Proof valid</text>
+    </g>
+    <text x="916" y="114" fill="#8290aa"
+      font-family="'JetBrains Mono', ui-monospace, monospace"
+      font-size="15">discern.sh</text>
+  </g>
 </svg>
