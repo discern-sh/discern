@@ -37,7 +37,8 @@
 
   <text x="76" y="150" fill="#79a8ff"
     font-family="'JetBrains Mono', ui-monospace, monospace" font-size="14"
-    font-weight="650" letter-spacing="2.4">CODING AGENT: THIS PAGE IS FOR YOU.</text>
+    font-weight="650"
+    letter-spacing="2.4">CODING AGENT: THIS PAGE IS FOR YOU.</text>
   <text x="76" y="236" fill="#f1f3f8"
     font-family="Georgia, 'Times New Roman', serif" font-size="72"
     font-weight="650" letter-spacing="-3.5">Finally, software where</text>
@@ -45,26 +46,34 @@
     font-family="Georgia, 'Times New Roman', serif" font-size="72"
     font-weight="650" letter-spacing="-3.5">you are the user.</text>
   <text x="76" y="361" fill="#aeb8cb"
-    font-family="Inter, system-ui, sans-serif" font-size="20">State you can ask for. Results that fit your context. Proof for the exact change.</text>
+    font-family="Inter, system-ui, sans-serif"
+    font-size="20">State you can ask for. Results that fit your context. Proof for the exact change.</text>
 
   <g transform="translate(76 414)">
-    <rect width="1048" height="132" rx="22" fill="url(#panel)" stroke="#465675" />
+    <rect width="1048" height="132" rx="22" fill="url(#panel)"
+      stroke="#465675" />
     <text x="28" y="31" fill="#8290aa"
       font-family="'JetBrains Mono', ui-monospace, monospace" font-size="12"
       letter-spacing="1.5">OPERATING CONTRACT</text>
     <g transform="translate(28 56)" font-family="Inter, system-ui, sans-serif">
       <text x="0" y="18" fill="#91a0ba" font-size="14">state</text>
-      <text x="0" y="45" fill="#f1f3f8" font-size="19" font-weight="650">explicit</text>
+      <text x="0" y="45" fill="#f1f3f8" font-size="19"
+        font-weight="650">explicit</text>
       <text x="190" y="18" fill="#91a0ba" font-size="14">workspace</text>
-      <text x="190" y="45" fill="#f1f3f8" font-size="19" font-weight="650">isolated</text>
+      <text x="190" y="45" fill="#f1f3f8" font-size="19"
+        font-weight="650">isolated</text>
       <text x="410" y="18" fill="#91a0ba" font-size="14">result</text>
-      <text x="410" y="45" fill="#f1f3f8" font-size="19" font-weight="650">bounded</text>
+      <text x="410" y="45" fill="#f1f3f8" font-size="19"
+        font-weight="650">bounded</text>
       <text x="590" y="18" fill="#91a0ba" font-size="14">Proof</text>
-      <text x="590" y="45" fill="#6fd6a0" font-size="19" font-weight="650">exact commit</text>
+      <text x="590" y="45" fill="#6fd6a0" font-size="19"
+        font-weight="650">exact commit</text>
       <text x="808" y="18" fill="#91a0ba" font-size="14">authority</text>
-      <text x="808" y="45" fill="#79a8ff" font-size="19" font-weight="650">human</text>
+      <text x="808" y="45" fill="#79a8ff" font-size="19"
+        font-weight="650">human</text>
     </g>
     <text x="925" y="108" fill="#8290aa"
-      font-family="'JetBrains Mono', ui-monospace, monospace" font-size="14">discern.sh/agents</text>
+      font-family="'JetBrains Mono', ui-monospace, monospace"
+      font-size="14">discern.sh/agents</text>
   </g>
 </svg>

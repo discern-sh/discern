@@ -227,7 +227,8 @@
     overflow: hidden;
     padding: clamp(1rem, 2.8vw, 2.5rem);
     background:
-      radial-gradient(circle at 76% 20%, rgb(49 95 174 / 24%), transparent 33rem),
+      radial-gradient(circle at 76% 20%, rgb(49 95 174 / 24%), transparent
+      33rem),
       var(--agents-night);
   }
 
@@ -472,18 +473,31 @@
     }
 
     .agents-contract {
-      animation: agents-contract-in 620ms 80ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      animation: agents-contract-in 620ms 80ms cubic-bezier(0.2, 0.8, 0.2, 1)
+        both;
     }
   }
 
   @keyframes agents-assemble {
-    from { opacity: 0.95; transform: scale(1.025); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+      opacity: 0.95;
+      transform: scale(1.025);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 
   @keyframes agents-contract-in {
-    from { opacity: 0; transform: translateY(1.25rem) rotate(0deg); }
-    to { opacity: 1; transform: translateY(0) rotate(1.4deg); }
+    from {
+      opacity: 0;
+      transform: translateY(1.25rem) rotate(0deg);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) rotate(1.4deg);
+    }
   }
 
   /* Recognition */
@@ -567,7 +581,8 @@
   .agents-ergonomics {
     padding-block: clamp(7rem, 12vw, 12rem);
     background:
-      radial-gradient(circle at 8% 58%, rgb(49 95 174 / 14%), transparent 30rem),
+      radial-gradient(circle at 8% 58%, rgb(49 95 174 / 14%), transparent
+      30rem),
       var(--agents-night-raised);
   }
 
@@ -930,7 +945,8 @@
   .agents-continuity {
     padding-block: clamp(7rem, 12vw, 12rem);
     background:
-      radial-gradient(circle at 90% 12%, rgb(49 95 174 / 18%), transparent 28rem),
+      radial-gradient(circle at 90% 12%, rgb(49 95 174 / 18%), transparent
+      28rem),
       #0c1018;
   }
 
@@ -1222,7 +1238,8 @@
   .agents-proof {
     padding-block: clamp(7rem, 12vw, 12rem);
     background:
-      radial-gradient(circle at 50% 38%, rgb(49 95 174 / 25%), transparent 42rem),
+      radial-gradient(circle at 50% 38%, rgb(49 95 174 / 25%), transparent
+      42rem),
       #071019;
   }
 
@@ -1363,7 +1380,8 @@
     background: rgb(240 195 107 / 10%);
     color: var(--agents-yellow);
     opacity: 0;
-    transition: max-block-size 320ms ease, padding 320ms ease, opacity 220ms ease;
+    transition: max-block-size 320ms ease, padding 320ms ease, opacity 220ms
+      ease;
   }
 
   .agents-proof-demo[data-proof-state="stale"] .agents-code-line--edit {
@@ -1749,7 +1767,8 @@
   .agents-next {
     padding-block: clamp(7rem, 12vw, 12rem) 0;
     background:
-      radial-gradient(circle at 50% 65%, rgb(49 95 174 / 24%), transparent 38rem),
+      radial-gradient(circle at 50% 65%, rgb(49 95 174 / 24%), transparent
+      38rem),
       #080b11;
   }
 

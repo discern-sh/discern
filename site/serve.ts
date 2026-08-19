@@ -60,9 +60,7 @@ export const PAGES: Readonly<
     {
       page: entry.page,
       negotiable: entry.negotiable,
-      ...("markdownPage" in entry
-        ? { markdownPage: entry.markdownPage }
-        : {}),
+      ...("markdownPage" in entry ? { markdownPage: entry.markdownPage } : {}),
     },
   ]),
 );
