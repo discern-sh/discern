@@ -9,7 +9,7 @@ import { dirname, join, resolve } from "@std/path";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
-import { renderLanding } from "../site/page-src/landing.tsx";
+import { renderMarketingPage } from "../site/page-src/renderers.ts";
 import {
   countProse,
   fleschKincaidGrade,
@@ -146,10 +146,13 @@ export function visibleSiteProse(html: string): {
   return { blocks, prose: `${blocks.join("\n\n")}\n` };
 }
 
-/** Convert a route to its stable Markdown path within the staged brand tier. */
-function routeStagePath(route: string): string {
+/** Convert a route to its stable Markdown path within the declared register tier. */
+function routeStagePath(
+  route: string,
+  register: "brand" | "agent",
+): string {
   const leaf = route === "/" ? "index" : route.replace(/^\/+|\/+$/g, "");
-  return `_internal/brand/${leaf}.md`;
+  return `_internal/${register}/${leaf}.md`;
 }
 
 /** Project every prose-guarded page from the marketing registry in route order. */
@@ -157,11 +160,11 @@ export function projectSiteProse(): ProjectedSiteProsePage[] {
   return MARKETING_PAGES
     .filter((page) => page.prose === "guarded")
     .map((page) => {
-      const projected = visibleSiteProse(renderLanding());
+      const projected = visibleSiteProse(renderMarketingPage(page.route));
       return {
         route: page.route,
         source: page.source,
-        stagePath: routeStagePath(page.route),
+        stagePath: routeStagePath(page.route, page.register),
         ...projected,
       };
     });

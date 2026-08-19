@@ -36,6 +36,9 @@ import {
   STATIC_REDIRECTS,
 } from "./seo.ts";
 import { SECURITY_DISCLOSURE, securityTxt } from "./security.ts";
+import { MARKETING_PAGES } from "./marketing_pages.ts";
+import { PROVIDERS } from "../src/lib/providers.ts";
+import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
@@ -48,12 +51,18 @@ const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
 /** Routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
 export const PAGES: Readonly<
   Record<string, { page: string; negotiable: boolean }>
-> = {
-  "/": { page: "pages/index.html", negotiable: true },
-};
+> = Object.fromEntries(
+  MARKETING_PAGES.map(({ route, page, negotiable }) => [
+    route,
+    { page, negotiable },
+  ]),
+);
 
 /** The plaintext edition: served to text clients on negotiable routes and at /llms.txt. */
 export const TEXT_EDITION = "text/discern.txt";
+
+/** Author-time marker replaced from the canonical provider registry on every response. */
+export const SUPPORTED_PROVIDER_NAMES_MARKER = "{{SUPPORTED_PROVIDER_NAMES}}";
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".html": "text/html; charset=utf-8",
@@ -101,13 +110,50 @@ async function serveFile(
   return new Response(body, { status: 200, headers });
 }
 
+/** Join display labels with an Oxford conjunction for public prose. */
+function readableList(items: readonly string[]): string {
+  if (items.length <= 1) return items.join("");
+  if (items.length === 2) return items.join(" and ");
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
+/** Expand the authored machine-edition template from live product registries. */
+export function renderTextEdition(source: string): string {
+  const occurrences = source.split(SUPPORTED_PROVIDER_NAMES_MARKER).length - 1;
+  if (occurrences !== 1) {
+    throw new Error(
+      `${TEXT_EDITION} must contain exactly one ${SUPPORTED_PROVIDER_NAMES_MARKER} marker`,
+    );
+  }
+  return source.replace(
+    SUPPORTED_PROVIDER_NAMES_MARKER,
+    readableList(AGENT_NAMES.map((name) => PROVIDERS[name].label)),
+  );
+}
+
+/** Read the authored machine edition and expand its registry-owned fields. */
+async function textEditionBody(): Promise<string> {
+  const source = await Deno.readTextFile(new URL(TEXT_EDITION, SITE_ROOT));
+  return renderTextEdition(source);
+}
+
+/** Serve the expanded base machine edition without the generated docs index. */
+async function textEditionResponse(
+  extraHeaders?: HeadersInit,
+): Promise<Response> {
+  const headers = new Headers(extraHeaders);
+  headers.set("content-type", "text/plain; charset=utf-8");
+  headers.set("cache-control", "public, max-age=300");
+  return new Response(await textEditionBody(), { status: 200, headers });
+}
+
 /**
  * /llms.txt: the handwritten llms.txt edition (llmstxt.org), with the
  * documentation file lists appended from the same tree the /docs section
  * renders — one listing, never hand-kept.
  */
 async function llmsTxt(site: DocsSite): Promise<Response> {
-  const base = await Deno.readTextFile(new URL(TEXT_EDITION, SITE_ROOT));
+  const base = await textEditionBody();
   const docs = docsLlmsSection(site);
   return new Response(`${base.trimEnd()}\n\n${docs}`, {
     status: 200,
@@ -120,7 +166,7 @@ async function llmsTxt(site: DocsSite): Promise<Response> {
 
 /** /llms-full.txt: the complete public projection, with citations retained. */
 async function llmsFullTxt(site: DocsSite): Promise<Response> {
-  const base = await Deno.readTextFile(new URL(TEXT_EDITION, SITE_ROOT));
+  const base = await textEditionBody();
   const docs = await docsLlmsFullText(site);
   return new Response(`${base.trimEnd()}\n\n${docs}`, {
     status: 200,
@@ -147,6 +193,7 @@ function notFound(asText: boolean): Response {
     `<body style="font-family:ui-monospace,monospace;padding:4rem 1.5rem;color:#1A1814;background:#FBFAF7">` +
     `<p style="max-width:34rem;line-height:1.7">404 — no such page.<br>` +
     `Available pages: <a href="/">discern.sh</a> · ` +
+    `<a href="/agents">/agents</a> · ` +
     `<a href="/docs">/docs</a> · <a href="/llms.txt">/llms.txt</a></p>`;
   return new Response(body, {
     status: 404,
@@ -304,7 +351,7 @@ async function routeResponse(
     if (route.negotiable) {
       const vary = { vary: "Accept, User-Agent" };
       return wantsText(req)
-        ? await serveFile(TEXT_EDITION, vary)
+        ? await textEditionResponse(vary)
         : await serveFile(route.page, vary);
     }
     return await serveFile(route.page);

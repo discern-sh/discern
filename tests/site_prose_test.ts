@@ -3,6 +3,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join, resolve } from "@std/path";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
+import { renderAgents } from "../site/page-src/agents.tsx";
 import { COPY_PROMPT_TEXT, renderLanding } from "../site/page-src/landing.tsx";
 import { proseWordCount } from "../scripts/prose_lib.ts";
 import {
@@ -15,8 +16,9 @@ import {
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
 
 Deno.test("every marketing page follows its prose policy", () => {
-  assertEquals(MARKETING_PAGES.map(({ route }) => route), ["/"]);
+  assertEquals(MARKETING_PAGES.map(({ route }) => route), ["/", "/agents"]);
   assertStringIncludes(renderLanding(), "<!doctype html>");
+  assertStringIncludes(renderAgents(), "<!doctype html>");
   const projected = projectSiteProse();
   assertEquals(
     projected.map(({ route }) => route),
@@ -33,6 +35,20 @@ Deno.test("every marketing page follows its prose policy", () => {
       `${page.route} follows its ${page.prose} prose policy`,
     );
   }
+});
+
+Deno.test("the For Agents projection uses the agent register", () => {
+  const page = projectSiteProse().find(({ route }) => route === "/agents");
+  assert(page !== undefined);
+  assertEquals(page.stagePath, "_internal/agent/agents.md");
+  assertStringIncludes(
+    page.prose,
+    "Finally, software designed around the way you work.",
+  );
+  assertStringIncludes(
+    page.prose,
+    "A refusal should tell you where to go next.",
+  );
 });
 
 Deno.test("the homepage projection measures prose once and excludes artefact data", () => {

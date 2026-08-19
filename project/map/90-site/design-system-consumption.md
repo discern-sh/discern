@@ -10,7 +10,7 @@ aliases:
 
 ## Static production, typed authoring
 
-The homepage source can compose the package's typed React adapters in [`site/page-src/`](../../../site/page-src/). The build renders those compositions with `renderToStaticMarkup` and writes static Hypertext Markup Language (HTML). React runs only during authoring and build; the browser receives static output with no React bundle, hydration, or client framework ([ADR 0135](../_adr/0135-site-pages-use-build-time-react-and-static-runtime.md)).
+The public marketing sources can compose the package's typed React adapters in [`site/page-src/`](../../../site/page-src/). The build renders those compositions with `renderToStaticMarkup` and writes static Hypertext Markup Language (HTML). React runs only during authoring and build; the browser receives static output with no React bundle, hydration, or client framework ([ADR 0135](../_adr/0135-site-pages-use-build-time-react-and-static-runtime.md)).
 
 Layout and display components render completely as semantic HTML. The package emits selection-scoped, framework-neutral enhancements for reusable component behavior. Page behavior remains page-owned. Product copy, routes, commands, bespoke artwork, docs rendering, and composition Cascading Style Sheets (CSS) remain in discern.
 
@@ -22,7 +22,7 @@ The Markdown remains the complete manual for terminal, Model Context Protocol (M
 
 The marked Markdown is the authority for every command and outcome in the projection. When CSS or JavaScript is unavailable, the server HTML still states the complete procedure, result, ownership, and next action. Site-owned JavaScript adds the Command copy control in the package's documented slot. The production graph remains framework-free.
 
-[`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the reusable public lockup. The component uses the `md` preset and renders `discern` beside the decorative Unicode mark in the `mono` typeface. During `site:build`, the builder writes the tagline-free lockup to `site/pages/fragments/brand.html`. The docs shell reads that static fragment into its top bar without importing the React adapter. A homepage composition can import the same adapter.
+[`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the reusable public lockup. The component uses the `md` preset and renders `discern` beside the decorative Unicode mark in the `mono` typeface. During `site:build`, the builder writes the tagline-free lockup to `site/pages/fragments/brand.html`. The docs shell reads that static fragment into its top bar without importing the React adapter. Marketing compositions can import the same adapter.
 
 ## The homepage composition
 
@@ -32,9 +32,15 @@ The provider cloud closes the hero and walks the native agent catalog in its can
 
 Page-owned composition styles live in [`site/page-src/landing-v3.css`](../../../site/page-src/landing-v3.css). Its `.v3-*` and small shared `.landing-*` selectors compose the page while component-owned `.discern-*` selectors stay with the package. [`site/page-src/landing.js`](../../../site/page-src/landing.js) owns the task-stage controls and Copy prompt behavior. It reveals the copy control, copies the exact visible instruction, reports success, and selects the source text when clipboard access fails. The prompt stays visible and selectable when JavaScript is unavailable. The shared `/assets/theme.js` separately wires every `[data-theme-toggle]` control. [`site/brand.ts`](../../../site/brand.ts) owns the homepage's exact title and description.
 
+## The For Agents composition
+
+[`site/page-src/agents.tsx`](../../../site/page-src/agents.tsx) contains the public agent-native composition at `/agents`. It moves from context economy and callable operations through session continuity, isolated work, human authority, provider continuity, deterministic boundaries, and exact machine sources. Its provider cloud derives from the same total agent and provider registries as the integrations themselves. The route therefore gains a newly supported provider without a copied marketing list.
+
+[`site/page-src/agents.css`](../../../site/page-src/agents.css) owns its `.agents-*` composition selectors. The page uses only static package components and the shared theme controller. [`site/page-src/renderers.ts`](../../../site/page-src/renderers.ts) exhaustively maps each `MARKETING_PAGES` route to its static renderer, so adding a registry member without a composition fails type checking.
+
 ## Public-site prose
 
-[`site/marketing_pages.ts`](../../../site/marketing_pages.ts) enrolls the homepage in public prose checks and names its authored source, register, and prose policy. A guarded page joins [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts), the site scope, and both prose Standards through that registration. Building and serving remain direct single-page paths.
+[`site/marketing_pages.ts`](../../../site/marketing_pages.ts) enrolls every public marketing composition in building, serving, route discovery, runtime checks, and public prose checks. Each member names its output, authored source, register, negotiation policy, and prose policy. A guarded page joins [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts), the site scope, and both prose Standards through that registration. The homepage uses the brand register; `/agents` uses the public agent register.
 
 The projection keeps the authored blocks a visitor reads and removes markup, attributes, code, artefact data, and repeated rendered copies. It stages each page under its declared register so the generated brand rules apply. `deno task site:prose-check` blocks Vale errors. `deno task site:prose` emits the alert numerator and exact word denominator consumed by `[standards.site_prose]`; `deno task site:reading-grade` reads the same projection for `[standards.site_reading_grade]`.
 
@@ -74,7 +80,7 @@ The published manifest automatically enrolls new package components and classes.
 ## Build and theme
 
 ```sh
-deno task site:build   # emit both runtimes and the homepage shell
+deno task site:build   # emit both runtimes and the static marketing shells
 deno task site         # build, then serve on the worktree's loopback port
 deno task watch        # rebuild when site-owned inputs change
 deno task site:prose-check # run the public-copy Vale gate
@@ -84,6 +90,6 @@ deno task site:reading-grade # measure the pinned reading grade
 
 Only `site:build` grants `NODE_ENV`, because that build process uses React for static rendering. The long-lived `site` and `watch` server processes do not grant it. A guard rejects React runtime modules in their production entry graph. An unexpected environment read therefore appears as both a permission failure and a test failure.
 
-The package's `discern` theme preserves the semantic color, type, spacing, focus, motion, and background roles established during the prototype. The display role prefers Iowan Old Style where the visitor has it, then uses the bundled Crimson Pro as its first portable fallback. Inter serves body and interface roles, and JetBrains Mono serves code. The build copies the bundled font binaries and SIL Open Font License texts from the selected package asset pack into local generated output. The homepage hero's glow interpolates fully opaque accent-and-canvas colors in `oklab`. It uses no filtered transparency or grain layer, so the browser paints the gradient directly instead of compositing it over the canvas. `site/theme.ts` gives the homepage and docs one pre-paint system-preference bootstrap.
+The package's `discern` theme preserves the semantic color, type, spacing, focus, motion, and background roles established during the prototype. The display role prefers Iowan Old Style where the visitor has it, then uses the bundled Crimson Pro as its first portable fallback. Inter serves body and interface roles, and JetBrains Mono serves code. The build copies the bundled font binaries and SIL Open Font License texts from the selected package asset pack into local generated output. The homepage hero's glow interpolates fully opaque accent-and-canvas colors in `oklab`. It uses no filtered transparency or grain layer, so the browser paints the gradient directly instead of compositing it over the canvas. `site/theme.ts` gives both marketing pages and docs one pre-paint system-preference bootstrap.
 
 `/assets/theme.js` keeps every design-system `ThemeToggle` in sync behind one optional visitor override. Each two-state control names and displays the opposite of the resolved theme. Choosing a theme different from the current system preference stores that explicit override; choosing the theme the system already requests removes storage and resumes following the system. A later system change that merely comes to match an existing override never clears it. The controls are action buttons rather than pressed-state buttons: their changing accessible name states the destination, and they expose no competing `aria-pressed` state.

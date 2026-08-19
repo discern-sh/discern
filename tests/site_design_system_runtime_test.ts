@@ -18,9 +18,10 @@ import {
   designSystemAssetPath,
   type DesignSystemBundleName,
 } from "../site/design_system.ts";
+import { MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { renderDiscernBrand } from "../site/page-src/branding.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
-import { renderLanding } from "../site/page-src/landing.tsx";
+import { renderMarketingPage } from "../site/page-src/renderers.ts";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 
@@ -328,10 +329,12 @@ Deno.test("generated output is ignored and reproducible from its selections", as
     assertEquals(ignored.code, 0, `${path} must be ignored`);
   }
 
-  assertEquals(
-    await Deno.readTextFile(join(ROOT, "site/pages/index.html")),
-    await formatGeneratedText(renderLanding(), "html"),
-  );
+  for (const page of MARKETING_PAGES) {
+    assertEquals(
+      await Deno.readTextFile(join(ROOT, "site", page.page)),
+      await formatGeneratedText(renderMarketingPage(page.route), "html"),
+    );
+  }
   assertEquals(
     await Deno.readTextFile(join(ROOT, "site/pages/fragments/brand.html")),
     renderDiscernBrand(),
