@@ -106,6 +106,20 @@ import { renderGatePlan } from "./presentation.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
+import {
+  type CheckpointPreflight,
+  type DeclarationRequest,
+  previewCheckpointNotes,
+  runCheckpointPreflight,
+  type ServedCheckpoint,
+} from "../checkpoints/preflight.ts";
+import { AWAITING_DECLARATION_SLUG } from "../../shared/declarations.ts";
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
+import type {
+  GateCheckpointsData,
+  ProofCheckpointsData,
+  ServedCheckpointData,
+} from "../../shared/result_schemas.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
@@ -457,6 +471,10 @@ async function runGate(
   signal?: AbortSignal,
   presentation: {
     validationCaptureOptions?: ValidationCaptureOptions;
+    /** The already-settled checkpoint pre-flight (reconciliation ran before
+     * the rerun guard); the gate carries its conclusions into the envelope,
+     * the Proof, and the marker bindings. */
+    checkpoints?: CheckpointPreflight;
   } = {},
 ): Promise<
   {
@@ -991,6 +1009,15 @@ async function runGate(
   if (slots?.waitedMs !== undefined) {
     result.waitedMs = slots.waitedMs;
   }
+  // The checkpoint block (agent evidence) rides every completed run, green or
+  // red, so a caller can always see which conclusions currently stand.
+  const checkpointPreflight = presentation.checkpoints;
+  const checkpointData = checkpointPreflight === undefined
+    ? undefined
+    : gateCheckpointsData(checkpointPreflight);
+  if (result.data !== undefined && checkpointData !== undefined) {
+    result.data.checkpoints = checkpointData;
+  }
   // 6a. The standards' envelope fields (ADR 0133): the per-standard outcomes and
   //     the Tier-1 verification, plus the measured value patched into each
   //     measured step's note — the proof renders FROM these, never a second
@@ -1085,6 +1112,9 @@ async function runGate(
       result.steps ?? [],
       standardsData,
       standardsLimits,
+      checkpointPreflight === undefined
+        ? undefined
+        : proofCheckpointsData(checkpointPreflight),
     )
     : undefined;
   // Record the measurement proof (ADR 0112, extended by ADR 0133): a green
@@ -1162,12 +1192,18 @@ async function runGate(
         failedStage === null,
         treePin,
         proof,
+        checkpointPreflight?.evidence,
       );
   // The last-run marker remembers what this run judged — every verdict, red
   // included, unlike the proof above — so the next `done` can refuse an
   // unchanged-tree rerun unless it carries `--confirmed`.
   if (writeAuthority !== undefined) {
-    await recordLastGateRun(root, writeAuthority, failedStage === null);
+    await recordLastGateRun(
+      root,
+      writeAuthority,
+      failedStage === null,
+      checkpointPreflight?.evidence,
+    );
   }
   // A stamp refused because HEAD moved mid-run also suppresses the rendered review
   // proof: its git facts were gathered AFTER the move, so its markdown describes a
@@ -1215,6 +1251,29 @@ async function runGate(
     )
     : [];
   const proofHint = gateProofHint(gateProof, failedStage);
+  // Checkpoint deliveries ride the envelope's one advisory channel: fail-open
+  // accounts as notices, each fired advise-mode question served in full, and
+  // — on a green run with a declared-unmet conclusion standing — the landing
+  // consequence, so a green Proof is never mistaken for a landable one.
+  const checkpointAdvisoryHints = (checkpointPreflight?.advisories ?? []).map(
+    (advisory) => fire(HINTS["checkpoint-advisory"], { advisory }),
+  );
+  const adviseHints = (checkpointPreflight?.advise ?? []).map((served) =>
+    fire(HINTS["checkpoint-advise"], {
+      id: served.id,
+      question: served.question.trim(),
+      matched: [...served.matched],
+    })
+  );
+  const varianceHints =
+    failedStage === null && checkpointPreflight !== undefined &&
+      checkpointPreflight.declaredUnmet.length > 0
+      ? [
+        fire(HINTS["gate-variance-required"], {
+          ids: checkpointPreflight.declaredUnmet.map((unmet) => unmet.id),
+        }),
+      ]
+      : [];
   const deferredStandards = standardsData
     .filter((o) => o.measurement === "deferred")
     .map((o) => o.name);
@@ -1229,10 +1288,12 @@ async function runGate(
     ...(trunkAdvanceWarning !== undefined ? [trunkAdvanceWarning] : []),
     ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
+    ...checkpointAdvisoryHints,
     // The fleet test-run cap's wait notices (the same lines the human run
     // narrated live), so a --json/MCP caller sees why the run took longer.
     ...(slots?.waits ?? []),
     ...(proofHint !== undefined ? [proofHint] : []),
+    ...varianceHints,
     ...buildGateHints(
       cfg,
       changed,
@@ -1242,6 +1303,7 @@ async function runGate(
       deferredStandards,
       landingAuthority,
     ),
+    ...adviseHints,
     ...trailingJobHints,
     ...couplingHints,
     ...logbookHints,
@@ -1519,6 +1581,7 @@ async function dryRunGate(
   const changed = await classifyScopes(root, cfg);
   const plan = buildGatePlan(cfg, changed, dryRunStandardJobs(cfg));
   const engine = gatePlanToEngine(plan);
+  engine.details.push(...(await previewCheckpointNotes(root, cfg)));
   if (json) {
     // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
     emitResult(previewResult("done", engine));
@@ -1535,6 +1598,188 @@ async function dryRunGate(
   return 0;
 }
 
+/** Project one served checkpoint onto the wire shape. */
+function servedCheckpointData(served: ServedCheckpoint): ServedCheckpointData {
+  return {
+    id: served.id,
+    mode: served.mode,
+    question: served.question,
+    ...(served.teach === undefined ? {} : { teach: served.teach }),
+    ...(served.reference === undefined ? {} : { reference: served.reference }),
+    matched: [...served.matched],
+  };
+}
+
+/** Project the pre-flight onto the envelope's `data.checkpoints` block, or
+ * `undefined` when no checkpoint governed and nothing failed open (so a
+ * checkpoint-free project's result stays byte-identical to before). */
+function gateCheckpointsData(
+  preflight: CheckpointPreflight,
+): GateCheckpointsData | undefined {
+  const empty = preflight.outstanding.length === 0 &&
+    preflight.declaredMet.length === 0 &&
+    preflight.declaredUnmet.length === 0 &&
+    preflight.advise.length === 0 &&
+    preflight.advisories.length === 0;
+  if (empty) {
+    return undefined;
+  }
+  return {
+    ...(preflight.policyCommit === undefined
+      ? {}
+      : { policy: preflight.policyCommit }),
+    ...(preflight.outstanding.length === 0
+      ? {}
+      : { outstanding: preflight.outstanding.map(servedCheckpointData) }),
+    ...(preflight.declaredMet.length === 0 ? {} : {
+      declared_met: preflight.declaredMet.map((met) => ({
+        id: met.id,
+        declared_at: met.declaredAt,
+      })),
+    }),
+    ...(preflight.declaredUnmet.length === 0 ? {} : {
+      declared_unmet: preflight.declaredUnmet.map((unmet) => ({
+        id: unmet.id,
+        why: unmet.why,
+        declared_at: unmet.declaredAt,
+      })),
+    }),
+    ...(preflight.advise.length === 0
+      ? {}
+      : { advise: preflight.advise.map(servedCheckpointData) }),
+    ...(preflight.advisories.length === 0
+      ? {}
+      : { advisories: [...preflight.advisories] }),
+  };
+}
+
+/** The Proof's checkpoint block: the current conclusions plus the policy
+ * identity, when checkpoints governed the run. */
+function proofCheckpointsData(
+  preflight: CheckpointPreflight,
+): ProofCheckpointsData | undefined {
+  if (
+    preflight.policyCommit === undefined ||
+    (preflight.declaredMet.length === 0 && preflight.declaredUnmet.length === 0)
+  ) {
+    return undefined;
+  }
+  return {
+    policy: preflight.policyCommit,
+    declared_met: preflight.declaredMet.map((met) => ({
+      id: met.id,
+      declared_at: met.declaredAt,
+    })),
+    declared_unmet: preflight.declaredUnmet.map((unmet) => ({
+      id: unmet.id,
+      why: unmet.why,
+      declared_at: unmet.declaredAt,
+    })),
+  };
+}
+
+/** One checkpoint's serving text in the batched refusal: id, evidence,
+ * question, and any teaching — indented so the batch scans as a list. */
+function serveCheckpointText(served: ServedCheckpoint): string {
+  // Matched paths are working-tree-controlled text and this message renders
+  // verbatim on the --markdown surface, so each path travels inside the
+  // code-span escaping boundary rather than as live Markdown.
+  const shown = served.matched.slice(0, 6).map(markdownCodeSpan).join(", ");
+  const more = served.matched.length > 6
+    ? `, +${served.matched.length - 6} more`
+    : "";
+  const lines = [
+    `${served.id} — changed: ${shown}${more}`,
+    `  Question: ${served.question.trim()}`,
+  ];
+  if (served.teach !== undefined && served.teach.trim() !== "") {
+    lines.push(`  Teach: ${served.teach.trim()}`);
+  }
+  if (served.reference !== undefined && served.reference.trim() !== "") {
+    lines.push(`  Reference: ${served.reference.trim()}`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * The read-only-in-effect refusal `done` serves while a governing `stop`
+ * checkpoint has no current conclusion: every such checkpoint is batched into
+ * ONE refusal with its question, matched evidence, and both recoveries. The
+ * claim on every surface: no gate job ran and the project tree is unchanged —
+ * the open-question record and the logbook line are the only writes, and the text
+ * states them. Fires BEFORE the rerun guard and before any job or fixer.
+ */
+function awaitingDeclarationRefusal(
+  preflight: CheckpointPreflight,
+): DiscernResult<GateData> {
+  const outstanding = preflight.outstanding;
+  const ids = outstanding.map((served) => served.id);
+  const heading = outstanding.length === 1
+    ? "This change fired one checkpoint that requires your judgment"
+    : `This change fired ${outstanding.length} checkpoints that require your judgment`;
+  const message = `${heading} before any gate job runs:\n\n` +
+    outstanding.map(serveCheckpointText).join("\n\n") +
+    "\n\nJudge each question against the changed paths, then record your " +
+    "conclusion: `discern done --met <id>` (repeatable) when the question " +
+    'is satisfied, or `discern done --unmet <id> --why "<rationale>"` (one ' +
+    "per invocation) when it is not — the gate still runs, and the " +
+    "owner decides the declared-unmet landing. No gate job ran and the " +
+    "project tree is unchanged; the open-question record and the logbook line are " +
+    "the only writes.";
+  const checkpoints = gateCheckpointsData(preflight);
+  const data: GateData = {
+    failed_stage: null,
+    scopes_changed: [],
+    ...(checkpoints === undefined ? {} : { checkpoints }),
+  };
+  return {
+    ok: false,
+    verb: "done",
+    error: AWAITING_DECLARATION_SLUG,
+    message,
+    data,
+    hints: hintTexts([fire(HINTS["checkpoint-declare"], { ids })]),
+  };
+}
+
+/** How the checkpoint gate resolved for one `done` invocation. */
+type CheckpointGateResolution =
+  | { kind: "refuse"; result: DiscernResult<GateData> }
+  | { kind: "proceed"; preflight: CheckpointPreflight };
+
+/**
+ * Run the checkpoint pre-flight for one `done` invocation and decide whether
+ * the run may proceed: an invalid declaring invocation or a still-outstanding
+ * `stop` checkpoint refuses (recording every valid declaration first);
+ * otherwise the run proceeds into the gate in the same invocation, carrying
+ * the pre-flight for the envelope, the Proof, and the marker bindings.
+ */
+async function resolveCheckpointGate(
+  root: string,
+  request: DeclarationRequest,
+): Promise<CheckpointGateResolution> {
+  const cfg = await loadConfig(root);
+  const outcome = await runCheckpointPreflight(root, cfg, request);
+  if (outcome.kind === "invalid") {
+    return {
+      kind: "refuse",
+      result: {
+        ok: false,
+        verb: "done",
+        error: "invalid_value",
+        message: `Nothing was recorded and nothing ran: ${outcome.message}`,
+      },
+    };
+  }
+  if (outcome.preflight.outstanding.length > 0) {
+    return {
+      kind: "refuse",
+      result: awaitingDeclarationRefusal(outcome.preflight),
+    };
+  }
+  return { kind: "proceed", preflight: outcome.preflight };
+}
+
 /**
  * The read-only refusal `done` serves when it is asked to re-run on the exact
  * tree the last run already judged, without a `--confirmed` attestation. An
@@ -1549,6 +1794,10 @@ async function dryRunGate(
 async function unchangedTreeRerunRefusal(
   root: string,
   confirmed: boolean,
+  /** The current declaration-evidence identity, when known. A conclusion or
+   * rationale recorded since the last run makes this a DIFFERENT run — the
+   * guard must not refuse it — and an unknown identity fails open. */
+  evidenceNow?: string,
 ): Promise<DiscernResult<GateData> | undefined> {
   if (confirmed) {
     return undefined;
@@ -1559,6 +1808,12 @@ async function unchangedTreeRerunRefusal(
   }
   const now = await currentTreeIdentity(root);
   if (now === undefined || !sameTreeIdentity(now, last)) {
+    return undefined;
+  }
+  if (
+    last.evidence !== undefined &&
+    (evidenceNow === undefined || evidenceNow !== last.evidence)
+  ) {
     return undefined;
   }
   const verdict = last.passed ? "green" : "red";
@@ -1588,6 +1843,11 @@ export interface FinishResultOptions {
   surface: FinishResultSurface;
   dryRun?: boolean;
   confirmed?: boolean;
+  /** Checkpoint ids this invocation declares met (`--met`, repeatable). */
+  met?: string[];
+  /** The one checkpoint this invocation declares unmet, with its required
+   * rationale (`--unmet <id> --why "<rationale>"`). */
+  unmet?: { id: string; why: string };
   signal?: AbortSignal;
   /** Injectable state-capture effects for in-process fault tests. */
   validationCaptureOptions?: ValidationCaptureOptions;
@@ -1613,20 +1873,31 @@ export async function finishResult(
   if (opts.dryRun ?? false) {
     const cfg = await loadConfig(root);
     const changed = await classifyScopes(root, cfg);
-    return previewResult(
-      "done",
-      gatePlanToEngine(buildGatePlan(cfg, changed, dryRunStandardJobs(cfg))),
+    const engine = gatePlanToEngine(
+      buildGatePlan(cfg, changed, dryRunStandardJobs(cfg)),
     );
+    engine.details.push(...(await previewCheckpointNotes(root, cfg)));
+    return previewResult("done", engine);
+  }
+  const declarations: DeclarationRequest = {
+    met: opts.met ?? [],
+    ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
+  };
+  const checkpointGate = await resolveCheckpointGate(root, declarations);
+  if (checkpointGate.kind === "refuse") {
+    return checkpointGate.result;
   }
   const refusal = await unchangedTreeRerunRefusal(
     root,
     opts.confirmed ?? false,
+    checkpointGate.preflight.evidence,
   );
   if (refusal !== undefined) {
     return refusal;
   }
   if (opts.surface.kind === "quiet") {
     return (await runGate(root, { kind: "quiet-result" }, opts.signal, {
+      checkpoints: checkpointGate.preflight,
       ...(opts.validationCaptureOptions !== undefined
         ? { validationCaptureOptions: opts.validationCaptureOptions }
         : {}),
@@ -1642,6 +1913,7 @@ export async function finishResult(
     },
     opts.signal,
     {
+      checkpoints: checkpointGate.preflight,
       ...(opts.validationCaptureOptions !== undefined
         ? { validationCaptureOptions: opts.validationCaptureOptions }
         : {}),
@@ -1684,15 +1956,25 @@ export async function runFinish(
     dryRun?: boolean;
     confirmed?: boolean;
     plain?: boolean;
+    met?: string[];
+    unmet?: { id: string; why: string };
   },
 ): Promise<number> {
   if (opts.dryRun ?? false) {
     return await dryRunGate(root, opts.json);
   }
-  const refusal = await unchangedTreeRerunRefusal(
-    root,
-    opts.confirmed ?? false,
-  );
+  const declarations: DeclarationRequest = {
+    met: opts.met ?? [],
+    ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
+  };
+  const checkpointGate = await resolveCheckpointGate(root, declarations);
+  const refusal = checkpointGate.kind === "refuse"
+    ? checkpointGate.result
+    : await unchangedTreeRerunRefusal(
+      root,
+      opts.confirmed ?? false,
+      checkpointGate.preflight.evidence,
+    );
   if (refusal !== undefined) {
     observeResult(refusal); // the logbook records the refusal with its slug
     if (opts.json) {
@@ -1700,7 +1982,7 @@ export async function runFinish(
       return 1;
     }
     const out = makeOut(colorEnabled());
-    out.error(refusal.message ?? "The gate refused to re-run.");
+    out.error(refusal.message ?? "The gate refused to run.");
     const hints = interactiveHintTexts(refusal.hints);
     if (hints.length > 0) out.group("next");
     for (const hint of hints) {
@@ -1708,6 +1990,9 @@ export async function runFinish(
     }
     return 1;
   }
+  const preflight = checkpointGate.kind === "proceed"
+    ? checkpointGate.preflight
+    : undefined;
   const terminal = terminalContext();
   const gateRun = (): ReturnType<typeof runGate> =>
     runGate(
@@ -1715,6 +2000,8 @@ export async function runFinish(
       opts.json
         ? { kind: "quiet-result", terminal }
         : { kind: "human", plain: opts.plain ?? false, terminal },
+      undefined,
+      preflight === undefined ? {} : { checkpoints: preflight },
     );
   const gate = await gateRun();
   const {

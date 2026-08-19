@@ -34,6 +34,7 @@ Setting `[project].logbook = false` stops new evidence for every feature below. 
 - advisory findings on `status`, the `done` Proof, and `improvement`
 - wait estimates when concurrent test runs queue, and contention readings
 - the in-flight check on the contained-worktree offer; an installation with recording off uses a one-hour inactivity period
+- observed checkpoint economics (`discern checkpoints`)
 
 ## Where findings appear
 
@@ -83,9 +84,10 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 | `standards`    | each Standard's measurement, limit, margin, and Gate-owned pin decision |
 | `consent`      | consent source and matched scopes on accept                             |
 | `landing`      | recovery, trunk, worktree, and branch effects                           |
+| `checkpoints`  | checkpoint servings, declarations, variances, abandoned open questions  |
 | `epoch`        | a fingerprint of your config                                            |
 
-`partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The Logbook omits the message and stack. A saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the Desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md).
+`partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The Logbook omits the message and stack. A saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the Desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
 
 Readers skip unknown schema versions, and fields are append-only. `begin` carries run identity. Completion adds outcome and `duration_ms`. Capped runs add `waited_ms`, including `0`; uncapped and older events omit it. Readers derive execution as `duration_ms - (waited_ms ?? 0)` for priors and suite health. End-to-end statistics retain wall time. Other kinds are `config-change`, `pin`, and `prune`.
 

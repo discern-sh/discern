@@ -31,6 +31,7 @@ import {
 } from "../../shared/patterns_vocabulary.ts";
 import type { PinEvent, VerbEvent } from "./schema.ts";
 import { byBranch } from "./read.ts";
+import { checkpointEconomicsOf } from "./checkpoint_economics.ts";
 import { comparative, driverKind, splitByCohort } from "./cohorts.ts";
 import { validationEvidenceIsComparable } from "./validation_findings.ts";
 import { EMPTY_TREE_DIFF_FINGERPRINT } from "../../shared/tree_identity.ts";
@@ -897,6 +898,7 @@ export function computeStats(facts: StreamFacts): PatternsStats {
   const trend = ratchetTrend(tracks, span);
   const improved = mostImproved(tracks);
   const peak = peakInFlight(facts);
+  const checkpoints = checkpointEconomicsOf(facts);
   return {
     ...(span !== undefined ? { series_days_per_point: span.daysPerPoint } : {}),
     accepted: {
@@ -920,6 +922,7 @@ export function computeStats(facts: StreamFacts): PatternsStats {
       ...(improved !== undefined ? { most_improved: improved } : {}),
     },
     agents: agentFeats(facts, span, fold),
+    ...(checkpoints !== undefined ? { checkpoints } : {}),
     breadth: {
       ...breadthFeats(facts),
       ...(span !== undefined

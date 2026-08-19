@@ -486,6 +486,60 @@ const validationWorkflowStatsSchema = z.strictObject({
   }).optional(),
 });
 
+/** Maximum per-checkpoint economics rows one report carries. Checkpoints
+ * beyond the bound stay counted in `omitted`, so the wire stays bounded by
+ * configuration size, never by recorded history. */
+export const CHECKPOINT_ECONOMICS_ROWS_MAX = 16;
+
+/**
+ * One checkpoint's observed economics — plain local counts, no scores and no
+ * comparisons, denominators beside every share (ADR 0229). Servings tax the
+ * practice; declarations, reopenings, variances, and abandonments say how the
+ * open questions actually concluded. Every count is an observation about the
+ * checkpoint's fit, never a verdict about an agent.
+ */
+export const CheckpointEconomicsRowSchema = z.strictObject({
+  id: z.string(),
+  /** Efforts (branches) where this checkpoint was served at least once. */
+  efforts_fired: z.number().int().nonnegative(),
+  /** Served efforts that later landed (a successful accept). */
+  efforts_landed: z.number().int().nonnegative(),
+  /** Servings: questions opened, reopenings, and advise deliveries. */
+  fires: z.number().int().nonnegative(),
+  /** Declarations recorded. */
+  declared: z.number().int().nonnegative(),
+  /** Declarations recorded on an unchanged subject. Declarations whose
+   * events did not record the revision flag count in `declared` only. */
+  declared_unchanged: z.number().int().nonnegative(),
+  /** Declarations whose conclusion was unmet. */
+  declared_unmet: z.number().int().nonnegative(),
+  /** Reopenings — relevant changes that replaced a served subject. */
+  reopened: z.number().int().nonnegative(),
+  /** Owner-authorized variances carried by completed landings. */
+  variances: z.number().int().nonnegative(),
+  /** Open questions an effort ended while they still awaited a conclusion. */
+  abandoned: z.number().int().nonnegative(),
+  /** Median seconds from serving to declaration, over the declarations whose
+   * events recorded an elapsed time. */
+  median_declare_s: z.number().optional(),
+});
+export type CheckpointEconomicsRow = z.infer<
+  typeof CheckpointEconomicsRowSchema
+>;
+
+/** Observed per-checkpoint economics: the effort denominator, the bounded
+ * rows (most-served first), and how many checkpoints the bound elided. */
+export const CheckpointEconomicsSchema = z.strictObject({
+  /** Distinct efforts (branches) with at least one recorded gate run. */
+  efforts: z.number().int().nonnegative(),
+  rows: z.array(CheckpointEconomicsRowSchema).max(
+    CHECKPOINT_ECONOMICS_ROWS_MAX,
+  ),
+  /** Checkpoints beyond the row bound — counted, never listed. */
+  omitted: z.number().int().nonnegative(),
+});
+export type CheckpointEconomics = z.infer<typeof CheckpointEconomicsSchema>;
+
 /** The `--stats` payload — practice stats: the practice's countable feats,
  * read from the same analysis population as the detectors (CI runs, previews,
  * and setup-era events excluded). Counts and durations only, all local
@@ -613,6 +667,9 @@ export const PatternsStatsSchema = z.strictObject({
     }).optional(),
     unattributed_runs: z.number().int(),
   }),
+  /** Observed per-checkpoint economics, present once any checkpoint activity
+   * was recorded ({@link CheckpointEconomicsSchema}). */
+  checkpoints: CheckpointEconomicsSchema.optional(),
   /** How wide the practice ran: distinct branches driven, days with at least
    * one analyzed run against the span, and the day most branches were active. */
   breadth: z.strictObject({

@@ -341,6 +341,8 @@ export const ERROR_SLUGS = [
   "ambiguous",
   "apply_failed",
   "awaiting_consent",
+  "awaiting_declaration",
+  "awaiting_variance",
   "below_min_score",
   "brief_unparseable",
   "checkout_failed",

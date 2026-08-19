@@ -86,6 +86,8 @@ import {
   patternsResult,
 } from "../src/engine/logbook/patterns.ts";
 import { improvementResult } from "../src/engine/improve/improve.ts";
+import { checkpointsResult } from "../src/engine/checkpoints/report.ts";
+import { reconcileOpenQuestion } from "../src/engine/checkpoints/open_questions.ts";
 import { docsResult, mapResult } from "../src/commands/docs.ts";
 import { refreshResult } from "../src/engine/instructions.ts";
 import { tidyResult } from "../src/engine/tidy/tidy.ts";
@@ -551,6 +553,7 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "desk",
   "discern",
   "map",
+  "checkpoints",
   "doctor",
   "done",
   "accept",
@@ -1290,6 +1293,50 @@ Deno.test("improvement result is faithful (full, category, below-min, unknown)",
     });
     assertEquals(unknown.ok, false);
     expectFaithful("improvement", unknown, "improvement unknown category");
+  });
+});
+
+Deno.test("checkpoints result is faithful (empty, fired, ungoverned open question)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[checkpoints.api-review]",
+        'paths = ["api/**"]',
+        'question = "A changed API surface is described in its docs."',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    expectFaithful(
+      "checkpoints",
+      await checkpointsResult(dir),
+      "checkpoints idle",
+    );
+    // An uncommitted matching change makes the trigger hold (fired preview).
+    await Deno.mkdir(join(dir, "api"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "api", "surface.txt"), "endpoint\n");
+    const fired = await checkpointsResult(dir);
+    assertEquals(fired.data?.checkpoints[0]?.preview?.holds, true);
+    expectFaithful("checkpoints", fired, "checkpoints fired");
+    // A recorded open question outside the governing policy rides the optional block.
+    const planted = await reconcileOpenQuestion(dir, {
+      checkpoint: "ghost",
+      definitionHash: "d".repeat(64),
+      subject: "s".repeat(64),
+      matchedPaths: ["api/surface.txt"],
+    });
+    assert(planted.ok, "the fixture open question must record");
+    const withGhost = await checkpointsResult(dir);
+    assertEquals(withGhost.data?.ungoverned?.length, 1);
+    expectFaithful("checkpoints", withGhost, "checkpoints ungoverned");
   });
 });
 

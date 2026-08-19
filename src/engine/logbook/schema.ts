@@ -224,6 +224,51 @@ const landingConsentSchema = z.looseObject({
   scopes: z.array(z.string()).optional(),
 });
 
+/** One checkpoint serving: the id plus the definition hash and subject
+ * fingerprint it was served with, when they exist (advise servings have no
+ * open question and so no fingerprints). */
+const checkpointServingSchema = z.looseObject({
+  id: z.string(),
+  definition: z.string().optional(),
+  subject: z.string().optional(),
+});
+
+/** One recorded declaration as observation metadata: the conclusion, whether
+ * a relevant revision replaced the subject between the serving and the
+ * declaration, and the elapsed time from serving to declaration. The unmet
+ * rationale is durable Proof evidence and never lands here — the metadata-only
+ * bar admits ids, outcomes, fingerprints, and timing, nothing prose. Fields
+ * absent on older events censor a reading rather than break it. */
+const checkpointDeclarationSchema = z.looseObject({
+  id: z.string(),
+  conclusion: z.string(),
+  revised: z.boolean().optional(),
+  definition: z.string().optional(),
+  subject: z.string().optional(),
+  elapsed_ms: z.number().optional(),
+});
+
+/**
+ * The checkpoint observations one invocation produced — how the open question and
+ * variance lifecycle actually behaved, without judging it: what fired or
+ * reopened, what was declared (and whether the subject had been revised),
+ * which advise questions were served, which variances a completed landing
+ * carried, and which open questions were still awaiting a conclusion when the
+ * effort ended. Loose and wholly optional: readers censor missing pieces.
+ */
+const checkpointObservationsSchema = z.looseObject({
+  fired: z.array(checkpointServingSchema).optional(),
+  reopened: z.array(checkpointServingSchema).optional(),
+  declared: z.array(checkpointDeclarationSchema).optional(),
+  advise: z.array(checkpointServingSchema).optional(),
+  variances: z.array(checkpointServingSchema).optional(),
+  abandoned: z.array(z.looseObject({ id: z.string() })).optional(),
+});
+/** One event's recorded checkpoint observations. */
+export type CheckpointObservationsEvidence = z.infer<
+  typeof checkpointObservationsSchema
+>;
+
 /** Irreversible acceptance effects lifted from the result envelope. */
 const acceptanceLandingSchema = z.looseObject(
   AcceptLandingStateSchema.shape,
@@ -351,6 +396,11 @@ export const verbEventSchema = z.looseObject({
   consent: landingConsentSchema.optional(),
   /** Which acceptance effects happened before a partial or successful result. */
   landing: acceptanceLandingSchema.optional(),
+  /** Checkpoint observations this invocation produced — open-question and variance
+   * lifecycle metadata only ({@link CheckpointObservationsEvidence}); the
+   * unmet rationale never lands. Absent on events written before checkpoint
+   * observation existed, and on invocations that observed nothing. */
+  checkpoints: checkpointObservationsSchema.optional(),
   /** The config-epoch fingerprint (see `epoch.ts`), or null when config was unreadable. */
   epoch: z.string().nullable(),
 });

@@ -1,7 +1,7 @@
 ---
 title: Strand detection
 description: Find tracked files a Gate stage changed after the final commit, with the responsible stage named.
-order: 50
+order: 60
 aliases:
   - tree drift
   - dirty gate

@@ -81,6 +81,12 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
     surface: "`worktree prune`, the fleet survey, and the desk",
     readers: ["src/engine/worktree/lifecycle.ts"],
   },
+  {
+    key: "checkpoint-economics",
+    phrase: "observed checkpoint economics (`discern checkpoints`)",
+    surface: "the `discern checkpoints` observed-history section",
+    readers: ["src/engine/checkpoints/report.ts"],
+  },
 ];
 
 /**

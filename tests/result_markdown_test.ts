@@ -378,6 +378,81 @@ Deno.test("documentation suggestions and coupling commits survive text-only deli
   assertStringIncludes(coupling, "Keep result projections aligned");
 });
 
+Deno.test("checkpoints Markdown carries the declared vocabulary and the variance boundary", () => {
+  const result = {
+    ok: true,
+    verb: "checkpoints",
+    data: {
+      policy: "abc123def4567890",
+      checkpoints: [
+        {
+          id: "api-review",
+          mode: "stop",
+          question: "A changed API surface is described in its docs.",
+          trigger: "paths api/**",
+          preview: { holds: true, matched: ["api/surface.ext"] },
+          open_question: {
+            state: "declared_unmet",
+            definition_hash: "d".repeat(64),
+            subject: "s".repeat(64),
+            matched: ["api/surface.ext"],
+            opened_at: "2026-08-18T00:00:00Z",
+            declaration: {
+              conclusion: "unmet",
+              // Deliberately hostile: shell and Markdown metacharacters must
+              // survive the projection opaquely, never interpreted.
+              why: "The docs lag `rm -rf` and $(echo x) *the new surface*.",
+              declared_at: "2026-08-18T00:01:00Z",
+              current: true,
+            },
+            variance_required: true,
+          },
+        },
+        {
+          id: "risk-notes",
+          mode: "advise",
+          question: "A risky change names what could break.",
+          trigger: "paths api/**",
+          preview: { holds: true, matched: ["api/surface.ext"] },
+        },
+      ],
+      ungoverned: [
+        {
+          id: "ghost",
+          open_question: {
+            state: "awaiting_declaration",
+            definition_hash: "d".repeat(64),
+            subject: "s".repeat(64),
+            matched: ["api/surface.ext"],
+            opened_at: "2026-08-18T00:00:00Z",
+          },
+        },
+      ],
+    },
+  };
+  const rendered = renderResultMarkdown(
+    result,
+    resultPresenterForVerb("checkpoints"),
+  );
+  // Agent evidence stays qualified; the boundary names the owner's decision.
+  assertStringIncludes(rendered, "declared unmet");
+  assertStringIncludes(rendered, "owner variance required to land");
+  // The rationale renders through the code-span escaping boundary: the
+  // embedded backtick run forces a longer fence, so the hostile text arrives
+  // opaquely instead of as live Markdown emphasis or a broken span.
+  assertStringIncludes(
+    rendered,
+    "Rationale: ``The docs lag `rm -rf` and $(echo x) *the new surface*.``",
+  );
+  assertStringIncludes(rendered, "authorize a variance");
+  // A holding trigger serves its question; the seam states the empty history.
+  assertStringIncludes(rendered, "would fire at done (1 matched)");
+  assertStringIncludes(rendered, "A risky change names what could break.");
+  assertStringIncludes(rendered, "No observed checkpoint history yet.");
+  assertStringIncludes(rendered, "`ghost`");
+  assert(!rendered.includes("\u001b["), rendered);
+});
+
 Deno.test("unregistered router results use the bounded envelope presenter", () => {
   const presenter: ResultMarkdownPresenter = resultPresenterForVerb(
     "retired-command",
@@ -627,4 +702,52 @@ Deno.test("durations and byte sizes render at readable units", () => {
   );
   assertStringIncludes(archive, "Size: 16 MB.");
   assert(!archive.includes("16000000"), archive);
+});
+
+Deno.test("checkpoints Markdown renders observed economics when history exists", () => {
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "checkpoints",
+      data: {
+        policy: "abc123def4567890",
+        checkpoints: [
+          {
+            id: "api-review",
+            mode: "stop",
+            question: "A changed API surface is described in its docs.",
+            trigger: "paths api/**",
+            preview: { holds: false, vetoed_by: "empty_matched_set" },
+          },
+        ],
+        economics: {
+          efforts: 2,
+          omitted: 0,
+          rows: [
+            {
+              id: "api-review",
+              efforts_fired: 1,
+              efforts_landed: 1,
+              fires: 2,
+              declared: 2,
+              declared_unchanged: 1,
+              declared_unmet: 1,
+              reopened: 1,
+              variances: 1,
+              abandoned: 0,
+              median_declare_s: 30,
+            },
+          ],
+        },
+      },
+    },
+    resultPresenterForVerb("checkpoints"),
+  );
+  assertStringIncludes(
+    rendered,
+    "Observed: `api-review` fired on 1 effort (2 servings); declared 2 " +
+      "(1 on an unchanged subject, 1 unmet); 1 authorized variance across " +
+      "1 landed; median time to declare 30s.",
+  );
+  assert(!rendered.includes("No observed checkpoint history yet."), rendered);
 });

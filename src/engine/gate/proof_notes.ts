@@ -12,6 +12,7 @@ import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { discernAttributionEnabled, type EnvReader } from "../../shared/env.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
 import {
+  type AcceptanceEvidenceData,
   canonicalProof,
   type DurableProofClaim,
   type Proof,
@@ -419,26 +420,56 @@ function canonicalProofPresentation(proof: Proof): ProofPresentation {
   };
 }
 
+/** Project acceptance evidence onto its canonical payload block: the consent
+ * source (scopes only for a standing grant) plus each authorized variance in
+ * a fixed key order. */
+function canonicalAcceptanceEvidence(
+  acceptance: AcceptanceEvidenceData,
+): AcceptanceEvidenceData {
+  return {
+    consent: {
+      source: acceptance.consent.source,
+      ...(acceptance.consent.scopes === undefined
+        ? {}
+        : { scopes: [...acceptance.consent.scopes] }),
+    },
+    variances: acceptance.variances.map((variance) => ({
+      checkpoint: variance.checkpoint,
+      definition_hash: variance.definition_hash,
+      subject: variance.subject,
+      why: variance.why,
+    })),
+  };
+}
+
 /** The UTF-8 JSON text placed byte-for-byte inside the DSSE payload. Fixed key
  * order makes today's unsigned writer deterministic; DSSE verification later
  * consumes the decoded bytes without reserializing this object. */
 export function canonicalProofNotePayload(
   proof: Proof,
   commit: string,
+  acceptance?: AcceptanceEvidenceData,
 ): string {
   const payload: ProofNotePayload = {
     subject: { commit },
     proof: canonicalProofClaim(proof),
     presentation: canonicalProofPresentation(proof),
+    ...(acceptance === undefined
+      ? {}
+      : { acceptance: canonicalAcceptanceEvidence(acceptance) }),
   };
   return JSON.stringify(payload);
 }
 
 /** One deterministic DSSE-compatible boundary for a structured proof note.
  * Current notes use discern's empty-array unsigned extension. */
-export function canonicalProofNote(proof: Proof, commit: string): string {
+export function canonicalProofNote(
+  proof: Proof,
+  commit: string,
+  acceptance?: AcceptanceEvidenceData,
+): string {
   const payload = UTF8_ENCODER.encode(
-    canonicalProofNotePayload(proof, commit),
+    canonicalProofNotePayload(proof, commit, acceptance),
   );
   return JSON.stringify({
     payloadType: PROOF_NOTE_PAYLOAD_TYPE,
@@ -637,6 +668,9 @@ export async function writeProofNote(
   commit: string,
   proof: Proof | undefined,
   env: EnvReader = Deno.env,
+  /** Structured acceptance evidence — the consent source plus every
+   * owner-authorized variance — recorded inside the DSSE payload boundary. */
+  acceptance?: AcceptanceEvidenceData,
 ): Promise<ProofNoteWriteData> {
   if (proof === undefined) {
     return {
@@ -686,7 +720,7 @@ export async function writeProofNote(
     mergedRefs.push(ref);
   }
 
-  const body = canonicalProofNote(proof, commit);
+  const body = canonicalProofNote(proof, commit, acceptance);
   const existing = await runGit(
     ["notes", `--ref=${PROOF_NOTES_SHORT_REF}`, "show", commit],
     { cwd: root },
@@ -704,11 +738,18 @@ export async function writeProofNote(
       };
     }
     // The same proof already recorded — under either format generation — is
-    // the idempotent success, not a conflict; notes are records, never rewritten.
+    // the idempotent success, not a conflict; notes are records, never
+    // rewritten. Equality covers exactly what a note stores: the durable
+    // facts and both renderings. The runtime checkpoints block never enters a
+    // note (its conclusions are in the rendered page and the acceptance
+    // evidence), so it must not defeat an idempotent retry.
+    const comparable = (p: Proof): string => {
+      const { checkpoints: _checkpoints, ...stored } = canonicalProof(p);
+      return JSON.stringify(stored);
+    };
     if (
       parsed !== undefined &&
-      JSON.stringify(canonicalProof(parsed.proof)) ===
-        JSON.stringify(canonicalProof(proof)) &&
+      comparable(parsed.proof) === comparable(proof) &&
       (parsed.subject === undefined || parsed.subject === commit)
     ) {
       return {

@@ -80,6 +80,14 @@ import {
 } from "./schema.ts";
 import { byBranch } from "./read.ts";
 import {
+  analyzeCheckpointObservations,
+  checkpointConfigBoundary,
+  checkpointVarianceSummaries,
+  gateEffortsSince,
+  isFrequentlyVaried,
+  variedObservation,
+} from "./checkpoint_economics.ts";
+import {
   crossContextValidationGroups,
   observedEvidenceValues,
   sameEnvelopeValidationGroups,
@@ -136,6 +144,10 @@ export interface StreamFacts {
    * `[project].agents`, resolved) — what the provider-fit detector reads the
    * driver mix against. */
   configuredAgents: readonly string[];
+  /** The live config's `[checkpoints]` ids — what the checkpoint hygiene
+   * detectors read observed servings against (a checkpoint nobody configures
+   * anymore needs no review advice). */
+  configuredCheckpoints: readonly string[];
   /** The newest event's timestamp — the stream's own "now", so age-relative
    * detectors are pure functions of the stream (and deterministic in tests). */
   horizon: string | undefined;
@@ -224,6 +236,7 @@ export function buildStreamFacts(
   events: LogbookEvent[],
   trunk: string,
   configuredAgents: readonly string[] = [],
+  configuredCheckpoints: readonly string[] = [],
 ): StreamFacts {
   const analyzed = events.filter((e) => !setupEraEvent(e));
   const verbs = analyzableVerbs(analyzed);
@@ -235,6 +248,7 @@ export function buildStreamFacts(
     agentish,
     trunk,
     configuredAgents,
+    configuredCheckpoints,
     horizon: analyzed[analyzed.length - 1]?.at,
     setupEra: events.length - analyzed.length,
     analysis,
@@ -787,6 +801,27 @@ interface FollowThroughFamily {
   hintIds: ReadonlySet<string>;
 }
 
+/** The rule kinds resolved by scanning forward from one firing EVENT. The
+ * checkpoint kind is excluded: its episodes are enumerated per checkpoint id
+ * from the events' recorded observation blocks (a stream walk), not per
+ * delivered hint. */
+type EventFollowThroughRule = Exclude<
+  HintFollowThroughRule,
+  { kind: "checkpoint-revision-before-declaration" }
+>;
+
+/** A family whose episodes open per firing event. */
+interface EventFollowThroughFamily extends FollowThroughFamily {
+  rule: EventFollowThroughRule;
+}
+
+/** Whether a family's episodes come from per-event hint firings. */
+function isEventFamily(
+  family: FollowThroughFamily,
+): family is EventFollowThroughFamily {
+  return family.rule.kind !== "checkpoint-revision-before-declaration";
+}
+
 type EpisodeOutcome = "followed" | "not-followed" | "censored";
 
 /** Derive every measurable family from the hint registry. No detector-side
@@ -943,7 +978,7 @@ function mainWorktreeOutcome(
 function episodeOutcome(
   events: readonly VerbEvent[],
   index: number,
-  family: FollowThroughFamily,
+  family: EventFollowThroughFamily,
   trunk: string,
 ): EpisodeOutcome {
   switch (family.rule.kind) {
@@ -961,6 +996,69 @@ interface FollowThroughCounts {
   followed: number;
   notFollowed: number;
   censored: number;
+}
+
+/**
+ * Walk the stream once for the checkpoint-declaration family: episodes are
+ * enumerated per (branch, checkpoint id) from the events' recorded checkpoint
+ * observations, so every configured checkpoint — present and future — enrols
+ * without naming itself anywhere. A serving (fired or reopened) opens one
+ * pending episode; a reopen while one is pending folds into it (the same
+ * awaited conclusion, its subject moved). The declaration that resolves it
+ * says whether a relevant revision replaced the subject first (`followed`)
+ * or the subject was unchanged (`not followed`). Conservative censoring: a
+ * family hint delivered by a writer without the observation block, a missing
+ * branch, a declaration without the revision flag, and pending episodes at
+ * the end of history all censor rather than claim.
+ */
+function checkpointDeclarationEpisodes(
+  events: readonly VerbEvent[],
+  family: FollowThroughFamily,
+  counts: FollowThroughCounts,
+): void {
+  const pending = new Set<string>();
+  for (const event of events) {
+    const block = event.checkpoints;
+    if (block === undefined) {
+      if (firesFamily(event, family)) {
+        counts.fired += 1;
+        counts.censored += 1;
+      }
+      continue;
+    }
+    const servings = [...(block.fired ?? []), ...(block.reopened ?? [])];
+    if (event.branch === null) {
+      counts.fired += servings.length;
+      counts.censored += servings.length;
+      continue;
+    }
+    const key = (id: string): string => `${event.branch}\u0000${id}`;
+    for (const serving of servings) {
+      if (!pending.has(key(serving.id))) {
+        pending.add(key(serving.id));
+        counts.fired += 1;
+      }
+    }
+    for (const declaration of block.declared ?? []) {
+      const opened = key(declaration.id);
+      if (!pending.has(opened)) {
+        // Replacing a standing conclusion (the other verdict, a new
+        // rationale) opens no episode: nothing was served to follow.
+        continue;
+      }
+      pending.delete(opened);
+      if (typeof declaration.revised !== "boolean") {
+        counts.censored += 1;
+        continue;
+      }
+      if (declaration.revised) {
+        counts.followed += 1;
+      } else {
+        counts.notFollowed += 1;
+      }
+    }
+  }
+  counts.censored += pending.size;
 }
 
 /**
@@ -994,8 +1092,9 @@ const hintFollowThrough: Detector = {
       });
     }
 
+    const eventFamilies = families.filter(isEventFamily);
     for (const [index, event] of facts.agentish.entries()) {
-      for (const family of families) {
+      for (const family of eventFamilies) {
         if (!firesFamily(event, family)) {
           continue;
         }
@@ -1018,6 +1117,16 @@ const hintFollowThrough: Detector = {
             break;
         }
       }
+    }
+    for (const family of families) {
+      if (isEventFamily(family)) {
+        continue;
+      }
+      const familyCounts = counts.get(family.family);
+      if (familyCounts === undefined) {
+        continue;
+      }
+      checkpointDeclarationEpisodes(facts.agentish, family, familyCounts);
     }
 
     const findings: DetectorFinding[] = [];
@@ -4335,6 +4444,204 @@ const redRateHistory: Detector = {
   },
 };
 
+// ── checkpoint hygiene ───────────────────────────────────────────────────────
+//
+// Three observations about checkpoint CONFIGURATION fit, read from the same
+// tallies the economics rows come from. Each speaks about a trigger or
+// question an owner configured — its counts beside their denominators — and
+// none evaluates an agent: a checkpoint usually declared unchanged can still
+// be earning its keep (the agent may review before invoking the gate), so
+// these advise reviewing the definition, never judging the driver.
+
+/** Distinct efforts (branches) each checkpoint was SERVED on, at or after the
+ * boundary, plus its serving count — the era-scoped view the dead and noisy
+ * detectors share (a serving before the last `[checkpoints]` edit says
+ * nothing about the current definitions). */
+function eraServings(
+  facts: StreamFacts,
+  boundary: string | undefined,
+): Map<string, { efforts: Set<string>; fires: number }> {
+  const byId = new Map<string, { efforts: Set<string>; fires: number }>();
+  for (const event of facts.verbs) {
+    const block = event.checkpoints;
+    if (block === undefined) {
+      continue;
+    }
+    if (boundary !== undefined && event.at < boundary) {
+      continue;
+    }
+    const servings = [
+      ...(block.fired ?? []),
+      ...(block.reopened ?? []),
+      ...(block.advise ?? []),
+    ];
+    for (const serving of servings) {
+      const entry = byId.get(serving.id) ?? { efforts: new Set(), fires: 0 };
+      entry.fires += 1;
+      if (event.branch !== null) {
+        entry.efforts.add(event.branch);
+      }
+      byId.set(serving.id, entry);
+    }
+  }
+  return byId;
+}
+
+/**
+ * A configured checkpoint that has never fired across sufficient history is
+ * likely mis-scoped: its trigger names paths, scopes, or thresholds the
+ * project's real changes never match, so the question it carries protects
+ * nothing. The denominator counts gate-run efforts since the `[checkpoints]`
+ * configuration last changed, so a fresh revision earns fresh evidence.
+ * The candidate set holds only checkpoints that COULD fire: one dormant by
+ * configuration — a selector expanded to the match-nothing empty pattern,
+ * such as a shipped entry tracking an unset scalar reference — is waiting
+ * for the configuration that arms it, not mis-scoped, so the caller's
+ * `firableCheckpointIds` never enrols it here.
+ */
+const checkpointDead: Detector = {
+  id: "checkpoint-dead",
+  title: "Configured checkpoints that never fire",
+  family: "gate-fit",
+  scope: "project",
+  tier: "batch",
+  tone: "attention",
+  // Eight gate-run efforts under the current configuration: enough distinct
+  // changes that "no trigger ever matched" reads as scoping, not coincidence.
+  threshold: 8,
+  next_step:
+    "Review the trigger against how this project actually changes — widen its scope or paths, lower its thresholds, or remove the checkpoint if the risk it watched for no longer exists.",
+  detect(facts): DetectorOutcome {
+    const boundary = checkpointConfigBoundary(facts);
+    const efforts = gateEffortsSince(facts, boundary);
+    const served = eraServings(facts, boundary);
+    const findings: DetectorFinding[] = [];
+    for (const id of [...facts.configuredCheckpoints].sort()) {
+      const entry = served.get(id);
+      if (entry !== undefined && entry.fires > 0) {
+        continue;
+      }
+      findings.push({
+        subject: id,
+        summary: "This configured checkpoint has never fired.",
+        observed: `\`${id}\` is configured and fired on 0 of ${
+          formatHumanNumber(efforts.size)
+        } gate-run efforts${
+          boundary === undefined
+            ? ""
+            : " since the checkpoints configuration last changed"
+        }.`,
+        evidence: { efforts: efforts.size, fires: 0 },
+        strength: efforts.size,
+      });
+    }
+    return { considered: efforts.size, findings };
+  },
+};
+
+/**
+ * A checkpoint that fires on most efforts taxes every one of them with a
+ * served question, which is the failure mode scarcity guards against: a
+ * judgment served everywhere changes decisions nowhere. The counts say how
+ * broad the trigger runs; narrowing it is the owner's call.
+ */
+const checkpointNoisy: Detector = {
+  id: "checkpoint-noisy",
+  title: "Checkpoints firing on most efforts",
+  family: "gate-fit",
+  scope: "project",
+  tier: "batch",
+  tone: "attention",
+  // The same eight-effort denominator as checkpoint-dead: breadth judged on
+  // fewer distinct changes reads the project's week, not its shape.
+  threshold: 8,
+  next_step:
+    "Narrow the trigger — a tighter scope or path set, a higher file threshold, or an unless_changed counterpart — so the question is served where it can change a decision.",
+  detect(facts): DetectorOutcome {
+    const boundary = checkpointConfigBoundary(facts);
+    const efforts = gateEffortsSince(facts, boundary);
+    const served = eraServings(facts, boundary);
+    const findings: DetectorFinding[] = [];
+    if (efforts.size > 0) {
+      for (const [id, entry] of [...served.entries()].sort()) {
+        const firedEfforts = [...entry.efforts].filter((branch) =>
+          efforts.has(branch)
+        ).length;
+        if (firedEfforts / efforts.size < 0.8) {
+          continue;
+        }
+        findings.push({
+          subject: id,
+          summary: "This checkpoint fires on most efforts.",
+          observed: `\`${id}\` fired on ${formatHumanNumber(firedEfforts)} of ${
+            formatHumanNumber(efforts.size)
+          } gate-run efforts (${formatHumanNumber(entry.fires)} servings)${
+            boundary === undefined
+              ? ""
+              : " since the checkpoints configuration last changed"
+          }.`,
+          evidence: {
+            efforts: efforts.size,
+            efforts_fired: firedEfforts,
+            fires: entry.fires,
+          },
+          strength: firedEfforts,
+        });
+      }
+    }
+    return { considered: efforts.size, findings };
+  },
+};
+
+/**
+ * A checkpoint that often lands under an owner-authorized variance is telling
+ * the owner something about its own definition: the question is routinely
+ * judged unmet and the owner routinely authorizes landing anyway. The counts
+ * report that shape; whether the trigger, the question wording, or the mode
+ * should move is the owner's review.
+ */
+const checkpointVaried: Detector = {
+  id: "checkpoint-varied",
+  title: "Checkpoints that often land under a variance",
+  family: "gate-fit",
+  scope: "project",
+  tier: "batch",
+  tone: "attention",
+  // The shared frequently-varied bar (checkpoint_economics.ts): at least
+  // three variance-carrying landed efforts where the checkpoint fired, and
+  // those covering at least half of such landings. The improvement coach's
+  // checkpoint-review recommendation holds the same bar by reading the same
+  // predicate. The literal here mirrors FREQUENTLY_VARIED_MIN_LANDED
+  // (module-init order forbids the import); the economics test ties the two,
+  // so they cannot drift.
+  threshold: 3,
+  next_step:
+    "Review the trigger, question, and mode with the owner — a question routinely judged unmet and varied may be aimed at the wrong boundary, or may belong in advise mode.",
+  detect(facts): DetectorOutcome {
+    const analysis = analyzeCheckpointObservations(facts);
+    const findings: DetectorFinding[] = [];
+    let considered = 0;
+    for (const summary of checkpointVarianceSummaries(analysis)) {
+      considered = Math.max(considered, summary.landed);
+      if (!isFrequentlyVaried(summary)) {
+        continue;
+      }
+      findings.push({
+        subject: summary.id,
+        summary: "This checkpoint often lands with an authorized variance.",
+        observed: variedObservation(summary),
+        evidence: {
+          landed: summary.landed,
+          variance_landings: summary.variedLandings,
+          variances: summary.variances,
+        },
+        strength: summary.variedLandings,
+      });
+    }
+    return { considered, findings };
+  },
+};
+
 /**
  * The registry — every detector the `patterns` verb runs, in stable detector
  * order. The single source of truth: the verb, the report schema, and the
@@ -4377,6 +4684,9 @@ export const DETECTORS: readonly Detector[] = [
   updateFriction,
   standardTrajectory,
   redRateHistory,
+  checkpointDead,
+  checkpointNoisy,
+  checkpointVaried,
 ];
 
 // ── the gated runner ────────────────────────────────────────────────────────

@@ -20,8 +20,10 @@
  * This module is pure data + interfaces, so both depend on it without a cycle.
  */
 
+import type { CheckpointMode } from "../../shared/checkpoints.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { PatternsFinding } from "../../shared/patterns_vocabulary.ts";
+import type { CheckpointVarianceSummary } from "../logbook/checkpoint_economics.ts";
 
 // ── the gathered facts a rule reads ─────────────────────────────────────────
 
@@ -57,9 +59,15 @@ export interface ImprovementContext {
   agentFilePresent: boolean;
   /** Count of authored skill directories under `[skills].dir`. */
   authoredSkills: number;
-  /** Ranked project-scope logbook findings. They are advisory context only:
-   * catalog rules, scores, and the selected static next action never read them. */
+  /** Ranked project-scope logbook findings. Advisory context: catalog rules
+   * and scores never read them; the checkpoint graduation loop may cite one
+   * as a recommendation's evidence, and a recommendation may lead the next
+   * action — advice, never a gate. */
   historicalFindings?: PatternsFinding[];
+  /** Checkpoints clearing the frequently-varied bar (the shared economics
+   * predicate) — the evidence behind a checkpoint-review recommendation.
+   * Advisory in exactly the {@link historicalFindings} sense. */
+  variedCheckpoints?: CheckpointVarianceSummary[];
 }
 
 // ── the rule catalog shapes ─────────────────────────────────────────────────
@@ -129,6 +137,10 @@ export interface Category {
   name: string;
   title: string;
   rules: Rule[];
+  /** Extra review items derived from configuration at evaluation time — the
+   * checkpoint improvement audit builds its rows here. The static rules stay the
+   * catalog's single source; a builder only projects config the owner wrote. */
+  dynamicReviews?: (ctx: ImprovementContext) => ReviewResult[];
 }
 
 // ── the evaluated report (the JSON-friendly result payload) ─────────────────
@@ -145,13 +157,24 @@ export interface RuleResult {
   teach: string;
 }
 
-/** One open subjective review item for the agent to judge. */
+/** One boundary guard on a question: an active checkpoint serving it. */
+export interface BoundaryGuard {
+  /** The configured checkpoint id (`[checkpoints.<id>]`). */
+  checkpoint: string;
+  mode: CheckpointMode;
+}
+
+/** One open subjective review item for the agent to judge. A review whose
+ * question an active configured checkpoint also serves carries that
+ * `boundary` — the flow is guarded at the gate; the review audits what already exists
+ * (the stock of existing violations the boundary tolerates). */
 export interface ReviewResult {
   id: string;
   title: string;
   ask: string;
   teach: string;
   against?: ReviewEvidence;
+  boundary?: BoundaryGuard[];
 }
 
 /** A category's evaluated result. */
@@ -168,19 +191,54 @@ export interface CategoryResult {
   reviews: ReviewResult[];
 }
 
+/** The next-action kinds. A const tuple so it is enumerable: the improve wire
+ * schema's enum is tied back to it by a guard in `improve_catalog_test.ts`. */
+export const NEXT_ACTION_KINDS = ["fix", "review", "decide"] as const;
+export type NextActionKind = (typeof NEXT_ACTION_KINDS)[number];
+
 /** The coach's one prioritized action. */
 export interface NextAction {
-  /** Fix an objective baseline gap, or perform a qualitative review. */
-  kind: "fix" | "review";
+  /** Fix an objective baseline gap, perform a qualitative review, or make an
+   * evidence-backed owner decision (a checkpoint recommendation). */
+  kind: NextActionKind;
   category: string;
   id: string;
   title: string;
-  /** The concrete fix or question to act on now. */
+  /** The concrete fix, question, or decision to act on now. */
   action: string;
   /** Why this practice matters and what good looks like. */
   why: string;
   /** The cited material travels with a qualitative review on every surface. */
   against?: ReviewEvidence;
+}
+
+/** The checkpoint recommendation kinds. A const tuple tied to the wire enum by
+ * a guard in `improve_catalog_test.ts`. */
+export const CHECKPOINT_RECOMMENDATION_IDS = [
+  "checkpoints.review",
+  "checkpoints.graduate",
+] as const;
+export type CheckpointRecommendationId =
+  (typeof CHECKPOINT_RECOMMENDATION_IDS)[number];
+
+/**
+ * One evidence-backed owner decision the coach recommends — reviewing a
+ * frequently-varied checkpoint, or graduating a recurring finding class into
+ * one. `evidence` is REQUIRED: a recommendation without project-local counts
+ * behind it is a generic exhortation, which the coach never issues. Advisory
+ * by charter: the owner decides; nothing here gates a verb.
+ */
+export interface CheckpointRecommendation {
+  id: CheckpointRecommendationId;
+  /** What the decision is about: a checkpoint id, or a question id. */
+  subject: string;
+  title: string;
+  /** The decision to make, phrased as the owner's. */
+  action: string;
+  /** The placement teaching behind it. */
+  why: string;
+  /** The project-local observation the recommendation stands on. */
+  evidence: ReviewEvidence;
 }
 
 /** The whole improvement report, ranked weakest-first. */
@@ -193,6 +251,8 @@ export interface ImprovementReport {
   reviews: number;
   /** The highest-value improvement to make now. */
   nextAction: NextAction;
+  /** Evidence-backed owner decisions from the checkpoint loop (may be empty). */
+  recommendations: CheckpointRecommendation[];
   /** Categories, weakest score first. */
   categories: CategoryResult[];
 }

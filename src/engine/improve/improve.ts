@@ -45,9 +45,16 @@ import {
   terminalMultiline,
 } from "../../lib/terminal.ts";
 import { buildContext, CATEGORIES, isDeterministic } from "./rules.ts";
+import {
+  boundaryGuardsByQuestion,
+  boundaryLine,
+  checkpointRecommendations,
+} from "./checkpoint_loop.ts";
 import type {
+  BoundaryGuard,
   Category,
   CategoryResult,
+  CheckpointRecommendation,
   ImprovementContext,
   ImprovementReport,
   NextAction,
@@ -69,10 +76,13 @@ function credit(status: RuleStatus): number {
   return status === "pass" ? 1 : status === "partial" ? 0.5 : 0;
 }
 
-/** Evaluate one category's rules against the gathered context. */
+/** Evaluate one category's rules against the gathered context. `guards` marks
+ * a review whose canonical question a configured checkpoint also serves —
+ * the flow is guarded at the gate; the review audits what already exists. */
 function evaluateCategory(
   cat: Category,
   ctx: ImprovementContext,
+  guards: ReadonlyMap<string, BoundaryGuard[]>,
 ): CategoryResult {
   const rules: RuleResult[] = [];
   const reviews: ReviewResult[] = [];
@@ -98,15 +108,18 @@ function evaluateCategory(
       });
     } else {
       const against = rule.against(ctx);
+      const boundary = guards.get(rule.id);
       reviews.push({
         id: rule.id,
         title: rule.title,
         ask: rule.ask,
         teach: rule.teach,
         ...(against !== undefined ? { against } : {}),
+        ...(boundary !== undefined && boundary.length > 0 ? { boundary } : {}),
       });
     }
   }
+  reviews.push(...(cat.dynamicReviews?.(ctx) ?? []));
   const score = totalWeight === 0
     ? 100
     : Math.round((passWeight / totalWeight) * 100);
@@ -131,12 +144,13 @@ export function evaluateReport(
   ctx: ImprovementContext,
   only?: string,
 ): ImprovementReport {
+  const guards = boundaryGuardsByQuestion(ctx.config);
   const categories: CategoryResult[] = [];
   for (const cat of CATEGORIES) {
     if (only !== undefined && cat.name !== only) {
       continue;
     }
-    categories.push(evaluateCategory(cat, ctx));
+    categories.push(evaluateCategory(cat, ctx, guards));
   }
 
   let passWeight = 0;
@@ -155,22 +169,31 @@ export function evaluateReport(
     ? 100
     : Math.round((passWeight / totalWeight) * 100);
 
-  const nextAction = selectNextAction(categories);
+  const recommendations = checkpointRecommendations(ctx.config, {
+    findings: ctx.historicalFindings ?? [],
+    varied: ctx.variedCheckpoints ?? [],
+  });
+  const nextAction = selectNextAction(categories, recommendations);
   categories.sort((a, b) =>
     a.score - b.score ||
     b.weak - a.weak ||
     b.reviews.length - a.reviews.length ||
     a.title.localeCompare(b.title)
   );
-  return { score, weak, reviews, nextAction, categories };
+  return { score, weak, reviews, nextAction, recommendations, categories };
 }
 
 /**
  * Choose one action before display sorting mutates catalog order. Objective gaps
  * lead, ranked by recoverable weighted credit; ties keep the catalog's deliberate
- * coaching order. Once the baseline is clear, the first qualitative review leads.
+ * coaching order. With a clear baseline, an evidence-backed owner decision from
+ * the checkpoint loop outranks the standing reviews (it cites project-local
+ * observations; a review is a standing question). Then the first review leads.
  */
-function selectNextAction(categories: readonly CategoryResult[]): NextAction {
+function selectNextAction(
+  categories: readonly CategoryResult[],
+  recommendations: readonly CheckpointRecommendation[],
+): NextAction {
   let best:
     | { action: NextAction; recoverableWeight: number }
     | undefined;
@@ -197,6 +220,18 @@ function selectNextAction(categories: readonly CategoryResult[]): NextAction {
   }
   if (best !== undefined) {
     return best.action;
+  }
+  const recommendation = recommendations[0];
+  if (recommendation !== undefined) {
+    return {
+      kind: "decide",
+      category: "checkpoints",
+      id: recommendation.id,
+      title: recommendation.title,
+      action: recommendation.action,
+      why: recommendation.why,
+      against: recommendation.evidence,
+    };
   }
   for (const category of categories) {
     const review = category.reviews[0];
@@ -294,6 +329,9 @@ function reportData(
         ? { against: report.nextAction.against }
         : {}),
     },
+    ...(report.recommendations.length === 0
+      ? {}
+      : { recommendations: report.recommendations }),
     categories: report.categories.map((c) => ({
       name: c.name,
       title: c.title,
@@ -379,7 +417,9 @@ function renderGroup(out: Out, id: string, label: string): void {
   }\n`);
 }
 
-/** Render an open qualitative review as one evidence-preserving procedure. */
+/** Render an open qualitative review as one evidence-preserving procedure. A
+ * boundary-guarded review names its checkpoints, keeping stock and flow
+ * distinct: the gate stops new violations; the review audits what already exists. */
 function renderReviewUnit(
   out: Out,
   review: {
@@ -387,19 +427,23 @@ function renderReviewUnit(
     ask: string;
     teach: string;
     against?: ReviewResult["against"];
+    boundary?: ReviewResult["boundary"];
   },
 ): void {
   const { presenter, width } = presentationFacts(out);
   const evidence = review.against === undefined
     ? undefined
     : `${review.against.source}: ${review.against.excerpt}`;
+  const boundary = review.boundary === undefined || review.boundary.length === 0
+    ? undefined
+    : boundaryLine(review.boundary);
   out.raw(`${
     presenter.present(renderProcedureCli, {
       title: terminalLine(review.title),
       description: terminalMultiline(
         `${review.teach}${
           evidence === undefined ? "" : `\nEvidence: ${evidence}`
-        }`,
+        }${boundary === undefined ? "" : `\n${boundary}`}`,
       ),
       steps: [{
         title: terminalLine("Conduct the qualitative review."),
@@ -411,6 +455,44 @@ function renderReviewUnit(
       maxWidth: width,
     })
   }\n`);
+}
+
+/** Render one evidence-backed owner decision from the checkpoint loop. */
+function renderRecommendationUnit(
+  out: Out,
+  recommendation: CheckpointRecommendation,
+): void {
+  const { presenter, width } = presentationFacts(out);
+  out.raw(`${
+    presenter.present(renderProcedureCli, {
+      title: terminalLine(recommendation.title),
+      description: terminalMultiline(
+        `${recommendation.why}\nEvidence: ${recommendation.evidence.source}: ${recommendation.evidence.excerpt}`,
+      ),
+      steps: [{
+        title: terminalLine("Take the decision to the owner."),
+        status: "active",
+      }],
+      completion: terminalMultiline(recommendation.action),
+      completionLabel: terminalLine("Decide"),
+      register: "brand",
+      maxWidth: width,
+    })
+  }\n`);
+}
+
+/** Render the checkpoint loop's owner decisions as their own group. */
+function renderRecommendations(
+  out: Out,
+  recommendations: readonly CheckpointRecommendation[],
+): void {
+  if (recommendations.length === 0) {
+    return;
+  }
+  renderGroup(out, "recommendations", "Owner decisions");
+  for (const recommendation of recommendations) {
+    renderRecommendationUnit(out, recommendation);
+  }
 }
 
 /** Render the top summary: overall score then a weakest-first one-line-per-category list. */
@@ -462,16 +544,28 @@ function renderSummary(
         : {}),
     });
   } else {
+    const decide = report.nextAction.kind === "decide";
+    const evidence = report.nextAction.against;
     out.raw(`${
       presenter.present(renderProcedureCli, {
         title: terminalLine(report.nextAction.title),
-        description: terminalMultiline(report.nextAction.why),
+        description: terminalMultiline(
+          `${report.nextAction.why}${
+            decide && evidence !== undefined
+              ? `\nEvidence: ${evidence.source}: ${evidence.excerpt}`
+              : ""
+          }`,
+        ),
         steps: [{
-          title: terminalLine("Apply the recommended change."),
+          title: terminalLine(
+            decide
+              ? "Take the decision to the owner."
+              : "Apply the recommended change.",
+          ),
           status: "active",
         }],
         completion: terminalMultiline(report.nextAction.action),
-        completionLabel: terminalLine("Do"),
+        completionLabel: terminalLine(decide ? "Decide" : "Do"),
         register: "brand",
         maxWidth: width,
       })
@@ -723,6 +817,9 @@ export async function runImprovement(
         renderCategory(out, cat);
       }
     }
+  }
+  if (!filtered || opts.category === "checkpoints") {
+    renderRecommendations(out, report.recommendations);
   }
   renderHistory(out, historicalFindings);
   if (!config.project.logbook) {

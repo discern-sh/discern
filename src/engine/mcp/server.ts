@@ -41,6 +41,7 @@ import { renderResultMarkdown } from "../../shared/result_markdown.ts";
 import { projectStatusData } from "../../shared/result_wire.ts";
 import {
   observeResult,
+  takeCheckpointActivity,
   takeObservedResult,
   takeShownTipIds,
   takeSupplementalHintIds,
@@ -70,6 +71,7 @@ import {
   type AcceptData,
   AcceptOutputSchema,
   AwaitOutputSchema,
+  CheckpointsOutputSchema,
   CouplingOutputSchema,
   type DocsData,
   DocsOutputSchema,
@@ -107,6 +109,7 @@ import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
 import { standardsResult } from "../gate/standards.ts";
 import { improvementResult } from "../improve/improve.ts";
+import { checkpointsResult } from "../checkpoints/report.ts";
 import { CATEGORY_NAMES } from "../improve/rules.ts";
 import { impactResult } from "../scopes/scopes.ts";
 import { couplingResult } from "../coupling/coupling.ts";
@@ -333,6 +336,7 @@ const TOOL_PRIORITY = [
   "discern_impact",
   "discern_coupling",
   "discern_patterns",
+  "discern_checkpoints",
   "discern_refresh",
   "discern_map",
   "discern_docs",
@@ -466,6 +470,25 @@ export const TOOLS: McpTool[] = orderTools([
           "judged — a flake probe, or a re-measure — and record it. Without " +
           "the flag, an unchanged-tree rerun refuses read-only (default false).",
       ),
+      met: z.array(z.string()).optional().describe(
+        "Checkpoint ids whose served question your change satisfies — your " +
+          "recorded judgment, valid only for checkpoints with an active " +
+          "open question here (the awaiting_declaration refusal lists them). The " +
+          "gate runs in the same call once every awaiting checkpoint has a " +
+          "conclusion.",
+      ),
+      unmet: z.strictObject({
+        id: z.string().describe("The checkpoint id declared unmet."),
+        why: z.string().describe(
+          "The required rationale: one paragraph, 1-500 characters, no " +
+            "newlines or control characters. Recorded opaquely as Proof " +
+            "evidence for the owner's landing decision.",
+        ),
+      }).optional().describe(
+        "Declare ONE served checkpoint's question not satisfied. " +
+          "The gate still runs; landing then needs the owner to authorize a " +
+          "variance for it.",
+      ),
       ...PATH_PARAM,
     },
     run: (root, args, signal) =>
@@ -473,6 +496,8 @@ export const TOOLS: McpTool[] = orderTools([
         surface: { kind: "quiet" },
         dryRun: args.dry_run === true,
         confirmed: args.confirmed === true,
+        ...(args.met === undefined ? {} : { met: args.met }),
+        ...(args.unmet === undefined ? {} : { unmet: args.unmet }),
         signal,
       }),
   }),
@@ -793,6 +818,30 @@ export const TOOLS: McpTool[] = orderTools([
       }),
   }),
   defineTool({
+    name: "discern_checkpoints",
+    title: "Read the checkpoint contract",
+    outputSchema: CheckpointsOutputSchema.shape,
+    annotations: READ_ONLY,
+    description: "Report the checkpoint contract for this effort, read-only. " +
+      "data.checkpoints lists each governing checkpoint: its question (the " +
+      "judgment the caller records at the gate), one-line trigger summary, " +
+      "mode (stop interlocks the gate; advise never blocks), a structural " +
+      "preview of whether the current change fires it, and this effort's " +
+      "open-question state — awaiting_declaration, declared_met, declared_unmet " +
+      "(variance_required marks a conclusion only the owner can authorize a " +
+      "variance for at landing), or reopened (a relevant change unbound the " +
+      "recorded conclusion; declare again). data.policy is the merge-base " +
+      "commit whose configuration governs — never the branch's own edits. " +
+      "Nothing runs and nothing is recorded: a configured when command is " +
+      "reported as undecided (when_pending), and conclusions are recorded " +
+      "only by discern_done (met / unmet with why). Follow hints[] for the " +
+      "valid next step.",
+    inputSchema: {
+      ...PATH_PARAM,
+    },
+    run: (root) => checkpointsResult(root),
+  }),
+  defineTool({
     name: "discern_map",
     title: "Read the project map",
     outputSchema: MapOutputSchema.shape,
@@ -910,6 +959,13 @@ export const TOOLS: McpTool[] = orderTools([
           "conversation. Set it only then. Recorded standing and effort grants " +
           "are checked directly; do not assert them through this flag.",
       ),
+      variance: z.array(z.string()).optional().describe(
+        "The owner's authorization to land each named declared-unmet " +
+          "checkpoint without changing it (requires confirmed). The ids " +
+          "must equal the current declared-unmet set, id for id — the " +
+          "awaiting_variance refusal serves it with each question and " +
+          "rationale — and recorded grants never authorize a variance.",
+      ),
       ...PATH_PARAM,
     },
     // Acceptance can remove the worktree before a later cleanup fails. Re-aim from
@@ -927,6 +983,7 @@ export const TOOLS: McpTool[] = orderTools([
       acceptToolResult(root, {
         dryRun: args.dry_run === true,
         confirmed: args.confirmed === true,
+        ...(args.variance === undefined ? {} : { variance: args.variance }),
       }),
   }),
   defineTool({
@@ -1134,7 +1191,7 @@ function renderMcpHintText(authored: string): string {
  */
 async function acceptToolResult(
   root: string,
-  opts: { dryRun?: boolean; confirmed?: boolean },
+  opts: { dryRun?: boolean; confirmed?: boolean; variance?: string[] },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,
@@ -1494,6 +1551,9 @@ async function completeToolCall(
   takeSupplementalHintIds();
   takeShownTipIds();
   takeVerbTarget();
+  // Checkpoint observations belong to THIS call's recording; the take also
+  // guarantees nothing can leak into the next call on this long-lived server.
+  const checkpointActivity = takeCheckpointActivity();
   const recording = pending.recording;
   if (recording !== undefined) {
     const { flags, target } = mcpCallFacts(args);
@@ -1509,6 +1569,9 @@ async function completeToolCall(
       ...(result.dry_run === true ? { dryRun: true } : {}),
       ...(flags !== undefined ? { flags } : {}),
       ...(target !== undefined ? { target } : {}),
+      ...(checkpointActivity !== undefined
+        ? { checkpoints: checkpointActivity }
+        : {}),
       ...(pending.crash !== undefined ? { crash: pending.crash } : {}),
     });
   }
@@ -1663,6 +1726,7 @@ export async function runTool(
   // call starts. The final boundary drains again after observing this result.
   takeSupplementalHintIds();
   takeShownTipIds();
+  takeCheckpointActivity();
   // If the binary on disk changed since this server started, every result needs
   // the restart hint — including dispatch refusals.
   const stale = versionMismatchHint(
@@ -1966,18 +2030,18 @@ function registerResources(
  */
 export function buildInstructions(): string {
   const lines = [
-    "discern provides the gate and isolated worktrees. Use its MCP tools and " +
+    "discern provides the gate and isolated worktrees; use the tools and " +
     "read their results.",
     "",
-    "- Start with discern_status for state and next step.",
+    "- Start with discern_status.",
     ...operatingPolicyStatementsFor("mcp-instructions").map(
       (statement) => `- ${statement}`,
     ),
     "",
-    "- Use discern_refresh for stale files/skills, discern_map for the map, " +
-    "discern_docs for the manual, and discern_doctor for install faults.",
-    "- Use discern_standards for deferred measures, discern_patterns for " +
-    "history, and discern_improvement for next work.",
+    "- discern_refresh fixes stale files/skills; discern_map the map; " +
+    "discern_docs the manual; discern_doctor install faults.",
+    "- discern_standards measures deferred standards; discern_patterns " +
+    "history; discern_improvement next work.",
   ];
   return lines.join("\n");
 }

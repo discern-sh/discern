@@ -568,6 +568,26 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             "The refusal names the verdict that already stands and both ways forward: change the files, or confirm the probe. A confirmed re-run lands in the activity record, where the recurring-behavior report watches for it — so an unreliable trial suite surfaces as evidence, the detector names the exact work whose verdict flipped, and routine use of `--confirmed` is itself a finding.",
         },
       },
+      {
+        id: "checkpoints",
+        title: "Checkpoints",
+        what:
+          "Change-triggered judgment stops under `[checkpoints]`: a deterministic trigger (a scope or path selector, `unless_changed`, thresholds, delta-shape predicates, or an executable `when` condition) pairs a semantic question with the change that makes it relevant. A fired `stop` checkpoint refuses `discern done` before any gate job until the agent judges the question and records a conclusion — `--met`, or `--unmet` with a one-paragraph rationale — bound to the exact definition and content it judged; `advise` mode serves the question without blocking. The governing definitions are read at the effort's merge-base with the trunk — a branch's own edit takes effect only after it lands — and a declared-unmet conclusion lands only after the owner authorizes that variance at `discern accept` in the current conversation. `discern checkpoints` reports, read-only: the governing policy, each open question's declaration state, and a structural preview of what the current change would fire; `prepare`/`status` serve each coming question early.",
+        why:
+          "The review moments that need judgment arrive while the change is being made, and every recorded conclusion stays qualified as the agent's declared judgment — never presented as machine-verified.",
+        agent:
+          "The refusal batches every awaiting checkpoint with its question, matched evidence, and both recoveries in one serving; recording a conclusion is the agent's own act with no owner round-trip, and revising the subject or replacing a conclusion never trips the unchanged-tree rerun refusal.",
+        plain: {
+          title: "Judgment stops",
+          what:
+            "Rules the project keeps under `[checkpoints]`. Each rule watches for a certain kind of change and carries a written question that matters for it. When a change matches a stopping rule, the final check refuses to start until the coding agent weighs the question and records its answer: satisfied (`--met`), or not satisfied (`--unmet`) with a short reason. A notice-only rule shows its question without stopping anything. The rules come from the main shared version, not from the task's own edits, and a not-satisfied answer can join the main shared version only after the person in charge allows that named exception at `discern accept`. `discern checkpoints` shows the rules, each recorded answer, and what the current change would set off, without changing anything; `discern prepare` and `discern status` show each coming question early.",
+          why:
+            "The moments that need judgment arrive while the change is being made, and every recorded answer is presented as the coding agent's own judgment — never as something a machine proved.",
+          agent:
+            "The refusal gathers every waiting rule with its question, the matching files, and both ways to answer, in one message. Recording an answer is the coding agent's own act, with no waiting on the person in charge, and changing the files or the answer never sets off the repeat-run refusal.",
+        },
+        surfaces: ["verb:checkpoints", "config:checkpoints"],
+      },
     ],
   },
   // ──────────────────────────────────────────────────────────────────────────
@@ -1209,6 +1229,18 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
                 "Put a quality measurement behind a standing rule — a defendable number, added under `[standards]`, with its first limit set at today's value — including a drive-to-zero route that outlaws an unwanted old pattern: a detector, a steadily falling maximum, then a permanent rule at zero.",
             },
             surfaces: ["skill:discern-set-the-standard"],
+          },
+          {
+            id: "skill-place-a-checkpoint",
+            title: "Place a checkpoint",
+            what:
+              "Walk from a recurring review judgment to a wired `[checkpoints.<id>]` entry: place the rule on the placement ladder, choose a deterministic trigger and the stop or advise mode, write a short question with a real unmet answer, verify it governs from the trunk, and review its observed economics later.",
+            plain: {
+              title: "Set up a judgment stop",
+              what:
+                "Turn a point a reviewer keeps raising into a rule the project keeps. Choose which changes set it off, and whether it stops work or only advises. Write the short question the coding agent must answer, check the rule is in force, and review later how often it fires and how it was answered.",
+            },
+            surfaces: ["skill:discern-place-a-checkpoint"],
           },
           {
             id: "skill-clear-the-decks",
@@ -2916,6 +2948,15 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
           "The Gate runs the project's declared checks and Standards before Proof records the result against the clean committed tree, so the check status arrives as inspectable evidence rather than an unsupported completion message.",
         drawsOn: ["gate", "proof", "standards"],
         claims: ["reduced-review-burden"],
+      },
+      {
+        id: "judgment-at-the-change",
+        title: "Ask the judgment questions when the change happens",
+        value:
+          "The review questions that need a person's kind of judgment are asked at the moment a matching change exists, and the recorded answer travels with the evidence — qualified as the agent's declared judgment, with the final say on an unmet one held by the responsible person.",
+        whyItFollows:
+          "A checkpoint pairs a deterministic trigger with a question; a fired stop checkpoint refuses the Gate until a conclusion is declared, the Proof carries declared conclusions separately from machine results, and a declared-unmet conclusion lands only under an owner-authorized variance.",
+        drawsOn: ["checkpoints", "skill-place-a-checkpoint"],
       },
       {
         id: "decisions-in-one-view",

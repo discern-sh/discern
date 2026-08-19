@@ -26,7 +26,13 @@ import { PROVIDERS } from "../src/lib/providers.ts";
 import { RECORD_CONFIG_PATHS } from "../src/lib/config_reconcile.ts";
 import { indentToml } from "../src/lib/toml_indent.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
-import { AGENT_NAMES, configSchema } from "../src/shared/config_schema.ts";
+import {
+  AGENT_NAMES,
+  configSchema,
+  parseConfigOrThrow,
+} from "../src/shared/config_schema.ts";
+import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
+import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
 
 /** The real committed config template text. */
 async function realTemplate(): Promise<string> {
@@ -128,6 +134,16 @@ Deno.test("lists only active template section headers, in file order", async () 
     "acceptance",
     "worktree",
     "worktree.setup",
+    // The shipped built-in checkpoints, active by reference for fresh installs.
+    "checkpoints.map-focus",
+    "checkpoints.instruction-economy",
+    "checkpoints.skills-playbook",
+    "checkpoints.gotchas-playbook",
+    "checkpoints.deletion-heavy-change",
+    "checkpoints.parallel-implementation",
+    "checkpoints.effort-sprawl",
+    "checkpoints.docs-drift",
+    "checkpoints.commit-story",
     "gate",
     "coupling",
     "scripts",
@@ -359,4 +375,76 @@ Deno.test("scanManagedBanners bounds a banner at its closing rule, never a follo
   assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), [
     { family: "standards", start: 0, end: 3 },
   ]);
+});
+
+/** The commented example table for one inert checkpoint id: the contiguous
+ * comment block from `# [checkpoints.<id>]` to the first non-comment line,
+ * with the comment prefix stripped — exactly what a user's uncomment
+ * produces, however many fenced strings the example carries. */
+function uncommentedExample(template: string, id: string): string {
+  const lines = template.split("\n");
+  const start = lines.findIndex((line) =>
+    line.trim() === `# [checkpoints.${id}]`
+  );
+  assert(start !== -1, `no commented example for '${id}'`);
+  const block: string[] = [];
+  for (let i = start; i < lines.length; i++) {
+    const body = (lines[i] ?? "").trim();
+    if (!body.startsWith("#")) break;
+    block.push(body.replace(/^#\s?/, ""));
+  }
+  return block.join("\n");
+}
+
+/** Every inert checkpoint example id the template ships, discovered from its
+ * own `# [checkpoints.<id>]` headers so a new example auto-enrols. */
+function inertExampleIds(template: string): string[] {
+  const ids: string[] = [];
+  for (const line of template.split("\n")) {
+    const m = line.trim().match(/^# \[checkpoints\.([a-z0-9-]+)\]$/);
+    if (m !== null && m[1] !== undefined) {
+      ids.push(m[1]);
+    }
+  }
+  return ids.sort();
+}
+
+Deno.test("each inert checkpoint example governs once uncommented, untouched", async () => {
+  // The teaching promise: a user succeeds by uncommenting and pointing the
+  // globs at real files — no other edit. The stripped block must parse under
+  // the LIVE loader and resolve into a governing checkpoint as authored.
+  // The id set comes from the template's own headers (a new example fails
+  // here until it takes a row), and the per-id mode is the double-entry.
+  const template = await realTemplate();
+  const expectedModes: Readonly<Record<string, "stop" | "advise">> = {
+    "new-dependency": "advise",
+    "shrinking-tests": "advise",
+    "sensitive-paths": "stop",
+    "interface-review": "stop",
+  };
+  assertEquals(inertExampleIds(template), Object.keys(expectedModes).sort());
+  for (const [id, mode] of Object.entries(expectedModes)) {
+    const config = parseConfigOrThrow(uncommentedExample(template, id));
+    const { checkpoints, advisories } = resolveCheckpoints(config, {});
+    assertEquals(advisories, [], id);
+    assertEquals(checkpoints.length, 1, id);
+    assertEquals(checkpoints[0]?.id, id);
+    assertEquals(checkpoints[0]?.mode, mode);
+    assert((checkpoints[0]?.question ?? "").trim().length > 0, id);
+    assert((checkpoints[0]?.selector?.globs.length ?? 0) > 0, id);
+  }
+});
+
+Deno.test("the template's active checkpoint entries are exactly the built-in registry", async () => {
+  // A true double-entry with the single source: a new seed added to
+  // BUILT_IN_CHECKPOINTS fails here until the template ships its entry (fresh
+  // installs would otherwise never receive it), and an active template entry
+  // naming no seed fails too (a question-less authored entry would break the
+  // strict live loader on every fresh install). The ordered section list
+  // above pins presentation; this pins membership from the registry side.
+  const active = sectionNamesFromTemplate(await realTemplate())
+    .filter((section) => section.startsWith("checkpoints."))
+    .map((section) => section.slice("checkpoints.".length))
+    .sort();
+  assertEquals(active, Object.keys(BUILT_IN_CHECKPOINTS).sort());
 });

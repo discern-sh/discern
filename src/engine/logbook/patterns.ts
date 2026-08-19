@@ -41,6 +41,7 @@ import {
   loadConfig,
   resolveConfiguredAgents,
 } from "../../shared/config_schema.ts";
+import { firableCheckpointIds } from "../checkpoints/policy.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import {
   DETECTOR_FAMILIES,
@@ -299,6 +300,11 @@ export async function patternsResult(
     stream.events,
     config.repository.trunk,
     resolveConfiguredAgents(config),
+    // Only checkpoints that COULD fire are dead-checkpoint candidates: an
+    // entry that cannot govern, or one dormant by configuration (an unset
+    // scalar reference expanding to the match-nothing pattern), is waiting,
+    // not mis-scoped.
+    firableCheckpointIds(config),
   );
   const reports = runDetectors(facts);
   const ranked = routeDetectorReports(reports).patterns.map(
@@ -867,6 +873,7 @@ export const STATS_SECTIONS = {
   workflows: "Validation workflows",
   pace: "Pace",
   standards: "Standards",
+  checkpoints: "Checkpoints",
   agents: "Agents",
   breadth: "Breadth",
 } as const;
@@ -1294,6 +1301,60 @@ function statsStandardsRows(
   return rows;
 }
 
+/** The checkpoints section: one observed-economics line per checkpoint —
+ * plain counts beside their denominators, most-served first. Observation
+ * vocabulary only: what fired, what was declared and on what kind of subject,
+ * what landed under an authorized variance — never a verdict about an agent. */
+function statsCheckpointRows(
+  economics: NonNullable<PatternsStats["checkpoints"]>,
+): string[] {
+  const rows = economics.rows.map((row) => {
+    const parts = [
+      `\`${row.id}\` fired on ${row.efforts_fired} of ${
+        plural(economics.efforts, "effort")
+      } (${plural(row.fires, "serving")})`,
+    ];
+    if (row.declared > 0) {
+      const split: string[] = [];
+      if (row.declared_unchanged > 0) {
+        split.push(`${row.declared_unchanged} on an unchanged subject`);
+      }
+      if (row.declared_unmet > 0) {
+        split.push(`${row.declared_unmet} unmet`);
+      }
+      parts.push(
+        `declared ${row.declared}${
+          split.length === 0 ? "" : ` (${split.join(", ")})`
+        }`,
+      );
+    }
+    if (row.variances > 0) {
+      parts.push(
+        `${
+          plural(row.variances, "authorized variance")
+        } across ${row.efforts_landed} landed`,
+      );
+    }
+    if (row.abandoned > 0) {
+      parts.push(`${row.abandoned} abandoned`);
+    }
+    if (row.median_declare_s !== undefined) {
+      parts.push(
+        `median time to declare ${formatHumanNumber(row.median_declare_s)}s`,
+      );
+    }
+    return parts.join("; ");
+  });
+  if (economics.omitted > 0) {
+    rows.push(
+      `${
+        plural(economics.omitted, "more checkpoint")
+      } with observed history — counted, not listed`,
+    );
+  }
+  return rows;
+}
+
 /** The agents section: attributed identities with their runs and green-gate
  * shares, each with its own usage sparkline. The cohort seam's honesty rules
  * hold here: below-minimum identities are counted but never listed, and the
@@ -1470,6 +1531,14 @@ function renderStatsReport(
           label: cadenceLabel("average improvement", daysPerPoint),
         }
         : undefined,
+    );
+  }
+  if (stats.checkpoints !== undefined && stats.checkpoints.rows.length > 0) {
+    statsSection(
+      out,
+      width,
+      STATS_SECTIONS.checkpoints,
+      statsCheckpointRows(stats.checkpoints),
     );
   }
   if (stats.agents.identities.length > 0 || stats.agents.detected > 0) {

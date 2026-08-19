@@ -4,8 +4,12 @@
  *
  * Each category groups related rules. Each rule is either deterministic (discern
  * decides it) or subjective (discern surfaces it for the agent to judge against the
- * cited material). The catalog is data, not control flow: the runner in `improve.ts`
- * walks it. To add a best practice, add a rule here — nothing else changes.
+ * cited material). A subjective rule is the improvement MEMBERSHIP of a canonical
+ * question (`shared/questions.ts`): the judgment prose and teach live in that one
+ * vocabulary, and this catalog contributes the improvement-review framing (title +
+ * evidence). The catalog is data, not control flow: the runner in `improve.ts`
+ * walks it. To add a best practice, add a rule here — a subjective one first adds
+ * its question to the vocabulary.
  *
  * The bar for a deterministic rule: its verdict must be *certain* from the gathered
  * facts (no guessing). Anything that needs judgement is a subjective rule instead,
@@ -27,17 +31,28 @@ import {
 import { allInstructionFilePaths } from "../../lib/providers.ts";
 import { normalizeMapDir } from "../../shared/map_path.ts";
 import { SOURCE_PATHS } from "../../shared/paths_registry.ts";
-import { diagnosticFormatList } from "../gate/diagnostics.ts";
+import { questionById } from "../../shared/questions.ts";
 import type {
   Category,
   DeterministicRule,
   ImprovementContext,
+  ReviewEvidence,
+  ReviewResult,
   SubjectiveRule,
 } from "./types.ts";
 import {
   improvementFindingData,
   inlineFindingRoutes,
 } from "../logbook/surfaces.ts";
+import {
+  analyzeCheckpointObservations,
+  type CheckpointVarianceSummary,
+  frequentlyVariedCheckpoints,
+} from "../logbook/checkpoint_economics.ts";
+import { buildStreamFacts } from "../logbook/detectors.ts";
+import { readLogbookStream } from "../logbook/read.ts";
+import { resolveCommonGitDir } from "../worktree/git.ts";
+import { estateReviews } from "./checkpoint_loop.ts";
 
 // ── gathering the facts ─────────────────────────────────────────────────────
 
@@ -131,6 +146,36 @@ async function anyAgentFile(root: string): Promise<boolean> {
 }
 
 /**
+ * Checkpoints clearing the shared frequently-varied bar, read from the full
+ * local logbook stream — variances are rare, cross-effort evidence a bounded
+ * recent tail would miss (the same full read the `checkpoints` verb's
+ * observed-history section performs). Advisory by construction: a missing
+ * repository, a disabled logbook, or any read trouble reads as no evidence.
+ */
+async function variedCheckpointEvidence(
+  root: string,
+  config: DiscernConfig,
+): Promise<CheckpointVarianceSummary[]> {
+  if (!config.project.logbook) {
+    return [];
+  }
+  try {
+    const commonGitDir = await resolveCommonGitDir(root);
+    if (commonGitDir === undefined) {
+      return [];
+    }
+    const stream = await readLogbookStream(commonGitDir);
+    return frequentlyVariedCheckpoints(
+      analyzeCheckpointObservations(
+        buildStreamFacts(stream.events, config.repository.trunk),
+      ),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Gather the project facts the improvement rules read — ONE pass of config access and
  * filesystem probing, so each rule stays a pure, synchronous function of the
  * returned context.
@@ -143,6 +188,9 @@ export async function buildContext(
     ? improvementFindingData(
       (await inlineFindingRoutes(root, config)).improvement,
     )
+    : [];
+  const variedCheckpoints = config.meta.bootstrapped
+    ? await variedCheckpointEvidence(root, config)
     : [];
   const sources = await resolveInstructionSources(root, config);
   let instructionText = "";
@@ -182,6 +230,7 @@ export async function buildContext(
     agentFilePresent: await anyAgentFile(root),
     authoredSkills: await countAuthoredSkills(root, config),
     historicalFindings,
+    variedCheckpoints,
   };
 }
 
@@ -209,6 +258,38 @@ function customJobInStage(ctx: ImprovementContext, stage: string): boolean {
 function excerpt(text: string, max = 240): string {
   const flat = text.replace(/\s+/g, " ").trim();
   return flat.length <= max ? flat : `${flat.slice(0, max)}…`;
+}
+
+/**
+ * One subjective rule — the improvement MEMBERSHIP of a canonical question
+ * (`shared/questions.ts`). The question carries the judgment prose (`ask`) and
+ * `teach`; the membership adds what project-wide improvement review needs: a display title
+ * and the project evidence to judge `against`. A membership naming an unknown
+ * question fails at module load, so the catalog can never ship a dangling
+ * reference (the parity guard in `tests/questions_registry_test.ts` reports the
+ * same defect with its remedy).
+ */
+function subjective(
+  id: string,
+  membership: {
+    title: string;
+    against: (ctx: ImprovementContext) => ReviewEvidence | undefined;
+  },
+): SubjectiveRule {
+  const question = questionById(id);
+  if (question === undefined) {
+    throw new Error(
+      `improvement rule '${id}' references no canonical question`,
+    );
+  }
+  return {
+    kind: "subjective",
+    id,
+    title: membership.title,
+    ask: question.question,
+    teach: question.teach,
+    against: membership.against,
+  };
 }
 
 /** The configured check/test commands whose output can become diagnostics. */
@@ -296,44 +377,18 @@ const GATE: Category = {
           ? { status: "pass", detail: "a fix-stage command is wired" }
           : { status: "fail", detail: "no formatter is configured" },
     },
-    {
-      kind: "subjective",
-      id: "gate.fast-feedback",
+    subjective("gate.fast-feedback", {
       title: "The gate stays fast enough to run every time",
-      ask:
-        "Given the test command below, and that `discern done` runs it on every " +
-        "acceptance and whenever a change is called done — does the gate stay fast " +
-        "as the suite grows, and is the runner using the parallelism it offers? " +
-        "Parallel execution depends on isolated tests: each owning its own temp dir, " +
-        "environment, ports, and fixtures, mutating no process-global state another " +
-        "test could observe. A slow or order-flaky gate trains people to skip it or " +
-        "rerun until green.",
-      teach:
-        "Isolated, order-independent tests are the precondition for parallel " +
-        "execution and a trustworthy green. Give each test its own temp dir / env / " +
-        "fixtures, avoid shared global state, then enable your runner's parallel mode.",
-      against: (ctx): { source: string; excerpt: string } | undefined => {
+      against: (ctx): ReviewEvidence | undefined => {
         const cmd = toCommandList(ctx.config.jobs.test).join(" && ");
         return cmd.trim().length > 0
           ? { source: "the configured test command", excerpt: cmd }
           : undefined;
       },
-    },
-    {
-      kind: "subjective",
-      id: "gate.test-depth",
+    }),
+    subjective("gate.test-depth", {
       title: "Tests protect behaviour, boundaries, and failure paths",
-      ask:
-        "Inspect representative tests behind the configured command. Do they protect " +
-        "observable behaviour at important boundaries — including failure paths and " +
-        "edge cases — or mostly mirror implementation details and prove that happy-path " +
-        "code runs? Would a plausible regression fail for a useful reason?",
-      teach:
-        "A strong suite buys confidence, not just test count. Prefer externally visible " +
-        "outcomes, boundary conditions, and past failure modes; keep assertions specific " +
-        "enough that a red test explains the broken promise without coupling every test " +
-        "to internal structure.",
-      against: (ctx): { source: string; excerpt: string } | undefined => {
+      against: (ctx): ReviewEvidence | undefined => {
         const cmd = toCommandList(ctx.config.jobs.test).join(" && ");
         return cmd.trim().length > 0
           ? {
@@ -342,24 +397,11 @@ const GATE: Category = {
           }
           : undefined;
       },
-    },
-    {
-      kind: "subjective",
-      id: "gate.structured-diagnostics",
+    }),
+    subjective("gate.structured-diagnostics", {
       title: "Structured output reaches diagnostics",
-      ask:
-        "Inspect the reporter and output options for the configured check and test " +
-        "jobs below. Where a tool can emit a format discern recognizes " +
-        `(${diagnosticFormatList()}), does its command ` +
-        "request that format in captured stdout or stderr while preserving a failing " +
-        "exit status? A report written only to a file does not reach discern's " +
-        "structured normalization.",
-      teach:
-        "On a failed job, discern turns recognized tool output into one diagnostic " +
-        "per finding or failing test. Prefer a supported reporter the tool already " +
-        "offers. Unrecognized output remains available as one raw diagnostic.",
       against: diagnosticJobExcerpt,
-    },
+    }),
   ],
 };
 
@@ -414,21 +456,9 @@ const SETUP: Category = {
           };
       },
     },
-    {
-      kind: "subjective",
-      id: "setup.failure-memory",
+    subjective("setup.failure-memory", {
       title: "The gotchas doc is an actionable failure playbook",
-      ask:
-        "Read the configured gotchas document. Does each entry capture a recurring, " +
-        "non-obvious failure with the symptom, likely cause, and proven recovery — or " +
-        "is it generic advice, stale history, or a list that still makes the next agent " +
-        "rediscover the diagnosis?",
-      teach:
-        "Good failure memory shortens the next incident. Record only traps the code and " +
-        "ordinary tool output do not make obvious; make each entry searchable from the " +
-        "observed symptom and concrete enough to verify the fix, then remove it when " +
-        "the underlying trap is eliminated.",
-      against: (ctx): { source: string; excerpt: string } | undefined => {
+      against: (ctx): ReviewEvidence | undefined => {
         const doc = ctx.config.project.gotchas_doc.trim();
         return doc === "" ? undefined : {
           source: doc,
@@ -437,7 +467,7 @@ const SETUP: Category = {
             : "configured path is currently missing",
         };
       },
-    },
+    }),
   ],
 };
 
@@ -501,25 +531,14 @@ const INSTRUCTIONS: Category = {
             detail: "no agent file found",
           },
     },
-    {
-      kind: "subjective",
-      id: "instructions.project-specific",
+    subjective("instructions.project-specific", {
       title: "Instructions capture what the code can't say",
-      ask:
-        "Do the instructions below teach project-specific knowledge an agent " +
-        "could NOT infer from the code itself — the testing philosophy, the architectural " +
-        "boundaries that must hold, the non-obvious gotchas, the 'we tried X, it failed' " +
-        "lessons? Or is it generic filler that restates what the code already shows?",
-      teach:
-        "Strong instructions are specific and load-bearing: they change what an agent does. " +
-        "If a line would be true of any project in the language, cut it. If a real " +
-        "constraint isn't written down, add it. Edit your instruction source and run `discern refresh`.",
-      against: (ctx): { source: string; excerpt: string } | undefined =>
+      against: (ctx): ReviewEvidence | undefined =>
         ctx.instructionChars === 0 ? undefined : {
           source: ctx.config.instructions.sources.join(", "),
           excerpt: excerpt(ctx.instructionText, 600),
         },
-    },
+    }),
   ],
 };
 
@@ -568,48 +587,26 @@ const MAP: Category = {
             detail: `no ADRs under ${ctx.mapDir}_adr/`,
           },
     },
-    {
-      kind: "subjective",
-      id: "map.current",
+    subjective("map.current", {
       title: "The map still matches the code",
-      ask:
-        "Pick a subsystem that changed recently. Does its documentation page still " +
-        "describe how the code actually behaves now — present tense, no drift — or does " +
-        "it describe a previous design? A stale doc is a bug.",
-      teach:
-        "Docs are only worth trusting if they track the code. When a change alters " +
-        "documented behaviour, update the page in the same change. The discern-document-subsystem " +
-        "skill refreshes a subtree; `discern map --list` shows the tree.",
-      against: (ctx): { source: string; excerpt: string } | undefined =>
+      against: (ctx): ReviewEvidence | undefined =>
         ctx.mapTree
           ? {
             source: ctx.mapDir,
             excerpt: "browse with `discern map --list`",
           }
           : undefined,
-    },
-    {
-      kind: "subjective",
-      id: "map.navigation",
+    }),
+    subjective("map.navigation", {
       title: "The map is navigable from overview to detail",
-      ask:
-        "Starting at the configured map root's README.md, can a new contributor find the system overview, " +
-        "the relevant subsystem, and its detailed pages without already knowing their " +
-        "filenames? Do subtree READMEs explain scope and link their leaves, or is the " +
-        "tree merely a collection of documents?",
-      teach:
-        "Good documentation has a map as well as accurate pages. Keep the root index " +
-        "small and oriented around reader journeys, give each subsystem an overview, " +
-        "and link detail from the nearest useful context so discoverability does not " +
-        "depend on repository archaeology.",
-      against: (ctx): { source: string; excerpt: string } | undefined =>
+      against: (ctx): ReviewEvidence | undefined =>
         ctx.mapTree
           ? {
             source: `${ctx.mapDir}README.md and subtree README files`,
             excerpt: "follow the links as a first-time reader",
           }
           : undefined,
-    },
+    }),
   ],
 };
 
@@ -618,19 +615,9 @@ const WORKTREES: Category = {
   name: "worktrees",
   title: "Worktree workflow",
   rules: [
-    {
-      kind: "subjective",
-      id: "worktrees.resources",
+    subjective("worktrees.resources", {
       title: "External resources declared per-worktree",
-      ask:
-        "Does this project need per-worktree external resources to develop in isolation " +
-        "— a database, an emulator, a container, a queue, a dev-server vhost? If so, are " +
-        "they all declared under [worktree.resources.<name>] so each worktree gets its own?",
-      teach: "Anything two concurrent worktrees would fight over belongs in " +
-        "[worktree.resources.<name>] with a create/destroy pair, so discern " +
-        "provisions and reclaims it per worktree. If the project needs none, this is a " +
-        "clean pass — but verify nothing shared was missed.",
-      against: (ctx): { source: string; excerpt: string } | undefined => {
+      against: (ctx): ReviewEvidence | undefined => {
         const names = Object.keys(ctx.config.worktree.resources);
         return {
           source: "[worktree.resources]",
@@ -639,7 +626,7 @@ const WORKTREES: Category = {
             : `declared: ${names.join(", ")}`,
         };
       },
-    },
+    }),
   ],
 };
 
@@ -669,19 +656,9 @@ const STANDARDS: Category = {
           }
           : { status: "fail", detail: "no [standards.<name>] defined" },
     },
-    {
-      kind: "subjective",
-      id: "standards.opportunity",
+    subjective("standards.opportunity", {
       title: "No unprotected metric worth holding",
-      ask:
-        "Is there a measurable quality signal in this project you only ever want to " +
-        "improve — test coverage, bundle/binary size, type-error count, a performance " +
-        "budget, lint-warning count — that is NOT yet protected by a standard?",
-      teach: "Find the number you'd be unhappy to see regress, emit it as " +
-        "`DISCERN_METRIC <name> <value>` from a command, and add a [standards.<name>] " +
-        "with that floor/ceiling. Every `discern done` run then verifies the limit " +
-        "against the trunk and measures the metric alongside the tests.",
-      against: (ctx): { source: string; excerpt: string } | undefined => {
+      against: (ctx): ReviewEvidence | undefined => {
         const names = Object.keys(ctx.config.standards);
         return {
           source: "[standards]",
@@ -690,22 +667,10 @@ const STANDARDS: Category = {
             : `protected by standards: ${names.join(", ")}`,
         };
       },
-    },
-    {
-      kind: "subjective",
-      id: "standards.normalize",
+    }),
+    subjective("standards.normalize", {
       title: "No raw count held over a growing tree",
-      ask:
-        "Do any ceiling standards count items over a tree that grows over time — lint " +
-        "alerts, TODOs, type errors, doc nits? A raw count rises with the project, so it " +
-        "fails on growth, not regressions, and the only way to pass is to loosen it. Hold " +
-        "a rate instead: add `per` to divide by a built-in extent (files|lines|words|bytes).",
-      teach:
-        "A count is safe to hold only when it doesn't scale with project size (a true " +
-        "budget, like shipped bytes). If it grows as you add code or docs, normalize it: " +
-        '`per = { words = "${map.dir}**" }` holds docs alerts-per-word, so growth alone never ' +
-        "breaches the ceiling — only a real quality regression does.",
-      against: (ctx): { source: string; excerpt: string } | undefined => {
+      against: (ctx): ReviewEvidence | undefined => {
         const raw = Object.entries(ctx.config.standards)
           .filter(([, r]) => r.direction === "down" && r.per === undefined)
           .map(([name]) => name);
@@ -716,8 +681,44 @@ const STANDARDS: Category = {
             : `raw ceiling counts (candidates for \`per\`): ${raw.join(", ")}`,
         };
       },
-    },
+    }),
   ],
+};
+
+/** The question ids the catalog's subjective rules already review — the
+ * improvement membership's id set, derived at call time so a new subjective
+ * rule auto-enrols. The improvement audit skips these: their catalog review
+ * carries the boundary mark instead, so each question renders once. */
+function improvementQuestionIds(): ReadonlySet<string> {
+  return new Set(
+    CATEGORIES.flatMap((category) =>
+      category.rules.filter(isSubjective).map((rule) => rule.id)
+    ),
+  );
+}
+
+/** Boundary checkpoints — the flow guard beside this improvement audit. The static
+ * review teaches placement (the ladder and the conversion rule); the dynamic
+ * rows are the configured checkpoints' questions, audited project-wide. */
+const CHECKPOINTS: Category = {
+  name: "checkpoints",
+  title: "Boundary checkpoints",
+  rules: [
+    subjective("checkpoints.opportunity", {
+      title: "Rules sit on the right rung of the placement ladder",
+      against: (ctx): ReviewEvidence | undefined => {
+        const ids = Object.keys(ctx.config.checkpoints);
+        return {
+          source: "[checkpoints]",
+          excerpt: ids.length === 0
+            ? "no checkpoints configured yet"
+            : `configured: ${ids.join(", ")}`,
+        };
+      },
+    }),
+  ],
+  dynamicReviews: (ctx): ReviewResult[] =>
+    estateReviews(ctx.config, improvementQuestionIds()),
 };
 
 /** Skills — reusable task playbooks. A single subjective opportunity prompt. */
@@ -725,45 +726,24 @@ const SKILLS: Category = {
   name: "skills",
   title: "Skills",
   rules: [
-    {
-      kind: "subjective",
-      id: "skills.opportunity",
+    subjective("skills.opportunity", {
       title: "Recurring tasks captured as skills",
-      ask:
-        "Is there a multi-step task that recurs in this project and would benefit from a " +
-        "written playbook an agent can follow each time — a release dance, a data reset, a " +
-        "subsystem-specific workflow? Authored skills under the skills dir capture exactly that.",
-      teach:
-        "When you find yourself (or an agent) re-deriving the same procedure, capture it " +
-        "as a skill: a directory with a SKILL.md under [skills].dir. It then becomes " +
-        "discoverable to every agent. Eject a built-in to customise it.",
-      against: (ctx): { source: string; excerpt: string } | undefined => ({
+      against: (ctx): ReviewEvidence | undefined => ({
         source: resolveSkillsDir(ctx.root, ctx.config).rel,
         excerpt: ctx.authoredSkills === 0
           ? "no authored skills yet (built-ins still apply)"
           : `${ctx.authoredSkills} authored skill(s)`,
       }),
-    },
-    {
-      kind: "subjective",
-      id: "skills.executable",
+    }),
+    subjective("skills.executable", {
       title: "Skills are executable, verifiable playbooks",
-      ask:
-        "Inspect the authored skills. Does each say when to use it, what context or " +
-        "preconditions it needs, the concrete sequence to follow, how to verify success, " +
-        "and how to recover or clean up when the workflow can fail? Could a fresh agent " +
-        "execute it without inventing the missing half?",
-      teach:
-        "A good skill packages judgement, not just reminders. Give it a sharp trigger, " +
-        "progressively disclose only the needed references, make effects and stop " +
-        "conditions explicit, and end with observable proof that the task succeeded.",
-      against: (ctx): { source: string; excerpt: string } | undefined => ({
+      against: (ctx): ReviewEvidence | undefined => ({
         source: resolveSkillsDir(ctx.root, ctx.config).rel,
         excerpt: ctx.authoredSkills === 0
           ? "no authored skills to inspect yet"
           : `${ctx.authoredSkills} authored skill(s) to sample`,
       }),
-    },
+    }),
   ],
 };
 
@@ -776,6 +756,7 @@ export const CATEGORIES: readonly Category[] = [
   MAP,
   WORKTREES,
   STANDARDS,
+  CHECKPOINTS,
   SKILLS,
 ];
 

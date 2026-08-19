@@ -1,7 +1,7 @@
 ---
 title: Practice stats
 description: "Read the Logbook for accepted changes, validation routes, green streaks, cycle times, Standards trends, and agent cohorts in plain counts."
-order: 120
+order: 130
 aliases:
   - discern patterns --stats
   - stats
@@ -28,6 +28,7 @@ discern patterns --stats
 | Validation workflows | Clean, dirty, and unknown `prepare`, `test`, and `done` entry states; success, failure, and retry counts by route; test-first changes that later reached a clean committed Gate; evidence coverage and current dirty-state shape. |
 | Pace                 | Starts that ended in an accepted change, measured start-to-accept cycles with the median and fastest times and how many finished inside a day, and the acceptance cadence across the span.                                        |
 | Standards            | Limits tightened and how many Standards they cover, the average measured trend, and the most improved Standard.                                                                                                                   |
+| Checkpoints          | Per-checkpoint economics: efforts fired, servings, declarations with unchanged-subject and unmet splits, variances across landed efforts, abandoned open questions, median time to declare. Most-served rows; remainder counted.  |
 | Agents               | Attributed agent identities with their runs, usage series, and green-`done` shares.                                                                                                                                               |
 | Breadth              | Branches driven, active days out of the span, the day the most branches were active, and the most changes in flight at one instant.                                                                                               |
 

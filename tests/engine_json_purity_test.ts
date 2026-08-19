@@ -159,6 +159,11 @@ const PROJECT_CASES: readonly PurityCase[] = [
     envelopeVerb: "improvement",
     args: ["improvement"],
   },
+  {
+    commandPath: "checkpoints",
+    envelopeVerb: "checkpoints",
+    args: ["checkpoints"],
+  },
   { commandPath: "impact", envelopeVerb: "impact", args: ["impact"] },
   { commandPath: "status", envelopeVerb: "status", args: ["status"] },
   {

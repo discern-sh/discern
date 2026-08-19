@@ -13,6 +13,7 @@ import {
   LANDING_CONSENT_SOURCES,
   type LandingConsent,
 } from "../../shared/consent.ts";
+import type { AuthorizedVarianceData } from "../../shared/result_schemas.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
@@ -68,6 +69,16 @@ type AcceptanceTransaction =
     readonly version: 2;
     /** Consent already checked before this exact expected→target boundary. */
     readonly consent: LandingConsent;
+  })
+  | (AcceptanceTransactionBase & {
+    readonly version: 3;
+    /** Consent already checked before this exact expected→target boundary. */
+    readonly consent: LandingConsent;
+    /** The owner-authorized variances bound to this exact transition — each
+     * to a checkpoint id, definition hash, subject fingerprint, and
+     * rationale. Recovery may complete only THIS authorized transition; the
+     * decision never replays onto changed declarations or another tree. */
+    readonly variances: readonly AuthorizedVarianceData[];
   });
 
 export interface RecordedAcceptanceTransaction {
@@ -253,6 +264,42 @@ function parseLandingConsent(value: unknown): LandingConsent | undefined {
   };
 }
 
+/** Validate one journaled variance binding: the four opaque strings that tie
+ * an owner decision to its exact declaration. */
+function parseVariance(value: unknown): AuthorizedVarianceData | undefined {
+  if (!isPlainObject(value)) {
+    return undefined;
+  }
+  const { checkpoint, definition_hash, subject, why } = value;
+  if (
+    typeof checkpoint !== "string" || checkpoint === "" ||
+    typeof definition_hash !== "string" || definition_hash === "" ||
+    typeof subject !== "string" || subject === "" ||
+    typeof why !== "string" || why === ""
+  ) {
+    return undefined;
+  }
+  return { checkpoint, definition_hash, subject, why };
+}
+
+/** Validate a journaled variance list, or undefined when any entry is unusable. */
+function parseVariances(
+  value: unknown,
+): AuthorizedVarianceData[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const out: AuthorizedVarianceData[] = [];
+  for (const entry of value) {
+    const variance = parseVariance(entry);
+    if (variance === undefined) {
+      return undefined;
+    }
+    out.push(variance);
+  }
+  return out;
+}
+
 /** Decode and validate the versioned journal that binds authority to one expected-to-target transition. */
 function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   let parsed: unknown;
@@ -264,11 +311,14 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   if (!isPlainObject(parsed)) {
     throw new Error("the record is not a JSON object");
   }
-  const consent = parsed.version === 2
+  const consent = parsed.version === 2 || parsed.version === 3
     ? parseLandingConsent(parsed.consent)
     : undefined;
+  const variances = parsed.version === 3
+    ? parseVariances(parsed.variances)
+    : undefined;
   if (
-    (parsed.version !== 1 && parsed.version !== 2) ||
+    (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3) ||
     typeof parsed.id !== "string" ||
     !TRANSACTION_ID.test(parsed.id) ||
     !isRefName(parsed.worktree_branch) ||
@@ -280,14 +330,21 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     typeof parsed.main_repo !== "string" ||
     !isAbsolute(parsed.main_repo) ||
     typeof parsed.effort_claim !== "boolean" ||
-    (parsed.version === 2 && consent === undefined) ||
-    (parsed.version === 2 &&
-      (consent?.source === "effort-grant") !== parsed.effort_claim)
+    (parsed.version !== 1 && consent === undefined) ||
+    (parsed.version !== 1 &&
+      (consent?.source === "effort-grant") !== parsed.effort_claim) ||
+    (parsed.version === 3 && variances === undefined) ||
+    // A variance forces current-conversation consent; a journal claiming one
+    // under any recorded grant is not a record this engine ever wrote.
+    (parsed.version === 3 && (variances?.length ?? 0) > 0 &&
+      consent?.source !== "conversation")
   ) {
     throw new Error(
-      "the record needs version 1 or 2, a transaction id, branch/trunk names, " +
-        "expected and target object IDs, an absolute main checkout, and an " +
-        "effort-claim flag; version 2 also binds matching consent evidence",
+      "the record needs version 1, 2, or 3, a transaction id, branch/trunk " +
+        "names, expected and target object IDs, an absolute main checkout, " +
+        "and an effort-claim flag; versions 2 and 3 also bind matching " +
+        "consent evidence, and version 3 binds its authorized variances to " +
+        "conversation consent",
     );
   }
   const base: AcceptanceTransactionBase = {
@@ -299,9 +356,18 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     main_repo: parsed.main_repo,
     effort_claim: parsed.effort_claim,
   };
-  return parsed.version === 1
-    ? { version: 1, ...base }
-    : { version: 2, ...base, consent: consent as LandingConsent };
+  if (parsed.version === 1) {
+    return { version: 1, ...base };
+  }
+  if (parsed.version === 2) {
+    return { version: 2, ...base, consent: consent as LandingConsent };
+  }
+  return {
+    version: 3,
+    ...base,
+    consent: consent as LandingConsent,
+    variances: variances as AuthorizedVarianceData[],
+  };
 }
 
 /** Classify the recovery journal as missing, valid, or unusable without hiding read failures. */
@@ -370,6 +436,7 @@ async function writeAcceptanceTransaction(
   cwd: string,
   input: Omit<AcceptanceTransactionBase, "id"> & {
     readonly consent: LandingConsent;
+    readonly variances: readonly AuthorizedVarianceData[];
   },
 ): Promise<RecordedAcceptanceTransaction> {
   const current = await readAcceptanceTransaction(cwd);
@@ -384,7 +451,7 @@ async function writeAcceptanceTransaction(
     );
   }
   const transaction: AcceptanceTransaction = {
-    version: 2,
+    version: 3,
     id: crypto.randomUUID(),
     ...input,
   };
@@ -447,6 +514,8 @@ export async function performAcceptanceTransition(
     readonly target: string;
     readonly effortClaim: boolean;
     readonly consent: LandingConsent;
+    /** The owner-authorized variances this exact transition lands under. */
+    readonly variances: readonly AuthorizedVarianceData[];
   },
 ): Promise<AcceptanceTransitionResult> {
   const recorded = await writeAcceptanceTransaction(cwd, {
@@ -457,6 +526,7 @@ export async function performAcceptanceTransition(
     main_repo: input.mainRepo,
     effort_claim: input.effortClaim,
     consent: input.consent,
+    variances: input.variances,
   });
   const { transaction } = recorded;
 
@@ -595,7 +665,7 @@ export async function inspectInterruptedAcceptance(
     );
   }
   let consent: LandingConsent | undefined;
-  if (transaction.version === 2) {
+  if (transaction.version === 2 || transaction.version === 3) {
     consent = cloneConsent(transaction.consent);
   } else if (transaction.effort_claim) {
     const claim = await readEffortGrantClaim(

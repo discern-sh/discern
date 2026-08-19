@@ -52,6 +52,10 @@ import type { DiscernResult } from "../../shared/result.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 import { logbookVerbIsEffectful } from "../../shared/verbs.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
+import {
+  type CheckpointObservations,
+  takeCheckpointActivity,
+} from "../../shared/result_capture.ts";
 import { changedSections, type ConfigEpoch, configEpoch } from "./epoch.ts";
 import { setActiveInvocationId } from "./invocation_context.ts";
 import {
@@ -115,6 +119,10 @@ export interface FinishReport {
   target?: string | undefined;
   /** The crash signature, when the invocation died on an unexpected throw. */
   crash?: CrashSignature | undefined;
+  /** Checkpoint observations the surface chokepoint drained for this
+   * invocation ({@link CheckpointObservations}); the recorder falls back to
+   * draining the accumulator itself for direct callers. */
+  checkpoints?: CheckpointObservations | undefined;
 }
 
 /** What an interceptor knows when an invocation starts. */
@@ -517,6 +525,10 @@ async function advanceEpoch(
 export function beginRecording(cwd: string, begin: BeginReport): Recording {
   const invocation = crypto.randomUUID();
   setActiveInvocationId(invocation);
+  // The checkpoint-observation accumulator is process-local: discard anything a
+  // previous invocation in this process left behind (the MCP server serves many
+  // calls) so this invocation's event carries only its own observations.
+  takeCheckpointActivity();
   const startedAt = new Date().toISOString();
   const context = gatherContext(cwd).catch(() => undefined);
   const beginAppend = logbookVerbIsEffectful(begin.verb, begin.flags)
@@ -548,6 +560,12 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
   return {
     async finish(report: FinishReport): Promise<void> {
       try {
+        // The surface chokepoints drain the checkpoint-observation mailbox and
+        // pass it here (the drain-parity guard holds them to it); the fallback
+        // take serves direct recorder callers and clears any remainder, so an
+        // observation can never attach to a later invocation's event.
+        const checkpointActivity = report.checkpoints ??
+          takeCheckpointActivity();
         // Preserve append order even when a very short verb finishes before its
         // concurrent context gather. A swallowed begin failure still lets the
         // completion append proceed.
@@ -619,6 +637,9 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
           ...(lifted.update !== undefined ? { update: lifted.update } : {}),
           ...(lifted.consent !== undefined ? { consent: lifted.consent } : {}),
           ...(lifted.landing !== undefined ? { landing: lifted.landing } : {}),
+          ...(checkpointActivity !== undefined
+            ? { checkpoints: checkpointActivity }
+            : {}),
           epoch: ctx.epoch.fingerprint,
         };
         await appendEvent(ctx.commonGitDir, event);

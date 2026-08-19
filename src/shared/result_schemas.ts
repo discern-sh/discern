@@ -40,6 +40,7 @@ import {
   STEP_OUTCOMES,
 } from "./result.ts";
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
+import { CHECKPOINT_MODES, TRIGGER_VETOES } from "./checkpoints.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "./public_schemas.ts";
@@ -272,9 +273,58 @@ const PROOF_SUMMARY_FIELDS = {
   line: z.string(),
 };
 
+/** One current declared-met checkpoint conclusion — agent evidence, so every
+ * rendering says "declared met", never bare "met" or "passed". */
+export const CheckpointMetConclusionSchema = z.strictObject({
+  id: z.string(),
+  declared_at: z.string(),
+}).meta({
+  description:
+    "One checkpoint question the agent declared met, with the declaration " +
+    "time. Agent evidence: recorded, not machine-verified.",
+});
+export type CheckpointMetConclusionData = z.infer<
+  typeof CheckpointMetConclusionSchema
+>;
+
+/** One current declared-unmet checkpoint conclusion and its rationale. */
+export const CheckpointUnmetConclusionSchema = z.strictObject({
+  id: z.string(),
+  /** The agent's one-paragraph rationale — opaque evidence, rendered only
+   * through escaping boundaries, never interpreted as policy. */
+  why: z.string(),
+  declared_at: z.string(),
+}).meta({
+  description:
+    "One checkpoint question the agent declared unmet, with its rationale " +
+    "and declaration time. Landing requires an owner-authorized variance.",
+});
+export type CheckpointUnmetConclusionData = z.infer<
+  typeof CheckpointUnmetConclusionSchema
+>;
+
+/** The Proof's agent-declared checkpoint conclusions, kept separate from the
+ * machine-verified rows, plus the policy identity that governed them. */
+export const ProofCheckpointsSchema = z.strictObject({
+  /** The merge-base commit whose `[checkpoints]` configuration governed. */
+  policy: z.string(),
+  declared_met: z.array(CheckpointMetConclusionSchema),
+  declared_unmet: z.array(CheckpointUnmetConclusionSchema),
+}).meta({
+  id: "DiscernProofCheckpoints",
+  description:
+    "Agent-declared checkpoint conclusions carried by the Proof, separate " +
+    "from machine results: the governing policy identity, the declared-met " +
+    "set, and the declared-unmet set whose landing still requires " +
+    "owner-authorized variances.",
+});
+export type ProofCheckpointsData = z.infer<typeof ProofCheckpointsSchema>;
+
 const PROOF_FIELDS = {
   ...DURABLE_PROOF_FACT_FIELDS,
   ...PROOF_PRESENTATION_FIELDS,
+  /** Present when checkpoints governed the run and any fired. */
+  checkpoints: ProofCheckpointsSchema.optional(),
 };
 
 export const ProofSchema = z.strictObject(PROOF_FIELDS).meta({
@@ -310,8 +360,55 @@ export function canonicalProof(proof: Proof): Proof {
     deletions: proof.deletions,
     line: proof.line,
     markdown: proof.markdown,
+    ...(proof.checkpoints === undefined
+      ? {}
+      : { checkpoints: proof.checkpoints }),
   };
 }
+
+/** The recorded consent evidence used by one successful landing. */
+export const LandingConsentDataSchema = z.strictObject({
+  source: z.enum(LANDING_CONSENT_SOURCES),
+  /** Present only for a standing grant: the scopes that covered changed paths. */
+  scopes: z.array(z.string()).optional(),
+});
+export type LandingConsentData = z.infer<typeof LandingConsentDataSchema>;
+
+/**
+ * One owner-authorized variance: permission to land one current declared-unmet
+ * checkpoint without changing it. Bound to the exact declaration — checkpoint
+ * id, resolved-definition hash, subject fingerprint, and rationale — and to
+ * the landed commit it travels with; it changes no future policy.
+ */
+export const AuthorizedVarianceSchema = z.strictObject({
+  checkpoint: z.string(),
+  definition_hash: z.string(),
+  subject: z.string(),
+  /** The agent's rationale the owner authorized landing against. */
+  why: z.string(),
+}).meta({
+  id: "DiscernAuthorizedVariance",
+  description:
+    "Owner authorization to land one declared-unmet checkpoint, bound to the " +
+    "exact declaration (checkpoint, definition hash, subject fingerprint, " +
+    "rationale) and the commit it landed with. Never a future policy.",
+});
+export type AuthorizedVarianceData = z.infer<typeof AuthorizedVarianceSchema>;
+
+/** The structured acceptance evidence a landing records beside its proof:
+ * the consent source that landed it plus every owner-authorized variance. */
+export const AcceptanceEvidenceSchema = z.strictObject({
+  consent: LandingConsentDataSchema,
+  variances: z.array(AuthorizedVarianceSchema),
+}).meta({
+  id: "DiscernAcceptanceEvidence",
+  description:
+    "How one landing was authorized: the consent evidence, plus each " +
+    "owner-authorized variance for a declared-unmet checkpoint. A reader can " +
+    "therefore distinguish a conclusion awaiting a decision from one the " +
+    "owner authorized to land.",
+});
+export type AcceptanceEvidenceData = z.infer<typeof AcceptanceEvidenceSchema>;
 
 // ── the durable proof note (ADR 0242) ───────────────────────────────────────
 // The landed proof travels as a DSSE-compatible envelope under the proof
@@ -402,6 +499,9 @@ export const ProofNotePayloadSchema = z.strictObject({
   }),
   proof: DurableProofClaimSchema,
   presentation: ProofPresentationSchema,
+  /** Present when acceptance recorded structured authorization evidence:
+   * the consent source plus every owner-authorized variance. */
+  acceptance: AcceptanceEvidenceSchema.optional(),
   issuer: ProofIssuerSchema.optional(),
   brief: z.string().meta({
     description:
@@ -411,7 +511,8 @@ export const ProofNotePayloadSchema = z.strictObject({
 }).meta({
   description:
     "The proof claim carried as UTF-8 JSON in the DSSE payload: the landed " +
-    "commit, structured gate facts, separate human presentation, and optional " +
+    "commit, structured gate facts, separate human presentation, optional " +
+    "acceptance evidence (consent plus authorized variances), and optional " +
     "issuer assertion and intent reference.",
 });
 export type ProofNotePayload = z.infer<typeof ProofNotePayloadSchema>;
@@ -450,6 +551,18 @@ export const TolerantProofNotePayloadSchema = z.looseObject({
     markdown: z.string().optional(),
   }),
   presentation: z.looseObject(PROOF_PRESENTATION_FIELDS).optional(),
+  acceptance: z.looseObject({
+    consent: z.looseObject({
+      source: z.string(),
+      scopes: z.array(z.string()).optional(),
+    }),
+    variances: z.array(z.looseObject({
+      checkpoint: z.string(),
+      definition_hash: z.string(),
+      subject: z.string(),
+      why: z.string(),
+    })),
+  }).optional(),
   issuer: z.looseObject(PROOF_ISSUER_FIELDS).optional(),
   brief: z.string().optional(),
 });
@@ -588,6 +701,149 @@ const LandingAuthoritySummarySchema = LandingAuthorityDataSchema.omit({
   uncovered_total: z.number().int().nonnegative().optional(),
 });
 
+/** One checkpoint as served to the agent: the question to judge and the
+ * matched evidence behind its trigger. */
+export const ServedCheckpointDataSchema = z.strictObject({
+  id: z.string(),
+  mode: z.enum(CHECKPOINT_MODES),
+  question: z.string(),
+  teach: z.string().optional(),
+  reference: z.string().optional(),
+  /** The changed paths the trigger matched — the subject's evidence. */
+  matched: z.array(z.string()),
+});
+export type ServedCheckpointData = z.infer<typeof ServedCheckpointDataSchema>;
+
+/** The gate's checkpoint state for one run: what awaits a conclusion, the
+ * current conclusions (agent evidence, separate from machine results), the
+ * fired advisory checkpoints, and any fail-open accounts. */
+export const GateCheckpointsDataSchema = z.strictObject({
+  /** The merge-base commit whose `[checkpoints]` configuration governed. */
+  policy: z.string().optional(),
+  /** Stop checkpoints refusing this run until each records a conclusion. */
+  outstanding: z.array(ServedCheckpointDataSchema).optional(),
+  declared_met: z.array(CheckpointMetConclusionSchema).optional(),
+  declared_unmet: z.array(CheckpointUnmetConclusionSchema).optional(),
+  /** Advise-mode checkpoints that fired — served, never blocking. */
+  advise: z.array(ServedCheckpointDataSchema).optional(),
+  /** Plain-language accounts of anything that failed open. */
+  advisories: z.array(z.string()).optional(),
+});
+export type GateCheckpointsData = z.infer<typeof GateCheckpointsDataSchema>;
+
+// checkpoints (the read verb) ──────────────────────────────────────────────
+
+/** One checkpoint's structural trigger preview against the current diff. A
+ * read surface never runs a `when` command, so a configured one is reported
+ * honestly as still pending rather than decided. */
+export const CheckpointTriggerPreviewSchema = z.strictObject({
+  /** Whether every structural predicate holds against the current diff. */
+  holds: z.boolean(),
+  /** Present (true) when the trigger holds but a configured `when` command
+   * still has the last word at `done`. */
+  when_pending: z.boolean().optional(),
+  /** The matched paths, when the trigger holds. */
+  matched: z.array(z.string()).optional(),
+  /** The first predicate that vetoed, when it does not hold. */
+  vetoed_by: z.enum(TRIGGER_VETOES).optional(),
+});
+export type CheckpointTriggerPreviewData = z.infer<
+  typeof CheckpointTriggerPreviewSchema
+>;
+
+/** The openQuestion states the checkpoints report distinguishes. `reopened` marks
+ * a recorded conclusion a later relevant change unbound — it must be declared
+ * again before `done` proceeds. */
+export const OPEN_QUESTION_STATES = [
+  "awaiting_declaration",
+  "declared_met",
+  "declared_unmet",
+  "reopened",
+] as const;
+export type OpenQuestionState = (typeof OPEN_QUESTION_STATES)[number];
+
+/** The declaration recorded on one openQuestion — agent evidence, so every
+ * rendering says "declared met" / "declared unmet", never bare "met". */
+export const OpenQuestionDeclarationSchema = z.strictObject({
+  conclusion: z.enum(["met", "unmet"]),
+  /** The agent's one-paragraph rationale (unmet only) — opaque evidence,
+   * rendered only through escaping boundaries. */
+  why: z.string().optional(),
+  declared_at: z.string(),
+  /** False when a later relevant change reopened the openQuestion: the recorded
+   * conclusion does not bind to the current subject. */
+  current: z.boolean(),
+});
+export type OpenQuestionDeclarationData = z.infer<
+  typeof OpenQuestionDeclarationSchema
+>;
+
+/** One checkpoint's effort-scoped openQuestion: the record that it fired, and any
+ * declaration bound to it. */
+export const OpenQuestionDataSchema = z.strictObject({
+  state: z.enum(OPEN_QUESTION_STATES),
+  /** The resolved-definition hash the openQuestion is about. */
+  definition_hash: z.string(),
+  /** The subject fingerprint the openQuestion is about — what a declaration binds
+   * to, and what a variance authorization later names. */
+  subject: z.string(),
+  /** The matched paths the openQuestion recorded — the subject's evidence. */
+  matched: z.array(z.string()),
+  opened_at: z.string(),
+  reopened_at: z.string().optional(),
+  declaration: OpenQuestionDeclarationSchema.optional(),
+  /** Present (true) on a current declared-unmet conclusion: landing requires
+   * an owner-authorized variance. */
+  variance_required: z.boolean().optional(),
+});
+export type OpenQuestionData = z.infer<typeof OpenQuestionDataSchema>;
+
+/** One governing checkpoint's report row: the resolved policy entry, its
+ * structural preview against the current diff, and this effort's open question. */
+export const CheckpointReportSchema = z.strictObject({
+  id: z.string(),
+  mode: z.enum(CHECKPOINT_MODES),
+  question: z.string(),
+  teach: z.string().optional(),
+  reference: z.string().optional(),
+  /** One-line deterministic trigger summary (selector, thresholds, `when`). */
+  trigger: z.string(),
+  /** Absent when the effort diff could not be read (nothing can fire). */
+  preview: CheckpointTriggerPreviewSchema.optional(),
+  /** Absent when this checkpoint has not fired for this effort. */
+  open_question: OpenQuestionDataSchema.optional(),
+});
+export type CheckpointReportData = z.infer<typeof CheckpointReportSchema>;
+
+/** One recorded openQuestion whose checkpoint sits outside the current
+ * governing policy (removed, renamed, or landed differently) — kept visible
+ * so recorded judgments never silently vanish, though no declaration can act
+ * on it until a governing trigger fires again. */
+export const UngovernedOpenQuestionSchema = z.strictObject({
+  id: z.string(),
+  open_question: OpenQuestionDataSchema,
+});
+export type UngovernedOpenQuestionData = z.infer<
+  typeof UngovernedOpenQuestionSchema
+>;
+
+/** `checkpoints` — the read verb: governing policy, effort state, preview. */
+export const CheckpointsDataSchema = z.strictObject({
+  /** The merge-base commit whose `[checkpoints]` configuration governs. */
+  policy: z.string().optional(),
+  /** The governing checkpoints, one report row each. */
+  checkpoints: z.array(CheckpointReportSchema),
+  /** OpenQuestions recorded here whose checkpoint is outside the governing policy. */
+  ungoverned: z.array(UngovernedOpenQuestionSchema).optional(),
+  /** Observed per-checkpoint economics from the local Logbook — bounded rows
+   * of plain counts with their denominators. Absent until observed history
+   * exists (every rendering then states that plainly). */
+  economics: CheckpointEconomicsSchema.optional(),
+  /** Plain-language fail-open accounts (policy, diff, or store trouble). */
+  advisories: z.array(z.string()).optional(),
+});
+export type CheckpointsData = z.infer<typeof CheckpointsDataSchema>;
+
 /** `done` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
  * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
  * hand-listed), so the wire enum and the engine's `FailedStage` type can never drift.
@@ -602,6 +858,9 @@ export const GateDataSchema = z.strictObject({
   standards: z.array(GateStandardSchema).optional(),
   standards_limits: StandardsLimitsSchema.optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
+  /** Checkpoint state when any checkpoint governed this run. Also present on
+   * an awaiting-declaration refusal, carrying the batched outstanding set. */
+  checkpoints: GateCheckpointsDataSchema.optional(),
   proof: ProofSchema.optional(),
   gate_proof: z.strictObject({
     status: z.enum([
@@ -877,14 +1136,6 @@ export const StartDataSchema = z.strictObject({
 });
 export type StartData = z.infer<typeof StartDataSchema>;
 
-/** The recorded consent evidence used by one successful landing. */
-export const LandingConsentDataSchema = z.strictObject({
-  source: z.enum(LANDING_CONSENT_SOURCES),
-  /** Present only for a standing grant: the scopes that covered changed paths. */
-  scopes: z.array(z.string()).optional(),
-});
-export type LandingConsentData = z.infer<typeof LandingConsentDataSchema>;
-
 export const ProofNotesFetchSchema = z.strictObject({
   mode: z.enum(["local", "fetch"]),
   status: z.enum(["local", "wired", "unchanged", "no_remote", "failed"]),
@@ -942,6 +1193,10 @@ export const AcceptDataSchema = z.strictObject({
   /** The system-rendered one-line proof for the tree that landed. Agents relay
    * this field verbatim at the end of their landing report. */
   proof_line: z.string().optional(),
+  /** Owner-authorized variances this landing carried — one per checkpoint the
+   * agent declared unmet. Distinct from declarations: a declaration is the
+   * agent's recorded judgment; a variance is the owner's authorization. */
+  variances: z.array(AuthorizedVarianceSchema).optional(),
   /** Repository-resident proof recording and its optional fetch transport.
    * Both run after the trunk moves and therefore fail open. */
   proof_note: AcceptProofNoteSchema.optional(),
@@ -1383,6 +1638,13 @@ export const ruleResultSchema = z.strictObject({
   teach: z.string(),
 });
 
+/** One boundary guard on a review's question: a configured checkpoint serving
+ * it, so the flow is guarded at the gate while the improvement review audits what already exists. */
+const boundaryGuardSchema = z.strictObject({
+  checkpoint: z.string(),
+  mode: z.enum(CHECKPOINT_MODES),
+});
+
 /** One open subjective review item for the agent to judge. */
 const reviewResultSchema = z.strictObject({
   id: z.string(),
@@ -1390,6 +1652,7 @@ const reviewResultSchema = z.strictObject({
   ask: z.string(),
   teach: z.string(),
   against: reviewEvidenceSchema.optional(),
+  boundary: z.array(boundaryGuardSchema).optional(),
 });
 
 /** One reviewed category's evaluated result. */
@@ -1403,9 +1666,11 @@ const improvementCategorySchema = z.strictObject({
   reviews: z.array(reviewResultSchema),
 });
 
-/** The coach's single prioritized next action. */
-const nextActionSchema = z.strictObject({
-  kind: z.enum(["fix", "review"]),
+/** The coach's single prioritized next action. Exported so the engine
+ * `NEXT_ACTION_KINDS` SSOT (which this shared module can't import) is tied to
+ * the `kind` enum by a guard in `improve_catalog_test.ts`. */
+export const nextActionSchema = z.strictObject({
+  kind: z.enum(["fix", "review", "decide"]),
   category: z.string(),
   id: z.string(),
   title: z.string(),
@@ -1414,12 +1679,28 @@ const nextActionSchema = z.strictObject({
   against: reviewEvidenceSchema.optional(),
 });
 
+/** One evidence-backed owner decision from the checkpoint loop: review a
+ * frequently-varied checkpoint, or graduate a recurring finding class into
+ * one. `evidence` is required — a recommendation without project-local counts
+ * behind it is a generic exhortation the coach never issues. Exported so the
+ * engine `CHECKPOINT_RECOMMENDATION_IDS` SSOT is tied to the `id` enum by a
+ * guard in `improve_catalog_test.ts`. */
+export const checkpointRecommendationSchema = z.strictObject({
+  id: z.enum(["checkpoints.review", "checkpoints.graduate"]),
+  subject: z.string(),
+  title: z.string(),
+  action: z.string(),
+  why: z.string(),
+  evidence: reviewEvidenceSchema,
+});
+
 /** `improvement` — baseline health, open reviews, and the prioritized next action. */
 export const ImprovementDataSchema = z.strictObject({
   score: z.number(),
   weak: z.number(),
   open_reviews: z.number(),
   next_action: nextActionSchema,
+  recommendations: z.array(checkpointRecommendationSchema).optional(),
   categories: z.array(improvementCategorySchema),
   history: z.strictObject({
     findings: z.array(PatternsFindingSchema),
@@ -1456,6 +1737,15 @@ export {
   PatternsResetDataSchema,
   PatternsStatsSchema,
 } from "./patterns_vocabulary.ts";
+export {
+  CHECKPOINT_ECONOMICS_ROWS_MAX,
+  CheckpointEconomicsRowSchema,
+  CheckpointEconomicsSchema,
+} from "./patterns_vocabulary.ts";
+export type {
+  CheckpointEconomics,
+  CheckpointEconomicsRow,
+} from "./patterns_vocabulary.ts";
 export type {
   DetectorFamily,
   DetectorScope,
@@ -1477,6 +1767,7 @@ export type {
   PatternsStats,
 } from "./patterns_vocabulary.ts";
 import {
+  CheckpointEconomicsSchema,
   PatternsArchiveDataSchema,
   PatternsArchivesDataSchema,
   PatternsDataSchema,
@@ -2173,6 +2464,12 @@ export const UpdateOutputSchema = resultOutputSchema(
 export const ImprovementOutputSchema = resultOutputSchema(
   "improvement",
   ImprovementDataSchema,
+);
+
+/** `checkpoints` output: envelope + the checkpoint report `data`. */
+export const CheckpointsOutputSchema = resultOutputSchema(
+  "checkpoints",
+  CheckpointsDataSchema,
 );
 
 /** `map` output: envelope + the project-map `data`. */

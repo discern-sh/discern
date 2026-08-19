@@ -96,6 +96,7 @@ const BUILTIN_SECTIONS: ReadonlyArray<{ file: string }> = [
   { file: "base.md" },
   { file: "worktrees.md" },
   { file: "standards.md" },
+  { file: "checkpoints.md" },
   { file: "skills.md" },
   { file: "map.md" },
 ];
@@ -156,6 +157,10 @@ export function instructionContext(config: DiscernConfig): InstructionContext {
     },
     preds: {
       has_standards: Object.keys(config.standards).length > 0,
+      // Checkpoint conduct is taught only where a checkpoint can fire —
+      // activation by presence, like the standards section (ADR 0101). The
+      // refusal re-teaches the mechanics at the point of failure.
+      has_checkpoints: Object.keys(config.checkpoints).length > 0,
       has_worktree_resources: Object.keys(config.worktree.resources).length > 0,
       // The teach skill is bundled, and an authored skill of the same name only
       // overrides it, so exclusion is the sole operation that removes this name

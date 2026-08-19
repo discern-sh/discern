@@ -5,6 +5,8 @@ export type DiscernKnownErrorSlug =
   | "ambiguous"
   | "apply_failed"
   | "awaiting_consent"
+  | "awaiting_declaration"
+  | "awaiting_variance"
   | "below_min_score"
   | "brief_unparseable"
   | "checkout_failed"
@@ -74,6 +76,13 @@ export type DiscernProofSummary = {
   insertions: number;
   deletions: number;
   line: string;
+};
+
+export type DiscernAuthorizedVariance = {
+  checkpoint: string;
+  definition_hash: string;
+  subject: string;
+  why: string;
 };
 
 export type DiscernDiscernResult = {
@@ -2000,6 +2009,35 @@ export type DiscernDoneResult = {
       trunk: string;
       reason?: string;
     };
+    checkpoints?: {
+      policy?: string;
+      outstanding?: Array<{
+        id: string;
+        mode: "stop" | "advise";
+        question: string;
+        teach?: string;
+        reference?: string;
+        matched: Array<string>;
+      }>;
+      declared_met?: Array<{
+        id: string;
+        declared_at: string;
+      }>;
+      declared_unmet?: Array<{
+        id: string;
+        why: string;
+        declared_at: string;
+      }>;
+      advise?: Array<{
+        id: string;
+        mode: "stop" | "advise";
+        question: string;
+        teach?: string;
+        reference?: string;
+        matched: Array<string>;
+      }>;
+      advisories?: Array<string>;
+    };
     gate_proof?: {
       status:
         | "recorded"
@@ -2307,7 +2345,7 @@ export type DiscernImprovementResult = {
     weak: number;
     open_reviews: number;
     next_action: {
-      kind: "fix" | "review";
+      kind: "fix" | "review" | "decide";
       category: string;
       id: string;
       title: string;
@@ -2318,6 +2356,17 @@ export type DiscernImprovementResult = {
         excerpt: string;
       };
     };
+    recommendations?: Array<{
+      id: "checkpoints.review" | "checkpoints.graduate";
+      subject: string;
+      title: string;
+      action: string;
+      why: string;
+      evidence: {
+        source: string;
+        excerpt: string;
+      };
+    }>;
     categories: Array<{
       name: string;
       title: string;
@@ -2342,6 +2391,10 @@ export type DiscernImprovementResult = {
           source: string;
           excerpt: string;
         };
+        boundary?: Array<{
+          checkpoint: string;
+          mode: "stop" | "advise";
+        }>;
       }>;
     }>;
     history: {
@@ -2395,6 +2448,177 @@ export type DiscernImprovementResult = {
         next_step: string;
       }>;
     };
+  } | {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernCheckpointsResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "instructions-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "instructions-check"
+      | "skills-check"
+      | "tracked-refresh-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "checkpoints";
+  data?: {
+    policy?: string;
+    checkpoints: Array<{
+      id: string;
+      mode: "stop" | "advise";
+      question: string;
+      teach?: string;
+      reference?: string;
+      trigger: string;
+      preview?: {
+        holds: boolean;
+        when_pending?: boolean;
+        matched?: Array<string>;
+        vetoed_by?:
+          | "empty_matched_set"
+          | "unless_changed"
+          | "min_changed_files"
+          | "deletion_dominant"
+          | "similar_new_file";
+      };
+      open_question?: {
+        state:
+          | "awaiting_declaration"
+          | "declared_met"
+          | "declared_unmet"
+          | "reopened";
+        definition_hash: string;
+        subject: string;
+        matched: Array<string>;
+        opened_at: string;
+        reopened_at?: string;
+        declaration?: {
+          conclusion: "met" | "unmet";
+          why?: string;
+          declared_at: string;
+          current: boolean;
+        };
+        variance_required?: boolean;
+      };
+    }>;
+    ungoverned?: Array<{
+      id: string;
+      open_question: {
+        state:
+          | "awaiting_declaration"
+          | "declared_met"
+          | "declared_unmet"
+          | "reopened";
+        definition_hash: string;
+        subject: string;
+        matched: Array<string>;
+        opened_at: string;
+        reopened_at?: string;
+        declaration?: {
+          conclusion: "met" | "unmet";
+          why?: string;
+          declared_at: string;
+          current: boolean;
+        };
+        variance_required?: boolean;
+      };
+    }>;
+    economics?: {
+      efforts: number;
+      rows: Array<{
+        id: string;
+        efforts_fired: number;
+        efforts_landed: number;
+        fires: number;
+        declared: number;
+        declared_unchanged: number;
+        declared_unmet: number;
+        reopened: number;
+        variances: number;
+        abandoned: number;
+        median_declare_s?: number;
+      }>;
+      omitted: number;
+    };
+    advisories?: Array<string>;
   } | {
     issues: Array<{
       path: string;
@@ -3414,6 +3638,23 @@ export type DiscernPatternsResult = {
         };
         unattributed_runs: number;
       };
+      checkpoints?: {
+        efforts: number;
+        rows: Array<{
+          id: string;
+          efforts_fired: number;
+          efforts_landed: number;
+          fires: number;
+          declared: number;
+          declared_unchanged: number;
+          declared_unmet: number;
+          reopened: number;
+          variances: number;
+          abandoned: number;
+          median_declare_s?: number;
+        }>;
+        omitted: number;
+      };
       breadth: {
         branches: number;
         active_days: number;
@@ -4319,6 +4560,7 @@ export type DiscernAcceptResult = {
     };
     authority_warnings?: Array<string>;
     proof_line?: string;
+    variances?: Array<DiscernAuthorizedVariance>;
     proof_note?: {
       fetch: {
         mode: "local" | "fetch";
@@ -5464,6 +5706,7 @@ export type DiscernCliJsonResult =
   | DiscernPrepareResult
   | DiscernTestResult
   | DiscernImprovementResult
+  | DiscernCheckpointsResult
   | DiscernStandardsResult
   | DiscernRefreshResult
   | DiscernTidyResult
@@ -5510,6 +5753,7 @@ export interface DiscernResultByVerb {
   prepare: DiscernPrepareResult;
   test: DiscernTestResult;
   improvement: DiscernImprovementResult;
+  checkpoints: DiscernCheckpointsResult;
   standards: DiscernStandardsResult;
   refresh: DiscernRefreshResult;
   tidy: DiscernTidyResult;
@@ -5567,6 +5811,7 @@ export interface DiscernResultByCommand {
   prepare: DiscernPrepareResult;
   test: DiscernTestResult;
   improvement: DiscernImprovementResult;
+  checkpoints: DiscernCheckpointsResult;
   standards: DiscernStandardsResult;
   refresh: DiscernRefreshResult;
   tidy: DiscernTidyResult;
@@ -5616,6 +5861,7 @@ export interface DiscernMcpStructuredContentByTool {
   discern_prepare: DiscernPrepareResult;
   discern_test: DiscernTestResult;
   discern_improvement: DiscernImprovementResult;
+  discern_checkpoints: DiscernCheckpointsResult;
   discern_standards: DiscernStandardsResult;
   discern_refresh: DiscernRefreshResult;
   discern_impact: DiscernImpactResult;
@@ -5636,6 +5882,7 @@ export interface DiscernMcpToolResultByTool {
   discern_prepare: DiscernMcpToolResult<DiscernPrepareResult>;
   discern_test: DiscernMcpToolResult<DiscernTestResult>;
   discern_improvement: DiscernMcpToolResult<DiscernImprovementResult>;
+  discern_checkpoints: DiscernMcpToolResult<DiscernCheckpointsResult>;
   discern_standards: DiscernMcpToolResult<DiscernStandardsResult>;
   discern_refresh: DiscernMcpToolResult<DiscernRefreshResult>;
   discern_impact: DiscernMcpToolResult<DiscernImpactResult>;
@@ -5656,6 +5903,7 @@ export type DiscernMcpStructuredContent =
   | DiscernPrepareResult
   | DiscernTestResult
   | DiscernImprovementResult
+  | DiscernCheckpointsResult
   | DiscernStandardsResult
   | DiscernRefreshResult
   | DiscernImpactResult
@@ -5675,6 +5923,7 @@ export type DiscernMcpJsonResult =
   | DiscernPrepareMcpToolResult
   | DiscernTestMcpToolResult
   | DiscernImprovementMcpToolResult
+  | DiscernCheckpointsMcpToolResult
   | DiscernStandardsMcpToolResult
   | DiscernRefreshMcpToolResult
   | DiscernImpactMcpToolResult
@@ -5704,6 +5953,10 @@ export type DiscernTestMcpToolResult = DiscernMcpToolResult<DiscernTestResult>;
 
 export type DiscernImprovementMcpToolResult = DiscernMcpToolResult<
   DiscernImprovementResult
+>;
+
+export type DiscernCheckpointsMcpToolResult = DiscernMcpToolResult<
+  DiscernCheckpointsResult
 >;
 
 export type DiscernStandardsMcpToolResult = DiscernMcpToolResult<

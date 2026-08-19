@@ -62,7 +62,7 @@
         },
         "logbook": {
           "default": true,
-          "description": "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names. The log contains no code or output. Its files stay under `.git`, outside commits and network transmission. The history feeds the practice report (`discern patterns`); each worktree's last action and work in flight; fleet activity times that include verb runs; configuration-change attribution and each Standard's limit history; advisory findings on `status`, the `done` Proof, and `improvement`; wait estimates when concurrent test runs queue; the in-flight check on the contained-worktree offer. false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until an owner confirms `discern patterns reset` or seals them with `discern patterns archive`.",
+          "description": "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names. The log contains no code or output. Its files stay under `.git`, outside commits and network transmission. The history feeds the practice report (`discern patterns`); each worktree's last action and work in flight; fleet activity times that include verb runs; configuration-change attribution and each Standard's limit history; advisory findings on `status`, the `done` Proof, and `improvement`; wait estimates when concurrent test runs queue; the in-flight check on the contained-worktree offer; observed checkpoint economics (`discern checkpoints`). false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until an owner confirms `discern patterns reset` or seals them with `discern patterns archive`.",
           "type": "boolean"
         },
         "agents": {
@@ -214,7 +214,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -256,7 +256,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -298,7 +298,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -340,7 +340,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -382,7 +382,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -424,7 +424,7 @@
                           }
                         }
                       ],
-                      "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                      "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
                       "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
@@ -465,7 +465,7 @@
                     }
                   }
                 ],
-                "description": "The command(s) to run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+                "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
               },
               "provides": {
                 "description": "Optional free-text label, for humans / audit.",
@@ -503,7 +503,7 @@
             "items": {
               "type": "string"
             },
-            "description": "The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
           },
           "neutral": {
             "default": false,
@@ -516,7 +516,7 @@
             "type": "boolean"
           },
           "gate": {
-            "description": "A command discern done runs when this scope changed (a sub-component with its own self-contained gate). Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "A command discern done runs when this scope changed (a sub-component with its own self-contained gate). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "anyOf": [
               {
                 "type": "string"
@@ -557,7 +557,7 @@
             "items": {
               "type": "string"
             },
-            "description": "The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
           },
           "run": {
             "anyOf": [
@@ -571,7 +571,7 @@
                 }
               }
             ],
-            "description": "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
           },
           "linguist_generated": {
             "default": false,
@@ -759,10 +759,10 @@
                 }
               }
             ],
-            "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
           },
           "per": {
-            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise solely because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${map.dir}**\" } (files | lines | words | bytes over a git pathspec). Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise solely because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${map.dir}**\" } (files | lines | words | bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "anyOf": [
               {
                 "type": "string"
@@ -852,7 +852,7 @@
             ]
           },
           "inputs": {
-            "description": "The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to measure every time (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run. Registered source-path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to measure every time (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
@@ -869,6 +869,74 @@
           "limit",
           "run"
         ],
+        "additionalProperties": false
+      }
+    },
+    "checkpoints": {
+      "default": {},
+      "description": "[checkpoints.<id>] — change-triggered review rules: a deterministic trigger chooses when a diff makes a question relevant, the agent judges the question and records a declaration, and the record travels with the gate's results. The configuration at the effort's merge-base with the trunk governs, so a branch editing these tables does not change its own gate. None configured means none fire.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "description": "Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a checkpoint takes one selector.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "paths": {
+            "description": "Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. A checkpoint takes one selector: `scope` or `paths`. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unless_changed": {
+            "description": "The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express \"this change class is fine when its counterpart moved too\". Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "min_changed_files": {
+            "description": "Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "deletion_dominant": {
+            "description": "Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut is reviewed and an ordinary edit or balanced refactor is not.",
+            "type": "boolean"
+          },
+          "similar_new_file": {
+            "description": "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory (a copy/version/suffix variant) — the signature of a parallel implementation growing beside the original.",
+            "type": "boolean"
+          },
+          "when": {
+            "description": "Executable escape hatch for conditions the structured fields cannot express. The command runs pre-flight in the working tree with a short fixed timeout: exit 0 fires the trigger, exit 1 passes, and any other exit or a timeout fails open (no fire) with an advisory. It may print `DISCERN_MATCH <path>` lines to declare the exact matched paths; combined with selectors, the selectors pre-scope the diff and `when` decides firing.",
+            "type": "string"
+          },
+          "mode": {
+            "description": "\"stop\" (the default): the gate refuses to run until the agent declares the question met or unmet. \"advise\": the question and its evidence are delivered through the advisory channel and nothing blocks.",
+            "type": "string",
+            "enum": [
+              "stop",
+              "advise"
+            ]
+          },
+          "question": {
+            "description": "The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint; a table whose <id> names a shipped built-in inherits its question and may override it here.",
+            "type": "string"
+          },
+          "teach": {
+            "description": "Optional lesson prose carried into renderings: why the question matters and what good looks like.",
+            "type": "string"
+          }
+        },
         "additionalProperties": false
       }
     },

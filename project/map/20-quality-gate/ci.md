@@ -1,7 +1,7 @@
 ---
 title: Run the Gate in CI
 description: Run discern done on GitHub Actions and require the result before a pull request can merge.
-order: 60
+order: 70
 aliases:
   - ci
   - GitHub Actions

@@ -214,6 +214,18 @@ Rendered line:
 
 > `discern done` runs the project's final quality check. On clean saved work, a pass records Proof for the exact version and declared results.
 
+## `checkpoints-read-surface`
+
+- Relevance: Evergreen — the second quality lesson.
+- Predicate: —
+- Since: —
+- Teaches: `checkpoints`
+- Follow-through: `verb-run-after-tip` (`checkpoints`)
+
+Rendered line:
+
+> `discern checkpoints` shows which judgment stops govern this task, each recorded answer, and what the change in hand would set off. Read-only.
+
 ## `standards-first-rule`
 
 - Relevance: No quality rules are configured.
@@ -468,7 +480,7 @@ Rendered line:
 
 ## `await-with-one-call`
 
-- Relevance: Evergreen — the final reusable guide lesson.
+- Relevance: Evergreen — a reusable guide lesson.
 - Predicate: —
 - Since: —
 - Teaches: `skill-await-the-fleet`
@@ -477,6 +489,18 @@ Rendered line:
 Rendered line:
 
 > `discern-await-the-fleet` guides a coding agent to wait for another task with one bounded call, then build on what arrives.
+
+## `place-a-checkpoint`
+
+- Relevance: Evergreen — the final reusable guide lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skill-place-a-checkpoint`
+- Follow-through: —
+
+Rendered line:
+
+> `discern-place-a-checkpoint` turns a point a reviewer keeps raising into a change-triggered judgment the final quality check serves and records.
 
 ## `identity-stable-values`
 

@@ -18,6 +18,7 @@
 import type { DiscernResult, ErrorSlug, FailedStage } from "./result.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import type { LandingConsentSource } from "./consent.ts";
+import { MET_FLAG, UNMET_FLAG, WHY_FLAG } from "./declarations.ts";
 import { markdownCodeSpan } from "./markdown_code.ts";
 import {
   type CommandRef,
@@ -89,6 +90,17 @@ export type HintFollowThroughRule =
     family: string;
     kind: "main-session-start-before-dirty";
     actionVerb: string;
+  }>
+  | Readonly<{
+    /** A checkpoint serving invites a relevant in-scope revision before its
+     * declaration. Episodes come from the events' recorded checkpoint
+     * observations — per checkpoint id, so every configured checkpoint
+     * (present and future) enrols without naming itself anywhere: a serving
+     * opens an episode, a declaration after a relevant revision resolves it
+     * followed, one on the unchanged subject resolves it not followed, and a
+     * missing block, a missing revision flag, or the end of history censors. */
+    family: string;
+    kind: "checkpoint-revision-before-declaration";
   }>;
 
 /** One registered hint: a stable id, its classification, and a typed template. */
@@ -149,6 +161,13 @@ const MAIN_WORKTREE_FOLLOW_THROUGH = Object.freeze(
     family: "main-worktree-first",
     kind: "main-session-start-before-dirty",
     actionVerb: "start",
+  } as const satisfies HintFollowThroughRule,
+);
+
+const CHECKPOINT_DECLARATION_FOLLOW_THROUGH = Object.freeze(
+  {
+    family: "checkpoint-declaration",
+    kind: "checkpoint-revision-before-declaration",
   } as const satisfies HintFollowThroughRule,
 );
 
@@ -2006,6 +2025,172 @@ export const HINTS = {
       }.`,
   }),
 
+  "checkpoint-declare": defineHint<{ ids: string[] }>({
+    id: "checkpoint-declare",
+    category: "next-step",
+    audience: "all",
+    when:
+      "`done` refuses because a governing stop checkpoint has no current conclusion.",
+    family: "checkpoint-declaration",
+    followThrough: CHECKPOINT_DECLARATION_FOLLOW_THROUGH,
+    example: { ids: ["api-review"] },
+    template: ({ ids }): string =>
+      `Judge each question above against its changed paths, then record your ` +
+      `conclusion and re-run the gate in one step: ${
+        discernCommand("done", flag("met", "<id>"))
+      } (repeatable) for a question your change satisfies, or ${
+        discernCommand("done", flag("unmet", "<id>"))
+      } with its required one-paragraph rationale (${WHY_FLAG}, one per ` +
+      `invocation) to record that it is not satisfied — the gate still runs, ` +
+      `and the owner decides at landing. Awaiting: ${ids.join(", ")}.`,
+  }),
+
+  "checkpoint-preview": defineHint<
+    { id: string; question: string; matched: string[]; whenPending: boolean }
+  >({
+    id: "checkpoint-preview",
+    category: "notice",
+    audience: "all",
+    when:
+      "A previewing surface (`prepare`, `status`) finds a stop checkpoint's trigger holding against the current diff; the question is served early, without blocking.",
+    family: "checkpoint-preview",
+    example: {
+      id: "api-review",
+      question:
+        "A changed API surface is described in its docs before it lands.",
+      matched: ["src/api/surface.ext"],
+      whenPending: false,
+    },
+    template: ({ id, question, matched, whenPending }): string => {
+      const shown = matched.slice(0, 4).join(", ");
+      const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
+      const claim = whenPending
+        ? "may require a declared conclusion (its when command decides)"
+        : "will require a declared conclusion";
+      return `Checkpoint '${id}' ${claim} at ${CMD.done}: ${question} ` +
+        `Changed: ${shown}${more}.`;
+    },
+  }),
+
+  "checkpoint-advise": defineHint<
+    { id: string; question: string; matched: string[] }
+  >({
+    id: "checkpoint-advise",
+    category: "notice",
+    audience: "all",
+    when:
+      "An advise-mode checkpoint's trigger fired; its question is served without blocking.",
+    family: "checkpoint-advise",
+    example: {
+      id: "deletion-heavy-change",
+      question: "Is the cut proven dead, and recovery bounded?",
+      matched: ["src/legacy_module.ext"],
+    },
+    template: ({ id, question, matched }): string => {
+      const shown = matched.slice(0, 4).join(", ");
+      const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
+      return `Checkpoint '${id}' (advisory — nothing blocks): ${question} ` +
+        `Changed: ${shown}${more}.`;
+    },
+  }),
+
+  "checkpoint-advisory": defineHint<{ advisory: string }>({
+    id: "checkpoint-advisory",
+    category: "notice",
+    audience: "all",
+    when:
+      "A checkpoint could not govern or fire (unreadable state, a failing when command) and failed open.",
+    example: {
+      advisory:
+        "checkpoint 'api-review': the when command did not finish within 10s; the trigger fails open and did not fire.",
+    },
+    template: ({ advisory }): string => `Checkpoint fail-open: ${advisory}`,
+  }),
+
+  "gate-variance-required": defineHint<{ ids: string[] }>({
+    id: "gate-variance-required",
+    category: "notice",
+    audience: "all",
+    when:
+      "The gate passed while a declared-unmet checkpoint conclusion stands.",
+    family: "checkpoint-variance",
+    example: { ids: ["api-review"] },
+    template: ({ ids }): string =>
+      `A declared-unmet conclusion stands on: ${ids.join(", ")}. The gate is ` +
+      `green, but landing needs the owner to authorize each variance in the ` +
+      `current conversation — recorded grants never cover one. Relay the ` +
+      `Proof and the rationale; the decision is served at ${CMD.accept}.`,
+  }),
+
+  "accept-declarations-stale": defineHint<{ ids: string[] }>({
+    id: "accept-declarations-stale",
+    category: "next-step",
+    audience: "all",
+    when:
+      "`accept` finds a governing stop checkpoint whose conclusion is missing or no longer current.",
+    family: "checkpoint-declaration",
+    example: { ids: ["api-review"] },
+    template: ({ ids }): string =>
+      `Run ${CMD.done} — it serves each checkpoint's question and evidence ` +
+      `and records your conclusion (${MET_FLAG}, or ${UNMET_FLAG} with ` +
+      `${WHY_FLAG}). Missing or stale: ${ids.join(", ")}.`,
+  }),
+
+  "accept-authorize-variance": defineHint<{ ids: string[] }>({
+    id: "accept-authorize-variance",
+    category: "next-step",
+    audience: "all",
+    when:
+      "`accept` refuses because a current declared-unmet conclusion has no owner-authorized variance.",
+    family: "checkpoint-variance",
+    example: { ids: ["api-review"] },
+    template: ({ ids }): string =>
+      `Relay each question and rationale above to the owner. Once the owner ` +
+      `accepts the landing AND each named variance in the current ` +
+      `conversation, re-run ${
+        discernCommand(
+          "accept",
+          flag("confirmed"),
+          ...ids.map((id) => flag("variance", id)),
+        )
+      }. Recorded standing and effort grants never authorize a variance.`,
+  }),
+
+  "checkpoints-declare": defineHint<{ ids: string[] }>({
+    id: "checkpoints-declare",
+    category: "next-step",
+    audience: "all",
+    when:
+      "The checkpoints report finds a stop question awaiting the caller's conclusion — a trigger that holds, or an open question without a current declaration.",
+    family: "checkpoint-declaration",
+    example: { ids: ["api-review"] },
+    template: ({ ids }): string =>
+      `Judge each question above against its changed paths, then record ` +
+      `your conclusion at the gate: ${
+        discernCommand("done", flag("met", "<id>"))
+      } (repeatable) for a question your change satisfies, or ${
+        discernCommand("done", flag("unmet", "<id>"))
+      } with its required one-paragraph rationale (${WHY_FLAG}, one per ` +
+      `invocation) to record that it is not satisfied — the gate still runs, ` +
+      `and the owner decides at landing. Awaiting: ${ids.join(", ")}.`,
+  }),
+
+  "checkpoints-variance-review": defineHint<{ ids: string[] }>({
+    id: "checkpoints-variance-review",
+    category: "notice",
+    audience: "all",
+    when:
+      "The checkpoints report finds a current declared-unmet conclusion standing.",
+    family: "checkpoint-variance",
+    example: { ids: ["api-review"] },
+    template: ({ ids }): string =>
+      `A declared-unmet conclusion stands on: ${ids.join(", ")}. Landing ` +
+      `requires the owner to authorize each variance in the current ` +
+      `conversation — recorded standing and effort grants never cover one. ` +
+      `Relay each question and rationale above to the owner; the decision ` +
+      `is served at ${CMD.accept}.`,
+  }),
+
   "gate-failure-gotchas": defineHint<
     { command: CommandRef; path?: never } | { path: string; command?: never }
   >({
@@ -3458,6 +3643,8 @@ export const ERROR_FAILURE_RECOVERY = {
   ambiguous: "tailored",
   apply_failed: "evidence",
   awaiting_consent: "tailored",
+  awaiting_declaration: "tailored",
+  awaiting_variance: "tailored",
   below_min_score: "tailored",
   brief_unparseable: "evidence",
   checkout_failed: "evidence",

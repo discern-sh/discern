@@ -427,6 +427,45 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
     },
   ],
   [
+    "skill:discern-place-a-checkpoint",
+    {
+      effectful: true,
+      cross_worktree: false,
+      authority_sensitive: false,
+      relay_bearing: true,
+      recoverable: true,
+      targets: [
+        target("path", "discern.toml", "## 4. Wire it in `discern.toml`"),
+        target(
+          "stable",
+          "the served question and its deterministic trigger",
+          "Triggers are deterministic and closed.",
+        ),
+      ],
+      sequence: [
+        act("## 1. Does it belong here? The placement ladder"),
+        act("## 4. Wire it in `discern.toml`"),
+        verify("## Done when"),
+      ],
+      stop_conditions: [
+        evidence(
+          "A variance is never yours to authorize — recorded grants do not cover one.",
+        ),
+      ],
+      recovery: [
+        evidence(
+          "Frequent variance points at the rule: tighten the trigger, rewrite the question, soften to advise, or delete the entry.",
+        ),
+      ],
+      relay: {
+        message: evidence(
+          "Checkpoint <id> is wired: <trigger>, <mode>. It governs new efforts once the change lands on <trunk>. Review its economics later with <command>.",
+        ),
+        facts: ["id", "trigger", "mode", "trunk", "command"],
+      },
+    },
+  ],
+  [
     "skill:discern-set-the-standard",
     {
       effectful: true,
