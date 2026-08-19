@@ -8271,7 +8271,7 @@
                           "holds"
                         ]
                       },
-                      "episode": {
+                      "open_question": {
                         "type": "object",
                         "properties": {
                           "state": {
@@ -8356,7 +8356,7 @@
                       "id": {
                         "type": "string"
                       },
-                      "episode": {
+                      "open_question": {
                         "type": "object",
                         "properties": {
                           "state": {
@@ -8427,7 +8427,7 @@
                     },
                     "required": [
                       "id",
-                      "episode"
+                      "open_question"
                     ]
                   }
                 },

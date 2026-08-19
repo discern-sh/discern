@@ -173,7 +173,7 @@ Deno.test("a new resolved-definition field cannot dodge the hash", () => {
   // (a field added to ResolvedCheckpoint fails the Required<> satisfaction
   // until populated here), and every fixture key must then be perturbed by
   // some hash variant — so a trigger or review field the hash material
-  // misses fails this guard before it can silently stop reopening episodes.
+  // misses fails this guard before it can silently stop reopening open questions.
   const complete = {
     id: "probe",
     mode: "stop",
@@ -190,7 +190,7 @@ Deno.test("a new resolved-definition field cannot dodge the hash", () => {
   const perturbed = new Set(HASH_VARIANTS.flatMap((over) => Object.keys(over)));
   for (const key of Object.keys(complete)) {
     if (key === "id") {
-      continue; // episodes key by id; the hash answers "did the MEANING change"
+      continue; // open questions key by id; the hash answers "did the MEANING change"
     }
     assert(perturbed.has(key), `no hash variant perturbs '${key}'`);
   }
@@ -219,7 +219,7 @@ Deno.test("the definition hash covers every resolved trigger and review field", 
     }
     assertNotEquals(hash, baseline, JSON.stringify(over));
   }
-  // And the id stays out: episodes key by id already.
+  // And the id stays out: open questions key by id already.
   assertEquals(await checkpointDefinitionHash(def({ id: "other" })), baseline);
 });
 

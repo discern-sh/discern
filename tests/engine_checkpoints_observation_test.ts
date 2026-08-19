@@ -1,8 +1,8 @@
 /**
  * Checkpoint **observation** through the real engine (black-box): the Logbook
- * records the episode and variance lifecycle as metadata — fired, reopened,
+ * records the open question and variance lifecycle as metadata — fired, reopened,
  * declared (with the unchanged/revised split and elapsed time), advise
- * servings, authorized variances, abandoned episodes — while the unmet
+ * servings, authorized variances, abandoned open questions — while the unmet
  * rationale, which the SAME invocations carry as Proof evidence in their
  * envelopes, never reaches a single Logbook byte. Recording is observation,
  * never a gate: every assertion here rides runs whose outcomes the interlock
@@ -64,7 +64,7 @@ mode = "advise"
 question = "${QUESTION}"
 `;
 
-/** The abandoned-episode flow runs `update`, which re-materializes provider
+/** The abandoned-openQuestion flow runs `update`, which re-materializes provider
  * artifacts into the worktree; `agents = []` keeps that flow free of
  * untracked provider files so acceptance judges only the effort's own tree. */
 const CONFIG_RETIREABLE = `
@@ -154,11 +154,11 @@ function checkpointDones(events: LogbookEvent[]): VerbEvent[] {
   );
 }
 
-Deno.test("observation: the episode lifecycle records as metadata and the rationale never enters the Logbook", async () => {
+Deno.test("observation: the open-question lifecycle records as metadata and the rationale never enters the Logbook", async () => {
   await withTempDir(async (dir) => {
     const wt = await checkpointedWorktree(dir);
 
-    // 1. The serving: a bare `done` refuses and opens the episode (fired).
+    // 1. The serving: a bare `done` refuses and opens the open question (fired).
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
     // 2. Declared unmet on the unchanged subject — the rationale rides the
     //    envelope and the Proof; the Logbook must never see it.
@@ -280,15 +280,15 @@ Deno.test("observation: an authorized landing records its variances by fingerpri
   });
 });
 
-Deno.test("observation: an episode the effort ends on records as abandoned at the landing", async () => {
+Deno.test("observation: an open question the effort ends on records as abandoned at the landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await checkpointedWorktree(dir, CONFIG_RETIREABLE);
-    // The serving opens the episode; no conclusion is ever declared.
+    // The serving opens the open question; no conclusion is ever declared.
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
 
     // The trunk retires the checkpoint; `update` advances the governing
-    // policy, so the episode is no longer a governing stop — the gate runs
-    // green and the landing may proceed, ending the effort on an episode
+    // policy, so the open question is no longer a governing stop — the gate runs
+    // green and the landing may proceed, ending the effort on an open question
     // still awaiting its conclusion.
     await writeConfig(dir, CONFIG_RETIRED);
     await git(dir, "add", "-A");
@@ -316,7 +316,7 @@ Deno.test("observation: an episode the effort ends on records as abandoned at th
   });
 });
 
-Deno.test("observation: advise servings record for economics without inventing episodes", async () => {
+Deno.test("observation: advise servings record for economics without inventing open questions", async () => {
   await withTempDir(async (dir) => {
     const wt = await checkpointedWorktree(dir, CONFIG_ADVISE);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);

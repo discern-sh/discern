@@ -5,7 +5,7 @@
  *   - the **definition hash** covers the canonical RESOLVED definition (every
  *     trigger field with scopes and references already expanded, the mode, the
  *     question/teach/reference prose, and the `when` command text), so a
- *     changed definition reopens its episode without dragging the merge-base
+ *     changed definition reopens its open question without dragging the merge-base
  *     commit into every subject;
  *   - the **subject fingerprint** covers the definition hash plus each sorted
  *     matched path's state: the path, its merge-base mode and blob (or
@@ -64,7 +64,7 @@ export interface PathState {
 }
 
 /** The computed subject: the fingerprint a declaration binds to, plus the
- * evidence it was computed from (for renderings and the episode record). */
+ * evidence it was computed from (for renderings and the open question record). */
 export interface CheckpointSubject {
   definitionHash: string;
   fingerprint: string;
@@ -80,7 +80,7 @@ export type SubjectComputation =
  * Hash the canonical resolved definition. Field presence is normalized (an
  * absent optional serializes as null) and the key order is fixed by literal
  * construction, so the same resolved definition always yields the same hash —
- * and the checkpoint's id deliberately stays out: episodes already key by id,
+ * and the checkpoint's id deliberately stays out: open questions already key by id,
  * and the hash answers "did the MEANING change", not "which checkpoint".
  */
 export async function checkpointDefinitionHash(

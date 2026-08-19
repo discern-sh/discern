@@ -19,18 +19,18 @@ import {
   recordLastGateRun,
 } from "../src/engine/gate/proof.ts";
 import {
-  reconcileEpisode,
+  reconcileOpenQuestion,
   recordDeclaration,
-} from "../src/engine/checkpoints/episodes.ts";
+} from "../src/engine/checkpoints/open_questions.ts";
 import { declarationEvidenceIdentity } from "../src/engine/checkpoints/evidence.ts";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 
-/** A committed clean repo with one declared-met episode. */
+/** A committed clean repo with one declared-met openQuestion. */
 async function declaredRepo(dir: string): Promise<void> {
   await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
   await gitInit(dir);
-  const opened = await reconcileEpisode(dir, {
+  const opened = await reconcileOpenQuestion(dir, {
     checkpoint: "probe",
     definitionHash: "def1",
     subject: "sub1",
@@ -200,7 +200,7 @@ Deno.test("proof marker: a corrupt store stales the vouch; an unreadable one kee
     assertEquals(recorded.status, "recorded");
     assertEquals((await inspectGateProof(dir)).status, "honored");
 
-    const store = await gitAdminStatePath(dir, "checkpointEpisodes");
+    const store = await gitAdminStatePath(dir, "checkpointOpenQuestions");
     assert(store !== undefined);
     const bytes = await Deno.readTextFile(store);
 

@@ -220,7 +220,7 @@ Deno.test("logbook schema: every canonical outcome round-trips as a verb event",
 });
 
 Deno.test("logbook schema: checkpoint observations round-trip as metadata, and their absence censors", () => {
-  // The block carries the episode and variance lifecycle: ids, conclusions,
+  // The block carries the open-question and variance lifecycle: ids, conclusions,
   // fingerprints, and timing. No rationale field exists in the shape — the
   // metadata-only bar is structural, not a convention.
   const block = {

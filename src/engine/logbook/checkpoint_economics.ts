@@ -2,7 +2,7 @@
  * The **checkpoint economics reader** — one pure pass over the analyzed event
  * stream that tallies every checkpoint's observed lifecycle: servings (fired,
  * reopened, advise), declarations with their unchanged/revised split and
- * elapsed times, owner-authorized variances, and abandoned episodes.
+ * elapsed times, owner-authorized variances, and abandoned open questions.
  *
  * One reader, three consumers, so the numbers can never disagree: the
  * practice-stats card (`stats.ts`), the `checkpoints` verb's observed-history
@@ -27,7 +27,7 @@ export interface CheckpointTally {
   id: string;
   /** Branches where the checkpoint was served at least once. */
   effortsFired: Set<string>;
-  /** Servings: episode openings, reopenings, and advise deliveries. */
+  /** Servings: question openings, reopenings, and advise deliveries. */
   fires: number;
   declared: number;
   declaredUnchanged: number;

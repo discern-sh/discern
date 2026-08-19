@@ -1,6 +1,6 @@
 ---
 title: Checkpoint state & declarations
-description: The checkpoint episode states, the declaration and variance flags, and the surfaces that report them.
+description: The checkpoint open question states, the declaration and variance flags, and the surfaces that report them.
 order: 160
 aliases:
   - checkpoints
@@ -9,7 +9,7 @@ aliases:
   - declared met
   - declared unmet
   - variance
-  - episode
+  - open question
   - --met
   - --unmet
   - --why
@@ -20,9 +20,9 @@ aliases:
 
 A [checkpoint](../00-orientation/glossary.md#checkpoint) pairs a deterministic trigger with a question the agent judges. This page is the reference for its states, flags, and surfaces. The governing definitions are read from `[checkpoints]` at the effort's merge-base with the trunk — the **policy identity** every report and Proof names. A `stop` checkpoint interlocks `discern done`; an `advise` checkpoint serves its question through the advisory channel and blocks nothing.
 
-## Episode states
+## Open question states
 
-A fired `stop` checkpoint opens an effort-scoped **[episode](../00-orientation/glossary.md#episode)** — the record a declaration binds to, carrying the resolved-definition hash and the subject fingerprint of the matched content.
+A fired `stop` checkpoint opens an effort-scoped **[open question](../00-orientation/glossary.md#open-question)** — the record a declaration binds to, carrying the resolved-definition hash and the subject fingerprint of the matched content.
 
 | State                  | Meaning                                                                       | Resolved by                                            |
 | ---------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------ |
@@ -43,4 +43,4 @@ A current declared-unmet conclusion makes `discern accept` refuse until the owne
 
 ## Read surfaces
 
-`discern checkpoints` (CLI, `--json`, `--markdown`, and the MCP tool `discern_checkpoints`) reports the governing policy with each checkpoint's question and trigger summary, every episode's state, a structural preview of what the current change would fire, recorded episodes outside the governing policy, observed per-checkpoint economics (plain counts with denominators), and fail-open advisories. `discern prepare` and `discern status` serve each coming `stop` question early through the advisory channel, and `discern done --dry-run` previews the same projection. Every read surface is effect-free: it runs no configured `when` command (an undecided condition reports as pending) and writes no episode. Command details live in the [CLI reference](cli-reference.md#discern-checkpoints); the result contract in [MCP tools & results](mcp-and-results.md).
+`discern checkpoints` (CLI, `--json`, `--markdown`, and the MCP tool `discern_checkpoints`) reports the governing policy with each checkpoint's question and trigger summary, every open question's state, a structural preview of what the current change would fire, recorded open questions outside the governing policy, observed per-checkpoint economics (plain counts with denominators), and fail-open advisories. `discern prepare` and `discern status` serve each coming `stop` question early through the advisory channel, and `discern done --dry-run` previews the same projection. Every read surface is effect-free: it runs no configured `when` command (an undecided condition reports as pending) and writes no open question. Command details live in the [CLI reference](cli-reference.md#discern-checkpoints); the result contract in [MCP tools & results](mcp-and-results.md).

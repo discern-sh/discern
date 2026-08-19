@@ -650,7 +650,7 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `lastGateRun`
   - `standardMeasurements`
   - `ignoredBaseline`
-  - `checkpointEpisodes`
+  - `checkpointOpenQuestions`
   - `effortGrant`
   - `effortGrantClaims`
   - `acceptanceTransaction`
@@ -1703,7 +1703,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Gate job`
   - `Checkpoint`
   - `Question`
-  - `Episode`
+  - `Open question`
   - `Subject`
   - `Declaration`
   - `Declared met`

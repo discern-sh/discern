@@ -211,7 +211,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bcheckpoints?\b`,
     },
     definition:
-      "One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic question, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk), and `discern checkpoints` reports policy, episode state, and preview read-only. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
+      "One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic question, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk), and `discern checkpoints` reports policy, open-question state, and preview read-only. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
   },
   {
     term: "Question",
@@ -235,10 +235,10 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "The judgment prose a [checkpoint](#checkpoint) serves and [estate review](../20-quality-gate/improvement.md) evaluates: a stable id, the question itself, and a `teach` saying why it matters. A question is semantic by design (the agent evaluates it, discern does not), and the recorded answer stays [declared met](#declared-met) or [declared unmet](#declared-unmet), apart from machine-verified results. Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
   },
   {
-    term: "Episode",
+    term: "Open question",
     plain: { phrase: "a record that a judgment stop fired" },
     definition:
-      "The effort-scoped record that a `stop` [checkpoint](#checkpoint) fired: opened by `discern done`, stored in the worktree's Git administrative area, surviving session restarts, and removed with the worktree. An episode is the only state a [declaration](#declaration) can act on; `discern checkpoints` reports each episode's state read-only. Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).",
+      "The effort-scoped record that a `stop` [checkpoint](#checkpoint) fired: opened by `discern done`, stored in the worktree's Git administrative area, surviving session restarts, and removed with the worktree. An open question is the only state a [declaration](#declaration) can act on; `discern checkpoints` reports each open question's state read-only. Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).",
   },
   {
     term: "Subject",
@@ -248,7 +248,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: false,
     },
     definition:
-      "What a [declaration](#declaration) is about: the checkpoint's resolved definition plus each matched path's base and current content. A conclusion stands until its subject changes. An unrelated edit or trunk advance leaves it standing; a change to matched content or to the definition reopens the [episode](#episode). Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
+      "What a [declaration](#declaration) is about: the checkpoint's resolved definition plus each matched path's base and current content. A conclusion stands until its subject changes. An unrelated edit or trunk advance leaves it standing; a change to matched content or to the definition reopens the [open question](#open-question). Covered in [checkpoints](../20-quality-gate/checkpoints.md).",
   },
   {
     term: "Declaration",
@@ -257,7 +257,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: false,
     },
     definition:
-      "The agent's recorded conclusion about one served [question](#question): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why \"…\"`. It binds to the [episode](#episode)'s exact [subject](#subject) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).",
+      "The agent's recorded conclusion about one served [question](#question): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why \"…\"`. It binds to the [open question](#open-question)'s exact [subject](#subject) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).",
   },
   {
     term: "Declared met",

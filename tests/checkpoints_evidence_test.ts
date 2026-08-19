@@ -1,6 +1,6 @@
 /**
  * The declaration-evidence identity (`src/engine/checkpoints/evidence.ts`):
- * one hash over the episode store's current claims, timestamp-free, so gate
+ * one hash over the open question store's current claims, timestamp-free, so gate
  * markers can bind to the agent's recorded judgments. Identity moves with any
  * changed conclusion or rationale, stays put across identical re-records, and
  * reads a missing or rebuilt-from-empty store as the one stable empty value.
@@ -12,9 +12,9 @@ import { withTempDir } from "./helpers.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
-  reconcileEpisode,
+  reconcileOpenQuestion,
   recordDeclaration,
-} from "../src/engine/checkpoints/episodes.ts";
+} from "../src/engine/checkpoints/open_questions.ts";
 import {
   declarationEvidenceIdentity,
   evidenceIdentityOf,
@@ -48,14 +48,14 @@ Deno.test("evidence: conclusions and rationales move the identity; identical cla
     await repo(dir);
     const empty = await identityAt(dir);
 
-    await reconcileEpisode(dir, {
+    await reconcileOpenQuestion(dir, {
       checkpoint: "probe",
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: ["a.txt"],
     }, T0);
     const opened = await identityAt(dir);
-    assertNotEquals(opened, empty, "an opened episode is new evidence");
+    assertNotEquals(opened, empty, "an opened question is new evidence");
 
     const met = await recordDeclaration(
       dir,
@@ -121,7 +121,7 @@ Deno.test("evidence: conclusions and rationales move the identity; identical cla
 Deno.test("evidence: returning to a prior claim restores its identity", async () => {
   await withTempDir(async (dir) => {
     await repo(dir);
-    await reconcileEpisode(dir, {
+    await reconcileOpenQuestion(dir, {
       checkpoint: "probe",
       definitionHash: "def1",
       subject: "sub1",
@@ -160,13 +160,13 @@ Deno.test("evidence: returning to a prior claim restores its identity", async ()
 Deno.test("evidence: a corrupt store reads as empty (the rebuild-from-empty direction)", async () => {
   await withTempDir(async (dir) => {
     await repo(dir);
-    await reconcileEpisode(dir, {
+    await reconcileOpenQuestion(dir, {
       checkpoint: "probe",
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: ["a.txt"],
     }, T0);
-    const path = await gitAdminStatePath(dir, "checkpointEpisodes");
+    const path = await gitAdminStatePath(dir, "checkpointOpenQuestions");
     assert(path !== undefined);
     await Deno.writeTextFile(path, "not json\n");
     assertEquals(
@@ -183,7 +183,7 @@ Deno.test("evidence: an unreadable store is unavailable, never a guessed identit
     // A DIRECTORY at the store path makes the read fail without being
     // missing — the unavailable shape every consumer must fail open on (an
     // uncertain identity is never treated as a changed one).
-    const path = await gitAdminStatePath(dir, "checkpointEpisodes");
+    const path = await gitAdminStatePath(dir, "checkpointOpenQuestions");
     assert(path !== undefined);
     await Deno.mkdir(path, { recursive: true });
     const evidence = await declarationEvidenceIdentity(dir);

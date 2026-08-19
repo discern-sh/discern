@@ -5,8 +5,8 @@
  *   1. load the GOVERNING policy (the merge-base config — never the branch's
  *      own edits) and evaluate every checkpoint's trigger against the effort
  *      diff, running `when` conditions under their fixed budget;
- *   2. reconcile episodes for fired `stop` checkpoints and earlier active
- *      episodes — create idempotently, reopen on a definition- or
+ *   2. reconcile open questions for fired `stop` checkpoints and earlier active
+ *      open questions — create idempotently, reopen on a definition- or
  *      subject-fingerprint change, carry a declaration that still binds;
  *   3. record this invocation's declarations (`--met` / `--unmet --why`),
  *      validating every id and the rationale BEFORE any write — an invalid
@@ -31,13 +31,13 @@ import {
 } from "../../shared/result_capture.ts";
 import { collectEffortDiff } from "./diff.ts";
 import {
-  type CheckpointEpisode,
   declarationIsCurrent,
-  readEpisodes,
-  reconcileEpisode,
+  type OpenQuestion,
+  readOpenQuestions,
+  reconcileOpenQuestion,
   recordDeclaration,
   validateUnmetRationale,
-} from "./episodes.ts";
+} from "./open_questions.ts";
 import { declarationEvidenceIdentity } from "./evidence.ts";
 import { loadGoverningPolicy } from "./policy.ts";
 import { checkpointDefinitionHash, computeSubject } from "./subject.ts";
@@ -139,7 +139,7 @@ function served(
 /** Render the active declarable set for an invalid-id message. */
 function activeSetClause(active: readonly string[]): string {
   return active.length === 0
-    ? "no checkpoint has an active episode here — run `discern done` and it " +
+    ? "no checkpoint has an active open question here — run `discern done` and it " +
       "will serve any checkpoint this change makes relevant"
     : `the active set is: ${active.join(", ")}`;
 }
@@ -171,7 +171,7 @@ export interface CheckpointPreview {
 /**
  * The read-only preview of the checkpoint gate: which governing checkpoints
  * STRUCTURALLY hold against the current diff, without running any `when`
- * command and without touching the episode store — a preview must change
+ * command and without touching the open question store — a preview must change
  * nothing and spawn nothing. A checkpoint whose `when` condition is still
  * pending is reported honestly as "may require".
  */
@@ -313,28 +313,28 @@ export async function runCheckpointPreflight(
     policy.checkpoints.filter((c) => c.mode === "stop").map((c) => c.id),
   );
 
-  // A trigger opens an episode; it does not own that episode's lifetime.
-  // Load earlier governing stop episodes before evaluating this run so a
+  // A trigger opens an open question; it does not own that open question's lifetime.
+  // Load earlier governing stop open questions before evaluating this run so a
   // later veto or passing `when` cannot retract a question already served.
   // Unreadable state fails open, with the missing interlock stated plainly.
-  let storedEpisodes: Record<string, CheckpointEpisode> = {};
+  let storedOpenQuestions: Record<string, OpenQuestion> = {};
   if (stopIds.size > 0) {
-    const stored = await readEpisodes(root);
+    const stored = await readOpenQuestions(root);
     if (stored.status === "ok") {
-      storedEpisodes = stored.episodes;
+      storedOpenQuestions = stored.openQuestions;
     } else if (stored.status === "invalid") {
       advisories.push(
-        "the checkpoint-episode record did not parse; earlier active episodes cannot interlock this run and must be served again before they can receive declarations.",
+        "the checkpoint open-question record did not parse; earlier active open questions cannot interlock this run and must be served again before they can receive declarations.",
       );
     } else if (stored.status === "unavailable") {
       advisories.push(
-        `the checkpoint-episode record could not be read (${stored.reason}); earlier active episodes cannot interlock this run.`,
+        `the checkpoint open-question record could not be read (${stored.reason}); earlier active open questions cannot interlock this run.`,
       );
     }
   }
 
   // Trigger evaluation needs both a policy identity and a readable diff;
-  // without either, nothing new fires (fail open). Readable active episodes
+  // without either, nothing new fires (fail open). Readable active open questions
   // still interlock and remain declarable.
   const fired = new Map<string, ServedCheckpoint>();
   if (policy.policyCommit !== undefined && policy.checkpoints.length > 0) {
@@ -366,11 +366,11 @@ export async function runCheckpointPreflight(
     }
   }
 
-  // Reconcile episodes for every fired stop checkpoint and every earlier
-  // active episode still governed as a stop. Subject or store trouble drops
+  // Reconcile open questions for every fired stop checkpoint and every earlier
+  // active open question still governed as a stop. Subject or store trouble drops
   // the checkpoint from the interlock with an advisory — a declaration must
   // never bind to a subject the engine only guessed at.
-  const episodes = new Map<string, CheckpointEpisode>();
+  const openQuestions = new Map<string, OpenQuestion>();
   const interlocked: ServedCheckpoint[] = [];
   // The serving each checkpoint's next declaration responds to: how this run's
   // reconciliation concluded, and when that subject was served — observation
@@ -387,13 +387,13 @@ export async function runCheckpointPreflight(
         continue;
       }
       preflight.advise.push(serving);
-      // Advise servings write no episode; the serving itself is the recorded
+      // Advise servings write no open question; the serving itself is the recorded
       // observation, so their firings still feed the observed economics.
       observeCheckpointActivity({ advise: [{ id }] });
       continue;
     }
     if (serving === undefined) {
-      const earlier = storedEpisodes[id];
+      const earlier = storedOpenQuestions[id];
       if (earlier === undefined) {
         continue;
       }
@@ -412,7 +412,7 @@ export async function runCheckpointPreflight(
       );
       continue;
     }
-    const reconciled = await reconcileEpisode(
+    const reconciled = await reconcileOpenQuestion(
       root,
       {
         checkpoint: id,
@@ -424,13 +424,13 @@ export async function runCheckpointPreflight(
     );
     if (!reconciled.ok) {
       advisories.push(
-        `checkpoint '${id}': its episode could not be recorded (${reconciled.reason}); it does not interlock this run.`,
+        `checkpoint '${id}': its openQuestion could not be recorded (${reconciled.reason}); it does not interlock this run.`,
       );
       continue;
     }
     if (reconciled.recovered) {
       advisories.push(
-        "the checkpoint-episode record did not parse and was rebuilt; earlier conclusions must be declared again.",
+        "the checkpoint open-question record did not parse and was rebuilt; earlier conclusions must be declared again.",
       );
     }
     const observed = {
@@ -443,7 +443,7 @@ export async function runCheckpointPreflight(
         observeCheckpointActivity({ fired: [observed] });
         servings.set(id, {
           outcome: "opened",
-          servedAt: reconciled.episode.openedAt,
+          servedAt: reconciled.openQuestion.openedAt,
         });
         break;
       case "reopened":
@@ -451,35 +451,36 @@ export async function runCheckpointPreflight(
         servings.set(id, {
           outcome: "reopened",
           // The serving the agent actually responded to is the one this
-          // reconciliation replaced; the reopened episode's own reopen time is
+          // reconciliation replaced; the reopened open question's own reopen time is
           // this very instant.
           servedAt: reconciled.previousServedAt ??
-            reconciled.episode.reopenedAt ?? reconciled.episode.openedAt,
+            reconciled.openQuestion.reopenedAt ??
+            reconciled.openQuestion.openedAt,
         });
         break;
       case "carried":
         servings.set(id, {
           outcome: "carried",
-          servedAt: reconciled.episode.reopenedAt ??
-            reconciled.episode.openedAt,
+          servedAt: reconciled.openQuestion.reopenedAt ??
+            reconciled.openQuestion.openedAt,
         });
         break;
     }
-    episodes.set(id, reconciled.episode);
+    openQuestions.set(id, reconciled.openQuestion);
     interlocked.push(serving);
   }
 
-  // Declarations are valid only against ACTIVE episodes of governing stop
+  // Declarations are valid only against ACTIVE open questions of governing stop
   // checkpoints. Validate the whole invocation BEFORE any write, so an error
   // records nothing.
   if (hasDeclarations(request)) {
-    // A subject/store failure may have kept an earlier episode out of this
+    // A subject/store failure may have kept an earlier open question out of this
     // run's interlock. Its persisted subject is still exact, so it remains
     // declarable even though the current run cannot refresh it.
-    const active = new Map<string, CheckpointEpisode>(episodes);
-    for (const [id, episode] of Object.entries(storedEpisodes)) {
+    const active = new Map<string, OpenQuestion>(openQuestions);
+    for (const [id, openQuestion] of Object.entries(storedOpenQuestions)) {
       if (stopIds.has(id) && !active.has(id)) {
-        active.set(id, episode);
+        active.set(id, openQuestion);
       }
     }
     const activeIds = [...active.keys()].sort();
@@ -515,21 +516,21 @@ export async function runCheckpointPreflight(
       }
     }
     for (const { id, conclusion } of requested) {
-      const episode = active.get(id);
-      if (episode === undefined) {
+      const openQuestion = active.get(id);
+      if (openQuestion === undefined) {
         continue; // validated present above
       }
       const evidence = conclusion === "met"
         ? {
           conclusion,
-          definitionHash: episode.definitionHash,
-          subject: episode.subject,
+          definitionHash: openQuestion.definitionHash,
+          subject: openQuestion.subject,
         }
         : {
           conclusion,
           why: request.unmet?.why ?? "",
-          definitionHash: episode.definitionHash,
-          subject: episode.subject,
+          definitionHash: openQuestion.definitionHash,
+          subject: openQuestion.subject,
         };
       const recorded = await recordDeclaration(root, evidence, id, at);
       if (!recorded.ok) {
@@ -539,17 +540,17 @@ export async function runCheckpointPreflight(
         // Observation only, and metadata only: the conclusion, whether this
         // same invocation reopened the subject first (a relevant revision
         // preceded the declaration), the fingerprints, and the elapsed time
-        // since the serving. The unmet rationale never leaves the episode
+        // since the serving. The unmet rationale never leaves the open question
         // store and the Proof.
         const serving = servings.get(id);
         const servedAt = serving?.servedAt ??
-          episode.reopenedAt ?? episode.openedAt;
+          openQuestion.reopenedAt ?? openQuestion.openedAt;
         const declaration: CheckpointDeclarationObservation = {
           id,
           conclusion,
           revised: serving?.outcome === "reopened",
-          definition: episode.definitionHash,
-          subject: episode.subject,
+          definition: openQuestion.definitionHash,
+          subject: openQuestion.subject,
         };
         const servedMs = Date.parse(servedAt);
         const declaredMs = Date.parse(at);
@@ -561,7 +562,7 @@ export async function runCheckpointPreflight(
         }
         observeCheckpointActivity({ declared: [declaration] });
       }
-      episodes.set(id, recorded.episode);
+      openQuestions.set(id, recorded.openQuestion);
       preflight.recorded.push(id);
     }
   }
@@ -569,12 +570,12 @@ export async function runCheckpointPreflight(
   // What still lacks a current conclusion, and what the current conclusions
   // are, among the governing active checkpoints interlocking this run.
   for (const serving of interlocked) {
-    const episode = episodes.get(serving.id);
-    if (episode === undefined) {
+    const openQuestion = openQuestions.get(serving.id);
+    if (openQuestion === undefined) {
       continue;
     }
-    const declaration = episode.declaration;
-    if (declaration === undefined || !declarationIsCurrent(episode)) {
+    const declaration = openQuestion.declaration;
+    if (declaration === undefined || !declarationIsCurrent(openQuestion)) {
       preflight.outstanding.push(serving);
       continue;
     }

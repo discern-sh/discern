@@ -87,7 +87,7 @@ import {
 } from "../src/engine/logbook/patterns.ts";
 import { improvementResult } from "../src/engine/improve/improve.ts";
 import { checkpointsResult } from "../src/engine/checkpoints/report.ts";
-import { reconcileEpisode } from "../src/engine/checkpoints/episodes.ts";
+import { reconcileOpenQuestion } from "../src/engine/checkpoints/open_questions.ts";
 import { docsResult, mapResult } from "../src/commands/docs.ts";
 import { refreshResult } from "../src/engine/instructions.ts";
 import { tidyResult } from "../src/engine/tidy/tidy.ts";
@@ -1296,7 +1296,7 @@ Deno.test("improvement result is faithful (full, category, below-min, unknown)",
   });
 });
 
-Deno.test("checkpoints result is faithful (empty, fired, ungoverned episode)", async () => {
+Deno.test("checkpoints result is faithful (empty, fired, ungoverned open question)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -1326,14 +1326,14 @@ Deno.test("checkpoints result is faithful (empty, fired, ungoverned episode)", a
     const fired = await checkpointsResult(dir);
     assertEquals(fired.data?.checkpoints[0]?.preview?.holds, true);
     expectFaithful("checkpoints", fired, "checkpoints fired");
-    // A recorded episode outside the governing policy rides the optional block.
-    const planted = await reconcileEpisode(dir, {
+    // A recorded open question outside the governing policy rides the optional block.
+    const planted = await reconcileOpenQuestion(dir, {
       checkpoint: "ghost",
       definitionHash: "d".repeat(64),
       subject: "s".repeat(64),
       matchedPaths: ["api/surface.txt"],
     });
-    assert(planted.ok, "the fixture episode must record");
+    assert(planted.ok, "the fixture open question must record");
     const withGhost = await checkpointsResult(dir);
     assertEquals(withGhost.data?.ungoverned?.length, 1);
     expectFaithful("checkpoints", withGhost, "checkpoints ungoverned");

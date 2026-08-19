@@ -751,55 +751,55 @@ export type CheckpointTriggerPreviewData = z.infer<
   typeof CheckpointTriggerPreviewSchema
 >;
 
-/** The episode states the checkpoints report distinguishes. `reopened` marks
+/** The openQuestion states the checkpoints report distinguishes. `reopened` marks
  * a recorded conclusion a later relevant change unbound — it must be declared
  * again before `done` proceeds. */
-export const CHECKPOINT_EPISODE_STATES = [
+export const OPEN_QUESTION_STATES = [
   "awaiting_declaration",
   "declared_met",
   "declared_unmet",
   "reopened",
 ] as const;
-export type CheckpointEpisodeState = (typeof CHECKPOINT_EPISODE_STATES)[number];
+export type OpenQuestionState = (typeof OPEN_QUESTION_STATES)[number];
 
-/** The declaration recorded on one episode — agent evidence, so every
+/** The declaration recorded on one openQuestion — agent evidence, so every
  * rendering says "declared met" / "declared unmet", never bare "met". */
-export const CheckpointEpisodeDeclarationSchema = z.strictObject({
+export const OpenQuestionDeclarationSchema = z.strictObject({
   conclusion: z.enum(["met", "unmet"]),
   /** The agent's one-paragraph rationale (unmet only) — opaque evidence,
    * rendered only through escaping boundaries. */
   why: z.string().optional(),
   declared_at: z.string(),
-  /** False when a later relevant change reopened the episode: the recorded
+  /** False when a later relevant change reopened the openQuestion: the recorded
    * conclusion does not bind to the current subject. */
   current: z.boolean(),
 });
-export type CheckpointEpisodeDeclarationData = z.infer<
-  typeof CheckpointEpisodeDeclarationSchema
+export type OpenQuestionDeclarationData = z.infer<
+  typeof OpenQuestionDeclarationSchema
 >;
 
-/** One checkpoint's effort-scoped episode: the record that it fired, and any
+/** One checkpoint's effort-scoped openQuestion: the record that it fired, and any
  * declaration bound to it. */
-export const CheckpointEpisodeDataSchema = z.strictObject({
-  state: z.enum(CHECKPOINT_EPISODE_STATES),
-  /** The resolved-definition hash the episode is about. */
+export const OpenQuestionDataSchema = z.strictObject({
+  state: z.enum(OPEN_QUESTION_STATES),
+  /** The resolved-definition hash the openQuestion is about. */
   definition_hash: z.string(),
-  /** The subject fingerprint the episode is about — what a declaration binds
+  /** The subject fingerprint the openQuestion is about — what a declaration binds
    * to, and what a variance authorization later names. */
   subject: z.string(),
-  /** The matched paths the episode recorded — the subject's evidence. */
+  /** The matched paths the openQuestion recorded — the subject's evidence. */
   matched: z.array(z.string()),
   opened_at: z.string(),
   reopened_at: z.string().optional(),
-  declaration: CheckpointEpisodeDeclarationSchema.optional(),
+  declaration: OpenQuestionDeclarationSchema.optional(),
   /** Present (true) on a current declared-unmet conclusion: landing requires
    * an owner-authorized variance. */
   variance_required: z.boolean().optional(),
 });
-export type CheckpointEpisodeData = z.infer<typeof CheckpointEpisodeDataSchema>;
+export type OpenQuestionData = z.infer<typeof OpenQuestionDataSchema>;
 
 /** One governing checkpoint's report row: the resolved policy entry, its
- * structural preview against the current diff, and this effort's episode. */
+ * structural preview against the current diff, and this effort's open question. */
 export const CheckpointReportSchema = z.strictObject({
   id: z.string(),
   mode: z.enum(CHECKPOINT_MODES),
@@ -811,19 +811,21 @@ export const CheckpointReportSchema = z.strictObject({
   /** Absent when the effort diff could not be read (nothing can fire). */
   preview: CheckpointTriggerPreviewSchema.optional(),
   /** Absent when this checkpoint has not fired for this effort. */
-  episode: CheckpointEpisodeDataSchema.optional(),
+  open_question: OpenQuestionDataSchema.optional(),
 });
 export type CheckpointReportData = z.infer<typeof CheckpointReportSchema>;
 
-/** One recorded episode whose checkpoint sits outside the current
+/** One recorded openQuestion whose checkpoint sits outside the current
  * governing policy (removed, renamed, or landed differently) — kept visible
  * so recorded judgments never silently vanish, though no declaration can act
  * on it until a governing trigger fires again. */
-export const UngovernedEpisodeSchema = z.strictObject({
+export const UngovernedOpenQuestionSchema = z.strictObject({
   id: z.string(),
-  episode: CheckpointEpisodeDataSchema,
+  open_question: OpenQuestionDataSchema,
 });
-export type UngovernedEpisodeData = z.infer<typeof UngovernedEpisodeSchema>;
+export type UngovernedOpenQuestionData = z.infer<
+  typeof UngovernedOpenQuestionSchema
+>;
 
 /** `checkpoints` — the read verb: governing policy, effort state, preview. */
 export const CheckpointsDataSchema = z.strictObject({
@@ -831,8 +833,8 @@ export const CheckpointsDataSchema = z.strictObject({
   policy: z.string().optional(),
   /** The governing checkpoints, one report row each. */
   checkpoints: z.array(CheckpointReportSchema),
-  /** Episodes recorded here whose checkpoint is outside the governing policy. */
-  ungoverned: z.array(UngovernedEpisodeSchema).optional(),
+  /** OpenQuestions recorded here whose checkpoint is outside the governing policy. */
+  ungoverned: z.array(UngovernedOpenQuestionSchema).optional(),
   /** Observed per-checkpoint economics from the local Logbook — bounded rows
    * of plain counts with their denominators. Absent until observed history
    * exists (every rendering then states that plainly). */

@@ -89,7 +89,7 @@ Deno.test("checkpoint economics: the full lifecycle tallies with its denominator
     },
     { branch: "agent/one", verb: "accept" },
     // Effort two: fired, declared unmet on the unchanged subject, landed
-    // under an authorized variance with one abandoned episode.
+    // under an authorized variance with one abandoned open question.
     {
       branch: "agent/two",
       checkpoints: { fired: [{ id: "api-review", subject: "s3" }] },

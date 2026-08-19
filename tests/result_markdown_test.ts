@@ -391,7 +391,7 @@ Deno.test("checkpoints Markdown carries the declared vocabulary and the variance
           question: "A changed API surface is described in its docs.",
           trigger: "paths api/**",
           preview: { holds: true, matched: ["api/surface.ext"] },
-          episode: {
+          open_question: {
             state: "declared_unmet",
             definition_hash: "d".repeat(64),
             subject: "s".repeat(64),
@@ -419,7 +419,7 @@ Deno.test("checkpoints Markdown carries the declared vocabulary and the variance
       ungoverned: [
         {
           id: "ghost",
-          episode: {
+          open_question: {
             state: "awaiting_declaration",
             definition_hash: "d".repeat(64),
             subject: "s".repeat(64),

@@ -495,7 +495,7 @@ export const CHECKPOINT_ECONOMICS_ROWS_MAX = 16;
  * One checkpoint's observed economics — plain local counts, no scores and no
  * comparisons, denominators beside every share (ADR 0229). Servings tax the
  * practice; declarations, reopenings, variances, and abandonments say how the
- * episodes actually concluded. Every count is an observation about the
+ * open questions actually concluded. Every count is an observation about the
  * checkpoint's fit, never a verdict about an agent.
  */
 export const CheckpointEconomicsRowSchema = z.strictObject({
@@ -504,7 +504,7 @@ export const CheckpointEconomicsRowSchema = z.strictObject({
   efforts_fired: z.number().int().nonnegative(),
   /** Served efforts that later landed (a successful accept). */
   efforts_landed: z.number().int().nonnegative(),
-  /** Servings: episodes opened, reopenings, and advise deliveries. */
+  /** Servings: questions opened, reopenings, and advise deliveries. */
   fires: z.number().int().nonnegative(),
   /** Declarations recorded. */
   declared: z.number().int().nonnegative(),
@@ -517,7 +517,7 @@ export const CheckpointEconomicsRowSchema = z.strictObject({
   reopened: z.number().int().nonnegative(),
   /** Owner-authorized variances carried by completed landings. */
   variances: z.number().int().nonnegative(),
-  /** Episodes an effort ended while they still awaited a conclusion. */
+  /** Open questions an effort ended while they still awaited a conclusion. */
   abandoned: z.number().int().nonnegative(),
   /** Median seconds from serving to declaration, over the declarations whose
    * events recorded an elapsed time. */

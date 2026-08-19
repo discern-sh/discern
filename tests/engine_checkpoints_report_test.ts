@@ -1,8 +1,8 @@
 /**
  * The checkpoint READ surfaces (black-box, through the real engine):
- * `discern checkpoints` reports the governing policy, each episode's
+ * `discern checkpoints` reports the governing policy, each open question's
  * declaration state, and a structural preview — without running a `when`
- * command, creating an episode, or recording anything — and routes an
+ * command, creating an open question, or recording anything — and routes an
  * awaiting question to the two valid `done` conclusions and a declared-unmet
  * one to the owner's variance review. `prepare` and `status` serve the same
  * preview through the advisory hint channel, projected from the ONE shape
@@ -26,7 +26,7 @@ import type { CheckpointsData } from "../src/shared/result_schemas.ts";
 import { CheckpointsOutputSchema } from "../src/shared/result_schemas.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
-import { reconcileEpisode } from "../src/engine/checkpoints/episodes.ts";
+import { reconcileOpenQuestion } from "../src/engine/checkpoints/open_questions.ts";
 
 /** The wire fields these assertions read from a `checkpoints` envelope. */
 interface CheckpointsEnvelope {
@@ -177,8 +177,8 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row, prev
     assertEquals(row.preview?.holds, true);
     assertEquals(row.preview?.matched, ["api/surface.txt"]);
     assertEquals(row.preview?.when_pending, undefined);
-    // Nothing has fired yet, so no episode — and the report says nothing ran.
-    assertEquals(row.episode, undefined);
+    // Nothing has fired yet, so no open question — and the report says nothing ran.
+    assertEquals(row.open_question, undefined);
     // Routing: the two valid done conclusions, never --variance.
     assertHasHint(env, HINTS["checkpoints-declare"], { ids: ["api-review"] });
     for (const hint of env.hints ?? []) {
@@ -190,17 +190,17 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row, prev
   });
 });
 
-Deno.test("checkpoints: the report follows the episode through awaiting, declared met, declared unmet, and reopened", async () => {
+Deno.test("checkpoints: the report follows the open question through awaiting, declared met, declared unmet, and reopened", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_STOP);
 
-    // A bare done opens the episode (its refusal serves the question).
+    // A bare done opens the open question (its refusal serves the question).
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
     let env = parseCheckpoints(
       (await runAgent(wt, ["checkpoints", "--json"])).stdout,
     );
     assertEquals(
-      env.data.checkpoints[0]?.episode?.state,
+      env.data.checkpoints[0]?.open_question?.state,
       "awaiting_declaration",
     );
     assertHasHint(env, HINTS["checkpoints-declare"], { ids: ["api-review"] });
@@ -213,12 +213,12 @@ Deno.test("checkpoints: the report follows the episode through awaiting, declare
     env = parseCheckpoints(
       (await runAgent(wt, ["checkpoints", "--json"])).stdout,
     );
-    const met = env.data.checkpoints[0]?.episode;
+    const met = env.data.checkpoints[0]?.open_question;
     assertEquals(met?.state, "declared_met");
     assertEquals(met?.declaration?.conclusion, "met");
     assertEquals(met?.declaration?.current, true);
     assertEquals(met?.variance_required, undefined);
-    // The episode names its binding — the subject a declaration binds to and
+    // The open question names its binding — the subject a declaration binds to and
     // a variance authorization later cites.
     assert((met?.definition_hash ?? "").length > 0);
     assert((met?.subject ?? "").length > 0);
@@ -236,7 +236,7 @@ Deno.test("checkpoints: the report follows the episode through awaiting, declare
     env = parseCheckpoints(
       (await runAgent(wt, ["checkpoints", "--json"])).stdout,
     );
-    const unmet = env.data.checkpoints[0]?.episode;
+    const unmet = env.data.checkpoints[0]?.open_question;
     assertEquals(unmet?.state, "declared_unmet");
     assertEquals(unmet?.declaration?.why, why);
     assertEquals(unmet?.variance_required, true);
@@ -253,7 +253,7 @@ Deno.test("checkpoints: the report follows the episode through awaiting, declare
     env = parseCheckpoints(
       (await runAgent(wt, ["checkpoints", "--json"])).stdout,
     );
-    const reopened = env.data.checkpoints[0]?.episode;
+    const reopened = env.data.checkpoints[0]?.open_question;
     assertEquals(reopened?.state, "reopened");
     assertEquals(reopened?.declaration?.current, false);
     assertEquals(reopened?.variance_required, undefined);
@@ -270,7 +270,7 @@ Deno.test("checkpoints: an advise checkpoint previews without interlock routing"
     const row = env.data.checkpoints[0];
     assertEquals(row?.mode, "advise");
     assertEquals(row?.preview?.holds, true);
-    assertEquals(row?.episode, undefined);
+    assertEquals(row?.open_question, undefined);
     assertLacksHint(env, HINTS["checkpoints-declare"], { ids: ["api-review"] });
   });
 });
@@ -296,39 +296,39 @@ Deno.test("checkpoints: a when condition is reported as undecided and never run"
   });
 });
 
-Deno.test("checkpoints: an episode outside the governing policy stays visible", async () => {
+Deno.test("checkpoints: an open question outside the governing policy stays visible", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_STOP);
-    // The engine's own episode API plants a record for a checkpoint id the
+    // The engine's own open question API plants a record for a checkpoint id the
     // merge-base policy does not define — the state left behind when policy
     // lands differently than an effort expected.
-    const planted = await reconcileEpisode(wt, {
+    const planted = await reconcileOpenQuestion(wt, {
       checkpoint: "ghost",
       definitionHash: "d".repeat(64),
       subject: "s".repeat(64),
       matchedPaths: ["api/surface.txt"],
     });
-    assert(planted.ok, "the fixture episode must record");
+    assert(planted.ok, "the fixture open question must record");
     const env = parseCheckpoints(
       (await runAgent(wt, ["checkpoints", "--json"])).stdout,
     );
     assertEquals(env.data.ungoverned?.length, 1);
     assertEquals(env.data.ungoverned?.[0]?.id, "ghost");
     assertEquals(
-      env.data.ungoverned?.[0]?.episode.state,
+      env.data.ungoverned?.[0]?.open_question.state,
       "awaiting_declaration",
     );
-    // An ungoverned episode is not declarable, so it must not be routed.
+    // An ungoverned open question is not declarable, so it must not be routed.
     assertLacksHint(env, HINTS["checkpoints-declare"], {
       ids: ["api-review", "ghost"],
     });
   });
 });
 
-Deno.test("checkpoints: a corrupt episode store fails open into an advisory", async () => {
+Deno.test("checkpoints: a corrupt open-question store fails open into an advisory", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_STOP);
-    const path = await gitAdminStatePath(wt, "checkpointEpisodes");
+    const path = await gitAdminStatePath(wt, "checkpointOpenQuestions");
     assert(path !== undefined);
     await Deno.mkdir(join(path, ".."), { recursive: true });
     await Deno.writeTextFile(path, "not json\n");

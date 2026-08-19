@@ -2559,7 +2559,7 @@ export type DiscernCheckpointsResult = {
           | "deletion_dominant"
           | "similar_new_file";
       };
-      episode?: {
+      open_question?: {
         state:
           | "awaiting_declaration"
           | "declared_met"
@@ -2581,7 +2581,7 @@ export type DiscernCheckpointsResult = {
     }>;
     ungoverned?: Array<{
       id: string;
-      episode: {
+      open_question: {
         state:
           | "awaiting_declaration"
           | "declared_met"

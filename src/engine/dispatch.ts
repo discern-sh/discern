@@ -275,7 +275,7 @@ export function attachEngineCommands(
     .option(
       "--met <id:string>",
       "Declare a served checkpoint's question met (repeatable). Valid only " +
-        "for a checkpoint with an active episode here; the declaration is " +
+        "for a checkpoint with an active open question here; the declaration is " +
         "recorded as your judgment, and the gate runs in the same invocation " +
         "once every awaiting checkpoint has a conclusion.",
       { collect: true },
@@ -423,7 +423,7 @@ export function attachEngineCommands(
   root
     .command("checkpoints")
     .description(
-      "Report the governing checkpoint policy, each episode's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.",
+      "Report the governing checkpoint policy, each open question's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.",
     )
     .option(
       "--json",

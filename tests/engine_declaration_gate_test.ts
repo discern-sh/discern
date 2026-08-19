@@ -131,7 +131,7 @@ const PROBES = {
     const terminal = await runAgent(wt, ["done"]);
     const mcp = await runMcp("discern_done", wt, {});
     const env = parseJson(json.stdout);
-    // Mutated iff a gate job ran or the project tree changed; the episode
+    // Mutated iff a gate job ran or the project tree changed; the open question
     // record and logbook line live inside .git and are the stated writes.
     const status = await new Deno.Command("git", {
       args: ["status", "--porcelain"],

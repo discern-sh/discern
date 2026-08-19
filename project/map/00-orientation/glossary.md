@@ -19,7 +19,6 @@ aliases:
   - discern
   - discern version
   - engine
-  - episode
   - file ownership
   - fleet
   - gate
@@ -33,6 +32,7 @@ aliases:
   - map
   - migration
   - namespace
+  - open question
   - patterns
   - placement is consent
   - practice
@@ -97,7 +97,7 @@ A read-only finding surface: [coupling](../20-quality-gate/coupling.md), [patter
 
 ### Checkpoint
 
-One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic question, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk), and `discern checkpoints` reports policy, episode state, and preview read-only. Covered in [checkpoints](../20-quality-gate/checkpoints.md).
+One configured rule under `[checkpoints]`: a deterministic trigger paired with a semantic question, in `stop` or `advise` mode ([ADR 0293](../_adr/0293-checkpoint-declarations-interlock-the-gate.md)). A fired `stop` checkpoint refuses `discern done` before any [gate job](#gate-job) until the agent records a declared-met or declared-unmet conclusion, and a declared-unmet conclusion lands only under an owner-authorized variance at `discern accept`. The governing definitions are read at the effort's merge-base with the [trunk](#trunk), and `discern checkpoints` reports policy, open-question state, and preview read-only. Covered in [checkpoints](../20-quality-gate/checkpoints.md).
 
 ### Coupling
 
@@ -105,7 +105,7 @@ What `discern coupling` reports: files that historically change together, pointi
 
 ### Declaration
 
-The agent's recorded conclusion about one served [question](#question): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why "…"`. It binds to the [episode](#episode)'s exact [subject](#subject) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).
+The agent's recorded conclusion about one served [question](#question): met, or unmet with a one-paragraph rationale, recorded with `discern done --met <id>` or `--unmet <id> --why "…"`. It binds to the [open question](#open-question)'s exact [subject](#subject) and is agent evidence by construction: the gate requires it and does not verify it, and the [Proof](#proof) renders it beside machine results as [declared met](#declared-met) or [declared unmet](#declared-unmet).
 
 ### Declared met
 
@@ -130,10 +130,6 @@ The `discern` binary's semantic version, shown by `discern --version`. A newer b
 ### Engine
 
 The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no command from the project's stack; its verbs run the jobs, scopes, standards, and worktree settings a project declares, while its embedded [tidy](#tidy) formatter is limited to discern-owned surfaces. Contributors: see [engine internals](../50-engine-internals/).
-
-### Episode
-
-The effort-scoped record that a `stop` [checkpoint](#checkpoint) fired: opened by `discern done`, stored in the worktree's Git administrative area, surviving session restarts, and removed with the worktree. An episode is the only state a [declaration](#declaration) can act on; `discern checkpoints` reports each episode's state read-only. Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).
 
 ### File ownership
 
@@ -186,6 +182,10 @@ One idempotent step that brings an install from [schema version](#schema-version
 ### Namespace
 
 The visible `discern/` directory: the default home for the [map](#map), your [instruction source](#instruction-source), authored [skills](#skill), [project scripts](#project-script), the project brief, and the `TODO.md` ledger. Nothing generated is ever written inside it, and every configurable source has a key that points it anywhere ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)).
+
+### Open question
+
+The effort-scoped record that a `stop` [checkpoint](#checkpoint) fired: opened by `discern done`, stored in the worktree's Git administrative area, surviving session restarts, and removed with the worktree. An open question is the only state a [declaration](#declaration) can act on; `discern checkpoints` reports each open question's state read-only. Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).
 
 ### Patterns
 
@@ -253,7 +253,7 @@ The two [checkpoint](#checkpoint) modes. `stop` (the default) refuses `discern d
 
 ### Subject
 
-What a [declaration](#declaration) is about: the checkpoint's resolved definition plus each matched path's base and current content. A conclusion stands until its subject changes. An unrelated edit or trunk advance leaves it standing; a change to matched content or to the definition reopens the [episode](#episode). Covered in [checkpoints](../20-quality-gate/checkpoints.md).
+What a [declaration](#declaration) is about: the checkpoint's resolved definition plus each matched path's base and current content. A conclusion stands until its subject changes. An unrelated edit or trunk advance leaves it standing; a change to matched content or to the definition reopens the [open question](#open-question). Covered in [checkpoints](../20-quality-gate/checkpoints.md).
 
 ### Tidy
 

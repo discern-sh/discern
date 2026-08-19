@@ -6,7 +6,7 @@
  * conclusions ride the Proof separately from machine results; declaration
  * changes never trip the unchanged-tree rerun guard yet stale the recorded
  * Proof; the governing policy comes from the merge-base, never the branch's
- * own config edits; and every uncertainty (a corrupt episode store) fails
+ * own config edits; and every uncertainty (a corrupt open question store) fails
  * open into a clean re-ask rather than a wedge.
  */
 
@@ -28,7 +28,7 @@ import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
 import { UNCHANGED_TREE_RERUN_SLUG } from "../src/engine/gate/proof.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
-import { readEpisodes } from "../src/engine/checkpoints/episodes.ts";
+import { readOpenQuestions } from "../src/engine/checkpoints/open_questions.ts";
 
 /** The wire fields these black-box assertions read from a `done` envelope.
  * Presence claims are static; a field the engine omits fails its assertion
@@ -199,10 +199,10 @@ Deno.test("done: a fired stop checkpoint refuses before any job, serving the que
       "",
       "the refusal must precede every gate job",
     );
-    // The refusal opened the episode — the one write it claims.
-    const episodes = await readEpisodes(wt);
-    assert(episodes.status === "ok");
-    assert(episodes.episodes["api-review"] !== undefined);
+    // The refusal opened the open question — the one write it claims.
+    const openQuestions = await readOpenQuestions(wt);
+    assert(openQuestions.status === "ok");
+    assert(openQuestions.openQuestions["api-review"] !== undefined);
   });
 });
 
@@ -210,7 +210,7 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
 
-    // Serve the question (and open the episode).
+    // Serve the question (and open the open question).
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
 
     // Declare met: the same invocation runs the gate to green.
@@ -357,9 +357,12 @@ Deno.test("done: unknown or inactive declaration ids are errors naming the activ
     assertStringIncludes(env.message, "no-such-checkpoint");
     assertStringIncludes(env.message, "api-review");
     // Nothing recorded: the valid id in a LATER invocation still awaits.
-    const episodes = await readEpisodes(wt);
-    assert(episodes.status === "ok");
-    assertEquals(episodes.episodes["api-review"]?.declaration, undefined);
+    const openQuestions = await readOpenQuestions(wt);
+    assert(openQuestions.status === "ok");
+    assertEquals(
+      openQuestions.openQuestions["api-review"]?.declaration,
+      undefined,
+    );
   });
 });
 
@@ -391,10 +394,10 @@ Deno.test("done: the rationale boundary rejects shape violations before any writ
         env.error === "invalid_value" || env.error === "invalid_arguments",
         env.error,
       );
-      const episodes = await readEpisodes(wt);
-      assert(episodes.status === "ok");
+      const openQuestions = await readOpenQuestions(wt);
+      assert(openQuestions.status === "ok");
       assertEquals(
-        episodes.episodes["api-review"]?.declaration,
+        openQuestions.openQuestions["api-review"]?.declaration,
         undefined,
         "an invalid rationale must record nothing",
       );
@@ -437,9 +440,9 @@ Deno.test("done: a rationale of shell and Markdown metacharacters round-trips op
     assertEquals(env.data.checkpoints.declared_unmet?.[0]?.why, hostile);
     // …and the store holds them verbatim, uninterpreted — no interpolation
     // shaved or expanded the text.
-    const episodes = await readEpisodes(wt);
-    assert(episodes.status === "ok");
-    const declaration = episodes.episodes["api-review"]?.declaration;
+    const openQuestions = await readOpenQuestions(wt);
+    assert(openQuestions.status === "ok");
+    const declaration = openQuestions.openQuestions["api-review"]?.declaration;
     assert(declaration !== undefined && declaration.conclusion === "unmet");
     assertEquals(declaration.why, hostile);
     // The recorded Proof page carries it through the code-span escaping
@@ -492,7 +495,7 @@ Deno.test("done: the branch cannot edit its own governing policy — the merge-b
   });
 });
 
-Deno.test("done: a corrupt episode store fails open into a clean re-ask", async () => {
+Deno.test("done: a corrupt open-question store fails open into a clean re-ask", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
@@ -503,7 +506,7 @@ Deno.test("done: a corrupt episode store fails open into a clean re-ask", async 
 
     // Corrupt the store: the conclusion is gone, so the next run rebuilds
     // and asks for a fresh declaration instead of wedging or crashing.
-    const path = await gitAdminStatePath(wt, "checkpointEpisodes");
+    const path = await gitAdminStatePath(wt, "checkpointOpenQuestions");
     assert(path !== undefined);
     await Deno.writeTextFile(path, "corrupted, not json\n");
     const r = await runAgent(wt, ["done", "--json"]);
@@ -526,20 +529,20 @@ Deno.test("done: a corrupt episode store fails open into a clean re-ask", async 
       "an identical restored claim is the same run, not new evidence",
     );
     // The declaration write itself succeeded: the store holds it again.
-    const episodes = await readEpisodes(wt);
-    assert(episodes.status === "ok");
+    const openQuestions = await readOpenQuestions(wt);
+    assert(openQuestions.status === "ok");
     assertEquals(
-      episodes.episodes["api-review"]?.declaration?.conclusion,
+      openQuestions.openQuestions["api-review"]?.declaration?.conclusion,
       "met",
     );
   });
 });
 
-Deno.test("done: an opened stop episode remains interlocked after its trigger becomes inactive", async () => {
+Deno.test("done: an opened stop question remains interlocked after its trigger becomes inactive", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_UNLESS_CHANGED);
 
-    // The API-only effort opens the episode. A later docs change makes the
+    // The API-only effort opens the open question. A later docs change makes the
     // current trigger inactive, but cannot retract a question already served.
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
     await Deno.mkdir(join(wt, "docs"), { recursive: true });
@@ -596,9 +599,9 @@ Deno.test("done: --dry-run never refuses; it previews the checkpoints that would
       ),
       JSON.stringify(details),
     );
-    // Previewing wrote nothing: no episode exists yet.
-    const episodes = await readEpisodes(wt);
-    assert(episodes.status === "missing", episodes.status);
+    // Previewing wrote nothing: no open question exists yet.
+    const openQuestions = await readOpenQuestions(wt);
+    assert(openQuestions.status === "missing", openQuestions.status);
   });
 });
 
@@ -658,7 +661,7 @@ Deno.test("done: an unrelated trunk update preserves a conclusion; a matched-bas
 
     // Matched-base trunk advance: main edits the far end of the SAME matched
     // file; the update merges cleanly but moves the subject's base (and
-    // merged current) state, reopening the episode.
+    // merged current) state, reopening the open question.
     await Deno.writeTextFile(
       join(dir, "api", "surface.txt"),
       `${body.slice(0, -1).join("\n")}\ntrunk-take\n`,
@@ -726,7 +729,7 @@ interface CheckpointsEnvelope {
   data: {
     checkpoints: {
       id: string;
-      episode?: {
+      open_question?: {
         state: string;
         declaration?: { conclusion: string; current: boolean };
       };
@@ -961,7 +964,7 @@ question = "${QUESTION_API}"
     );
 
     // The selector-matched content is the subject. Revising it must reopen the
-    // episode even though the probe keeps declaring an unrelated stable path.
+    // open question even though the probe keeps declaring an unrelated stable path.
     await Deno.writeTextFile(join(wt, "api", "surface.txt"), "v2\n");
     await git(wt, "add", "api/surface.txt");
     await git(wt, "commit", "-q", "-m", "revise api", "--no-gpg-sign");
@@ -971,9 +974,9 @@ question = "${QUESTION_API}"
   });
 });
 
-Deno.test("episodes: the effort's state survives session restarts — each engine process reads what the last recorded", async () => {
+Deno.test("openQuestions: the effort's state survives session restarts — each engine process reads what the last recorded", async () => {
   // Every invocation below is its own OS process over the per-worktree store:
-  // the refusal's episode, read back by a fresh `checkpoints` run, resolved by
+  // the refusal's open question, read back by a fresh `checkpoints` run, resolved by
   // a third process's declaration — the spec's session-restart claim, named.
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
@@ -983,7 +986,7 @@ Deno.test("episodes: the effort's state survives session restarts — each engin
     assertEquals(read.code, 0, read.output);
     const awaiting = JSON.parse(read.stdout.trim()) as CheckpointsEnvelope;
     assertEquals(
-      awaiting.data.checkpoints[0]?.episode?.state,
+      awaiting.data.checkpoints[0]?.open_question?.state,
       "awaiting_declaration",
     );
 
@@ -993,9 +996,9 @@ Deno.test("episodes: the effort's state survives session restarts — each engin
     );
     const settled = await runAgent(wt, ["checkpoints", "--json"]);
     const met = JSON.parse(settled.stdout.trim()) as CheckpointsEnvelope;
-    assertEquals(met.data.checkpoints[0]?.episode?.state, "declared_met");
+    assertEquals(met.data.checkpoints[0]?.open_question?.state, "declared_met");
     assertEquals(
-      met.data.checkpoints[0]?.episode?.declaration?.current,
+      met.data.checkpoints[0]?.open_question?.declaration?.current,
       true,
     );
   });

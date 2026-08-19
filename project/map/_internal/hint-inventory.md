@@ -248,7 +248,7 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: `checkpoint-declaration`
-- Emitting context: The checkpoints report finds a stop question awaiting the caller's conclusion — a trigger that holds, or an episode without a current declaration.
+- Emitting context: The checkpoints report finds a stop question awaiting the caller's conclusion — a trigger that holds, or an open question without a current declaration.
 
 Rendered example:
 

@@ -473,7 +473,7 @@ export const TOOLS: McpTool[] = orderTools([
       met: z.array(z.string()).optional().describe(
         "Checkpoint ids whose served question your change satisfies — your " +
           "recorded judgment, valid only for checkpoints with an active " +
-          "episode here (the awaiting_declaration refusal lists them). The " +
+          "open question here (the awaiting_declaration refusal lists them). The " +
           "gate runs in the same call once every awaiting checkpoint has a " +
           "conclusion.",
       ),
@@ -827,7 +827,7 @@ export const TOOLS: McpTool[] = orderTools([
       "judgment the caller records at the gate), one-line trigger summary, " +
       "mode (stop interlocks the gate; advise never blocks), a structural " +
       "preview of whether the current change fires it, and this effort's " +
-      "episode state — awaiting_declaration, declared_met, declared_unmet " +
+      "open-question state — awaiting_declaration, declared_met, declared_unmet " +
       "(variance_required marks a conclusion only the owner can authorize a " +
       "variance for at landing), or reopened (a relevant change unbound the " +
       "recorded conclusion; declare again). data.policy is the merge-base " +

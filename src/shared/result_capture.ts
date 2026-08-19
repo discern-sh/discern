@@ -112,7 +112,7 @@ export function takeVerbTarget(): string | undefined {
 
 /** One checkpoint serving observed during an invocation: the checkpoint id
  * plus the definition hash and subject fingerprint it was served with, when
- * they exist (an advise serving has no episode and so no fingerprints). */
+ * they exist (an advise serving has no open question and so no fingerprints). */
 export type CheckpointServingObservation = {
   id: string;
   definition?: string;
@@ -137,7 +137,7 @@ export type CheckpointDeclarationObservation = {
   elapsed_ms?: number;
 };
 
-/** One episode still awaiting a conclusion when its effort ended. */
+/** One openQuestion still awaiting a conclusion when its effort ended. */
 export type CheckpointAbandonedObservation = {
   id: string;
 };
@@ -150,17 +150,17 @@ export type CheckpointAbandonedObservation = {
  * unmet rationale never enters (the metadata-only bar).
  */
 export type CheckpointObservations = {
-  /** Episodes opened this invocation (the checkpoint fired). */
+  /** OpenQuestions opened this invocation (the checkpoint fired). */
   fired?: CheckpointServingObservation[];
-  /** Episodes reopened this invocation (a relevant change replaced the subject). */
+  /** OpenQuestions reopened this invocation (a relevant change replaced the subject). */
   reopened?: CheckpointServingObservation[];
   /** Declarations newly recorded this invocation. */
   declared?: CheckpointDeclarationObservation[];
-  /** Advise-mode servings (no episode exists; the id is the observation). */
+  /** Advise-mode servings (no openQuestion exists; the id is the observation). */
   advise?: CheckpointServingObservation[];
   /** Owner-authorized variances a completed landing carried. */
   variances?: CheckpointServingObservation[];
-  /** Episodes awaiting a conclusion when the effort ended. */
+  /** OpenQuestions awaiting a conclusion when the effort ended. */
   abandoned?: CheckpointAbandonedObservation[];
 };
 

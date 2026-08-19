@@ -2161,7 +2161,7 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "The checkpoints report finds a stop question awaiting the caller's conclusion — a trigger that holds, or an episode without a current declaration.",
+      "The checkpoints report finds a stop question awaiting the caller's conclusion — a trigger that holds, or an open question without a current declaration.",
     family: "checkpoint-declaration",
     example: { ids: ["api-review"] },
     template: ({ ids }): string =>

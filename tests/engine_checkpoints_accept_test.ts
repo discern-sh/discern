@@ -353,7 +353,7 @@ Deno.test("accept: a stale conclusion routes back to done before any effect", as
     await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint v2\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "revise the api", "--no-gpg-sign");
-    // Reconcile the episode to the new subject (and get served again).
+    // Reconcile the open question to the new subject (and get served again).
     const reserved = await runAgent(wt, ["done", "--json"]);
     assertEquals(reserved.code, 1, reserved.output);
     assertEquals(parseJson(reserved.stdout).error, AWAITING_DECLARATION_SLUG);

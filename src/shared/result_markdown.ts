@@ -983,20 +983,20 @@ const presentImprovement: ResultMarkdownPresenter = (result) => {
 function checkpointRowLine(row: Record<string, unknown>): string {
   const id = code(row.id);
   const mode = text(row.mode) ?? "stop";
-  const episode = object(row.episode);
+  const openQuestion = object(row.open_question);
   const preview = object(row.preview);
   const question = text(row.question);
   const withQuestion = (phrase: string): string =>
     question === undefined ? phrase : `${phrase} — ${question}`;
-  if (episode !== undefined) {
-    const declaration = object(episode.declaration);
+  if (openQuestion !== undefined) {
+    const declaration = object(openQuestion.declaration);
     const why = text(declaration?.why);
-    switch (text(episode.state)) {
+    switch (text(openQuestion.state)) {
       case "declared_met":
         return `${id} (${mode}): declared met.`;
       case "declared_unmet":
         return `${id} (${mode}): declared unmet${
-          episode.variance_required === true
+          openQuestion.variance_required === true
             ? " — owner variance required to land"
             : ""
         }${
@@ -1069,7 +1069,7 @@ const presentCheckpoints: ResultMarkdownPresenter = (result) => {
   const economics = object(data.economics);
   const economicsRows = records(economics?.rows);
   const varianceIds = rows.filter((row) =>
-    object(row.episode)?.variance_required === true
+    object(row.open_question)?.variance_required === true
   ).map((row) => code(row.id));
   return {
     state: defaultState(
@@ -1090,7 +1090,7 @@ const presentCheckpoints: ResultMarkdownPresenter = (result) => {
       ...ungoverned.slice(0, MAX_LIST_ITEMS).map((entry) =>
         `${
           code(entry.id)
-        }: a recorded episode stands, but the current governing policy does not contain it.`
+        }: a recorded open question stands, but the current governing policy does not contain it.`
       ),
       ...advisories.map((advisory) => `Fail-open: ${advisory}`),
       ...economicsRows.slice(0, MAX_LIST_ITEMS).map(checkpointEconomicsLine),

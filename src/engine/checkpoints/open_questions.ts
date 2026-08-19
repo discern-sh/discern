@@ -1,14 +1,14 @@
 /**
- * Checkpoint **episodes** — the effort-scoped record that a checkpoint fired,
+ * Checkpoint **open questions** — the effort-scoped record that a checkpoint fired,
  * and the **declarations** an agent binds to them. The store lives in the
- * per-worktree Git administrative area (the registered `checkpointEpisodes`
+ * per-worktree Git administrative area (the registered `checkpointOpenQuestions`
  * entry, beside the gate's own markers), so it survives session restarts and
  * disappears with the worktree.
  *
- * An episode is the ONLY thing a declaration can act on: recording one for a
- * checkpoint with no episode is an error, which is what forces the
+ * An open question is the ONLY thing a declaration can act on: recording one for a
+ * checkpoint with no open question is an error, which is what forces the
  * question-serving moment — checkpoint ids are public config, and the
- * episode, not secrecy, gates the act. A declaration is one exhaustive
+ * open question, not secrecy, gates the act. A declaration is one exhaustive
  * conclusion: `met`, or `unmet` with its required rationale; both bind to the
  * definition hash and subject fingerprint they judged. The unmet rationale is
  * OPAQUE EVIDENCE — validated for shape before any write (trimmed, one
@@ -16,7 +16,7 @@
  * policy, and rendered only through standard escaping boundaries.
  *
  * Every operation is idempotent per (checkpoint, subject, declaration
- * evidence): reconciling an unchanged subject carries the episode untouched,
+ * evidence): reconciling an unchanged subject carries the open question untouched,
  * re-recording identical evidence changes nothing (the original timestamp
  * stands), and changed evidence replaces the conclusion in place. A store
  * that cannot be parsed reads as `invalid` so the caller can FAIL OPEN;
@@ -28,7 +28,7 @@ import { dirname } from "@std/path";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 
 /** The store's on-disk schema version (one line of JSON). */
-const EPISODES_STORE_VERSION = 1;
+const QUESTIONS_STORE_VERSION = 1;
 
 /** Bounds of a trimmed unmet rationale. */
 export const UNMET_RATIONALE_MAX_LENGTH = 500;
@@ -50,10 +50,10 @@ export type CheckpointDeclaration =
     declaredAt: string;
   };
 
-/** One checkpoint's current episode. `subject`/`definitionHash` describe what
+/** One checkpoint's current openQuestion. `subject`/`definitionHash` describe what
  * the checkpoint is about NOW; the declaration (when present) records what was
- * judged, and is current only while its own binding matches the episode's. */
-export interface CheckpointEpisode {
+ * judged, and is current only while its own binding matches the open question's. */
+export interface OpenQuestion {
   checkpoint: string;
   definitionHash: string;
   subject: string;
@@ -65,13 +65,13 @@ export interface CheckpointEpisode {
   declaration?: CheckpointDeclaration;
 }
 
-/** Whether an episode's declaration is current — bound to the episode's own
+/** Whether an openQuestion's declaration is current — bound to the openQuestion's own
  * definition and subject rather than an earlier state. */
-export function declarationIsCurrent(episode: CheckpointEpisode): boolean {
-  const declaration = episode.declaration;
+export function declarationIsCurrent(openQuestion: OpenQuestion): boolean {
+  const declaration = openQuestion.declaration;
   return declaration !== undefined &&
-    declaration.definitionHash === episode.definitionHash &&
-    declaration.subject === episode.subject;
+    declaration.definitionHash === openQuestion.definitionHash &&
+    declaration.subject === openQuestion.subject;
 }
 
 // ── rationale validation ────────────────────────────────────────────────────
@@ -118,10 +118,10 @@ export function validateUnmetRationale(raw: string): RationaleValidation {
 
 // ── the store ───────────────────────────────────────────────────────────────
 
-/** How reading the episode store went. `invalid` and `unavailable` are the
+/** How reading the openQuestion store went. `invalid` and `unavailable` are the
  * caller's fail-open cues; `missing` is simply "no checkpoint has fired". */
-export type EpisodesRead =
-  | { status: "ok"; episodes: Record<string, CheckpointEpisode> }
+export type OpenQuestionsRead =
+  | { status: "ok"; openQuestions: Record<string, OpenQuestion> }
   | { status: "missing" }
   | { status: "invalid"; reason: string }
   | { status: "unavailable"; reason: string };
@@ -152,11 +152,11 @@ function parseDeclaration(value: unknown): CheckpointDeclaration | undefined {
   return undefined;
 }
 
-/** Parse one persisted episode, or undefined for a mis-shaped one. */
-function parseEpisode(
+/** Parse one persisted openQuestion, or undefined for a mis-shaped one. */
+function parseOpenQuestion(
   checkpoint: string,
   value: unknown,
-): CheckpointEpisode | undefined {
+): OpenQuestion | undefined {
   if (!isRecord(value)) {
     return undefined;
   }
@@ -168,7 +168,7 @@ function parseEpisode(
   ) {
     return undefined;
   }
-  const episode: CheckpointEpisode = {
+  const openQuestion: OpenQuestion = {
     checkpoint,
     definitionHash,
     subject,
@@ -176,52 +176,54 @@ function parseEpisode(
     openedAt,
   };
   if (typeof value.reopenedAt === "string") {
-    episode.reopenedAt = value.reopenedAt;
+    openQuestion.reopenedAt = value.reopenedAt;
   }
   if (value.declaration !== undefined) {
     const declaration = parseDeclaration(value.declaration);
     if (declaration === undefined) {
       return undefined;
     }
-    episode.declaration = declaration;
+    openQuestion.declaration = declaration;
   }
-  return episode;
+  return openQuestion;
 }
 
 /** Parse the store's text, or undefined when any part is mis-shaped. */
 function parseStore(
   raw: string,
-): Record<string, CheckpointEpisode> | undefined {
+): Record<string, OpenQuestion> | undefined {
   let value: unknown;
   try {
     value = JSON.parse(raw);
   } catch {
     return undefined;
   }
-  if (!isRecord(value) || value.version !== EPISODES_STORE_VERSION) {
+  if (!isRecord(value) || value.version !== QUESTIONS_STORE_VERSION) {
     return undefined;
   }
-  if (!isRecord(value.episodes)) {
+  if (!isRecord(value.openQuestions)) {
     return undefined;
   }
-  const episodes: Record<string, CheckpointEpisode> = {};
-  for (const [checkpoint, entry] of Object.entries(value.episodes)) {
-    const episode = parseEpisode(checkpoint, entry);
-    if (episode === undefined) {
+  const openQuestions: Record<string, OpenQuestion> = {};
+  for (const [checkpoint, entry] of Object.entries(value.openQuestions)) {
+    const openQuestion = parseOpenQuestion(checkpoint, entry);
+    if (openQuestion === undefined) {
       return undefined;
     }
-    episodes[checkpoint] = episode;
+    openQuestions[checkpoint] = openQuestion;
   }
-  return episodes;
+  return openQuestions;
 }
 
-/** Read this worktree's episode store. */
-export async function readEpisodes(cwd: string): Promise<EpisodesRead> {
-  const path = await gitAdminStatePath(cwd, "checkpointEpisodes");
+/** Read this worktree's openQuestion store. */
+export async function readOpenQuestions(
+  cwd: string,
+): Promise<OpenQuestionsRead> {
+  const path = await gitAdminStatePath(cwd, "checkpointOpenQuestions");
   if (path === undefined) {
     return {
       status: "unavailable",
-      reason: "Git could not resolve the checkpoint-episode path",
+      reason: "Git could not resolve the checkpoint open-question path",
     };
   }
   let raw: string;
@@ -236,13 +238,13 @@ export async function readEpisodes(cwd: string): Promise<EpisodesRead> {
       reason: error instanceof Error ? error.message : String(error),
     };
   }
-  const episodes = parseStore(raw);
-  return episodes === undefined
+  const openQuestions = parseStore(raw);
+  return openQuestions === undefined
     ? {
       status: "invalid",
-      reason: "the checkpoint-episode record did not parse",
+      reason: "the checkpoint open-question record did not parse",
     }
-    : { status: "ok", episodes };
+    : { status: "ok", openQuestions };
 }
 
 /** Persist every byte, retrying partial writes and rejecting a zero-byte write. */
@@ -251,7 +253,7 @@ async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   while (offset < bytes.length) {
     const written = await file.write(bytes.subarray(offset));
     if (written === 0) {
-      throw new Error("short write while recording checkpoint episodes");
+      throw new Error("short write while recording checkpoint open questions");
     }
     offset += written;
   }
@@ -261,9 +263,9 @@ async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
  * temp file, synced, then atomically renamed into place (the acceptance
  * journal's durability pattern), so an interrupted write can garble only the
  * abandoned temp, never the standing store of recorded judgments. */
-async function writeEpisodes(
+async function writeOpenQuestions(
   path: string,
-  episodes: Record<string, CheckpointEpisode>,
+  openQuestions: Record<string, OpenQuestion>,
 ): Promise<void> {
   await Deno.mkdir(dirname(path), { recursive: true });
   const temp = `${path}.tmp-${crypto.randomUUID()}`;
@@ -273,7 +275,9 @@ async function writeEpisodes(
       await writeAll(
         file,
         new TextEncoder().encode(
-          `${JSON.stringify({ version: EPISODES_STORE_VERSION, episodes })}\n`,
+          `${
+            JSON.stringify({ version: QUESTIONS_STORE_VERSION, openQuestions })
+          }\n`,
         ),
       );
       await file.sync();
@@ -290,7 +294,7 @@ async function writeEpisodes(
   }
 }
 
-/** Load the store for a write: current episodes, or a fresh table (with
+/** Load the store for a write: current openQuestions, or a fresh table (with
  * `recovered` marking an unparseable store that was rebuilt from empty). */
 async function loadForWrite(
   cwd: string,
@@ -298,33 +302,33 @@ async function loadForWrite(
   | {
     ok: true;
     path: string;
-    episodes: Record<string, CheckpointEpisode>;
+    openQuestions: Record<string, OpenQuestion>;
     recovered: boolean;
   }
   | { ok: false; reason: string }
 > {
-  const path = await gitAdminStatePath(cwd, "checkpointEpisodes");
+  const path = await gitAdminStatePath(cwd, "checkpointOpenQuestions");
   if (path === undefined) {
     return {
       ok: false,
-      reason: "Git could not resolve the checkpoint-episode path",
+      reason: "Git could not resolve the checkpoint open-question path",
     };
   }
-  const read = await readEpisodes(cwd);
+  const read = await readOpenQuestions(cwd);
   switch (read.status) {
     case "ok":
       return {
         ok: true,
         path,
-        episodes: { ...read.episodes },
+        openQuestions: { ...read.openQuestions },
         recovered: false,
       };
     case "missing":
-      return { ok: true, path, episodes: {}, recovered: false };
+      return { ok: true, path, openQuestions: {}, recovered: false };
     case "invalid":
       // Rebuild from empty: at worst a conclusion must be declared again,
       // which is the conservative direction for judgment evidence.
-      return { ok: true, path, episodes: {}, recovered: true };
+      return { ok: true, path, openQuestions: {}, recovered: true };
     case "unavailable":
       return { ok: false, reason: read.reason };
   }
@@ -332,30 +336,30 @@ async function loadForWrite(
 
 // ── operations ──────────────────────────────────────────────────────────────
 
-/** What reconciling one checkpoint's episode did. */
-export type ReconcileEpisodeResult =
+/** What reconciling one checkpoint's openQuestion did. */
+export type ReconcileOpenQuestionResult =
   | {
     ok: true;
-    episode: CheckpointEpisode;
+    openQuestion: OpenQuestion;
     outcome: "opened" | "reopened" | "carried";
     /** True when an unparseable store was rebuilt from empty on this write. */
     recovered: boolean;
     /** On a reopen, when the replaced subject was last served (its reopen or
      * open time) — the serving a declaration in this same invocation actually
-     * responds to; the reopened episode's own timestamps carry the reopen
+     * responds to; the reopened open question's own timestamps carry the reopen
      * instant instead. */
     previousServedAt?: string;
   }
   | { ok: false; reason: string };
 
 /**
- * Create or refresh one checkpoint's episode for the given definition hash and
+ * Create or refresh one checkpoint's open question for the given definition hash and
  * subject — idempotent per (checkpoint, subject): an unchanged pair carries
- * the episode untouched (no write); a changed pair REOPENS it in place,
+ * the open question untouched (no write); a changed pair REOPENS it in place,
  * keeping any declaration record (it simply stops being current: its
- * binding differs from the episode's). `now` exists for deterministic tests.
+ * binding differs from the open question's). `now` exists for deterministic tests.
  */
-export async function reconcileEpisode(
+export async function reconcileOpenQuestion(
   cwd: string,
   next: {
     checkpoint: string;
@@ -364,12 +368,12 @@ export async function reconcileEpisode(
     matchedPaths: readonly string[];
   },
   now: string = new Date().toISOString(),
-): Promise<ReconcileEpisodeResult> {
+): Promise<ReconcileOpenQuestionResult> {
   const store = await loadForWrite(cwd);
   if (!store.ok) {
     return { ok: false, reason: store.reason };
   }
-  const existing = store.episodes[next.checkpoint];
+  const existing = store.openQuestions[next.checkpoint];
   if (
     existing !== undefined &&
     existing.definitionHash === next.definitionHash &&
@@ -379,12 +383,12 @@ export async function reconcileEpisode(
     // never reaches here — it rebuilt empty, so nothing exists to match.)
     return {
       ok: true,
-      episode: existing,
+      openQuestion: existing,
       outcome: "carried",
       recovered: false,
     };
   }
-  const episode: CheckpointEpisode = existing === undefined
+  const openQuestion: OpenQuestion = existing === undefined
     ? {
       checkpoint: next.checkpoint,
       definitionHash: next.definitionHash,
@@ -399,9 +403,9 @@ export async function reconcileEpisode(
       matchedPaths: [...next.matchedPaths],
       reopenedAt: now,
     };
-  store.episodes[next.checkpoint] = episode;
+  store.openQuestions[next.checkpoint] = openQuestion;
   try {
-    await writeEpisodes(store.path, store.episodes);
+    await writeOpenQuestions(store.path, store.openQuestions);
   } catch (error) {
     return {
       ok: false,
@@ -410,7 +414,7 @@ export async function reconcileEpisode(
   }
   return {
     ok: true,
-    episode,
+    openQuestion,
     outcome: existing === undefined ? "opened" : "reopened",
     recovered: store.recovered,
     ...(existing === undefined
@@ -434,14 +438,14 @@ export type DeclarationEvidence =
 export type DeclareResult =
   | {
     ok: true;
-    episode: CheckpointEpisode;
+    openQuestion: OpenQuestion;
     /** False when identical evidence already stood (the original timestamp
      * remains — a repeat is a no-op, not a fresher claim). */
     changed: boolean;
   }
   | {
     ok: false;
-    error: "no_episode" | "invalid_rationale" | "store_unavailable";
+    error: "no_open_question" | "invalid_rationale" | "store_unavailable";
     reason: string;
   };
 
@@ -461,8 +465,8 @@ function sameEvidence(
 }
 
 /**
- * Record one declaration against its checkpoint's ACTIVE episode. A
- * checkpoint with no episode is an error — creating an episode (a bare gate
+ * Record one declaration against its checkpoint's ACTIVE open question. A
+ * checkpoint with no open question is an error — creating an open question (a bare gate
  * run finding the trigger active) is the only way a checkpoint becomes
  * declarable. An unmet rationale is validated here, before any write, however
  * the caller sourced it. Identical evidence is a no-op; different evidence
@@ -491,20 +495,20 @@ export async function recordDeclaration(
   if (!store.ok) {
     return { ok: false, error: "store_unavailable", reason: store.reason };
   }
-  const episode = store.episodes[checkpoint];
-  if (episode === undefined) {
+  const openQuestion = store.openQuestions[checkpoint];
+  if (openQuestion === undefined) {
     return {
       ok: false,
-      error: "no_episode",
+      error: "no_open_question",
       reason:
-        `checkpoint '${checkpoint}' has no active episode here — a declaration records a judgment the gate asked for, so run the gate first.`,
+        `checkpoint '${checkpoint}' has no active open question here — a declaration records a judgment the gate asked for, so run the gate first.`,
     };
   }
   if (
-    episode.declaration !== undefined &&
-    sameEvidence(episode.declaration, normalized)
+    openQuestion.declaration !== undefined &&
+    sameEvidence(openQuestion.declaration, normalized)
   ) {
-    return { ok: true, episode, changed: false };
+    return { ok: true, openQuestion, changed: false };
   }
   const declaration: CheckpointDeclaration = normalized.conclusion === "met"
     ? {
@@ -520,10 +524,10 @@ export async function recordDeclaration(
       subject: normalized.subject,
       declaredAt: now,
     };
-  const updated: CheckpointEpisode = { ...episode, declaration };
-  store.episodes[checkpoint] = updated;
+  const updated: OpenQuestion = { ...openQuestion, declaration };
+  store.openQuestions[checkpoint] = updated;
   try {
-    await writeEpisodes(store.path, store.episodes);
+    await writeOpenQuestions(store.path, store.openQuestions);
   } catch (error) {
     return {
       ok: false,
@@ -531,5 +535,5 @@ export async function recordDeclaration(
       reason: error instanceof Error ? error.message : String(error),
     };
   }
-  return { ok: true, episode: updated, changed: true };
+  return { ok: true, openQuestion: updated, changed: true };
 }

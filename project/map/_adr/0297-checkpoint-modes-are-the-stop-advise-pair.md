@@ -13,7 +13,7 @@ A checkpoint needs exactly one operational question answered: when its trigger f
 - `stop`: `discern done` refuses before any gate job until the agent records a met or unmet conclusion for the current subject. The default, because a checkpoint worth configuring is worth answering — and a declared-unmet answer plus an owner variance is always available, so `stop` never traps a legitimate exception.
 - `advise`: the question and its matched evidence are delivered through the existing advisory channels and never require a declaration; firings are still recorded for economics. This is the home for heuristic triggers (delta shapes, name similarity) whose false positives would make a hard interlock corrosive.
 - The pair is a closed vocabulary (`CHECKPOINT_MODES`), carried by the config schema's enum and every consumer through the one constant, so a third mode is a deliberate schema change, not a drive-by string.
-- Scarcity stays a design value the modes serve: batching, fire-once episodes, `advise` for heuristics, and measured economics exist so `stop` can stay rare and meaningful.
+- Scarcity stays a design value the modes serve: batching, fire-once open questions, `advise` for heuristics, and measured economics exist so `stop` can stay rare and meaningful.
 
 ## Consequences
 
@@ -25,4 +25,4 @@ A checkpoint needs exactly one operational question answered: when its trigger f
 
 - **A severity ladder.** Rejected: only the boundary between "blocks" and "does not block" is operational; every additional rung is prose wearing a uniform.
 - **`advise` as the default.** Rejected: an ignorable default makes configuring a checkpoint a wish, not a decision, and the unmet-plus-variance path already gives `stop` a humane escape.
-- **A per-checkpoint "once per effort" mode.** Rejected as a mode: fire-once is what episodes already provide for an unchanged subject; encoding it as a mode would blur state with policy.
+- **A per-checkpoint "once per effort" mode.** Rejected as a mode: fire-once is what open questions already provide for an unchanged subject; encoding it as a mode would blur state with policy.

@@ -12,7 +12,7 @@
  * one complete decision (`--confirmed` plus one `--variance <id>` per unmet
  * checkpoint) before anything lands.
  *
- * The inspection reads the governing merge-base policy and the episode store
+ * The inspection reads the governing merge-base policy and the open question store
  * only — never re-running triggers or `when` commands. That is sound because
  * acceptance consumes the Proof: an honored gate proof binds to the same
  * declaration evidence (so the store mirrors the validated run), and a stale
@@ -25,10 +25,10 @@
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { AuthorizedVarianceData } from "../../shared/result_schemas.ts";
 import {
-  type CheckpointEpisode,
   declarationIsCurrent,
-  readEpisodes,
-} from "../checkpoints/episodes.ts";
+  type OpenQuestion,
+  readOpenQuestions,
+} from "../checkpoints/open_questions.ts";
 import { loadGoverningPolicy } from "../checkpoints/policy.ts";
 
 /** One standing declared-unmet conclusion, with everything the owner's
@@ -37,7 +37,7 @@ export interface StandingUnmetConclusion {
   id: string;
   question: string;
   teach?: string;
-  /** The matched paths the episode recorded — the subject's evidence. */
+  /** The matched paths the openQuestion recorded — the subject's evidence. */
   matched: readonly string[];
   /** The agent's rationale — opaque evidence, rendered only through
    * escaping boundaries. */
@@ -63,7 +63,7 @@ export interface AcceptanceCheckpointState {
 
 /**
  * Inspect the checkpoint state at `root` for acceptance. Read-only: the
- * governing policy plus the episode store; an unavailable store FAILS OPEN
+ * governing policy plus the open question store; an unavailable store FAILS OPEN
  * (empty state, one advisory) — acceptance must never wedge on state nobody
  * can read.
  */
@@ -87,28 +87,28 @@ export async function inspectAcceptanceCheckpoints(
   if (stops.size === 0) {
     return state;
   }
-  const read = await readEpisodes(root);
+  const read = await readOpenQuestions(root);
   if (read.status === "unavailable") {
     state.advisories.push(
-      `the checkpoint-episode record could not be read (${read.reason}); no declaration governs this landing.`,
+      `the checkpoint open-question record could not be read (${read.reason}); no declaration governs this landing.`,
     );
     return state;
   }
-  const episodes: Record<string, CheckpointEpisode> = read.status === "ok"
-    ? read.episodes
+  const openQuestions: Record<string, OpenQuestion> = read.status === "ok"
+    ? read.openQuestions
     : {};
   if (read.status === "invalid") {
     state.advisories.push(
-      "the checkpoint-episode record did not parse; conclusions must be declared again at `discern done`.",
+      "the checkpoint open-question record did not parse; conclusions must be declared again at `discern done`.",
     );
   }
   for (const [id, def] of stops) {
-    const episode = episodes[id];
-    if (episode === undefined) {
+    const openQuestion = openQuestions[id];
+    if (openQuestion === undefined) {
       continue; // never fired for this effort — nothing to verify
     }
-    const declaration = episode.declaration;
-    if (declaration === undefined || !declarationIsCurrent(episode)) {
+    const declaration = openQuestion.declaration;
+    if (declaration === undefined || !declarationIsCurrent(openQuestion)) {
       state.stale.push(id);
       continue;
     }
@@ -120,7 +120,7 @@ export async function inspectAcceptanceCheckpoints(
       id,
       question: def.question,
       ...(def.teach === undefined ? {} : { teach: def.teach }),
-      matched: episode.matchedPaths,
+      matched: openQuestion.matchedPaths,
       why: declaration.why,
       declaredAt: declaration.declaredAt,
       definitionHash: declaration.definitionHash,

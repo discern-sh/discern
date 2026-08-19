@@ -1,9 +1,9 @@
 /**
- * The **declaration-evidence identity** — one hash over everything the episode
+ * The **declaration-evidence identity** — one hash over everything the open question
  * store currently claims, so gate markers can bind to the agent's recorded
  * judgments the same way they bind to the tree.
  *
- * The material covers, per checkpoint in sorted order: the episode's own
+ * The material covers, per checkpoint in sorted order: the open question's own
  * definition hash and subject fingerprint, and the declaration's conclusion,
  * rationale, and the {definition hash, subject} pair it judged. Timestamps
  * stay OUT: identity answers "is the recorded evidence the same claim", and a
@@ -20,9 +20,9 @@
 import { sha256Hex } from "../../shared/sha256.ts";
 import {
   type CheckpointDeclaration,
-  type CheckpointEpisode,
-  readEpisodes,
-} from "./episodes.ts";
+  type OpenQuestion,
+  readOpenQuestions,
+} from "./open_questions.ts";
 
 /** Version tag mixed into the evidence material: bump when the shape changes,
  * so two engine versions can never read the same bytes as the same evidence. */
@@ -49,22 +49,22 @@ function declarationMaterial(
   ].join("\u0000");
 }
 
-/** The full material for one episode entry. */
-function episodeMaterial(episode: CheckpointEpisode): string {
+/** The full material for one openQuestion entry. */
+function openQuestionMaterial(openQuestion: OpenQuestion): string {
   return [
-    episode.checkpoint,
-    episode.definitionHash,
-    episode.subject,
-    declarationMaterial(episode.declaration),
+    openQuestion.checkpoint,
+    openQuestion.definitionHash,
+    openQuestion.subject,
+    declarationMaterial(openQuestion.declaration),
   ].join("\u0000");
 }
 
-/** Hash a set of episodes into one evidence identity (pure half). */
+/** Hash a set of openQuestions into one evidence identity (pure half). */
 export async function evidenceIdentityOf(
-  episodes: Readonly<Record<string, CheckpointEpisode>>,
+  openQuestions: Readonly<Record<string, OpenQuestion>>,
 ): Promise<string> {
-  const lines = Object.values(episodes)
-    .map(episodeMaterial)
+  const lines = Object.values(openQuestions)
+    .map(openQuestionMaterial)
     .sort();
   return await sha256Hex(
     `${EVIDENCE_MATERIAL_VERSION}\n${lines.join("\n")}`,
@@ -73,7 +73,7 @@ export async function evidenceIdentityOf(
 
 /**
  * Compute the worktree's current declaration-evidence identity from its
- * episode store. `missing` and `invalid` stores read as EMPTY — a store the
+ * open question store. `missing` and `invalid` stores read as EMPTY — a store the
  * next write would rebuild from empty carries no standing claims — while an
  * `unavailable` store (the path cannot resolve, the file cannot be read)
  * returns `unavailable` for the caller to fail open on.
@@ -81,12 +81,12 @@ export async function evidenceIdentityOf(
 export async function declarationEvidenceIdentity(
   cwd: string,
 ): Promise<EvidenceIdentity> {
-  const read = await readEpisodes(cwd);
+  const read = await readOpenQuestions(cwd);
   switch (read.status) {
     case "ok":
       return {
         status: "ok",
-        identity: await evidenceIdentityOf(read.episodes),
+        identity: await evidenceIdentityOf(read.openQuestions),
       };
     case "missing":
     case "invalid":

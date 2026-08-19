@@ -2,7 +2,7 @@
  * `discern checkpoints` — the checkpoint contract's read surface. One
  * read-only report answers, from a single command: which checkpoints govern
  * this effort (question, trigger, mode, and the policy identity), what state
- * each episode is in (awaiting a declaration, declared met, declared unmet —
+ * each open question is in (awaiting a declaration, declared met, declared unmet —
  * variance required, or reopened), and what the current change would fire — a
  * structural preview through the same projection `prepare`, `status`, and
  * `done --dry-run` share, so no surface can disagree about what fires.
@@ -13,7 +13,7 @@
  * server calls; {@link runCheckpoints} is the CLI.
  *
  * Read-only means READ-ONLY: no `when` command runs (a pending one is
- * reported honestly as undecided), no episode is created or touched, and
+ * reported honestly as undecided), no open question is created or touched, and
  * every uncertainty fails open into an advisory — never a refusal.
  */
 
@@ -26,12 +26,12 @@ import type { DiscernResult } from "../../shared/result.ts";
 import type {
   CheckpointEconomics,
   CheckpointEconomicsRow,
-  CheckpointEpisodeData,
-  CheckpointEpisodeState,
   CheckpointReportData,
   CheckpointsData,
   CheckpointTriggerPreviewData,
-  UngovernedEpisodeData,
+  OpenQuestionData,
+  OpenQuestionState,
+  UngovernedOpenQuestionData,
 } from "../../shared/result_schemas.ts";
 import type { TriggerVeto } from "../../shared/checkpoints.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -45,10 +45,10 @@ import {
   terminalMultiline,
 } from "../../lib/terminal.ts";
 import {
-  type CheckpointEpisode,
   declarationIsCurrent,
-  readEpisodes,
-} from "./episodes.ts";
+  type OpenQuestion,
+  readOpenQuestions,
+} from "./open_questions.ts";
 import { checkpointEconomicsOf } from "../logbook/checkpoint_economics.ts";
 import { buildStreamFacts } from "../logbook/detectors.ts";
 import { readLogbookStream } from "../logbook/read.ts";
@@ -116,44 +116,45 @@ function triggerPreviewData(
   };
 }
 
-/** The binding a bare `done` would reconcile an episode to right now — the
+/** The binding a bare `done` would reconcile an openQuestion to right now — the
  * current resolved-definition hash and subject fingerprint. `error` fails
  * open (the report shows the recorded state). */
 type CurrentBinding =
   | { definitionHash: string; subject: string }
   | { error: string };
 
-/** Project one stored episode onto the wire shape. `stop` says whether the
+/** Project one stored openQuestion onto the wire shape. `stop` says whether the
  * checkpoint currently governs in stop mode — only then can a current
  * declared-unmet conclusion require an owner variance at landing. `binding`,
- * when computable, is what `done` would reconcile the episode to now: a
+ * when computable, is what `done` would reconcile the open question to now: a
  * differing binding means the next gate run REOPENS it, so the recorded
  * conclusion is reported as reopened rather than as standing. */
-function episodeData(
-  episode: CheckpointEpisode,
+function openQuestionData(
+  openQuestion: OpenQuestion,
   stop: boolean,
   binding?: CurrentBinding,
-): CheckpointEpisodeData {
-  const declaration = episode.declaration;
+): OpenQuestionData {
+  const declaration = openQuestion.declaration;
   const rebindPending = binding !== undefined && !("error" in binding) &&
-    (binding.definitionHash !== episode.definitionHash ||
-      binding.subject !== episode.subject);
-  const current = declaration !== undefined && declarationIsCurrent(episode) &&
+    (binding.definitionHash !== openQuestion.definitionHash ||
+      binding.subject !== openQuestion.subject);
+  const current = declaration !== undefined &&
+    declarationIsCurrent(openQuestion) &&
     !rebindPending;
-  const state: CheckpointEpisodeState = declaration === undefined
+  const state: OpenQuestionState = declaration === undefined
     ? "awaiting_declaration"
     : current
     ? (declaration.conclusion === "met" ? "declared_met" : "declared_unmet")
     : "reopened";
   return {
     state,
-    definition_hash: episode.definitionHash,
-    subject: episode.subject,
-    matched: [...episode.matchedPaths],
-    opened_at: episode.openedAt,
-    ...(episode.reopenedAt === undefined
+    definition_hash: openQuestion.definitionHash,
+    subject: openQuestion.subject,
+    matched: [...openQuestion.matchedPaths],
+    opened_at: openQuestion.openedAt,
+    ...(openQuestion.reopenedAt === undefined
       ? {}
-      : { reopened_at: episode.reopenedAt }),
+      : { reopened_at: openQuestion.reopenedAt }),
     ...(declaration === undefined ? {} : {
       declaration: {
         conclusion: declaration.conclusion,
@@ -204,11 +205,11 @@ interface ReportRouting {
 /** Assemble the report rows plus the routing facts the hints fire from. */
 function assembleReport(
   preview: CheckpointPreview,
-  episodes: Readonly<Record<string, CheckpointEpisode>>,
+  openQuestions: Readonly<Record<string, OpenQuestion>>,
   bindings: ReadonlyMap<string, CurrentBinding>,
 ): {
   rows: CheckpointReportData[];
-  ungoverned: UngovernedEpisodeData[];
+  ungoverned: UngovernedOpenQuestionData[];
   routing: ReportRouting;
 } {
   const outcomes = new Map(
@@ -220,10 +221,10 @@ function assembleReport(
   const rows = preview.checkpoints.map((def): CheckpointReportData => {
     const stop = def.mode === "stop";
     const outcome = outcomes.get(def.id);
-    const episode = episodes[def.id];
-    const data = episode === undefined
+    const openQuestion = openQuestions[def.id];
+    const data = openQuestion === undefined
       ? undefined
-      : episodeData(episode, stop, bindings.get(def.id));
+      : openQuestionData(openQuestion, stop, bindings.get(def.id));
     if (stop) {
       if (data !== undefined) {
         if (
@@ -237,7 +238,7 @@ function assembleReport(
       } else if (
         outcome !== undefined && outcome.holds && !outcome.whenPending
       ) {
-        // A settled fire with no episode yet: `done` will serve it, and both
+        // A settled fire with no open question yet: `done` will serve it, and both
         // conclusions are already declarable in that same invocation.
         routing.awaiting.push(def.id);
       }
@@ -252,15 +253,15 @@ function assembleReport(
       ...(outcome === undefined
         ? {}
         : { preview: triggerPreviewData(outcome) }),
-      ...(data === undefined ? {} : { episode: data }),
+      ...(data === undefined ? {} : { open_question: data }),
     };
   });
   const governed = new Set(preview.checkpoints.map((def) => def.id));
-  const ungoverned = Object.values(episodes)
-    .filter((episode) => !governed.has(episode.checkpoint))
-    .map((episode): UngovernedEpisodeData => ({
-      id: episode.checkpoint,
-      episode: episodeData(episode, false),
+  const ungoverned = Object.values(openQuestions)
+    .filter((openQuestion) => !governed.has(openQuestion.checkpoint))
+    .map((openQuestion): UngovernedOpenQuestionData => ({
+      id: openQuestion.checkpoint,
+      open_question: openQuestionData(openQuestion, false),
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
   return { rows, ungoverned, routing };
@@ -279,26 +280,27 @@ export async function checkpointsResult(
   const preview = await previewCheckpoints(root, config);
   const advisories = [...preview.advisories];
 
-  const read = await readEpisodes(root);
-  const episodes = read.status === "ok" ? read.episodes : {};
+  const read = await readOpenQuestions(root);
+  const openQuestions = read.status === "ok" ? read.openQuestions : {};
   if (read.status === "invalid") {
     advisories.push(
-      "the checkpoint-episode record did not parse; conclusions must be declared again at `discern done`.",
+      "the checkpoint open-question record did not parse; conclusions must be declared again at `discern done`.",
     );
   } else if (read.status === "unavailable") {
     advisories.push(
-      `the checkpoint-episode record could not be read (${read.reason}); this effort's episode state is unknown.`,
+      `the checkpoint open-question record could not be read (${read.reason}); this effort's openQuestion state is unknown.`,
     );
   }
 
-  // What a bare `done` would reconcile each recorded episode to right now.
+  // What a bare `done` would reconcile each recorded open question to right now.
   // Only a settled stop firing reconciles there, so only that case is
   // recomputed here; a computation failure FAILS OPEN into the recorded
   // state, with the account beside it.
   const bindings = new Map<string, CurrentBinding>();
   for (const { definition, outcome } of preview.entries ?? []) {
     if (
-      definition.mode !== "stop" || episodes[definition.id] === undefined ||
+      definition.mode !== "stop" ||
+      openQuestions[definition.id] === undefined ||
       !outcome.holds || outcome.whenPending
     ) {
       continue;
@@ -325,7 +327,7 @@ export async function checkpointsResult(
 
   const { rows, ungoverned, routing } = assembleReport(
     preview,
-    episodes,
+    openQuestions,
     bindings,
   );
   const economics = await observedCheckpointEconomics(root);
@@ -392,19 +394,21 @@ function rowPresentation(row: CheckpointReportData): {
   fact: string;
   attention: boolean;
 } {
-  const episode = row.episode;
-  if (episode !== undefined) {
-    switch (episode.state) {
+  const openQuestion = row.open_question;
+  if (openQuestion !== undefined) {
+    switch (openQuestion.state) {
       case "declared_met":
         return {
           state: ROW_STATES.declaredMet,
-          fact: `Declared met (${episode.declaration?.declared_at ?? ""}).`,
+          fact: `Declared met (${
+            openQuestion.declaration?.declared_at ?? ""
+          }).`,
           attention: false,
         };
       case "declared_unmet":
         return {
           state: ROW_STATES.declaredUnmet,
-          fact: episode.variance_required === true
+          fact: openQuestion.variance_required === true
             ? "Declared unmet — owner variance required to land."
             : "Declared unmet.",
           attention: true,
@@ -414,7 +418,7 @@ function rowPresentation(row: CheckpointReportData): {
           state: ROW_STATES.awaiting,
           fact: `Reopened — a relevant change unbound the declared ` +
             `${
-              episode.declaration?.conclusion ?? ""
+              openQuestion.declaration?.conclusion ?? ""
             } conclusion; declare again.`,
           attention: true,
         };
@@ -471,7 +475,7 @@ function humanSeconds(seconds: number): string {
 }
 
 /** One observed-economics row as two plain-count lines: the serving footprint
- * with its effort denominator, then how its episodes concluded. Observation
+ * with its effort denominator, then how its open questions concluded. Observation
  * vocabulary only — counts beside denominators, never a verdict. */
 function economicsLines(
   row: CheckpointEconomicsRow,
@@ -557,9 +561,9 @@ function renderRow(out: Out, row: CheckpointReportData): void {
   const { presenter, width } = presentationFacts(out);
   const { state, fact, attention } = rowPresentation(row);
   const evidence = matchedLine(
-    row.episode?.matched ?? row.preview?.matched,
+    row.open_question?.matched ?? row.preview?.matched,
   );
-  const why = row.episode?.declaration?.why;
+  const why = row.open_question?.declaration?.why;
   const detail = [
     attention ? `Question: ${row.question.trim()}` : undefined,
     attention && row.teach !== undefined && row.teach.trim() !== ""
@@ -653,7 +657,7 @@ export async function runCheckpoints(
         presenter.present(renderResultSummaryCli, {
           state: "unchanged",
           fact: terminalMultiline(
-            `${entry.id} — its episode stands (${entry.episode.state}), but ` +
+            `${entry.id} — its openQuestion stands (${entry.open_question.state}), but ` +
               `the current governing policy does not contain it.`,
           ),
           maxWidth: width,

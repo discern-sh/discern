@@ -134,7 +134,10 @@ import {
   observeCheckpointActivity,
   observeResult,
 } from "../../shared/result_capture.ts";
-import { declarationIsCurrent, readEpisodes } from "../checkpoints/episodes.ts";
+import {
+  declarationIsCurrent,
+  readOpenQuestions,
+} from "../checkpoints/open_questions.ts";
 import type {
   AcceptanceEvidenceData,
   AcceptData,
@@ -2291,7 +2294,7 @@ async function executeAcceptPlan(
 
   // The variance authorization binds to the exact declarations it covered.
   // The gate validation above can change them (a fresh run reconciles
-  // episodes), so re-verify the live declared-unmet set still equals the
+  // open questions), so re-verify the live declared-unmet set still equals the
   // authorized set — an owner's decision must never land onto different
   // evidence than the one it was given for.
   const checkpointsNow = await inspectAcceptanceCheckpoints(
@@ -2316,22 +2319,23 @@ async function executeAcceptPlan(
         "made against the current conclusions.",
     );
   }
-  // Observation, never a gate: which episodes will end this effort still
+  // Observation, never a gate: which open questions will end this effort still
   // awaiting a conclusion. Every governing stop conclusion was verified
   // current just above, so anything still awaiting sits outside the governing
-  // stop set — a checkpoint edited away or re-moded since its episode opened.
+  // stop set — a checkpoint edited away or re-moded since its open question opened.
   // Read here while the worktree's store exists; recorded (with the
   // authorized variances) only once the landing transition completes below.
-  const abandonedEpisodes = await (async (): Promise<{ id: string }[]> => {
-    const read = await readEpisodes(ctx.cwd);
+  const abandonedOpenQuestions = await (async (): Promise<{ id: string }[]> => {
+    const read = await readOpenQuestions(ctx.cwd);
     if (read.status !== "ok") {
       return []; // fail open: unreadable state observes nothing
     }
-    return Object.values(read.episodes)
-      .filter((episode) =>
-        episode.declaration === undefined || !declarationIsCurrent(episode)
+    return Object.values(read.openQuestions)
+      .filter((openQuestion) =>
+        openQuestion.declaration === undefined ||
+        !declarationIsCurrent(openQuestion)
       )
-      .map((episode) => ({ id: episode.checkpoint }))
+      .map((openQuestion) => ({ id: openQuestion.checkpoint }))
       .sort((a, b) => a.id.localeCompare(b.id));
   })();
 
@@ -2521,7 +2525,7 @@ async function executeAcceptPlan(
   progress.landing.trunk_landed = true;
   // The landing is now fact, so its checkpoint observations are too: each
   // owner-authorized variance (id and fingerprints only — the rationale is
-  // Proof evidence, never Logbook metadata) and each episode this effort ends
+  // Proof evidence, never Logbook metadata) and each open question this effort ends
   // while it still awaits a conclusion.
   observeCheckpointActivity({
     variances: variances.map((variance) => ({
@@ -2529,7 +2533,7 @@ async function executeAcceptPlan(
       definition: variance.definition_hash,
       subject: variance.subject,
     })),
-    abandoned: abandonedEpisodes,
+    abandoned: abandonedOpenQuestions,
   });
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
   done("git", BUILT_IN_STEP_LABELS.fastForwardTrunk);

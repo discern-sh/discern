@@ -1,7 +1,7 @@
 /**
  * The checkpoint **observation boundary** — the architectural guard that keeps
  * the advisory line structural: the checkpoint INTERLOCK (everything that can
- * refuse `done` or hold a landing) runs on gate-owned episode state only, and
+ * refuse `done` or hold a landing) runs on gate-owned open-question state only, and
  * no Logbook reader — economics, detectors, the stream — can ever steer it.
  *
  * The class this guards: "a Logbook reader gates a command". A wrong advisory
@@ -112,7 +112,7 @@ Deno.test("checkpoint interlock: its module graph reaches no Logbook module", as
   for (
     const expected of [
       join("src", "engine", "checkpoints", "preflight.ts"),
-      join("src", "engine", "checkpoints", "episodes.ts"),
+      join("src", "engine", "checkpoints", "open_questions.ts"),
       join("src", "engine", "worktree", "acceptance_checkpoints.ts"),
     ]
   ) {
@@ -133,7 +133,7 @@ Deno.test("checkpoint interlock: its module graph reaches no Logbook module", as
     breaches,
     [],
     "a checkpoint decision module reaches the Logbook — advisory readers " +
-      "never gate, so the interlock must run on gate-owned episode state " +
+      "never gate, so the interlock must run on gate-owned open-question state " +
       "only (observed history may inform the owner, never a refusal)",
   );
 });

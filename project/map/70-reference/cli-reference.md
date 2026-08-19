@@ -127,14 +127,14 @@ Run finishing steps that may change files, then verify the gate — the project'
 
 Usage: `discern done [options]`
 
-| Option              | Description                                                                                                                                                                                                                                               |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`            | Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).                                                                                                                                                                             |
-| `--dry-run`         | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                                                              |
-| `--confirmed`       | Attest this rerun: run the full gate again on the exact tree it last judged — a flake probe, or a re-measure — and record it. Without the flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it.                                      |
-| `--met <id>`        | Declare a served checkpoint's question met (repeatable). Valid only for a checkpoint with an active episode here; the declaration is recorded as your judgment, and the gate runs in the same invocation once every awaiting checkpoint has a conclusion. |
-| `--unmet <id>`      | Declare a served checkpoint's question unmet (one per invocation; requires --why). The gate still runs; landing then needs the owner to authorize a variance for it.                                                                                      |
-| `--why <rationale>` | The required rationale for --unmet: one paragraph, 1-500 characters, no newlines or control characters. Recorded opaquely as Proof evidence for the owner's landing decision.                                                                             |
+| Option              | Description                                                                                                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`            | Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).                                                                                                                                                                                   |
+| `--dry-run`         | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                                                                    |
+| `--confirmed`       | Attest this rerun: run the full gate again on the exact tree it last judged — a flake probe, or a re-measure — and record it. Without the flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it.                                            |
+| `--met <id>`        | Declare a served checkpoint's question met (repeatable). Valid only for a checkpoint with an active open question here; the declaration is recorded as your judgment, and the gate runs in the same invocation once every awaiting checkpoint has a conclusion. |
+| `--unmet <id>`      | Declare a served checkpoint's question unmet (one per invocation; requires --why). The gate still runs; landing then needs the owner to authorize a variance for it.                                                                                            |
+| `--why <rationale>` | The required rationale for --unmet: one paragraph, 1-500 characters, no newlines or control characters. Recorded opaquely as Proof evidence for the owner's landing decision.                                                                                   |
 
 ### `discern test`
 
@@ -570,7 +570,7 @@ Usage: `discern standards [names...] [options]`
 
 ### `discern checkpoints`
 
-Report the governing checkpoint policy, each episode's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.
+Report the governing checkpoint policy, each open question's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.
 
 Usage: `discern checkpoints [options]`
 

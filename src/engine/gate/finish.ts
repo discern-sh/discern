@@ -1706,7 +1706,7 @@ function serveCheckpointText(served: ServedCheckpoint): string {
  * checkpoint has no current conclusion: every such checkpoint is batched into
  * ONE refusal with its question, matched evidence, and both recoveries. The
  * claim on every surface: no gate job ran and the project tree is unchanged —
- * the episode record and the logbook line are the only writes, and the text
+ * the open-question record and the logbook line are the only writes, and the text
  * states them. Fires BEFORE the rerun guard and before any job or fixer.
  */
 function awaitingDeclarationRefusal(
@@ -1724,7 +1724,7 @@ function awaitingDeclarationRefusal(
     'is satisfied, or `discern done --unmet <id> --why "<rationale>"` (one ' +
     "per invocation) when it is not — the gate still runs, and the " +
     "owner decides the declared-unmet landing. No gate job ran and the " +
-    "project tree is unchanged; the episode record and the logbook line are " +
+    "project tree is unchanged; the open-question record and the logbook line are " +
     "the only writes.";
   const checkpoints = gateCheckpointsData(preflight);
   const data: GateData = {
