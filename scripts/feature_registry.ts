@@ -2876,10 +2876,10 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "compose-staged-work",
         title: "Start the next task before the last one lands",
         value:
-          "A dependent task can build from a proven sibling commit while the earlier branch waits for acceptance. Staged programs can keep moving while each landing decision remains separate.",
+          "A dependent task can build from a proven sibling commit while the earlier branch waits for acceptance. Several branches can be assembled and checked as one combined tree before anything reaches the trunk, while each landing decision remains separate.",
         whyItFollows:
-          "`discern start` and `discern update` accept a source ref, so the next effort can fork from the precise commit it depends on and later reconcile with the trunk through the normal update path.",
-        drawsOn: ["compose-below-trunk", "update"],
+          "`discern start` and `discern update` accept a source ref, so an integration effort can fork from one precise commit, pull in sibling branches, and run the ordinary Gate over their combined tree; only `discern accept` can move the trunk.",
+        drawsOn: ["compose-below-trunk", "update", "gate", "accept"],
       },
       {
         id: "resume-later",
@@ -3019,10 +3019,10 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "evidence-for-this-change",
         title: "Get proof of what passed, tied to the commit it passed on",
         value:
-          "A Proof names the commit, the size of the change, and the checks that passed. A later edit invalidates it, so the user can tell that the evidence belongs to the same work they are considering.",
+          "A Proof names the commit, the size of the change, and the checks that passed. A later edit invalidates it, so the user can tell that the evidence belongs to the same work they are considering. While the tree stays unchanged, acceptance can reuse that result instead of repeating the full Gate.",
         whyItFollows:
-          "The Gate pins a clean committed tree before evaluation and rechecks it when Proof is minted; any later commit or working-tree edit changes the state and makes the recorded Proof stale.",
-        drawsOn: ["proof"],
+          "The Gate pins a clean committed tree before evaluation and rechecks it when Proof is minted; any later commit or working-tree edit makes the recorded Proof stale, and `discern accept` reuses it only while it still matches the clean current `HEAD`.",
+        drawsOn: ["proof", "accept"],
         claims: ["proof-exact-tree"],
       },
       {
@@ -3065,11 +3065,11 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
       },
       {
         id: "recover-interrupted-operations",
-        title: "Recover cleanly from interrupted operations",
+        title: "Preview changes and recover cleanly",
         value:
-          "An interrupted action leaves enough recorded state to resume or repair it without guessing which effects already happened. Less time is lost untangling convincing but incomplete states.",
+          "Before a command changes the project, its planned effects can be inspected without applying them. If an operation is interrupted, enough state remains to resume or repair it without guessing which effects happened. Less time is lost to avoidable surprises and incomplete states.",
         whyItFollows:
-          "Effectful verbs compute a plan before applying it, expose dry runs, record provisioning intent before acting, and use interruption-safe cleanup and recovery paths.",
+          "Effectful verbs compute a read-only plan before a thin executor applies it; `--dry-run` renders that plan and applies nothing. Provisioning intent and transition state are recorded before acting, and cleanup and recovery paths handle interruptions.",
         drawsOn: [
           "plan-apply",
           "crash-safe-provisioning",
