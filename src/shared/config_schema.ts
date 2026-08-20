@@ -432,16 +432,16 @@ const checkpointValue = z.strictObject({
     '"stop" (the default): the gate refuses to run until the agent declares the question met or unmet. "advise": the question and its evidence are delivered through the advisory channel and nothing blocks.',
   ),
   question: z.string().optional().describe(
-    "The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint unless `question_file` supplies it; a table whose <id> names a shipped built-in inherits its question and may override it here. The resolved text can appear in terminal output, MCP context, CI logs, Proof, and landing review. Do not include secrets.",
+    "Inline judgment prose. A project checkpoint needs this or `question_file`; a built-in inherits unless overridden. Review surfaces serve it. Do not include secrets.",
   ),
   question_file: projectFilePath.optional().describe(
-    "A Markdown question loaded from this repository path in the governing merge-base tree. Choose `question` or `question_file`; do not set both. A shipped built-in may omit both to inherit its question. The file must be a regular Git blob, valid UTF-8, and at most 65536 bytes. Repository access controls the file's privacy; discern serves the resolved text in terminal output, MCP context, CI logs, Proof, and landing review. Do not include secrets.",
+    "Repository-relative Markdown path from the governing merge-base Git tree. Mutually exclusive with `question`; built-ins may inherit. Must be a regular Git blob, valid UTF-8, and at most 65536 bytes. Text can appear in terminal, MCP, CI, Proof, and landing review; repository access is its only privacy. Do not include secrets.",
   ),
   teach: z.string().optional().describe(
     "Optional lesson prose carried into renderings: why the question matters and what good looks like.",
   ),
   reference: z.string().optional().describe(
-    "Optional pointer shown separately beside the resolved question. discern does not load or execute the referenced content. The pointer can appear in terminal output, MCP context, CI logs, Proof, and landing review. Do not include secrets.",
+    "Optional displayed pointer. discern performs no content loading or execution. Review surfaces may show it. Do not include secrets.",
   ),
 });
 

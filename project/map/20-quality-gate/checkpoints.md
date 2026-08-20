@@ -62,15 +62,13 @@ The policy for an effort is the `[checkpoints]` configuration at its merge-base 
 
 ## Question sources and references
 
-A project-authored checkpoint sets one question source. `question` carries inline prose. `question_file` names a portable project-relative Markdown file outside `.git`. A built-in may omit both fields to inherit its shipped question, or set one to override it. A string ending in `.md` remains inline prose when it is assigned to `question`; discern never guesses that a string is a path.
+A project checkpoint sets `question` or `question_file`; a built-in may inherit or override either. `.md` has no magic meaning in `question`. `reference` is a displayed, unloaded pointer.
 
-A file-backed question comes from the governing merge-base Git tree ([ADR 0309](../_adr/0309-repository-question-files-are-governed-content.md)). The reader accepts a regular Git blob of valid UTF-8 up to 65,536 bytes. It does not read the candidate file, follow a filesystem symlink, normalize line endings, expand an environment variable, or contact an external source. The resolved content becomes the ordinary checkpoint question. Both that content and the normalized source path enter the definition hash. A candidate edit to the file cannot change its own obligation; a source path or content change that arrives through `discern update` reopens the question.
+`question_file` resolves from the governing merge-base Git tree ([ADR 0309](../_adr/0309-repository-question-files-are-governed-content.md)). It names a portable project-relative path outside `.git`: a regular blob, valid UTF-8, at most 65,536 bytes, with line endings retained. The reader ignores the candidate worktree and rejects symlinks, environment variables, URLs, submodules, external paths, vaults, encryption, and remote transports. Resolved text becomes the ordinary question. Its path and content define the identity: candidate edits have no effect; a governing path or content update reopens it.
 
-The live config loader is strict so a missing, untracked, invalid, or oversized source is caught before it lands. Historical policy is lenient. A missing, deleted, type-changed, invalid, unreadable, or oversized source drops only that checkpoint and records its id, mode, policy commit, and reason in the durable fail-open evidence.
+Live loading rejects bad sources. Historical failures drop only that checkpoint and record its id, mode, policy commit, and reason. Every review surface serves the resolved question and any source or reference.
 
-`reference` is an optional pointer shown separately beside an inline or file-backed question. discern does not load or execute it. Every review surface remains self-contained: `discern checkpoints`, declaration refusals, CI report mode, variance review, and Proof include the resolved question text, with the source path and reference when present.
-
-A question file can be private because its repository is private. discern does not create a private display channel for it. Resolved question text and references can appear in terminal output, MCP context, CI logs, Proof, and landing review. Questions and references must contain no secrets. Files outside the repository, URLs as question content, environment-variable expansion, vaults, encrypted sources, Git submodules, and remote or private transports are unsupported.
+Repository privacy is the only privacy: questions and references can appear in terminal, MCP, CI logs, Proof, and landing review. Never put secrets in either.
 
 ## The `when` escape hatch
 
