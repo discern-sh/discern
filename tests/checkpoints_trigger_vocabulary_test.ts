@@ -398,20 +398,81 @@ Deno.test("content comparison work admits the exact ceiling and rejects one byte
   });
 });
 
-Deno.test("new_directory uses admitted base paths and root additions never qualify", () => {
-  const nested = evaluateStructuralTrigger(
-    definition({ newDirectory: true }),
-    effort([file("feature/new.ts", { kind: "added" })]),
-  );
-  assert(nested.holds);
-  assertEquals(nested.matched, ["feature/new.ts"]);
-  assertEquals(
-    evaluateStructuralTrigger(
-      definition({ newDirectory: true }),
-      effort([file("root.ts", { kind: "added" })]),
-    ),
-    { holds: false, vetoedBy: "new_directory" },
-  );
+Deno.test("new_directory recognizes only a genuinely new admitted parent", () => {
+  const cases: readonly {
+    name: string;
+    includeGenerated?: boolean;
+    files: EffortFileChange[];
+    baseFiles: EffortDiff["baseFiles"];
+    expected: string[] | "veto";
+  }[] = [
+    {
+      name: "a genuinely new parent keeps every addition",
+      files: [
+        file("feature/a.ts", { kind: "added" }),
+        file("feature/b.ts", { kind: "added" }),
+      ],
+      baseFiles: [{ path: "src/existing.ts", generated: false }],
+      expected: ["feature/a.ts", "feature/b.ts"],
+    },
+    {
+      name: "an authored base file makes its parent existing",
+      files: [file("src/new.ts", { kind: "added" })],
+      baseFiles: [{ path: "src/existing.ts", generated: false }],
+      expected: "veto",
+    },
+    {
+      name: "a generated-only base parent is absent by default",
+      files: [file("generated-parent/new.ts", { kind: "added" })],
+      baseFiles: [
+        { path: "generated-parent/output.ts", generated: true },
+      ],
+      expected: ["generated-parent/new.ts"],
+    },
+    {
+      name: "generated opt-in makes its base parent existing",
+      includeGenerated: true,
+      files: [file("generated-parent/new.ts", { kind: "added" })],
+      baseFiles: [
+        { path: "generated-parent/output.ts", generated: true },
+      ],
+      expected: "veto",
+    },
+    {
+      name: "deleting the last base file does not make its parent new",
+      files: [
+        file("legacy/old.ts", { kind: "deleted" }),
+        file("legacy/new.ts", { kind: "added" }),
+      ],
+      baseFiles: [{ path: "legacy/old.ts", generated: false }],
+      expected: "veto",
+    },
+    {
+      name: "a root addition never manufactures a directory",
+      files: [file("root.ts", { kind: "added" })],
+      baseFiles: [],
+      expected: "veto",
+    },
+  ];
+  for (const test of cases) {
+    const out = evaluateStructuralTrigger(
+      definition({
+        newDirectory: true,
+        includeGenerated: test.includeGenerated ?? false,
+      }),
+      { ...effort(test.files), baseFiles: test.baseFiles },
+    );
+    if (test.expected === "veto") {
+      assertEquals(
+        out,
+        { holds: false, vetoedBy: "new_directory" },
+        test.name,
+      );
+    } else {
+      assert(out.holds, test.name);
+      assertEquals(out.matched, test.expected, test.name);
+    }
+  }
 });
 
 Deno.test("binary false deliberately narrows to text", () => {
