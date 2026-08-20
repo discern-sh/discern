@@ -367,13 +367,14 @@ Deno.test("unreadable state is an error, never a guessed subject", async () => {
       "0000000000000000000000000000000000000000",
     );
     assert("error" in out);
-    // A matched directory carries no content identity: it reads as absent
-    // rather than failing the computation.
+    // A matched directory may be a gitlink worktree. Treating it as absent
+    // would bind a declaration to false current state, so it fails open.
     await Deno.mkdir(join(dir, "adir"));
     const base = await gitOut(dir, "rev-parse", "HEAD");
     const withDir = await computeSubject(dir, hash, ["adir"], base);
-    assert("subject" in withDir);
-    assertEquals(withDir.subject.paths[0], { path: "adir" });
+    assert("error" in withDir);
+    assertStringIncludes(withDir.error, "adir");
+    assertStringIncludes(withDir.error, "directory");
   });
 });
 

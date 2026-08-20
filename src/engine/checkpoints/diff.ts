@@ -17,6 +17,8 @@
  */
 
 import { join } from "@std/path";
+import { constants as FS_CONSTANTS } from "node:fs";
+import { type FileHandle, open } from "node:fs/promises";
 import { runGit } from "../../shared/subprocess.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { CHECKPOINT_PATTERN_LIMITS } from "../../shared/checkpoints.ts";
@@ -42,6 +44,11 @@ const BINARY_SNIFF_BYTES = 8000;
 /** A history this large is not a pre-flight fact; only history-aware entries
  * fail open when the ordered OID list exceeds this bound. */
 const HISTORY_OUTPUT_BYTES = 4 * 1024 * 1024;
+
+/** Atomic open policy for branch-controlled untracked paths: never follow a
+ * symlink at open time, and never block on a raced FIFO or device. */
+export const UNTRACKED_OPEN_FLAGS = FS_CONSTANTS.O_RDONLY |
+  FS_CONSTANTS.O_NOFOLLOW | FS_CONSTANTS.O_NONBLOCK;
 
 const PLUS = 0x2b;
 const MINUS = 0x2d;
@@ -103,12 +110,11 @@ interface AttemptedByteBudget {
 /** The opened descriptor must still name the same regular file seen before
  * and after open. Checking before the first read closes the symlink-replacement
  * race without following branch-controlled target bytes. */
-function sameRegularFile(
-  left: Deno.FileInfo,
-  right: Deno.FileInfo,
+function sameFileIdentity(
+  left: { dev: number; ino: number | null },
+  right: { dev: number; ino: number | null },
 ): boolean {
-  return left.isFile && !left.isSymlink && right.isFile && !right.isSymlink &&
-    left.dev !== null && left.ino !== null &&
+  return left.ino !== null && right.ino !== null &&
     left.dev === right.dev && left.ino === right.ino;
 }
 
@@ -125,6 +131,30 @@ function concatenate(
   return out;
 }
 
+/** Open one branch-controlled path atomically as a nonblocking regular file.
+ * The kernel rejects a symlink at the exact open boundary; a FIFO/device opens
+ * nonblocking and is then rejected by fstat before any read. */
+export async function openUntrackedRegularNoFollow(
+  path: string,
+): Promise<FileHandle | undefined> {
+  let file: FileHandle;
+  try {
+    file = await open(path, UNTRACKED_OPEN_FLAGS);
+  } catch {
+    return undefined;
+  }
+  try {
+    if (!(await file.stat()).isFile()) {
+      await file.close().catch(() => undefined);
+      return undefined;
+    }
+    return file;
+  } catch {
+    await file.close().catch(() => undefined);
+    return undefined;
+  }
+}
+
 /** Inspect an untracked regular file once with bounded retention. Symlinks and
  * special files stay unknown so no branch path can expose external bytes. */
 async function inspectUntracked(
@@ -132,6 +162,13 @@ async function inspectUntracked(
   need: "binary" | "line_stats" | "content",
   budget: AttemptedByteBudget,
 ): Promise<UntrackedInspection> {
+  if (budget.used >= CHECKPOINT_PATTERN_LIMITS.maxTotalBytes) {
+    return {
+      insertions: 0,
+      binary: "unknown",
+      contentReason: "total_bytes",
+    };
+  }
   let before: Deno.FileInfo;
   try {
     before = await Deno.lstat(path);
@@ -141,14 +178,14 @@ async function inspectUntracked(
   if (!before.isFile || before.isSymlink) {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   }
-  let file: Deno.FsFile;
-  try {
-    file = await Deno.open(path, { read: true });
-  } catch {
+  let file: FileHandle;
+  const openedFile = await openUntrackedRegularNoFollow(path);
+  if (openedFile === undefined) {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   }
+  file = openedFile;
   try {
-    let opened: Deno.FileInfo;
+    let opened: Awaited<ReturnType<FileHandle["stat"]>>;
     let after: Deno.FileInfo;
     try {
       opened = await file.stat();
@@ -161,19 +198,14 @@ async function inspectUntracked(
       };
     }
     if (
-      !sameRegularFile(before, opened) || !sameRegularFile(opened, after)
+      !opened.isFile() || after.isSymlink || !after.isFile ||
+      !sameFileIdentity(before, opened) ||
+      !sameFileIdentity(opened, after)
     ) {
       return {
         insertions: 0,
         binary: "unknown",
         contentReason: "unreadable",
-      };
-    }
-    if (budget.used > CHECKPOINT_PATTERN_LIMITS.maxTotalBytes) {
-      return {
-        insertions: 0,
-        binary: "unknown",
-        contentReason: "total_bytes",
       };
     }
     const localLimit = need === "binary"
@@ -197,11 +229,18 @@ async function inspectUntracked(
     let newlines = 0;
     let last = -1;
     let binary = false;
+    let eof = false;
     while (bytes < attemptLimit) {
-      const read = await file.read(
-        chunk.subarray(0, Math.min(chunk.length, attemptLimit - bytes)),
+      const { bytesRead: read } = await file.read(
+        chunk,
+        0,
+        Math.min(chunk.length, attemptLimit - bytes),
+        null,
       );
-      if (read === null) break;
+      if (read === 0) {
+        eof = true;
+        break;
+      }
       for (let index = 0; index < read; index++) {
         const byte = chunk[index] ?? 0;
         if (bytes + index < BINARY_SNIFF_BYTES && byte === 0) binary = true;
@@ -213,16 +252,22 @@ async function inspectUntracked(
       budget.used += read;
       if (binary) break;
     }
-    if (binary) return { insertions: 0, binary: true };
-    if (need === "binary") {
-      return { insertions: 0, binary: false };
-    }
     if (budget.used > CHECKPOINT_PATTERN_LIMITS.maxTotalBytes) {
       return {
         insertions: 0,
         binary: "unknown",
         contentReason: "total_bytes",
       };
+    }
+    if (binary) return { insertions: 0, binary: true };
+    if (need === "binary") {
+      return eof || bytes >= BINARY_SNIFF_BYTES
+        ? { insertions: 0, binary: false }
+        : {
+          insertions: 0,
+          binary: "unknown",
+          contentReason: "total_bytes",
+        };
     }
     if (bytes > CHECKPOINT_PATTERN_LIMITS.maxFileBytes) {
       return {
@@ -235,8 +280,8 @@ async function inspectUntracked(
     // distinguishes an exact-boundary file from one byte over.
     if (bytes === attemptLimit) {
       const probe = new Uint8Array(1);
-      const read = await file.read(probe);
-      if (read !== null) {
+      const { bytesRead: read } = await file.read(probe, 0, 1, null);
+      if (read !== 0) {
         budget.used += read;
         return {
           insertions: 0,
@@ -257,7 +302,7 @@ async function inspectUntracked(
   } catch {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   } finally {
-    file.close();
+    await file.close().catch(() => undefined);
   }
 }
 
@@ -544,6 +589,10 @@ export async function collectEffortDiff(
       file.binary = inspection.binary;
       if (!needsContent) continue;
       const bytes = inspection.retained;
+      if (inspection.binary === true) {
+        file.content = { status: "available", added: [], removed: [] };
+        continue;
+      }
       if (bytes === undefined) {
         file.content = {
           status: "unavailable",
@@ -568,7 +617,7 @@ export async function collectEffortDiff(
       file.content = { status: "unavailable", reason: "unreadable" };
       continue;
     }
-    if (budget.used > CHECKPOINT_PATTERN_LIMITS.maxTotalBytes) {
+    if (budget.used >= CHECKPOINT_PATTERN_LIMITS.maxTotalBytes) {
       file.content = { status: "unavailable", reason: "total_bytes" };
       continue;
     }

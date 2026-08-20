@@ -233,7 +233,10 @@ export async function computeSubject(
       continue;
     }
     if (info.isDirectory) {
-      continue; // a directory has no content identity; it reads as absent
+      return {
+        error: `the matched path ${path} is a directory, so its current ` +
+          "Git identity cannot be bound safely",
+      };
     }
     if (!info.isFile) {
       // A FIFO, socket, or device node: git would stall or refuse reading

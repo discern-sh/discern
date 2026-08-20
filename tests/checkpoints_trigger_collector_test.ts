@@ -7,11 +7,14 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
+import { constants as FS_CONSTANTS } from "node:fs";
 import { withTempDir } from "./helpers.ts";
-import { gitInit, gitOut } from "./engine_helpers.ts";
+import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import {
   collectEffortDiff,
+  openUntrackedRegularNoFollow,
   trackedEnumerationAgrees,
+  UNTRACKED_OPEN_FLAGS,
 } from "../src/engine/checkpoints/diff.ts";
 import { checkpointWhenInput } from "../src/engine/checkpoints/preflight.ts";
 import {
@@ -98,6 +101,53 @@ Deno.test("untracked symlink bytes are never followed into checkpoint facts", as
   });
 });
 
+Deno.test("untracked binary content has exact empty changed-line facts", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const base = await gitOut(dir, "rev-parse", "HEAD");
+    await Deno.writeFile(
+      join(dir, "image.bin"),
+      new Uint8Array([0x61, 0x00, 0x6e, 0x65, 0x65, 0x64, 0x6c, 0x65]),
+    );
+    const def = definition({ addsMatching: ["needle"] });
+    const diff = await collectEffortDiff(dir, base, [], [def]);
+    assert(diff !== undefined);
+    const binary = diff.files.find((file) => file.path === "image.bin");
+    assert(binary !== undefined);
+    assertEquals(binary.binary, true);
+    assertEquals(binary.content, {
+      status: "available",
+      added: [],
+      removed: [],
+    });
+    assertEquals(evaluateStructuralTrigger(def, diff), {
+      holds: false,
+      vetoedBy: "adds_matching",
+    });
+  });
+});
+
+Deno.test("untracked opens atomically refuse symlinks and blocking special files", () => {
+  assert(
+    (UNTRACKED_OPEN_FLAGS & FS_CONSTANTS.O_NOFOLLOW) !== 0,
+    "a symlink replacement must fail at open time",
+  );
+  assert(
+    (UNTRACKED_OPEN_FLAGS & FS_CONSTANTS.O_NONBLOCK) !== 0,
+    "a FIFO or device replacement must never block open",
+  );
+});
+
+Deno.test("the no-follow open boundary rejects a symlink semantically", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "target.txt"), "external bytes\n");
+    const linked = join(dir, "linked.txt");
+    await Deno.symlink(join(dir, "target.txt"), linked);
+    assertEquals(await openUntrackedRegularNoFollow(linked), undefined);
+  });
+});
+
 Deno.test("one huge untracked file stops at the per-file content boundary", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
@@ -131,7 +181,7 @@ Deno.test("repeated overlimit untracked files debit one shared attempted-byte bu
     for (let index = 0; index < count; index++) {
       await Deno.writeFile(join(dir, `a-${index}.txt`), over);
     }
-    await Deno.writeTextFile(join(dir, "z-final.txt"), "needle\n");
+    await Deno.symlink(join(dir, "seed.txt"), join(dir, "z-final.txt"));
     const def = definition({ addsMatching: ["needle"] });
     const diff = await collectEffortDiff(dir, base, [], [def]);
     assert(diff !== undefined);
@@ -139,6 +189,88 @@ Deno.test("repeated overlimit untracked files debit one shared attempted-byte bu
       diff.files.find((file) => file.path === "z-final.txt")?.content,
       { status: "unavailable", reason: "total_bytes" },
     );
+  });
+});
+
+Deno.test("a partial binary sniff at the shared boundary stays unknown", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const base = await gitOut(dir, "rev-parse", "HEAD");
+    const full = new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxFileBytes).fill(
+      0x61,
+    );
+    for (let index = 0; index < 7; index++) {
+      await Deno.writeFile(join(dir, `a-${index}.txt`), full);
+    }
+    await Deno.writeFile(
+      join(dir, "a-7.txt"),
+      new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxFileBytes - 4096).fill(0x61),
+    );
+    const binary = new Uint8Array(6000).fill(0x61);
+    binary[5000] = 0;
+    await Deno.writeFile(join(dir, "z.bin"), binary);
+    const diff = await collectEffortDiff(dir, base, [], [
+      definition({
+        id: "stats",
+        selector: { globs: ["a-*.txt"] },
+        minChangedLines: 1,
+      }),
+      definition({
+        id: "binary",
+        selector: { globs: ["z.bin"] },
+        binary: true,
+      }),
+    ]);
+    assert(diff !== undefined);
+    assertEquals(
+      diff.files.find((file) => file.path === "z.bin")?.binary,
+      "unknown",
+    );
+  });
+});
+
+Deno.test("gitlinks stay unknown and cannot produce an absent current subject", async () => {
+  await withTempDir(async (dir) => {
+    const source = join(dir, "source");
+    const repo = join(dir, "repo");
+    await Deno.mkdir(source);
+    await Deno.mkdir(repo);
+    await Deno.writeTextFile(join(source, "module.txt"), "module\n");
+    await gitInit(source);
+    await Deno.writeTextFile(join(repo, "seed.txt"), "seed\n");
+    await gitInit(repo);
+    const base = await gitOut(repo, "rev-parse", "HEAD");
+    await git(
+      repo,
+      "-c",
+      "protocol.file.allow=always",
+      "submodule",
+      "add",
+      "-q",
+      source,
+      "vendor/module",
+    );
+    const def = definition({
+      selector: { globs: ["vendor/**"] },
+      addsMatching: ["needle"],
+    });
+    const diff = await collectEffortDiff(repo, base, [], [def]);
+    assert(diff !== undefined);
+    const link = diff.files.find((file) => file.path === "vendor/module");
+    assert(link !== undefined);
+    assertEquals(link.binary, "unknown");
+    assertEquals(link.content, {
+      status: "unavailable",
+      reason: "unreadable",
+    });
+    const subject = await computeSubject(
+      repo,
+      await checkpointDefinitionHash(def),
+      ["vendor/module"],
+      base,
+    );
+    assert("error" in subject, JSON.stringify(subject));
   });
 });
 
