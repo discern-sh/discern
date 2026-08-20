@@ -203,6 +203,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "the OS-temp artifact registry: creates gate output artifacts and reaps expired ones (outside the project tree; ADR 0117)",
   ],
   [
+    "src/engine/checkpoints/when.ts",
+    "the registered one-run checkpoint input artifact, written in OS temp and removed before run release",
+  ],
+  [
     "src/shared/write_preflight.ts",
     "ephemeral same-directory authority probes for writes a slow workflow plans to perform later",
   ],

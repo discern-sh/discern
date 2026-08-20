@@ -50,6 +50,10 @@ const NON_SKILL_TOKENS = new Map<string, string>([
     "discern-proof-note",
     "the landing proof note's published schema artifact basename",
   ],
+  [
+    "discern-checkpoint-input",
+    "the registered OS-temp filename prefix for one checkpoint command input",
+  ],
 ]);
 
 const EXEMPT_SEGMENTS = ["/_adr/", "/_private/"] as const;

@@ -1,7 +1,7 @@
 ---
 title: Checkpoint when protocol
 description: The versioned DISCERN_CHECKPOINT_INPUT facts, DISCERN_MATCH output, lifecycle, and candidate-worktree execution boundary.
-order: 165
+order: 170
 aliases:
   - checkpoint when input
   - checkpoint when command
