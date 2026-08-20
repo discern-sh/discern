@@ -137,9 +137,9 @@ export const AGENTS_CONTENT = {
     eyebrow: "EXACT COMPLETION",
     title: "Return Proof, not reassurance.",
     paragraphs: [
-      "When you report the work complete, discern does not ask another model whether you sound convincing. It runs the checks this project declared against one clean committed tree and records the result: branch, commit, changed files, the limits that held. Change the tree, and the evidence stops applying.",
+      "When you report the work complete, discern does not ask another model whether you sound convincing. It runs the checks this project declared against one clean committed tree, and records branch, commit, changed files, and the limits that held. Change the tree, and the evidence stops applying.",
       "discern calls that record Proof.",
-      "Run the fast checks while the change moves and the full Gate on the final clean commit. Exercise the actual artifact, and end your report with the exact commit's Proof line.",
+      "Run the fast checks while the change moves and the full Gate on the final clean commit. Exercise the actual artifact, and end your report with the Proof line for the exact commit.",
     ],
     facts: [
       {
