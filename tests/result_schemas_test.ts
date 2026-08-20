@@ -1332,6 +1332,7 @@ Deno.test("checkpoints result is faithful (empty, fired, ungoverned open questio
       definitionHash: "d".repeat(64),
       subject: "s".repeat(64),
       matchedPaths: ["api/surface.txt"],
+      relatedPaths: [],
     });
     assert(planted.ok, "the fixture open question must record");
     const withGhost = await checkpointsResult(dir);

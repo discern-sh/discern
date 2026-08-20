@@ -473,6 +473,13 @@
   #   scope      selector: a configured [scopes.<name>] whose paths choose the
   #              matched set (one selector — use scope OR paths, never both)
   #   paths      selector: globs choosing the matched set (same dialect as scopes)
+  #   include_generated
+  #              true includes paths owned by governing [generated.<name>].paths;
+  #              false (the default) evaluates authored change only
+  #   exclude_paths
+  #              checkpoint-specific noise to remove after the selector and
+  #              before every condition, threshold, subject, evidence, and
+  #              `when` match (same glob dialect as paths)
   #   unless_changed
   #              hold fire when any changed path matches one of these — each
   #              entry a glob, or a configured scope name ("flag this change

@@ -2054,15 +2054,32 @@ export type DiscernDoneResult = {
         teach?: string;
         reference?: string;
         matched: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
       }>;
       declared_met?: Array<{
         id: string;
         declared_at: string;
+        matched?: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
       }>;
       declared_unmet?: Array<{
         id: string;
         why: string;
         declared_at: string;
+        matched?: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
       }>;
       advise?: Array<{
         id: string;
@@ -2071,6 +2088,11 @@ export type DiscernDoneResult = {
         teach?: string;
         reference?: string;
         matched: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
       }>;
       review?: {
         enforcement: "reported";
@@ -2082,6 +2104,11 @@ export type DiscernDoneResult = {
           teach?: string;
           reference?: string;
           matched: Array<string>;
+          related?: Array<{
+            kind: "similar_existing";
+            for_path: string;
+            path: string;
+          }>;
         }>;
       };
       drops?: Array<
@@ -2641,8 +2668,15 @@ export type DiscernCheckpointsResult = {
         holds: boolean;
         when_pending?: boolean;
         matched?: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
         vetoed_by?:
           | "empty_matched_set"
+          | "generated_only"
+          | "excluded_only"
           | "unless_changed"
           | "min_changed_files"
           | "deletion_dominant"
@@ -2657,6 +2691,11 @@ export type DiscernCheckpointsResult = {
         definition_hash: string;
         subject: string;
         matched: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
         opened_at: string;
         reopened_at?: string;
         declaration?: {
@@ -2679,6 +2718,11 @@ export type DiscernCheckpointsResult = {
         definition_hash: string;
         subject: string;
         matched: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
         opened_at: string;
         reopened_at?: string;
         declaration?: {

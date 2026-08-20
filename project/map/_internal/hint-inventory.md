@@ -219,7 +219,7 @@ Rendered example:
 
 Rendered example:
 
-> Checkpoint 'deletion-heavy-change' (advisory — nothing blocks): Is the cut proven dead, and recovery bounded? Changed: src/legacy_module.ext.
+> Checkpoint 'deletion-heavy-change' (advisory — nothing blocks): Is the cut proven dead, and recovery bounded? Changed: `src/legacy_module.ext`.
 
 ## `checkpoint-advisory`
 
@@ -263,7 +263,7 @@ Rendered example:
 
 Rendered example:
 
-> Checkpoint 'api-review' will require a declared conclusion at `discern done`: A changed API surface is described in its docs before it lands. Changed: src/api/surface.ext.
+> Checkpoint 'api-review' will require a declared conclusion at `discern done`: A changed API surface is described in its docs before it lands. Changed: `src/api/surface.ext`.
 
 ## `checkpoints-declare`
 

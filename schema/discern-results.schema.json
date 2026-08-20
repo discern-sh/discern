@@ -6389,6 +6389,31 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "related": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "similar_existing"
+                                  ]
+                                },
+                                "for_path": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "for_path",
+                                "path"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -6409,6 +6434,37 @@
                           },
                           "declared_at": {
                             "type": "string"
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "related": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "similar_existing"
+                                  ]
+                                },
+                                "for_path": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "for_path",
+                                "path"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -6431,6 +6487,37 @@
                           },
                           "declared_at": {
                             "type": "string"
+                          },
+                          "matched": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "related": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "similar_existing"
+                                  ]
+                                },
+                                "for_path": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "for_path",
+                                "path"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -6469,6 +6556,31 @@
                             "type": "array",
                             "items": {
                               "type": "string"
+                            }
+                          },
+                          "related": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "similar_existing"
+                                  ]
+                                },
+                                "for_path": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "for_path",
+                                "path"
+                              ]
                             }
                           }
                         },
@@ -6522,6 +6634,31 @@
                                 "type": "array",
                                 "items": {
                                   "type": "string"
+                                }
+                              },
+                              "related": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "similar_existing"
+                                      ]
+                                    },
+                                    "for_path": {
+                                      "type": "string"
+                                    },
+                                    "path": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "for_path",
+                                    "path"
+                                  ]
                                 }
                               }
                             },
@@ -8430,10 +8567,37 @@
                               "type": "string"
                             }
                           },
+                          "related": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "similar_existing"
+                                  ]
+                                },
+                                "for_path": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "for_path",
+                                "path"
+                              ]
+                            }
+                          },
                           "vetoed_by": {
                             "type": "string",
                             "enum": [
                               "empty_matched_set",
+                              "generated_only",
+                              "excluded_only",
                               "unless_changed",
                               "min_changed_files",
                               "deletion_dominant",
@@ -8467,6 +8631,31 @@
                             "type": "array",
                             "items": {
                               "type": "string"
+                            }
+                          },
+                          "related": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "similar_existing"
+                                  ]
+                                },
+                                "for_path": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "for_path",
+                                "path"
+                              ]
                             }
                           },
                           "opened_at": {
@@ -8553,6 +8742,31 @@
                             "type": "array",
                             "items": {
                               "type": "string"
+                            }
+                          },
+                          "related": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "similar_existing"
+                                  ]
+                                },
+                                "for_path": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "for_path",
+                                "path"
+                              ]
                             }
                           },
                           "opened_at": {

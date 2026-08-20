@@ -14,7 +14,11 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { configWriteIssues, parseConfig } from "../src/shared/config_schema.ts";
+import {
+  configWriteIssues,
+  parseConfig,
+  RECORD_ENTRY_SCHEMAS,
+} from "../src/shared/config_schema.ts";
 import { applyConfigDoc } from "../src/lib/config_doc.ts";
 import type { DiscernConfigDoc } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
@@ -158,25 +162,46 @@ serverity = "high"
   assert(issues.some((i) => i.path.startsWith("checkpoints.x")));
 });
 
-Deno.test("a config document applies a checkpoint that the live schema then loads", () => {
+Deno.test("the config document writes every checkpoint field the live schema declares", () => {
+  const checkpoints = {
+    "docs-review": {
+      scope: "docs",
+      include_generated: true,
+      exclude_paths: ["docs/generated/**"],
+      unless_changed: ["docs/reference/**"],
+      min_changed_files: 2,
+      deletion_dominant: true,
+      similar_new_file: true,
+      when: "check-docs",
+      mode: "advise" as const,
+      question: "Changed pages still earn their place.",
+      teach: "Prose the reader needed, not an inventory.",
+    },
+    "path-review": {
+      paths: ["src/**"],
+      question: "The selected source change is judged.",
+    },
+  } satisfies NonNullable<DiscernConfigDoc["checkpoints"]>;
+  const coveredFields = new Set(
+    Object.values(checkpoints).flatMap((entry) => Object.keys(entry)),
+  );
+  assertEquals(
+    [...coveredFields].sort(),
+    Object.keys(RECORD_ENTRY_SCHEMAS.checkpoints.shape).sort(),
+    "a new checkpoint config field must join the document writer/parser fixture",
+  );
+
   const editor = new TomlEditor("");
   const report = applyConfigDoc(editor, {
     scopes: { docs: { paths: ["docs/**"] } },
-    checkpoints: {
-      "docs-review": {
-        scope: "docs",
-        min_changed_files: 2,
-        mode: "advise",
-        question: "Changed pages still earn their place.",
-        teach: "Prose the reader needed, not an inventory.",
-      },
-    },
+    checkpoints,
   });
   assert(report.filled.includes("checkpoints.docs-review"));
+  assert(report.filled.includes("checkpoints.path-review"));
   const { config, issues } = parseConfig(editor.toString());
   assertEquals(issues, []);
   assert(config !== undefined);
-  assertEquals(config.checkpoints["docs-review"]?.min_changed_files, 2);
+  assertEquals(config.checkpoints, checkpoints);
 });
 
 Deno.test("a config document refuses an authored checkpoint without a question", () => {

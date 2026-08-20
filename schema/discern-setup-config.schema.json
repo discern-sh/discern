@@ -664,6 +664,17 @@
               "type": "string"
             }
           },
+          "include_generated": {
+            "description": "Whether paths owned by governing [generated.<name>].paths participate in this checkpoint. Default false evaluates authored change only.",
+            "type": "boolean"
+          },
+          "exclude_paths": {
+            "description": "Checkpoint-specific noise to remove after selector resolution and before every condition, threshold, subject, evidence, and when match. Uses the selector glob dialect. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "unless_changed": {
             "description": "The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express \"this change class is fine when its counterpart moved too\". Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
