@@ -1910,8 +1910,8 @@ Deno.test("update: a failing no-op convergence serializes its command and recove
 
     const markdown = await runAgent(wt, ["update", "--markdown"]);
     assertEquals(markdown.code, 0, markdown.output);
-    assertStringIncludes(markdown.stdout, "exit 7");
-    assertStringIncludes(
+    assertTerminalTextIncludes(markdown.stdout, "exit 7");
+    assertTerminalTextIncludes(
       markdown.stdout,
       HINTS["lifecycle-convergence-failed"].template(undefined),
     );
