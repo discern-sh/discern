@@ -117,6 +117,9 @@ export interface ResolvedCheckpoint {
   mode: CheckpointMode;
   /** The judgment prose the agent evaluates. */
   question: string;
+  /** Governing repository path that supplied `question`, when file-backed.
+   * Provenance only: every downstream judgment consumes the string above. */
+  questionFile?: string;
   /** Optional lesson prose carried into renderings. */
   teach?: string;
   /** Optional reference material carried into renderings. */

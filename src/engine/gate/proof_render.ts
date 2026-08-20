@@ -42,6 +42,7 @@ import type { LandingConsent } from "../../shared/consent.ts";
 import { diffFiles } from "../worktree/git.ts";
 import { isWorktreeFullyClean } from "./proof.ts";
 import { fmtRate } from "./standards.ts";
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 
 /** The facts half of a {@link Proof} — everything but the two renderings. */
 type ProofFacts = Omit<Proof, "markdown" | "line">;
@@ -53,7 +54,7 @@ function cell(s: string): string {
 
 /** A markdown code span that survives content containing backticks. */
 function code(s: string): string {
-  return s.includes("`") ? `\`\` ${s} \`\`` : `\`${s}\``;
+  return markdownCodeSpan(s);
 }
 
 /** A page duration from whole-second job timing: a run that rounds to zero says
@@ -216,18 +217,49 @@ function checkpointsSection(
     );
     return [...changed, ...related];
   };
+  const question = (
+    entry: {
+      question?: string | undefined;
+      question_file?: string | undefined;
+      teach?: string | undefined;
+      reference?: string | undefined;
+    },
+  ): string[] => {
+    if (entry.question === undefined) {
+      return ["  - Question: unavailable in this older Proof record"];
+    }
+    const prose = entry.question.trim();
+    const rendered = prose === ""
+      ? "  - Question: (empty)"
+      : `  - Question:\n\n    ${prose.replaceAll("\n", "\n    ")}`;
+    return [
+      rendered,
+      ...(entry.question_file === undefined
+        ? []
+        : [`  - Question source: ${code(entry.question_file)}`]),
+      ...(entry.teach === undefined || entry.teach.trim() === ""
+        ? []
+        : [`  - Teach: ${entry.teach.trim()}`]),
+      ...(entry.reference === undefined || entry.reference.trim() === ""
+        ? []
+        : [`  - Reference: ${code(entry.reference.trim())}`]),
+    ];
+  };
   for (const unreviewed of checkpoints.review?.unreviewed ?? []) {
-    lines.push(`- ${unreviewed.id} — unreviewed; ${unreviewed.question}`);
+    lines.push(`- ${code(unreviewed.id)}: unreviewed`);
+    lines.push(...question(unreviewed));
     lines.push(...evidence(unreviewed));
   }
   for (const met of checkpoints.declared_met) {
-    lines.push(`- ${met.id} — declared met`);
+    lines.push(`- ${code(met.id)}: declared met`);
+    lines.push(...question(met));
     lines.push(...evidence(met));
   }
   for (const unmet of checkpoints.declared_unmet) {
     lines.push(
-      `- ${unmet.id} — declared unmet; rationale: ${code(unmet.why)}`,
+      `- ${code(unmet.id)}: declared unmet; rationale: ${code(unmet.why)}`,
     );
+    lines.push(...question(unmet));
     lines.push(...evidence(unmet));
   }
   if (checkpoints.declared_unmet.length > 0) {

@@ -1278,6 +1278,12 @@ async function runGate(
     fire(HINTS["checkpoint-advise"], {
       id: served.id,
       question: served.question.trim(),
+      ...(served.questionFile === undefined
+        ? {}
+        : { questionFile: served.questionFile }),
+      ...(served.reference === undefined
+        ? {}
+        : { reference: served.reference }),
       matched: [...served.matched],
       related: relatedCheckpointData(served.related),
     })
@@ -1620,14 +1626,34 @@ async function dryRunGate(
   return 0;
 }
 
+/** Project the one resolved question shape onto public snake-case fields. */
+function checkpointQuestionData(
+  value: {
+    question: string;
+    questionFile?: string;
+    teach?: string;
+    reference?: string;
+  },
+): Pick<
+  ServedCheckpointData,
+  "question" | "question_file" | "teach" | "reference"
+> {
+  return {
+    question: value.question,
+    ...(value.questionFile === undefined
+      ? {}
+      : { question_file: value.questionFile }),
+    ...(value.teach === undefined ? {} : { teach: value.teach }),
+    ...(value.reference === undefined ? {} : { reference: value.reference }),
+  };
+}
+
 /** Project one served checkpoint onto the wire shape. */
 function servedCheckpointData(served: ServedCheckpoint): ServedCheckpointData {
   return {
     id: served.id,
     mode: served.mode,
-    question: served.question,
-    ...(served.teach === undefined ? {} : { teach: served.teach }),
-    ...(served.reference === undefined ? {} : { reference: served.reference }),
+    ...checkpointQuestionData(served),
     matched: [...served.matched],
     ...(served.related.length === 0
       ? {}
@@ -1660,6 +1686,7 @@ function gateCheckpointsData(
     ...(preflight.declaredMet.length === 0 ? {} : {
       declared_met: preflight.declaredMet.map((met) => ({
         id: met.id,
+        ...checkpointQuestionData(met),
         declared_at: met.declaredAt,
         matched: [...met.matched],
         ...(met.related.length === 0
@@ -1670,6 +1697,7 @@ function gateCheckpointsData(
     ...(preflight.declaredUnmet.length === 0 ? {} : {
       declared_unmet: preflight.declaredUnmet.map((unmet) => ({
         id: unmet.id,
+        ...checkpointQuestionData(unmet),
         why: unmet.why,
         declared_at: unmet.declaredAt,
         matched: [...unmet.matched],
@@ -1720,6 +1748,7 @@ function proofCheckpointsData(
       : { policy: preflight.policyCommit }),
     declared_met: preflight.declaredMet.map((met) => ({
       id: met.id,
+      ...checkpointQuestionData(met),
       declared_at: met.declaredAt,
       matched: [...met.matched],
       ...(met.related.length === 0
@@ -1728,6 +1757,7 @@ function proofCheckpointsData(
     })),
     declared_unmet: preflight.declaredUnmet.map((unmet) => ({
       id: unmet.id,
+      ...checkpointQuestionData(unmet),
       why: unmet.why,
       declared_at: unmet.declaredAt,
       matched: [...unmet.matched],
@@ -1771,11 +1801,14 @@ function serveCheckpointText(served: ServedCheckpoint): string {
     ),
     `  Question: ${served.question.trim()}`,
   ];
+  if (served.questionFile !== undefined) {
+    lines.push(`  Question source: ${markdownCodeSpan(served.questionFile)}`);
+  }
   if (served.teach !== undefined && served.teach.trim() !== "") {
     lines.push(`  Teach: ${served.teach.trim()}`);
   }
   if (served.reference !== undefined && served.reference.trim() !== "") {
-    lines.push(`  Reference: ${served.reference.trim()}`);
+    lines.push(`  Reference: ${markdownCodeSpan(served.reference.trim())}`);
   }
   return lines.join("\n");
 }

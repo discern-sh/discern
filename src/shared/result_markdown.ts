@@ -956,6 +956,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
   const failedStage = text(data.failed_stage);
   const standards = records(data.standards);
   const proof = object(data.proof);
+  const unreviewed = records(review?.unreviewed);
   const regressions = standards.filter((reading) =>
     reading.verdict === "regressed"
   );
@@ -982,6 +983,21 @@ const presentGate: ResultMarkdownPresenter = (result) => {
               " unreviewed"
             : "no review was needed"
         }.`,
+      ...unreviewed.slice(0, MAX_LIST_ITEMS).map((entry) => {
+        const source = text(entry.question_file);
+        const reference = text(entry.reference);
+        return `${code(entry.id)} (${
+          text(entry.mode) ?? "stop"
+        }) is unreviewed.\n\n` +
+          `Question: ${text(entry.question) ?? ""}` +
+          (source === undefined
+            ? ""
+            : `\n\nQuestion source: ${code(source)}.`) +
+          (reference === undefined ? "" : `\n\nReference: ${code(reference)}.`);
+      }),
+      unreviewed.length > MAX_LIST_ITEMS
+        ? omitted(unreviewed.length - MAX_LIST_ITEMS, "checkpoint question")
+        : undefined,
       ...records(checkpoints?.drops).map(checkpointDropLine),
       proofLine(proof),
       gateProofFact(data.gate_proof),
@@ -1027,10 +1043,19 @@ function checkpointRowLine(row: Record<string, unknown>): string {
   const openQuestion = object(row.open_question);
   const preview = object(row.preview);
   const question = text(row.question);
+  const source = text(row.question_file);
+  const reference = text(row.reference);
   const withQuestion = (phrase: string): string =>
-    question === undefined ? phrase : `${phrase} — ${question}`;
+    [
+      phrase,
+      question === undefined ? undefined : `Question: ${question}`,
+      source === undefined ? undefined : `Question source: ${code(source)}.`,
+      reference === undefined ? undefined : `Reference: ${code(reference)}.`,
+    ].filter((part): part is string => part !== undefined).join("\n\n");
   if (obligation === "unknown") {
-    return `${id} (${mode}): strict obligation unknown — checkpoint state failed open.`;
+    return withQuestion(
+      `${id} (${mode}): strict obligation unknown — checkpoint state failed open.`,
+    );
   }
   if (
     openQuestion !== undefined && obligation !== "none" &&
@@ -1040,46 +1065,46 @@ function checkpointRowLine(row: Record<string, unknown>): string {
     const why = text(declaration?.why);
     switch (text(openQuestion.state)) {
       case "declared_met":
-        return `${id} (${mode}): declared met.`;
+        return withQuestion(`${id} (${mode}): declared met.`);
       case "declared_unmet":
-        return `${id} (${mode}): declared unmet${
-          openQuestion.variance_required === true
-            ? " — owner variance required to land"
-            : ""
-        }${
-          // The rationale is opaque agent evidence: in an interpreted
-          // Markdown document it renders only through the code-span escaping
-          // boundary, exactly as the Proof page renders it.
-          why === undefined ? "" : `. Rationale: ${code(why)}`}.`;
+        return withQuestion(
+          `${id} (${mode}): declared unmet${
+            openQuestion.variance_required === true
+              ? " — owner variance required to land"
+              : ""
+          }${
+            // The rationale is opaque agent evidence: in an interpreted
+            // Markdown document it renders only through the code-span escaping
+            // boundary, exactly as the Proof page renders it.
+            why === undefined ? "" : `. Rationale: ${code(why)}`}.`,
+        );
       case "reopened":
-        return `${id} (${mode}): ${
-          withQuestion(
-            "reopened — a relevant change unbound the declared conclusion; declare again",
-          )
-        }.`;
+        return withQuestion(
+          `${id} (${mode}): reopened — a relevant change unbound the declared conclusion; declare again.`,
+        );
       default:
-        return `${id} (${mode}): ${
-          withQuestion("awaiting a declared conclusion")
-        }.`;
+        return withQuestion(
+          `${id} (${mode}): awaiting a declared conclusion.`,
+        );
     }
   }
   if (preview === undefined) {
-    return `${id} (${mode}): state unknown — the effort diff could not be read.`;
+    return withQuestion(
+      `${id} (${mode}): state unknown — the effort diff could not be read.`,
+    );
   }
   if (preview.holds !== true) {
-    return `${id} (${mode}): idle.`;
+    return withQuestion(`${id} (${mode}): idle.`);
   }
   const matched = strings(preview.matched).length;
   if (preview.when_pending === true) {
-    return `${id} (${mode}): ${
-      withQuestion(
-        `may fire at done — its when command decides (${matched} matched)`,
-      )
-    }.`;
+    return withQuestion(
+      `${id} (${mode}): may fire at done — its when command decides (${matched} matched).`,
+    );
   }
-  return `${id} (${mode}): ${
-    withQuestion(`would fire at done (${matched} matched)`)
-  }.`;
+  return withQuestion(
+    `${id} (${mode}): would fire at done (${matched} matched).`,
+  );
 }
 
 /** One observed-economics row as a compact Markdown line. */

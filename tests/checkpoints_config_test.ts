@@ -1,11 +1,10 @@
 /**
  * The `[checkpoints.<id>]` config surface: what parses, what loads, and what a
- * programmatic write may leave incomplete. The generic record-family guards
+ * programmatic writes may produce. The generic record-family guards
  * (banner parity, settable paths, key legality) enrol the section
- * automatically; these tests pin the checkpoint-specific validation split:
- * reference issues (unknown scope, both selectors) block writes AND loads,
- * while completeness (a non-built-in entry's missing question) blocks loads
- * only, so an entry can be built incrementally like any record family's.
+ * automatically; these tests pin the checkpoint-specific semantic boundary:
+ * selector errors and incomplete or ambiguous question sources block both
+ * writes and loads.
  */
 
 import {
@@ -50,6 +49,7 @@ min_changed_files = 3
 mode = "advise"
 question = "Changed pages still reduce the reading needed for a correct decision."
 teach = "Behaviour and where to look, never inventories."
+reference = "project/map/review-notes.md"
 `;
 
 Deno.test("a full checkpoint entry parses with every field preserved", () => {
@@ -62,6 +62,7 @@ Deno.test("a full checkpoint entry parses with every field preserved", () => {
   assertEquals(entry.min_changed_files, 3);
   assertEquals(entry.mode, "advise");
   assertEquals(entry.teach, "Behaviour and where to look, never inventories.");
+  assertEquals(entry.reference, "project/map/review-notes.md");
 });
 
 Deno.test("unset checkpoint fields stay absent (presence is meaningful at resolution)", () => {
@@ -116,19 +117,74 @@ question = "Judged."
   assert(configWriteIssues(both).some((i) => i.path === "checkpoints.x"));
 });
 
-Deno.test("an authored checkpoint without a question fails the LOAD, not the incremental write", () => {
+Deno.test("an authored checkpoint without a question source blocks loads and writes", () => {
   const incomplete = `
 [checkpoints.mine]
 paths = ["src/**"]
 `;
   const { config, issues } = parseConfig(incomplete);
   assertEquals(config, undefined);
-  const issue = issues.find((i) => i.path === "checkpoints.mine.question");
+  const issue = issues.find((i) => i.path === "checkpoints.mine");
   assert(issue !== undefined);
   assertStringIncludes(issue.message, "question");
-  // Incremental construction stays legal: the write-time check excuses the
-  // missing question exactly as it excuses a standards entry's missing run.
-  assertEquals(configWriteIssues(incomplete), []);
+  assert(
+    configWriteIssues(incomplete).some((i) => i.path === "checkpoints.mine"),
+  );
+});
+
+Deno.test("a checkpoint takes one explicit question source, while a built-in may inherit", () => {
+  for (const id of ["mine", "map-focus"]) {
+    const text = `[checkpoints.${id}]\nquestion = "Inline."\n` +
+      'question_file = "policy/review.md"\n';
+    const { config, issues } = parseConfig(text);
+    assertEquals(config, undefined, id);
+    const issue = issues.find((candidate) =>
+      candidate.path === `checkpoints.${id}`
+    );
+    assert(issue !== undefined, id);
+    assertStringIncludes(issue.message, `[checkpoints.${id}]`);
+    assertStringIncludes(issue.message, "question_file");
+    assert(
+      configWriteIssues(text).some((candidate) =>
+        candidate.path === `checkpoints.${id}`
+      ),
+    );
+  }
+
+  const inherited = parseConfig("[checkpoints.map-focus]\n");
+  assert(inherited.config !== undefined);
+  assertEquals(inherited.issues, []);
+});
+
+Deno.test("question_file uses the portable project-relative file path contract", () => {
+  const valid = parseConfig(
+    '[checkpoints.mine]\nquestion_file = "./policy/review question.md"\n',
+  );
+  assert(valid.config !== undefined);
+  assertEquals(
+    valid.config.checkpoints.mine?.question_file,
+    "policy/review question.md",
+  );
+  for (
+    const path of [
+      "/absolute.md",
+      "../outside.md",
+      ".git/question.md",
+      "policy//question.md",
+      "https://example.test/question.md",
+    ]
+  ) {
+    const parsed = parseConfig(
+      `[checkpoints.mine]\nquestion_file = ${JSON.stringify(path)}\n`,
+    );
+    assertEquals(parsed.config, undefined, path);
+    assert(
+      parsed.issues.some((issue) =>
+        issue.path === "checkpoints.mine.question_file"
+      ),
+      path,
+    );
+  }
 });
 
 Deno.test("a whitespace-only question reads as missing", () => {
@@ -265,10 +321,11 @@ Deno.test("the config document writes every checkpoint field the live schema dec
       mode: "advise" as const,
       question: "Changed pages still earn their place.",
       teach: "Prose the reader needed, not an inventory.",
+      reference: "project/map/review-notes.md",
     },
     "path-review": {
       paths: ["src/**"],
-      question: "The selected source change is judged.",
+      question_file: "policy/source review.md",
     },
   } satisfies NonNullable<DiscernConfigDoc["checkpoints"]>;
   const coveredFields = new Set(
@@ -293,7 +350,7 @@ Deno.test("the config document writes every checkpoint field the live schema dec
   assertEquals(config.checkpoints, checkpoints);
 });
 
-Deno.test("a config document refuses an authored checkpoint without a question", () => {
+Deno.test("a config document refuses an authored checkpoint without a question source", () => {
   assertThrows(
     () =>
       applyConfigDoc(
@@ -303,7 +360,26 @@ Deno.test("a config document refuses an authored checkpoint without a question",
         } as unknown as DiscernConfigDoc,
       ),
     Error,
-    'checkpoint "mine": a question is required',
+    "[checkpoints.mine] must set exactly one question source",
+  );
+});
+
+Deno.test("a config document refuses two checkpoint question sources", () => {
+  assertThrows(
+    () =>
+      applyConfigDoc(
+        new TomlEditor(""),
+        {
+          checkpoints: {
+            mine: {
+              question: "Inline.",
+              question_file: "policy/question.md",
+            },
+          },
+        } as unknown as DiscernConfigDoc,
+      ),
+    Error,
+    "[checkpoints.mine] sets both question and question_file",
   );
 });
 

@@ -30,6 +30,10 @@ import {
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import type { BuiltInCheckpointSeed } from "../src/shared/checkpoints.ts";
 import { questionById } from "../src/shared/questions.ts";
+import {
+  CHECKPOINT_QUESTION_FILE_FAILURES,
+  type CheckpointQuestionFileFailure,
+} from "../src/shared/checkpoint_question_files.ts";
 
 /** A minimal governing config with one authored checkpoint. */
 function configText(question: string): string {
@@ -191,7 +195,7 @@ Deno.test("an unresolvable merge-base fails open with an advisory", async () => 
   });
 });
 
-Deno.test("an unloadable governing config fails open with an advisory", async () => {
+Deno.test("a historical checkpoint without a question source drops by id", async () => {
   await withTempDir(async (dir) => {
     // Valid TOML, invalid schema: an authored checkpoint with no question.
     await Deno.writeTextFile(
@@ -203,7 +207,10 @@ Deno.test("an unloadable governing config fails open with an advisory", async ()
     assert(policy.policyCommit !== undefined);
     assertEquals(policy.checkpoints, []);
     assertEquals(policy.drops.length, 1);
-    assertStringIncludes(policy.drops[0]?.account ?? "", "does not load");
+    assertEquals(policy.drops[0]?.checkpoint, "bare");
+    assertEquals(policy.drops[0]?.reason, "checkpoint_missing_question");
+    assertEquals(policy.drops[0]?.policy_commit, policy.policyCommit);
+    assertStringIncludes(policy.drops[0]?.account ?? "", "does not govern");
   });
 });
 
@@ -231,6 +238,7 @@ Deno.test("resolveCheckpoints expands scope selectors, references, and unless_ch
       'mode = "advise"',
       'question = "Also judged."',
       'teach = "A lesson."',
+      'reference = "project/map/review.md#details"',
       "",
     ].join("\n"),
   );
@@ -252,6 +260,7 @@ Deno.test("resolveCheckpoints expands scope selectors, references, and unless_ch
   assertEquals(code?.when, "scripts/probe.sh");
   assertEquals(code?.mode, "advise");
   assertEquals(code?.teach, "A lesson.");
+  assertEquals(code?.reference, "project/map/review.md#details");
 });
 
 Deno.test("resolveCheckpoints drops what cannot govern, one advisory each", () => {
@@ -278,11 +287,46 @@ Deno.test("resolveCheckpoints drops what cannot govern, one advisory each", () =
     paths: ["docs/**"],
     question: "Judged.",
   };
+  config.checkpoints["both-sources"] = {
+    question: "Inline.",
+    question_file: "policy/question.md",
+  };
   const { checkpoints, drops } = resolveCheckpoints(config);
   assertEquals(checkpoints.map((c) => c.id), ["ok"]);
-  assertEquals(drops.length, 3);
+  assertEquals(drops.length, 4);
+  assertEquals(
+    drops.find((drop) => drop.checkpoint === "both-sources")?.reason,
+    "checkpoint_question_source_conflict",
+  );
   for (const drop of drops) {
     assertStringIncludes(drop.account, "does not govern");
+  }
+});
+
+Deno.test("every question-file read failure maps to durable entry evidence", () => {
+  const expected = {
+    missing: "checkpoint_question_file_missing",
+    not_regular_blob: "checkpoint_question_file_not_regular",
+    not_tracked: "checkpoint_question_file_not_regular",
+    oversized: "checkpoint_question_file_oversized",
+    invalid_utf8: "checkpoint_question_file_invalid_utf8",
+    unreadable: "checkpoint_question_file_unreadable",
+  } as const satisfies Record<CheckpointQuestionFileFailure, string>;
+  const config = parseConfigOrThrow(
+    '[checkpoints.review]\nquestion_file = "policy/review.md"\n',
+  );
+  for (const reason of CHECKPOINT_QUESTION_FILE_FAILURES) {
+    const resolved = resolveCheckpoints(
+      config,
+      {},
+      new Map([[
+        "policy/review.md",
+        { ok: false as const, path: "policy/review.md", reason },
+      ]]),
+    );
+    assertEquals(resolved.checkpoints, [], reason);
+    assertEquals(resolved.drops[0]?.reason, expected[reason], reason);
+    assertStringIncludes(resolved.drops[0]?.account ?? "", "does not govern");
   }
 });
 
@@ -482,6 +526,36 @@ Deno.test("an entry overriding the question serves its own prose", () => {
   });
   const { checkpoints } = resolveCheckpoints(config, SEEDS);
   assertEquals(checkpoints[0]?.question, "My own judgment.");
+});
+
+Deno.test("a built-in may override its question from one resolved repository file", () => {
+  const config = seedConfig({
+    "scoped-seed": {
+      question_file: "policy/review.md",
+      reference: "project/map/review.md#details",
+    },
+  });
+  const { checkpoints, drops } = resolveCheckpoints(
+    config,
+    SEEDS,
+    new Map([
+      ["policy/review.md", {
+        ok: true as const,
+        path: "policy/review.md",
+        question: "## File-backed judgment\n\nReview the whole boundary.",
+      }],
+    ]),
+  );
+  assertEquals(drops, []);
+  assertEquals(checkpoints[0]?.questionFile, "policy/review.md");
+  assertEquals(
+    checkpoints[0]?.question,
+    "## File-backed judgment\n\nReview the whole boundary.",
+  );
+  assertEquals(
+    checkpoints[0]?.reference,
+    "project/map/review.md#details",
+  );
 });
 
 Deno.test("the selector is one slot: an entry's paths replace a seed's scope, and vice versa", () => {

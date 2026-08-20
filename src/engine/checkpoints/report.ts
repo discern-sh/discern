@@ -257,6 +257,9 @@ function assembleReport(
       id: def.id,
       mode: def.mode,
       question: def.question,
+      ...(def.questionFile === undefined
+        ? {}
+        : { question_file: def.questionFile }),
       ...(def.teach === undefined ? {} : { teach: def.teach }),
       ...(def.reference === undefined ? {} : { reference: def.reference }),
       trigger: triggerSummary(def),
@@ -567,10 +570,16 @@ function renderRow(out: Out, row: CheckpointReportData): void {
   );
   const why = row.open_question?.declaration?.why;
   const detail = [
-    attention ? `Question: ${row.question.trim()}` : undefined,
-    attention && row.teach !== undefined && row.teach.trim() !== ""
+    `Question: ${row.question.trim()}`,
+    row.question_file === undefined
+      ? undefined
+      : `Question source: ${row.question_file}`,
+    row.teach !== undefined && row.teach.trim() !== ""
       ? `Teach: ${row.teach.trim()}`
       : undefined,
+    row.reference === undefined || row.reference.trim() === ""
+      ? undefined
+      : `Reference: ${row.reference.trim()}`,
     why === undefined ? undefined : `Rationale: ${why}`,
     attention ? evidence : undefined,
     ...(attention ? related : []),

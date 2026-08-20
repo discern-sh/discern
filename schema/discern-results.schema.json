@@ -6378,6 +6378,9 @@
                           "question": {
                             "type": "string"
                           },
+                          "question_file": {
+                            "type": "string"
+                          },
                           "teach": {
                             "type": "string"
                           },
@@ -6432,6 +6435,18 @@
                           "id": {
                             "type": "string"
                           },
+                          "question": {
+                            "type": "string"
+                          },
+                          "question_file": {
+                            "type": "string"
+                          },
+                          "teach": {
+                            "type": "string"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
                           "declared_at": {
                             "type": "string"
                           },
@@ -6480,6 +6495,18 @@
                         "type": "object",
                         "properties": {
                           "id": {
+                            "type": "string"
+                          },
+                          "question": {
+                            "type": "string"
+                          },
+                          "question_file": {
+                            "type": "string"
+                          },
+                          "teach": {
+                            "type": "string"
+                          },
+                          "reference": {
                             "type": "string"
                           },
                           "why": {
@@ -6544,6 +6571,9 @@
                             ]
                           },
                           "question": {
+                            "type": "string"
+                          },
+                          "question_file": {
                             "type": "string"
                           },
                           "teach": {
@@ -6622,6 +6652,9 @@
                                 ]
                               },
                               "question": {
+                                "type": "string"
+                              },
+                              "question_file": {
                                 "type": "string"
                               },
                               "teach": {
@@ -6744,6 +6777,13 @@
                                 "type": "string",
                                 "enum": [
                                   "checkpoint_missing_question",
+                                  "checkpoint_question_file_missing",
+                                  "checkpoint_question_file_invalid_path",
+                                  "checkpoint_question_file_not_regular",
+                                  "checkpoint_question_file_oversized",
+                                  "checkpoint_question_file_invalid_utf8",
+                                  "checkpoint_question_file_unreadable",
+                                  "checkpoint_question_source_conflict",
                                   "checkpoint_selector_conflict",
                                   "checkpoint_unknown_scope",
                                   "effort_diff_unreadable",
@@ -8537,6 +8577,9 @@
                       "question": {
                         "type": "string"
                       },
+                      "question_file": {
+                        "type": "string"
+                      },
                       "teach": {
                         "type": "string"
                       },
@@ -8993,6 +9036,13 @@
                             "type": "string",
                             "enum": [
                               "checkpoint_missing_question",
+                              "checkpoint_question_file_missing",
+                              "checkpoint_question_file_invalid_path",
+                              "checkpoint_question_file_not_regular",
+                              "checkpoint_question_file_oversized",
+                              "checkpoint_question_file_invalid_utf8",
+                              "checkpoint_question_file_unreadable",
+                              "checkpoint_question_source_conflict",
                               "checkpoint_selector_conflict",
                               "checkpoint_unknown_scope",
                               "effort_diff_unreadable",
@@ -15000,6 +15050,13 @@
                                 "type": "string",
                                 "enum": [
                                   "checkpoint_missing_question",
+                                  "checkpoint_question_file_missing",
+                                  "checkpoint_question_file_invalid_path",
+                                  "checkpoint_question_file_not_regular",
+                                  "checkpoint_question_file_oversized",
+                                  "checkpoint_question_file_invalid_utf8",
+                                  "checkpoint_question_file_unreadable",
+                                  "checkpoint_question_source_conflict",
                                   "checkpoint_selector_conflict",
                                   "checkpoint_unknown_scope",
                                   "effort_diff_unreadable",
@@ -15369,6 +15426,13 @@
                                       "type": "string",
                                       "enum": [
                                         "checkpoint_missing_question",
+                                        "checkpoint_question_file_missing",
+                                        "checkpoint_question_file_invalid_path",
+                                        "checkpoint_question_file_not_regular",
+                                        "checkpoint_question_file_oversized",
+                                        "checkpoint_question_file_invalid_utf8",
+                                        "checkpoint_question_file_unreadable",
+                                        "checkpoint_question_source_conflict",
                                         "checkpoint_selector_conflict",
                                         "checkpoint_unknown_scope",
                                         "effort_diff_unreadable",
@@ -16333,6 +16397,13 @@
                             "type": "string",
                             "enum": [
                               "checkpoint_missing_question",
+                              "checkpoint_question_file_missing",
+                              "checkpoint_question_file_invalid_path",
+                              "checkpoint_question_file_not_regular",
+                              "checkpoint_question_file_oversized",
+                              "checkpoint_question_file_invalid_utf8",
+                              "checkpoint_question_file_unreadable",
+                              "checkpoint_question_source_conflict",
                               "checkpoint_selector_conflict",
                               "checkpoint_unknown_scope",
                               "effort_diff_unreadable",
@@ -16653,6 +16724,13 @@
                                     "type": "string",
                                     "enum": [
                                       "checkpoint_missing_question",
+                                      "checkpoint_question_file_missing",
+                                      "checkpoint_question_file_invalid_path",
+                                      "checkpoint_question_file_not_regular",
+                                      "checkpoint_question_file_oversized",
+                                      "checkpoint_question_file_invalid_utf8",
+                                      "checkpoint_question_file_unreadable",
+                                      "checkpoint_question_source_conflict",
                                       "checkpoint_selector_conflict",
                                       "checkpoint_unknown_scope",
                                       "effort_diff_unreadable",
@@ -20100,6 +20178,13 @@
                     "type": "string",
                     "enum": [
                       "checkpoint_missing_question",
+                      "checkpoint_question_file_missing",
+                      "checkpoint_question_file_invalid_path",
+                      "checkpoint_question_file_not_regular",
+                      "checkpoint_question_file_oversized",
+                      "checkpoint_question_file_invalid_utf8",
+                      "checkpoint_question_file_unreadable",
+                      "checkpoint_question_source_conflict",
                       "checkpoint_selector_conflict",
                       "checkpoint_unknown_scope",
                       "effort_diff_unreadable",

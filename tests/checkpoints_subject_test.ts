@@ -22,6 +22,7 @@ import {
   checkpointDefinitionHash,
   computeSubject,
 } from "../src/engine/checkpoints/subject.ts";
+import { CHECKPOINT_QUESTION_SOURCE_BINDINGS } from "../src/engine/checkpoints/policy.ts";
 import type { CheckpointSubject } from "../src/engine/checkpoints/subject.ts";
 import type { ResolvedCheckpoint } from "../src/engine/checkpoints/types.ts";
 
@@ -197,6 +198,7 @@ Deno.test("matched-set and definition changes each move the fingerprint", async 
 const HASH_VARIANTS: Partial<ResolvedCheckpoint>[] = [
   { mode: "advise" },
   { question: "Other prose." },
+  { questionFile: "policy/questions/review.md" },
   { teach: "A lesson." },
   { reference: "a-pointer" },
   { selector: { globs: ["src/**"] } },
@@ -227,6 +229,7 @@ Deno.test("a new resolved-definition field cannot dodge the hash", () => {
     id: "probe",
     mode: "stop",
     question: "The change is judged.",
+    questionFile: "policy/questions/review.md",
     teach: "A lesson.",
     reference: "a-pointer",
     selector: { scope: "code", globs: ["src/**"] },
@@ -251,6 +254,14 @@ Deno.test("a new resolved-definition field cannot dodge the hash", () => {
       continue; // open questions key by id; the hash answers "did the MEANING change"
     }
     assert(perturbed.has(key), `no hash variant perturbs '${key}'`);
+  }
+  for (const fields of Object.values(CHECKPOINT_QUESTION_SOURCE_BINDINGS)) {
+    for (const field of fields) {
+      assert(
+        perturbed.has(field),
+        `question source does not perturb resolved identity '${field}'`,
+      );
+    }
   }
 });
 

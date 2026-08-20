@@ -497,6 +497,12 @@ export function checkpointInspectionHints(
         fire(HINTS["checkpoint-preview"], {
           id: definition.id,
           question: definition.question.trim(),
+          ...(definition.questionFile === undefined
+            ? {}
+            : { questionFile: definition.questionFile }),
+          ...(definition.reference === undefined
+            ? {}
+            : { reference: definition.reference }),
           matched: [...obligation.matched],
           related: relatedCheckpointData(obligation.related),
           whenPending: false,
@@ -510,6 +516,12 @@ export function checkpointInspectionHints(
         fire(HINTS["checkpoint-preview"], {
           id: definition.id,
           question: definition.question.trim(),
+          ...(definition.questionFile === undefined
+            ? {}
+            : { questionFile: definition.questionFile }),
+          ...(definition.reference === undefined
+            ? {}
+            : { reference: definition.reference }),
           matched: [...obligation.matched],
           related: relatedCheckpointData(obligation.related),
           whenPending: true,

@@ -99,6 +99,13 @@ export type DiscernProofSummary = {
       policy_commit: string;
       reason:
         | "checkpoint_missing_question"
+        | "checkpoint_question_file_missing"
+        | "checkpoint_question_file_invalid_path"
+        | "checkpoint_question_file_not_regular"
+        | "checkpoint_question_file_oversized"
+        | "checkpoint_question_file_invalid_utf8"
+        | "checkpoint_question_file_unreadable"
+        | "checkpoint_question_source_conflict"
         | "checkpoint_selector_conflict"
         | "checkpoint_unknown_scope"
         | "effort_diff_unreadable"
@@ -2057,6 +2064,7 @@ export type DiscernDoneResult = {
         id: string;
         mode: "stop" | "advise";
         question: string;
+        question_file?: string;
         teach?: string;
         reference?: string;
         matched: Array<string>;
@@ -2068,6 +2076,10 @@ export type DiscernDoneResult = {
       }>;
       declared_met?: Array<{
         id: string;
+        question?: string;
+        question_file?: string;
+        teach?: string;
+        reference?: string;
         declared_at: string;
         matched?: Array<string>;
         related?: Array<{
@@ -2078,6 +2090,10 @@ export type DiscernDoneResult = {
       }>;
       declared_unmet?: Array<{
         id: string;
+        question?: string;
+        question_file?: string;
+        teach?: string;
+        reference?: string;
         why: string;
         declared_at: string;
         matched?: Array<string>;
@@ -2091,6 +2107,7 @@ export type DiscernDoneResult = {
         id: string;
         mode: "stop" | "advise";
         question: string;
+        question_file?: string;
         teach?: string;
         reference?: string;
         matched: Array<string>;
@@ -2107,6 +2124,7 @@ export type DiscernDoneResult = {
           id: string;
           mode: "stop" | "advise";
           question: string;
+          question_file?: string;
           teach?: string;
           reference?: string;
           matched: Array<string>;
@@ -2138,6 +2156,13 @@ export type DiscernDoneResult = {
           policy_commit: string;
           reason:
             | "checkpoint_missing_question"
+            | "checkpoint_question_file_missing"
+            | "checkpoint_question_file_invalid_path"
+            | "checkpoint_question_file_not_regular"
+            | "checkpoint_question_file_oversized"
+            | "checkpoint_question_file_invalid_utf8"
+            | "checkpoint_question_file_unreadable"
+            | "checkpoint_question_source_conflict"
             | "checkpoint_selector_conflict"
             | "checkpoint_unknown_scope"
             | "effort_diff_unreadable"
@@ -2665,6 +2690,7 @@ export type DiscernCheckpointsResult = {
       id: string;
       mode: "stop" | "advise";
       question: string;
+      question_file?: string;
       teach?: string;
       reference?: string;
       trigger: string;
@@ -2791,6 +2817,13 @@ export type DiscernCheckpointsResult = {
         policy_commit: string;
         reason:
           | "checkpoint_missing_question"
+          | "checkpoint_question_file_missing"
+          | "checkpoint_question_file_invalid_path"
+          | "checkpoint_question_file_not_regular"
+          | "checkpoint_question_file_oversized"
+          | "checkpoint_question_file_invalid_utf8"
+          | "checkpoint_question_file_unreadable"
+          | "checkpoint_question_source_conflict"
           | "checkpoint_selector_conflict"
           | "checkpoint_unknown_scope"
           | "effort_diff_unreadable"
@@ -4460,6 +4493,13 @@ export type DiscernStatusResult = {
           policy_commit: string;
           reason:
             | "checkpoint_missing_question"
+            | "checkpoint_question_file_missing"
+            | "checkpoint_question_file_invalid_path"
+            | "checkpoint_question_file_not_regular"
+            | "checkpoint_question_file_oversized"
+            | "checkpoint_question_file_invalid_utf8"
+            | "checkpoint_question_file_unreadable"
+            | "checkpoint_question_source_conflict"
             | "checkpoint_selector_conflict"
             | "checkpoint_unknown_scope"
             | "effort_diff_unreadable"
@@ -4570,6 +4610,13 @@ export type DiscernStatusResult = {
             policy_commit: string;
             reason:
               | "checkpoint_missing_question"
+              | "checkpoint_question_file_missing"
+              | "checkpoint_question_file_invalid_path"
+              | "checkpoint_question_file_not_regular"
+              | "checkpoint_question_file_oversized"
+              | "checkpoint_question_file_invalid_utf8"
+              | "checkpoint_question_file_unreadable"
+              | "checkpoint_question_source_conflict"
               | "checkpoint_selector_conflict"
               | "checkpoint_unknown_scope"
               | "effort_diff_unreadable"
@@ -4851,6 +4898,13 @@ export type DiscernAcceptResult = {
         policy_commit: string;
         reason:
           | "checkpoint_missing_question"
+          | "checkpoint_question_file_missing"
+          | "checkpoint_question_file_invalid_path"
+          | "checkpoint_question_file_not_regular"
+          | "checkpoint_question_file_oversized"
+          | "checkpoint_question_file_invalid_utf8"
+          | "checkpoint_question_file_unreadable"
+          | "checkpoint_question_source_conflict"
           | "checkpoint_selector_conflict"
           | "checkpoint_unknown_scope"
           | "effort_diff_unreadable"
@@ -4949,6 +5003,13 @@ export type DiscernAcceptResult = {
             policy_commit: string;
             reason:
               | "checkpoint_missing_question"
+              | "checkpoint_question_file_missing"
+              | "checkpoint_question_file_invalid_path"
+              | "checkpoint_question_file_not_regular"
+              | "checkpoint_question_file_oversized"
+              | "checkpoint_question_file_invalid_utf8"
+              | "checkpoint_question_file_unreadable"
+              | "checkpoint_question_source_conflict"
               | "checkpoint_selector_conflict"
               | "checkpoint_unknown_scope"
               | "effort_diff_unreadable"

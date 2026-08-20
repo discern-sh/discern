@@ -2154,6 +2154,8 @@ export const HINTS = {
     {
       id: string;
       question: string;
+      questionFile?: string;
+      reference?: string;
       matched: string[];
       related: { kind: "similar_existing"; for_path: string; path: string }[];
       whenPending: boolean;
@@ -2173,7 +2175,15 @@ export const HINTS = {
       related: [],
       whenPending: false,
     },
-    template: ({ id, question, matched, related, whenPending }): string => {
+    template: ({
+      id,
+      question,
+      questionFile,
+      reference,
+      matched,
+      related,
+      whenPending,
+    }): string => {
       const shown = matched.slice(0, 4).map(markdownCodeSpan).join(", ");
       const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
       const claim = whenPending
@@ -2184,7 +2194,16 @@ export const HINTS = {
           markdownCodeSpan(relation.path)
         } resembles ${markdownCodeSpan(relation.for_path)}.`
       ).join("");
+      const pointers = [
+        questionFile === undefined
+          ? undefined
+          : `Question source: ${markdownCodeSpan(questionFile)}.`,
+        reference === undefined
+          ? undefined
+          : `Reference: ${markdownCodeSpan(reference)}.`,
+      ].filter((value): value is string => value !== undefined).join(" ");
       return `Checkpoint '${id}' ${claim} at ${CMD.done}: ${question} ` +
+        (pointers === "" ? "" : `${pointers} `) +
         `Changed: ${shown}${more}.${relations}`;
     },
   }),
@@ -2193,6 +2212,8 @@ export const HINTS = {
     {
       id: string;
       question: string;
+      questionFile?: string;
+      reference?: string;
       matched: string[];
       related: { kind: "similar_existing"; for_path: string; path: string }[];
     }
@@ -2209,7 +2230,14 @@ export const HINTS = {
       matched: ["src/legacy_module.ext"],
       related: [],
     },
-    template: ({ id, question, matched, related }): string => {
+    template: ({
+      id,
+      question,
+      questionFile,
+      reference,
+      matched,
+      related,
+    }): string => {
       const shown = matched.slice(0, 4).map(markdownCodeSpan).join(", ");
       const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
       const relations = related.map((relation) =>
@@ -2217,7 +2245,16 @@ export const HINTS = {
           markdownCodeSpan(relation.path)
         } resembles ${markdownCodeSpan(relation.for_path)}.`
       ).join("");
+      const pointers = [
+        questionFile === undefined
+          ? undefined
+          : `Question source: ${markdownCodeSpan(questionFile)}.`,
+        reference === undefined
+          ? undefined
+          : `Reference: ${markdownCodeSpan(reference)}.`,
+      ].filter((value): value is string => value !== undefined).join(" ");
       return `Checkpoint '${id}' (advisory — nothing blocks): ${question} ` +
+        (pointers === "" ? "" : `${pointers} `) +
         `Changed: ${shown}${more}.${relations}`;
     },
   }),

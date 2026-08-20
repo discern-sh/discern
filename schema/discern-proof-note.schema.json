@@ -148,6 +148,13 @@
                     "type": "string",
                     "enum": [
                       "checkpoint_missing_question",
+                      "checkpoint_question_file_missing",
+                      "checkpoint_question_file_invalid_path",
+                      "checkpoint_question_file_not_regular",
+                      "checkpoint_question_file_oversized",
+                      "checkpoint_question_file_invalid_utf8",
+                      "checkpoint_question_file_unreadable",
+                      "checkpoint_question_source_conflict",
                       "checkpoint_selector_conflict",
                       "checkpoint_unknown_scope",
                       "effort_diff_unreadable",

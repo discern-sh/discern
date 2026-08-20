@@ -50,7 +50,12 @@ import {
   CHECKPOINT_MODES,
   CHECKPOINT_PATTERN_LIMITS,
   isBuiltInCheckpoint,
+  selectCheckpointQuestionSource,
 } from "./checkpoints.ts";
+import {
+  checkpointQuestionFileFailureMessage,
+  readLiveCheckpointQuestionFile,
+} from "./checkpoint_question_files.ts";
 
 export { AGENT_NAMES } from "./agent_catalogue.ts";
 
@@ -105,6 +110,16 @@ export const NAME_RE = /^[A-Za-z0-9_-]+$/;
 const LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION = `Registered path references (${
   LIVE_PATH_REFERENCE_SPELLINGS.join(", ")
 }) resolve from this config before matching or execution; unregistered braced forms stay untouched.`;
+
+/** One portable project-relative file path. Shared by every scalar file key,
+ * including checkpoint question sources. */
+const projectFilePath = z.string().regex(
+  PROJECT_RELATIVE_FILE_INPUT_RE,
+  "must be a portable project-relative file path outside .git",
+).overwrite(normalizeProjectRelativeFilePath).refine(
+  (value) => projectRelativePathIssue(value) === undefined,
+  { message: "must be a portable project-relative file path outside .git" },
+);
 
 /** The native provider names are derived from the shared identity catalogue,
  * then reused by the document's `agents` enum, generated editor JSON Schema,
@@ -417,10 +432,16 @@ const checkpointValue = z.strictObject({
     '"stop" (the default): the gate refuses to run until the agent declares the question met or unmet. "advise": the question and its evidence are delivered through the advisory channel and nothing blocks.',
   ),
   question: z.string().optional().describe(
-    "The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint; a table whose <id> names a shipped built-in inherits its question and may override it here.",
+    "The judgment prose the agent evaluates against the matched change. Required for a project-authored checkpoint unless `question_file` supplies it; a table whose <id> names a shipped built-in inherits its question and may override it here. The resolved text can appear in terminal output, MCP context, CI logs, Proof, and landing review. Do not include secrets.",
+  ),
+  question_file: projectFilePath.optional().describe(
+    "A Markdown question loaded from this repository path in the governing merge-base tree. Choose `question` or `question_file`; do not set both. A shipped built-in may omit both to inherit its question. The file must be a regular Git blob, valid UTF-8, and at most 65536 bytes. Repository access controls the file's privacy; discern serves the resolved text in terminal output, MCP context, CI logs, Proof, and landing review. Do not include secrets.",
   ),
   teach: z.string().optional().describe(
     "Optional lesson prose carried into renderings: why the question matters and what good looks like.",
+  ),
+  reference: z.string().optional().describe(
+    "Optional pointer shown separately beside the resolved question. discern does not load or execute the referenced content. The pointer can appear in terminal output, MCP context, CI logs, Proof, and landing review. Do not include secrets.",
   ),
 });
 
@@ -430,14 +451,6 @@ const checkpointsSection = z.record(z.string().regex(NAME_RE), checkpointValue)
   );
 
 // ── the live `discern.toml` schema ─────────────────────────────────────────────
-
-const projectFilePath = z.string().regex(
-  PROJECT_RELATIVE_FILE_INPUT_RE,
-  "must be a portable project-relative file path outside .git",
-).overwrite(normalizeProjectRelativeFilePath).refine(
-  (value) => projectRelativePathIssue(value) === undefined,
-  { message: "must be a portable project-relative file path outside .git" },
-);
 
 const projectDirectoryPath = z.string().regex(
   PROJECT_RELATIVE_DIRECTORY_INPUT_RE,
@@ -1033,26 +1046,55 @@ function checkpointReferenceIssues(parsed: unknown): ConfigIssue[] {
 }
 
 /**
- * `[checkpoints]` COMPLETENESS rules, enforced at load only: a checkpoint that
- * is not a shipped built-in must define its question. Kept out of the
- * write-time check so an entry can be built incrementally, the same allowance
- * every record family's missing required keys receive.
+ * `[checkpoints]` QUESTION-SOURCE rules. A project-authored id supplies one
+ * source; a shipped built-in may omit both to inherit. These semantic rules
+ * apply to loads and programmatic writes so no editor can leave an ambiguous
+ * source or a table that cannot become a question.
  */
-function checkpointCompletenessIssues(parsed: unknown): ConfigIssue[] {
+function checkpointQuestionSourceIssues(parsed: unknown): ConfigIssue[] {
   if (!isRecord(parsed) || !isRecord(parsed.checkpoints)) {
     return [];
   }
   const issues: ConfigIssue[] = [];
   for (const [id, entry] of Object.entries(parsed.checkpoints)) {
-    if (!isRecord(entry) || isBuiltInCheckpoint(id)) {
+    if (!isRecord(entry)) {
       continue;
     }
-    if (typeof entry.question !== "string" || entry.question.trim() === "") {
-      issues.push({
-        path: `checkpoints.${id}.question`,
-        message:
-          `"${id}" names no shipped checkpoint, so it must define \`question\` — the judgment prose the agent evaluates when the trigger fires.`,
-      });
+    const builtIn = isBuiltInCheckpoint(id);
+    const source = selectCheckpointQuestionSource(entry, builtIn);
+    if (source.kind !== "invalid") {
+      continue;
+    }
+    switch (source.problem) {
+      case "multiple":
+        issues.push({
+          path: `checkpoints.${id}`,
+          message: `[checkpoints.${id}] sets both \`question\` and ` +
+            `\`question_file\`. Keep one question source.` +
+            (builtIn
+              ? " Remove both fields to inherit the shipped question."
+              : ' Valid forms are `question = "…"` or `question_file = "path/to/question.md"`.'),
+        });
+        break;
+      case "missing":
+        issues.push({
+          path: `checkpoints.${id}`,
+          message: `[checkpoints.${id}] names no shipped checkpoint. Set ` +
+            'exactly one question source: `question = "…"` or ' +
+            '`question_file = "path/to/question.md"`.',
+        });
+        break;
+      case "empty_question":
+        issues.push({
+          path: `checkpoints.${id}.question`,
+          message: `[checkpoints.${id}].question contains no judgment prose. ` +
+            "Write a non-whitespace question, or replace it with " +
+            '`question_file = "path/to/question.md"`.',
+        });
+        break;
+      case "invalid_file":
+        // The strict field schema owns type and portable-path diagnostics.
+        break;
     }
   }
   return issues;
@@ -1083,6 +1125,35 @@ function acceptanceGrantIssues(parsed: unknown): ConfigIssue[] {
   });
 }
 
+/** Validate an already-parsed TOML value through the complete live contract.
+ * Governing-policy recovery uses this after removing only checkpoint entries
+ * whose historical question source cannot be represented by today's schema. */
+export function validateConfigValue(
+  parsed: unknown,
+): { config: DiscernConfig | undefined; issues: ConfigIssue[] } {
+  const jobIssues = jobFormIssues(parsed);
+  const formIssues = [
+    ...jobIssues,
+    ...acceptanceGrantIssues(parsed),
+    ...checkpointReferenceIssues(parsed),
+    ...checkpointQuestionSourceIssues(parsed),
+  ];
+  const result = configSchema.safeParse(parsed);
+  if (result.success) {
+    if (formIssues.length > 0) {
+      return { config: undefined, issues: formIssues };
+    }
+    return { config: result.data as DiscernConfig, issues: [] };
+  }
+  const formOwners = new Set(
+    jobIssues.map((issue) => issue.path.split(".").slice(0, 2).join(".")),
+  );
+  const schemaIssues = result.error.issues.map(toConfigIssue).filter((issue) =>
+    !formOwners.has(issue.path.split(".").slice(0, 2).join("."))
+  );
+  return { config: undefined, issues: [...formIssues, ...schemaIssues] };
+}
+
 /**
  * Parse `discern.toml` text and validate it against the schema, collecting EVERY
  * problem rather than failing on the first — so `doctor` can report all of them.
@@ -1099,27 +1170,7 @@ export function parseConfig(
   } catch (err) {
     throw new ConfigParseError(tomlSyntaxHint(err));
   }
-  const jobIssues = jobFormIssues(parsed);
-  const formIssues = [
-    ...jobIssues,
-    ...acceptanceGrantIssues(parsed),
-    ...checkpointReferenceIssues(parsed),
-    ...checkpointCompletenessIssues(parsed),
-  ];
-  const result = configSchema.safeParse(parsed);
-  if (result.success) {
-    if (formIssues.length > 0) {
-      return { config: undefined, issues: formIssues };
-    }
-    return { config: result.data as DiscernConfig, issues: [] };
-  }
-  const formOwners = new Set(
-    jobIssues.map((issue) => issue.path.split(".").slice(0, 2).join(".")),
-  );
-  const schemaIssues = result.error.issues.map(toConfigIssue).filter((issue) =>
-    !formOwners.has(issue.path.split(".").slice(0, 2).join("."))
-  );
-  return { config: undefined, issues: [...formIssues, ...schemaIssues] };
+  return validateConfigValue(parsed);
 }
 
 /**
@@ -1143,7 +1194,32 @@ export function parseConfigOrThrow(text: string): DiscernConfig {
  */
 export async function loadConfig(root: string): Promise<DiscernConfig> {
   const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
-  return parseConfigOrThrow(await Deno.readTextFile(join(root, rel)));
+  const config = parseConfigOrThrow(await Deno.readTextFile(join(root, rel)));
+  const reads = await Promise.all(
+    Object.entries(config.checkpoints).flatMap(([id, entry]) =>
+      entry.question_file === undefined ? [] : [
+        readLiveCheckpointQuestionFile(root, entry.question_file).then(
+          (read): ConfigIssue | undefined =>
+            read.ok ? undefined : {
+              path: `checkpoints.${id}.question_file`,
+              message: `${
+                checkpointQuestionFileFailureMessage(
+                  read,
+                  "live configuration",
+                )
+              }. Add a regular tracked UTF-8 file at that path, or use \`question\` in [checkpoints.${id}].`,
+            },
+        ),
+      ]
+    ),
+  );
+  const issues = reads.filter((issue): issue is ConfigIssue =>
+    issue !== undefined
+  );
+  if (issues.length > 0) {
+    throw new ConfigValidationError(issues);
+  }
+  return config;
 }
 
 /** True for a non-null, non-array object. */
@@ -1383,6 +1459,7 @@ export function configWriteIssues(text: string): ConfigIssue[] {
     ...jobFormIssues(parsed),
     ...acceptanceGrantIssues(parsed),
     ...checkpointReferenceIssues(parsed),
+    ...checkpointQuestionSourceIssues(parsed),
   ];
   const result = configSchema.safeParse(parsed);
   if (result.success) {

@@ -30,6 +30,7 @@ import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { readOpenQuestions } from "../src/engine/checkpoints/open_questions.ts";
 import { parseLogbookLine } from "../src/engine/logbook/schema.ts";
+import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
 
 /** The wire fields these black-box assertions read from a `done` envelope.
  * Presence claims are static; a field the engine omits fails its assertion
@@ -44,7 +45,15 @@ interface DoneEnvelope {
   plan?: { details?: string[] };
   data: {
     checkpoints: GateCheckpointsData & {
-      review?: { enforcement: string; unreviewed?: { id: string }[] };
+      review?: {
+        enforcement: string;
+        unreviewed?: {
+          id: string;
+          question: string;
+          question_file?: string;
+          reference?: string;
+        }[];
+      };
       drops?: { reason: string; checkpoint?: string }[];
     };
     proof?: { line: string };
@@ -105,6 +114,10 @@ async function checkpointObservationEvents(dir: string): Promise<number> {
 const QUESTION_API =
   "A changed API surface is described in its docs before it lands.";
 const QUESTION_NOTES = "A risky change names what could break, for review.";
+const FILE_QUESTION_PATH = "policy/$ [review] `tick`.md";
+const FILE_QUESTION_REFERENCE = "project/map/`review`.md#rubric";
+const FILE_QUESTION =
+  "## Governing review\n\n- Does the changed API keep its documented contract?\n";
 
 /** A gate whose one check always passes, plus one stop checkpoint watching
  * `api/**`. The config is committed by `gitInit`, so the worktree's
@@ -203,6 +216,22 @@ trunk = "main"
 lint = "sh check.sh"
 `;
 
+const CONFIG_FILE_CHECKPOINT = `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "sh check.sh"
+
+[checkpoints.api-review]
+paths = ["api/**"]
+question_file = ${JSON.stringify(FILE_QUESTION_PATH)}
+reference = ${JSON.stringify(FILE_QUESTION_REFERENCE)}
+`;
+
 const CHECK_OK = "#!/usr/bin/env sh\nexit 0\n";
 
 /** Marker file the check job writes when it RUNS — proof of "no gate job ran". */
@@ -227,6 +256,196 @@ async function worktreeWithApiChange(
   await git(wt, "commit", "-q", "-m", "feat: extend the api", "--no-gpg-sign");
   return wt;
 }
+
+/** Scaffold a governing file-backed question and one matching branch change. */
+async function worktreeWithFileQuestion(dir: string): Promise<string> {
+  await scaffoldEngine(dir);
+  await writeConfig(dir, CONFIG_FILE_CHECKPOINT);
+  await writeExecutable(join(dir, "check.sh"), CHECK_OK);
+  await Deno.mkdir(dirname(join(dir, FILE_QUESTION_PATH)), {
+    recursive: true,
+  });
+  await Deno.writeTextFile(join(dir, FILE_QUESTION_PATH), FILE_QUESTION);
+  await gitInit(dir);
+  const wt = await addWorktree(dir, "file-question");
+  await Deno.mkdir(join(wt, "api"), { recursive: true });
+  await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint\n");
+  await git(wt, "add", "-A");
+  await git(wt, "commit", "-q", "-m", "change api", "--no-gpg-sign");
+  return wt;
+}
+
+Deno.test("file-backed questions are self-contained on read, refusal, CI, and Proof surfaces", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithFileQuestion(dir);
+
+    const report = await runAgent(wt, ["checkpoints", "--json"]);
+    assertEquals(report.code, 0, report.output);
+    const reportEnvelope = JSON.parse(report.stdout) as {
+      data: {
+        checkpoints: {
+          question: string;
+          question_file?: string;
+          reference?: string;
+        }[];
+      };
+    };
+    assertEquals(reportEnvelope.data.checkpoints[0]?.question, FILE_QUESTION);
+    assertEquals(
+      reportEnvelope.data.checkpoints[0]?.question_file,
+      FILE_QUESTION_PATH,
+    );
+    assertEquals(
+      reportEnvelope.data.checkpoints[0]?.reference,
+      FILE_QUESTION_REFERENCE,
+    );
+    const markdown = await runAgent(wt, ["checkpoints", "--markdown"]);
+    assertEquals(markdown.code, 0, markdown.output);
+    assertStringIncludes(markdown.stdout, "## Governing review");
+    assertStringIncludes(
+      markdown.stdout,
+      "Does the changed API keep its documented contract?",
+    );
+    assertStringIncludes(
+      markdown.stdout,
+      `Question source: ${markdownCodeSpan(FILE_QUESTION_PATH)}`,
+    );
+    assertStringIncludes(
+      markdown.stdout,
+      `Reference: ${markdownCodeSpan(FILE_QUESTION_REFERENCE)}`,
+    );
+
+    const refusal = await runAgent(wt, ["done", "--json"]);
+    assertEquals(refusal.code, 1, refusal.output);
+    const refused = parseJson(refusal.stdout);
+    assertStringIncludes(refused.message, "## Governing review");
+    assertStringIncludes(
+      refused.message,
+      "Does the changed API keep its documented contract?",
+    );
+    assertStringIncludes(
+      refused.message,
+      `Question source: ${markdownCodeSpan(FILE_QUESTION_PATH)}`,
+    );
+    assertStringIncludes(
+      refused.message,
+      `Reference: ${markdownCodeSpan(FILE_QUESTION_REFERENCE)}`,
+    );
+
+    const ci = await runAgent(wt, ["done", "--ci", "--json"]);
+    assertEquals(ci.code, 0, ci.output);
+    const ciQuestion = parseJson(ci.stdout).data.checkpoints.review
+      ?.unreviewed?.[0];
+    assertEquals(ciQuestion?.question, FILE_QUESTION);
+    assertEquals(ciQuestion?.question_file, FILE_QUESTION_PATH);
+    assertEquals(ciQuestion?.reference, FILE_QUESTION_REFERENCE);
+    const reportProof = await proofMarker(wt);
+    assertStringIncludes(reportProof, "## Governing review");
+    assertStringIncludes(
+      reportProof,
+      "Does the changed API keep its documented contract?",
+    );
+    assertStringIncludes(reportProof, FILE_QUESTION_PATH);
+    assertStringIncludes(reportProof, FILE_QUESTION_REFERENCE);
+    assertStringIncludes(
+      reportProof,
+      `Question source: ${markdownCodeSpan(FILE_QUESTION_PATH)}`,
+    );
+    assertStringIncludes(
+      reportProof,
+      `Reference: ${markdownCodeSpan(FILE_QUESTION_REFERENCE)}`,
+    );
+
+    const met = await runAgent(wt, [
+      "done",
+      "--met",
+      "api-review",
+      "--json",
+    ]);
+    assertEquals(met.code, 0, met.output);
+    const conclusion = parseJson(met.stdout).data.checkpoints.declared_met?.[0];
+    assertEquals(conclusion?.question, FILE_QUESTION);
+    assertEquals(conclusion?.question_file, FILE_QUESTION_PATH);
+    assertEquals(conclusion?.reference, FILE_QUESTION_REFERENCE);
+    const strictProof = await proofMarker(wt);
+    assertStringIncludes(strictProof, "## Governing review");
+    assertStringIncludes(
+      strictProof,
+      "Does the changed API keep its documented contract?",
+    );
+    assertStringIncludes(strictProof, FILE_QUESTION_PATH);
+    assertStringIncludes(strictProof, FILE_QUESTION_REFERENCE);
+    assertStringIncludes(
+      strictProof,
+      `Question source: ${markdownCodeSpan(FILE_QUESTION_PATH)}`,
+    );
+    assertStringIncludes(
+      strictProof,
+      `Reference: ${markdownCodeSpan(FILE_QUESTION_REFERENCE)}`,
+    );
+
+    const unmet = await runAgent(wt, [
+      "done",
+      "--unmet",
+      "api-review",
+      "--why",
+      "The documented contract still omits one caller-visible failure mode.",
+      "--json",
+    ]);
+    assertEquals(unmet.code, 0, unmet.output);
+    const acceptance = await runAgent(wt, ["accept", "--json"]);
+    assertEquals(acceptance.code, 1, acceptance.output);
+    const acceptanceEnvelope = JSON.parse(acceptance.stdout) as {
+      message: string;
+    };
+    assertStringIncludes(acceptanceEnvelope.message, "## Governing review");
+    assertStringIncludes(
+      acceptanceEnvelope.message,
+      `Question source: ${markdownCodeSpan(FILE_QUESTION_PATH)}`,
+    );
+    assertStringIncludes(
+      acceptanceEnvelope.message,
+      `Reference: ${markdownCodeSpan(FILE_QUESTION_REFERENCE)}`,
+    );
+  });
+});
+
+Deno.test("a bad historical question source fails open into durable Proof evidence", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, CONFIG_FILE_CHECKPOINT);
+    await writeExecutable(join(dir, "check.sh"), CHECK_OK);
+    // The governing commit deliberately lacks FILE_QUESTION_PATH. A later
+    // branch repair makes live config strict and loadable without repairing
+    // the historical obligation behind its own gate.
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "broken-file-question");
+    await writeConfig(
+      wt,
+      CONFIG_FILE_CHECKPOINT
+        .replace(
+          `question_file = ${JSON.stringify(FILE_QUESTION_PATH)}`,
+          'question = "Candidate-side repair."',
+        ),
+    );
+    await Deno.mkdir(join(wt, "api"), { recursive: true });
+    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "repair live config", "--no-gpg-sign");
+
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const env = parseJson(done.stdout);
+    const drop = env.data.checkpoints.drops?.find((entry) =>
+      entry.checkpoint === "api-review"
+    );
+    assertEquals(drop?.reason, "checkpoint_question_file_missing");
+    const marker = await proofMarker(wt);
+    assertStringIncludes(marker, "checkpoint_question_file_missing");
+    assertStringIncludes(marker, FILE_QUESTION_PATH);
+    assertStringIncludes(marker, "does not govern this run");
+  });
+});
 
 Deno.test("done: a fired stop checkpoint refuses before any job, serving the question and both recoveries", async () => {
   await withTempDir(async (dir) => {

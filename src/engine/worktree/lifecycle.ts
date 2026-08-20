@@ -1915,8 +1915,18 @@ function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
     ),
     `  Rationale: ${markdownCodeSpan(unmet.why)}`,
   ];
+  if (unmet.questionFile !== undefined) {
+    lines.splice(
+      2,
+      0,
+      `  Question source: ${markdownCodeSpan(unmet.questionFile)}`,
+    );
+  }
   if (unmet.teach !== undefined && unmet.teach.trim() !== "") {
     lines.push(`  Teach: ${unmet.teach.trim()}`);
+  }
+  if (unmet.reference !== undefined && unmet.reference.trim() !== "") {
+    lines.push(`  Reference: ${markdownCodeSpan(unmet.reference.trim())}`);
   }
   return lines.join("\n");
 }

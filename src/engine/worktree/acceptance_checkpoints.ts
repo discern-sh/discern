@@ -41,7 +41,9 @@ import type { RelatedCheckpointPath } from "../checkpoints/types.ts";
 export interface StandingUnmetConclusion {
   id: string;
   question: string;
+  questionFile?: string;
   teach?: string;
+  reference?: string;
   /** The matched paths the openQuestion recorded — the subject's evidence. */
   matched: readonly string[];
   related: readonly RelatedCheckpointPath[];
@@ -128,7 +130,11 @@ export async function inspectAcceptanceCheckpoints(
     state.unmet.push({
       id,
       question: def.question,
+      ...(def.questionFile === undefined
+        ? {}
+        : { questionFile: def.questionFile }),
       ...(def.teach === undefined ? {} : { teach: def.teach }),
+      ...(def.reference === undefined ? {} : { reference: def.reference }),
       matched: openQuestion.matchedPaths,
       related: openQuestion.relatedPaths,
       why: declaration.why,

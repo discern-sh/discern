@@ -90,13 +90,83 @@ export const CHECKPOINT_FIELD_ROLES = {
   min_commits: "trigger",
   when: "trigger",
   mode: "review",
-  question: "review",
+  question: "question_source",
+  question_file: "question_source",
   teach: "review",
+  reference: "review",
 } as const;
 
 export const CHECKPOINT_TRIGGER_FIELDS = Object.entries(CHECKPOINT_FIELD_ROLES)
   .filter(([, role]) => role === "trigger")
   .map(([field]) => field);
+
+/** Public fields that can supply the judgment prose. Membership derives from
+ * the complete field-role registry, so another source cannot enter the schema
+ * without enrolling source selection and definition identity. */
+export type CheckpointQuestionSourceField = {
+  [Field in keyof typeof CHECKPOINT_FIELD_ROLES]:
+    (typeof CHECKPOINT_FIELD_ROLES)[Field] extends "question_source" ? Field
+      : never;
+}[keyof typeof CHECKPOINT_FIELD_ROLES];
+
+export const CHECKPOINT_QUESTION_SOURCE_FIELDS = Object.entries(
+  CHECKPOINT_FIELD_ROLES,
+).filter(([, role]) => role === "question_source").map(([field]) =>
+  field
+) as CheckpointQuestionSourceField[];
+
+/** One table's semantic question-source choice before file bytes are read. */
+export type CheckpointQuestionSourceSelection =
+  | { kind: "inherit" }
+  | { kind: "inline"; question: string }
+  | { kind: "file"; path: string }
+  | {
+    kind: "invalid";
+    problem: "multiple" | "missing" | "empty_question" | "invalid_file";
+  };
+
+/**
+ * Select exactly one project-authored question source, or the inherited source
+ * of a shipped built-in. The switch is exhaustive over the role-derived field
+ * union: adding another public source fails type checking until this authority
+ * defines how it becomes an ordinary question.
+ */
+export function selectCheckpointQuestionSource(
+  entry: object,
+  builtIn: boolean,
+): CheckpointQuestionSourceSelection {
+  const record = entry as Readonly<Record<string, unknown>>;
+  const configured = CHECKPOINT_QUESTION_SOURCE_FIELDS.filter(
+    (field) => record[field] !== undefined,
+  );
+  if (configured.length > 1) {
+    return { kind: "invalid", problem: "multiple" };
+  }
+  const field = configured[0];
+  if (field === undefined) {
+    return builtIn
+      ? { kind: "inherit" }
+      : { kind: "invalid", problem: "missing" };
+  }
+  switch (field) {
+    case "question": {
+      const question = record.question;
+      return typeof question === "string" && question.trim() !== ""
+        ? { kind: "inline", question }
+        : { kind: "invalid", problem: "empty_question" };
+    }
+    case "question_file": {
+      const path = record.question_file;
+      return typeof path === "string" && path !== ""
+        ? { kind: "file", path }
+        : { kind: "invalid", problem: "invalid_file" };
+    }
+    default: {
+      const exhaustive: never = field;
+      return exhaustive;
+    }
+  }
+}
 
 /** Why a structural trigger did not hold — the closed veto vocabulary, named
  * so previews can explain and wire schemas can enumerate. */

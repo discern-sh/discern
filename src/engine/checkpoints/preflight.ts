@@ -66,6 +66,8 @@ export interface ServedCheckpoint {
   mode: CheckpointMode;
   /** The judgment prose the agent evaluates. */
   question: string;
+  /** Governing repository path that supplied `question`, when file-backed. */
+  questionFile?: string;
   /** Optional lesson prose carried into renderings. */
   teach?: string;
   /** Optional reference material carried into renderings. */
@@ -79,6 +81,10 @@ export interface ServedCheckpoint {
 /** One current declared-met conclusion among the governing active set. */
 export interface DeclaredMetConclusion {
   id: string;
+  question: string;
+  questionFile?: string;
+  teach?: string;
+  reference?: string;
   declaredAt: string;
   matched: readonly string[];
   related: readonly RelatedCheckpointPath[];
@@ -87,6 +93,10 @@ export interface DeclaredMetConclusion {
 /** One current declared-unmet conclusion among the governing active set. */
 export interface DeclaredUnmetConclusion {
   id: string;
+  question: string;
+  questionFile?: string;
+  teach?: string;
+  reference?: string;
   /** The validated rationale — opaque evidence, rendered only through
    * escaping boundaries, never interpolated into a command. */
   why: string;
@@ -259,6 +269,9 @@ function served(
     id: def.id,
     mode: def.mode,
     question: def.question,
+    ...(def.questionFile === undefined
+      ? {}
+      : { questionFile: def.questionFile }),
     ...(def.teach === undefined ? {} : { teach: def.teach }),
     ...(def.reference === undefined ? {} : { reference: def.reference }),
     matched,
@@ -644,6 +657,14 @@ export async function runCheckpointPreflight(
         if (declaration?.conclusion === "met") {
           preflight.declaredMet.push({
             id: serving.id,
+            question: serving.question,
+            ...(serving.questionFile === undefined
+              ? {}
+              : { questionFile: serving.questionFile }),
+            ...(serving.teach === undefined ? {} : { teach: serving.teach }),
+            ...(serving.reference === undefined
+              ? {}
+              : { reference: serving.reference }),
             declaredAt: declaration.declaredAt,
             matched: serving.matched,
             related: serving.related,
@@ -656,6 +677,14 @@ export async function runCheckpointPreflight(
         if (declaration?.conclusion === "unmet") {
           preflight.declaredUnmet.push({
             id: serving.id,
+            question: serving.question,
+            ...(serving.questionFile === undefined
+              ? {}
+              : { questionFile: serving.questionFile }),
+            ...(serving.teach === undefined ? {} : { teach: serving.teach }),
+            ...(serving.reference === undefined
+              ? {}
+              : { reference: serving.reference }),
             why: declaration.why,
             declaredAt: declaration.declaredAt,
             matched: serving.matched,

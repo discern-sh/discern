@@ -23,12 +23,26 @@
  * one place.
  */
 
-import { type DiscernConfig, parseConfig } from "../../shared/config_schema.ts";
+import { parse as parseToml } from "@std/toml";
+import {
+  type ConfigIssue,
+  type DiscernConfig,
+  parseConfig,
+  validateConfigValue,
+} from "../../shared/config_schema.ts";
 import {
   BUILT_IN_CHECKPOINTS,
   type BuiltInCheckpointSeed,
+  type CheckpointQuestionSourceField,
   DEFAULT_CHECKPOINT_MODE,
+  selectCheckpointQuestionSource,
 } from "../../shared/checkpoints.ts";
+import {
+  type CheckpointQuestionFileFailure,
+  checkpointQuestionFileFailureMessage,
+  type CheckpointQuestionFileRead,
+  readCheckpointQuestionFileAtCommit,
+} from "../../shared/checkpoint_question_files.ts";
 import {
   type CheckpointDrop,
   entryCheckpointDrop,
@@ -71,6 +85,17 @@ export const CHECKPOINT_SEED_TRIGGER_BINDINGS = {
   when: "when",
 } as const satisfies Record<SeedTriggerField, keyof ResolvedCheckpoint>;
 
+/** Each public question source's resolved identity fields. The selector below
+ * is exhaustive over the same role-derived source set; the subject guard
+ * requires every field named here to perturb the definition hash. */
+export const CHECKPOINT_QUESTION_SOURCE_BINDINGS = {
+  question: ["question"],
+  question_file: ["question", "questionFile"],
+} as const satisfies Record<
+  CheckpointQuestionSourceField,
+  readonly (keyof ResolvedCheckpoint)[]
+>;
+
 /** The governing policy for one effort. */
 export interface GoverningPolicy {
   /** The merge-base commit whose config governs — the policy identity.
@@ -89,11 +114,152 @@ interface UnresolvedCheckpointDrop {
   reason: Extract<
     EntryCheckpointDropReason,
     | "checkpoint_missing_question"
+    | "checkpoint_question_file_missing"
+    | "checkpoint_question_file_invalid_path"
+    | "checkpoint_question_file_not_regular"
+    | "checkpoint_question_file_oversized"
+    | "checkpoint_question_file_invalid_utf8"
+    | "checkpoint_question_file_unreadable"
+    | "checkpoint_question_source_conflict"
     | "checkpoint_selector_conflict"
     | "checkpoint_unknown_scope"
   >;
   account: string;
 }
+
+/** True for TOML tables; arrays are values, not key-addressable tables. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Resolve the mode needed by entry-scoped drop evidence even when today's
+ * schema cannot type the historical entry. */
+function historicalCheckpointMode(
+  id: string,
+  entry: Readonly<Record<string, unknown>>,
+): ResolvedCheckpoint["mode"] {
+  const configured = entry.mode;
+  return configured === "stop" || configured === "advise"
+    ? configured
+    : BUILT_IN_CHECKPOINTS[id]?.mode ?? DEFAULT_CHECKPOINT_MODE;
+}
+
+/** Classify only question-source defects recoverable by dropping one
+ * historical checkpoint. Every other config problem retains the policy-level
+ * invalid-config account. */
+function historicalQuestionSourceDrop(
+  id: string,
+  entry: Readonly<Record<string, unknown>>,
+  issues: readonly ConfigIssue[],
+): UnresolvedCheckpointDrop | undefined {
+  const mode = historicalCheckpointMode(id, entry);
+  const selected = selectCheckpointQuestionSource(
+    entry,
+    BUILT_IN_CHECKPOINTS[id] !== undefined,
+  );
+  if (selected.kind === "invalid") {
+    switch (selected.problem) {
+      case "multiple":
+        return {
+          checkpoint: id,
+          mode,
+          reason: "checkpoint_question_source_conflict",
+          account:
+            `checkpoint '${id}' sets both question and question_file; it does not govern this run.`,
+        };
+      case "missing":
+      case "empty_question":
+        return {
+          checkpoint: id,
+          mode,
+          reason: "checkpoint_missing_question",
+          account:
+            `checkpoint '${id}' has no usable question source; it does not govern this run.`,
+        };
+      case "invalid_file":
+        return {
+          checkpoint: id,
+          mode,
+          reason: "checkpoint_question_file_invalid_path",
+          account:
+            `checkpoint '${id}' has an invalid question_file path; it does not govern this run.`,
+        };
+    }
+  }
+  const filePath = `checkpoints.${id}.question_file`;
+  if (
+    issues.some((issue) =>
+      issue.path === filePath || issue.path.startsWith(`${filePath}.`)
+    )
+  ) {
+    return {
+      checkpoint: id,
+      mode,
+      reason: "checkpoint_question_file_invalid_path",
+      account:
+        `checkpoint '${id}' has a question_file path that is not a portable project-relative file path outside .git; it does not govern this run.`,
+    };
+  }
+  return undefined;
+}
+
+/** Recover a governing config whose only current-schema defects are localized
+ * question sources. The original TOML is parsed once; failed entries are
+ * removed from a shallow copy, and every remaining field returns through the
+ * complete canonical validator. */
+function recoverHistoricalQuestionSources(
+  text: string,
+  issues: readonly ConfigIssue[],
+): {
+  config: DiscernConfig;
+  drops: UnresolvedCheckpointDrop[];
+  checkpointOrder: string[];
+} | undefined {
+  let raw: unknown;
+  try {
+    raw = parseToml(text);
+  } catch {
+    return undefined;
+  }
+  if (!isRecord(raw) || !isRecord(raw.checkpoints)) {
+    return undefined;
+  }
+  const checkpoints = { ...raw.checkpoints };
+  const drops: UnresolvedCheckpointDrop[] = [];
+  for (const [id, value] of Object.entries(raw.checkpoints)) {
+    if (!isRecord(value)) {
+      continue;
+    }
+    const drop = historicalQuestionSourceDrop(id, value, issues);
+    if (drop === undefined) {
+      continue;
+    }
+    drops.push(drop);
+    delete checkpoints[id];
+  }
+  if (drops.length === 0) {
+    return undefined;
+  }
+  const validated = validateConfigValue({ ...raw, checkpoints });
+  return validated.config === undefined ? undefined : {
+    config: validated.config,
+    drops,
+    checkpointOrder: Object.keys(raw.checkpoints),
+  };
+}
+
+/** File-reader failures projected onto the durable checkpoint-drop vocabulary. */
+const QUESTION_FILE_DROP_REASONS = {
+  missing: "checkpoint_question_file_missing",
+  not_regular_blob: "checkpoint_question_file_not_regular",
+  not_tracked: "checkpoint_question_file_not_regular",
+  oversized: "checkpoint_question_file_oversized",
+  invalid_utf8: "checkpoint_question_file_invalid_utf8",
+  unreadable: "checkpoint_question_file_unreadable",
+} as const satisfies Record<
+  CheckpointQuestionFileFailure,
+  EntryCheckpointDropReason
+>;
 
 /** Resolve every `[checkpoints.<id>]` entry of `config` (pure). `seeds`
  * defaults to the shipped built-in membership; tests inject synthetic seeds so
@@ -102,6 +268,7 @@ interface UnresolvedCheckpointDrop {
 export function resolveCheckpoints(
   config: DiscernConfig,
   seeds: Readonly<Record<string, BuiltInCheckpointSeed>> = BUILT_IN_CHECKPOINTS,
+  questionFiles: ReadonlyMap<string, CheckpointQuestionFileRead> = new Map(),
 ): {
   checkpoints: ResolvedCheckpoint[];
   drops: UnresolvedCheckpointDrop[];
@@ -115,10 +282,42 @@ export function resolveCheckpoints(
       ? undefined
       : questionById(seed.question);
 
-    const question = entry.question !== undefined &&
-        entry.question.trim() !== ""
-      ? entry.question
-      : seedQuestion?.question;
+    const source = selectCheckpointQuestionSource(entry, seed !== undefined);
+    let question: string | undefined;
+    let questionFile: string | undefined;
+    if (source.kind === "inherit") {
+      question = seedQuestion?.question;
+    } else if (source.kind === "inline") {
+      question = source.question;
+    } else if (source.kind === "file") {
+      const read = questionFiles.get(source.path) ?? {
+        ok: false as const,
+        path: source.path,
+        reason: "unreadable" as const,
+      };
+      if (!read.ok) {
+        drops.push({
+          checkpoint: id,
+          mode,
+          reason: QUESTION_FILE_DROP_REASONS[read.reason],
+          account: `${
+            checkpointQuestionFileFailureMessage(read, "governing Git tree")
+          }; checkpoint '${id}' does not govern this run.`,
+        });
+        continue;
+      }
+      question = read.question;
+      questionFile = read.path;
+    } else if (source.problem === "multiple") {
+      drops.push({
+        checkpoint: id,
+        mode,
+        reason: "checkpoint_question_source_conflict",
+        account:
+          `checkpoint '${id}' sets both question and question_file; it does not govern this run.`,
+      });
+      continue;
+    }
     if (question === undefined) {
       drops.push({
         checkpoint: id,
@@ -178,7 +377,7 @@ export function resolveCheckpoints(
       .map((glob) => expandSourcePathReferences(glob, config));
 
     const teach = entry.teach ?? seedQuestion?.teach;
-    const reference = seedQuestion?.reference;
+    const reference = entry.reference ?? seedQuestion?.reference;
     const governedWhen = entry.when ?? seed?.when;
     const when = governedWhen !== undefined && governedWhen.trim() !== ""
       ? governedWhen
@@ -191,6 +390,7 @@ export function resolveCheckpoints(
       id,
       mode,
       question,
+      ...(questionFile === undefined ? {} : { questionFile }),
       ...(teach === undefined ? {} : { teach }),
       ...(reference === undefined ? {} : { reference }),
       ...(selector === undefined ? {} : { selector }),
@@ -243,7 +443,22 @@ export function structurallyDormant(def: ResolvedCheckpoint): boolean {
  * it is waiting for the configuration that arms it.
  */
 export function firableCheckpointIds(config: DiscernConfig): string[] {
-  return resolveCheckpoints(config).checkpoints
+  // Firing economics needs the trigger, not the prose. Supply an empty but
+  // successful resolved question for each validated live file source so this
+  // structural projection does not misclassify file-backed entries as broken.
+  const questionFiles = new Map<string, CheckpointQuestionFileRead>(
+    Object.values(config.checkpoints).flatMap((entry) =>
+      entry.question_file === undefined ? [] : [
+        [entry.question_file, {
+          ok: true as const,
+          path: entry.question_file,
+          question: "",
+        }] as const,
+      ]
+    ),
+  );
+  return resolveCheckpoints(config, BUILT_IN_CHECKPOINTS, questionFiles)
+    .checkpoints
     .filter((def) => !structurallyDormant(def))
     .map((def) => def.id)
     .sort();
@@ -324,10 +539,23 @@ export async function loadGoverningPolicy(
     };
   }
   let parsed: ReturnType<typeof parseConfig>;
+  let sourceDrops: UnresolvedCheckpointDrop[] = [];
+  let checkpointOrder: string[] | undefined;
   try {
     parsed = parseConfig(shown.stdout);
   } catch {
     parsed = { config: undefined, issues: [] };
+  }
+  if (parsed.config === undefined) {
+    const recovered = recoverHistoricalQuestionSources(
+      shown.stdout,
+      parsed.issues,
+    );
+    if (recovered !== undefined) {
+      parsed = { config: recovered.config, issues: [] };
+      sourceDrops = recovered.drops;
+      checkpointOrder = recovered.checkpointOrder;
+    }
   }
   if (parsed.config === undefined) {
     return {
@@ -346,7 +574,26 @@ export async function loadGoverningPolicy(
   let resolved: ReturnType<typeof resolveCheckpoints>;
   let generatedGroups: ResolvedGeneratedGroup[];
   try {
-    resolved = resolveCheckpoints(parsed.config);
+    const questionPaths = [
+      ...new Set(
+        Object.values(parsed.config.checkpoints).flatMap((entry) =>
+          entry.question_file === undefined ? [] : [entry.question_file]
+        ),
+      ),
+    ];
+    const questionReads = await Promise.all(
+      questionPaths.map(async (path) =>
+        [
+          path,
+          await readCheckpointQuestionFileAtCommit(root, policyCommit, path),
+        ] as const
+      ),
+    );
+    resolved = resolveCheckpoints(
+      parsed.config,
+      BUILT_IN_CHECKPOINTS,
+      new Map(questionReads),
+    );
     generatedGroups = resolveGeneratedGroups(parsed.config);
     // Force every glob through the matcher while the failure can still be
     // attributed to the policy as a whole. Diff collection must never silently
@@ -374,7 +621,11 @@ export async function loadGoverningPolicy(
     policyCommit,
     checkpoints: resolved.checkpoints,
     generatedGroups,
-    drops: resolved.drops.map((drop) =>
+    drops: [...sourceDrops, ...resolved.drops].sort((left, right) => {
+      if (checkpointOrder === undefined) return 0;
+      return checkpointOrder.indexOf(left.checkpoint) -
+        checkpointOrder.indexOf(right.checkpoint);
+    }).map((drop) =>
       entryCheckpointDrop(
         drop.checkpoint,
         drop.mode,

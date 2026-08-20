@@ -25,6 +25,7 @@ import {
 import {
   CHECKPOINT_MODES,
   isBuiltInCheckpoint,
+  selectCheckpointQuestionSource,
 } from "../shared/checkpoints.ts";
 import type { InitFlags } from "./terminal_interaction.ts";
 import { TomlEditor } from "./toml_edit.ts";
@@ -298,19 +299,35 @@ export function applyConfigDoc(
     });
   }
 
-  // Checkpoints: a question is required unless the id names a shipped
-  // built-in (which carries its own); one selector at most; mode from the
-  // closed pair. The remaining trigger fields write through as given.
+  // Checkpoints: one canonical question-source selector, one path selector at
+  // most, and a mode from the closed pair. Remaining fields write through.
   for (const [name, spec] of Object.entries(doc.checkpoints ?? {})) {
     assertName("checkpoint", name);
-    const question = spec.question;
-    if (
-      !isBuiltInCheckpoint(name) &&
-      (typeof question !== "string" || question.trim() === "")
-    ) {
-      throw new Error(
-        `checkpoint "${name}": a question is required (only a shipped built-in id may omit it)`,
-      );
+    const builtIn = isBuiltInCheckpoint(name);
+    const questionSource = selectCheckpointQuestionSource(spec, builtIn);
+    if (questionSource.kind === "invalid") {
+      switch (questionSource.problem) {
+        case "multiple":
+          throw new Error(
+            `[checkpoints.${name}] sets both question and question_file. ` +
+              `Keep exactly one: question = "…" or ` +
+              `question_file = "path/to/question.md".` +
+              (builtIn ? " Remove both fields to inherit." : ""),
+          );
+        case "missing":
+          throw new Error(
+            `[checkpoints.${name}] must set exactly one question source: ` +
+              `question = "…" or question_file = "path/to/question.md".`,
+          );
+        case "empty_question":
+          throw new Error(
+            `[checkpoints.${name}].question must contain non-whitespace judgment prose, or use question_file`,
+          );
+        case "invalid_file":
+          throw new Error(
+            `[checkpoints.${name}].question_file must be a project-relative file path`,
+          );
+      }
     }
     if (spec.scope !== undefined && spec.paths !== undefined) {
       throw new Error(
@@ -394,11 +411,16 @@ export function applyConfigDoc(
         if (mode !== undefined) {
           editor.setString(`${key}.mode`, mode);
         }
-        if (typeof question === "string") {
-          editor.setString(`${key}.question`, question);
+        if (questionSource.kind === "inline") {
+          editor.setString(`${key}.question`, questionSource.question);
+        } else if (questionSource.kind === "file") {
+          editor.setString(`${key}.question_file`, questionSource.path);
         }
         if (spec.teach !== undefined) {
           editor.setString(`${key}.teach`, spec.teach);
+        }
+        if (spec.reference !== undefined) {
+          editor.setString(`${key}.reference`, spec.reference);
         }
       },
     );

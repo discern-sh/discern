@@ -324,10 +324,26 @@ export type RelatedCheckpointEvidenceData = z.infer<
   typeof RelatedCheckpointEvidenceSchema
 >;
 
+/** Resolved checkpoint question presentation. `question_file` records where
+ * file-backed prose came from; `question` always carries the resolved text. */
+const CHECKPOINT_QUESTION_AUXILIARY_FIELDS = {
+  question_file: z.string().optional(),
+  teach: z.string().optional(),
+  reference: z.string().optional(),
+};
+
+const CHECKPOINT_QUESTION_PRESENTATION_FIELDS = {
+  question: z.string(),
+  ...CHECKPOINT_QUESTION_AUXILIARY_FIELDS,
+};
+
 /** One current declared-met checkpoint conclusion — agent evidence, so every
  * rendering says "declared met", never bare "met" or "passed". */
 export const CheckpointMetConclusionSchema = z.strictObject({
   id: z.string(),
+  /** Absent only on Proof records written before question snapshots shipped. */
+  question: z.string().optional(),
+  ...CHECKPOINT_QUESTION_AUXILIARY_FIELDS,
   declared_at: z.string(),
   matched: z.array(z.string()).optional(),
   related: z.array(RelatedCheckpointEvidenceSchema).optional(),
@@ -343,6 +359,9 @@ export type CheckpointMetConclusionData = z.infer<
 /** One current declared-unmet checkpoint conclusion and its rationale. */
 export const CheckpointUnmetConclusionSchema = z.strictObject({
   id: z.string(),
+  /** Absent only on Proof records written before question snapshots shipped. */
+  question: z.string().optional(),
+  ...CHECKPOINT_QUESTION_AUXILIARY_FIELDS,
   /** The agent's one-paragraph rationale — opaque evidence, rendered only
    * through escaping boundaries, never interpreted as policy. */
   why: z.string(),
@@ -361,9 +380,7 @@ export type CheckpointUnmetConclusionData = z.infer<
 const ReportedCheckpointReviewEntrySchema = z.strictObject({
   id: z.string(),
   mode: z.enum(CHECKPOINT_MODES),
-  question: z.string(),
-  teach: z.string().optional(),
-  reference: z.string().optional(),
+  ...CHECKPOINT_QUESTION_PRESENTATION_FIELDS,
   matched: z.array(z.string()),
   related: z.array(RelatedCheckpointEvidenceSchema).optional(),
 });
@@ -792,9 +809,7 @@ const LandingAuthoritySummarySchema = LandingAuthorityDataSchema.omit({
 export const ServedCheckpointDataSchema = z.strictObject({
   id: z.string(),
   mode: z.enum(CHECKPOINT_MODES),
-  question: z.string(),
-  teach: z.string().optional(),
-  reference: z.string().optional(),
+  ...CHECKPOINT_QUESTION_PRESENTATION_FIELDS,
   /** The changed paths the trigger matched — the subject's evidence. */
   matched: z.array(z.string()),
   related: z.array(RelatedCheckpointEvidenceSchema).optional(),
@@ -896,9 +911,7 @@ export type OpenQuestionData = z.infer<typeof OpenQuestionDataSchema>;
 export const CheckpointReportSchema = z.strictObject({
   id: z.string(),
   mode: z.enum(CHECKPOINT_MODES),
-  question: z.string(),
-  teach: z.string().optional(),
-  reference: z.string().optional(),
+  ...CHECKPOINT_QUESTION_PRESENTATION_FIELDS,
   /** One-line deterministic trigger summary (selector, thresholds, `when`). */
   trigger: z.string(),
   /** The canonical strict-gate decision projected from trigger state,
