@@ -681,7 +681,7 @@
   # hold the printed number equal to the limit below, so moving one moves both.
   [standards.agents_page_words]
     direction = "down"
-    limit = 1300
+    limit = 1000
     run = "deno task site:agents-words"
     inputs = [
       "site/**",

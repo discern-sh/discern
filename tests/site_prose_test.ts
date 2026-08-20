@@ -47,7 +47,7 @@ Deno.test("the For Agents projection uses the agent register", () => {
   );
   assertStringIncludes(
     page.prose,
-    "A refusal names the unmet condition",
+    "You should not have to infer the workflow.",
   );
 });
 
