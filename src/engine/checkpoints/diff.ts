@@ -45,10 +45,11 @@ const BINARY_SNIFF_BYTES = 8000;
  * fail open when the ordered OID list exceeds this bound. */
 const HISTORY_OUTPUT_BYTES = 4 * 1024 * 1024;
 
-/** Atomic open policy for branch-controlled untracked paths: never follow a
- * symlink at open time, and never block on a raced FIFO or device. */
+/** Open policy for branch-controlled untracked paths: never block on a raced
+ * FIFO or device. Descriptor and post-open identity checks reject a symlink
+ * replacement before the first read. */
 export const UNTRACKED_OPEN_FLAGS = FS_CONSTANTS.O_RDONLY |
-  FS_CONSTANTS.O_NOFOLLOW | FS_CONSTANTS.O_NONBLOCK;
+  FS_CONSTANTS.O_NONBLOCK;
 
 const PLUS = 0x2b;
 const MINUS = 0x2d;
@@ -98,12 +99,31 @@ function patchContent(bytes: Uint8Array):
   return { status: "available", added, removed };
 }
 
-interface UntrackedInspection {
+export interface UntrackedInspection {
   insertions: number;
   binary: boolean | "unknown";
   retained?: Uint8Array;
   contentReason?: "file_limit" | "total_bytes" | "unreadable";
 }
+
+/** File-handle operations used between the identity boundary and bounded
+ * reads. Kept narrow so the replacement-race guard can inject an observable
+ * opener without replacing filesystem state globally. */
+export interface UntrackedFileHandle {
+  stat(): Promise<{ isFile(): boolean; dev: number; ino: number }>;
+  read(
+    buffer: Uint8Array,
+    offset: number,
+    length: number,
+    position: number | null,
+  ): Promise<{ bytesRead: number }>;
+  close(): Promise<void>;
+}
+
+/** Open one path for untracked fact inspection. */
+export type UntrackedFileOpener = (
+  path: string,
+) => Promise<UntrackedFileHandle | undefined>;
 
 interface AttemptedByteBudget {
   used: number;
@@ -134,12 +154,12 @@ function concatenate(
   return out;
 }
 
-/** Open one branch-controlled path atomically as a nonblocking regular file.
- * The kernel rejects a symlink at the exact open boundary; a FIFO/device opens
- * nonblocking and is then rejected by fstat before any read. */
-export async function openUntrackedRegularNoFollow(
+/** Open one branch-controlled path as a nonblocking regular file. A FIFO or
+ * device opens nonblocking and is rejected by fstat before any read. The
+ * caller verifies descriptor identity against the path snapshots. */
+async function openUntrackedRegular(
   path: string,
-): Promise<FileHandle | undefined> {
+): Promise<UntrackedFileHandle | undefined> {
   let file: FileHandle;
   try {
     file = await open(path, UNTRACKED_OPEN_FLAGS);
@@ -164,6 +184,7 @@ async function inspectUntracked(
   path: string,
   need: "binary" | "line_stats" | "content",
   budget: AttemptedByteBudget,
+  openFile: UntrackedFileOpener = openUntrackedRegular,
 ): Promise<UntrackedInspection> {
   if (budget.used >= CHECKPOINT_PATTERN_LIMITS.maxTotalBytes) {
     return {
@@ -181,13 +202,13 @@ async function inspectUntracked(
   if (!before.isFile || before.isSymlink) {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   }
-  const openedFile = await openUntrackedRegularNoFollow(path);
+  const openedFile = await openFile(path);
   if (openedFile === undefined) {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   }
   const file = openedFile;
   try {
-    let opened: Awaited<ReturnType<FileHandle["stat"]>>;
+    let opened: Awaited<ReturnType<UntrackedFileHandle["stat"]>>;
     let after: Deno.FileInfo;
     try {
       opened = await file.stat();
@@ -306,6 +327,17 @@ async function inspectUntracked(
   } finally {
     await file.close().catch(() => undefined);
   }
+}
+
+/** Inspect one untracked path through an explicit open boundary. Callers that
+ * need a controlled filesystem boundary can observe that identity rejection
+ * happens before a read. */
+export async function inspectUntrackedWithOpener(
+  path: string,
+  need: "binary" | "line_stats" | "content",
+  openFile: UntrackedFileOpener,
+): Promise<UntrackedInspection> {
+  return await inspectUntracked(path, need, { used: 0 }, openFile);
 }
 
 /** Map one `--name-status` letter to the effort-diff change kind. Everything

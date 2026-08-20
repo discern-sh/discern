@@ -13,7 +13,7 @@ import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import {
   collectEffortDiff,
-  inspectUntrackedForTest,
+  inspectUntrackedWithOpener,
   trackedEnumerationAgrees,
   UNTRACKED_OPEN_FLAGS,
 } from "../src/engine/checkpoints/diff.ts";
@@ -147,7 +147,7 @@ Deno.test("a symlink replacement is rejected before target bytes are read", asyn
     await Deno.writeTextFile(candidate, "candidate bytes\n");
     await Deno.writeTextFile(target, "external needle\n");
     let reads = 0;
-    const inspected = await inspectUntrackedForTest(
+    const inspected = await inspectUntrackedWithOpener(
       candidate,
       "content",
       async (path) => {
@@ -159,9 +159,9 @@ Deno.test("a symlink replacement is rejected before target bytes are read", asyn
         );
         return {
           stat: () => handle.stat(),
-          read: async (...args: Parameters<typeof handle.read>) => {
+          read: async (buffer, offset, length, position) => {
             reads++;
-            return await handle.read(...args);
+            return await handle.read(buffer, offset, length, position);
           },
           close: () => handle.close(),
         };
