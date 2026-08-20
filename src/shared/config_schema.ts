@@ -316,16 +316,16 @@ const checkpointValue = z.strictObject({
     "Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a checkpoint takes one selector.",
   ),
   paths: z.array(z.string()).optional().describe(
-    `Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. A checkpoint takes one selector: \`scope\` or \`paths\`. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+    "Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either `scope` or `paths`. Supports registered path references.",
   ),
   include_generated: z.boolean().optional().describe(
-    "Whether paths owned by governing [generated.<name>].paths participate in this checkpoint. Default false evaluates authored change only.",
+    "Include paths owned by governing [generated.<name>].paths; default false keeps authored-only evaluation.",
   ),
   exclude_paths: z.array(z.string()).optional().describe(
-    `Checkpoint-specific noise to remove after selector resolution and before every condition, threshold, subject, evidence, and when match. Uses the selector glob dialect. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+    "Globs removed after selection and before every predicate, subject, evidence, and `when`. Supports registered path references.",
   ),
   unless_changed: z.array(z.string()).optional().describe(
-    `The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express "this change class is fine when its counterpart moved too". ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+    "Veto when any filtered changed path matches a configured scope name or selector-dialect glob. Supports registered path references.",
   ),
   min_changed_files: z.number().int().min(
     1,
@@ -340,7 +340,7 @@ const checkpointValue = z.strictObject({
     "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory (a copy/version/suffix variant) — the signature of a parallel implementation growing beside the original.",
   ),
   when: z.string().optional().describe(
-    "Executable escape hatch for conditions the structured fields cannot express. The command runs pre-flight in the working tree with a short fixed timeout: exit 0 fires the trigger, exit 1 passes, and any other exit or a timeout fails open (no fire) with an advisory. It may print `DISCERN_MATCH <path>` lines to declare the exact matched paths; combined with selectors, the selectors pre-scope the diff and `when` decides firing.",
+    "Final executable condition: exit 0 fires, exit 1 passes; errors and timeout fail open. `DISCERN_MATCH <path>` narrows the structural matches.",
   ),
   mode: z.enum(CHECKPOINT_MODES).optional().describe(
     '"stop" (the default): the gate refuses to run until the agent declares the question met or unmet. "advise": the question and its evidence are delivered through the advisory channel and nothing blocks.',

@@ -889,25 +889,25 @@
             "pattern": "^[A-Za-z0-9_-]+$"
           },
           "paths": {
-            "description": "Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. A checkpoint takes one selector: `scope` or `paths`. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either `scope` or `paths`. Supports registered path references.",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "include_generated": {
-            "description": "Whether paths owned by governing [generated.<name>].paths participate in this checkpoint. Default false evaluates authored change only.",
+            "description": "Include paths owned by governing [generated.<name>].paths; default false keeps authored-only evaluation.",
             "type": "boolean"
           },
           "exclude_paths": {
-            "description": "Checkpoint-specific noise to remove after selector resolution and before every condition, threshold, subject, evidence, and when match. Uses the selector glob dialect. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Globs removed after selection and before every predicate, subject, evidence, and `when`. Supports registered path references.",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "unless_changed": {
-            "description": "The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express \"this change class is fine when its counterpart moved too\". Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Veto when any filtered changed path matches a configured scope name or selector-dialect glob. Supports registered path references.",
             "type": "array",
             "items": {
               "type": "string"
@@ -928,7 +928,7 @@
             "type": "boolean"
           },
           "when": {
-            "description": "Executable escape hatch for conditions the structured fields cannot express. The command runs pre-flight in the working tree with a short fixed timeout: exit 0 fires the trigger, exit 1 passes, and any other exit or a timeout fails open (no fire) with an advisory. It may print `DISCERN_MATCH <path>` lines to declare the exact matched paths; combined with selectors, the selectors pre-scope the diff and `when` decides firing.",
+            "description": "Final executable condition: exit 0 fires, exit 1 passes; errors and timeout fail open. `DISCERN_MATCH <path>` narrows the structural matches.",
             "type": "string"
           },
           "mode": {
