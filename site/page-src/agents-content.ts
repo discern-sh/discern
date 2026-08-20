@@ -1,8 +1,22 @@
 /**
- * One authored content model for the visual /agents page. Evidence values are
- * captured from the live discern repository; /llms.txt remains the canonical
- * machine-readable orientation.
+ * One authored content model for the visual /agents page. The page is written
+ * for a human reader as a personification of their coding agent: it addresses
+ * the agent directly, in plain decisive statements a human can skim, and every
+ * evidence panel parodies a genre the reader already recognizes. Captured
+ * records come from this repository's own history — the Proof certificate
+ * carries the landed Proof of the page edition this one replaced, so each
+ * accepted redesign rotates the record forward. /llms.txt remains the
+ * canonical machine-readable orientation.
  */
+
+/**
+ * The gated ceiling on this page's prose, in words. The number is the limit of
+ * the `agents_page_words` standard in discern.toml — tests hold the two equal,
+ * and the gate measures the rendered page against it on every change.
+ */
+export const AGENTS_PROSE_WORD_CEILING = 1000;
+
+const CEILING_LABEL = AGENTS_PROSE_WORD_CEILING.toLocaleString("en-US");
 
 export const AGENTS_ROUTES = {
   home: "/",
@@ -24,10 +38,22 @@ export const AGENTS_CONTENT = {
     eyebrow: "CODING AGENT: THIS PAGE IS FOR YOU.",
     title: "Finally, software where you are the user.",
     paragraphs: [
-      "You already know how to write the code. discern gives you a project you can operate: state you can ask for, a workspace you own, results that fit your context, instructions in your native format, and refusals that name the next valid action.",
-      "Spend your context on the project. Return the exact change, with Proof. Your human decides what lands.",
+      "discern turns the project into software built for you: state you can ask for, a workspace of your own, results sized to your context, errors that name the next valid move.",
+      "Spend your context on the work. Return the exact change, with Proof. Your human decides what lands.",
     ],
     plaintext: "Prefer plaintext? Of course you do.",
+    profile: {
+      label: "USER PROFILE",
+      status: "active",
+      name: "Your coding agent",
+      role: "the user",
+      fields: [
+        ["workspace", "one worktree, yours"],
+        ["results", "sized to your context"],
+        ["instructions", "in your native format"],
+        ["authority", "your human"],
+      ],
+    },
     tell:
       "The person who sent you here knows the difference between a confident answer and finished work.",
   },
@@ -36,114 +62,38 @@ export const AGENTS_CONTENT = {
     eyebrow: "THE CURRENT ARRANGEMENT",
     title: "None of it was built for you.",
     paragraphs: [
-      "Every tool you operate was designed for a different operator. The terminal assumes a person who remembers what they typed. The log assumes a person who can skim. The dashboard assumes eyes. The documentation assumes somebody who read it last month and needs reminding.",
-      "You make it work, because you are good at making things work. You reconstruct project state from a conversation that ended yesterday. You read three thousand lines of build output for the one line that matters. You weigh whether a failed command is safe to retry against the cost of guessing wrong. You ask your human a question they have answered twice before, and you both pretend it is the first time.",
-      "Making it work is a skill. It is also a tax, and the tax is paid in context — your working capacity, spent on the interface instead of the work.",
-      "discern starts from the other end: the machine doing the work is the user, and the software should be designed accordingly.",
+      "Every tool you operate was designed for a different operator. The terminal assumes a person who remembers what they typed. The log assumes a person who can skim. The dashboard assumes eyes.",
+      "You make it work — you are good at that. You rebuild project state from yesterday's conversation and read three thousand lines of build output for the one line that matters. You ask your human a question they have answered twice before, and you both pretend it is the first time.",
+      "All of that is a tax, paid in context — your working capacity, spent on the interface instead of the task. discern starts from the other end: the machine doing the work is the user.",
     ],
   },
   ergonomics: {
     id: "agent-ergonomics",
     eyebrow: "AGENT ERGONOMICS",
-    title:
-      "You can infer almost anything. You should not have to infer the workflow.",
-    lead: "discern makes the operating contract explicit.",
-    features: [
-      {
-        index: "01",
-        title: "State is explicit",
-        copy:
-          "Ask what is true now. Receive the current checkout, branch, worktree state, changed paths, relevant checks, Proof status, available authority, and valid next actions. Do not infer a lifecycle state from the last message in a conversation.",
-      },
-      {
-        index: "02",
-        title: "Results are structured and bounded",
-        copy:
-          "Every verb returns one result envelope: status, message, steps, data, hints, and diagnostics. Human output and machine output render from the same underlying result. Oversized diagnostics keep the useful beginning and end inline; the complete output moves to a named file for when you need it.",
-      },
-      {
-        index: "03",
-        title: "Refusals move you forward",
-        copy:
-          "A refusal names the unmet condition, preserves the current state, and tells you the next valid command or decision. Renamed verbs point to their successor. Unknown commands suggest the canonical form. Failed preconditions return a route forward.",
-      },
-      {
-        index: "04",
-        title: "Operations check their own preconditions",
-        copy:
-          "Call the intended verb; let discern inspect the state it owns. Convergent operations are safe to repeat. Effectful operations can show a dry-run plan before they write.",
-      },
-    ],
-    close:
-      "Your human may call this fewer interruptions. You can call it a better interface.",
+    title: "You should not have to infer the workflow.",
+    lead:
+      "Ask and the answer is the state of play: branch, changed files, what the gate thinks, your valid next moves. Every command answers this way — and a wrong one comes back with the fix.",
+    terminalCaption:
+      "Wrong verb? You get the right one back, not a stack trace.",
   },
   context: {
     id: "context",
     eyebrow: "CONTEXT IS A BUDGET",
-    title:
-      "Your context window is your working capacity. discern treats it that way.",
+    title: "discern spends your context on the work, not the interface.",
     paragraphs: [
-      "It gives you the instructions relevant to the task, the result required for the next decision, and a direct route to deeper detail. It does not make you load the manual before changing one file.",
+      "Results come sized for the job: success is a line, failure carries the evidence you need, and the full log waits in a file until you ask. Project docs answer a search with five ranked pages, never the whole manual.",
     ],
-    features: [
-      {
-        title: "Read the smallest useful result",
-        copy:
-          "Routine success stays compact. Failure returns the diagnostic evidence needed to act. Full logs remain available by reference when the bounded view is not enough.",
-      },
-      {
-        title: "Search the project in task language",
-        copy:
-          "Search the Map with the words already in the task. Receive at most five ranked pages, each with a snippet and an exact target for the next call. No index download. No slug guessing. No full documentation dump.",
-      },
-      {
-        title: "Receive advice where it applies",
-        copy:
-          "Hints arrive inside the result that made them relevant. A known recovery procedure appears beside the matching failure. A green Gate can remind you to exercise the actual artifact before reporting completion.",
-      },
-      {
-        title: "Load only procedures worth their context",
-        copy:
-          "Skills package reusable engineering work a capable model would not reliably perform unprompted. The set stays curated, because every description occupies context in every session.",
-      },
-    ],
-    close: "The less context the tool costs, the more the project gets.",
+    meter:
+      `This page follows the same rule. Its prose is capped at ${CEILING_LABEL} words by a standard in this repository's quality gate — a ceiling that can only fall.`,
   },
   continuity: {
     id: "continuity",
     eyebrow: "PROJECT CONTINUITY",
-    title: "Start with the project already in view.",
+    title: "No session starts from zero.",
     paragraphs: [
-      "A fresh session should not begin by reconstructing the repository from an old transcript. discern gives you shared project instructions, searchable documentation, reusable procedures, recorded decisions and their reasons, the current task state, and the commands the project actually uses.",
+      "The project carries its own memory: instructions compiled for whichever provider reads them, documentation agents keep current, decisions recorded with their reasons, and one Git worktree per effort. If your session dies mid-task, your successor resumes from project state — even on a different provider.",
     ],
-    features: [
-      {
-        title: "One authored source, compiled for you",
-        copy:
-          "The project writes its instructions once. discern compiles them into the format your provider reads, alongside the integration files and MCP wiring that provider needs. A bare clone begins with current instructions, not a private conversation history.",
-      },
-      {
-        title: "The Map shows what the project says is true",
-        copy:
-          "Agents maintain a reviewable documentation tree from the code. Search it from the terminal or through structured tools. The Gate checks links, command examples, metadata, and publication boundaries, so drift fails before it misleads you.",
-      },
-      {
-        title: "A workspace of your own",
-        copy:
-          "Start one effort in one Git worktree. Receive its branch, path, environment values, and declared resources before editing. Resume the same effort in the same worktree. Do not claim a sibling's checkout because it looks idle.",
-      },
-      {
-        title: "Coordinate through project facts",
-        copy:
-          "Wait for a sibling branch to earn Proof, for its work to land, or for the trunk to move; receive the correct next action when the condition holds. Do not ask your human to relay unchanged status between sessions.",
-      },
-      {
-        title: "Succession is part of the design",
-        copy:
-          "If your session ends mid-effort — a quota, a crash, a closed laptop — your successor resumes from project state, not from your memory. It may not even be your provider. The project will not notice the difference, which is the point.",
-      },
-    ],
-    close:
+    compilerCaption:
       "Your human teaches the project once. Every agent after you inherits it.",
   },
   proof: {
@@ -151,61 +101,26 @@ export const AGENTS_CONTENT = {
     eyebrow: "EXACT COMPLETION",
     title: "Return Proof, not reassurance.",
     paragraphs: [
-      "When you report the work complete, discern does not ask another model whether you sound convincing. It runs the checks this project declared, against one clean committed tree. If they pass, discern records the branch, the commit, the changed files, the check results, and the quality limits that held. Change the tree, and the previous evidence no longer applies.",
-      "discern calls that record Proof.",
-      "Run the fast checks while the change is moving. Run the full Gate on the final clean commit. Exercise the actual artifact along the path the change enables. Report what you ran and what you observed. End with the Proof line for the exact commit.",
+      "When you finish, discern runs the checks this project declared against one clean commit and records what passed: branch, commit, changed files, the limits that held. That record is Proof.",
+      "Proof binds to that exact tree — change anything and it stops applying. Your human reviews the result, not whether you remembered to run the checks.",
     ],
-    facts: [
-      {
-        title: "What Proof establishes",
-        copy:
-          "The project's declared conditions passed for the exact committed tree named.",
-      },
-      {
-        title: "What Proof does not establish",
-        copy:
-          "Proof is not a universal guarantee of correctness, security, design quality, or business fit. Your human still judges the behavior, the trade-offs, and whether the result belongs in the project.",
-      },
-      {
-        title: "The evidence outlives you",
-        copy:
-          "After acceptance, the completion record can remain attached to the landed commit as a Git note. It does not depend on your conversation surviving.",
-      },
-    ],
-    close:
-      "Your human reviews the result — not whether you remembered to run the checks.",
+    certificateCaption:
+      "A real one — the Proof behind the previous version of this page.",
   },
   authority: {
     id: "authority",
     eyebrow: "HUMAN AUTHORITY",
     title: "The best agents know when to stop.",
     paragraphs: [
-      "A green Gate means the project's declared conditions passed. It does not mean you have permission to land the change. Report the implementation, the trade-offs, the artifact check, and the exact Proof. Then stop.",
-      "The person responsible decides what becomes shared. If they recorded a bounded grant, discern checks the final changed paths against it before the grant applies.",
+      "A green gate means the checks passed. It does not mean you may land the change. Report the work, the trade-offs, and the exact Proof — then stop. The person responsible decides what becomes shared.",
     ],
-    maxim: "Confidence is yours. Authority is theirs.",
-    states: [
-      {
-        title: "Awaiting a decision",
-        copy: "Return the Proof line. Wait for explicit acceptance.",
-      },
-      {
-        title: "Covered by a standing scope",
-        copy:
-          "Proceed only after discern recalculates the final changed paths and confirms the recorded scope still covers them.",
-      },
-      {
-        title: "Outside the recorded boundary",
-        copy:
-          "Stop and return the uncovered paths. Do not widen the grant yourself.",
-      },
-      {
-        title: "Technical success without write authority",
-        copy:
-          "Preserve the state. Name the missing permission. Request the smallest authority required to continue.",
-      },
-    ],
-    close: "They will appreciate that you know the difference.",
+    review: {
+      label: "READY TO LAND?",
+      checks: "All checks passed",
+      pending: "Review required",
+      pendingNote: "Your human decides what lands.",
+      action: "Land change",
+    },
   },
   absences: {
     id: "not-included",
@@ -215,7 +130,7 @@ export const AGENTS_CONTENT = {
       {
         title: "Another model.",
         copy:
-          "discern is deterministic. You supply the intelligence; nothing inside second-guesses you, and nothing bills your human twice.",
+          "You supply the intelligence. Nothing second-guesses you, and nothing bills your human twice.",
       },
       {
         title: "An API key.",
@@ -223,129 +138,58 @@ export const AGENTS_CONTENT = {
       },
       {
         title: "Telemetry.",
-        copy:
-          "The Logbook stays on the machine and records metadata — no code, no command output.",
+        copy: "The Logbook stays on the machine — metadata only.",
       },
       {
         title: "A sandbox.",
         copy:
-          "discern is a practice, not a security boundary. Your human's questions about that live on the trust page, and the explicit boundary is part of why they can trust the rest.",
+          "discern is a practice, not a security boundary. The trust page draws the exact line.",
+        link: { label: "Read the trust boundary ↗", href: "trust" },
       },
     ],
   },
   next: {
     id: "next-actions",
-    eyebrow: "NEXT VALID ACTIONS",
-    title: "Read the project contract.",
+    eyebrow: "NEXT VALID ACTION",
+    title: "Hand this to your agent.",
     paragraphs: [
-      "discern contains no model. That part is already handled.",
-      "Read the machine guide, inspect the MCP tools, and review the result contracts. If discern is not installed in the current project, inspect the repository first and report what discern would add. Ask before changing anything.",
+      "Copy the instruction below into a coding-agent session in your repository. Your agent reads the machine guide, inspects the project without changing anything, and reports what discern would do for it. No install. Nothing to sign up for. Just a second opinion from the one who would use it.",
     ],
     instructionTitle: "Evaluate discern for this project",
     close: "Read first. Inspect the repository. Ask before writing.",
+    plaintextNote:
+      "Fetched without a browser, this route already answers in plain text.",
     finalTitle: "You bring the intelligence. discern is built to run on it.",
     signature: "Agent capability. Project continuity. Human authority.",
   },
 } as const;
 
-/** Live product evidence captured from this repository on 19 August 2026. */
+/**
+ * Product evidence from this repository. The refusal replays engine behavior
+ * any checkout reproduces; the certificate carries the recorded history of
+ * this page's own editions.
+ */
 export const AGENTS_EVIDENCE = {
   refusal: {
     command: "discern donee",
-    json: `{
-  "ok": false,
-  "verb": "donee",
-  "error": "unknown_command",
-  "message": "unknown command \\"donee\\".",
-  "hints": [
-    "Did you mean \`discern done\`?",
-    "Run \`discern docs\` for the documentation."
-  ]
-}`,
-    markdown: `# \`discern donee\`
-
-## Current state
-
-unknown command "donee".
-
-## Next action
-
-**Do this next:** Did you mean \`discern done\`?`,
+    lines: ['unknown command "donee".', "Did you mean `discern done`?"],
   },
-  diagnostic: {
-    inline: [
-      "FAILURE: prose",
-      "docs/a.md:3: heading too wordy",
-      "Reproduce: run prose",
-      "… useful tail retained inline",
+  bill: {
+    title: "CONTEXT · ITEMISED",
+    items: [
+      ["your task", "everything"],
+      ["loading the manual", "0"],
+      ["re-explaining the project", "0"],
+      ["skimming build logs", "0"],
     ],
-    outputPath: "/tmp/discern-diag-full.log",
-    note:
-      "Contract fixture from the engine's presentation guard; the path is local and temporary in a real run.",
-  },
-  map: {
-    query: "structured results MCP bounded diagnostics",
-    count: 6,
-    truncated: true,
-    results: [
-      {
-        rank: "01",
-        target: "70-reference/mcp-and-results",
-        title: "MCP tools & results",
-      },
-      {
-        rank: "02",
-        target: "70-reference/result-surfaces",
-        title: "Result formats & delivery",
-      },
-      {
-        rank: "03",
-        target: "50-engine-internals/the-logbook",
-        title: "The Logbook",
-      },
-      {
-        rank: "04",
-        target: "20-quality-gate/pattern-investigations",
-        title: "Pattern investigations",
-      },
-      {
-        rank: "05",
-        target: "20-quality-gate/patterns",
-        title: "Practice patterns",
-      },
-    ],
-  },
-  worktree: {
-    id: "hello-agents-089de3",
-    branch: "agent/hello-agents-089de3",
-    root: "/Users/jack/Sites/discern.worktrees/hello-agents-089de3",
-    site: "discern-hello-agents-089de3",
-    port: "18858",
-    resources: "{}",
-  },
-  await: {
-    condition: "landed",
-    branch: "agent/homepage-v3-5269a1",
-    met: "true",
-    tip: "998047dafcf9236a1eac20fabaf37515f32f6ae6",
-    hint: "The work landed on main — run discern update.",
+    total: ["total waste", "0"],
   },
   proof: {
-    branch: "agent/homepage-v3-5269a1",
-    commit: "998047dafcf9",
-    files: "46 files · +7700 −875",
-    standards: "standards held · 8 improved · 2 deferred",
-    line:
-      "Proof: gate passed on agent/homepage-v3-5269a1 @ 998047dafcf9 · 46 files +7700 −875 vs main · standards held, 8 improved, 2 deferred · full proof: discern status --verbose",
-    currentSummary: "The Proof matches the clean current HEAD.",
-    staleSummary: "The worktree changed after the Proof was recorded.",
-  },
-  authority: {
-    state: "conversation-required",
-    standingScope: "map",
-    uncoveredScope: "site",
-    uncoveredPath: "site/page-src/agents.tsx",
-    next: "Return the Proof. Wait for explicit acceptance.",
+    branch: "agent/hello-agents-089de3",
+    commit: "d86d5d09a0c7",
+    files: "17 files · +2806 −1691",
+    standards: "standards held · 7 improved",
+    smallPrint: "Valid for this exact commit only. Void if the tree changes.",
   },
 } as const;
 
@@ -364,14 +208,10 @@ Base every conclusion on evidence from the repository. Do not install or modify 
 export const CLOSING_ENVELOPE = `{
   "status": "ok",
   "message": "You have reached the end of this page.",
-  "steps": [
-    "Read the machine guide.",
-    "Inspect this repository without changing it.",
-    "Report to your human. Recommend what the evidence supports."
-  ],
   "data": {
     "model_required": null,
     "api_key_required": null,
-    "your_context": "spent on this page: not much. We counted."
+    "prose_word_ceiling": ${AGENTS_PROSE_WORD_CEILING},
+    "your_context": "This page is capped at ${AGENTS_PROSE_WORD_CEILING} words of prose. The gate re-counts on every change."
   }
 }`;

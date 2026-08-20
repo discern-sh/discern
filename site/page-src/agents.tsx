@@ -9,7 +9,6 @@ import {
   SiteFooter,
   SiteHeader,
   SkipLink,
-  Window,
 } from "discern-design-system/react";
 import { providerBrandSilhouette, PROVIDERS } from "../../src/lib/providers.ts";
 import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
@@ -107,16 +106,9 @@ function MovementHeader(
   );
 }
 
-/** The shareable, self-contained opening card. */
+/** The opening card: the claim, and the agent's account rendered as a profile. */
 function AgentsHero() {
   const { hero } = AGENTS_CONTENT;
-  const contract = [
-    ["state", "ask for it"],
-    ["workspace", "isolated"],
-    ["results", "bounded"],
-    ["instructions", "project-owned"],
-    ["authority", "human"],
-  ] as const;
   return (
     <section className="agents-hero" aria-labelledby="agents-hero-title">
       <div className="agents-hero__frame">
@@ -152,25 +144,30 @@ function AgentsHero() {
             </p>
           </div>
           <aside
-            className="agents-contract"
-            aria-label="discern operating contract"
+            className="agents-profile"
+            aria-label="The agent's user profile"
           >
             <header>
-              <span>operating contract</span>
-              <Badge tone="accent" dot>ready for inspection</Badge>
+              <span>{hero.profile.label}</span>
+              <Badge tone="success" dot>{hero.profile.status}</Badge>
             </header>
+            <div className="agents-profile__identity">
+              <span className="agents-profile__avatar" aria-hidden="true">
+                {DISCERN_MARK}
+              </span>
+              <div>
+                <strong>{hero.profile.name}</strong>
+                <span>{hero.profile.role}</span>
+              </div>
+            </div>
             <dl>
-              {contract.map(([term, value], index) => (
+              {hero.profile.fields.map(([term, value]) => (
                 <div key={term}>
-                  <dt>{String(index + 1).padStart(2, "0")} / {term}</dt>
+                  <dt>{term}</dt>
                   <dd>{value}</dd>
                 </div>
               ))}
             </dl>
-            <footer>
-              <span>effect</span>
-              <strong>more context reaches the project</strong>
-            </footer>
           </aside>
         </div>
         <p className="agents-hero__tell">{hero.tell}</p>
@@ -225,7 +222,7 @@ function RecognitionSection() {
   );
 }
 
-/** One live refusal in two projections, surrounded by the operating contract. */
+/** The explicit workflow, shown as the "did you mean" every developer knows. */
 function ErgonomicsSection() {
   const { ergonomics } = AGENTS_CONTENT;
   const { refusal } = AGENTS_EVIDENCE;
@@ -243,60 +240,25 @@ function ErgonomicsSection() {
           lead={ergonomics.lead}
           titleId="ergonomics-title"
         />
-        <div className="agents-feature-grid">
-          {ergonomics.features.map((feature) => (
-            <article key={feature.index}>
-              <span>{feature.index}</span>
-              <h3>{feature.title}</h3>
-              <p>{feature.copy}</p>
-            </article>
-          ))}
-        </div>
-        <figure className="agents-refusal-figure">
-          <figcaption>
-            <div>
-              <span>LIVE ENGINE CAPTURE · SAME RESULT OBJECT</span>
-              <strong>
-                <code>$ {refusal.command}</code>
-              </strong>
-            </div>
-            <Badge className="agents-badge--warning" tone="warning" dot>
-              unknown command
-            </Badge>
-          </figcaption>
-          <div className="agents-refusal-figure__panes">
-            <article>
-              <header>
-                <span>machine projection</span>
-                <code>--json</code>
-              </header>
-              <pre><code>{refusal.json}</code></pre>
-            </article>
-            <article>
-              <header>
-                <span>human projection</span>
-                <code>--markdown</code>
-              </header>
-              <pre><code>{refusal.markdown}</code></pre>
-            </article>
+        <figure className="agents-terminal">
+          <div className="agents-terminal__chrome" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <span>terminal</span>
           </div>
-          <footer>
-            <span>one source of truth</span>
-            <strong>
-              A synonym is forgiven. The canonical verb is returned.
-            </strong>
-          </footer>
+          <pre><code>{`$ ${refusal.command}\n${refusal.lines.join("\n")}`}</code></pre>
+          <figcaption>{ergonomics.terminalCaption}</figcaption>
         </figure>
-        <p className="agents-marginalia">{ergonomics.close}</p>
       </div>
     </section>
   );
 }
 
-/** Bounded diagnostics and task-language Map search. */
+/** Context economy, itemised like a till bill. */
 function ContextSection() {
   const { context } = AGENTS_CONTENT;
-  const evidence = AGENTS_EVIDENCE;
+  const { bill } = AGENTS_EVIDENCE;
   return (
     <section
       className="agents-context"
@@ -311,76 +273,32 @@ function ContextSection() {
           lead={context.paragraphs[0]}
           titleId="context-title"
         />
-        <div className="agents-context__features">
-          {context.features.map((feature, index) => (
-            <article key={feature.title}>
-              <span>0{index + 1}</span>
-              <div>
-                <h3>{feature.title}</h3>
-                <p>{feature.copy}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-        <div className="agents-context__evidence">
-          <Window
-            className="agents-diagnostic-window"
-            title={<code>bounded diagnostic</code>}
-            actions={
-              <Badge className="agents-badge--warning" tone="warning" dot>
-                truncated
-              </Badge>
-            }
-            variant="showcase"
-          >
-            <div className="agents-diagnostic">
-              <section>
-                <span>INLINE / ACT NOW</span>
-                <ol>
-                  {evidence.diagnostic.inline.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ol>
-              </section>
-              <section>
-                <span>ON DEMAND / FULL CAPTURE</span>
-                <code>{evidence.diagnostic.outputPath}</code>
-                <small>{evidence.diagnostic.note}</small>
-              </section>
-            </div>
-          </Window>
-          <figure className="agents-map-search">
-            <figcaption>
-              <span>LIVE MAP SEARCH</span>
-              <code>{evidence.map.query}</code>
-            </figcaption>
-            <ol>
-              {evidence.map.results.map((result) => (
-                <li key={result.target}>
-                  <span>{result.rank}</span>
-                  <div>
-                    <strong>{result.title}</strong>
-                    <code>{result.target}</code>
-                  </div>
-                </li>
+        <figure className="agents-bill" aria-label="Context, itemised">
+          <div className="agents-bill__paper">
+            <span className="agents-bill__title">{bill.title}</span>
+            <dl>
+              {bill.items.map(([item, cost]) => (
+                <div key={item}>
+                  <dt>{item}</dt>
+                  <dd>{cost}</dd>
+                </div>
               ))}
-            </ol>
-            <footer>
-              <span>{evidence.map.count} matches found</span>
-              <strong>5 returned · deeper results available</strong>
-            </footer>
-          </figure>
-        </div>
-        <p className="agents-context__close">{context.close}</p>
+              <div className="agents-bill__total">
+                <dt>{bill.total[0]}</dt>
+                <dd>{bill.total[1]}</dd>
+              </div>
+            </dl>
+          </div>
+        </figure>
+        <p className="agents-context__meter">{context.meter}</p>
       </div>
     </section>
   );
 }
 
-/** Project state that survives sessions, providers, and parallel work. */
+/** Project memory that outlives sessions, compiled per provider. */
 function ContinuitySection() {
   const { continuity } = AGENTS_CONTENT;
-  const evidence = AGENTS_EVIDENCE;
   return (
     <section
       className="agents-continuity"
@@ -395,22 +313,7 @@ function ContinuitySection() {
           lead={continuity.paragraphs[0]}
           titleId="continuity-title"
         />
-        <div className="agents-continuity__features">
-          {continuity.features.map((feature, index) => (
-            <article key={feature.title}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <h3>{feature.title}</h3>
-              <p>{feature.copy}</p>
-            </article>
-          ))}
-        </div>
         <figure className="agents-compiler">
-          <figcaption>
-            <span>LIVE PROVIDER REGISTRY</span>
-            <strong>
-              One authored source, compiled for the provider reading it.
-            </strong>
-          </figcaption>
           <div className="agents-compiler__source">
             <span>AUTHORED ONCE</span>
             <code>project/instructions.md</code>
@@ -440,78 +343,14 @@ function ContinuitySection() {
               </article>
             ))}
           </div>
+          <figcaption>{continuity.compilerCaption}</figcaption>
         </figure>
-        <div className="agents-continuity__evidence">
-          <article className="agents-worktree-card">
-            <header>
-              <span>WORKTREE IDENTITY · LIVE</span>
-              <Badge tone="success" dot>running</Badge>
-            </header>
-            <dl>
-              <div>
-                <dt>id</dt>
-                <dd>
-                  <code>{evidence.worktree.id}</code>
-                </dd>
-              </div>
-              <div>
-                <dt>branch</dt>
-                <dd>
-                  <code>{evidence.worktree.branch}</code>
-                </dd>
-              </div>
-              <div>
-                <dt>root</dt>
-                <dd>
-                  <code>{evidence.worktree.root}</code>
-                </dd>
-              </div>
-              <div>
-                <dt>site</dt>
-                <dd>
-                  <code>{evidence.worktree.site}:{evidence.worktree.port}</code>
-                </dd>
-              </div>
-              <div>
-                <dt>resources</dt>
-                <dd>
-                  <code>{evidence.worktree.resources}</code>
-                </dd>
-              </div>
-            </dl>
-          </article>
-          <article className="agents-await-card">
-            <header>
-              <span>FLEET CONDITION · LIVE</span>
-              <Badge tone="success" dot>met</Badge>
-            </header>
-            <div className="agents-await-card__condition">
-              <span>wait until</span>
-              <strong>{evidence.await.condition}</strong>
-            </div>
-            <code>{evidence.await.branch}</code>
-            <dl>
-              <div>
-                <dt>met</dt>
-                <dd>{evidence.await.met}</dd>
-              </div>
-              <div>
-                <dt>tip</dt>
-                <dd>
-                  <code>{evidence.await.tip.slice(0, 12)}</code>
-                </dd>
-              </div>
-            </dl>
-            <footer>{evidence.await.hint}</footer>
-          </article>
-        </div>
-        <p className="agents-marginalia">{continuity.close}</p>
       </div>
     </section>
   );
 }
 
-/** Exact-commit Proof, including the physical stale-state demonstration. */
+/** Exact completion, issued the way certificates always have been. */
 function ProofSection() {
   const { proof } = AGENTS_CONTENT;
   const evidence = AGENTS_EVIDENCE.proof;
@@ -533,110 +372,52 @@ function ProofSection() {
             <p key={paragraph}>{paragraph}</p>
           ))}
         </div>
-        <div
-          className="agents-proof-demo"
-          data-proof-demo
-          data-proof-state="current"
-        >
-          <header>
-            <div>
-              <span>PROOF CURRENCY · ENGINE RULE REPLAY</span>
-              <strong>
-                Change the tree. Watch the evidence stop applying.
-              </strong>
-            </div>
-            <button type="button" data-proof-toggle aria-pressed="false">
-              <span data-proof-toggle-current>Introduce one visible edit</span>
-              <span data-proof-toggle-stale>Restore the exact tree</span>
-            </button>
-          </header>
-          <div className="agents-proof-demo__body">
-            <section className="agents-proof-demo__change">
-              <span>VISIBLE TREE</span>
-              <div className="agents-code-line">
-                <i>71</i>
-                <code>&lt;main id=&quot;main&quot;&gt;</code>
+        <figure className="agents-certificate">
+          <div className="agents-certificate__paper">
+            <span className="agents-certificate__mark" aria-hidden="true">
+              {DISCERN_MARK}
+            </span>
+            <span className="agents-certificate__title">Proof</span>
+            <strong className="agents-certificate__stamp">gate passed</strong>
+            <dl>
+              <div>
+                <dt>branch</dt>
+                <dd>
+                  <code>{evidence.branch}</code>
+                </dd>
               </div>
-              <div className="agents-code-line">
-                <i>72</i>
-                <code>&nbsp;&nbsp;&lt;AgentsHero /&gt;</code>
+              <div>
+                <dt>commit</dt>
+                <dd>
+                  <code>{evidence.commit}</code>
+                </dd>
               </div>
-              <div className="agents-code-line agents-code-line--edit">
-                <i>73</i>
-                <code>+ &lt;ProofNote state=&quot;stale&quot; /&gt;</code>
+              <div>
+                <dt>change</dt>
+                <dd>
+                  <code>{evidence.files}</code>
+                </dd>
               </div>
-              <div className="agents-code-line">
-                <i>74</i>
-                <code>&lt;/main&gt;</code>
+              <div>
+                <dt>standards</dt>
+                <dd>
+                  <code>{evidence.standards}</code>
+                </dd>
               </div>
-            </section>
-            <section className="agents-proof-demo__receipt">
-              <span>RECORDED PROOF</span>
-              <dl>
-                <div>
-                  <dt>branch</dt>
-                  <dd>
-                    <code>{evidence.branch}</code>
-                  </dd>
-                </div>
-                <div>
-                  <dt>commit</dt>
-                  <dd>
-                    <code>{evidence.commit}</code>
-                  </dd>
-                </div>
-                <div>
-                  <dt>change</dt>
-                  <dd>{evidence.files}</dd>
-                </div>
-                <div>
-                  <dt>standards</dt>
-                  <dd>{evidence.standards}</dd>
-                </div>
-              </dl>
-            </section>
+            </dl>
+            <small>{evidence.smallPrint}</small>
           </div>
-          <div
-            className="agents-proof-demo__status"
-            aria-live="polite"
-            data-proof-live
-          >
-            <div data-proof-current>
-              <span>✓ PROOF CURRENT</span>
-              <strong>{evidence.currentSummary}</strong>
-              <small>Valid next action: report the Proof line.</small>
-            </div>
-            <div data-proof-stale>
-              <span>! PROOF STALE</span>
-              <strong>{evidence.staleSummary}</strong>
-              <small>
-                Valid next action: commit the final tree, then run{" "}
-                <code>discern done</code> again.
-              </small>
-            </div>
-          </div>
-          <footer>
-            <code>{evidence.line}</code>
-          </footer>
-        </div>
-        <div className="agents-proof__facts">
-          {proof.facts.map((fact) => (
-            <article key={fact.title}>
-              <h3>{fact.title}</h3>
-              <p>{fact.copy}</p>
-            </article>
-          ))}
-        </div>
-        <p className="agents-marginalia">{proof.close}</p>
+          <figcaption>{proof.certificateCaption}</figcaption>
+        </figure>
       </div>
     </section>
   );
 }
 
-/** Technical success on one side, landing authority on the other. */
+/** A green gate is not permission, shown as the review box every dev knows. */
 function AuthoritySection() {
   const { authority } = AGENTS_CONTENT;
-  const evidence = AGENTS_EVIDENCE.authority;
+  const { review } = authority;
   return (
     <section
       className="agents-authority"
@@ -648,83 +429,24 @@ function AuthoritySection() {
           number="07"
           eyebrow={authority.eyebrow}
           title={authority.title}
+          lead={authority.paragraphs[0]}
           titleId="authority-title"
         />
-        <div className="agents-authority__intro agents-prose">
-          {authority.paragraphs.map((paragraph) => (
-            <p key={paragraph}>{paragraph}</p>
-          ))}
-          <strong>{authority.maxim}</strong>
-        </div>
-        <figure className="agents-boundary-figure">
-          <figcaption>CHECKS AND AUTHORITY ARE DIFFERENT FACTS</figcaption>
-          <div className="agents-boundary-figure__checks">
-            <span>TECHNICAL STATE</span>
-            <strong>Proof valid</strong>
-            <ul>
-              <li>exact commit named</li>
-              <li>declared checks passed</li>
-              <li>artifact observation reported</li>
-            </ul>
+        <figure className="agents-review" aria-label="Landing review state">
+          <span className="agents-review__label">{review.label}</span>
+          <div className="agents-review__row agents-review__row--pass">
+            <i aria-hidden="true">✓</i>
+            <strong>{review.checks}</strong>
           </div>
-          <div className="agents-boundary-figure__divider" aria-hidden="true">
-            <span>≠ permission</span>
+          <div className="agents-review__row agents-review__row--pending">
+            <i aria-hidden="true">●</i>
+            <strong>{review.pending}</strong>
+            <span>{review.pendingNote}</span>
           </div>
-          <div className="agents-boundary-figure__authority">
-            <span>AUTHORITY STATE · CAPTURED HERE</span>
-            <strong>{evidence.state}</strong>
-            <dl>
-              <div>
-                <dt>standing scope</dt>
-                <dd>
-                  <code>{evidence.standingScope}</code>
-                </dd>
-              </div>
-              <div>
-                <dt>uncovered scope</dt>
-                <dd>
-                  <code>{evidence.uncoveredScope}</code>
-                </dd>
-              </div>
-              <div>
-                <dt>uncovered path</dt>
-                <dd>
-                  <code>{evidence.uncoveredPath}</code>
-                </dd>
-              </div>
-            </dl>
-            <footer>→ {evidence.next}</footer>
+          <div className="agents-review__action">
+            <button type="button" disabled>{review.action}</button>
           </div>
         </figure>
-        <div className="agents-authority__states">
-          {authority.states.map((state, index) => (
-            <article key={state.title}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <h3>{state.title}</h3>
-              <p>{state.copy}</p>
-            </article>
-          ))}
-        </div>
-        <div
-          className="agents-relationship"
-          aria-label="Authority relationship"
-        >
-          <div>
-            <strong>human</strong>
-            <span>direction</span>
-          </div>
-          <i>→</i>
-          <div>
-            <strong>agent</strong>
-            <span>implementation</span>
-          </div>
-          <i>→</i>
-          <div>
-            <strong>project</strong>
-            <span>evidence back to human</span>
-          </div>
-        </div>
-        <p className="agents-marginalia">{authority.close}</p>
       </div>
     </section>
   );
@@ -752,8 +474,12 @@ function AbsencesSection() {
               <span>0{index + 1} / ABSENT</span>
               <h3>{item.title}</h3>
               <p>{item.copy}</p>
-              {item.title === "A sandbox."
-                ? <a href={AGENTS_ROUTES.trust}>Read the trust boundary ↗</a>
+              {"link" in item
+                ? (
+                  <a href={AGENTS_ROUTES[item.link.href]}>
+                    {item.link.label}
+                  </a>
+                )
                 : null}
             </article>
           ))}
@@ -763,7 +489,7 @@ function AbsencesSection() {
   );
 }
 
-/** Evaluation handoff and the result-shaped end of the page. */
+/** The page turns to the human: one instruction to hand their agent. */
 function NextActionsSection() {
   const { next } = AGENTS_CONTENT;
   return (
@@ -778,11 +504,6 @@ function NextActionsSection() {
         <div className="agents-next__intro agents-prose">
           {next.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}
           </p>)}
-          <nav aria-label="Machine references">
-            <a href={AGENTS_ROUTES.machineGuide}>Read the machine guide</a>
-            <a href={AGENTS_ROUTES.mcp}>Inspect the MCP tools</a>
-            <a href={AGENTS_ROUTES.schema}>Review the result schema</a>
-          </nav>
         </div>
         <article className="agents-evaluate" id="evaluate">
           <header>
@@ -807,6 +528,7 @@ function NextActionsSection() {
             <Badge tone="success" dot>ok</Badge>
           </div>
           <pre><code>{CLOSING_ENVELOPE}</code></pre>
+          <p className="agents-result-close__note">{next.plaintextNote}</p>
         </div>
         <div className="agents-final">
           <span aria-hidden="true">{DISCERN_MARK}</span>
