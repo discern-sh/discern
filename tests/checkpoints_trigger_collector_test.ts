@@ -8,11 +8,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { constants as FS_CONSTANTS } from "fs";
+import { open } from "fs/promises";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import {
   collectEffortDiff,
-  openUntrackedRegularNoFollow,
+  inspectUntrackedForTest,
   trackedEnumerationAgrees,
   UNTRACKED_OPEN_FLAGS,
 } from "../src/engine/checkpoints/diff.ts";
@@ -132,23 +133,42 @@ Deno.test("untracked binary content has exact empty changed-line facts", async (
   });
 });
 
-Deno.test("untracked opens atomically refuse symlinks and blocking special files", () => {
-  assert(
-    (UNTRACKED_OPEN_FLAGS & FS_CONSTANTS.O_NOFOLLOW) !== 0,
-    "a symlink replacement must fail at open time",
-  );
+Deno.test("untracked opens remain nonblocking for replaced special files", () => {
   assert(
     (UNTRACKED_OPEN_FLAGS & FS_CONSTANTS.O_NONBLOCK) !== 0,
     "a FIFO or device replacement must never block open",
   );
 });
 
-Deno.test("the no-follow open boundary rejects a symlink semantically", async () => {
+Deno.test("a symlink replacement is rejected before target bytes are read", async () => {
   await withTempDir(async (dir) => {
-    await Deno.writeTextFile(join(dir, "target.txt"), "external bytes\n");
-    const linked = join(dir, "linked.txt");
-    await Deno.symlink(join(dir, "target.txt"), linked);
-    assertEquals(await openUntrackedRegularNoFollow(linked), undefined);
+    const candidate = join(dir, "candidate.txt");
+    const target = join(dir, "outside.txt");
+    await Deno.writeTextFile(candidate, "candidate bytes\n");
+    await Deno.writeTextFile(target, "external needle\n");
+    let reads = 0;
+    const inspected = await inspectUntrackedForTest(
+      candidate,
+      "content",
+      async (path) => {
+        await Deno.remove(path);
+        await Deno.symlink(target, path);
+        const handle = await open(
+          path,
+          FS_CONSTANTS.O_RDONLY | FS_CONSTANTS.O_NONBLOCK,
+        );
+        return {
+          stat: () => handle.stat(),
+          read: async (...args: Parameters<typeof handle.read>) => {
+            reads++;
+            return await handle.read(...args);
+          },
+          close: () => handle.close(),
+        };
+      },
+    );
+    assertEquals(inspected.contentReason, "unreadable");
+    assertEquals(reads, 0);
   });
 });
 
