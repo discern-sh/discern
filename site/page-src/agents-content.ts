@@ -143,7 +143,7 @@ export const AGENTS_CONTENT = {
       {
         title: "A sandbox.",
         copy:
-          "discern is a practice, not a security boundary. The trust page draws the line honestly.",
+          "discern is a practice, not a security boundary. The trust page draws the exact line.",
         link: { label: "Read the trust boundary ↗", href: "trust" },
       },
     ],
