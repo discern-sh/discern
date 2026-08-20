@@ -164,7 +164,9 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
       HINTS["generated-agent-files-missing"].id,
       HINTS["materialized-skills-missing"].id,
       HINTS["status-start-on-trunk"].id,
+      HINTS["status-continue-own-effort"].id,
       HINTS["status-no-active-worktrees"].id,
+      HINTS["status-full-structured-detail"].id,
     ]);
     assertEquals(event.change, {
       files: 0,
@@ -253,7 +255,9 @@ Deno.test("logbook: a human-rendered verb records the ids on its observed result
       HINTS["generated-agent-files-missing"].id,
       HINTS["materialized-skills-missing"].id,
       HINTS["status-start-on-trunk"].id,
+      HINTS["status-continue-own-effort"].id,
       HINTS["status-no-active-worktrees"].id,
+      HINTS["status-full-structured-detail"].id,
     ]);
   });
 });
@@ -867,7 +871,9 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
       HINTS["generated-agent-files-missing"].id,
       HINTS["materialized-skills-missing"].id,
       HINTS["status-start-on-trunk"].id,
+      HINTS["status-continue-own-effort"].id,
       HINTS["status-no-active-worktrees"].id,
+      HINTS["status-full-structured-detail"].id,
       HINTS["mcp-version-mismatch"].id,
     ]);
     assert(

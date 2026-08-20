@@ -861,7 +861,8 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
     }),
     fire(HINTS["status-fleet-logbook-disabled"]),
   ]);
-  assertStringIncludes(hints[0] ?? "", "git diff main...<branch>");
+  assert(!(hints[0] ?? "").includes("git diff"));
+  assertStringIncludes(hints[0] ?? "", "The owner reviews");
   assert(!(hints[0] ?? "").includes("data.fleet"));
   const output = render(
     data([mainEntry(), ready], {
@@ -887,6 +888,7 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
     true,
   );
   assertStringIncludes(output, "1 needs attention");
+  assertStringIncludes(output, "git diff main...<branch>");
   assertStringIncludes(output, "complete branch beside each worktree");
   assertStringIncludes(output, "Per-worktree actions aren't available");
   assertStringIncludes(output, "6 files changed");

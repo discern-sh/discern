@@ -257,7 +257,7 @@ Deno.test("owner-attention classification enrolls current and future fleet decis
     example: undefined,
     template: () =>
       `Maintain the unrelated effort with ${
-        HINTS["status-continue-own-effort"].template(undefined)
+        HINTS["status-full-structured-detail"].template(undefined)
       }`,
   });
   assertThrows(

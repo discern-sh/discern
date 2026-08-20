@@ -227,9 +227,17 @@ Deno.test("accept records matching proof notes without a remote, status reads th
       "engine-test@example.com",
     ]);
 
-    const status = await runAgent(dir, ["status", "--json"]);
+    const orientedStatus = await runAgent(dir, ["status", "--json"]);
+    assertEquals(orientedStatus.code, 0, orientedStatus.output);
+    const orientedStatusResult = JSON.parse(orientedStatus.stdout);
+    assertEquals(orientedStatusResult.data.projection.mode, "orientation");
+    assertEquals(orientedStatusResult.data.landed_proof, undefined);
+    assertEquals(orientedStatusResult.data.landed_proof_unsupported, undefined);
+
+    const status = await runAgent(dir, ["status", "--verbose", "--json"]);
     assertEquals(status.code, 0, status.output);
     const statusResult = JSON.parse(status.stdout);
+    assertEquals(statusResult.data.projection.mode, "full");
     assertEquals(statusResult.data.landed_proof, {
       commit: second.target,
       commit_at: await gitOut(dir, "show", "-s", "--format=%cI", second.target),
@@ -266,7 +274,11 @@ Deno.test("accept records matching proof notes without a remote, status reads th
       }\n`,
       newerCommit,
     );
-    const unreadStatus = await runAgent(dir, ["status", "--json"]);
+    const unreadStatus = await runAgent(dir, [
+      "status",
+      "--verbose",
+      "--json",
+    ]);
     assertEquals(unreadStatus.code, 0, unreadStatus.output);
     const unreadResult = JSON.parse(unreadStatus.stdout);
     assertEquals(unreadResult.data.landed_proof, undefined);
@@ -450,7 +462,11 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
       await gitOut(dir, "rev-parse", siblingTrackingRef),
       remoteNotesTip,
     );
-    const fetchedStatus = await runAgent(dir, ["status", "--json"]);
+    const fetchedStatus = await runAgent(dir, [
+      "status",
+      "--verbose",
+      "--json",
+    ]);
     assertEquals(fetchedStatus.code, 0, fetchedStatus.output);
     const fetchedStatusResult = JSON.parse(fetchedStatus.stdout);
     assertEquals(
@@ -463,7 +479,11 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
     );
 
     await git(dir, "update-ref", "-d", trackingRef);
-    const siblingOnlyStatus = await runAgent(dir, ["status", "--json"]);
+    const siblingOnlyStatus = await runAgent(dir, [
+      "status",
+      "--verbose",
+      "--json",
+    ]);
     assertEquals(siblingOnlyStatus.code, 0, siblingOnlyStatus.output);
     assertEquals(
       JSON.parse(siblingOnlyStatus.stdout).data.landed_proof,

@@ -1625,12 +1625,12 @@ Rendered example:
 
 - Category: `next-step`
 - Audience: `agent`
-- Family: `status-start-here`
+- Family: —
 - Emitting context: Status runs in the main checkout and setup is complete with a usable trunk.
 
 Rendered example:
 
-> Continue in the worktree assigned to this effort. If it has none and the requested work requires changes, run `discern start` from the main checkout before editing.
+> Continue in the worktree assigned to this effort. Only for a new effort, follow the start procedure under Authority and boundaries.
 
 ## `status-dirty-fleet-members`
 

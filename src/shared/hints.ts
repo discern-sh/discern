@@ -952,12 +952,10 @@ export const HINTS = {
     audience: "agent",
     when:
       "Status runs in the main checkout and setup is complete with a usable trunk.",
-    family: "status-start-here",
     example: undefined,
     template: (): string =>
-      `Continue in the worktree assigned to this effort. If it has none and ` +
-      `the requested work requires changes, run ${CMD.start} from the main ` +
-      "checkout before editing.",
+      "Continue in the worktree assigned to this effort. Only for a new " +
+      "effort, follow the start procedure under Authority and boundaries.",
   }),
 
   /** The bounded projection advertises its explicit full-detail escape hatch. */

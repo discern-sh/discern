@@ -242,8 +242,10 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
         j.data.setup_unfinished.pending_markers.length > 0,
       `expected pending markers: ${JSON.stringify(j.data.setup_unfinished)}`,
     );
+    const pendingCount = j.data.setup_unfinished.pending_markers.length +
+      (j.data.projection.omitted?.["setup_unfinished.pending_markers"] ?? 0);
     assertHasHint(j, HINTS["setup-unfinished-status"], {
-      pendingCount: j.data.setup_unfinished.pending_markers.length,
+      pendingCount,
     });
 
     // Once setup is recorded, the signal is gone — and the marker walk is skipped.
@@ -271,8 +273,10 @@ Deno.test("status surfaces unfinished setup from a worktree too, not just the ma
       j.data.setup_unfinished !== undefined,
       "setup-unfinished must surface from a worktree, not only from main",
     );
+    const pendingCount = j.data.setup_unfinished.pending_markers.length +
+      (j.data.projection.omitted?.["setup_unfinished.pending_markers"] ?? 0);
     assertHasHint(j, HINTS["setup-unfinished-status"], {
-      pendingCount: j.data.setup_unfinished.pending_markers.length,
+      pendingCount,
     });
   });
 });

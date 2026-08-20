@@ -57,7 +57,6 @@ const MISLEADING_ACCEPTANCE_PATTERNS: Array<{
 const VERIFIED_AUTHORITY_HINT_IDS = new Set([
   "gate-land-under-verified-authority",
   "status-land-under-verified-authority",
-  "status-fleet-authorized-landings",
 ]);
 
 /** Flatten either a file or a directory tree into the concrete surfaces the guard scans. */
