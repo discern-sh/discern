@@ -109,10 +109,10 @@ import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
 import {
   type CheckpointPreflight,
   type DeclarationRequest,
-  previewCheckpointNotes,
   runCheckpointPreflight,
   type ServedCheckpoint,
 } from "../checkpoints/preflight.ts";
+import { inspectCheckpointNotes } from "../checkpoints/inspection.ts";
 import { AWAITING_DECLARATION_SLUG } from "../../shared/declarations.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import type {
@@ -1581,7 +1581,7 @@ async function dryRunGate(
   const changed = await classifyScopes(root, cfg);
   const plan = buildGatePlan(cfg, changed, dryRunStandardJobs(cfg));
   const engine = gatePlanToEngine(plan);
-  engine.details.push(...(await previewCheckpointNotes(root, cfg)));
+  engine.details.push(...(await inspectCheckpointNotes(root, cfg)));
   if (json) {
     // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
     emitResult(previewResult("done", engine));
@@ -1876,7 +1876,7 @@ export async function finishResult(
     const engine = gatePlanToEngine(
       buildGatePlan(cfg, changed, dryRunStandardJobs(cfg)),
     );
-    engine.details.push(...(await previewCheckpointNotes(root, cfg)));
+    engine.details.push(...(await inspectCheckpointNotes(root, cfg)));
     return previewResult("done", engine);
   }
   const declarations: DeclarationRequest = {

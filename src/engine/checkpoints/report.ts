@@ -4,8 +4,8 @@
  * this effort (question, trigger, mode, and the policy identity), what state
  * each open question is in (awaiting a declaration, declared met, declared unmet —
  * variance required, or reopened), and what the current change would fire — a
- * structural preview through the same projection `prepare`, `status`, and
- * `done --dry-run` share, so no surface can disagree about what fires.
+ * structural preview beside the same strict obligation `prepare`, `status`,
+ * `done --dry-run`, and bare `done` consume.
  *
  * Like every result verb it computes one {@link DiscernResult}; the human
  * report, `--json`/`--markdown`, and the MCP tool are renderings of the same
@@ -33,7 +33,10 @@ import type {
   OpenQuestionState,
   UngovernedOpenQuestionData,
 } from "../../shared/result_schemas.ts";
-import type { TriggerVeto } from "../../shared/checkpoints.ts";
+import type {
+  CheckpointObligationState,
+  TriggerVeto,
+} from "../../shared/checkpoints.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { interactiveHintTexts } from "../../shared/hints.ts";
@@ -44,17 +47,16 @@ import {
   terminalLine,
   terminalMultiline,
 } from "../../lib/terminal.ts";
-import {
-  declarationIsCurrent,
-  type OpenQuestion,
-  readOpenQuestions,
-} from "./open_questions.ts";
+import type { OpenQuestion } from "./open_questions.ts";
 import { checkpointEconomicsOf } from "../logbook/checkpoint_economics.ts";
 import { buildStreamFacts } from "../logbook/detectors.ts";
 import { readLogbookStream } from "../logbook/read.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
-import { type CheckpointPreview, previewCheckpoints } from "./preflight.ts";
-import { checkpointDefinitionHash, computeSubject } from "./subject.ts";
+import {
+  activeOpenQuestionState,
+  type CheckpointInspection,
+  inspectCheckpointObligations,
+} from "./inspection.ts";
 import type { ResolvedCheckpoint, StructuralTriggerOutcome } from "./types.ts";
 
 // ── the trigger summary ─────────────────────────────────────────────────────
@@ -116,36 +118,23 @@ function triggerPreviewData(
   };
 }
 
-/** The binding a bare `done` would reconcile an openQuestion to right now — the
- * current resolved-definition hash and subject fingerprint. `error` fails
- * open (the report shows the recorded state). */
-type CurrentBinding =
-  | { definitionHash: string; subject: string }
-  | { error: string };
-
-/** Project one stored openQuestion onto the wire shape. `stop` says whether the
- * checkpoint currently governs in stop mode — only then can a current
- * declared-unmet conclusion require an owner variance at landing. `binding`,
- * when computable, is what `done` would reconcile the open question to now: a
- * differing binding means the next gate run REOPENS it, so the recorded
- * conclusion is reported as reopened rather than as standing. */
+/** Project one stored openQuestion onto the wire shape. The canonical
+ * obligation supplies the currency state strict `done` would act on; for an
+ * ungoverned historical record, the store's own binding remains the account. */
 function openQuestionData(
   openQuestion: OpenQuestion,
   stop: boolean,
-  binding?: CurrentBinding,
+  obligation?: CheckpointObligationState,
 ): OpenQuestionData {
   const declaration = openQuestion.declaration;
-  const rebindPending = binding !== undefined && !("error" in binding) &&
-    (binding.definitionHash !== openQuestion.definitionHash ||
-      binding.subject !== openQuestion.subject);
+  const projected = obligation === "awaiting_declaration" ||
+      obligation === "reopened" || obligation === "declared_met" ||
+      obligation === "declared_unmet"
+    ? obligation
+    : activeOpenQuestionState(openQuestion);
+  const state: OpenQuestionState = projected;
   const current = declaration !== undefined &&
-    declarationIsCurrent(openQuestion) &&
-    !rebindPending;
-  const state: OpenQuestionState = declaration === undefined
-    ? "awaiting_declaration"
-    : current
-    ? (declaration.conclusion === "met" ? "declared_met" : "declared_unmet")
-    : "reopened";
+    (state === "declared_met" || state === "declared_unmet");
   return {
     state,
     definition_hash: openQuestion.definitionHash,
@@ -163,7 +152,11 @@ function openQuestionData(
         current,
       },
     }),
-    ...(stop && state === "declared_unmet" ? { variance_required: true } : {}),
+    ...(stop &&
+        (obligation === "declared_unmet" ||
+          (obligation === undefined && state === "declared_unmet"))
+      ? { variance_required: true }
+      : {}),
   };
 }
 
@@ -204,43 +197,31 @@ interface ReportRouting {
 
 /** Assemble the report rows plus the routing facts the hints fire from. */
 function assembleReport(
-  preview: CheckpointPreview,
-  openQuestions: Readonly<Record<string, OpenQuestion>>,
-  bindings: ReadonlyMap<string, CurrentBinding>,
+  inspection: CheckpointInspection,
 ): {
   rows: CheckpointReportData[];
   ungoverned: UngovernedOpenQuestionData[];
   routing: ReportRouting;
 } {
-  const outcomes = new Map(
-    (preview.entries ?? []).map((
-      entry,
-    ) => [entry.definition.id, entry.outcome]),
-  );
   const routing: ReportRouting = { awaiting: [], varianceRequired: [] };
-  const rows = preview.checkpoints.map((def): CheckpointReportData => {
+  const rows = inspection.entries.map((entry): CheckpointReportData => {
+    const def = entry.definition;
     const stop = def.mode === "stop";
-    const outcome = outcomes.get(def.id);
-    const openQuestion = openQuestions[def.id];
+    const outcome = entry.outcome;
+    const openQuestion = entry.openQuestion;
     const data = openQuestion === undefined
       ? undefined
-      : openQuestionData(openQuestion, stop, bindings.get(def.id));
+      : openQuestionData(openQuestion, stop, entry.obligation.state);
     if (stop) {
-      if (data !== undefined) {
-        if (
-          data.state === "awaiting_declaration" || data.state === "reopened"
-        ) {
+      switch (entry.obligation.state) {
+        case "will_open":
+        case "awaiting_declaration":
+        case "reopened":
           routing.awaiting.push(def.id);
-        }
-        if (data.variance_required === true) {
+          break;
+        case "declared_unmet":
           routing.varianceRequired.push(def.id);
-        }
-      } else if (
-        outcome !== undefined && outcome.holds && !outcome.whenPending
-      ) {
-        // A settled fire with no open question yet: `done` will serve it, and both
-        // conclusions are already declarable in that same invocation.
-        routing.awaiting.push(def.id);
+          break;
       }
     }
     return {
@@ -250,14 +231,15 @@ function assembleReport(
       ...(def.teach === undefined ? {} : { teach: def.teach }),
       ...(def.reference === undefined ? {} : { reference: def.reference }),
       trigger: triggerSummary(def),
+      obligation: entry.obligation.state,
       ...(outcome === undefined
         ? {}
         : { preview: triggerPreviewData(outcome) }),
       ...(data === undefined ? {} : { open_question: data }),
     };
   });
-  const governed = new Set(preview.checkpoints.map((def) => def.id));
-  const ungoverned = Object.values(openQuestions)
+  const governed = new Set(inspection.checkpoints.map((def) => def.id));
+  const ungoverned = Object.values(inspection.openQuestions)
     .filter((openQuestion) => !governed.has(openQuestion.checkpoint))
     .map((openQuestion): UngovernedOpenQuestionData => ({
       id: openQuestion.checkpoint,
@@ -277,64 +259,14 @@ export async function checkpointsResult(
   root: string,
 ): Promise<DiscernResult<CheckpointsData>> {
   const config = await loadConfig(root);
-  const preview = await previewCheckpoints(root, config);
-  const advisories = [...preview.advisories];
-
-  const read = await readOpenQuestions(root);
-  const openQuestions = read.status === "ok" ? read.openQuestions : {};
-  if (read.status === "invalid") {
-    advisories.push(
-      "the checkpoint open-question record did not parse; conclusions must be declared again at `discern done`.",
-    );
-  } else if (read.status === "unavailable") {
-    advisories.push(
-      `the checkpoint open-question record could not be read (${read.reason}); this effort's openQuestion state is unknown.`,
-    );
-  }
-
-  // What a bare `done` would reconcile each recorded open question to right now.
-  // Only a settled stop firing reconciles there, so only that case is
-  // recomputed here; a computation failure FAILS OPEN into the recorded
-  // state, with the account beside it.
-  const bindings = new Map<string, CurrentBinding>();
-  for (const { definition, outcome } of preview.entries ?? []) {
-    if (
-      definition.mode !== "stop" ||
-      openQuestions[definition.id] === undefined ||
-      !outcome.holds || outcome.whenPending
-    ) {
-      continue;
-    }
-    const definitionHash = await checkpointDefinitionHash(definition);
-    const subject = await computeSubject(
-      root,
-      definitionHash,
-      outcome.matched,
-      preview.policyCommit ?? "",
-    );
-    if ("error" in subject) {
-      bindings.set(definition.id, { error: subject.error });
-      advisories.push(
-        `checkpoint '${definition.id}': its current subject could not be computed (${subject.error}); the report shows the recorded state.`,
-      );
-      continue;
-    }
-    bindings.set(definition.id, {
-      definitionHash,
-      subject: subject.subject.fingerprint,
-    });
-  }
-
-  const { rows, ungoverned, routing } = assembleReport(
-    preview,
-    openQuestions,
-    bindings,
-  );
+  const inspection = await inspectCheckpointObligations(root, config);
+  const advisories = [...inspection.advisories];
+  const { rows, ungoverned, routing } = assembleReport(inspection);
   const economics = await observedCheckpointEconomics(root);
   const data: CheckpointsData = {
-    ...(preview.policyCommit === undefined
+    ...(inspection.policyCommit === undefined
       ? {}
-      : { policy: preview.policyCommit }),
+      : { policy: inspection.policyCommit }),
     checkpoints: rows,
     ...(ungoverned.length === 0 ? {} : { ungoverned }),
     ...(economics === undefined ? {} : { economics }),
@@ -395,40 +327,45 @@ function rowPresentation(row: CheckpointReportData): {
   attention: boolean;
 } {
   const openQuestion = row.open_question;
-  if (openQuestion !== undefined) {
-    switch (openQuestion.state) {
-      case "declared_met":
-        return {
-          state: ROW_STATES.declaredMet,
-          fact: `Declared met (${
-            openQuestion.declaration?.declared_at ?? ""
-          }).`,
-          attention: false,
-        };
-      case "declared_unmet":
-        return {
-          state: ROW_STATES.declaredUnmet,
-          fact: openQuestion.variance_required === true
-            ? "Declared unmet — owner variance required to land."
-            : "Declared unmet.",
-          attention: true,
-        };
-      case "reopened":
-        return {
-          state: ROW_STATES.awaiting,
-          fact: `Reopened — a relevant change unbound the declared ` +
-            `${
-              openQuestion.declaration?.conclusion ?? ""
-            } conclusion; declare again.`,
-          attention: true,
-        };
-      case "awaiting_declaration":
-        return {
-          state: ROW_STATES.awaiting,
-          fact: "Awaiting a declared conclusion.",
-          attention: true,
-        };
-    }
+  switch (row.obligation) {
+    case "declared_met":
+      return {
+        state: ROW_STATES.declaredMet,
+        fact: `Declared met (${openQuestion?.declaration?.declared_at ?? ""}).`,
+        attention: false,
+      };
+    case "declared_unmet":
+      return {
+        state: ROW_STATES.declaredUnmet,
+        fact: openQuestion?.variance_required === true
+          ? "Declared unmet — owner variance required to land."
+          : "Declared unmet.",
+        attention: true,
+      };
+    case "reopened":
+      return {
+        state: ROW_STATES.awaiting,
+        fact: `Reopened — a relevant change unbound the declared ` +
+          `${openQuestion?.declaration?.conclusion ?? ""} conclusion; ` +
+          "declare again.",
+        attention: true,
+      };
+    case "awaiting_declaration":
+      return {
+        state: ROW_STATES.awaiting,
+        fact: "Awaiting a declared conclusion.",
+        attention: true,
+      };
+    case "unknown":
+      return {
+        state: ROW_STATES.idle,
+        fact:
+          "Unknown — checkpoint state failed open rather than being guessed.",
+        attention: true,
+      };
+    case "none":
+    case "will_open":
+      break;
   }
   const preview = row.preview;
   if (preview === undefined) {

@@ -24,32 +24,24 @@
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { CheckpointMode } from "../../shared/checkpoints.ts";
-import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import {
   type CheckpointDeclarationObservation,
   observeCheckpointActivity,
 } from "../../shared/result_capture.ts";
-import { collectEffortDiff } from "./diff.ts";
 import {
-  declarationIsCurrent,
   type OpenQuestion,
-  readOpenQuestions,
   reconcileOpenQuestion,
   recordDeclaration,
   validateUnmetRationale,
 } from "./open_questions.ts";
 import { declarationEvidenceIdentity } from "./evidence.ts";
-import { loadGoverningPolicy } from "./policy.ts";
-import { checkpointDefinitionHash, computeSubject } from "./subject.ts";
 import {
-  evaluateStructuralTrigger,
-  resolveTriggerOutcome,
-} from "./triggers.ts";
-import type {
-  ResolvedCheckpoint,
-  StructuralTriggerOutcome,
-  WhenOutcome,
-} from "./types.ts";
+  activeOpenQuestionState,
+  inspectCheckpointObligations,
+} from "./inspection.ts";
+import { checkpointDefinitionHash, computeSubject } from "./subject.ts";
+import { resolveTriggerOutcome } from "./triggers.ts";
+import type { ResolvedCheckpoint, WhenOutcome } from "./types.ts";
 import { runWhenCommand } from "./when.ts";
 
 /** One checkpoint as served to the agent: the judgment and its evidence. */
@@ -144,144 +136,6 @@ function activeSetClause(active: readonly string[]): string {
     : `the active set is: ${active.join(", ")}`;
 }
 
-/** One governing checkpoint's structural preview against the current diff:
- * the resolved definition beside its trigger outcome. */
-export interface CheckpointPreviewEntry {
-  definition: ResolvedCheckpoint;
-  outcome: StructuralTriggerOutcome;
-}
-
-/**
- * The structural checkpoint preview every previewing surface projects from —
- * `done --dry-run`, `prepare`, `status`, and the `checkpoints` verb all
- * consume this one shape, so they can never disagree about what would fire.
- */
-export interface CheckpointPreview {
-  /** The policy identity (the merge-base commit), when it resolved. */
-  policyCommit?: string;
-  /** The governing checkpoints, resolved. */
-  checkpoints: readonly ResolvedCheckpoint[];
-  /** Plain-language fail-open accounts (policy or diff trouble). */
-  advisories: string[];
-  /** One entry per governing checkpoint; absent entirely when the effort
-   * diff could not be read (nothing can fire on unknowable state). */
-  entries?: CheckpointPreviewEntry[];
-}
-
-/**
- * The read-only preview of the checkpoint gate: which governing checkpoints
- * STRUCTURALLY hold against the current diff, without running any `when`
- * command and without touching the open question store — a preview must change
- * nothing and spawn nothing. A checkpoint whose `when` condition is still
- * pending is reported honestly as "may require".
- */
-export async function previewCheckpoints(
-  root: string,
-  config: DiscernConfig,
-): Promise<CheckpointPreview> {
-  const policy = await loadGoverningPolicy(root, config);
-  const preview: CheckpointPreview = {
-    ...(policy.policyCommit === undefined
-      ? {}
-      : { policyCommit: policy.policyCommit }),
-    checkpoints: policy.checkpoints,
-    advisories: [...policy.advisories],
-  };
-  if (policy.policyCommit === undefined || policy.checkpoints.length === 0) {
-    return preview;
-  }
-  const diff = await collectEffortDiff(root, policy.policyCommit);
-  if (diff === undefined) {
-    preview.advisories.push(
-      "the effort diff could not be read; no checkpoint fires.",
-    );
-    return preview;
-  }
-  preview.entries = policy.checkpoints.map((def) => ({
-    definition: def,
-    outcome: evaluateStructuralTrigger(def, diff),
-  }));
-  return preview;
-}
-
-/** The preview's holding entries — what would fire (or, `when` pending, may). */
-export function previewHoldingEntries(
-  preview: CheckpointPreview,
-): (CheckpointPreviewEntry & { outcome: { holds: true } })[] {
-  return (preview.entries ?? []).filter(
-    (entry): entry is CheckpointPreviewEntry & { outcome: { holds: true } } =>
-      entry.outcome.holds,
-  );
-}
-
-/** Project a preview onto the gate plan's note strings (`done --dry-run`). */
-export function checkpointPreviewNotes(preview: CheckpointPreview): string[] {
-  const notes = preview.advisories.map(
-    (advisory) => `Checkpoint advisory: ${advisory}`,
-  );
-  for (const { definition, outcome } of previewHoldingEntries(preview)) {
-    const claim = definition.mode === "advise"
-      ? "its advisory will be served"
-      : "a declared conclusion will be required";
-    const qualifier = outcome.whenPending
-      ? ` if its when command fires (${outcome.matched.length} matched)`
-      : ` (${outcome.matched.length} matched)`;
-    notes.push(
-      `Checkpoint '${definition.id}' (${definition.mode}): ${claim} at done${qualifier}.`,
-    );
-  }
-  return notes;
-}
-
-/** Compute and project the preview in one call — the `done --dry-run` seam. */
-export async function previewCheckpointNotes(
-  root: string,
-  config: DiscernConfig,
-): Promise<string[]> {
-  return checkpointPreviewNotes(await previewCheckpoints(root, config));
-}
-
-/**
- * Project a preview onto the advisory hint channel — the `prepare` and
- * `status` seam. A holding `stop` trigger serves its question early ("will
- * require a declared conclusion at done"; "may require" while a `when`
- * command still decides); a holding `advise` trigger whose firing is already
- * settled serves the same advisory it would at `done` (one still awaiting its
- * `when` command stays silent — a preview spawns nothing, so it cannot know);
- * fail-open accounts ride as notices. A checkpoint-free effort projects to
- * nothing, keeping these surfaces exactly as quiet as before.
- */
-export function checkpointPreviewHints(
-  preview: CheckpointPreview,
-): FiredHint[] {
-  const hints: FiredHint[] = preview.advisories.map((advisory) =>
-    fire(HINTS["checkpoint-advisory"], { advisory })
-  );
-  for (const { definition, outcome } of previewHoldingEntries(preview)) {
-    if (definition.mode === "advise") {
-      if (!outcome.whenPending) {
-        hints.push(
-          fire(HINTS["checkpoint-advise"], {
-            id: definition.id,
-            question: definition.question.trim(),
-            matched: [...outcome.matched],
-          }),
-        );
-      }
-      continue;
-    }
-    hints.push(
-      fire(HINTS["checkpoint-preview"], {
-        id: definition.id,
-        question: definition.question.trim(),
-        matched: [...outcome.matched],
-        whenPending: outcome.whenPending,
-      }),
-    );
-  }
-  return hints;
-}
-
 /**
  * Run the checkpoint pre-flight at `root` with the LIVE `config` (it
  * contributes the trunk name; the governing tables come from the merge-base).
@@ -294,12 +148,12 @@ export async function runCheckpointPreflight(
   now?: string,
 ): Promise<CheckpointPreflightOutcome> {
   const at = now ?? new Date().toISOString();
-  const policy = await loadGoverningPolicy(root, config);
-  const advisories = [...policy.advisories];
+  const inspection = await inspectCheckpointObligations(root, config);
+  const advisories = [...inspection.advisories];
   const preflight: CheckpointPreflight = {
-    ...(policy.policyCommit === undefined
+    ...(inspection.policyCommit === undefined
       ? {}
-      : { policyCommit: policy.policyCommit }),
+      : { policyCommit: inspection.policyCommit }),
     advisories,
     outstanding: [],
     declaredMet: [],
@@ -310,60 +164,40 @@ export async function runCheckpointPreflight(
 
   // The governing stop set is the only set a declaration can name.
   const stopIds = new Set(
-    policy.checkpoints.filter((c) => c.mode === "stop").map((c) => c.id),
+    inspection.checkpoints.filter((c) => c.mode === "stop").map((c) => c.id),
   );
 
-  // A trigger opens an open question; it does not own that open question's lifetime.
-  // Load earlier governing stop open questions before evaluating this run so a
-  // later veto or passing `when` cannot retract a question already served.
-  // Unreadable state fails open, with the missing interlock stated plainly.
-  let storedOpenQuestions: Record<string, OpenQuestion> = {};
-  if (stopIds.size > 0) {
-    const stored = await readOpenQuestions(root);
-    if (stored.status === "ok") {
-      storedOpenQuestions = stored.openQuestions;
-    } else if (stored.status === "invalid") {
-      advisories.push(
-        "the checkpoint open-question record did not parse; earlier active open questions cannot interlock this run and must be served again before they can receive declarations.",
-      );
-    } else if (stored.status === "unavailable") {
-      advisories.push(
-        `the checkpoint open-question record could not be read (${stored.reason}); earlier active open questions cannot interlock this run.`,
-      );
-    }
-  }
+  // The canonical inspection already loaded every readable persisted question.
+  // A trigger opens one; it never owns its lifetime, so this set outranks a
+  // later veto or passing `when` throughout the mutating reconciliation below.
+  const storedOpenQuestions: Record<string, OpenQuestion> = {
+    ...inspection.openQuestions,
+  };
 
-  // Trigger evaluation needs both a policy identity and a readable diff;
-  // without either, nothing new fires (fail open). Readable active open questions
-  // still interlock and remain declarable.
+  // Resolve only the executable half the read inspection deliberately leaves
+  // pending. Readable active open questions still interlock whether the final
+  // trigger fires or not.
   const fired = new Map<string, ServedCheckpoint>();
-  if (policy.policyCommit !== undefined && policy.checkpoints.length > 0) {
-    const diff = await collectEffortDiff(root, policy.policyCommit);
-    if (diff === undefined) {
-      advisories.push(
-        "the effort diff could not be read; no checkpoint fires on this run.",
-      );
-    } else {
-      for (const def of policy.checkpoints) {
-        const structural = evaluateStructuralTrigger(def, diff);
-        let when: WhenOutcome | undefined;
-        if (structural.holds && structural.whenPending) {
-          when = await runWhenCommand(
-            root,
-            def.id,
-            def.when ?? "",
-          );
-        }
-        const outcome = resolveTriggerOutcome(structural, when);
-        if (!outcome.fired) {
-          if (outcome.advisory !== undefined) {
-            advisories.push(outcome.advisory);
-          }
-          continue;
-        }
-        fired.set(def.id, served(def, outcome.matched));
-      }
+  for (const { definition, outcome: structural } of inspection.entries) {
+    if (structural === undefined) {
+      continue;
     }
+    let when: WhenOutcome | undefined;
+    if (structural.holds && structural.whenPending) {
+      when = await runWhenCommand(
+        root,
+        definition.id,
+        definition.when ?? "",
+      );
+    }
+    const outcome = resolveTriggerOutcome(structural, when);
+    if (!outcome.fired) {
+      if (outcome.advisory !== undefined) {
+        advisories.push(outcome.advisory);
+      }
+      continue;
+    }
+    fired.set(definition.id, served(definition, outcome.matched));
   }
 
   // Reconcile open questions for every fired stop checkpoint and every earlier
@@ -379,7 +213,7 @@ export async function runCheckpointPreflight(
     string,
     { outcome: "opened" | "reopened" | "carried"; servedAt: string }
   >();
-  for (const def of policy.checkpoints) {
+  for (const def of inspection.checkpoints) {
     const id = def.id;
     let serving = fired.get(id);
     if (def.mode === "advise") {
@@ -404,7 +238,7 @@ export async function runCheckpointPreflight(
       root,
       definitionHash,
       serving.matched,
-      policy.policyCommit ?? "",
+      inspection.policyCommit ?? "",
     );
     if ("error" in subject) {
       advisories.push(
@@ -574,22 +408,33 @@ export async function runCheckpointPreflight(
     if (openQuestion === undefined) {
       continue;
     }
-    const declaration = openQuestion.declaration;
-    if (declaration === undefined || !declarationIsCurrent(openQuestion)) {
-      preflight.outstanding.push(serving);
-      continue;
-    }
-    if (declaration.conclusion === "met") {
-      preflight.declaredMet.push({
-        id: serving.id,
-        declaredAt: declaration.declaredAt,
-      });
-    } else {
-      preflight.declaredUnmet.push({
-        id: serving.id,
-        why: declaration.why,
-        declaredAt: declaration.declaredAt,
-      });
+    const state = activeOpenQuestionState(openQuestion);
+    switch (state) {
+      case "awaiting_declaration":
+      case "reopened":
+        preflight.outstanding.push(serving);
+        break;
+      case "declared_met": {
+        const declaration = openQuestion.declaration;
+        if (declaration?.conclusion === "met") {
+          preflight.declaredMet.push({
+            id: serving.id,
+            declaredAt: declaration.declaredAt,
+          });
+        }
+        break;
+      }
+      case "declared_unmet": {
+        const declaration = openQuestion.declaration;
+        if (declaration?.conclusion === "unmet") {
+          preflight.declaredUnmet.push({
+            id: serving.id,
+            why: declaration.why,
+            declaredAt: declaration.declaredAt,
+          });
+        }
+        break;
+      }
     }
   }
 

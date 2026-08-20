@@ -40,7 +40,11 @@ import {
   STEP_OUTCOMES,
 } from "./result.ts";
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
-import { CHECKPOINT_MODES, TRIGGER_VETOES } from "./checkpoints.ts";
+import {
+  CHECKPOINT_MODES,
+  CHECKPOINT_OBLIGATION_STATES,
+  TRIGGER_VETOES,
+} from "./checkpoints.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "./public_schemas.ts";
@@ -808,6 +812,9 @@ export const CheckpointReportSchema = z.strictObject({
   reference: z.string().optional(),
   /** One-line deterministic trigger summary (selector, thresholds, `when`). */
   trigger: z.string(),
+  /** The canonical strict-gate decision projected from trigger state,
+   * persisted question lifetime, subject currency, and declarations. */
+  obligation: z.enum(CHECKPOINT_OBLIGATION_STATES),
   /** Absent when the effort diff could not be read (nothing can fire). */
   preview: CheckpointTriggerPreviewSchema.optional(),
   /** Absent when this checkpoint has not fired for this effort. */

@@ -27,6 +27,8 @@ import { CheckpointsOutputSchema } from "../src/shared/result_schemas.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { reconcileOpenQuestion } from "../src/engine/checkpoints/open_questions.ts";
+import { parseLogbookLine } from "../src/engine/logbook/schema.ts";
+import type { CheckpointObligationState } from "../src/shared/checkpoints.ts";
 
 /** The wire fields these assertions read from a `checkpoints` envelope. */
 interface CheckpointsEnvelope {
@@ -54,6 +56,51 @@ interface HintedEnvelope {
 /** Decode one JSON envelope down to its hint channel. */
 function parseHinted(stdout: string): HintedEnvelope {
   return JSON.parse(stdout.trim()) as HintedEnvelope;
+}
+
+/** Read one effort marker without creating it. */
+async function markerText(
+  wt: string,
+  name: "checkpointOpenQuestions" | "gateProof",
+): Promise<string | undefined> {
+  const path = await gitAdminStatePath(wt, name);
+  assert(path !== undefined);
+  return await Deno.readTextFile(path).catch((error) => {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+    throw error;
+  });
+}
+
+/** Count Logbook verb events carrying checkpoint lifecycle observations. Read
+ * surfaces still record their ordinary invocation event; they must never
+ * counterfeit a firing, reopen, declaration, or advisory serving. */
+async function checkpointObservationEvents(dir: string): Promise<number> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  let count = 0;
+  try {
+    for await (const entry of Deno.readDir(logDir)) {
+      if (!entry.isFile || !entry.name.endsWith(".jsonl")) {
+        continue;
+      }
+      const raw = await Deno.readTextFile(join(logDir, entry.name));
+      for (const line of raw.split("\n").filter((item) => item !== "")) {
+        const parsed = parseLogbookLine(line);
+        assert(parsed.kind === "event");
+        if (
+          parsed.event.kind === "verb" && parsed.event.checkpoints !== undefined
+        ) {
+          count += 1;
+        }
+      }
+    }
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      throw error;
+    }
+  }
+  return count;
 }
 
 const QUESTION_API =
@@ -480,7 +527,7 @@ Deno.test("checkpoint obligations: an opened question outranks an idle structura
       ),
       done_dry_run: (dryRun.plan?.details ?? []).some((line) =>
         line.includes("Checkpoint 'api-review'") &&
-        line.includes("declared conclusion will be required")
+        line.includes("requires a declared conclusion")
       ),
       done: done.error === "awaiting_declaration" &&
         done.data?.checkpoints?.outstanding?.[0]?.id === "api-review",
@@ -493,6 +540,247 @@ Deno.test("checkpoint obligations: an opened question outranks an idle structura
       done: true,
     });
   });
+});
+
+type SurfaceDecision = "requires" | "proceeds" | "unknown";
+
+/** Reduce a prepare/status hint set to the strict checkpoint decision it
+ * communicates. Presenter prose may move; the routing vocabulary may not. */
+function hintedDecision(envelope: HintedEnvelope): SurfaceDecision {
+  const hints = envelope.hints ?? [];
+  if (
+    hints.some((hint) => hint.includes("may require a declared conclusion"))
+  ) {
+    return "unknown";
+  }
+  if (
+    hints.some((hint) => hint.includes("will require a declared conclusion"))
+  ) {
+    return "requires";
+  }
+  if (hints.some((hint) => hint.includes("strict obligation is unknown"))) {
+    return "unknown";
+  }
+  return "proceeds";
+}
+
+/** Reduce `done --dry-run` plan facts to its checkpoint decision. */
+function dryRunDecision(envelope: HintedEnvelope): SurfaceDecision {
+  const details = envelope.plan?.details ?? [];
+  if (
+    details.some((line) =>
+      line.includes("may be required") ||
+      line.includes("strict obligation is unknown")
+    )
+  ) {
+    return "unknown";
+  }
+  if (
+    details.some((line) =>
+      line.includes("declared conclusion will be required") ||
+      line.includes("requires a declared conclusion") ||
+      line.includes("requires a fresh declared conclusion")
+    )
+  ) {
+    return "requires";
+  }
+  return "proceeds";
+}
+
+Deno.test("checkpoint obligations: the full state matrix projects through every consuming surface without read effects", async () => {
+  const cases: readonly {
+    name: string;
+    config: string;
+    obligation: CheckpointObligationState;
+    readDecision: SurfaceDecision;
+    strictDecision: Exclude<SurfaceDecision, "unknown">;
+    establish: "none" | "idle" | "awaiting" | "met" | "unmet" | "reopened";
+  }[] = [
+    {
+      name: "no obligation",
+      config: CONFIG_UNLESS_CHANGED,
+      obligation: "none",
+      readDecision: "proceeds",
+      strictDecision: "proceeds",
+      establish: "idle",
+    },
+    {
+      name: "will open",
+      config: CONFIG_STOP,
+      obligation: "will_open",
+      readDecision: "requires",
+      strictDecision: "requires",
+      establish: "none",
+    },
+    {
+      name: "already awaits",
+      config: CONFIG_STOP,
+      obligation: "awaiting_declaration",
+      readDecision: "requires",
+      strictDecision: "requires",
+      establish: "awaiting",
+    },
+    {
+      name: "reopened",
+      config: CONFIG_STOP,
+      obligation: "reopened",
+      readDecision: "requires",
+      strictDecision: "requires",
+      establish: "reopened",
+    },
+    {
+      name: "declared met",
+      config: CONFIG_STOP,
+      obligation: "declared_met",
+      readDecision: "proceeds",
+      strictDecision: "proceeds",
+      establish: "met",
+    },
+    {
+      name: "declared unmet",
+      config: CONFIG_STOP,
+      obligation: "declared_unmet",
+      readDecision: "proceeds",
+      strictDecision: "proceeds",
+      establish: "unmet",
+    },
+    {
+      name: "when remains unknown to reads",
+      config: CONFIG_WHEN,
+      obligation: "unknown",
+      readDecision: "unknown",
+      strictDecision: "requires",
+      establish: "none",
+    },
+  ];
+
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      const wt = await worktreeWithApiChange(dir, testCase.config);
+      if (testCase.establish === "idle") {
+        await Deno.mkdir(join(wt, "docs"), { recursive: true });
+        await Deno.writeTextFile(join(wt, "docs", "api.md"), "documented\n");
+        await git(wt, "add", "docs/api.md");
+        await git(
+          wt,
+          "commit",
+          "-q",
+          "-m",
+          "docs: describe the api",
+          "--no-gpg-sign",
+        );
+      } else if (testCase.establish !== "none") {
+        assertEquals(
+          (await runAgent(wt, ["done", "--json"])).code,
+          1,
+          testCase.name,
+        );
+        if (testCase.establish === "met" || testCase.establish === "reopened") {
+          assertEquals(
+            (await runAgent(wt, ["done", "--met", "api-review", "--json"]))
+              .code,
+            0,
+            testCase.name,
+          );
+        } else if (testCase.establish === "unmet") {
+          assertEquals(
+            (await runAgent(wt, [
+              "done",
+              "--unmet",
+              "api-review",
+              "--why",
+              "The compatibility notes remain incomplete.",
+              "--json",
+            ])).code,
+            0,
+            testCase.name,
+          );
+        }
+        if (testCase.establish === "reopened") {
+          await Deno.writeTextFile(
+            join(wt, "api", "surface.txt"),
+            "endpoint\nrevised\n",
+          );
+          await git(wt, "add", "api/surface.txt");
+          await git(
+            wt,
+            "commit",
+            "-q",
+            "-m",
+            "feat: revise the api",
+            "--no-gpg-sign",
+          );
+        }
+      }
+
+      const questionBefore = await markerText(wt, "checkpointOpenQuestions");
+      const gateBefore = await markerText(wt, "gateProof");
+      const observationsBefore = await checkpointObservationEvents(dir);
+
+      const checkpoints = parseCheckpoints(
+        (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+      );
+      const prepare = parseHinted(
+        (await runAgent(wt, ["prepare", "--json"])).stdout,
+      );
+      const status = parseHinted(
+        (await runAgent(wt, ["status", "--json"])).stdout,
+      );
+      const dryRun = parseHinted(
+        (await runAgent(wt, ["done", "--dry-run", "--json"])).stdout,
+      );
+
+      assertEquals(
+        checkpoints.data.checkpoints[0]?.obligation,
+        testCase.obligation,
+        testCase.name,
+      );
+      assertEquals(
+        hintedDecision(prepare),
+        testCase.readDecision,
+        testCase.name,
+      );
+      assertEquals(
+        hintedDecision(status),
+        testCase.readDecision,
+        testCase.name,
+      );
+      assertEquals(
+        dryRunDecision(dryRun),
+        testCase.readDecision,
+        testCase.name,
+      );
+      assertEquals(
+        await markerText(wt, "checkpointOpenQuestions"),
+        questionBefore,
+        `${testCase.name}: reads changed the open-question store`,
+      );
+      assertEquals(
+        await markerText(wt, "gateProof"),
+        gateBefore,
+        `${testCase.name}: reads changed the gate marker`,
+      );
+      assertEquals(
+        await checkpointObservationEvents(dir),
+        observationsBefore,
+        `${testCase.name}: reads recorded a checkpoint lifecycle event`,
+      );
+      assertEquals(
+        await Deno.readTextFile(join(dir, "when-ran.log")).catch(() => ""),
+        "",
+        `${testCase.name}: a read surface ran the when command`,
+      );
+
+      const done = parseHinted(
+        (await runAgent(wt, ["done", "--json"])).stdout,
+      ) as HintedEnvelope & { error?: string };
+      const strictDecision: SurfaceDecision = done.error ===
+          "awaiting_declaration"
+        ? "requires"
+        : "proceeds";
+      assertEquals(strictDecision, testCase.strictDecision, testCase.name);
+    });
+  }
 });
 
 Deno.test("previews: an advise checkpoint rides the advisory channel on prepare and status", async () => {

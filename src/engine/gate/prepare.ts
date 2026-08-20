@@ -26,9 +26,9 @@ import {
   interactiveHintTexts,
 } from "../../shared/hints.ts";
 import {
-  checkpointPreviewHints,
-  previewCheckpoints,
-} from "../checkpoints/preflight.ts";
+  checkpointInspectionHints,
+  inspectCheckpointObligations,
+} from "../checkpoints/inspection.ts";
 import {
   GENERATED_GROUP_DISPLAY,
   preparePlanGroups,
@@ -128,13 +128,12 @@ async function runPrepareGate(
     failedStage === null && cfg.meta.bootstrapped && cfg.coupling.in_gate
       ? await couplingGateHints(root)
       : [];
-  // The checkpoint preview (shared with `status` and `done --dry-run`): serve
-  // each coming question while the change is still in the inner loop, so the
-  // declaration moment at `done` is never the first sighting. Read-only and
-  // advisory — it touches only `hints`, and a checkpoint-free effort adds
-  // nothing.
-  const checkpointHints = checkpointPreviewHints(
-    await previewCheckpoints(root, cfg),
+  // The checkpoint obligation inspection (shared with `status`,
+  // `checkpoints`, and both `done` paths): serve each required question while
+  // the change is still in the inner loop. Read-only and advisory — it touches
+  // only `hints`, and a checkpoint-free effort adds nothing.
+  const checkpointHints = checkpointInspectionHints(
+    await inspectCheckpointObligations(root, cfg),
   );
   const gotchasTail = failedStage === null
     ? undefined

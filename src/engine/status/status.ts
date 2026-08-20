@@ -36,9 +36,9 @@ import {
   hintTexts,
 } from "../../shared/hints.ts";
 import {
-  checkpointPreviewHints,
-  previewCheckpoints,
-} from "../checkpoints/preflight.ts";
+  checkpointInspectionHints,
+  inspectCheckpointObligations,
+} from "../checkpoints/inspection.ts";
 import type {
   GateProofCheckData,
   Location,
@@ -605,12 +605,12 @@ export async function statusResult(
     ? await detectSilentDivergence(root, mainBranch)
     : undefined;
 
-  // The checkpoint preview (one seam shared with `prepare` and
-  // `done --dry-run`): serve each coming stop question early. Suppressed
-  // while setup is unfinished — the lead hint owns that session, and no
-  // governing policy exists to preview yet.
+  // The checkpoint obligation inspection (one seam shared with `prepare`,
+  // `checkpoints`, and both `done` paths): serve each required stop question
+  // early. Suppressed while setup is unfinished — the lead hint owns that
+  // session, and no governing policy exists to inspect yet.
   const checkpointPreview = setupPending === undefined
-    ? checkpointPreviewHints(await previewCheckpoints(root, cfg))
+    ? checkpointInspectionHints(await inspectCheckpointObligations(root, cfg))
     : [];
 
   const hints = await buildStatusHints({
@@ -942,9 +942,9 @@ interface HintContext {
   landingAuthority: LandingAuthorityResolution | undefined;
   /** Whether logbook-backed fleet activity can be read. */
   logbookEnabled: boolean;
-  /** The checkpoint preview's advisory projection (shared with `prepare` and
-   * `done --dry-run`): each stop question this change would make a `done`
-   * declaration of, served early. Empty while setup is unfinished. */
+  /** The checkpoint obligation's advisory projection (shared with `prepare`
+   * and both `done` paths): each required stop question, served early. Empty
+   * while setup is unfinished. */
   checkpointPreview: FiredHint[];
 }
 
@@ -1329,8 +1329,8 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     }
   }
 
-  // The checkpoint preview rides last: forward-looking servings about the
-  // NEXT gate run, after every observation about the current state.
+  // The checkpoint obligation account rides last, after every observation
+  // about the broader current state.
   hints.push(...ctx.checkpointPreview);
 
   return hints;

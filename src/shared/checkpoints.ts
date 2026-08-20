@@ -45,6 +45,24 @@ export const TRIGGER_VETOES = [
 /** One structural-trigger veto ({@link TRIGGER_VETOES}). */
 export type TriggerVeto = (typeof TRIGGER_VETOES)[number];
 
+/** The strict checkpoint obligation one canonical inspection can project for
+ * every governing checkpoint. These are decision states, not trigger states:
+ * a persisted open question can therefore remain awaiting while its current
+ * structural trigger is idle. */
+export const CHECKPOINT_OBLIGATION_STATES = [
+  "none",
+  "will_open",
+  "awaiting_declaration",
+  "reopened",
+  "declared_met",
+  "declared_unmet",
+  "unknown",
+] as const;
+
+/** One checkpoint's projected strict-gate obligation. */
+export type CheckpointObligationState =
+  (typeof CHECKPOINT_OBLIGATION_STATES)[number];
+
 /**
  * One shipped checkpoint seed: the question it serves plus the trigger and
  * mode defaults a bare `[checkpoints.<id>]` reference receives. Every field a

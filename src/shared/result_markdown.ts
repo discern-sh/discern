@@ -1006,12 +1006,19 @@ const presentImprovement: ResultMarkdownPresenter = (result) => {
 function checkpointRowLine(row: Record<string, unknown>): string {
   const id = code(row.id);
   const mode = text(row.mode) ?? "stop";
+  const obligation = text(row.obligation);
   const openQuestion = object(row.open_question);
   const preview = object(row.preview);
   const question = text(row.question);
   const withQuestion = (phrase: string): string =>
     question === undefined ? phrase : `${phrase} — ${question}`;
-  if (openQuestion !== undefined) {
+  if (obligation === "unknown") {
+    return `${id} (${mode}): strict obligation unknown — checkpoint state failed open.`;
+  }
+  if (
+    openQuestion !== undefined && obligation !== "none" &&
+    obligation !== "will_open"
+  ) {
     const declaration = object(openQuestion.declaration);
     const why = text(declaration?.why);
     switch (text(openQuestion.state)) {
