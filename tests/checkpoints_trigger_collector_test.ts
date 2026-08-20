@@ -21,7 +21,10 @@ import {
   checkpointDefinitionHash,
   computeSubject,
 } from "../src/engine/checkpoints/subject.ts";
-import { evaluateStructuralTrigger } from "../src/engine/checkpoints/triggers.ts";
+import {
+  evaluateStructuralTrigger,
+  evaluateStructuralTriggerFacts,
+} from "../src/engine/checkpoints/triggers.ts";
 import { CHECKPOINT_PATTERN_LIMITS } from "../src/shared/checkpoints.ts";
 import type {
   EffortFileChange,
@@ -250,6 +253,47 @@ Deno.test("untracked content admits maxFileBytes exactly and rejects one byte ov
       diff.files.find((file) => file.path === "b-over.txt")?.content,
       { status: "unavailable", reason: "file_limit" },
     );
+  });
+});
+
+Deno.test("untracked content admits maxTotalBytes exactly and rejects the first later byte", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const base = await gitOut(dir, "rev-parse", "HEAD");
+    const line = new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxLineBytes);
+    line.fill(0x61);
+    line.set(new TextEncoder().encode("needle"));
+    line[line.length - 1] = 0x0a;
+    const fileBytes = new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxFileBytes);
+    for (let offset = 0; offset < fileBytes.length; offset += line.length) {
+      fileBytes.set(line, offset);
+    }
+    const exactFileCount = CHECKPOINT_PATTERN_LIMITS.maxTotalBytes /
+      CHECKPOINT_PATTERN_LIMITS.maxFileBytes;
+    assertEquals(Number.isInteger(exactFileCount), true);
+    for (let index = 0; index < exactFileCount; index++) {
+      await Deno.writeFile(join(dir, `a-${index}.txt`), fileBytes);
+    }
+    await Deno.writeTextFile(join(dir, "z-over.txt"), "n");
+
+    const def = definition({ addsMatching: ["needle"] });
+    const diff = await collectEffortDiff(dir, base, [], [def]);
+    assert(diff !== undefined);
+    for (let index = 0; index < exactFileCount; index++) {
+      assertEquals(
+        diff.files.find((file) => file.path === `a-${index}.txt`)?.content
+          ?.status,
+        "available",
+      );
+    }
+    assertEquals(
+      diff.files.find((file) => file.path === "z-over.txt")?.content,
+      { status: "unavailable", reason: "total_bytes" },
+    );
+    assertEquals(evaluateStructuralTriggerFacts(def, diff), {
+      issue: { fact: "content", reason: "total_bytes" },
+    });
   });
 });
 
