@@ -106,6 +106,7 @@ export interface CheckpointPreflight {
   evidence?: string;
 }
 
+/** Construct entry-scoped drop evidence from a resolved checkpoint. */
 function preflightDrop(
   definition: ResolvedCheckpoint,
   policyCommit: string,
@@ -121,6 +122,7 @@ function preflightDrop(
   );
 }
 
+/** Construct policy-scoped drop evidence before entries are knowable. */
 function preflightPolicyDrop(
   policyCommit: string | undefined,
   reason: PolicyCheckpointDropReason,

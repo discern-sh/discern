@@ -92,7 +92,11 @@ export const CHECKPOINT_DROP_ACCOUNT_MAX = 500;
 
 /** Keep environment-controlled errors one-line and inside the wire bound. */
 export function boundedCheckpointDropAccount(account: string): string {
-  const normalized = account.replace(/[\u0000-\u001f\u007f]+/g, " ")
+  const printable = Array.from(account, (character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 31 || codePoint === 127 ? " " : character;
+  }).join("");
+  const normalized = printable
     .replace(/\s+/g, " ")
     .trim() || "checkpoint enforcement failed open without further detail";
   if (normalized.length <= CHECKPOINT_DROP_ACCOUNT_MAX) return normalized;

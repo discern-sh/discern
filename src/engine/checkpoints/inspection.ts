@@ -77,6 +77,7 @@ export interface CheckpointInspection {
   drops: CheckpointDrop[];
 }
 
+/** Construct entry-scoped inspection evidence from a resolved checkpoint. */
 function entryDrop(
   definition: ResolvedCheckpoint,
   policyCommit: string,
@@ -92,6 +93,7 @@ function entryDrop(
   );
 }
 
+/** Construct policy-scoped inspection evidence before entries are knowable. */
 function policyDrop(
   policyCommit: string | undefined,
   reason: PolicyCheckpointDropReason,
