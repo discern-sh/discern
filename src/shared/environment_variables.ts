@@ -238,7 +238,7 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
     documentation: {
       public: true,
       description:
-        "Absolute path to the versioned, content-free JSON facts for the current checkpoint `when` command. The file exists only while that command runs.",
+        "Absolute path to the versioned JSON facts without raw file content for the current checkpoint `when` command. See the [checkpoint `when` protocol](checkpoint-when-protocol.md). The file exists only while that command runs.",
     },
   },
 

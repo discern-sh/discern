@@ -17,7 +17,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 22      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 18      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
-| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 40      | —                | —                           |
+| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 41      | —                | —                           |
+| [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                        | `src/shared/checkpoints.ts#CHECKPOINT_FIELD_ROLES`                                | 19      | —                | node `checkpoints`          |
 | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)       | `src/shared/experimental.ts#EXPERIMENTAL_ENVIRONMENT_VARIABLES`                   | 2       | —                | —                           |
 | [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 10      | —                | —                           |
 | [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `cli-help`             |
@@ -82,7 +83,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 297     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 298     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -95,9 +96,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 84      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 85      | —                | node `canonical-sets`       |
 
-84 sets · 130 guard tests · 57 committed artifacts.
+85 sets · 133 guard tests · 57 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -136,6 +137,9 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/built_in_step_labels_test.ts`               | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/canon_editor_parity_test.ts`                | [`brand-claims`](#brand-claims--brand-claims-ledger), [`demand-canon`](#demand-canon--demand-canon), [`glossary-terms`](#glossary-terms--glossary-terms), [`feature-canon`](#feature-canon--feature-canon), [`benefit-canon`](#benefit-canon--benefit-canon), [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                   |
 | `tests/canonical_sets_enrolment_test.ts`           | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/checkpoints_policy_test.ts`                 | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tests/checkpoints_subject_test.ts`                | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tests/checkpoints_trigger_vocabulary_test.ts`     | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/cli_reference_codegen_test.ts`              | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/config_banner_parity_test.ts`               | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/config_codegen_test.ts`                     | [`jobs`](#jobs--gate-jobs), [`config-tables`](#config-tables--config-tables), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                 |
@@ -441,7 +445,7 @@ The lifecycle sequence that leads schema-deferred clients through status, Worktr
 Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.
 
 - Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`
-- Members: 40
+- Members: 41
   - `DISCERN_REPO`
   - `DISCERN_VERSION`
   - `DISCERN_BIN_DIR`
@@ -454,6 +458,7 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_TOML`
   - `DISCERN_SCRIPTS`
   - `DISCERN_SCRIPTS_DIR`
+  - `DISCERN_CHECKPOINT_INPUT`
   - `DISCERN_WORKTREE_PORT`
   - `DISCERN_WORKTREE`
   - `DISCERN_RESOURCE_<NAME>`
@@ -486,6 +491,35 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
 - Artifacts: `project/map/70-reference/environment-variables.md`
 - Glossary: not enrolled — the environment-variable reference owns these process-channel spellings
 - Feature canon: not enrolled — the registry spans installer, runtime, Worktree, development, and test infrastructure across several documented capabilities
+
+## `checkpoint-entry-fields` — Checkpoint entry fields
+
+Every public field under `[checkpoints.<id>]`, classified as a selector, trigger, or review field so trigger consumers derive their membership and a future field cannot bypass enrollment.
+
+- Source: `src/shared/checkpoints.ts` — `CHECKPOINT_FIELD_ROLES`
+- Members: 19
+  - `scope`
+  - `paths`
+  - `include_generated`
+  - `exclude_paths`
+  - `unless_changed`
+  - `kinds`
+  - `adds_matching`
+  - `removes_matching`
+  - `new_directory`
+  - `binary`
+  - `min_changed_files`
+  - `min_changed_lines`
+  - `deletion_dominant`
+  - `similar_new_file`
+  - `min_commits`
+  - `when`
+  - `mode`
+  - `question`
+  - `teach`
+- Guards: `tests/checkpoints_trigger_vocabulary_test.ts`, `tests/checkpoints_policy_test.ts`, `tests/checkpoints_subject_test.ts`
+- Glossary: not enrolled — the checkpoint term owns the concept and the config reference owns each field spelling
+- Feature canon: described by the `checkpoints` node
 
 ## `experimental-environment-variables` — Experimental environment variables
 
@@ -2362,7 +2396,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 297
+- Members: 298
   - `0003`
   - `0005`
   - `0006`
@@ -2641,6 +2675,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0305`
   - `0306`
   - `0307`
+  - `0308`
   - `0001`
   - `0002`
   - `0004`
@@ -2938,13 +2973,14 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Instruct
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 84
+- Members: 85
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
   - `mcp-tools`
   - `mcp-core-lifecycle`
   - `environment-variables`
+  - `checkpoint-entry-fields`
   - `experimental-environment-variables`
   - `operating-policies`
   - `command-groups`

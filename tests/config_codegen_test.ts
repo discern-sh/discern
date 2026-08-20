@@ -267,6 +267,10 @@ Deno.test("the docs reference documents every section, with its describe() prose
     doc,
     "Upgrade leaves existing named scopes unchanged",
   );
+  assertStringIncludes(
+    doc,
+    "(`added` \\| `modified` \\| `deleted`)[]",
+  );
 });
 
 Deno.test("the reference's [project].agents row matches what the resolver actually does (no misleading [] default)", () => {

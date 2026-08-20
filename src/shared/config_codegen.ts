@@ -148,7 +148,7 @@ function typeLabel(schema: Record<string, unknown>): string {
   const t = schema.type;
   if (t === "array") {
     const items = isObject(schema.items) ? typeLabel(schema.items) : "any";
-    return `${items}[]`;
+    return items.includes(" \\| ") ? `(${items})[]` : `${items}[]`;
   }
   if (t === "integer") return "number";
   return typeof t === "string" ? t : "object";

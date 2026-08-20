@@ -480,28 +480,48 @@
   #              checkpoint-specific noise to remove after the selector and
   #              before every condition, threshold, subject, evidence, and
   #              `when` match (same glob dialect as paths)
+  #   kinds      narrow evidence to "added", "modified", or "deleted"
+  #   adds_matching
+  #              narrow to text files with an added line containing any
+  #              configured case-sensitive literal UTF-8 byte substring
+  #   removes_matching
+  #              narrow to text files with a removed line containing any
+  #              configured case-sensitive literal UTF-8 byte substring
+  #              (each content field accepts 1–16 distinct patterns of 1–128
+  #              UTF-8 bytes; NUL and line separators are invalid)
+  #              matching admits 8 KiB lines, 65,536 changed-line facts,
+  #              256 KiB per file, 2 MiB attempted bytes, and 64 MiB comparison
+  #              work; unavailable facts fail open without partial matches
+  #   new_directory
+  #              narrow to added files whose parent held no admitted file at
+  #              the merge-base; root-level additions never qualify
+  #   binary     narrow to binary changes when true or text changes when false
+  #   similar_new_file
+  #              narrow to an added file whose name closely resembles an
+  #              existing sibling in the same directory
   #   unless_changed
   #              hold fire when any changed path matches one of these — each
   #              entry a glob, or a configured scope name ("flag this change
   #              class unless its counterpart moved too")
   #   min_changed_files
   #              fire only when at least this many matched files changed
+  #   min_changed_lines
+  #              fire only when the narrowed text evidence adds and removes at
+  #              least this many lines; binary files contribute zero
   #   deletion_dominant
   #              fire only when removals clearly outweigh additions in the
   #              matched change (a big cut earns a look; an ordinary edit or a
   #              balanced refactor does not)
-  #   similar_new_file
-  #              fire only when the change adds a file whose name closely
-  #              resembles an existing sibling in the same directory — the
-  #              signature of a parallel implementation growing beside the
-  #              original
+  #   min_commits fire only when merge-base..HEAD contains at least this many
+  #              commits, including merges; uncommitted work adds no commit
   #   when       executable escape hatch for conditions the fields above cannot
   #              express: a command run pre-flight with a short fixed timeout.
   #              Exit 0 fires the trigger, exit 1 passes, and any other exit or
   #              a timeout fails open (no fire) with an advisory. It may print
   #              `DISCERN_MATCH <path>` lines to declare the matched paths
   #              precisely; with selectors present, they pre-scope the diff and
-  #              `when` decides firing.
+  #              `when` decides firing. `DISCERN_CHECKPOINT_INPUT` names the
+  #              temporary v1 JSON file containing the narrowed facts.
   #   mode       "stop" (the default): `discern done` refuses to run the gate
   #              until the agent declares the question met, or unmet with a
   #              short rationale. "advise": delivered as an advisory instead;

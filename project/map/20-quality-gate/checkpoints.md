@@ -13,6 +13,7 @@ aliases:
   - owner variance
   - built-in checkpoints
   - when command
+  - DISCERN_CHECKPOINT_INPUT
   - DISCERN_MATCH
   - awaiting_declaration
   - awaiting_variance
@@ -61,7 +62,11 @@ The policy for an effort is the `[checkpoints]` configuration at its merge-base 
 
 ## The `when` escape hatch
 
-`when = "<command>"` delegates a firing condition the structured trigger fields cannot express. The command runs pre-flight under a 10-second budget: exit 0 fires, exit 1 passes, and any other exit or a timeout fails open (no fire) with a classified drop that distinguishes spawn failure, timeout, and invalid exit. It may print `DISCERN_MATCH <path>` lines to declare the subject precisely; without them the subject falls back to the full matched set, which reopens more coarsely. When selectors are present, they pre-scope the diff and `when` decides the firing. The v1 execution boundary is stated rather than implied: the merge-base governs the command text, while the command runs in the candidate worktree, so the scripts and interpreters it references resolve from that worktree. The policy identity proves where the text came from; it does not prove an executable dependency closure. Read surfaces run no `when` command — `discern checkpoints` reports such a trigger as "may fire at done".
+Structured triggers are conjunctive and ordered. The governing generated-file policy establishes the authored universe, `scope` or `paths` selects it, and `exclude_paths` removes local noise. The narrowing sequence is `kinds`, `adds_matching`, `removes_matching`, `new_directory`, `binary`, then `similar_new_file`. The surviving evidence then faces `unless_changed`, `min_changed_files`, `min_changed_lines`, `deletion_dominant`, and `min_commits`; `when` has the final word. Thresholds measure the narrowed changed evidence. Related unchanged evidence, such as a similar existing sibling, never enters changed-file or changed-line totals ([ADR 0308](../_adr/0308-checkpoint-triggers-use-bounded-facts-and-versioned-input.md)).
+
+`adds_matching` and `removes_matching` use case-sensitive literal UTF-8 byte substrings on individual lines. Each field accepts up to 16 distinct patterns of 1–128 UTF-8 bytes. Content collection admits lines up to 8 KiB, 65,536 changed-line facts, files up to 256 KiB, and 2 MiB of attempted bytes across admitted paths. Comparison work charges each line's payload plus one separator unit per pattern and stops above 64 MiB. If a needed fact is unreadable, inconsistent, or over a bound, that checkpoint fails open with a durable drop; no partial match is used and no raw line reaches Proof.
+
+`when = "<command>"` delegates a firing condition the structured trigger fields cannot express. The command runs pre-flight under a 10-second budget: exit 0 fires, exit 1 passes, and any other exit or a timeout fails open with a classified drop. It receives the final narrowed facts through [`DISCERN_CHECKPOINT_INPUT`](../70-reference/checkpoint-when-protocol.md) and may print `DISCERN_MATCH <path>` lines to narrow the subject to structurally admitted paths. The merge-base governs the command text, while the command runs in the candidate worktree, so its scripts, interpreters, dependencies, and configuration resolve from that worktree. The policy identity proves where the command text came from; it does not prove an executable dependency closure. Read surfaces run no `when` command and create no input file; `discern checkpoints` reports such a trigger as "may fire at done".
 
 ## Fail-open evidence
 
@@ -85,4 +90,4 @@ Referencing a built-in id enables it, any field set on the entry overrides the s
 
 A `stop` checkpoint taxes every matching change, so each must earn its stop the way a good reviewer's interruption does. The placement ladder decides the rung: prose an agent needs while shaping most decisions belongs in the instructions; a recurring method belongs in a skill; a judgment caught as a narrow change completes belongs in a checkpoint; a rule a machine can decide belongs in a gate job or a standard; a decision only the owner may make belongs to consent or a recorded grant. A question earns a checkpoint when a diff introduces its violations; one that accrues by time or absence stays with the improvement review in [improvement](improvement.md). The loop closes in both directions: `discern improvement` recommends capturing a recurring finding class as a checkpoint when project-local evidence supports it, and a question that becomes mechanically decidable moves down the ladder through the `discern-set-the-standard` outlaw procedure. Review the observed economics in `discern checkpoints` and [`discern patterns`](patterns.md) — per-checkpoint fires and declared-unmet and variance shares, with hygiene advisories for a dead, noisy, or frequently varied checkpoint. To author one, reach for the bundled `discern-place-a-checkpoint` skill.
 
-Open question states, declaration flags, and the command surface are in [checkpoint state and declarations](../70-reference/checkpoint-state.md); the trigger fields are in the [config reference](../70-reference/config-reference.md).
+Open question states, declaration flags, and the command protocol are in [checkpoint state and declarations](../70-reference/checkpoint-state.md); the trigger fields are in the [config reference](../70-reference/config-reference.md).

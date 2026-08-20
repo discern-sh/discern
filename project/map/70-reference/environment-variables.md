@@ -18,6 +18,7 @@ aliases:
   - DISCERN_TOML
   - DISCERN_SCRIPTS
   - DISCERN_SCRIPTS_DIR
+  - DISCERN_CHECKPOINT_INPUT
   - DISCERN_WORKTREE_PORT
   - DISCERN_WORKTREE
   - DISCERN_RESOURCE_<NAME>
@@ -71,6 +72,14 @@ Values discern exports before running a Project Script.
 | `DISCERN_TOML`        | Absolute path to the active `discern.toml` exported to a Project Script.    |
 | `DISCERN_SCRIPTS`     | Absolute configured Project Scripts directory exported to a Project Script. |
 | `DISCERN_SCRIPTS_DIR` | Configured `[scripts].dir` value exported to a Project Script.              |
+
+## Checkpoint commands
+
+Structured inputs exported to checkpoint `when` commands.
+
+| Variable                   | What it does                                                                                                                                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DISCERN_CHECKPOINT_INPUT` | Absolute path to the versioned JSON facts without raw file content for the current checkpoint `when` command. See the [checkpoint `when` protocol](checkpoint-when-protocol.md). The file exists only while that command runs. |
 
 ## Worktree environment
 

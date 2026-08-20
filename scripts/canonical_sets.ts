@@ -267,6 +267,35 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "checkpoint-entry-fields",
+    title: "Checkpoint entry fields",
+    what:
+      "Every public field under `[checkpoints.<id>]`, classified as a selector, trigger, or review field so trigger consumers derive their membership and a future field cannot bypass enrollment.",
+    source: {
+      kind: "module",
+      module: "src/shared/checkpoints.ts",
+      exportName: "CHECKPOINT_FIELD_ROLES",
+    },
+    guards: [
+      "tests/checkpoints_trigger_vocabulary_test.ts",
+      "tests/checkpoints_policy_test.ts",
+      "tests/checkpoints_subject_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the checkpoint term owns the concept and the config reference owns each field spelling",
+      },
+      featureCanon: { nodeId: "checkpoints" },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/checkpoints.ts"))
+          .CHECKPOINT_FIELD_ROLES,
+      ),
+  },
+  {
     id: "experimental-environment-variables",
     title: "Experimental environment variables",
     what:

@@ -913,8 +913,55 @@
               "type": "string"
             }
           },
+          "kinds": {
+            "description": "Narrow changed evidence to the named Git kinds: \"added\", \"modified\", or \"deleted\".",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "added",
+                "modified",
+                "deleted"
+              ]
+            }
+          },
+          "adds_matching": {
+            "description": "Narrow text evidence to files with an added line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16 distinct patterns of 1–128 UTF-8 bytes; NUL, CR, and LF are invalid.",
+            "minItems": 1,
+            "maxItems": 16,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "removes_matching": {
+            "description": "Narrow text evidence to files with a removed line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to 16 distinct patterns of 1–128 UTF-8 bytes; NUL, CR, and LF are invalid.",
+            "minItems": 1,
+            "maxItems": 16,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "new_directory": {
+            "description": "Narrow to added files whose parent directory held no admitted file at the merge-base; root-level additions never qualify.",
+            "type": "boolean"
+          },
+          "binary": {
+            "description": "Narrow to binary changes when true or text changes when false.",
+            "type": "boolean"
+          },
           "min_changed_files": {
             "description": "Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "min_changed_lines": {
+            "description": "Require this many added-plus-removed text lines across the final narrowed evidence; binary files contribute zero.",
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991
@@ -926,6 +973,12 @@
           "similar_new_file": {
             "description": "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory (a copy/version/suffix variant) — the signature of a parallel implementation growing beside the original.",
             "type": "boolean"
+          },
+          "min_commits": {
+            "description": "Require this many commits in merge-base..HEAD, including merge commits; uncommitted work adds no commit.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
           },
           "when": {
             "description": "Final executable condition: exit 0 fires, exit 1 passes; errors and timeout fail open. `DISCERN_MATCH <path>` narrows the structural matches.",

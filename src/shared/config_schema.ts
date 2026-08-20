@@ -375,10 +375,10 @@ const checkpointValue = z.strictObject({
     'Narrow changed evidence to the named Git kinds: "added", "modified", or "deleted".',
   ),
   adds_matching: checkpointLinePatterns.optional().describe(
-    "Narrow text evidence to files with an added line containing any configured case-sensitive literal UTF-8 substring.",
+    `Narrow text evidence to files with an added line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to ${CHECKPOINT_PATTERN_LIMITS.maxPatternsPerField} distinct patterns of 1–${CHECKPOINT_PATTERN_LIMITS.maxPatternBytes} UTF-8 bytes; NUL, CR, and LF are invalid.`,
   ),
   removes_matching: checkpointLinePatterns.optional().describe(
-    "Narrow text evidence to files with a removed line containing any configured case-sensitive literal UTF-8 substring.",
+    `Narrow text evidence to files with a removed line containing any configured case-sensitive literal UTF-8 byte substring. Accepts up to ${CHECKPOINT_PATTERN_LIMITS.maxPatternsPerField} distinct patterns of 1–${CHECKPOINT_PATTERN_LIMITS.maxPatternBytes} UTF-8 bytes; NUL, CR, and LF are invalid.`,
   ),
   new_directory: z.boolean().optional().describe(
     "Narrow to added files whose parent directory held no admitted file at the merge-base; root-level additions never qualify.",
