@@ -398,6 +398,46 @@ Deno.test("content comparison work admits the exact ceiling and rejects one byte
   });
 });
 
+Deno.test("content facts admit the total line ceiling and reject a newline storm", () => {
+  const exactLines = Array.from(
+    { length: CHECKPOINT_PATTERN_LIMITS.maxContentLines },
+    () => new Uint8Array(),
+  );
+  const def = definition({ addsMatching: ["needle"] });
+  assertEquals(
+    evaluateStructuralTriggerFacts(
+      def,
+      effort([
+        file("src/exact.ts", {
+          insertions: exactLines.length,
+          content: {
+            status: "available",
+            added: exactLines,
+            removed: [],
+          },
+        }),
+      ]),
+    ),
+    { outcome: { holds: false, vetoedBy: "adds_matching" } },
+  );
+  assertEquals(
+    evaluateStructuralTriggerFacts(
+      def,
+      effort([
+        file("src/over.ts", {
+          insertions: exactLines.length + 1,
+          content: {
+            status: "available",
+            added: [...exactLines, new Uint8Array()],
+            removed: [],
+          },
+        }),
+      ]),
+    ),
+    { issue: { fact: "content", reason: "line_count" } },
+  );
+});
+
 Deno.test("new_directory recognizes only a genuinely new admitted parent", () => {
   const cases: readonly {
     name: string;
