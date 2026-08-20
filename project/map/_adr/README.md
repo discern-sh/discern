@@ -295,6 +295,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0304 — A tenth bundled skill places the checkpoint](0304-a-tenth-bundled-skill-places-the-checkpoint.md)
 - [0305 — The Boundary Canon owns discern's noes](0305-the-boundary-canon-owns-discerns-noes.md)
 - [0306 — Status defaults to a bounded orientation projection](0306-status-defaults-to-a-bounded-orientation-projection.md)
+- [0307 — CI reports checkpoint review and Proof retains drops](0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)
 
 <!-- END GENERATED: current ADR records -->
 
