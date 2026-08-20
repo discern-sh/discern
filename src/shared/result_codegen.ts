@@ -458,6 +458,20 @@ function objectType(schema: JsonObject, level: number): string {
   return lines.join("\n");
 }
 
+/** Wrap an array item union the same way `deno fmt` does. */
+function arrayType(schema: JsonObject, level: number): string {
+  const isUnion = Array.isArray(schema.oneOf) || Array.isArray(schema.anyOf);
+  const itemType = schemaToType(schema, isUnion ? level + 2 : level);
+  if (!isUnion || !itemType.includes("\n")) {
+    return `Array<${itemType}>`;
+  }
+  return [
+    "Array<",
+    `${" ".repeat(level + 2)}${itemType}`,
+    `${" ".repeat(level)}>`,
+  ].join("\n");
+}
+
 /** Recursively translate the supported JSON Schema vocabulary into TypeScript. */
 function schemaToType(schema: JsonObject, level = 0): string {
   if (typeof schema.$ref === "string") {
@@ -484,7 +498,7 @@ function schemaToType(schema: JsonObject, level = 0): string {
     );
   }
   if (schema.type === "array" && isObject(schema.items)) {
-    return `Array<${schemaToType(schema.items, level)}>`;
+    return arrayType(schema.items, level);
   }
   if (schema.type !== undefined) {
     const primitive = typeFromTypeKeyword(schema.type);

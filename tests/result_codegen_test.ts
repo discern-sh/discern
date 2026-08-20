@@ -233,6 +233,25 @@ Deno.test("types/discern-json.d.ts matches the generator (run `deno task codegen
   );
 });
 
+Deno.test("generated result declarations are stable under deno fmt", async () => {
+  const path = await Deno.makeTempFile({ suffix: ".d.ts" });
+  try {
+    await Deno.writeTextFile(path, renderResultTypesDts());
+    const output = await new Deno.Command(Deno.execPath(), {
+      args: ["fmt", "--check", path],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert(
+      output.success,
+      new TextDecoder().decode(output.stdout) +
+        new TextDecoder().decode(output.stderr),
+    );
+  } finally {
+    await Deno.remove(path);
+  }
+});
+
 Deno.test("public result schemas carry literal verb discriminators", () => {
   const schema = buildResultJsonSchema();
   assert(isRecord(schema.$defs), "result schema should carry $defs");
