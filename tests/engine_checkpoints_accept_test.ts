@@ -52,7 +52,11 @@ interface AcceptEnvelope {
     consent?: { source: string; scopes?: string[] };
     variances?: AuthorizedVarianceData[];
     proof_line?: string;
-    checkpoint_drops?: { reason: string; account: string }[];
+    checkpoint_drops?: {
+      reason: string;
+      account: string;
+      policy_commit?: string;
+    }[];
   };
 }
 
@@ -138,7 +142,13 @@ async function greenWithUnmet(wt: string): Promise<void> {
 /** The payload fields the landed-note assertions read. */
 interface LandedNotePayload {
   subject: { commit: string };
-  proof?: { checkpoint_drops?: { reason: string; account: string }[] };
+  proof?: {
+    checkpoint_drops?: {
+      reason: string;
+      account: string;
+      policy_commit?: string;
+    }[];
+  };
   acceptance?: AcceptanceEvidenceData;
 }
 
@@ -281,6 +291,51 @@ Deno.test("accept: fail-open drops survive preview, consent review, landing, and
       payload.proof?.checkpoint_drops?.[0]?.reason,
       "when_invalid_exit",
     );
+  });
+});
+
+Deno.test("accept: a store drop first observed after Gate survives landing in the DSSE", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await checkpointedWorktree(dir);
+    const gate = await runAgent(wt, [
+      "done",
+      "--met",
+      "api-review",
+      "--json",
+    ]);
+    assertEquals(gate.code, 0, gate.output);
+    const policyCommit = await gitOut(wt, "merge-base", "main", "HEAD");
+
+    // The strict Proof was recorded against readable declaration state. This
+    // corruption is first observable by proof inspection and acceptance.
+    const store = await gitAdminStatePath(wt, "checkpointOpenQuestions");
+    assert(store !== undefined);
+    await Deno.writeTextFile(store, "not json\n");
+    const liveDrop = (envelope: AcceptEnvelope) =>
+      envelope.data.checkpoint_drops?.find((drop) =>
+        drop.reason === "open_question_store_corrupt"
+      );
+
+    const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
+    assertEquals(preview.code, 0, preview.output);
+    assertEquals(liveDrop(parseJson(preview.stdout))?.policy_commit, policyCommit);
+
+    const review = await runAgent(wt, ["accept", "--json"]);
+    assertEquals(review.code, 1, review.output);
+    const reviewEnv = parseJson(review.stdout);
+    assertEquals(reviewEnv.error, AWAITING_CONSENT_SLUG);
+    assertEquals(liveDrop(reviewEnv)?.policy_commit, policyCommit);
+
+    const landedSha = await gitOut(wt, "rev-parse", "HEAD");
+    const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(apply.code, 0, apply.output);
+    assertEquals(liveDrop(parseJson(apply.stdout))?.policy_commit, policyCommit);
+
+    const payload = await landedNotePayload(dir, landedSha);
+    const durableDrop = payload.proof?.checkpoint_drops?.find((drop) =>
+      drop.reason === "open_question_store_corrupt"
+    );
+    assertEquals(durableDrop?.policy_commit, policyCommit);
   });
 });
 

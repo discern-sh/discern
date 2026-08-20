@@ -2453,6 +2453,11 @@ async function executeAcceptPlan(
     ctx.cwd,
     ctx.config,
   );
+  const accumulatedCheckpointDrops = uniqueCheckpointDrops([
+    ...(proofData?.checkpoint_drops ?? []),
+    ...(proof.checkpoint_drops ?? []),
+    ...checkpointsNow.drops,
+  ]);
   const bindingKey = (v: AuthorizedVarianceData): string =>
     [v.checkpoint, v.definition_hash, v.subject, v.why].join("\u0000");
   const liveBindings = checkpointsNow.unmet
@@ -2731,10 +2736,22 @@ async function executeAcceptPlan(
     consent: cloneLandingConsent(consent),
     variances: variances.map((variance) => ({ ...variance })),
   };
+  const proofForNote = proofData === undefined
+    ? undefined
+    : {
+      ...proofData,
+      ...(accumulatedCheckpointDrops.length === 0
+        ? {}
+        : {
+          checkpoint_drops: accumulatedCheckpointDrops.map((drop) => ({
+            ...drop,
+          })),
+        }),
+    };
   const proofWrite = await writeProofNote(
     mainRepo,
     validatedSha,
-    proofData,
+    proofForNote,
     Deno.env,
     acceptanceEvidence,
   );
@@ -3021,10 +3038,7 @@ async function executeAcceptPlan(
     convergenceHints,
     diagnostics,
     authorityWarnings,
-    checkpointDrops: uniqueCheckpointDrops([
-      ...(proofData?.checkpoint_drops ?? []),
-      ...checkpointsNow.drops,
-    ]),
+    checkpointDrops: accumulatedCheckpointDrops,
   };
 }
 
