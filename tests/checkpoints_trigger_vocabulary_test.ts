@@ -11,9 +11,13 @@ import { assert, assertEquals } from "@std/assert";
 import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import {
   CHECKPOINT_FIELD_ROLES,
+  CHECKPOINT_PATTERN_LIMITS,
   CHECKPOINT_TRIGGER_FIELDS,
 } from "../src/shared/checkpoints.ts";
-import { evaluateStructuralTrigger } from "../src/engine/checkpoints/triggers.ts";
+import {
+  evaluateStructuralTrigger,
+  evaluateStructuralTriggerFacts,
+} from "../src/engine/checkpoints/triggers.ts";
 import { triggerSummary } from "../src/engine/checkpoints/report.ts";
 import type {
   EffortDiff,
@@ -336,6 +340,62 @@ Deno.test("content narrowing precedes changed-file and changed-line thresholds",
     ),
     { holds: false, vetoedBy: "min_changed_lines" },
   );
+});
+
+Deno.test("content comparison work admits the exact ceiling and rejects one byte over", () => {
+  const patternsPerSide = CHECKPOINT_PATTERN_LIMITS.maxPatternsPerField;
+  const patternCount = patternsPerSide * 2;
+  assertEquals(
+    CHECKPOINT_PATTERN_LIMITS.maxTotalBytes * patternCount,
+    CHECKPOINT_PATTERN_LIMITS.maxComparisonBytes,
+  );
+  const lineCount = CHECKPOINT_PATTERN_LIMITS.maxTotalBytes /
+    CHECKPOINT_PATTERN_LIMITS.maxLineBytes;
+  assertEquals(Number.isInteger(lineCount), true);
+  const added = Array.from(
+    { length: lineCount / 2 },
+    () => new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxLineBytes).fill(0x61),
+  );
+  const removed = Array.from(
+    { length: lineCount / 2 },
+    () => new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxLineBytes).fill(0x62),
+  );
+  const def = definition({
+    addsMatching: [
+      "a",
+      ...Array.from(
+        { length: patternsPerSide - 1 },
+        (_, index) => `added-${index}`,
+      ),
+    ],
+    removesMatching: [
+      "b",
+      ...Array.from(
+        { length: patternsPerSide - 1 },
+        (_, index) => `removed-${index}`,
+      ),
+    ],
+  });
+  const exactFile = file("src/exact.ts", {
+    insertions: added.length,
+    deletions: removed.length,
+    content: { status: "available", added, removed },
+  });
+  const exact = evaluateStructuralTriggerFacts(def, effort([exactFile]));
+  assert(exact.outcome?.holds, JSON.stringify(exact));
+
+  const overFile = file("src/over.ts", {
+    insertions: added.length + 1,
+    deletions: removed.length,
+    content: {
+      status: "available",
+      added: [...added, new Uint8Array([0x61])],
+      removed,
+    },
+  });
+  assertEquals(evaluateStructuralTriggerFacts(def, effort([overFile])), {
+    issue: { fact: "content", reason: "comparison_work" },
+  });
 });
 
 Deno.test("new_directory uses admitted base paths and root additions never qualify", () => {
