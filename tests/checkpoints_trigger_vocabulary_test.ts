@@ -352,13 +352,14 @@ Deno.test("content comparison work admits the exact ceiling and rejects one byte
   const lineCount = CHECKPOINT_PATTERN_LIMITS.maxTotalBytes /
     CHECKPOINT_PATTERN_LIMITS.maxLineBytes;
   assertEquals(Number.isInteger(lineCount), true);
+  const payloadBytes = CHECKPOINT_PATTERN_LIMITS.maxLineBytes - 1;
   const added = Array.from(
     { length: lineCount / 2 },
-    () => new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxLineBytes).fill(0x61),
+    () => new Uint8Array(payloadBytes).fill(0x61),
   );
   const removed = Array.from(
     { length: lineCount / 2 },
-    () => new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxLineBytes).fill(0x62),
+    () => new Uint8Array(payloadBytes).fill(0x62),
   );
   const def = definition({
     addsMatching: [
@@ -385,11 +386,14 @@ Deno.test("content comparison work admits the exact ceiling and rejects one byte
   assert(exact.outcome?.holds, JSON.stringify(exact));
 
   const overFile = file("src/over.ts", {
-    insertions: added.length + 1,
+    insertions: added.length,
     deletions: removed.length,
     content: {
       status: "available",
-      added: [...added, new Uint8Array([0x61])],
+      added: [
+        new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxLineBytes).fill(0x61),
+        ...added.slice(1),
+      ],
       removed,
     },
   });

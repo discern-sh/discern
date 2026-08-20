@@ -55,30 +55,30 @@ const PLUS = 0x2b;
 const MINUS = 0x2d;
 const AT = 0x40;
 
-/** Split exact bytes on LF, removing an immediately preceding CR. */
-function byteLines(bytes: Uint8Array): Uint8Array[] {
-  const lines: Uint8Array[] = [];
+/** Yield exact byte lines on LF, removing an immediately preceding CR. The
+ * iterator keeps a newline storm from allocating every line before a caller
+ * can enforce its fact-count boundary. */
+function* byteLines(bytes: Uint8Array): Generator<Uint8Array> {
   let start = 0;
   for (let index = 0; index < bytes.length; index++) {
     if (bytes[index] === 0x0a) {
       let end = index;
       if (end > start && bytes[end - 1] === 0x0d) end--;
-      lines.push(bytes.slice(start, end));
+      yield bytes.subarray(start, end);
       start = index + 1;
     }
   }
   if (start < bytes.length) {
     let end = bytes.length;
     if (end > start && bytes[end - 1] === 0x0d) end--;
-    lines.push(bytes.slice(start, end));
+    yield bytes.subarray(start, end);
   }
-  return lines;
 }
 
 /** Extract bounded added/removed payload lines from one zero-context patch. */
-function patchContent(bytes: Uint8Array):
+function patchContent(bytes: Uint8Array, maxLines: number):
   | { status: "available"; added: Uint8Array[]; removed: Uint8Array[] }
-  | { status: "unavailable"; reason: "line_limit" } {
+  | { status: "unavailable"; reason: "line_limit" | "line_count" } {
   const added: Uint8Array[] = [];
   const removed: Uint8Array[] = [];
   let inHunk = false;
@@ -93,6 +93,9 @@ function patchContent(bytes: Uint8Array):
     const payload = line.slice(1);
     if (payload.length > CHECKPOINT_PATTERN_LIMITS.maxLineBytes) {
       return { status: "unavailable", reason: "line_limit" };
+    }
+    if (added.length + removed.length >= maxLines) {
+      return { status: "unavailable", reason: "line_count" };
     }
     (marker === PLUS ? added : removed).push(payload);
   }
@@ -126,6 +129,10 @@ export type UntrackedFileOpener = (
 ) => Promise<UntrackedFileHandle | undefined>;
 
 interface AttemptedByteBudget {
+  used: number;
+}
+
+interface ContentLineBudget {
   used: number;
 }
 
@@ -603,11 +610,21 @@ export async function collectEffortDiff(
     }
   }
   const budget: AttemptedByteBudget = { used: 0 };
+  const lineBudget: ContentLineBudget = { used: 0 };
   const collectionOrder = [...files].sort((left, right) =>
     left.path < right.path ? -1 : left.path > right.path ? 1 : 0
   );
   for (const file of collectionOrder) {
     const needsContent = facts.content.has(file.path);
+    if (
+      needsContent &&
+      lineBudget.used >= CHECKPOINT_PATTERN_LIMITS.maxContentLines
+    ) {
+      file.content = file.binary === true
+        ? { status: "available", added: [], removed: [] }
+        : { status: "unavailable", reason: "line_count" };
+      continue;
+    }
     if (untracked.has(file.path)) {
       if (!facts.binary.has(file.path)) continue;
       const inspection = await inspectUntracked(
@@ -634,12 +651,30 @@ export async function collectEffortDiff(
         };
         continue;
       }
-      const lines = byteLines(bytes);
-      file.content = lines.some((line) =>
-          line.length > CHECKPOINT_PATTERN_LIMITS.maxLineBytes
-        )
-        ? { status: "unavailable", reason: "line_limit" }
-        : { status: "available", added: lines, removed: [] };
+      const lines: Uint8Array[] = [];
+      let reason: "line_limit" | "line_count" | undefined;
+      const remainingLines = CHECKPOINT_PATTERN_LIMITS.maxContentLines -
+        lineBudget.used;
+      for (const line of byteLines(bytes)) {
+        if (line.length > CHECKPOINT_PATTERN_LIMITS.maxLineBytes) {
+          reason = "line_limit";
+          break;
+        }
+        if (lines.length >= remainingLines) {
+          reason = "line_count";
+          break;
+        }
+        lines.push(line);
+      }
+      if (reason === undefined) {
+        lineBudget.used += lines.length;
+        file.content = { status: "available", added: lines, removed: [] };
+      } else {
+        if (reason === "line_count") {
+          lineBudget.used = CHECKPOINT_PATTERN_LIMITS.maxContentLines;
+        }
+        file.content = { status: "unavailable", reason };
+      }
       continue;
     }
     if (!needsContent) continue;
@@ -692,12 +727,26 @@ export async function collectEffortDiff(
       };
       continue;
     }
-    const parsed = patchContent(stdout);
-    file.content = parsed.status === "available" &&
-        (parsed.added.length !== file.insertions ||
-          parsed.removed.length !== file.deletions)
-      ? { status: "unavailable", reason: "patch_mismatch" }
-      : parsed;
+    const parsed = patchContent(
+      stdout,
+      CHECKPOINT_PATTERN_LIMITS.maxContentLines - lineBudget.used,
+    );
+    if (parsed.status === "unavailable") {
+      if (parsed.reason === "line_count") {
+        lineBudget.used = CHECKPOINT_PATTERN_LIMITS.maxContentLines;
+      }
+      file.content = parsed;
+      continue;
+    }
+    if (
+      parsed.added.length !== file.insertions ||
+      parsed.removed.length !== file.deletions
+    ) {
+      file.content = { status: "unavailable", reason: "patch_mismatch" };
+      continue;
+    }
+    lineBudget.used += parsed.added.length + parsed.removed.length;
+    file.content = parsed;
   }
   return draft;
 }

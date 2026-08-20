@@ -222,6 +222,43 @@ Deno.test("untracked changed lines accept 8 KiB exactly and reject one byte over
   });
 });
 
+Deno.test("untracked newline facts accept the total line ceiling and reject one over", async () => {
+  for (const delta of [0, 1] as const) {
+    await withTempDir(async (dir) => {
+      await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+      await gitInit(dir);
+      const base = await gitOut(dir, "rev-parse", "HEAD");
+      await Deno.writeFile(
+        join(dir, "lines.txt"),
+        new Uint8Array(
+          CHECKPOINT_PATTERN_LIMITS.maxContentLines + delta,
+        ).fill(0x0a),
+      );
+      const diff = await collectEffortDiff(
+        dir,
+        base,
+        [],
+        [definition({ addsMatching: ["needle"] })],
+      );
+      assert(diff !== undefined);
+      const content = diff.files.find((file) => file.path === "lines.txt")
+        ?.content;
+      if (delta === 0) {
+        assert(content?.status === "available");
+        assertEquals(
+          content.added.length,
+          CHECKPOINT_PATTERN_LIMITS.maxContentLines,
+        );
+      } else {
+        assertEquals(content, {
+          status: "unavailable",
+          reason: "line_count",
+        });
+      }
+    });
+  }
+});
+
 Deno.test("one huge untracked file stops at the per-file content boundary", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");

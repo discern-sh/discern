@@ -26,6 +26,7 @@ export type EffortChangeKind = CheckpointChangeKind;
 
 export const CONTENT_FACT_UNAVAILABLE_REASONS = [
   "line_limit",
+  "line_count",
   "file_limit",
   "total_bytes",
   "comparison_work",

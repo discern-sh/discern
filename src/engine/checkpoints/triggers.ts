@@ -258,19 +258,31 @@ function contentMatches(
   );
 }
 
-/** Worst-case linear byte comparisons for one definition's content scan. */
+/** Number of retained changed-line facts across one candidate set. */
+function contentLineCount(files: readonly EffortFileChange[]): number {
+  let lines = 0;
+  for (const file of files) {
+    if (file.content?.status !== "available") continue;
+    lines += file.content.added.length + file.content.removed.length;
+  }
+  return lines;
+}
+
+/** Worst-case linear comparison units for one definition's content scan. Each
+ * line charges its payload plus one separator unit, so empty-line storms and
+ * line dispatch never disappear from the work account. */
 function contentComparisonWork(
   files: readonly EffortFileChange[],
   patternCount: number,
 ): number {
-  let bytes = 0;
+  let units = 0;
   for (const file of files) {
     if (file.content?.status !== "available") continue;
     for (const line of [...file.content.added, ...file.content.removed]) {
-      bytes += line.length;
+      units += line.length + 1;
     }
   }
-  return bytes * patternCount;
+  return units * patternCount;
 }
 
 /** Parent directory, with the project root represented as the empty string. */
@@ -389,6 +401,12 @@ export function evaluateStructuralTriggerFacts(
   }
   const contentPatternCount = def.addsMatching.length +
     def.removesMatching.length;
+  if (
+    contentPatternCount > 0 &&
+    contentLineCount(candidate) > CHECKPOINT_PATTERN_LIMITS.maxContentLines
+  ) {
+    return { issue: { fact: "content", reason: "line_count" } };
+  }
   if (
     contentPatternCount > 0 &&
     contentComparisonWork(candidate, contentPatternCount) >

@@ -66,6 +66,7 @@ export const CHECKPOINT_PATTERN_LIMITS = {
   maxLineBytes: 8 * 1024,
   maxFileBytes: 256 * 1024,
   maxTotalBytes: 2 * 1024 * 1024,
+  maxContentLines: 64 * 1024,
   maxComparisonBytes: 64 * 1024 * 1024,
 } as const;
 
