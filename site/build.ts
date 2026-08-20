@@ -17,20 +17,14 @@ import {
 import { MARKETING_PAGES } from "./marketing_pages.ts";
 import { renderDiscernBrand } from "./page-src/branding.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
-import {
-  renderMarketingMarkdown,
-  renderMarketingPage,
-} from "./page-src/renderers.ts";
+import { renderMarketingPage } from "./page-src/renderers.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
 
 /** Public files produced by the site build and therefore forbidden from Git. */
 export const GENERATED_SITE_OUTPUTS = [
-  ...MARKETING_PAGES.flatMap((page) => [
-    page.page,
-    ...("markdownPage" in page ? [page.markdownPage] : []),
-  ]),
+  ...MARKETING_PAGES.map((page) => page.page),
   "pages/assets/design-system/",
   "pages/fragments/",
 ] as const;
@@ -48,6 +42,7 @@ export const RETIRED_SITE_OUTPUTS = [
   "pages/design-system-demo.html",
   "pages/content-design-demo.html",
   "pages/v2.html",
+  "pages/agents.md",
 ] as const;
 
 const ASSET_ROOT = new URL("pages/assets/design-system/", SITE_ROOT);
@@ -109,13 +104,6 @@ export async function buildSite(): Promise<void> {
       new URL(page.page, SITE_ROOT),
       await formatGeneratedText(renderMarketingPage(page.route), "html"),
     );
-    if ("markdownPage" in page) {
-      const markdown = renderMarketingMarkdown(page.route);
-      if (markdown === undefined) {
-        throw new Error(`No Markdown renderer is registered for ${page.route}`);
-      }
-      await Deno.writeTextFile(new URL(page.markdownPage, SITE_ROOT), markdown);
-    }
   }
   await Deno.writeTextFile(BRAND_FRAGMENT_OUTPUT, renderDiscernBrand());
 

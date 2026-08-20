@@ -34,9 +34,9 @@ Page-owned composition styles live in [`site/page-src/landing-v3.css`](../../../
 
 ## The For Agents composition
 
-[`site/page-src/agents.tsx`](../../../site/page-src/agents.tsx) contains the public agent-native composition at `/agents`. It moves from context economy and callable operations through session continuity, isolated work, human authority, provider continuity, deterministic boundaries, and exact machine sources. Its provider cloud derives from the same total agent and provider registries as the integrations themselves. The route therefore gains a newly supported provider without a copied marketing list.
+[`site/page-src/agents.tsx`](../../../site/page-src/agents.tsx) contains the public agent-native composition at `/agents`. It moves from context economy and callable operations through session continuity, isolated work, human authority, provider continuity, deterministic boundaries, and exact machine routes. Its provider compiler derives labels, instruction files, and marks from the same total agent and provider registries as the integrations themselves. The route therefore gains a newly supported provider without a copied marketing list. `/llms.txt` is the machine-readable handoff; the campaign has no overlapping Markdown companion.
 
-[`site/page-src/agents.css`](../../../site/page-src/agents.css) owns its `.agents-*` composition selectors. The page uses only static package components and the shared theme controller. [`site/page-src/renderers.ts`](../../../site/page-src/renderers.ts) exhaustively maps each `MARKETING_PAGES` route to its static renderer, so adding a registry member without a composition fails type checking.
+[`site/page-src/agents.css`](../../../site/page-src/agents.css) owns its `.agents-*` composition selectors. The page composes static package components through their typed slots and published CSS variables; consumer selectors never reach into package-owned classes. It uses the shared system-aware theme bootstrap without presenting its own theme toggle. [`site/page-src/renderers.ts`](../../../site/page-src/renderers.ts) exhaustively maps each `MARKETING_PAGES` route to its static renderer, so adding a registry member without a composition fails type checking.
 
 ## Public-site prose
 

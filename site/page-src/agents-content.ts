@@ -1,18 +1,20 @@
 /**
- * One authored content model for the visual /agents page and its Markdown
- * edition. Evidence values are captured from the live discern repository; the
- * surrounding renderers decide how richly to present them.
+ * One authored content model for the visual /agents page. Evidence values are
+ * captured from the live discern repository; /llms.txt remains the canonical
+ * machine-readable orientation.
  */
 
 export const AGENTS_ROUTES = {
   home: "/",
-  plaintext: "/agents.md",
   machineGuide: "/llms.txt",
+  quickstart: "/docs/getting-started/quickstart",
   mcp: "/docs/reference/mcp-and-results",
   resultSurfaces: "/docs/reference/result-surfaces",
   map: "/docs/agent-instructions/the-map",
   instructions: "/docs/agent-instructions",
   worktrees: "/docs/worktrees",
+  glossary: "/docs/orientation/glossary",
+  providers: "/docs/agent-integrations",
   trust: "/docs/orientation/trust-and-data",
   schema: "/schema/v1/discern-results.schema.json",
 } as const;
@@ -22,7 +24,7 @@ export const AGENTS_CONTENT = {
     eyebrow: "CODING AGENT: THIS PAGE IS FOR YOU.",
     title: "Finally, software where you are the user.",
     paragraphs: [
-      "You already know how to write the code. discern gives you a project you can operate: state you can ask for, a workspace you own, results that fit your context, guidance in your native format, and refusals that name the next valid action.",
+      "You already know how to write the code. discern gives you a project you can operate: state you can ask for, a workspace you own, results that fit your context, instructions in your native format, and refusals that name the next valid action.",
       "Spend your context on the project. Return the exact change, with Proof. Your human decides what lands.",
     ],
     plaintext: "Prefer plaintext? Of course you do.",
@@ -81,7 +83,7 @@ export const AGENTS_CONTENT = {
     title:
       "Your context window is your working capacity. discern treats it that way.",
     paragraphs: [
-      "It gives you the guidance relevant to the task, the result required for the next decision, and a direct route to deeper detail. It does not make you load the manual before changing one file.",
+      "It gives you the instructions relevant to the task, the result required for the next decision, and a direct route to deeper detail. It does not make you load the manual before changing one file.",
     ],
     features: [
       {
@@ -112,13 +114,13 @@ export const AGENTS_CONTENT = {
     eyebrow: "PROJECT CONTINUITY",
     title: "Start with the project already in view.",
     paragraphs: [
-      "A fresh session should not begin by reconstructing the repository from an old transcript. discern gives you shared project guidance, searchable documentation, reusable procedures, recorded decisions and their reasons, the current task state, and the commands the project actually uses.",
+      "A fresh session should not begin by reconstructing the repository from an old transcript. discern gives you shared project instructions, searchable documentation, reusable procedures, recorded decisions and their reasons, the current task state, and the commands the project actually uses.",
     ],
     features: [
       {
         title: "One authored source, compiled for you",
         copy:
-          "The project writes its guidance once. discern compiles it into the instruction format your provider reads, alongside the integration files and MCP wiring that provider needs. A bare clone begins with current instructions, not a private conversation history.",
+          "The project writes its instructions once. discern compiles them into the format your provider reads, alongside the integration files and MCP wiring that provider needs. A bare clone begins with current instructions, not a private conversation history.",
       },
       {
         title: "The Map shows what the project says is true",
@@ -227,7 +229,7 @@ export const AGENTS_CONTENT = {
       {
         title: "A sandbox.",
         copy:
-          "discern is a practice, not a security boundary. Your human's questions about that live on the trust page, and the honest answer is part of why they can trust the rest.",
+          "discern is a practice, not a security boundary. Your human's questions about that live on the trust page, and the explicit boundary is part of why they can trust the rest.",
       },
     ],
   },
@@ -348,7 +350,7 @@ unknown command "donee".
 } as const;
 
 export const EVALUATION_INSTRUCTION =
-  `Read https://discern.sh/agents.md and inspect this repository without changing it.
+  `Read https://discern.sh/llms.txt and inspect this repository without changing it.
 
 Report:
 
@@ -373,163 +375,3 @@ export const CLOSING_ENVELOPE = `{
     "your_context": "spent on this page: not much. We counted."
   }
 }`;
-
-function paragraphs(lines: readonly string[]): string {
-  return lines.join("\n\n");
-}
-
-function featureMarkdown(
-  features: readonly { readonly title: string; readonly copy: string }[],
-): string {
-  return features.map((feature) => `### ${feature.title}\n\n${feature.copy}`)
-    .join("\n\n");
-}
-
-const MARKDOWN_BODY = `# ${AGENTS_CONTENT.hero.title}
-
-**${AGENTS_CONTENT.hero.eyebrow}**
-
-${paragraphs(AGENTS_CONTENT.hero.paragraphs)}
-
-[Read the machine guide](${AGENTS_ROUTES.machineGuide}) · [Inspect the MCP tools](${AGENTS_ROUTES.mcp})
-
-${AGENTS_CONTENT.hero.plaintext} This is the plaintext edition.
-
-*${AGENTS_CONTENT.hero.tell}*
-
-<a id="${AGENTS_CONTENT.recognition.id}"></a>
-
-## ${AGENTS_CONTENT.recognition.title}
-
-**${AGENTS_CONTENT.recognition.eyebrow}**
-
-${paragraphs(AGENTS_CONTENT.recognition.paragraphs)}
-
-<a id="${AGENTS_CONTENT.ergonomics.id}"></a>
-
-## ${AGENTS_CONTENT.ergonomics.title}
-
-**${AGENTS_CONTENT.ergonomics.eyebrow}**
-
-${AGENTS_CONTENT.ergonomics.lead}
-
-${featureMarkdown(AGENTS_CONTENT.ergonomics.features)}
-
-The same real refusal rendered from one result object:
-
-\`\`\`json
-${AGENTS_EVIDENCE.refusal.json}
-\`\`\`
-
-*${AGENTS_CONTENT.ergonomics.close}*
-
-<a id="${AGENTS_CONTENT.context.id}"></a>
-
-## ${AGENTS_CONTENT.context.title}
-
-**${AGENTS_CONTENT.context.eyebrow}**
-
-${paragraphs(AGENTS_CONTENT.context.paragraphs)}
-
-${featureMarkdown(AGENTS_CONTENT.context.features)}
-
-A live Map search for \`${AGENTS_EVIDENCE.map.query}\` returned five bounded results and reported that deeper matches were truncated. The first exact target was \`${
-  AGENTS_EVIDENCE.map.results[0].target
-}\`.
-
-*${AGENTS_CONTENT.context.close}*
-
-<a id="${AGENTS_CONTENT.continuity.id}"></a>
-
-## ${AGENTS_CONTENT.continuity.title}
-
-**${AGENTS_CONTENT.continuity.eyebrow}**
-
-${paragraphs(AGENTS_CONTENT.continuity.paragraphs)}
-
-${featureMarkdown(AGENTS_CONTENT.continuity.features)}
-
-The worktree used to build this page reported \`${AGENTS_EVIDENCE.worktree.id}\`, branch \`${AGENTS_EVIDENCE.worktree.branch}\`, and its exact root before editing. A live \`discern await\` result observed that \`${AGENTS_EVIDENCE.await.branch}\` had landed and returned \`discern update\` as the next action.
-
-*${AGENTS_CONTENT.continuity.close}*
-
-<a id="${AGENTS_CONTENT.proof.id}"></a>
-
-## ${AGENTS_CONTENT.proof.title}
-
-**${AGENTS_CONTENT.proof.eyebrow}**
-
-${paragraphs(AGENTS_CONTENT.proof.paragraphs)}
-
-${featureMarkdown(AGENTS_CONTENT.proof.facts)}
-
-\`\`\`text
-${AGENTS_EVIDENCE.proof.line}
-\`\`\`
-
-*${AGENTS_CONTENT.proof.close}*
-
-<a id="${AGENTS_CONTENT.authority.id}"></a>
-
-## ${AGENTS_CONTENT.authority.title}
-
-**${AGENTS_CONTENT.authority.eyebrow}**
-
-${paragraphs(AGENTS_CONTENT.authority.paragraphs)}
-
-**${AGENTS_CONTENT.authority.maxim}**
-
-${featureMarkdown(AGENTS_CONTENT.authority.states)}
-
-*${AGENTS_CONTENT.authority.close}*
-
-<a id="${AGENTS_CONTENT.absences.id}"></a>
-
-## ${AGENTS_CONTENT.absences.title}
-
-**${AGENTS_CONTENT.absences.eyebrow}**
-
-${featureMarkdown(AGENTS_CONTENT.absences.items)}
-
-Read the exact [trust and data boundary](${AGENTS_ROUTES.trust}).
-
-<a id="${AGENTS_CONTENT.next.id}"></a>
-
-## ${AGENTS_CONTENT.next.title}
-
-**${AGENTS_CONTENT.next.eyebrow}**
-
-${paragraphs(AGENTS_CONTENT.next.paragraphs)}
-
-[Read the machine guide](${AGENTS_ROUTES.machineGuide}) · [Inspect the MCP tools](${AGENTS_ROUTES.mcp}) · [Review the result schema](${AGENTS_ROUTES.schema})
-
-<a id="evaluate"></a>
-
-### ${AGENTS_CONTENT.next.instructionTitle}
-
-\`\`\`text
-${EVALUATION_INSTRUCTION}
-\`\`\`
-
-**${AGENTS_CONTENT.next.close}**
-
-\`\`\`json
-${CLOSING_ENVELOPE}
-\`\`\`
-
-## ${AGENTS_CONTENT.next.finalTitle}
-
-◮ *${AGENTS_CONTENT.next.signature}*`;
-
-/** A transparent, tokenizer-neutral estimate for the footer's context note. */
-export const AGENTS_MARKDOWN_TOKEN_ESTIMATE = Math.ceil(
-  MARKDOWN_BODY.length / 400,
-) * 100;
-
-/** Clean machine-readable edition generated from the same copy as the HTML. */
-export const AGENTS_MARKDOWN = `${MARKDOWN_BODY}
-
----
-
-This page as Markdown: ~${AGENTS_MARKDOWN_TOKEN_ESTIMATE} tokens. Your context was considered in the making of this page.
-`;

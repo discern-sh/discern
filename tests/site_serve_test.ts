@@ -114,6 +114,12 @@ Deno.test("the retired /v2 prototype is no longer public", async () => {
   await response.body?.cancel();
 });
 
+Deno.test("the retired /agents.md companion is no longer public", async () => {
+  const response = await get("/agents.md", CURL);
+  assertEquals(response.status, 404);
+  assertStringIncludes(await response.text(), "/llms.txt");
+});
+
 Deno.test("/llms.txt is the plaintext edition for every reader", async () => {
   for (const headers of [BROWSER, CURL]) {
     const res = await get("/llms.txt", headers);

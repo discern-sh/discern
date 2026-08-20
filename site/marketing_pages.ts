@@ -8,7 +8,6 @@
 export interface MarketingPage {
   readonly route: string;
   readonly page: `pages/${string}.html`;
-  readonly markdownPage?: `pages/${string}.md`;
   readonly source: string;
   readonly register: "brand" | "agent";
   readonly prose: "guarded" | "copy-neutral";
@@ -27,7 +26,6 @@ export const MARKETING_PAGES = [
   {
     route: "/agents",
     page: "pages/agents.html",
-    markdownPage: "pages/agents.md",
     source: "site/page-src/agents.tsx",
     register: "agent",
     prose: "guarded",

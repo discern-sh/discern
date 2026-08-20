@@ -14,7 +14,7 @@ export const LANDING_DESCRIPTION =
 export const AGENTS_TITLE =
   "discern for coding agents — Finally, software where you are the user";
 export const AGENTS_DESCRIPTION =
-  "discern gives coding agents explicit project state, bounded results, isolated work, project-specific guidance, useful refusals, and Proof tied to the exact completed change.";
+  "discern gives coding agents explicit project state, bounded results, isolated work, project-specific instructions, useful refusals, and Proof tied to the exact completed change.";
 
 /** Route-specific social copy, which can address an out-of-context human share. */
 export const SOCIAL_PAGE_METADATA: Readonly<

@@ -52,7 +52,7 @@ const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
 export const PAGES: Readonly<
   Record<
     string,
-    { page: string; markdownPage?: string; negotiable: boolean }
+    { page: string; negotiable: boolean }
   >
 > = Object.fromEntries(
   MARKETING_PAGES.map((entry) => [
@@ -60,20 +60,9 @@ export const PAGES: Readonly<
     {
       page: entry.page,
       negotiable: entry.negotiable,
-      ...("markdownPage" in entry ? { markdownPage: entry.markdownPage } : {}),
     },
   ]),
 );
-
-/** Explicit Markdown companions, kept out of the HTML sitemap. */
-export const MARKDOWN_PAGES: Readonly<Record<string, string>> = Object
-  .fromEntries(
-    MARKETING_PAGES.flatMap((entry) =>
-      "markdownPage" in entry
-        ? [[`${entry.route}.md`, entry.markdownPage] as const]
-        : []
-    ),
-  );
 
 /** The plaintext edition: served to text clients on negotiable routes and at /llms.txt. */
 export const TEXT_EDITION = "text/discern.txt";
@@ -360,9 +349,6 @@ async function routeResponse(
     });
   }
 
-  const markdownPage = MARKDOWN_PAGES[path];
-  if (markdownPage !== undefined) return await serveFile(markdownPage);
-
   if (path === "/docs" || path === "/docs.md" || path.startsWith("/docs/")) {
     return await serveDocs(path, wantsText(req));
   }
@@ -372,9 +358,7 @@ async function routeResponse(
     if (route.negotiable) {
       const vary = { vary: "Accept, User-Agent" };
       return wantsText(req)
-        ? route.markdownPage === undefined
-          ? await textEditionResponse(vary)
-          : await serveFile(route.markdownPage, vary)
+        ? await textEditionResponse(vary)
         : await serveFile(route.page, vary);
     }
     return await serveFile(route.page);
@@ -469,7 +453,6 @@ async function handleRequest(
   const routing = routingFixture ?? await siteRouting();
   const addressable = new Set([
     ...routing.liveRoutes,
-    ...Object.keys(MARKDOWN_PAGES),
     ...routing.redirects.redirects.keys(),
   ]);
   const variant = canonicalPathVariant(decoded, addressable);

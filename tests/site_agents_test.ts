@@ -33,16 +33,20 @@ Deno.test("the For Agents composition carries the complete public contract", () 
   assertEquals(document.querySelectorAll("h1").length, 1);
   assertEquals(
     document.querySelector("h1")?.textContent?.trim(),
-    "Finally, software designed around the way you work.",
+    "Finally, software where you are the user.",
   );
   for (
     const id of [
       "main",
+      "recognition",
+      "agent-ergonomics",
       "context",
-      "operations",
       "continuity",
+      "proof",
       "authority",
-      "sources",
+      "not-included",
+      "next-actions",
+      "evaluate",
     ]
   ) {
     assert(document.getElementById(id) !== null, `missing #${id}`);
@@ -52,26 +56,26 @@ Deno.test("the For Agents composition carries the complete public contract", () 
   assertEquals(new Set(ids).size, ids.length, "document ids must be unique");
 
   const providerItems = [
-    ...document.querySelectorAll(".agents-provider-cloud li"),
+    ...document.querySelectorAll(".agents-compiler__outputs article"),
   ];
   assertEquals(providerItems.length, AGENT_NAMES.length);
   assertEquals(
-    providerItems.map((item) => item.textContent?.trim()),
+    providerItems.map((item) => item.children.item(1)?.textContent?.trim()),
     AGENT_NAMES.map((name) => PROVIDERS[name].label),
+  );
+  assertEquals(
+    providerItems.map((item) => item.querySelector("code")?.textContent),
+    AGENT_NAMES.map((name) => PROVIDERS[name].instructionFile.path),
   );
 
   for (const route of REQUIRED_MACHINE_ROUTES) {
     assert(
-      document.querySelector(`.agents-sources a[href="${route}"]`) !== null,
+      document.querySelector(`a[href="${route}"]`) !== null,
       `missing exact source route ${route}`,
     );
   }
-  assertEquals(document.querySelectorAll(".agents-terms").length, 1);
-  assertEquals(document.querySelectorAll(".agents-provider-note").length, 1);
-
-  const themeToggle = document.querySelector("[data-theme-toggle]");
-  assert(themeToggle?.classList.contains("discern-theme-toggle--outlined"));
-  assertEquals(themeToggle?.hasAttribute("aria-pressed"), false);
+  assertEquals(document.querySelector('a[href="/agents.md"]'), null);
+  assertEquals(document.querySelector("[data-theme-toggle]"), null);
 });
 
 Deno.test("the machine guide projects supported providers from the live registry", async () => {
@@ -89,5 +93,9 @@ Deno.test("the machine guide projects supported providers from the live registry
     new Request("https://discern.sh/agents", { headers: CURL }),
   );
   assertEquals(response.status, 200);
+  assertStringIncludes(
+    response.headers.get("content-type") ?? "",
+    "text/plain",
+  );
   assertEquals(await response.text(), rendered);
 });

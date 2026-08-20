@@ -17,7 +17,6 @@ import { AGENTS_DESCRIPTION, AGENTS_TITLE, DISCERN_MARK } from "../brand.ts";
 import {
   AGENTS_CONTENT,
   AGENTS_EVIDENCE,
-  AGENTS_MARKDOWN_TOKEN_ESTIMATE,
   AGENTS_ROUTES,
   CLOSING_ENVELOPE,
   EVALUATION_INSTRUCTION,
@@ -50,7 +49,7 @@ function AgentsMasthead() {
     <SiteHeader
       className="agents-masthead"
       brand={<DiscernName />}
-      brandMark={DISCERN_MARK}
+      brandMark={<span className="agents-masthead__mark">{DISCERN_MARK}</span>}
       brandTypeface="mono"
       brandMarkTreatment="plain"
       navLabel="For coding agents"
@@ -64,9 +63,9 @@ function AgentsMasthead() {
         <>
           <a
             className="agents-masthead__plaintext"
-            href={AGENTS_ROUTES.plaintext}
+            href={AGENTS_ROUTES.machineGuide}
           >
-            Plaintext
+            llms.txt
           </a>
           <Button
             className="agents-masthead__guide"
@@ -115,7 +114,7 @@ function AgentsHero() {
     ["state", "ask for it"],
     ["workspace", "isolated"],
     ["results", "bounded"],
-    ["guidance", "project-owned"],
+    ["instructions", "project-owned"],
     ["authority", "human"],
   ] as const;
   return (
@@ -147,8 +146,8 @@ function AgentsHero() {
             </div>
             <p className="agents-hero__plaintext">
               {hero.plaintext}{" "}
-              <a href={AGENTS_ROUTES.plaintext}>
-                Open <code>/agents.md</code>.
+              <a href={AGENTS_ROUTES.machineGuide}>
+                Open <code>/llms.txt</code>.
               </a>
             </p>
           </div>
@@ -261,7 +260,9 @@ function ErgonomicsSection() {
                 <code>$ {refusal.command}</code>
               </strong>
             </div>
-            <Badge tone="warning" dot>unknown_command</Badge>
+            <Badge className="agents-badge--warning" tone="warning" dot>
+              unknown command
+            </Badge>
           </figcaption>
           <div className="agents-refusal-figure__panes">
             <article>
@@ -325,7 +326,11 @@ function ContextSection() {
           <Window
             className="agents-diagnostic-window"
             title={<code>bounded diagnostic</code>}
-            actions={<Badge tone="warning" dot>truncated</Badge>}
+            actions={
+              <Badge className="agents-badge--warning" tone="warning" dot>
+                truncated
+              </Badge>
+            }
             variant="showcase"
           >
             <div className="agents-diagnostic">
@@ -804,7 +809,7 @@ function NextActionsSection() {
           <pre><code>{CLOSING_ENVELOPE}</code></pre>
         </div>
         <div className="agents-final">
-          <span aria-hidden="true">◮</span>
+          <span aria-hidden="true">{DISCERN_MARK}</span>
           <h2>{next.finalTitle}</h2>
           <p>{next.signature}</p>
         </div>
@@ -833,7 +838,7 @@ function AgentsPage() {
       <SiteFooter
         className="agents-footer"
         brand={<DiscernName />}
-        brandMark={DISCERN_MARK}
+        brandMark={<span className="agents-footer__mark">{DISCERN_MARK}</span>}
         brandTypeface="mono"
         brandMarkTreatment="plain"
         description={AGENTS_CONTENT.next.signature}
@@ -841,8 +846,8 @@ function AgentsPage() {
           {
             title: "Machine routes",
             links: [
-              { label: "agents.md", href: AGENTS_ROUTES.plaintext },
-              { label: "Machine guide", href: AGENTS_ROUTES.machineGuide },
+              { label: "llms.txt", href: AGENTS_ROUTES.machineGuide },
+              { label: "Quickstart", href: AGENTS_ROUTES.quickstart },
               { label: "MCP and results", href: AGENTS_ROUTES.mcp },
               { label: "Result schema", href: AGENTS_ROUTES.schema },
             ],
@@ -851,6 +856,8 @@ function AgentsPage() {
             title: "Exact boundaries",
             links: [
               { label: "Trust and data", href: AGENTS_ROUTES.trust },
+              { label: "Canonical glossary", href: AGENTS_ROUTES.glossary },
+              { label: "Supported providers", href: AGENTS_ROUTES.providers },
               { label: "Human homepage", href: AGENTS_ROUTES.home },
               { label: "Source repository", href: GITHUB },
               { label: "License", href: LICENSE },
@@ -858,12 +865,16 @@ function AgentsPage() {
           },
         ]}
         legal={
-          <span>
-            This page as Markdown: ~{AGENTS_MARKDOWN_TOKEN_ESTIMATE}{" "}
-            tokens. Your context was considered in the making of this page.
+          <span className="agents-footer__legal">
+            Machine-readable orientation lives at{" "}
+            <a href={AGENTS_ROUTES.machineGuide}>
+              <code>/llms.txt</code>
+            </a>.
           </span>
         }
-        meta="© 2026 Jack Webb-Heller"
+        meta={
+          <span className="agents-footer__meta">© 2026 Jack Webb-Heller</span>
+        }
       />
     </div>
   );
@@ -873,7 +884,7 @@ function AgentsPage() {
 export function renderAgents(): string {
   return pageDocument({
     source: "agents.tsx",
-    sourceComment: "Hello. The version you want is /agents.md",
+    sourceComment: "Hello. Machine-readable orientation lives at /llms.txt",
     title: AGENTS_TITLE,
     description: AGENTS_DESCRIPTION,
     styles: ["fonts.css", "discern.css", "agents.css"],
