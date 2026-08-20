@@ -106,6 +106,7 @@ export const READING_PATHS = [
     intro: "Read:",
     steps: [
       "`claims-and-evidence.md`;",
+      "the relevant record in `boundary-canon.md`;",
       "the named source of product truth;",
       "`copy-review.md`.",
     ],

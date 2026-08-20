@@ -2977,6 +2977,21 @@ export const HINTS = {
       `post-landing convergence changed tracked files there.`,
   }),
 
+  /** A best-effort lifecycle convergence step failed without undoing the
+   * merge, setup pass, or landing that preceded it. */
+  "lifecycle-convergence-failed": defineHint({
+    id: "lifecycle-convergence-failed",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A non-fatal lifecycle convergence step fails after its preceding effect is kept.",
+    family: "lifecycle-convergence",
+    example: undefined,
+    template: (): string =>
+      "Fix each failed convergence step named in the diagnostics, then run " +
+      "its reproduce command again in the checkout where that step ran.",
+  }),
+
   /** A successful acceptance exposes the system-rendered line for the agent's
    * report; the full page stays in the durable landing record. */
   "accept-relay-landing-proof": defineHint({

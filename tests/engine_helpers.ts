@@ -43,7 +43,7 @@ import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
-import { fakeEnv, REAL_TEMPLATES } from "./helpers.ts";
+import { fakeEnv, quietDenoRunArgs, REAL_TEMPLATES } from "./helpers.ts";
 import {
   type PtyInputPhase,
   type PtyProcessResult,
@@ -107,18 +107,41 @@ const GIT_ISOLATION: Record<string, string> = {
 };
 
 /** Repo paths for driving the TS engine (its import map must be pointed at the
- * repo's deno.json since the temp project has none up its tree). Exported so a
- * test that needs a long-running engine process (e.g. the MCP stdio server)
- * spawns it exactly as runAgent does. */
+ * repo's deno.json since the temp project has none up its tree). Launchers use
+ * the exported argument builders below rather than rebuilding these details. */
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
-export const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
-export const DENO_JSON = join(REPO_ROOT, "deno.json");
+const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
+const DENO_JSON = join(REPO_ROOT, "deno.json");
 const TERMINAL_RESIZE_HARNESS = join(
   REPO_ROOT,
   "tests",
   "fixtures",
   "terminal_resize_harness.ts",
 );
+
+/**
+ * Build the argv for one repository-source subprocess. Deno's own dependency
+ * and lock diagnostics are launcher noise, not program output; `--quiet`
+ * suppresses those diagnostics without suppressing the program's streams.
+ */
+export function repoSourceRunArgs(
+  entrypoint: string,
+  args: readonly string[],
+): string[] {
+  return quietDenoRunArgs([
+    "--no-check",
+    "--config",
+    DENO_JSON,
+    "-A",
+    entrypoint,
+    ...args,
+  ]);
+}
+
+/** Build the one canonical argv for a source-engine subprocess. */
+export function engineRunArgs(args: readonly string[]): string[] {
+  return repoSourceRunArgs(MAIN_TS, args);
+}
 
 /** One path inside the fresh map default, derived from the path registry. */
 export function defaultMapPath(root: string, ...parts: string[]): string {
@@ -388,7 +411,7 @@ export async function runAgent(
   opts: { cwd?: string; env?: Record<string, string> } = {},
 ): Promise<RunResult> {
   const command = new Deno.Command("deno", {
-    args: ["run", "--no-check", "--config", DENO_JSON, "-A", MAIN_TS, ...args],
+    args: engineRunArgs(args),
     cwd: opts.cwd ?? dir,
     env: await engineEnv(opts.env),
     stdout: "piped",
@@ -422,13 +445,7 @@ export async function runAgentPty(
   }
   const command = [
     Deno.execPath(),
-    "run",
-    "--no-check",
-    "--config",
-    DENO_JSON,
-    "-A",
-    MAIN_TS,
-    ...args,
+    ...engineRunArgs(args),
   ];
   const scriptArgs = Deno.build.os === "darwin"
     ? ["-q", "/dev/null", ...command]
@@ -494,15 +511,7 @@ export async function runAgentPtyJourney(
   }
   return await runPtyProcess({
     command: Deno.execPath(),
-    args: [
-      "run",
-      "--no-check",
-      "--config",
-      DENO_JSON,
-      "-A",
-      MAIN_TS,
-      ...args,
-    ],
+    args: engineRunArgs(args),
     cwd: dir,
     env: await engineEnv({ TERM: "xterm-256color", ...opts.env }),
     input: opts.input,
@@ -547,13 +556,7 @@ export async function runAgentPtyWithViewport(
   try {
     const process: PtyProcessResult = await runPtyProcess({
       command: Deno.execPath(),
-      args: [
-        "run",
-        "--no-check",
-        "--config",
-        DENO_JSON,
-        "-A",
-        TERMINAL_RESIZE_HARNESS,
+      args: repoSourceRunArgs(TERMINAL_RESIZE_HARNESS, [
         "--result",
         resultPath,
         "--size",
@@ -569,14 +572,8 @@ export async function runAgentPtyWithViewport(
         ]),
         "--",
         Deno.execPath(),
-        "run",
-        "--no-check",
-        "--config",
-        DENO_JSON,
-        "-A",
-        MAIN_TS,
-        ...args,
-      ],
+        ...engineRunArgs(args),
+      ]),
       cwd: dir,
       env: await engineEnv({ TERM: "xterm-256color", ...options.env }),
       keepInputOpen: true,
@@ -609,14 +606,8 @@ export async function runAgentMerged(
   opts: { cwd?: string; env?: Record<string, string> } = {},
 ): Promise<RunResult> {
   const inner = [
-    "deno",
-    "run",
-    "--no-check",
-    "--config",
-    DENO_JSON,
-    "-A",
-    MAIN_TS,
-    ...args,
+    Deno.execPath(),
+    ...engineRunArgs(args),
   ]
     .map(shq)
     .join(" ");

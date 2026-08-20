@@ -431,6 +431,8 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
       const result = JSON.parse(run.stdout) as {
         ok: boolean;
         steps: Array<{ kind: string; label: string; outcome: string }>;
+        diagnostics?: Array<{ tool: string; reproduce_cmd: string }>;
+        hints?: string[];
       };
       const repositorySteps = result.steps.filter((step) =>
         step.kind === "repository-ensure"
@@ -452,6 +454,19 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
         result.ok,
         false,
         "the non-fatal convergence failure remains visible in the result",
+      );
+      assertEquals(
+        result.diagnostics?.filter((entry) =>
+          entry.tool === "repository-ensure"
+        ).map((entry) => entry.reproduce_cmd),
+        repositorySteps.filter((step) => step.outcome === "failed").map((
+          step,
+        ) => step.label),
+        "every failed post-landing command retains recovery evidence",
+      );
+      assertHasHint(
+        result,
+        HINTS["lifecycle-convergence-failed"],
       );
     });
   });
@@ -482,6 +497,7 @@ Deno.test("accept: records a post-landing smoke failure without skipping cleanup
       ok: boolean;
       steps: Array<{ kind: string; label: string; outcome: string }>;
       diagnostics?: Array<{ tool: string; reproduce_cmd: string }>;
+      hints?: string[];
     };
     assertEquals(result.ok, false);
     assert(
@@ -498,6 +514,7 @@ Deno.test("accept: records a post-landing smoke failure without skipping cleanup
       ) ?? false,
       run.stdout,
     );
+    assertHasHint(result, HINTS["lifecycle-convergence-failed"]);
   });
 });
 
@@ -1659,6 +1676,56 @@ Deno.test("worktree setup re-entry: skips the one-shot steps, re-runs ensure", a
   });
 });
 
+Deno.test("worktree setup re-entry: a failed convergence command keeps recovery evidence", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithSetup(dir, "setup-reentry-fail", {
+      ensure: ["exit 0"],
+    });
+    const first = await runAgent(wt, ["worktree", "setup", "--json"]);
+    assertEquals(first.code, 0, first.output);
+
+    const configPath = join(wt, "discern.toml");
+    const editor = new TomlEditor(await Deno.readTextFile(configPath));
+    editor.setStringArray("worktree.setup.ensure", ["exit 7"]);
+    await writeDiscernToml(configPath, editor.toString());
+
+    const run = await runAgent(wt, ["worktree", "setup", "--json"]);
+    assertEquals(run.code, 0, run.output);
+    const result = JSON.parse(run.stdout) as {
+      ok: boolean;
+      diagnostics?: Array<{
+        tool: string;
+        severity: string;
+        message: string;
+        reproduce_cmd: string;
+      }>;
+      hints?: string[];
+    };
+    assertEquals(result.ok, false, run.stdout);
+    assertEquals(
+      result.diagnostics?.map((diagnostic) => ({
+        tool: diagnostic.tool,
+        severity: diagnostic.severity,
+        reproduce_cmd: diagnostic.reproduce_cmd,
+      })),
+      [{
+        tool: "worktree-ensure",
+        severity: "error",
+        reproduce_cmd: "exit 7",
+      }],
+    );
+    assertStringIncludes(result.diagnostics?.[0]?.message ?? "", "exited 7");
+    assertStringIncludes(
+      result.diagnostics?.[0]?.message ?? "",
+      basename(wt),
+    );
+    assertHasHint(
+      result,
+      HINTS["lifecycle-convergence-failed"],
+    );
+  });
+});
+
 Deno.test("worktree ensure converges via [worktree.setup].ensure on every session start", async () => {
   await withTempDir(async (dir) => {
     await withMarkers(async (markers) => {
@@ -1774,6 +1841,91 @@ Deno.test("update: re-runs [worktree.setup].ensure after the merge", async () =>
   });
 });
 
+Deno.test("update: a successful no-op convergence remains successful", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithSetup(dir, "noop-convergence-ok", {
+      ensure: ["exit 0"],
+    });
+    const refreshed = await runAgent(wt, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
+    await commitCurrentWorktree(wt, "converge generated artifacts");
+
+    const run = await runAgent(wt, ["update", "--json"]);
+    assertEquals(run.code, 0, run.output);
+    const result = JSON.parse(run.stdout) as {
+      ok: boolean;
+      steps: Array<{ kind: string; label: string; outcome: string }>;
+    };
+    assertEquals(result.ok, true, run.stdout);
+    assertEquals(
+      result.steps.find((step) => step.kind === "setup-ensure")?.outcome,
+      "ok",
+      run.stdout,
+    );
+  });
+});
+
+Deno.test("update: a failing no-op convergence serializes its command and recovery", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithSetup(dir, "noop-convergence-fail", {
+      ensure: ["exit 7"],
+    });
+    const refreshed = await runAgent(wt, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
+    await commitCurrentWorktree(wt, "converge generated artifacts");
+
+    const run = await runAgent(wt, ["update", "--json"]);
+    assertEquals(run.code, 0, run.output);
+    const result = JSON.parse(run.stdout) as {
+      ok: boolean;
+      steps: Array<{ kind: string; label: string; outcome: string }>;
+      diagnostics?: Array<{
+        tool: string;
+        message: string;
+        reproduce_cmd: string;
+      }>;
+      hints?: string[];
+    };
+    assertEquals(result.ok, false, run.stdout);
+    assertEquals(
+      result.steps.find((step) => step.label === "merge")?.outcome,
+      "skipped",
+      `the branch is already current\n${run.stdout}`,
+    );
+    assertEquals(
+      result.steps.find((step) => step.kind === "setup-ensure")?.outcome,
+      "failed",
+      `the non-fatal failure stays visible\n${run.stdout}`,
+    );
+    const diagnostic = result.diagnostics?.find((entry) =>
+      entry.tool === "worktree-ensure"
+    );
+    assertEquals(diagnostic?.reproduce_cmd, "exit 7", run.stdout);
+    assertStringIncludes(diagnostic?.message ?? "", "exited 7");
+    assertStringIncludes(diagnostic?.message ?? "", wt);
+    assertHasHint(
+      result,
+      HINTS["lifecycle-convergence-failed"],
+    );
+
+    const markdown = await runAgent(wt, ["update", "--markdown"]);
+    assertEquals(markdown.code, 0, markdown.output);
+    assertTerminalTextIncludes(markdown.stdout, "exit 7");
+    assertTerminalTextIncludes(
+      markdown.stdout,
+      HINTS["lifecycle-convergence-failed"].template(undefined),
+    );
+
+    const human = await runAgent(wt, ["update", "--plain"]);
+    assertEquals(human.code, 0, human.output);
+    assertTerminalTextIncludes(human.output, "exit 7");
+    assertTerminalTextIncludes(
+      human.output,
+      HINTS["lifecycle-convergence-failed"].template(undefined),
+    );
+  });
+});
+
 Deno.test("update: a failing ensure is recorded but never undoes the merge", async () => {
   await withTempDir(async (dir) => {
     // The ensure fails once the merge brings upstream.txt in. (No prior `worktree`
@@ -1793,6 +1945,8 @@ Deno.test("update: a failing ensure is recorded but never undoes the merge", asy
     const result = JSON.parse(r.stdout) as {
       ok: boolean;
       steps: Array<{ kind: string; label: string; outcome: string }>;
+      diagnostics?: Array<{ tool: string; reproduce_cmd: string }>;
+      hints?: string[];
     };
     const mergeStep = result.steps.find((s) =>
       s.kind === "git" && s.label === "merge"
@@ -1809,6 +1963,16 @@ Deno.test("update: a failing ensure is recorded but never undoes the merge", asy
       result.ok,
       false,
       `result.ok reflects the failed ensure\n${r.stdout}`,
+    );
+    assertEquals(
+      result.diagnostics?.find((entry) => entry.tool === "worktree-ensure")
+        ?.reproduce_cmd,
+      "test ! -f upstream.txt",
+      r.stdout,
+    );
+    assertHasHint(
+      result,
+      HINTS["lifecycle-convergence-failed"],
     );
   });
 });
@@ -1853,6 +2017,51 @@ Deno.test("update: a partial refresh is recorded but never undoes the merge", as
       result.ok,
       false,
       `result.ok reflects the partial refresh\n${r.stdout}`,
+    );
+  });
+});
+
+Deno.test("update: a partial refresh serializes on the already-current path", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "noop-refresh-fail");
+    const refreshed = await runAgent(wt, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
+    await commitCurrentWorktree(wt, "converge generated artifacts");
+
+    await Deno.writeTextFile(
+      join(wt, ".mcp.json"),
+      '{ "mcpServers": { "other": true, }, }\n',
+    );
+    await commitCurrentWorktree(wt, "add malformed mcp config");
+
+    const run = await runAgent(wt, ["update", "--json"]);
+    assertEquals(run.code, 0, run.output);
+    const result = JSON.parse(run.stdout) as {
+      ok: boolean;
+      steps: Array<{ kind: string; label: string; outcome: string }>;
+      diagnostics?: Array<{ tool: string; reproduce_cmd: string }>;
+      hints?: string[];
+    };
+    assertEquals(result.ok, false, run.stdout);
+    assertEquals(
+      result.steps.find((step) => step.label === "merge")?.outcome,
+      "skipped",
+      run.stdout,
+    );
+    assertEquals(
+      result.steps.find((step) => step.kind === "refresh")?.outcome,
+      "failed",
+      run.stdout,
+    );
+    assertEquals(
+      result.diagnostics?.find((entry) => entry.tool === "refresh")
+        ?.reproduce_cmd,
+      "discern refresh",
+      run.stdout,
+    );
+    assert(
+      result.hints?.some((hint) => hint.includes("discern refresh")) ?? false,
+      run.stdout,
     );
   });
 });

@@ -31,10 +31,10 @@ import {
 import type { InterruptSurface } from "./spawn_surfaces.ts";
 import {
   addWorktree,
-  DENO_JSON,
   engineEnv,
+  engineRunArgs,
   gitInit,
-  MAIN_TS,
+  repoSourceRunArgs,
   scaffoldEngine,
   writeConfig,
   writeExecutable,
@@ -210,15 +210,7 @@ async function assertInterruptStopsTree(
   try {
     const run = await prepare(root);
     const engine = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--no-check",
-        "--config",
-        DENO_JSON,
-        "-A",
-        MAIN_TS,
-        ...run.args,
-      ],
+      args: engineRunArgs(run.args),
       cwd: run.cwd,
       env: await engineEnv(),
       stdin: "null",
@@ -458,16 +450,10 @@ async function assertDeskInterruptReapsAndResumes(
   try {
     const pidFile = join(root, "desk_child.pid");
     const output = await new Deno.Command("deno", {
-      args: [
-        "run",
-        "--no-check",
-        "--config",
-        DENO_JSON,
-        "-A",
-        DESK_DRIVER,
+      args: repoSourceRunArgs(DESK_DRIVER, [
         signal,
         pidFile,
-      ],
+      ]),
       cwd: root,
       env: await engineEnv(),
       stdin: "null",

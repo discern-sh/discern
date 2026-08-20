@@ -19,6 +19,7 @@ project/map/_internal/registry-atlas.md merge=discern-generated linguist-generat
 project/map/_internal/tip-inventory.md merge=discern-generated linguist-generated
 project/map/_internal/voice-enforcement-coverage.md merge=discern-generated linguist-generated
 project/map/_internal/brand/README.md merge=discern-generated linguist-generated
+project/map/_internal/brand/boundary-canon.md merge=discern-generated linguist-generated
 project/map/_internal/brand/claims-and-evidence.md merge=discern-generated linguist-generated
 project/map/_internal/brand/copy-patterns.md merge=discern-generated linguist-generated
 project/map/_internal/brand/copy-review.md merge=discern-generated linguist-generated

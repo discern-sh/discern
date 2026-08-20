@@ -41,11 +41,10 @@ import {
 } from "../src/commands/docs.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { type PtyInputPhase, runPtyProcess } from "./fixtures/pty_process.ts";
+import { engineRunArgs } from "./engine_helpers.ts";
 
 /** This repo's root — used by the dogfood test to resolve discern's real docs. */
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const DENO_JSON = join(REPO_ROOT, "deno.json");
-const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
 
 Deno.test("docs browser offers its online manual without adding it to map", () => {
   assertEquals(
@@ -335,15 +334,7 @@ Deno.test({
       const docs = await makeDocsFixture(dir);
       const process = await runPtyProcess({
         command: Deno.execPath(),
-        args: [
-          "run",
-          "--no-check",
-          "--config",
-          DENO_JSON,
-          "-A",
-          MAIN_TS,
-          "docs",
-        ],
+        args: engineRunArgs(["docs"]),
         cwd: dir,
         env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
         input: [
@@ -446,15 +437,7 @@ for (const exitCode of [0, 9]) {
           ];
         const process = await runPtyProcess({
           command: Deno.execPath(),
-          args: [
-            "run",
-            "--no-check",
-            "--config",
-            DENO_JSON,
-            "-A",
-            MAIN_TS,
-            "docs",
-          ],
+          args: engineRunArgs(["docs"]),
           cwd: dir,
           env: {
             DISCERN_DOCS_DIR: docs,
@@ -490,15 +473,7 @@ Deno.test({
       const launcher = await fakeBrowserLauncher(dir, 0);
       const process = await runPtyProcess({
         command: Deno.execPath(),
-        args: [
-          "run",
-          "--no-check",
-          "--config",
-          DENO_JSON,
-          "-A",
-          MAIN_TS,
-          "docs",
-        ],
+        args: engineRunArgs(["docs"]),
         cwd: dir,
         env: {
           DISCERN_DOCS_DIR: docs,
@@ -550,15 +525,7 @@ Deno.test({
       const launcher = await fakeBrowserLauncher(dir, 0);
       const process = await runPtyProcess({
         command: Deno.execPath(),
-        args: [
-          "run",
-          "--no-check",
-          "--config",
-          DENO_JSON,
-          "-A",
-          MAIN_TS,
-          "docs",
-        ],
+        args: engineRunArgs(["docs"]),
         cwd: dir,
         env: {
           DISCERN_DOCS_DIR: docs,
@@ -619,15 +586,7 @@ for (
         );
         const process = await runPtyProcess({
           command: Deno.execPath(),
-          args: [
-            "run",
-            "--no-check",
-            "--config",
-            DENO_JSON,
-            "-A",
-            MAIN_TS,
-            "docs",
-          ],
+          args: engineRunArgs(["docs"]),
           cwd: dir,
           env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
           input: [
@@ -659,15 +618,7 @@ Deno.test({
       await makeDocsFixture(dir);
       const process = await runPtyProcess({
         command: Deno.execPath(),
-        args: [
-          "run",
-          "--no-check",
-          "--config",
-          DENO_JSON,
-          "-A",
-          MAIN_TS,
-          "map",
-        ],
+        args: engineRunArgs(["map"]),
         cwd: dir,
         env: { NO_COLOR: "1", PAGER: "false" },
         input: [
@@ -712,15 +663,7 @@ Deno.test({
       const docs = await makeDocsFixture(dir);
       const process = await runPtyProcess({
         command: Deno.execPath(),
-        args: [
-          "run",
-          "--no-check",
-          "--config",
-          DENO_JSON,
-          "-A",
-          MAIN_TS,
-          "docs",
-        ],
+        args: engineRunArgs(["docs"]),
         cwd: dir,
         env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
         geometry: { columns: 31, rows: 24 },
@@ -756,16 +699,7 @@ Deno.test({
       const docs = await makeDocsFixture(dir);
       const process = await runPtyProcess({
         command: Deno.execPath(),
-        args: [
-          "run",
-          "--no-check",
-          "--config",
-          DENO_JSON,
-          "-A",
-          MAIN_TS,
-          "docs",
-          "--pager",
-        ],
+        args: engineRunArgs(["docs", "--pager"]),
         cwd: dir,
         env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "cat" },
         input: [
@@ -798,16 +732,7 @@ Deno.test({
       const docs = await makeDocsFixture(dir);
       const process = await runPtyProcess({
         command: Deno.execPath(),
-        args: [
-          "run",
-          "--no-check",
-          "--config",
-          DENO_JSON,
-          "-A",
-          MAIN_TS,
-          "docs",
-          "--pager",
-        ],
+        args: engineRunArgs(["docs", "--pager"]),
         cwd: dir,
         env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
         input: [
@@ -874,17 +799,7 @@ for (
         const docs = await makeDocsFixture(dir);
         const process = await runPtyProcess({
           command: Deno.execPath(),
-          args: [
-            "run",
-            "--no-check",
-            "--config",
-            DENO_JSON,
-            "-A",
-            MAIN_TS,
-            "docs",
-            "concepts",
-            ...testCase.args,
-          ],
+          args: engineRunArgs(["docs", "concepts", ...testCase.args]),
           cwd: dir,
           env: {
             DISCERN_DOCS_DIR: docs,

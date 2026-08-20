@@ -186,13 +186,13 @@ export const CLAIMS = {
     title: "Proof covers the exact committed tree that passed",
     evidence: ["structural"],
     strongestPublicForm:
-      "A discern Proof identifies the exact clean committed change that passed the project's declared Gate and held Standards.",
+      "A discern Proof identifies the exact clean committed change that passed the project's declared Gate and held Standards, and separately carries current checkpoint declarations.",
     mechanism:
-      "the tree is pinned before evaluation and rechecked at stamping; a later commit invalidates the evidence.",
+      "the tree is pinned before evaluation and rechecked at stamping; the Proof also binds a declaration-evidence identity, so a later commit or changed declaration invalidates it.",
     conditions:
-      "Use “Proof” consistently across product surfaces, and keep the claim scoped to the declared Gate over the exact tree.",
+      "Use “Proof” consistently, keep the claim scoped to the declared Gate over the exact tree, and describe checkpoint conclusions as declared rather than verified.",
     forbiddenInference:
-      "formal proof of universal correctness, security, absence of defects, production suitability, or permission to land.",
+      "formal proof of universal correctness, security, absence of defects, production suitability, permission to land, or machine verification of an agent declaration.",
     primarySource:
       "Proof implementation, glossary, Gate behavior, and DSSE-compatible note boundary.",
   },
@@ -202,9 +202,9 @@ export const CLAIMS = {
     strongestPublicForm:
       "Passing makes a change eligible for a decision; it does not decide what ships.",
     mechanism:
-      "acceptance requires fresh conversational confirmation, a standing scope grant, or a per-worktree grant checked at the landing boundary.",
+      "acceptance requires fresh conversational confirmation, a standing scope grant, or a per-worktree grant checked at the landing boundary; each declared-unmet checkpoint additionally requires owner authorization for the current variance, recorded from the conversation.",
     conditions:
-      "pre-authorization can permit independent landing once the exact changed paths satisfy the grant.",
+      "pre-authorization can permit independent landing once the changed paths satisfy the grant and no current declared-unmet conclusion requires a variance.",
     forbiddenInference:
       "the human must manually approve every low-level action, or a recorded grant is unlimited autonomy.",
     primarySource: "landing authority, acceptance config, Delegate Work Skill.",
@@ -213,11 +213,11 @@ export const CLAIMS = {
     title: "discern contains no AI model and needs no API key",
     evidence: ["structural"],
     strongestPublicForm:
-      "discern contains no AI model and needs no API key; it runs the commands the project declares.",
+      "discern contains no AI model and needs no API key; it derives machine results from deterministic checks and the project's commands, while the coding agent supplies any checkpoint judgment.",
     mechanism:
-      "one local binary; deterministic engine; project commands supply verdicts.",
+      "one local binary; deterministic engine; checkpoint declarations are external agent evidence rather than model calls made by discern.",
     conditions:
-      "coding agents and project commands may independently use networks, models, or paid services.",
+      "coding agents, project commands, and checkpoint `when` commands may independently use networks, models, or paid services.",
     forbiddenInference:
       "the entire development environment is offline or network-free.",
     primarySource: "Foundations; CLI tips; product architecture.",
@@ -226,9 +226,9 @@ export const CLAIMS = {
     title: "evidence and the Logbook stay local",
     evidence: ["structural"],
     strongestPublicForm:
-      "discern's Logbook and advisory analysis stay on the machine. They contain metadata and exclude code and command output.",
+      "discern's Logbook and advisory analysis stay on the machine. They contain metadata and exclude code, command output, and checkpoint rationales.",
     mechanism:
-      "local `.git` storage; no network path in the Logbook implementation; opt-out available.",
+      "local `.git` storage; no network path in the Logbook implementation; checkpoint observations omit rationale fields; opt-out available.",
     conditions:
       "publication or Git transport of other artifacts may be explicitly configured by the user.",
     forbiddenInference:

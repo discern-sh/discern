@@ -34,6 +34,8 @@ import {
   WorkingRoot,
 } from "../src/engine/mcp/server.ts";
 import { providerFor } from "../src/lib/providers.ts";
+import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { writeDiscernToml } from "../src/lib/tidy_format.ts";
 import { ISSUES_URL, KIT_VERSION } from "../src/lib/version.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
@@ -61,12 +63,11 @@ import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import {
   addWorktree,
   defaultMapPath,
-  DENO_JSON,
   engineEnv,
+  engineRunArgs,
   git,
   gitInit,
   gitOut,
-  MAIN_TS,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -307,7 +308,7 @@ async function spawnMcp(
   extraEnv: Record<string, string> = {},
 ): Promise<McpClient> {
   const child = new Deno.Command("deno", {
-    args: ["run", "--no-check", "--config", DENO_JSON, "-A", MAIN_TS, "mcp"],
+    args: engineRunArgs(["mcp"]),
     cwd: dir,
     env: { ...await engineEnv(), ...extraEnv },
     stdin: "piped",
@@ -1749,6 +1750,53 @@ Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date
       `the no-op still re-converges (refresh runs): ${
         JSON.stringify(noop.result.structuredContent)
       }`,
+    );
+    assertEquals(await wtMcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: a failed no-op convergence returns command recovery", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const configPath = join(dir, "discern.toml");
+    const editor = new TomlEditor(await Deno.readTextFile(configPath));
+    editor.setStringArray("repository.ensure", ["exit 7"]);
+    await writeDiscernToml(configPath, editor.toString());
+    const refreshed = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
+    await gitInit(dir);
+
+    const wt = await addWorktree(dir, "intg-failed-convergence");
+    await using wtMcp = await spawnMcp(wt);
+    await wtMcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await wtMcp.recv();
+    await wtMcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_update", arguments: {} },
+    });
+    const failed = await wtMcp.recv();
+    assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
+    const payload = failed.result.structuredContent as {
+      ok: boolean;
+      diagnostics?: Array<{ tool: string; reproduce_cmd: string }>;
+      hints?: string[];
+    };
+    assertEquals(payload.ok, false);
+    assertEquals(
+      payload.diagnostics?.find((entry) => entry.tool === "repository-ensure")
+        ?.reproduce_cmd,
+      "exit 7",
+    );
+    assertHasMcpHint(
+      payload,
+      HINTS["lifecycle-convergence-failed"],
     );
     assertEquals(await wtMcp.close(), 0);
   });
