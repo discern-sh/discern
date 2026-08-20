@@ -13,7 +13,7 @@ Checkpoint enforcement also has deliberate fail-open paths. Policy, diff, `when`
 **Continuous integration has an explicit report lane, and every checkpoint fail-open is structured Proof evidence.**
 
 - `discern done --ci` selects report mode. Environment variables may tailor a strict refusal hint but never select the mode.
-- Report mode evaluates the same governing policy and obligations, runs `when` during an actual run, and runs the same Gate jobs. Fired stop checkpoints are unreviewed. Machine jobs alone control the exit.
+- Report mode evaluates the same governing policy and obligations, runs `when` during an actual run, and runs the same Gate jobs. Fired stop checkpoints await review. Machine jobs alone control the exit.
 - Report mode accepts no declaration flags and writes no open question, declaration, or checkpoint lifecycle observation. Its Proof states that review was reported and was not enforced.
 - Report Proof has its own identity. Status reports it as `report_only`; acceptance preview, acceptance apply, validation during execution, and durable-note writing all reject it. Ordinary `discern done` is required before landing.
 - One typed registry classifies checkpoint drops. A checkpoint-level record carries id, mode, governing policy commit, reason, and a normalized account of at most 500 characters. A policy-level record uses `null` for unknowable id and mode and carries the policy commit only when known.

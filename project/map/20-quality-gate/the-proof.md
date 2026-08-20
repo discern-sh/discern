@@ -21,7 +21,7 @@ The complete in-process Proof owns both renderings. Compact results use a projec
 
 An ordinary `discern done` Proof is strict landing evidence. An explicit `discern done --ci` Proof is a separate report identity: it states that checkpoint review was reported and was not enforced. `status` retains that identity as `report_only`; both acceptance preview and apply refuse it and require ordinary `discern done`. The durable note writer also rejects report identity, so acceptance does not depend on one refusal path ([ADR 0307](../_adr/0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)).
 
-Proof also carries every structured checkpoint drop from the run: an uncertainty that prevented checkpoint enforcement while leaving the Gate fail-open. The same bounded record survives compact results, status, acceptance review, and the landed note. It is evidence for the owner, not a machine failure or a variance.
+Proof also carries every structured checkpoint drop from the run: an uncertainty that prevented checkpoint enforcement while leaving the Gate fail-open. The same bounded record survives compact results, status, acceptance review, and the landed note. It tells the owner which enforcement uncertainty remained in a green run.
 
 `done` and `prepare` share package progress, grouped jobs, activity, and commands. `done` adds review, recording, and readiness facts; only `recorded` passes. `prepare` names omitted work. The byte-exact relay stays separate.
 

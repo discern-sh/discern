@@ -13,7 +13,7 @@ aliases:
 
 _Run the machine Gate and report checkpoint questions on pull requests, then make that check required on trunk._
 
-CI runs the Gate even when a change did not pass through a stateful local discern worktree. The explicit `discern done --ci` lane evaluates the same governing checkpoint policy and runs the same machine jobs as ordinary `done`. Fired stop questions are reported as unreviewed; the runner writes no open question or declaration. Its Proof says checkpoint review was reported and was not enforced, so `discern accept` cannot use it as landing evidence. A later ordinary `discern done` in a local worktree remains the strict review.
+CI runs the Gate even when a change did not pass through a stateful local discern worktree. The explicit `discern done --ci` lane evaluates the same governing checkpoint policy and runs the same machine jobs as ordinary `done`. Fired stop questions are reported as awaiting review; the runner writes no open question or declaration. Its Proof says checkpoint review was reported and was not enforced, so `discern accept` cannot use it as landing evidence. A later ordinary `discern done` in a local worktree remains the strict review.
 
 The workflow installs a pinned binary, installs the project's toolchain, fetches the trunk ref used by merge and Standard checks, runs the Gate, and confirms that fixers left the committed tree unchanged. Requiring the job makes machine success a merge condition and keeps checkpoint questions visible. It does not prove that an agent reviewed those questions and does not transport declarations between machines.
 

@@ -35,7 +35,7 @@ A declaring invocation records every valid conclusion first, then continues into
 
 ### CI reports review; it does not declare it
 
-`discern done --ci` is the explicit pull-request lane. It resolves the same governing policy and obligations, runs `when` during an actual run, and runs every machine Gate job. Fired stop questions appear as unreviewed, separately from declarations and machine results. Machine jobs alone determine the exit status.
+`discern done --ci` is the explicit pull-request lane. It resolves the same governing policy and obligations, runs `when` during an actual run, and runs every machine Gate job. Fired stop questions appear as awaiting review, separately from declarations and machine results. Machine jobs alone determine the exit status.
 
 The lane writes no open question, declaration, or checkpoint Logbook observation. It rejects `--met`, `--unmet`, and `--why`; workflow YAML cannot stand in for an agent's judgment. `discern done --dry-run --ci` previews report mode without running `when`. The resulting Proof records that checkpoint review was reported and was not enforced, and acceptance requires a later ordinary `discern done` in the stateful worktree ([ADR 0307](../_adr/0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)).
 
