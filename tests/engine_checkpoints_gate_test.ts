@@ -176,6 +176,22 @@ unless_changed = ["docs/**"]
 question = "${QUESTION_API}"
 `;
 
+const CONFIG_MIN_COMMITS = `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "sh check.sh"
+
+[checkpoints.api-review]
+paths = ["api/**"]
+min_commits = 1
+question = "${QUESTION_API}"
+`;
+
 const CONFIG_NO_CHECKPOINTS = `
 [project]
 slug = "engine-test"
@@ -813,6 +829,40 @@ Deno.test("done: an opened stop question remains interlocked after its trigger b
     const env = parseJson(concluded.stdout);
     assertEquals(env.data.checkpoints.declared_unmet?.[0]?.id, "api-review");
     assertStringIncludes(env.data.proof?.line ?? "", "variance required");
+  });
+});
+
+Deno.test("done: unavailable history never reopens or interlocks a declared min_commits question", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_MIN_COMMITS);
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+    const concluded = await runAgent(wt, [
+      "done",
+      "--met",
+      "api-review",
+      "--json",
+    ]);
+    assertEquals(concluded.code, 0, concluded.output);
+
+    // Move the effort without changing the checkpoint's matched subject, then
+    // make only the ordered-history query unavailable. Every other Git command
+    // still delegates to the real binary, so this is the exact fact failure.
+    await Deno.mkdir(join(wt, "docs"), { recursive: true });
+    await Deno.writeTextFile(join(wt, "docs", "note.md"), "unrelated\n");
+    await git(wt, "add", "docs/note.md");
+    await git(wt, "commit", "-q", "-m", "docs: unrelated", "--no-gpg-sign");
+    const shim = join(dir, "broken-history-bin");
+    await writeExecutable(
+      join(shim, "git"),
+      '#!/bin/sh\nfor arg do [ "$arg" = "--reverse" ] && exit 2; done\nexec /usr/bin/git "$@"\n',
+    );
+    const unavailable = await runAgent(wt, ["done", "--json"], {
+      env: { PATH: `${shim}:${Deno.env.get("PATH") ?? ""}` },
+    });
+    assertEquals(unavailable.code, 0, unavailable.output);
+    const envelope = parseJson(unavailable.stdout);
+    assertEquals(envelope.data.checkpoints.outstanding, undefined);
+    assertEquals(envelope.data.checkpoints.drops?.[0]?.reason, "trigger_history_unavailable");
   });
 });
 

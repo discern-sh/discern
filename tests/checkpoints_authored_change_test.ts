@@ -59,12 +59,7 @@ async function classifiedDiff(
   base: string,
   groups: readonly ResolvedGeneratedGroup[],
 ): Promise<ClassifiedEffortDiff> {
-  const collect = collectEffortDiff as unknown as (
-    root: string,
-    base: string,
-    groups: readonly ResolvedGeneratedGroup[],
-  ) => Promise<ClassifiedEffortDiff | undefined>;
-  const result = await collect(root, base, groups);
+  const result = await collectEffortDiff(root, base, groups);
   assert(result !== undefined);
   return result;
 }
@@ -97,6 +92,10 @@ function checkpoint(
     includeGenerated: false,
     excludePaths: [],
     unlessChanged: [],
+    kinds: [],
+    addsMatching: [],
+    removesMatching: [],
+    newDirectory: false,
     deletionDominant: false,
     similarNewFile: false,
     ...over,

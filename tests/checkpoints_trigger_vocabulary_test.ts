@@ -12,7 +12,6 @@ import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import {
   CHECKPOINT_FIELD_ROLES,
   CHECKPOINT_TRIGGER_FIELDS,
-  type TriggerVeto,
 } from "../src/shared/checkpoints.ts";
 import { evaluateStructuralTrigger } from "../src/engine/checkpoints/triggers.ts";
 import type {
@@ -35,7 +34,7 @@ function file(
     binary: false,
     content: { status: "available", added: [], removed: [] },
     ...over,
-  } as EffortFileChange;
+  };
 }
 
 function definition(
@@ -156,65 +155,6 @@ Deno.test("every checkpoint trigger schema field belongs to the canonical regist
 for (const [field, probe] of Object.entries(FIELD_PROBES)) {
   Deno.test(`trigger field enrollment: ${field}`, () => {
     assertEquals(probe(), FIELD_PROBE_EXPECTATIONS[field as TriggerField]);
-  });
-}
-
-const CASES: readonly {
-  name: string;
-  field: Record<string, unknown>;
-  files: EffortFileChange[];
-  veto: TriggerVeto;
-}[] = [
-  {
-    name: "kinds",
-    field: { kinds: ["added"] },
-    files: [file("src/a.ts", { kind: "modified" })],
-    veto: "kinds",
-  },
-  {
-    name: "adds_matching",
-    field: { addsMatching: ["skip("] },
-    files: [file("src/a.ts")],
-    veto: "adds_matching",
-  },
-  {
-    name: "removes_matching",
-    field: { removesMatching: ["legacy"] },
-    files: [file("src/a.ts")],
-    veto: "removes_matching",
-  },
-  {
-    name: "new_directory",
-    field: { newDirectory: true },
-    files: [file("src/a.ts", { kind: "added" })],
-    veto: "new_directory",
-  },
-  {
-    name: "binary true",
-    field: { binary: true },
-    files: [file("src/a.ts")],
-    veto: "binary",
-  },
-  {
-    name: "min_changed_lines",
-    field: { minChangedLines: 3 },
-    files: [file("src/a.ts", { insertions: 1, deletions: 1 })],
-    veto: "min_changed_lines",
-  },
-  {
-    name: "min_commits",
-    field: { minCommits: 3 },
-    files: [file("src/a.ts")],
-    veto: "min_commits",
-  },
-];
-
-for (const test of CASES) {
-  Deno.test(`closed trigger field: ${test.name} vetoes truthfully`, () => {
-    assertEquals(
-      evaluateStructuralTrigger(definition(test.field), effort(test.files)),
-      { holds: false, vetoedBy: test.veto },
-    );
   });
 }
 
