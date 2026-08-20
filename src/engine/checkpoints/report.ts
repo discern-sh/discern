@@ -120,7 +120,7 @@ function triggerPreviewData(
 
 /** Project one stored openQuestion onto the wire shape. The canonical
  * obligation supplies the currency state strict `done` would act on; for an
- * ungoverned historical record, the store's own binding remains the account. */
+ * ungoverned stored record, the store's own binding remains the account. */
 function openQuestionData(
   openQuestion: OpenQuestion,
   stop: boolean,
