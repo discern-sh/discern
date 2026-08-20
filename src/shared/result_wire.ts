@@ -107,6 +107,7 @@ const GATE_PROOF_STATE_FIELDS = [
   "recorded",
   "head",
   "reason",
+  "checkpoint_drops",
 ] as const;
 
 /** Project a marker inspection without its rendered page or duplicate full Proof. */

@@ -66,7 +66,9 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
     "scope registries must cover the canonical reason registry exactly",
   );
 
-  for (const drop of drops) {
+  for (const [index, drop] of drops.entries()) {
+    const liveDrop = drops[(index + 1) % drops.length];
+    assert(liveDrop !== undefined);
     const checkpoints = {
       declared_met: [],
       declared_unmet: [],
@@ -105,6 +107,7 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
       deletions: 0,
       line: "Proof line.",
       markdown: "Proof page.",
+      mode: "report",
       checkpoint_drops: [drop],
       checkpoints,
     });
@@ -119,6 +122,7 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
         },
       }).data),
     );
+    assertEquals(gateWire.proof?.mode, "report");
     assertEquals(gateWire.proof?.checkpoint_drops, [drop]);
 
     const statusWire = StatusWireDataSchema.parse(
@@ -134,12 +138,14 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
           gate_proof: {
             status: "honored",
             proof_data: proof,
-            checkpoint_drops: [drop],
+            checkpoint_drops: [liveDrop],
           },
         },
       }, { wireProjection: "full" }).data),
     );
+    assertEquals(statusWire.gate_proof?.proof?.mode, "report");
     assertEquals(statusWire.gate_proof?.proof?.checkpoint_drops, [drop]);
+    assertEquals(statusWire.gate_proof?.checkpoint_drops, [liveDrop]);
     DurableProofClaimSchema.parse({
       branch: proof.branch,
       trunk: proof.trunk,
