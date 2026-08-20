@@ -2,8 +2,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
-  checkpointInspectionNotes,
   type CheckpointInspection,
+  checkpointInspectionNotes,
   type CheckpointObligation,
   type CheckpointObligationUnknown,
 } from "../src/engine/checkpoints/inspection.ts";

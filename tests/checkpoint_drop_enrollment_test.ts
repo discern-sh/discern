@@ -112,7 +112,7 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
       checkpoints,
     });
     const gateWire = GateWireDataSchema.parse(
-      (projectGateResult({
+      projectGateResult({
         ok: true,
         verb: "done",
         data: {
@@ -120,13 +120,13 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
           scopes_changed: [],
           proof,
         },
-      }).data),
+      }).data,
     );
     assertEquals(gateWire.proof?.mode, "report");
     assertEquals(gateWire.proof?.checkpoint_drops, [drop]);
 
     const statusWire = StatusWireDataSchema.parse(
-      (projectStatusResult({
+      projectStatusResult({
         ok: true,
         verb: "status",
         data: {
@@ -141,7 +141,7 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
             checkpoint_drops: [liveDrop],
           },
         },
-      }, { wireProjection: "full" }).data),
+      }, { wireProjection: "full" }).data,
     );
     assertEquals(statusWire.gate_proof?.proof?.mode, "report");
     assertEquals(statusWire.gate_proof?.proof?.checkpoint_drops, [drop]);
@@ -173,7 +173,10 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
       `policy ${markdownCodeSpan(POLICY_COMMIT.slice(0, 12))}`,
     );
     if (drop.scope === "policy") {
-      assertStringIncludes(proofMarkdown, "policy-level checkpoint enforcement");
+      assertStringIncludes(
+        proofMarkdown,
+        "policy-level checkpoint enforcement",
+      );
     } else {
       assertStringIncludes(proofMarkdown, "checkpoint `review`");
       assertStringIncludes(proofMarkdown, "mode `stop`");

@@ -318,7 +318,10 @@ Deno.test("accept: a store drop first observed after Gate survives landing in th
 
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(preview.code, 0, preview.output);
-    assertEquals(liveDrop(parseJson(preview.stdout))?.policy_commit, policyCommit);
+    assertEquals(
+      liveDrop(parseJson(preview.stdout))?.policy_commit,
+      policyCommit,
+    );
 
     const review = await runAgent(wt, ["accept", "--json"]);
     assertEquals(review.code, 1, review.output);
@@ -329,7 +332,10 @@ Deno.test("accept: a store drop first observed after Gate survives landing in th
     const landedSha = await gitOut(wt, "rev-parse", "HEAD");
     const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(apply.code, 0, apply.output);
-    assertEquals(liveDrop(parseJson(apply.stdout))?.policy_commit, policyCommit);
+    assertEquals(
+      liveDrop(parseJson(apply.stdout))?.policy_commit,
+      policyCommit,
+    );
 
     const payload = await landedNotePayload(dir, landedSha);
     const durableDrop = payload.proof?.checkpoint_drops?.find((drop) =>

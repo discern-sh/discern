@@ -2736,18 +2736,14 @@ async function executeAcceptPlan(
     consent: cloneLandingConsent(consent),
     variances: variances.map((variance) => ({ ...variance })),
   };
-  const proofForNote = proofData === undefined
-    ? undefined
-    : {
-      ...proofData,
-      ...(accumulatedCheckpointDrops.length === 0
-        ? {}
-        : {
-          checkpoint_drops: accumulatedCheckpointDrops.map((drop) => ({
-            ...drop,
-          })),
-        }),
-    };
+  const proofForNote = proofData === undefined ? undefined : {
+    ...proofData,
+    ...(accumulatedCheckpointDrops.length === 0 ? {} : {
+      checkpoint_drops: accumulatedCheckpointDrops.map((drop) => ({
+        ...drop,
+      })),
+    }),
+  };
   const proofWrite = await writeProofNote(
     mainRepo,
     validatedSha,
