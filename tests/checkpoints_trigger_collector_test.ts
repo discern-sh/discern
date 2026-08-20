@@ -217,6 +217,42 @@ Deno.test("one huge untracked file stops at the per-file content boundary", asyn
   });
 });
 
+Deno.test("untracked content admits maxFileBytes exactly and rejects one byte over", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const base = await gitOut(dir, "rev-parse", "HEAD");
+    const line = new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxLineBytes);
+    line.fill(0x61);
+    line[line.length - 1] = 0x0a;
+    const exact = new Uint8Array(CHECKPOINT_PATTERN_LIMITS.maxFileBytes);
+    for (let offset = 0; offset < exact.length; offset += line.length) {
+      exact.set(line, offset);
+    }
+    const over = new Uint8Array(exact.length + 1);
+    over.set(exact);
+    over[over.length - 1] = 0x62;
+    await Deno.writeFile(join(dir, "a-exact.txt"), exact);
+    await Deno.writeFile(join(dir, "b-over.txt"), over);
+
+    const diff = await collectEffortDiff(
+      dir,
+      base,
+      [],
+      [definition({ addsMatching: ["never present"] })],
+    );
+    assert(diff !== undefined);
+    const exactContent = diff.files.find((file) => file.path === "a-exact.txt")
+      ?.content;
+    assert(exactContent?.status === "available");
+    assertEquals(exactContent.added.length, exact.length / line.length);
+    assertEquals(
+      diff.files.find((file) => file.path === "b-over.txt")?.content,
+      { status: "unavailable", reason: "file_limit" },
+    );
+  });
+});
+
 Deno.test("repeated overlimit untracked files debit one shared attempted-byte budget", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
