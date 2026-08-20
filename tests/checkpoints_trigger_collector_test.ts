@@ -148,6 +148,56 @@ Deno.test("the no-follow open boundary rejects a symlink semantically", async ()
   });
 });
 
+Deno.test("untracked changed lines accept 8 KiB exactly and reject one byte over", async () => {
+  await withTempDir(async (dir) => {
+    const limit = CHECKPOINT_PATTERN_LIMITS.maxLineBytes;
+    assertEquals(limit, 8 * 1024);
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const base = await gitOut(dir, "rev-parse", "HEAD");
+    const marker = new TextEncoder().encode("needle");
+    const cases = [
+      {
+        path: "a-exact-line.txt",
+        lineBytes: limit,
+        expected: "available" as const,
+      },
+      {
+        path: "b-over-line.txt",
+        lineBytes: limit + 1,
+        expected: "line_limit" as const,
+      },
+    ];
+    for (const test of cases) {
+      const bytes = new Uint8Array(test.lineBytes + 1).fill(0x61);
+      bytes.set(marker);
+      bytes[test.lineBytes] = 0x0a;
+      await Deno.writeFile(join(dir, test.path), bytes);
+    }
+
+    const diff = await collectEffortDiff(
+      dir,
+      base,
+      [],
+      [definition({ addsMatching: ["needle"] })],
+    );
+    assert(diff !== undefined);
+    for (const test of cases) {
+      const content = diff.files.find((file) => file.path === test.path)
+        ?.content;
+      if (test.expected === "available") {
+        assert(content?.status === "available");
+        assertEquals(content.added[0]?.length, limit);
+      } else {
+        assertEquals(content, {
+          status: "unavailable",
+          reason: test.expected,
+        });
+      }
+    }
+  });
+});
+
 Deno.test("one huge untracked file stops at the per-file content boundary", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
