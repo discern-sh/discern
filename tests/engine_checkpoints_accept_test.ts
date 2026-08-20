@@ -213,6 +213,24 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
   });
 });
 
+Deno.test("accept: report-mode Proof is non-landable in preview and apply", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await checkpointedWorktree(dir);
+    const reported = await runAgent(wt, ["done", "--ci", "--json"]);
+    assertEquals(reported.code, 0, reported.output);
+
+    const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
+    assertEquals(preview.code, 1, preview.output);
+    assertEquals(parseJson(preview.stdout).error, "report_only_proof");
+    assertStringIncludes(parseJson(preview.stdout).message, "discern done");
+
+    const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(apply.code, 1, apply.output);
+    assertEquals(parseJson(apply.stdout).error, "report_only_proof");
+    assert(await exists(wt), "report-mode Proof must land nothing");
+  });
+});
+
 Deno.test("accept: the owner's complete decision lands, binding the variance into the journal's note and the result", async () => {
   await withTempDir(async (dir) => {
     const wt = await checkpointedWorktree(dir);

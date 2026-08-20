@@ -42,7 +42,10 @@ interface DoneEnvelope {
   hints?: string[];
   plan?: { details?: string[] };
   data: {
-    checkpoints: GateCheckpointsData;
+    checkpoints: GateCheckpointsData & {
+      review?: { enforcement: string; unreviewed?: { id: string }[] };
+      drops?: { reason: string; checkpoint?: string }[];
+    };
     proof?: { line: string };
     gate_proof?: { status: string };
   };
@@ -203,6 +206,48 @@ Deno.test("done: a fired stop checkpoint refuses before any job, serving the que
     const openQuestions = await readOpenQuestions(wt);
     assert(openQuestions.status === "ok");
     assert(openQuestions.openQuestions["api-review"] !== undefined);
+  });
+});
+
+Deno.test("done --ci: a fresh checkout reports a fired stop and lets machine jobs decide the exit", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(
+      dir,
+      CONFIG_ONE_CHECKPOINT,
+      CHECK_TOUCHES,
+    );
+
+    const r = await runAgent(wt, ["done", "--ci", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const env = parseJson(r.stdout);
+    assertEquals(env.ok, true);
+    assertEquals(env.data.checkpoints.review?.enforcement, "reported");
+    assertEquals(env.data.checkpoints.review?.unreviewed?.[0]?.id, "api-review");
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "gate-ran.log")),
+      "ran",
+    );
+    assertEquals((await readOpenQuestions(wt)).status, "missing");
+  });
+});
+
+Deno.test("done: checkpoint fail-opens enroll in structured durable drop evidence", async () => {
+  await withTempDir(async (dir) => {
+    const config = `${CONFIG_ONE_CHECKPOINT}\nwhen = "sh probe.sh"\n`;
+    const wt = await worktreeWithApiChange(dir, config);
+    await writeExecutable(
+      join(wt, "probe.sh"),
+      "#!/usr/bin/env sh\necho probe-invalid\nexit 7\n",
+    );
+    await git(wt, "add", "probe.sh");
+    await git(wt, "commit", "-q", "-m", "add probe", "--no-gpg-sign");
+
+    const r = await runAgent(wt, ["done", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const env = parseJson(r.stdout);
+    assertEquals(env.data.checkpoints.drops?.[0]?.reason, "when_invalid_exit");
+    assertEquals(env.data.checkpoints.drops?.[0]?.checkpoint, "api-review");
+    assertStringIncludes(await proofMarker(wt), '"reason":"when_invalid_exit"');
   });
 });
 
