@@ -43,11 +43,11 @@ Deno.test("the For Agents projection uses the agent register", () => {
   assertEquals(page.stagePath, "_internal/agent/agents.md");
   assertStringIncludes(
     page.prose,
-    "Finally, software designed around the way you work.",
+    "Finally, software where you are the user.",
   );
   assertStringIncludes(
     page.prose,
-    "A refusal should tell you where to go next.",
+    "A refusal names the unmet condition",
   );
 });
 

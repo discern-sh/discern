@@ -8,7 +8,7 @@
 
 import { buildRedirectRegistry } from "../src/lib/docs.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
-import { SELF_TITLED_PAGES } from "./brand.ts";
+import { SELF_TITLED_PAGES, SOCIAL_PAGE_METADATA } from "./brand.ts";
 import type { DocsPage, DocsSite } from "./docs.ts";
 
 export const SITE_ORIGIN = "https://discern.sh";
@@ -187,7 +187,10 @@ function metadataMarkup(
   description: string,
 ): string {
   const canonical = canonicalUrl(route);
-  const image = canonicalUrl(OG_IMAGE_PATH);
+  const social = SOCIAL_PAGE_METADATA[route];
+  const socialTitle = social?.title ?? title;
+  const socialDescription = social?.description ?? description;
+  const image = canonicalUrl(social?.image ?? OG_IMAGE_PATH);
   const data = structuredData(route, title, description);
   const jsonLd = data === undefined
     ? ""
@@ -196,13 +199,13 @@ function metadataMarkup(
 <link rel="canonical" href="${htmlEscape(canonical)}" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="discern" />
-<meta property="og:title" content="${htmlEscape(title)}" />
-<meta property="og:description" content="${htmlEscape(description)}" />
+<meta property="og:title" content="${htmlEscape(socialTitle)}" />
+<meta property="og:description" content="${htmlEscape(socialDescription)}" />
 <meta property="og:url" content="${htmlEscape(canonical)}" />
 <meta property="og:image" content="${htmlEscape(image)}" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="${htmlEscape(title)}" />
-<meta name="twitter:description" content="${htmlEscape(description)}" />
+<meta name="twitter:title" content="${htmlEscape(socialTitle)}" />
+<meta name="twitter:description" content="${htmlEscape(socialDescription)}" />
 <meta name="twitter:image" content="${htmlEscape(image)}" />${jsonLd}
 <!-- /discern:metadata -->`;
 }

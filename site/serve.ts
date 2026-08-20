@@ -50,11 +50,17 @@ const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
 
 /** Routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
 export const PAGES: Readonly<
-  Record<string, { page: string; negotiable: boolean }>
+  Record<
+    string,
+    { page: string; negotiable: boolean }
+  >
 > = Object.fromEntries(
-  MARKETING_PAGES.map(({ route, page, negotiable }) => [
-    route,
-    { page, negotiable },
+  MARKETING_PAGES.map((entry) => [
+    entry.route,
+    {
+      page: entry.page,
+      negotiable: entry.negotiable,
+    },
   ]),
 );
 
@@ -70,6 +76,7 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".md": "text/markdown; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
