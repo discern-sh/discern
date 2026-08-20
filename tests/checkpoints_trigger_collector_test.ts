@@ -228,12 +228,17 @@ Deno.test("untracked newline facts accept the total line ceiling and reject one 
       await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
       await gitInit(dir);
       const base = await gitOut(dir, "rev-parse", "HEAD");
-      await Deno.writeFile(
-        join(dir, "lines.txt"),
-        new Uint8Array(
-          CHECKPOINT_PATTERN_LIMITS.maxContentLines + delta,
-        ).fill(0x0a),
-      );
+      const firstLines = CHECKPOINT_PATTERN_LIMITS.maxContentLines / 2;
+      assertEquals(Number.isInteger(firstLines), true);
+      for (const path of ["a-first.txt", "b-second.txt"]) {
+        await Deno.writeFile(
+          join(dir, path),
+          new Uint8Array(firstLines).fill(0x0a),
+        );
+      }
+      if (delta === 1) {
+        await Deno.writeTextFile(join(dir, "z-over.txt"), "\n");
+      }
       const diff = await collectEffortDiff(
         dir,
         base,
@@ -241,19 +246,16 @@ Deno.test("untracked newline facts accept the total line ceiling and reject one 
         [definition({ addsMatching: ["needle"] })],
       );
       assert(diff !== undefined);
-      const content = diff.files.find((file) => file.path === "lines.txt")
-        ?.content;
-      if (delta === 0) {
+      for (const path of ["a-first.txt", "b-second.txt"]) {
+        const content = diff.files.find((file) => file.path === path)?.content;
         assert(content?.status === "available");
+        assertEquals(content.added.length, firstLines);
+      }
+      if (delta === 1) {
         assertEquals(
-          content.added.length,
-          CHECKPOINT_PATTERN_LIMITS.maxContentLines,
+          diff.files.find((file) => file.path === "z-over.txt")?.content,
+          { status: "unavailable", reason: "line_count" },
         );
-      } else {
-        assertEquals(content, {
-          status: "unavailable",
-          reason: "line_count",
-        });
       }
     });
   }
