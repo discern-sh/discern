@@ -255,7 +255,7 @@ function ErgonomicsSection() {
         <figure className="agents-refusal-figure">
           <figcaption>
             <div>
-              <span>LIVE ENGINE CAPTURE · SAME RESULT OBJECT</span>
+              <span>ENGINE CAPTURE · SAME RESULT OBJECT</span>
               <strong>
                 <code>$ {refusal.command}</code>
               </strong>
@@ -311,48 +311,41 @@ function ContextSection() {
           lead={context.paragraphs[0]}
           titleId="context-title"
         />
-        <div className="agents-context__features">
-          {context.features.map((feature, index) => (
-            <article key={feature.title}>
-              <span>0{index + 1}</span>
-              <div>
-                <h3>{feature.title}</h3>
-                <p>{feature.copy}</p>
-              </div>
-            </article>
-          ))}
-        </div>
         <div className="agents-context__evidence">
-          <Window
-            className="agents-diagnostic-window"
-            title={<code>bounded diagnostic</code>}
-            actions={
-              <Badge className="agents-badge--warning" tone="warning" dot>
-                truncated
-              </Badge>
-            }
-            variant="showcase"
-          >
-            <div className="agents-diagnostic">
-              <section>
-                <span>INLINE / ACT NOW</span>
-                <ol>
-                  {evidence.diagnostic.inline.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ol>
-              </section>
-              <section>
-                <span>ON DEMAND / FULL CAPTURE</span>
-                <code>{evidence.diagnostic.outputPath}</code>
-                <small>{evidence.diagnostic.note}</small>
-              </section>
-            </div>
-          </Window>
+          <figure className="agents-diagnostic-figure">
+            <Window
+              className="agents-diagnostic-window"
+              title={<code>bounded diagnostic</code>}
+              actions={
+                <Badge className="agents-badge--warning" tone="warning" dot>
+                  truncated
+                </Badge>
+              }
+              variant="showcase"
+            >
+              <div className="agents-diagnostic">
+                <section>
+                  <span>INLINE / ACT NOW</span>
+                  <ol>
+                    {evidence.diagnostic.inline.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ol>
+                </section>
+                <section>
+                  <span>ON DEMAND / FULL CAPTURE</span>
+                  <code>{evidence.diagnostic.outputPath}</code>
+                  <small>{evidence.diagnostic.note}</small>
+                </section>
+              </div>
+            </Window>
+            <figcaption>{context.diagnosticCaption}</figcaption>
+          </figure>
           <figure className="agents-map-search">
             <figcaption>
-              <span>LIVE MAP SEARCH</span>
+              <span>MAP SEARCH · ENGINE CAPTURE</span>
               <code>{evidence.map.query}</code>
+              <p>{context.mapCaption}</p>
             </figcaption>
             <ol>
               {evidence.map.results.map((result) => (
@@ -372,6 +365,7 @@ function ContextSection() {
           </figure>
         </div>
         <p className="agents-context__close">{context.close}</p>
+        <p className="agents-context__meter">{context.meter}</p>
       </div>
     </section>
   );
@@ -444,8 +438,8 @@ function ContinuitySection() {
         <div className="agents-continuity__evidence">
           <article className="agents-worktree-card">
             <header>
-              <span>WORKTREE IDENTITY · LIVE</span>
-              <Badge tone="success" dot>running</Badge>
+              <span>WORKTREE IDENTITY · THIS PAGE'S EFFORT</span>
+              <Badge tone="success" dot>recorded</Badge>
             </header>
             <dl>
               <div>
@@ -479,10 +473,11 @@ function ContinuitySection() {
                 </dd>
               </div>
             </dl>
+            <footer>{evidence.worktree.note}</footer>
           </article>
           <article className="agents-await-card">
             <header>
-              <span>FLEET CONDITION · LIVE</span>
+              <span>FLEET CONDITION · FROM THE LOGBOOK</span>
               <Badge tone="success" dot>met</Badge>
             </header>
             <div className="agents-await-card__condition">
@@ -571,7 +566,7 @@ function ProofSection() {
               </div>
             </section>
             <section className="agents-proof-demo__receipt">
-              <span>RECORDED PROOF</span>
+              <span>RECORDED PROOF · THE PREVIOUS EDITION</span>
               <dl>
                 <div>
                   <dt>branch</dt>
@@ -619,6 +614,7 @@ function ProofSection() {
             <code>{evidence.line}</code>
           </footer>
         </div>
+        <p className="agents-proof__provenance">{evidence.provenance}</p>
         <div className="agents-proof__facts">
           {proof.facts.map((fact) => (
             <article key={fact.title}>
@@ -696,15 +692,6 @@ function AuthoritySection() {
             <footer>→ {evidence.next}</footer>
           </div>
         </figure>
-        <div className="agents-authority__states">
-          {authority.states.map((state, index) => (
-            <article key={state.title}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <h3>{state.title}</h3>
-              <p>{state.copy}</p>
-            </article>
-          ))}
-        </div>
         <div
           className="agents-relationship"
           aria-label="Authority relationship"
@@ -752,8 +739,12 @@ function AbsencesSection() {
               <span>0{index + 1} / ABSENT</span>
               <h3>{item.title}</h3>
               <p>{item.copy}</p>
-              {item.title === "A sandbox."
-                ? <a href={AGENTS_ROUTES.trust}>Read the trust boundary ↗</a>
+              {"link" in item
+                ? (
+                  <a href={AGENTS_ROUTES[item.link.href]}>
+                    {item.link.label}
+                  </a>
+                )
                 : null}
             </article>
           ))}
@@ -807,6 +798,7 @@ function NextActionsSection() {
             <Badge tone="success" dot>ok</Badge>
           </div>
           <pre><code>{CLOSING_ENVELOPE}</code></pre>
+          <p className="agents-result-close__note">{next.plaintextNote}</p>
         </div>
         <div className="agents-final">
           <span aria-hidden="true">{DISCERN_MARK}</span>
