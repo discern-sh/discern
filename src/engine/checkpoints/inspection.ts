@@ -14,11 +14,13 @@
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { CheckpointObligationState } from "../../shared/checkpoints.ts";
 import {
-  checkpointDropAccounts,
   type CheckpointDrop,
+  checkpointDropAccounts,
+  entryCheckpointDrop,
   type EntryCheckpointDropReason,
-  type PolicyCheckpointDropReason,
   type GateMode,
+  policyCheckpointDrop,
+  type PolicyCheckpointDropReason,
 } from "../../shared/checkpoint_drops.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { collectEffortDiff } from "./diff.ts";
@@ -71,9 +73,7 @@ export interface CheckpointInspection {
   openQuestions: Readonly<Record<string, OpenQuestion>>;
   /** Whether absence from `openQuestions` is trustworthy. */
   storeReadable: boolean;
-  /** Plain-language fail-open accounts (policy, diff, store, or subject). */
-  advisories: string[];
-  /** Typed fail-open evidence; `advisories` is derived from these records. */
+  /** Typed fail-open evidence; human accounts derive from these records. */
   drops: CheckpointDrop[];
 }
 
@@ -83,14 +83,13 @@ function entryDrop(
   reason: EntryCheckpointDropReason,
   account: string,
 ): CheckpointDrop {
-  return {
-    scope: "checkpoint",
-    checkpoint: definition.id,
-    mode: definition.mode,
-    policy_commit: policyCommit,
+  return entryCheckpointDrop(
+    definition.id,
+    definition.mode,
+    policyCommit,
     reason,
     account,
-  };
+  );
 }
 
 function policyDrop(
@@ -98,14 +97,7 @@ function policyDrop(
   reason: PolicyCheckpointDropReason,
   account: string,
 ): CheckpointDrop {
-  return {
-    scope: "policy",
-    checkpoint: null,
-    mode: null,
-    ...(policyCommit === undefined ? {} : { policy_commit: policyCommit }),
-    reason,
-    account,
-  };
+  return policyCheckpointDrop(reason, account, policyCommit);
 }
 
 /** The active state of a reconciled open question. This is the smallest pure
@@ -308,7 +300,6 @@ export async function inspectCheckpointObligations(
     openQuestions,
     storeReadable,
     drops,
-    advisories: checkpointDropAccounts(drops),
   };
 }
 
@@ -317,7 +308,7 @@ export function checkpointInspectionNotes(
   inspection: CheckpointInspection,
   mode: GateMode = "strict",
 ): string[] {
-  const notes = inspection.advisories.map(
+  const notes = checkpointDropAccounts(inspection.drops).map(
     (advisory) => `Checkpoint advisory: ${advisory}`,
   );
   for (const { definition, outcome, obligation } of inspection.entries) {
@@ -397,9 +388,9 @@ export async function inspectCheckpointNotes(
 export function checkpointInspectionHints(
   inspection: CheckpointInspection,
 ): FiredHint[] {
-  const hints: FiredHint[] = inspection.advisories.map((advisory) =>
-    fire(HINTS["checkpoint-advisory"], { advisory })
-  );
+  const hints: FiredHint[] = checkpointDropAccounts(inspection.drops).map((
+    advisory,
+  ) => fire(HINTS["checkpoint-advisory"], { advisory }));
   for (const { definition, outcome, obligation } of inspection.entries) {
     if (definition.mode === "advise") {
       if (outcome?.holds && !outcome.whenPending) {

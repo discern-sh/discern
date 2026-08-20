@@ -47,9 +47,11 @@ interface AcceptEnvelope {
   message: string;
   hints?: string[];
   data: {
+    root?: string;
     consent?: { source: string; scopes?: string[] };
     variances?: AuthorizedVarianceData[];
     proof_line?: string;
+    checkpoint_drops?: { reason: string; account: string }[];
   };
 }
 
@@ -135,6 +137,7 @@ async function greenWithUnmet(wt: string): Promise<void> {
 /** The payload fields the landed-note assertions read. */
 interface LandedNotePayload {
   subject: { commit: string };
+  proof?: { checkpoint_drops?: { reason: string; account: string }[] };
   acceptance?: AcceptanceEvidenceData;
 }
 
@@ -228,6 +231,48 @@ Deno.test("accept: report-mode Proof is non-landable in preview and apply", asyn
     assertEquals(apply.code, 1, apply.output);
     assertEquals(parseJson(apply.stdout).error, "report_only_proof");
     assert(await exists(wt), "report-mode Proof must land nothing");
+  });
+});
+
+Deno.test("accept: fail-open drops survive preview, consent review, landing, and DSSE", async () => {
+  await withTempDir(async (dir) => {
+    const config = `${CONFIG}\nwhen = "exit 7"\n`;
+    const wt = await checkpointedWorktree(dir, config);
+    const gate = await runAgent(wt, ["done", "--json"]);
+    assertEquals(gate.code, 0, gate.output);
+
+    const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
+    assertEquals(preview.code, 0, preview.output);
+    assertEquals(
+      parseJson(preview.stdout).data.checkpoint_drops?.[0]?.reason,
+      "when_invalid_exit",
+    );
+
+    const review = await runAgent(wt, ["accept", "--json"]);
+    assertEquals(review.code, 1, review.output);
+    const reviewEnv = parseJson(review.stdout);
+    assertEquals(reviewEnv.error, AWAITING_CONSENT_SLUG);
+    assertEquals(
+      reviewEnv.data.checkpoint_drops?.[0]?.reason,
+      "when_invalid_exit",
+    );
+
+    const landedSha = await gitOut(wt, "rev-parse", "HEAD");
+    const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(apply.code, 0, apply.output);
+    const applied = parseJson(apply.stdout);
+    assertEquals(applied.data.root, await Deno.realPath(dir));
+    assertEquals(applied.data.consent, { source: "conversation" });
+    assertEquals(
+      applied.data.checkpoint_drops?.[0]?.reason,
+      "when_invalid_exit",
+    );
+
+    const payload = await landedNotePayload(dir, landedSha);
+    assertEquals(
+      payload.proof?.checkpoint_drops?.[0]?.reason,
+      "when_invalid_exit",
+    );
   });
 });
 

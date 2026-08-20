@@ -104,7 +104,7 @@ Deno.test("the shipped set is four stop members on the knowledge surfaces and fi
 });
 
 Deno.test("every built-in resolves by bare reference and serves its canonical question verbatim", () => {
-  assertEquals(RESOLUTION.advisories, []);
+  assertEquals(RESOLUTION.drops, []);
   for (const [id, seed] of Object.entries(BUILT_IN_CHECKPOINTS)) {
     const def = resolved(id);
     const canonical = questionById(seed.question);
@@ -153,10 +153,10 @@ Deno.test("instruction-economy fires on one instruction-surface change", () => {
 
 Deno.test("instruction-economy fails open, with an advisory, where no instructions scope exists", () => {
   const bare = parseConfigOrThrow("[checkpoints.instruction-economy]\n");
-  const { checkpoints, advisories } = resolveCheckpoints(bare);
+  const { checkpoints, drops } = resolveCheckpoints(bare);
   assertEquals(checkpoints, []);
-  assertEquals(advisories.length, 1);
-  assertStringIncludes(advisories[0] ?? "", "unknown scope 'instructions'");
+  assertEquals(drops.length, 1);
+  assertStringIncludes(drops[0]?.account ?? "", "unknown scope 'instructions'");
 });
 
 // ── skills-playbook ─────────────────────────────────────────────────────────
@@ -188,8 +188,8 @@ Deno.test("gotchas-playbook fires on the CONFIGURED gotchas doc and nothing else
 
 Deno.test("gotchas-playbook stays quiet in a project that never configured a gotchas doc", () => {
   const noDoc = parseConfigOrThrow("[checkpoints.gotchas-playbook]\n");
-  const { checkpoints, advisories } = resolveCheckpoints(noDoc);
-  assertEquals(advisories, []);
+  const { checkpoints, drops } = resolveCheckpoints(noDoc);
+  assertEquals(drops, []);
   const def = checkpoints[0];
   assert(
     def !== undefined,
@@ -397,8 +397,8 @@ Deno.test("every built-in proves it fires and stays quiet — a new seed fails u
     Object.keys(BUILT_IN_CHECKPOINTS).sort(),
     "the fixture table must cover exactly the registry",
   );
-  const { checkpoints, advisories } = resolveCheckpoints(CONFIG);
-  assertEquals(advisories, []);
+  const { checkpoints, drops } = resolveCheckpoints(CONFIG);
+  assertEquals(drops, []);
   assertEquals(checkpoints.length, Object.keys(BUILT_IN_CHECKPOINTS).length);
   for (const def of checkpoints) {
     const fixtures = TRIGGER_FIXTURES[def.id];

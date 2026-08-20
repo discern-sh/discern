@@ -38,6 +38,7 @@ import type {
   TriggerVeto,
 } from "../../shared/checkpoints.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { checkpointDropAccounts } from "../../shared/checkpoint_drops.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { interactiveHintTexts } from "../../shared/hints.ts";
 import { makeOut, type Out } from "../output.ts";
@@ -260,7 +261,7 @@ export async function checkpointsResult(
 ): Promise<DiscernResult<CheckpointsData>> {
   const config = await loadConfig(root);
   const inspection = await inspectCheckpointObligations(root, config);
-  const advisories = [...inspection.advisories];
+  const advisories = checkpointDropAccounts(inspection.drops);
   const { rows, ungoverned, routing } = assembleReport(inspection);
   const economics = await observedCheckpointEconomics(root);
   const data: CheckpointsData = {
@@ -270,6 +271,7 @@ export async function checkpointsResult(
     checkpoints: rows,
     ...(ungoverned.length === 0 ? {} : { ungoverned }),
     ...(economics === undefined ? {} : { economics }),
+    ...(inspection.drops.length === 0 ? {} : { drops: [...inspection.drops] }),
     ...(advisories.length === 0 ? {} : { advisories: [...advisories] }),
   };
 

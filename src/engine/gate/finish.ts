@@ -115,6 +115,7 @@ import {
 } from "../checkpoints/preflight.ts";
 import { inspectCheckpointNotes } from "../checkpoints/inspection.ts";
 import { AWAITING_DECLARATION_SLUG } from "../../shared/declarations.ts";
+import { checkpointDropAccounts } from "../../shared/checkpoint_drops.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import type {
   GateCheckpointsData,
@@ -1221,8 +1222,8 @@ async function runGate(
   const emittedProof = gateProof.status === "skipped_head_moved"
     ? undefined
     : proof;
-  const landingAuthority = failedStage === null && emittedProof !== undefined
-      && checkpointPreflight?.mode !== "report"
+  const landingAuthority = failedStage === null && emittedProof !== undefined &&
+      checkpointPreflight?.mode !== "report"
     ? await inspectLandingAuthority(root, mainBranch)
     : undefined;
   if (result.data !== undefined) {
@@ -1266,7 +1267,9 @@ async function runGate(
   // accounts as notices, each fired advise-mode question served in full, and
   // — on a green run with a declared-unmet conclusion standing — the landing
   // consequence, so a green Proof is never mistaken for a landable one.
-  const checkpointAdvisoryHints = (checkpointPreflight?.advisories ?? []).map(
+  const checkpointAdvisoryHints = checkpointDropAccounts(
+    checkpointPreflight?.drops ?? [],
+  ).map(
     (advisory) => fire(HINTS["checkpoint-advisory"], { advisory }),
   );
   const adviseHints = (checkpointPreflight?.advise ?? []).map((served) =>
@@ -1664,27 +1667,23 @@ function gateCheckpointsData(
     ...(preflight.advise.length === 0
       ? {}
       : { advise: preflight.advise.map(servedCheckpointData) }),
-    ...(preflight.mode === "strict"
-      ? {}
-      : {
-        review: {
-          enforcement: "reported" as const,
-          status: preflight.unreviewed.length === 0
-            ? "not_needed" as const
-            : "unreviewed" as const,
-          ...(preflight.unreviewed.length === 0
-            ? {}
-            : {
-              unreviewed: preflight.unreviewed.map(servedCheckpointData),
-            }),
-        },
-      }),
+    ...(preflight.mode === "strict" ? {} : {
+      review: {
+        enforcement: "reported" as const,
+        status: preflight.unreviewed.length === 0
+          ? "not_needed" as const
+          : "unreviewed" as const,
+        ...(preflight.unreviewed.length === 0 ? {} : {
+          unreviewed: preflight.unreviewed.map(servedCheckpointData),
+        }),
+      },
+    }),
     ...(preflight.drops.length === 0
       ? {}
       : { drops: preflight.drops.map((drop) => ({ ...drop })) }),
-    ...(preflight.advisories.length === 0
+    ...(preflight.drops.length === 0
       ? {}
-      : { advisories: [...preflight.advisories] }),
+      : { advisories: checkpointDropAccounts(preflight.drops) }),
   };
 }
 
@@ -1714,19 +1713,17 @@ function proofCheckpointsData(
       why: unmet.why,
       declared_at: unmet.declaredAt,
     })),
-    ...(preflight.mode === "strict"
-      ? {}
-      : {
-        review: {
-          enforcement: "reported" as const,
-          status: preflight.unreviewed.length === 0
-            ? "not_needed" as const
-            : "unreviewed" as const,
-          ...(preflight.unreviewed.length === 0
-            ? {}
-            : { unreviewed: preflight.unreviewed.map(servedCheckpointData) }),
-        },
-      }),
+    ...(preflight.mode === "strict" ? {} : {
+      review: {
+        enforcement: "reported" as const,
+        status: preflight.unreviewed.length === 0
+          ? "not_needed" as const
+          : "unreviewed" as const,
+        ...(preflight.unreviewed.length === 0
+          ? {}
+          : { unreviewed: preflight.unreviewed.map(servedCheckpointData) }),
+      },
+    }),
     ...(preflight.drops.length === 0
       ? {}
       : { drops: preflight.drops.map((drop) => ({ ...drop })) }),
@@ -1985,11 +1982,13 @@ export async function finishResult(
   if (checkpointGate.kind === "refuse") {
     return checkpointGate.result;
   }
-  const refusal = mode === "report" ? undefined : await unchangedTreeRerunRefusal(
-    root,
-    opts.confirmed ?? false,
-    checkpointGate.preflight.evidence,
-  );
+  const refusal = mode === "report"
+    ? undefined
+    : await unchangedTreeRerunRefusal(
+      root,
+      opts.confirmed ?? false,
+      checkpointGate.preflight.evidence,
+    );
   if (refusal !== undefined) {
     return refusal;
   }
@@ -2070,7 +2069,9 @@ export async function runFinish(
   const checkpointGate = await resolveCheckpointGate(root, declarations, mode);
   const refusal = checkpointGate.kind === "refuse"
     ? checkpointGate.result
-    : mode === "report" ? undefined : await unchangedTreeRerunRefusal(
+    : mode === "report"
+    ? undefined
+    : await unchangedTreeRerunRefusal(
       root,
       opts.confirmed ?? false,
       checkpointGate.preflight.evidence,

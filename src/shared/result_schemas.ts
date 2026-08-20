@@ -46,6 +46,7 @@ import {
   TRIGGER_VETOES,
 } from "./checkpoints.ts";
 import {
+  CHECKPOINT_DROP_ACCOUNT_MAX,
   ENTRY_CHECKPOINT_DROP_REASONS,
   GATE_MODES,
   POLICY_CHECKPOINT_DROP_REASONS,
@@ -283,8 +284,6 @@ const PROOF_SUMMARY_FIELDS = {
   /** Absent on Proof written before the strict/report distinction. */
   mode: z.enum(GATE_MODES).optional(),
 };
-
-const CHECKPOINT_DROP_ACCOUNT_MAX = 500;
 
 const PolicyCheckpointDropSchema = z.strictObject({
   scope: z.literal("policy"),
@@ -914,6 +913,8 @@ export const CheckpointsDataSchema = z.strictObject({
    * of plain counts with their denominators. Absent until observed history
    * exists (every rendering then states that plainly). */
   economics: CheckpointEconomicsSchema.optional(),
+  /** Typed evidence behind every fail-open advisory. */
+  drops: z.array(CheckpointDropSchema).optional(),
   /** Plain-language fail-open accounts (policy, diff, or store trouble). */
   advisories: z.array(z.string()).optional(),
 });
@@ -989,6 +990,8 @@ export const GateProofCheckSchema = z.strictObject({
   /** The structured proof cached by current writers. Older markers carry only
    * the rendered forms and therefore omit this field. */
   proof_data: ProofSchema.optional(),
+  /** Proof-carried and live declaration-evidence uncertainty. */
+  checkpoint_drops: z.array(CheckpointDropSchema).optional(),
 });
 export type GateProofCheckData = z.infer<typeof GateProofCheckSchema>;
 
@@ -1002,6 +1005,7 @@ const GateProofWireSchema = z.strictObject({
   proof: ProofSummarySchema.optional(),
   /** Legacy marker writers may supply only their bounded one-line rendering. */
   proof_line: z.string().optional(),
+  checkpoint_drops: z.array(CheckpointDropSchema).optional(),
 });
 
 const GateValidationSchema = z.strictObject({
@@ -1246,8 +1250,11 @@ export type AcceptProofNoteData = z.infer<typeof AcceptProofNoteSchema>;
  * the worktree it just landed, instead of the spawn root (which is the trunk only
  * when the server was launched from the trunk). */
 export const AcceptDataSchema = z.strictObject({
-  root: z.string(),
-  consent: LandingConsentDataSchema,
+  /** Present after landing; read-only reviews may carry only checkpoint drops. */
+  root: z.string().optional(),
+  consent: LandingConsentDataSchema.optional(),
+  /** Fail-open checkpoint evidence retained through review and landing. */
+  checkpoint_drops: z.array(CheckpointDropSchema).optional(),
   /** Configured scope names matched by the landed paths. Optional for
    * compatibility with acceptance results written before this evidence was
    * exposed; current fresh landings emit it when at least one scope matched. */
@@ -1286,6 +1293,13 @@ export const AcceptDataSchema = z.strictObject({
   }).optional(),
 });
 export type AcceptData = z.infer<typeof AcceptDataSchema>;
+
+/** Runtime assertion for every result that has crossed the landing boundary. */
+export const AppliedAcceptDataSchema = AcceptDataSchema.required({
+  root: true,
+  consent: true,
+});
+export type AppliedAcceptData = z.infer<typeof AppliedAcceptDataSchema>;
 
 /** Compact `accept`: landing state plus its bounded Proof line. */
 const AcceptWireDataSchema = AcceptDataSchema.omit({

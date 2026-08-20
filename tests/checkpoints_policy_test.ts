@@ -71,7 +71,7 @@ Deno.test("a branch editing its own checkpoint config is not governed by the edi
     await git(dir, "commit", "-q", "-m", "edit policy", "--no-gpg-sign");
 
     const policy = await loadGoverningPolicy(dir, LIVE);
-    assertEquals(policy.advisories, []);
+    assertEquals(policy.drops, []);
     assertEquals(policy.checkpoints.map((c) => c.id), ["docs-review"]);
     assertEquals(policy.checkpoints[0]?.question, "The governed judgment.");
   });
@@ -171,7 +171,7 @@ Deno.test("no config at the merge-base means no checkpoints and no noise", async
     const policy = await loadGoverningPolicy(dir, LIVE);
     assertEquals(policy.policyCommit, await gitOut(dir, "rev-parse", "HEAD"));
     assertEquals(policy.checkpoints, []);
-    assertEquals(policy.advisories, []);
+    assertEquals(policy.drops, []);
   });
 });
 
@@ -185,8 +185,8 @@ Deno.test("an unresolvable merge-base fails open with an advisory", async () => 
     const policy = await loadGoverningPolicy(dir, LIVE);
     assertEquals(policy.policyCommit, undefined);
     assertEquals(policy.checkpoints, []);
-    assertEquals(policy.advisories.length, 1);
-    assertStringIncludes(policy.advisories[0] ?? "", "merge-base");
+    assertEquals(policy.drops.length, 1);
+    assertStringIncludes(policy.drops[0]?.account ?? "", "merge-base");
   });
 });
 
@@ -201,8 +201,8 @@ Deno.test("an unloadable governing config fails open with an advisory", async ()
     const policy = await loadGoverningPolicy(dir, LIVE);
     assert(policy.policyCommit !== undefined);
     assertEquals(policy.checkpoints, []);
-    assertEquals(policy.advisories.length, 1);
-    assertStringIncludes(policy.advisories[0] ?? "", "does not load");
+    assertEquals(policy.drops.length, 1);
+    assertStringIncludes(policy.drops[0]?.account ?? "", "does not load");
   });
 });
 
@@ -233,8 +233,8 @@ Deno.test("resolveCheckpoints expands scope selectors, references, and unless_ch
       "",
     ].join("\n"),
   );
-  const { checkpoints, advisories } = resolveCheckpoints(config);
-  assertEquals(advisories, []);
+  const { checkpoints, drops } = resolveCheckpoints(config);
+  assertEquals(drops, []);
   assertEquals(checkpoints.length, 2);
   const docs = checkpoints[0];
   assertEquals(docs?.selector, { scope: "docs", globs: ["guide/", "*.md"] });
@@ -275,11 +275,11 @@ Deno.test("resolveCheckpoints drops what cannot govern, one advisory each", () =
     paths: ["docs/**"],
     question: "Judged.",
   };
-  const { checkpoints, advisories } = resolveCheckpoints(config);
+  const { checkpoints, drops } = resolveCheckpoints(config);
   assertEquals(checkpoints.map((c) => c.id), ["ok"]);
-  assertEquals(advisories.length, 3);
-  for (const advisory of advisories) {
-    assertStringIncludes(advisory, "does not govern");
+  assertEquals(drops.length, 3);
+  for (const drop of drops) {
+    assertStringIncludes(drop.account, "does not govern");
   }
 });
 
@@ -335,8 +335,8 @@ function seedConfig(
 
 Deno.test("a bare reference enables a built-in with the seed's trigger, mode, and canonical question", () => {
   const config = seedConfig({ "scoped-seed": {}, "pathed-seed": {} });
-  const { checkpoints, advisories } = resolveCheckpoints(config, SEEDS);
-  assertEquals(advisories, []);
+  const { checkpoints, drops } = resolveCheckpoints(config, SEEDS);
+  assertEquals(drops, []);
   const scoped = checkpoints.find((c) => c.id === "scoped-seed");
   assertEquals(scoped?.selector, { scope: "docs", globs: ["docs/**"] });
   assertEquals(scoped?.minChangedFiles, 3);
@@ -382,8 +382,8 @@ Deno.test("the selector is one slot: an entry's paths replace a seed's scope, an
     "scoped-seed": { paths: ["src/**"] },
     "pathed-seed": { scope: "docs" },
   });
-  const { checkpoints, advisories } = resolveCheckpoints(config, SEEDS);
-  assertEquals(advisories, []);
+  const { checkpoints, drops } = resolveCheckpoints(config, SEEDS);
+  assertEquals(drops, []);
   const pathsOverScope = checkpoints.find((c) => c.id === "scoped-seed");
   assertEquals(pathsOverScope?.selector, { globs: ["src/**"] });
   const scopeOverPaths = checkpoints.find((c) => c.id === "pathed-seed");
@@ -393,10 +393,10 @@ Deno.test("the selector is one slot: an entry's paths replace a seed's scope, an
 Deno.test("a seed whose scope the project does not define fails open with an advisory", () => {
   const config = parseConfigOrThrow("");
   Object.assign(config.checkpoints, { "scoped-seed": {} });
-  const { checkpoints, advisories } = resolveCheckpoints(config, SEEDS);
+  const { checkpoints, drops } = resolveCheckpoints(config, SEEDS);
   assertEquals(checkpoints, []);
-  assertEquals(advisories.length, 1);
-  assertStringIncludes(advisories[0] ?? "", "unknown scope 'docs'");
+  assertEquals(drops.length, 1);
+  assertStringIncludes(drops[0]?.account ?? "", "unknown scope 'docs'");
 });
 
 Deno.test("firable ids exclude the dormant — a waiting checkpoint is not a dead one", () => {

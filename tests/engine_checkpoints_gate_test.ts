@@ -11,7 +11,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -29,6 +29,7 @@ import { UNCHANGED_TREE_RERUN_SLUG } from "../src/engine/gate/proof.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { readOpenQuestions } from "../src/engine/checkpoints/open_questions.ts";
+import { parseLogbookLine } from "../src/engine/logbook/schema.ts";
 
 /** The wire fields these black-box assertions read from a `done` envelope.
  * Presence claims are static; a field the engine omits fails its assertion
@@ -63,6 +64,42 @@ async function proofMarker(wt: string): Promise<string> {
   const path = await gitAdminStatePath(wt, "gateProof");
   assert(path !== undefined, "the gate-proof path must resolve");
   return await Deno.readTextFile(path);
+}
+
+/** Read one Git-admin marker without creating it. */
+async function adminMarker(
+  wt: string,
+  name: "checkpointOpenQuestions" | "gateProof" | "lastGateRun",
+): Promise<string | undefined> {
+  const path = await gitAdminStatePath(wt, name);
+  assert(path !== undefined, `${name} path must resolve`);
+  return await Deno.readTextFile(path).catch((error) => {
+    if (error instanceof Deno.errors.NotFound) return undefined;
+    throw error;
+  });
+}
+
+/** Count Logbook completion events that claim checkpoint lifecycle effects. */
+async function checkpointObservationEvents(dir: string): Promise<number> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  let count = 0;
+  try {
+    for await (const entry of Deno.readDir(logDir)) {
+      if (!entry.isFile || !entry.name.endsWith(".jsonl")) continue;
+      const raw = await Deno.readTextFile(join(logDir, entry.name));
+      for (const line of raw.split("\n").filter((item) => item !== "")) {
+        const parsed = parseLogbookLine(line);
+        assert(parsed.kind === "event");
+        if (
+          parsed.event.kind === "verb" &&
+          parsed.event.checkpoints !== undefined
+        ) count += 1;
+      }
+    }
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+  return count;
 }
 
 const QUESTION_API =
@@ -137,6 +174,17 @@ lint = "sh check.sh"
 paths = ["api/**"]
 unless_changed = ["docs/**"]
 question = "${QUESTION_API}"
+`;
+
+const CONFIG_NO_CHECKPOINTS = `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "sh check.sh"
 `;
 
 const CHECK_OK = "#!/usr/bin/env sh\nexit 0\n";
@@ -217,17 +265,117 @@ Deno.test("done --ci: a fresh checkout reports a fired stop and lets machine job
       CHECK_TOUCHES,
     );
 
+    const openBefore = await adminMarker(wt, "checkpointOpenQuestions");
+    const observationsBefore = await checkpointObservationEvents(dir);
     const r = await runAgent(wt, ["done", "--ci", "--json"]);
     assertEquals(r.code, 0, r.output);
     const env = parseJson(r.stdout);
     assertEquals(env.ok, true);
     assertEquals(env.data.checkpoints.review?.enforcement, "reported");
-    assertEquals(env.data.checkpoints.review?.unreviewed?.[0]?.id, "api-review");
+    assertEquals(
+      env.data.checkpoints.review?.unreviewed?.[0]?.id,
+      "api-review",
+    );
     assertStringIncludes(
       await Deno.readTextFile(join(wt, "..", "gate-ran.log")),
       "ran",
     );
     assertEquals((await readOpenQuestions(wt)).status, "missing");
+    assertEquals(
+      await adminMarker(wt, "checkpointOpenQuestions"),
+      openBefore,
+      "report mode must preserve every open-question/declaration byte",
+    );
+    assertEquals(
+      await checkpointObservationEvents(dir),
+      observationsBefore,
+      "report mode must record no checkpoint lifecycle event",
+    );
+    const marker = await proofMarker(wt);
+    assertStringIncludes(marker, "mode: report");
+    assertStringIncludes(marker, "reported, not enforced");
+  });
+});
+
+Deno.test("done --ci: red jobs remain red; advise questions are reported without checkpoint writes", async () => {
+  await withTempDir(async (dir) => {
+    const red = await worktreeWithApiChange(
+      dir,
+      CONFIG_ADVISE,
+      "#!/usr/bin/env sh\nexit 9\n",
+    );
+    const result = await runAgent(red, ["done", "--ci", "--json"]);
+    assertEquals(result.code, 1, result.output);
+    const env = parseJson(result.stdout);
+    assertEquals(env.ok, false);
+    assertEquals(env.data.checkpoints.review?.enforcement, "reported");
+    assertEquals(env.data.checkpoints.review?.unreviewed, undefined);
+    assertEquals(env.data.checkpoints.advise?.[0]?.id, "api-review");
+    assertEquals(await adminMarker(red, "checkpointOpenQuestions"), undefined);
+    assertEquals(await checkpointObservationEvents(dir), 0);
+  });
+});
+
+Deno.test("done --dry-run --ci: previews report mode without running when or writing state", async () => {
+  await withTempDir(async (dir) => {
+    const config = `${CONFIG_ONE_CHECKPOINT}\nwhen = "sh probe.sh"\n`;
+    const wt = await worktreeWithApiChange(dir, config);
+    await writeExecutable(
+      join(wt, "probe.sh"),
+      "#!/usr/bin/env sh\necho ran > ../probe-ran.log\nexit 0\n",
+    );
+    await git(wt, "add", "probe.sh");
+    await git(wt, "commit", "-q", "-m", "add probe", "--no-gpg-sign");
+
+    const result = await runAgent(wt, ["done", "--dry-run", "--ci", "--json"]);
+    assertEquals(result.code, 0, result.output);
+    const env = parseJson(result.stdout);
+    assertEquals(env.dry_run, true);
+    assert(env.plan?.details?.includes("mode: report"));
+    assertEquals(
+      await Deno.readTextFile(join(wt, "..", "probe-ran.log")).catch(() => ""),
+      "",
+    );
+    assertEquals(await adminMarker(wt, "checkpointOpenQuestions"), undefined);
+    assertEquals(await adminMarker(wt, "gateProof"), undefined);
+    assertEquals(await adminMarker(wt, "lastGateRun"), undefined);
+    assertEquals(await checkpointObservationEvents(dir), 0);
+  });
+});
+
+Deno.test("done --ci: declaration flags refuse before every checkpoint and Gate write", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(
+      dir,
+      CONFIG_ONE_CHECKPOINT,
+      CHECK_TOUCHES,
+    );
+    const invocations = [
+      ["done", "--ci", "--met", "api-review", "--json"],
+      [
+        "done",
+        "--ci",
+        "--unmet",
+        "api-review",
+        "--why",
+        "not ready",
+        "--json",
+      ],
+      ["done", "--ci", "--why", "not ready", "--json"],
+    ];
+    for (const args of invocations) {
+      const result = await runAgent(wt, args);
+      assertEquals(result.code, 1, result.output);
+      assertEquals(parseJson(result.stdout).error, "invalid_arguments");
+    }
+    assertEquals(await adminMarker(wt, "checkpointOpenQuestions"), undefined);
+    assertEquals(await adminMarker(wt, "gateProof"), undefined);
+    assertEquals(await adminMarker(wt, "lastGateRun"), undefined);
+    assertEquals(
+      await Deno.readTextFile(join(wt, "..", "gate-ran.log")).catch(() => ""),
+      "",
+    );
+    assertEquals(await checkpointObservationEvents(dir), 0);
   });
 });
 
@@ -273,6 +421,12 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
     const proof = env.data.proof;
     assert(proof !== undefined, "a green run over a clean tree earns a Proof");
     assertStringIncludes(proof.line, "1 checkpoint declared met");
+    const strictMarker = await proofMarker(wt);
+    assert(
+      !strictMarker.includes("mode: strict") &&
+        !strictMarker.includes('"mode":"strict"'),
+      "ordinary done keeps the pre-report marker and Proof shape",
+    );
     assertEquals(env.data.gate_proof?.status, "recorded");
     const marker = await proofMarker(wt);
     assertStringIncludes(marker, "Checkpoint conclusions");
@@ -579,6 +733,39 @@ Deno.test("done: a corrupt open-question store fails open into a clean re-ask", 
     assertEquals(
       openQuestions.openQuestions["api-review"]?.declaration?.conclusion,
       "met",
+    );
+  });
+});
+
+Deno.test("checkpoints: a corrupt store remains visible with zero resolved definitions", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_NO_CHECKPOINTS);
+    const path = await gitAdminStatePath(wt, "checkpointOpenQuestions");
+    assert(path !== undefined);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    await Deno.writeTextFile(path, "not json\n");
+
+    const report = await runAgent(wt, ["checkpoints", "--json"]);
+    assertEquals(report.code, 0, report.output);
+    const data = (JSON.parse(report.stdout.trim()) as {
+      data: {
+        checkpoints: unknown[];
+        drops?: { scope: string; reason: string; policy_commit?: string }[];
+      };
+    }).data;
+    assertEquals(data.checkpoints, []);
+    assertEquals(data.drops?.[0]?.scope, "policy");
+    assertEquals(data.drops?.[0]?.reason, "open_question_store_corrupt");
+    assert((data.drops?.[0]?.policy_commit?.length ?? 0) > 0);
+
+    const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
+    assertEquals(preview.code, 0, preview.output);
+    const previewData = (JSON.parse(preview.stdout.trim()) as {
+      data?: { checkpoint_drops?: { reason: string }[] };
+    }).data;
+    assertEquals(
+      previewData?.checkpoint_drops?.[0]?.reason,
+      "open_question_store_corrupt",
     );
   });
 });

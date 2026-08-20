@@ -29,9 +29,11 @@ import {
   type BuiltInCheckpointSeed,
   DEFAULT_CHECKPOINT_MODE,
 } from "../../shared/checkpoints.ts";
-import type {
-  CheckpointDrop,
-  EntryCheckpointDropReason,
+import {
+  type CheckpointDrop,
+  entryCheckpointDrop,
+  type EntryCheckpointDropReason,
+  policyCheckpointDrop,
 } from "../../shared/checkpoint_drops.ts";
 import { questionById } from "../../shared/questions.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
@@ -72,7 +74,6 @@ export function resolveCheckpoints(
 ): {
   checkpoints: ResolvedCheckpoint[];
   drops: UnresolvedCheckpointDrop[];
-  advisories: string[];
 } {
   const checkpoints: ResolvedCheckpoint[] = [];
   const drops: UnresolvedCheckpointDrop[] = [];
@@ -168,7 +169,6 @@ export function resolveCheckpoints(
   return {
     checkpoints,
     drops,
-    advisories: drops.map((drop) => drop.account),
   };
 }
 
@@ -226,14 +226,10 @@ export async function loadGoverningPolicy(
   if (policyCommit === undefined) {
     return {
       checkpoints: [],
-      drops: [{
-        scope: "policy",
-        checkpoint: null,
-        mode: null,
-        reason: "merge_base_unresolved",
-        account:
-          `the merge-base with '${trunk}' could not be resolved; no checkpoints govern this run.`,
-      }],
+      drops: [policyCheckpointDrop(
+        "merge_base_unresolved",
+        `the merge-base with '${trunk}' could not be resolved; no checkpoints govern this run.`,
+      )],
     };
   }
   const configSpec = `${policyCommit}:./discern.toml`;
@@ -245,16 +241,13 @@ export async function loadGoverningPolicy(
     return {
       policyCommit,
       checkpoints: [],
-      drops: [{
-        scope: "policy",
-        checkpoint: null,
-        mode: null,
-        policy_commit: policyCommit,
-        reason: "governing_config_unreadable",
-        account: `the governing configuration at ${
+      drops: [policyCheckpointDrop(
+        "governing_config_unreadable",
+        `the governing configuration at ${
           policyCommit.slice(0, 12)
         } could not be inspected; no checkpoints govern this run.`,
-      }],
+        policyCommit,
+      )],
     };
   }
   if (listed.stdout.trim() === "") {
@@ -269,16 +262,13 @@ export async function loadGoverningPolicy(
     return {
       policyCommit,
       checkpoints: [],
-      drops: [{
-        scope: "policy",
-        checkpoint: null,
-        mode: null,
-        policy_commit: policyCommit,
-        reason: "governing_config_unreadable",
-        account: `the governing configuration at ${
+      drops: [policyCheckpointDrop(
+        "governing_config_unreadable",
+        `the governing configuration at ${
           policyCommit.slice(0, 12)
         } could not be read; no checkpoints govern this run.`,
-      }],
+        policyCommit,
+      )],
     };
   }
   let parsed: ReturnType<typeof parseConfig>;
@@ -291,29 +281,27 @@ export async function loadGoverningPolicy(
     return {
       policyCommit,
       checkpoints: [],
-      drops: [{
-        scope: "policy",
-        checkpoint: null,
-        mode: null,
-        policy_commit: policyCommit,
-        reason: "governing_config_invalid",
-        account: `the governing configuration at ${
+      drops: [policyCheckpointDrop(
+        "governing_config_invalid",
+        `the governing configuration at ${
           policyCommit.slice(0, 12)
         } does not load; no checkpoints govern this run.`,
-      }],
+        policyCommit,
+      )],
     };
   }
   const resolved = resolveCheckpoints(parsed.config);
   return {
     policyCommit,
     checkpoints: resolved.checkpoints,
-    drops: resolved.drops.map((drop) => ({
-      scope: "checkpoint",
-      checkpoint: drop.checkpoint,
-      mode: drop.mode,
-      policy_commit: policyCommit,
-      reason: drop.reason,
-      account: drop.account,
-    })),
+    drops: resolved.drops.map((drop) =>
+      entryCheckpointDrop(
+        drop.checkpoint,
+        drop.mode,
+        policyCommit,
+        drop.reason,
+        drop.account,
+      )
+    ),
   };
 }

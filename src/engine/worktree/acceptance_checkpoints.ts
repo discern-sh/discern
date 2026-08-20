@@ -25,8 +25,8 @@
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { AuthorizedVarianceData } from "../../shared/result_schemas.ts";
 import {
-  checkpointDropAccounts,
   type CheckpointDrop,
+  policyCheckpointDrop,
 } from "../../shared/checkpoint_drops.ts";
 import {
   declarationIsCurrent,
@@ -60,9 +60,6 @@ export interface AcceptanceCheckpointState {
   unmet: StandingUnmetConclusion[];
   /** Current declared-met conclusions (ids only; nothing to decide). */
   met: string[];
-  /** Plain-language fail-open accounts (an unreadable store, a policy that
-   * could not govern) — surfaced as warnings, never a refusal. */
-  advisories: string[];
   /** Typed checkpoint drops preserved into acceptance review. */
   drops: CheckpointDrop[];
 }
@@ -81,35 +78,37 @@ export async function inspectAcceptanceCheckpoints(
     stale: [],
     unmet: [],
     met: [],
-    advisories: [],
     drops: [],
   };
   const policy = await loadGoverningPolicy(root, config);
   state.drops.push(...policy.drops);
-  state.advisories.push(...checkpointDropAccounts(policy.drops));
   const stops = new Map(
     policy.checkpoints.filter((c) => c.mode === "stop").map(
       (c) => [c.id, c] as const,
     ),
   );
-  if (stops.size === 0) {
-    return state;
-  }
   const read = await readOpenQuestions(root);
   if (read.status === "unavailable") {
-    state.advisories.push(
-      `the checkpoint open-question record could not be read (${read.reason}); no declaration governs this landing.`,
-    );
+    state.drops.push(policyCheckpointDrop(
+      "open_question_store_unreadable",
+      `the checkpoint open-question record could not be read (${read.reason}); earlier active questions are unknown.`,
+      policy.policyCommit,
+    ));
+    return state;
+  }
+  if (read.status === "invalid") {
+    state.drops.push(policyCheckpointDrop(
+      "open_question_store_corrupt",
+      "the checkpoint open-question record did not parse; earlier active questions are unknown.",
+      policy.policyCommit,
+    ));
+  }
+  if (stops.size === 0) {
     return state;
   }
   const openQuestions: Record<string, OpenQuestion> = read.status === "ok"
     ? read.openQuestions
     : {};
-  if (read.status === "invalid") {
-    state.advisories.push(
-      "the checkpoint open-question record did not parse; conclusions must be declared again at `discern done`.",
-    );
-  }
   for (const [id, def] of stops) {
     const openQuestion = openQuestions[id];
     if (openQuestion === undefined) {

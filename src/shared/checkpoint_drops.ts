@@ -40,14 +40,19 @@ export const CHECKPOINT_DROP_REASONS = CHECKPOINT_DROP_REASON_REGISTRY.map(
 type RegistryEntry = (typeof CHECKPOINT_DROP_REASON_REGISTRY)[number];
 type ReasonForScope<Scope extends "policy" | "checkpoint"> =
   RegistryEntry extends infer Entry
-    ? Entry extends { reason: infer Reason; scopes: readonly Scope[] }
-      ? Reason
-      : never
+    ? Entry extends { reason: infer Reason; scopes: readonly Scope[] } ? Reason
+    : never
     : never;
 
-export type PolicyCheckpointDropReason = Extract<ReasonForScope<"policy">, CheckpointDropReason>;
+export type PolicyCheckpointDropReason = Extract<
+  ReasonForScope<"policy">,
+  CheckpointDropReason
+>;
 
-export type EntryCheckpointDropReason = Extract<ReasonForScope<"checkpoint">, CheckpointDropReason>;
+export type EntryCheckpointDropReason = Extract<
+  ReasonForScope<"checkpoint">,
+  CheckpointDropReason
+>;
 
 export const POLICY_CHECKPOINT_DROP_REASONS = CHECKPOINT_DROP_REASON_REGISTRY
   .filter((entry) => entry.scopes.some((scope) => scope === "policy"))
@@ -66,7 +71,7 @@ export interface PolicyCheckpointDrop {
   scope: "policy";
   checkpoint: null;
   mode: null;
-  policy_commit?: string;
+  policy_commit?: string | undefined;
   reason: PolicyCheckpointDropReason;
   account: string;
 }
@@ -81,6 +86,65 @@ export interface EntryCheckpointDrop {
 }
 
 export type CheckpointDrop = PolicyCheckpointDrop | EntryCheckpointDrop;
+
+/** Public result schemas use the same account bound as constructors. */
+export const CHECKPOINT_DROP_ACCOUNT_MAX = 500;
+
+/** Keep environment-controlled errors one-line and inside the wire bound. */
+export function boundedCheckpointDropAccount(account: string): string {
+  const normalized = account.replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim() || "checkpoint enforcement failed open without further detail";
+  if (normalized.length <= CHECKPOINT_DROP_ACCOUNT_MAX) return normalized;
+  return normalized.slice(0, CHECKPOINT_DROP_ACCOUNT_MAX - 3) + "...";
+}
+
+/** Construct uncertainty that exists before a checkpoint entry is knowable. */
+export function policyCheckpointDrop(
+  reason: PolicyCheckpointDropReason,
+  account: string,
+  policyCommit?: string,
+): PolicyCheckpointDrop {
+  return {
+    scope: "policy",
+    checkpoint: null,
+    mode: null,
+    ...(policyCommit === undefined ? {} : { policy_commit: policyCommit }),
+    reason,
+    account: boundedCheckpointDropAccount(account),
+  };
+}
+
+/** Construct uncertainty for one resolved checkpoint entry. */
+export function entryCheckpointDrop(
+  checkpoint: string,
+  mode: CheckpointMode,
+  policyCommit: string,
+  reason: EntryCheckpointDropReason,
+  account: string,
+): EntryCheckpointDrop {
+  return {
+    scope: "checkpoint",
+    checkpoint,
+    mode,
+    policy_commit: policyCommit,
+    reason,
+    account: boundedCheckpointDropAccount(account),
+  };
+}
+
+/** Stable de-duplication for drops joined from the Proof and live inspection. */
+export function uniqueCheckpointDrops(
+  drops: readonly CheckpointDrop[],
+): CheckpointDrop[] {
+  const seen = new Set<string>();
+  return drops.filter((drop) => {
+    const key = JSON.stringify(drop);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 /** The existing advisory projection remains derived from structured evidence. */
 export function checkpointDropAccounts(

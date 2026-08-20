@@ -950,6 +950,8 @@ const presentConfig: ResultMarkdownPresenter = (result) => {
 
 const presentGate: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
+  const checkpoints = object(data.checkpoints);
+  const review = object(checkpoints?.review);
   const failedStage = text(data.failed_stage);
   const standards = records(data.standards);
   const proof = object(data.proof);
@@ -971,12 +973,32 @@ const presentGate: ResultMarkdownPresenter = (result) => {
       standards.length === 0
         ? undefined
         : `Standards: ${standards.length} read, ${regressions.length} regressed.`,
+      review === undefined
+        ? undefined
+        : `Checkpoint review: reported and was not enforced; ${
+          text(review.status) === "unreviewed"
+            ? plural(records(review.unreviewed).length, "question") +
+              " unreviewed"
+            : "no review was needed"
+        }.`,
+      ...records(checkpoints?.drops).map(checkpointDropLine),
       proofLine(proof),
       gateProofFact(data.gate_proof),
     ]),
     boundary: landingBoundary(data),
   };
 };
+
+/** One structured checkpoint fail-open record on any result surface. */
+function checkpointDropLine(drop: Record<string, unknown>): string {
+  const checkpoint = text(drop.checkpoint);
+  const reason = text(drop.reason) ?? "unknown";
+  const account = text(drop.account) ?? "no account recorded";
+  const subject = checkpoint === undefined
+    ? "policy-level checkpoint enforcement"
+    : `checkpoint ${code(checkpoint)}`;
+  return `Checkpoint drop (${code(reason)}): ${subject} — ${account}`;
+}
 
 const presentImprovement: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
@@ -1123,6 +1145,7 @@ const presentCheckpoints: ResultMarkdownPresenter = (result) => {
         }: a recorded open question stands, but the current governing policy does not contain it.`
       ),
       ...advisories.map((advisory) => `Fail-open: ${advisory}`),
+      ...records(data.drops).map(checkpointDropLine),
       ...economicsRows.slice(0, MAX_LIST_ITEMS).map(checkpointEconomicsLine),
       economicsRows.length > MAX_LIST_ITEMS
         ? omitted(
@@ -1373,6 +1396,13 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
       number(entry.behind) ?? 0
     } behind, Proof ${code(text(rowProof?.status) ?? "unknown")}.`;
   });
+  const fleetDropFacts = fleet.slice(0, MAX_LIST_ITEMS).flatMap((entry) => {
+    const branch = text(entry.branch) ?? "unknown branch";
+    const proof = object(entry.gate_proof);
+    return records(proof?.checkpoint_drops).map((drop) =>
+      `${code(branch)} — ${checkpointDropLine(drop)}`
+    );
+  });
   return {
     state: defaultState(result, state),
     evidence: unique([
@@ -1387,6 +1417,7 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
         ? undefined
         : `Fleet: ${plural(fleetTotal, "active worktree")}.`,
       ...fleetFacts,
+      ...fleetDropFacts,
       fleetTotal > fleetFacts.length
         ? omitted(fleetTotal - fleetFacts.length, "fleet row")
         : undefined,
@@ -1461,6 +1492,7 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
         }.`,
       text(data.proof_line),
       listFact("Authority warnings", strings(data.authority_warnings)),
+      ...records(data.checkpoint_drops).map(checkpointDropLine),
     ]),
     boundary: consent === undefined
       ? []

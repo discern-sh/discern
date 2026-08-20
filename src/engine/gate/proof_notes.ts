@@ -410,9 +410,9 @@ function canonicalProofClaim(proof: Proof): DurableProofClaim {
     insertions: proof.insertions,
     deletions: proof.deletions,
     ...(proof.mode === undefined ? {} : { mode: proof.mode }),
-    ...(proof.checkpoint_drops === undefined
-      ? {}
-      : { checkpoint_drops: proof.checkpoint_drops.map((drop) => ({ ...drop })) }),
+    ...(proof.checkpoint_drops === undefined ? {} : {
+      checkpoint_drops: proof.checkpoint_drops.map((drop) => ({ ...drop })),
+    }),
   };
 }
 
@@ -528,13 +528,11 @@ function proofFromProofPayload(
     insertions: payload.proof.insertions,
     deletions: payload.proof.deletions,
     ...(payload.proof.mode === undefined ? {} : { mode: payload.proof.mode }),
-    ...(payload.proof.checkpoint_drops === undefined
-      ? {}
-      : {
-        checkpoint_drops: payload.proof.checkpoint_drops.map((drop) => ({
-          ...drop,
-        })),
-      }),
+    ...(payload.proof.checkpoint_drops === undefined ? {} : {
+      checkpoint_drops: payload.proof.checkpoint_drops.map((drop) => ({
+        ...drop,
+      })),
+    }),
     line,
     markdown,
   };

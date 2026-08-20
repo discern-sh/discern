@@ -660,7 +660,7 @@ export async function buildGateResultWithHints(
     results,
   );
   const data: GateData = {
-    mode: plan.mode,
+    ...(plan.mode === "report" ? { mode: plan.mode } : {}),
     failed_stage: failedStage,
     scopes_changed: plan.scopesChanged,
   };
@@ -777,7 +777,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   return {
     title: "Gate plan",
     details: [
-      `mode: ${plan.mode}`,
+      ...(plan.mode === "report" ? [`mode: ${plan.mode}`] : []),
       `scopes changed: ${changed}`,
     ],
     steps,

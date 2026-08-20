@@ -25,10 +25,11 @@
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { CheckpointMode } from "../../shared/checkpoints.ts";
 import {
-  checkpointDropAccounts,
   type CheckpointDrop,
+  entryCheckpointDrop,
   type EntryCheckpointDropReason,
   type GateMode,
+  policyCheckpointDrop,
   type PolicyCheckpointDropReason,
 } from "../../shared/checkpoint_drops.ts";
 import {
@@ -86,9 +87,7 @@ export interface CheckpointPreflight {
   mode: GateMode;
   /** The policy identity (the merge-base commit), when it resolved. */
   policyCommit?: string;
-  /** Plain-language fail-open accounts to surface as advisories. */
-  advisories: string[];
-  /** Typed durable evidence behind every fail-open advisory. */
+  /** Typed durable evidence behind every fail-open account. */
   drops: CheckpointDrop[];
   /** Fired `stop` checkpoints with NO current conclusion — the refusal set. */
   outstanding: ServedCheckpoint[];
@@ -113,14 +112,13 @@ function preflightDrop(
   reason: EntryCheckpointDropReason,
   account: string,
 ): CheckpointDrop {
-  return {
-    scope: "checkpoint",
-    checkpoint: definition.id,
-    mode: definition.mode,
-    policy_commit: policyCommit,
+  return entryCheckpointDrop(
+    definition.id,
+    definition.mode,
+    policyCommit,
     reason,
     account,
-  };
+  );
 }
 
 function preflightPolicyDrop(
@@ -128,14 +126,7 @@ function preflightPolicyDrop(
   reason: PolicyCheckpointDropReason,
   account: string,
 ): CheckpointDrop {
-  return {
-    scope: "policy",
-    checkpoint: null,
-    mode: null,
-    ...(policyCommit === undefined ? {} : { policy_commit: policyCommit }),
-    reason,
-    account,
-  };
+  return policyCheckpointDrop(reason, account, policyCommit);
 }
 
 /** The declarations one `done` invocation carries. */
@@ -173,7 +164,6 @@ export async function runCheckpointReport(
     ...(inspection.policyCommit === undefined
       ? {}
       : { policyCommit: inspection.policyCommit }),
-    advisories: [],
     drops,
     outstanding: [],
     declaredMet: [],
@@ -182,7 +172,9 @@ export async function runCheckpointReport(
     unreviewed: [],
     recorded: [],
   };
-  for (const { definition, outcome: structural, obligation } of inspection.entries) {
+  for (
+    const { definition, outcome: structural, obligation } of inspection.entries
+  ) {
     let final = structural === undefined ||
         (structural.holds && structural.whenPending)
       ? undefined
@@ -224,7 +216,6 @@ export async function runCheckpointReport(
       ));
     }
   }
-  report.advisories = checkpointDropAccounts(drops);
   return report;
 }
 
@@ -270,7 +261,6 @@ export async function runCheckpointPreflight(
     ...(inspection.policyCommit === undefined
       ? {}
       : { policyCommit: inspection.policyCommit }),
-    advisories: [],
     drops,
     outstanding: [],
     declaredMet: [],
@@ -587,6 +577,5 @@ export async function runCheckpointPreflight(
       `checkpoint declaration evidence could not be read (${evidence.reason}); Proof currency failed open.`,
     ));
   }
-  preflight.advisories = checkpointDropAccounts(drops);
   return { kind: "ready", preflight };
 }

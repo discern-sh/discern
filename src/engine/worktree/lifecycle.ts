@@ -34,6 +34,11 @@ import {
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
+  type CheckpointDrop,
+  checkpointDropAccounts,
+  uniqueCheckpointDrops,
+} from "../../shared/checkpoint_drops.ts";
+import {
   generatedGroupForPath,
   type ResolvedGeneratedGroup,
   resolveGeneratedGroups,
@@ -145,10 +150,12 @@ import type {
   AcceptProofNoteData,
   AuthorizedVarianceData,
   GateData,
+  LandingConsentData,
   Proof,
   StartData,
   UpdateData,
 } from "../../shared/result_schemas.ts";
+import { AppliedAcceptDataSchema } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import {
   fire,
@@ -2044,7 +2051,7 @@ function cloneLandingState(
 }
 
 /** Copy consent scopes before exposing them through acceptance result data. */
-function cloneLandingConsent(consent: LandingConsent): AcceptData["consent"] {
+function cloneLandingConsent(consent: LandingConsent): LandingConsentData {
   return {
     source: consent.source,
     ...(consent.scopes === undefined ? {} : { scopes: [...consent.scopes] }),
@@ -2109,7 +2116,7 @@ function partialAcceptanceResult(
     error: "partial_acceptance",
     message,
     ...(progress.steps.length === 0 ? {} : { steps: [...progress.steps] }),
-    data: {
+    data: AppliedAcceptDataSchema.parse({
       root,
       consent: cloneLandingConsent(consent),
       ...(progress.scopesChanged.length === 0
@@ -2131,7 +2138,7 @@ function partialAcceptanceResult(
       ...(progress.proofNote === undefined
         ? {}
         : { proof_note: progress.proofNote }),
-    },
+    }),
     hints: mergeHintTexts(
       hintTexts([fire(HINTS["accept-reconcile-partial-effects"])]),
       progress.convergenceHints,
@@ -2332,6 +2339,7 @@ async function executeAcceptPlan(
   convergenceHints: string[];
   diagnostics: Diagnostic[];
   authorityWarnings: string[];
+  checkpointDrops: CheckpointDrop[];
 }> {
   // ensure a named branch (the one mutating step the read-only diagnosis deferred)
   const settings = await loadIdentitySettings(ctx.root);
@@ -3013,6 +3021,10 @@ async function executeAcceptPlan(
     convergenceHints,
     diagnostics,
     authorityWarnings,
+    checkpointDrops: uniqueCheckpointDrops([
+      ...(proofData?.checkpoint_drops ?? []),
+      ...checkpointsNow.drops,
+    ]),
   };
 }
 
@@ -3073,6 +3085,9 @@ export async function acceptResult(
       message:
         "This Proof records checkpoint review as reported and not enforced. Run ordinary `discern done` in this stateful worktree before acceptance. Nothing has been landed.",
       hints: hintTexts([fire(HINTS["accept-requires-strict-proof"])]),
+      ...(existingProof.checkpoint_drops === undefined
+        ? {}
+        : { data: { checkpoint_drops: existingProof.checkpoint_drops } }),
     };
   }
   const dryRun = opts.dryRun ?? false;
@@ -3098,6 +3113,11 @@ async function executeAcceptResult(
   confirmed: boolean,
   varianceIds: readonly string[] = [],
 ): Promise<DiscernResult<AcceptData>> {
+  const startingProof = await inspectGateProof(ctx.cwd);
+  let checkpointDrops = uniqueCheckpointDrops([
+    ...(startingProof.proof_data?.checkpoint_drops ?? []),
+    ...(startingProof.checkpoint_drops ?? []),
+  ]);
   await assertProjectRootIsRepoToplevel(ctx, "accept");
   // Resolve authority before the ordinary preconditions so an uncovered
   // flagless call still receives the consent refusal as its outermost contract.
@@ -3194,7 +3214,11 @@ async function executeAcceptResult(
         ctx.cwd,
         ctx.config,
       );
-      for (const advisory of checkpointState.advisories) {
+      checkpointDrops = uniqueCheckpointDrops([
+        ...checkpointDrops,
+        ...checkpointState.drops,
+      ]);
+      for (const advisory of checkpointDropAccounts(checkpointState.drops)) {
         ctx.log.warn(advisory);
       }
       authorizedVariances = enforceAcceptanceCheckpoints(checkpointState, {
@@ -3221,6 +3245,10 @@ async function executeAcceptResult(
         ctx.cwd,
         ctx.config,
       );
+      checkpointDrops = uniqueCheckpointDrops([
+        ...checkpointDrops,
+        ...checkpointState.drops,
+      ]);
       enginePlan.details.push(
         `Authority:     ${landingAuthorityDetail(authority, confirmed)}`,
         ...authority.warnings.map((warning) => `Authority warning: ${warning}`),
@@ -3234,11 +3262,18 @@ async function executeAcceptResult(
         ...checkpointState.unmet.map((unmet) =>
           `Checkpoints:   '${unmet.id}' declared unmet — owner variance required to land`
         ),
-        ...checkpointState.advisories.map((advisory) =>
+        ...checkpointDropAccounts(checkpointState.drops).map((advisory) =>
           `Checkpoint advisory: ${advisory}`
         ),
       );
-      return previewResult("accept", enginePlan);
+      const preview: DiscernResult<AcceptData> = previewResult(
+        "accept",
+        enginePlan,
+      );
+      if (checkpointDrops.length > 0) {
+        preview.data = { checkpoint_drops: checkpointDrops };
+      }
+      return preview;
     }
     // A variance forces current-conversation consent — the interlock above
     // verified the complete decision — so recorded grants are never consulted
@@ -3272,9 +3307,12 @@ async function executeAcceptResult(
     // The branch landed in the main checkout; report it so the MCP server can
     // re-aim its working root there now the worktree it operated on is gone
     // (ADR 0062). The plan resolved `mainRepo` before the removal.
-    result.data = {
+    result.data = AppliedAcceptDataSchema.parse({
       root: plan.mainRepo,
       consent: cloneLandingConsent(consent),
+      ...(executed.checkpointDrops.length === 0
+        ? {}
+        : { checkpoint_drops: executed.checkpointDrops }),
       ...(authorizedVariances.length === 0
         ? {}
         : { variances: authorizedVariances.map((v) => ({ ...v })) }),
@@ -3301,7 +3339,7 @@ async function executeAcceptResult(
       ...(hasIgnoredFileChanges(plan.ignoredFileChanges)
         ? { ignored_file_changes: plan.ignoredFileChanges }
         : {}),
-    };
+    });
     result.hints = executed.proofLine !== undefined
       ? mergeHintTexts(
         hintTexts([fire(HINTS["accept-relay-landing-proof"])]),
@@ -3336,6 +3374,9 @@ async function executeAcceptResult(
       );
     }
     if (error instanceof WorktreeResultError) {
+      if (checkpointDrops.length > 0 && error.result.data === undefined) {
+        error.result.data = { checkpoint_drops: checkpointDrops };
+      }
       throw error;
     }
     throw error;

@@ -394,7 +394,7 @@ export async function buildGateProof(
     files_total: delta.filesTotal,
     insertions: delta.insertions,
     deletions: delta.deletions,
-    mode,
+    ...(mode === "report" ? { mode } : {}),
     ...(drops.length === 0
       ? {}
       : { checkpoint_drops: drops.map((drop) => ({ ...drop })) }),

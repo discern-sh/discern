@@ -73,10 +73,9 @@ export async function evidenceIdentityOf(
 
 /**
  * Compute the worktree's current declaration-evidence identity from its
- * open question store. `missing` and `invalid` stores read as EMPTY — a store the
- * next write would rebuild from empty carries no standing claims — while an
- * `unavailable` store (the path cannot resolve, the file cannot be read)
- * returns `unavailable` for the caller to fail open on.
+ * open question store. A missing store is the stable empty identity. An invalid
+ * or unreadable store is unavailable: callers may continue fail-open, but must
+ * preserve that the evidence identity could not be checked.
  */
 export async function declarationEvidenceIdentity(
   cwd: string,
@@ -89,8 +88,12 @@ export async function declarationEvidenceIdentity(
         identity: await evidenceIdentityOf(read.openQuestions),
       };
     case "missing":
-    case "invalid":
       return { status: "ok", identity: await evidenceIdentityOf({}) };
+    case "invalid":
+      return {
+        status: "unavailable",
+        reason: "the checkpoint open-question record did not parse",
+      };
     case "unavailable":
       return { status: "unavailable", reason: read.reason };
   }

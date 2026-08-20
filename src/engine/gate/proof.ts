@@ -40,7 +40,12 @@
 
 import { dirname, join } from "@std/path";
 import { declarationEvidenceIdentity } from "../checkpoints/evidence.ts";
-import type { GateMode } from "../../shared/checkpoint_drops.ts";
+import {
+  type CheckpointDrop,
+  type GateMode,
+  policyCheckpointDrop,
+  uniqueCheckpointDrops,
+} from "../../shared/checkpoint_drops.ts";
 import {
   GIT_ADMIN_STATE,
   gitAdminStatePath,
@@ -388,7 +393,9 @@ export async function recordGateOutcome(
       const evidenceLine = evidence === undefined
         ? ""
         : `evidence: ${evidence}\n`;
-      const modeLine = `mode: ${proof?.mode ?? mode}\n`;
+      const modeLine = proof?.mode === "report" || mode === "report"
+        ? "mode: report\n"
+        : "";
       const body = proof?.markdown === undefined || proof.markdown === ""
         ? `${pin.head}\n${modeLine}${evidenceLine}`
         : `${pin.head}\n${modeLine}${line}${data}${evidenceLine}\n${proof.markdown.trim()}\n`;
@@ -509,7 +516,7 @@ export async function recordLastGateRun(
         JSON.stringify({
           ...identity,
           passed,
-          mode,
+          ...(mode === "report" ? { mode } : {}),
           ...(evidence === undefined ? {} : { evidence }),
         })
       }\n`,
@@ -634,7 +641,9 @@ export async function inspectGateProof(
       const mode = (eol < 0
         ? rest.slice("mode: ".length)
         : rest.slice("mode: ".length, eol)).trim();
-      if (mode === "report") recordedMode = "report";
+      if (mode === "report") {
+        recordedMode = "report";
+      }
     } else if (rest.startsWith("evidence: ")) {
       recordedEvidence = (eol < 0
         ? rest.slice("evidence: ".length)
@@ -648,6 +657,7 @@ export async function inspectGateProof(
     rest = eol < 0 ? "" : rest.slice(eol + 1);
   }
   const markdown = rest.trim();
+  const proofDrops = proofData?.checkpoint_drops ?? [];
   if (recorded === "") {
     return { status: "missing", path, reason: "proof file was empty" };
   }
@@ -677,6 +687,7 @@ export async function inspectGateProof(
       ...(markdown === "" ? {} : { proof: markdown }),
       ...(line === "" ? {} : { proof_line: line }),
       ...(proofData === undefined ? {} : { proof_data: proofData }),
+      ...(proofDrops.length === 0 ? {} : { checkpoint_drops: [...proofDrops] }),
     };
   }
   // The vouch also binds to the declaration evidence it was recorded with: a
@@ -698,6 +709,26 @@ export async function inspectGateProof(
           "the checkpoint declarations changed since this proof was recorded",
       };
     }
+    if (evidenceNow.status === "unavailable") {
+      const currentDrop: CheckpointDrop = policyCheckpointDrop(
+        "declaration_evidence_unavailable",
+        `the current checkpoint declaration evidence could not be read (${evidenceNow.reason}); the recorded Proof remains honored without comparing it.`,
+      );
+      const checkpointDrops = uniqueCheckpointDrops([
+        ...proofDrops,
+        currentDrop,
+      ]);
+      return {
+        status: "honored",
+        path,
+        recorded,
+        head,
+        ...(markdown === "" ? {} : { proof: markdown }),
+        ...(line === "" ? {} : { proof_line: line }),
+        ...(proofData === undefined ? {} : { proof_data: proofData }),
+        checkpoint_drops: checkpointDrops,
+      };
+    }
   }
   return {
     status: "honored",
@@ -707,6 +738,7 @@ export async function inspectGateProof(
     ...(markdown === "" ? {} : { proof: markdown }),
     ...(line === "" ? {} : { proof_line: line }),
     ...(proofData === undefined ? {} : { proof_data: proofData }),
+    ...(proofDrops.length === 0 ? {} : { checkpoint_drops: [...proofDrops] }),
   };
 }
 
