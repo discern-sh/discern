@@ -31,7 +31,7 @@ When a fired [`stop`](../00-orientation/glossary.md#stop--advise) checkpoint awa
 - `discern done --met <id>` (repeatable) records that the question is satisfied for the current subject.
 - `discern done --unmet <id> --why "<rationale>"` (one per invocation) records that it is not.
 
-A declaring invocation records every valid conclusion first, then continues into the gate in the same run. An `advise` checkpoint serves its question and evidence through the advisory channel and blocks nothing; its firings are still recorded for the observed economics. The questions arrive early: `discern prepare` and `discern status` preview each coming `stop` [declaration](../00-orientation/glossary.md#declaration) while the change is hot, and `discern done --dry-run` previews the same plan without refusing.
+A declaring invocation records every valid conclusion first, then continues into the gate in the same run. An `advise` checkpoint serves its question and evidence through the advisory channel and blocks nothing; its firings are still recorded for the observed economics. The questions arrive early: `discern prepare` and `discern status` project each required `stop` [declaration](../00-orientation/glossary.md#declaration) while the change is hot, and `discern done --dry-run` describes the same refusal-or-proceed decision without writing or refusing.
 
 ## Three kinds of evidence
 
@@ -45,7 +45,9 @@ The Proof renders declared conclusions separately from machine results, carries 
 
 ## Subjects and reopening
 
-A fired `stop` checkpoint opens an effort-scoped open question in the worktree's Git administrative area; it survives session restarts and disappears with the worktree. A declaration binds to its subject: the resolved definition plus the matched paths' base and current content. Reopening is relevance-sensitive. An unrelated edit or an unrelated trunk advance leaves a conclusion standing; a change to matched content, to the matched set, or to the definition reopens it, and `discern checkpoints` reports `reopened` until a fresh declaration replaces it. Either conclusion may replace the other, and changed declaration evidence stales a recorded Proof at an unchanged `HEAD` without tripping the unchanged-tree rerun refusal.
+A fired `stop` checkpoint opens an effort-scoped open question in the worktree's Git administrative area; it survives session restarts and disappears with the worktree. The trigger opens the question but does not own its lifetime: once served, a readable governed question remains an obligation even if the current structural trigger becomes idle. An ungoverned historical question stays visible without interlocking.
+
+A declaration binds to its subject: the resolved definition plus the matched paths' base and current content. Reopening is relevance-sensitive. An unrelated edit or an unrelated trunk advance leaves a conclusion standing; a change to matched content, to the matched set, or to the definition reopens it, and `discern checkpoints` reports `reopened` until a fresh declaration replaces it. Either conclusion may replace the other, and changed declaration evidence stales a recorded Proof at an unchanged `HEAD` without tripping the unchanged-tree rerun refusal. One read-only inspection combines this persisted lifetime and subject currency with the structural preview, so `checkpoints`, `prepare`, `status`, dry-run, and strict `done` agree on whether a conclusion is required.
 
 ## The trunk governs
 

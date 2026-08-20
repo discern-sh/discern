@@ -26,12 +26,28 @@ A fired `stop` checkpoint opens an effort-scoped **[open question](../00-orienta
 
 | State                  | Meaning                                                                       | Resolved by                                            |
 | ---------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `awaiting_declaration` | The trigger fired; no current conclusion is recorded.                         | `discern done --met <id>`, or `--unmet <id> --why "…"` |
+| `awaiting_declaration` | The open question has no current conclusion.                                  | `discern done --met <id>`, or `--unmet <id> --why "…"` |
 | `declared_met`         | The agent recorded that the question is satisfied for the current subject.    | Standing evidence; reopens on a relevant change        |
 | `declared_unmet`       | The agent recorded that it is not satisfied, with a one-paragraph rationale.  | An owner-authorized variance at `discern accept`       |
 | `reopened`             | A relevant change unbound the recorded conclusion; it must be declared again. | A fresh declaration at `discern done`                  |
 
 Reopening is relevance-sensitive: a declaration stales only when the checkpoint's definition or the matched content changes. Unrelated edits and trunk advances leave it standing.
+
+The structural trigger decides when to open a question, not when to erase one. A readable open question whose id still governs in `stop` mode remains active after a later trigger veto. Its projected subject and declaration state therefore outrank an idle structural preview; a recorded question outside the governing policy remains visible as history but does not interlock.
+
+## Strict obligation states
+
+Every governing row projects one `obligation`, the decision a bare `discern done` would make before Gate jobs:
+
+| Obligation              | Strict meaning                                                                    |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `none`                  | No checkpoint conclusion is required.                                             |
+| `will_open`             | The settled trigger will open its question and require a conclusion.               |
+| `awaiting_declaration`  | A persisted open question already awaits a conclusion.                            |
+| `reopened`              | Subject or definition currency requires a fresh conclusion.                       |
+| `declared_met`          | A current declared-met conclusion lets the Gate proceed.                           |
+| `declared_unmet`        | The Gate proceeds; landing remains bound to an owner-authorized variance.          |
+| `unknown`               | Store, subject, diff, or unexecuted `when` state prevents an honest read decision. |
 
 ## Declarations at the gate
 
@@ -43,4 +59,4 @@ A current declared-unmet conclusion makes `discern accept` refuse until the owne
 
 ## Read surfaces
 
-`discern checkpoints` (CLI, `--json`, `--markdown`, and the MCP tool `discern_checkpoints`) reports the governing policy with each checkpoint's question and trigger summary, every open question's state, a structural preview of what the current change would fire, recorded open questions outside the governing policy, observed per-checkpoint economics (plain counts with denominators), and fail-open advisories. `discern prepare` and `discern status` serve each coming `stop` question early through the advisory channel, and `discern done --dry-run` previews the same projection. Every read surface is effect-free: it runs no configured `when` command (an undecided condition reports as pending) and writes no open question. Command details live in the [CLI reference](cli-reference.md#discern-checkpoints); the result contract in [MCP tools & results](mcp-and-results.md).
+`discern checkpoints` (CLI, `--json`, `--markdown`, and the MCP tool `discern_checkpoints`) reports the governing policy with each checkpoint's canonical obligation, question, trigger summary, open-question evidence, and structural preview, plus recorded questions outside the governing policy, observed economics, and fail-open advisories. `discern prepare` and `discern status` route the same obligation through the advisory channel, and `discern done --dry-run` describes the same refusal-or-proceed decision. Every read surface is effect-free: it runs no configured `when` command (an undecided condition reports as `unknown` and “may require”) and writes no open question, declaration, Gate marker, or checkpoint lifecycle observation. Command details live in the [CLI reference](cli-reference.md#discern-checkpoints); the result contract in [MCP tools & results](mcp-and-results.md).

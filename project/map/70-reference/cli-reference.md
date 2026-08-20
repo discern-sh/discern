@@ -570,7 +570,7 @@ Usage: `discern standards [names...] [options]`
 
 ### `discern checkpoints`
 
-Report the governing checkpoint policy, each open question's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.
+Report the governing checkpoint policy, each row's strict obligation, every open question's declaration state, and the structural preview behind the decision. Nothing runs and no checkpoint state is recorded.
 
 Usage: `discern checkpoints [options]`
 
