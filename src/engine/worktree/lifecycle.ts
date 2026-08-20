@@ -153,8 +153,10 @@ import { emitResult } from "../../shared/emit.ts";
 import {
   fire,
   type FiredHint,
+  hasRegisteredActionableHint,
   HINTS,
   hintTexts,
+  interactiveHintTexts,
   mergeHintTexts,
 } from "../../shared/hints.ts";
 import {
@@ -219,7 +221,8 @@ import {
 // linked worktree does not inherit that gitignored directory from the main checkout).
 import {
   compileInstructions,
-  instructionRefreshSucceeded,
+  instructionRefreshErrors,
+  type InstructionsResult,
   materializeLocalRefreshArtifacts,
 } from "../instructions.ts";
 import { agentFilePaths, renderAgentFiles } from "../instruction_render.ts";
@@ -386,6 +389,11 @@ function emitOrRenderWorktreeResult<TData>(
     title: applyResultTitle(result.verb),
     steps: result.steps ?? [],
   });
+  if (!result.ok) {
+    const hints = interactiveHintTexts(result.hints);
+    if (hints.length > 0) ctx.log.group("next");
+    for (const hint of hints) ctx.log.info(hint);
+  }
   hooks.afterApply?.(result);
 }
 
@@ -593,17 +601,67 @@ function setupResults(
   });
 }
 
+/** One convergence bucket's ordered outcomes and serialized recovery evidence. */
+interface EnsureCommandRun {
+  readonly outcomes: StepOutcome[];
+  readonly diagnostics: Diagnostic[];
+  readonly hints: string[];
+}
+
+/** The identity element for merging convergence buckets into one result. */
+function emptyEnsureCommandRun(): EnsureCommandRun {
+  return { outcomes: [], diagnostics: [], hints: hintTexts([]) };
+}
+
+/** Fire the registered recovery instruction exactly when diagnostics exist. */
+function ensureRecoveryHints(diagnostics: readonly Diagnostic[]): string[] {
+  return diagnostics.length === 0
+    ? hintTexts([])
+    : hintTexts([fire(HINTS["lifecycle-convergence-failed"])]);
+}
+
+/** Preserve one failed ensure command as executable recovery evidence. */
+function ensureFailureDiagnostic(
+  scope: "repository" | "worktree",
+  command: string,
+  cwd: string,
+  failure: string,
+): Diagnostic {
+  return {
+    tool: `${scope}-ensure`,
+    severity: "error",
+    message:
+      `The ${scope} convergence command ${failure} in ${cwd}. Fix the command or its prerequisites, then run it again from that checkout.`,
+    reproduce_cmd: command,
+  };
+}
+
+/** Record every planned command as failed when the runner itself throws. */
+function failedEnsureCommandRun(
+  commands: readonly string[],
+  opts: {
+    cwd: string;
+    scope: "repository" | "worktree";
+    failure: string;
+  },
+): EnsureCommandRun {
+  const diagnostics = commands.map((command) =>
+    ensureFailureDiagnostic(opts.scope, command, opts.cwd, opts.failure)
+  );
+  return {
+    outcomes: commands.map(() => "failed"),
+    diagnostics,
+    hints: ensureRecoveryHints(diagnostics),
+  };
+}
+
 /**
  * Run one ordered bucket of convergent checkout commands. `[repository].ensure`
  * is safe in any checkout; `[worktree.setup].ensure` may depend on a linked
- * worktree's identity and never reaches the main checkout. Both share the same
- * shell runner with one-shot worktree `steps`. `fatal` selects the failure
- * contract: at a fresh creation a non-zero exit is fatal (a worktree that cannot
- * ready its environment is broken — abort loudly,
- * exactly like a `steps` failure); on a re-entry or update it is recorded and the
- * run continues (never undo a completed merge or break session start over a
- * convergence hiccup — the gate is the backstop). Returns one outcome per command,
- * preserving duplicate commands as distinct executions. A no-op when none are declared.
+ * worktree's identity and never reaches the main checkout. `fatal` selects the
+ * failure contract: fresh setup stops on a non-zero exit; later lifecycle passes
+ * retain each failure as a diagnostic and continue without undoing prior effects.
+ * Duplicate commands remain distinct results, and an empty bucket is a no-op.
  */
 async function runEnsureCommands(
   ctx: LifecycleContext,
@@ -613,8 +671,9 @@ async function runEnsureCommands(
     cwd: string;
     scope: "repository" | "worktree";
   },
-): Promise<StepOutcome[]> {
+): Promise<EnsureCommandRun> {
   const outcomes: StepOutcome[] = [];
+  const diagnostics: Diagnostic[] = [];
   for (const step of commands) {
     const label = opts.scope === "repository"
       ? "Repository ensure step"
@@ -630,18 +689,30 @@ async function runEnsureCommands(
       }
       ctx.log.warn(`${label} failed (continuing): ${step}`);
       outcomes.push("failed");
+      diagnostics.push(
+        ensureFailureDiagnostic(
+          opts.scope,
+          step,
+          opts.cwd,
+          `exited ${code}`,
+        ),
+      );
     } else {
       outcomes.push("ok");
     }
   }
-  return outcomes;
+  return {
+    outcomes,
+    diagnostics,
+    hints: ensureRecoveryHints(diagnostics),
+  };
 }
 
 /** Shared checkout convergence, safe in a linked worktree or the main checkout. */
 async function runRepositoryEnsureSteps(
   ctx: LifecycleContext,
   opts: { fatal: boolean; cwd?: string },
-): Promise<StepOutcome[]> {
+): ReturnType<typeof runEnsureCommands> {
   return await runEnsureCommands(ctx, ctx.config.repository.ensure, {
     fatal: opts.fatal,
     cwd: opts.cwd ?? ctx.cwd,
@@ -653,7 +724,7 @@ async function runRepositoryEnsureSteps(
 async function runWorktreeEnsureSteps(
   ctx: LifecycleContext,
   opts: { fatal: boolean },
-): Promise<StepOutcome[]> {
+): ReturnType<typeof runEnsureCommands> {
   return await runEnsureCommands(ctx, ctx.config.worktree.setup.ensure, {
     fatal: opts.fatal,
     cwd: ctx.cwd,
@@ -698,6 +769,50 @@ async function discernSourceEntrypoint(
   }
 }
 
+interface LifecycleRefreshRun {
+  readonly ok: boolean;
+  readonly diagnostics: Diagnostic[];
+  readonly hints: string[];
+}
+
+/** Turn isolated refresh errors into diagnostics plus the registered retry hint. */
+function failedRefreshRun(
+  errors: readonly string[],
+  cwd: string,
+  existingHints: readonly string[] = hintTexts([]),
+): LifecycleRefreshRun {
+  const diagnostics = errors.map((error) => ({
+    tool: "refresh",
+    severity: "error" as const,
+    message:
+      `Refresh convergence failed in ${cwd}: ${error}. Fix the reported refresh error, then run discern refresh again from that checkout.`,
+    reproduce_cmd: "discern refresh",
+  }));
+  return {
+    ok: false,
+    diagnostics,
+    hints: mergeHintTexts(
+      existingHints,
+      hintTexts(
+        errors.map((message) =>
+          fire(HINTS["refresh-artifact-failed"], { message })
+        ),
+      ),
+    ),
+  };
+}
+
+/** Project the refresh compiler's partial-success report onto lifecycle evidence. */
+function instructionRefreshRun(
+  result: InstructionsResult,
+  cwd: string,
+): LifecycleRefreshRun {
+  const errors = instructionRefreshErrors(result);
+  return errors.length === 0
+    ? { ok: true, diagnostics: [], hints: result.hints }
+    : failedRefreshRun(errors, cwd, result.hints);
+}
+
 /**
  * Refresh a freshly checked-out worktree with the engine that checkout owns.
  *
@@ -710,11 +825,11 @@ async function discernSourceEntrypoint(
  */
 async function refreshWorktreeArtifacts(
   ctx: LifecycleContext,
-): Promise<boolean> {
+): Promise<LifecycleRefreshRun> {
   const sourceEntrypoint = await discernSourceEntrypoint(ctx.root);
   if (sourceEntrypoint === undefined) {
     const refreshed = await compileInstructions(ctx.root, ctx.log);
-    return instructionRefreshSucceeded(refreshed);
+    return instructionRefreshRun(refreshed, ctx.root);
   }
 
   const setupDeno = DISCERN_ENVIRONMENT_VARIABLES.setupDeno;
@@ -737,7 +852,12 @@ async function refreshWorktreeArtifacts(
       },
     },
   );
-  return code === 0;
+  return code === 0
+    ? { ok: true, diagnostics: [], hints: hintTexts([]) }
+    : failedRefreshRun(
+      [`the checkout-owned refresh command exited ${code}`],
+      ctx.root,
+    );
 }
 
 /**
@@ -838,16 +958,16 @@ export async function worktreeSetup(
   // worktree ensure handles identity-dependent state. Both run on EVERY pass —
   // after `steps` at a fresh creation, alone on re-entry. A fresh failure is FATAL;
   // a re-entry failure is recorded and non-fatal.
-  let repositoryEnsureOutcomes: StepOutcome[] = [];
-  let worktreeEnsureOutcomes: StepOutcome[] = [];
+  let repositoryEnsure = emptyEnsureCommandRun();
+  let worktreeEnsure = emptyEnsureCommandRun();
   if (configured) {
     if (ctx.config.worktree.setup.steps.length > 0) {
       ctx.log.info("Worktree already configured — skipping setup steps.");
     }
-    repositoryEnsureOutcomes = await runRepositoryEnsureSteps(ctx, {
+    repositoryEnsure = await runRepositoryEnsureSteps(ctx, {
       fatal: false,
     });
-    worktreeEnsureOutcomes = await runWorktreeEnsureSteps(ctx, {
+    worktreeEnsure = await runWorktreeEnsureSteps(ctx, {
       fatal: false,
     });
   } else {
@@ -879,10 +999,10 @@ export async function worktreeSetup(
       }
       await recordPort(ctx, identity);
     }
-    repositoryEnsureOutcomes = await runRepositoryEnsureSteps(ctx, {
+    repositoryEnsure = await runRepositoryEnsureSteps(ctx, {
       fatal: true,
     });
-    worktreeEnsureOutcomes = await runWorktreeEnsureSteps(ctx, { fatal: true });
+    worktreeEnsure = await runWorktreeEnsureSteps(ctx, { fatal: true });
   }
 
   // 7. run the complete refresh reconciliation. This also materializes skills
@@ -890,11 +1010,12 @@ export async function worktreeSetup(
   // gitignored directory from the main checkout. Non-fatal — but its real outcome
   // is recorded, not reported as a blanket success.
   ctx.log.info("Refreshing artifacts…");
-  let refreshOk = true;
+  let refresh: LifecycleRefreshRun;
   try {
-    refreshOk = await refreshWorktreeArtifacts(ctx);
-  } catch {
-    refreshOk = false;
+    refresh = await refreshWorktreeArtifacts(ctx);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    refresh = failedRefreshRun([reason], ctx.root);
     ctx.log.warn("Artifact refresh reported an error — continuing.");
   }
 
@@ -921,10 +1042,20 @@ export async function worktreeSetup(
     setupResults(
       plan,
       createdFailed,
-      refreshOk,
-      repositoryEnsureOutcomes,
-      worktreeEnsureOutcomes,
+      refresh.ok,
+      repositoryEnsure.outcomes,
+      worktreeEnsure.outcomes,
     ),
+    [
+      ...refresh.diagnostics,
+      ...repositoryEnsure.diagnostics,
+      ...worktreeEnsure.diagnostics,
+    ],
+  );
+  result.hints = mergeHintTexts(
+    refresh.hints,
+    repositoryEnsure.hints,
+    worktreeEnsure.hints,
   );
   if ((opts.json ?? false) || (opts.humanApplySummary ?? true)) {
     emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
@@ -2636,26 +2767,29 @@ async function executeAcceptPlan(
   // worktree/resources by preventing the cleanup tail from running.
   const diagnostics = progress.diagnostics;
   ctx.log.info("Materializing local agent skills in the landing checkout…");
-  let refreshOk = true;
+  let refresh: LifecycleRefreshRun;
   try {
     const refreshed = await materializeLocalRefreshForLanding(
       mainRepo,
       ctx.log,
       localTemplatesDir,
     );
-    refreshOk = instructionRefreshSucceeded(refreshed);
-    convergenceHints = mergeHintTexts(convergenceHints, refreshed.hints);
-  } catch {
-    refreshOk = false;
+    refresh = instructionRefreshRun(refreshed, mainRepo);
+    convergenceHints = mergeHintTexts(convergenceHints, refresh.hints);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    refresh = failedRefreshRun([reason], mainRepo);
+    convergenceHints = mergeHintTexts(convergenceHints, refresh.hints);
     ctx.log.warn(
       "Local Agent artifact materialization reported an error — continuing.",
     );
   }
+  diagnostics.push(...refresh.diagnostics);
   doneRefresh(
-    refreshOk ? "ok" : "failed",
+    refresh.ok ? "ok" : "failed",
     "materialized only the trunk checkout's local/ignored agent artifacts",
   );
-  if (!refreshOk) {
+  if (!refresh.ok) {
     convergenceHints = mergeHintTexts(
       convergenceHints,
       hintTexts([fire(HINTS["accept-refresh-failed"], { trunk, mainRepo })]),
@@ -2673,15 +2807,20 @@ async function executeAcceptPlan(
     );
   }
 
-  let repositoryOutcomes: StepOutcome[];
+  let repositoryEnsure: EnsureCommandRun;
   try {
-    repositoryOutcomes = await runEnsureCommands(
+    repositoryEnsure = await runEnsureCommands(
       ctx,
       plan.repositoryEnsureSteps,
       { fatal: false, cwd: mainRepo, scope: "repository" },
     );
-  } catch {
-    repositoryOutcomes = plan.repositoryEnsureSteps.map(() => "failed");
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    repositoryEnsure = failedEnsureCommandRun(plan.repositoryEnsureSteps, {
+      cwd: mainRepo,
+      scope: "repository",
+      failure: `could not run: ${reason}`,
+    });
     ctx.log.warn(
       "Repository convergence reported an unexpected error — cleanup is continuing.",
     );
@@ -2694,9 +2833,14 @@ async function executeAcceptPlan(
         disposition: "run",
         note: "converge the trunk checkout on the landed tree",
       },
-      outcome: repositoryOutcomes[index] ?? "failed",
+      outcome: repositoryEnsure.outcomes[index] ?? "failed",
     });
   }
+  diagnostics.push(...repositoryEnsure.diagnostics);
+  convergenceHints = mergeHintTexts(
+    convergenceHints,
+    repositoryEnsure.hints,
+  );
 
   try {
     const smoke = await runLandingSmoke(
@@ -2708,7 +2852,8 @@ async function executeAcceptPlan(
     results.push(...smoke.steps);
     diagnostics.push(...smoke.diagnostics);
     convergenceHints.push(...smoke.hints);
-  } catch {
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
     for (const smoke of plan.smokeSteps) {
       results.push({
         step: {
@@ -2719,6 +2864,13 @@ async function executeAcceptPlan(
           group: "Smoke",
         },
         outcome: "failed",
+      });
+      diagnostics.push({
+        tool: smoke.label,
+        severity: "error",
+        message:
+          `Landing-checkout smoke could not run in ${mainRepo}: ${reason}. Fix the command or its prerequisites, then run it again from that checkout.`,
+        reproduce_cmd: smoke.command,
       });
     }
     ctx.log.warn(
@@ -2765,6 +2917,15 @@ async function executeAcceptPlan(
     );
     ctx.log.warn(
       "Post-landing convergence changed tracked files in the trunk checkout — review git status after cleanup.",
+    );
+  }
+  if (
+    diagnostics.length > 0 &&
+    !hasRegisteredActionableHint(convergenceHints)
+  ) {
+    convergenceHints = mergeHintTexts(
+      convergenceHints,
+      hintTexts([fire(HINTS["lifecycle-convergence-failed"])]),
     );
   }
   progress.convergenceHints.push(...convergenceHints);
@@ -3857,18 +4018,17 @@ async function runUpdateConvergence(
 }> {
   const generated = await runUpdateGeneratedGroups(ctx, plan.generatedGroups);
   ctx.log.info("Refreshing artifacts…");
-  let refreshOk = true;
-  let refreshHints: string[] = hintTexts([]);
+  let refresh: LifecycleRefreshRun;
   const refreshedSharedPaths = new Set<string>();
   try {
     const refreshed = await compileInstructions(ctx.root, ctx.log);
-    refreshOk = instructionRefreshSucceeded(refreshed);
-    refreshHints = refreshed.hints;
+    refresh = instructionRefreshRun(refreshed, ctx.root);
     for (const path of refreshed.trackedArtifactsChanged) {
       refreshedSharedPaths.add(path);
     }
-  } catch {
-    refreshOk = false;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    refresh = failedRefreshRun([reason], ctx.root);
     ctx.log.warn("Artifact refresh reported an error — continuing.");
   }
   const steps: StepResult[] = [...generated.steps, {
@@ -3878,10 +4038,10 @@ async function runUpdateConvergence(
       disposition: "run",
       note: FULL_REFRESH_STEP_NOTE,
     },
-    outcome: refreshOk ? "ok" : "failed",
+    outcome: refresh.ok ? "ok" : "failed",
   }];
   const successful = new Set(generated.successful);
-  if (refreshOk) {
+  if (refresh.ok) {
     successful.add(UPDATE_BUILTIN_GENERATED_GROUP);
   }
   const committed = await commitUpdateRegeneratedArtifacts(
@@ -3892,7 +4052,7 @@ async function runUpdateConvergence(
     opts.commitRegenerated,
   );
   steps.push(committed.step);
-  const repositoryEnsureOutcomes = await runRepositoryEnsureSteps(ctx, {
+  const repositoryEnsure = await runRepositoryEnsureSteps(ctx, {
     fatal: false,
   });
   for (const [index, step] of plan.repositoryEnsureSteps.entries()) {
@@ -3903,10 +4063,10 @@ async function runUpdateConvergence(
         disposition: "run",
         note: "converge the checkout on the current tree",
       },
-      outcome: repositoryEnsureOutcomes[index] ?? "failed",
+      outcome: repositoryEnsure.outcomes[index] ?? "failed",
     });
   }
-  const worktreeEnsureOutcomes = await runWorktreeEnsureSteps(ctx, {
+  const worktreeEnsure = await runWorktreeEnsureSteps(ctx, {
     fatal: false,
   });
   for (const [index, step] of plan.worktreeEnsureSteps.entries()) {
@@ -3917,16 +4077,35 @@ async function runUpdateConvergence(
         disposition: "run",
         note: "converge the worktree on the current tree",
       },
-      outcome: worktreeEnsureOutcomes[index] ?? "failed",
+      outcome: worktreeEnsure.outcomes[index] ?? "failed",
     });
+  }
+  const diagnostics = [
+    ...generated.diagnostics,
+    ...(committed.diagnostic === undefined ? [] : [committed.diagnostic]),
+    ...refresh.diagnostics,
+    ...repositoryEnsure.diagnostics,
+    ...worktreeEnsure.diagnostics,
+  ];
+  let convergenceHints = mergeHintTexts(
+    generated.hints,
+    refresh.hints,
+    repositoryEnsure.hints,
+    worktreeEnsure.hints,
+  );
+  if (
+    diagnostics.length > 0 &&
+    !hasRegisteredActionableHint(convergenceHints)
+  ) {
+    convergenceHints = mergeHintTexts(
+      convergenceHints,
+      hintTexts([fire(HINTS["lifecycle-convergence-failed"])]),
+    );
   }
   return {
     steps,
-    refreshHints: mergeHintTexts(generated.hints, refreshHints),
-    diagnostics: [
-      ...generated.diagnostics,
-      ...(committed.diagnostic === undefined ? [] : [committed.diagnostic]),
-    ],
+    refreshHints: convergenceHints,
+    diagnostics,
     regenerated: [
       ...generated.executed,
       UPDATE_BUILTIN_GENERATED_GROUP,

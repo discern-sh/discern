@@ -975,6 +975,17 @@ Rendered example:
 
 > Practice-history findings aren't available because `[project].logbook` is off.
 
+## `lifecycle-convergence-failed`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `lifecycle-convergence`
+- Emitting context: A non-fatal lifecycle convergence step fails after its preceding effect is kept.
+
+Rendered example:
+
+> Fix each failed convergence step named in the diagnostics, then run its reproduce command again in the checkout where that step ran.
+
 ## `logbook-proof-finding`
 
 - Category: `next-step`
