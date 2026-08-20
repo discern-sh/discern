@@ -69,6 +69,7 @@ async function classifiedDiff(
   return result;
 }
 
+/** Build one classified changed-file fixture with optional metric overrides. */
 function change(
   path: string,
   generated: boolean,
@@ -85,6 +86,7 @@ function change(
   };
 }
 
+/** Build one resolved authored-change checkpoint fixture. */
 function checkpoint(
   over: Partial<AuthoredCheckpoint> = {},
 ): AuthoredCheckpoint {

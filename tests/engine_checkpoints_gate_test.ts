@@ -669,6 +669,7 @@ Deno.test("done: advise mode serves the question through the advisory channel an
       id: "api-review",
       question: QUESTION_API,
       matched: ["api/surface.txt"],
+      related: [],
     });
     assertEquals(env.data.checkpoints.advise?.length, 1);
     assertEquals(env.data.checkpoints.outstanding, undefined);

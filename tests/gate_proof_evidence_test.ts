@@ -36,6 +36,7 @@ async function declaredRepo(dir: string): Promise<void> {
     definitionHash: "def1",
     subject: "sub1",
     matchedPaths: ["seed.txt"],
+    relatedPaths: [],
   }, T0);
   assert(opened.ok);
   const met = await recordDeclaration(

@@ -80,16 +80,19 @@ interface RelatedEvidence {
 
 const CHECK_OK = "#!/usr/bin/env sh\nexit 0\n";
 
+/** Parse and validate one checkpoint-report envelope from CLI JSON. */
 function parseCheckpoints(stdout: string): CheckpointsEnvelope {
   const envelope: unknown = JSON.parse(stdout.trim());
   CheckpointsOutputSchema.parse(envelope);
   return envelope as CheckpointsEnvelope;
 }
 
+/** Parse one Gate completion envelope from CLI JSON. */
 function parseDone(stdout: string): DoneEnvelope {
   return JSON.parse(stdout.trim()) as DoneEnvelope;
 }
 
+/** Find one required checkpoint report row by id. */
 function row(
   envelope: CheckpointsEnvelope,
   id: string,
@@ -99,6 +102,7 @@ function row(
   return found;
 }
 
+/** Read the current worktree's persisted Gate Proof marker. */
 async function proofMarker(wt: string): Promise<string> {
   const path = await gitAdminStatePath(wt, "gateProof");
   assert(path !== undefined);

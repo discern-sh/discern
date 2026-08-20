@@ -503,6 +503,7 @@ const RELATED_WORDING: Readonly<
     }: ${relation.path} resembles ${relation.for_path}.`,
 };
 
+/** Render typed related evidence beside, but distinct from, changed paths. */
 function relatedLines(
   related: readonly RelatedCheckpointEvidenceData[] | undefined,
 ): string[] {
