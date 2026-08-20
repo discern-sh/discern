@@ -425,8 +425,8 @@ Deno.test("each inert checkpoint example governs once uncommented, untouched", a
   assertEquals(inertExampleIds(template), Object.keys(expectedModes).sort());
   for (const [id, mode] of Object.entries(expectedModes)) {
     const config = parseConfigOrThrow(uncommentedExample(template, id));
-    const { checkpoints, advisories } = resolveCheckpoints(config, {});
-    assertEquals(advisories, [], id);
+    const { checkpoints, drops } = resolveCheckpoints(config, {});
+    assertEquals(drops, [], id);
     assertEquals(checkpoints.length, 1, id);
     assertEquals(checkpoints[0]?.id, id);
     assertEquals(checkpoints[0]?.mode, mode);

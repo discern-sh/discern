@@ -480,6 +480,7 @@ Deno.test("status dashboard: every typed row status is classified and rendered",
 
 const PROOF_LABELS = {
   honored: "honored",
+  report_only: "report only",
   missing: "missing",
   stale: "stale",
   dirty: "dirty worktree",

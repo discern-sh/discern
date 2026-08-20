@@ -367,7 +367,11 @@ Deno.test("resolveTriggerOutcome: `when` decides a pending trigger", () => {
   );
   // Error: FAIL OPEN with the advisory attached.
   assertEquals(
-    resolveTriggerOutcome(pending, { kind: "error", advisory: "timed out" }),
+    resolveTriggerOutcome(pending, {
+      kind: "error",
+      reason: "when_timeout",
+      advisory: "timed out",
+    }),
     { fired: false, advisory: "timed out" },
   );
 });
