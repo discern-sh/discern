@@ -22,6 +22,23 @@ import {
 import { applyConfigDoc } from "../src/lib/config_doc.ts";
 import type { DiscernConfigDoc } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { CHECKPOINT_PATTERN_LIMITS } from "../src/shared/checkpoints.ts";
+
+const CONTENT_PATTERN_FIELDS = [
+  "adds_matching",
+  "removes_matching",
+] as const;
+
+/** Parse one complete entry through the live checkpoint record schema. */
+function parsePatternEntry(
+  field: (typeof CONTENT_PATTERN_FIELDS)[number],
+  patterns: readonly string[],
+): ReturnType<typeof RECORD_ENTRY_SCHEMAS.checkpoints.safeParse> {
+  return RECORD_ENTRY_SCHEMAS.checkpoints.safeParse({
+    question: "Judged.",
+    [field]: patterns,
+  });
+}
 
 const SCOPED = `
 [scopes.docs]
@@ -133,6 +150,71 @@ Deno.test("min_changed_files rejects zero and non-integers", () => {
       issues.some((i) => i.path === "checkpoints.x.min_changed_files"),
       bad,
     );
+  }
+});
+
+Deno.test("content-pattern fields reject every invalid list and literal shape", () => {
+  const invalid = [
+    { label: "empty list", patterns: [] },
+    { label: "empty literal", patterns: [""] },
+    { label: "duplicate literal", patterns: ["same", "same"] },
+    { label: "NUL", patterns: ["left\0right"] },
+    { label: "CR", patterns: ["left\rright"] },
+    { label: "LF", patterns: ["left\nright"] },
+  ] as const;
+  for (const field of CONTENT_PATTERN_FIELDS) {
+    for (const { label, patterns } of invalid) {
+      const parsed = parsePatternEntry(field, patterns);
+      assertEquals(parsed.success, false, `${field}: ${label}`);
+      if (parsed.success) continue;
+      assert(
+        parsed.error.issues.some((issue) => issue.path[0] === field),
+        `${field}: ${label}: ${JSON.stringify(parsed.error.issues)}`,
+      );
+    }
+  }
+});
+
+Deno.test("content-pattern count and UTF-8 byte limits accept the exact boundary only", () => {
+  const countLimit = CHECKPOINT_PATTERN_LIMITS.maxPatternsPerField;
+  assertEquals(countLimit, 16);
+  const exactCount = Array.from(
+    { length: countLimit },
+    (_, index) => `literal-${index}`,
+  );
+  const overCount = [...exactCount, `literal-${countLimit}`];
+  const byteLimit = CHECKPOINT_PATTERN_LIMITS.maxPatternBytes;
+  assertEquals(byteLimit, 128);
+  const exactBytes = "é".repeat(byteLimit / 2);
+  const overBytes = `${exactBytes}a`;
+  const encoder = new TextEncoder();
+  assertEquals(encoder.encode(exactBytes).length, byteLimit);
+  assertEquals(encoder.encode(overBytes).length, byteLimit + 1);
+
+  for (const field of CONTENT_PATTERN_FIELDS) {
+    for (
+      const [label, patterns] of [
+        ["exact count", exactCount],
+        ["exact UTF-8 bytes", [exactBytes]],
+      ] as const
+    ) {
+      const parsed = parsePatternEntry(field, patterns);
+      assert(parsed.success, `${field}: ${label}`);
+    }
+    for (
+      const [label, patterns] of [
+        ["count over", overCount],
+        ["UTF-8 bytes over", [overBytes]],
+      ] as const
+    ) {
+      const parsed = parsePatternEntry(field, patterns);
+      assertEquals(parsed.success, false, `${field}: ${label}`);
+      if (parsed.success) continue;
+      assert(
+        parsed.error.issues.some((issue) => issue.path[0] === field),
+        `${field}: ${label}: ${JSON.stringify(parsed.error.issues)}`,
+      );
+    }
   }
 });
 

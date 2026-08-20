@@ -22,6 +22,8 @@ import type {
 } from "../src/engine/checkpoints/types.ts";
 
 const ENCODER = new TextEncoder();
+
+/** One changed file with complete quiet facts unless a case overrides them. */
 function file(
   path: string,
   over: Partial<EffortFileChange> = {},
@@ -38,6 +40,7 @@ function file(
   };
 }
 
+/** One resolved checkpoint with inert defaults around the fields under test. */
 function definition(
   over: Partial<ResolvedCheckpoint> = {},
 ): ResolvedCheckpoint {
@@ -58,6 +61,7 @@ function definition(
   };
 }
 
+/** One effort carrying the supplied changed files and stable base/history facts. */
 function effort(files: EffortFileChange[]): EffortDiff {
   return {
     files,
@@ -79,6 +83,7 @@ type TriggerField = {
     (typeof CHECKPOINT_FIELD_ROLES)[Field] extends "trigger" ? Field : never;
 }[keyof typeof CHECKPOINT_FIELD_ROLES];
 
+/** Compact one field's pure outcome for the closed-menu enrollment table. */
 function verdict(
   field: Partial<ResolvedCheckpoint>,
   files: EffortFileChange[],
@@ -235,10 +240,68 @@ for (const [field, test] of Object.entries(SUMMARY_CASES)) {
   });
 }
 
-Deno.test("content predicates are literal, conjunctive, and narrow before thresholds", () => {
-  const matched = file("src/test.ts", {
+Deno.test("content pattern arrays are literal ORs and distinct fields are ANDed", () => {
+  const regexLooking = "^Needle.*[0-9]+?$";
+  const matched = file("src/matched.ts", {
     insertions: 1,
     deletions: 1,
+    content: {
+      status: "available",
+      added: [ENCODER.encode(`prefix ${regexLooking} suffix`)],
+      removed: [ENCODER.encode("removed a+b? literally")],
+    },
+  });
+  const both = definition({
+    addsMatching: ["missing added", regexLooking],
+    removesMatching: ["missing removed", "a+b?"],
+  });
+  const positive = evaluateStructuralTrigger(both, effort([matched]));
+  assert(positive.holds);
+  assertEquals(positive.matched, ["src/matched.ts"]);
+
+  const removedOnly = file("src/removed-only.ts", {
+    content: {
+      status: "available",
+      added: [],
+      removed: [ENCODER.encode("removed a+b? literally")],
+    },
+  });
+  const split = evaluateStructuralTrigger(
+    both,
+    effort([
+      file("src/added-only.ts", {
+        content: {
+          status: "available",
+          added: [ENCODER.encode(`prefix ${regexLooking} suffix`)],
+          removed: [],
+        },
+      }),
+      removedOnly,
+    ]),
+  );
+  assertEquals(split, { holds: false, vetoedBy: "removes_matching" });
+
+  assertEquals(
+    evaluateStructuralTrigger(
+      definition({ addsMatching: [regexLooking] }),
+      effort([file("src/lower.ts", {
+        content: {
+          status: "available",
+          added: [
+            ENCODER.encode(`prefix ${regexLooking.toLowerCase()} suffix`),
+          ],
+          removed: [],
+        },
+      })]),
+    ),
+    { holds: false, vetoedBy: "adds_matching" },
+  );
+});
+
+Deno.test("content narrowing precedes changed-file and changed-line thresholds", () => {
+  const matched = file("src/test.ts", {
+    insertions: 7,
+    deletions: 3,
     content: {
       status: "available",
       added: [ENCODER.encode('test.skip("slow")')],
@@ -262,6 +325,17 @@ Deno.test("content predicates are literal, conjunctive, and narrow before thresh
     effort([matched, other]),
   );
   assertEquals(out, { holds: false, vetoedBy: "min_changed_files" });
+  assertEquals(
+    evaluateStructuralTrigger(
+      definition({
+        addsMatching: ["test.skip("],
+        removesMatching: ["legacy"],
+        minChangedLines: 11,
+      }),
+      effort([matched, other]),
+    ),
+    { holds: false, vetoedBy: "min_changed_lines" },
+  );
 });
 
 Deno.test("new_directory uses admitted base paths and root additions never qualify", () => {
