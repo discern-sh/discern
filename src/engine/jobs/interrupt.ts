@@ -85,6 +85,7 @@ export interface TrackedRun {
   release(): void;
 }
 
+/** Begin one locally controlled run, chaining optional external cancellation. */
 export function beginTrackedRun(external?: AbortSignal): TrackedRun {
   const controller = new AbortController();
   const onAbort = (): void => controller.abort();

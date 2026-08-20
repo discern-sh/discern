@@ -12,7 +12,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { tmpdir } from "node:os";
+import { tmpdir } from "os";
 import { withTempDir } from "./helpers.ts";
 import { writeExecutable } from "./engine_helpers.ts";
 import {
@@ -41,6 +41,7 @@ const INPUT: CheckpointWhenInput = {
   history: { count: 2, fingerprint: "ordered-history" },
 };
 
+/** Wait until a child has written its synchronization marker. */
 async function waitForPath(path: string): Promise<void> {
   for (let attempt = 0; attempt < 200; attempt++) {
     try {
@@ -54,6 +55,7 @@ async function waitForPath(path: string): Promise<void> {
   throw new Error(`timed out waiting for child marker ${path}`);
 }
 
+/** List registered checkpoint-input artifacts in the test temp directory. */
 async function checkpointInputArtifacts(): Promise<string[]> {
   const names: string[] = [];
   for await (const entry of Deno.readDir(tmpdir())) {

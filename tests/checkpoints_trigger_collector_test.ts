@@ -7,7 +7,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { constants as FS_CONSTANTS } from "node:fs";
+import { constants as FS_CONSTANTS } from "fs";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import {
@@ -32,6 +32,7 @@ import type {
   StructuralTriggerOutcome,
 } from "../src/engine/checkpoints/types.ts";
 
+/** One resolved checkpoint with quiet defaults for collector cases. */
 function definition(
   over: Partial<ResolvedCheckpoint> = {},
 ): ResolvedCheckpoint {

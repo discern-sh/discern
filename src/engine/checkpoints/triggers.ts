@@ -217,10 +217,12 @@ interface CompiledPattern {
   prefix: Uint16Array;
 }
 
+/** Compile one literal byte pattern and its KMP prefix table once. */
 function compilePattern(value: string): CompiledPattern {
   const bytes = ENCODER.encode(value);
   const prefix = new Uint16Array(bytes.length);
-  for (let index = 1, matched = 0; index < bytes.length; index++) {
+  let matched = 0;
+  for (let index = 1; index < bytes.length; index++) {
     while (matched > 0 && bytes[index] !== bytes[matched]) {
       matched = prefix[matched - 1] ?? 0;
     }
@@ -243,6 +245,7 @@ function bytesContain(haystack: Uint8Array, pattern: CompiledPattern): boolean {
   return false;
 }
 
+/** Whether one file has any literal match on the requested changed-line side. */
 function contentMatches(
   file: EffortFileChange,
   side: "added" | "removed",
@@ -255,6 +258,7 @@ function contentMatches(
   );
 }
 
+/** Worst-case linear byte comparisons for one definition's content scan. */
 function contentComparisonWork(
   files: readonly EffortFileChange[],
   patternCount: number,

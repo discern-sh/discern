@@ -17,8 +17,8 @@
  */
 
 import { join } from "@std/path";
-import { constants as FS_CONSTANTS } from "node:fs";
-import { type FileHandle, open } from "node:fs/promises";
+import { constants as FS_CONSTANTS } from "fs";
+import { type FileHandle, open } from "fs/promises";
 import { runGit } from "../../shared/subprocess.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { CHECKPOINT_PATTERN_LIMITS } from "../../shared/checkpoints.ts";
@@ -54,6 +54,7 @@ const PLUS = 0x2b;
 const MINUS = 0x2d;
 const AT = 0x40;
 
+/** Split exact bytes on LF, removing an immediately preceding CR. */
 function byteLines(bytes: Uint8Array): Uint8Array[] {
   const lines: Uint8Array[] = [];
   let start = 0;
@@ -73,6 +74,7 @@ function byteLines(bytes: Uint8Array): Uint8Array[] {
   return lines;
 }
 
+/** Extract bounded added/removed payload lines from one zero-context patch. */
 function patchContent(bytes: Uint8Array):
   | { status: "available"; added: Uint8Array[]; removed: Uint8Array[] }
   | { status: "unavailable"; reason: "line_limit" } {
@@ -118,6 +120,7 @@ function sameFileIdentity(
     left.dev === right.dev && left.ino === right.ino;
 }
 
+/** Join retained read chunks into their exact bounded byte sequence. */
 function concatenate(
   chunks: readonly Uint8Array[],
   length: number,
@@ -178,12 +181,11 @@ async function inspectUntracked(
   if (!before.isFile || before.isSymlink) {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   }
-  let file: FileHandle;
   const openedFile = await openUntrackedRegularNoFollow(path);
   if (openedFile === undefined) {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   }
-  file = openedFile;
+  const file = openedFile;
   try {
     let opened: Awaited<ReturnType<FileHandle["stat"]>>;
     let after: Deno.FileInfo;

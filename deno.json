@@ -73,6 +73,8 @@
     "@modelcontextprotocol/sdk/server/stdio.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/stdio.js",
     "process": "node:process",
     "os": "node:os",
+    "fs": "node:fs",
+    "fs/promises": "node:fs/promises",
     "ts-morph": "jsr:@ts-morph/ts-morph@^28.0.0",
     "zlib": "node:zlib",
     "@zod/zod": "jsr:@zod/zod@^4.4.3",

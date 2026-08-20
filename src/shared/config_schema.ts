@@ -333,7 +333,9 @@ const checkpointLinePatterns = z.array(
     1,
     "a content pattern must not be empty.",
   ).refine(
-    (value) => !/[\u0000\r\n]/.test(value),
+    (value) =>
+      !value.includes("\0") && !value.includes("\r") &&
+      !value.includes("\n"),
     "a literal-line content pattern cannot contain NUL, CR, or LF.",
   ).refine(
     (value) =>
