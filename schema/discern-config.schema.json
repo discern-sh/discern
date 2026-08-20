@@ -889,7 +889,7 @@
             "pattern": "^[A-Za-z0-9_-]+$"
           },
           "paths": {
-            "description": "Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either `scope` or `paths`. Supports registered path references.",
+            "description": "Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either `scope` or `paths`. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
@@ -900,14 +900,14 @@
             "type": "boolean"
           },
           "exclude_paths": {
-            "description": "Globs removed after selection and before every predicate, subject, evidence, and `when`. Supports registered path references.",
+            "description": "Globs removed after selection and before every predicate, subject, evidence, and `when`. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "unless_changed": {
-            "description": "Veto when any filtered changed path matches a configured scope name or selector-dialect glob. Supports registered path references.",
+            "description": "Veto when any filtered changed path matches a configured scope name or selector-dialect glob. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"

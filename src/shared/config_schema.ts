@@ -316,16 +316,16 @@ const checkpointValue = z.strictObject({
     "Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a checkpoint takes one selector.",
   ),
   paths: z.array(z.string()).optional().describe(
-    "Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either `scope` or `paths`. Supports registered path references.",
+    `Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either \`scope\` or \`paths\`. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   include_generated: z.boolean().optional().describe(
     "Include paths owned by governing [generated.<name>].paths; default false keeps authored-only evaluation.",
   ),
   exclude_paths: z.array(z.string()).optional().describe(
-    "Globs removed after selection and before every predicate, subject, evidence, and `when`. Supports registered path references.",
+    `Globs removed after selection and before every predicate, subject, evidence, and \`when\`. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   unless_changed: z.array(z.string()).optional().describe(
-    "Veto when any filtered changed path matches a configured scope name or selector-dialect glob. Supports registered path references.",
+    `Veto when any filtered changed path matches a configured scope name or selector-dialect glob. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   min_changed_files: z.number().int().min(
     1,
