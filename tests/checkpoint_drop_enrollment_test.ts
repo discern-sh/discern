@@ -22,6 +22,7 @@ import {
   GateProofCheckSchema,
   GateWireDataSchema,
   ProofSchema,
+  StatusWireDataSchema,
 } from "../src/shared/result_schemas.ts";
 import {
   renderResultMarkdown,
@@ -29,6 +30,10 @@ import {
 } from "../src/shared/result_markdown.ts";
 import { renderProofMarkdown } from "../src/engine/gate/proof_render.ts";
 import { canonicalProofNotePayload } from "../src/engine/gate/proof_notes.ts";
+import {
+  projectGateResult,
+  projectStatusResult,
+} from "../src/shared/result_wire.ts";
 import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const POLICY_COMMIT = "a".repeat(40);
@@ -90,6 +95,38 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
       checkpoint_drops: [drop],
       checkpoints,
     });
+    const gateWire = GateWireDataSchema.parse(
+      (projectGateResult({
+        ok: true,
+        verb: "done",
+        data: {
+          failed_stage: null,
+          scopes_changed: [],
+          proof,
+        },
+      }).data),
+    );
+    assertEquals(gateWire.proof?.checkpoint_drops, [drop]);
+
+    const statusWire = StatusWireDataSchema.parse(
+      (projectStatusResult({
+        ok: true,
+        verb: "status",
+        data: {
+          location: "worktree",
+          root: "/repo",
+          worktree: null,
+          git: null,
+          standards: [],
+          gate_proof: {
+            status: "honored",
+            proof_data: proof,
+            checkpoint_drops: [drop],
+          },
+        },
+      }, { wireProjection: "full" }).data),
+    );
+    assertEquals(statusWire.gate_proof?.proof?.checkpoint_drops, [drop]);
     DurableProofClaimSchema.parse({
       branch: proof.branch,
       trunk: proof.trunk,

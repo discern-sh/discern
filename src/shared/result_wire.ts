@@ -40,7 +40,7 @@ function copyDefined(
   return out;
 }
 
-const PROOF_SUMMARY_FIELDS = [
+const REQUIRED_PROOF_SUMMARY_FIELDS = [
   "branch",
   "trunk",
   "head",
@@ -48,6 +48,12 @@ const PROOF_SUMMARY_FIELDS = [
   "insertions",
   "deletions",
   "line",
+] as const;
+
+const PROOF_SUMMARY_FIELDS = [
+  ...REQUIRED_PROOF_SUMMARY_FIELDS,
+  "mode",
+  "checkpoint_drops",
 ] as const;
 
 /** Remove the review-page rendering while retaining every compact Proof fact. */
@@ -113,7 +119,7 @@ function gateProofSummary(value: unknown): Record<string, unknown> | undefined {
   const proof = proofSummary(check.proof_data);
   if (
     proof !== undefined &&
-    Object.keys(proof).length === PROOF_SUMMARY_FIELDS.length
+    REQUIRED_PROOF_SUMMARY_FIELDS.every((field) => proof[field] !== undefined)
   ) {
     out.proof = proof;
   } else if (typeof check.proof_line === "string") {

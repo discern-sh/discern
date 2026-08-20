@@ -78,6 +78,39 @@ export type DiscernProofSummary = {
   deletions: number;
   line: string;
   mode?: "strict" | "report";
+  checkpoint_drops?: Array<
+    {
+      scope: "policy";
+      checkpoint: null;
+      mode: null;
+      policy_commit?: string;
+      reason:
+        | "merge_base_unresolved"
+        | "governing_config_unreadable"
+        | "governing_config_invalid"
+        | "open_question_store_unreadable"
+        | "open_question_store_corrupt"
+        | "declaration_evidence_unavailable";
+      account: string;
+    } | {
+      scope: "checkpoint";
+      checkpoint: string;
+      mode: "stop" | "advise";
+      policy_commit: string;
+      reason:
+        | "checkpoint_missing_question"
+        | "checkpoint_selector_conflict"
+        | "checkpoint_unknown_scope"
+        | "effort_diff_unreadable"
+        | "when_spawn_failed"
+        | "when_timeout"
+        | "when_invalid_exit"
+        | "open_question_store_rebuilt"
+        | "subject_unavailable"
+        | "open_question_store_write_failed";
+      account: string;
+    }
+  >;
 };
 
 export type DiscernAuthorizedVariance = {

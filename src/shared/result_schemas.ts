@@ -278,13 +278,6 @@ const PROOF_PRESENTATION_FIELDS = {
   markdown: z.string(),
 };
 
-const PROOF_SUMMARY_FIELDS = {
-  ...DURABLE_PROOF_FACT_FIELDS,
-  line: z.string(),
-  /** Absent on Proof written before the strict/report distinction. */
-  mode: z.enum(GATE_MODES).optional(),
-};
-
 const PolicyCheckpointDropSchema = z.strictObject({
   scope: z.literal("policy"),
   checkpoint: z.null(),
@@ -309,6 +302,14 @@ export const CheckpointDropSchema = z.discriminatedUnion("scope", [
   EntryCheckpointDropSchema,
 ]);
 export type CheckpointDropData = z.infer<typeof CheckpointDropSchema>;
+
+const PROOF_SUMMARY_FIELDS = {
+  ...DURABLE_PROOF_FACT_FIELDS,
+  line: z.string(),
+  /** Absent on Proof written before the strict/report distinction. */
+  mode: z.enum(GATE_MODES).optional(),
+  checkpoint_drops: z.array(CheckpointDropSchema).optional(),
+};
 
 /** One current declared-met checkpoint conclusion — agent evidence, so every
  * rendering says "declared met", never bare "met" or "passed". */
