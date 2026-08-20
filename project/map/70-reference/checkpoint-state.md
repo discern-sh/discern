@@ -33,21 +33,21 @@ A fired `stop` checkpoint opens an effort-scoped **[open question](../00-orienta
 
 Reopening is relevance-sensitive: a declaration stales only when the checkpoint's definition or the matched content changes. Unrelated edits and trunk advances leave it standing.
 
-The structural trigger decides when to open a question, not when to erase one. A readable open question whose id still governs in `stop` mode remains active after a later trigger veto. Its projected subject and declaration state therefore outrank an idle structural preview; a recorded question outside the governing policy remains visible as history but does not interlock.
+The structural trigger opens a question. A readable open question whose id still governs in `stop` mode remains active after a later trigger veto. Its projected subject and declaration state therefore outrank an idle structural preview; a recorded question outside the governing policy remains visible as history but does not interlock.
 
 ## Strict obligation states
 
 Every governing row projects one `obligation`, the decision a bare `discern done` would make before Gate jobs:
 
-| Obligation              | Strict meaning                                                                    |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| `none`                  | No checkpoint conclusion is required.                                             |
-| `will_open`             | The settled trigger will open its question and require a conclusion.               |
-| `awaiting_declaration`  | A persisted open question already awaits a conclusion.                            |
-| `reopened`              | Subject or definition currency requires a fresh conclusion.                       |
-| `declared_met`          | A current declared-met conclusion lets the Gate proceed.                           |
-| `declared_unmet`        | The Gate proceeds; landing remains bound to an owner-authorized variance.          |
-| `unknown`               | Store, subject, diff, or unexecuted `when` state prevents an honest read decision. |
+| Obligation             | Strict meaning                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| `none`                 | No checkpoint conclusion is required.                                                |
+| `will_open`            | The settled trigger will open its question and require a conclusion.                 |
+| `awaiting_declaration` | A persisted open question already awaits a conclusion.                               |
+| `reopened`             | Subject or definition currency requires a fresh conclusion.                          |
+| `declared_met`         | A current declared-met conclusion lets the Gate proceed.                             |
+| `declared_unmet`       | The Gate proceeds; landing remains bound to an owner-authorized variance.            |
+| `unknown`              | Store, subject, diff, or a pending `when` condition keeps the read decision unknown. |
 
 ## Declarations at the gate
 
