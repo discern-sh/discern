@@ -297,6 +297,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0306 — Status defaults to a bounded orientation projection](0306-status-defaults-to-a-bounded-orientation-projection.md)
 - [0307 — CI reports checkpoint review and Proof retains drops](0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)
 - [0308 — Checkpoint triggers use bounded facts and a versioned command input](0308-checkpoint-triggers-use-bounded-facts-and-versioned-input.md)
+- [0309 — Repository question files are governed content](0309-repository-question-files-are-governed-content.md)
 
 <!-- END GENERATED: current ADR records -->
 
