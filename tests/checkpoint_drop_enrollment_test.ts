@@ -10,6 +10,7 @@ import { join } from "@std/path";
 import {
   CHECKPOINT_DROP_REASONS,
   type CheckpointDrop,
+  checkpointDropMarkdown,
   ENTRY_CHECKPOINT_DROP_REASONS,
   entryCheckpointDrop,
   POLICY_CHECKPOINT_DROP_REASONS,
@@ -35,6 +36,7 @@ import {
   projectStatusResult,
 } from "../src/shared/result_wire.ts";
 import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
 
 const POLICY_COMMIT = "a".repeat(40);
 
@@ -82,6 +84,17 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
     );
     assertStringIncludes(gateMarkdown, drop.reason);
     assertStringIncludes(gateMarkdown, drop.account);
+    assertStringIncludes(gateMarkdown, markdownCodeSpan(drop.account));
+    assertStringIncludes(
+      gateMarkdown,
+      `policy ${markdownCodeSpan(POLICY_COMMIT.slice(0, 12))}`,
+    );
+    if (drop.scope === "policy") {
+      assertStringIncludes(gateMarkdown, "policy-level checkpoint enforcement");
+    } else {
+      assertStringIncludes(gateMarkdown, "checkpoint `review`");
+      assertStringIncludes(gateMarkdown, "mode `stop`");
+    }
 
     const proof = ProofSchema.parse({
       branch: "agent/review",
@@ -148,6 +161,17 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
     }, []);
     assertStringIncludes(proofMarkdown, drop.reason);
     assertStringIncludes(proofMarkdown, drop.account);
+    assertStringIncludes(proofMarkdown, markdownCodeSpan(drop.account));
+    assertStringIncludes(
+      proofMarkdown,
+      `policy ${markdownCodeSpan(POLICY_COMMIT.slice(0, 12))}`,
+    );
+    if (drop.scope === "policy") {
+      assertStringIncludes(proofMarkdown, "policy-level checkpoint enforcement");
+    } else {
+      assertStringIncludes(proofMarkdown, "checkpoint `review`");
+      assertStringIncludes(proofMarkdown, "mode `stop`");
+    }
 
     const proofCheck = GateProofCheckSchema.parse({
       status: "honored",
@@ -209,7 +233,9 @@ Deno.test("checkpoint drops: high-level fail-open owners cannot append advisory-
 });
 
 Deno.test("checkpoint drops: constructors normalize and bound environment error text", () => {
-  const hostile = `  first line\n${"x".repeat(700)}\u0000last  `;
+  const hostile = `  first [line](https://example.invalid) and \`tick\`\n${
+    "x".repeat(700)
+  }\u0000last  `;
   for (
     const drop of [
       policyCheckpointDrop("merge_base_unresolved", hostile),
@@ -225,6 +251,14 @@ Deno.test("checkpoint drops: constructors normalize and bound environment error 
     assert(drop.account.length <= 500);
     assert(!drop.account.includes("\n"));
     assert(!drop.account.includes("\u0000"));
-    assertStringIncludes(drop.account, "first line");
+    assertStringIncludes(drop.account, "first [line]");
+    assertStringIncludes(
+      checkpointDropMarkdown(drop),
+      markdownCodeSpan(drop.account),
+    );
   }
+  assertEquals(
+    checkpointDropMarkdown({}),
+    "Checkpoint drop (`unknown`): policy-level checkpoint enforcement — `no account recorded`",
+  );
 });

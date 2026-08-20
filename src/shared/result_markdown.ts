@@ -10,6 +10,7 @@
 import { format as formatBytes } from "@std/fmt/bytes";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { markdownCodeSpan } from "./markdown_code.ts";
+import { checkpointDropMarkdown } from "./checkpoint_drops.ts";
 
 export interface ResultMarkdownPresentation {
   /** One authored statement of the current result state. */
@@ -991,13 +992,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
 
 /** One structured checkpoint fail-open record on any result surface. */
 function checkpointDropLine(drop: Record<string, unknown>): string {
-  const checkpoint = text(drop.checkpoint);
-  const reason = text(drop.reason) ?? "unknown";
-  const account = text(drop.account) ?? "no account recorded";
-  const subject = checkpoint === undefined
-    ? "policy-level checkpoint enforcement"
-    : `checkpoint ${code(checkpoint)}`;
-  return `Checkpoint drop (${code(reason)}): ${subject} — ${account}`;
+  return checkpointDropMarkdown(drop);
 }
 
 const presentImprovement: ResultMarkdownPresenter = (result) => {

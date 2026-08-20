@@ -32,7 +32,10 @@ import type {
   ProofCheckpointsData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
-import type { GateMode } from "../../shared/checkpoint_drops.ts";
+import {
+  checkpointDropMarkdown,
+  type GateMode,
+} from "../../shared/checkpoint_drops.ts";
 import type { StepResult } from "../../shared/result.ts";
 import type { LandingConsent } from "../../shared/consent.ts";
 import { diffFiles } from "../worktree/git.ts";
@@ -208,7 +211,7 @@ function checkpointsSection(
     );
   }
   for (const drop of checkpoints.drops ?? []) {
-    lines.push(`- dropped (${drop.reason}) — ${drop.account}`);
+    lines.push(`- ${checkpointDropMarkdown(drop)}`);
   }
   return lines;
 }

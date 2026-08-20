@@ -7,6 +7,7 @@
  */
 
 import type { CheckpointMode } from "./checkpoints.ts";
+import { markdownCodeSpan } from "./markdown_code.ts";
 
 export const GATE_MODES = ["strict", "report"] as const;
 export type GateMode = (typeof GATE_MODES)[number];
@@ -148,6 +149,38 @@ export function uniqueCheckpointDrops(
     seen.add(key);
     return true;
   });
+}
+
+/** Read one non-empty string from a schema-backed or compatibility record. */
+function dropText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() !== ""
+    ? value.trim()
+    : undefined;
+}
+
+/** Render one drop for human Markdown surfaces. Typed records retain every
+ * discriminant; partial compatibility input stays safe and explicit. */
+export function checkpointDropMarkdown(
+  drop: CheckpointDrop | Readonly<Record<string, unknown>>,
+): string {
+  const checkpoint = dropText(drop.checkpoint);
+  const mode = dropText(drop.mode) ?? "unknown";
+  const reason = dropText(drop.reason) ?? "unknown";
+  const account = boundedCheckpointDropAccount(
+    dropText(drop.account) ?? "no account recorded",
+  );
+  const policyCommit = dropText(drop.policy_commit);
+  const policy = policyCommit === undefined
+    ? ""
+    : `; policy ${markdownCodeSpan(policyCommit.slice(0, 12))}`;
+  const subject = drop.scope === "policy" || checkpoint === undefined
+    ? `policy-level checkpoint enforcement${policy}`
+    : `checkpoint ${markdownCodeSpan(checkpoint)}; mode ${
+      markdownCodeSpan(mode)
+    }${policy}`;
+  return `Checkpoint drop (${markdownCodeSpan(reason)}): ${subject} — ${
+    markdownCodeSpan(account)
+  }`;
 }
 
 /** The existing advisory projection remains derived from structured evidence. */
