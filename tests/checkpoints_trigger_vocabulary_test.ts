@@ -14,6 +14,7 @@ import {
   CHECKPOINT_TRIGGER_FIELDS,
 } from "../src/shared/checkpoints.ts";
 import { evaluateStructuralTrigger } from "../src/engine/checkpoints/triggers.ts";
+import { triggerSummary } from "../src/engine/checkpoints/report.ts";
 import type {
   EffortDiff,
   EffortFileChange,
@@ -141,6 +142,71 @@ const FIELD_PROBE_EXPECTATIONS: Record<TriggerField, string> = {
   when: "holds:true:src/a.ts",
 };
 
+/** One exact summary perturbation per trigger field. This second total table
+ * keeps the presentation enrollment independent of the evaluator probes: a
+ * future field cannot compile until its one-line public account is observable. */
+const SUMMARY_CASES = {
+  include_generated: {
+    field: { includeGenerated: true },
+    expected: "any change · including generated",
+  },
+  exclude_paths: {
+    field: { excludePaths: ["vendor/**"] },
+    expected: "any change · authored only · excluding vendor/**",
+  },
+  unless_changed: {
+    field: { unlessChanged: ["docs/**"] },
+    expected: "any change · authored only · unless docs/** changed",
+  },
+  kinds: {
+    field: { kinds: ["added", "deleted"] },
+    expected: "any change · authored only · kinds added, deleted",
+  },
+  adds_matching: {
+    field: { addsMatching: ["needle"] },
+    expected: "any change · authored only · added-line literals 1",
+  },
+  removes_matching: {
+    field: { removesMatching: ["needle"] },
+    expected: "any change · authored only · removed-line literals 1",
+  },
+  new_directory: {
+    field: { newDirectory: true },
+    expected: "any change · authored only · new directory",
+  },
+  binary: {
+    field: { binary: false },
+    expected: "any change · authored only · text files",
+  },
+  min_changed_files: {
+    field: { minChangedFiles: 3 },
+    expected: "any change · authored only · ≥3 files",
+  },
+  min_changed_lines: {
+    field: { minChangedLines: 20 },
+    expected: "any change · authored only · ≥20 changed lines",
+  },
+  deletion_dominant: {
+    field: { deletionDominant: true },
+    expected: "any change · authored only · deletion-dominant",
+  },
+  similar_new_file: {
+    field: { similarNewFile: true },
+    expected: "any change · authored only · similar new file",
+  },
+  min_commits: {
+    field: { minCommits: 2 },
+    expected: "any change · authored only · ≥2 commits",
+  },
+  when: {
+    field: { when: "scripts/check.sh" },
+    expected: "any change · authored only · when: scripts/check.sh",
+  },
+} satisfies Record<
+  TriggerField,
+  { field: Partial<ResolvedCheckpoint>; expected: string }
+>;
+
 Deno.test("every checkpoint trigger schema field belongs to the canonical registry", () => {
   const schemaFields = Object.keys(RECORD_ENTRY_SCHEMAS.checkpoints.shape)
     .sort();
@@ -148,13 +214,24 @@ Deno.test("every checkpoint trigger schema field belongs to the canonical regist
   assertEquals(
     Object.keys(FIELD_PROBES).sort(),
     [...CHECKPOINT_TRIGGER_FIELDS].sort(),
-    "a new trigger field must name its evaluator/hash/summary coverage",
+    "a new trigger field must name its evaluator coverage",
+  );
+  assertEquals(
+    Object.keys(SUMMARY_CASES).sort(),
+    [...CHECKPOINT_TRIGGER_FIELDS].sort(),
+    "a new trigger field must name its one-line summary coverage",
   );
 });
 
 for (const [field, probe] of Object.entries(FIELD_PROBES)) {
   Deno.test(`trigger field enrollment: ${field}`, () => {
     assertEquals(probe(), FIELD_PROBE_EXPECTATIONS[field as TriggerField]);
+  });
+}
+
+for (const [field, test] of Object.entries(SUMMARY_CASES)) {
+  Deno.test(`trigger summary enrollment: ${field}`, () => {
+    assertEquals(triggerSummary(definition(test.field)), test.expected);
   });
 }
 
