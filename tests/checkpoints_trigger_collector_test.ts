@@ -59,7 +59,10 @@ Deno.test("path-only definitions do not inspect irrelevant untracked bytes", asy
     const base = await gitOut(dir, "rev-parse", "HEAD");
     await Deno.mkdir(join(dir, "src"));
     await Deno.writeTextFile(join(dir, "src", "small.ts"), "export {};\n");
-    await Deno.writeFile(join(dir, "hostile.bin"), new Uint8Array(3 * 1024 * 1024));
+    await Deno.writeFile(
+      join(dir, "hostile.bin"),
+      new Uint8Array(3 * 1024 * 1024),
+    );
 
     const diff = await collectEffortDiff(
       dir,
@@ -169,7 +172,10 @@ Deno.test("literal changed-line facts and subjects preserve hostile Git paths", 
 
     const hash = await checkpointDefinitionHash(def);
     const subject = await computeSubject(dir, hash, [path], base);
-    assert("subject" in subject, "error" in subject ? subject.error : "subject");
+    assert(
+      "subject" in subject,
+      "error" in subject ? subject.error : "subject",
+    );
     assertEquals(subject.subject.paths.map((entry) => entry.path), [path]);
     assert(subject.subject.paths[0]?.base !== undefined);
     assert(subject.subject.paths[0]?.current !== undefined);

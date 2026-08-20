@@ -174,7 +174,7 @@ export async function computeSubject(
         "-z",
         policyBase,
         "--",
-        ...paths.map((path) => `${prefix}${path}`),
+        ...paths.map((path) => `:(top,literal)${prefix}${path}`),
       ],
       { cwd: root, timeoutMs: SUBJECT_GIT_TIMEOUT_MS },
     );

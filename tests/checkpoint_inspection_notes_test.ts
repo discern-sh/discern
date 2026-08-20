@@ -20,6 +20,10 @@ const DEFINITION: ResolvedCheckpoint = {
   includeGenerated: false,
   excludePaths: [],
   unlessChanged: [],
+  kinds: [],
+  addsMatching: [],
+  removesMatching: [],
+  newDirectory: false,
   deletionDominant: false,
   similarNewFile: false,
 };

@@ -212,21 +212,46 @@ function parseGitlinksZ(stdout: string): Set<string> {
  * separators are structural. */
 function parseNumstatRecord(
   record: string,
-): { insertions: number; deletions: number; binary: boolean; path: string } {
+):
+  | { insertions: number; deletions: number; binary: boolean; path: string }
+  | undefined {
   const first = record.indexOf("\t");
   const second = first === -1 ? -1 : record.indexOf("\t", first + 1);
   if (first === -1 || second === -1) {
-    return { insertions: 0, deletions: 0, binary: false, path: record };
+    return undefined;
   }
   const ins = record.slice(0, first);
   const del = record.slice(first + 1, second);
   const binary = ins === "-" || del === "-";
+  if (
+    (!binary && (!/^\d+$/.test(ins) || !/^\d+$/.test(del))) ||
+    (binary && (ins !== "-" || del !== "-"))
+  ) {
+    return undefined;
+  }
   return {
-    insertions: binary ? 0 : Number(ins) || 0,
-    deletions: binary ? 0 : Number(del) || 0,
+    insertions: binary ? 0 : Number(ins),
+    deletions: binary ? 0 : Number(del),
     binary,
     path: record.slice(second + 1),
   };
+}
+
+/** Whether Git's kind and line-stat protocols enumerate exactly the same
+ * tracked paths. A disagreement makes every per-path fact suspect, so the
+ * collector fails open instead of attaching guessed 0/0 text facts. */
+export function trackedEnumerationAgrees(
+  nameStatus: string,
+  numstat: string,
+): boolean {
+  const named = parseNameStatusZ(nameStatus).map((entry) => entry.path).sort();
+  const measured = splitNulRecords(numstat).map(parseNumstatRecord);
+  if (measured.some((entry) => entry === undefined)) return false;
+  const paths = measured.flatMap((entry) =>
+    entry === undefined ? [] : [entry.path]
+  ).sort();
+  return named.length === paths.length &&
+    named.every((path, index) => path === paths[index]);
 }
 
 /**
@@ -262,6 +287,9 @@ export async function collectEffortDiff(
   if (!numstat.success) {
     return undefined;
   }
+  if (!trackedEnumerationAgrees(nameStatus.stdout, numstat.stdout)) {
+    return undefined;
+  }
   const raw = await runGit(
     ["diff", "--raw", "--no-renames", "-z", mergeBase],
     { cwd: root },
@@ -274,6 +302,7 @@ export async function collectEffortDiff(
   >();
   for (const record of splitNulRecords(numstat.stdout)) {
     const parsed = parseNumstatRecord(record);
+    if (parsed === undefined) return undefined;
     stats.set(parsed.path, {
       insertions: parsed.insertions,
       deletions: parsed.deletions,

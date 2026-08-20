@@ -862,7 +862,10 @@ Deno.test("done: unavailable history never reopens or interlocks a declared min_
     assertEquals(unavailable.code, 0, unavailable.output);
     const envelope = parseJson(unavailable.stdout);
     assertEquals(envelope.data.checkpoints.outstanding, undefined);
-    assertEquals(envelope.data.checkpoints.drops?.[0]?.reason, "trigger_history_unavailable");
+    assertEquals(
+      envelope.data.checkpoints.drops?.[0]?.reason,
+      "trigger_history_unavailable",
+    );
   });
 });
 

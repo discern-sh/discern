@@ -268,7 +268,7 @@ function served(
 
 /** Project the holding structural plan onto the versioned public input. Pure:
  * the executor owns the temporary file and environment. */
-function checkpointWhenInput(
+export function checkpointWhenInput(
   definition: ResolvedCheckpoint,
   policyCommit: string,
   structural: Extract<
@@ -276,7 +276,9 @@ function checkpointWhenInput(
     { holds: true }
   >,
 ): CheckpointWhenInput {
-  const changedFiles = structural.changed.map((file) => {
+  const changedFiles = [...structural.changed].sort((left, right) =>
+    left.path < right.path ? -1 : left.path > right.path ? 1 : 0
+  ).map((file) => {
     if (file.binary === "unknown") {
       throw new Error("when input received an unavailable binary fact");
     }
@@ -420,6 +422,15 @@ export async function runCheckpointPreflight(
       // Advise servings write no open question; the serving itself is the recorded
       // observation, so their firings still feed the observed economics.
       observeCheckpointActivity({ advise: [{ id }] });
+      continue;
+    }
+    if (
+      def.minCommits !== undefined &&
+      inspection.history?.status !== "available"
+    ) {
+      // Ordered history is part of this definition's subject identity. Without
+      // it, even a persisted serving cannot be reconciled or interlocked
+      // truthfully; inspection already retained the question and typed drop.
       continue;
     }
     if (serving === undefined) {
