@@ -77,6 +77,28 @@ export interface CheckpointInspection {
   drops: CheckpointDrop[];
 }
 
+/** Describe one report-mode stop obligation without claiming more certainty
+ * than the read-only inspection established. */
+function reportStopNote(
+  definition: ResolvedCheckpoint,
+  obligation: CheckpointObligation,
+): string | undefined {
+  switch (obligation.state) {
+    case "none":
+      return undefined;
+    case "will_open":
+    case "awaiting_declaration":
+    case "reopened":
+    case "declared_met":
+    case "declared_unmet":
+      return `Checkpoint '${definition.id}' (stop): its question will be reported; review will not be enforced.`;
+    case "unknown":
+      return obligation.unknown === "when_pending"
+        ? `Checkpoint '${definition.id}' (stop): its question may be reported if its when command fires; review will not be enforced.`
+        : `Checkpoint '${definition.id}' (stop): enforcement is unknown and failed open; this preview cannot promise a reported question.`;
+  }
+}
+
 /** Construct entry-scoped inspection evidence from a resolved checkpoint. */
 function entryDrop(
   definition: ResolvedCheckpoint,
@@ -323,13 +345,8 @@ export function checkpointInspectionNotes(
       continue;
     }
     if (mode === "report") {
-      if (obligation.state !== "none") {
-        notes.push(
-          obligation.unknown === "when_pending"
-            ? `Checkpoint '${definition.id}' (stop): its question may be reported if its when command fires; review will not be enforced.`
-            : `Checkpoint '${definition.id}' (stop): its question will be reported; review will not be enforced.`,
-        );
-      }
+      const note = reportStopNote(definition, obligation);
+      if (note !== undefined) notes.push(note);
       continue;
     }
     switch (obligation.state) {
