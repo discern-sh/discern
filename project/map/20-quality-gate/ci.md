@@ -1,6 +1,6 @@
 ---
 title: Run the Gate in CI
-description: Run discern done on GitHub Actions and require the result before a pull request can merge.
+description: Run discern done --ci on GitHub Actions and require the machine Gate result before a pull request can merge.
 order: 70
 aliases:
   - ci
@@ -11,9 +11,11 @@ aliases:
 
 # Run the Gate in GitHub Actions
 
-_Run the same `discern done` command on pull requests, then make that check required on trunk._
+_Run the machine Gate and report checkpoint questions on pull requests, then make that check required on trunk._
 
-CI runs the Gate even when a change did not pass through a local discern worktree. The workflow installs a pinned binary, installs the project's toolchain, fetches the trunk ref used by merge and Standard checks, runs the Gate, and confirms that fixers left the committed tree unchanged. Requiring the job in repository policy makes that result a merge condition.
+CI runs the Gate even when a change did not pass through a stateful local discern worktree. The explicit `discern done --ci` lane evaluates the same governing checkpoint policy and runs the same machine jobs as ordinary `done`. Fired stop questions are reported as unreviewed; the runner writes no open question or declaration. Its Proof says checkpoint review was reported and was not enforced, so `discern accept` cannot use it as landing evidence. A later ordinary `discern done` in a local worktree remains the strict review.
+
+The workflow installs a pinned binary, installs the project's toolchain, fetches the trunk ref used by merge and Standard checks, runs the Gate, and confirms that fixers left the committed tree unchanged. Requiring the job makes machine success a merge condition and keeps checkpoint questions visible. It does not prove that an agent reviewed those questions and does not transport declarations between machines.
 
 ## Add the workflow
 
@@ -72,7 +74,7 @@ jobs:
           cache: true
 
       - name: Run the Gate
-        run: discern done
+        run: discern done --ci
 
       - name: Assert a clean tree
         run: git diff --exit-code
@@ -90,7 +92,7 @@ The workflow above already installs discern, so a wrapped test task works unchan
 
 ## Require the result
 
-In the repository's rule set or branch-protection settings, require pull requests and the `gate` job before merge. The workflow reports a status. The repository rule turns that status into policy. Keep the push trigger so landed commits also produce a record.
+In the repository's rule set or branch-protection settings, require pull requests and the `gate` job before merge. The workflow reports the machine verdict and checkpoint questions; the repository rule turns the machine verdict into policy. Keep the push trigger so landed commits also produce a record. A push-to-trunk run normally has an empty effort diff, so no change-triggered question fires there.
 
 ## Standards in CI
 
@@ -111,5 +113,6 @@ A cloud coding agent may start from a clone without the discern binary or materi
 ## Current state & gotchas
 
 - Do not run `discern refresh` in the gate job. CI verifies committed instructions and accepts an intentionally missing untracked copy; regenerating first can hide drift.
+- Do not put `--met`, `--unmet`, or a rationale in workflow YAML. `--ci` rejects declaration flags before any checkpoint or Gate write; review conclusions belong to a stateful local worktree.
 - Pull-request checkouts may lack local `main`. Fetch it without exporting `DISCERN_TRUNK` into project jobs.
 - `git diff --exit-code` catches fixer output. Without it, the workflow can finish after changing the runner's checkout and does not verify that the commit contains those changes.

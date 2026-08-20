@@ -72,6 +72,109 @@
         },
         "deletions": {
           "type": "number"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "strict",
+            "report"
+          ]
+        },
+        "checkpoint_drops": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "type": "string",
+                    "const": "policy"
+                  },
+                  "checkpoint": {
+                    "type": "null"
+                  },
+                  "mode": {
+                    "type": "null"
+                  },
+                  "policy_commit": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "merge_base_unresolved",
+                      "governing_config_unreadable",
+                      "governing_config_invalid",
+                      "open_question_store_unreadable",
+                      "open_question_store_corrupt",
+                      "declaration_evidence_unavailable"
+                    ]
+                  },
+                  "account": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "scope",
+                  "checkpoint",
+                  "mode",
+                  "reason",
+                  "account"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "type": "string",
+                    "const": "checkpoint"
+                  },
+                  "checkpoint": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "stop",
+                      "advise"
+                    ]
+                  },
+                  "policy_commit": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "checkpoint_missing_question",
+                      "checkpoint_selector_conflict",
+                      "checkpoint_unknown_scope",
+                      "effort_diff_unreadable",
+                      "when_spawn_failed",
+                      "when_timeout",
+                      "when_invalid_exit",
+                      "open_question_store_rebuilt",
+                      "subject_unavailable",
+                      "open_question_store_write_failed"
+                    ]
+                  },
+                  "account": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "scope",
+                  "checkpoint",
+                  "mode",
+                  "policy_commit",
+                  "reason",
+                  "account"
+                ]
+              }
+            ]
+          }
         }
       },
       "required": [

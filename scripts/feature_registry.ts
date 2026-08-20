@@ -1525,7 +1525,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "Getting one's bearings is one cheap, read-only call, for coding agents and people alike.",
           agent:
-            "The structured answer keeps the project location, checks, supporting services, quality rules, generated-file state, and advice. Each readable separate working copy in the overview says whether its Proof is honored, missing, stale, blocked by local changes, unavailable, or unreadable.",
+            "The structured answer keeps the project location, checks, supporting services, quality rules, generated-file state, and advice. Each readable separate working copy in the overview says whether its Proof is honored, report-only, missing, stale, blocked by local changes, unavailable, or unreadable.",
         },
         surfaces: ["verb:status"],
       },

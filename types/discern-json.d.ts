@@ -50,6 +50,7 @@ export type DiscernKnownErrorSlug =
   | "precondition_failed"
   | "provisioned_resources"
   | "read_error"
+  | "report_only_proof"
   | "renamed_command"
   | "renamed_config_key"
   | "schema_version_too_new"
@@ -76,6 +77,7 @@ export type DiscernProofSummary = {
   insertions: number;
   deletions: number;
   line: string;
+  mode?: "strict" | "report";
 };
 
 export type DiscernAuthorizedVariance = {
@@ -1969,6 +1971,7 @@ export type DiscernDoneResult = {
   message?: string;
   verb: "done";
   data?: {
+    mode?: "strict" | "report";
     failed_stage:
       | "fix"
       | "build"
@@ -2035,6 +2038,49 @@ export type DiscernDoneResult = {
         teach?: string;
         reference?: string;
         matched: Array<string>;
+      }>;
+      review?: {
+        enforcement: "reported";
+        status: "not_needed" | "unreviewed";
+        unreviewed?: Array<{
+          id: string;
+          mode: "stop" | "advise";
+          question: string;
+          teach?: string;
+          reference?: string;
+          matched: Array<string>;
+        }>;
+      };
+      drops?: Array<{
+        scope: "policy";
+        checkpoint: null;
+        mode: null;
+        policy_commit?: string;
+        reason:
+          | "merge_base_unresolved"
+          | "governing_config_unreadable"
+          | "governing_config_invalid"
+          | "open_question_store_unreadable"
+          | "open_question_store_corrupt"
+          | "declaration_evidence_unavailable";
+        account: string;
+      } | {
+        scope: "checkpoint";
+        checkpoint: string;
+        mode: "stop" | "advise";
+        policy_commit: string;
+        reason:
+          | "checkpoint_missing_question"
+          | "checkpoint_selector_conflict"
+          | "checkpoint_unknown_scope"
+          | "effort_diff_unreadable"
+          | "when_spawn_failed"
+          | "when_timeout"
+          | "when_invalid_exit"
+          | "open_question_store_rebuilt"
+          | "subject_unavailable"
+          | "open_question_store_write_failed";
+        account: string;
       }>;
       advisories?: Array<string>;
     };
@@ -2626,6 +2672,37 @@ export type DiscernCheckpointsResult = {
       }>;
       omitted: number;
     };
+    drops?: Array<{
+      scope: "policy";
+      checkpoint: null;
+      mode: null;
+      policy_commit?: string;
+      reason:
+        | "merge_base_unresolved"
+        | "governing_config_unreadable"
+        | "governing_config_invalid"
+        | "open_question_store_unreadable"
+        | "open_question_store_corrupt"
+        | "declaration_evidence_unavailable";
+      account: string;
+    } | {
+      scope: "checkpoint";
+      checkpoint: string;
+      mode: "stop" | "advise";
+      policy_commit: string;
+      reason:
+        | "checkpoint_missing_question"
+        | "checkpoint_selector_conflict"
+        | "checkpoint_unknown_scope"
+        | "effort_diff_unreadable"
+        | "when_spawn_failed"
+        | "when_timeout"
+        | "when_invalid_exit"
+        | "open_question_store_rebuilt"
+        | "subject_unavailable"
+        | "open_question_store_write_failed";
+      account: string;
+    }>;
     advisories?: Array<string>;
   } | {
     issues: Array<{
@@ -3257,6 +3334,7 @@ export type DiscernAwaitResult = {
     observed: {
       proof_status?:
         | "honored"
+        | "report_only"
         | "missing"
         | "stale"
         | "dirty"
@@ -4243,6 +4321,7 @@ export type DiscernStatusResult = {
     gate_proof?: {
       status:
         | "honored"
+        | "report_only"
         | "missing"
         | "stale"
         | "dirty"
@@ -4254,6 +4333,37 @@ export type DiscernStatusResult = {
       reason?: string;
       proof?: DiscernProofSummary;
       proof_line?: string;
+      checkpoint_drops?: Array<{
+        scope: "policy";
+        checkpoint: null;
+        mode: null;
+        policy_commit?: string;
+        reason:
+          | "merge_base_unresolved"
+          | "governing_config_unreadable"
+          | "governing_config_invalid"
+          | "open_question_store_unreadable"
+          | "open_question_store_corrupt"
+          | "declaration_evidence_unavailable";
+        account: string;
+      } | {
+        scope: "checkpoint";
+        checkpoint: string;
+        mode: "stop" | "advise";
+        policy_commit: string;
+        reason:
+          | "checkpoint_missing_question"
+          | "checkpoint_selector_conflict"
+          | "checkpoint_unknown_scope"
+          | "effort_diff_unreadable"
+          | "when_spawn_failed"
+          | "when_timeout"
+          | "when_invalid_exit"
+          | "open_question_store_rebuilt"
+          | "subject_unavailable"
+          | "open_question_store_write_failed";
+        account: string;
+      }>;
     };
     landed_proof?: {
       commit: string;
@@ -4313,6 +4423,7 @@ export type DiscernStatusResult = {
       gate_proof?: {
         status:
           | "honored"
+          | "report_only"
           | "missing"
           | "stale"
           | "dirty"
@@ -4324,6 +4435,37 @@ export type DiscernStatusResult = {
         reason?: string;
         proof?: DiscernProofSummary;
         proof_line?: string;
+        checkpoint_drops?: Array<{
+          scope: "policy";
+          checkpoint: null;
+          mode: null;
+          policy_commit?: string;
+          reason:
+            | "merge_base_unresolved"
+            | "governing_config_unreadable"
+            | "governing_config_invalid"
+            | "open_question_store_unreadable"
+            | "open_question_store_corrupt"
+            | "declaration_evidence_unavailable";
+          account: string;
+        } | {
+          scope: "checkpoint";
+          checkpoint: string;
+          mode: "stop" | "advise";
+          policy_commit: string;
+          reason:
+            | "checkpoint_missing_question"
+            | "checkpoint_selector_conflict"
+            | "checkpoint_unknown_scope"
+            | "effort_diff_unreadable"
+            | "when_spawn_failed"
+            | "when_timeout"
+            | "when_invalid_exit"
+            | "open_question_store_rebuilt"
+            | "subject_unavailable"
+            | "open_question_store_write_failed";
+          account: string;
+        }>;
       };
       landing_authority?: {
         kind: "authorized" | "conversation-required";
@@ -4561,11 +4703,42 @@ export type DiscernAcceptResult = {
   message?: string;
   verb: "accept";
   data?: {
-    root: string;
-    consent: {
+    root?: string;
+    consent?: {
       source: "conversation" | "standing-grant" | "effort-grant";
       scopes?: Array<string>;
     };
+    checkpoint_drops?: Array<{
+      scope: "policy";
+      checkpoint: null;
+      mode: null;
+      policy_commit?: string;
+      reason:
+        | "merge_base_unresolved"
+        | "governing_config_unreadable"
+        | "governing_config_invalid"
+        | "open_question_store_unreadable"
+        | "open_question_store_corrupt"
+        | "declaration_evidence_unavailable";
+      account: string;
+    } | {
+      scope: "checkpoint";
+      checkpoint: string;
+      mode: "stop" | "advise";
+      policy_commit: string;
+      reason:
+        | "checkpoint_missing_question"
+        | "checkpoint_selector_conflict"
+        | "checkpoint_unknown_scope"
+        | "effort_diff_unreadable"
+        | "when_spawn_failed"
+        | "when_timeout"
+        | "when_invalid_exit"
+        | "open_question_store_rebuilt"
+        | "subject_unavailable"
+        | "open_question_store_write_failed";
+      account: string;
+    }>;
     scopes_changed?: Array<string>;
     landing?: {
       recovery_performed: boolean;
@@ -4613,6 +4786,7 @@ export type DiscernAcceptResult = {
       proof: {
         status:
           | "honored"
+          | "report_only"
           | "missing"
           | "stale"
           | "dirty"
@@ -4624,6 +4798,37 @@ export type DiscernAcceptResult = {
         reason?: string;
         proof?: DiscernProofSummary;
         proof_line?: string;
+        checkpoint_drops?: Array<{
+          scope: "policy";
+          checkpoint: null;
+          mode: null;
+          policy_commit?: string;
+          reason:
+            | "merge_base_unresolved"
+            | "governing_config_unreadable"
+            | "governing_config_invalid"
+            | "open_question_store_unreadable"
+            | "open_question_store_corrupt"
+            | "declaration_evidence_unavailable";
+          account: string;
+        } | {
+          scope: "checkpoint";
+          checkpoint: string;
+          mode: "stop" | "advise";
+          policy_commit: string;
+          reason:
+            | "checkpoint_missing_question"
+            | "checkpoint_selector_conflict"
+            | "checkpoint_unknown_scope"
+            | "effort_diff_unreadable"
+            | "when_spawn_failed"
+            | "when_timeout"
+            | "when_invalid_exit"
+            | "open_question_store_rebuilt"
+            | "subject_unavailable"
+            | "open_question_store_write_failed";
+          account: string;
+        }>;
       };
     };
   } | {

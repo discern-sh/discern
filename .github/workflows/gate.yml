@@ -1,7 +1,7 @@
 name: gate
 
-# Run the repo's own quality gate — the same `discern done` developers run —
-# on every push to main and every pull request. Ubuntu covers private
+# Run the repo's own machine gate under the explicit CI review-report lane on
+# every push to main and every pull request. Ubuntu covers private
 # development; native macOS and WSL 2 join routine CI once the repository is
 # public. The release workflow repeats both gates before every publication.
 #
@@ -61,10 +61,10 @@ jobs:
       - name: Lint the remote installer
         run: shellcheck install.sh
 
-      - name: Run the gate (discern done, via the dev binary)
+      - name: Run the gate (discern done --ci, via the dev binary)
         env:
           DISCERN_GATE_TEST_REPORTER: pretty
-        run: deno task dev done
+        run: deno task dev done --ci
 
       - name: Assert a clean tree (the fix stage must change nothing in CI)
         run: git diff --exit-code

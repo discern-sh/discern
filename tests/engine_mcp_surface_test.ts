@@ -266,6 +266,15 @@ Deno.test("mcp surface: map and docs expose the same search funnel", () => {
   }
 });
 
+Deno.test("mcp surface: done exposes the explicit CI report mode", () => {
+  const tool = TOOLS.find((candidate) => candidate.name === "discern_done");
+  assert(tool !== undefined, "discern_done is not registered");
+  assertEquals(inputKeys(tool).includes("ci"), true);
+  const schema = JSON.stringify(z.toJSONSchema(z.object(tool.inputSchema)));
+  assertStringIncludes(schema, "report checkpoint questions");
+  assertStringIncludes(schema, "cannot be accepted");
+});
+
 Deno.test("renamed MCP tools retain the routing vocabulary agents need", () => {
   const anchors: Record<string, readonly string[]> = {
     discern_done: [

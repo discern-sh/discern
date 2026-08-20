@@ -30,7 +30,7 @@ Each row derives one status: broken, unreadable, failed, blocked, collision, beh
 The other fields explain that status:
 
 - **Git** says `clean` or `6 files changed`; divergence is `↑8`, `↓3`, or both, with zero dimensions omitted.
-- **Proof** is honored, missing, stale, dirty worktree, unavailable, or unreadable. A clean branch with a valid Proof can be ready.
+- **Proof** is honored, report-only, missing, stale, dirty worktree, unavailable, or unreadable. Report-only means the commit is current but CI reported checkpoint review without enforcing it; ordinary `discern done` is still required before landing. A clean branch with an honored strict Proof can be ready.
 - **Activity** combines the winning clock and completed action. In `running done 2m · usually 4m`, `usually 4m` is the historical median.
 - **Landing** is granted, needs approval, or scope-limited on ready rows; detail wraps below it.
 

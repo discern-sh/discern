@@ -40,7 +40,7 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 - `payload` preserves the serialized claim. discern writes padded Base64; its reader accepts standard and Base64url alphabets, with or without padding.
 - `signatures` holds Base64 `sig` entries with optional `keyid`. A [standard signed envelope](https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md) has at least one. discern's unsigned extension has none.
 
-`subject.commit` is the full commit. `proof` is the closed machine-readable claim; `presentation` holds the line and page. The writer projects both field by field, excluding `waited_ms` and other runtime telemetry. A future signature authenticates presentation, but policy treats it as non-authoritative. Optional issuer assertions and `brief` support later provenance work ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
+`subject.commit` is the full commit. `proof` is the closed machine-readable claim; `presentation` holds the line and page. The optional `checkpoint_drops` array retains bounded structured accounts of checkpoint enforcement that failed open. The optional `mode` is absent for ordinary strict Proof and identifies report-only CI Proof in local markers; acceptance never writes report-only identity as landing evidence. The writer projects both blocks field by field, excluding `waited_ms` and other runtime telemetry. A future signature authenticates presentation, but policy treats it as non-authoritative. Optional issuer assertions and `brief` support later provenance work ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md), [ADR 0307](../_adr/0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)).
 
 ## Signature and identity boundary
 

@@ -44,6 +44,11 @@ const DURABLE_PROOF_FACT_FIELDS = [
   "trunk",
 ] as const;
 
+const DURABLE_PROOF_OPTIONAL_FIELDS = [
+  "checkpoint_drops",
+  "mode",
+] as const;
+
 const DURABLE_PROOF_PRESENTATION_FIELDS = ["line", "markdown"] as const;
 
 /** Require the signed payload to reference its own closed fact and presentation
@@ -66,7 +71,7 @@ function assertDurableProofBoundary(schema: Record<string, unknown>): void {
   assert(isRecord(proof.properties), "proof facts should declare fields");
   assertEquals(
     Object.keys(proof.properties).sort(),
-    [...DURABLE_PROOF_FACT_FIELDS],
+    [...DURABLE_PROOF_FACT_FIELDS, ...DURABLE_PROOF_OPTIONAL_FIELDS].sort(),
   );
   assertEquals(
     [...(Array.isArray(proof.required) ? proof.required : [])].sort(),
@@ -155,7 +160,8 @@ Deno.test("the durable-proof boundary rejects an unrelated future field", () => 
       },
       DiscernProofClaim: {
         properties: Object.fromEntries(
-          DURABLE_PROOF_FACT_FIELDS.map((field) => [field, {}]),
+          [...DURABLE_PROOF_FACT_FIELDS, ...DURABLE_PROOF_OPTIONAL_FIELDS]
+            .map((field) => [field, {}]),
         ),
         required: [...DURABLE_PROOF_FACT_FIELDS],
       },

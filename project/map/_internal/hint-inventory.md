@@ -100,6 +100,17 @@ Rendered example:
 
 > Report the landing in your own words, then end your response with the result's Proof line verbatim. Retrieve the full review page with `discern status --verbose` if a PR body needs it.
 
+## `accept-requires-strict-proof`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: Acceptance finds a Proof from the explicit CI report lane.
+
+Rendered example:
+
+> Run ordinary `discern done` in this stateful worktree. A `discern done --ci` Proof reports checkpoint review and cannot authorize acceptance.
+
 ## `accept-review-via-status`
 
 - Category: `next-step`
@@ -220,6 +231,17 @@ Rendered example:
 Rendered example:
 
 > Checkpoint fail-open: checkpoint 'api-review': the when command did not finish within 10s; the trigger fails open and did not fire.
+
+## `checkpoint-ci-recovery`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: Strict done refuses for an awaiting checkpoint while a conventional CI marker is active.
+
+Rendered example:
+
+> Use `discern done --ci` for machine checks with report-only checkpoint review. Run ordinary `discern done` in a stateful worktree when checkpoint declarations must be enforced.
 
 ## `checkpoint-declare`
 
@@ -473,6 +495,17 @@ Rendered example:
 Rendered example:
 
 > Continue a fleet worktree only if this effort created it. Review feedback and resumed sessions keep that assignment. Never claim a worktree from another effort because it is idle or clean.
+
+## `gate-checkpoint-review-reported`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: An explicit done --ci run completed and its Proof cannot authorize acceptance.
+
+Rendered example:
+
+> Checkpoint review was reported and was not enforced. Run `discern done` in a stateful worktree before `discern accept`.
 
 ## `gate-deferred-standards`
 

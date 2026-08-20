@@ -12,11 +12,11 @@ runs:
           | sudo tar -xz -C /usr/local/bin vale
         vale sync
 
-    - name: Run the gate (discern done, via the dev binary)
+    - name: Run the gate (discern done --ci, via the dev binary)
       shell: bash
       env:
         DISCERN_GATE_TEST_REPORTER: pretty
-      run: deno task dev done
+      run: deno task dev done --ci
 
     - name: Assert a clean tree (the fix stage must change nothing in CI)
       shell: bash

@@ -33,6 +33,12 @@ When a fired [`stop`](../00-orientation/glossary.md#stop--advise) checkpoint awa
 
 A declaring invocation records every valid conclusion first, then continues into the gate in the same run. An `advise` checkpoint serves its question and evidence through the advisory channel and blocks nothing; its firings are still recorded for the observed economics. The questions arrive early: `discern prepare` and `discern status` project each required `stop` [declaration](../00-orientation/glossary.md#declaration) while the change is hot, and `discern done --dry-run` describes the same refusal-or-proceed decision without writing or refusing.
 
+### CI reports review; it does not declare it
+
+`discern done --ci` is the explicit pull-request lane. It resolves the same governing policy and obligations, runs `when` during an actual run, and runs every machine Gate job. Fired stop questions appear as unreviewed, separately from declarations and machine results. Machine jobs alone determine the exit status.
+
+The lane writes no open question, declaration, or checkpoint Logbook observation. It rejects `--met`, `--unmet`, and `--why`; workflow YAML cannot stand in for an agent's judgment. `discern done --dry-run --ci` previews report mode without running `when`. The resulting Proof records that checkpoint review was reported and was not enforced, and acceptance requires a later ordinary `discern done` in the stateful worktree ([ADR 0307](../_adr/0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)).
+
 ## Three kinds of evidence
 
 | Evidence                | Source                  | Claim                                                    |
@@ -51,11 +57,17 @@ A declaration binds to its subject: the resolved definition plus the matched pat
 
 ## The trunk governs
 
-The policy for an effort is the `[checkpoints]` configuration at its merge-base with the trunk, so a branch edit cannot govern its own gate and a trunk landing cannot change a running effort. `discern update` advances the merge-base and with it the policy, and the Proof records the merge-base commit as the policy identity. Editing these tables on a branch governs other efforts once the edit lands, and `discern.toml` sits outside every configured scope, so the edit reaches owner review at acceptance. Governing resolution fails open: an entry the engine cannot resolve drops out with an advisory instead of wedging the effort.
+The policy for an effort is the `[checkpoints]` configuration at its merge-base with the trunk, so a branch edit cannot govern its own gate and a trunk landing cannot change a running effort. `discern update` advances the merge-base and with it the policy, and the Proof records the merge-base commit as the policy identity. Editing these tables on a branch governs other efforts once the edit lands, and `discern.toml` sits outside every configured scope, so the edit reaches owner review at acceptance. Governing resolution fails open: an entry the engine cannot resolve drops out instead of wedging the effort, and a structured checkpoint-drop record preserves why.
 
 ## The `when` escape hatch
 
-`when = "<command>"` delegates a firing condition the structured trigger fields cannot express. The command runs pre-flight under a 10-second budget: exit 0 fires, exit 1 passes, and any other exit or a timeout fails open (no fire) with an advisory. It may print `DISCERN_MATCH <path>` lines to declare the subject precisely; without them the subject falls back to the full matched set, which reopens more coarsely. When selectors are present, they pre-scope the diff and `when` decides the firing. The v1 execution boundary is stated rather than implied: the merge-base governs the command text, while the command runs in the candidate worktree, so the scripts and interpreters it references resolve from that worktree. The policy identity proves where the text came from; it does not prove an executable dependency closure. Read surfaces run no `when` command — `discern checkpoints` reports such a trigger as "may fire at done".
+`when = "<command>"` delegates a firing condition the structured trigger fields cannot express. The command runs pre-flight under a 10-second budget: exit 0 fires, exit 1 passes, and any other exit or a timeout fails open (no fire) with a classified drop that distinguishes spawn failure, timeout, and invalid exit. It may print `DISCERN_MATCH <path>` lines to declare the subject precisely; without them the subject falls back to the full matched set, which reopens more coarsely. When selectors are present, they pre-scope the diff and `when` decides the firing. The v1 execution boundary is stated rather than implied: the merge-base governs the command text, while the command runs in the candidate worktree, so the scripts and interpreters it references resolve from that worktree. The policy identity proves where the text came from; it does not prove an executable dependency closure. Read surfaces run no `when` command — `discern checkpoints` reports such a trigger as "may fire at done".
+
+## Fail-open evidence
+
+When uncertainty prevents enforcement, the Gate may remain green, but the loss cannot disappear into transient copy. One typed checkpoint-drop registry covers policy-level uncertainty before an entry is knowable and entry-level uncertainty after resolution. Entry records carry checkpoint id, mode, governing policy commit, stable reason, and a bounded account. Policy records carry the policy commit when knowable and use `null` for unknowable id and mode.
+
+Gate JSON and Markdown, the Proof, `status`, acceptance preview and consent review, and the landed DSSE note retain the same records. Missing historical configuration is the ordinary absence of policy, while unreadable Git/configuration is a drop. Trigger vetoes are ordinary decisions and never drops. A drop remains fail-open evidence rather than becoming an undeclared variance.
 
 ## Declared unmet, and the owner's variance
 

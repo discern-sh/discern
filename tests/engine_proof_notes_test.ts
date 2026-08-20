@@ -693,6 +693,16 @@ function syntheticProof(commit: string, branch: string): Proof {
   };
 }
 
+Deno.test("durable proof-note writer refuses report-only checkpoint review", async () => {
+  const commit = "a".repeat(40);
+  const result = await writeProofNote(".", commit, {
+    ...syntheticProof(commit, "agent/report"),
+    mode: "report",
+  });
+  assertEquals(result.status, "record_failed");
+  assertStringIncludes(result.reason ?? "", "cannot become landing evidence");
+});
+
 /** Serialize proof data as standard or unpadded URL-safe Base64. */
 function encodedProofPayload(
   value: unknown,
