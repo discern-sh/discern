@@ -28,7 +28,10 @@ import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { reconcileOpenQuestion } from "../src/engine/checkpoints/open_questions.ts";
 import { parseLogbookLine } from "../src/engine/logbook/schema.ts";
-import type { CheckpointObligationState } from "../src/shared/checkpoints.ts";
+import {
+  CHECKPOINT_OBLIGATION_STATES,
+  type CheckpointObligationState,
+} from "../src/shared/checkpoints.ts";
 
 /** The wire fields these assertions read from a `checkpoints` envelope. */
 interface CheckpointsEnvelope {
@@ -653,6 +656,12 @@ Deno.test("checkpoint obligations: the full state matrix projects through every 
       establish: "none",
     },
   ];
+
+  assertEquals(
+    [...new Set(cases.map((testCase) => testCase.obligation))].sort(),
+    [...CHECKPOINT_OBLIGATION_STATES].sort(),
+    "every canonical checkpoint obligation state needs a matrix fixture",
+  );
 
   for (const testCase of cases) {
     await withTempDir(async (dir) => {
