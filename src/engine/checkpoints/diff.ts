@@ -33,7 +33,7 @@ import type {
   EffortFileChange,
   ResolvedCheckpoint,
 } from "./types.ts";
-import { contentCollectionPaths } from "./triggers.ts";
+import { factCollectionPaths } from "./triggers.ts";
 
 /** Bytes of an untracked file inspected for a NUL byte — git's own text/binary
  * heuristic window. */
@@ -93,22 +93,52 @@ interface UntrackedInspection {
   insertions: number;
   binary: boolean | "unknown";
   retained?: Uint8Array;
-  contentReason?: "file_limit" | "unreadable";
+  contentReason?: "file_limit" | "total_bytes" | "unreadable";
+}
+
+interface AttemptedByteBudget {
+  used: number;
+}
+
+/** The opened descriptor must still name the same regular file seen before
+ * and after open. Checking before the first read closes the symlink-replacement
+ * race without following branch-controlled target bytes. */
+function sameRegularFile(
+  left: Deno.FileInfo,
+  right: Deno.FileInfo,
+): boolean {
+  return left.isFile && !left.isSymlink && right.isFile && !right.isSymlink &&
+    left.dev !== null && left.ino !== null &&
+    left.dev === right.dev && left.ino === right.ino;
+}
+
+function concatenate(
+  chunks: readonly Uint8Array[],
+  length: number,
+): Uint8Array {
+  const out = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
 }
 
 /** Inspect an untracked regular file once with bounded retention. Symlinks and
  * special files stay unknown so no branch path can expose external bytes. */
 async function inspectUntracked(
   path: string,
-  retain: boolean,
+  need: "binary" | "line_stats" | "content",
+  budget: AttemptedByteBudget,
 ): Promise<UntrackedInspection> {
-  let info: Deno.FileInfo;
+  let before: Deno.FileInfo;
   try {
-    info = await Deno.lstat(path);
+    before = await Deno.lstat(path);
   } catch {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   }
-  if (!info.isFile || info.isSymlink) {
+  if (!before.isFile || before.isSymlink) {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   }
   let file: Deno.FsFile;
@@ -118,39 +148,111 @@ async function inspectUntracked(
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   }
   try {
+    let opened: Deno.FileInfo;
+    let after: Deno.FileInfo;
+    try {
+      opened = await file.stat();
+      after = await Deno.lstat(path);
+    } catch {
+      return {
+        insertions: 0,
+        binary: "unknown",
+        contentReason: "unreadable",
+      };
+    }
+    if (
+      !sameRegularFile(before, opened) || !sameRegularFile(opened, after)
+    ) {
+      return {
+        insertions: 0,
+        binary: "unknown",
+        contentReason: "unreadable",
+      };
+    }
+    if (budget.used > CHECKPOINT_PATTERN_LIMITS.maxTotalBytes) {
+      return {
+        insertions: 0,
+        binary: "unknown",
+        contentReason: "total_bytes",
+      };
+    }
+    const localLimit = need === "binary"
+      ? BINARY_SNIFF_BYTES
+      : CHECKPOINT_PATTERN_LIMITS.maxFileBytes;
+    const globalRemaining = CHECKPOINT_PATTERN_LIMITS.maxTotalBytes -
+      budget.used;
+    const attemptLimit = need === "binary"
+      ? Math.min(localLimit, globalRemaining + 1)
+      : Math.min(localLimit + 1, globalRemaining + 1);
+    if (attemptLimit <= 0) {
+      return {
+        insertions: 0,
+        binary: "unknown",
+        contentReason: "total_bytes",
+      };
+    }
     const chunk = new Uint8Array(64 * 1024);
-    const retained: number[] = [];
+    const retained: Uint8Array[] = [];
     let bytes = 0;
     let newlines = 0;
     let last = -1;
     let binary = false;
-    while (true) {
-      const read = await file.read(chunk);
+    while (bytes < attemptLimit) {
+      const read = await file.read(
+        chunk.subarray(0, Math.min(chunk.length, attemptLimit - bytes)),
+      );
       if (read === null) break;
       for (let index = 0; index < read; index++) {
         const byte = chunk[index] ?? 0;
         if (bytes + index < BINARY_SNIFF_BYTES && byte === 0) binary = true;
         if (byte === 0x0a) newlines++;
         last = byte;
-        if (
-          retain && retained.length <= CHECKPOINT_PATTERN_LIMITS.maxFileBytes
-        ) {
-          retained.push(byte);
-        }
       }
+      if (need === "content") retained.push(chunk.slice(0, read));
       bytes += read;
+      budget.used += read;
+      if (binary) break;
+    }
+    if (binary) return { insertions: 0, binary: true };
+    if (need === "binary") {
+      return { insertions: 0, binary: false };
+    }
+    if (budget.used > CHECKPOINT_PATTERN_LIMITS.maxTotalBytes) {
+      return {
+        insertions: 0,
+        binary: "unknown",
+        contentReason: "total_bytes",
+      };
+    }
+    if (bytes > CHECKPOINT_PATTERN_LIMITS.maxFileBytes) {
+      return {
+        insertions: 0,
+        binary: "unknown",
+        contentReason: "file_limit",
+      };
+    }
+    // Reaching the limit exactly is not itself an overflow: one final read
+    // distinguishes an exact-boundary file from one byte over.
+    if (bytes === attemptLimit) {
+      const probe = new Uint8Array(1);
+      const read = await file.read(probe);
+      if (read !== null) {
+        budget.used += read;
+        return {
+          insertions: 0,
+          binary: "unknown",
+          contentReason: budget.used > CHECKPOINT_PATTERN_LIMITS.maxTotalBytes
+            ? "total_bytes"
+            : "file_limit",
+        };
+      }
     }
     const insertions = binary ? 0 : bytes === 0 ? 0 : newlines +
       (last === 0x0a ? 0 : 1);
     return {
       insertions,
       binary,
-      ...(retain && retained.length <= CHECKPOINT_PATTERN_LIMITS.maxFileBytes
-        ? { retained: Uint8Array.from(retained) }
-        : {}),
-      ...(retain && retained.length > CHECKPOINT_PATTERN_LIMITS.maxFileBytes
-        ? { contentReason: "file_limit" as const }
-        : {}),
+      ...(need === "content" ? { retained: concatenate(retained, bytes) } : {}),
     };
   } catch {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
@@ -411,21 +513,53 @@ export async function collectEffortDiff(
     baseFiles,
     ...(history === undefined ? {} : { history }),
   };
-  const contentPaths = contentCollectionPaths(definitions, draft);
-  const untrackedInspections = new Map<string, UntrackedInspection>();
-  for (const file of files) {
-    if (!untracked.has(file.path)) continue;
-    const inspection = await inspectUntracked(
-      join(root, file.path),
-      contentPaths.has(file.path),
-    );
-    untrackedInspections.set(file.path, inspection);
-    file.insertions = inspection.insertions;
-    file.binary = inspection.binary;
+  const facts = factCollectionPaths(definitions, draft);
+  // Direct collector callers without definitions retain the legacy complete
+  // untracked stats contract. Production always supplies governing definitions
+  // and therefore opens only paths an admitted predicate can consume.
+  if (definitions.length === 0) {
+    for (const path of untracked) {
+      facts.binary.add(path);
+      facts.lineStats.add(path);
+    }
   }
-  let totalBytes = 0;
-  for (const file of files) {
-    if (!contentPaths.has(file.path)) continue;
+  const budget: AttemptedByteBudget = { used: 0 };
+  const collectionOrder = [...files].sort((left, right) =>
+    left.path < right.path ? -1 : left.path > right.path ? 1 : 0
+  );
+  for (const file of collectionOrder) {
+    const needsContent = facts.content.has(file.path);
+    if (untracked.has(file.path)) {
+      if (!facts.binary.has(file.path)) continue;
+      const inspection = await inspectUntracked(
+        join(root, file.path),
+        needsContent
+          ? "content"
+          : facts.lineStats.has(file.path)
+          ? "line_stats"
+          : "binary",
+        budget,
+      );
+      file.insertions = inspection.insertions;
+      file.binary = inspection.binary;
+      if (!needsContent) continue;
+      const bytes = inspection.retained;
+      if (bytes === undefined) {
+        file.content = {
+          status: "unavailable",
+          reason: inspection.contentReason ?? "unreadable",
+        };
+        continue;
+      }
+      const lines = byteLines(bytes);
+      file.content = lines.some((line) =>
+          line.length > CHECKPOINT_PATTERN_LIMITS.maxLineBytes
+        )
+        ? { status: "unavailable", reason: "line_limit" }
+        : { status: "available", added: lines, removed: [] };
+      continue;
+    }
+    if (!needsContent) continue;
     if (file.binary === true) {
       file.content = { status: "available", added: [], removed: [] };
       continue;
@@ -434,75 +568,53 @@ export async function collectEffortDiff(
       file.content = { status: "unavailable", reason: "unreadable" };
       continue;
     }
-    const remaining = CHECKPOINT_PATTERN_LIMITS.maxTotalBytes - totalBytes;
-    if (remaining <= 0) {
+    if (budget.used > CHECKPOINT_PATTERN_LIMITS.maxTotalBytes) {
       file.content = { status: "unavailable", reason: "total_bytes" };
       continue;
     }
-    let bytes: Uint8Array | undefined;
-    if (untracked.has(file.path)) {
-      const inspected = untrackedInspections.get(file.path);
-      bytes = inspected?.retained;
-      if (bytes === undefined) {
-        file.content = {
-          status: "unavailable",
-          reason: inspected?.contentReason ?? "unreadable",
-        };
-        continue;
-      }
-      if (bytes.length > remaining) {
-        file.content = { status: "unavailable", reason: "total_bytes" };
-        continue;
-      }
-      const lines = byteLines(bytes);
-      if (
-        lines.some((line) =>
-          line.length > CHECKPOINT_PATTERN_LIMITS.maxLineBytes
-        )
-      ) {
-        file.content = { status: "unavailable", reason: "line_limit" };
-        continue;
-      }
-      file.content = { status: "available", added: lines, removed: [] };
-    } else {
-      const cap = Math.min(
-        CHECKPOINT_PATTERN_LIMITS.maxFileBytes,
-        remaining,
-      );
-      const patch = await runGit(
-        [
-          "diff",
-          "--no-ext-diff",
-          "--no-textconv",
-          "--no-renames",
-          "--unified=0",
-          "--no-color",
-          mergeBase,
-          "--",
-          `:(top,literal)${prefix}${file.path}`,
-        ],
-        { cwd: root, maxOutputBytes: cap + 1 },
-      );
-      if (!patch.success) {
-        file.content = {
-          status: "unavailable",
-          reason: patch.outputLimitExceeded
-            ? cap < CHECKPOINT_PATTERN_LIMITS.maxFileBytes
-              ? "total_bytes"
-              : "file_limit"
-            : "unreadable",
-        };
-        continue;
-      }
-      bytes = patch.stdoutBytes ?? new TextEncoder().encode(patch.stdout);
-      const parsed = patchContent(bytes);
-      file.content = parsed.status === "available" &&
-          (parsed.added.length !== file.insertions ||
-            parsed.removed.length !== file.deletions)
-        ? { status: "unavailable", reason: "patch_mismatch" }
-        : parsed;
+    const remaining = CHECKPOINT_PATTERN_LIMITS.maxTotalBytes - budget.used;
+    const attemptLimit = Math.min(
+      CHECKPOINT_PATTERN_LIMITS.maxFileBytes + 1,
+      remaining + 1,
+    );
+    const patch = await runGit(
+      [
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-renames",
+        "--unified=0",
+        "--no-color",
+        mergeBase,
+        "--",
+        `:(top,literal)${prefix}${file.path}`,
+      ],
+      { cwd: root, maxOutputBytes: attemptLimit },
+    );
+    const stdout = patch.stdoutBytes ?? new TextEncoder().encode(patch.stdout);
+    const stderr = patch.stderrBytes ?? new TextEncoder().encode(patch.stderr);
+    const attempted = patch.outputLimitExceeded
+      ? attemptLimit
+      : stdout.length + stderr.length;
+    budget.used += attempted;
+    if (!patch.success) {
+      file.content = {
+        status: "unavailable",
+        reason: patch.outputLimitExceeded
+          ? budget.used > CHECKPOINT_PATTERN_LIMITS.maxTotalBytes ||
+              attemptLimit < CHECKPOINT_PATTERN_LIMITS.maxFileBytes + 1
+            ? "total_bytes"
+            : "file_limit"
+          : "unreadable",
+      };
+      continue;
     }
-    totalBytes += bytes.length;
+    const parsed = patchContent(stdout);
+    file.content = parsed.status === "available" &&
+        (parsed.added.length !== file.insertions ||
+          parsed.removed.length !== file.deletions)
+      ? { status: "unavailable", reason: "patch_mismatch" }
+      : parsed;
   }
   return draft;
 }

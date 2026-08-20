@@ -79,6 +79,25 @@ Deno.test("path-only definitions do not inspect irrelevant untracked bytes", asy
   });
 });
 
+Deno.test("untracked symlink bytes are never followed into checkpoint facts", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "secret needle\n");
+    await gitInit(dir);
+    const base = await gitOut(dir, "rev-parse", "HEAD");
+    await Deno.symlink(join(dir, "seed.txt"), join(dir, "linked.txt"));
+    const def = definition({ addsMatching: ["needle"] });
+    const diff = await collectEffortDiff(dir, base, [], [def]);
+    assert(diff !== undefined);
+    const linked = diff.files.find((file) => file.path === "linked.txt");
+    assert(linked !== undefined);
+    assertEquals(linked.binary, "unknown");
+    assertEquals(linked.content, {
+      status: "unavailable",
+      reason: "unreadable",
+    });
+  });
+});
+
 Deno.test("one huge untracked file stops at the per-file content boundary", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");

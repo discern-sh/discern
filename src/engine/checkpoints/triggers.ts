@@ -278,13 +278,33 @@ function parentDirectory(path: string): string {
 /** Union of paths whose raw diff lines at least one governing content
  * definition may inspect. It applies the authored/selector/exclusion boundary
  * before I/O; later narrowing stays pure. */
-export function contentCollectionPaths(
+export interface FactCollectionPaths {
+  /** Literal changed-line bytes are needed. */
+  content: Set<string>;
+  /** Exact binary classification is needed. */
+  binary: Set<string>;
+  /** Exact untracked line counts are needed. */
+  lineStats: Set<string>;
+}
+
+/** Paths whose untracked facts at least one governing definition can consume.
+ * Admission applies every filter that precedes fact evaluation, so an
+ * irrelevant, generated, excluded, wrong-kind path never spends the shared
+ * collector budget. */
+export function factCollectionPaths(
   definitions: readonly ResolvedCheckpoint[],
   diff: EffortDiff,
-): Set<string> {
-  const paths = new Set<string>();
+): FactCollectionPaths {
+  const content = new Set<string>();
+  const binary = new Set<string>();
+  const lineStats = new Set<string>();
   for (const def of definitions) {
-    if (def.addsMatching.length === 0 && def.removesMatching.length === 0) {
+    const needsContent = def.addsMatching.length > 0 ||
+      def.removesMatching.length > 0;
+    const needsLineStats = needsContent || def.minChangedLines !== undefined ||
+      def.deletionDominant || def.when !== undefined;
+    const needsBinary = needsLineStats || def.binary !== undefined;
+    if (!needsBinary) {
       continue;
     }
     for (const file of diff.files) {
@@ -295,10 +315,20 @@ export function contentCollectionPaths(
       ) continue;
       if (matchesAny(file.path, def.excludePaths)) continue;
       if (def.kinds.length > 0 && !def.kinds.includes(file.kind)) continue;
-      paths.add(file.path);
+      if (needsContent) content.add(file.path);
+      if (needsLineStats) lineStats.add(file.path);
+      if (needsBinary) binary.add(file.path);
     }
   }
-  return paths;
+  return { content, binary, lineStats };
+}
+
+/** Backward-compatible content-only projection for focused callers. */
+export function contentCollectionPaths(
+  definitions: readonly ResolvedCheckpoint[],
+  diff: EffortDiff,
+): Set<string> {
+  return factCollectionPaths(definitions, diff).content;
 }
 
 /**
