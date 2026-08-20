@@ -22,12 +22,11 @@ import { join } from "@std/path";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
-  DENO_JSON,
   engineEnv,
+  engineRunArgs,
   git,
   gitInit,
   gitOut,
-  MAIN_TS,
   runAgent,
   scaffoldEngine,
   worktreePath,
@@ -1095,18 +1094,12 @@ Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () =>
     await gitInit(dir);
     const readiness = await armAwaitReadinessProbe(dir);
     const child = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--no-check",
-        "--config",
-        DENO_JSON,
-        "-A",
-        MAIN_TS,
+      args: engineRunArgs([
         "await",
         "--trunk-moved",
         "--timeout",
         "60",
-      ],
+      ]),
       cwd: dir,
       env: await engineEnv(),
       stdin: "null",

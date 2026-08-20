@@ -27,6 +27,7 @@ import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
+  engineRunArgs,
   gitInit,
   mapPool,
   runAgent,
@@ -34,6 +35,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { AUTHORED_TS_FILES } from "./repo_authored_paths.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import {
   CLI_JSON_CONTRACT_EXCLUSIONS,
@@ -904,6 +906,51 @@ Deno.test("serializeResult reaches stdout ONLY through the emitResult chokepoint
     [],
     `serializeResult must only be emitted via emitResult (src/shared/emit.ts) or the MCP renderer.\n` +
       `Hand-rolled envelope emission found in:\n  ${offenders.join("\n  ")}`,
+  );
+});
+
+Deno.test("source-engine subprocesses inherit the quiet Deno launcher", async () => {
+  const argv = engineRunArgs(["status", "--json"]);
+  assertEquals(
+    argv.slice(0, 3),
+    ["run", "--quiet", "--no-check"],
+    "Deno's launcher diagnostics must stay outside observed discern output",
+  );
+  assertEquals(argv.slice(-2), ["status", "--json"]);
+  assertEquals(argv.filter((arg) => arg === "--quiet"), ["--quiet"]);
+
+  // These paths are private inside engine_helpers. Any other test that names
+  // them has bypassed the chokepoint and can expose Deno's dependency-lock
+  // notices on stderr. await_readiness_guard_test.ts mentions the identifier
+  // only as inert source text for its own synthetic control.
+  const allowed = new Set([
+    "tests/engine_helpers.ts",
+    "tests/await_readiness_guard_test.ts",
+  ]);
+  const privateIdentifiers = [
+    ["MAIN", "TS"].join("_"),
+    ["DENO", "JSON"].join("_"),
+  ];
+  const offenders: string[] = [];
+  for (const rel of AUTHORED_TS_FILES) {
+    if (!rel.startsWith("tests/") || allowed.has(rel)) {
+      continue;
+    }
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    if (
+      privateIdentifiers.some((identifier) =>
+        new RegExp(`\\b${identifier}\\b`, "u").test(source)
+      )
+    ) {
+      offenders.push(rel);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `Source-engine subprocesses must use engineRunArgs():\n  ${
+      offenders.join("\n  ")
+    }`,
   );
 });
 

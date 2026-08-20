@@ -63,12 +63,11 @@ import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import {
   addWorktree,
   defaultMapPath,
-  DENO_JSON,
   engineEnv,
+  engineRunArgs,
   git,
   gitInit,
   gitOut,
-  MAIN_TS,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -309,7 +308,7 @@ async function spawnMcp(
   extraEnv: Record<string, string> = {},
 ): Promise<McpClient> {
   const child = new Deno.Command("deno", {
-    args: ["run", "--no-check", "--config", DENO_JSON, "-A", MAIN_TS, "mcp"],
+    args: engineRunArgs(["mcp"]),
     cwd: dir,
     env: { ...await engineEnv(), ...extraEnv },
     stdin: "piped",

@@ -13,9 +13,9 @@ import {
   type PtyProcessResult,
   runPtyProcess,
 } from "./fixtures/pty_process.ts";
+import { repoSourceRunArgs } from "./engine_helpers.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
-const DENO_JSON = join(REPO_ROOT, "deno.json");
 const HARNESS = join(
   REPO_ROOT,
   "tests",
@@ -63,13 +63,7 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
     suffix: ".json",
   });
   try {
-    const args = [
-      "run",
-      "--no-check",
-      "--config",
-      DENO_JSON,
-      "-A",
-      HARNESS,
+    const args = repoSourceRunArgs(HARNESS, [
       "--scenario",
       options.scenario,
       "--result",
@@ -89,7 +83,7 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
         "--interaction-start-delay",
         String(options.interactionStartDelayMs),
       ]),
-    ];
+    ]);
     const process = await runPtyProcess({
       command: Deno.execPath(),
       args,

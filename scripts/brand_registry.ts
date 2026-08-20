@@ -32,6 +32,7 @@ import {
   CONCEPTS,
   renderBridgeDoc,
 } from "./brand/bridge.ts";
+import { renderBoundaryCanonDoc } from "./brand/boundaries.ts";
 import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
 import { renderDemandCanonDoc } from "./brand/demand.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
@@ -79,6 +80,14 @@ export const BRAND_DOCUMENTS = [
     job:
       "States the struggling moments the benefits answer — evidence-tagged, with current alternatives and forces — and holds two-way coverage against the benefit canon.",
     mode: { kind: "generated", render: renderDemandCanonDoc },
+  },
+  {
+    id: "boundary-canon",
+    file: "boundary-canon.md",
+    status: "Canonical",
+    job:
+      "Defines discern's behavioral refusals, mistaken-identity discriminators, and checkable structural absences from one evidence-backed boundary registry.",
+    mode: { kind: "generated", render: renderBoundaryCanonDoc },
   },
   {
     id: "messaging",

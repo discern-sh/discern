@@ -62,6 +62,11 @@ export interface CliResult {
   stderr: string;
 }
 
+/** Build one Deno-run argv without Deno's own launcher diagnostics. */
+export function quietDenoRunArgs(args: readonly string[]): string[] {
+  return ["run", "--quiet", ...args];
+}
+
 /**
  * Assert semantic terminal content independently of presenter-owned wrapping.
  * Narration may soft-wrap prose or hard-break a long path at the bound width;
@@ -89,15 +94,14 @@ export async function runCli(
   stdin?: string,
 ): Promise<CliResult> {
   const command = new Deno.Command(Deno.execPath(), {
-    args: [
-      "run",
+    args: quietDenoRunArgs([
       "--allow-read",
       "--allow-write",
       "--allow-env",
       "--allow-run",
       MAIN,
       ...args,
-    ],
+    ]),
     cwd,
     // The desk session marker inherits into every descendant; blank it so a
     // suite launched from inside `discern desk` stays deterministic.

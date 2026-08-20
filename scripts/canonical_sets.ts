@@ -919,6 +919,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         banner: true,
       },
       {
+        path: "project/map/_internal/brand/boundary-canon.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
         path: "project/map/_internal/brand/claims-and-evidence.md",
         kind: "generated-file",
         banner: true,
@@ -987,6 +992,41 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       (await import("./brand_registry.ts")).BRAND_DOCUMENTS.map(
         (doc) => doc.id,
       ),
+  },
+  {
+    id: "brand-boundaries",
+    title: "Boundary Canon",
+    what:
+      "discern's conceptual product boundaries and their three generated projections: behavioral refusals, mistaken-identity discriminators, and structural absences, each held to explicit scope, stability, and inspectable evidence.",
+    source: {
+      kind: "module",
+      module: "scripts/brand/boundaries.ts",
+      exportName: "BOUNDARIES",
+    },
+    guards: [
+      "tests/boundary_canon_test.ts",
+      "tests/brand_registry_codegen_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the internal Boundary Canon defines this product-boundary vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the Feature Canon owns what the product does; this set owns the complementary noes and category distinctions",
+      },
+    },
+    members: async () => {
+      const boundaries = await import("./brand/boundaries.ts");
+      return [
+        ...boundaries.BOUNDARIES.map((boundary) => boundary.id),
+        ...boundaries.allBoundaryProjections().map((projection) =>
+          projection.id
+        ),
+      ];
+    },
   },
   {
     id: "brand-claims",

@@ -99,6 +99,11 @@ Deno.test("compile arguments bound distribution roots with exact exclusions", ()
     "templates/.DS_Store",
     "templates/local.machine-state",
   ]);
+  assertEquals(
+    args.some((arg) => arg === "--allow-net" || arg.startsWith("--allow-net=")),
+    false,
+    "the public binary must not carry Deno network permission",
+  );
 });
 
 Deno.test("compile arguments embed only npm packages in the product graph", () => {

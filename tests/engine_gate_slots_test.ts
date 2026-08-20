@@ -33,11 +33,10 @@ import { loadConfig } from "../src/shared/config_schema.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
-  DENO_JSON,
   engineEnv,
+  engineRunArgs,
   git,
   gitInit,
-  MAIN_TS,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -510,15 +509,7 @@ Deno.test("gate slots: a contended done displays slot wait beside run timings", 
     );
     const release = await holdSlot(dir);
     const child = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--no-check",
-        "--config",
-        DENO_JSON,
-        "-A",
-        MAIN_TS,
-        "done",
-      ],
+      args: engineRunArgs(["done"]),
       cwd: dir,
       env: await engineEnv(),
       stdin: "null",

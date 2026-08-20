@@ -293,6 +293,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0302 — Configured scalar docs join the live path-reference vocabulary](0302-configured-scalar-docs-join-the-live-path-reference-vocabulary.md)
 - [0303 — The shipped checkpoint set — four stops on the knowledge surfaces, five advisories on the change](0303-the-shipped-checkpoint-set.md)
 - [0304 — A tenth bundled skill places the checkpoint](0304-a-tenth-bundled-skill-places-the-checkpoint.md)
+- [0305 — The Boundary Canon owns discern's noes](0305-the-boundary-canon-owns-discerns-noes.md)
 
 <!-- END GENERATED: current ADR records -->
 
