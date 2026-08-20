@@ -2174,15 +2174,15 @@ export const HINTS = {
       whenPending: false,
     },
     template: ({ id, question, matched, related, whenPending }): string => {
-      const shown = matched.slice(0, 4).join(", ");
+      const shown = matched.slice(0, 4).map(markdownCodeSpan).join(", ");
       const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
       const claim = whenPending
         ? "may require a declared conclusion (its when command decides)"
         : "will require a declared conclusion";
       const relations = related.map((relation) =>
-        ` ${
-          RELATED_CHECKPOINT_KIND_LABELS[relation.kind]
-        }: ${relation.path} resembles ${relation.for_path}.`
+        ` ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
+          markdownCodeSpan(relation.path)
+        } resembles ${markdownCodeSpan(relation.for_path)}.`
       ).join("");
       return `Checkpoint '${id}' ${claim} at ${CMD.done}: ${question} ` +
         `Changed: ${shown}${more}.${relations}`;
@@ -2210,12 +2210,12 @@ export const HINTS = {
       related: [],
     },
     template: ({ id, question, matched, related }): string => {
-      const shown = matched.slice(0, 4).join(", ");
+      const shown = matched.slice(0, 4).map(markdownCodeSpan).join(", ");
       const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
       const relations = related.map((relation) =>
-        ` ${
-          RELATED_CHECKPOINT_KIND_LABELS[relation.kind]
-        }: ${relation.path} resembles ${relation.for_path}.`
+        ` ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
+          markdownCodeSpan(relation.path)
+        } resembles ${markdownCodeSpan(relation.for_path)}.`
       ).join("");
       return `Checkpoint '${id}' (advisory — nothing blocks): ${question} ` +
         `Changed: ${shown}${more}.${relations}`;

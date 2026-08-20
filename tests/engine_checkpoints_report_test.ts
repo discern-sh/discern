@@ -373,6 +373,7 @@ Deno.test("checkpoints: an open question outside the governing policy stays visi
       definitionHash: "d".repeat(64),
       subject: "s".repeat(64),
       matchedPaths: ["api/surface.txt"],
+      relatedPaths: [],
     });
     assert(planted.ok, "the fixture open question must record");
     const env = parseCheckpoints(
@@ -439,6 +440,7 @@ Deno.test("previews: prepare, status, and done --dry-run project the one preview
       id: "api-review",
       question: QUESTION_API,
       matched: ["api/surface.txt"],
+      related: [],
       whenPending: false,
     };
 
@@ -799,6 +801,7 @@ Deno.test("previews: an advise checkpoint rides the advisory channel on prepare 
       id: "api-review",
       question: QUESTION_API,
       matched: ["api/surface.txt"],
+      related: [],
     };
     const prepare = parseHinted(
       (await runAgent(wt, ["prepare", "--json"])).stdout,
@@ -821,6 +824,7 @@ Deno.test("previews: a when-pending stop checkpoint is served as may-require", a
       id: "api-review",
       question: QUESTION_API,
       matched: ["api/surface.txt"],
+      related: [],
       whenPending: true,
     });
     assertStringIncludes(text, "may require");

@@ -53,6 +53,7 @@ Deno.test("evidence: conclusions and rationales move the identity; identical cla
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: ["a.txt"],
+      relatedPaths: [],
     }, T0);
     const opened = await identityAt(dir);
     assertNotEquals(opened, empty, "an opened question is new evidence");
@@ -126,6 +127,7 @@ Deno.test("evidence: returning to a prior claim restores its identity", async ()
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: ["a.txt"],
+      relatedPaths: [],
     }, T0);
     const met = {
       conclusion: "met" as const,
@@ -165,6 +167,7 @@ Deno.test("evidence: a corrupt store is unavailable, never a guessed identity", 
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: ["a.txt"],
+      relatedPaths: [],
     }, T0);
     const path = await gitAdminStatePath(dir, "checkpointOpenQuestions");
     assert(path !== undefined);

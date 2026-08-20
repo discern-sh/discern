@@ -44,6 +44,7 @@ Deno.test("open questions: open → carry → reopen, idempotent per subject", a
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: ["a.txt"],
+      relatedPaths: [],
     }, T0);
     assert(first.ok);
     assertEquals(first.outcome, "opened");
@@ -55,6 +56,7 @@ Deno.test("open questions: open → carry → reopen, idempotent per subject", a
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: ["a.txt"],
+      relatedPaths: [],
     }, T1);
     assert(again.ok);
     assertEquals(again.outcome, "carried");
@@ -67,6 +69,7 @@ Deno.test("open questions: open → carry → reopen, idempotent per subject", a
       definitionHash: "def1",
       subject: "sub2",
       matchedPaths: ["a.txt", "b.txt"],
+      relatedPaths: [],
     }, T2);
     assert(reopened.ok);
     assertEquals(reopened.outcome, "reopened");
@@ -98,6 +101,7 @@ Deno.test("met and unmet declarations record, repeat idempotently, and replace e
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: ["a.txt"],
+      relatedPaths: [],
     }, T0);
 
     const met = await recordDeclaration(
@@ -181,6 +185,7 @@ Deno.test("reopening leaves a declaration in place but no longer current", async
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: ["a.txt"],
+      relatedPaths: [],
     }, T0);
     await recordDeclaration(
       dir,
@@ -193,6 +198,7 @@ Deno.test("reopening leaves a declaration in place but no longer current", async
       definitionHash: "def1",
       subject: "sub2",
       matchedPaths: ["a.txt"],
+      relatedPaths: [],
     }, T1);
     assert(reopened.ok);
     assertEquals(reopened.openQuestion.declaration?.conclusion, "met");
@@ -208,6 +214,7 @@ Deno.test("the store survives sessions and lives per worktree", async () => {
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: ["a.txt"],
+      relatedPaths: [],
     }, T0);
     // A fresh read (a new session) sees the same open question.
     const read = await readOpenQuestions(dir);
@@ -239,6 +246,7 @@ Deno.test("a corrupt store reads invalid; a write rebuilds from empty and says s
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: [],
+      relatedPaths: [],
     }, T0);
     assert(rebuilt.ok);
     assertEquals(rebuilt.outcome, "opened");
@@ -256,6 +264,7 @@ Deno.test("outside a repository the store is unavailable, never a throw", async 
       definitionHash: "d",
       subject: "s",
       matchedPaths: [],
+      relatedPaths: [],
     });
     assert(!write.ok);
   });
@@ -304,6 +313,7 @@ Deno.test("unmet rationale validation: trim, one paragraph, 1-500 chars, no cont
       definitionHash: "def1",
       subject: "sub1",
       matchedPaths: [],
+      relatedPaths: [],
     }, T0);
     const out = await recordDeclaration(
       dir,
