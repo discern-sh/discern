@@ -2548,6 +2548,14 @@ export type DiscernCheckpointsResult = {
       teach?: string;
       reference?: string;
       trigger: string;
+      obligation:
+        | "none"
+        | "will_open"
+        | "awaiting_declaration"
+        | "reopened"
+        | "declared_met"
+        | "declared_unmet"
+        | "unknown";
       preview?: {
         holds: boolean;
         when_pending?: boolean;

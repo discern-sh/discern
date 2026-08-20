@@ -8241,6 +8241,18 @@
                       "trigger": {
                         "type": "string"
                       },
+                      "obligation": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "will_open",
+                          "awaiting_declaration",
+                          "reopened",
+                          "declared_met",
+                          "declared_unmet",
+                          "unknown"
+                        ]
+                      },
                       "preview": {
                         "type": "object",
                         "properties": {
@@ -8344,7 +8356,8 @@
                       "id",
                       "mode",
                       "question",
-                      "trigger"
+                      "trigger",
+                      "obligation"
                     ]
                   }
                 },
