@@ -234,7 +234,7 @@ export async function loadGoverningPolicy(
   }
   const configSpec = `${policyCommit}:./discern.toml`;
   const listed = await runGit(
-    ["ls-tree", "--name-only", policyCommit, "--", "discern.toml"],
+    ["ls-tree", "-z", policyCommit, "--", "discern.toml"],
     { cwd: root },
   );
   if (!listed.success) {
@@ -250,7 +250,7 @@ export async function loadGoverningPolicy(
       )],
     };
   }
-  if (listed.stdout.trim() === "") {
+  if (listed.stdout === "") {
     return { policyCommit, checkpoints: [], drops: [] };
   }
   // `:./` anchors the path at this project root even when the repository's

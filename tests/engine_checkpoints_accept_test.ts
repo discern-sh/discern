@@ -36,6 +36,7 @@ import type {
 import { AWAITING_CONSENT_SLUG } from "../src/shared/consent.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 
 /** The wire fields these black-box assertions read from an `accept`
  * envelope. Presence claims are static; a field the engine omits fails its
@@ -222,10 +223,17 @@ Deno.test("accept: report-mode Proof is non-landable in preview and apply", asyn
     const reported = await runAgent(wt, ["done", "--ci", "--json"]);
     assertEquals(reported.code, 0, reported.output);
 
+    const store = await gitAdminStatePath(wt, "checkpointOpenQuestions");
+    assert(store !== undefined);
+    await Deno.writeTextFile(store, "not json\n");
+
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(preview.code, 1, preview.output);
     assertEquals(parseJson(preview.stdout).error, "report_only_proof");
-    assertStringIncludes(parseJson(preview.stdout).message, "discern done");
+    assertTerminalTextIncludes(
+      parseJson(preview.stdout).message,
+      "discern done",
+    );
 
     const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(apply.code, 1, apply.output);

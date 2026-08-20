@@ -179,12 +179,10 @@ Deno.test("last-run marker: the recorded evidence identity round-trips", async (
   });
 });
 
-Deno.test("proof marker: a corrupt store stales the vouch; an unreadable one keeps it honored", async () => {
-  // The two fail-open directions, distinguished: a store that DID parse but
-  // was corrupted reads as empty — no standing claims, a CHANGED identity, so
-  // the vouch conservatively stales. A store that cannot be READ at all is an
-  // UNCERTAIN identity, and an uncertain identity is never treated as a
-  // changed one — the recorded vouch stands.
+Deno.test("proof marker: corrupt and unreadable stores remain honored with durable uncertainty", async () => {
+  // Both failure directions make the current identity uncertain rather than
+  // inventing an empty identity. The recorded vouch remains honored, and the
+  // uncertainty travels beside it as structured drop evidence.
   await withTempDir(async (dir) => {
     await declaredRepo(dir);
     const preflight = await preflightAdminStateWrites(dir);
@@ -204,17 +202,24 @@ Deno.test("proof marker: a corrupt store stales the vouch; an unreadable one kee
     assert(store !== undefined);
     const bytes = await Deno.readTextFile(store);
 
-    // Corrupt: the standing claims vanish, so the identity changed — stale.
+    // Corrupt: the identity is unknown and the vouch retains the uncertainty.
     await Deno.writeTextFile(store, "not json\n");
     const corrupt = await inspectGateProof(dir);
-    assertEquals(corrupt.status, "stale");
-    assertStringIncludes(corrupt.reason ?? "", "declarations changed");
+    assertEquals(corrupt.status, "honored");
+    assertEquals(
+      corrupt.checkpoint_drops?.at(-1)?.reason,
+      "declaration_evidence_unavailable",
+    );
 
-    // Unreadable (a directory at the store path): identity unavailable —
-    // fail open, the recorded vouch stays honored.
+    // Unreadable (a directory at the store path): the same durable uncertainty.
     await Deno.remove(store);
     await Deno.mkdir(store, { recursive: true });
-    assertEquals((await inspectGateProof(dir)).status, "honored");
+    const unreadable = await inspectGateProof(dir);
+    assertEquals(unreadable.status, "honored");
+    assertEquals(
+      unreadable.checkpoint_drops?.at(-1)?.reason,
+      "declaration_evidence_unavailable",
+    );
 
     // Restored bytes restore the exact claim — honored again, symmetrically.
     await Deno.remove(store);

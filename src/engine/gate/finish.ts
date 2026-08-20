@@ -1763,6 +1763,7 @@ function serveCheckpointText(served: ServedCheckpoint): string {
  */
 function awaitingDeclarationRefusal(
   preflight: CheckpointPreflight,
+  ciRecovery: boolean,
 ): DiscernResult<GateData> {
   const outstanding = preflight.outstanding;
   const ids = outstanding.map((served) => served.id);
@@ -1792,18 +1793,9 @@ function awaitingDeclarationRefusal(
     data,
     hints: hintTexts([
       fire(HINTS["checkpoint-declare"], { ids }),
-      ...(conventionalCiEnvironment()
-        ? [fire(HINTS["checkpoint-ci-recovery"])]
-        : []),
+      ...(ciRecovery ? [fire(HINTS["checkpoint-ci-recovery"])] : []),
     ]),
   };
-}
-
-/** Conventional CI detection tailors recovery copy; it never changes mode. */
-function conventionalCiEnvironment(): boolean {
-  const marker = Deno.env.get("CI")?.trim().toLowerCase();
-  return marker !== undefined && marker !== "" && marker !== "0" &&
-    marker !== "false" && marker !== "no" && marker !== "off";
 }
 
 /** How the checkpoint gate resolved for one `done` invocation. */
@@ -1822,6 +1814,7 @@ async function resolveCheckpointGate(
   root: string,
   request: DeclarationRequest,
   mode: "strict" | "report" = "strict",
+  ciRecovery = false,
 ): Promise<CheckpointGateResolution> {
   const cfg = await loadConfig(root);
   if (mode === "report") {
@@ -1854,7 +1847,7 @@ async function resolveCheckpointGate(
   if (outcome.preflight.outstanding.length > 0) {
     return {
       kind: "refuse",
-      result: awaitingDeclarationRefusal(outcome.preflight),
+      result: awaitingDeclarationRefusal(outcome.preflight, ciRecovery),
     };
   }
   return { kind: "proceed", preflight: outcome.preflight };
@@ -1978,7 +1971,13 @@ export async function finishResult(
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
-  const checkpointGate = await resolveCheckpointGate(root, declarations, mode);
+  const terminal = terminalContext();
+  const checkpointGate = await resolveCheckpointGate(
+    root,
+    declarations,
+    mode,
+    terminal.ciRequestsStaticOutput,
+  );
   if (checkpointGate.kind === "refuse") {
     return checkpointGate.result;
   }
@@ -2000,7 +1999,6 @@ export async function finishResult(
         : {}),
     })).result;
   }
-  const terminal = terminalContext();
   const gate = await runGate(
     root,
     {
@@ -2066,7 +2064,13 @@ export async function runFinish(
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
-  const checkpointGate = await resolveCheckpointGate(root, declarations, mode);
+  const terminal = terminalContext();
+  const checkpointGate = await resolveCheckpointGate(
+    root,
+    declarations,
+    mode,
+    terminal.ciRequestsStaticOutput,
+  );
   const refusal = checkpointGate.kind === "refuse"
     ? checkpointGate.result
     : mode === "report"
@@ -2094,7 +2098,6 @@ export async function runFinish(
   const preflight = checkpointGate.kind === "proceed"
     ? checkpointGate.preflight
     : undefined;
-  const terminal = terminalContext();
   const gateRun = (): ReturnType<typeof runGate> =>
     runGate(
       root,

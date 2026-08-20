@@ -3053,7 +3053,7 @@ export async function accept(
     confirmed: opts.confirmed ?? false,
     variance: opts.variance ?? [],
   });
-  if (!result.ok) {
+  if (!result.ok && result.error === "report_only_proof") {
     throw new WorktreeResultError(
       result.message ?? "Acceptance refused.",
       result,

@@ -38,6 +38,7 @@ import { worktreeContinuityPolicy } from "./operating_policies.ts";
  */
 const CMD = {
   done: discernCommand("done"),
+  doneCi: discernCommand("done", flag("ci")),
   prepare: discernCommand("prepare"),
   test: discernCommand("test"),
   update: discernCommand("update"),
@@ -2143,7 +2144,9 @@ export const HINTS = {
       "Strict done refuses for an awaiting checkpoint while a conventional CI marker is active.",
     example: undefined,
     template: (): string =>
-      "Use `discern done --ci` for machine checks with report-only checkpoint review. Run ordinary `discern done` in a stateful worktree when checkpoint declarations must be enforced.",
+      `Use ${CMD.doneCi} for machine checks with report-only checkpoint ` +
+      `review. Run ordinary ${CMD.done} in a stateful worktree when ` +
+      "checkpoint declarations must be enforced.",
   }),
 
   "checkpoint-preview": defineHint<
@@ -2216,7 +2219,8 @@ export const HINTS = {
       "An explicit done --ci run completed and its Proof cannot authorize acceptance.",
     example: undefined,
     template: (): string =>
-      "Checkpoint review was reported and was not enforced. Run `discern done` in a stateful worktree before `discern accept`.",
+      `Checkpoint review was reported and was not enforced. Run ${CMD.done} ` +
+      `in a stateful worktree before ${CMD.accept}.`,
   }),
 
   "gate-variance-required": defineHint<{ ids: string[] }>({
@@ -2255,7 +2259,8 @@ export const HINTS = {
     when: "Acceptance finds a Proof from the explicit CI report lane.",
     example: undefined,
     template: (): string =>
-      "Run ordinary `discern done` in this stateful worktree. A `discern done --ci` Proof reports checkpoint review and cannot authorize acceptance.",
+      `Run ordinary ${CMD.done} in this stateful worktree. A ${CMD.doneCi} ` +
+      "Proof reports checkpoint review and cannot authorize acceptance.",
   }),
 
   "accept-authorize-variance": defineHint<{ ids: string[] }>({

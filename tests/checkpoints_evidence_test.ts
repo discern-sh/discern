@@ -157,7 +157,7 @@ Deno.test("evidence: returning to a prior claim restores its identity", async ()
   });
 });
 
-Deno.test("evidence: a corrupt store reads as empty (the rebuild-from-empty direction)", async () => {
+Deno.test("evidence: a corrupt store is unavailable, never a guessed identity", async () => {
   await withTempDir(async (dir) => {
     await repo(dir);
     await reconcileOpenQuestion(dir, {
@@ -169,11 +169,8 @@ Deno.test("evidence: a corrupt store reads as empty (the rebuild-from-empty dire
     const path = await gitAdminStatePath(dir, "checkpointOpenQuestions");
     assert(path !== undefined);
     await Deno.writeTextFile(path, "not json\n");
-    assertEquals(
-      await identityAt(dir),
-      await evidenceIdentityOf({}),
-      "a store the next write rebuilds from empty carries no standing claims",
-    );
+    const evidence = await declarationEvidenceIdentity(dir);
+    assertEquals(evidence.status, "unavailable");
   });
 });
 
