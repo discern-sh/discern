@@ -117,6 +117,40 @@ Deno.test("an unrelated trunk update moves the policy identity but not the subje
   });
 });
 
+Deno.test("history identity moves only a history-sensitive subject", async () => {
+  await withTempDir(async (dir) => {
+    const base = await repo(dir);
+    const hash = "history-sensitive-definition";
+    const first = await computeSubject(
+      dir,
+      hash,
+      ["matched.txt"],
+      base,
+      [],
+      "ordered-history-a",
+    );
+    const amended = await computeSubject(
+      dir,
+      hash,
+      ["matched.txt"],
+      base,
+      [],
+      "ordered-history-b",
+    );
+    const ordinary = await computeSubject(
+      dir,
+      hash,
+      ["matched.txt"],
+      base,
+    );
+    assert("subject" in first);
+    assert("subject" in amended);
+    assert("subject" in ordinary);
+    assertNotEquals(first.subject.fingerprint, amended.subject.fingerprint);
+    assertNotEquals(first.subject.fingerprint, ordinary.subject.fingerprint);
+  });
+});
+
 Deno.test("a trunk update that changes a matched base path reopens the subject", async () => {
   await withTempDir(async (dir) => {
     const base0 = await scaffold(dir);

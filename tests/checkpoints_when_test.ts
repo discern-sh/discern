@@ -5,15 +5,35 @@
  * config, but everything it references resolves from the candidate worktree).
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { writeExecutable } from "./engine_helpers.ts";
 import {
   CHECKPOINT_WHEN_TIMEOUT_SECONDS,
+  type CheckpointWhenInput,
   parseDiscernMatches,
   runWhenCommand,
 } from "../src/engine/checkpoints/when.ts";
+
+const INPUT: CheckpointWhenInput = {
+  version: 1,
+  checkpoint: { id: "probe", mode: "stop" },
+  policy_commit: "abc123",
+  changed: [{
+    path: "src/a.ts",
+    kind: "modified",
+    insertions: 2,
+    deletions: 1,
+    binary: false,
+  }],
+  history: { count: 2, fingerprint: "ordered-history" },
+};
 
 Deno.test("when: the shipped budget is the ten-second pre-flight contract", () => {
   // The fixed wall-clock budget is a published contract ("a pre-flight
@@ -29,6 +49,65 @@ Deno.test("when: exit 0 fires (no declared matches)", async () => {
       kind: "fire",
       matches: [],
     });
+  });
+});
+
+Deno.test("when: receives one versioned structured input and always removes it", async () => {
+  await withTempDir(async (dir) => {
+    const captured = join(dir, "captured.json");
+    const pathRecord = join(dir, "input-path.txt");
+    const command =
+      `cp "$DISCERN_CHECKPOINT_INPUT" "${captured}"; printf %s "$DISCERN_CHECKPOINT_INPUT" > "${pathRecord}"; exit 0`;
+    assertEquals(
+      await runWhenCommand(dir, "probe", command, { input: INPUT }),
+      {
+        kind: "fire",
+        matches: [],
+      },
+    );
+    assertEquals(JSON.parse(await Deno.readTextFile(captured)), INPUT);
+    const inputPath = await Deno.readTextFile(pathRecord);
+    await assertRejects(() => Deno.stat(inputPath), Deno.errors.NotFound);
+  });
+});
+
+Deno.test("when: removes structured input after pass, failure, timeout, and cancellation", async () => {
+  await withTempDir(async (dir) => {
+    for (
+      const [name, command, options] of [
+        ["pass", "exit 1", {}],
+        ["failure", "exit 7", {}],
+        ["timeout", "sleep 30", { timeoutS: 0.05 }],
+      ] as const
+    ) {
+      const record = join(dir, `${name}.txt`);
+      await runWhenCommand(
+        dir,
+        "probe",
+        `printf %s "$DISCERN_CHECKPOINT_INPUT" > "${record}"; ${command}`,
+        { input: INPUT, ...options },
+      );
+      await assertRejects(
+        () => Deno.stat(await Deno.readTextFile(record)),
+        Deno.errors.NotFound,
+      );
+    }
+
+    const controller = new AbortController();
+    const record = join(dir, "cancel.txt");
+    const pending = runWhenCommand(
+      dir,
+      "probe",
+      `printf %s "$DISCERN_CHECKPOINT_INPUT" > "${record}"; sleep 30`,
+      { input: INPUT, signal: controller.signal },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    controller.abort();
+    await pending;
+    await assertRejects(
+      () => Deno.stat(await Deno.readTextFile(record)),
+      Deno.errors.NotFound,
+    );
   });
 });
 
