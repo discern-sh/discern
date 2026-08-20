@@ -282,7 +282,6 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0291 — The await call cap is an environment-only valued experiment](0291-the-await-call-cap-is-an-environment-only-experiment.md)
 - [0292 — The demand canon counters the benefit canon](0292-the-demand-canon-counters-the-benefit-canon.md)
 - [0293 — Checkpoint declarations interlock the gate through open questions and relevance-sensitive subjects](0293-checkpoint-declarations-interlock-the-gate.md)
-- [0293 — The Boundary Canon owns discern's noes](0293-the-boundary-canon-owns-discerns-noes.md)
 - [0294 — The merge-base governs checkpoint policy](0294-the-merge-base-governs-checkpoint-policy.md)
 - [0295 — One question vocabulary serves the improvement and checkpoint memberships](0295-one-question-vocabulary-serves-two-memberships.md)
 - [0296 — `when` delegates trigger conditions to the project under an explicit v1 execution boundary](0296-when-delegates-trigger-conditions-under-a-v1-boundary.md)
@@ -294,6 +293,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0302 — Configured scalar docs join the live path-reference vocabulary](0302-configured-scalar-docs-join-the-live-path-reference-vocabulary.md)
 - [0303 — The shipped checkpoint set — four stops on the knowledge surfaces, five advisories on the change](0303-the-shipped-checkpoint-set.md)
 - [0304 — A tenth bundled skill places the checkpoint](0304-a-tenth-bundled-skill-places-the-checkpoint.md)
+- [0305 — The Boundary Canon owns discern's noes](0305-the-boundary-canon-owns-discerns-noes.md)
 
 <!-- END GENERATED: current ADR records -->
 

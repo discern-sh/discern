@@ -124,35 +124,35 @@ The product glossary defines each product term once and prohibits synonyms in pr
 ### `proof-exact-tree` — Proof covers the exact committed tree that passed
 
 - **Evidence:** structural
-- **Strongest supported public form:** “A discern Proof identifies the exact clean committed change that passed the project's declared Gate and held Standards.”
-- **Mechanism:** the tree is pinned before evaluation and rechecked at stamping; a later commit invalidates the evidence.
-- **Conditions:** Use “Proof” consistently across product surfaces, and keep the claim scoped to the declared Gate over the exact tree.
-- **Forbidden inference:** formal proof of universal correctness, security, absence of defects, production suitability, or permission to land.
+- **Strongest supported public form:** “A discern Proof identifies the exact clean committed change that passed the project's declared Gate and held Standards, and separately carries current checkpoint declarations.”
+- **Mechanism:** the tree is pinned before evaluation and rechecked at stamping; the Proof also binds a declaration-evidence identity, so a later commit or changed declaration invalidates it.
+- **Conditions:** Use “Proof” consistently, keep the claim scoped to the declared Gate over the exact tree, and describe checkpoint conclusions as declared rather than verified.
+- **Forbidden inference:** formal proof of universal correctness, security, absence of defects, production suitability, permission to land, or machine verification of an agent declaration.
 - **Primary source:** Proof implementation, glossary, Gate behavior, and DSSE-compatible note boundary.
 
 ### `gate-grants-no-authority` — a passing Gate does not grant authority to land
 
 - **Evidence:** structural
 - **Strongest supported public form:** “Passing makes a change eligible for a decision; it does not decide what ships.”
-- **Mechanism:** acceptance requires fresh conversational confirmation, a standing scope grant, or a per-worktree grant checked at the landing boundary.
-- **Conditions:** pre-authorization can permit independent landing once the exact changed paths satisfy the grant.
+- **Mechanism:** acceptance requires fresh conversational confirmation, a standing scope grant, or a per-worktree grant checked at the landing boundary; each declared-unmet checkpoint additionally requires owner authorization for the current variance, recorded from the conversation.
+- **Conditions:** pre-authorization can permit independent landing once the changed paths satisfy the grant and no current declared-unmet conclusion requires a variance.
 - **Forbidden inference:** the human must manually approve every low-level action, or a recorded grant is unlimited autonomy.
 - **Primary source:** landing authority, acceptance config, Delegate Work Skill.
 
 ### `no-model-inside` — discern contains no AI model and needs no API key
 
 - **Evidence:** structural
-- **Strongest supported public form:** “discern contains no AI model and needs no API key; it runs the commands the project declares.”
-- **Mechanism:** one local binary; deterministic engine; project commands supply verdicts.
-- **Conditions:** coding agents and project commands may independently use networks, models, or paid services.
+- **Strongest supported public form:** “discern contains no AI model and needs no API key; it derives machine results from deterministic checks and the project's commands, while the coding agent supplies any checkpoint judgment.”
+- **Mechanism:** one local binary; deterministic engine; checkpoint declarations are external agent evidence rather than model calls made by discern.
+- **Conditions:** coding agents, project commands, and checkpoint `when` commands may independently use networks, models, or paid services.
 - **Forbidden inference:** the entire development environment is offline or network-free.
 - **Primary source:** Foundations; CLI tips; product architecture.
 
 ### `local-logbook` — evidence and the Logbook stay local
 
 - **Evidence:** structural
-- **Strongest supported public form:** “discern's Logbook and advisory analysis stay on the machine. They contain metadata and exclude code and command output.”
-- **Mechanism:** local `.git` storage; no network path in the Logbook implementation; opt-out available.
+- **Strongest supported public form:** “discern's Logbook and advisory analysis stay on the machine. They contain metadata and exclude code, command output, and checkpoint rationales.”
+- **Mechanism:** local `.git` storage; no network path in the Logbook implementation; checkpoint observations omit rationale fields; opt-out available.
 - **Conditions:** publication or Git transport of other artifacts may be explicitly configured by the user.
 - **Forbidden inference:** all project data and tooling stay local or discern is a security boundary.
 - **Primary source:** Logbook glossary and feature canon.

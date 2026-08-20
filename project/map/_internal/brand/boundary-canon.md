@@ -8,7 +8,7 @@ One conceptual boundary may appear in more than one projection. The shared recor
 
 ## Scope rule
 
-Unless a record says otherwise, a boundary applies to discern-owned code and effects. Project jobs, resource commands, provider hooks, coding-agent clients, and the surrounding coding-agent host keep their own capabilities: they may use models, networks, credentials, nondeterminism, or additional privileges without changing what the discern engine itself contains.
+Unless a record says otherwise, a boundary applies to discern-owned code and effects. Project jobs, checkpoint `when` commands, resource commands, provider hooks, coding-agent clients, and the surrounding coding-agent host keep their own capabilities: they may use models, networks, credentials, nondeterminism, or additional privileges without changing what the discern engine itself contains.
 
 Stability labels mean:
 
@@ -20,25 +20,25 @@ Stability labels mean:
 
 These statements oblige behavior. A violation is a product defect.
 
-1. **Never lands without authority** — A green Gate establishes readiness evidence. Landing still requires explicit conversation consent or a recorded, machine-checked grant.
+1. **Never lands without authority** — A green Gate establishes readiness evidence. Landing requires conversation consent or a recorded, machine-checked grant; each declared-unmet checkpoint also requires owner authorization for the current variance set.
    - Projection: `authority-before-accept`; boundary: [`landing-authority`](#landing-authority).
 2. **Does not restrict the agent** — discern supplies no general command filter, blocklist, or permission model. The coding-agent provider owns that boundary.
    - Projection: `no-general-agent-restriction`; boundary: [`provider-security-boundary`](#provider-security-boundary).
-3. **No model in the verdict** — discern never asks an LLM whether work is done. The verdict is a computation over declared conditions.
-   - Projection: `no-model-in-verdict`; boundary: [`model-free-verdict`](#model-free-verdict).
+3. **Never presents agent judgment as verification** — A checkpoint may require the coding agent to declare a question met or unmet. discern verifies the declaration's presence and binding, then records the conclusion as agent evidence without verifying its semantic truth.
+   - Projection: `never-verifies-agent-judgment`; boundary: [`evidence-kind-separation`](#evidence-kind-separation).
 4. **Writes no application code** — discern conditions the work of code-writing tools; it does not generate the project's application code.
    - Projection: `writes-no-application-code`; boundary: [`non-authoring-system`](#non-authoring-system).
-5. **Holds no application taste of its own** — discern enforces the project's recorded conditions through the project's tools. It adds no unstated rule about application architecture or style.
+5. **Holds no application taste of its own** — discern runs configured tools and serves recorded checkpoint questions. It adds no unstated rule about application architecture or style.
    - Projection: `no-application-taste`; boundary: [`project-owned-quality`](#project-owned-quality).
-6. **Never picks your limits** — discern may propose a ratchet and can pin a measured value when invoked. Choosing to set or move the limit remains the owner's act.
-   - Projection: `never-picks-limits`; boundary: [`owner-chosen-limits`](#owner-chosen-limits).
+6. **Never picks your Standard limits** — discern may propose a ratchet and can pin a measured value when invoked. Choosing to set or move a Standard limit remains the owner's act.
+   - Projection: `never-picks-standard-limits`; boundary: [`owner-chosen-standard-limits`](#owner-chosen-standard-limits).
 7. **Never loosens to pass** — A firing Standard is never relaxed automatically. Moving the boundary is an owner-reviewed change on the trunk.
    - Projection: `never-loosens-to-pass`; boundary: [`non-loosening-standards`](#non-loosening-standards).
-8. **No Proof for a dirty tree** — discern refuses ‘mostly done’. Durable Proof binds to one clean, committed `HEAD`, or it does not exist.
+8. **No Proof for a dirty tree** — discern refuses ‘mostly done’. Durable Proof binds to one clean, committed `HEAD` and its current checkpoint declaration evidence; without both, no valid Proof exists.
    - Projection: `no-proof-for-dirty-tree`; boundary: [`exact-tree-proof`](#exact-tree-proof).
 9. **Never resolves meaning** — `update` merges mechanically and reports semantic overlap. The agent and owner decide what an overlap means.
    - Projection: `never-resolves-meaning`; boundary: [`mechanical-update`](#mechanical-update).
-10. **Does not touch remotes** — discern does not push, fetch, or open pull requests. `accept` fast-forwards local `main`; hosting remains a separate workflow.
+10. **Does not touch remotes** — discern does not push, fetch, or open pull requests. `accept` fast-forwards the configured local trunk; hosting remains a separate workflow.
     - Projection: `does-not-touch-remotes`; boundary: [`local-git-landing`](#local-git-landing).
 11. **Does not allocate work to agents** — discern supplies no model runtime, model scheduler, autonomous task router, or vendor fleet control plane.
     - Projection: `never-allocates-agent-work`; boundary: [`agent-runtime-boundary`](#agent-runtime-boundary).
@@ -62,7 +62,7 @@ These statements oblige behavior. A violation is a product defect.
     - Projection: `does-not-gamify-practice`; boundary: [`non-gamified-practice`](#non-gamified-practice).
 21. **Never guesses a measure** — A Standard replays a recorded value only when its inputs are untouched; otherwise it runs the measurement command. Estimates never enter the verdict.
     - Projection: `never-guesses-measure`; boundary: [`measured-standards`](#measured-standards).
-22. **Does not certify the outcome** — Proof says the recorded conditions held for one commit. It never certifies that the software is secure, correct, compliant, or finished in every relevant sense.
+22. **Does not certify the outcome** — Proof reports which machine conditions held for one commit and which checkpoint conclusions the agent declared. It never certifies that the software is secure, correct, compliant, or finished in every relevant sense.
     - Projection: `does-not-certify-outcome`; boundary: [`proof-scope`](#proof-scope).
 
 ## Mistaken identities
@@ -73,8 +73,8 @@ Each entry names a category people may use and the discriminating fact that rule
    - Projection: `not-ci`; boundary: [`pre-share-lifecycle`](#pre-share-lifecycle).
 2. **Not a pre-commit-hook manager** — It installs no Git hooks. Its unit is the effort lifecycle; no commit-time lint pass is added.
    - Projection: `not-a-precommit-manager`; boundary: [`owner-bypass`](#owner-bypass).
-3. **Not an AI code reviewer** — It supplies deterministic conditions and commit-bound evidence. Model interpretation is absent.
-   - Projection: `not-an-ai-code-reviewer`; boundary: [`model-free-verdict`](#model-free-verdict).
+3. **Not an AI code reviewer** — The coding agent judges checkpoint questions. discern serves them from deterministic triggers, records the declarations, and performs no model inference.
+   - Projection: `not-an-ai-code-reviewer`; boundary: [`evidence-kind-separation`](#evidence-kind-separation).
 4. **Not a coding agent or copilot** — It is the practice coding agents work inside. Application authorship remains with coding tools.
    - Projection: `not-a-coding-agent`; boundary: [`non-authoring-system`](#non-authoring-system).
 5. **Not an agent framework** — There is no chain runtime or SDK to embed in application code; discern installs into the repository.
@@ -83,7 +83,7 @@ Each entry names a category people may use and the discriminating fact that rule
    - Projection: `not-a-fleet-orchestrator`; boundary: [`agent-runtime-boundary`](#agent-runtime-boundary).
 7. **Not a `CLAUDE.md` generator** — Agent files are one output; the substance is the Gate, worktrees, Standards, Map, Skills, and evidence behind them.
    - Projection: `not-agent-file-generator`; boundary: [`installed-practice`](#installed-practice).
-8. **Not a prompt pack or rules library** — Its authority comes from installed machinery that can refuse. Prose carries instructions but cannot enforce them alone.
+8. **Not a prompt pack or rules library** — Checkpoint questions are served by deterministic triggers and can stop completion. Standalone prose has no such authority.
    - Projection: `not-a-prompt-pack`; boundary: [`installed-practice`](#installed-practice).
 9. **Not a linter or formatter** — It runs the project's tools and ships no rules for application code.
    - Projection: `not-a-linter-formatter`; boundary: [`project-owned-quality`](#project-owned-quality).
@@ -91,7 +91,7 @@ Each entry names a category people may use and the discriminating fact that rule
     - Projection: `not-a-test-framework`; boundary: [`project-owned-quality`](#project-owned-quality).
 11. **Not a Git wrapper or new VCS** — It uses ordinary branches, worktrees, refs, commits, and fast-forwards; Git can inspect every project state it creates.
     - Projection: `not-a-git-wrapper`; boundary: [`local-git-landing`](#local-git-landing).
-12. **Not a merge queue** — `accept` is a consent-bound fast-forward of local `main`. It provides no hosted queue or scheduling service.
+12. **Not a merge queue** — `accept` is a consent-bound fast-forward of the configured local trunk. It provides no hosted queue or scheduling service.
     - Projection: `not-a-merge-queue`; boundary: [`landing-authority`](#landing-authority).
 13. **Not a build system** — It defines no application build graph or build-artifact cache; jobs remain the project's commands.
     - Projection: `not-a-build-system`; boundary: [`project-owned-quality`](#project-owned-quality).
@@ -101,7 +101,7 @@ Each entry names a category people may use and the discriminating fact that rule
     - Projection: `not-a-security-scanner`; boundary: [`provider-security-boundary`](#provider-security-boundary).
 16. **Not a sandbox or safety layer** — It disciplines project work; it does not contain the process doing that work.
     - Projection: `not-a-sandbox`; boundary: [`provider-security-boundary`](#provider-security-boundary).
-17. **Not LLM observability or model evaluation** — The Logbook records project events and Patterns derives bounded project facts; neither records model traces nor scores model behavior.
+17. **Not LLM observability or model evaluation** — The Logbook records project events and checkpoint economics; Patterns derives bounded project facts. They record no model trace and produce no score for model behavior.
     - Projection: `not-llm-observability-evals`; boundary: [`worker-neutral-measurement`](#worker-neutral-measurement).
 18. **Not an agent-memory product** — Retention is committed, reviewable text and Git evidence—Map pages, ADRs, instructions, Skills, and the Logbook—not embeddings or hidden conversational state.
     - Projection: `not-agent-memory-product`; boundary: [`committed-project-memory`](#committed-project-memory).
@@ -111,7 +111,7 @@ Each entry names a category people may use and the discriminating fact that rule
     - Projection: `not-project-management`; boundary: [`evidence-led-improvement`](#evidence-led-improvement).
 21. **Not a docs generator** — The Map is authored understanding held under the Gate, with separate generated references where derivation is useful; it is not extracted API documentation.
     - Projection: `not-a-docs-generator`; boundary: [`map-understanding`](#map-understanding).
-22. **Not a compliance or audit product** — Proof is engineering evidence for the owner and carries no regulatory attestation.
+22. **Not a compliance or audit product** — Proof is scoped engineering evidence: machine results, agent declarations, and owner-authorized variances. It carries no regulatory attestation.
     - Projection: `not-compliance-audit-product`; boundary: [`proof-scope`](#proof-scope).
 23. **Not spec-driven development tooling** — It does not generate application code from specifications; it governs how any resulting work proves itself.
     - Projection: `not-spec-driven-codegen`; boundary: [`non-authoring-system`](#non-authoring-system).
@@ -122,8 +122,8 @@ Each entry names a category people may use and the discriminating fact that rule
 
 These statements name inspectable properties of the product or edition. Qualifications keep external commands and future editions outside claims they cannot support.
 
-1. **No model inside** — discern performs no inference and needs no model API key or inference token budget.
-   - Projection: `no-model-inside`; boundary: [`model-free-verdict`](#model-free-verdict).
+1. **No model inside** — discern performs no inference and needs no model API key or inference token budget. Any model used to judge a checkpoint belongs to the coding agent.
+   - Projection: `no-model-inside`; boundary: [`evidence-kind-separation`](#evidence-kind-separation).
 2. **No network permission in the public binary** — The compiled discern program cannot open network sockets. External commands it invokes remain outside this guarantee.
    - Projection: `no-network-permission`; boundary: [`offline-owned-engine`](#offline-owned-engine).
 3. **No telemetry** — discern sends no analytics, crash report, usage event, source, or project evidence to a product service.
@@ -150,7 +150,7 @@ These statements name inspectable properties of the product or edition. Qualific
     - Projection: `no-git-hooks-installed`; boundary: [`owner-bypass`](#owner-bypass).
 14. **No embedded dead weight** — The production binary embeds only product-reachable packages; development-only dependencies stay outside the artifact.
     - Projection: `no-embedded-dead-weight`; boundary: [`production-dependency-closure`](#production-dependency-closure).
-15. **No randomness in the verdict** — discern adds no random choice to completion. Given the same committed tree, config, and project-command outcomes, it derives the same verdict.
+15. **No randomness in the verdict** — discern adds no random choice to completion. Given the same tree, governing policy, external command outcomes, and checkpoint declaration evidence, it derives the same Gate state and Proof.
     - Projection: `no-randomness-in-verdict`; boundary: [`deterministic-owned-verdict`](#deterministic-owned-verdict).
 16. **No unplanned discern-owned effects** — Each discern-owned effectful workflow computes a read-only plan before applying it, which gives the workflow a dry-run projection.
     - Projection: `no-unplanned-owned-effects`; boundary: [`planned-owned-effects`](#planned-owned-effects).
@@ -171,7 +171,9 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Boundary:** Landing authority\
 **Stability:** enduring\
-**Scope:** Every `accept` operation, whether authority comes from this conversation or a recorded grant.
+**Scope:** Every `accept` operation, including work with a current declared-unmet checkpoint conclusion.
+
+**Qualification:** Ordinary landing authority may come from the current conversation or a recorded grant. A variance requires conversation consent for the exact declared-unmet set; standing and effort grants never cover it.
 
 **Related claims:** [`gate-grants-no-authority`](claims-and-evidence.md#gate-grants-no-authority--a-passing-gate-does-not-grant-authority-to-land)
 
@@ -179,6 +181,8 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 - Decision: `project/map/_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md` — defines the machine-checked grant model.
 - Guard: `tests/engine_accept_authority_test.ts` — exercises every landing-authority source end to end.
+- Decision: `project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md` — binds variances to conversation consent and current evidence.
+- Guard: `tests/engine_checkpoints_accept_test.ts` — rejects grants and incomplete decisions for variances.
 
 ### provider-security-boundary
 
@@ -194,17 +198,21 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 - Guard: `tests/fs_plan_test.ts` — holds the narrow Claude environment-file protection.
 - Source: `src/lib/providers.ts` — owns provider-specific integration rules.
 
-### model-free-verdict
+### evidence-kind-separation
 
-**Boundary:** Model-free verdict\
+**Boundary:** Evidence-kind separation\
 **Stability:** enduring\
-**Scope:** The Gate verdict and the Proof derived from it.
+**Scope:** Machine results, agent declarations, and owner authority carried through the Gate, Proof, and acceptance.
+
+**Qualification:** A coding agent may use a model to judge a checkpoint question. discern checks that a current declaration exists and binds to its matched change; it never checks the semantic truth of the conclusion.
 
 **Related claims:** [`no-model-inside`](claims-and-evidence.md#no-model-inside--discern-contains-no-ai-model-and-needs-no-api-key)
 
 **Evidence:**
 
+- Decision: `project/map/_adr/0293-checkpoint-declarations-interlock-the-gate.md` — separates machine results from agent declarations.
 - Source: `src/engine/gate/execute.ts` — computes the Gate from declared jobs and checks.
+- Guard: `tests/engine_checkpoints_gate_test.ts` — holds declarations as a distinct Proof evidence row.
 - Guard: `tests/third_party_notices_test.ts` — enumerates every embedded third-party package.
 
 ### non-authoring-system
@@ -224,18 +232,22 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 **Stability:** enduring\
 **Scope:** Application architecture, style, tests, builds, analysis, and other project-owned checks.
 
-**Qualification:** discern is opinionated about the agent-development practice itself: isolated work, declared checks, evidence, authority, and retained standards are product choices.
+**Qualification:** discern is opinionated about agent-development practice: isolated work, declared checks, evidence, authority, retained Standards, and shipped checkpoint questions are product choices. Checkpoint defaults become project policy through committed `discern.toml`; the owner can override or remove them.
 
 **Evidence:**
 
 - Decision: `project/map/_adr/0168-the-gate-declares-jobs.md` — makes the project's command table the Gate authority.
-- Source: `src/shared/config_schema.ts` — defines project-owned jobs and standards.
+- Source: `src/shared/config_schema.ts` — defines project-owned jobs, Standards, and checkpoint policy.
+- Decision: `project/map/_adr/0303-the-shipped-checkpoint-set.md` — limits shipped questions to agent-development practice.
+- Guard: `tests/checkpoints_builtins_test.ts` — holds the shipped checkpoint set and its defaults.
 
-### owner-chosen-limits
+### owner-chosen-standard-limits
 
-**Boundary:** Owner-chosen limits\
+**Boundary:** Owner-chosen Standard limits\
 **Stability:** enduring\
 **Scope:** Every Standard limit and every change to one.
+
+**Qualification:** Shipped checkpoint trigger thresholds are configurable starting policy. Standard limits are separate measured ratchets chosen by the owner.
 
 **Evidence:**
 
@@ -246,7 +258,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Boundary:** Non-loosening Standards\
 **Stability:** enduring\
-**Scope:** Every firing Standard compared with its value on `main`.
+**Scope:** Every firing Standard compared with its value on the trunk.
 
 **Related claims:** [`standards-cannot-loosen`](claims-and-evidence.md#standards-cannot-loosen--a-standard-cannot-be-loosened-on-a-branch), [`pin-measured-gains`](claims-and-evidence.md#pin-measured-gains--measured-gains-can-be-captured)
 
@@ -259,7 +271,9 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Boundary:** Exact-tree Proof\
 **Stability:** enduring\
-**Scope:** Every durable Proof and the commit it names.
+**Scope:** Every durable Proof, the commit it names, and the checkpoint declaration evidence it records.
+
+**Qualification:** A changed checkpoint conclusion or rationale stales Proof at an unchanged `HEAD`; the commit and declaration-evidence identity must both remain current.
 
 **Related claims:** [`proof-exact-tree`](claims-and-evidence.md#proof-exact-tree--proof-covers-the-exact-committed-tree-that-passed)
 
@@ -267,12 +281,14 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 - Source: `project/map/20-quality-gate/the-proof.md` — defines Proof for one clean committed tree.
 - Guard: `tests/engine_proof_render_test.ts` — holds the commit-bound Proof projection.
+- Decision: `project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md` — adds declaration evidence to Proof currency.
+- Guard: `tests/gate_proof_evidence_test.ts` — stales Proof when declaration evidence changes.
 
 ### mechanical-update
 
 **Boundary:** Mechanical update\
 **Stability:** enduring\
-**Scope:** Bringing `main` or an explicit base into an effort branch.
+**Scope:** Bringing the configured trunk or an explicit base into an effort branch.
 
 **Evidence:**
 
@@ -312,7 +328,9 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Boundary:** Worker-neutral measurement\
 **Stability:** enduring\
-**Scope:** Logbook, Stats, and Patterns evidence about project work.
+**Scope:** Logbook, Stats, Patterns, and checkpoint economics about project work.
+
+**Qualification:** Checkpoint observations report firings, conclusions, revisions, elapsed time, and variances as project-policy economics. Hygiene readers recommend changes to the trigger, question, or mode and make no claim about agent diligence.
 
 **Related claims:** [`local-logbook`](claims-and-evidence.md#local-logbook--evidence-and-the-logbook-stay-local), [`patterns-compare-cohorts`](claims-and-evidence.md#patterns-compare-cohorts--patterns-can-compare-cohorts-and-configurations)
 
@@ -322,6 +340,8 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 - Decision: `project/map/_adr/0244-brand-addresses-the-owner.md` — confines discern's judgment to project work.
 - Guard: `tests/engine_patterns_test.ts` — holds bounded cohort facts and project recommendations.
 - Guard: `tests/stats_test.ts` — holds the Stats calculations and dimensions.
+- Decision: `project/map/_adr/0300-checkpoint-observation-is-drained-metadata-never-a-verdict.md` — confines checkpoint economics to policy fit.
+- Guard: `tests/checkpoint_observation_boundary_test.ts` — keeps observed history outside checkpoint decisions.
 
 ### owner-bypass
 
@@ -445,6 +465,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 - Source: `project/map/20-quality-gate/the-proof.md` — defines Proof as scoped engineering evidence.
 - Source: `src/engine/gate/proof_render.ts` — renders the conditions and commit the Proof covers.
+- Decision: `project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md` — keeps machine, agent, and owner evidence distinct.
 
 ### pre-share-lifecycle
 
@@ -471,6 +492,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 - Source: `src/commands/setup.ts` — installs the repository practice.
 - Guard: `tests/engine_setup_accept_test.ts` — holds setup and explicit adoption behavior.
+- Decision: `project/map/_adr/0293-checkpoint-declarations-interlock-the-gate.md` — gives checkpoint questions a deterministic refusal boundary.
 
 ### committed-project-memory
 
@@ -500,7 +522,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 **Stability:** implementation\
 **Scope:** Network sockets opened by the compiled discern program, across every verb.
 
-**Qualification:** discern can run external programs. Explicit install or upgrade distribution and project-owned jobs, resources, hooks, and agent clients may use the network under their own permissions.
+**Qualification:** discern can run external programs. Explicit install or upgrade distribution, project-owned jobs, checkpoint `when` commands, resources, hooks, and agent clients may use the network under their own permissions.
 
 **Horizon:** Adding Deno network permission to the public binary requires an explicit boundary change and a replacement guard.
 
@@ -514,7 +536,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Boundary:** Local private evidence\
 **Stability:** enduring\
-**Scope:** Product analytics, crash reporting, and repository evidence.
+**Scope:** Product analytics, crash reporting, checkpoint economics, and repository evidence.
 
 **Related claims:** [`local-logbook`](claims-and-evidence.md#local-logbook--evidence-and-the-logbook-stay-local)
 
@@ -522,6 +544,8 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 - Decision: `project/map/_adr/0160-local-logbook-advisory-readers.md` — keeps the Logbook repository-local.
 - Guard: `tests/logbook_no_network_test.ts` — holds Logbook readers to local evidence.
+- Decision: `project/map/_adr/0300-checkpoint-observation-is-drained-metadata-never-a-verdict.md` — limits checkpoint observation to local metadata.
+- Guard: `tests/engine_checkpoints_observation_test.ts` — keeps checkpoint rationales out of every Logbook byte.
 
 ### accountless-local-edition
 
@@ -562,6 +586,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 - Decision: `project/map/_adr/0005-declarative-config.md` — makes `discern.toml` the project configuration authority.
 - Decision: `project/map/_adr/0104-uninstall-is-the-exit-honesty-verb.md` — defines a clean, inspectable exit.
 - Guard: `tests/engine_uninstall_test.ts` — holds removal and retained authored artifacts.
+- Source: `src/engine/checkpoints/open_questions.ts` — stores checkpoint state in per-worktree Git administration.
 
 ### production-dependency-closure
 
@@ -581,14 +606,15 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 **Boundary:** Deterministic discern-owned verdict\
 **Stability:** enduring\
-**Scope:** Nondeterminism introduced by discern's own Gate logic.
+**Scope:** Nondeterminism introduced by discern's own Gate and checkpoint decision logic.
 
-**Qualification:** Project commands may be nondeterministic; the Gate reports their real outcomes and does not conceal that property.
+**Qualification:** Configured jobs, Standard measurements, scope gates, and checkpoint `when` commands may be nondeterministic. Agent declarations are external judgment. discern reports those outcomes and evidence without concealing them.
 
 **Evidence:**
 
 - Source: `src/engine/gate/execute.ts` — derives the verdict from the declared execution result.
 - Source: `src/engine/gate/proof.ts` — binds successful evidence to the commit and conditions.
+- Source: `src/engine/checkpoints/preflight.ts` — derives checkpoint state from policy, triggers, and declarations.
 
 ### planned-owned-effects
 
@@ -596,7 +622,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 **Stability:** enduring\
 **Scope:** Filesystem and Git effects implemented by discern itself.
 
-**Qualification:** Configured project commands are opaque external programs. Their own effects are not made reversible or dry-runnable by discern.
+**Qualification:** Configured project commands, including checkpoint `when` commands, are opaque external programs. Their own effects are not made reversible or dry-runnable by discern.
 
 **Evidence:**
 

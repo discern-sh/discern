@@ -66,7 +66,9 @@ export const BOUNDARIES = [
     title: "Landing authority",
     stability: "enduring",
     scope:
-      "Every `accept` operation, whether authority comes from this conversation or a recorded grant.",
+      "Every `accept` operation, including work with a current declared-unmet checkpoint conclusion.",
+    qualification:
+      "Ordinary landing authority may come from the current conversation or a recorded grant. A variance requires conversation consent for the exact declared-unmet set; standing and effort grants never cover it.",
     claims: ["gate-grants-no-authority"],
     evidence: [
       {
@@ -80,13 +82,24 @@ export const BOUNDARIES = [
         path: "tests/engine_accept_authority_test.ts",
         summary: "exercises every landing-authority source end to end",
       },
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md",
+        summary: "binds variances to conversation consent and current evidence",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_checkpoints_accept_test.ts",
+        summary: "rejects grants and incomplete decisions for variances",
+      },
     ],
     refusals: [{
       order: 1,
       id: "authority-before-accept",
       title: "Never lands without authority",
       statement:
-        "A green Gate establishes readiness evidence. Landing still requires explicit conversation consent or a recorded, machine-checked grant.",
+        "A green Gate establishes readiness evidence. Landing requires conversation consent or a recorded, machine-checked grant; each declared-unmet checkpoint also requires owner authorization for the current variance set.",
     }],
     identities: [
       {
@@ -94,7 +107,7 @@ export const BOUNDARIES = [
         id: "not-a-merge-queue",
         title: "Not a merge queue",
         discriminatingFact:
-          "`accept` is a consent-bound fast-forward of local `main`. It provides no hosted queue or scheduling service.",
+          "`accept` is a consent-bound fast-forward of the configured local trunk. It provides no hosted queue or scheduling service.",
       },
     ],
   },
@@ -148,16 +161,30 @@ export const BOUNDARIES = [
     ],
   },
   {
-    id: "model-free-verdict",
-    title: "Model-free verdict",
+    id: "evidence-kind-separation",
+    title: "Evidence-kind separation",
     stability: "enduring",
-    scope: "The Gate verdict and the Proof derived from it.",
+    scope:
+      "Machine results, agent declarations, and owner authority carried through the Gate, Proof, and acceptance.",
+    qualification:
+      "A coding agent may use a model to judge a checkpoint question. discern checks that a current declaration exists and binds to its matched change; it never checks the semantic truth of the conclusion.",
     claims: ["no-model-inside"],
     evidence: [
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0293-checkpoint-declarations-interlock-the-gate.md",
+        summary: "separates machine results from agent declarations",
+      },
       {
         kind: "source",
         path: "src/engine/gate/execute.ts",
         summary: "computes the Gate from declared jobs and checks",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_checkpoints_gate_test.ts",
+        summary: "holds declarations as a distinct Proof evidence row",
       },
       {
         kind: "guard",
@@ -167,10 +194,10 @@ export const BOUNDARIES = [
     ],
     refusals: [{
       order: 3,
-      id: "no-model-in-verdict",
-      title: "No model in the verdict",
+      id: "never-verifies-agent-judgment",
+      title: "Never presents agent judgment as verification",
       statement:
-        "discern never asks an LLM whether work is done. The verdict is a computation over declared conditions.",
+        "A checkpoint may require the coding agent to declare a question met or unmet. discern verifies the declaration's presence and binding, then records the conclusion as agent evidence without verifying its semantic truth.",
     }],
     identities: [
       {
@@ -178,7 +205,7 @@ export const BOUNDARIES = [
         id: "not-an-ai-code-reviewer",
         title: "Not an AI code reviewer",
         discriminatingFact:
-          "It supplies deterministic conditions and commit-bound evidence. Model interpretation is absent.",
+          "The coding agent judges checkpoint questions. discern serves them from deterministic triggers, records the declarations, and performs no model inference.",
       },
     ],
     absences: [{
@@ -186,7 +213,7 @@ export const BOUNDARIES = [
       id: "no-model-inside",
       title: "No model inside",
       statement:
-        "discern performs no inference and needs no model API key or inference token budget.",
+        "discern performs no inference and needs no model API key or inference token budget. Any model used to judge a checkpoint belongs to the coding agent.",
     }],
   },
   {
@@ -245,7 +272,7 @@ export const BOUNDARIES = [
     scope:
       "Application architecture, style, tests, builds, analysis, and other project-owned checks.",
     qualification:
-      "discern is opinionated about the agent-development practice itself: isolated work, declared checks, evidence, authority, and retained standards are product choices.",
+      "discern is opinionated about agent-development practice: isolated work, declared checks, evidence, authority, retained Standards, and shipped checkpoint questions are product choices. Checkpoint defaults become project policy through committed `discern.toml`; the owner can override or remove them.",
     evidence: [
       {
         kind: "decision",
@@ -255,7 +282,17 @@ export const BOUNDARIES = [
       {
         kind: "source",
         path: "src/shared/config_schema.ts",
-        summary: "defines project-owned jobs and standards",
+        summary: "defines project-owned jobs, Standards, and checkpoint policy",
+      },
+      {
+        kind: "decision",
+        path: "project/map/_adr/0303-the-shipped-checkpoint-set.md",
+        summary: "limits shipped questions to agent-development practice",
+      },
+      {
+        kind: "guard",
+        path: "tests/checkpoints_builtins_test.ts",
+        summary: "holds the shipped checkpoint set and its defaults",
       },
     ],
     refusals: [{
@@ -263,7 +300,7 @@ export const BOUNDARIES = [
       id: "no-application-taste",
       title: "Holds no application taste of its own",
       statement:
-        "discern enforces the project's recorded conditions through the project's tools. It adds no unstated rule about application architecture or style.",
+        "discern runs configured tools and serves recorded checkpoint questions. It adds no unstated rule about application architecture or style.",
     }],
     identities: [
       {
@@ -297,10 +334,12 @@ export const BOUNDARIES = [
     ],
   },
   {
-    id: "owner-chosen-limits",
-    title: "Owner-chosen limits",
+    id: "owner-chosen-standard-limits",
+    title: "Owner-chosen Standard limits",
     stability: "enduring",
     scope: "Every Standard limit and every change to one.",
+    qualification:
+      "Shipped checkpoint trigger thresholds are configurable starting policy. Standard limits are separate measured ratchets chosen by the owner.",
     evidence: [
       {
         kind: "source",
@@ -315,17 +354,17 @@ export const BOUNDARIES = [
     ],
     refusals: [{
       order: 6,
-      id: "never-picks-limits",
-      title: "Never picks your limits",
+      id: "never-picks-standard-limits",
+      title: "Never picks your Standard limits",
       statement:
-        "discern may propose a ratchet and can pin a measured value when invoked. Choosing to set or move the limit remains the owner's act.",
+        "discern may propose a ratchet and can pin a measured value when invoked. Choosing to set or move a Standard limit remains the owner's act.",
     }],
   },
   {
     id: "non-loosening-standards",
     title: "Non-loosening Standards",
     stability: "enduring",
-    scope: "Every firing Standard compared with its value on `main`.",
+    scope: "Every firing Standard compared with its value on the trunk.",
     claims: ["standards-cannot-loosen", "pin-measured-gains"],
     evidence: [
       {
@@ -351,7 +390,10 @@ export const BOUNDARIES = [
     id: "exact-tree-proof",
     title: "Exact-tree Proof",
     stability: "enduring",
-    scope: "Every durable Proof and the commit it names.",
+    scope:
+      "Every durable Proof, the commit it names, and the checkpoint declaration evidence it records.",
+    qualification:
+      "A changed checkpoint conclusion or rationale stales Proof at an unchanged `HEAD`; the commit and declaration-evidence identity must both remain current.",
     claims: ["proof-exact-tree"],
     evidence: [
       {
@@ -364,20 +406,32 @@ export const BOUNDARIES = [
         path: "tests/engine_proof_render_test.ts",
         summary: "holds the commit-bound Proof projection",
       },
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md",
+        summary: "adds declaration evidence to Proof currency",
+      },
+      {
+        kind: "guard",
+        path: "tests/gate_proof_evidence_test.ts",
+        summary: "stales Proof when declaration evidence changes",
+      },
     ],
     refusals: [{
       order: 8,
       id: "no-proof-for-dirty-tree",
       title: "No Proof for a dirty tree",
       statement:
-        "discern refuses ‘mostly done’. Durable Proof binds to one clean, committed `HEAD`, or it does not exist.",
+        "discern refuses ‘mostly done’. Durable Proof binds to one clean, committed `HEAD` and its current checkpoint declaration evidence; without both, no valid Proof exists.",
     }],
   },
   {
     id: "mechanical-update",
     title: "Mechanical update",
     stability: "enduring",
-    scope: "Bringing `main` or an explicit base into an effort branch.",
+    scope:
+      "Bringing the configured trunk or an explicit base into an effort branch.",
     evidence: [
       {
         kind: "source",
@@ -429,7 +483,7 @@ export const BOUNDARIES = [
       id: "does-not-touch-remotes",
       title: "Does not touch remotes",
       statement:
-        "discern does not push, fetch, or open pull requests. `accept` fast-forwards local `main`; hosting remains a separate workflow.",
+        "discern does not push, fetch, or open pull requests. `accept` fast-forwards the configured local trunk; hosting remains a separate workflow.",
     }],
     identities: [
       {
@@ -496,7 +550,10 @@ export const BOUNDARIES = [
     id: "worker-neutral-measurement",
     title: "Worker-neutral measurement",
     stability: "enduring",
-    scope: "Logbook, Stats, and Patterns evidence about project work.",
+    scope:
+      "Logbook, Stats, Patterns, and checkpoint economics about project work.",
+    qualification:
+      "Checkpoint observations report firings, conclusions, revisions, elapsed time, and variances as project-policy economics. Hygiene readers recommend changes to the trigger, question, or mode and make no claim about agent diligence.",
     claims: ["local-logbook", "patterns-compare-cohorts"],
     evidence: [
       {
@@ -520,6 +577,17 @@ export const BOUNDARIES = [
         path: "tests/stats_test.ts",
         summary: "holds the Stats calculations and dimensions",
       },
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0300-checkpoint-observation-is-drained-metadata-never-a-verdict.md",
+        summary: "confines checkpoint economics to policy fit",
+      },
+      {
+        kind: "guard",
+        path: "tests/checkpoint_observation_boundary_test.ts",
+        summary: "keeps observed history outside checkpoint decisions",
+      },
     ],
     refusals: [{
       order: 12,
@@ -534,7 +602,7 @@ export const BOUNDARIES = [
         id: "not-llm-observability-evals",
         title: "Not LLM observability or model evaluation",
         discriminatingFact:
-          "The Logbook records project events and Patterns derives bounded project facts; neither records model traces nor scores model behavior.",
+          "The Logbook records project events and checkpoint economics; Patterns derives bounded project facts. They record no model trace and produce no score for model behavior.",
       },
     ],
   },
@@ -839,13 +907,19 @@ export const BOUNDARIES = [
         path: "src/engine/gate/proof_render.ts",
         summary: "renders the conditions and commit the Proof covers",
       },
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md",
+        summary: "keeps machine, agent, and owner evidence distinct",
+      },
     ],
     refusals: [{
       order: 22,
       id: "does-not-certify-outcome",
       title: "Does not certify the outcome",
       statement:
-        "Proof says the recorded conditions held for one commit. It never certifies that the software is secure, correct, compliant, or finished in every relevant sense.",
+        "Proof reports which machine conditions held for one commit and which checkpoint conclusions the agent declared. It never certifies that the software is secure, correct, compliant, or finished in every relevant sense.",
     }],
     identities: [
       {
@@ -853,7 +927,7 @@ export const BOUNDARIES = [
         id: "not-compliance-audit-product",
         title: "Not a compliance or audit product",
         discriminatingFact:
-          "Proof is engineering evidence for the owner and carries no regulatory attestation.",
+          "Proof is scoped engineering evidence: machine results, agent declarations, and owner-authorized variances. It carries no regulatory attestation.",
       },
     ],
   },
@@ -903,6 +977,12 @@ export const BOUNDARIES = [
         path: "tests/engine_setup_accept_test.ts",
         summary: "holds setup and explicit adoption behavior",
       },
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0293-checkpoint-declarations-interlock-the-gate.md",
+        summary: "gives checkpoint questions a deterministic refusal boundary",
+      },
     ],
     identities: [
       {
@@ -917,7 +997,7 @@ export const BOUNDARIES = [
         id: "not-a-prompt-pack",
         title: "Not a prompt pack or rules library",
         discriminatingFact:
-          "Its authority comes from installed machinery that can refuse. Prose carries instructions but cannot enforce them alone.",
+          "Checkpoint questions are served by deterministic triggers and can stop completion. Standalone prose has no such authority.",
       },
       {
         order: 24,
@@ -990,7 +1070,7 @@ export const BOUNDARIES = [
     scope:
       "Network sockets opened by the compiled discern program, across every verb.",
     qualification:
-      "discern can run external programs. Explicit install or upgrade distribution and project-owned jobs, resources, hooks, and agent clients may use the network under their own permissions.",
+      "discern can run external programs. Explicit install or upgrade distribution, project-owned jobs, checkpoint `when` commands, resources, hooks, and agent clients may use the network under their own permissions.",
     horizon:
       "Adding Deno network permission to the public binary requires an explicit boundary change and a replacement guard.",
     evidence: [
@@ -1022,7 +1102,8 @@ export const BOUNDARIES = [
     id: "local-private-evidence",
     title: "Local private evidence",
     stability: "enduring",
-    scope: "Product analytics, crash reporting, and repository evidence.",
+    scope:
+      "Product analytics, crash reporting, checkpoint economics, and repository evidence.",
     claims: ["local-logbook"],
     evidence: [
       {
@@ -1034,6 +1115,17 @@ export const BOUNDARIES = [
         kind: "guard",
         path: "tests/logbook_no_network_test.ts",
         summary: "holds Logbook readers to local evidence",
+      },
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0300-checkpoint-observation-is-drained-metadata-never-a-verdict.md",
+        summary: "limits checkpoint observation to local metadata",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_checkpoints_observation_test.ts",
+        summary: "keeps checkpoint rationales out of every Logbook byte",
       },
     ],
     absences: [{
@@ -1126,6 +1218,11 @@ export const BOUNDARIES = [
         path: "tests/engine_uninstall_test.ts",
         summary: "holds removal and retained authored artifacts",
       },
+      {
+        kind: "source",
+        path: "src/engine/checkpoints/open_questions.ts",
+        summary: "stores checkpoint state in per-worktree Git administration",
+      },
     ],
     absences: [{
       order: 8,
@@ -1196,9 +1293,10 @@ export const BOUNDARIES = [
     id: "deterministic-owned-verdict",
     title: "Deterministic discern-owned verdict",
     stability: "enduring",
-    scope: "Nondeterminism introduced by discern's own Gate logic.",
+    scope:
+      "Nondeterminism introduced by discern's own Gate and checkpoint decision logic.",
     qualification:
-      "Project commands may be nondeterministic; the Gate reports their real outcomes and does not conceal that property.",
+      "Configured jobs, Standard measurements, scope gates, and checkpoint `when` commands may be nondeterministic. Agent declarations are external judgment. discern reports those outcomes and evidence without concealing them.",
     evidence: [
       {
         kind: "source",
@@ -1210,13 +1308,19 @@ export const BOUNDARIES = [
         path: "src/engine/gate/proof.ts",
         summary: "binds successful evidence to the commit and conditions",
       },
+      {
+        kind: "source",
+        path: "src/engine/checkpoints/preflight.ts",
+        summary:
+          "derives checkpoint state from policy, triggers, and declarations",
+      },
     ],
     absences: [{
       order: 15,
       id: "no-randomness-in-verdict",
       title: "No randomness in the verdict",
       statement:
-        "discern adds no random choice to completion. Given the same committed tree, config, and project-command outcomes, it derives the same verdict.",
+        "discern adds no random choice to completion. Given the same tree, governing policy, external command outcomes, and checkpoint declaration evidence, it derives the same Gate state and Proof.",
     }],
   },
   {
@@ -1225,7 +1329,7 @@ export const BOUNDARIES = [
     stability: "enduring",
     scope: "Filesystem and Git effects implemented by discern itself.",
     qualification:
-      "Configured project commands are opaque external programs. Their own effects are not made reversible or dry-runnable by discern.",
+      "Configured project commands, including checkpoint `when` commands, are opaque external programs. Their own effects are not made reversible or dry-runnable by discern.",
     evidence: [
       {
         kind: "decision",
@@ -1442,7 +1546,7 @@ export function renderBoundaryCanonDoc(): string {
     "",
     "## Scope rule",
     "",
-    "Unless a record says otherwise, a boundary applies to discern-owned code and effects. Project jobs, resource commands, provider hooks, coding-agent clients, and the surrounding coding-agent host keep their own capabilities: they may use models, networks, credentials, nondeterminism, or additional privileges without changing what the discern engine itself contains.",
+    "Unless a record says otherwise, a boundary applies to discern-owned code and effects. Project jobs, checkpoint `when` commands, resource commands, provider hooks, coding-agent clients, and the surrounding coding-agent host keep their own capabilities: they may use models, networks, credentials, nondeterminism, or additional privileges without changing what the discern engine itself contains.",
     "",
     "Stability labels mean:",
     "",

@@ -964,10 +964,10 @@ discern's conceptual product boundaries and their three generated projections: b
 - Members: 102
   - `landing-authority`
   - `provider-security-boundary`
-  - `model-free-verdict`
+  - `evidence-kind-separation`
   - `non-authoring-system`
   - `project-owned-quality`
-  - `owner-chosen-limits`
+  - `owner-chosen-standard-limits`
   - `non-loosening-standards`
   - `exact-tree-proof`
   - `mechanical-update`
@@ -1000,10 +1000,10 @@ discern's conceptual product boundaries and their three generated projections: b
   - `ordinary-user-process`
   - `authority-before-accept`
   - `no-general-agent-restriction`
-  - `no-model-in-verdict`
+  - `never-verifies-agent-judgment`
   - `writes-no-application-code`
   - `no-application-taste`
-  - `never-picks-limits`
+  - `never-picks-standard-limits`
   - `never-loosens-to-pass`
   - `no-proof-for-dirty-tree`
   - `never-resolves-meaning`
@@ -2619,7 +2619,6 @@ The numbered decision records in the Map, including records later superseded.
   - `0291`
   - `0292`
   - `0293`
-  - `0293`
   - `0294`
   - `0295`
   - `0296`
@@ -2631,6 +2630,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0302`
   - `0303`
   - `0304`
+  - `0305`
   - `0001`
   - `0002`
   - `0004`
