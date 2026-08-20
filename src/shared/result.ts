@@ -386,6 +386,7 @@ export const ERROR_SLUGS = [
   "precondition_failed",
   "provisioned_resources",
   "read_error",
+  "report_only_proof",
   "renamed_command",
   "renamed_config_key",
   "schema_version_too_new",

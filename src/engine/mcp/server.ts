@@ -464,6 +464,9 @@ export const TOOLS: McpTool[] = orderTools([
       dry_run: z.boolean().optional().describe(
         "Preview the gate plan and touch nothing (default false).",
       ),
+      ci: z.boolean().optional().describe(
+        "Run the machine Gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
+      ),
       confirmed: z.boolean().optional().describe(
         "Attest this rerun: run the full gate again on the exact tree it last " +
           "judged — a flake probe, or a re-measure — and record it. Without " +
@@ -494,6 +497,7 @@ export const TOOLS: McpTool[] = orderTools([
       finishResult(root, {
         surface: { kind: "quiet" },
         dryRun: args.dry_run === true,
+        ci: args.ci === true,
         confirmed: args.confirmed === true,
         ...(args.met === undefined ? {} : { met: args.met }),
         ...(args.unmet === undefined ? {} : { unmet: args.unmet }),

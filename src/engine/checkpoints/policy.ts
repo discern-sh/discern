@@ -29,6 +29,10 @@ import {
   type BuiltInCheckpointSeed,
   DEFAULT_CHECKPOINT_MODE,
 } from "../../shared/checkpoints.ts";
+import type {
+  CheckpointDrop,
+  EntryCheckpointDropReason,
+} from "../../shared/checkpoint_drops.ts";
 import { questionById } from "../../shared/questions.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
@@ -42,8 +46,20 @@ export interface GoverningPolicy {
    * Undefined when it could not be resolved (the caller fails open). */
   policyCommit?: string;
   checkpoints: ResolvedCheckpoint[];
-  /** Plain-language accounts of anything that could not govern. */
-  advisories: string[];
+  /** Structured accounts of anything that could not govern. */
+  drops: CheckpointDrop[];
+}
+
+interface UnresolvedCheckpointDrop {
+  checkpoint: string;
+  mode: ResolvedCheckpoint["mode"];
+  reason: Extract<
+    EntryCheckpointDropReason,
+    | "checkpoint_missing_question"
+    | "checkpoint_selector_conflict"
+    | "checkpoint_unknown_scope"
+  >;
+  account: string;
 }
 
 /** Resolve every `[checkpoints.<id>]` entry of `config` (pure). `seeds`
@@ -53,11 +69,16 @@ export interface GoverningPolicy {
 export function resolveCheckpoints(
   config: DiscernConfig,
   seeds: Readonly<Record<string, BuiltInCheckpointSeed>> = BUILT_IN_CHECKPOINTS,
-): { checkpoints: ResolvedCheckpoint[]; advisories: string[] } {
+): {
+  checkpoints: ResolvedCheckpoint[];
+  drops: UnresolvedCheckpointDrop[];
+  advisories: string[];
+} {
   const checkpoints: ResolvedCheckpoint[] = [];
-  const advisories: string[] = [];
+  const drops: UnresolvedCheckpointDrop[] = [];
   for (const [id, entry] of Object.entries(config.checkpoints)) {
     const seed = seeds[id];
+    const mode = entry.mode ?? seed?.mode ?? DEFAULT_CHECKPOINT_MODE;
     const seedQuestion = seed === undefined
       ? undefined
       : questionById(seed.question);
@@ -67,9 +88,13 @@ export function resolveCheckpoints(
       ? entry.question
       : seedQuestion?.question;
     if (question === undefined) {
-      advisories.push(
-        `checkpoint '${id}' names no shipped checkpoint and defines no question; it does not govern this run.`,
-      );
+      drops.push({
+        checkpoint: id,
+        mode,
+        reason: "checkpoint_missing_question",
+        account:
+          `checkpoint '${id}' names no shipped checkpoint and defines no question; it does not govern this run.`,
+      });
       continue;
     }
 
@@ -82,17 +107,25 @@ export function resolveCheckpoints(
     const scope = entrySetsSelector ? entry.scope : seed?.scope;
     const paths = entrySetsSelector ? entry.paths : seed?.paths;
     if (entry.scope !== undefined && entry.paths !== undefined) {
-      advisories.push(
-        `checkpoint '${id}' sets both scope and paths; it does not govern this run.`,
-      );
+      drops.push({
+        checkpoint: id,
+        mode,
+        reason: "checkpoint_selector_conflict",
+        account:
+          `checkpoint '${id}' sets both scope and paths; it does not govern this run.`,
+      });
       continue;
     }
     let selector: ResolvedCheckpoint["selector"];
     if (scope !== undefined) {
       if (config.scopes[scope] === undefined) {
-        advisories.push(
-          `checkpoint '${id}' selects unknown scope '${scope}'; it does not govern this run.`,
-        );
+        drops.push({
+          checkpoint: id,
+          mode,
+          reason: "checkpoint_unknown_scope",
+          account:
+            `checkpoint '${id}' selects unknown scope '${scope}'; it does not govern this run.`,
+        });
         continue;
       }
       selector = { scope, globs: resolvedScopePaths(config, scope) };
@@ -118,7 +151,7 @@ export function resolveCheckpoints(
     const minChangedFiles = entry.min_changed_files ?? seed?.min_changed_files;
     checkpoints.push({
       id,
-      mode: entry.mode ?? seed?.mode ?? DEFAULT_CHECKPOINT_MODE,
+      mode,
       question,
       ...(teach === undefined ? {} : { teach }),
       ...(reference === undefined ? {} : { reference }),
@@ -132,7 +165,11 @@ export function resolveCheckpoints(
       ...(when === undefined ? {} : { when }),
     });
   }
-  return { checkpoints, advisories };
+  return {
+    checkpoints,
+    drops,
+    advisories: drops.map((drop) => drop.account),
+  };
 }
 
 /**
@@ -189,20 +226,60 @@ export async function loadGoverningPolicy(
   if (policyCommit === undefined) {
     return {
       checkpoints: [],
-      advisories: [
-        `the merge-base with '${trunk}' could not be resolved; no checkpoints govern this run.`,
-      ],
+      drops: [{
+        scope: "policy",
+        checkpoint: null,
+        mode: null,
+        reason: "merge_base_unresolved",
+        account:
+          `the merge-base with '${trunk}' could not be resolved; no checkpoints govern this run.`,
+      }],
     };
+  }
+  const configSpec = `${policyCommit}:./discern.toml`;
+  const listed = await runGit(
+    ["ls-tree", "--name-only", policyCommit, "--", "discern.toml"],
+    { cwd: root },
+  );
+  if (!listed.success) {
+    return {
+      policyCommit,
+      checkpoints: [],
+      drops: [{
+        scope: "policy",
+        checkpoint: null,
+        mode: null,
+        policy_commit: policyCommit,
+        reason: "governing_config_unreadable",
+        account: `the governing configuration at ${
+          policyCommit.slice(0, 12)
+        } could not be inspected; no checkpoints govern this run.`,
+      }],
+    };
+  }
+  if (listed.stdout.trim() === "") {
+    return { policyCommit, checkpoints: [], drops: [] };
   }
   // `:./` anchors the path at this project root even when the repository's
   // top level sits above it — the same spelling the standards trunk read uses.
-  const shown = await runGit(["show", `${policyCommit}:./discern.toml`], {
+  const shown = await runGit(["show", configSpec], {
     cwd: root,
   });
   if (!shown.success) {
-    // No config at the merge-base: a pre-adoption history is ordinary, and
-    // ordinary means no checkpoints and no advisory noise.
-    return { policyCommit, checkpoints: [], advisories: [] };
+    return {
+      policyCommit,
+      checkpoints: [],
+      drops: [{
+        scope: "policy",
+        checkpoint: null,
+        mode: null,
+        policy_commit: policyCommit,
+        reason: "governing_config_unreadable",
+        account: `the governing configuration at ${
+          policyCommit.slice(0, 12)
+        } could not be read; no checkpoints govern this run.`,
+      }],
+    };
   }
   let parsed: ReturnType<typeof parseConfig>;
   try {
@@ -214,13 +291,29 @@ export async function loadGoverningPolicy(
     return {
       policyCommit,
       checkpoints: [],
-      advisories: [
-        `the governing configuration at ${
+      drops: [{
+        scope: "policy",
+        checkpoint: null,
+        mode: null,
+        policy_commit: policyCommit,
+        reason: "governing_config_invalid",
+        account: `the governing configuration at ${
           policyCommit.slice(0, 12)
         } does not load; no checkpoints govern this run.`,
-      ],
+      }],
     };
   }
   const resolved = resolveCheckpoints(parsed.config);
-  return { policyCommit, ...resolved };
+  return {
+    policyCommit,
+    checkpoints: resolved.checkpoints,
+    drops: resolved.drops.map((drop) => ({
+      scope: "checkpoint",
+      checkpoint: drop.checkpoint,
+      mode: drop.mode,
+      policy_commit: policyCommit,
+      reason: drop.reason,
+      account: drop.account,
+    })),
+  };
 }

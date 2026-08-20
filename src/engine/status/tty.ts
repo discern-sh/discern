@@ -282,6 +282,8 @@ function proofPresentation(entry: StatusFleetEntry): ProofPresentation {
     switch (proof.status) {
       case "honored":
         return { label: "honored", tone: "green" };
+      case "report_only":
+        return { label: "report only", tone: "yellow" };
       case "missing":
         return { label: "missing", tone: "dim" };
       case "stale":
@@ -690,6 +692,7 @@ export const FLEET_ROW_RESULT_STATE = {
 /** Exhaustive Proof-state adaptation into Receipt check semantics. */
 export const STATUS_PROOF_RECEIPT_STATE = {
   honored: "pass",
+  report_only: "fail",
   missing: "skip",
   stale: "fail",
   dirty: "skip",

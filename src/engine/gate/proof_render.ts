@@ -26,11 +26,13 @@
 
 import { runGit } from "../../shared/subprocess.ts";
 import type {
+  CheckpointDropData,
   GateStandard,
   Proof,
   ProofCheckpointsData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
+import type { GateMode } from "../../shared/checkpoint_drops.ts";
 import type { StepResult } from "../../shared/result.ts";
 import type { LandingConsent } from "../../shared/consent.ts";
 import { diffFiles } from "../worktree/git.ts";
@@ -171,13 +173,25 @@ function checkpointsSection(
   if (checkpoints === undefined) {
     return [];
   }
+  const heading = checkpoints.review === undefined
+    ? `Checkpoint conclusions (agent-declared${
+      checkpoints.policy === undefined
+        ? ""
+        : `; policy ${code(checkpoints.policy.slice(0, 12))}`
+    }):`
+    : `Checkpoint review (reported, not enforced${
+      checkpoints.policy === undefined
+        ? ""
+        : `; policy ${code(checkpoints.policy.slice(0, 12))}`
+    }):`;
   const lines: string[] = [
     "",
-    `Checkpoint conclusions (agent-declared; policy ${
-      code(checkpoints.policy.slice(0, 12))
-    }):`,
+    heading,
     "",
   ];
+  for (const unreviewed of checkpoints.review?.unreviewed ?? []) {
+    lines.push(`- ${unreviewed.id} — unreviewed; ${unreviewed.question}`);
+  }
   for (const met of checkpoints.declared_met) {
     lines.push(`- ${met.id} — declared met`);
   }
@@ -193,6 +207,9 @@ function checkpointsSection(
         "land; recorded grants never cover one.",
     );
   }
+  for (const drop of checkpoints.drops ?? []) {
+    lines.push(`- dropped (${drop.reason}) — ${drop.account}`);
+  }
   return lines;
 }
 
@@ -204,6 +221,12 @@ function lineCheckpointsSegment(
 ): string | undefined {
   if (checkpoints === undefined) {
     return undefined;
+  }
+  if (checkpoints.review !== undefined) {
+    const total = checkpoints.review.unreviewed?.length ?? 0;
+    return total === 0
+      ? "checkpoint review reported, not enforced — no review needed"
+      : `checkpoint review reported, not enforced — ${total} unreviewed`;
   }
   const met = checkpoints.declared_met.length;
   const unmet = checkpoints.declared_unmet.length;
@@ -339,6 +362,8 @@ export async function buildGateProof(
   standards: GateStandard[] = [],
   limits?: StandardsLimitsData,
   checkpoints?: ProofCheckpointsData,
+  mode: GateMode = "strict",
+  drops: readonly CheckpointDropData[] = [],
 ): Promise<Proof | undefined> {
   if (!(await isWorktreeFullyClean(root))) {
     return undefined;
@@ -369,6 +394,10 @@ export async function buildGateProof(
     files_total: delta.filesTotal,
     insertions: delta.insertions,
     deletions: delta.deletions,
+    mode,
+    ...(drops.length === 0
+      ? {}
+      : { checkpoint_drops: drops.map((drop) => ({ ...drop })) }),
     ...(checkpoints === undefined ? {} : { checkpoints }),
   };
   return {

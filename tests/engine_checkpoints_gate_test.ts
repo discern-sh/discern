@@ -224,7 +224,7 @@ Deno.test("done --ci: a fresh checkout reports a fired stop and lets machine job
     assertEquals(env.data.checkpoints.review?.enforcement, "reported");
     assertEquals(env.data.checkpoints.review?.unreviewed?.[0]?.id, "api-review");
     assertStringIncludes(
-      await Deno.readTextFile(join(dir, "gate-ran.log")),
+      await Deno.readTextFile(join(wt, "..", "gate-ran.log")),
       "ran",
     );
     assertEquals((await readOpenQuestions(wt)).status, "missing");

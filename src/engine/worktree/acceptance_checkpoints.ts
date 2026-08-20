@@ -25,6 +25,10 @@
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { AuthorizedVarianceData } from "../../shared/result_schemas.ts";
 import {
+  checkpointDropAccounts,
+  type CheckpointDrop,
+} from "../../shared/checkpoint_drops.ts";
+import {
   declarationIsCurrent,
   type OpenQuestion,
   readOpenQuestions,
@@ -59,6 +63,8 @@ export interface AcceptanceCheckpointState {
   /** Plain-language fail-open accounts (an unreadable store, a policy that
    * could not govern) — surfaced as warnings, never a refusal. */
   advisories: string[];
+  /** Typed checkpoint drops preserved into acceptance review. */
+  drops: CheckpointDrop[];
 }
 
 /**
@@ -76,9 +82,11 @@ export async function inspectAcceptanceCheckpoints(
     unmet: [],
     met: [],
     advisories: [],
+    drops: [],
   };
   const policy = await loadGoverningPolicy(root, config);
-  state.advisories.push(...policy.advisories);
+  state.drops.push(...policy.drops);
+  state.advisories.push(...checkpointDropAccounts(policy.drops));
   const stops = new Map(
     policy.checkpoints.filter((c) => c.mode === "stop").map(
       (c) => [c.id, c] as const,

@@ -2135,6 +2135,17 @@ export const HINTS = {
       `and the owner decides at landing. Awaiting: ${ids.join(", ")}.`,
   }),
 
+  "checkpoint-ci-recovery": defineHint({
+    id: "checkpoint-ci-recovery",
+    category: "next-step",
+    audience: "all",
+    when:
+      "Strict done refuses for an awaiting checkpoint while a conventional CI marker is active.",
+    example: undefined,
+    template: (): string =>
+      "Use `discern done --ci` for machine checks with report-only checkpoint review. Run ordinary `discern done` in a stateful worktree when checkpoint declarations must be enforced.",
+  }),
+
   "checkpoint-preview": defineHint<
     { id: string; question: string; matched: string[]; whenPending: boolean }
   >({
@@ -2197,6 +2208,17 @@ export const HINTS = {
     template: ({ advisory }): string => `Checkpoint fail-open: ${advisory}`,
   }),
 
+  "gate-checkpoint-review-reported": defineHint({
+    id: "gate-checkpoint-review-reported",
+    category: "next-step",
+    audience: "all",
+    when:
+      "An explicit done --ci run completed and its Proof cannot authorize acceptance.",
+    example: undefined,
+    template: (): string =>
+      "Checkpoint review was reported and was not enforced. Run `discern done` in a stateful worktree before `discern accept`.",
+  }),
+
   "gate-variance-required": defineHint<{ ids: string[] }>({
     id: "gate-variance-required",
     category: "notice",
@@ -2224,6 +2246,16 @@ export const HINTS = {
       `Run ${CMD.done} — it serves each checkpoint's question and evidence ` +
       `and records your conclusion (${MET_FLAG}, or ${UNMET_FLAG} with ` +
       `${WHY_FLAG}). Missing or stale: ${ids.join(", ")}.`,
+  }),
+
+  "accept-requires-strict-proof": defineHint({
+    id: "accept-requires-strict-proof",
+    category: "next-step",
+    audience: "all",
+    when: "Acceptance finds a Proof from the explicit CI report lane.",
+    example: undefined,
+    template: (): string =>
+      "Run ordinary `discern done` in this stateful worktree. A `discern done --ci` Proof reports checkpoint review and cannot authorize acceptance.",
   }),
 
   "accept-authorize-variance": defineHint<{ ids: string[] }>({
@@ -3793,6 +3825,7 @@ export const ERROR_FAILURE_RECOVERY = {
   precondition_failed: "evidence",
   provisioned_resources: "evidence",
   read_error: "evidence",
+  report_only_proof: "tailored",
   renamed_command: "evidence",
   renamed_config_key: "evidence",
   schema_version_too_new: "evidence",

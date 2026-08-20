@@ -110,6 +110,7 @@ import {
   type CheckpointPreflight,
   type DeclarationRequest,
   runCheckpointPreflight,
+  runCheckpointReport,
   type ServedCheckpoint,
 } from "../checkpoints/preflight.ts";
 import { inspectCheckpointNotes } from "../checkpoints/inspection.ts";
@@ -967,7 +968,12 @@ async function runGate(
   //    scopes (their gates serialize as skipped, like every other downstream step).
   const changed = await classifyScopes(root, cfg);
   const sgGroup = scopeGatesGroup(planScopeGates(cfg, changed));
-  const plan = composeGatePlan(stageGroups, sgGroup, changed);
+  const plan = composeGatePlan(
+    stageGroups,
+    sgGroup,
+    changed,
+    presentation.checkpoints?.mode ?? "strict",
+  );
   progress?.replaceGroups(plan.groups);
 
   // 4. Scope gates (only when the stage groups passed).
@@ -1115,6 +1121,8 @@ async function runGate(
       checkpointPreflight === undefined
         ? undefined
         : proofCheckpointsData(checkpointPreflight),
+      checkpointPreflight?.mode ?? "strict",
+      checkpointPreflight?.drops ?? [],
     )
     : undefined;
   // Record the measurement proof (ADR 0112, extended by ADR 0133): a green
@@ -1193,6 +1201,7 @@ async function runGate(
         treePin,
         proof,
         checkpointPreflight?.evidence,
+        checkpointPreflight?.mode ?? "strict",
       );
   // The last-run marker remembers what this run judged — every verdict, red
   // included, unlike the proof above — so the next `done` can refuse an
@@ -1203,6 +1212,7 @@ async function runGate(
       writeAuthority,
       failedStage === null,
       checkpointPreflight?.evidence,
+      checkpointPreflight?.mode ?? "strict",
     );
   }
   // A stamp refused because HEAD moved mid-run also suppresses the rendered review
@@ -1212,6 +1222,7 @@ async function runGate(
     ? undefined
     : proof;
   const landingAuthority = failedStage === null && emittedProof !== undefined
+      && checkpointPreflight?.mode !== "report"
     ? await inspectLandingAuthority(root, mainBranch)
     : undefined;
   if (result.data !== undefined) {
@@ -1274,6 +1285,9 @@ async function runGate(
         }),
       ]
       : [];
+  const reportHints = checkpointPreflight?.mode === "report"
+    ? [fire(HINTS["gate-checkpoint-review-reported"])]
+    : [];
   const deferredStandards = standardsData
     .filter((o) => o.measurement === "deferred")
     .map((o) => o.name);
@@ -1293,6 +1307,7 @@ async function runGate(
     // narrated live), so a --json/MCP caller sees why the run took longer.
     ...(slots?.waits ?? []),
     ...(proofHint !== undefined ? [proofHint] : []),
+    ...reportHints,
     ...varianceHints,
     ...buildGateHints(
       cfg,
@@ -1576,12 +1591,13 @@ export function renderGateStageGapNote(
 async function dryRunGate(
   root: string,
   json: boolean,
+  mode: "strict" | "report" = "strict",
 ): Promise<number> {
   const cfg = await loadConfig(root);
   const changed = await classifyScopes(root, cfg);
-  const plan = buildGatePlan(cfg, changed, dryRunStandardJobs(cfg));
+  const plan = buildGatePlan(cfg, changed, dryRunStandardJobs(cfg), mode);
   const engine = gatePlanToEngine(plan);
-  engine.details.push(...(await inspectCheckpointNotes(root, cfg)));
+  engine.details.push(...(await inspectCheckpointNotes(root, cfg, mode)));
   if (json) {
     // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
     emitResult(previewResult("done", engine));
@@ -1620,7 +1636,8 @@ function gateCheckpointsData(
     preflight.declaredMet.length === 0 &&
     preflight.declaredUnmet.length === 0 &&
     preflight.advise.length === 0 &&
-    preflight.advisories.length === 0;
+    preflight.drops.length === 0 &&
+    preflight.mode === "strict";
   if (empty) {
     return undefined;
   }
@@ -1647,6 +1664,24 @@ function gateCheckpointsData(
     ...(preflight.advise.length === 0
       ? {}
       : { advise: preflight.advise.map(servedCheckpointData) }),
+    ...(preflight.mode === "strict"
+      ? {}
+      : {
+        review: {
+          enforcement: "reported" as const,
+          status: preflight.unreviewed.length === 0
+            ? "not_needed" as const
+            : "unreviewed" as const,
+          ...(preflight.unreviewed.length === 0
+            ? {}
+            : {
+              unreviewed: preflight.unreviewed.map(servedCheckpointData),
+            }),
+        },
+      }),
+    ...(preflight.drops.length === 0
+      ? {}
+      : { drops: preflight.drops.map((drop) => ({ ...drop })) }),
     ...(preflight.advisories.length === 0
       ? {}
       : { advisories: [...preflight.advisories] }),
@@ -1659,13 +1694,17 @@ function proofCheckpointsData(
   preflight: CheckpointPreflight,
 ): ProofCheckpointsData | undefined {
   if (
-    preflight.policyCommit === undefined ||
-    (preflight.declaredMet.length === 0 && preflight.declaredUnmet.length === 0)
+    preflight.mode === "strict" &&
+    preflight.declaredMet.length === 0 &&
+    preflight.declaredUnmet.length === 0 &&
+    preflight.drops.length === 0
   ) {
     return undefined;
   }
   return {
-    policy: preflight.policyCommit,
+    ...(preflight.policyCommit === undefined
+      ? {}
+      : { policy: preflight.policyCommit }),
     declared_met: preflight.declaredMet.map((met) => ({
       id: met.id,
       declared_at: met.declaredAt,
@@ -1675,6 +1714,22 @@ function proofCheckpointsData(
       why: unmet.why,
       declared_at: unmet.declaredAt,
     })),
+    ...(preflight.mode === "strict"
+      ? {}
+      : {
+        review: {
+          enforcement: "reported" as const,
+          status: preflight.unreviewed.length === 0
+            ? "not_needed" as const
+            : "unreviewed" as const,
+          ...(preflight.unreviewed.length === 0
+            ? {}
+            : { unreviewed: preflight.unreviewed.map(servedCheckpointData) }),
+        },
+      }),
+    ...(preflight.drops.length === 0
+      ? {}
+      : { drops: preflight.drops.map((drop) => ({ ...drop })) }),
   };
 }
 
@@ -1738,8 +1793,20 @@ function awaitingDeclarationRefusal(
     error: AWAITING_DECLARATION_SLUG,
     message,
     data,
-    hints: hintTexts([fire(HINTS["checkpoint-declare"], { ids })]),
+    hints: hintTexts([
+      fire(HINTS["checkpoint-declare"], { ids }),
+      ...(conventionalCiEnvironment()
+        ? [fire(HINTS["checkpoint-ci-recovery"])]
+        : []),
+    ]),
   };
+}
+
+/** Conventional CI detection tailors recovery copy; it never changes mode. */
+function conventionalCiEnvironment(): boolean {
+  const marker = Deno.env.get("CI")?.trim().toLowerCase();
+  return marker !== undefined && marker !== "" && marker !== "0" &&
+    marker !== "false" && marker !== "no" && marker !== "off";
 }
 
 /** How the checkpoint gate resolved for one `done` invocation. */
@@ -1757,8 +1824,24 @@ type CheckpointGateResolution =
 async function resolveCheckpointGate(
   root: string,
   request: DeclarationRequest,
+  mode: "strict" | "report" = "strict",
 ): Promise<CheckpointGateResolution> {
   const cfg = await loadConfig(root);
+  if (mode === "report") {
+    if (request.met.length > 0 || request.unmet !== undefined) {
+      return {
+        kind: "refuse",
+        result: {
+          ok: false,
+          verb: "done",
+          error: "invalid_arguments",
+          message:
+            "--ci cannot be combined with declarations; CI reports checkpoint review and records no declaration.",
+        },
+      };
+    }
+    return { kind: "proceed", preflight: await runCheckpointReport(root, cfg) };
+  }
   const outcome = await runCheckpointPreflight(root, cfg, request);
   if (outcome.kind === "invalid") {
     return {
@@ -1803,7 +1886,7 @@ async function unchangedTreeRerunRefusal(
     return undefined;
   }
   const last = await inspectLastGateRun(root);
-  if (last === undefined) {
+  if (last === undefined || last.mode === "report") {
     return undefined;
   }
   const now = await currentTreeIdentity(root);
@@ -1843,6 +1926,8 @@ export interface FinishResultOptions {
   surface: FinishResultSurface;
   dryRun?: boolean;
   confirmed?: boolean;
+  /** Explicit CI report lane; never inferred from the environment. */
+  ci?: boolean;
   /** Checkpoint ids this invocation declares met (`--met`, repeatable). */
   met?: string[];
   /** The one checkpoint this invocation declares unmet, with its required
@@ -1870,24 +1955,37 @@ export async function finishResult(
   root: string,
   opts: FinishResultOptions,
 ): Promise<DiscernResult<GateData>> {
+  const mode = opts.ci === true ? "report" as const : "strict" as const;
+  if (
+    mode === "report" &&
+    ((opts.met?.length ?? 0) > 0 || opts.unmet !== undefined)
+  ) {
+    return {
+      ok: false,
+      verb: "done",
+      error: "invalid_arguments",
+      message:
+        "--ci cannot be combined with declarations; CI reports checkpoint review and records no declaration.",
+    };
+  }
   if (opts.dryRun ?? false) {
     const cfg = await loadConfig(root);
     const changed = await classifyScopes(root, cfg);
     const engine = gatePlanToEngine(
-      buildGatePlan(cfg, changed, dryRunStandardJobs(cfg)),
+      buildGatePlan(cfg, changed, dryRunStandardJobs(cfg), mode),
     );
-    engine.details.push(...(await inspectCheckpointNotes(root, cfg)));
+    engine.details.push(...(await inspectCheckpointNotes(root, cfg, mode)));
     return previewResult("done", engine);
   }
   const declarations: DeclarationRequest = {
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
-  const checkpointGate = await resolveCheckpointGate(root, declarations);
+  const checkpointGate = await resolveCheckpointGate(root, declarations, mode);
   if (checkpointGate.kind === "refuse") {
     return checkpointGate.result;
   }
-  const refusal = await unchangedTreeRerunRefusal(
+  const refusal = mode === "report" ? undefined : await unchangedTreeRerunRefusal(
     root,
     opts.confirmed ?? false,
     checkpointGate.preflight.evidence,
@@ -1955,22 +2053,24 @@ export async function runFinish(
     json: boolean;
     dryRun?: boolean;
     confirmed?: boolean;
+    ci?: boolean;
     plain?: boolean;
     met?: string[];
     unmet?: { id: string; why: string };
   },
 ): Promise<number> {
+  const mode = opts.ci === true ? "report" as const : "strict" as const;
   if (opts.dryRun ?? false) {
-    return await dryRunGate(root, opts.json);
+    return await dryRunGate(root, opts.json, mode);
   }
   const declarations: DeclarationRequest = {
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
-  const checkpointGate = await resolveCheckpointGate(root, declarations);
+  const checkpointGate = await resolveCheckpointGate(root, declarations, mode);
   const refusal = checkpointGate.kind === "refuse"
     ? checkpointGate.result
-    : await unchangedTreeRerunRefusal(
+    : mode === "report" ? undefined : await unchangedTreeRerunRefusal(
       root,
       opts.confirmed ?? false,
       checkpointGate.preflight.evidence,

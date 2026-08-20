@@ -409,6 +409,10 @@ function canonicalProofClaim(proof: Proof): DurableProofClaim {
     files_total: proof.files_total,
     insertions: proof.insertions,
     deletions: proof.deletions,
+    ...(proof.mode === undefined ? {} : { mode: proof.mode }),
+    ...(proof.checkpoint_drops === undefined
+      ? {}
+      : { checkpoint_drops: proof.checkpoint_drops.map((drop) => ({ ...drop })) }),
   };
 }
 
@@ -523,6 +527,14 @@ function proofFromProofPayload(
     files_total: payload.proof.files_total,
     insertions: payload.proof.insertions,
     deletions: payload.proof.deletions,
+    ...(payload.proof.mode === undefined ? {} : { mode: payload.proof.mode }),
+    ...(payload.proof.checkpoint_drops === undefined
+      ? {}
+      : {
+        checkpoint_drops: payload.proof.checkpoint_drops.map((drop) => ({
+          ...drop,
+        })),
+      }),
     line,
     markdown,
   };
@@ -679,6 +691,16 @@ export async function writeProofNote(
       commit,
       merged_refs: [],
       reason: "the validated gate marker carried no structured proof",
+    };
+  }
+  if (proof.mode === "report") {
+    return {
+      status: "record_failed",
+      ref: PROOF_NOTES_REF,
+      commit,
+      merged_refs: [],
+      reason:
+        "the Proof reports checkpoint review and cannot become landing evidence",
     };
   }
   // The write-side half of the subject cross-check: never publish a durable

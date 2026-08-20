@@ -18,6 +18,7 @@ import { jobsInStage } from "./stages.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
+import type { GateMode } from "../../shared/checkpoint_drops.ts";
 import type { JobResult } from "../jobs/types.ts";
 import {
   fire,
@@ -89,6 +90,7 @@ export interface JobGroup {
  * spawns; executed by `executeGatePlan`; serialized to the ADR-0004 report.
  */
 export interface GatePlan {
+  mode: GateMode;
   groups: JobGroup[];
   /** The never-loosen verification of [standards] limits against the trunk runs as
    * a fail-fast precondition directly after the merge check (ADR 0133) — vacuous
@@ -410,8 +412,10 @@ export function composeGatePlan(
   stageGroups: JobGroup[],
   scopeGates: JobGroup | undefined,
   changed: string[],
+  mode: GateMode = "strict",
 ): GatePlan {
   return {
+    mode,
     groups: scopeGates === undefined
       ? stageGroups
       : [...stageGroups, scopeGates],
@@ -440,11 +444,13 @@ export function buildGatePlan(
   cfg: DiscernConfig,
   changed: string[],
   standardJobs: PlannedJob[] = [],
+  mode: GateMode = "strict",
 ): GatePlan {
   return composeGatePlan(
     buildStageGroups(cfg, standardJobs),
     scopeGatesGroup(planScopeGates(cfg, changed)),
     changed,
+    mode,
   );
 }
 
@@ -654,6 +660,7 @@ export async function buildGateResultWithHints(
     results,
   );
   const data: GateData = {
+    mode: plan.mode,
     failed_stage: failedStage,
     scopes_changed: plan.scopesChanged,
   };
@@ -769,7 +776,10 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
     : "(none)";
   return {
     title: "Gate plan",
-    details: [`scopes changed: ${changed}`],
+    details: [
+      `mode: ${plan.mode}`,
+      `scopes changed: ${changed}`,
+    ],
     steps,
   };
 }

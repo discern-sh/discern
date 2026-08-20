@@ -113,6 +113,7 @@ export async function runWhenCommand(
     const reason = error instanceof Error ? error.message : String(error);
     return {
       kind: "error",
+      reason: "when_spawn_failed",
       advisory:
         `checkpoint '${checkpointId}': the when command could not run (${reason}); ` +
         `the trigger fails open and did not fire.`,
@@ -121,6 +122,7 @@ export async function runWhenCommand(
   if (result.result.timedOutAfterS !== undefined) {
     return {
       kind: "error",
+      reason: "when_timeout",
       advisory:
         `checkpoint '${checkpointId}': the when command did not finish within ` +
         `${result.result.timedOutAfterS}s; the trigger fails open and did not fire.`,
@@ -138,6 +140,7 @@ export async function runWhenCommand(
   const excerpt = outputExcerpt(result.output);
   return {
     kind: "error",
+    reason: "when_invalid_exit",
     advisory:
       `checkpoint '${checkpointId}': the when command exited ${result.result.code} ` +
       `(0 fires, 1 passes); the trigger fails open and did not fire.` +

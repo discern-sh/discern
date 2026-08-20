@@ -13,6 +13,13 @@
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { CheckpointObligationState } from "../../shared/checkpoints.ts";
+import {
+  checkpointDropAccounts,
+  type CheckpointDrop,
+  type EntryCheckpointDropReason,
+  type PolicyCheckpointDropReason,
+  type GateMode,
+} from "../../shared/checkpoint_drops.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { collectEffortDiff } from "./diff.ts";
 import {
@@ -66,6 +73,39 @@ export interface CheckpointInspection {
   storeReadable: boolean;
   /** Plain-language fail-open accounts (policy, diff, store, or subject). */
   advisories: string[];
+  /** Typed fail-open evidence; `advisories` is derived from these records. */
+  drops: CheckpointDrop[];
+}
+
+function entryDrop(
+  definition: ResolvedCheckpoint,
+  policyCommit: string,
+  reason: EntryCheckpointDropReason,
+  account: string,
+): CheckpointDrop {
+  return {
+    scope: "checkpoint",
+    checkpoint: definition.id,
+    mode: definition.mode,
+    policy_commit: policyCommit,
+    reason,
+    account,
+  };
+}
+
+function policyDrop(
+  policyCommit: string | undefined,
+  reason: PolicyCheckpointDropReason,
+  account: string,
+): CheckpointDrop {
+  return {
+    scope: "policy",
+    checkpoint: null,
+    mode: null,
+    ...(policyCommit === undefined ? {} : { policy_commit: policyCommit }),
+    reason,
+    account,
+  };
 }
 
 /** The active state of a reconciled open question. This is the smallest pure
@@ -121,15 +161,20 @@ export async function inspectCheckpointObligations(
   config: DiscernConfig,
 ): Promise<CheckpointInspection> {
   const policy = await loadGoverningPolicy(root, config);
-  const advisories = [...policy.advisories];
+  const drops: CheckpointDrop[] = [...policy.drops];
 
   let outcomes: ReadonlyMap<string, StructuralTriggerOutcome> = new Map();
   if (policy.policyCommit !== undefined && policy.checkpoints.length > 0) {
     const diff = await collectEffortDiff(root, policy.policyCommit);
     if (diff === undefined) {
-      advisories.push(
-        "the effort diff could not be read; no new checkpoint can be projected.",
-      );
+      for (const definition of policy.checkpoints) {
+        drops.push(entryDrop(
+          definition,
+          policy.policyCommit,
+          "effort_diff_unreadable",
+          `checkpoint '${definition.id}': the effort diff could not be read; it does not enforce this run.`,
+        ));
+      }
     } else {
       outcomes = new Map(
         policy.checkpoints.map((definition) => [
@@ -144,13 +189,17 @@ export async function inspectCheckpointObligations(
   const openQuestions = stored.status === "ok" ? stored.openQuestions : {};
   const storeReadable = stored.status === "ok" || stored.status === "missing";
   if (stored.status === "invalid") {
-    advisories.push(
-      "the checkpoint open-question record did not parse; earlier active questions are unknown and must be served again before declarations can bind.",
-    );
+    drops.push(policyDrop(
+      policy.policyCommit,
+      "open_question_store_corrupt",
+      "the checkpoint open-question record did not parse; earlier active questions are unknown.",
+    ));
   } else if (stored.status === "unavailable") {
-    advisories.push(
+    drops.push(policyDrop(
+      policy.policyCommit,
+      "open_question_store_unreadable",
       `the checkpoint open-question record could not be read (${stored.reason}); earlier active questions are unknown.`,
-    );
+    ));
   }
 
   const entries: CheckpointInspectionEntry[] = [];
@@ -201,17 +250,30 @@ export async function inspectCheckpointObligations(
       const matched = outcome?.holds && !outcome.whenPending
         ? outcome.matched
         : openQuestion.matchedPaths;
+      const policyCommit = policy.policyCommit;
+      if (policyCommit === undefined) {
+        obligation = {
+          state: "unknown",
+          matched: [...matched],
+          unknown: "diff_unavailable",
+        };
+        entries.push({ definition, openQuestion, obligation });
+        continue;
+      }
       const definitionHash = await checkpointDefinitionHash(definition);
       const subject = await computeSubject(
         root,
         definitionHash,
         matched,
-        policy.policyCommit ?? "",
+        policyCommit,
       );
       if ("error" in subject) {
-        advisories.push(
+        drops.push(entryDrop(
+          definition,
+          policyCommit,
+          "subject_unavailable",
           `checkpoint '${definition.id}': its current subject could not be computed (${subject.error}); its strict obligation is unknown.`,
-        );
+        ));
         obligation = {
           state: "unknown",
           matched: [...matched],
@@ -245,13 +307,15 @@ export async function inspectCheckpointObligations(
     entries,
     openQuestions,
     storeReadable,
-    advisories,
+    drops,
+    advisories: checkpointDropAccounts(drops),
   };
 }
 
 /** Project the canonical inspection onto the gate plan's note strings. */
 export function checkpointInspectionNotes(
   inspection: CheckpointInspection,
+  mode: GateMode = "strict",
 ): string[] {
   const notes = inspection.advisories.map(
     (advisory) => `Checkpoint advisory: ${advisory}`,
@@ -261,6 +325,16 @@ export function checkpointInspectionNotes(
       if (outcome?.holds && !outcome.whenPending) {
         notes.push(
           `Checkpoint '${definition.id}' (advise): its advisory will be served at done (${outcome.matched.length} matched).`,
+        );
+      }
+      continue;
+    }
+    if (mode === "report") {
+      if (obligation.state !== "none") {
+        notes.push(
+          obligation.unknown === "when_pending"
+            ? `Checkpoint '${definition.id}' (stop): its question may be reported if its when command fires; review will not be enforced.`
+            : `Checkpoint '${definition.id}' (stop): its question will be reported; review will not be enforced.`,
         );
       }
       continue;
@@ -310,9 +384,11 @@ export function checkpointInspectionNotes(
 export async function inspectCheckpointNotes(
   root: string,
   config: DiscernConfig,
+  mode: GateMode = "strict",
 ): Promise<string[]> {
   return checkpointInspectionNotes(
     await inspectCheckpointObligations(root, config),
+    mode,
   );
 }
 

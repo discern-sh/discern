@@ -40,6 +40,7 @@
 
 import { dirname, join } from "@std/path";
 import { declarationEvidenceIdentity } from "../checkpoints/evidence.ts";
+import type { GateMode } from "../../shared/checkpoint_drops.ts";
 import {
   GIT_ADMIN_STATE,
   gitAdminStatePath,
@@ -326,6 +327,7 @@ export async function recordGateOutcome(
    * changing a conclusion or rationale then stales this proof the same way a
    * new commit would. */
   evidence?: string,
+  mode: GateMode = "strict",
 ): Promise<GateProofRecordData> {
   const path = authorityPath(cwd, authority, "gateProof");
   if (path === undefined) {
@@ -386,9 +388,10 @@ export async function recordGateOutcome(
       const evidenceLine = evidence === undefined
         ? ""
         : `evidence: ${evidence}\n`;
+      const modeLine = `mode: ${proof?.mode ?? mode}\n`;
       const body = proof?.markdown === undefined || proof.markdown === ""
-        ? `${pin.head}\n${evidenceLine}`
-        : `${pin.head}\n${line}${data}${evidenceLine}\n${proof.markdown.trim()}\n`;
+        ? `${pin.head}\n${modeLine}${evidenceLine}`
+        : `${pin.head}\n${modeLine}${line}${data}${evidenceLine}\n${proof.markdown.trim()}\n`;
       await Deno.writeTextFile(path, body);
       return proofRecord("recorded", { path });
     } catch (error) {
@@ -436,6 +439,8 @@ export interface LastGateRun {
    * a changed conclusion or rationale makes the next invocation a different
    * run, so the rerun guard must not refuse it. */
   readonly evidence?: string;
+  /** Report runs never trigger strict unchanged-tree refusal. */
+  readonly mode?: GateMode;
 }
 
 /** A tree identity `done` can compare against a {@link LastGateRun}. */
@@ -486,6 +491,7 @@ export async function recordLastGateRun(
   authority: AdminStateWriteAuthority,
   passed: boolean,
   evidence?: string,
+  mode: GateMode = "strict",
 ): Promise<void> {
   const path = authorityPath(cwd, authority, "lastGateRun");
   if (path === undefined) {
@@ -503,6 +509,7 @@ export async function recordLastGateRun(
         JSON.stringify({
           ...identity,
           passed,
+          mode,
           ...(evidence === undefined ? {} : { evidence }),
         })
       }\n`,
@@ -550,11 +557,18 @@ export async function inspectLastGateRun(
   if (record.evidence !== undefined && typeof record.evidence !== "string") {
     return undefined;
   }
+  if (
+    record.mode !== undefined && record.mode !== "strict" &&
+    record.mode !== "report"
+  ) {
+    return undefined;
+  }
   return {
     head: record.head,
     passed: record.passed,
     ...(record.tree !== undefined ? { tree: record.tree } : {}),
     ...(record.evidence !== undefined ? { evidence: record.evidence } : {}),
+    ...(record.mode !== undefined ? { mode: record.mode } : {}),
   };
 }
 
@@ -595,9 +609,10 @@ export async function inspectGateProof(
   let proofData: Proof | undefined;
   let line = "";
   let recordedEvidence: string | undefined;
+  let recordedMode: GateMode = "strict";
   while (
     rest.startsWith("data: ") || rest.startsWith("line: ") ||
-    rest.startsWith("evidence: ")
+    rest.startsWith("evidence: ") || rest.startsWith("mode: ")
   ) {
     const eol = rest.indexOf("\n");
     if (rest.startsWith("data: ")) {
@@ -615,6 +630,11 @@ export async function inspectGateProof(
         // vouch. Acceptance honors the commit and reports that no structured
         // proof was available to publish.
       }
+    } else if (rest.startsWith("mode: ")) {
+      const mode = (eol < 0
+        ? rest.slice("mode: ".length)
+        : rest.slice("mode: ".length, eol)).trim();
+      if (mode === "report") recordedMode = "report";
     } else if (rest.startsWith("evidence: ")) {
       recordedEvidence = (eol < 0
         ? rest.slice("evidence: ".length)
@@ -645,6 +665,19 @@ export async function inspectGateProof(
   }
   if (!(await isWorktreeFullyClean(cwd))) {
     return { status: "dirty", path, recorded, head };
+  }
+  if (recordedMode === "report" || proofData?.mode === "report") {
+    return {
+      status: "report_only",
+      path,
+      recorded,
+      head,
+      reason:
+        "checkpoint review was reported, not enforced; run `discern done` without `--ci` before acceptance",
+      ...(markdown === "" ? {} : { proof: markdown }),
+      ...(line === "" ? {} : { proof_line: line }),
+      ...(proofData === undefined ? {} : { proof_data: proofData }),
+    };
   }
   // The vouch also binds to the declaration evidence it was recorded with: a
   // changed conclusion or rationale stales it even at an unchanged HEAD. A

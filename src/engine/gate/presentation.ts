@@ -266,6 +266,11 @@ export const GATE_PROOF_CHECK_PRESENTATION = {
     summary: "The Proof matches the clean current HEAD.",
     stamp: "pass",
   },
+  report_only: {
+    checkState: "fail",
+    stateLabel: "report only",
+    summary: "Checkpoint review was reported and was not enforced.",
+  },
   missing: {
     checkState: "skip",
     stateLabel: "missing",

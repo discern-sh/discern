@@ -12,6 +12,7 @@
  */
 
 import type { CheckpointMode, TriggerVeto } from "../../shared/checkpoints.ts";
+import type { CheckpointDropReason } from "../../shared/checkpoint_drops.ts";
 
 // ── the effort diff ─────────────────────────────────────────────────────────
 
@@ -122,6 +123,10 @@ export type WhenOutcome =
   | { kind: "pass" }
   | {
     kind: "error";
+    reason: Extract<
+      CheckpointDropReason,
+      "when_spawn_failed" | "when_timeout" | "when_invalid_exit"
+    >;
     /** Plain-language account of the failure — the trigger fails OPEN (no
      * fire) and this advisory travels with the run. */
     advisory: string;

@@ -25,6 +25,13 @@
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { CheckpointMode } from "../../shared/checkpoints.ts";
 import {
+  checkpointDropAccounts,
+  type CheckpointDrop,
+  type EntryCheckpointDropReason,
+  type GateMode,
+  type PolicyCheckpointDropReason,
+} from "../../shared/checkpoint_drops.ts";
+import {
   type CheckpointDeclarationObservation,
   observeCheckpointActivity,
 } from "../../shared/result_capture.ts";
@@ -75,10 +82,14 @@ export interface DeclaredUnmetConclusion {
 
 /** What the pre-flight settled for this run. */
 export interface CheckpointPreflight {
+  /** Strict interlock or explicit CI report lane. */
+  mode: GateMode;
   /** The policy identity (the merge-base commit), when it resolved. */
   policyCommit?: string;
   /** Plain-language fail-open accounts to surface as advisories. */
   advisories: string[];
+  /** Typed durable evidence behind every fail-open advisory. */
+  drops: CheckpointDrop[];
   /** Fired `stop` checkpoints with NO current conclusion — the refusal set. */
   outstanding: ServedCheckpoint[];
   /** Fired `stop` checkpoints whose current conclusion is declared met. */
@@ -87,11 +98,44 @@ export interface CheckpointPreflight {
   declaredUnmet: DeclaredUnmetConclusion[];
   /** Fired `advise` checkpoints — served through the advisory channel only. */
   advise: ServedCheckpoint[];
+  /** Stop questions reported without declarations in report mode. */
+  unreviewed: ServedCheckpoint[];
   /** Checkpoint ids this invocation newly recorded conclusions for. */
   recorded: string[];
   /** The declaration-evidence identity after every write, for the gate
    * markers; absent when the store was unavailable (consumers fail open). */
   evidence?: string;
+}
+
+function preflightDrop(
+  definition: ResolvedCheckpoint,
+  policyCommit: string,
+  reason: EntryCheckpointDropReason,
+  account: string,
+): CheckpointDrop {
+  return {
+    scope: "checkpoint",
+    checkpoint: definition.id,
+    mode: definition.mode,
+    policy_commit: policyCommit,
+    reason,
+    account,
+  };
+}
+
+function preflightPolicyDrop(
+  policyCommit: string | undefined,
+  reason: PolicyCheckpointDropReason,
+  account: string,
+): CheckpointDrop {
+  return {
+    scope: "policy",
+    checkpoint: null,
+    mode: null,
+    ...(policyCommit === undefined ? {} : { policy_commit: policyCommit }),
+    reason,
+    account,
+  };
 }
 
 /** The declarations one `done` invocation carries. */
@@ -111,6 +155,77 @@ export type CheckpointPreflightOutcome =
 /** Whether any declaration was requested. */
 export function hasDeclarations(request: DeclarationRequest): boolean {
   return request.met.length > 0 || request.unmet !== undefined;
+}
+
+/**
+ * Evaluate checkpoints for the explicit CI report lane. This uses the same
+ * governing inspection and `when` protocol as strict execution, but performs
+ * no reconciliation, declaration, observation, or checkpoint-state write.
+ */
+export async function runCheckpointReport(
+  root: string,
+  config: DiscernConfig,
+): Promise<CheckpointPreflight> {
+  const inspection = await inspectCheckpointObligations(root, config);
+  const drops: CheckpointDrop[] = [...inspection.drops];
+  const report: CheckpointPreflight = {
+    mode: "report",
+    ...(inspection.policyCommit === undefined
+      ? {}
+      : { policyCommit: inspection.policyCommit }),
+    advisories: [],
+    drops,
+    outstanding: [],
+    declaredMet: [],
+    declaredUnmet: [],
+    advise: [],
+    unreviewed: [],
+    recorded: [],
+  };
+  for (const { definition, outcome: structural, obligation } of inspection.entries) {
+    let final = structural === undefined ||
+        (structural.holds && structural.whenPending)
+      ? undefined
+      : resolveTriggerOutcome(structural);
+    if (structural?.holds && structural.whenPending) {
+      const when = await runWhenCommand(
+        root,
+        definition.id,
+        definition.when ?? "",
+      );
+      final = resolveTriggerOutcome(structural, when);
+      if (when.kind === "error") {
+        if (inspection.policyCommit === undefined) {
+          continue;
+        }
+        drops.push(preflightDrop(
+          definition,
+          inspection.policyCommit,
+          when.reason,
+          when.advisory,
+        ));
+      }
+    }
+    if (definition.mode === "advise") {
+      if (final?.fired) {
+        report.advise.push(served(definition, final.matched));
+      }
+      continue;
+    }
+    const active = obligation.state === "will_open" ||
+      obligation.state === "awaiting_declaration" ||
+      obligation.state === "reopened" ||
+      obligation.state === "declared_met" ||
+      obligation.state === "declared_unmet";
+    if (final?.fired || active) {
+      report.unreviewed.push(served(
+        definition,
+        final?.fired ? final.matched : obligation.matched,
+      ));
+    }
+  }
+  report.advisories = checkpointDropAccounts(drops);
+  return report;
 }
 
 /** Project a resolved definition onto its served form. */
@@ -149,16 +264,19 @@ export async function runCheckpointPreflight(
 ): Promise<CheckpointPreflightOutcome> {
   const at = now ?? new Date().toISOString();
   const inspection = await inspectCheckpointObligations(root, config);
-  const advisories = [...inspection.advisories];
+  const drops: CheckpointDrop[] = [...inspection.drops];
   const preflight: CheckpointPreflight = {
+    mode: "strict",
     ...(inspection.policyCommit === undefined
       ? {}
       : { policyCommit: inspection.policyCommit }),
-    advisories,
+    advisories: [],
+    drops,
     outstanding: [],
     declaredMet: [],
     declaredUnmet: [],
     advise: [],
+    unreviewed: [],
     recorded: [],
   };
 
@@ -193,7 +311,15 @@ export async function runCheckpointPreflight(
     const outcome = resolveTriggerOutcome(structural, when);
     if (!outcome.fired) {
       if (outcome.advisory !== undefined) {
-        advisories.push(outcome.advisory);
+        if (inspection.policyCommit === undefined) {
+          continue;
+        }
+        drops.push(preflightDrop(
+          definition,
+          inspection.policyCommit,
+          when?.kind === "error" ? when.reason : "when_invalid_exit",
+          outcome.advisory,
+        ));
       }
       continue;
     }
@@ -233,17 +359,24 @@ export async function runCheckpointPreflight(
       }
       serving = served(def, earlier.matchedPaths);
     }
+    const policyCommit = inspection.policyCommit;
+    if (policyCommit === undefined) {
+      continue;
+    }
     const definitionHash = await checkpointDefinitionHash(def);
     const subject = await computeSubject(
       root,
       definitionHash,
       serving.matched,
-      inspection.policyCommit ?? "",
+      policyCommit,
     );
     if ("error" in subject) {
-      advisories.push(
+      drops.push(preflightDrop(
+        def,
+        policyCommit,
+        "subject_unavailable",
         `checkpoint '${id}': its subject could not be computed (${subject.error}); it does not interlock this run.`,
-      );
+      ));
       continue;
     }
     const reconciled = await reconcileOpenQuestion(
@@ -257,15 +390,21 @@ export async function runCheckpointPreflight(
       at,
     );
     if (!reconciled.ok) {
-      advisories.push(
-        `checkpoint '${id}': its openQuestion could not be recorded (${reconciled.reason}); it does not interlock this run.`,
-      );
+      drops.push(preflightDrop(
+        def,
+        policyCommit,
+        "open_question_store_write_failed",
+        `checkpoint '${id}': its open question could not be recorded (${reconciled.reason}); it does not interlock this run.`,
+      ));
       continue;
     }
     if (reconciled.recovered) {
-      advisories.push(
-        "the checkpoint open-question record did not parse and was rebuilt; earlier conclusions must be declared again.",
-      );
+      drops.push(preflightDrop(
+        def,
+        policyCommit,
+        "open_question_store_rebuilt",
+        `checkpoint '${id}': the open-question record was rebuilt after invalid content; earlier conclusions must be declared again.`,
+      ));
     }
     const observed = {
       id,
@@ -441,6 +580,13 @@ export async function runCheckpointPreflight(
   const evidence = await declarationEvidenceIdentity(root);
   if (evidence.status === "ok") {
     preflight.evidence = evidence.identity;
+  } else {
+    drops.push(preflightPolicyDrop(
+      inspection.policyCommit,
+      "declaration_evidence_unavailable",
+      `checkpoint declaration evidence could not be read (${evidence.reason}); Proof currency failed open.`,
+    ));
   }
+  preflight.advisories = checkpointDropAccounts(drops);
   return { kind: "ready", preflight };
 }

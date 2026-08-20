@@ -2357,6 +2357,19 @@ async function executeAcceptPlan(
   //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `update`
   //   created, a new commit, or a dirty tree invalidates the proof, landing us here.
   const proof = await inspectGateProof(ctx.cwd);
+  if (proof.status === "report_only") {
+    throw new WorktreeResultError(
+      "This Proof records checkpoint review as reported and not enforced. Run ordinary `discern done` before acceptance.",
+      {
+        ok: false,
+        verb: "accept",
+        error: "report_only_proof",
+        message:
+          "This Proof records checkpoint review as reported and not enforced. Run ordinary `discern done` before acceptance.",
+        hints: hintTexts([fire(HINTS["accept-requires-strict-proof"])]),
+      },
+    );
+  }
   const gateValidation: NonNullable<AcceptData["gate_validation"]> =
     proof.status === "honored"
       ? { mode: "proof", proof: proof }
@@ -3028,6 +3041,12 @@ export async function accept(
     confirmed: opts.confirmed ?? false,
     variance: opts.variance ?? [],
   });
+  if (!result.ok) {
+    throw new WorktreeResultError(
+      result.message ?? "Acceptance refused.",
+      result,
+    );
+  }
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
 }
 
@@ -3045,6 +3064,17 @@ export async function acceptResult(
   ctx: LifecycleContext,
   opts: { dryRun?: boolean; confirmed?: boolean; variance?: string[] } = {},
 ): Promise<DiscernResult<AcceptData>> {
+  const existingProof = await inspectGateProof(ctx.cwd);
+  if (existingProof.status === "report_only") {
+    return {
+      ok: false,
+      verb: "accept",
+      error: "report_only_proof",
+      message:
+        "This Proof records checkpoint review as reported and not enforced. Run ordinary `discern done` in this stateful worktree before acceptance. Nothing has been landed.",
+      hints: hintTexts([fire(HINTS["accept-requires-strict-proof"])]),
+    };
+  }
   const dryRun = opts.dryRun ?? false;
   const confirmed = opts.confirmed ?? false;
   const variance = opts.variance ?? [];

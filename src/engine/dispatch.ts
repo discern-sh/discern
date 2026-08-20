@@ -273,6 +273,10 @@ export function attachEngineCommands(
         "flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it.",
     )
     .option(
+      "--ci",
+      "Run the machine Gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
+    )
+    .option(
       "--met <id:string>",
       "Declare a served checkpoint's question met (repeatable). Valid only " +
         "for a checkpoint with an active open question here; the declaration is " +
@@ -310,6 +314,15 @@ export function attachEngineCommands(
           return 1;
         };
         const unmetIds = o.unmet ?? [];
+        if (
+          o.ci === true &&
+          ((o.met?.length ?? 0) > 0 || unmetIds.length > 0 ||
+            o.why !== undefined)
+        ) {
+          return invalid(
+            "--ci cannot be combined with --met, --unmet, or --why; CI reports checkpoint review and records no declaration.",
+          );
+        }
         if (unmetIds.length > 1) {
           return invalid(
             "--unmet accepts one checkpoint per invocation; declare the others in follow-up invocations.",
@@ -328,6 +341,7 @@ export function attachEngineCommands(
         return await runFinish(await requireRoot("done", json), {
           json,
           dryRun: o.dryRun ?? false,
+          ci: o.ci ?? false,
           confirmed: o.confirmed ?? false,
           plain: plainModeEnabled(),
           ...(o.met === undefined ? {} : { met: o.met }),

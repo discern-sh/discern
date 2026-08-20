@@ -45,6 +45,11 @@ import {
   CHECKPOINT_OBLIGATION_STATES,
   TRIGGER_VETOES,
 } from "./checkpoints.ts";
+import {
+  ENTRY_CHECKPOINT_DROP_REASONS,
+  GATE_MODES,
+  POLICY_CHECKPOINT_DROP_REASONS,
+} from "./checkpoint_drops.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "./public_schemas.ts";
@@ -275,7 +280,36 @@ const PROOF_PRESENTATION_FIELDS = {
 const PROOF_SUMMARY_FIELDS = {
   ...DURABLE_PROOF_FACT_FIELDS,
   line: z.string(),
+  /** Absent on Proof written before the strict/report distinction. */
+  mode: z.enum(GATE_MODES).optional(),
 };
+
+const CHECKPOINT_DROP_ACCOUNT_MAX = 500;
+
+const PolicyCheckpointDropSchema = z.strictObject({
+  scope: z.literal("policy"),
+  checkpoint: z.null(),
+  mode: z.null(),
+  policy_commit: z.string().optional(),
+  reason: z.enum(POLICY_CHECKPOINT_DROP_REASONS),
+  account: z.string().max(CHECKPOINT_DROP_ACCOUNT_MAX),
+});
+
+const EntryCheckpointDropSchema = z.strictObject({
+  scope: z.literal("checkpoint"),
+  checkpoint: z.string(),
+  mode: z.enum(CHECKPOINT_MODES),
+  policy_commit: z.string(),
+  reason: z.enum(ENTRY_CHECKPOINT_DROP_REASONS),
+  account: z.string().max(CHECKPOINT_DROP_ACCOUNT_MAX),
+});
+
+/** One durable account of a checkpoint the engine could not enforce. */
+export const CheckpointDropSchema = z.discriminatedUnion("scope", [
+  PolicyCheckpointDropSchema,
+  EntryCheckpointDropSchema,
+]);
+export type CheckpointDropData = z.infer<typeof CheckpointDropSchema>;
 
 /** One current declared-met checkpoint conclusion — agent evidence, so every
  * rendering says "declared met", never bare "met" or "passed". */
@@ -307,13 +341,30 @@ export type CheckpointUnmetConclusionData = z.infer<
   typeof CheckpointUnmetConclusionSchema
 >;
 
+const ReportedCheckpointReviewEntrySchema = z.strictObject({
+  id: z.string(),
+  mode: z.enum(CHECKPOINT_MODES),
+  question: z.string(),
+  teach: z.string().optional(),
+  reference: z.string().optional(),
+  matched: z.array(z.string()),
+});
+
+export const CheckpointReviewReportSchema = z.strictObject({
+  enforcement: z.literal("reported"),
+  status: z.enum(["not_needed", "unreviewed"]),
+  unreviewed: z.array(ReportedCheckpointReviewEntrySchema).optional(),
+});
+
 /** The Proof's agent-declared checkpoint conclusions, kept separate from the
  * machine-verified rows, plus the policy identity that governed them. */
 export const ProofCheckpointsSchema = z.strictObject({
   /** The merge-base commit whose `[checkpoints]` configuration governed. */
-  policy: z.string(),
+  policy: z.string().optional(),
   declared_met: z.array(CheckpointMetConclusionSchema),
   declared_unmet: z.array(CheckpointUnmetConclusionSchema),
+  review: CheckpointReviewReportSchema.optional(),
+  drops: z.array(CheckpointDropSchema).optional(),
 }).meta({
   id: "DiscernProofCheckpoints",
   description:
@@ -327,6 +378,9 @@ export type ProofCheckpointsData = z.infer<typeof ProofCheckpointsSchema>;
 const PROOF_FIELDS = {
   ...DURABLE_PROOF_FACT_FIELDS,
   ...PROOF_PRESENTATION_FIELDS,
+  /** Strict is implied for Proof written before this additive field existed. */
+  mode: z.enum(GATE_MODES).optional(),
+  checkpoint_drops: z.array(CheckpointDropSchema).optional(),
   /** Present when checkpoints governed the run and any fired. */
   checkpoints: ProofCheckpointsSchema.optional(),
 };
@@ -364,6 +418,10 @@ export function canonicalProof(proof: Proof): Proof {
     deletions: proof.deletions,
     line: proof.line,
     markdown: proof.markdown,
+    ...(proof.mode === undefined ? {} : { mode: proof.mode }),
+    ...(proof.checkpoint_drops === undefined
+      ? {}
+      : { checkpoint_drops: proof.checkpoint_drops }),
     ...(proof.checkpoints === undefined
       ? {}
       : { checkpoints: proof.checkpoints }),
@@ -471,7 +529,11 @@ export const ProofNoteSignatureSchema = z.strictObject({
 /** The closed structured claim a durable proof makes about one green gate run.
  * Runtime proof telemetry cannot enter this schema by composition. */
 export const DurableProofClaimSchema = z.strictObject(
-  DURABLE_PROOF_FACT_FIELDS,
+  {
+    ...DURABLE_PROOF_FACT_FIELDS,
+    mode: z.enum(GATE_MODES).optional(),
+    checkpoint_drops: z.array(CheckpointDropSchema).optional(),
+  },
 ).meta({
   id: "DiscernProofClaim",
   description:
@@ -549,6 +611,8 @@ export const TolerantProofNotePayloadSchema = z.looseObject({
   subject: z.looseObject({ commit: z.string() }),
   proof: z.looseObject({
     ...DURABLE_PROOF_FACT_FIELDS,
+    mode: z.enum(GATE_MODES).optional(),
+    checkpoint_drops: z.array(CheckpointDropSchema).optional(),
     // Pre-split envelopes stored presentation inside `proof`. Keep reading
     // those local pre-release notes without publishing that layout.
     line: z.string().optional(),
@@ -730,6 +794,10 @@ export const GateCheckpointsDataSchema = z.strictObject({
   declared_unmet: z.array(CheckpointUnmetConclusionSchema).optional(),
   /** Advise-mode checkpoints that fired — served, never blocking. */
   advise: z.array(ServedCheckpointDataSchema).optional(),
+  /** Present only for explicit `done --ci` report mode. */
+  review: CheckpointReviewReportSchema.optional(),
+  /** Typed evidence behind every fail-open advisory. */
+  drops: z.array(CheckpointDropSchema).optional(),
   /** Plain-language accounts of anything that failed open. */
   advisories: z.array(z.string()).optional(),
 });
@@ -860,6 +928,7 @@ export type CheckpointsData = z.infer<typeof CheckpointsDataSchema>;
  * is configured: the per-standard measurement outcomes and the never-loosen
  * verification against the trunk. */
 export const GateDataSchema = z.strictObject({
+  mode: z.enum(GATE_MODES).optional(),
   failed_stage: z.enum(FAILED_STAGES).nullable(),
   scopes_changed: z.array(z.string()),
   standards: z.array(GateStandardSchema).optional(),
@@ -900,6 +969,7 @@ export type GateWireData = z.infer<typeof GateWireDataSchema>;
  * remaining statuses preserve why it is not. Inspection never reruns the gate. */
 export const GATE_PROOF_CHECK_STATUSES = [
   "honored",
+  "report_only",
   "missing",
   "stale",
   "dirty",
@@ -1083,12 +1153,7 @@ export const AWAIT_TIMEOUT_BASES = AWAIT_RETRY_BASES;
  * read `status` reports). */
 const awaitObservedSchema = z.strictObject({
   proof_status: z.enum([
-    "honored",
-    "missing",
-    "stale",
-    "dirty",
-    "unavailable",
-    "read_failed",
+    ...GATE_PROOF_CHECK_STATUSES,
     "no-worktree",
   ]).optional(),
   worktree: z.string().optional(),
