@@ -671,13 +671,13 @@
     color: var(--agents-paper-muted);
   }
 
-  .agents-receipt {
+  .agents-bill {
     display: grid;
     justify-items: center;
     margin: 0;
   }
 
-  .agents-receipt__paper {
+  .agents-bill__paper {
     position: relative;
     inline-size: min(100%, 23rem);
     padding: 2rem 1.75rem 2.4rem;
@@ -688,7 +688,7 @@
     transform: rotate(-1.2deg);
   }
 
-  .agents-receipt__paper::after {
+  .agents-bill__paper::after {
     position: absolute;
     inset: 100% 0 auto;
     block-size: 0.7rem;
@@ -701,7 +701,7 @@
     content: "";
   }
 
-  .agents-receipt__title {
+  .agents-bill__title {
     display: block;
     margin-block-end: 1.3rem;
     font-size: 0.76rem;
@@ -709,13 +709,13 @@
     text-align: center;
   }
 
-  .agents-receipt dl {
+  .agents-bill dl {
     margin: 0;
     padding-block: 0.85rem;
     border-block-start: 1px dashed rgb(38 43 54 / 45%);
   }
 
-  .agents-receipt dl > div {
+  .agents-bill dl > div {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
@@ -723,16 +723,16 @@
     font-size: 0.82rem;
   }
 
-  .agents-receipt dt,
-  .agents-receipt dd {
+  .agents-bill dt,
+  .agents-bill dd {
     margin: 0;
   }
 
-  .agents-receipt dd {
+  .agents-bill dd {
     font-weight: 700;
   }
 
-  .agents-receipt dl > div.agents-receipt__total {
+  .agents-bill dl > div.agents-bill__total {
     margin-block-start: 0.85rem;
     padding-block: 0.9rem 0.2rem;
     border-block-start: 1px dashed rgb(38 43 54 / 45%);

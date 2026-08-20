@@ -255,10 +255,10 @@ function ErgonomicsSection() {
   );
 }
 
-/** Context economy, itemised the way every till receipt is. */
+/** Context economy, itemised like a till bill. */
 function ContextSection() {
   const { context } = AGENTS_CONTENT;
-  const { receipt } = AGENTS_EVIDENCE;
+  const { bill } = AGENTS_EVIDENCE;
   return (
     <section
       className="agents-context"
@@ -273,19 +273,19 @@ function ContextSection() {
           lead={context.paragraphs[0]}
           titleId="context-title"
         />
-        <figure className="agents-receipt" aria-label="Context, itemised">
-          <div className="agents-receipt__paper">
-            <span className="agents-receipt__title">{receipt.title}</span>
+        <figure className="agents-bill" aria-label="Context, itemised">
+          <div className="agents-bill__paper">
+            <span className="agents-bill__title">{bill.title}</span>
             <dl>
-              {receipt.items.map(([item, cost]) => (
+              {bill.items.map(([item, cost]) => (
                 <div key={item}>
                   <dt>{item}</dt>
                   <dd>{cost}</dd>
                 </div>
               ))}
-              <div className="agents-receipt__total">
-                <dt>{receipt.total[0]}</dt>
-                <dd>{receipt.total[1]}</dd>
+              <div className="agents-bill__total">
+                <dt>{bill.total[0]}</dt>
+                <dd>{bill.total[1]}</dd>
               </div>
             </dl>
           </div>

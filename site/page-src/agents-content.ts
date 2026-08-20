@@ -174,7 +174,7 @@ export const AGENTS_EVIDENCE = {
     command: "discern donee",
     lines: ['unknown command "donee".', "Did you mean `discern done`?"],
   },
-  receipt: {
+  bill: {
     title: "CONTEXT · ITEMISED",
     items: [
       ["your task", "everything"],
