@@ -6,7 +6,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -436,7 +436,7 @@ question = "The parallel sibling is necessary."
     );
     const markdown = await runAgent(wt, ["done", "--markdown"]);
     assertEquals(markdown.code, 1, markdown.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       markdown.stdout,
       "Related existing: ``api/weird`name.ts`` resembles ``api/weird`name2.ts``",
     );

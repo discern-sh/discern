@@ -239,7 +239,7 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row, prev
       row.teach,
       "State the failure modes; note what callers must revisit.",
     );
-    assertEquals(row.trigger, "paths api/**");
+    assertEquals(row.trigger, "paths api/** · authored only");
     assertEquals(row.preview?.holds, true);
     assertEquals(row.preview?.matched, ["api/surface.txt"]);
     assertEquals(row.preview?.when_pending, undefined);
