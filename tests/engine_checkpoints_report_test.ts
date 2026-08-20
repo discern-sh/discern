@@ -107,6 +107,22 @@ when = "sh when-probe.sh"
 question = "${QUESTION_API}"
 `;
 
+const CONFIG_UNLESS_CHANGED = `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "sh check.sh"
+
+[checkpoints.api-review]
+paths = ["api/**"]
+unless_changed = ["docs/**"]
+question = "${QUESTION_API}"
+`;
+
 const CONFIG_NO_CHECKPOINTS = `
 [project]
 slug = "engine-test"
@@ -406,6 +422,76 @@ Deno.test("previews: prepare, status, and done --dry-run project the one preview
         JSON.stringify(dryRun.plan?.details)
       }`,
     );
+  });
+});
+
+Deno.test("checkpoint obligations: an opened question outranks an idle structural trigger on every surface", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_UNLESS_CHANGED);
+
+    // The API-only change fires and opens the question. Adding its paired docs
+    // then makes the current structural trigger idle, but cannot retract the
+    // question the gate already served.
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+    await Deno.mkdir(join(wt, "docs"), { recursive: true });
+    await Deno.writeTextFile(join(wt, "docs", "api.md"), "documented\n");
+    await git(wt, "add", "docs/api.md");
+    await git(
+      wt,
+      "commit",
+      "-q",
+      "-m",
+      "docs: describe the api",
+      "--no-gpg-sign",
+    );
+
+    const checkpoints = parseCheckpoints(
+      (await runAgent(wt, ["checkpoints", "--json"])).stdout,
+    );
+    const prepare = parseHinted(
+      (await runAgent(wt, ["prepare", "--json"])).stdout,
+    );
+    const status = parseHinted(
+      (await runAgent(wt, ["status", "--json"])).stdout,
+    );
+    const dryRun = parseHinted(
+      (await runAgent(wt, ["done", "--dry-run", "--json"])).stdout,
+    );
+    const done = parseHinted(
+      (await runAgent(wt, ["done", "--json"])).stdout,
+    ) as HintedEnvelope & {
+      error?: string;
+      data?: { checkpoints?: { outstanding?: { id: string }[] } };
+    };
+
+    const obligations = {
+      checkpoints: checkpoints.data.checkpoints[0]?.open_question?.state ===
+          "awaiting_declaration" &&
+        (checkpoints.hints ?? []).some((hint) =>
+          hint.includes("Awaiting: api-review")
+        ),
+      prepare: (prepare.hints ?? []).some((hint) =>
+        hint.includes("Checkpoint 'api-review'") &&
+        hint.includes("require a declared conclusion")
+      ),
+      status: (status.hints ?? []).some((hint) =>
+        hint.includes("Checkpoint 'api-review'") &&
+        hint.includes("require a declared conclusion")
+      ),
+      done_dry_run: (dryRun.plan?.details ?? []).some((line) =>
+        line.includes("Checkpoint 'api-review'") &&
+        line.includes("declared conclusion will be required")
+      ),
+      done: done.error === "awaiting_declaration" &&
+        done.data?.checkpoints?.outstanding?.[0]?.id === "api-review",
+    };
+    assertEquals(obligations, {
+      checkpoints: true,
+      prepare: true,
+      status: true,
+      done_dry_run: true,
+      done: true,
+    });
   });
 });
 
