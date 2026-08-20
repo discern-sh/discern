@@ -75,3 +75,30 @@ export function trackRun(controller: AbortController): () => void {
     }
   };
 }
+
+/** One locally owned cancellation controller registered with the process-wide
+ * interrupt authority and optionally chained to an external caller signal. */
+export interface TrackedRun {
+  readonly signal: AbortSignal;
+  /** Detach external input, then release OS-signal tracking. May re-raise a
+   * pending signal, so callers run their own cleanup before this call. */
+  release(): void;
+}
+
+export function beginTrackedRun(external?: AbortSignal): TrackedRun {
+  const controller = new AbortController();
+  const onAbort = (): void => controller.abort();
+  if (external?.aborted) {
+    onAbort();
+  } else {
+    external?.addEventListener("abort", onAbort, { once: true });
+  }
+  const releaseRun = trackRun(controller);
+  return {
+    signal: controller.signal,
+    release: (): void => {
+      external?.removeEventListener("abort", onAbort);
+      releaseRun();
+    },
+  };
+}

@@ -12,6 +12,7 @@
  */
 
 import type {
+  CheckpointChangeKind,
   CheckpointMode,
   RelatedCheckpointKind,
   TriggerVeto,
@@ -21,7 +22,35 @@ import type { CheckpointDropReason } from "../../shared/checkpoint_drops.ts";
 // ── the effort diff ─────────────────────────────────────────────────────────
 
 /** How one file changed between the effort's merge-base and its working tree. */
-export type EffortChangeKind = "added" | "deleted" | "modified";
+export type EffortChangeKind = CheckpointChangeKind;
+
+export const CONTENT_FACT_UNAVAILABLE_REASONS = [
+  "line_limit",
+  "file_limit",
+  "total_bytes",
+  "comparison_work",
+  "unreadable",
+  "patch_mismatch",
+] as const;
+export type ContentFactUnavailableReason =
+  (typeof CONTENT_FACT_UNAVAILABLE_REASONS)[number];
+
+export const HISTORY_FACT_UNAVAILABLE_REASONS = [
+  "git_failed",
+  "output_limit",
+] as const;
+export type HistoryFactUnavailableReason =
+  (typeof HISTORY_FACT_UNAVAILABLE_REASONS)[number];
+
+/** Bounded changed-line facts. Bytes preserve Git's exact UTF-8-facing
+ * payload; raw lines never leave the in-memory effort model. */
+export type EffortContentFacts =
+  | {
+    status: "available";
+    added: readonly Uint8Array[];
+    removed: readonly Uint8Array[];
+  }
+  | { status: "unavailable"; reason: ContentFactUnavailableReason };
 
 /** One changed file in the effort diff. Paths are project-root-relative, and a
  * rename is a deletion plus an addition (rename detection stays off, matching
@@ -37,7 +66,10 @@ export interface EffortFileChange {
   /** Lines removed; 0 for a binary file. */
   deletions: number;
   /** Whether the content is binary (line counts are then meaningless). */
-  binary: boolean;
+  binary: boolean | "unknown";
+  /** Present only when at least one governing content predicate admitted this
+   * path for collection. */
+  content?: EffortContentFacts;
 }
 
 /** One path in the merge-base tree, classified through the same governing
@@ -57,6 +89,16 @@ export interface EffortDiff {
   files: readonly EffortFileChange[];
   /** Every file path in the merge-base tree, project-root-relative. */
   baseFiles: readonly EffortBasePath[];
+  /** Ordered merge-base..HEAD identity; unavailable is local to history-aware
+   * definitions and must not disable ordinary checkpoints. */
+  history?:
+    | {
+      status: "available";
+      count: number;
+      commits: readonly string[];
+      fingerprint: string;
+    }
+    | { status: "unavailable"; reason: HistoryFactUnavailableReason };
 }
 
 // ── the resolved definition ─────────────────────────────────────────────────
@@ -90,12 +132,25 @@ export interface ResolvedCheckpoint {
   excludePaths: readonly string[];
   /** Resolved `unless_changed` globs (scope names already expanded). */
   unlessChanged: readonly string[];
+  /** Git change kinds that survive; empty means no kind filter. */
+  kinds: readonly EffortChangeKind[];
+  /** Literal UTF-8 line substrings, OR within each field. */
+  addsMatching: readonly string[];
+  removesMatching: readonly string[];
+  /** Require an added file under a base-tree-new parent directory. */
+  newDirectory: boolean;
+  /** Binary/text narrowing; absent means either. */
+  binary?: boolean;
   /** Matched-set size threshold; absent means any matched change suffices. */
   minChangedFiles?: number;
+  /** Added-plus-removed lines across narrowed text evidence. */
+  minChangedLines?: number;
   /** Whether the deletion-dominant delta-shape predicate must hold. */
   deletionDominant: boolean;
   /** Whether the new-file name-similarity predicate must hold. */
   similarNewFile: boolean;
+  /** Commit count threshold over merge-base..HEAD. */
+  minCommits?: number;
   /** The executable escape-hatch command text; absent means none. */
   when?: string;
 }
@@ -136,6 +191,10 @@ export type StructuralTriggerOutcome =
     whenPending: boolean;
     /** Existing evidence related to the narrowed changed set. */
     related: readonly RelatedCheckpointPath[];
+    /** Narrowed file facts supplied to the final `when` input. */
+    changed: readonly EffortFileChange[];
+    /** The one collected history fact, if Git could provide it. */
+    history?: Extract<EffortDiff["history"], { status: "available" }>;
   };
 
 /** How one `when` command run concluded (`when.ts` produces it). */
@@ -152,7 +211,13 @@ export type WhenOutcome =
     kind: "error";
     reason: Extract<
       CheckpointDropReason,
-      "when_spawn_failed" | "when_timeout" | "when_invalid_exit"
+      | "when_spawn_failed"
+      | "when_timeout"
+      | "when_invalid_exit"
+      | "when_cancelled"
+      | "when_input_failed"
+      | "when_input_cleanup_failed"
+      | "when_output_limit"
     >;
     /** Plain-language account of the failure — the trigger fails OPEN (no
      * fire) and this advisory travels with the run. */

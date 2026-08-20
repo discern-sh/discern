@@ -31,8 +31,12 @@ import {
 } from "./open_questions.ts";
 import { loadGoverningPolicy } from "./policy.ts";
 import { checkpointDefinitionHash, computeSubject } from "./subject.ts";
-import { evaluateStructuralTrigger } from "./triggers.ts";
+import {
+  evaluateStructuralTriggerFacts,
+  type TriggerFactIssue,
+} from "./triggers.ts";
 import type {
+  EffortDiff,
   RelatedCheckpointPath,
   ResolvedCheckpoint,
   StructuralTriggerOutcome,
@@ -81,6 +85,8 @@ export interface CheckpointInspection {
   storeReadable: boolean;
   /** Typed fail-open evidence; human accounts derive from these records. */
   drops: CheckpointDrop[];
+  /** Collected once for history-sensitive subjects and `when` input. */
+  history?: EffortDiff["history"];
 }
 
 /** Describe one report-mode stop obligation without claiming more certainty
@@ -188,11 +194,14 @@ export async function inspectCheckpointObligations(
   const drops: CheckpointDrop[] = [...policy.drops];
 
   let outcomes: ReadonlyMap<string, StructuralTriggerOutcome> = new Map();
+  const factIssues = new Map<string, TriggerFactIssue>();
+  let collectedHistory: EffortDiff["history"];
   if (policy.policyCommit !== undefined && policy.checkpoints.length > 0) {
     const diff = await collectEffortDiff(
       root,
       policy.policyCommit,
       policy.generatedGroups,
+      policy.checkpoints,
     );
     if (diff === undefined) {
       for (const definition of policy.checkpoints) {
@@ -204,12 +213,25 @@ export async function inspectCheckpointObligations(
         ));
       }
     } else {
-      outcomes = new Map(
-        policy.checkpoints.map((definition) => [
-          definition.id,
-          evaluateStructuralTrigger(definition, diff),
-        ]),
-      );
+      collectedHistory = diff.history;
+      const evaluated = new Map<string, StructuralTriggerOutcome>();
+      for (const definition of policy.checkpoints) {
+        const result = evaluateStructuralTriggerFacts(definition, diff);
+        if (result.issue !== undefined) {
+          factIssues.set(definition.id, result.issue);
+          drops.push(entryDrop(
+            definition,
+            policy.policyCommit,
+            result.issue.fact === "content"
+              ? "trigger_content_unavailable"
+              : "trigger_history_unavailable",
+            `checkpoint '${definition.id}': its ${result.issue.fact} facts were unavailable (${result.issue.reason}); the trigger failed open.`,
+          ));
+        } else {
+          evaluated.set(definition.id, result.outcome);
+        }
+      }
+      outcomes = evaluated;
     }
   }
 
@@ -247,6 +269,16 @@ export async function inspectCheckpointObligations(
         matched: outcome?.holds ? [...outcome.matched] : [],
         related: outcome?.holds ? [...outcome.related] : [],
         unknown: "store_unavailable",
+      };
+    } else if (
+      factIssues.get(definition.id)?.fact === "history" &&
+      openQuestion !== undefined
+    ) {
+      obligation = {
+        state: "unknown",
+        matched: [...openQuestion.matchedPaths],
+        related: [...openQuestion.relatedPaths],
+        unknown: "subject_unavailable",
       };
     } else if (openQuestion === undefined) {
       if (outcome === undefined || (outcome.holds && outcome.whenPending)) {
@@ -306,6 +338,10 @@ export async function inspectCheckpointObligations(
         matched,
         policyCommit,
         related,
+        definition.minCommits === undefined ||
+          collectedHistory?.status !== "available"
+          ? undefined
+          : collectedHistory.fingerprint,
       );
       if ("error" in subject) {
         drops.push(entryDrop(
@@ -351,6 +387,7 @@ export async function inspectCheckpointObligations(
     openQuestions,
     storeReadable,
     drops,
+    ...(collectedHistory === undefined ? {} : { history: collectedHistory }),
   };
 }
 

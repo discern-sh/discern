@@ -56,6 +56,10 @@ function def(over: Partial<ResolvedCheckpoint> = {}): ResolvedCheckpoint {
     includeGenerated: false,
     excludePaths: [],
     unlessChanged: [],
+    kinds: [],
+    addsMatching: [],
+    removesMatching: [],
+    newDirectory: false,
     deletionDominant: false,
     similarNewFile: false,
     ...over,
@@ -343,6 +347,7 @@ Deno.test("resolveTriggerOutcome: structural verdicts pass through", () => {
       matched: ["a.ts"],
       whenPending: false,
       related: [],
+      changed: [change("a.ts")],
     }),
     { fired: true, matched: ["a.ts"], related: [] },
   );
@@ -354,6 +359,7 @@ Deno.test("resolveTriggerOutcome: `when` decides a pending trigger", () => {
     matched: ["a.ts", "b.ts"],
     whenPending: true,
     related: [],
+    changed: [change("a.ts"), change("b.ts")],
   } as const;
   // Declared matches can narrow only within the structural matched set.
   assertEquals(
@@ -405,6 +411,7 @@ Deno.test("resolveTriggerOutcome refuses a pending `when` with no outcome", () =
         matched: ["a.ts"],
         whenPending: true,
         related: [],
+        changed: [change("a.ts")],
       }),
     Error,
     "pending",

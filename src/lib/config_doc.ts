@@ -355,14 +355,38 @@ export function applyConfigDoc(
         if (spec.unless_changed !== undefined) {
           editor.setStringArray(`${key}.unless_changed`, spec.unless_changed);
         }
+        if (spec.kinds !== undefined) {
+          editor.setStringArray(`${key}.kinds`, spec.kinds);
+        }
+        if (spec.adds_matching !== undefined) {
+          editor.setStringArray(`${key}.adds_matching`, spec.adds_matching);
+        }
+        if (spec.removes_matching !== undefined) {
+          editor.setStringArray(
+            `${key}.removes_matching`,
+            spec.removes_matching,
+          );
+        }
+        if (spec.new_directory !== undefined) {
+          editor.setBool(`${key}.new_directory`, spec.new_directory);
+        }
+        if (spec.binary !== undefined) {
+          editor.setBool(`${key}.binary`, spec.binary);
+        }
         if (spec.min_changed_files !== undefined) {
           editor.setNumber(`${key}.min_changed_files`, spec.min_changed_files);
+        }
+        if (spec.min_changed_lines !== undefined) {
+          editor.setNumber(`${key}.min_changed_lines`, spec.min_changed_lines);
         }
         if (spec.deletion_dominant !== undefined) {
           editor.setBool(`${key}.deletion_dominant`, spec.deletion_dominant);
         }
         if (spec.similar_new_file !== undefined) {
           editor.setBool(`${key}.similar_new_file`, spec.similar_new_file);
+        }
+        if (spec.min_commits !== undefined) {
+          editor.setNumber(`${key}.min_commits`, spec.min_commits);
         }
         if (spec.when !== undefined) {
           editor.setString(`${key}.when`, spec.when);

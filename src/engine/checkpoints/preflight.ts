@@ -23,7 +23,10 @@
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
-import type { CheckpointMode } from "../../shared/checkpoints.ts";
+import {
+  CHECKPOINT_WHEN_INPUT_VERSION,
+  type CheckpointMode,
+} from "../../shared/checkpoints.ts";
 import {
   type CheckpointDrop,
   entryCheckpointDrop,
@@ -52,9 +55,10 @@ import { resolveTriggerOutcome } from "./triggers.ts";
 import type {
   RelatedCheckpointPath,
   ResolvedCheckpoint,
+  StructuralTriggerOutcome,
   WhenOutcome,
 } from "./types.ts";
-import { runWhenCommand } from "./when.ts";
+import { type CheckpointWhenInput, runWhenCommand } from "./when.ts";
 
 /** One checkpoint as served to the agent: the judgment and its evidence. */
 export interface ServedCheckpoint {
@@ -168,6 +172,7 @@ export function hasDeclarations(request: DeclarationRequest): boolean {
 export async function runCheckpointReport(
   root: string,
   config: DiscernConfig,
+  signal?: AbortSignal,
 ): Promise<CheckpointPreflight> {
   const inspection = await inspectCheckpointObligations(root, config);
   const drops: CheckpointDrop[] = [...inspection.drops];
@@ -196,6 +201,14 @@ export async function runCheckpointReport(
         root,
         definition.id,
         definition.when ?? "",
+        {
+          input: checkpointWhenInput(
+            definition,
+            inspection.policyCommit ?? "",
+            structural,
+          ),
+          ...(signal === undefined ? {} : { signal }),
+        },
       );
       final = resolveTriggerOutcome(structural, when);
       if (when.kind === "error") {
@@ -253,6 +266,42 @@ function served(
   };
 }
 
+/** Project the holding structural plan onto the versioned public input. Pure:
+ * the executor owns the temporary file and environment. */
+function checkpointWhenInput(
+  definition: ResolvedCheckpoint,
+  policyCommit: string,
+  structural: Extract<
+    StructuralTriggerOutcome,
+    { holds: true }
+  >,
+): CheckpointWhenInput {
+  const changedFiles = structural.changed.map((file) => {
+    if (file.binary === "unknown") {
+      throw new Error("when input received an unavailable binary fact");
+    }
+    return {
+      path: file.path,
+      kind: file.kind,
+      insertions: file.insertions,
+      deletions: file.deletions,
+      binary: file.binary,
+    };
+  });
+  return {
+    version: CHECKPOINT_WHEN_INPUT_VERSION,
+    checkpoint: { id: definition.id, mode: definition.mode },
+    policy_commit: policyCommit,
+    changed_files: changedFiles,
+    ...(structural.history === undefined ? {} : {
+      history: {
+        count: structural.history.count,
+        fingerprint: structural.history.fingerprint,
+      },
+    }),
+  };
+}
+
 /** Render the active declarable set for an invalid-id message. */
 function activeSetClause(active: readonly string[]): string {
   return active.length === 0
@@ -271,6 +320,7 @@ export async function runCheckpointPreflight(
   config: DiscernConfig,
   request: DeclarationRequest,
   now?: string,
+  signal?: AbortSignal,
 ): Promise<CheckpointPreflightOutcome> {
   const at = now ?? new Date().toISOString();
   const inspection = await inspectCheckpointObligations(root, config);
@@ -315,6 +365,14 @@ export async function runCheckpointPreflight(
         root,
         definition.id,
         definition.when ?? "",
+        {
+          input: checkpointWhenInput(
+            definition,
+            inspection.policyCommit ?? "",
+            structural,
+          ),
+          ...(signal === undefined ? {} : { signal }),
+        },
       );
     }
     const outcome = resolveTriggerOutcome(structural, when);
@@ -382,6 +440,9 @@ export async function runCheckpointPreflight(
       serving.matched,
       policyCommit,
       serving.related,
+      def.minCommits === undefined || inspection.history?.status !== "available"
+        ? undefined
+        : inspection.history.fingerprint,
     );
     if ("error" in subject) {
       drops.push(preflightDrop(

@@ -37,6 +37,8 @@ export const TEMP_ARTIFACT_KINDS = {
   diag: "discern-diag-",
   /** A crash report's fallback home outside a repository (ADR 0248). */
   crash: "discern-crash-",
+  /** Versioned structured facts available only during one checkpoint command. */
+  checkpointInput: "discern-checkpoint-input-",
 } as const;
 
 export type TempArtifactKind = keyof typeof TEMP_ARTIFACT_KINDS;

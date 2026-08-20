@@ -28,9 +28,12 @@
  */
 
 import { pathMatchesPattern } from "../scopes/glob.ts";
+import { CHECKPOINT_PATTERN_LIMITS } from "../../shared/checkpoints.ts";
 import type {
+  ContentFactUnavailableReason,
   EffortDiff,
   EffortFileChange,
+  HistoryFactUnavailableReason,
   RelatedCheckpointPath,
   ResolvedCheckpoint,
   SimilarNewFile,
@@ -38,6 +41,8 @@ import type {
   TriggerOutcome,
   WhenOutcome,
 } from "./types.ts";
+
+const ENCODER = new TextEncoder();
 
 // ── deletion-dominant thresholds ────────────────────────────────────────────
 
@@ -197,22 +202,121 @@ function isDeletionDominant(files: readonly EffortFileChange[]): boolean {
     deletions >= DELETION_DOMINANT_RATIO * insertions;
 }
 
+/** A collected fact needed by one definition is unavailable. The inspection
+ * layer turns this into a checkpoint-scoped fail-open drop. */
+export type TriggerFactIssue =
+  | { fact: "content"; reason: ContentFactUnavailableReason }
+  | { fact: "history"; reason: HistoryFactUnavailableReason };
+
+export type StructuralTriggerEvaluation =
+  | { outcome: StructuralTriggerOutcome; issue?: never }
+  | { issue: TriggerFactIssue; outcome?: never };
+
+interface CompiledPattern {
+  bytes: Uint8Array;
+  prefix: Uint16Array;
+}
+
+function compilePattern(value: string): CompiledPattern {
+  const bytes = ENCODER.encode(value);
+  const prefix = new Uint16Array(bytes.length);
+  for (let index = 1, matched = 0; index < bytes.length; index++) {
+    while (matched > 0 && bytes[index] !== bytes[matched]) {
+      matched = prefix[matched - 1] ?? 0;
+    }
+    if (bytes[index] === bytes[matched]) matched++;
+    prefix[index] = matched;
+  }
+  return { bytes, prefix };
+}
+
+/** Knuth-Morris-Pratt keeps one pattern scan linear in the line bytes. */
+function bytesContain(haystack: Uint8Array, pattern: CompiledPattern): boolean {
+  let matched = 0;
+  for (const byte of haystack) {
+    while (matched > 0 && byte !== pattern.bytes[matched]) {
+      matched = pattern.prefix[matched - 1] ?? 0;
+    }
+    if (byte === pattern.bytes[matched]) matched++;
+    if (matched === pattern.bytes.length) return true;
+  }
+  return false;
+}
+
+function contentMatches(
+  file: EffortFileChange,
+  side: "added" | "removed",
+  patterns: readonly CompiledPattern[],
+): boolean {
+  const content = file.content;
+  if (content === undefined || content.status !== "available") return false;
+  return content[side].some((line) =>
+    patterns.some((pattern) => bytesContain(line, pattern))
+  );
+}
+
+function contentComparisonWork(
+  files: readonly EffortFileChange[],
+  patternCount: number,
+): number {
+  let bytes = 0;
+  for (const file of files) {
+    if (file.content?.status !== "available") continue;
+    for (const line of [...file.content.added, ...file.content.removed]) {
+      bytes += line.length;
+    }
+  }
+  return bytes * patternCount;
+}
+
+/** Parent directory, with the project root represented as the empty string. */
+function parentDirectory(path: string): string {
+  const slash = path.lastIndexOf("/");
+  return slash === -1 ? "" : path.slice(0, slash);
+}
+
+/** Union of paths whose raw diff lines at least one governing content
+ * definition may inspect. It applies the authored/selector/exclusion boundary
+ * before I/O; later narrowing stays pure. */
+export function contentCollectionPaths(
+  definitions: readonly ResolvedCheckpoint[],
+  diff: EffortDiff,
+): Set<string> {
+  const paths = new Set<string>();
+  for (const def of definitions) {
+    if (def.addsMatching.length === 0 && def.removesMatching.length === 0) {
+      continue;
+    }
+    for (const file of diff.files) {
+      if (!def.includeGenerated && file.generated) continue;
+      if (
+        def.selector !== undefined &&
+        !matchesAny(file.path, def.selector.globs)
+      ) continue;
+      if (matchesAny(file.path, def.excludePaths)) continue;
+      if (def.kinds.length > 0 && !def.kinds.includes(file.kind)) continue;
+      paths.add(file.path);
+    }
+  }
+  return paths;
+}
+
 /**
  * Evaluate one checkpoint's structural predicates against the effort diff —
  * the pure half of the trigger. `when` is not run here: a holding outcome
  * carries `whenPending` so the caller knows whether the executable condition
  * still has the last word ({@link resolveTriggerOutcome} composes it).
  */
-export function evaluateStructuralTrigger(
+export function evaluateStructuralTriggerFacts(
   def: ResolvedCheckpoint,
   diff: EffortDiff,
-): StructuralTriggerOutcome {
+): StructuralTriggerEvaluation {
   const selector = def.selector;
   const selectedComplete = selector === undefined
     ? [...diff.files]
     : diff.files.filter((file) => matchesAny(file.path, selector.globs));
   if (selectedComplete.length === 0) {
-    return { holds: false, vetoedBy: "empty_matched_set" };
+    return { outcome: { holds: false, vetoedBy: "empty_matched_set" } };
   }
 
   // Filters — one governing source classification, then one checkpoint-local
@@ -225,7 +329,7 @@ export function evaluateStructuralTrigger(
     ? [...sourceFiles]
     : sourceFiles.filter((file) => matchesAny(file.path, selector.globs));
   if (selectedSource.length === 0) {
-    return { holds: false, vetoedBy: "generated_only" };
+    return { outcome: { holds: false, vetoedBy: "generated_only" } };
   }
   const filteredUniverse = sourceFiles.filter((file) =>
     !matchesAny(file.path, def.excludePaths)
@@ -234,14 +338,82 @@ export function evaluateStructuralTrigger(
     !matchesAny(file.path, def.excludePaths)
   );
   if (candidate.length === 0) {
-    return { holds: false, vetoedBy: "excluded_only" };
+    return { outcome: { holds: false, vetoedBy: "excluded_only" } };
   }
   const baseFiles = diff.baseFiles.filter((file) =>
     (def.includeGenerated || !file.generated) &&
     !matchesAny(file.path, def.excludePaths)
   );
 
-  // Evidence narrowing — similarity keeps only suspicious ADDED changed paths
+  // Evidence narrowing. Every field sees the survivors of its predecessors.
+  if (def.kinds.length > 0) {
+    const kinds = new Set(def.kinds);
+    candidate = candidate.filter((file) => kinds.has(file.kind));
+    if (candidate.length === 0) {
+      return { outcome: { holds: false, vetoedBy: "kinds" } };
+    }
+  }
+  const contentPatternCount = def.addsMatching.length +
+    def.removesMatching.length;
+  if (
+    contentPatternCount > 0 &&
+    contentComparisonWork(candidate, contentPatternCount) >
+      CHECKPOINT_PATTERN_LIMITS.maxComparisonBytes
+  ) {
+    return { issue: { fact: "content", reason: "comparison_work" } };
+  }
+  for (
+    const [field, side, patterns] of [
+      ["adds_matching", "added", def.addsMatching],
+      ["removes_matching", "removed", def.removesMatching],
+    ] as const
+  ) {
+    if (patterns.length === 0) continue;
+    for (const file of candidate) {
+      if (file.content === undefined) {
+        return { issue: { fact: "content", reason: "patch_mismatch" } };
+      }
+      if (file.content.status === "unavailable") {
+        return {
+          issue: { fact: "content", reason: file.content.reason },
+        };
+      }
+    }
+    const encoded = patterns.map(compilePattern);
+    candidate = candidate.filter((file) => contentMatches(file, side, encoded));
+    if (candidate.length === 0) {
+      return { outcome: { holds: false, vetoedBy: field } };
+    }
+  }
+  if (def.newDirectory) {
+    const baseDirectories = new Set<string>();
+    for (const file of baseFiles) {
+      let directory = parentDirectory(file.path);
+      while (directory !== "") {
+        baseDirectories.add(directory);
+        directory = parentDirectory(directory);
+      }
+    }
+    candidate = candidate.filter((file) => {
+      const parent = parentDirectory(file.path);
+      return file.kind === "added" && parent !== "" &&
+        !baseDirectories.has(parent);
+    });
+    if (candidate.length === 0) {
+      return { outcome: { holds: false, vetoedBy: "new_directory" } };
+    }
+  }
+  if (def.binary !== undefined) {
+    if (candidate.some((file) => file.binary === "unknown")) {
+      return { issue: { fact: "content", reason: "unreadable" } };
+    }
+    candidate = candidate.filter((file) => file.binary === def.binary);
+    if (candidate.length === 0) {
+      return { outcome: { holds: false, vetoedBy: "binary" } };
+    }
+  }
+
+  // Similarity keeps only suspicious ADDED changed paths
   // and carries each existing sibling separately. The sibling never counts as
   // a changed file or enters `when`'s declared-match boundary.
   let related: RelatedCheckpointPath[] = [];
@@ -251,7 +423,7 @@ export function evaluateStructuralTrigger(
       { files: filteredUniverse, baseFiles },
     );
     if (similar.length === 0) {
-      return { holds: false, vetoedBy: "similar_new_file" };
+      return { outcome: { holds: false, vetoedBy: "similar_new_file" } };
     }
     const suspicious = new Set(similar.map((pair) => pair.added));
     candidate = candidate.filter((file) => suspicious.has(file.path));
@@ -269,24 +441,81 @@ export function evaluateStructuralTrigger(
     def.unlessChanged.length > 0 &&
     filteredUniverse.some((file) => matchesAny(file.path, def.unlessChanged))
   ) {
-    return { holds: false, vetoedBy: "unless_changed" };
+    return { outcome: { holds: false, vetoedBy: "unless_changed" } };
   }
   if (
     def.minChangedFiles !== undefined && candidate.length < def.minChangedFiles
   ) {
-    return { holds: false, vetoedBy: "min_changed_files" };
+    return { outcome: { holds: false, vetoedBy: "min_changed_files" } };
+  }
+  if (
+    def.minChangedLines !== undefined &&
+    candidate.some((file) => file.binary === "unknown")
+  ) {
+    return { issue: { fact: "content", reason: "unreadable" } };
+  }
+  if (
+    def.minChangedLines !== undefined &&
+    candidate.reduce(
+        (total, file) => total + file.insertions + file.deletions,
+        0,
+      ) < def.minChangedLines
+  ) {
+    return { outcome: { holds: false, vetoedBy: "min_changed_lines" } };
+  }
+  if (
+    def.deletionDominant &&
+    candidate.some((file) => file.binary === "unknown")
+  ) {
+    return { issue: { fact: "content", reason: "unreadable" } };
   }
   if (def.deletionDominant && !isDeletionDominant(candidate)) {
-    return { holds: false, vetoedBy: "deletion_dominant" };
+    return { outcome: { holds: false, vetoedBy: "deletion_dominant" } };
+  }
+  if (def.minCommits !== undefined) {
+    if (diff.history === undefined) {
+      return { issue: { fact: "history", reason: "git_failed" } };
+    }
+    if (diff.history.status === "unavailable") {
+      return { issue: { fact: "history", reason: diff.history.reason } };
+    }
+    if (diff.history.count < def.minCommits) {
+      return { outcome: { holds: false, vetoedBy: "min_commits" } };
+    }
   }
   const matched = candidate.map((file) => file.path).sort();
   const whenPending = def.when !== undefined && def.when.trim() !== "";
+  if (whenPending && candidate.some((file) => file.binary === "unknown")) {
+    return { issue: { fact: "content", reason: "unreadable" } };
+  }
   return {
-    holds: true,
-    matched,
-    whenPending,
-    related,
+    outcome: {
+      holds: true,
+      matched,
+      whenPending,
+      related,
+      changed: candidate,
+      ...(diff.history?.status === "available"
+        ? { history: diff.history }
+        : {}),
+    },
   };
+}
+
+/** Pure convenience for callers that supplied complete facts. Production read
+ * and gate surfaces use `evaluateStructuralTriggerFacts` so an unavailable
+ * fact becomes a durable fail-open drop. */
+export function evaluateStructuralTrigger(
+  def: ResolvedCheckpoint,
+  diff: EffortDiff,
+): StructuralTriggerOutcome {
+  const evaluated = evaluateStructuralTriggerFacts(def, diff);
+  if (evaluated.issue !== undefined) {
+    throw new Error(
+      `checkpoint ${evaluated.issue.fact} facts unavailable: ${evaluated.issue.reason}`,
+    );
+  }
+  return evaluated.outcome;
 }
 
 /**

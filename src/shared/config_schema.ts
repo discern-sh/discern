@@ -45,7 +45,12 @@ import {
 } from "./project_path.ts";
 import { deadConfigPosition, retiredConfigKeySuccessor } from "./vocabulary.ts";
 import { AGENT_NAMES } from "./agent_catalogue.ts";
-import { CHECKPOINT_MODES, isBuiltInCheckpoint } from "./checkpoints.ts";
+import {
+  CHECKPOINT_CHANGE_KINDS,
+  CHECKPOINT_MODES,
+  CHECKPOINT_PATTERN_LIMITS,
+  isBuiltInCheckpoint,
+} from "./checkpoints.ts";
 
 export { AGENT_NAMES } from "./agent_catalogue.ts";
 
@@ -311,6 +316,43 @@ const standardValue = z.strictObject({
  * Every field is optional so a bare table can reference a shipped built-in by
  * id; trigger and mode defaults are applied when the rule is resolved, so an
  * unset field can still inherit a built-in's value. */
+const checkpointKinds = z.array(z.enum(CHECKPOINT_CHANGE_KINDS)).min(
+  1,
+  "kinds must name at least one change kind.",
+).superRefine((values, ctx) => {
+  if (new Set(values).size !== values.length) {
+    ctx.addIssue({
+      code: "custom",
+      message: "kinds must not contain duplicates.",
+    });
+  }
+});
+
+const checkpointLinePatterns = z.array(
+  z.string().min(
+    1,
+    "a content pattern must not be empty.",
+  ).refine(
+    (value) => !/[\u0000\r\n]/.test(value),
+    "a literal-line content pattern cannot contain NUL, CR, or LF.",
+  ).refine(
+    (value) =>
+      new TextEncoder().encode(value).length <=
+        CHECKPOINT_PATTERN_LIMITS.maxPatternBytes,
+    `a content pattern must be at most ${CHECKPOINT_PATTERN_LIMITS.maxPatternBytes} UTF-8 bytes.`,
+  ),
+).min(1, "a content pattern list must not be empty.").max(
+  CHECKPOINT_PATTERN_LIMITS.maxPatternsPerField,
+  `a content pattern list accepts at most ${CHECKPOINT_PATTERN_LIMITS.maxPatternsPerField} entries.`,
+).superRefine((values, ctx) => {
+  if (new Set(values).size !== values.length) {
+    ctx.addIssue({
+      code: "custom",
+      message: "content patterns must not contain duplicates.",
+    });
+  }
+});
+
 const checkpointValue = z.strictObject({
   scope: z.string().regex(NAME_RE).optional().describe(
     "Selector: a configured [scopes.<name>] whose paths choose the matched set. Prefer this over repeating the scope's globs in `paths`; a checkpoint takes one selector.",
@@ -327,17 +369,44 @@ const checkpointValue = z.strictObject({
   unless_changed: z.array(z.string()).optional().describe(
     `Veto when any filtered changed path matches a configured scope name or selector-dialect glob. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
+  kinds: checkpointKinds.optional().describe(
+    'Narrow changed evidence to the named Git kinds: "added", "modified", or "deleted".',
+  ),
+  adds_matching: checkpointLinePatterns.optional().describe(
+    "Narrow text evidence to files with an added line containing any configured case-sensitive literal UTF-8 substring.",
+  ),
+  removes_matching: checkpointLinePatterns.optional().describe(
+    "Narrow text evidence to files with a removed line containing any configured case-sensitive literal UTF-8 substring.",
+  ),
+  new_directory: z.boolean().optional().describe(
+    "Narrow to added files whose parent directory held no admitted file at the merge-base; root-level additions never qualify.",
+  ),
+  binary: z.boolean().optional().describe(
+    "Narrow to binary changes when true or text changes when false.",
+  ),
   min_changed_files: z.number().int().min(
     1,
     "min_changed_files is a matched-set size threshold and must be at least 1.",
   ).optional().describe(
     "Fire only when at least this many matched files changed. Omit for no threshold (any matched change fires).",
   ),
+  min_changed_lines: z.number().int().min(
+    1,
+    "min_changed_lines must be at least 1.",
+  ).optional().describe(
+    "Require this many added-plus-removed text lines across the final narrowed evidence; binary files contribute zero.",
+  ),
   deletion_dominant: z.boolean().optional().describe(
     "Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut is reviewed and an ordinary edit or balanced refactor is not.",
   ),
   similar_new_file: z.boolean().optional().describe(
     "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory (a copy/version/suffix variant) — the signature of a parallel implementation growing beside the original.",
+  ),
+  min_commits: z.number().int().min(
+    1,
+    "min_commits must be at least 1.",
+  ).optional().describe(
+    "Require this many commits in merge-base..HEAD, including merge commits; uncommitted work adds no commit.",
   ),
   when: z.string().optional().describe(
     "Final executable condition: exit 0 fires, exit 1 passes; errors and timeout fail open. `DISCERN_MATCH <path>` narrows the structural matches.",

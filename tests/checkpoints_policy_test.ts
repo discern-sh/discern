@@ -17,6 +17,7 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import {
+  CHECKPOINT_SEED_TRIGGER_BINDINGS,
   firableCheckpointIds,
   loadGoverningPolicy,
   resolveCheckpoints,
@@ -297,6 +298,10 @@ Deno.test("a checkpoint with no selector governs the whole diff and defaults hol
     includeGenerated: false,
     excludePaths: [],
     unlessChanged: [],
+    kinds: [],
+    addsMatching: [],
+    removesMatching: [],
+    newDirectory: false,
     deletionDominant: false,
     similarNewFile: false,
   });
@@ -320,6 +325,104 @@ const SEEDS: Readonly<Record<string, BuiltInCheckpointSeed>> = {
     deletion_dominant: true,
   },
 };
+
+type CompleteTriggerSeed =
+  & Required<
+    Omit<BuiltInCheckpointSeed, "scope" | "paths">
+  >
+  & { paths: readonly string[]; scope?: never };
+
+const COMPLETE_TRIGGER_SEED = {
+  question: "skills.executable",
+  mode: "advise",
+  paths: ["seed/**"],
+  include_generated: true,
+  exclude_paths: ["seed/excluded/**"],
+  unless_changed: ["seed/counterpart/**"],
+  kinds: ["deleted"],
+  adds_matching: ["seed added"],
+  removes_matching: ["seed removed"],
+  new_directory: true,
+  binary: true,
+  min_changed_files: 3,
+  min_changed_lines: 30,
+  deletion_dominant: true,
+  similar_new_file: true,
+  min_commits: 4,
+  when: "seed-probe",
+} as const satisfies CompleteTriggerSeed;
+
+Deno.test("every seed trigger field falls back and accepts a project override", () => {
+  const expectedSeed: Record<string, unknown> = {
+    includeGenerated: true,
+    excludePaths: ["seed/excluded/**"],
+    unlessChanged: ["seed/counterpart/**"],
+    kinds: ["deleted"],
+    addsMatching: ["seed added"],
+    removesMatching: ["seed removed"],
+    newDirectory: true,
+    binary: true,
+    minChangedFiles: 3,
+    minChangedLines: 30,
+    deletionDominant: true,
+    similarNewFile: true,
+    minCommits: 4,
+    when: "seed-probe",
+  };
+  const overrides = {
+    include_generated: false,
+    exclude_paths: ["override/excluded/**"],
+    unless_changed: ["override/counterpart/**"],
+    kinds: ["added"],
+    adds_matching: ["override added"],
+    removes_matching: ["override removed"],
+    new_directory: false,
+    binary: false,
+    min_changed_files: 7,
+    min_changed_lines: 70,
+    deletion_dominant: false,
+    similar_new_file: false,
+    min_commits: 8,
+    when: "override-probe",
+  };
+  const expectedOverride: Record<string, unknown> = {
+    includeGenerated: false,
+    excludePaths: ["override/excluded/**"],
+    unlessChanged: ["override/counterpart/**"],
+    kinds: ["added"],
+    addsMatching: ["override added"],
+    removesMatching: ["override removed"],
+    newDirectory: false,
+    binary: false,
+    minChangedFiles: 7,
+    minChangedLines: 70,
+    deletionDominant: false,
+    similarNewFile: false,
+    minCommits: 8,
+    when: "override-probe",
+  };
+  for (
+    const [entry, expected] of [
+      [{}, expectedSeed],
+      [overrides, expectedOverride],
+    ] as const
+  ) {
+    const config = seedConfig({ "complete-seed": entry });
+    const definition = resolveCheckpoints(config, {
+      "complete-seed": COMPLETE_TRIGGER_SEED,
+    }).checkpoints[0];
+    assert(definition !== undefined);
+    for (
+      const resolvedField of Object.values(CHECKPOINT_SEED_TRIGGER_BINDINGS)
+    ) {
+      assertEquals(
+        definition[resolvedField],
+        expected[resolvedField],
+        resolvedField,
+      );
+    }
+  }
+});
 
 /** A config carrying the map/scope fixtures plus the given checkpoint entries.
  * Entries are injected post-parse: the LIVE loader's completeness rule knows

@@ -26,11 +26,19 @@
  * stall the gate.
  */
 
-import { spawnJob } from "../jobs/command.ts";
+import { type SpawnedJob, spawnJob } from "../jobs/command.ts";
+import { beginTrackedRun } from "../jobs/interrupt.ts";
+import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import type { WhenOutcome } from "./types.ts";
+import type { CheckpointWhenInput } from "../../shared/checkpoints.ts";
+export type { CheckpointWhenInput } from "../../shared/checkpoints.ts";
 
 /** The fixed wall-clock budget (seconds) a `when` command gets. */
 export const CHECKPOINT_WHEN_TIMEOUT_SECONDS = 10;
+
+/** Maximum command-output bytes retained for the match-line protocol. */
+export const CHECKPOINT_WHEN_OUTPUT_BYTES = 256 * 1024;
 
 /** Cap on the advisory's excerpt of the command's own words. */
 const ADVISORY_EXCERPT_MAX = 160;
@@ -89,6 +97,11 @@ export function parseDiscernMatches(output: string): string[] {
 export interface RunWhenOptions {
   /** Replace the fixed budget — for tests; production callers omit it. */
   timeoutS?: number;
+  /** Structured facts. Production callers always provide this; omission keeps
+   * direct compatibility probes from receiving an invented input. */
+  input?: CheckpointWhenInput;
+  /** External cancellation (MCP/client); OS interrupts join it internally. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -103,20 +116,74 @@ export async function runWhenCommand(
   opts: RunWhenOptions = {},
 ): Promise<WhenOutcome> {
   const timeoutS = opts.timeoutS ?? CHECKPOINT_WHEN_TIMEOUT_SECONDS;
-  let result;
+  const tracked = beginTrackedRun(opts.signal);
+  let inputPath: string | undefined;
+  let result: SpawnedJob | undefined;
+  let failed: { phase: "input" | "spawn"; detail: string } | undefined;
+  let cleanupFailed = false;
+  let phase: "input" | "spawn" = "input";
   try {
+    const input = opts.input;
+    const env: Record<string, string> = {};
+    if (input !== undefined) {
+      inputPath = await makeTempArtifact("checkpointInput");
+      await Deno.chmod(inputPath, 0o600);
+      await Deno.writeTextFile(inputPath, `${JSON.stringify(input)}\n`);
+      env[DISCERN_ENVIRONMENT_VARIABLES.checkpointInput] = inputPath;
+    }
+    phase = "spawn";
     result = await spawnJob(
       { label: `checkpoint:${checkpointId}`, command },
-      { cwd: root, stream: false, write: () => {}, timeoutS },
+      {
+        cwd: root,
+        stream: false,
+        write: () => {},
+        timeoutS,
+        keepOutput: true,
+        protocolOutputMaxBytes: CHECKPOINT_WHEN_OUTPUT_BYTES,
+        signal: tracked.signal,
+        env,
+      },
     );
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    failed = {
+      phase,
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    if (inputPath !== undefined) {
+      try {
+        await Deno.remove(inputPath);
+      } catch (error) {
+        if (!(error instanceof Deno.errors.NotFound)) cleanupFailed = true;
+      }
+    }
+    tracked.release();
+  }
+  if (cleanupFailed) {
+    return {
+      kind: "error",
+      reason: "when_input_cleanup_failed",
+      advisory:
+        `checkpoint '${checkpointId}': its temporary when input could not be removed; the trigger fails open and did not fire.`,
+    };
+  }
+  if (failed !== undefined) {
+    return {
+      kind: "error",
+      reason: failed.phase === "input"
+        ? "when_input_failed"
+        : "when_spawn_failed",
+      advisory:
+        `checkpoint '${checkpointId}': the when ${failed.phase} could not be prepared (${failed.detail}); the trigger fails open and did not fire.`,
+    };
+  }
+  if (result === undefined) {
     return {
       kind: "error",
       reason: "when_spawn_failed",
       advisory:
-        `checkpoint '${checkpointId}': the when command could not run (${reason}); ` +
-        `the trigger fails open and did not fire.`,
+        `checkpoint '${checkpointId}': the when command produced no result; the trigger fails open and did not fire.`,
     };
   }
   if (result.result.timedOutAfterS !== undefined) {
@@ -128,6 +195,22 @@ export async function runWhenCommand(
         `${result.result.timedOutAfterS}s; the trigger fails open and did not fire.`,
     };
   }
+  if (result.result.cancelled === true || tracked.signal.aborted) {
+    return {
+      kind: "error",
+      reason: "when_cancelled",
+      advisory:
+        `checkpoint '${checkpointId}': the when command was cancelled; the trigger fails open and did not fire.`,
+    };
+  }
+  if (result.outputLimitExceeded === true) {
+    return {
+      kind: "error",
+      reason: "when_output_limit",
+      advisory:
+        `checkpoint '${checkpointId}': the when command exceeded its ${CHECKPOINT_WHEN_OUTPUT_BYTES}-byte output limit; the trigger fails open and did not fire.`,
+    };
+  }
   if (result.result.code === 0) {
     return {
       kind: "fire",
@@ -137,13 +220,13 @@ export async function runWhenCommand(
   if (result.result.code === 1) {
     return { kind: "pass" };
   }
-  const excerpt = outputExcerpt(result.output);
+  const excerpt = result.output;
   return {
     kind: "error",
     reason: "when_invalid_exit",
     advisory:
       `checkpoint '${checkpointId}': the when command exited ${result.result.code} ` +
       `(0 fires, 1 passes); the trigger fails open and did not fire.` +
-      (excerpt === "" ? "" : ` Output: ${excerpt}`),
+      (excerpt.length === 0 ? "" : ` Output: ${outputExcerpt(excerpt)}`),
   };
 }

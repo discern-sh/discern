@@ -12,20 +12,26 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
+import { tmpdir } from "node:os";
 import { withTempDir } from "./helpers.ts";
 import { writeExecutable } from "./engine_helpers.ts";
 import {
+  CHECKPOINT_WHEN_OUTPUT_BYTES,
   CHECKPOINT_WHEN_TIMEOUT_SECONDS,
   type CheckpointWhenInput,
   parseDiscernMatches,
   runWhenCommand,
 } from "../src/engine/checkpoints/when.ts";
+import {
+  TEMP_ARTIFACT_KINDS,
+  TEMP_ARTIFACT_SUFFIX,
+} from "../src/shared/temp_artifacts.ts";
 
 const INPUT: CheckpointWhenInput = {
   version: 1,
   checkpoint: { id: "probe", mode: "stop" },
   policy_commit: "abc123",
-  changed: [{
+  changed_files: [{
     path: "src/a.ts",
     kind: "modified",
     insertions: 2,
@@ -34,6 +40,31 @@ const INPUT: CheckpointWhenInput = {
   }],
   history: { count: 2, fingerprint: "ordered-history" },
 };
+
+async function waitForPath(path: string): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    try {
+      await Deno.stat(path);
+      return;
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error(`timed out waiting for child marker ${path}`);
+}
+
+async function checkpointInputArtifacts(): Promise<string[]> {
+  const names: string[] = [];
+  for await (const entry of Deno.readDir(tmpdir())) {
+    if (
+      entry.isFile &&
+      entry.name.startsWith(TEMP_ARTIFACT_KINDS.checkpointInput) &&
+      entry.name.endsWith(TEMP_ARTIFACT_SUFFIX)
+    ) names.push(entry.name);
+  }
+  return names.sort();
+}
 
 Deno.test("when: the shipped budget is the ten-second pre-flight contract", () => {
   // The fixed wall-clock budget is a published contract ("a pre-flight
@@ -56,8 +87,9 @@ Deno.test("when: receives one versioned structured input and always removes it",
   await withTempDir(async (dir) => {
     const captured = join(dir, "captured.json");
     const pathRecord = join(dir, "input-path.txt");
+    const modeRecord = join(dir, "input-mode.txt");
     const command =
-      `cp "$DISCERN_CHECKPOINT_INPUT" "${captured}"; printf %s "$DISCERN_CHECKPOINT_INPUT" > "${pathRecord}"; exit 0`;
+      `cp "$DISCERN_CHECKPOINT_INPUT" "${captured}"; printf %s "$DISCERN_CHECKPOINT_INPUT" > "${pathRecord}"; (stat -f %Lp "$DISCERN_CHECKPOINT_INPUT" 2>/dev/null || stat -c %a "$DISCERN_CHECKPOINT_INPUT") > "${modeRecord}"; exit 0`;
     assertEquals(
       await runWhenCommand(dir, "probe", command, { input: INPUT }),
       {
@@ -66,8 +98,54 @@ Deno.test("when: receives one versioned structured input and always removes it",
       },
     );
     assertEquals(JSON.parse(await Deno.readTextFile(captured)), INPUT);
+    assertEquals((await Deno.readTextFile(modeRecord)).trim(), "600");
     const inputPath = await Deno.readTextFile(pathRecord);
     await assertRejects(() => Deno.stat(inputPath), Deno.errors.NotFound);
+  });
+});
+
+Deno.test("when: bounded protocol output accepts the exact cap and fails open one byte over", async () => {
+  await withTempDir(async (dir) => {
+    const exact =
+      `yes x | tr -d '\\n' | head -c ${CHECKPOINT_WHEN_OUTPUT_BYTES}; exit 1`;
+    assertEquals(await runWhenCommand(dir, "probe", exact), { kind: "pass" });
+    const over = await runWhenCommand(
+      dir,
+      "probe",
+      `yes x | tr -d '\\n' | head -c ${
+        CHECKPOINT_WHEN_OUTPUT_BYTES + 1
+      }; exit 1`,
+    );
+    assert(over.kind === "error");
+    assertEquals(over.reason, "when_output_limit");
+  });
+});
+
+Deno.test("when: a pre-aborted external signal fails open as cancelled", async () => {
+  await withTempDir(async (dir) => {
+    const controller = new AbortController();
+    controller.abort();
+    const out = await runWhenCommand(dir, "probe", "sleep 30", {
+      input: INPUT,
+      signal: controller.signal,
+    });
+    assert(out.kind === "error");
+    assertEquals(out.reason, "when_cancelled");
+  });
+});
+
+Deno.test("when: spawn failure after input creation leaves no temporary input", async () => {
+  await withTempDir(async (dir) => {
+    const before = await checkpointInputArtifacts();
+    const out = await runWhenCommand(
+      join(dir, "missing-cwd"),
+      "probe",
+      "true",
+      { input: INPUT },
+    );
+    assert(out.kind === "error");
+    assertEquals(out.reason, "when_spawn_failed");
+    assertEquals(await checkpointInputArtifacts(), before);
   });
 });
 
@@ -87,10 +165,8 @@ Deno.test("when: removes structured input after pass, failure, timeout, and canc
         `printf %s "$DISCERN_CHECKPOINT_INPUT" > "${record}"; ${command}`,
         { input: INPUT, ...options },
       );
-      await assertRejects(
-        () => Deno.stat(await Deno.readTextFile(record)),
-        Deno.errors.NotFound,
-      );
+      const inputPath = await Deno.readTextFile(record);
+      await assertRejects(() => Deno.stat(inputPath), Deno.errors.NotFound);
     }
 
     const controller = new AbortController();
@@ -101,13 +177,11 @@ Deno.test("when: removes structured input after pass, failure, timeout, and canc
       `printf %s "$DISCERN_CHECKPOINT_INPUT" > "${record}"; sleep 30`,
       { input: INPUT, signal: controller.signal },
     );
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await waitForPath(record);
     controller.abort();
     await pending;
-    await assertRejects(
-      () => Deno.stat(await Deno.readTextFile(record)),
-      Deno.errors.NotFound,
-    );
+    const inputPath = await Deno.readTextFile(record);
+    await assertRejects(() => Deno.stat(inputPath), Deno.errors.NotFound);
   });
 });
 

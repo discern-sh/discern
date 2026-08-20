@@ -32,16 +32,88 @@ export type CheckpointMode = (typeof CHECKPOINT_MODES)[number];
 /** The mode an entry that names none receives. */
 export const DEFAULT_CHECKPOINT_MODE: CheckpointMode = "stop";
 
+/** Git change kinds accepted by the `kinds` trigger field. */
+export const CHECKPOINT_CHANGE_KINDS = [
+  "added",
+  "modified",
+  "deleted",
+] as const;
+export type CheckpointChangeKind = (typeof CHECKPOINT_CHANGE_KINDS)[number];
+
+/** Structured checkpoint-command protocol. One shared authority owns the
+ * version and shape written to `DISCERN_CHECKPOINT_INPUT`. */
+export const CHECKPOINT_WHEN_INPUT_VERSION = 1 as const;
+export interface CheckpointWhenInput {
+  version: typeof CHECKPOINT_WHEN_INPUT_VERSION;
+  checkpoint: { id: string; mode: CheckpointMode };
+  policy_commit: string;
+  changed_files: readonly {
+    path: string;
+    kind: CheckpointChangeKind;
+    insertions: number;
+    deletions: number;
+    binary: boolean;
+  }[];
+  history?: { count: number; fingerprint: string };
+}
+
+/** Safety limits for the literal UTF-8 line-pattern dialect. The two pattern
+ * fields may each carry 16 patterns, so 2 MiB of admitted bytes bounds the
+ * worst-case literal comparison work at 64 MiB per checkpoint. */
+export const CHECKPOINT_PATTERN_LIMITS = {
+  maxPatternsPerField: 16,
+  maxPatternBytes: 128,
+  maxLineBytes: 8 * 1024,
+  maxFileBytes: 256 * 1024,
+  maxTotalBytes: 2 * 1024 * 1024,
+  maxComparisonBytes: 64 * 1024 * 1024,
+} as const;
+
+/** Every public checkpoint entry field, classified once. Consumers derive the
+ * trigger-only set rather than maintaining an exception list. */
+export const CHECKPOINT_FIELD_ROLES = {
+  scope: "selector",
+  paths: "selector",
+  include_generated: "trigger",
+  exclude_paths: "trigger",
+  unless_changed: "trigger",
+  kinds: "trigger",
+  adds_matching: "trigger",
+  removes_matching: "trigger",
+  new_directory: "trigger",
+  binary: "trigger",
+  min_changed_files: "trigger",
+  min_changed_lines: "trigger",
+  deletion_dominant: "trigger",
+  similar_new_file: "trigger",
+  min_commits: "trigger",
+  when: "trigger",
+  mode: "review",
+  question: "review",
+  teach: "review",
+} as const;
+
+export const CHECKPOINT_TRIGGER_FIELDS = Object.entries(CHECKPOINT_FIELD_ROLES)
+  .filter(([, role]) => role === "trigger")
+  .map(([field]) => field);
+
 /** Why a structural trigger did not hold — the closed veto vocabulary, named
  * so previews can explain and wire schemas can enumerate. */
 export const TRIGGER_VETOES = [
   "empty_matched_set",
   "generated_only",
   "excluded_only",
+  "kinds",
+  "adds_matching",
+  "removes_matching",
+  "new_directory",
+  "binary",
   "unless_changed",
   "min_changed_files",
+  "min_changed_lines",
   "deletion_dominant",
   "similar_new_file",
+  "min_commits",
 ] as const;
 
 /** One structural-trigger veto ({@link TRIGGER_VETOES}). */
@@ -105,12 +177,28 @@ export interface BuiltInCheckpointSeed {
   readonly exclude_paths?: readonly string[];
   /** Default inverted-conjunction condition (globs or scope names). */
   readonly unless_changed?: readonly string[];
+  /** Narrow to these Git change kinds. */
+  readonly kinds?: readonly CheckpointChangeKind[];
+  /** Literal UTF-8 substrings required in an added line. */
+  readonly adds_matching?: readonly string[];
+  /** Literal UTF-8 substrings required in a removed line. */
+  readonly removes_matching?: readonly string[];
+  /** Require additions under a parent absent from the base tree. */
+  readonly new_directory?: boolean;
+  /** Narrow to binary (`true`) or text (`false`) changes. */
+  readonly binary?: boolean;
   /** Default matched-set size threshold. */
   readonly min_changed_files?: number;
+  /** Default added-plus-removed text-line threshold. */
+  readonly min_changed_lines?: number;
   /** Default deletion-dominant delta-shape predicate. */
   readonly deletion_dominant?: boolean;
   /** Default new-file name-similarity predicate. */
   readonly similar_new_file?: boolean;
+  /** Default merge-base..HEAD commit-count threshold. */
+  readonly min_commits?: number;
+  /** Default executable final condition. */
+  readonly when?: string;
 }
 
 /**

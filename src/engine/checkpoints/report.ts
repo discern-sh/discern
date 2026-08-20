@@ -92,8 +92,22 @@ export function triggerSummary(def: ResolvedCheckpoint): string {
   if (def.unlessChanged.length > 0) {
     parts.push(`unless ${capList(def.unlessChanged, 2)} changed`);
   }
+  if (def.kinds.length > 0) parts.push(`kinds ${def.kinds.join(", ")}`);
+  if (def.addsMatching.length > 0) {
+    parts.push(`added-line literals ${def.addsMatching.length}`);
+  }
+  if (def.removesMatching.length > 0) {
+    parts.push(`removed-line literals ${def.removesMatching.length}`);
+  }
+  if (def.newDirectory) parts.push("new directory");
+  if (def.binary !== undefined) {
+    parts.push(def.binary ? "binary files" : "text files");
+  }
   if (def.minChangedFiles !== undefined) {
     parts.push(`≥${def.minChangedFiles} files`);
+  }
+  if (def.minChangedLines !== undefined) {
+    parts.push(`≥${def.minChangedLines} changed lines`);
   }
   if (def.deletionDominant) {
     parts.push("deletion-dominant");
@@ -101,6 +115,7 @@ export function triggerSummary(def: ResolvedCheckpoint): string {
   if (def.similarNewFile) {
     parts.push("similar new file");
   }
+  if (def.minCommits !== undefined) parts.push(`≥${def.minCommits} commits`);
   if (def.when !== undefined) {
     const command = def.when.length > WHEN_SUMMARY_MAX
       ? `${def.when.slice(0, WHEN_SUMMARY_MAX)}…`
@@ -331,10 +346,17 @@ const VETO_WORDING: Readonly<Record<TriggerVeto, string>> = {
   empty_matched_set: "no matched change",
   generated_only: "only generated selector matches",
   excluded_only: "all authored selector matches were explicitly excluded",
+  kinds: "no selected change has an admitted kind",
+  adds_matching: "no added line contains a configured literal",
+  removes_matching: "no removed line contains a configured literal",
+  new_directory: "no addition creates a new directory",
+  binary: "no change has the selected binary/text kind",
   unless_changed: "its unless_changed counterpart also changed",
   min_changed_files: "below its file threshold",
+  min_changed_lines: "below its changed-line threshold",
   deletion_dominant: "the change is not deletion-dominant",
   similar_new_file: "no name-similar new file",
+  min_commits: "below its commit threshold",
 };
 
 /** One row's state sentence plus its visual weight. */

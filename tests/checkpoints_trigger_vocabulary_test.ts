@@ -10,6 +10,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import {
+  CHECKPOINT_FIELD_ROLES,
   CHECKPOINT_TRIGGER_FIELDS,
   type TriggerVeto,
 } from "../src/shared/checkpoints.ts";
@@ -20,8 +21,7 @@ import type {
   ResolvedCheckpoint,
 } from "../src/engine/checkpoints/types.ts";
 
-const REVIEW_FIELDS = new Set(["mode", "question", "teach"]);
-
+const ENCODER = new TextEncoder();
 function file(
   path: string,
   over: Partial<EffortFileChange> = {},
@@ -39,7 +39,7 @@ function file(
 }
 
 function definition(
-  over: Record<string, unknown> = {},
+  over: Partial<ResolvedCheckpoint> = {},
 ): ResolvedCheckpoint {
   return {
     id: "probe",
@@ -55,7 +55,7 @@ function definition(
     deletionDominant: false,
     similarNewFile: false,
     ...over,
-  } as unknown as ResolvedCheckpoint;
+  };
 }
 
 function effort(files: EffortFileChange[]): EffortDiff {
@@ -71,15 +71,93 @@ function effort(files: EffortFileChange[]): EffortDiff {
       commits: ["a", "b"],
       fingerprint: "history-ab",
     },
-  } as unknown as EffortDiff;
+  };
 }
+
+type TriggerField = {
+  [Field in keyof typeof CHECKPOINT_FIELD_ROLES]:
+    (typeof CHECKPOINT_FIELD_ROLES)[Field] extends "trigger" ? Field : never;
+}[keyof typeof CHECKPOINT_FIELD_ROLES];
+
+function verdict(
+  field: Partial<ResolvedCheckpoint>,
+  files: EffortFileChange[],
+): string {
+  const out = evaluateStructuralTrigger(definition(field), effort(files));
+  return out.holds
+    ? `holds:${out.whenPending}:${out.matched.join(",")}`
+    : `veto:${out.vetoedBy}`;
+}
+
+/** One executable probe per trigger field. `satisfies Record` is the compiler
+ * forcing step; the schema/role equality below is the runtime forcing step. */
+const FIELD_PROBES = {
+  include_generated: () =>
+    verdict(
+      { includeGenerated: true, selector: { globs: ["generated/**"] } },
+      [file("generated/a.ts", { generated: true })],
+    ),
+  exclude_paths: () =>
+    verdict({ excludePaths: ["src/**"] }, [file("src/a.ts")]),
+  unless_changed: () =>
+    verdict({ unlessChanged: ["docs/**"] }, [file("docs/page.md")]),
+  kinds: () => verdict({ kinds: ["added"] }, [file("src/a.ts")]),
+  adds_matching: () =>
+    verdict({ addsMatching: ["needle"] }, [file("src/a.ts")]),
+  removes_matching: () =>
+    verdict({ removesMatching: ["needle"] }, [file("src/a.ts")]),
+  new_directory: () =>
+    verdict(
+      { newDirectory: true },
+      [file("feature/a.ts", { kind: "added" })],
+    ),
+  binary: () => verdict({ binary: true }, [file("asset.bin")]),
+  min_changed_files: () => verdict({ minChangedFiles: 2 }, [file("src/a.ts")]),
+  min_changed_lines: () => verdict({ minChangedLines: 2 }, [file("src/a.ts")]),
+  deletion_dominant: () =>
+    verdict({ deletionDominant: true }, [file("src/a.ts")]),
+  similar_new_file: () =>
+    verdict(
+      { similarNewFile: true },
+      [file("src/existing_v2.ts", { kind: "added" })],
+    ),
+  min_commits: () => verdict({ minCommits: 3 }, [file("src/a.ts")]),
+  when: () => verdict({ when: "true" }, [file("src/a.ts")]),
+} satisfies Record<TriggerField, () => string>;
+
+const FIELD_PROBE_EXPECTATIONS: Record<TriggerField, string> = {
+  include_generated: "holds:false:generated/a.ts",
+  exclude_paths: "veto:excluded_only",
+  unless_changed: "veto:unless_changed",
+  kinds: "veto:kinds",
+  adds_matching: "veto:adds_matching",
+  removes_matching: "veto:removes_matching",
+  new_directory: "holds:false:feature/a.ts",
+  binary: "veto:binary",
+  min_changed_files: "veto:min_changed_files",
+  min_changed_lines: "veto:min_changed_lines",
+  deletion_dominant: "veto:deletion_dominant",
+  similar_new_file: "holds:false:src/existing_v2.ts",
+  min_commits: "veto:min_commits",
+  when: "holds:true:src/a.ts",
+};
 
 Deno.test("every checkpoint trigger schema field belongs to the canonical registry", () => {
   const schemaFields = Object.keys(RECORD_ENTRY_SCHEMAS.checkpoints.shape)
-    .filter((field) => !REVIEW_FIELDS.has(field))
     .sort();
-  assertEquals([...CHECKPOINT_TRIGGER_FIELDS].sort(), schemaFields);
+  assertEquals(Object.keys(CHECKPOINT_FIELD_ROLES).sort(), schemaFields);
+  assertEquals(
+    Object.keys(FIELD_PROBES).sort(),
+    [...CHECKPOINT_TRIGGER_FIELDS].sort(),
+    "a new trigger field must name its evaluator/hash/summary coverage",
+  );
 });
+
+for (const [field, probe] of Object.entries(FIELD_PROBES)) {
+  Deno.test(`trigger field enrollment: ${field}`, () => {
+    assertEquals(probe(), FIELD_PROBE_EXPECTATIONS[field as TriggerField]);
+  });
+}
 
 const CASES: readonly {
   name: string;
@@ -146,18 +224,18 @@ Deno.test("content predicates are literal, conjunctive, and narrow before thresh
     deletions: 1,
     content: {
       status: "available",
-      added: ['test.skip("slow")'],
-      removed: ["legacy dependency"],
+      added: [ENCODER.encode('test.skip("slow")')],
+      removed: [ENCODER.encode("legacy dependency")],
     },
-  } as Partial<EffortFileChange>);
+  });
   const other = file("src/other.ts", {
     insertions: 50,
     content: {
       status: "available",
-      added: ["TEST.SKIP is differently cased"],
+      added: [ENCODER.encode("TEST.SKIP is differently cased")],
       removed: [],
     },
-  } as Partial<EffortFileChange>);
+  });
   const out = evaluateStructuralTrigger(
     definition({
       addsMatching: ["test.skip("],

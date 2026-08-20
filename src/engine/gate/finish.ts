@@ -1842,6 +1842,7 @@ async function resolveCheckpointGate(
   request: DeclarationRequest,
   mode: "strict" | "report" = "strict",
   ciRecovery = false,
+  signal?: AbortSignal,
 ): Promise<CheckpointGateResolution> {
   const cfg = await loadConfig(root);
   if (mode === "report") {
@@ -1857,9 +1858,18 @@ async function resolveCheckpointGate(
         },
       };
     }
-    return { kind: "proceed", preflight: await runCheckpointReport(root, cfg) };
+    return {
+      kind: "proceed",
+      preflight: await runCheckpointReport(root, cfg, signal),
+    };
   }
-  const outcome = await runCheckpointPreflight(root, cfg, request);
+  const outcome = await runCheckpointPreflight(
+    root,
+    cfg,
+    request,
+    undefined,
+    signal,
+  );
   if (outcome.kind === "invalid") {
     return {
       kind: "refuse",
@@ -2004,6 +2014,7 @@ export async function finishResult(
     declarations,
     mode,
     terminal.ciRequestsStaticOutput,
+    opts.signal,
   );
   if (checkpointGate.kind === "refuse") {
     return checkpointGate.result;

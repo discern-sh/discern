@@ -35,10 +35,10 @@ import type { RelatedCheckpointPath, ResolvedCheckpoint } from "./types.ts";
 /** Version tag mixed into the definition-hash material: bump it when the
  * canonicalization changes shape, so an old and a new engine can never read
  * the same bytes as the same definition. */
-const DEFINITION_MATERIAL_VERSION = "checkpoint-definition/v2";
+const DEFINITION_MATERIAL_VERSION = "checkpoint-definition/v3";
 
 /** Version tag mixed into the subject-fingerprint material. */
-const SUBJECT_MATERIAL_VERSION = "checkpoint-subject/v2";
+const SUBJECT_MATERIAL_VERSION = "checkpoint-subject/v3";
 
 /** Files per `git hash-object` invocation — bounds the argv length. */
 const HASH_OBJECT_BATCH = 500;
@@ -90,8 +90,15 @@ export async function checkpointDefinitionHash(
     question: def.question,
     exclude_paths: [...def.excludePaths],
     include_generated: def.includeGenerated,
+    kinds: [...def.kinds],
+    adds_matching: [...def.addsMatching],
+    removes_matching: [...def.removesMatching],
+    new_directory: def.newDirectory,
+    binary: def.binary ?? null,
     deletion_dominant: def.deletionDominant,
     min_changed_files: def.minChangedFiles ?? null,
+    min_changed_lines: def.minChangedLines ?? null,
+    min_commits: def.minCommits ?? null,
     mode: def.mode,
     reference: def.reference ?? null,
     selector_globs: def.selector === undefined ? null : [...def.selector.globs],
@@ -140,6 +147,8 @@ export async function computeSubject(
   matchedPaths: readonly string[],
   policyBase: string,
   related: readonly RelatedCheckpointPath[] = [],
+  /** Ordered commit identity only for history-sensitive definitions. */
+  historyFingerprint?: string,
 ): Promise<SubjectComputation> {
   const changedPaths = [...new Set(matchedPaths)].sort();
   const paths = [
@@ -288,9 +297,11 @@ export async function computeSubject(
       `${relation.kind}\0${relation.forPath}\0${relation.path}`
     );
   const fingerprint = await sha256Hex(
-    `${SUBJECT_MATERIAL_VERSION}\n${definitionHash}\nchanged\n${
-      changedPaths.join("\n")
-    }\nrelated\n${relationLines.join("\n")}\nstates\n${stateLines.join("\n")}`,
+    `${SUBJECT_MATERIAL_VERSION}\n${definitionHash}\nhistory\n${
+      historyFingerprint ?? "-"
+    }\nchanged\n${changedPaths.join("\n")}\nrelated\n${
+      relationLines.join("\n")
+    }\nstates\n${stateLines.join("\n")}`,
   );
   return { subject: { definitionHash, fingerprint, paths: states } };
 }

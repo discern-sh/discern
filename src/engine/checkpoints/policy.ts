@@ -47,6 +47,30 @@ import { runGit } from "../../shared/subprocess.ts";
 import { resolvedScopePaths } from "../scopes/scope_paths.ts";
 import type { ResolvedCheckpoint } from "./types.ts";
 
+type SeedTriggerField = Exclude<
+  keyof BuiltInCheckpointSeed,
+  "question" | "mode" | "scope" | "paths"
+>;
+
+/** Binding table from every seed trigger spelling to its resolved authority.
+ * A future seed field cannot compile until resolution tests can iterate it. */
+export const CHECKPOINT_SEED_TRIGGER_BINDINGS = {
+  include_generated: "includeGenerated",
+  exclude_paths: "excludePaths",
+  unless_changed: "unlessChanged",
+  kinds: "kinds",
+  adds_matching: "addsMatching",
+  removes_matching: "removesMatching",
+  new_directory: "newDirectory",
+  binary: "binary",
+  min_changed_files: "minChangedFiles",
+  min_changed_lines: "minChangedLines",
+  deletion_dominant: "deletionDominant",
+  similar_new_file: "similarNewFile",
+  min_commits: "minCommits",
+  when: "when",
+} as const satisfies Record<SeedTriggerField, keyof ResolvedCheckpoint>;
+
 /** The governing policy for one effort. */
 export interface GoverningPolicy {
   /** The merge-base commit whose config governs — the policy identity.
@@ -155,10 +179,14 @@ export function resolveCheckpoints(
 
     const teach = entry.teach ?? seedQuestion?.teach;
     const reference = seedQuestion?.reference;
-    const when = entry.when !== undefined && entry.when.trim() !== ""
-      ? entry.when
+    const governedWhen = entry.when ?? seed?.when;
+    const when = governedWhen !== undefined && governedWhen.trim() !== ""
+      ? governedWhen
       : undefined;
     const minChangedFiles = entry.min_changed_files ?? seed?.min_changed_files;
+    const minChangedLines = entry.min_changed_lines ?? seed?.min_changed_lines;
+    const minCommits = entry.min_commits ?? seed?.min_commits;
+    const binary = entry.binary ?? seed?.binary;
     checkpoints.push({
       id,
       mode,
@@ -170,11 +198,20 @@ export function resolveCheckpoints(
         false,
       excludePaths,
       unlessChanged,
+      kinds: [...(entry.kinds ?? seed?.kinds ?? [])],
+      addsMatching: [...(entry.adds_matching ?? seed?.adds_matching ?? [])],
+      removesMatching: [
+        ...(entry.removes_matching ?? seed?.removes_matching ?? []),
+      ],
+      newDirectory: entry.new_directory ?? seed?.new_directory ?? false,
+      ...(binary === undefined ? {} : { binary }),
       ...(minChangedFiles === undefined ? {} : { minChangedFiles }),
+      ...(minChangedLines === undefined ? {} : { minChangedLines }),
       deletionDominant: entry.deletion_dominant ?? seed?.deletion_dominant ??
         false,
       similarNewFile: entry.similar_new_file ?? seed?.similar_new_file ??
         false,
+      ...(minCommits === undefined ? {} : { minCommits }),
       ...(when === undefined ? {} : { when }),
     });
   }

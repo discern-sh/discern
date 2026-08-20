@@ -38,6 +38,11 @@ export const DISCERN_ENVIRONMENT_VARIABLE_GROUPS = [
     description: "Values discern exports before running a Project Script.",
   },
   {
+    id: "checkpoint-commands",
+    title: "Checkpoint commands",
+    description: "Structured inputs exported to checkpoint `when` commands.",
+  },
+  {
     id: "worktree-environment",
     title: "Worktree environment",
     description:
@@ -224,6 +229,16 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
       public: true,
       description:
         "Configured `[scripts].dir` value exported to a Project Script.",
+    },
+  },
+  checkpointInput: {
+    name: "DISCERN_CHECKPOINT_INPUT",
+    group: "checkpoint-commands",
+    lifecycle: "live",
+    documentation: {
+      public: true,
+      description:
+        "Absolute path to the versioned, content-free JSON facts for the current checkpoint `when` command. The file exists only while that command runs.",
     },
   },
 

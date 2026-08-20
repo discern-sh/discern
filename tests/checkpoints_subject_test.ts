@@ -34,6 +34,10 @@ function def(over: Partial<ResolvedCheckpoint> = {}): ResolvedCheckpoint {
     includeGenerated: false,
     excludePaths: [],
     unlessChanged: [],
+    kinds: [],
+    addsMatching: [],
+    removesMatching: [],
+    newDirectory: false,
     deletionDominant: false,
     similarNewFile: false,
     ...over,
@@ -119,7 +123,7 @@ Deno.test("an unrelated trunk update moves the policy identity but not the subje
 
 Deno.test("history identity moves only a history-sensitive subject", async () => {
   await withTempDir(async (dir) => {
-    const base = await repo(dir);
+    const base = await scaffold(dir);
     const hash = "history-sensitive-definition";
     const first = await computeSubject(
       dir,
@@ -200,9 +204,16 @@ const HASH_VARIANTS: Partial<ResolvedCheckpoint>[] = [
   { includeGenerated: true },
   { excludePaths: ["vendor/**"] },
   { unlessChanged: ["docs/**"] },
+  { kinds: ["added"] },
+  { addsMatching: ["new literal"] },
+  { removesMatching: ["old literal"] },
+  { newDirectory: true },
+  { binary: false },
   { minChangedFiles: 3 },
+  { minChangedLines: 20 },
   { deletionDominant: true },
   { similarNewFile: true },
+  { minCommits: 2 },
   { when: "scripts/probe.sh" },
 ];
 
@@ -222,9 +233,16 @@ Deno.test("a new resolved-definition field cannot dodge the hash", () => {
     includeGenerated: true,
     excludePaths: ["vendor/**"],
     unlessChanged: ["docs/**"],
+    kinds: ["added"],
+    addsMatching: ["new literal"],
+    removesMatching: ["old literal"],
+    newDirectory: true,
+    binary: false,
     minChangedFiles: 3,
+    minChangedLines: 20,
     deletionDominant: true,
     similarNewFile: true,
+    minCommits: 2,
     when: "scripts/probe.sh",
   } satisfies Required<ResolvedCheckpoint>;
   const perturbed = new Set(HASH_VARIANTS.flatMap((over) => Object.keys(over)));

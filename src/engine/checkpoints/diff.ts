@@ -12,12 +12,14 @@
  * change set.
  *
  * Returns `undefined` whenever git cannot answer — the caller FAILS OPEN (no
- * checkpoint fires on unknowable state); a single unreadable untracked file
- * degrades to a binary entry rather than discarding the whole diff.
+ * checkpoint fires on unknowable state); an unreadable or special untracked
+ * path keeps unknown facts so only definitions that need them fail open.
  */
 
 import { join } from "@std/path";
 import { runGit } from "../../shared/subprocess.ts";
+import { sha256Hex } from "../../shared/sha256.ts";
+import { CHECKPOINT_PATTERN_LIMITS } from "../../shared/checkpoints.ts";
 import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import { repoPathPrefix, stripRepoPathPrefix } from "../scopes/scopes.ts";
 import {
@@ -29,11 +31,133 @@ import type {
   EffortChangeKind,
   EffortDiff,
   EffortFileChange,
+  ResolvedCheckpoint,
 } from "./types.ts";
+import { contentCollectionPaths } from "./triggers.ts";
 
 /** Bytes of an untracked file inspected for a NUL byte — git's own text/binary
  * heuristic window. */
 const BINARY_SNIFF_BYTES = 8000;
+
+/** A history this large is not a pre-flight fact; only history-aware entries
+ * fail open when the ordered OID list exceeds this bound. */
+const HISTORY_OUTPUT_BYTES = 4 * 1024 * 1024;
+
+const PLUS = 0x2b;
+const MINUS = 0x2d;
+const AT = 0x40;
+
+function byteLines(bytes: Uint8Array): Uint8Array[] {
+  const lines: Uint8Array[] = [];
+  let start = 0;
+  for (let index = 0; index < bytes.length; index++) {
+    if (bytes[index] === 0x0a) {
+      let end = index;
+      if (end > start && bytes[end - 1] === 0x0d) end--;
+      lines.push(bytes.slice(start, end));
+      start = index + 1;
+    }
+  }
+  if (start < bytes.length) {
+    let end = bytes.length;
+    if (end > start && bytes[end - 1] === 0x0d) end--;
+    lines.push(bytes.slice(start, end));
+  }
+  return lines;
+}
+
+function patchContent(bytes: Uint8Array):
+  | { status: "available"; added: Uint8Array[]; removed: Uint8Array[] }
+  | { status: "unavailable"; reason: "line_limit" } {
+  const added: Uint8Array[] = [];
+  const removed: Uint8Array[] = [];
+  let inHunk = false;
+  for (const line of byteLines(bytes)) {
+    if (line[0] === AT && line[1] === AT) {
+      inHunk = true;
+      continue;
+    }
+    if (!inHunk || line.length === 0) continue;
+    const marker = line[0];
+    if (marker !== PLUS && marker !== MINUS) continue;
+    const payload = line.slice(1);
+    if (payload.length > CHECKPOINT_PATTERN_LIMITS.maxLineBytes) {
+      return { status: "unavailable", reason: "line_limit" };
+    }
+    (marker === PLUS ? added : removed).push(payload);
+  }
+  return { status: "available", added, removed };
+}
+
+interface UntrackedInspection {
+  insertions: number;
+  binary: boolean | "unknown";
+  retained?: Uint8Array;
+  contentReason?: "file_limit" | "unreadable";
+}
+
+/** Inspect an untracked regular file once with bounded retention. Symlinks and
+ * special files stay unknown so no branch path can expose external bytes. */
+async function inspectUntracked(
+  path: string,
+  retain: boolean,
+): Promise<UntrackedInspection> {
+  let info: Deno.FileInfo;
+  try {
+    info = await Deno.lstat(path);
+  } catch {
+    return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
+  }
+  if (!info.isFile || info.isSymlink) {
+    return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
+  }
+  let file: Deno.FsFile;
+  try {
+    file = await Deno.open(path, { read: true });
+  } catch {
+    return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
+  }
+  try {
+    const chunk = new Uint8Array(64 * 1024);
+    const retained: number[] = [];
+    let bytes = 0;
+    let newlines = 0;
+    let last = -1;
+    let binary = false;
+    while (true) {
+      const read = await file.read(chunk);
+      if (read === null) break;
+      for (let index = 0; index < read; index++) {
+        const byte = chunk[index] ?? 0;
+        if (bytes + index < BINARY_SNIFF_BYTES && byte === 0) binary = true;
+        if (byte === 0x0a) newlines++;
+        last = byte;
+        if (
+          retain && retained.length <= CHECKPOINT_PATTERN_LIMITS.maxFileBytes
+        ) {
+          retained.push(byte);
+        }
+      }
+      bytes += read;
+    }
+    const insertions = binary ? 0 : bytes === 0 ? 0 : newlines +
+      (last === 0x0a ? 0 : 1);
+    return {
+      insertions,
+      binary,
+      ...(retain && retained.length <= CHECKPOINT_PATTERN_LIMITS.maxFileBytes
+        ? { retained: Uint8Array.from(retained) }
+        : {}),
+      ...(retain && retained.length > CHECKPOINT_PATTERN_LIMITS.maxFileBytes
+        ? { contentReason: "file_limit" as const }
+        : {}),
+    };
+  } catch {
+    return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
+  } finally {
+    file.close();
+  }
+}
 
 /** Map one `--name-status` letter to the effort-diff change kind. Everything
  * that is neither an addition nor a deletion (modification, type change,
@@ -64,6 +188,25 @@ function parseNameStatusZ(stdout: string): { status: string; path: string }[] {
   return out;
 }
 
+/** Paths whose before/after mode is a Git link (submodule). Its content and
+ * binary facts are not ordinary working-tree file facts. */
+function parseGitlinksZ(stdout: string): Set<string> {
+  const tokens = splitNulRecords(stdout);
+  const paths = new Set<string>();
+  for (let index = 0; index + 1 < tokens.length; index += 2) {
+    const header = tokens[index] ?? "";
+    const path = tokens[index + 1];
+    const modes = /^:(\d+) (\d+) /.exec(header);
+    if (
+      path !== undefined && modes !== null &&
+      (modes[1] === "160000" || modes[2] === "160000")
+    ) {
+      paths.add(path);
+    }
+  }
+  return paths;
+}
+
 /** Parse one `--numstat -z` record: `<insertions> TAB <deletions> TAB <path>`,
  * `-` marking a binary side. A path may contain a TAB, so only the first two
  * separators are structural. */
@@ -86,29 +229,6 @@ function parseNumstatRecord(
   };
 }
 
-/** Line count and binary-ness of one untracked file's bytes. */
-function untrackedStats(
-  bytes: Uint8Array,
-): { insertions: number; binary: boolean } {
-  const window = bytes.subarray(0, BINARY_SNIFF_BYTES);
-  if (window.includes(0)) {
-    return { insertions: 0, binary: true };
-  }
-  if (bytes.length === 0) {
-    return { insertions: 0, binary: false };
-  }
-  let lines = 0;
-  for (const byte of bytes) {
-    if (byte === 0x0a) {
-      lines++;
-    }
-  }
-  if (bytes[bytes.length - 1] !== 0x0a) {
-    lines++;
-  }
-  return { insertions: lines, binary: false };
-}
-
 /**
  * Collect the effort diff at `root` against `mergeBase` (the effort's
  * merge-base commit with the trunk — the same commit whose configuration
@@ -119,6 +239,7 @@ export async function collectEffortDiff(
   root: string,
   mergeBase: string,
   generatedGroups: readonly ResolvedGeneratedGroup[] = [],
+  definitions: readonly ResolvedCheckpoint[] = [],
 ): Promise<EffortDiff | undefined> {
   const prefix = await repoPathPrefix(root);
   if (prefix === undefined) {
@@ -141,9 +262,15 @@ export async function collectEffortDiff(
   if (!numstat.success) {
     return undefined;
   }
+  const raw = await runGit(
+    ["diff", "--raw", "--no-renames", "-z", mergeBase],
+    { cwd: root },
+  );
+  if (!raw.success) return undefined;
+  const gitlinks = parseGitlinksZ(raw.stdout);
   const stats = new Map<
     string,
-    { insertions: number; deletions: number; binary: boolean }
+    { insertions: number; deletions: number; binary: boolean | "unknown" }
   >();
   for (const record of splitNulRecords(numstat.stdout)) {
     const parsed = parseNumstatRecord(record);
@@ -155,6 +282,7 @@ export async function collectEffortDiff(
   }
   const files: EffortFileChange[] = [];
   const seen = new Set<string>();
+  const untracked = new Set<string>();
   for (const entry of parseNameStatusZ(nameStatus.stdout)) {
     const [path] = stripRepoPathPrefix([entry.path], prefix);
     if (path === undefined || path === "" || seen.has(path)) {
@@ -168,12 +296,12 @@ export async function collectEffortDiff(
       generated: generatedGroupForPath(generatedGroups, path) !== undefined,
       kind: changeKind(entry.status),
       ...stat,
+      ...(gitlinks.has(entry.path) ? { binary: "unknown" as const } : {}),
     });
   }
 
   // Untracked files are invisible to `git diff`; enumerate them individually
-  // and count their content as additions. One unreadable file degrades to a
-  // binary entry instead of discarding the diff.
+  // and inspect them once below. Unreadable/special paths remain unknown.
   const pending = await runGit(
     ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
     { cwd: root },
@@ -190,18 +318,14 @@ export async function collectEffortDiff(
       continue;
     }
     seen.add(path);
-    let stat: { insertions: number; binary: boolean };
-    try {
-      stat = untrackedStats(await Deno.readFile(join(root, path)));
-    } catch {
-      stat = { insertions: 0, binary: true };
-    }
+    untracked.add(path);
     files.push({
       path,
       generated: generatedGroupForPath(generatedGroups, path) !== undefined,
       kind: "added",
+      insertions: 0,
       deletions: 0,
-      ...stat,
+      binary: "unknown",
     });
   }
 
@@ -219,5 +343,137 @@ export async function collectEffortDiff(
     path,
     generated: generatedGroupForPath(generatedGroups, path) !== undefined,
   }));
-  return { files, baseFiles };
+  let history: EffortDiff["history"];
+  if (
+    definitions.some((definition) =>
+      definition.minCommits !== undefined || definition.when !== undefined
+    )
+  ) {
+    const listed = await runGit(
+      ["rev-list", "--reverse", "--topo-order", `${mergeBase}..HEAD`],
+      { cwd: root, maxOutputBytes: HISTORY_OUTPUT_BYTES },
+    );
+    if (!listed.success) {
+      history = {
+        status: "unavailable",
+        reason: listed.outputLimitExceeded ? "output_limit" : "git_failed",
+      };
+    } else {
+      const commits = listed.stdout.split("\n").filter((line) => line !== "");
+      if (
+        !commits.every((oid) => /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(oid))
+      ) {
+        history = { status: "unavailable", reason: "git_failed" };
+      } else {
+        history = {
+          status: "available",
+          count: commits.length,
+          commits,
+          fingerprint: await sha256Hex(
+            `checkpoint-history/v1\n${commits.join("\n")}`,
+          ),
+        };
+      }
+    }
+  }
+
+  const draft: EffortDiff = {
+    files,
+    baseFiles,
+    ...(history === undefined ? {} : { history }),
+  };
+  const contentPaths = contentCollectionPaths(definitions, draft);
+  const untrackedInspections = new Map<string, UntrackedInspection>();
+  for (const file of files) {
+    if (!untracked.has(file.path)) continue;
+    const inspection = await inspectUntracked(
+      join(root, file.path),
+      contentPaths.has(file.path),
+    );
+    untrackedInspections.set(file.path, inspection);
+    file.insertions = inspection.insertions;
+    file.binary = inspection.binary;
+  }
+  let totalBytes = 0;
+  for (const file of files) {
+    if (!contentPaths.has(file.path)) continue;
+    if (file.binary === true) {
+      file.content = { status: "available", added: [], removed: [] };
+      continue;
+    }
+    if (file.binary === "unknown") {
+      file.content = { status: "unavailable", reason: "unreadable" };
+      continue;
+    }
+    const remaining = CHECKPOINT_PATTERN_LIMITS.maxTotalBytes - totalBytes;
+    if (remaining <= 0) {
+      file.content = { status: "unavailable", reason: "total_bytes" };
+      continue;
+    }
+    let bytes: Uint8Array | undefined;
+    if (untracked.has(file.path)) {
+      const inspected = untrackedInspections.get(file.path);
+      bytes = inspected?.retained;
+      if (bytes === undefined) {
+        file.content = {
+          status: "unavailable",
+          reason: inspected?.contentReason ?? "unreadable",
+        };
+        continue;
+      }
+      if (bytes.length > remaining) {
+        file.content = { status: "unavailable", reason: "total_bytes" };
+        continue;
+      }
+      const lines = byteLines(bytes);
+      if (
+        lines.some((line) =>
+          line.length > CHECKPOINT_PATTERN_LIMITS.maxLineBytes
+        )
+      ) {
+        file.content = { status: "unavailable", reason: "line_limit" };
+        continue;
+      }
+      file.content = { status: "available", added: lines, removed: [] };
+    } else {
+      const cap = Math.min(
+        CHECKPOINT_PATTERN_LIMITS.maxFileBytes,
+        remaining,
+      );
+      const patch = await runGit(
+        [
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--no-renames",
+          "--unified=0",
+          "--no-color",
+          mergeBase,
+          "--",
+          `:(top,literal)${prefix}${file.path}`,
+        ],
+        { cwd: root, maxOutputBytes: cap + 1 },
+      );
+      if (!patch.success) {
+        file.content = {
+          status: "unavailable",
+          reason: patch.outputLimitExceeded
+            ? cap < CHECKPOINT_PATTERN_LIMITS.maxFileBytes
+              ? "total_bytes"
+              : "file_limit"
+            : "unreadable",
+        };
+        continue;
+      }
+      bytes = patch.stdoutBytes ?? new TextEncoder().encode(patch.stdout);
+      const parsed = patchContent(bytes);
+      file.content = parsed.status === "available" &&
+          (parsed.added.length !== file.insertions ||
+            parsed.removed.length !== file.deletions)
+        ? { status: "unavailable", reason: "patch_mismatch" }
+        : parsed;
+    }
+    totalBytes += bytes.length;
+  }
+  return draft;
 }

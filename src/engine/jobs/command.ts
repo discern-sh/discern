@@ -48,6 +48,9 @@ export interface SpawnOptions {
   keepOutput?: boolean;
   /** Observe decoded child text without changing capture or static streaming. */
   outputObserver?: JobOutputObserver;
+  /** Drain all child output but retain at most this many raw bytes, bypassing
+   * line presentation/diagnostic feeds. For bounded line protocols. */
+  protocolOutputMaxBytes?: number;
 }
 
 /** A finished job: its result plus captured output (buffered mode only). */
@@ -55,6 +58,8 @@ export interface SpawnedJob {
   result: JobResult;
   /** Combined stdout+stderr (buffered mode); empty when streaming. */
   output: Uint8Array;
+  /** A bounded protocol capture discarded bytes beyond its declared ceiling. */
+  outputLimitExceeded?: boolean;
 }
 
 const ENCODER = new TextEncoder();
@@ -247,7 +252,10 @@ export async function spawnJob(
     detached: true,
   }).spawn();
   const pid = child.pid;
-  const outputRecorder = await JobOutputRecorder.create();
+  const protocolLimit = opts.protocolOutputMaxBytes;
+  const outputRecorder = protocolLimit === undefined
+    ? await JobOutputRecorder.create()
+    : undefined;
 
   // The readers draining the child's pipes, registered so the kill path can
   // cancel a read blocked on a pipe the tree-kill could not close.
@@ -304,6 +312,22 @@ export async function spawnJob(
   // tail window is retained instead, so a failed streamed job still carries a
   // diagnostic with both its first errors and its trailing summary.
   const chunks: Uint8Array[] = [];
+  const protocolChunks: Uint8Array[] = [];
+  let protocolBytes = 0;
+  let protocolOverflow = false;
+  const retainProtocol = (chunk: Uint8Array): void => {
+    if (protocolLimit === undefined) return;
+    if (protocolBytes >= protocolLimit) {
+      if (chunk.length > 0) protocolOverflow = true;
+      return;
+    }
+    const kept = chunk.slice(0, protocolLimit - protocolBytes);
+    if (kept.length < chunk.length) protocolOverflow = true;
+    if (kept.length > 0) {
+      protocolChunks.push(kept);
+      protocolBytes += kept.length;
+    }
+  };
   const headBuf: Uint8Array[] = [];
   let headBytes = 0;
   const tailBuf: Uint8Array[] = [];
@@ -339,20 +363,24 @@ export async function spawnJob(
     }`;
   };
   const drain = async (s: ReadableStream<Uint8Array>): Promise<void> => {
-    const outputFeed = new JobOutputFeed(job.label, opts.outputObserver);
     const source = readChunks(s, readers);
+    if (protocolLimit !== undefined) {
+      for await (const chunk of source) retainProtocol(chunk);
+      return;
+    }
+    const outputFeed = new JobOutputFeed(job.label, opts.outputObserver);
     try {
       if (opts.stream) {
         await streamPrefixed(source, job.label, opts.write, async (chunk) => {
           outputFeed.write(chunk);
           retainCapped(chunk);
-          await outputRecorder.write(chunk);
+          await outputRecorder?.write(chunk);
         });
       } else {
         for await (const c of source) {
           outputFeed.write(c);
           chunks.push(c);
-          await outputRecorder.write(c);
+          await outputRecorder?.write(c);
         }
       }
     } finally {
@@ -377,7 +405,9 @@ export async function spawnJob(
   if (signal) {
     signal.removeEventListener("abort", onAbort);
   }
-  const outputSummary = await outputRecorder.finish();
+  const outputSummary = outputRecorder === undefined
+    ? { outputLines: 0, errorLikeLines: 0 }
+    : await outputRecorder.finish();
 
   // A job killed mid-run keeps its real exit code via finalCode. "Cancelled" means
   // fail-fast aborted the run AND this job did not exit clean — keyed on the abort
@@ -418,13 +448,22 @@ export async function spawnJob(
   // structured normalization (SARIF) sees the whole output; only the Tier-0
   // fallback is capped.
   if ((code !== 0 && !cancelled) || opts.keepOutput === true) {
-    const raw = opts.stream ? streamCapture() : DECODER.decode(concat(chunks));
+    const raw = protocolLimit !== undefined
+      ? DECODER.decode(concat(protocolChunks))
+      : opts.stream
+      ? streamCapture()
+      : DECODER.decode(concat(chunks));
     if (raw.length > 0) {
       result.output = raw;
     }
   }
   return {
     result,
-    output: opts.stream ? new Uint8Array() : concat(chunks),
+    output: protocolLimit !== undefined
+      ? concat(protocolChunks)
+      : opts.stream
+      ? new Uint8Array()
+      : concat(chunks),
+    ...(protocolOverflow ? { outputLimitExceeded: true } : {}),
   };
 }
