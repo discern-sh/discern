@@ -673,6 +673,25 @@
       "deno.lock",
     ]
 
+  # The /agents page tells its reader that context is a budget, then caps its
+  # own prose so the claim stays true. The page prints this ceiling and tests
+  # hold the printed number equal to the limit below, so moving one moves both.
+  [standards.agents_page_words]
+    direction = "down"
+    limit = 1300
+    run = "deno task site:agents-words"
+    inputs = [
+      "site/**",
+      "src/lib/providers.ts",
+      "src/shared/agent_catalogue.ts",
+      "scripts/agents_page_words.ts",
+      "scripts/site_prose_lib.ts",
+      "scripts/prose_lib.ts",
+      "scripts/plain_reading_grade_lib.ts",
+      "deno.json",
+      "deno.lock",
+    ]
+
   # Vocabulary standard — hold the map's vocabulary debt at zero. `deno task vocab`
   # reads the term registry and the live map pages, counts dead terms (a glossary
   # entry no page names or links) and redefinitions (a page restating a term

@@ -1,10 +1,17 @@
 /** Structural guards for the public agent-native page and machine guide. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { parse } from "@std/toml";
 import { JSDOM } from "jsdom";
+import { proseWordCount } from "../scripts/prose_lib.ts";
+import { projectSiteProse } from "../scripts/site_prose_lib.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import { AGENTS_TITLE } from "../site/brand.ts";
+import {
+  AGENTS_PROSE_WORD_CEILING,
+  CLOSING_ENVELOPE,
+} from "../site/page-src/agents-content.ts";
 import { renderAgents } from "../site/page-src/agents.tsx";
 import {
   handler,
@@ -76,6 +83,43 @@ Deno.test("the For Agents composition carries the complete public contract", () 
   }
   assertEquals(document.querySelector('a[href="/agents.md"]'), null);
   assertEquals(document.querySelector("[data-theme-toggle]"), null);
+});
+
+Deno.test("the page's advertised word ceiling is the gated standard, and holds", async () => {
+  const config = parse(
+    await Deno.readTextFile(new URL("../discern.toml", import.meta.url)),
+  ) as { standards?: { agents_page_words?: { limit?: number } } };
+  assertEquals(
+    config.standards?.agents_page_words?.limit,
+    AGENTS_PROSE_WORD_CEILING,
+    "discern.toml and the page must advertise one ceiling",
+  );
+
+  const envelope = JSON.parse(CLOSING_ENVELOPE) as {
+    data: { prose_word_ceiling: number; your_context: string };
+  };
+  assertEquals(envelope.data.prose_word_ceiling, AGENTS_PROSE_WORD_CEILING);
+  assertStringIncludes(
+    envelope.data.your_context,
+    String(AGENTS_PROSE_WORD_CEILING),
+  );
+
+  const dom = new JSDOM(renderAgents());
+  const meter =
+    dom.window.document.querySelector(".agents-context__meter")?.textContent ??
+      "";
+  assertStringIncludes(
+    meter,
+    AGENTS_PROSE_WORD_CEILING.toLocaleString("en-US"),
+  );
+
+  const page = projectSiteProse().find(({ route }) => route === "/agents");
+  assert(page !== undefined, "the marketing registry must serve /agents");
+  const words = proseWordCount(page.prose);
+  assert(
+    words <= AGENTS_PROSE_WORD_CEILING,
+    `/agents prose is ${words} words; the advertised ceiling is ${AGENTS_PROSE_WORD_CEILING}`,
+  );
 });
 
 Deno.test("the machine guide projects supported providers from the live registry", async () => {
