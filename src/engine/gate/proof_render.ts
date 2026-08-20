@@ -36,6 +36,7 @@ import {
   checkpointDropMarkdown,
   type GateMode,
 } from "../../shared/checkpoint_drops.ts";
+import { RELATED_CHECKPOINT_KIND_LABELS } from "../../shared/checkpoints.ts";
 import type { StepResult } from "../../shared/result.ts";
 import type { LandingConsent } from "../../shared/consent.ts";
 import { diffFiles } from "../worktree/git.ts";
@@ -192,16 +193,42 @@ function checkpointsSection(
     heading,
     "",
   ];
+  const evidence = (
+    entry: {
+      matched?: readonly string[] | undefined;
+      related?:
+        | readonly {
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }[]
+        | undefined;
+    },
+  ): string[] => {
+    const matched = entry.matched ?? [];
+    const changed = matched.length === 0
+      ? []
+      : [`  - Changed: ${matched.map(code).join(", ")}`];
+    const related = (entry.related ?? []).map((relation) =>
+      `  - ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
+        code(relation.path)
+      } resembles ${code(relation.for_path)}`
+    );
+    return [...changed, ...related];
+  };
   for (const unreviewed of checkpoints.review?.unreviewed ?? []) {
     lines.push(`- ${unreviewed.id} — unreviewed; ${unreviewed.question}`);
+    lines.push(...evidence(unreviewed));
   }
   for (const met of checkpoints.declared_met) {
     lines.push(`- ${met.id} — declared met`);
+    lines.push(...evidence(met));
   }
   for (const unmet of checkpoints.declared_unmet) {
     lines.push(
       `- ${unmet.id} — declared unmet; rationale: ${code(unmet.why)}`,
     );
+    lines.push(...evidence(unmet));
   }
   if (checkpoints.declared_unmet.length > 0) {
     lines.push(

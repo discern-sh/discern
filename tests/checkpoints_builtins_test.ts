@@ -34,7 +34,7 @@ function file(
   insertions = 5,
   deletions = 2,
 ): EffortFileChange {
-  return { path, kind, insertions, deletions, binary: false };
+  return { path, generated: false, kind, insertions, deletions, binary: false };
 }
 
 /** An effort diff over `files`, with an optional merge-base tree listing. */
@@ -42,7 +42,10 @@ function diff(
   files: readonly EffortFileChange[],
   baseFiles: readonly string[] = [],
 ): EffortDiff {
-  return { files: [...files], baseFiles: [...baseFiles] };
+  return {
+    files: [...files],
+    baseFiles: baseFiles.map((path) => ({ path, generated: false })),
+  };
 }
 
 /** `count` modified source files, `src/mod0.ext` … — whole-diff filler. */
@@ -245,8 +248,12 @@ Deno.test("parallel-implementation fires when a decorated sibling grows beside a
     ),
   );
   assert(outcome.holds);
-  assertEquals(outcome.similar, [
-    { added: "src/service_v2.ext", existing: "src/service.ext" },
+  assertEquals(outcome.related, [
+    {
+      kind: "similar_existing",
+      forPath: "src/service_v2.ext",
+      path: "src/service.ext",
+    },
   ]);
 });
 

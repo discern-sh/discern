@@ -243,6 +243,8 @@ Deno.test("resolveCheckpoints expands scope selectors, references, and unless_ch
   assertEquals(code?.selector, { globs: ["src/**", "guide/extra/**"] });
   // "docs" named a scope, so it expanded; the literal path stayed a glob.
   assertEquals(code?.unlessChanged, ["guide/", "*.md", "CHANGELOG.md"]);
+  assertEquals(code?.includeGenerated, false);
+  assertEquals(code?.excludePaths, []);
   assertEquals(code?.minChangedFiles, 2);
   assertEquals(code?.deletionDominant, true);
   assertEquals(code?.similarNewFile, false);
@@ -292,6 +294,8 @@ Deno.test("a checkpoint with no selector governs the whole diff and defaults hol
     id: "everywhere",
     mode: "stop",
     question: "Judged.",
+    includeGenerated: false,
+    excludePaths: [],
     unlessChanged: [],
     deletionDominant: false,
     similarNewFile: false,

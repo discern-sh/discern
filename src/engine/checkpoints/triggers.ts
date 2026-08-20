@@ -7,14 +7,16 @@
  * The menu is closed and conjunctive. A trigger holds when EVERY configured
  * predicate holds, evaluated in a fixed order (cheapest veto first):
  *
- *   1. the selector chooses the matched set (whole diff when none) — an empty
- *      matched set never fires (a checkpoint is change-triggered);
- *   2. `unless_changed` vetoes when ANY changed path matches it — the
+ *   1. generated paths leave the source universe unless the checkpoint opts
+ *      in; the selector then chooses changed candidates;
+ *   2. `exclude_paths` removes checkpoint-specific noise from changed and
+ *      base-tree paths before any remaining calculation;
+ *   3. evidence predicates narrow changed evidence and carry typed related
+ *      paths separately;
+ *   4. `unless_changed` vetoes when ANY filtered changed path matches it — the
  *      inverted conjunction ("fine when the counterpart moved too");
- *   3. `min_changed_files` requires the matched set to be at least that large;
- *   4. `deletion_dominant` requires removals to clearly outweigh additions;
- *   5. `similar_new_file` requires an added file name-similar to an existing
- *      merge-base sibling in the same directory.
+ *   5. thresholds and remaining conditions evaluate the narrowed changed set;
+ *   6. `when` has the final executable word.
  *
  * The executable `when` condition is deliberately NOT run here (it is an
  * effect; `when.ts` owns it): the structural outcome says whether `when` must
@@ -29,6 +31,7 @@ import { pathMatchesPattern } from "../scopes/glob.ts";
 import type {
   EffortDiff,
   EffortFileChange,
+  RelatedCheckpointPath,
   ResolvedCheckpoint,
   SimilarNewFile,
   StructuralTriggerOutcome,
@@ -138,7 +141,8 @@ export function similarNewFiles(
   // Index the base tree once by (directory, extension, normalized stem) so the
   // comparison stays linear in the tree size however many files were added.
   const byIdentity = new Map<string, string[]>();
-  for (const existing of diff.baseFiles) {
+  for (const base of diff.baseFiles) {
+    const existing = base.path;
     if (deleted.has(existing)) {
       continue; // a vanishing original makes the pair a rename, not a sibling
     }
@@ -204,15 +208,66 @@ export function evaluateStructuralTrigger(
   diff: EffortDiff,
 ): StructuralTriggerOutcome {
   const selector = def.selector;
-  const candidate = selector === undefined
+  const selectedComplete = selector === undefined
     ? [...diff.files]
     : diff.files.filter((file) => matchesAny(file.path, selector.globs));
-  if (candidate.length === 0) {
+  if (selectedComplete.length === 0) {
     return { holds: false, vetoedBy: "empty_matched_set" };
   }
+
+  // Filters — one governing source classification, then one checkpoint-local
+  // exclusion. Inspect the complete selector result only to name the truthful
+  // generated-only veto; every later calculation consumes filtered paths.
+  const sourceFiles = def.includeGenerated
+    ? [...diff.files]
+    : diff.files.filter((file) => !file.generated);
+  const selectedSource = selector === undefined
+    ? [...sourceFiles]
+    : sourceFiles.filter((file) => matchesAny(file.path, selector.globs));
+  if (selectedSource.length === 0) {
+    return { holds: false, vetoedBy: "generated_only" };
+  }
+  const filteredUniverse = sourceFiles.filter((file) =>
+    !matchesAny(file.path, def.excludePaths)
+  );
+  let candidate = selectedSource.filter((file) =>
+    !matchesAny(file.path, def.excludePaths)
+  );
+  if (candidate.length === 0) {
+    return { holds: false, vetoedBy: "excluded_only" };
+  }
+  const baseFiles = diff.baseFiles.filter((file) =>
+    (def.includeGenerated || !file.generated) &&
+    !matchesAny(file.path, def.excludePaths)
+  );
+
+  // Evidence narrowing — similarity keeps only suspicious ADDED changed paths
+  // and carries each existing sibling separately. The sibling never counts as
+  // a changed file or enters `when`'s declared-match boundary.
+  let related: RelatedCheckpointPath[] = [];
+  if (def.similarNewFile) {
+    const similar = similarNewFiles(
+      candidate.filter((file) => file.kind === "added").map((f) => f.path),
+      { files: filteredUniverse, baseFiles },
+    );
+    if (similar.length === 0) {
+      return { holds: false, vetoedBy: "similar_new_file" };
+    }
+    const suspicious = new Set(similar.map((pair) => pair.added));
+    candidate = candidate.filter((file) => suspicious.has(file.path));
+    related = similar.map((pair) => ({
+      kind: "similar_existing",
+      forPath: pair.added,
+      path: pair.existing,
+    }));
+  }
+
+  // Conjunctive vetoes and thresholds all see the filtered model. The
+  // counterpart condition deliberately sees the full filtered source universe,
+  // not just selector matches; thresholds see only narrowed changed evidence.
   if (
     def.unlessChanged.length > 0 &&
-    diff.files.some((file) => matchesAny(file.path, def.unlessChanged))
+    filteredUniverse.some((file) => matchesAny(file.path, def.unlessChanged))
   ) {
     return { holds: false, vetoedBy: "unless_changed" };
   }
@@ -224,23 +279,13 @@ export function evaluateStructuralTrigger(
   if (def.deletionDominant && !isDeletionDominant(candidate)) {
     return { holds: false, vetoedBy: "deletion_dominant" };
   }
-  let similar: SimilarNewFile[] | undefined;
-  if (def.similarNewFile) {
-    similar = similarNewFiles(
-      candidate.filter((file) => file.kind === "added").map((f) => f.path),
-      diff,
-    );
-    if (similar.length === 0) {
-      return { holds: false, vetoedBy: "similar_new_file" };
-    }
-  }
   const matched = candidate.map((file) => file.path).sort();
   const whenPending = def.when !== undefined && def.when.trim() !== "";
   return {
     holds: true,
     matched,
     whenPending,
-    ...(similar === undefined ? {} : { similar }),
+    related,
   };
 }
 
@@ -265,7 +310,11 @@ export function resolveTriggerOutcome(
     return { fired: false, vetoedBy: structural.vetoedBy };
   }
   if (!structural.whenPending) {
-    return { fired: true, matched: structural.matched };
+    return {
+      fired: true,
+      matched: structural.matched,
+      related: structural.related,
+    };
   }
   if (when === undefined) {
     throw new Error(
@@ -283,6 +332,11 @@ export function resolveTriggerOutcome(
       return {
         fired: true,
         matched: narrowed.length > 0 ? narrowed : structural.matched,
+        related: structural.related.filter((relation) =>
+          (narrowed.length > 0 ? narrowed : structural.matched).includes(
+            relation.forPath,
+          )
+        ),
       };
     }
     case "pass":

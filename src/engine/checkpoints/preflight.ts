@@ -49,7 +49,11 @@ import {
 } from "./inspection.ts";
 import { checkpointDefinitionHash, computeSubject } from "./subject.ts";
 import { resolveTriggerOutcome } from "./triggers.ts";
-import type { ResolvedCheckpoint, WhenOutcome } from "./types.ts";
+import type {
+  RelatedCheckpointPath,
+  ResolvedCheckpoint,
+  WhenOutcome,
+} from "./types.ts";
 import { runWhenCommand } from "./when.ts";
 
 /** One checkpoint as served to the agent: the judgment and its evidence. */
@@ -64,12 +68,16 @@ export interface ServedCheckpoint {
   reference?: string;
   /** The matched paths behind the trigger — the subject's evidence. */
   matched: readonly string[];
+  /** Typed existing-path evidence related to matched changed paths. */
+  related: readonly RelatedCheckpointPath[];
 }
 
 /** One current declared-met conclusion among the governing active set. */
 export interface DeclaredMetConclusion {
   id: string;
   declaredAt: string;
+  matched: readonly string[];
+  related: readonly RelatedCheckpointPath[];
 }
 
 /** One current declared-unmet conclusion among the governing active set. */
@@ -79,6 +87,8 @@ export interface DeclaredUnmetConclusion {
    * escaping boundaries, never interpolated into a command. */
   why: string;
   declaredAt: string;
+  matched: readonly string[];
+  related: readonly RelatedCheckpointPath[];
 }
 
 /** What the pre-flight settled for this run. */
@@ -202,7 +212,11 @@ export async function runCheckpointReport(
     }
     if (definition.mode === "advise") {
       if (final?.fired) {
-        report.advise.push(served(definition, final.matched));
+        report.advise.push(served(
+          definition,
+          final.matched,
+          final.related,
+        ));
       }
       continue;
     }
@@ -215,6 +229,7 @@ export async function runCheckpointReport(
       report.unreviewed.push(served(
         definition,
         final?.fired ? final.matched : obligation.matched,
+        final?.fired ? final.related : obligation.related,
       ));
     }
   }
@@ -225,6 +240,7 @@ export async function runCheckpointReport(
 function served(
   def: ResolvedCheckpoint,
   matched: readonly string[],
+  related: readonly RelatedCheckpointPath[] = [],
 ): ServedCheckpoint {
   return {
     id: def.id,
@@ -233,6 +249,7 @@ function served(
     ...(def.teach === undefined ? {} : { teach: def.teach }),
     ...(def.reference === undefined ? {} : { reference: def.reference }),
     matched,
+    related,
   };
 }
 
@@ -315,7 +332,10 @@ export async function runCheckpointPreflight(
       }
       continue;
     }
-    fired.set(definition.id, served(definition, outcome.matched));
+    fired.set(
+      definition.id,
+      served(definition, outcome.matched, outcome.related),
+    );
   }
 
   // Reconcile open questions for every fired stop checkpoint and every earlier
@@ -349,7 +369,7 @@ export async function runCheckpointPreflight(
       if (earlier === undefined) {
         continue;
       }
-      serving = served(def, earlier.matchedPaths);
+      serving = served(def, earlier.matchedPaths, earlier.relatedPaths);
     }
     const policyCommit = inspection.policyCommit;
     if (policyCommit === undefined) {
@@ -361,6 +381,7 @@ export async function runCheckpointPreflight(
       definitionHash,
       serving.matched,
       policyCommit,
+      serving.related,
     );
     if ("error" in subject) {
       drops.push(preflightDrop(
@@ -378,6 +399,7 @@ export async function runCheckpointPreflight(
         definitionHash,
         subject: subject.subject.fingerprint,
         matchedPaths: serving.matched,
+        relatedPaths: serving.related,
       },
       at,
     );
@@ -551,6 +573,8 @@ export async function runCheckpointPreflight(
           preflight.declaredMet.push({
             id: serving.id,
             declaredAt: declaration.declaredAt,
+            matched: serving.matched,
+            related: serving.related,
           });
         }
         break;
@@ -562,6 +586,8 @@ export async function runCheckpointPreflight(
             id: serving.id,
             why: declaration.why,
             declaredAt: declaration.declaredAt,
+            matched: serving.matched,
+            related: serving.related,
           });
         }
         break;

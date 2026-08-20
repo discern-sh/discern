@@ -38,6 +38,11 @@ import {
 import { questionById } from "../../shared/questions.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
+import {
+  generatedGroupForPath,
+  type ResolvedGeneratedGroup,
+  resolveGeneratedGroups,
+} from "../../shared/generated_artifacts.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { resolvedScopePaths } from "../scopes/scope_paths.ts";
 import type { ResolvedCheckpoint } from "./types.ts";
@@ -48,6 +53,8 @@ export interface GoverningPolicy {
    * Undefined when it could not be resolved (the caller fails open). */
   policyCommit?: string;
   checkpoints: ResolvedCheckpoint[];
+  /** Generated ownership resolved from the same governing config. */
+  generatedGroups: ResolvedGeneratedGroup[];
   /** Structured accounts of anything that could not govern. */
   drops: CheckpointDrop[];
 }
@@ -143,6 +150,8 @@ export function resolveCheckpoints(
             ? resolvedScopePaths(config, item)
             : [expandSourcePathReferences(item, config)],
       );
+    const excludePaths = (entry.exclude_paths ?? seed?.exclude_paths ?? [])
+      .map((glob) => expandSourcePathReferences(glob, config));
 
     const teach = entry.teach ?? seedQuestion?.teach;
     const reference = seedQuestion?.reference;
@@ -157,6 +166,9 @@ export function resolveCheckpoints(
       ...(teach === undefined ? {} : { teach }),
       ...(reference === undefined ? {} : { reference }),
       ...(selector === undefined ? {} : { selector }),
+      includeGenerated: entry.include_generated ?? seed?.include_generated ??
+        false,
+      excludePaths,
       unlessChanged,
       ...(minChangedFiles === undefined ? {} : { minChangedFiles }),
       deletionDominant: entry.deletion_dominant ?? seed?.deletion_dominant ??
@@ -226,6 +238,7 @@ export async function loadGoverningPolicy(
   if (policyCommit === undefined) {
     return {
       checkpoints: [],
+      generatedGroups: [],
       drops: [policyCheckpointDrop(
         "merge_base_unresolved",
         `the merge-base with '${trunk}' could not be resolved; no checkpoints govern this run.`,
@@ -241,6 +254,7 @@ export async function loadGoverningPolicy(
     return {
       policyCommit,
       checkpoints: [],
+      generatedGroups: [],
       drops: [policyCheckpointDrop(
         "governing_config_unreadable",
         `the governing configuration at ${
@@ -251,7 +265,7 @@ export async function loadGoverningPolicy(
     };
   }
   if (listed.stdout === "") {
-    return { policyCommit, checkpoints: [], drops: [] };
+    return { policyCommit, checkpoints: [], generatedGroups: [], drops: [] };
   }
   // `:./` anchors the path at this project root even when the repository's
   // top level sits above it — the same spelling the standards trunk read uses.
@@ -262,6 +276,7 @@ export async function loadGoverningPolicy(
     return {
       policyCommit,
       checkpoints: [],
+      generatedGroups: [],
       drops: [policyCheckpointDrop(
         "governing_config_unreadable",
         `the governing configuration at ${
@@ -281,6 +296,7 @@ export async function loadGoverningPolicy(
     return {
       policyCommit,
       checkpoints: [],
+      generatedGroups: [],
       drops: [policyCheckpointDrop(
         "governing_config_invalid",
         `the governing configuration at ${
@@ -290,10 +306,37 @@ export async function loadGoverningPolicy(
       )],
     };
   }
-  const resolved = resolveCheckpoints(parsed.config);
+  let resolved: ReturnType<typeof resolveCheckpoints>;
+  let generatedGroups: ResolvedGeneratedGroup[];
+  try {
+    resolved = resolveCheckpoints(parsed.config);
+    generatedGroups = resolveGeneratedGroups(parsed.config);
+    // Force every glob through the matcher while the failure can still be
+    // attributed to the policy as a whole. Diff collection must never silently
+    // reinterpret a broken governing model as "everything is authored".
+    for (const group of generatedGroups) {
+      for (const pattern of group.paths) {
+        generatedGroupForPath([{ ...group, paths: [pattern] }], "");
+      }
+    }
+  } catch {
+    return {
+      policyCommit,
+      checkpoints: [],
+      generatedGroups: [],
+      drops: [policyCheckpointDrop(
+        "governing_config_invalid",
+        `the governing generated-path model at ${
+          policyCommit.slice(0, 12)
+        } could not be resolved; no checkpoints govern this run.`,
+        policyCommit,
+      )],
+    };
+  }
   return {
     policyCommit,
     checkpoints: resolved.checkpoints,
+    generatedGroups,
     drops: resolved.drops.map((drop) =>
       entryCheckpointDrop(
         drop.checkpoint,

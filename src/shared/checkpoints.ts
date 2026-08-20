@@ -36,6 +36,8 @@ export const DEFAULT_CHECKPOINT_MODE: CheckpointMode = "stop";
  * so previews can explain and wire schemas can enumerate. */
 export const TRIGGER_VETOES = [
   "empty_matched_set",
+  "generated_only",
+  "excluded_only",
   "unless_changed",
   "min_changed_files",
   "deletion_dominant",
@@ -44,6 +46,25 @@ export const TRIGGER_VETOES = [
 
 /** One structural-trigger veto ({@link TRIGGER_VETOES}). */
 export type TriggerVeto = (typeof TRIGGER_VETOES)[number];
+
+/** Closed typed relations carried beside changed checkpoint evidence. */
+export const RELATED_CHECKPOINT_KINDS = ["similar_existing"] as const;
+export type RelatedCheckpointKind = (typeof RELATED_CHECKPOINT_KINDS)[number];
+
+/** Narrow persisted/public input against the canonical relation-kind registry. */
+export function isRelatedCheckpointKind(
+  value: unknown,
+): value is RelatedCheckpointKind {
+  return typeof value === "string" &&
+    (RELATED_CHECKPOINT_KINDS as readonly string[]).includes(value);
+}
+
+/** Total human labels: a future kind cannot compile until its wording exists. */
+export const RELATED_CHECKPOINT_KIND_LABELS: Readonly<
+  Record<RelatedCheckpointKind, string>
+> = {
+  similar_existing: "Related existing",
+};
 
 /** The strict checkpoint obligation one canonical inspection can project for
  * every governing checkpoint. These are decision states, not trigger states:
@@ -78,6 +99,10 @@ export interface BuiltInCheckpointSeed {
   readonly scope?: string;
   /** Default selector: the globs the trigger matches. */
   readonly paths?: readonly string[];
+  /** Include generated changed/base paths (default false). */
+  readonly include_generated?: boolean;
+  /** Remove checkpoint-specific path noise before every predicate. */
+  readonly exclude_paths?: readonly string[];
   /** Default inverted-conjunction condition (globs or scope names). */
   readonly unless_changed?: readonly string[];
   /** Default matched-set size threshold. */

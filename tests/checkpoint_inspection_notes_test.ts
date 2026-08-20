@@ -17,6 +17,8 @@ const DEFINITION: ResolvedCheckpoint = {
   id: "review",
   mode: "stop",
   question: "Is this change ready?",
+  includeGenerated: false,
+  excludePaths: [],
   unlessChanged: [],
   deletionDominant: false,
   similarNewFile: false,
@@ -60,7 +62,7 @@ Deno.test("checkpoint report preview: every obligation state uses an exact certa
   for (const state of CHECKPOINT_OBLIGATION_STATES) {
     if (state === "unknown") continue;
     const notes = checkpointInspectionNotes(
-      inspection({ state, matched: ["src/review.ts"] }),
+      inspection({ state, matched: ["src/review.ts"], related: [] }),
       "report",
     );
     const expectation = REPORT_EXPECTATION[state];
@@ -79,6 +81,7 @@ Deno.test("checkpoint report preview: enrolled unknown reasons never overclaim a
       inspection({
         state: "unknown",
         matched: ["src/review.ts"],
+        related: [],
         unknown: unknown as CheckpointObligationUnknown,
       }),
       "report",

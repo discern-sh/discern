@@ -43,6 +43,7 @@ import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
 import {
   CHECKPOINT_MODES,
   CHECKPOINT_OBLIGATION_STATES,
+  RELATED_CHECKPOINT_KINDS,
   TRIGGER_VETOES,
 } from "./checkpoints.ts";
 import {
@@ -311,11 +312,25 @@ const PROOF_SUMMARY_FIELDS = {
   checkpoint_drops: z.array(CheckpointDropSchema).optional(),
 };
 
+/** Typed evidence related to one changed checkpoint path. Existing siblings
+ * stay separate from changed-path counts while remaining explicit on every
+ * public evidence surface. */
+export const RelatedCheckpointEvidenceSchema = z.strictObject({
+  kind: z.enum(RELATED_CHECKPOINT_KINDS),
+  for_path: z.string(),
+  path: z.string(),
+});
+export type RelatedCheckpointEvidenceData = z.infer<
+  typeof RelatedCheckpointEvidenceSchema
+>;
+
 /** One current declared-met checkpoint conclusion — agent evidence, so every
  * rendering says "declared met", never bare "met" or "passed". */
 export const CheckpointMetConclusionSchema = z.strictObject({
   id: z.string(),
   declared_at: z.string(),
+  matched: z.array(z.string()).optional(),
+  related: z.array(RelatedCheckpointEvidenceSchema).optional(),
 }).meta({
   description:
     "One checkpoint question the agent declared met, with the declaration " +
@@ -332,6 +347,8 @@ export const CheckpointUnmetConclusionSchema = z.strictObject({
    * through escaping boundaries, never interpreted as policy. */
   why: z.string(),
   declared_at: z.string(),
+  matched: z.array(z.string()).optional(),
+  related: z.array(RelatedCheckpointEvidenceSchema).optional(),
 }).meta({
   description:
     "One checkpoint question the agent declared unmet, with its rationale " +
@@ -348,6 +365,7 @@ const ReportedCheckpointReviewEntrySchema = z.strictObject({
   teach: z.string().optional(),
   reference: z.string().optional(),
   matched: z.array(z.string()),
+  related: z.array(RelatedCheckpointEvidenceSchema).optional(),
 });
 
 export const CheckpointReviewReportSchema = z.strictObject({
@@ -779,6 +797,7 @@ export const ServedCheckpointDataSchema = z.strictObject({
   reference: z.string().optional(),
   /** The changed paths the trigger matched — the subject's evidence. */
   matched: z.array(z.string()),
+  related: z.array(RelatedCheckpointEvidenceSchema).optional(),
 });
 export type ServedCheckpointData = z.infer<typeof ServedCheckpointDataSchema>;
 
@@ -816,6 +835,7 @@ export const CheckpointTriggerPreviewSchema = z.strictObject({
   when_pending: z.boolean().optional(),
   /** The matched paths, when the trigger holds. */
   matched: z.array(z.string()).optional(),
+  related: z.array(RelatedCheckpointEvidenceSchema).optional(),
   /** The first predicate that vetoed, when it does not hold. */
   vetoed_by: z.enum(TRIGGER_VETOES).optional(),
 });
@@ -861,6 +881,7 @@ export const OpenQuestionDataSchema = z.strictObject({
   subject: z.string(),
   /** The matched paths the openQuestion recorded — the subject's evidence. */
   matched: z.array(z.string()),
+  related: z.array(RelatedCheckpointEvidenceSchema).optional(),
   opened_at: z.string(),
   reopened_at: z.string().optional(),
   declaration: OpenQuestionDeclarationSchema.optional(),

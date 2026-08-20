@@ -28,8 +28,8 @@ import type {
 import { loadGoverningPolicy } from "../src/engine/checkpoints/policy.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
-  resolveGeneratedGroups,
   type ResolvedGeneratedGroup,
+  resolveGeneratedGroups,
 } from "../src/shared/generated_artifacts.ts";
 
 interface ClassifiedChange extends EffortFileChange {
@@ -141,9 +141,8 @@ run = "export-telemetry"
       true,
     );
     assertEquals(
-      diff.baseFiles.find((file) =>
-        file.path === "telemetry/snapshot.json"
-      )?.generated,
+      diff.baseFiles.find((file) => file.path === "telemetry/snapshot.json")
+        ?.generated,
       true,
     );
   });
@@ -163,14 +162,14 @@ Deno.test("generated and explicitly excluded paths leave structural calculations
   } satisfies ClassifiedEffortDiff;
 
   assertEquals(
-    evaluateStructuralTrigger(checkpoint({ minChangedFiles: 2 }), diff),
+    evaluateStructuralTrigger(checkpoint({ minChangedFiles: 3 }), diff),
     { holds: false, vetoedBy: "min_changed_files" },
   );
   assertEquals(
     evaluateStructuralTrigger(
       checkpoint({
         includeGenerated: true,
-        minChangedFiles: 2,
+        minChangedFiles: 3,
       }),
       diff,
     ).holds,
@@ -244,8 +243,8 @@ Deno.test("generated similar siblings are invisible by default and related evide
   assertEquals(
     (included as unknown as { related: unknown }).related,
     [{
-      relation: "similar_existing_sibling",
-      changed: "src/service_v2.ts",
+      kind: "similar_existing",
+      forPath: "src/service_v2.ts",
       path: "src/service.ts",
     }],
   );

@@ -25,7 +25,9 @@
  */
 
 import { dirname } from "@std/path";
+import { isRelatedCheckpointKind } from "../../shared/checkpoints.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import type { RelatedCheckpointPath } from "./types.ts";
 
 /** The store's on-disk schema version (one line of JSON). */
 const QUESTIONS_STORE_VERSION = 1;
@@ -59,6 +61,8 @@ export interface OpenQuestion {
   subject: string;
   /** The matched paths behind the subject, for serving and renderings. */
   matchedPaths: readonly string[];
+  /** Typed related evidence whose identity also binds the subject. */
+  relatedPaths: readonly RelatedCheckpointPath[];
   openedAt: string;
   /** Set when a relevant change replaced the subject or definition. */
   reopenedAt?: string;
@@ -168,11 +172,18 @@ function parseOpenQuestion(
   ) {
     return undefined;
   }
+  const relatedPaths = value.relatedPaths === undefined
+    ? []
+    : parseRelatedPaths(value.relatedPaths);
+  if (relatedPaths === undefined) {
+    return undefined;
+  }
   const openQuestion: OpenQuestion = {
     checkpoint,
     definitionHash,
     subject,
     matchedPaths,
+    relatedPaths,
     openedAt,
   };
   if (typeof value.reopenedAt === "string") {
@@ -186,6 +197,25 @@ function parseOpenQuestion(
     openQuestion.declaration = declaration;
   }
   return openQuestion;
+}
+
+/** Parse typed related evidence; missing is handled as the additive empty
+ * value by the caller so existing worktree state stays readable. */
+function parseRelatedPaths(
+  value: unknown,
+): RelatedCheckpointPath[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: RelatedCheckpointPath[] = [];
+  for (const item of value) {
+    if (
+      !isRecord(item) || !isRelatedCheckpointKind(item.kind) ||
+      typeof item.forPath !== "string" || typeof item.path !== "string"
+    ) {
+      return undefined;
+    }
+    out.push({ kind: item.kind, forPath: item.forPath, path: item.path });
+  }
+  return out;
 }
 
 /** Parse the store's text, or undefined when any part is mis-shaped. */
@@ -366,6 +396,7 @@ export async function reconcileOpenQuestion(
     definitionHash: string;
     subject: string;
     matchedPaths: readonly string[];
+    relatedPaths: readonly RelatedCheckpointPath[];
   },
   now: string = new Date().toISOString(),
 ): Promise<ReconcileOpenQuestionResult> {
@@ -374,6 +405,7 @@ export async function reconcileOpenQuestion(
     return { ok: false, reason: store.reason };
   }
   const existing = store.openQuestions[next.checkpoint];
+  const relatedPaths = next.relatedPaths;
   if (
     existing !== undefined &&
     existing.definitionHash === next.definitionHash &&
@@ -394,6 +426,7 @@ export async function reconcileOpenQuestion(
       definitionHash: next.definitionHash,
       subject: next.subject,
       matchedPaths: [...next.matchedPaths],
+      relatedPaths: [...relatedPaths],
       openedAt: now,
     }
     : {
@@ -401,6 +434,7 @@ export async function reconcileOpenQuestion(
       definitionHash: next.definitionHash,
       subject: next.subject,
       matchedPaths: [...next.matchedPaths],
+      relatedPaths: [...relatedPaths],
       reopenedAt: now,
     };
   store.openQuestions[next.checkpoint] = openQuestion;

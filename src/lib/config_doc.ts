@@ -343,6 +343,15 @@ export function applyConfigDoc(
         if (spec.paths !== undefined) {
           editor.setStringArray(`${key}.paths`, spec.paths);
         }
+        if (spec.include_generated !== undefined) {
+          editor.setBool(
+            `${key}.include_generated`,
+            spec.include_generated,
+          );
+        }
+        if (spec.exclude_paths !== undefined) {
+          editor.setStringArray(`${key}.exclude_paths`, spec.exclude_paths);
+        }
         if (spec.unless_changed !== undefined) {
           editor.setStringArray(`${key}.unless_changed`, spec.unless_changed);
         }

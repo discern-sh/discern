@@ -31,12 +31,14 @@ import type {
   CheckpointTriggerPreviewData,
   OpenQuestionData,
   OpenQuestionState,
+  RelatedCheckpointEvidenceData,
   UngovernedOpenQuestionData,
 } from "../../shared/result_schemas.ts";
 import type {
   CheckpointObligationState,
   TriggerVeto,
 } from "../../shared/checkpoints.ts";
+import { RELATED_CHECKPOINT_KIND_LABELS } from "../../shared/checkpoints.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { checkpointDropAccounts } from "../../shared/checkpoint_drops.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
@@ -59,6 +61,7 @@ import {
   inspectCheckpointObligations,
 } from "./inspection.ts";
 import type { ResolvedCheckpoint, StructuralTriggerOutcome } from "./types.ts";
+import { relatedCheckpointData } from "./related.ts";
 
 // ── the trigger summary ─────────────────────────────────────────────────────
 
@@ -81,6 +84,10 @@ export function triggerSummary(def: ResolvedCheckpoint): string {
     parts.push(`scope ${def.selector.scope}`);
   } else {
     parts.push(`paths ${capList(def.selector.globs, 3)}`);
+  }
+  parts.push(def.includeGenerated ? "including generated" : "authored only");
+  if (def.excludePaths.length > 0) {
+    parts.push(`excluding ${capList(def.excludePaths, 2)}`);
   }
   if (def.unlessChanged.length > 0) {
     parts.push(`unless ${capList(def.unlessChanged, 2)} changed`);
@@ -116,6 +123,9 @@ function triggerPreviewData(
     holds: true,
     ...(outcome.whenPending ? { when_pending: true } : {}),
     matched: [...outcome.matched],
+    ...(outcome.related.length === 0
+      ? {}
+      : { related: relatedCheckpointData(outcome.related) }),
   };
 }
 
@@ -141,6 +151,9 @@ function openQuestionData(
     definition_hash: openQuestion.definitionHash,
     subject: openQuestion.subject,
     matched: [...openQuestion.matchedPaths],
+    ...(openQuestion.relatedPaths.length === 0
+      ? {}
+      : { related: relatedCheckpointData(openQuestion.relatedPaths) }),
     opened_at: openQuestion.openedAt,
     ...(openQuestion.reopenedAt === undefined
       ? {}
@@ -316,6 +329,8 @@ const ROW_STATES = {
 /** The human wording for a veto — why an idle trigger did not hold. */
 const VETO_WORDING: Readonly<Record<TriggerVeto, string>> = {
   empty_matched_set: "no matched change",
+  generated_only: "only generated selector matches",
+  excluded_only: "all authored selector matches were explicitly excluded",
   unless_changed: "its unless_changed counterpart also changed",
   min_changed_files: "below its file threshold",
   deletion_dominant: "the change is not deletion-dominant",
@@ -474,6 +489,28 @@ function matchedLine(paths: readonly string[] | undefined): string | undefined {
   return `Changed: ${shown}${more}.`;
 }
 
+/** Total human wording for every typed related-evidence kind. Dynamic paths
+ * cross `terminalMultiline` at the rendering boundary below. */
+const RELATED_WORDING: Readonly<
+  Record<
+    RelatedCheckpointEvidenceData["kind"],
+    (relation: RelatedCheckpointEvidenceData) => string
+  >
+> = {
+  similar_existing: (relation) =>
+    `${
+      RELATED_CHECKPOINT_KIND_LABELS[relation.kind]
+    }: ${relation.path} resembles ${relation.for_path}.`,
+};
+
+function relatedLines(
+  related: readonly RelatedCheckpointEvidenceData[] | undefined,
+): string[] {
+  return (related ?? []).map((relation) =>
+    RELATED_WORDING[relation.kind](relation)
+  );
+}
+
 /** Presentation facts for the package renderers (mirrors the verb peers). */
 function presentationFacts(out: Out): {
   readonly presenter: Out["terminal"]["presenter"];
@@ -502,6 +539,9 @@ function renderRow(out: Out, row: CheckpointReportData): void {
   const evidence = matchedLine(
     row.open_question?.matched ?? row.preview?.matched,
   );
+  const related = relatedLines(
+    row.open_question?.related ?? row.preview?.related,
+  );
   const why = row.open_question?.declaration?.why;
   const detail = [
     attention ? `Question: ${row.question.trim()}` : undefined,
@@ -510,6 +550,7 @@ function renderRow(out: Out, row: CheckpointReportData): void {
       : undefined,
     why === undefined ? undefined : `Rationale: ${why}`,
     attention ? evidence : undefined,
+    ...(attention ? related : []),
   ].filter((line): line is string => line !== undefined);
   out.raw(`${
     presenter.present(renderResultSummaryCli, {

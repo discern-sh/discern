@@ -18,7 +18,7 @@ async function collected(
   base: string,
 ): Promise<{
   byPath: Map<string, EffortFileChange>;
-  baseFiles: readonly string[];
+  baseFiles: readonly { path: string; generated: boolean }[];
 }> {
   const diff = await collectEffortDiff(dir, base);
   assert(diff !== undefined, "expected the effort diff to collect");
@@ -56,14 +56,15 @@ Deno.test("collectEffortDiff sees committed, staged, unstaged, and untracked cha
     assertEquals(byPath.get("gone.txt")?.deletions, 3);
     assertEquals(byPath.get("fresh.txt"), {
       path: "fresh.txt",
+      generated: false,
       kind: "added",
       insertions: 3,
       deletions: 0,
       binary: false,
     });
-    assert(baseFiles.includes("kept.txt"));
-    assert(baseFiles.includes("gone.txt"));
-    assert(!baseFiles.includes("fresh.txt"));
+    assert(baseFiles.some((file) => file.path === "kept.txt"));
+    assert(baseFiles.some((file) => file.path === "gone.txt"));
+    assert(!baseFiles.some((file) => file.path === "fresh.txt"));
   });
 });
 
@@ -99,6 +100,7 @@ Deno.test("binary content carries the binary flag with zeroed line stats", async
     const { byPath } = await collected(dir, base);
     assertEquals(byPath.get("tracked.bin"), {
       path: "tracked.bin",
+      generated: false,
       kind: "added",
       insertions: 0,
       deletions: 0,
@@ -106,6 +108,7 @@ Deno.test("binary content carries the binary flag with zeroed line stats", async
     });
     assertEquals(byPath.get("untracked.bin"), {
       path: "untracked.bin",
+      generated: false,
       kind: "added",
       insertions: 0,
       deletions: 0,

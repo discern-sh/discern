@@ -20,7 +20,12 @@ import { join } from "@std/path";
 import { runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import { repoPathPrefix, stripRepoPathPrefix } from "../scopes/scopes.ts";
+import {
+  generatedGroupForPath,
+  type ResolvedGeneratedGroup,
+} from "../../shared/generated_artifacts.ts";
 import type {
+  EffortBasePath,
   EffortChangeKind,
   EffortDiff,
   EffortFileChange,
@@ -113,6 +118,7 @@ function untrackedStats(
 export async function collectEffortDiff(
   root: string,
   mergeBase: string,
+  generatedGroups: readonly ResolvedGeneratedGroup[] = [],
 ): Promise<EffortDiff | undefined> {
   const prefix = await repoPathPrefix(root);
   if (prefix === undefined) {
@@ -157,7 +163,12 @@ export async function collectEffortDiff(
     seen.add(path);
     const stat = stats.get(entry.path) ??
       { insertions: 0, deletions: 0, binary: false };
-    files.push({ path, kind: changeKind(entry.status), ...stat });
+    files.push({
+      path,
+      generated: generatedGroupForPath(generatedGroups, path) !== undefined,
+      kind: changeKind(entry.status),
+      ...stat,
+    });
   }
 
   // Untracked files are invisible to `git diff`; enumerate them individually
@@ -185,7 +196,13 @@ export async function collectEffortDiff(
     } catch {
       stat = { insertions: 0, binary: true };
     }
-    files.push({ path, kind: "added", deletions: 0, ...stat });
+    files.push({
+      path,
+      generated: generatedGroupForPath(generatedGroups, path) !== undefined,
+      kind: "added",
+      deletions: 0,
+      ...stat,
+    });
   }
 
   const baseTree = await runGit(
@@ -195,9 +212,12 @@ export async function collectEffortDiff(
   if (!baseTree.success) {
     return undefined;
   }
-  const baseFiles = stripRepoPathPrefix(
+  const baseFiles: EffortBasePath[] = stripRepoPathPrefix(
     splitNulRecords(baseTree.stdout),
     prefix,
-  );
+  ).map((path) => ({
+    path,
+    generated: generatedGroupForPath(generatedGroups, path) !== undefined,
+  }));
   return { files, baseFiles };
 }

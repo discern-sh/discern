@@ -114,8 +114,10 @@ import {
   type ServedCheckpoint,
 } from "../checkpoints/preflight.ts";
 import { inspectCheckpointNotes } from "../checkpoints/inspection.ts";
+import { relatedCheckpointData } from "../checkpoints/related.ts";
 import { AWAITING_DECLARATION_SLUG } from "../../shared/declarations.ts";
 import { checkpointDropAccounts } from "../../shared/checkpoint_drops.ts";
+import { RELATED_CHECKPOINT_KIND_LABELS } from "../../shared/checkpoints.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import type {
   GateCheckpointsData,
@@ -1277,6 +1279,7 @@ async function runGate(
       id: served.id,
       question: served.question.trim(),
       matched: [...served.matched],
+      related: relatedCheckpointData(served.related),
     })
   );
   const varianceHints =
@@ -1626,6 +1629,9 @@ function servedCheckpointData(served: ServedCheckpoint): ServedCheckpointData {
     ...(served.teach === undefined ? {} : { teach: served.teach }),
     ...(served.reference === undefined ? {} : { reference: served.reference }),
     matched: [...served.matched],
+    ...(served.related.length === 0
+      ? {}
+      : { related: relatedCheckpointData(served.related) }),
   };
 }
 
@@ -1655,6 +1661,10 @@ function gateCheckpointsData(
       declared_met: preflight.declaredMet.map((met) => ({
         id: met.id,
         declared_at: met.declaredAt,
+        matched: [...met.matched],
+        ...(met.related.length === 0
+          ? {}
+          : { related: relatedCheckpointData(met.related) }),
       })),
     }),
     ...(preflight.declaredUnmet.length === 0 ? {} : {
@@ -1662,6 +1672,10 @@ function gateCheckpointsData(
         id: unmet.id,
         why: unmet.why,
         declared_at: unmet.declaredAt,
+        matched: [...unmet.matched],
+        ...(unmet.related.length === 0
+          ? {}
+          : { related: relatedCheckpointData(unmet.related) }),
       })),
     }),
     ...(preflight.advise.length === 0
@@ -1707,11 +1721,19 @@ function proofCheckpointsData(
     declared_met: preflight.declaredMet.map((met) => ({
       id: met.id,
       declared_at: met.declaredAt,
+      matched: [...met.matched],
+      ...(met.related.length === 0
+        ? {}
+        : { related: relatedCheckpointData(met.related) }),
     })),
     declared_unmet: preflight.declaredUnmet.map((unmet) => ({
       id: unmet.id,
       why: unmet.why,
       declared_at: unmet.declaredAt,
+      matched: [...unmet.matched],
+      ...(unmet.related.length === 0
+        ? {}
+        : { related: relatedCheckpointData(unmet.related) }),
     })),
     ...(preflight.mode === "strict" ? {} : {
       review: {
@@ -1742,6 +1764,11 @@ function serveCheckpointText(served: ServedCheckpoint): string {
     : "";
   const lines = [
     `${served.id} — changed: ${shown}${more}`,
+    ...served.related.map((relation) =>
+      `  ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
+        markdownCodeSpan(relation.path)
+      } resembles ${markdownCodeSpan(relation.forPath)}`
+    ),
     `  Question: ${served.question.trim()}`,
   ];
   if (served.teach !== undefined && served.teach.trim() !== "") {

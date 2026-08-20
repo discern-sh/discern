@@ -11,7 +11,11 @@
  * half.
  */
 
-import type { CheckpointMode, TriggerVeto } from "../../shared/checkpoints.ts";
+import type {
+  CheckpointMode,
+  RelatedCheckpointKind,
+  TriggerVeto,
+} from "../../shared/checkpoints.ts";
 import type { CheckpointDropReason } from "../../shared/checkpoint_drops.ts";
 
 // ── the effort diff ─────────────────────────────────────────────────────────
@@ -24,6 +28,9 @@ export type EffortChangeKind = "added" | "deleted" | "modified";
  * the scope classifier). */
 export interface EffortFileChange {
   path: string;
+  /** Governing `[generated.*].paths` owns this path. Classification happens
+   * once while collecting the effort model, never inside a predicate. */
+  generated: boolean;
   kind: EffortChangeKind;
   /** Lines added; 0 for a binary file. */
   insertions: number;
@@ -31,6 +38,13 @@ export interface EffortFileChange {
   deletions: number;
   /** Whether the content is binary (line counts are then meaningless). */
   binary: boolean;
+}
+
+/** One path in the merge-base tree, classified through the same governing
+ * generated model as changed paths. */
+export interface EffortBasePath {
+  path: string;
+  generated: boolean;
 }
 
 /**
@@ -42,7 +56,7 @@ export interface EffortFileChange {
 export interface EffortDiff {
   files: readonly EffortFileChange[];
   /** Every file path in the merge-base tree, project-root-relative. */
-  baseFiles: readonly string[];
+  baseFiles: readonly EffortBasePath[];
 }
 
 // ── the resolved definition ─────────────────────────────────────────────────
@@ -70,6 +84,10 @@ export interface ResolvedCheckpoint {
     scope?: string;
     globs: readonly string[];
   };
+  /** Whether generated changed/base paths participate. False by default. */
+  includeGenerated: boolean;
+  /** Checkpoint-specific noise removed before predicates and evidence. */
+  excludePaths: readonly string[];
   /** Resolved `unless_changed` globs (scope names already expanded). */
   unlessChanged: readonly string[];
   /** Matched-set size threshold; absent means any matched change suffices. */
@@ -95,6 +113,15 @@ export interface SimilarNewFile {
   existing: string;
 }
 
+/** Typed existing-path evidence related to one changed matched path. The changed
+ * endpoint remains the threshold/when subject; this path contributes only
+ * evidence and subject currency. */
+export interface RelatedCheckpointPath {
+  kind: RelatedCheckpointKind;
+  forPath: string;
+  path: string;
+}
+
 /**
  * The pure, structural half of trigger evaluation — everything except the
  * executable `when` condition. When it holds, `matched` is the sorted matched
@@ -107,8 +134,8 @@ export type StructuralTriggerOutcome =
     holds: true;
     matched: readonly string[];
     whenPending: boolean;
-    /** Evidence for the name-similarity predicate, when it was required. */
-    similar?: readonly SimilarNewFile[];
+    /** Existing evidence related to the narrowed changed set. */
+    related: readonly RelatedCheckpointPath[];
   };
 
 /** How one `when` command run concluded (`when.ts` produces it). */
@@ -135,4 +162,8 @@ export type WhenOutcome =
 /** The final word on one checkpoint's trigger for the current diff. */
 export type TriggerOutcome =
   | { fired: false; vetoedBy?: TriggerVeto; advisory?: string }
-  | { fired: true; matched: readonly string[] };
+  | {
+    fired: true;
+    matched: readonly string[];
+    related: readonly RelatedCheckpointPath[];
+  };

@@ -34,6 +34,7 @@ import {
   readOpenQuestions,
 } from "../checkpoints/open_questions.ts";
 import { loadGoverningPolicy } from "../checkpoints/policy.ts";
+import type { RelatedCheckpointPath } from "../checkpoints/types.ts";
 
 /** One standing declared-unmet conclusion, with everything the owner's
  * decision moment must serve. */
@@ -43,6 +44,7 @@ export interface StandingUnmetConclusion {
   teach?: string;
   /** The matched paths the openQuestion recorded — the subject's evidence. */
   matched: readonly string[];
+  related: readonly RelatedCheckpointPath[];
   /** The agent's rationale — opaque evidence, rendered only through
    * escaping boundaries. */
   why: string;
@@ -128,6 +130,7 @@ export async function inspectAcceptanceCheckpoints(
       question: def.question,
       ...(def.teach === undefined ? {} : { teach: def.teach }),
       matched: openQuestion.matchedPaths,
+      related: openQuestion.relatedPaths,
       why: declaration.why,
       declaredAt: declaration.declaredAt,
       definitionHash: declaration.definitionHash,

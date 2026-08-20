@@ -27,6 +27,7 @@ function change(
 ): EffortFileChange {
   return {
     path,
+    generated: false,
     kind: "modified",
     insertions: 1,
     deletions: 0,
@@ -40,7 +41,10 @@ function diff(
   files: EffortFileChange[],
   baseFiles: string[] = [],
 ): EffortDiff {
-  return { files, baseFiles };
+  return {
+    files,
+    baseFiles: baseFiles.map((path) => ({ path, generated: false })),
+  };
 }
 
 /** A resolved checkpoint with quiet defaults. */
@@ -49,6 +53,8 @@ function def(over: Partial<ResolvedCheckpoint> = {}): ResolvedCheckpoint {
     id: "probe",
     mode: "stop",
     question: "The change is judged.",
+    includeGenerated: false,
+    excludePaths: [],
     unlessChanged: [],
     deletionDominant: false,
     similarNewFile: false,
@@ -221,9 +227,10 @@ Deno.test("similar_new_file fires on a parallel sibling and names the pair", () 
   );
   const out = evaluateStructuralTrigger(def({ similarNewFile: true }), d);
   assert(out.holds);
-  assertEquals(out.similar, [{
-    added: "src/service_v2.ts",
-    existing: "src/service.ts",
+  assertEquals(out.related, [{
+    kind: "similar_existing",
+    forPath: "src/service_v2.ts",
+    path: "src/service.ts",
   }]);
 });
 
@@ -272,7 +279,11 @@ Deno.test("similarNewFiles compares only ADDED files inside the matched set", ()
     d,
   );
   assert(out.holds);
-  assertEquals(out.similar, [{ added: "src/a_v2.ts", existing: "src/a.ts" }]);
+  assertEquals(out.related, [{
+    kind: "similar_existing",
+    forPath: "src/a_v2.ts",
+    path: "src/a.ts",
+  }]);
   // Direct helper access for the docs pair, proving the scoping came from the
   // selector, not the matcher.
   assertEquals(similarNewFiles(["docs/b_v2.md"], d), [{
@@ -283,7 +294,7 @@ Deno.test("similarNewFiles compares only ADDED files inside the matched set", ()
 
 // ── predicate conjunction ───────────────────────────────────────────────────
 
-Deno.test("configured predicates compose as a conjunction", () => {
+Deno.test("configured predicates compose after evidence narrowing", () => {
   const d = diff(
     [
       change("src/service_v2.ts", { kind: "added", insertions: 10 }),
@@ -296,19 +307,27 @@ Deno.test("configured predicates compose as a conjunction", () => {
     deletionDominant: true,
     similarNewFile: true,
   });
-  const out = evaluateStructuralTrigger(both, d);
-  assert(out.holds);
-  // Remove the cut and the deletion predicate vetoes despite the sibling.
   assertEquals(
-    evaluateStructuralTrigger(
-      both,
-      diff(
-        [change("src/service_v2.ts", { kind: "added", insertions: 10 })],
-        ["src/service.ts"],
-      ),
-    ),
+    evaluateStructuralTrigger(both, d),
     { holds: false, vetoedBy: "deletion_dominant" },
   );
+  // Similarity narrowed the changed evidence to one suspicious addition before
+  // the condition ran; the related existing path never supplies deletions.
+  const threshold = def({
+    selector: { globs: ["src/**"] },
+    similarNewFile: true,
+    minChangedFiles: 2,
+  });
+  assertEquals(evaluateStructuralTrigger(threshold, d), {
+    holds: false,
+    vetoedBy: "min_changed_files",
+  });
+  const holding = evaluateStructuralTrigger(
+    { ...threshold, minChangedFiles: 1 },
+    d,
+  );
+  assert(holding.holds);
+  assertEquals(holding.matched, ["src/service_v2.ts"]);
 });
 
 // ── composing with `when` ───────────────────────────────────────────────────
@@ -323,8 +342,9 @@ Deno.test("resolveTriggerOutcome: structural verdicts pass through", () => {
       holds: true,
       matched: ["a.ts"],
       whenPending: false,
+      related: [],
     }),
-    { fired: true, matched: ["a.ts"] },
+    { fired: true, matched: ["a.ts"], related: [] },
   );
 });
 
@@ -333,11 +353,12 @@ Deno.test("resolveTriggerOutcome: `when` decides a pending trigger", () => {
     holds: true,
     matched: ["a.ts", "b.ts"],
     whenPending: true,
+    related: [],
   } as const;
   // Declared matches can narrow only within the structural matched set.
   assertEquals(
     resolveTriggerOutcome(pending, { kind: "fire", matches: ["b.ts"] }),
-    { fired: true, matched: ["b.ts"] },
+    { fired: true, matched: ["b.ts"], related: [] },
   );
   // Mixed output keeps the valid subset and drops paths outside the selector.
   assertEquals(
@@ -345,7 +366,7 @@ Deno.test("resolveTriggerOutcome: `when` decides a pending trigger", () => {
       kind: "fire",
       matches: ["outside.txt", "a.ts"],
     }),
-    { fired: true, matched: ["a.ts"] },
+    { fired: true, matched: ["a.ts"], related: [] },
   );
   // With no valid declared match, the structural set stands.
   assertEquals(
@@ -353,12 +374,12 @@ Deno.test("resolveTriggerOutcome: `when` decides a pending trigger", () => {
       kind: "fire",
       matches: ["outside.txt"],
     }),
-    { fired: true, matched: ["a.ts", "b.ts"] },
+    { fired: true, matched: ["a.ts", "b.ts"], related: [] },
   );
   // Fire without matches: the structural matched set stands.
   assertEquals(
     resolveTriggerOutcome(pending, { kind: "fire", matches: [] }),
-    { fired: true, matched: ["a.ts", "b.ts"] },
+    { fired: true, matched: ["a.ts", "b.ts"], related: [] },
   );
   // Pass: no fire.
   assertEquals(
@@ -383,6 +404,7 @@ Deno.test("resolveTriggerOutcome refuses a pending `when` with no outcome", () =
         holds: true,
         matched: ["a.ts"],
         whenPending: true,
+        related: [],
       }),
     Error,
     "pending",

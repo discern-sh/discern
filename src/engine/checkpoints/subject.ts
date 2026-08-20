@@ -30,15 +30,15 @@ import { runGit } from "../../shared/subprocess.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import { repoPathPrefix, stripRepoPathPrefix } from "../scopes/scopes.ts";
-import type { ResolvedCheckpoint } from "./types.ts";
+import type { RelatedCheckpointPath, ResolvedCheckpoint } from "./types.ts";
 
 /** Version tag mixed into the definition-hash material: bump it when the
  * canonicalization changes shape, so an old and a new engine can never read
  * the same bytes as the same definition. */
-const DEFINITION_MATERIAL_VERSION = "checkpoint-definition/v1";
+const DEFINITION_MATERIAL_VERSION = "checkpoint-definition/v2";
 
 /** Version tag mixed into the subject-fingerprint material. */
-const SUBJECT_MATERIAL_VERSION = "checkpoint-subject/v1";
+const SUBJECT_MATERIAL_VERSION = "checkpoint-subject/v2";
 
 /** Files per `git hash-object` invocation — bounds the argv length. */
 const HASH_OBJECT_BATCH = 500;
@@ -88,6 +88,8 @@ export async function checkpointDefinitionHash(
 ): Promise<string> {
   const material = JSON.stringify({
     question: def.question,
+    exclude_paths: [...def.excludePaths],
+    include_generated: def.includeGenerated,
     deletion_dominant: def.deletionDominant,
     min_changed_files: def.minChangedFiles ?? null,
     mode: def.mode,
@@ -137,8 +139,15 @@ export async function computeSubject(
   definitionHash: string,
   matchedPaths: readonly string[],
   policyBase: string,
+  related: readonly RelatedCheckpointPath[] = [],
 ): Promise<SubjectComputation> {
-  const paths = [...new Set(matchedPaths)].sort();
+  const changedPaths = [...new Set(matchedPaths)].sort();
+  const paths = [
+    ...new Set([
+      ...changedPaths,
+      ...related.map((relation) => relation.path),
+    ]),
+  ].sort();
   const prefix = await repoPathPrefix(root);
   if (prefix === undefined) {
     return { error: "git could not locate the repository at the project root" };
@@ -266,13 +275,22 @@ export async function computeSubject(
       ...(current === undefined ? {} : { current }),
     };
   });
-  const lines = states.map((state) => {
+  const stateLines = states.map((state) => {
     const side = (s: PathStateSide | undefined): string =>
       s === undefined ? "-" : `${s.mode} ${s.blob}`;
     return `${state.path}\0${side(state.base)}\0${side(state.current)}`;
   });
+  const relationLines = [...related]
+    .sort((a, b) =>
+      a.forPath.localeCompare(b.forPath) || a.path.localeCompare(b.path)
+    )
+    .map((relation) =>
+      `${relation.kind}\0${relation.forPath}\0${relation.path}`
+    );
   const fingerprint = await sha256Hex(
-    `${SUBJECT_MATERIAL_VERSION}\n${definitionHash}\n${lines.join("\n")}`,
+    `${SUBJECT_MATERIAL_VERSION}\n${definitionHash}\nchanged\n${
+      changedPaths.join("\n")
+    }\nrelated\n${relationLines.join("\n")}\nstates\n${stateLines.join("\n")}`,
   );
   return { subject: { definitionHash, fingerprint, paths: states } };
 }

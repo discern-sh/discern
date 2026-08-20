@@ -30,6 +30,7 @@ import {
   renderCommandRefsCli,
 } from "./command_reference.ts";
 import { worktreeContinuityPolicy } from "./operating_policies.ts";
+import { RELATED_CHECKPOINT_KIND_LABELS } from "./checkpoints.ts";
 
 /**
  * Shared references for the commands hints cite most. Each is one token
@@ -2150,7 +2151,13 @@ export const HINTS = {
   }),
 
   "checkpoint-preview": defineHint<
-    { id: string; question: string; matched: string[]; whenPending: boolean }
+    {
+      id: string;
+      question: string;
+      matched: string[];
+      related: { kind: "similar_existing"; for_path: string; path: string }[];
+      whenPending: boolean;
+    }
   >({
     id: "checkpoint-preview",
     category: "notice",
@@ -2163,21 +2170,32 @@ export const HINTS = {
       question:
         "A changed API surface is described in its docs before it lands.",
       matched: ["src/api/surface.ext"],
+      related: [],
       whenPending: false,
     },
-    template: ({ id, question, matched, whenPending }): string => {
+    template: ({ id, question, matched, related, whenPending }): string => {
       const shown = matched.slice(0, 4).join(", ");
       const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
       const claim = whenPending
         ? "may require a declared conclusion (its when command decides)"
         : "will require a declared conclusion";
+      const relations = related.map((relation) =>
+        ` ${
+          RELATED_CHECKPOINT_KIND_LABELS[relation.kind]
+        }: ${relation.path} resembles ${relation.for_path}.`
+      ).join("");
       return `Checkpoint '${id}' ${claim} at ${CMD.done}: ${question} ` +
-        `Changed: ${shown}${more}.`;
+        `Changed: ${shown}${more}.${relations}`;
     },
   }),
 
   "checkpoint-advise": defineHint<
-    { id: string; question: string; matched: string[] }
+    {
+      id: string;
+      question: string;
+      matched: string[];
+      related: { kind: "similar_existing"; for_path: string; path: string }[];
+    }
   >({
     id: "checkpoint-advise",
     category: "notice",
@@ -2189,12 +2207,18 @@ export const HINTS = {
       id: "deletion-heavy-change",
       question: "Is the cut proven dead, and recovery bounded?",
       matched: ["src/legacy_module.ext"],
+      related: [],
     },
-    template: ({ id, question, matched }): string => {
+    template: ({ id, question, matched, related }): string => {
       const shown = matched.slice(0, 4).join(", ");
       const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
+      const relations = related.map((relation) =>
+        ` ${
+          RELATED_CHECKPOINT_KIND_LABELS[relation.kind]
+        }: ${relation.path} resembles ${relation.for_path}.`
+      ).join("");
       return `Checkpoint '${id}' (advisory — nothing blocks): ${question} ` +
-        `Changed: ${shown}${more}.`;
+        `Changed: ${shown}${more}.${relations}`;
     },
   }),
 

@@ -32,7 +32,12 @@ import {
 import { loadGoverningPolicy } from "./policy.ts";
 import { checkpointDefinitionHash, computeSubject } from "./subject.ts";
 import { evaluateStructuralTrigger } from "./triggers.ts";
-import type { ResolvedCheckpoint, StructuralTriggerOutcome } from "./types.ts";
+import type {
+  RelatedCheckpointPath,
+  ResolvedCheckpoint,
+  StructuralTriggerOutcome,
+} from "./types.ts";
+import { relatedCheckpointData } from "./related.ts";
 
 /** Why a read inspection cannot settle one checkpoint's strict obligation. */
 export type CheckpointObligationUnknown =
@@ -47,6 +52,7 @@ export type CheckpointObligationUnknown =
 export interface CheckpointObligation {
   state: CheckpointObligationState;
   matched: readonly string[];
+  related: readonly RelatedCheckpointPath[];
   unknown?: CheckpointObligationUnknown;
 }
 
@@ -153,6 +159,7 @@ function projectedOpenQuestionState(
     definitionHash: string;
     subject: string;
     matched: readonly string[];
+    related: readonly RelatedCheckpointPath[];
   },
 ): ReturnType<typeof activeOpenQuestionState> {
   if (
@@ -166,6 +173,7 @@ function projectedOpenQuestionState(
     definitionHash: binding.definitionHash,
     subject: binding.subject,
     matchedPaths: [...binding.matched],
+    relatedPaths: [...binding.related],
   });
 }
 
@@ -181,7 +189,11 @@ export async function inspectCheckpointObligations(
 
   let outcomes: ReadonlyMap<string, StructuralTriggerOutcome> = new Map();
   if (policy.policyCommit !== undefined && policy.checkpoints.length > 0) {
-    const diff = await collectEffortDiff(root, policy.policyCommit);
+    const diff = await collectEffortDiff(
+      root,
+      policy.policyCommit,
+      policy.generatedGroups,
+    );
     if (diff === undefined) {
       for (const definition of policy.checkpoints) {
         drops.push(entryDrop(
@@ -228,11 +240,12 @@ export async function inspectCheckpointObligations(
     let obligation: CheckpointObligation;
 
     if (definition.mode === "advise") {
-      obligation = { state: "none", matched: [] };
+      obligation = { state: "none", matched: [], related: [] };
     } else if (!storeReadable) {
       obligation = {
         state: "unknown",
         matched: outcome?.holds ? [...outcome.matched] : [],
+        related: outcome?.holds ? [...outcome.related] : [],
         unknown: "store_unavailable",
       };
     } else if (openQuestion === undefined) {
@@ -240,14 +253,19 @@ export async function inspectCheckpointObligations(
         obligation = {
           state: "unknown",
           matched: outcome?.holds ? [...outcome.matched] : [],
+          related: outcome?.holds ? [...outcome.related] : [],
           ...(outcome?.holds && outcome.whenPending
             ? { unknown: "when_pending" as const }
             : { unknown: "diff_unavailable" as const }),
         };
       } else if (!outcome.holds) {
-        obligation = { state: "none", matched: [] };
+        obligation = { state: "none", matched: [], related: [] };
       } else {
-        obligation = { state: "will_open", matched: [...outcome.matched] };
+        obligation = {
+          state: "will_open",
+          matched: [...outcome.matched],
+          related: [...outcome.related],
+        };
       }
     } else if (
       outcome?.holds && outcome.whenPending &&
@@ -260,17 +278,22 @@ export async function inspectCheckpointObligations(
       obligation = {
         state: "unknown",
         matched: [...openQuestion.matchedPaths],
+        related: [...openQuestion.relatedPaths],
         unknown: "when_pending",
       };
     } else {
       const matched = outcome?.holds && !outcome.whenPending
         ? outcome.matched
         : openQuestion.matchedPaths;
+      const related = outcome?.holds && !outcome.whenPending
+        ? outcome.related
+        : openQuestion.relatedPaths;
       const policyCommit = policy.policyCommit;
       if (policyCommit === undefined) {
         obligation = {
           state: "unknown",
           matched: [...matched],
+          related: [...related],
           unknown: "diff_unavailable",
         };
         entries.push({ definition, openQuestion, obligation });
@@ -282,6 +305,7 @@ export async function inspectCheckpointObligations(
         definitionHash,
         matched,
         policyCommit,
+        related,
       );
       if ("error" in subject) {
         drops.push(entryDrop(
@@ -293,6 +317,7 @@ export async function inspectCheckpointObligations(
         obligation = {
           state: "unknown",
           matched: [...matched],
+          related: [...related],
           unknown: "subject_unavailable",
         };
       } else {
@@ -301,8 +326,10 @@ export async function inspectCheckpointObligations(
             definitionHash,
             subject: subject.subject.fingerprint,
             matched,
+            related,
           }),
           matched: [...matched],
+          related: [...related],
         };
       }
     }
@@ -418,6 +445,7 @@ export function checkpointInspectionHints(
             id: definition.id,
             question: definition.question.trim(),
             matched: [...outcome.matched],
+            related: relatedCheckpointData(outcome.related),
           }),
         );
       }
@@ -433,6 +461,7 @@ export function checkpointInspectionHints(
           id: definition.id,
           question: definition.question.trim(),
           matched: [...obligation.matched],
+          related: relatedCheckpointData(obligation.related),
           whenPending: false,
         }),
       );
@@ -445,6 +474,7 @@ export function checkpointInspectionHints(
           id: definition.id,
           question: definition.question.trim(),
           matched: [...obligation.matched],
+          related: relatedCheckpointData(obligation.related),
           whenPending: true,
         }),
       );

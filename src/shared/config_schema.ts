@@ -318,6 +318,12 @@ const checkpointValue = z.strictObject({
   paths: z.array(z.string()).optional().describe(
     `Selector: the globs that choose the matched set — a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. A checkpoint takes one selector: \`scope\` or \`paths\`. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
+  include_generated: z.boolean().optional().describe(
+    "Whether paths owned by governing [generated.<name>].paths participate in this checkpoint. Default false evaluates authored change only.",
+  ),
+  exclude_paths: z.array(z.string()).optional().describe(
+    `Checkpoint-specific noise to remove after selector resolution and before every condition, threshold, subject, evidence, and when match. Uses the selector glob dialect. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+  ),
   unless_changed: z.array(z.string()).optional().describe(
     `The trigger holds its fire when any changed path matches one of these — each entry a glob in the selector dialect, or the name of a configured [scopes.<name>]. Use it to express "this change class is fine when its counterpart moved too". ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),

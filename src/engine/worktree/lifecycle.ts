@@ -82,6 +82,7 @@ import {
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
+import { RELATED_CHECKPOINT_KIND_LABELS } from "../../shared/checkpoints.ts";
 import {
   type AcceptanceCheckpointState,
   inspectAcceptanceCheckpoints,
@@ -1907,6 +1908,11 @@ function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
     `${unmet.id} — declared unmet at ${unmet.declaredAt}`,
     `  Question: ${unmet.question.trim()}`,
     `  Changed: ${shown}${more}`,
+    ...unmet.related.map((relation) =>
+      `  ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
+        markdownCodeSpan(relation.path)
+      } resembles ${markdownCodeSpan(relation.forPath)}`
+    ),
     `  Rationale: ${markdownCodeSpan(unmet.why)}`,
   ];
   if (unmet.teach !== undefined && unmet.teach.trim() !== "") {
