@@ -449,6 +449,12 @@ export interface DiscernResult<TData = unknown> {
   /** Verb-specific payload that doesn't fit steps (checks, schema versions, file lists). */
   data?: TData | undefined;
   /**
+   * Internal serialization policy. Omitted from every public envelope: a verb
+   * can opt an explicitly requested result into its full structured wire
+   * projection while keeping the default bounded.
+   */
+  wireProjection?: "full" | undefined;
+  /**
    * Agent-facing "what next" advice (ADR 0030): the next-step nudges a human run
    * prints (check the standards, start the dev server, update the docs; on a failed
    * gate, where the gotchas are documented), promoted into the envelope so a quiet

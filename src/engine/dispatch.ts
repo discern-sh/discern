@@ -784,12 +784,12 @@ export function attachEngineCommands(
     .option(
       "--verbose",
       "Expand fleet attention, per-worktree evidence, configured checks, landing " +
-        "history, and full Proof pages. This affects the terminal presentation " +
-        "only; JSON and Markdown results remain compact.",
+        "history, and full Proof pages. With JSON, return complete structured " +
+        "status; the default is the bounded orientation projection.",
     )
     .option(
       "--json",
-      "Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).",
+      "Emit a bounded orientation DiscernResult on stdout; add --verbose for complete structured status.",
     )
     .action(recordedExit("status", async (o) => {
       const { runStatus } = await import("./status/status.ts");

@@ -23,6 +23,7 @@ import { markdownCodeSpan } from "./markdown_code.ts";
 import {
   type CommandRef,
   discernCommand,
+  extractCommandRefs,
   flag,
   ownerDiscernCommand,
   positional,
@@ -43,6 +44,7 @@ const CMD = {
   refresh: discernCommand("refresh"),
   accept: discernCommand("accept"),
   status: discernCommand("status"),
+  statusFull: discernCommand("status", flag("verbose"), flag("json")),
   start: discernCommand("start"),
   setupDone: discernCommand("setup done"),
 } as const;
@@ -54,10 +56,15 @@ const OWNER_STATUS_VERBOSE = ownerDiscernCommand("status", flag("verbose"));
 /**
  * How an entry means to steer the caller. `next-step` names the action to
  * take from here; `guardrail` states a rule protecting shared state before
- * it is broken; `notice` discloses a condition the caller should weigh but
- * need not act on.
+ * it is broken; `owner-attention` identifies a decision or supervisory concern
+ * that belongs to the owner and remains observational for the reading agent;
+ * `notice` discloses a condition the caller should weigh but need not act on.
  */
-export type HintCategory = "next-step" | "guardrail" | "notice";
+export type HintCategory =
+  | "next-step"
+  | "guardrail"
+  | "owner-attention"
+  | "notice";
 
 /**
  * A suppression flag for the interactive terminal presentation, not a format
@@ -241,6 +248,34 @@ export function fire<P>(
       ? {}
       : { interactiveText }),
   };
+}
+
+/**
+ * Fire a decision reserved for the owner. Fleet-status composition routes
+ * every cross-effort lifecycle judgment through this assertion, so a new
+ * sibling cannot silently become the reading agent's next step.
+ */
+export function fireOwnerAttention<P>(
+  def: HintDef<P>,
+  ...params: P extends void ? [] : [params: P]
+): FiredHint {
+  if (def.category !== "owner-attention") {
+    throw new Error(
+      `owner-attention hint ${def.id} is classified as ${def.category}`,
+    );
+  }
+  const fired = fire(def, ...params);
+  const callerCommands = fired.authored === undefined
+    ? []
+    : extractCommandRefs(fired.authored).filter((reference) =>
+      reference.executor === "caller"
+    );
+  if (callerCommands.length > 0) {
+    throw new Error(
+      `owner-attention hint ${def.id} carries an agent-executed command`,
+    );
+  }
+  return fired;
 }
 
 /** Project fired hints onto the envelope's wire shape, order preserved. */
@@ -903,22 +938,54 @@ export const HINTS = {
 
   "status-no-active-worktrees": defineHint({
     id: "status-no-active-worktrees",
-    category: "next-step",
+    category: "notice",
     audience: "all",
     when: "A fleet survey finds no active worktrees.",
     example: undefined,
+    template: (): string => "There are no active worktrees.",
+  }),
+
+  /** The one main-checkout action that is safe for the reading agent. */
+  "status-continue-own-effort": defineHint({
+    id: "status-continue-own-effort",
+    category: "next-step",
+    audience: "agent",
+    when:
+      "Status runs in the main checkout and setup is complete with a usable trunk.",
+    family: "status-start-here",
+    example: undefined,
     template: (): string =>
-      `Run ${CMD.start} to begin work. There are no active worktrees.`,
+      `Continue in the worktree assigned to this effort. If it has none and ` +
+      `the requested work requires changes, run ${CMD.start} from the main ` +
+      "checkout before editing.",
+  }),
+
+  /** The bounded projection advertises its explicit full-detail escape hatch. */
+  "status-full-structured-detail": defineHint({
+    id: "status-full-structured-detail",
+    category: "notice",
+    audience: "agent",
+    when:
+      "Status returns the default bounded structured orientation projection.",
+    example: undefined,
+    template: (): string =>
+      `This result uses the bounded orientation projection. For full structured ` +
+      `status, run ${CMD.statusFull}.`,
   }),
 
   "status-reappeared-worktree-paths": defineHint<{ total: number }>({
     id: "status-reappeared-worktree-paths",
-    category: "next-step",
+    category: "owner-attention",
     audience: "all",
     when:
       "Status finds a path discern removed with a worktree that exists again.",
     example: { total: 2 },
     template: ({ total }): string =>
+      `${total} removed worktree path${total === 1 ? " is" : "s are"} ` +
+      `present again. The owner decides whether to remove ${
+        total === 1 ? "it" : "them"
+      } after confirming that no program still writes there.`,
+    interactiveTemplate: ({ total }): string =>
       `${total} removed worktree path${total === 1 ? " is" : "s are"} ` +
       `present again. Review ${total === 1 ? "it" : "them"} with ` +
       `${
@@ -934,7 +1001,7 @@ export const HINTS = {
     names: readonly string[];
   }>({
     id: "status-dirty-fleet-members",
-    category: "next-step",
+    category: "owner-attention",
     audience: "all",
     when: "A fleet survey finds worktrees with uncommitted changes.",
     example: {
@@ -942,8 +1009,11 @@ export const HINTS = {
       names: ["hint-registry", "docs-refresh", "gate-copy", "cli-help"],
     },
     template: ({ total, names }): string =>
-      `Review ${total} worktree${total === 1 ? "" : "s"} with uncommitted ` +
-      `changes: ${boundedNameSummary(total, names)}.`,
+      `${total} other effort${total === 1 ? " has" : "s have"} uncommitted ` +
+      `changes: ${
+        boundedNameSummary(total, names)
+      }. The owner decides whether ` +
+      `${total === 1 ? "it needs" : "they need"} intervention.`,
     interactiveTemplate: ({ total, names }): string =>
       `${total} worktree${total === 1 ? " has" : "s have"} uncommitted ` +
       `changes: ${
@@ -959,7 +1029,7 @@ export const HINTS = {
     trunk: string;
   }>({
     id: "status-fleet-member-ready",
-    category: "next-step",
+    category: "owner-attention",
     audience: "all",
     when: "A fleet survey finds worktrees ready for owner review.",
     example: {
@@ -968,10 +1038,14 @@ export const HINTS = {
       trunk: "main",
     },
     template: ({ total, names, trunk }): string =>
-      `Review ${total} worktree${total === 1 ? "" : "s"} with committed work ` +
-      `ready for owner review: ${
+      `${total} other effort${total === 1 ? " is" : "s are"} ready for owner ` +
+      `review against ${markdownCodeSpan(trunk)}: ${
         boundedNameSummary(total, names)
-      }. Inspect a named branch with \`git diff ${trunk}...<branch>\`.`,
+      }. The owner ` +
+      `${
+        total === 1 ? "reviews its" : "reviews their"
+      } assigned branch before ` +
+      "deciding whether it lands.",
     interactiveTemplate: ({ total, names, trunk }): string =>
       `Review ${total} worktree${total === 1 ? "" : "s"} with committed work ` +
       `ready for owner review: ${
@@ -987,7 +1061,7 @@ export const HINTS = {
     names: readonly string[];
   }>({
     id: "status-fleet-authorized-landings",
-    category: "next-step",
+    category: "owner-attention",
     audience: "agent",
     when:
       "A fleet survey finds ready worktrees with machine-verified landing authority.",
@@ -997,11 +1071,13 @@ export const HINTS = {
       names: ["docs-refresh", "release-notes"],
     },
     template: ({ total, names }): string =>
-      `${total} ready worktree${
+      `${total} other ready effort${
         total === 1 ? " has" : "s have"
       } machine-verified landing authority: ${
         boundedNameSummary(total, names)
-      }. Open each worktree and run ${CMD.accept} now; acceptance rechecks its grant before landing.`,
+      }. ${total === 1 ? "It stays" : "They stay"} with ${
+        total === 1 ? "its" : "their"
+      } assigned session; recorded authority does not transfer between efforts.`,
   }),
 
   /** The fleet-wide collision check the survey-the-fleet skill once carried:
@@ -1078,7 +1154,7 @@ export const HINTS = {
     names: readonly string[];
   }>({
     id: "status-fleet-member-unreadable",
-    category: "next-step",
+    category: "owner-attention",
     audience: "all",
     when: "A fleet survey cannot read one or more worktree states.",
     example: {
@@ -1089,15 +1165,24 @@ export const HINTS = {
       const checkout = total === 1
         ? "Its checkout may be"
         : "Their checkouts may be";
-      return `Investigate ${total} worktree${
-        total === 1 ? "" : "s"
-      } whose git state cannot be read: ${boundedNameSummary(total, names)}. ` +
-        `${checkout} missing or damaged, so unsaved work is unverifiable. To ` +
-        `discard one, run ${
-          discernCommand("worktree drop", positional("name", "<name>"))
-        }. It refuses without ` +
-        "`--force` while the git state cannot be read.";
+      return `${total} worktree${total === 1 ? "" : "s"} ${
+        total === 1 ? "has" : "have"
+      } unreadable Git state: ${
+        boundedNameSummary(total, names)
+      }. ${checkout} missing or damaged, so unsaved work is unverifiable. The ` +
+        `owner decides whether to investigate or discard ${
+          total === 1 ? "the effort" : "each effort"
+        }.`;
     },
+    interactiveTemplate: ({ total, names }): string =>
+      `Investigate ${total} worktree${
+        total === 1 ? "" : "s"
+      } whose Git state ` +
+      `cannot be read: ${
+        boundedNameSummary(total, names)
+      }. To discard one, run ` +
+      `${discernCommand("worktree drop", positional("name", "<name>"))}; it ` +
+      "refuses without `--force` while the state is unverifiable.",
   }),
 
   /** One bounded summary for every fleet member whose setup never completed. */
@@ -1106,7 +1191,7 @@ export const HINTS = {
     names: readonly string[];
   }>({
     id: "status-fleet-member-broken",
-    category: "next-step",
+    category: "owner-attention",
     audience: "all",
     when: "A fleet survey finds worktrees whose setup never completed.",
     example: {
@@ -1117,13 +1202,18 @@ export const HINTS = {
       const checkout = total === 1
         ? "Its checkout may be"
         : "Their checkouts may be";
-      return `Discard ${total} worktree${
-        total === 1 ? "" : "s"
-      } whose setup never completed: ${boundedNameSummary(total, names)}. ` +
-        `${checkout} incomplete. Run ${
-          discernCommand("worktree drop", positional("name", "<name>"))
-        } for each.`;
+      return `${total} worktree${total === 1 ? "" : "s"} ${
+        total === 1 ? "has" : "have"
+      } incomplete setup: ${
+        boundedNameSummary(total, names)
+      }. ${checkout} incomplete. The owner decides whether to inspect or discard ` +
+        `${total === 1 ? "the effort" : "each effort"}.`;
     },
+    interactiveTemplate: ({ total, names }): string =>
+      `Discard ${total} worktree${total === 1 ? "" : "s"} whose setup never ` +
+      `completed: ${boundedNameSummary(total, names)}. Run ${
+        discernCommand("worktree drop", positional("name", "<name>"))
+      } for each.`,
   }),
 
   /** One bounded summary for every fleet member that looks abandoned. */
@@ -1132,7 +1222,7 @@ export const HINTS = {
     names: readonly string[];
   }>({
     id: "status-fleet-member-stale",
-    category: "next-step",
+    category: "owner-attention",
     audience: "all",
     when: "A fleet survey finds worktrees that appear inactive.",
     example: {
@@ -1143,14 +1233,11 @@ export const HINTS = {
       const subject = total === 1
         ? "worktree that looks"
         : "worktrees that look";
-      const sessions = total === 1 ? "its session" : "their sessions";
-      const discard = total === 1 ? "it" : "each";
-      return `Review ${total} ${subject} stale: ${
+      return `${total} ${subject} stale: ${
         boundedNameSummary(total, names)
-      }. ` +
-        `Resume ${sessions} or discard ${discard} with ` +
-        `${discernCommand("worktree drop", positional("name", "<name>"))}. ` +
-        "Status has already accounted for last activity and unlanded work.";
+      }. The owner decides whether to resume or discard ${
+        total === 1 ? "the effort" : "each effort"
+      }; status has already accounted for last activity and unlanded work.`;
     },
     interactiveTemplate: ({ total, names }): string => {
       const subject = total === 1 ? "worktree looks" : "worktrees look";
@@ -1167,21 +1254,26 @@ export const HINTS = {
 
   "status-unlanded-branches": defineHint<{ branches: readonly string[] }>({
     id: "status-unlanded-branches",
-    category: "next-step",
+    category: "owner-attention",
     audience: "all",
     when: "A fleet survey finds unlanded branches with no worktree.",
     example: { branches: ["agent/old-task", "agent/paused-task"] },
     template: ({ branches }): string =>
-      `Resume one with ${
+      `${branches.length} branch${branches.length === 1 ? "" : "es"} ${
+        branches.length === 1 ? "holds" : "hold"
+      } unlanded work with no ` +
+      `worktree: ${boundedNameSummary(branches.length, branches)}. The owner ` +
+      `decides whether to resume or delete ${
+        branches.length === 1 ? "it" : "them"
+      }.`,
+    interactiveTemplate: ({ branches }): string =>
+      `${branches.length} branch${branches.length === 1 ? "" : "es"} ${
+        branches.length === 1 ? "holds" : "hold"
+      } unlanded work with no worktree: ${
+        boundedNameSummary(branches.length, branches)
+      }. Resume one with ${
         discernCommand("start", flag("from", "<branch>"))
-      }, or use ` +
-      `${
-        discernCommand("update", flag("from", "<branch>"))
-      } from an existing worktree. Delete an ` +
-      `abandoned branch with \`git branch -D <branch>\`. ${branches.length} branch${
-        branches.length === 1 ? "" : "es"
-      } ${branches.length === 1 ? "holds" : "hold"} unlanded work with no ` +
-      `worktree: ${boundedNameSummary(branches.length, branches)}.`,
+      }, or delete an abandoned branch after review.`,
   }),
 
   /** A reclaimed stage ref remains reachable through the named live branch

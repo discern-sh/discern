@@ -31,6 +31,7 @@ import {
   failureRecoveryHintTexts,
   fire,
   type FiredHint,
+  fireOwnerAttention,
   HINTS,
   hintTexts,
 } from "../../shared/hints.ts";
@@ -164,13 +165,14 @@ export interface StatusOptions {
   all?: boolean;
   /** Local view only — suppress the fleet survey even in the main checkout. */
   local?: boolean;
+  /** Request the complete structured wire projection instead of orientation. */
+  verbose?: boolean;
   /** One effect-boundary clock shared by collection, hints, and presentation. */
   nowMs?: number;
 }
 
-/** CLI-only presentation flags. `verbose` prints the full proof page for an
- * honored branch (and each ready fleet row); the wire payload is identical with
- * or without it — `--json` and MCP always carry the proof (ADR 0188). */
+/** CLI presentation flags. `verbose` also selects the full structured wire
+ * projection when the result crosses a JSON or MCP boundary. */
 export interface StatusRenderOptions {
   verbose?: boolean;
   terminal?: TerminalContext;
@@ -641,10 +643,14 @@ export async function statusResult(
     logbookEnabled: cfg.project.logbook,
     checkpointPreview,
   });
+  if (opts.verbose !== true) {
+    hints.push(fire(HINTS["status-full-structured-detail"]));
+  }
   const result: DiscernResult<StatusData> = {
     ok: true,
     verb: "status",
     data,
+    ...(opts.verbose === true ? { wireProjection: "full" as const } : {}),
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
   };
   // Setup owns the session until bootstrapping completes. Afterwards, append
@@ -966,7 +972,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   }
   if (ctx.reappearedWorktreePaths.length > 0) {
     hints.push(
-      fire(HINTS["status-reappeared-worktree-paths"], {
+      fireOwnerAttention(HINTS["status-reappeared-worktree-paths"], {
         total: ctx.reappearedWorktreePaths.length,
       }),
     );
@@ -1076,9 +1082,11 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     // `ahead_trunk === null` is the "no local trunk" signal (the same
     // honesty rule that replaced the fabricated "0 ahead") — the off-trunk
     // wording would prescribe a `git switch` onto a branch that isn't there.
+    const missingTrunk = ctx.git !== null && ctx.git.branch !== main &&
+      ctx.git.ahead_trunk === null;
     hints.push(
       ctx.git !== null && ctx.git.branch !== main
-        ? ctx.git.ahead_trunk === null
+        ? missingTrunk
           ? fire(HINTS["status-missing-trunk"], {
             branch: ctx.git.branch,
             trunk: main,
@@ -1089,6 +1097,9 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           })
         : fire(HINTS["status-start-on-trunk"]),
     );
+    if (!missingTrunk) {
+      hints.push(fire(HINTS["status-continue-own-effort"]));
+    }
   }
 
   if (ctx.location === "worktree" && ctx.git !== null) {
@@ -1209,7 +1220,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       const dirty = others.filter((e) => e.clean === false);
       if (dirty.length > 0) {
         hints.push(
-          fire(HINTS["status-dirty-fleet-members"], {
+          fireOwnerAttention(HINTS["status-dirty-fleet-members"], {
             total: dirty.length,
             names: dirty.map((e) => e.id ?? e.branch),
           }),
@@ -1225,7 +1236,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       );
       if (authorizedReady.length > 0) {
         hints.push(
-          fire(HINTS["status-fleet-authorized-landings"], {
+          fireOwnerAttention(HINTS["status-fleet-authorized-landings"], {
             total: authorizedReady.length,
             names: authorizedReady.map((e) => e.id ?? e.branch),
           }),
@@ -1236,7 +1247,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       );
       if (reviewReady.length > 0) {
         hints.push(
-          fire(HINTS["status-fleet-member-ready"], {
+          fireOwnerAttention(HINTS["status-fleet-member-ready"], {
             total: reviewReady.length,
             names: reviewReady.map((e) => e.id ?? e.branch),
             trunk: main,
@@ -1253,7 +1264,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       );
       if (unreadable.length > 0) {
         hints.push(
-          fire(HINTS["status-fleet-member-unreadable"], {
+          fireOwnerAttention(HINTS["status-fleet-member-unreadable"], {
             total: unreadable.length,
             names: unreadable.map((e) => e.id ?? basename(e.path)),
           }),
@@ -1264,7 +1275,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       const broken = others.filter((e) => e.broken === true);
       if (broken.length > 0) {
         hints.push(
-          fire(HINTS["status-fleet-member-broken"], {
+          fireOwnerAttention(HINTS["status-fleet-member-broken"], {
             total: broken.length,
             names: broken.map((e) => e.id ?? basename(e.path)),
           }),
@@ -1282,7 +1293,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       });
       if (stale.length > 0) {
         hints.push(
-          fire(HINTS["status-fleet-member-stale"], {
+          fireOwnerAttention(HINTS["status-fleet-member-stale"], {
             total: stale.length,
             names: stale.map((e) => e.id ?? basename(e.path)),
           }),
@@ -1303,7 +1314,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     // Unlanded branches with no worktree — otherwise-invisible abandoned work.
     if (ctx.unlandedBranches !== undefined && ctx.unlandedBranches.length > 0) {
       hints.push(
-        fire(HINTS["status-unlanded-branches"], {
+        fireOwnerAttention(HINTS["status-unlanded-branches"], {
           branches: ctx.unlandedBranches,
         }),
       );
@@ -1362,6 +1373,7 @@ export async function runStatus(
   const result = await statusResult(root, {
     all: opts.all,
     local: opts.local,
+    verbose: opts.verbose,
     nowMs,
   });
   observeResult(result);

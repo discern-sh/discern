@@ -3,7 +3,8 @@
  *
  * The contract presenter selects the facts that matter. This shared renderer
  * adds bounded envelope evidence and registered hints, then enforces the order
- * current state -> evidence -> authority boundary -> next action.
+ * current state -> evidence -> authority boundary -> owner attention -> other
+ * actions -> next action.
  */
 
 import { format as formatBytes } from "@std/fmt/bytes";
@@ -19,6 +20,8 @@ export interface ResultMarkdownPresentation {
   supportingMarkdown?: readonly string[] | undefined;
   /** Authority, consent, or stop conditions that constrain the next move. */
   boundary?: readonly string[] | undefined;
+  /** Decisions or supervision that belong to the owner, not the reading agent. */
+  ownerAttention?: readonly string[] | undefined;
   /** Contract-specific actions. Registered next-step hints follow these. */
   action?: readonly string[] | undefined;
 }
@@ -412,7 +415,12 @@ interface ActionItem {
 /** Sort fired hint prose into evidence, boundary, and action channels. */
 function hintSections(
   result: Readonly<Record<string, unknown>>,
-): { evidence: string[]; boundary: string[]; action: ActionItem[] } {
+): {
+  evidence: string[];
+  boundary: string[];
+  ownerAttention: string[];
+  action: ActionItem[];
+} {
   const hintTexts = strings(result.hints);
   const fired = firedHintsFromTexts(
     Array.isArray(result.hints) ? result.hints as string[] : undefined,
@@ -436,6 +444,7 @@ function hintSections(
   }
   const evidence: string[] = [];
   const boundary: string[] = [];
+  const ownerAttention: string[] = [];
   const action: ActionItem[] = [];
   for (const hint of hintTexts) {
     const def = byText.get(hint);
@@ -446,6 +455,9 @@ function hintSections(
       case "guardrail":
         boundary.push(hint);
         break;
+      case "owner-attention":
+        ownerAttention.push(hint);
+        break;
       case "next-step":
         action.push({ text: hint, family: def?.family });
         break;
@@ -455,7 +467,7 @@ function hintSections(
         action.push({ text: hint, family: undefined });
     }
   }
-  return { evidence, boundary, action };
+  return { evidence, boundary, ownerAttention, action };
 }
 
 /** Indent a multi-line item's continuation lines one list level deeper. */
@@ -485,19 +497,17 @@ function withDetails(
   return [summary, ...rows.map((row) => `- ${indented(row, 1)}`)].join("\n");
 }
 
-/** Keep the immediate action at the context tail; later work stays visible
- * first, with each hint family's variants nested under its first item. */
-function renderActions(items: readonly ActionItem[]): string {
-  const [primary, ...later] = items;
-  if (primary === undefined) {
+/** Render secondary actions, nesting each hint family's variants under its head. */
+function renderOtherActions(items: readonly ActionItem[]): string {
+  if (items.length === 0) {
     return "";
   }
-  if (later.length === 0) {
-    return primary.text;
+  if (items.length === 1) {
+    return items[0]?.text ?? "";
   }
   const groups: { text: string; children: string[] }[] = [];
   const byFamily = new Map<string, { text: string; children: string[] }>();
-  for (const { text, family } of later) {
+  for (const { text, family } of items) {
     const head = family === undefined ? undefined : byFamily.get(family);
     if (head !== undefined) {
       head.children.push(text);
@@ -515,7 +525,7 @@ function renderActions(items: readonly ActionItem[]): string {
       ...group.children.map((child) => `  - ${indented(child, 2)}`),
     ].join("\n")
   ).join("\n");
-  return `Later:\n\n${deferred}\n\n**Do this next:** ${primary.text}`;
+  return deferred;
 }
 
 /** Render one contract's authored projection in the fixed agent-reading order. */
@@ -538,6 +548,10 @@ export function renderResultMarkdown(
   const boundary = unique([
     ...(presented.boundary ?? []),
     ...hints.boundary,
+  ]);
+  const ownerAttention = unique([
+    ...(presented.ownerAttention ?? []),
+    ...hints.ownerAttention,
   ]);
   const seenActions = new Set<string>();
   const action: ActionItem[] = [];
@@ -571,8 +585,17 @@ export function renderResultMarkdown(
   if (boundary.length > 0) {
     sections.push(`## Authority and boundaries\n\n${renderItems(boundary)}`);
   }
+  if (ownerAttention.length > 0) {
+    sections.push(`## Owner attention\n\n${renderItems(ownerAttention)}`);
+  }
   if (action.length > 0) {
-    sections.push(`## Next action\n\n${renderActions(action)}`);
+    const [primary, ...other] = action;
+    if (other.length > 0) {
+      sections.push(`## Other actions\n\n${renderOtherActions(other)}`);
+    }
+    if (primary !== undefined) {
+      sections.push(`## Next action\n\n${primary.text}`);
+    }
   }
   return `${sections.join("\n\n")}\n`;
 }
@@ -1303,6 +1326,13 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
   const git = object(data.git);
   const worktree = object(data.worktree);
   const fleet = records(data.fleet).filter((entry) => entry.is_main !== true);
+  const projection = object(data.projection);
+  const projectionCounts = object(projection?.omitted);
+  const fleetTotal = number(data.fleet_total) ?? fleet.length;
+  const fleetCollisionTotal = records(data.fleet_collisions).length +
+    (number(projectionCounts?.fleet_collisions) ?? 0);
+  const adrCollisionTotal = records(data.adr_collisions).length +
+    (number(projectionCounts?.adr_collisions) ?? 0);
   const branch = text(git?.branch) ?? text(worktree?.branch);
   const trunk = text(git?.trunk);
   const clean = boolean(git?.clean);
@@ -1346,21 +1376,19 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
       listFact("Incoming overlap", strings(git?.incoming_overlap)),
       listFact("Changed scopes", strings(data.scopes)),
       gateProofFact(data.gate_proof),
-      fleet.length === 0
+      fleetTotal === 0
         ? undefined
-        : `Fleet: ${plural(fleet.length, "active worktree")}.`,
+        : `Fleet: ${plural(fleetTotal, "active worktree")}.`,
       ...fleetFacts,
-      fleet.length > MAX_LIST_ITEMS
-        ? omitted(fleet.length - MAX_LIST_ITEMS, "fleet row")
+      fleetTotal > fleetFacts.length
+        ? omitted(fleetTotal - fleetFacts.length, "fleet row")
         : undefined,
-      records(data.fleet_collisions).length === 0
+      fleetCollisionTotal === 0
         ? undefined
-        : `Cross-worktree collisions: ${
-          records(data.fleet_collisions).length
-        }.`,
-      records(data.adr_collisions).length === 0
+        : `Cross-worktree collisions: ${fleetCollisionTotal}.`,
+      adrCollisionTotal === 0
         ? undefined
-        : `ADR number collisions: ${records(data.adr_collisions).length}.`,
+        : `ADR number collisions: ${adrCollisionTotal}.`,
       listFact(
         "Pending tracked refresh",
         strings(data.pending_tracked_refresh),

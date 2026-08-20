@@ -275,9 +275,12 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
     assertEquals(obj.data.location, "main");
+    assertEquals(obj.data.projection.mode, "orientation");
     assertEquals(obj.data.project, "engine-test");
     assertEquals(obj.data.worktree, null);
     assert(Array.isArray(obj.data.fleet), `expected a fleet: ${r.stdout}`);
+    assertEquals(obj.data.fleet_total, 1);
+    assertHasHint(obj, HINTS["status-full-structured-detail"]);
     // The main checkout is always a row, so nothing is hidden…
     assert(
       obj.data.fleet.some((e: { is_main: boolean }) => e.is_main),
@@ -308,6 +311,13 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
     }
     // Leading with the fleet omits the heavy local-only blocks.
     assertEquals(obj.data.gate, undefined);
+
+    const full = await runAgent(dir, ["status", "--verbose", "--json"]);
+    assertEquals(full.code, 0, full.output);
+    const fullObj = parseStatus(full.stdout);
+    assertEquals(fullObj.data.projection.mode, "full");
+    assertEquals(fullObj.data.fleet.length, 2);
+    assertLacksHint(fullObj, HINTS["status-full-structured-detail"]);
     assertEquals(obj.data.scopes, undefined);
 
     // --local suppresses the fleet and restores the local blocks.
@@ -1251,7 +1261,7 @@ Deno.test("status: a landed proof carries its commit time for the human age", as
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 0, accepted.output);
 
-    const status = await runAgent(dir, ["status", "--json"]);
+    const status = await runAgent(dir, ["status", "--verbose", "--json"]);
     assertEquals(status.code, 0, status.output);
     const result = parseStatus(status.stdout);
     const commitAt = result.data.landed_proof?.commit_at;

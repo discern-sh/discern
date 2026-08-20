@@ -3493,6 +3493,8 @@ Deno.test("discern mcp: status carries project identity and compact fleet proof 
       JSON.stringify(parsed),
     );
     assertEquals(parsed.data.project, "engine-test");
+    assertEquals(parsed.data.projection.mode, "orientation");
+    assertEquals(parsed.data.fleet_total, 1);
     const alpha = parsed.data.fleet?.find((row) =>
       row.branch === "agent/alpha"
     );
@@ -3501,6 +3503,27 @@ Deno.test("discern mcp: status carries project identity and compact fleet proof 
     assert(
       !("proof_honored" in alpha),
       "compact rows must not retain the honored-only compatibility copy",
+    );
+    assertStringIncludes(
+      (parsed.hints ?? []).join("\n"),
+      "`discern_status` (verbose: true)",
+    );
+
+    const full = await runTool(status, new WorkingRoot(dir), {
+      verbose: true,
+    });
+    const fullParsed = StatusOutputSchema.parse(full.structuredContent);
+    assert(
+      fullParsed.data !== undefined && "projection" in fullParsed.data,
+      JSON.stringify(fullParsed),
+    );
+    assertEquals(fullParsed.data.projection.mode, "full");
+    assertEquals(fullParsed.data.fleet?.length, 2);
+    assert(
+      !(fullParsed.hints ?? []).some((hint) =>
+        hint.includes("bounded orientation projection")
+      ),
+      JSON.stringify(fullParsed.hints),
     );
   });
 });

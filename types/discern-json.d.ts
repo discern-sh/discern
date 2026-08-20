@@ -4334,6 +4334,7 @@ export type DiscernStatusResult = {
         uncovered_total?: number;
       };
     }>;
+    fleet_total?: number;
     fleet_collisions?: Array<{
       branches: unknown;
       total: number;
@@ -4342,6 +4343,12 @@ export type DiscernStatusResult = {
       number: string;
       branches: Array<string>;
     }>;
+    projection: {
+      mode: "orientation" | "full";
+      omitted?: {
+        [key: string]: number;
+      };
+    };
   } | {
     issues: Array<{
       path: string;

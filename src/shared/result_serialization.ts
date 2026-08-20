@@ -78,5 +78,5 @@ export function serializeResult(r: DiscernResult): Record<string, unknown> {
   if (r.message !== undefined) {
     out.message = r.message;
   }
-  return resultWireProjectorForVerb(r.verb)?.(out) ?? out;
+  return resultWireProjectorForVerb(r.verb)?.(out, r) ?? out;
 }

@@ -1,4 +1,9 @@
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import {
   CLI_JSON_RESULT_CONTRACTS,
   resultPresenterForVerb,
@@ -7,7 +12,14 @@ import {
   renderResultMarkdown,
   type ResultMarkdownPresenter,
 } from "../src/shared/result_markdown.ts";
-import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
+import {
+  defineHint,
+  fire,
+  fireOwnerAttention,
+  type HintDef,
+  HINTS,
+  hintTexts,
+} from "../src/shared/hints.ts";
 import { projectStatusResult } from "../src/shared/result_wire.ts";
 import {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -18,6 +30,7 @@ import {
   confirmedBeginCommand,
   confirmedBeginCommandReference,
 } from "../src/shared/setup_messages.ts";
+import { extractCommandRefs } from "../src/shared/command_reference.ts";
 
 const PROOF_SENTINEL = "FULL-PROOF-PAGE".repeat(8_000);
 const UNCOVERED = Array.from(
@@ -139,6 +152,10 @@ Deno.test("every public result contract selects an authored Markdown presenter",
 Deno.test("Markdown orders state, evidence, boundary, and the immediate action at the tail", () => {
   const notice = fire(HINTS["status-fleet-logbook-disabled"]);
   const guardrail = fire(HINTS["gate-prove-it-works"]);
+  const ownerAttention = fire(HINTS["status-fleet-member-stale"], {
+    total: 1,
+    names: ["unrelated-effort"],
+  });
   const immediate = fire(HINTS["gate-trunk-advanced"]);
   const later = fire(HINTS["failure-recovery"], { verb: "status" });
   const result = {
@@ -153,7 +170,13 @@ Deno.test("Markdown orders state, evidence, boundary, and the immediate action a
       git: null,
       standards: [],
     },
-    hints: hintTexts([notice, guardrail, immediate, later]),
+    hints: hintTexts([
+      notice,
+      guardrail,
+      ownerAttention,
+      immediate,
+      later,
+    ]),
   };
   const presenter = resultPresenterForVerb("status");
   const rendered = renderResultMarkdown(result, presenter);
@@ -161,19 +184,87 @@ Deno.test("Markdown orders state, evidence, boundary, and the immediate action a
   const stateAt = rendered.indexOf("## Current state");
   const evidenceAt = rendered.indexOf("## Evidence");
   const boundaryAt = rendered.indexOf("## Authority and boundaries");
+  const ownerAttentionAt = rendered.indexOf("## Owner attention");
+  const otherActionsAt = rendered.indexOf("## Other actions");
   const actionAt = rendered.indexOf("## Next action");
   assert(stateAt >= 0 && stateAt < evidenceAt, rendered);
   assert(evidenceAt < boundaryAt, rendered);
-  assert(boundaryAt < actionAt, rendered);
+  assert(boundaryAt < ownerAttentionAt, rendered);
+  assert(ownerAttentionAt < otherActionsAt, rendered);
+  assert(otherActionsAt < actionAt, rendered);
   assertStringIncludes(rendered, notice.text);
   assertStringIncludes(rendered, guardrail.text);
-  assertStringIncludes(rendered, `Later:\n\n- ${later.text}`);
+  assertStringIncludes(rendered, ownerAttention.text);
+  assertStringIncludes(rendered, `## Other actions\n\n${later.text}`);
   assert(
     rendered.trimEnd().endsWith(immediate.text),
     `the immediate action must close the context:\n${rendered}`,
   );
   assertEquals(renderResultMarkdown(result, presenter), rendered);
   assert(!rendered.includes("\u001b["), rendered);
+});
+
+Deno.test("owner-attention classification enrolls current and future fleet decisions", () => {
+  const ownerHints = Object.values(HINTS)
+    .filter((def) => def.category === "owner-attention")
+    .map((def) => {
+      const generic = def as HintDef<unknown>;
+      const callerCommands = extractCommandRefs(
+        generic.template(generic.example),
+      ).filter((reference) => reference.executor === "caller");
+      assertEquals(
+        callerCommands,
+        [],
+        `${generic.id} gives an owner decision an agent-executed command`,
+      );
+      return fireOwnerAttention(generic, generic.example);
+    });
+  const next = fire(HINTS["status-continue-own-effort"]);
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "status",
+      data: { location: "main", project: "example" },
+      hints: hintTexts([...ownerHints, next]),
+    },
+    resultPresenterForVerb("status"),
+  );
+  const ownerSection = rendered.slice(
+    rendered.indexOf("## Owner attention"),
+    rendered.indexOf("## Next action"),
+  );
+  for (const hint of ownerHints) {
+    assertStringIncludes(ownerSection, hint.text);
+  }
+  assert(rendered.trimEnd().endsWith(next.text), rendered);
+
+  const futureSibling = defineHint({
+    id: "status-future-sibling-decision",
+    category: "next-step",
+    audience: "agent",
+    example: undefined,
+    template: () => "Change an unrelated effort.",
+  });
+  assertThrows(
+    () => fireOwnerAttention(futureSibling),
+    Error,
+    "classified as next-step",
+  );
+  const futureCommand = defineHint({
+    id: "status-future-owner-command",
+    category: "owner-attention",
+    audience: "agent",
+    example: undefined,
+    template: () =>
+      `Maintain the unrelated effort with ${
+        HINTS["status-continue-own-effort"].template(undefined)
+      }`,
+  });
+  assertThrows(
+    () => fireOwnerAttention(futureCommand),
+    Error,
+    "agent-executed command",
+  );
 });
 
 Deno.test("status wire and Markdown remove repeated Proof pages within a combined budget", () => {
@@ -212,6 +303,89 @@ Deno.test("status wire and Markdown remove repeated Proof pages within a combine
   const authority = active.landing_authority as Record<string, unknown>;
   assertEquals((authority.uncovered as unknown[]).length, 6);
   assertEquals(authority.uncovered_total, UNCOVERED.length);
+});
+
+Deno.test("default status wire stays bounded as unrelated fleet state grows", () => {
+  const result = minimalStatusResult();
+  const data = result.data as Record<string, unknown>;
+  const fleet = data.fleet as Record<string, unknown>[];
+  const row = fleet[1] ?? {};
+  data.fleet = [
+    fleet[0],
+    ...Array.from({ length: 80 }, (_, index) => ({
+      ...row,
+      path: `/workspace/project.worktrees/unrelated-${index}`,
+      branch: `agent/unrelated-${index}`,
+      id: `unrelated-${index}`,
+    })),
+  ];
+  data.standards = Array.from(
+    { length: 80 },
+    (_, index) => `standard-${index}`,
+  );
+  data.unlanded_branches = Array.from(
+    { length: 80 },
+    (_, index) => `agent/parked-${index}`,
+  );
+
+  const projected = projectStatusResult(result);
+  StatusOutputSchema.parse(projected);
+  const structured = JSON.stringify(projected);
+  const markdown = renderResultMarkdown(
+    projected,
+    resultPresenterForVerb("status"),
+  );
+  const projectedData = projected.data as Record<string, unknown>;
+  const projection = projectedData.projection as Record<string, unknown>;
+  const omitted = projection.omitted as Record<string, unknown>;
+
+  assertEquals(projection.mode, "orientation");
+  assertEquals((projectedData.fleet as unknown[]).length, 7);
+  assertEquals(projectedData.fleet_total, 80);
+  assertEquals(omitted.fleet, 74);
+  assertEquals((projectedData.standards as unknown[]).length, 6);
+  assertEquals(omitted.standards, 74);
+  assertEquals((projectedData.unlanded_branches as unknown[]).length, 6);
+  assertEquals(omitted.unlanded_branches, 74);
+  assert(
+    structured.length + markdown.length < 16_000,
+    `bounded status result used ${
+      structured.length + markdown.length
+    } characters across structured and Markdown projections`,
+  );
+  assert(!structured.includes("agent/unrelated-79"), structured);
+  assert(!structured.includes("agent/parked-79"), structured);
+
+  // A fresh-named future collection enrolls without joining a projection list.
+  const future = minimalStatusResult();
+  const futureData = future.data as Record<string, unknown>;
+  futureData.future_observations = Array.from(
+    { length: 80 },
+    (_, index) => `observation-${index}`,
+  );
+  const futureProjected = projectStatusResult(future);
+  const futureProjectedData = futureProjected.data as Record<string, unknown>;
+  assertEquals(
+    (futureProjectedData.future_observations as unknown[]).length,
+    6,
+  );
+  assertEquals(
+    ((futureProjectedData.projection as Record<string, unknown>)
+      .omitted as Record<string, unknown>).future_observations,
+    74,
+  );
+
+  const full = projectStatusResult(result, { wireProjection: "full" });
+  StatusOutputSchema.parse(full);
+  const fullData = full.data as Record<string, unknown>;
+  assertEquals(
+    (fullData.projection as Record<string, unknown>).mode,
+    "full",
+  );
+  assertEquals((fullData.fleet as unknown[]).length, 81);
+  assertEquals((fullData.standards as unknown[]).length, 80);
+  assertEquals((fullData.unlanded_branches as unknown[]).length, 80);
+  assert(JSON.stringify(full).length > structured.length);
 });
 
 Deno.test("requested documentation remains intact in the Markdown projection", () => {
@@ -498,13 +672,14 @@ Deno.test("bounded-list overflow lines agree with their counts", () => {
 Deno.test("overflow sentences render only through the shared omitted() helper", async () => {
   const source = await Deno.readTextFile("src/shared/result_markdown.ts");
   const occurrences = source.match(/omitted(?!\()/g) ?? [];
-  // The helper body and the capText marker are the two sanctioned spellings
-  // (identifier uses are excluded). A new hand-rolled "N additional things
-  // omitted." line must route through omitted() so count and noun agree.
-  assertEquals(occurrences.length, 2, "route overflow lines through omitted()");
+  // The helper body, the capText marker, and status projection.omitted are the
+  // three sanctioned spellings (identifier uses are excluded). A new
+  // hand-rolled "N additional things omitted." line must route through
+  // omitted() so count and noun agree.
+  assertEquals(occurrences.length, 3, "route overflow lines through omitted()");
 });
 
-Deno.test("later actions group one hint family under its first item", () => {
+Deno.test("other actions group one hint family under its first item", () => {
   const header = fire(HINTS["coupling-diff-header"]);
   const partner = fire(HINTS["coupling-diff-partner"], {
     from: "src/main.ts",
@@ -528,7 +703,7 @@ Deno.test("later actions group one hint family under its first item", () => {
   );
   assertStringIncludes(
     rendered,
-    `Later:\n\n- ${partner.text}\n  - ${strongPair.text}`,
+    `## Other actions\n\n- ${partner.text}\n  - ${strongPair.text}`,
   );
   assert(rendered.trimEnd().endsWith(header.text), rendered);
 });

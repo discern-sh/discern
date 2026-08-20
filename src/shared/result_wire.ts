@@ -7,9 +7,15 @@
  * `result_schemas.ts`.
  */
 
+/** Internal result policy available to a wire projector, never serialized. */
+export interface ResultWireSource {
+  readonly wireProjection?: "full" | undefined;
+}
+
 /** One optional per-contract transformation at the serialization boundary. */
 export type ResultWireProjector = (
   result: Record<string, unknown>,
+  source?: ResultWireSource,
 ) => Record<string, unknown>;
 
 /** Narrow one unknown wire value to a plain object. */
@@ -53,6 +59,7 @@ function proofSummary(value: unknown): Record<string, unknown> | undefined {
 }
 
 const STATUS_AUTHORITY_PATH_LIMIT = 6;
+const STATUS_ORIENTATION_LIST_LIMIT = 6;
 
 /** Bound path-level landing evidence while retaining the exact stop decision. */
 function landingAuthoritySummary(
@@ -142,8 +149,8 @@ export const projectGateResult: ResultWireProjector = (
     };
   });
 
-/** Project one status payload for JSON, Markdown, MCP, or the status resource. */
-export function projectStatusData(
+/** Project one status payload without its nested rendered Proof copies. */
+function compactStatusData(
   data: Record<string, unknown>,
 ): Record<string, unknown> {
   const projected: Record<string, unknown> = { ...data };
@@ -217,10 +224,152 @@ export function projectStatusData(
   return projected;
 }
 
-/** `status`: remove every nested rendered Proof copy at the wire boundary. */
+const STATUS_ORIENTATION_FLEET_FIELDS = [
+  "path",
+  "is_main",
+  "is_current",
+  "branch",
+  "clean",
+  "changed_files",
+  "ahead",
+  "behind",
+  "last_activity",
+  "last_action",
+  "running",
+  "contained_in",
+  "git_unavailable",
+  "id",
+  "port",
+  "broken",
+  "gate_proof",
+  "landing_authority",
+] as const;
+
+/**
+ * Bound every repeated collection recursively. This is deliberately shape-
+ * generic: a future status array enrolls without joining a hand-copied field
+ * list. The fleet has its own main-plus-six sampling rule below.
+ */
+function orientRepeatedValue(
+  value: unknown,
+  path: string,
+  omitted: Record<string, number>,
+): unknown {
+  if (Array.isArray(value)) {
+    const sampled = value.slice(0, STATUS_ORIENTATION_LIST_LIMIT);
+    if (value.length > sampled.length) {
+      omitted[path] = value.length - sampled.length;
+    }
+    return sampled.map((entry, index) =>
+      orientRepeatedValue(entry, `${path}[${index}]`, omitted)
+    );
+  }
+  const record = object(value);
+  if (record === undefined) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(record).map(([key, entry]) => [
+      key,
+      orientRepeatedValue(
+        entry,
+        path === "" ? key : `${path}.${key}`,
+        omitted,
+      ),
+    ]),
+  );
+}
+
+/** Bound the default status payload to the facts needed for agent orientation. */
+function orientStatusData(
+  compact: Record<string, unknown>,
+): Record<string, unknown> {
+  const omitted: Record<string, number> = {};
+  const orientationSource: Record<string, unknown> = { ...compact };
+
+  // Landing history is review detail rather than session orientation. Its
+  // availability is advertised by the projection hint and explicit full mode.
+  delete orientationSource.landed_proof;
+  delete orientationSource.landed_proof_unsupported;
+  delete orientationSource.fleet;
+  const projected = orientRepeatedValue(
+    orientationSource,
+    "",
+    omitted,
+  ) as Record<string, unknown>;
+
+  const worktree = object(projected.worktree);
+  const resources = object(worktree?.resources);
+  if (worktree !== undefined && resources !== undefined) {
+    const entries = Object.entries(resources);
+    if (entries.length > STATUS_ORIENTATION_LIST_LIMIT) {
+      projected.worktree = {
+        ...worktree,
+        resources: Object.fromEntries(
+          entries.slice(0, STATUS_ORIENTATION_LIST_LIMIT),
+        ),
+      };
+      omitted["worktree.resources"] = entries.length -
+        STATUS_ORIENTATION_LIST_LIMIT;
+    }
+  }
+
+  const fleet = Array.isArray(compact.fleet) ? compact.fleet : undefined;
+  if (fleet !== undefined) {
+    const rows = fleet.flatMap((entry) => {
+      const row = object(entry);
+      return row === undefined ? [] : [row];
+    });
+    const main = rows.filter((row) => row.is_main === true);
+    const active = rows.filter((row) => row.is_main !== true);
+    const sampled = [
+      ...main.slice(0, 1),
+      ...active.slice(0, STATUS_ORIENTATION_LIST_LIMIT),
+    ];
+    projected.fleet = sampled.map((row, index) =>
+      orientRepeatedValue(
+        copyDefined(row, STATUS_ORIENTATION_FLEET_FIELDS),
+        `fleet[${index}]`,
+        omitted,
+      )
+    );
+    projected.fleet_total = active.length;
+    const hidden = rows.length - sampled.length;
+    if (hidden > 0) {
+      omitted.fleet = hidden;
+    }
+  }
+
+  projected.projection = {
+    mode: "orientation",
+    ...(Object.keys(omitted).length === 0 ? {} : { omitted }),
+  };
+  return projected;
+}
+
+/** Project one status payload for JSON, Markdown, MCP, or the status resource. */
+export function projectStatusData(
+  data: Record<string, unknown>,
+  options: { readonly full?: boolean } = {},
+): Record<string, unknown> {
+  const compact = compactStatusData(data);
+  return options.full === true
+    ? { ...compact, projection: { mode: "full" } }
+    : orientStatusData(compact);
+}
+
+/** `status`: default to orientation; explicit verbose requests full detail. */
 export const projectStatusResult: ResultWireProjector = (
   result: Record<string, unknown>,
-): Record<string, unknown> => projectData(result, projectStatusData);
+  source: ResultWireSource | undefined,
+): Record<string, unknown> =>
+  projectData(
+    result,
+    (data) =>
+      projectStatusData(data, {
+        full: source?.wireProjection === "full",
+      }),
+  );
 
 /** `accept`: keep landing evidence and the one-line Proof, not the PR-body page. */
 export const projectAcceptResult: ResultWireProjector = (

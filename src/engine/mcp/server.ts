@@ -391,25 +391,20 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: StatusOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "Start here: call discern_status. It is a read-only account of current project, Git, " +
-      "worktree, and fleet state; it runs no gate, tests, standards, or setup " +
-      'effects. data.location is "main" or "worktree", data.project identifies the ' +
-      "project, and data.git carries cleanliness, changed-file count, trunk " +
-      "divergence, and incoming_overlap when both sides changed the same paths. " +
-      "data.gate lists checks that would run. data.gate_proof carries its inspection " +
-      "status and, when honored, compact Proof facts plus the report line; retrieve " +
-      "the full review page with `discern status --verbose`. data.worktree carries " +
-      "identity and resources. Results from the main checkout add data.fleet with one row per " +
-      "worktree, activity, compact gate_proof, and any landing_authority. Treat every " +
-      "other row as somebody's separate effort even when clean. Fleet collisions, " +
-      "unlanded branches, and reappeared_worktree_paths remain explicit evidence. " +
-      "data.stale_generated, stale_materialized, stale_integrations, and " +
-      "stale_adr_index identify drift repaired by discern_refresh; " +
-      "data.setup_unfinished marks incomplete " +
-      "setup. landing_authority states whether recorded permission covers the exact " +
-      "tree or conversation consent is still required. Set all=true to include the " +
-      "fleet from a worktree, or local=true to suppress it. Follow hints[] for the " +
-      "next valid action; they never claim an unverified pass.",
+      "Start here: call discern_status. Read-only: reports the current project, Git, worktree, and fleet " +
+      "situation without running gates, tests, standards, or setup effects. The " +
+      "default structuredContent is a bounded orientation projection: data.projection " +
+      "names the mode and true omitted counts, while data.fleet_total preserves fleet " +
+      "size. Set verbose=true only when complete structured detail is genuinely needed. " +
+      "data.location distinguishes the main checkout from a worktree; data.git reports " +
+      "cleanliness and trunk divergence; data.gate lists checks that would run; " +
+      "data.gate_proof reports existing Proof state; data.worktree carries identity; " +
+      "and main-checkout results sample data.fleet. Treat every other fleet row as a " +
+      "separate effort. incoming_overlap, reappeared_worktree_paths, setup_unfinished, " +
+      "stale_generated, stale_materialized, stale_integrations, and stale_adr_index " +
+      "preserve exceptions repaired by discern_refresh. Owner decisions appear under Owner attention. " +
+      "Next action belongs to the reading agent. Set all=true to include the fleet from a worktree, " +
+      "or local=true to suppress it.",
     inputSchema: {
       all: z.boolean().optional().describe(
         "Include the fleet survey even from a worktree (default false).",
@@ -417,12 +412,16 @@ export const TOOLS: McpTool[] = orderTools([
       local: z.boolean().optional().describe(
         "Local view only — suppress the fleet survey even in the main checkout (default false).",
       ),
+      verbose: z.boolean().optional().describe(
+        "Return complete structured status; the default is the bounded orientation projection.",
+      ),
       ...PATH_PARAM,
     },
     run: (root, args) =>
       statusResult(root, {
         all: args.all === true,
         local: args.local === true,
+        verbose: args.verbose === true,
       }),
   }),
   defineTool({

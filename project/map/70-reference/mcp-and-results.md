@@ -91,28 +91,28 @@ Map search includes `publish: false`. Docs search covers the public manual. Both
 
 ## The `DiscernResult` envelope
 
-| Field         | Presence      | Caller-visible meaning                                                             |
-| ------------- | ------------- | ---------------------------------------------------------------------------------- |
-| `ok`          | Always        | Success verdict.                                                                   |
-| `verb`        | Always        | Producing command.                                                                 |
-| `dry_run`     | Preview       | `true` for a preview.                                                              |
-| `plan`        | Preview       | Context and steps that would run.                                                  |
-| `steps`       | Applied calls | Attempted operations and outcomes.                                                 |
-| `diagnostics` | Failures      | Failure details and reproduce command.                                             |
-| `data`        | Verb-specific | The verb's payload.                                                                |
-| `hints`       | Advisory      | Next actions for the current surface. Failures carry one. Hints never change `ok`. |
-| `error`       | Refusals      | Stable refusal slug.                                                               |
-| `message`     | Refusals      | Explanatory refusal.                                                               |
+| Field         | Presence      | Caller-visible meaning                                                                                     |
+| ------------- | ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `ok`          | Always        | Success verdict.                                                                                           |
+| `verb`        | Always        | Producing command.                                                                                         |
+| `dry_run`     | Preview       | `true` for a preview.                                                                                      |
+| `plan`        | Preview       | Context and steps that would run.                                                                          |
+| `steps`       | Applied calls | Attempted operations and outcomes.                                                                         |
+| `diagnostics` | Failures      | Failure details and reproduce command.                                                                     |
+| `data`        | Verb-specific | The verb's payload.                                                                                        |
+| `hints`       | Advisory      | Notices, boundaries, owner attention, and next actions. Failures carry an action. Hints never change `ok`. |
+| `error`       | Refusals      | Stable refusal slug.                                                                                       |
+| `message`     | Refusals      | Explanatory refusal.                                                                                       |
 
 Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`.
 
-A failed JSON, Markdown, or MCP result always includes a registered next action. JSON and `structuredContent` carry it in `hints`; Markdown places it at the end of the presentation. When `message` or the first `diagnostics` entry explains the correction, the hint points there. When recovery depends on a choice or reported state, the hint names the relevant state and action. Consent, partial operations, incomplete setup, document lookup, and improvement thresholds use these specific instructions. A caller therefore does not have to infer whether to retry, review, choose, or complete cleanup ([ADR 0266](../_adr/0266-public-failure-recovery-is-classified-by-error-family.md)).
+A failed JSON, Markdown, or MCP result always includes a registered next action. JSON and `structuredContent` carry it in `hints`; Markdown places it at the end of the presentation. Owner decisions occupy a separate Owner attention section before caller actions. When `message` or the first `diagnostics` entry explains the correction, the hint points there. When recovery depends on a choice or reported state, the hint names the relevant state and action. Consent, partial operations, incomplete setup, document lookup, and improvement thresholds use these specific instructions. A caller therefore does not have to infer whether to retry, review, choose, or complete cleanup ([ADR 0266](../_adr/0266-public-failure-recovery-is-classified-by-error-family.md)).
 
 `setup begin` and `accept` check for the required permission before changing anything. Without permission, they return `awaiting_consent` and leave the project unchanged. The result names what needs review and gives the confirmed command that continues the operation. `setup begin` provides this contract in terminal, JSON, and Markdown CLI output. `accept` also provides it through MCP. Dry runs need no permission because they only show the plan.
 
 `start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered-path evidence, and warnings. Compact status and done results bound uncovered paths to six authored-first examples beside uncovered totals and scopes; `start` grants are prospective. An absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
 
-`status` identifies the project in `data.project`. Every readable non-main `data.fleet` row carries one `gate_proof`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored current-format marker carries a compact `proof` with branch, trunk, validated commit, diff counts, and line. An older marker may carry `proof_line` alone. Rendered Proof pages and the earlier honored-only compatibility fields do not cross the compact-result boundary. Collision rows retain identities and shared-path counts; terminal `--verbose` holds their path lists. `data.landed_proof.proof` uses the same compact shape, and `commit_at` carries its committer timestamp when Git can read it. See [Status and session hints](../30-worktrees/status.md) for the dashboard and projections.
+`status` identifies the project in `data.project`. Its default structured projection retains the main fleet row and at most six non-main rows; `fleet_total` and `projection.omitted` preserve exact counts. Every sampled readable row carries one `gate_proof`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. An honored current-format marker carries a compact `proof` with branch, trunk, validated commit, diff counts, and line. An older marker may carry `proof_line` alone. Rendered Proof pages and the earlier honored-only compatibility fields do not cross the structured-result boundary. Collision rows retain identities and shared-path counts. `discern status --verbose --json` and MCP `verbose: true` restore complete repeated collections and landing history; terminal `--verbose` also holds collision paths and full Proof pages. See [Status and session hints](../30-worktrees/status.md) for the dashboard and projections.
 
 A green `done` result uses the same compact `data.proof`. A successful `accept` carries only its consent-qualified `data.proof_line`; the paste-ready review page remains available through terminal `discern status --verbose`. These projections remove repeated renderings while preserving the claim needed to report the result.
 
@@ -148,7 +148,7 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 
 | URI                                             | Payload                                        |
 | ----------------------------------------------- | ---------------------------------------------- |
-| `discern://status`                              | Live compact status data.                      |
+| `discern://status`                              | Live bounded status-orientation data.          |
 | `discern://impact`                              | Current scope-impact data.                     |
 | `discern://config`                              | Resolved `discern.toml` data.                  |
 | `discern://docs` and `discern://docs/{+target}` | The manual index or one manual page.           |

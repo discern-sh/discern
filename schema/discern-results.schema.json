@@ -14793,6 +14793,11 @@
                     ]
                   }
                 },
+                "fleet_total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
                 "fleet_collisions": {
                   "type": "array",
                   "items": {
@@ -14839,6 +14844,32 @@
                       "branches"
                     ]
                   }
+                },
+                "projection": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "orientation",
+                        "full"
+                      ]
+                    },
+                    "omitted": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
                 }
               },
               "required": [
@@ -14846,7 +14877,8 @@
                 "root",
                 "worktree",
                 "git",
-                "standards"
+                "standards",
+                "projection"
               ]
             },
             {

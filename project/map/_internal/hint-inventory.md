@@ -1621,16 +1621,27 @@ Rendered example:
 
 > The reclaimed stage ref `agent/upload-retry` remains reachable through `agent/upload-retry-stage-2` until the contained work lands. Ordinary prune then removes the ref. No action is required.
 
-## `status-dirty-fleet-members`
+## `status-continue-own-effort`
 
 - Category: `next-step`
+- Audience: `agent`
+- Family: `status-start-here`
+- Emitting context: Status runs in the main checkout and setup is complete with a usable trunk.
+
+Rendered example:
+
+> Continue in the worktree assigned to this effort. If it has none and the requested work requires changes, run `discern start` from the main checkout before editing.
+
+## `status-dirty-fleet-members`
+
+- Category: `owner-attention`
 - Audience: `all`
 - Family: —
 - Emitting context: A fleet survey finds worktrees with uncommitted changes.
 
 Rendered example:
 
-> Review 5 worktrees with uncommitted changes: hint-registry, docs-refresh, gate-copy, … (+2 more).
+> 5 other efforts have uncommitted changes: hint-registry, docs-refresh, gate-copy, … (+2 more). The owner decides whether they need intervention.
 
 Interactive example:
 
@@ -1660,14 +1671,14 @@ Rendered example:
 
 ## `status-fleet-authorized-landings`
 
-- Category: `next-step`
+- Category: `owner-attention`
 - Audience: `agent`
 - Family: `landing-authority`
 - Emitting context: A fleet survey finds ready worktrees with machine-verified landing authority.
 
 Rendered example:
 
-> 2 ready worktrees have machine-verified landing authority: docs-refresh, release-notes. Open each worktree and run `discern accept` now; acceptance rechecks its grant before landing.
+> 2 other ready efforts have machine-verified landing authority: docs-refresh, release-notes. They stay with their assigned session; recorded authority does not transfer between efforts.
 
 ## `status-fleet-collisions`
 
@@ -1697,25 +1708,29 @@ Rendered example:
 
 ## `status-fleet-member-broken`
 
-- Category: `next-step`
+- Category: `owner-attention`
 - Audience: `all`
 - Family: —
 - Emitting context: A fleet survey finds worktrees whose setup never completed.
 
 Rendered example:
 
-> Discard 5 worktrees whose setup never completed: incomplete, crashed, half-built, … (+2 more). Their checkouts may be incomplete. Run `discern worktree drop <name>` for each.
+> 5 worktrees have incomplete setup: incomplete, crashed, half-built, … (+2 more). Their checkouts may be incomplete. The owner decides whether to inspect or discard each effort.
+
+Interactive example:
+
+> Discard 5 worktrees whose setup never completed: incomplete, crashed, half-built, … (+2 more). Run `discern worktree drop <name>` for each.
 
 ## `status-fleet-member-ready`
 
-- Category: `next-step`
+- Category: `owner-attention`
 - Audience: `all`
 - Family: —
 - Emitting context: A fleet survey finds worktrees ready for owner review.
 
 Rendered example:
 
-> Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). Inspect a named branch with `git diff main...<branch>`.
+> 5 other efforts are ready for owner review against `main`: hint-registry, docs-refresh, gate-copy, … (+2 more). The owner reviews their assigned branch before deciding whether it lands.
 
 Interactive example:
 
@@ -1723,14 +1738,14 @@ Interactive example:
 
 ## `status-fleet-member-stale`
 
-- Category: `next-step`
+- Category: `owner-attention`
 - Audience: `all`
 - Family: —
 - Emitting context: A fleet survey finds worktrees that appear inactive.
 
 Rendered example:
 
-> Review 5 worktrees that look stale: stale-task, old-fix, paused-docs, … (+2 more). Resume their sessions or discard each with `discern worktree drop <name>`. Status has already accounted for last activity and unlanded work.
+> 5 worktrees that look stale: stale-task, old-fix, paused-docs, … (+2 more). The owner decides whether to resume or discard each effort; status has already accounted for last activity and unlanded work.
 
 Interactive example:
 
@@ -1738,14 +1753,29 @@ Interactive example:
 
 ## `status-fleet-member-unreadable`
 
-- Category: `next-step`
+- Category: `owner-attention`
 - Audience: `all`
 - Family: —
 - Emitting context: A fleet survey cannot read one or more worktree states.
 
 Rendered example:
 
-> Investigate 5 worktrees whose git state cannot be read: damaged, missing, unreadable, … (+2 more). Their checkouts may be missing or damaged, so unsaved work is unverifiable. To discard one, run `discern worktree drop <name>`. It refuses without `--force` while the git state cannot be read.
+> 5 worktrees have unreadable Git state: damaged, missing, unreadable, … (+2 more). Their checkouts may be missing or damaged, so unsaved work is unverifiable. The owner decides whether to investigate or discard each effort.
+
+Interactive example:
+
+> Investigate 5 worktrees whose Git state cannot be read: damaged, missing, unreadable, … (+2 more). To discard one, run `discern worktree drop <name>`; it refuses without `--force` while the state is unverifiable.
+
+## `status-full-structured-detail`
+
+- Category: `notice`
+- Audience: `agent`
+- Family: —
+- Emitting context: Status returns the default bounded structured orientation projection.
+
+Rendered example:
+
+> This result uses the bounded orientation projection. For full structured status, run `discern status --verbose --json`.
 
 ## `status-land-under-verified-authority`
 
@@ -1793,14 +1823,14 @@ Rendered example:
 
 ## `status-no-active-worktrees`
 
-- Category: `next-step`
+- Category: `notice`
 - Audience: `all`
 - Family: —
 - Emitting context: A fleet survey finds no active worktrees.
 
 Rendered example:
 
-> Run `discern start` to begin work. There are no active worktrees.
+> There are no active worktrees.
 
 ## `status-ready-for-review`
 
@@ -1826,12 +1856,16 @@ Rendered example:
 
 ## `status-reappeared-worktree-paths`
 
-- Category: `next-step`
+- Category: `owner-attention`
 - Audience: `all`
 - Family: —
 - Emitting context: Status finds a path discern removed with a worktree that exists again.
 
 Rendered example:
+
+> 2 removed worktree paths are present again. The owner decides whether to remove them after confirming that no program still writes there.
+
+Interactive example:
 
 > 2 removed worktree paths are present again. Review them with `discern worktree prune --dry-run`. Close any program still writing into those paths before confirming removal.
 
@@ -1859,14 +1893,18 @@ Rendered example:
 
 ## `status-unlanded-branches`
 
-- Category: `next-step`
+- Category: `owner-attention`
 - Audience: `all`
 - Family: —
 - Emitting context: A fleet survey finds unlanded branches with no worktree.
 
 Rendered example:
 
-> Resume one with `discern start --from <branch>`, or use `discern update --from <branch>` from an existing worktree. Delete an abandoned branch with `git branch -D <branch>`. 2 branches hold unlanded work with no worktree: agent/old-task, agent/paused-task.
+> 2 branches hold unlanded work with no worktree: agent/old-task, agent/paused-task. The owner decides whether to resume or delete them.
+
+Interactive example:
+
+> 2 branches hold unlanded work with no worktree: agent/old-task, agent/paused-task. Resume one with `discern start --from <branch>`, or delete an abandoned branch after review.
 
 ## `test-job-not-configured`
 

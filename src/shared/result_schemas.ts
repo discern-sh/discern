@@ -1529,6 +1529,13 @@ export const StatusDataSchema = z.strictObject({
 });
 export type StatusData = z.infer<typeof StatusDataSchema>;
 
+/** Which structured status projection crossed the result boundary. */
+const StatusProjectionSchema = z.strictObject({
+  mode: z.enum(["orientation", "full"]),
+  /** True counts for lists omitted from the bounded orientation projection. */
+  omitted: z.record(z.string(), z.number().int().positive()).optional(),
+});
+
 /** Compact `status`: live state without nested Proof pages. */
 export const StatusWireDataSchema = StatusDataSchema.omit({
   gate_proof: true,
@@ -1549,8 +1556,11 @@ export const StatusWireDataSchema = StatusDataSchema.omit({
   }).optional(),
   landing_authority: LandingAuthoritySummarySchema.optional(),
   fleet: z.array(statusFleetWireEntrySchema).optional(),
+  /** Total non-main worktrees before the orientation sample is capped. */
+  fleet_total: z.number().int().nonnegative().optional(),
   fleet_collisions: z.array(statusFleetCollisionWireSchema).optional(),
   adr_collisions: z.array(statusAdrCollisionWireSchema).optional(),
+  projection: StatusProjectionSchema,
 });
 export type StatusWireData = z.infer<typeof StatusWireDataSchema>;
 
