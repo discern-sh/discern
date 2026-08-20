@@ -24,7 +24,7 @@ const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
 
 /** Public files produced by the site build and therefore forbidden from Git. */
 export const GENERATED_SITE_OUTPUTS = [
-  ...MARKETING_PAGES.map(({ page }) => page),
+  ...MARKETING_PAGES.map((page) => page.page),
   "pages/assets/design-system/",
   "pages/fragments/",
 ] as const;
@@ -32,6 +32,7 @@ export const GENERATED_SITE_OUTPUTS = [
 /** Page-owned assets copied verbatim into the compositions bundle. */
 export const COPIED_PAGE_ASSETS = [
   "agents.css",
+  "agents.js",
   "landing-v3.css",
   "landing.js",
 ] as const;
@@ -41,6 +42,7 @@ export const RETIRED_SITE_OUTPUTS = [
   "pages/design-system-demo.html",
   "pages/content-design-demo.html",
   "pages/v2.html",
+  "pages/agents.md",
 ] as const;
 
 const ASSET_ROOT = new URL("pages/assets/design-system/", SITE_ROOT);
