@@ -23,6 +23,7 @@ import {
   recordDeclaration,
 } from "../src/engine/checkpoints/open_questions.ts";
 import { declarationEvidenceIdentity } from "../src/engine/checkpoints/evidence.ts";
+import { ProofSchema } from "../src/shared/result_schemas.ts";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 
@@ -185,6 +186,7 @@ Deno.test("proof marker: corrupt and unreadable stores remain honored with durab
   // uncertainty travels beside it as structured drop evidence.
   await withTempDir(async (dir) => {
     await declaredRepo(dir);
+    const policyCommit = "a".repeat(40);
     const preflight = await preflightAdminStateWrites(dir);
     assert(preflight.ok);
     const recorded = await recordGateOutcome(
@@ -192,7 +194,21 @@ Deno.test("proof marker: corrupt and unreadable stores remain honored with durab
       preflight.authority,
       true,
       await pinValidatedTree(dir),
-      undefined,
+      ProofSchema.parse({
+        branch: "agent/probe",
+        trunk: "main",
+        head: "123456789abc",
+        files_total: 1,
+        insertions: 1,
+        deletions: 0,
+        line: "Proof line.",
+        markdown: "Proof page.",
+        checkpoints: {
+          policy: policyCommit,
+          declared_met: [],
+          declared_unmet: [],
+        },
+      }),
       await identity(dir),
     );
     assertEquals(recorded.status, "recorded");
@@ -210,6 +226,10 @@ Deno.test("proof marker: corrupt and unreadable stores remain honored with durab
       corrupt.checkpoint_drops?.at(-1)?.reason,
       "declaration_evidence_unavailable",
     );
+    assertEquals(
+      corrupt.checkpoint_drops?.at(-1)?.policy_commit,
+      policyCommit,
+    );
 
     // Unreadable (a directory at the store path): the same durable uncertainty.
     await Deno.remove(store);
@@ -219,6 +239,10 @@ Deno.test("proof marker: corrupt and unreadable stores remain honored with durab
     assertEquals(
       unreadable.checkpoint_drops?.at(-1)?.reason,
       "declaration_evidence_unavailable",
+    );
+    assertEquals(
+      unreadable.checkpoint_drops?.at(-1)?.policy_commit,
+      policyCommit,
     );
 
     // Restored bytes restore the exact claim — honored again, symmetrically.

@@ -713,6 +713,7 @@ export async function inspectGateProof(
       const currentDrop: CheckpointDrop = policyCheckpointDrop(
         "declaration_evidence_unavailable",
         `the current checkpoint declaration evidence could not be read (${evidenceNow.reason}); the recorded Proof remains honored without comparing it.`,
+        proofData?.checkpoints?.policy,
       );
       const checkpointDrops = uniqueCheckpointDrops([
         ...proofDrops,
