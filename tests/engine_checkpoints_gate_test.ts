@@ -1583,6 +1583,65 @@ question = "Does the \u2028 changed surface preserve \u2029 its contract?"
 teach = "State the failure modes; note what callers must revisit."
 `;
 
+Deno.test("done: an unpreparable when input fails open as its own typed drop and runs nothing", async () => {
+  // With the engine subprocess's temp home pointed at an absent directory,
+  // the registered when input file cannot be created: the input phase fails,
+  // the command never runs, and the run carries the typed input drop instead
+  // of a spawn or exit account.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[checkpoints.api-review]
+paths = ["api/**"]
+when = "sh probe.sh"
+question = "${QUESTION_API}"
+`,
+    );
+    await writeExecutable(
+      join(dir, "probe.sh"),
+      "#!/usr/bin/env sh\necho ran >> when-ran.log\nexit 0\n",
+    );
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "poisoned-temp");
+    await Deno.mkdir(join(wt, "api"), { recursive: true });
+    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "change api", "--no-gpg-sign");
+
+    const absent = join(dir, "absent-temp-home");
+    const result = await runAgent(wt, ["done", "--json"], {
+      env: { TMPDIR: absent, TMP: absent, TEMP: absent },
+    });
+    const envelope = parseJson(result.stdout);
+    const drop = envelope.data.checkpoints.drops?.find((entry) =>
+      entry.reason === "when_input_failed"
+    );
+    assert(
+      drop !== undefined,
+      `expected a when_input_failed drop: ${result.output}`,
+    );
+    assertEquals((drop as { checkpoint?: string }).checkpoint, "api-review");
+    assertEquals(
+      await Deno.readTextFile(join(wt, "when-ran.log")).catch(() => ""),
+      "",
+      "an unpreparable input must never run the command",
+    );
+    assertEquals(
+      envelope.error ?? null,
+      null,
+      "the dropped checkpoint must not interlock the run",
+    );
+  });
+});
+
 Deno.test("done: the human refusal keeps authored paragraphs and inert hostile separators", async () => {
   // The refusal is a multi-paragraph product message: its own newlines are
   // deliberate structure, while separators inside governed dynamic text stay
