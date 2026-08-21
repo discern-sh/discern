@@ -748,6 +748,7 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
 
   // SSOT coverage: the cases must name EXACTLY the context's variables — a new var
   // can't ship without a guard, and a removed one can't leave a dead case behind.
+  let baselinePreds: Record<string, boolean> = {};
   const probe = await Deno.makeTempDir({ prefix: "discern-var-probe-" });
   try {
     await Deno.writeTextFile(
@@ -755,6 +756,7 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
       '[project]\nagents = ["codex"]\n',
     );
     const ctx = instructionContext(await loadConfig(probe));
+    baselinePreds = { ...ctx.preds };
     assertEquals(
       Object.keys(cases).sort(),
       Object.keys(ctx.vars).sort(),
@@ -813,5 +815,31 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
     } finally {
       await Deno.remove(dir, { recursive: true });
     }
+    // A predicate guards conditional prose, so its case must flip the baseline
+    // value and provably change the compiled body — a context-only check would
+    // let a branch compile to nothing without any test noticing.
+    assert(
+      c.expect !== baselinePreds[name],
+      `${name}: the case must flip the baseline predicate so its rendered effect is provable`,
+    );
+    const body = await renderBody(c.toml);
+    assert(
+      body !== baseline,
+      `${name}: flipping its predicate must change the compiled instructions`,
+    );
   }
+
+  // The conditional the checkpoint contract depends on, pinned by content: a
+  // checkpoint-free project pays no compiled checkpoint prose, and a governed
+  // one receives the section.
+  assert(
+    !baseline.toLowerCase().includes("checkpoint"),
+    "a checkpoint-free project must compile no checkpoint prose",
+  );
+  assert(
+    (await renderBody(predicateCases.has_checkpoints?.toml ?? "")).includes(
+      "## Checkpoints",
+    ),
+    "a governed project must compile the checkpoint section",
+  );
 });
