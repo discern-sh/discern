@@ -490,7 +490,7 @@ function cliffyImportFindings(rel: string, source: string): Finding[] {
 }
 
 /**
- * Text-bearing leaves in the published 0.22.0 `*CliProps` contracts and their
+ * Text-bearing leaves in the published 0.23.0 `*CliProps` contracts and their
  * exported nested row shapes. Generic future renderer names deliberately
  * inherit this vocabulary; a package upgrade must re-audit the public types.
  */

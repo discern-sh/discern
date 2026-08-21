@@ -56,9 +56,13 @@ import {
 } from "./engine_helpers.ts";
 import { dryRunCapablePaths, dryRunCapableVerbs } from "../src/main.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import { resultContractForVerb } from "../src/shared/result_contracts.ts";
+import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
 
 // deno-lint-ignore no-explicit-any
 type Json = any;
+
+const DRY_RUN_LEAD = "**Dry run: nothing changed.**";
 
 /** Decode a lifecycle envelope before reducing its planned or applied steps. */
 function parse(stdout: string): Json {
@@ -618,6 +622,22 @@ Deno.test("dry-run class: every capable verb previews faithfully (writes nothing
             true,
             `${verb}: a dry-run envelope must carry dry_run: true`,
           );
+          assertEquals(
+            envelope.steps ?? [],
+            [],
+            `${verb}: a serialized dry run must carry no applied effects`,
+          );
+          const contract = resultContractForVerb(envelope.verb);
+          assert(contract !== undefined, `${verb}: no public result contract`);
+          const dryMarkdown = renderResultMarkdown(
+            envelope,
+            contract.presenter,
+          );
+          assertStringIncludes(
+            dryMarkdown,
+            `## Current state\n\n${DRY_RUN_LEAD}\n\n`,
+            `${verb}: Markdown lacks the canonical dry-run lead`,
+          );
 
           if (probe.envelope === "engine-plan") {
             // 3. Applied ⊆ planned on the SAME fixture, and the fixture is real
@@ -643,6 +663,32 @@ Deno.test("dry-run class: every capable verb previews faithfully (writes nothing
               `${verb}: fixture applied nothing\n${apply.output}`,
             );
             assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, verb);
+            if ((envelope.plan?.steps ?? []).length > 0) {
+              assert(
+                /Would (?:run|skip|check) `/.test(dryMarkdown),
+                `${verb}: Markdown plan uses applied grammar\n${dryMarkdown}`,
+              );
+            }
+            const appliedEnvelope = parse(apply.stdout);
+            const appliedContract = resultContractForVerb(
+              appliedEnvelope.verb,
+            );
+            assert(
+              appliedContract !== undefined,
+              `${verb}: applied result has no public contract`,
+            );
+            const appliedMarkdown = renderResultMarkdown(
+              appliedEnvelope,
+              appliedContract.presenter,
+            );
+            assert(
+              !appliedMarkdown.includes(DRY_RUN_LEAD),
+              `${verb}: applied Markdown inherited the dry-run lead`,
+            );
+            assert(
+              !/Would (?:run|skip|check) `/.test(appliedMarkdown),
+              `${verb}: applied Markdown inherited dry-run plan copy`,
+            );
           } else {
             // 3'. The recorded exception stays honest: the preview rides in
             // `data`, and the envelope carries no engine plan. A member that
@@ -656,6 +702,26 @@ Deno.test("dry-run class: every capable verb previews faithfully (writes nothing
             assert(
               envelope.data !== undefined,
               `${verb}: a data-preview member must carry its preview in data`,
+            );
+            const currentState = dryMarkdown.slice(
+              dryMarkdown.indexOf(DRY_RUN_LEAD) + DRY_RUN_LEAD.length,
+              dryMarkdown.indexOf("## Evidence") < 0
+                ? undefined
+                : dryMarkdown.indexOf("## Evidence"),
+            );
+            assert(
+              /\bwould\b/i.test(currentState),
+              `${verb}: data preview state is not conditional\n${dryMarkdown}`,
+            );
+            const appliedTwin = { ...envelope };
+            delete appliedTwin.dry_run;
+            const appliedMarkdown = renderResultMarkdown(
+              appliedTwin,
+              contract.presenter,
+            );
+            assert(
+              !appliedMarkdown.includes(DRY_RUN_LEAD),
+              `${verb}: non-dry Markdown inherited the dry-run lead`,
             );
           }
         });

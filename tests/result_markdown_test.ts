@@ -8,6 +8,7 @@ import {
   CLI_JSON_RESULT_CONTRACTS,
   resultPresenterForVerb,
 } from "../src/shared/result_contracts.ts";
+import { dryRunCapableVerbs } from "../src/main.ts";
 import {
   renderResultMarkdown,
   type ResultMarkdownPresenter,
@@ -31,8 +32,10 @@ import {
   confirmedBeginCommandReference,
 } from "../src/shared/setup_messages.ts";
 import { extractCommandRefs } from "../src/shared/command_reference.ts";
+import { productSentence } from "../src/shared/product_sentence.ts";
 
 const PROOF_SENTINEL = "FULL-PROOF-PAGE".repeat(8_000);
+const DRY_RUN_LEAD = "**Dry run: nothing changed.**";
 const UNCOVERED = Array.from(
   { length: 9 },
   (_, index) => ({
@@ -146,6 +149,97 @@ Deno.test("every public result contract selects an authored Markdown presenter",
   for (const contract of CLI_JSON_RESULT_CONTRACTS) {
     assertEquals(typeof contract.presenter, "function", contract.id);
     assertEquals(resultPresenterForVerb(contract.verb), contract.presenter);
+  }
+});
+
+Deno.test("dry-run Markdown derives universal state and conditional plan grammar from the live command class", () => {
+  const dryRunCommands = dryRunCapableVerbs();
+  const enrolled = new Set(dryRunCommands);
+  for (const command of dryRunCommands) {
+    const contract = CLI_JSON_RESULT_CONTRACTS.find((candidate) =>
+      candidate.commands.includes(command)
+    );
+    assert(contract !== undefined, `${command}: no public result contract`);
+    const dry = {
+      ok: true,
+      verb: contract.verb,
+      dry_run: true,
+      data: {},
+      plan: {
+        title: "Future plan",
+        details: ["Path: src/future.ts"],
+        steps: [{
+          kind: "git",
+          label: "apply future change",
+          disposition: "run",
+          note: "src/future.ts",
+        }],
+      },
+    };
+    const rendered = renderResultMarkdown(dry, contract.presenter);
+    assertStringIncludes(
+      rendered,
+      `## Current state\n\n${DRY_RUN_LEAD}\n\n`,
+    );
+    assertStringIncludes(rendered, "Would run `apply future change`");
+
+    const applied = { ...dry, dry_run: false, plan: undefined };
+    const appliedMarkdown = renderResultMarkdown(applied, contract.presenter);
+    assert(!appliedMarkdown.includes(DRY_RUN_LEAD), command);
+    assert(
+      !appliedMarkdown.includes("Would run `apply future change`"),
+      command,
+    );
+  }
+
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    if (contract.commands.every((command) => !enrolled.has(command))) {
+      const readOnly = renderResultMarkdown(
+        { ok: true, verb: contract.verb, data: {} },
+        contract.presenter,
+      );
+      assert(!readOnly.includes(DRY_RUN_LEAD), contract.id);
+    }
+  }
+});
+
+Deno.test("dry-run lead survives successful, refused, precondition, and no-op result states", () => {
+  const cases = [
+    { label: "successful", result: { ok: true } },
+    {
+      label: "refused",
+      result: {
+        ok: false,
+        error: "confirmation_required",
+        message: "Confirmation is required.",
+      },
+    },
+    {
+      label: "precondition",
+      result: {
+        ok: false,
+        error: "precondition_failed",
+        message: "The branch is behind trunk.",
+      },
+    },
+    {
+      label: "no-op",
+      result: {
+        ok: true,
+        plan: { title: "No-op plan", details: [], steps: [] },
+      },
+    },
+  ];
+  for (const { label, result } of cases) {
+    const rendered = renderResultMarkdown(
+      { ...result, verb: "future", dry_run: true },
+      resultPresenterForVerb("future"),
+    );
+    assertStringIncludes(
+      rendered,
+      `## Current state\n\n${DRY_RUN_LEAD}\n\n`,
+      label,
+    );
   }
 });
 
@@ -550,6 +644,113 @@ Deno.test("documentation suggestions and coupling commits survive text-only deli
   );
   assertStringIncludes(coupling, "`abc123` (2026-08-14)");
   assertStringIncludes(coupling, "Keep result projections aligned");
+});
+
+Deno.test("common Markdown composition preserves authored terminal punctuation", () => {
+  const authored = [
+    ["fact", "A current fact", "A current fact."],
+    ["period", "A current fact.", "A current fact."],
+    ["question", "Is this current?", "Is this current?"],
+    ["warning", "Stop!", "Stop!"],
+  ] as const;
+  for (const [label, value, expected] of authored) {
+    assertEquals(productSentence(`  ${value}  `), expected, label);
+    const future = renderResultMarkdown(
+      { ok: true, verb: "future" },
+      () => ({ state: productSentence(value) }),
+    );
+    assertStringIncludes(future, `## Current state\n\n${expected}`);
+
+    const checkpoint = renderResultMarkdown(
+      {
+        ok: true,
+        verb: "checkpoints",
+        data: {
+          checkpoints: [{
+            id: label,
+            mode: "stop",
+            question: value,
+            trigger: "paths docs/**",
+            preview: { holds: false },
+          }],
+        },
+      },
+      resultPresenterForVerb("checkpoints"),
+    );
+    assertStringIncludes(checkpoint, `Question: ${value}`);
+    if (/[.?!]$/u.test(value)) {
+      assert(!checkpoint.includes(`${value}.`), `${label}: ${checkpoint}`);
+    }
+
+    const docs = renderResultMarkdown(
+      {
+        ok: false,
+        verb: "docs",
+        error: "not_found",
+        message: "No exact document matched.",
+        data: {
+          suggestions: [{ path: `docs/${label}.md`, title: value }],
+        },
+      },
+      resultPresenterForVerb("docs"),
+    );
+    assertStringIncludes(docs, `\`docs/${label}.md\`: ${expected}`);
+    if (/[.?!]$/u.test(value)) {
+      assert(!docs.includes(`${value}.`), `${label}: ${docs}`);
+    }
+
+    const scripts = renderResultMarkdown(
+      {
+        ok: true,
+        verb: "scripts",
+        data: { scripts: [{ name: label, description: value }] },
+      },
+      resultPresenterForVerb("scripts"),
+    );
+    assertStringIncludes(scripts, `\`${label}\`: ${expected}`);
+    if (/[.?!]$/u.test(value)) {
+      assert(!scripts.includes(`${value}.`), `${label}: ${scripts}`);
+    }
+
+    const awaited = fire(HINTS["await-not-yet"], {
+      ...HINTS["await-not-yet"].example,
+      summary: value,
+    });
+    const hinted = renderResultMarkdown(
+      {
+        ok: true,
+        verb: "status",
+        data: { location: "main", project: "example" },
+        hints: hintTexts([awaited]),
+      },
+      resultPresenterForVerb("status"),
+    );
+    assertStringIncludes(hinted, `Not yet: ${expected} Continue`);
+    if (/[.?!]$/u.test(value)) {
+      assert(!hinted.includes(`${value}.`), `${label}: ${hinted}`);
+    }
+  }
+
+  const opaque = [
+    "`code?`",
+    "../parent/file.ts",
+    "v1.2.3",
+    "Wait...",
+    "main..feature",
+  ];
+  const block = "```text\nraw output?!..\n```";
+  for (const value of opaque) assertEquals(productSentence(value), value);
+  assertEquals(productSentence(block), block);
+  const rendered = renderResultMarkdown(
+    { ok: true, verb: "future" },
+    () => ({
+      state: "Future result.",
+      evidence: opaque,
+      supportingMarkdown: [block],
+    }),
+  );
+  for (const value of opaque) assertStringIncludes(rendered, value);
+  assertStringIncludes(rendered, block);
 });
 
 Deno.test("checkpoints Markdown carries the declared vocabulary and the variance boundary", () => {

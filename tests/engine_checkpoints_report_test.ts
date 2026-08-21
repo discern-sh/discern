@@ -877,9 +877,9 @@ Deno.test("previews: a checkpoint-free effort adds no checkpoint hints to prepar
 });
 
 Deno.test("checkpoints: the human surface labels a declaration as declared, never as Passed", async () => {
-  // The terminal renderer prints the row's state as its label, and "Passed"
-  // is machine-verdict vocabulary — a declared-met row must read through the
-  // declared vocabulary on the human surface too.
+  // The terminal renderer prints the row's state as its label. Both agent
+  // conclusions use declaration vocabulary; machine verdict and attention
+  // remain separate facts.
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_STOP);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
@@ -891,11 +891,43 @@ Deno.test("checkpoints: the human surface labels a declaration as declared, neve
       env: { COLUMNS: "120", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
+    assertTerminalTextIncludes(human.output, "Declared: api-review");
     assertTerminalTextIncludes(human.output, "Declared met");
     assert(
       !human.output.includes("Passed"),
       `a declaration row must not carry the Passed label:\n${human.output}`,
     );
+
+    const ascii = await runAgent(wt, ["checkpoints"], {
+      env: { COLUMNS: "48", LC_ALL: "C", NO_COLOR: "1" },
+    });
+    assertEquals(ascii.code, 0, ascii.output);
+    assertTerminalTextIncludes(ascii.output, ". Declared: api-review");
+    assertTerminalTextIncludes(ascii.output, "Declared met");
+
+    const why = "The docs lag the new surface; a follow-up covers them.";
+    assertEquals(
+      (await runAgent(
+        wt,
+        ["done", "--unmet", "api-review", "--why", why, "--json"],
+      )).code,
+      0,
+    );
+    const unmet = await runAgent(wt, ["checkpoints"], {
+      env: { COLUMNS: "120", NO_COLOR: "1" },
+    });
+    assertEquals(unmet.code, 0, unmet.output);
+    assertTerminalTextIncludes(unmet.output, "Declared: api-review");
+    assertTerminalTextIncludes(unmet.output, "Declared unmet");
+    assertTerminalTextIncludes(unmet.output, "owner variance required");
+    assertTerminalTextIncludes(unmet.output, why);
+
+    const unmetAscii = await runAgent(wt, ["checkpoints"], {
+      env: { COLUMNS: "48", LC_ALL: "C", NO_COLOR: "1" },
+    });
+    assertEquals(unmetAscii.code, 0, unmetAscii.output);
+    assertTerminalTextIncludes(unmetAscii.output, ". Declared: api-review");
+    assertTerminalTextIncludes(unmetAscii.output, "Declared unmet");
   });
 });
 
