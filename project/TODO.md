@@ -26,6 +26,8 @@ _Verified defects and correctness risks. Nothing outstanding._
 
 - [ ] **Eliminate Deno lint suppression directives.** Replace each remaining `deno-lint-ignore` or `deno-lint-ignore-file` with code that satisfies the named rule. `[standards.lint_suppressions]` prevents the census from rising; pin every reduction. At zero, move the detector into an always-on test and retire the standard. Evidence: `scripts/lint_suppressions.ts`; `project/map/80-development/code-conventions.md`.
 
+- [ ] **Eliminate selected site-component gaps.** Render each component emitted for a live route bundle or narrow the bundle so it stops shipping unused component output. `[standards.site_component_gaps]` holds the raw deficit from rising; pin every reduction. At zero, move the absence detector into an always-on test and retire the standard. Evidence: `scripts/site_component_coverage.ts`; `site/design_system.ts`; `project/map/90-site/the-design-system.md`.
+
 ## 🟡 Smaller fixes & polish
 
 - [ ] **Canon Editor's remaining structural rung (rung 3 of the commissioning proposal).** Canon Editor (ADR 0288) ships reading, in-place prose and typed-list write-back, and live register lint. Deferred until real launch-copy mileage says which operations matter: scaffolded add/retire/reorder forms with absence records, a stage-and-commit composer, and the "brief an agent" escape hatch for campaign-sized changes. Evidence: `scripts/canon_editor/fields.ts`; `project/map/80-development/canon-editor.md` (§Limits).

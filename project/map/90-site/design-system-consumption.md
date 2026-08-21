@@ -75,6 +75,8 @@ Every browser study keeps its TypeScript JSX (TSX) renderer and art-only CSS tog
 
 The published manifest automatically enrolls new package components and classes. `DESIGN_SYSTEM_BUNDLES` automatically enrolls new site selections and routes.
 
+[`scripts/site_component_coverage.ts`](../../../scripts/site_component_coverage.ts) uses the same authorities to census selected components that have no manifest-owned class in any assigned live route. `[standards.site_component_gaps]` prevents that raw deficit from rising while the site converges on complete use of what it emits. [`tests/site_component_coverage_test.ts`](../../../tests/site_component_coverage_test.ts) keeps every live HTML route inside a selected component boundary.
+
 [`tests/site_workflow_test.ts`](../../../tests/site_workflow_test.ts) ties the directive registry to its source examples, package roots, dependency closure, and pristine raw editions. The canonical-set atlas enrolls the directive set, so a new projection inherits those obligations.
 
 ## Build and theme
