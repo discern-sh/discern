@@ -869,7 +869,7 @@
   # Four stop checkpoints guard the knowledge surfaces — the ones that steer
   # every future agent session. `discern done` pauses before the gate until the
   # agent declares each fired question met, or unmet with a rationale.
-  # Generated Map artifacts no longer count toward checkpoint subjects, so two
+  # Map checkpoint subjects exclude generated artifacts, so two
   # authored Map files now mark a broad change. One batched declaration per
   # effort is the intended tax; the checkpoint-noisy detector re-adjudicates
   # from post-landing history for the owner.

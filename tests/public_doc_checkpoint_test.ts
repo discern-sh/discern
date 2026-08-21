@@ -13,7 +13,6 @@ import {
   assertEquals,
   assertFalse,
   assertStrictEquals,
-  assertStringIncludes,
   assertThrows,
 } from "@std/assert";
 import {
@@ -32,7 +31,7 @@ import {
   MANUAL_SECTION_REGISTRY,
 } from "../src/lib/paths.ts";
 import { gitInit, gitOut } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const SCRIPT = join(
@@ -267,6 +266,6 @@ Deno.test("public-doc command fails closed on invalid input", async () => {
     const result = await runMatcher(dir, inputPath);
     assertEquals(result.code, 2);
     assertEquals(result.stdout, "");
-    assertStringIncludes(result.stderr, "wrong fields");
+    assertTerminalTextIncludes(result.stderr, "wrong fields");
   });
 });
