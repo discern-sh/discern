@@ -131,19 +131,18 @@ export const OPERATING_POLICIES = [
   {
     id: "checkpoint-declarations",
     statement:
-      "Checkpoints served at discern_done are yours to judge: met, or unmet " +
-      "with a short why (durable Proof evidence, no secrets). A variance is " +
-      "the owner's call at discern_accept: relay the Proof and stop; grants " +
-      "never cover one.",
+      "Use met only when the served question is satisfied; otherwise " +
+      "use unmet with a short, owner-relevant, secret-free tradeoff. A " +
+      "variance requires the owner's explicit acceptance of the exact " +
+      "declared-unmet set; grants never cover it.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [
-      /checkpoints?/i,
-      /(declare\w*|judge)[^.\n]{0,80}\bmet\b/i,
-      /unmet[^.\n]{0,80}why/i,
-      /no secrets/i,
-      /(owner[^.\n]{0,60}variance|variance[^.\n]{0,60}owner)/i,
+      /served question/i,
+      /\bmet\b[^.\n]{0,80}question[^.\n]{0,80}satisfied/i,
+      /\bunmet\b[^.\n]{0,80}secret-free/i,
+      /owner[^.\n]{0,80}explicit acceptance/i,
+      /exact[^.\n]{0,40}declared-unmet set/i,
       /grants never cover/i,
-      /relay[^.\n]{0,60}proof/i,
     ],
   },
 ] as const satisfies readonly OperatingPolicy[];

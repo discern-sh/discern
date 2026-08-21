@@ -28,7 +28,7 @@ A checkpoint earns the middle rung when three things hold:
 
 ## 2. Choose the trigger
 
-Triggers are deterministic and closed, with no expression language. The common choices below guide placement; for the complete ordered field model and copyable recipes, run `discern docs map/20-quality-gate/checkpoints.md --raw`. The generated config reference remains the field authority.
+Triggers are deterministic and closed. There is no expression language. The common choices below guide placement; for the complete ordered field model and copyable recipes, run `discern docs map/20-quality-gate/checkpoints.md --raw`. The generated config reference remains the field authority.
 
 - `scope = "<name>"` or `paths = [globs]` — one selector chooses the matched set. Prefer a configured scope, or a live path reference such as `${map.dir}`, over repeating globs the config already knows.
 - `exclude_paths = [globs]` removes noise; `include_generated = true` makes the deliberate exception to authored-only matching.
