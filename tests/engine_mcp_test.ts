@@ -36,7 +36,7 @@ import {
 import { providerFor } from "../src/lib/providers.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { writeDiscernToml } from "../src/lib/tidy_format.ts";
-import { ISSUES_URL, KIT_VERSION } from "../src/lib/version.ts";
+import { KIT_VERSION } from "../src/lib/version.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
@@ -770,11 +770,17 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(finish.ok, true);
     assertEquals(finish.verb, "done");
     assertEquals(finish.dry_run, true); // the uniform preview signal, over MCP too
+    assertEquals(finish.steps, undefined); // a preview serializes no effects
     assertEquals(finish.plan.title, "Gate plan"); // a preview carries the plan
     // Text is the authored Markdown projection of the same prepared result.
     assertStringIncludes(call.result.content[0].text, "# `discern done`");
     assertStringIncludes(call.result.content[0].text, "## Current state");
+    assertStringIncludes(
+      call.result.content[0].text,
+      "## Current state\n\n**Dry run: nothing changed.**",
+    );
     assertStringIncludes(call.result.content[0].text, "Gate plan");
+    assertStringIncludes(call.result.content[0].text, "Would check");
     assert(
       !call.result.content[0].text.includes('"verb": "done"'),
       call.result.content[0].text,
@@ -968,7 +974,7 @@ Deno.test("discern mcp: protocol version, ping, and unknown method are handled c
   });
 });
 
-Deno.test("discern mcp: an unexpected core throw becomes internal_error and the server answers the next call", async () => {
+Deno.test("discern mcp: a config parse failure stays structured and the server answers the next call", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -981,8 +987,9 @@ Deno.test("discern mcp: an unexpected core throw becomes internal_error and the 
     });
     await mcp.recv();
 
-    // Corrupt the config after startup: the server keeps its registered tool surface,
-    // but coupling's real core will throw while loading the project config.
+    // Corrupt the config after startup: the server keeps its registered tool
+    // surface, while coupling's config boundary returns the user-originated
+    // parse refusal instead of misclassifying it as an engine crash.
     await Deno.writeTextFile(join(dir, "discern.toml"), "[project]\nslug =\n");
     await mcp.send({
       jsonrpc: "2.0",
@@ -994,22 +1001,15 @@ Deno.test("discern mcp: an unexpected core throw becomes internal_error and the 
     assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
     assertEquals(failed.result.structuredContent.ok, false);
     assertEquals(failed.result.structuredContent.verb, "coupling");
-    assertEquals(failed.result.structuredContent.error, "internal_error");
-    // A crash saves a report beside the logbook and names it in the message —
-    // even here, where the corrupt config keeps the logbook recorder silent.
+    assertEquals(failed.result.structuredContent.error, "invalid_toml");
     const message = String(failed.result.structuredContent.message);
-    assertStringIncludes(message, "This is a bug in discern");
-    assertStringIncludes(message, ISSUES_URL);
-    const crashReports: string[] = [];
-    for await (
-      const entry of Deno.readDir(join(dir, ".git", "discern", "crash"))
-    ) {
-      crashReports.push(entry.name);
-    }
-    assertEquals(crashReports.length, 1);
-    const crashReport = crashReports[0];
-    assertExists(crashReport);
-    assertStringIncludes(message, crashReport);
+    assertStringIncludes(message, "syntax error near line");
+    assertStringIncludes(message, "discern.toml");
+    assertHasMcpHint(
+      failed.result.structuredContent,
+      HINTS["failure-recovery"],
+      { verb: "coupling" },
+    );
 
     await mcp.send({
       jsonrpc: "2.0",
@@ -1695,6 +1695,11 @@ Deno.test("discern mcp: discern_accept previews an acceptance from inside a work
       preview.result.structuredContent.plan,
       "an accept preview carries the plan",
     );
+    assertStringIncludes(
+      preview.result.content[0].text,
+      "## Current state\n\n**Dry run: nothing changed.**",
+    );
+    assertStringIncludes(preview.result.content[0].text, "Would run");
     assertEquals(await wtMcp.close(), 0);
   });
 });

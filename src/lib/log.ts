@@ -18,6 +18,7 @@ import {
   makeOutputSink,
   type Narration,
   type OutputSink,
+  reportFailure,
   silentOutputSink,
 } from "./narration.ts";
 import {
@@ -106,6 +107,11 @@ export class Logger {
   /** Error line (semantic danger cross) to stderr. Does not exit. */
   error(message: string): void {
     this.#narration.error(message);
+  }
+
+  /** Emit the shared terminal failure form: condition, then recovery actions. */
+  failure(message: string, recovery: readonly string[] = []): void {
+    reportFailure(this.#narration, message, recovery);
   }
 
   /** A bold section banner owning one leading blank line. Suppressed in JSON

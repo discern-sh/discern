@@ -56,8 +56,10 @@ import {
   checkpointQuestionFileFailureMessage,
   readLiveCheckpointQuestionFile,
 } from "./checkpoint_question_files.ts";
+import { type ConfigIssue, unknownRootSections } from "./config_issues.ts";
 
 export { AGENT_NAMES } from "./agent_catalogue.ts";
+export type { ConfigIssue } from "./config_issues.ts";
 
 // ── TOML syntax diagnostics (kept here so config_read/toml_render share them) ──
 
@@ -743,7 +745,8 @@ const scriptsSection = z.strictObject({
 
 /** The canonical live-`discern.toml` schema. Every section carries a default, so
  * an empty `{}` validates to a fully-defaulted object. Strict throughout: an
- * unknown section or key is a typo worth catching at load, not silently ignoring. */
+ * unknown section or key stops the load. Root unknowns retain their classification
+ * because they can be either a typo or config from a newer running build. */
 export const configSchema = z.strictObject({
   meta: metaSection,
   project: projectSection,
@@ -901,14 +904,6 @@ export type DiscernConfigDoc = Omit<InferredDiscernConfigDoc, "jobs"> & {
 
 // ── parse / validate / load ────────────────────────────────────────────────────
 
-/** One schema-validation problem: a dotted path and a human message. */
-export interface ConfigIssue {
-  /** Dotted path to the offending value, e.g. `standards.coverage.limit`. */
-  path: string;
-  /** What is wrong, phrased for a human reading it next to their config. */
-  message: string;
-}
-
 /**
  * A clear, catchable error for a config that parses as TOML but violates the
  * schema. Carries the full {@link ConfigIssue} list so `--json` can report each;
@@ -929,57 +924,81 @@ function summariseIssues(issues: ConfigIssue[]): string {
   if (issues.length === 0) {
     return "discern.toml is invalid.";
   }
+  const unknownSections = unknownRootSections(issues);
+  if (unknownSections.length > 0 && unknownSections.length === issues.length) {
+    const noun = unknownSections.length === 1 ? "section" : "sections";
+    return `The running discern process does not recognize the discern.toml root ${noun} ${
+      unknownSections.map((section) => `[${section}]`).join(", ")
+    }.`;
+  }
   const lines = issues.map((i) =>
     i.path === "" ? `  - ${i.message}` : `  - ${i.path}: ${i.message}`
   );
-  return `discern.toml is invalid:\n${lines.join("\n")}`;
+  return `${
+    unknownSections.length > 0
+      ? "The running discern process cannot load discern.toml"
+      : "discern.toml is invalid"
+  }:\n${lines.join("\n")}`;
 }
 
 /** Turn one Zod issue into a {@link ConfigIssue}, with discern-specific hints
  * for retired config positions: dead positions come from the
  * DEAD_CONFIG_POSITIONS table, renamed keys from RETIRED_CONFIG_KEY_REDIRECTS
  * (both in vocabulary.ts), so retiring a position is a row, not a branch. */
-function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
+function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
   const path = issue.path.map((p) => String(p)).join(".");
   if (issue.code === "unrecognized_keys") {
     const keys = issue.keys.join(", ");
+    if (path === "") {
+      return issue.keys.map((key): ConfigIssue => {
+        const successor = retiredConfigKeySuccessor(key);
+        return successor === undefined
+          ? {
+            kind: "unknown_root_section",
+            path: key,
+            message:
+              `the running discern process does not recognize the root section [${key}].`,
+          }
+          : {
+            path: key,
+            message:
+              `[${key}] became [${successor}] — run \`discern upgrade\` to migrate the config, or rename the table by hand.`,
+          };
+      });
+    }
     const dead = deadConfigPosition(path, issue.keys);
     if (dead !== undefined) {
-      return { path, message: dead.message(keys) };
+      return [{ path, message: dead.message(keys) }];
     }
-    if (path === "") {
-      const retired = issue.keys.find((key) =>
-        retiredConfigKeySuccessor(key) !== undefined
-      );
-      const successor = retired === undefined
-        ? undefined
-        : retiredConfigKeySuccessor(retired);
-      if (retired !== undefined && successor !== undefined) {
-        return {
-          path: retired,
-          message:
-            `[${retired}] became [${successor}] — run \`discern upgrade\` to migrate the config, or rename the table by hand.`,
-        };
-      }
-    }
-    return {
-      path: path === "" ? keys : `${path}.${keys}`,
-      message: path === ""
-        ? `unknown section(s): ${keys}`
-        : `unknown key(s) in [${path}]: ${keys}`,
-    };
+    return [{
+      path: `${path}.${keys}`,
+      message: `unknown key(s) in [${path}]: ${keys}`,
+    }];
   }
   // A boolean value written as a quoted string is the most common type trip
   // (`fail_fast = "false"`, `docs = "yes"`); the raw Zod message ("expected
   // boolean, received string") doesn't hint the fix.
   if (issue.code === "invalid_type" && issue.expected === "boolean") {
-    return {
+    return [{
       path,
       message:
         "expected a boolean — use a bare `true` or `false` (not a quoted string).",
-    };
+    }];
   }
-  return { path, message: issue.message };
+  return [{ path, message: issue.message }];
+}
+
+/**
+ * Classify the structural issues from an arbitrary strict config schema. Tests
+ * use this seam to model an older running build by omitting one current root
+ * section; the live loader uses the same issue translator below.
+ */
+export function configSchemaIssues(
+  parsed: unknown,
+  schema: z.ZodType = configSchema,
+): ConfigIssue[] {
+  const result = schema.safeParse(parsed);
+  return result.success ? [] : result.error.issues.flatMap(toConfigIssues);
 }
 
 /** Position-sensitive `[jobs]` rules that JSON Schema cannot express alone. */
@@ -1148,8 +1167,8 @@ export function validateConfigValue(
   const formOwners = new Set(
     jobIssues.map((issue) => issue.path.split(".").slice(0, 2).join(".")),
   );
-  const schemaIssues = result.error.issues.map(toConfigIssue).filter((issue) =>
-    !formOwners.has(issue.path.split(".").slice(0, 2).join("."))
+  const schemaIssues = result.error.issues.flatMap(toConfigIssues).filter(
+    (issue) => !formOwners.has(issue.path.split(".").slice(0, 2).join(".")),
   );
   return { config: undefined, issues: [...formIssues, ...schemaIssues] };
 }
@@ -1469,7 +1488,7 @@ export function configWriteIssues(text: string): ConfigIssue[] {
     ...semanticIssues,
     ...result.error.issues
       .filter((issue) => !isIncompleteRecordEntry(parsed, issue.path))
-      .map(toConfigIssue),
+      .flatMap(toConfigIssues),
   ];
 }
 

@@ -19,12 +19,9 @@ import {
 } from "./shared/emit.ts";
 import { resultPresenterForVerb } from "./shared/result_contracts.ts";
 import { observeVerbTarget } from "./shared/result_capture.ts";
-import {
-  AGENT_NAMES,
-  ConfigParseError,
-  ConfigValidationError,
-  loadConfig,
-} from "./shared/config_schema.ts";
+import { AGENT_NAMES, loadConfig } from "./shared/config_schema.ts";
+import { configFailureResult } from "./shared/config_failure.ts";
+import { interactiveHintTexts } from "./shared/hints.ts";
 import { findRoot } from "./shared/env.ts";
 import { knownJobList } from "./shared/capabilities.ts";
 import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
@@ -1544,23 +1541,18 @@ export async function main(args: string[]): Promise<void> {
     // error reads `invalid_toml`; a schema violation reads `invalid_config` and
     // carries the per-issue list. Anything else is a crash — a bug in discern
     // reaching the surface — and exits through the crash frame (ADR 0248).
-    if (
-      err instanceof ConfigParseError || err instanceof ConfigValidationError
-    ) {
-      const isValidation = err instanceof ConfigValidationError;
+    const configFailure = configFailureResult(verb ?? "discern", err);
+    if (configFailure !== undefined) {
       if (quietResult) {
         // Route through the one envelope/chokepoint (ADR 0030) so even a
         // pre-verb config error is the uniform DiscernResult a consumer expects —
         // carrying the attempted verb, with the per-issue list under `data`.
-        emitResult({
-          ok: false,
-          verb: verb ?? "discern",
-          error: isValidation ? "invalid_config" : "invalid_toml",
-          message: err.message,
-          ...(isValidation ? { data: { issues: err.issues } } : {}),
-        });
+        emitResult(configFailure);
       } else {
-        new Logger({ json: false, noColor: false }).error(err.message);
+        new Logger({ json: false, noColor: false }).failure(
+          configFailure.message ?? "discern.toml could not be loaded.",
+          interactiveHintTexts(configFailure.hints),
+        );
       }
       Deno.exit(1);
     }

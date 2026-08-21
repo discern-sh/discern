@@ -11,6 +11,7 @@ import { format as formatBytes } from "@std/fmt/bytes";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { markdownCodeSpan } from "./markdown_code.ts";
 import { checkpointDropMarkdown } from "./checkpoint_drops.ts";
+import { productSentence } from "./product_sentence.ts";
 
 export interface ResultMarkdownPresentation {
   /** One authored statement of the current result state. */
@@ -36,6 +37,9 @@ const MAX_LIST_ITEMS = 6;
 const MAX_DIAGNOSTICS = 3;
 const MAX_DIAGNOSTIC_OUTPUT = 2_400;
 
+/** The state lead shared by every effectful Markdown preview. */
+export const RESULT_MARKDOWN_DRY_RUN_LEAD = "**Dry run: nothing changed.**";
+
 /** Narrow one unknown serialized value to a plain object. */
 function object(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -48,6 +52,15 @@ function dataOf(
   result: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
   return object(result.data) ?? {};
+}
+
+/** Shared config-issue payload carried by any verb whose config load refused. */
+function configIssuesOf(
+  result: Readonly<Record<string, unknown>>,
+): Record<string, unknown>[] {
+  return result.error === "invalid_config"
+    ? records(dataOf(result).issues)
+    : [];
 }
 
 /** Read and trim a non-empty string. */
@@ -181,11 +194,14 @@ function defaultState(
   result: Readonly<Record<string, unknown>>,
   success?: string,
 ): string {
+  const command = code(commandName(result));
+  if (result.dry_run === true && result.ok === true) {
+    return `${command} would proceed as described below.`;
+  }
   const message = text(result.message);
   if (message !== undefined) {
     return message;
   }
-  const command = code(commandName(result));
   if (result.ok === true) {
     return success ?? `${command} completed successfully.`;
   }
@@ -313,9 +329,16 @@ function envelopeEvidence(
         const label = text(step.label) ?? "unnamed step";
         const disposition = text(step.disposition) ?? "planned";
         const note = text(step.note);
-        return `${code(label)}: ${disposition}${
-          note === undefined ? "" : `, ${note}`
-        }.`;
+        const action = disposition === "run"
+          ? "run"
+          : disposition === "skip"
+          ? "skip"
+          : disposition === "gate"
+          ? "check"
+          : "plan";
+        return `Would ${action} ${code(label)}${
+          note === undefined ? "." : ` (${note}).`
+        }`;
       }),
       steps.length - MAX_LIST_ITEMS,
       "plan step",
@@ -351,6 +374,20 @@ function envelopeEvidence(
   const waitedMs = number(result.waited_ms);
   if (waitedMs !== undefined && waitedMs > 0) {
     facts.push(`Waited ${duration(waitedMs)} for an execution slot.`);
+  }
+
+  const configIssues = configIssuesOf(result);
+  if (configIssues.length > 0) {
+    facts.push(withDetails(
+      `Config issues: ${plural(configIssues.length, "issue")}.`,
+      configIssues.slice(0, MAX_LIST_ITEMS).map((issue) => {
+        const path = text(issue.path) ?? "discern.toml";
+        const message = text(issue.message) ?? "No issue message was recorded.";
+        return `${code(path)}: ${message}`;
+      }),
+      configIssues.length - MAX_LIST_ITEMS,
+      "config issue",
+    ));
   }
 
   const diagnostics = records(result.diagnostics);
@@ -534,7 +571,12 @@ export function renderResultMarkdown(
   result: Readonly<Record<string, unknown>>,
   presenter: ResultMarkdownPresenter,
 ): string {
-  const presented = presenter(result);
+  // A config-load refusal occurs before the selected verb can produce its own
+  // data. Use the universal envelope state instead of asking (for example) the
+  // status presenter to interpret config issues as status facts.
+  const presented = configIssuesOf(result).length > 0
+    ? presentEnvelope(result)
+    : presenter(result);
   const envelope = envelopeEvidence(result);
   const hints = hintSections(result);
   const evidence = unique([
@@ -572,9 +614,13 @@ export function renderResultMarkdown(
     seenActions.add(trimmed);
     action.push({ text: trimmed, family: item.family });
   }
+  const state = presented.state.trim();
+  const stateAccount = result.dry_run === true
+    ? `${RESULT_MARKDOWN_DRY_RUN_LEAD}\n\n${state}`
+    : state;
   const sections = [
     `# ${code(commandName(result))}`,
-    `## Current state\n\n${presented.state.trim()}`,
+    `## Current state\n\n${stateAccount}`,
   ];
   if (evidence.length > 0 || supporting.length > 0) {
     const evidenceParts = [
@@ -633,8 +679,14 @@ const presentSetup: ResultMarkdownPresenter = (result) => {
       progress === undefined
         ? undefined
         : listFact("Pending setup markers", strings(progress.pending_markers)),
-      listFact("Written files", strings(data.written)),
-      listFact("Agent files", strings(data.compiled)),
+      listFact(
+        result.dry_run === true ? "Would write" : "Written files",
+        strings(data.written),
+      ),
+      listFact(
+        result.dry_run === true ? "Would compile agent files" : "Agent files",
+        strings(data.compiled),
+      ),
     ]),
     supportingMarkdown: instructions,
     action: action === undefined ? [] : [action],
@@ -792,9 +844,21 @@ const presentUpgrade: ResultMarkdownPresenter = (result) => {
           number(schema.current) ?? "unknown"
         }.`,
       `Pending migrations: ${records(data.pending_migrations).length}.`,
-      `Applied migrations: ${records(data.migrations_applied).length}.`,
-      listFact("Changes", strings(data.changes)),
-      listFact("Generated agent files", strings(data.agents_written)),
+      `${
+        result.dry_run === true
+          ? "Would apply migrations"
+          : "Applied migrations"
+      }: ${records(data.migrations_applied).length}.`,
+      listFact(
+        result.dry_run === true ? "Planned changes" : "Changes",
+        strings(data.changes),
+      ),
+      listFact(
+        result.dry_run === true
+          ? "Would generate agent files"
+          : "Generated agent files",
+        strings(data.agents_written),
+      ),
     ]),
   };
 };
@@ -806,9 +870,22 @@ const presentUninstall: ResultMarkdownPresenter = (result) => {
   return {
     state: defaultState(result),
     evidence: unique([
-      listFact("Removed", strings(data.removed)),
-      listFact("Stripped from shared files", strings(data.stripped)),
-      listFact("Kept user content", strings(data.kept)),
+      listFact(
+        result.dry_run === true ? "Would remove" : "Removed",
+        strings(data.removed),
+      ),
+      listFact(
+        result.dry_run === true
+          ? "Would strip from shared files"
+          : "Stripped from shared files",
+        strings(data.stripped),
+      ),
+      listFact(
+        result.dry_run === true
+          ? "Would keep user content"
+          : "Kept user content",
+        strings(data.kept),
+      ),
       text(data.binary_hint),
     ]),
     boundary: unique([
@@ -867,7 +944,10 @@ const presentInventory: ResultMarkdownPresenter = (result) => {
         ? undefined
         : `Project mark: ${code(data.mark)}.`,
       listFact("Available presets", strings(data.available)),
-      listFact("Written files", strings(data.written)),
+      listFact(
+        result.dry_run === true ? "Would write" : "Written files",
+        strings(data.written),
+      ),
     ]),
     supportingMarkdown: art === undefined
       ? []
@@ -901,9 +981,9 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
       ...suggestions.slice(0, MAX_LIST_ITEMS).map((entry) => {
         const target = text(entry.target) ?? text(entry.path) ?? "unknown";
         const suggestionTitle = text(entry.title);
-        return `${code(target)}${
-          suggestionTitle === undefined ? "" : `: ${suggestionTitle}`
-        }.`;
+        return suggestionTitle === undefined
+          ? `${code(target)}.`
+          : productSentence(`${code(target)}: ${suggestionTitle}`);
       }),
       suggestions.length > MAX_LIST_ITEMS
         ? omitted(suggestions.length - MAX_LIST_ITEMS, "suggestion")
@@ -912,9 +992,8 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
         const target = text(entry.target) ?? "unknown";
         const resultTitle = text(entry.title) ?? target;
         const snippet = text(entry.snippet);
-        return `${code(target)}: ${resultTitle}${
-          snippet === undefined ? "" : `. ${snippet}`
-        }`;
+        const heading = productSentence(`${code(target)}: ${resultTitle}`);
+        return `${heading}${snippet === undefined ? "" : ` ${snippet}`}`;
       }),
     ]),
     supportingMarkdown: content === undefined
@@ -944,7 +1023,11 @@ const presentConfig: ResultMarkdownPresenter = (result) => {
         ? undefined
         : `Present: ${boolean(data.present) === true ? "yes" : "no"}.`,
       listFact("Values", values),
-      Array.isArray(data.edits) ? `Edits: ${data.edits.length}.` : undefined,
+      Array.isArray(data.edits)
+        ? `${
+          result.dry_run === true ? "Planned edits" : "Edits"
+        }: ${data.edits.length}.`
+        : undefined,
     ]),
   };
 };
@@ -1578,9 +1661,9 @@ const presentScripts: ResultMarkdownPresenter = (result) => {
       ...scripts.slice(0, MAX_LIST_ITEMS).map((script) => {
         const name = text(script.name) ?? "unknown";
         const description = text(script.description);
-        return `${code(name)}${
-          description === undefined ? "" : `: ${description}`
-        }.`;
+        return description === undefined
+          ? `${code(name)}.`
+          : productSentence(`${code(name)}: ${description}`);
       }),
     ]),
   };

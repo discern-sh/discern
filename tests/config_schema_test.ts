@@ -4,9 +4,12 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
+import { z } from "@zod/zod";
 import {
   AGENT_NAMES,
   ConfigParseError,
+  configSchema,
+  configSchemaIssues,
   ConfigValidationError,
   configWriteIssues,
   DEFAULT_AGENTS,
@@ -428,7 +431,36 @@ Deno.test("parseConfigOrThrow throws a ConfigValidationError carrying the issues
 
 Deno.test("strict: an unknown top-level section is rejected", () => {
   const { issues } = parseConfig(`[bogus]\nk = 1\n`);
-  assert(issues.some((i) => /unknown section|bogus/.test(i.message)));
+  assertEquals(issues, [{
+    kind: "unknown_root_section",
+    path: "bogus",
+    message:
+      "the running discern process does not recognize the root section [bogus].",
+  }]);
+});
+
+Deno.test("every canonical root section auto-enrols in stale-reader classification", () => {
+  // The defect class is a stale strict root schema encountering a section a newer
+  // build added. Derive every synthetic future sibling from the live root schema:
+  // adding a root section therefore adds a case here without a hand-maintained list.
+  const canonical = Object.entries(configSchema.shape);
+  assert(canonical.length > 0, "the canonical config has no root sections");
+  const current = parseConfigOrThrow("") as unknown as Record<string, unknown>;
+  for (const [section] of canonical) {
+    const staleSchema = z.strictObject(Object.fromEntries(
+      canonical.filter(([name]) => name !== section),
+    ));
+    const issues = configSchemaIssues(
+      { [section]: current[section] },
+      staleSchema,
+    );
+    assertEquals(issues, [{
+      kind: "unknown_root_section",
+      path: section,
+      message:
+        `the running discern process does not recognize the root section [${section}].`,
+    }]);
+  }
 });
 
 Deno.test("strict: a prerelease [worktree.db] adapter table is rejected", () => {
@@ -448,7 +480,9 @@ Deno.test("strict: a prerelease [features] section is rejected", () => {
   // the section rejects as an unknown section, with no epitaph row.
   const { issues } = parseConfig(`[features]\nmcp = true\n`);
   assert(
-    issues.some((i) => i.path === "features" && /unknown/.test(i.message)),
+    issues.some((i) =>
+      i.kind === "unknown_root_section" && i.path === "features"
+    ),
     JSON.stringify(issues),
   );
 });

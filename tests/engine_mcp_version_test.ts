@@ -103,7 +103,7 @@ Deno.test("createInstalledVersionResolver: an unreadable binary resolves to unde
   assertEquals(probes, 0);
 });
 
-Deno.test("runTool: a stale on-disk version appends the restart hint to every result", async () => {
+Deno.test("runTool: a stale on-disk version leads every result with the restart hint", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: true });
     await gitInit(dir);
@@ -125,13 +125,13 @@ Deno.test("runTool: a stale on-disk version appends the restart hint to every re
       HINTS["mcp-version-mismatch"],
       { serverVersion: KIT_VERSION, installedVersion: staleVersion },
     );
-    // The verb still ran: its own result is intact under the appended hint.
+    // The verb still ran: its own result is intact after the leading hint.
     assertEquals(stale.structuredContent.verb, "done");
     assertEquals(stale.structuredContent.dry_run, true);
   });
 });
 
-Deno.test("runTool: a matching on-disk version appends no hint", async () => {
+Deno.test("runTool: a matching on-disk version adds no hint", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: true });
     await gitInit(dir);

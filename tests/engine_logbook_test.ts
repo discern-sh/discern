@@ -868,13 +868,13 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
       "the ordinary verb path must record the exact final delivered hints",
     );
     assertEquals(event.hint_ids, [
+      HINTS["mcp-version-mismatch"].id,
       HINTS["generated-agent-files-missing"].id,
       HINTS["materialized-skills-missing"].id,
       HINTS["status-start-on-trunk"].id,
       HINTS["status-continue-own-effort"].id,
       HINTS["status-no-active-worktrees"].id,
       HINTS["status-full-structured-detail"].id,
-      HINTS["mcp-version-mismatch"].id,
     ]);
     assert(
       event.driver !== undefined && event.driver.session !== undefined &&

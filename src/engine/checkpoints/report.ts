@@ -330,18 +330,17 @@ export async function checkpointsResult(
 
 // ── human rendering ─────────────────────────────────────────────────────────
 
-/** The one attention scale the terminal rows map onto. A declaration row
- * never takes the `passed` state: the renderer prints the state as the row's
- * label, and "Passed" is machine-verdict vocabulary — agent evidence reads
- * "declared met" through the fact, on a neutral state whose label is also
- * literally true (a current declaration means its subject is unchanged since
- * it was judged). */
+/** The one attention scale the terminal rows map onto. Declaration rows use
+ * the package's neutral declaration state: the renderer prints "Declared" as
+ * the evidence source instead of borrowing machine-verdict or change-currency
+ * vocabulary. A declared-unmet row keeps its separate attention and variance
+ * facts even though the declaration itself remains neutral. */
 const ROW_STATES = {
   idle: "unchanged",
   fires: "changed",
   awaiting: "changed",
-  declaredMet: "unchanged",
-  declaredUnmet: "changed",
+  declaredMet: "declared",
+  declaredUnmet: "declared",
 } as const satisfies Readonly<Record<string, ResultSummaryCliProps["state"]>>;
 
 /** The human wording for a veto — why an idle trigger did not hold. */

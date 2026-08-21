@@ -490,7 +490,7 @@ function cliffyImportFindings(rel: string, source: string): Finding[] {
 }
 
 /**
- * Text-bearing leaves in the published 0.22.0 `*CliProps` contracts and their
+ * Text-bearing leaves in the published 0.23.0 `*CliProps` contracts and their
  * exported nested row shapes. Generic future renderer names deliberately
  * inherit this vocabulary; a package upgrade must re-audit the public types.
  */
@@ -593,6 +593,7 @@ const COMPONENT_TEXT_PROPS = new Set([
   "quote",
   "rail",
   "railLabel",
+  "rationale",
   "rawDetail",
   "rawLabel",
   "reading",
@@ -1144,10 +1145,10 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   }
                 }
               }
-              if (
-                /(?:^|\/)terminal\.ts$/u.test(specifier) ||
-                specifier === "discern-design-system/cli"
-              ) {
+              const dependency = specifier.startsWith(".")
+                ? normalize(join(dirname(rel), specifier)).replaceAll("\\", "/")
+                : specifier;
+              if (dependency === TERMINAL_AUTHORITY) {
                 for (const entry of node.specifiers) {
                   if (entry.type !== "ImportSpecifier") continue;
                   const imported = propertyName(entry.imported);
@@ -2228,7 +2229,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     "future({ rows: model.rows }, {});",
     "future({ rows: condition ? rows : [] }, {});",
     "future({ rows: safe(model.rows) }, {});",
-    "future({ body: row.body, explanation: row.explanation, checks: [{ stateLabel: row.stateLabel }], subtitle: row.subtitle, details: row.details }, {});",
+    "future({ body: row.body, explanation: row.explanation, checks: [{ stateLabel: row.stateLabel }], subtitle: row.subtitle, details: row.details, rationale: row.rationale }, {});",
     "draw({ fact: safe(row.path) }, {});",
     "const boundFacts = terminal.capabilities;",
     "draw({ fact: safe(row.path), theme: terminal.themeVariant }, { ...boundFacts, columns: 44 });",
@@ -2274,6 +2275,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "unsafe-component-text:checks.stateLabel",
       "unsafe-component-text:subtitle",
       "unsafe-component-text:details",
+      "unsafe-component-text:rationale",
       "unsafe-terminal-safe-multiline-error",
       "capability-respread",
       "direct-theme-threading",
@@ -2345,6 +2347,19 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       ].join("\n"),
     ).filter((finding) => finding.rule.startsWith("unsafe-component-text:")),
     [],
+  );
+
+  assertEquals(
+    structuralTerminalFindings(
+      "src/engine/orbit/view.ts",
+      [
+        'import { renderResultSummaryCli as draw } from "discern-design-system/cli";',
+        'import { terminalLine as pretendSafe } from "./terminal.ts";',
+        "draw({ fact: pretendSafe(row.path) }, {});",
+      ].join("\n"),
+    ).map((finding) => finding.rule),
+    ["unsafe-component-text:fact"],
+    "a same-named helper from a future parallel module is not the branded boundary",
   );
 });
 
