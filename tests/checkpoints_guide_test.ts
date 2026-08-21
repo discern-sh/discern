@@ -19,12 +19,13 @@ const EXPECTED_RECIPE_IDS = [
 ] as const;
 
 Deno.test("the public guide ships nine parseable checkpoint recipes", async () => {
-  const guide = await Deno.readTextFile(
-    new URL("../project/map/20-quality-gate/checkpoints.md", import.meta.url),
+  const recipes = await Deno.readTextFile(
+    new URL(
+      "../project/map/20-quality-gate/checkpoint-recipes.md",
+      import.meta.url,
+    ),
   );
-  const gallery = guide.split("\n## Recipe gallery\n")[1]?.split("\n## ")[0];
-  assert(gallery !== undefined, "the public guide needs a recipe gallery");
-  const blocks = [...gallery.matchAll(/```toml\n([\s\S]*?)\n```/g)].map(
+  const blocks = [...recipes.matchAll(/```toml\n([\s\S]*?)\n```/g)].map(
     (match) => match[1] ?? "",
   );
   assertEquals(blocks.length, 9);
@@ -45,6 +46,16 @@ Deno.test("the public guide ships nine parseable checkpoint recipes", async () =
     ids.push(...resolved.checkpoints.map((checkpoint) => checkpoint.id));
   }
   assertEquals(ids.sort(), [...EXPECTED_RECIPE_IDS].sort());
+});
+
+Deno.test("the checkpoint guide routes readers to its recipe gallery", async () => {
+  const guide = await Deno.readTextFile(
+    new URL("../project/map/20-quality-gate/checkpoints.md", import.meta.url),
+  );
+  assert(
+    guide.includes("[checkpoint recipes](checkpoint-recipes.md)"),
+    "the trigger guide must link its companion recipe gallery",
+  );
 });
 
 Deno.test("the checkpoint placement skill routes the complete trigger model", async () => {
