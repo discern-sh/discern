@@ -2175,14 +2175,14 @@ export const HINTS = {
       reference?: string;
       matched: string[];
       related: { kind: "similar_existing"; for_path: string; path: string }[];
-      whenPending: boolean;
+      state: "will_open" | "awaiting_declaration" | "reopened" | "when_pending";
     }
   >({
     id: "checkpoint-preview",
     category: "notice",
     audience: "all",
     when:
-      "A previewing surface (`prepare`, `status`) finds a stop checkpoint's trigger holding against the current diff; the question is served early, without blocking.",
+      "A previewing surface (`prepare`, `status`) finds a stop checkpoint holding an obligation against the current effort; the question is served early, without blocking.",
     family: "checkpoint-preview",
     example: {
       id: "api-review",
@@ -2190,7 +2190,7 @@ export const HINTS = {
         "A changed API surface is described in its docs before it lands.",
       matched: ["src/api/surface.ext"],
       related: [],
-      whenPending: false,
+      state: "will_open",
     },
     template: ({
       id,
@@ -2199,13 +2199,19 @@ export const HINTS = {
       reference,
       matched,
       related,
-      whenPending,
+      state,
     }): string => {
       const shown = matched.slice(0, 4).map(markdownCodeSpan).join(", ");
       const more = matched.length > 4 ? `, +${matched.length - 4} more` : "";
-      const claim = whenPending
-        ? "may require a declared conclusion (its when command decides)"
-        : "will require a declared conclusion";
+      // Total over the projected states this hint serves; a new routed state
+      // fails here until its claim exists.
+      const claim = {
+        will_open: "will require a declared conclusion",
+        awaiting_declaration: "already awaits a declared conclusion",
+        reopened: "requires a fresh declared conclusion",
+        when_pending:
+          "may require a declared conclusion (its when command decides)",
+      }[state];
       const relations = related.map((relation) =>
         ` ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
           markdownCodeSpan(relation.path)

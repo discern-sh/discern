@@ -465,7 +465,7 @@ Deno.test("previews: prepare, status, and done --dry-run project the one preview
       question: QUESTION_API,
       matched: ["api/surface.txt"],
       related: [],
-      whenPending: false,
+      state: "will_open" as const,
     };
 
     const prepare = parseHinted(
@@ -548,11 +548,11 @@ Deno.test("checkpoint obligations: an opened question outranks an idle structura
         ),
       prepare: (prepare.hints ?? []).some((hint) =>
         hint.includes("Checkpoint 'api-review'") &&
-        hint.includes("require a declared conclusion")
+        hint.includes("already awaits a declared conclusion")
       ),
       status: (status.hints ?? []).some((hint) =>
         hint.includes("Checkpoint 'api-review'") &&
-        hint.includes("require a declared conclusion")
+        hint.includes("already awaits a declared conclusion")
       ),
       done_dry_run: (dryRun.plan?.details ?? []).some((line) =>
         line.includes("Checkpoint 'api-review'") &&
@@ -583,7 +583,11 @@ function hintedDecision(envelope: HintedEnvelope): SurfaceDecision {
     return "unknown";
   }
   if (
-    hints.some((hint) => hint.includes("will require a declared conclusion"))
+    hints.some((hint) =>
+      hint.includes("will require a declared conclusion") ||
+      hint.includes("already awaits a declared conclusion") ||
+      hint.includes("requires a fresh declared conclusion")
+    )
   ) {
     return "requires";
   }
@@ -849,7 +853,7 @@ Deno.test("previews: a when-pending stop checkpoint is served as may-require", a
       question: QUESTION_API,
       matched: ["api/surface.txt"],
       related: [],
-      whenPending: true,
+      state: "when_pending" as const,
     });
     assertStringIncludes(text, "may require");
     // The preview must not have run the command.

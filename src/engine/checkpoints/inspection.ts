@@ -505,7 +505,7 @@ export function checkpointInspectionHints(
             : { reference: definition.reference }),
           matched: [...obligation.matched],
           related: relatedCheckpointData(obligation.related),
-          whenPending: false,
+          state: obligation.state,
         }),
       );
     } else if (
@@ -524,7 +524,7 @@ export function checkpointInspectionHints(
             : { reference: definition.reference }),
           matched: [...obligation.matched],
           related: relatedCheckpointData(obligation.related),
-          whenPending: true,
+          state: "when_pending" as const,
         }),
       );
     }

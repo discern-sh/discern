@@ -259,7 +259,7 @@ Rendered example:
 - Category: `notice`
 - Audience: `all`
 - Family: `checkpoint-preview`
-- Emitting context: A previewing surface (`prepare`, `status`) finds a stop checkpoint's trigger holding against the current diff; the question is served early, without blocking.
+- Emitting context: A previewing surface (`prepare`, `status`) finds a stop checkpoint holding an obligation against the current effort; the question is served early, without blocking.
 
 Rendered example:
 
