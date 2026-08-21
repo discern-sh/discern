@@ -238,6 +238,9 @@ export interface BuiltInCheckpointSeed {
   readonly question: string;
   /** Default mode; absent means {@link DEFAULT_CHECKPOINT_MODE}. */
   readonly mode?: CheckpointMode;
+  /** Internal dynamic selector authority. This is not a public checkpoint
+   * field; a project-authored `scope` or `paths` selector still replaces it. */
+  readonly selectorFrom?: "instructions.sources";
   /** Default selector: a configured scope name the trigger matches. */
   readonly scope?: string;
   /** Default selector: the globs the trigger matches. */
@@ -278,12 +281,10 @@ export interface BuiltInCheckpointSeed {
  * resolution consult. A project enables one by declaring `[checkpoints.<id>]`;
  * every field the entry sets overrides the seed's.
  *
- * Selectors use live path references, never scope names, wherever a reference
- * exists: a reference resolves in every project, while a scope name governs
- * only where the project defines that scope. `instruction-economy` accepts
- * that trade — the instruction surface is a glob list with no single-value
- * config key to reference, and the instructions scope is the project's own
- * declaration of it. `gotchas-playbook` tracks `[project].gotchas_doc`:
+ * Selectors use live configured authorities rather than copied paths.
+ * `instruction-economy` reads the project's `[instructions].sources` list;
+ * scalar authored paths use live references. `gotchas-playbook` tracks
+ * `[project].gotchas_doc`:
  * unset, the reference expands to the empty pattern, which matches nothing,
  * so the checkpoint stays quiet until the owner names a doc.
  *
@@ -305,7 +306,7 @@ export const BUILT_IN_CHECKPOINTS: Readonly<
   },
   "instruction-economy": {
     question: "instructions.economy",
-    scope: "instructions",
+    selectorFrom: "instructions.sources",
   },
   "skills-playbook": {
     question: "skills.executable",

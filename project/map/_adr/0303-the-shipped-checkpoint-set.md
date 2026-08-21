@@ -13,7 +13,7 @@ Built-in checkpoints are the reason a new project feels the checkpoint contract 
 | id                        | mode   | trigger                                 | question                               |
 | ------------------------- | ------ | --------------------------------------- | -------------------------------------- |
 | `map-focus`               | stop   | `${map.dir}**`, ≥3 files                | `map.focus` (new)                      |
-| `instruction-economy`     | stop   | the `instructions` scope                | `instructions.economy` (new)           |
+| `instruction-economy`     | stop   | configured `[instructions].sources`     | `instructions.economy` (new)           |
 | `skills-playbook`         | stop   | `${skills.dir}/`                        | `skills.executable` (shared)           |
 | `gotchas-playbook`        | stop   | `${project.gotchas_doc}`                | `setup.failure-memory` (shared)        |
 | `deletion-heavy-change`   | advise | deletion-dominant delta                 | `change.deletion-safety` (new)         |
@@ -22,7 +22,7 @@ Built-in checkpoints are the reason a new project feels the checkpoint contract 
 | `docs-drift`              | advise | ≥5 files, unless `${map.dir}**` changed | `map.current` (shared, reclassified)   |
 | `commit-story`            | advise | ≥15 changed files                       | `change.commit-story` (new)            |
 
-**Selector policy.** Seeds prefer live path references over scope names: a reference resolves in every project, while a scope name governs only where the project defines that scope. `instruction-economy` is the one scope-named seed — the instruction surface is a glob list with no single scalar key to reference, and the `instructions` scope is the project's own declaration of it; where the scope is absent the checkpoint drops out with an advisory naming the fix. `gotchas-playbook` tracks the configured doc through the scalar reference and stays structurally quiet until the owner names one.
+**Selector policy.** Seeds resolve from the configured path authority rather than copying paths. `instruction-economy` takes its complete default selector from the governing `[instructions].sources` list, so a broader scope that also owns skills or provider materializations cannot widen the stop; a project-authored checkpoint `scope` or `paths` still replaces that default. `gotchas-playbook` tracks the configured doc through the scalar reference and stays structurally quiet until the owner names one.
 
 **Question classifications**, each made on the question's nature:
 

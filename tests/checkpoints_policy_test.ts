@@ -82,6 +82,41 @@ Deno.test("a branch editing its own checkpoint config is not governed by the edi
   });
 });
 
+Deno.test("instruction-economy resolves instruction sources from the governing config", async () => {
+  await withTempDir(async (dir) => {
+    await repoWithConfig(
+      dir,
+      [
+        "[instructions]",
+        'sources = ["governing/*.md", "governing/team/**/*.md"]',
+        "",
+        "[checkpoints.instruction-economy]",
+        "",
+      ].join("\n"),
+    );
+    await git(dir, "checkout", "-q", "-b", "agent/probe");
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      [
+        "[instructions]",
+        'sources = ["branch-only/**"]',
+        "",
+        "[checkpoints.instruction-economy]",
+        "",
+      ].join("\n"),
+    );
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "retarget sources", "--no-gpg-sign");
+
+    const policy = await loadGoverningPolicy(dir, LIVE);
+    assertEquals(policy.drops, []);
+    assertEquals(policy.checkpoints[0]?.selector?.globs, [
+      "governing/*.md",
+      "governing/team/**/*.md",
+    ]);
+  });
+});
+
 Deno.test("the policy identity is the merge-base and stays put until it moves", async () => {
   await withTempDir(async (dir) => {
     await repoWithConfig(dir, configText("The governed judgment."));
@@ -372,7 +407,7 @@ const SEEDS: Readonly<Record<string, BuiltInCheckpointSeed>> = {
 
 type CompleteTriggerSeed =
   & Required<
-    Omit<BuiltInCheckpointSeed, "scope" | "paths">
+    Omit<BuiltInCheckpointSeed, "selectorFrom" | "scope" | "paths">
   >
   & { paths: readonly string[]; scope?: never };
 

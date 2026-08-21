@@ -18,7 +18,11 @@ import {
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
-import { instructionSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
+import {
+  effectiveInstructionSourcePatterns,
+  instructionSeedRel,
+  SOURCE_PATHS,
+} from "../shared/paths_registry.ts";
 // Runtime-only import (used inside a function body, never at module evaluation),
 // so the providers.ts → paths.ts edge in the other direction stays harmless.
 import { allInstructionFilePaths } from "./providers.ts";
@@ -180,10 +184,9 @@ export async function resolveInstructionSources(
   // The schema defaults an absent `[instructions].sources` to the registry default;
   // an explicit empty list also falls back to it (an install that compiles only
   // the built-in instructions still wants the default source picked up when present).
-  const configured = config.instructions.sources;
-  const patterns = configured.length > 0
-    ? configured
-    : [SOURCE_PATHS.instructions.defaultPath];
+  const patterns = effectiveInstructionSourcePatterns(
+    config.instructions.sources,
+  );
   // Every instruction file discern can emit, across ALL providers (not just the
   // configured set): a leftover output for an unconfigured agent is just as
   // poisonous a source as a live one.

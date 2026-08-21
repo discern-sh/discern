@@ -51,6 +51,7 @@ import {
 } from "../../shared/checkpoint_drops.ts";
 import { questionById } from "../../shared/questions.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
+import { effectiveInstructionSourcePatterns } from "../../shared/paths_registry.ts";
 import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 import {
   generatedGroupForPath,
@@ -63,7 +64,7 @@ import type { ResolvedCheckpoint } from "./types.ts";
 
 type SeedTriggerField = Exclude<
   keyof BuiltInCheckpointSeed,
-  "question" | "mode" | "scope" | "paths"
+  "question" | "mode" | "selectorFrom" | "scope" | "paths"
 >;
 
 /** Binding table from every seed trigger spelling to its resolved authority.
@@ -336,7 +337,10 @@ export function resolveCheckpoints(
     const entrySetsSelector = entry.scope !== undefined ||
       entry.paths !== undefined;
     const scope = entrySetsSelector ? entry.scope : seed?.scope;
-    const paths = entrySetsSelector ? entry.paths : seed?.paths;
+    const seedPaths = seed?.selectorFrom === "instructions.sources"
+      ? effectiveInstructionSourcePatterns(config.instructions.sources)
+      : seed?.paths;
+    const paths = entrySetsSelector ? entry.paths : seedPaths;
     if (entry.scope !== undefined && entry.paths !== undefined) {
       drops.push({
         checkpoint: id,

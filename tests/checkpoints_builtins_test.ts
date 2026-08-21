@@ -12,7 +12,7 @@
  * here so it happens as a conscious decision, never as drift.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
 import { questionById } from "../src/shared/questions.ts";
@@ -54,11 +54,15 @@ function sourceFiles(count: number): EffortFileChange[] {
 }
 
 /** A representative project pointing every consulted path AWAY from the
- * defaults, with all nine built-ins enabled by bare reference — the exact
- * spelling a fresh `[checkpoints]` table uses. */
+ * defaults, with every built-in enabled by bare reference — the exact spelling
+ * a fresh `[checkpoints]` table uses. The deliberately broad instructions
+ * scope includes skills; the instruction source authority does not. */
 const CONFIG = parseConfigOrThrow([
   "[project]",
   'gotchas_doc = "notes/gate-traps.md"',
+  "",
+  "[instructions]",
+  'sources = ["agent-instructions.md", "guidance/**/*.md"]',
   "",
   "[map]",
   'dir = "guide/"',
@@ -67,7 +71,7 @@ const CONFIG = parseConfigOrThrow([
   'dir = "playbooks"',
   "",
   "[scopes.instructions]",
-  'paths = ["agent-instructions.md"]',
+  'paths = ["agent-instructions.md", "guidance/**", "playbooks/**"]',
   "",
   ...Object.keys(BUILT_IN_CHECKPOINTS).map((id) => `[checkpoints.${id}]`),
   "",
@@ -154,12 +158,59 @@ Deno.test("instruction-economy fires on one instruction-surface change", () => {
   assertEquals(outcome.matched, ["agent-instructions.md"]);
 });
 
-Deno.test("instruction-economy fails open, with an advisory, where no instructions scope exists", () => {
-  const bare = parseConfigOrThrow("[checkpoints.instruction-economy]\n");
-  const { checkpoints, drops } = resolveCheckpoints(bare);
-  assertEquals(checkpoints, []);
-  assertEquals(drops.length, 1);
-  assertStringIncludes(drops[0]?.account ?? "", "unknown scope 'instructions'");
+Deno.test("instruction-economy enrolls every configured instruction source glob", () => {
+  assertEquals(resolved("instruction-economy").selector?.globs, [
+    "agent-instructions.md",
+    "guidance/**/*.md",
+  ]);
+  const outcome = evaluateStructuralTrigger(
+    resolved("instruction-economy"),
+    diff([file("guidance/team/review.md")]),
+  );
+  assert(outcome.holds);
+  assertEquals(outcome.matched, ["guidance/team/review.md"]);
+});
+
+Deno.test("an authored skill fires skills-playbook without borrowing the broad instructions scope", () => {
+  const changed = diff([file("playbooks/review/SKILL.md")]);
+  assert(evaluateStructuralTrigger(resolved("skills-playbook"), changed).holds);
+  assertEquals(
+    evaluateStructuralTrigger(resolved("instruction-economy"), changed),
+    { holds: false, vetoedBy: "empty_matched_set" },
+  );
+});
+
+Deno.test("an absent instruction source stays quiet without a missing-scope advisory", () => {
+  const config = parseConfigOrThrow([
+    "[instructions]",
+    'sources = ["not-created/**/*.md"]',
+    "",
+    "[checkpoints.instruction-economy]",
+    "",
+  ].join("\n"));
+  const { checkpoints, drops } = resolveCheckpoints(config);
+  assertEquals(drops, []);
+  const definition = checkpoints[0];
+  assert(definition !== undefined);
+  assertEquals(definition.selector?.globs, ["not-created/**/*.md"]);
+  assertEquals(
+    evaluateStructuralTrigger(definition, diff([file("src/mod0.ext")])),
+    { holds: false, vetoedBy: "empty_matched_set" },
+  );
+});
+
+Deno.test("a project-authored selector overrides instruction-economy's configured-source default", () => {
+  const config = parseConfigOrThrow([
+    "[instructions]",
+    'sources = ["agent-instructions.md"]',
+    "",
+    "[checkpoints.instruction-economy]",
+    'paths = ["reviewed-guidance/**"]',
+    "",
+  ].join("\n"));
+  const { checkpoints, drops } = resolveCheckpoints(config);
+  assertEquals(drops, []);
+  assertEquals(checkpoints[0]?.selector?.globs, ["reviewed-guidance/**"]);
 });
 
 // ── skills-playbook ─────────────────────────────────────────────────────────

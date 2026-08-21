@@ -181,3 +181,13 @@ export function isConcretePath(pattern: string): boolean {
 export function instructionSeedRel(sources: readonly string[]): string {
   return sources.find(isConcretePath) ?? SOURCE_PATHS.instructions.defaultPath;
 }
+
+/** The effective `[instructions].sources` patterns. An explicit empty list
+ * keeps the long-standing compile behavior: the default source is still read
+ * when present, while an absent file contributes nothing. Consumers that need
+ * the instruction surface must share this fallback instead of re-declaring it. */
+export function effectiveInstructionSourcePatterns(
+  sources: readonly string[],
+): readonly string[] {
+  return sources.length > 0 ? sources : [SOURCE_PATHS.instructions.defaultPath];
+}
