@@ -61,10 +61,10 @@ const TERMINAL_ENVIRONMENT_KEYS = [
 declare const terminalLineBrand: unique symbol;
 declare const terminalMultilineBrand: unique symbol;
 
-/** Control-free product text intended for one terminal line. */
+/** Product text with no raw control, format, line-, or paragraph-separator. */
 export type TerminalLine = string & { readonly [terminalLineBrand]: true };
 
-/** Control-free product text whose line feeds were explicitly retained. */
+/** Product text whose only raw boundaries are deliberately admitted line feeds. */
 export type TerminalMultiline = string & {
   readonly [terminalMultilineBrand]: true;
 };
@@ -668,15 +668,28 @@ export function terminalWidth(
   return size.columns;
 }
 
-/** Turn one control code point into a visible, inert representation. */
-function visibleControl(character: string): string {
+/**
+ * Every raw code point that can control, format, or transport terminal line
+ * structure. Cc covers C0/C1 (including CR, LF, VT, FF, and NEL); Cf covers
+ * invisible format and bidi controls; Zl and Zp are Unicode's line and
+ * paragraph separators.
+ */
+const INERT_TERMINAL_CODE_POINT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+
+/** Turn one inert code point into a visible representation. */
+function visibleInertCodePoint(character: string): string {
   const codePoint = character.codePointAt(0) ?? 0;
   if (codePoint <= 0x1f) return String.fromCodePoint(0x2400 + codePoint);
   if (codePoint === 0x7f) return "␡";
   return `<U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}>`;
 }
 
-/** Escape controls while optionally retaining normalized line boundaries. */
+/**
+ * Make product text inert before it reaches a terminal Component. Single-line
+ * mode makes every Cc, Cf, Zl, and Zp code point visible. Multiline mode first
+ * admits CRLF as one LF and retains lone LF; lone CR and every other member of
+ * the inert class remain visible. Every other Unicode scalar is preserved.
+ */
 function inertProductText(value: string, multiline: boolean): string {
   let result = "";
   const characters = [...value];
@@ -687,8 +700,8 @@ function inertProductText(value: string, multiline: boolean): string {
       index += 1;
     } else if (multiline && character === "\n") {
       result += "\n";
-    } else if (/[\p{Cc}\p{Cf}]/u.test(character)) {
-      result += visibleControl(character);
+    } else if (INERT_TERMINAL_CODE_POINT.test(character)) {
+      result += visibleInertCodePoint(character);
     } else {
       result += character;
     }
@@ -696,12 +709,12 @@ function inertProductText(value: string, multiline: boolean): string {
   return result;
 }
 
-/** Make untrusted product data safe for a single-line Component prop. */
+/** Make product data safe for one line by admitting no raw line boundary. */
 export function terminalLine(value: string): TerminalLine {
   return inertProductText(value, false) as TerminalLine;
 }
 
-/** Make untrusted product data safe while explicitly preserving line feeds. */
+/** Make product data safe while admitting only LF and CRLF-normalized-to-LF. */
 export function terminalMultiline(value: string): TerminalMultiline {
   return inertProductText(value, true) as TerminalMultiline;
 }

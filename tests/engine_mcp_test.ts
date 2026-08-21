@@ -770,11 +770,17 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(finish.ok, true);
     assertEquals(finish.verb, "done");
     assertEquals(finish.dry_run, true); // the uniform preview signal, over MCP too
+    assertEquals(finish.steps, undefined); // a preview serializes no effects
     assertEquals(finish.plan.title, "Gate plan"); // a preview carries the plan
     // Text is the authored Markdown projection of the same prepared result.
     assertStringIncludes(call.result.content[0].text, "# `discern done`");
     assertStringIncludes(call.result.content[0].text, "## Current state");
+    assertStringIncludes(
+      call.result.content[0].text,
+      "## Current state\n\n**Dry run: nothing changed.**",
+    );
     assertStringIncludes(call.result.content[0].text, "Gate plan");
+    assertStringIncludes(call.result.content[0].text, "Would check");
     assert(
       !call.result.content[0].text.includes('"verb": "done"'),
       call.result.content[0].text,
@@ -1695,6 +1701,11 @@ Deno.test("discern mcp: discern_accept previews an acceptance from inside a work
       preview.result.structuredContent.plan,
       "an accept preview carries the plan",
     );
+    assertStringIncludes(
+      preview.result.content[0].text,
+      "## Current state\n\n**Dry run: nothing changed.**",
+    );
+    assertStringIncludes(preview.result.content[0].text, "Would run");
     assertEquals(await wtMcp.close(), 0);
   });
 });

@@ -486,10 +486,91 @@ Deno.test("untrusted single-line text names every control without losing Unicode
   assertStringIncludes(rendered, "café");
 });
 
-Deno.test("untrusted multiline text preserves only explicitly requested line feeds", () => {
-  const safe = terminalMultiline("one\r\ntwo\rthree\u202Efour");
-  assertEquals(safe, "one\ntwo␍three<U+202E>four");
-  assertEquals(safe.split("\n").length, 2);
-  assertEquals(/[\p{Cc}\p{Cf}]/u.test(safe.replaceAll("\n", "")), false);
-  assert(safe.length >= "one\ntwothreefour".length);
+const INERT_TERMINAL_CODE_POINT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+
+/** Every Unicode scalar in the terminal boundary's visible-inert class. */
+function inertTerminalCodePoints(): string[] {
+  const characters: string[] = [];
+  for (let codePoint = 0; codePoint <= 0x10ffff; codePoint += 1) {
+    if (codePoint >= 0xd800 && codePoint <= 0xdfff) continue;
+    const character = String.fromCodePoint(codePoint);
+    if (INERT_TERMINAL_CODE_POINT.test(character)) characters.push(character);
+  }
+  return characters;
+}
+
+/** The terminal contract's exact visible notation for one inert code point. */
+function visibleTerminalNotation(character: string): string {
+  const codePoint = character.codePointAt(0) ?? 0;
+  if (codePoint <= 0x1f) return String.fromCodePoint(0x2400 + codePoint);
+  if (codePoint === 0x7f) return "␡";
+  return `<U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}>`;
+}
+
+Deno.test("terminal safe-text APIs make the full control and separator class inert", () => {
+  const characters = inertTerminalCodePoints();
+  assert(
+    characters.includes("\u2028"),
+    "the class must include LINE SEPARATOR",
+  );
+  assert(
+    characters.includes("\u2029"),
+    "the class must include PARAGRAPH SEPARATOR",
+  );
+  for (const character of characters) {
+    const visible = visibleTerminalNotation(character);
+    const context = `U+${
+      (character.codePointAt(0) ?? 0).toString(16).toUpperCase()
+    }`;
+    assertEquals(
+      terminalLine(`🧭${character}🚀`),
+      `🧭${visible}🚀`,
+      `single-line ${context}`,
+    );
+    assertEquals(
+      terminalMultiline(`🧭${character}🚀`),
+      character === "\n" ? "🧭\n🚀" : `🧭${visible}🚀`,
+      `multiline ${context}`,
+    );
+  }
+});
+
+Deno.test("terminal multiline admits only LF and CRLF as normalized boundaries", () => {
+  const cases = [
+    { name: "LF", input: "\n", line: "␊", multiline: "\n" },
+    { name: "CR", input: "\r", line: "␍", multiline: "␍" },
+    { name: "CRLF", input: "\r\n", line: "␍␊", multiline: "\n" },
+    { name: "vertical tab", input: "\v", line: "␋", multiline: "␋" },
+    { name: "form feed", input: "\f", line: "␌", multiline: "␌" },
+    { name: "NEL", input: "\u0085", line: "<U+0085>", multiline: "<U+0085>" },
+    {
+      name: "LINE SEPARATOR",
+      input: "\u2028",
+      line: "<U+2028>",
+      multiline: "<U+2028>",
+    },
+    {
+      name: "PARAGRAPH SEPARATOR",
+      input: "\u2029",
+      line: "<U+2029>",
+      multiline: "<U+2029>",
+    },
+  ] as const;
+  for (const testCase of cases) {
+    assertEquals(
+      terminalLine(`before${testCase.input}after`),
+      `before${testCase.line}after`,
+      `single-line ${testCase.name}`,
+    );
+    assertEquals(
+      terminalMultiline(`before${testCase.input}after`),
+      `before${testCase.multiline}after`,
+      `multiline ${testCase.name}`,
+    );
+  }
+
+  assertEquals(
+    terminalMultiline("café🧭\r\nA\u2028B\nC\u2029D\r界🚀"),
+    "café🧭\nA<U+2028>B\nC<U+2029>D␍界🚀",
+  );
 });

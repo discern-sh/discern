@@ -29,6 +29,7 @@ import {
   positional,
   renderCommandRefsCli,
 } from "./command_reference.ts";
+import { productSentence } from "./product_sentence.ts";
 import { worktreeContinuityPolicy } from "./operating_policies.ts";
 import { RELATED_CHECKPOINT_KIND_LABELS } from "./checkpoints.ts";
 
@@ -707,7 +708,11 @@ export const HINTS = {
     family: "generated-drift",
     example: { reason: "could not read .mcp.json" },
     template: ({ reason }): string =>
-      `Tracked refresh convergence could not be checked: ${reason}. Repair the named input, run ${CMD.refresh}, then run ${CMD.status} again.`,
+      `${
+        productSentence(
+          `Tracked refresh convergence could not be checked: ${reason}`,
+        )
+      } Repair the named input, run ${CMD.refresh}, then run ${CMD.status} again.`,
   }),
 
   /**
@@ -1609,7 +1614,9 @@ export const HINTS = {
       ),
     },
     template: ({ summary, seconds, command }): string =>
-      `Not yet: ${summary}. Continue this same watch once for up to ` +
+      `${
+        productSentence(`Not yet: ${summary}`)
+      } Continue this same watch once for up to ` +
       `${seconds}s: ${command}. It returns as soon as the condition holds. ` +
       "If it is still not met, use the next --resume command; do not restart " +
       "the condition or stop after a fixed number of retries.",
@@ -1994,7 +2001,11 @@ export const HINTS = {
       "[gate].concurrent_test_runs is set but the slot files under .git could not be prepared.",
     example: { reason: "could not create the slot directory" },
     template: ({ reason }): string =>
-      `The concurrent test-run cap is not enforced for this run: ${reason}. ` +
+      `${
+        productSentence(
+          `The concurrent test-run cap is not enforced for this run: ${reason}`,
+        )
+      } ` +
       `The tests run uncapped.`,
   }),
 
@@ -2459,7 +2470,11 @@ export const HINTS = {
       problem: '`stage` is "timeout", which is not a gate stage',
     },
     template: ({ entry, problem }): string =>
-      `Fix the \`gotcha-match\` block in the gotchas entry "${entry}": ${problem}. Until it parses, the entry cannot match failures.`,
+      `${
+        productSentence(
+          `Fix the \`gotcha-match\` block in the gotchas entry "${entry}": ${problem}`,
+        )
+      } Until it parses, the entry cannot match failures.`,
   }),
 
   /** The diagnostic-driven remedy for a failed fix stage, which prepare re-runs. */
@@ -3004,9 +3019,12 @@ export const HINTS = {
           remaining === 1 ? " is" : "s are"
         } eligible.`
         : "";
-      return `Run ${
-        discernCommand("standards", flag("pin"))
-      } to capture pinnable slack: ${summary}.${overflow} ${
+      const lead = productSentence(
+        `Run ${
+          discernCommand("standards", flag("pin"))
+        } to capture pinnable slack: ${summary}`,
+      );
+      return `${lead}${overflow} ${
         proofed
           ? "On this commit, the pin reuses this check's measurements"
           : "This check already measured, so no pin dry-run is needed"
@@ -3650,7 +3668,8 @@ export const HINTS = {
     when: "`upgrade` reports the installed update channel.",
     example: { updateChannel: "run the installer again" },
     template: ({ updateChannel }): string =>
-      `To get a newer discern, ${updateChannel}. discern never checks the ` +
+      `${productSentence(`To get a newer discern, ${updateChannel}`)} ` +
+      `discern never checks the ` +
       `network for updates.`,
   }),
 

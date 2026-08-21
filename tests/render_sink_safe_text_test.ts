@@ -13,8 +13,8 @@ import {
 } from "../src/shared/result.ts";
 import { fakeEnv } from "./helpers.ts";
 
-const HOSTILE = "repo\x1b[31m\nbranch\x00\u0085\u202E";
-const SAFE = "repo␛[31m␊branch␀<U+0085><U+202E>";
+const HOSTILE = "repo\x1b[31m\nbranch\x00\u0085\u2028line\u2029paragraph\u202E";
+const SAFE = "repo␛[31m␊branch␀<U+0085><U+2028>line<U+2029>paragraph<U+202E>";
 
 /** A plan whose every human fact is operator-, config-, or repository-derived. */
 function hostilePlan(): EnginePlan {
@@ -59,7 +59,7 @@ function assertSafeTranscript(transcript: string, color: boolean): void {
   const plain = stripAnsi(transcript);
   assertStringIncludes(plain, SAFE);
   assertEquals(plain.includes(HOSTILE), false);
-  for (const control of ["\x00", "\u0085", "\u202E"]) {
+  for (const control of ["\x00", "\u0085", "\u2028", "\u2029", "\u202E"]) {
     assertEquals(plain.includes(control), false);
   }
   assertEquals(transcript.includes("\x1b[31m"), false);

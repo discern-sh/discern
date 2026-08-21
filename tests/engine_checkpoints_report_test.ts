@@ -26,7 +26,10 @@ import type { CheckpointsData } from "../src/shared/result_schemas.ts";
 import { CheckpointsOutputSchema } from "../src/shared/result_schemas.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
-import { reconcileOpenQuestion } from "../src/engine/checkpoints/open_questions.ts";
+import {
+  readOpenQuestions,
+  reconcileOpenQuestion,
+} from "../src/engine/checkpoints/open_questions.ts";
 import { parseLogbookLine } from "../src/engine/logbook/schema.ts";
 import {
   CHECKPOINT_OBLIGATION_STATES,
@@ -109,6 +112,11 @@ async function checkpointObservationEvents(dir: string): Promise<number> {
 const QUESTION_API =
   "A changed API surface is described in its docs before it lands.";
 
+const LINE_SEPARATOR = "\u2028";
+const PARAGRAPH_SEPARATOR = "\u2029";
+const HOSTILE_QUESTION =
+  `Does the ${LINE_SEPARATOR} changed surface preserve ${PARAGRAPH_SEPARATOR} its contract?`;
+
 const CONFIG_STOP = `
 [project]
 slug = "engine-test"
@@ -184,6 +192,21 @@ trunk = "main"
 lint = "sh check.sh"
 `;
 
+const CONFIG_HOSTILE_TERMINAL_TEXT = `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "sh check.sh"
+
+[checkpoints.api-review]
+paths = ["api/**"]
+question = ${JSON.stringify(HOSTILE_QUESTION)}
+`;
+
 const CHECK_OK = "#!/usr/bin/env sh\nexit 0\n";
 
 /** A `when` command that PROVES it ran by leaving a marker. A read surface
@@ -195,6 +218,7 @@ const WHEN_TOUCHES = "#!/usr/bin/env sh\necho ran >> ../when-ran.log\nexit 0\n";
 async function worktreeWithApiChange(
   dir: string,
   config: string,
+  changedPath = "api/surface.txt",
 ): Promise<string> {
   await scaffoldEngine(dir);
   await writeConfig(dir, config);
@@ -203,7 +227,7 @@ async function worktreeWithApiChange(
   await gitInit(dir);
   const wt = await addWorktree(dir, "checkpointed");
   await Deno.mkdir(join(wt, "api"), { recursive: true });
-  await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint\n");
+  await Deno.writeTextFile(join(wt, changedPath), "endpoint\n");
   await git(wt, "add", "-A");
   await git(wt, "commit", "-q", "-m", "feat: extend the api", "--no-gpg-sign");
   return wt;
@@ -853,9 +877,9 @@ Deno.test("previews: a checkpoint-free effort adds no checkpoint hints to prepar
 });
 
 Deno.test("checkpoints: the human surface labels a declaration as declared, never as Passed", async () => {
-  // The terminal renderer prints the row's state as its label, and "Passed"
-  // is machine-verdict vocabulary — a declared-met row must read through the
-  // declared vocabulary on the human surface too.
+  // The terminal renderer prints the row's state as its label. Both agent
+  // conclusions use declaration vocabulary; machine verdict and attention
+  // remain separate facts.
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_STOP);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
@@ -867,10 +891,107 @@ Deno.test("checkpoints: the human surface labels a declaration as declared, neve
       env: { COLUMNS: "120", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
+    assertTerminalTextIncludes(human.output, "Declared: api-review");
     assertTerminalTextIncludes(human.output, "Declared met");
     assert(
       !human.output.includes("Passed"),
       `a declaration row must not carry the Passed label:\n${human.output}`,
     );
+
+    const ascii = await runAgent(wt, ["checkpoints"], {
+      env: { COLUMNS: "48", LC_ALL: "C", NO_COLOR: "1" },
+    });
+    assertEquals(ascii.code, 0, ascii.output);
+    assertTerminalTextIncludes(ascii.output, ". Declared: api-review");
+    assertTerminalTextIncludes(ascii.output, "Declared met");
+
+    const why = "The docs lag the new surface; a follow-up covers them.";
+    assertEquals(
+      (await runAgent(
+        wt,
+        ["done", "--unmet", "api-review", "--why", why, "--json"],
+      )).code,
+      0,
+    );
+    const unmet = await runAgent(wt, ["checkpoints"], {
+      env: { COLUMNS: "120", NO_COLOR: "1" },
+    });
+    assertEquals(unmet.code, 0, unmet.output);
+    assertTerminalTextIncludes(unmet.output, "Declared: api-review");
+    assertTerminalTextIncludes(unmet.output, "Declared unmet");
+    assertTerminalTextIncludes(unmet.output, "owner variance required");
+    assertTerminalTextIncludes(unmet.output, why);
+
+    const unmetAscii = await runAgent(wt, ["checkpoints"], {
+      env: { COLUMNS: "48", LC_ALL: "C", NO_COLOR: "1" },
+    });
+    assertEquals(unmetAscii.code, 0, unmetAscii.output);
+    assertTerminalTextIncludes(unmetAscii.output, ". Declared: api-review");
+    assertTerminalTextIncludes(unmetAscii.output, "Declared unmet");
+  });
+});
+
+Deno.test("checkpoints: dynamic question, path, and rationale separators stay inside one terminal row", async () => {
+  await withTempDir(async (dir) => {
+    const changedPath =
+      `api/surface${LINE_SEPARATOR}line${PARAGRAPH_SEPARATOR}paragraph.txt`;
+    const wt = await worktreeWithApiChange(
+      dir,
+      CONFIG_HOSTILE_TERMINAL_TEXT,
+      changedPath,
+    );
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+
+    const stored = await readOpenQuestions(wt);
+    assert(stored.status === "ok");
+    const openQuestion = stored.openQuestions["api-review"];
+    assert(openQuestion !== undefined);
+    const rationale =
+      `Deferred because ${LINE_SEPARATOR} evidence ${PARAGRAPH_SEPARATOR} is incomplete.`;
+    const path = await gitAdminStatePath(wt, "checkpointOpenQuestions");
+    assert(path !== undefined);
+    // Rationale admission rejects these separators. Plant structurally valid
+    // legacy/corrupt evidence to prove the terminal boundary remains the sink's
+    // guarantee even when that upstream defence is bypassed.
+    await Deno.writeTextFile(
+      path,
+      `${
+        JSON.stringify({
+          version: 1,
+          openQuestions: {
+            ...stored.openQuestions,
+            "api-review": {
+              ...openQuestion,
+              declaration: {
+                conclusion: "unmet",
+                why: rationale,
+                definitionHash: openQuestion.definitionHash,
+                subject: openQuestion.subject,
+                declaredAt: "2026-08-21T12:00:00.000Z",
+              },
+            },
+          },
+        })
+      }\n`,
+    );
+
+    const human = await runAgent(wt, ["checkpoints"], {
+      env: { COLUMNS: "120", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertTerminalTextIncludes(
+      human.output,
+      "Question: Does the <U+2028> changed surface preserve <U+2029> its contract?",
+    );
+    assertTerminalTextIncludes(
+      human.output,
+      "Changed: api/surface<U+2028>line<U+2029>paragraph.txt.",
+    );
+    assertTerminalTextIncludes(
+      human.output,
+      "Rationale: Deferred because <U+2028> evidence <U+2029> is incomplete.",
+    );
+    assertEquals(human.output.includes(LINE_SEPARATOR), false);
+    assertEquals(human.output.includes(PARAGRAPH_SEPARATOR), false);
   });
 });
