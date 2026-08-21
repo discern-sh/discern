@@ -869,15 +869,95 @@
   # Four stop checkpoints guard the knowledge surfaces — the ones that steer
   # every future agent session. `discern done` pauses before the gate until the
   # agent declares each fired question met, or unmet with a rationale.
-  # Known and accepted: this repo writes its map beside nearly every change,
-  # so map-focus fires on most launch-phase efforts (38 of the last 40
-  # landings touched 3+ map files; no honest threshold separates). One
-  # batched declaration per effort is the intended tax; the checkpoint-noisy
-  # detector re-adjudicates from post-landing history for the owner.
+  # Generated Map artifacts no longer count toward checkpoint subjects, so two
+  # authored Map files now mark a broad change. One batched declaration per
+  # effort is the intended tax; the checkpoint-noisy detector re-adjudicates
+  # from post-landing history for the owner.
   [checkpoints.map-focus] # a broad map change must reduce future reading
+    min_changed_files = 2
+    teach = "Remove stale material, link the authority, and cut mechanically derivable prose."
   [checkpoints.instruction-economy] # always-loaded prose pays rent in every session
   [checkpoints.skills-playbook] # a skill is an executable playbook
   [checkpoints.gotchas-playbook] # failure memory stays symptom → cause → recovery
+  # Published pages first pass the configured Map selector, then this read-only
+  # command consults the manual-tier registry and page publication predicate.
+  # The command reports exact matched paths, including deleted public blobs.
+  [checkpoints.public-doc-audience]
+    paths = ["${map.dir}**"]
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/public_doc_checkpoint.ts"
+    mode = "stop"
+    question = "Does every changed published page work for a reader without repository context—defining terms at first use, avoiding internal shorthand and contributor instructions, linking only reachable context, stating the operating facts needed at point of use, and keeping examples accurate?"
+    teach = "Published pages must carry their own usable context; the matcher admits only the canonical public document model."
+
+  # Authored distribution bytes need a portability judgment; generated template
+  # output remains excluded by the checkpoint engine's default.
+  [checkpoints.templates-stay-generic]
+    paths = ["templates/**"]
+    mode = "stop"
+    question = "Does every changed authored distribution byte—including examples, placeholders, and instructions—read correctly in any project and domain, without discern-repository vocabulary or inaccessible internal citations?"
+
+  # This deliberate overlap with templates-stay-generic is tiny and batched:
+  # portability and always-loaded context-window rent are different judgments.
+  [checkpoints.shipped-instruction-rent]
+    paths = ["templates/instructions/**"]
+    mode = "stop"
+    question = "Is every changed always-loaded sentence needed before the first relevant tool call, and unable to be delivered at its point of contact?"
+
+  # Only authorities that define or apply Gate evidence, declarations, consent,
+  # grants, variances, and the acceptance transition belong in this list.
+  [checkpoints.authority-boundary]
+    paths = [
+      "src/engine/gate/execute.ts", # decides whether machine Gate work succeeded
+      "src/engine/gate/proof.ts", # binds machine results to the exact tree
+      "src/engine/checkpoints/evidence.ts", # binds agent declarations to evidence
+      "src/engine/checkpoints/subject.ts", # fingerprints the question and subject
+      "src/engine/checkpoints/open_questions.ts", # stores and checks declarations
+      "src/engine/checkpoints/preflight.ts", # interlocks declarations before the Gate
+      "src/shared/declarations.ts", # owns declaration-gated acts and refusals
+      "src/shared/consent.ts", # owns consent sources and consent-gated effects
+      "src/engine/worktree/effort_grant.ts", # validates the effort-scoped grant
+      "src/engine/worktree/effort_grant_writer.ts", # creates that exact grant
+      "src/engine/worktree/effort_grant_cleanup.ts", # claims, restores, and consumes it
+      "src/engine/worktree/landing_authority.ts", # resolves recorded or conversational authority
+      "src/engine/worktree/acceptance_checkpoints.ts", # requires exact owner variances
+      "src/engine/worktree/acceptance_transaction.ts", # binds consent to the exact effect
+      "src/engine/worktree/lifecycle.ts", # sequences the acceptance interlocks and effects
+    ]
+    mode = "stop"
+    question = "Does this change preserve the three evidence classes and the Boundary Canon—machine success grants no landing authority, agent declarations are not machine verification, grants never cover a variance, and each effect requires the exact applicable consent?"
+
+  # An ADR addition is the decision moment; later corrections to an existing
+  # record do not need this advisory.
+  [checkpoints.adr-quality]
+    paths = ["${map.dir}_adr/**"]
+    kinds = ["added"]
+    mode = "advise"
+    question = "Does this new ADR state the decision, real alternatives, consequences, and enduring reason, rather than narrating implementation?"
+
+  # These are the narrow source authorities for published config/result,
+  # CLI/MCP, Proof-note, and Logbook contracts. Generated projections remain
+  # mechanical guards; the checkpoint asks the residual compatibility judgment.
+  [checkpoints.public-contract]
+    paths = [
+      "src/shared/config_schema.ts", # owns accepted configuration shape
+      "src/shared/public_schemas.ts", # owns published schema ids and versions
+      "src/shared/config_codegen.ts", # projects the public config contract
+      "src/shared/result.ts", # owns the shared result envelope vocabulary
+      "src/shared/result_schemas.ts", # owns runtime and Proof-note schemas
+      "src/shared/result_contracts.ts", # registers public result contracts
+      "src/shared/result_formats.ts", # owns public CLI result formats
+      "src/shared/result_serialization.ts", # projects CLI JSON and MCP content
+      "src/shared/result_codegen.ts", # projects public result artifacts
+      "src/shared/verbs.ts", # owns the published verb set
+      "src/main.ts", # declares the live CLI command tree
+      "src/engine/mcp/server.ts", # declares the live MCP tool registry
+      "src/engine/gate/proof_notes.ts", # reads and writes the durable Proof schema
+      "src/engine/logbook/schema.ts", # owns the durable Logbook event vocabulary
+      "scripts/public_schema_compatibility.ts", # enforces the declared schema policy
+    ]
+    mode = "advise"
+    question = "Is the changed public contract compatible under its declared policy, with any migration or versioning explicit and user documentation and generated artifacts following it?"
+
   # Five advisory checkpoints read the shape of the change — never blocking,
   # delivered with the gate's advisories when their pattern appears. The two
   # breadth thresholds are tuned above the shipped defaults for this repo:
