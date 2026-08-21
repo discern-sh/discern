@@ -167,7 +167,7 @@ Deno.test("prepare TTY: --plain and CI render a static final table", async () =>
       });
       assertEquals(result.code, 0, `${label}: ${result.output}`);
       assertTerminalTextIncludes(result.output, "Gate progress");
-      assertStringIncludes(result.output, "STEPS");
+      assertStringIncludes(result.output, "Steps");
       assertTerminalTextIncludes(result.output, "passed in <1s");
       assertEquals(result.output.includes("pending"), false, label);
       assertEquals(result.output.includes("running"), false, label);

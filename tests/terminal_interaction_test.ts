@@ -606,10 +606,14 @@ Deno.test("the shared choice adapter preserves wide frames and group breathing r
     "alpha",
   );
 
-  const active = io.writes.find((write) => write.includes("Choose [active]"));
-  assertExists(active);
-  assertEquals(widestTerminalLine(active), columns);
-  const rows = stripAnsi(active).split("\n");
+  const frame = io.writes.find((write) => {
+    const rendered = stripAnsi(write);
+    return rendered.includes("Choose") && rendered.includes("Alpha") &&
+      rendered.includes("PRIMARY");
+  });
+  assertExists(frame);
+  assertEquals(widestTerminalLine(frame), columns);
+  const rows = stripAnsi(frame).split("\n");
   const blank = `│${" ".repeat(columns - 2)}│`;
   for (const heading of ["PRIMARY", "SECONDARY"]) {
     const index = rows.findIndex((row) => row.includes(heading));
@@ -631,9 +635,12 @@ Deno.test("the shared choice adapter discloses choices below its visible window"
     }, scriptedRuntime(io)),
     0,
   );
-  const active = io.writes.find((write) => write.includes("Choose [active]"));
-  assertExists(active);
-  assertStringIncludes(stripAnsi(active), "↓ 3 more");
+  const frame = io.writes.find((write) => {
+    const rendered = stripAnsi(write);
+    return rendered.includes("Choose") && rendered.includes("Choice 1") &&
+      rendered.includes("↓ 3 more");
+  });
+  assertExists(frame);
 });
 
 Deno.test("choice identity rejects duplicate values, ids, and implicit object ids", async () => {

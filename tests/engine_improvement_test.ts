@@ -42,18 +42,19 @@ function triangleSectionAt(
   label: string,
   after = 0,
 ): number {
-  const renderedLabel = label.toUpperCase();
+  const renderedLabel = label.toLowerCase();
   let cursor = after;
   while (cursor < output.length) {
     const end = output.indexOf("\n", cursor);
     const lineEnd = end < 0 ? output.length : end;
     const line = output.slice(cursor, lineEnd);
-    const decoration = line.replace(renderedLabel, "");
+    const renderedLine = line.toLowerCase();
+    const decoration = renderedLine.replace(renderedLabel, "");
     const hasTriangle = [...PACKAGE_SECTION_TRIANGLES].some((glyph) =>
       decoration.includes(glyph)
     );
     if (
-      line.includes(renderedLabel) &&
+      renderedLine.includes(renderedLabel) &&
       (hasTriangle || /[<>^v]/u.test(decoration))
     ) {
       return cursor;
