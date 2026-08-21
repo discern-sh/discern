@@ -64,7 +64,7 @@ reportFailure(log, "the requested page is missing.", [
 ]);
 ```
 
-The failure form is the danger line (state the condition, name the object), optionally followed by one recovery group carrying the next step. A message that already ends with its next step stays a single `log.error(...)`; a distinct actionable command gets the recovery group. A refusal with several detail groups composes the same primitives directly: `error`, then `group(id)` and indented `humanLine` items per group. The retired `discern:` prefix never returns: the package-owned `✕` glyph is discern's voice, and only raw child-process bytes reach the terminal without it.
+The failure form is the danger line (state the condition, name the object), optionally followed by one recovery group carrying the next step. A message that already ends with its next step stays a single `log.error(...)`; a distinct actionable command gets the recovery group. A product-composed message whose paragraphs carry the meaning (a batched refusal, an issue list) goes through `errorBlock`: authored newlines stay real structure, each line's dynamic facts are made inert, and every line wraps under the glyph. Captured foreign text stays on `error`, where every separator renders visible. A refusal with several detail groups composes the same primitives directly: `error`, then `group(id)` and indented `humanLine` items per group. The retired `discern:` prefix never returns: the package-owned `✕` glyph is discern's voice, and only raw child-process bytes reach the terminal without it.
 
 ## Where interaction and Components enter
 

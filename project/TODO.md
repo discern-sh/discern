@@ -20,7 +20,7 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 
 ## 🔴 Performance & correctness
 
-_Verified defects and correctness risks. Nothing outstanding._
+- [ ] **Decide the `binary_size` ceiling breach.** The on-demand measurement reports `binary_size_bytes` 144,013,160 against the 143,365,960 ceiling (~647 KB over), observed during the 9A closeout on a tree whose changes cannot account for it — the growth predates the branch (the design-system 0.23 adoption window is the likely origin) and sat unnoticed because the standard measures on demand. Owner decision on the trunk: shrink the shipped binary back under the ceiling, or move the ceiling with the growth's justification recorded. Never resolved by loosening from a branch. The blocked `instructions` pin opportunity (1,427 words measured against the 1,530 ceiling after the 9A trim) unlocks with this decision — `discern standards --pin` refuses while any standard is red. Evidence: `discern standards --json` (binary_size diagnostic); `scripts/binary_size.ts`.
 
 ## 🟠 Cleanup — known dead or slow code
 

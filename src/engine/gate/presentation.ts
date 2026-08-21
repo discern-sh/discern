@@ -724,7 +724,9 @@ function renderPlanPrerequisites(
       ),
       state: step.disposition === "skip" ? "satisfied" : "required",
       detail: safeMultiline(
-        `${planKindLabel(step.kind)}: ${PLAN_DISPOSITION_PHRASES[step.disposition]}`,
+        `${planKindLabel(step.kind)}: ${
+          PLAN_DISPOSITION_PHRASES[step.disposition]
+        }`,
       ),
     })),
     maxWidth: width,
