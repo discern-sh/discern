@@ -908,7 +908,7 @@
     paths = ["${map.dir}**"]
     when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/public_doc_checkpoint.ts"
     mode = "stop"
-    question = "Does every changed published page work for a reader without repository context—defining terms at first use, avoiding internal shorthand and contributor instructions, linking only reachable context, stating the operating facts needed at point of use, and keeping examples accurate?"
+    question = "Does every changed published page work for a reader without repository context — defining terms at first use, avoiding internal shorthand and contributor instructions, linking only reachable context, stating the operating facts needed at point of use, and keeping examples accurate?"
     teach = "Published pages must carry their own usable context; the matcher admits only the canonical public document model."
 
   # Authored distribution bytes need a portability judgment; generated template
@@ -916,7 +916,7 @@
   [checkpoints.templates-stay-generic]
     paths = ["templates/**"]
     mode = "stop"
-    question = "Does every changed authored distribution byte—including examples, placeholders, and instructions—read correctly in any project and domain, without discern-repository vocabulary or inaccessible internal citations?"
+    question = "Does every changed authored distribution byte — including examples, placeholders, and instructions — read correctly in any project and domain, without discern-repository vocabulary or inaccessible internal citations?"
 
   # This deliberate overlap with templates-stay-generic is tiny and batched:
   # portability and always-loaded context-window rent are different judgments.
@@ -946,7 +946,7 @@
       "src/engine/worktree/lifecycle.ts", # sequences the acceptance interlocks and effects
     ]
     mode = "stop"
-    question = "Does this change preserve the three evidence classes and the Boundary Canon—machine success grants no landing authority, agent declarations are not machine verification, grants never cover a variance, and each effect requires the exact applicable consent?"
+    question = "Does this change preserve the three evidence classes and the Boundary Canon — machine success grants no landing authority, agent declarations are not machine verification, grants never cover a variance, and each effect requires the exact applicable consent?"
 
   # An ADR addition is the decision moment; later corrections to an existing
   # record do not need this advisory.
