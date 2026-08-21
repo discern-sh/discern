@@ -204,7 +204,7 @@ Deno.test("when: any other exit fails open with an advisory naming the protocol"
     );
     assert(out.kind === "error");
     assertStringIncludes(out.advisory, "exited 3");
-    assertStringIncludes(out.advisory, "0 fires, 1 passes");
+    assertStringIncludes(out.advisory, "exit 0 fires, exit 1 passes");
     assertStringIncludes(out.advisory, "did not fire");
     assertStringIncludes(out.advisory, "boom-detail");
   });

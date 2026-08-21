@@ -700,6 +700,15 @@ function planRuns(steps: readonly PlanStep[]): PlanRun[] {
   return runs;
 }
 
+/** What each planned disposition means for the reader, in the plan's
+ * conditional grammar — total over the closed disposition set, so a new
+ * member fails here until its phrase exists. */
+const PLAN_DISPOSITION_PHRASES = {
+  run: "would run in this pass.",
+  skip: "already satisfied; nothing would run.",
+  gate: "would run with the gate.",
+} as const satisfies Readonly<Record<StepDisposition, string>>;
+
 /** Render one discern-owned prerequisite run. */
 function renderPlanPrerequisites(
   run: PlanRun,
@@ -715,7 +724,7 @@ function renderPlanPrerequisites(
       ),
       state: step.disposition === "skip" ? "satisfied" : "required",
       detail: safeMultiline(
-        `${planKindLabel(step.kind)} is marked ${step.disposition}.`,
+        `${planKindLabel(step.kind)}: ${PLAN_DISPOSITION_PHRASES[step.disposition]}`,
       ),
     })),
     maxWidth: width,

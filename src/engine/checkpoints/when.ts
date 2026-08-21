@@ -226,7 +226,7 @@ export async function runWhenCommand(
     reason: "when_invalid_exit",
     advisory:
       `checkpoint '${checkpointId}': the when command exited ${result.result.code} ` +
-      `(0 fires, 1 passes); the trigger fails open and did not fire.` +
+      `(exit 0 fires, exit 1 passes); the trigger fails open and did not fire.` +
       (excerpt.length === 0 ? "" : ` Output: ${outputExcerpt(excerpt)}`),
   };
 }
