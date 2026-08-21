@@ -105,14 +105,14 @@ function normalized(text: string): string {
 
 /** Find one package section rule without pinning its capability-specific glyphs. */
 function sectionRuleLine(output: string, label: string): string {
-  const marker = ` ${label.toUpperCase()} `;
+  const marker = ` ${label.toLocaleLowerCase()} `;
   const line = output.split("\n").find((candidate) => {
-    const markerAt = candidate.indexOf(marker);
+    const markerAt = candidate.toLocaleLowerCase().indexOf(marker);
     if (markerAt < 1) return false;
     const left = candidate.slice(0, markerAt);
     const right = candidate.slice(markerAt + marker.length);
-    const decoration = `${left}${right}`.replaceAll("v", "");
-    return left.trim().length > 0 && right.trim().length > 0 &&
+    const decoration = right.replaceAll(/[ v]/gu, "");
+    return left.trim().length > 0 && decoration.length > 0 &&
       !/[\p{L}\p{N}]/u.test(decoration);
   });
   assert(
@@ -439,7 +439,8 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
 
     const human = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(human.code, 0, human.output);
-    assertTerminalTextIncludes(human.output, "running done 2m · usually 4m");
+    assertTerminalTextIncludes(human.output, "Gate running · 2m");
+    assertTerminalTextIncludes(human.output, "Activity: just now · usually 4m");
     assertTerminalTextIncludes(human.output, "done failed at test");
   });
 });
@@ -680,7 +681,7 @@ Deno.test("status human output separates its semantic groups", async () => {
     for (
       const section of [
         "Current worktree",
-        "Next steps",
+        "Next actions",
         "Checks",
         "Local environment",
       ]
@@ -756,14 +757,15 @@ Deno.test("status fleet (human): the wide brief is bounded and defers row eviden
 
     const r = await runAgent(dir, ["status"], { env: { COLUMNS: "120" } });
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "WORKTREES");
-    assertStringIncludes(r.output, "STATE");
+    assertStringIncludes(r.output, "Worktrees");
+    assert(!r.output.includes("STATE"), r.output);
     assert(!r.output.includes("ATTENTION"), r.output);
     assert(!r.output.includes("Receipt:"), r.output);
-    assertEquals(r.output.match(/Git:/gu)?.length, 1);
+    assertEquals(r.output.match(/Git:/gu)?.length ?? 0, 0);
     assert(!r.output.includes("Proof"), r.output);
-    assert(!r.output.includes("Activity"), r.output);
-    assertStringIncludes(r.output, "agent/alpha");
+    assertStringIncludes(r.output, "Activity");
+    assert(!r.output.includes("agent/alpha"), r.output);
+    assertTerminalTextIncludes(r.output, "Alpha · Idle · DRIFT");
     assertEquals(r.output.match(/main checkout/giu)?.length, 1);
     assert(!r.output.includes("AHEAD/BEHIND"), r.output);
     for (const line of r.output.trimEnd().split("\n")) {
@@ -780,6 +782,7 @@ Deno.test("status fleet (human): the wide brief is bounded and defers row eviden
     assertStringIncludes(verbose.output, "Git:");
     assertStringIncludes(verbose.output, "Proof");
     assertStringIncludes(verbose.output, "Activity");
+    assertTerminalTextIncludes(verbose.output, "Branch: agent/alpha");
   });
 });
 
@@ -800,8 +803,9 @@ Deno.test({
       });
       assertEquals(colored.code, 0, colored.output);
       assertStringIncludes(colored.output, `${STATUS_ESCAPE}[`);
-      assertTerminalTextIncludes(colored.output, "Active worktrees");
-      assertTerminalTextIncludes(colored.output, "Branch: agent/alpha");
+      assertTerminalTextIncludes(colored.output, "Fleet · 1 active worktree");
+      assert(!colored.output.includes("agent/alpha"), colored.output);
+      assertStringIncludes(colored.output, "Alpha");
       assertStringIncludes(colored.output, "Idle");
       for (const line of colored.stdout.trimEnd().split("\n")) {
         assert(
@@ -816,8 +820,9 @@ Deno.test({
       });
       assertEquals(plain.code, 0, plain.output);
       assert(!plain.output.includes(STATUS_ESCAPE), plain.output);
-      assertTerminalTextIncludes(plain.output, "Active worktrees");
-      assertTerminalTextIncludes(plain.output, "Branch: agent/alpha");
+      assertTerminalTextIncludes(plain.output, "Fleet · 1 active worktree");
+      assert(!plain.output.includes("agent/alpha"), plain.output);
+      assertStringIncludes(plain.output, "Alpha");
       assertStringIncludes(plain.output, "Idle");
       for (const line of plain.stdout.trimEnd().split("\n")) {
         assert(
@@ -829,11 +834,9 @@ Deno.test({
   },
 });
 
-Deno.test("status fleet (human): measured lines stay bounded while long identifiers remain complete", async () => {
-  // The class guard: every ordinary dashboard line fits the width selected by
-  // status. An indivisible identifier may exceed it only on its own identity
-  // line, where the complete copyable value remains available. This rejects the
-  // content-sized-table mechanism: one long identity must not widen every field.
+Deno.test("status fleet (human): the brief stays bounded while verbose preserves long identities", async () => {
+  // The class guard: generated identities cannot widen or dominate the brief.
+  // The expanded view still preserves complete copyable Git identities.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -846,19 +849,29 @@ Deno.test("status fleet (human): measured lines stay bounded while long identifi
       env: { COLUMNS: String(width) },
     });
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, id);
-    assertStringIncludes(r.output, branch);
+    assert(!r.output.includes(id), r.output);
+    assert(!r.output.includes(branch), r.output);
     for (const line of r.stdout.split("\n")) {
-      if (displayWidth(line) <= width) continue;
-      const identifierLine = line === `Branch: ${branch}` ||
-        line === `Persona: ${id}`;
       assert(
-        identifierLine,
+        displayWidth(line) <= width,
         `ordinary ${width}-column line is ${
           displayWidth(line)
         } columns: ${line}`,
       );
     }
+
+    const verbose = await runAgent(dir, ["status", "--verbose"], {
+      env: { COLUMNS: String(width) },
+    });
+    assertEquals(verbose.code, 0, verbose.output);
+    const receiptText = verbose.stdout.split("\n").map((line) =>
+      line
+        .replace(/^[|│]\s?/u, "")
+        .replace(/\s?[|│]$/u, "")
+        .trim()
+    ).join("");
+    assertStringIncludes(receiptText, `Worktree:${id}`);
+    assertStringIncludes(receiptText, `Branch:${branch}`);
   });
 });
 
@@ -917,7 +930,7 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     const allHuman = await runAgent(wt, ["status", "--all"], {
       env: { COLUMNS: "72" },
     });
-    sectionRuleLine(allHuman.output, "Fleet");
+    assertTerminalTextIncludes(allHuman.output, "Fleet · 1 active worktree");
     sectionRuleLine(allHuman.output, "Worktrees");
     sectionRuleLine(allHuman.output, "Main checkout");
   });
@@ -1145,7 +1158,8 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     // reserves the stored Markdown page for --verbose.
     const plain = await runAgent(wt, ["status"]);
     assertEquals(plain.code, 0, plain.output);
-    assertTerminalTextIncludes(plain.output, "agent/alpha Proof");
+    assertTerminalTextIncludes(plain.output, "Alpha Proof");
+    assertTerminalTextIncludes(plain.output, "Branch: agent/alpha");
     assertStringIncludes(plain.output, "Proof");
     assertStatusFactLine(plain.output, "Proof", "honored");
     assert(

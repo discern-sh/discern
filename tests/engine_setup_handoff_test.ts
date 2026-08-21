@@ -41,13 +41,12 @@ const INSTRUCTIONS_H1 = "# Set up discern";
 
 /** Find one package section rule without pinning its Unicode/ASCII ornaments. */
 function sectionRuleLine(output: string, label: string): string | undefined {
-  const marker = ` ${label} `;
+  const marker = ` ${label.toLocaleLowerCase()} `;
   return output.split("\n").find((candidate) => {
-    const markerAt = candidate.indexOf(marker);
+    const markerAt = candidate.toLocaleLowerCase().indexOf(marker);
     if (markerAt < 1) return false;
-    const left = candidate.slice(0, markerAt);
     const right = candidate.slice(markerAt + marker.length);
-    const ornaments = `${left}${right}`.replaceAll(" ", "");
+    const ornaments = right.replaceAll(" ", "");
     return ornaments.length > 0 && !/[\p{L}\p{N}\s]/u.test(ornaments);
   });
 }
@@ -224,14 +223,15 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
     await scaffoldEngine(dir, { bootstrapped: false });
     await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the marker-carrying skeletons
 
-    // Human view: a leading semantic section, not a buried hint.
+    // Human view: the main checkout stays first, then setup gets a semantic
+    // section instead of becoming a buried hint.
     const human = await runAgent(dir, ["status"]);
     assertTerminalTextIncludes(human.stdout, "Setup is not finished");
     const setupSection = sectionRuleLine(human.stdout, "SETUP");
     assert(setupSection !== undefined, human.stdout);
+    const mainAt = human.stdout.toLowerCase().indexOf("main checkout");
     assert(
-      human.stdout.indexOf(setupSection) <
-        human.stdout.toLowerCase().indexOf("main checkout"),
+      mainAt >= 0 && mainAt < human.stdout.indexOf(setupSection),
       human.stdout,
     );
 
