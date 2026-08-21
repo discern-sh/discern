@@ -106,8 +106,6 @@ Map search includes `publish: false`. Docs search covers the public manual. Both
 
 Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`.
 
-Every effectful Markdown preview begins its Current state account with `**Dry run: nothing changed.**`, then describes planned mutations conditionally. Concrete paths and counts remain factual. The Markdown CLI and MCP text use the same presenter; applied results and read-only commands do not receive the preview lead.
-
 A failed JSON, Markdown, or MCP result always includes a registered next action. JSON and `structuredContent` carry it in `hints`; Markdown places it at the end of the presentation. Owner decisions occupy a separate Owner attention section before caller actions. When `message` or the first `diagnostics` entry explains the correction, the hint points there. When recovery depends on a choice or reported state, the hint names the relevant state and action. Consent, partial operations, incomplete setup, document lookup, and improvement thresholds use these specific instructions. A caller therefore does not have to infer whether to retry, review, choose, or complete cleanup ([ADR 0266](../_adr/0266-public-failure-recovery-is-classified-by-error-family.md)).
 
 `setup begin` and `accept` check for the required permission before changing anything. Without permission, they return `awaiting_consent` and leave the project unchanged. The result names what needs review and gives the confirmed command that continues the operation. `setup begin` provides this contract in terminal, JSON, and Markdown CLI output. `accept` also provides it through MCP. Dry runs need no permission because they only show the plan.
