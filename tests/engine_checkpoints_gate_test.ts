@@ -529,6 +529,48 @@ Deno.test("done --ci: a fresh checkout reports a fired stop and lets machine job
     const marker = await proofMarker(wt);
     assertStringIncludes(marker, "mode: report");
     assertStringIncludes(marker, "reported, not enforced");
+    // Report mode never manufactures declarations beside its review fact.
+    assertEquals(env.data.checkpoints.declared_met ?? [], []);
+    assertEquals(env.data.checkpoints.declared_unmet ?? [], []);
+  });
+});
+
+Deno.test("done: a CI environment never selects report mode and only tailors the strict recovery", async () => {
+  // The report lane is the explicit flag; environment detection improves
+  // guidance only. A bare strict run under a CI marker still refuses with
+  // the full serving, writes the ordinary open question, and adds the
+  // CI-specific recovery hint naming both legitimate routes.
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
+    const ci = await runAgent(wt, ["done", "--json"], {
+      env: { CI: "true" },
+    });
+    assertEquals(ci.code, 1, ci.output);
+    const envelope = parseJson(ci.stdout);
+    assertEquals(envelope.error, AWAITING_DECLARATION_SLUG);
+    assertEquals(
+      envelope.data.checkpoints.review,
+      undefined,
+      "a CI environment must not switch the strict gate into report mode",
+    );
+    assertHasHint(envelope, HINTS["checkpoint-ci-recovery"]);
+    assertEquals(
+      (await readOpenQuestions(wt)).status,
+      "ok",
+      "the strict refusal still records its open question under CI",
+    );
+
+    const local = await runAgent(wt, ["done", "--json"]);
+    assertEquals(local.code, 1, local.output);
+    const localEnvelope = parseJson(local.stdout);
+    const ciHint = (localEnvelope.hints ?? []).filter((hint) =>
+      hint.includes("--ci")
+    );
+    assertEquals(
+      ciHint,
+      [],
+      "outside CI the refusal keeps the ordinary declaration guidance only",
+    );
   });
 });
 
