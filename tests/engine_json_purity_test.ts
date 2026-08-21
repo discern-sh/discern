@@ -743,11 +743,11 @@ Deno.test("done --markdown emits one quiet authored document under both stream s
       ]);
       assertEquals(preview.code, 0, preview.output);
       assertEquals(preview.stderr, "", preview.output);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         preview.stdout,
         "## Current state\n\n**Dry run: nothing changed.**",
       );
-      assertStringIncludes(preview.stdout, "Would check");
+      assertTerminalTextIncludes(preview.stdout, "Would check");
       const result = await runAgent(dir, ["done", "--markdown"]);
       assertEquals(result.code, 0, result.output);
       assertEquals(result.stderr, "", result.output);
