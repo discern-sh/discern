@@ -8,6 +8,7 @@ import {
   CLI_JSON_RESULT_CONTRACTS,
   resultPresenterForVerb,
 } from "../src/shared/result_contracts.ts";
+import { dryRunCapableVerbs } from "../src/main.ts";
 import {
   renderResultMarkdown,
   type ResultMarkdownPresenter,
@@ -33,6 +34,7 @@ import {
 import { extractCommandRefs } from "../src/shared/command_reference.ts";
 
 const PROOF_SENTINEL = "FULL-PROOF-PAGE".repeat(8_000);
+const DRY_RUN_LEAD = "**Dry run: nothing changed.**";
 const UNCOVERED = Array.from(
   { length: 9 },
   (_, index) => ({
@@ -146,6 +148,97 @@ Deno.test("every public result contract selects an authored Markdown presenter",
   for (const contract of CLI_JSON_RESULT_CONTRACTS) {
     assertEquals(typeof contract.presenter, "function", contract.id);
     assertEquals(resultPresenterForVerb(contract.verb), contract.presenter);
+  }
+});
+
+Deno.test("dry-run Markdown derives universal state and conditional plan grammar from the live command class", () => {
+  const dryRunCommands = dryRunCapableVerbs();
+  const enrolled = new Set(dryRunCommands);
+  for (const command of dryRunCommands) {
+    const contract = CLI_JSON_RESULT_CONTRACTS.find((candidate) =>
+      candidate.commands.includes(command)
+    );
+    assert(contract !== undefined, `${command}: no public result contract`);
+    const dry = {
+      ok: true,
+      verb: contract.verb,
+      dry_run: true,
+      data: {},
+      plan: {
+        title: "Future plan",
+        details: ["Path: src/future.ts"],
+        steps: [{
+          kind: "git",
+          label: "apply future change",
+          disposition: "run",
+          note: "src/future.ts",
+        }],
+      },
+    };
+    const rendered = renderResultMarkdown(dry, contract.presenter);
+    assertStringIncludes(
+      rendered,
+      `## Current state\n\n${DRY_RUN_LEAD}\n\n`,
+    );
+    assertStringIncludes(rendered, "Would run `apply future change`");
+
+    const applied = { ...dry, dry_run: false, plan: undefined };
+    const appliedMarkdown = renderResultMarkdown(applied, contract.presenter);
+    assert(!appliedMarkdown.includes(DRY_RUN_LEAD), command);
+    assert(
+      !appliedMarkdown.includes("Would run `apply future change`"),
+      command,
+    );
+  }
+
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    if (contract.commands.every((command) => !enrolled.has(command))) {
+      const readOnly = renderResultMarkdown(
+        { ok: true, verb: contract.verb, data: {} },
+        contract.presenter,
+      );
+      assert(!readOnly.includes(DRY_RUN_LEAD), contract.id);
+    }
+  }
+});
+
+Deno.test("dry-run lead survives successful, refused, precondition, and no-op result states", () => {
+  const cases = [
+    { label: "successful", result: { ok: true } },
+    {
+      label: "refused",
+      result: {
+        ok: false,
+        error: "confirmation_required",
+        message: "Confirmation is required.",
+      },
+    },
+    {
+      label: "precondition",
+      result: {
+        ok: false,
+        error: "precondition_failed",
+        message: "The branch is behind trunk.",
+      },
+    },
+    {
+      label: "no-op",
+      result: {
+        ok: true,
+        plan: { title: "No-op plan", details: [], steps: [] },
+      },
+    },
+  ];
+  for (const { label, result } of cases) {
+    const rendered = renderResultMarkdown(
+      { ...result, verb: "future", dry_run: true },
+      resultPresenterForVerb("future"),
+    );
+    assertStringIncludes(
+      rendered,
+      `## Current state\n\n${DRY_RUN_LEAD}\n\n`,
+      label,
+    );
   }
 });
 

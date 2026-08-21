@@ -736,12 +736,29 @@ Deno.test("done --markdown emits one quiet authored document under both stream s
       await scaffoldEngine(dir);
       await writeConfig(dir, config.toml);
       await gitInit(dir);
+      const preview = await runAgent(dir, [
+        "done",
+        "--dry-run",
+        "--markdown",
+      ]);
+      assertEquals(preview.code, 0, preview.output);
+      assertEquals(preview.stderr, "", preview.output);
+      assertStringIncludes(
+        preview.stdout,
+        "## Current state\n\n**Dry run: nothing changed.**",
+      );
+      assertStringIncludes(preview.stdout, "Would check");
       const result = await runAgent(dir, ["done", "--markdown"]);
       assertEquals(result.code, 0, result.output);
       assertEquals(result.stderr, "", result.output);
       assertTerminalTextIncludes(result.stdout, "# `discern done`");
       assertTerminalTextIncludes(result.stdout, "## Current state");
       assertTerminalTextIncludes(result.stdout, "## Evidence");
+      assert(
+        !result.stdout.includes("**Dry run: nothing changed.**"),
+        result.stdout,
+      );
+      assert(!result.stdout.includes("Would check"), result.stdout);
       assertEquals(result.stdout.match(/^# /gm)?.length, 1, result.stdout);
       for (
         const noise of [
