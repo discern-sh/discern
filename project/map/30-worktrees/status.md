@@ -21,7 +21,7 @@ Worktrees default to a local view. From the main checkout, the default is a deci
 
 `--all` explicitly adds the fleet to a worktree's detailed local view; `--local` suppresses it. The flags conflict.
 
-`statusResult` owns status observation. One invocation clock feeds collection, hints, and rendering; one terminal snapshot builds the terminal presentation. The pure dashboard receives only facts, time, width, and verbosity. Every visible terminal block passes through its matching design-system CLI Component: Heading, Paragraph, Section, List, Empty state, Result summary, Diagnostic, Receipt, Diffstat, or Raw output. discern joins completed blocks but owns no competing frame.
+`statusResult` owns status observation. One invocation clock feeds collection, hints, and rendering; one terminal snapshot builds the terminal presentation. The pure dashboard receives only facts, time, width, and verbosity. Published design-system CLI Components own every visible block and responsive frame; discern supplies the product facts and composes the blocks without a competing terminal grammar.
 
 The report caps at 104 columns. Its task list reuses the Desk's task-label authority, hides generated worktree and branch identities by default, and shows the six-character tail only when two visible tasks share a name. Current and detached state stays explicit. `--verbose` shows the complete worktree and branch identities inside the package Receipt; those values may wrap at narrow measures but no characters disappear.
 
