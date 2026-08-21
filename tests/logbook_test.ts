@@ -489,6 +489,10 @@ Deno.test("store: reset detaches the logbook from concurrent writers before clea
 
     let stop = false;
     let writes = 0;
+    // The writer records failure instead of rejecting: its promise is only
+    // awaited at the end, and an earlier rejection would surface as an uncaught
+    // module error that cancels every sibling test in this file.
+    let writerError: unknown;
     const writer = (async (): Promise<void> => {
       while (!stop) {
         try {
@@ -499,21 +503,41 @@ Deno.test("store: reset detaches the logbook from concurrent writers before clea
           );
           writes += 1;
         } catch (error) {
-          if (!(error instanceof Deno.errors.NotFound)) {
-            throw error;
+          // NotFound and AlreadyExists are the same mid-reset transient: the
+          // detach rename can land between recursive mkdir's EEXIST and its
+          // is-a-directory re-check, so either error means the canonical path
+          // is mid-transition and the writer should retry.
+          const midReset = error instanceof Deno.errors.NotFound ||
+            error instanceof Deno.errors.AlreadyExists;
+          if (!midReset) {
+            writerError = error;
+            return;
           }
         }
       }
     })();
 
-    while (writes === 0) {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
+    const tick = (): Promise<void> =>
+      new Promise((resolve) => setTimeout(resolve, 0));
     try {
+      while (writes === 0 && writerError === undefined) {
+        await tick();
+      }
       await removeLogbook(dir);
+      // Wait for two more increments: the first may be an in-flight iteration
+      // that started before the reset, but the second began after it, so its
+      // mkdir + write land on the recreated canonical path and the read below
+      // is deterministic rather than timing-dependent.
+      const base = writes;
+      while (writes < base + 2 && writerError === undefined) {
+        await tick();
+      }
     } finally {
       stop = true;
       await writer;
+    }
+    if (writerError !== undefined) {
+      throw writerError;
     }
 
     assert(writes > 0);
