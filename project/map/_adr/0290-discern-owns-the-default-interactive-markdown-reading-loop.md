@@ -1,5 +1,7 @@
 # ADR 0290: Discern owns the default interactive Markdown reading loop
 
+> **Dependency amendment (2026-08-21):** Discern now consumes the immutable 0.22.0 package. The composite browser contract remains in force; the public alternate-screen runtime option and revised frame presentation do not move ownership of the default reading loop.
+
 > **Dependency amendment (2026-08-18):** Discern now consumes the immutable 0.21.0 package. The composite browser contract introduced in 0.20.0 remains in force; the upgrade changes terminal repertoire and motif defaults without moving reader ownership.
 
 **Status**: accepted; extends [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md) and [ADR 0287](0287-terminal-markdown-delegates-to-the-design-system.md)

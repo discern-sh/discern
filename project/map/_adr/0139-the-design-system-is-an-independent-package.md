@@ -1,5 +1,7 @@
 # ADR 0139: The design system is an independently versioned package
 
+> **Dependency-pin amendment (2026-08-21):** Discern now pins `jsr:@discern-sh/design-system@0.22.0`. The release balances terminal frame padding, quiets routine lifecycle labels, adds Masonry and quiet section rules, and makes `FeatureBento` layouts strict rectangular matrices while preserving the exact immutable package boundary. Discern does not render `FeatureBento`.
+
 > **Dependency-pin amendment (2026-08-18):** Discern now pins `jsr:@discern-sh/design-system@0.21.0`. The release separates plain interface triangles from the opt-in brand register, derives character repertoire from locale rather than attachment, and makes terminal Switch labels opt-in while preserving the exact immutable package boundary.
 
 > **Reader-contract amendment (2026-08-17):** Discern now pins `jsr:@discern-sh/design-system@0.20.0`. The release adds secondary choice descriptions, browsing and completion policies, compact continuation, and the public adaptive Markdown-browser contract while preserving the exact immutable package boundary.

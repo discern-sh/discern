@@ -1,5 +1,7 @@
 # ADR 0279: External terminal rendering crosses one Discern-owned process boundary
 
+> **Frame-polish amendment (2026-08-21):** Discern consumes the immutable 0.22.0 release. Shared Forms frames and Toast keep balanced horizontal padding, routine derived lifecycle tokens disappear from labels unless a caller explicitly requests diagnostic status, and search retains its pending signal. Meter, Activity log, quiet section rules, and Procedure inherit the package's revised presentation through the existing process boundary; no product rendering contract moves.
+
 > **Repertoire-register amendment (2026-08-18):** Discern consumes the immutable 0.21.0 release. Locale alone selects Unicode or ASCII repertoire; terminal attachment continues to govern control behaviour. The bound discern motif speaks plain triangles by default and exposes its half-filled brand register per composition. Product-owned pyramid and gasket art select the brand register explicitly; fixed directional Component geometry does not follow motif selection.
 
 > **Reader-loop amendment (2026-08-17; [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)):** Discern consumes the immutable 0.20.0 composite Markdown browser through `terminal_interaction.ts`. The process boundary supplies package IO, theme, motif, and resize observation; the package owns the alternate screen, raw input, mouse modes, pane state, and restoration. Product and external-link actions cross back only after restoration, while typed capability refusals select the compact sequential reader.

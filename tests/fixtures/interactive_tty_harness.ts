@@ -42,6 +42,34 @@ export type InteractiveTtyScenario =
   | "error"
   | "cancellation";
 
+export const INTERACTIVE_TTY_REQUEST_LABELS = {
+  text: ["Edit a Unicode value"],
+  "text-default": ["Keep or edit the default"],
+  "confirm-default-no": ["Reclaim the contained checkout?"],
+  select: ["Choose a value"],
+  "select-default": ["Choose the remembered value"],
+  "grouped-select": ["Choose from semantic groups"],
+  search: ["Filter grouped documents"],
+  "search-default": ["Restore a remembered searchable document"],
+  "repeated-viewport": [
+    "Choose a desk action",
+    "Browse docs",
+    "Choose a desk action again",
+  ],
+  "composed-viewport-cycles": [
+    "Choose a task or action",
+    "Choose an action",
+  ],
+  "textarea-tall": ["Edit tall notes"],
+  multiselect: ["Choose at least two values"],
+  "multiselect-default": ["Keep the selected values"],
+  validation: ["Type valid"],
+  error: ["Trigger an unexpected validator fault"],
+  cancellation: ["Cancel this question"],
+} as const satisfies Readonly<
+  Record<InteractiveTtyScenario, readonly [string, ...string[]]>
+>;
+
 interface TerminalDimensions {
   readonly columns: number;
   readonly rows: number;
@@ -199,23 +227,26 @@ async function runScenario(
   switch (scenario) {
     case "text":
       return await requestText({
-        message: "Edit a Unicode value",
+        message: INTERACTIVE_TTY_REQUEST_LABELS.text[0],
         hint: "Cursor movement and deletion preserve graphemes.",
       });
     case "text-default":
       return await requestText({
-        message: "Keep or edit the default",
+        message: INTERACTIVE_TTY_REQUEST_LABELS["text-default"][0],
         default: "remembered-value",
       });
     case "confirm-default-no":
-      return await requestConfirmation("Reclaim the contained checkout?", {
-        defaultTo: false,
-        noLabel: "Keep",
-        yesLabel: "Reclaim",
-      });
+      return await requestConfirmation(
+        INTERACTIVE_TTY_REQUEST_LABELS["confirm-default-no"][0],
+        {
+          defaultTo: false,
+          noLabel: "Keep",
+          yesLabel: "Reclaim",
+        },
+      );
     case "select":
       return await requestSelection({
-        message: "Choose a value",
+        message: INTERACTIVE_TTY_REQUEST_LABELS.select[0],
         options: [
           { id: "alpha", name: "Alpha", value: "alpha" },
           { id: "beta", name: "Beta", value: "beta" },
@@ -224,7 +255,7 @@ async function runScenario(
       });
     case "select-default":
       return await requestSelection({
-        message: "Choose the remembered value",
+        message: INTERACTIVE_TTY_REQUEST_LABELS["select-default"][0],
         default: "beta",
         options: [
           { id: "alpha", name: "Alpha", value: "alpha" },
@@ -234,7 +265,7 @@ async function runScenario(
       });
     case "grouped-select":
       return await requestSelection({
-        message: "Choose from semantic groups",
+        message: INTERACTIVE_TTY_REQUEST_LABELS["grouped-select"][0],
         maxRows: 4,
         options: groupedSelectionEntries([
           {
@@ -268,7 +299,7 @@ async function runScenario(
       });
     case "search":
       return await requestSelection({
-        message: "Filter grouped documents",
+        message: INTERACTIVE_TTY_REQUEST_LABELS.search[0],
         search: true,
         searchLabel: "filter",
         options: groupedSelectionEntries([
@@ -289,7 +320,7 @@ async function runScenario(
       });
     case "search-default":
       return await requestSelection({
-        message: "Restore a remembered searchable document",
+        message: INTERACTIVE_TTY_REQUEST_LABELS["search-default"][0],
         search: true,
         default: "beta",
         options: groupedSelectionEntries([
@@ -324,21 +355,21 @@ async function runScenario(
       }]);
       return [
         await requestSelection({
-          message: "Choose a desk action",
+          message: INTERACTIVE_TTY_REQUEST_LABELS["repeated-viewport"][0],
           options: deskOptions,
           search: true,
           searchLabel: "filter",
           maxRows: 16,
         }),
         await requestSelection({
-          message: "Browse docs",
+          message: INTERACTIVE_TTY_REQUEST_LABELS["repeated-viewport"][1],
           options: docsOptions,
           search: true,
           default: "doc-12",
           maxRows: 14,
         }),
         await requestSelection({
-          message: "Choose a desk action again",
+          message: INTERACTIVE_TTY_REQUEST_LABELS["repeated-viewport"][2],
           options: deskOptions,
           search: true,
           searchLabel: "filter",
@@ -422,7 +453,8 @@ async function runScenario(
         raw("\n");
         values.push(
           await requestSelection({
-            message: "Choose a task or action",
+            message:
+              INTERACTIVE_TTY_REQUEST_LABELS["composed-viewport-cycles"][0],
             options: boardOptions,
             hint: "Use the arrow keys to move and Enter to choose.",
             reservedRows: 6,
@@ -434,7 +466,8 @@ async function runScenario(
         raw("  Branch agent/task-1\n");
         values.push(
           await requestSelection({
-            message: "Choose an action",
+            message:
+              INTERACTIVE_TTY_REQUEST_LABELS["composed-viewport-cycles"][1],
             options: actionOptions,
             hint: "Use the arrow keys to move and Enter to choose.",
             reservedRows: 4,
@@ -449,7 +482,7 @@ async function runScenario(
         (_, index) => `remembered line ${index + 1}`,
       ).join("\n");
       return await requestTextarea({
-        label: "Edit tall notes",
+        label: INTERACTIVE_TTY_REQUEST_LABELS["textarea-tall"][0],
         initialValue,
         rows: 12,
       }, {
@@ -458,7 +491,7 @@ async function runScenario(
     }
     case "multiselect":
       return await requestSelections({
-        message: "Choose at least two values",
+        message: INTERACTIVE_TTY_REQUEST_LABELS.multiselect[0],
         minOptions: 2,
         maxRows: 4,
         options: groupedSelectionEntries([
@@ -481,7 +514,7 @@ async function runScenario(
       });
     case "multiselect-default":
       return await requestSelections({
-        message: "Keep the selected values",
+        message: INTERACTIVE_TTY_REQUEST_LABELS["multiselect-default"][0],
         minOptions: 2,
         default: ["gamma"],
         options: [
@@ -491,19 +524,19 @@ async function runScenario(
       });
     case "validation":
       return await requestText({
-        message: "Type valid",
+        message: INTERACTIVE_TTY_REQUEST_LABELS.validation[0],
         validate: (value) => value === "valid" || "Enter valid.",
       });
     case "error":
       return await requestText({
-        message: "Trigger an unexpected validator fault",
+        message: INTERACTIVE_TTY_REQUEST_LABELS.error[0],
         validate: () => {
           throw new Error("synthetic validator fault");
         },
       });
     case "cancellation":
       return await requestText(
-        "Cancel this question",
+        INTERACTIVE_TTY_REQUEST_LABELS.cancellation[0],
         io === undefined ? {} : { io },
       );
   }

@@ -4,6 +4,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { detectTerminalCapabilities } from "discern-design-system/cli";
 import {
+  INTERACTIVE_TTY_REQUEST_LABELS,
   type InteractiveTtyResult,
   type InteractiveTtyScenario,
   POST_INTERACTION_DIAGNOSTIC,
@@ -89,7 +90,7 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
       args,
       cwd: REPO_ROOT,
       ...(options.env === undefined ? {} : { env: options.env }),
-      input: options.input ?? keys("\r"),
+      input: options.input ?? keys(options.scenario, "\r"),
       timeoutMs: options.timeoutMs ?? 8_000,
     });
     const raw = await Deno.readTextFile(resultPath);
@@ -103,9 +104,16 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
   }
 }
 
-/** Send one input chunk only after the child renders its active interaction. */
-function keys(bytes: string, delayMs = 0): PtyInputPhase[] {
-  return [{ waitFor: "[active]", steps: [{ delayMs, bytes }] }];
+/** Send one input chunk only after the child renders its authored request label. */
+function keys(
+  scenario: InteractiveTtyScenario,
+  bytes: string,
+  delayMs = 0,
+): PtyInputPhase[] {
+  return [{
+    waitFor: INTERACTIVE_TTY_REQUEST_LABELS[scenario][0],
+    steps: [{ delayMs, bytes }],
+  }];
 }
 
 /** Assert process, line-mode, cursor, and final-frame restoration under the
@@ -186,7 +194,7 @@ Deno.test({
       scenario: "text",
       input: [
         {
-          waitFor: "[active]",
+          waitFor: INTERACTIVE_TTY_REQUEST_LABELS.text[0],
           steps: [
             { bytes: "A" },
             { delayMs: 5, bytes: emoji.slice(0, 3) },
@@ -284,7 +292,7 @@ Deno.test({
     await Promise.all(cases.map(async (testCase) => {
       const run = await runHarness({
         scenario: testCase.scenario,
-        input: keys(testCase.input),
+        input: keys(testCase.scenario, testCase.input),
       });
       assertValue(run, testCase.expected);
     }));
@@ -299,15 +307,15 @@ Deno.test({
     const [duplicate, scrolled, search] = await Promise.all([
       runHarness({
         scenario: "grouped-select",
-        input: keys("\x1b[B\r"),
+        input: keys("grouped-select", "\x1b[B\r"),
       }),
       runHarness({
         scenario: "grouped-select",
-        input: keys("\x1b[B\x1b[B\x1b[B\x1b[B\r"),
+        input: keys("grouped-select", "\x1b[B\x1b[B\x1b[B\x1b[B\r"),
       }),
       runHarness({
         scenario: "search",
-        input: keys("beta\x1b[B\r"),
+        input: keys("search", "beta\x1b[B\r"),
       }),
     ]);
     assertValue(duplicate, "beta");
@@ -342,12 +350,15 @@ Deno.test({
       size: { columns: 80, rows: 16 },
       input: [
         {
-          waitFor: ["Choose a desk action", "[active]"],
+          waitFor: INTERACTIVE_TTY_REQUEST_LABELS["repeated-viewport"][0],
           steps: [{ bytes: "\x1b[B\r" }],
         },
-        { waitFor: ["Browse docs", "[active]"], steps: [{ bytes: "\r" }] },
         {
-          waitFor: ["Choose a desk action again", "[active]"],
+          waitFor: INTERACTIVE_TTY_REQUEST_LABELS["repeated-viewport"][1],
+          steps: [{ bytes: "\r" }],
+        },
+        {
+          waitFor: INTERACTIVE_TTY_REQUEST_LABELS["repeated-viewport"][2],
           steps: [{ bytes: "\x1b[B\r" }],
         },
       ],
@@ -362,11 +373,20 @@ Deno.test({
 
 const CLEAR_SEQUENCE = `${CSI}2J${CSI}H`;
 
+const COMPOSED_INTERACTION_LABELS =
+  INTERACTIVE_TTY_REQUEST_LABELS["composed-viewport-cycles"];
+
+/** Whether one composed-cycle frame contains its current authored request label. */
+function isComposedInteractionFrame(frame: string): boolean {
+  return !frame.includes(SHOW_CURSOR) &&
+    COMPOSED_INTERACTION_LABELS.some((label) => frame.includes(label));
+}
+
 /** Painted box-body heights of every active frame, one list per cleared screen. */
 function activeWindowHeights(transcript: string): number[][] {
   return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) =>
     screen.split(`${CSI}1G`).flatMap((frame) => {
-      if (!frame.includes("[active]")) return [];
+      if (!isComposedInteractionFrame(frame)) return [];
       return [
         stripCsiSequences(frame)
           .split(/\r?\n/u)
@@ -381,9 +401,11 @@ function activeWindowHeights(transcript: string): number[][] {
 function activeFrameHeights(transcript: string): number[][] {
   return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) =>
     screen.split(`${CSI}1G`).flatMap((frame) => {
-      if (!frame.includes("[active]")) return [];
+      if (!isComposedInteractionFrame(frame)) return [];
       const lines = stripCsiSequences(frame).split(/\r?\n/u);
-      const start = lines.findIndex((line) => line.includes("[active]"));
+      const start = lines.findIndex((line) =>
+        COMPOSED_INTERACTION_LABELS.some((label) => line.includes(label))
+      );
       if (start < 0) return [];
       let end = lines.length - 1;
       while (end >= start && lines[end]?.trim() === "") end -= 1;
@@ -395,7 +417,10 @@ function activeFrameHeights(transcript: string): number[][] {
 /** Caller-owned rows painted before the first active frame on each screen. */
 function reservedHeaderHeights(transcript: string): number[] {
   return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) => {
-    const activeAt = screen.indexOf("[active]");
+    const activeAt = Math.min(
+      ...COMPOSED_INTERACTION_LABELS.map((label) => screen.indexOf(label))
+        .filter((index) => index >= 0),
+    );
     assert(activeAt >= 0, screen);
     return stripCsiSequences(screen.slice(0, activeAt)).split("\n").length - 1;
   });
@@ -405,11 +430,11 @@ const COMPOSED_CYCLE_INPUT: PtyInputPhase[] = Array.from(
   { length: 3 },
   (): PtyInputPhase[] => [
     {
-      waitFor: ["Choose a task or action", "[active]"],
+      waitFor: COMPOSED_INTERACTION_LABELS[0],
       steps: [{ bytes: "\x1b[B" }, { delayMs: 20, bytes: "\r" }],
     },
     {
-      waitFor: ["Choose an action", "[active]"],
+      waitFor: COMPOSED_INTERACTION_LABELS[1],
       steps: [{ bytes: "\x1b[F" }, { delayMs: 20, bytes: "\r" }],
     },
   ],
@@ -514,7 +539,7 @@ Deno.test({
     const run = await runHarness({
       scenario: "textarea-tall",
       size: { columns: 80, rows: 16 },
-      input: keys("\x04"),
+      input: keys("textarea-tall", "\x04"),
     });
     assertValue(
       run,
@@ -536,7 +561,7 @@ Deno.test({
     const [toggled, defaults] = await Promise.all([
       runHarness({
         scenario: "multiselect",
-        input: keys("\r\x01\r"),
+        input: keys("multiselect", "\r\x01\r"),
       }),
       runHarness({ scenario: "multiselect-default" }),
     ]);
@@ -557,10 +582,16 @@ Deno.test({
     const [validation, ctrlC, back, eof] = await Promise.all([
       runHarness({
         scenario: "validation",
-        input: keys("bad\r\x7f\x7f\x7fvalid\r"),
+        input: keys("validation", "bad\r\x7f\x7f\x7fvalid\r"),
       }),
-      runHarness({ scenario: "cancellation", input: keys("\x03") }),
-      runHarness({ scenario: "cancellation", input: keys("\x15\x03") }),
+      runHarness({
+        scenario: "cancellation",
+        input: keys("cancellation", "\x03"),
+      }),
+      runHarness({
+        scenario: "cancellation",
+        input: keys("cancellation", "\x15\x03"),
+      }),
       runHarness({
         scenario: "cancellation",
         canonicalEof: true,
@@ -615,12 +646,30 @@ Deno.test({
       columns: 100,
       rows: 30,
     });
-    assertStringIncludes(run.process.transcript, "…");
-    const visible = stripCsiSequences(run.process.transcript).replaceAll(
+    const plain = stripCsiSequences(run.process.transcript);
+    const lines = plain.split(/\r?\n/u);
+    assert(
+      lines.some((line) =>
+        line.includes("Alpha with a") && !line.includes("deliberately long")
+      ),
+      run.process.transcript,
+    );
+    assert(
+      lines.some((line) =>
+        line.includes(
+          "Alpha with a deliberately long label that becomes complete after resize",
+        )
+      ),
+      run.process.transcript,
+    );
+    const visible = plain.replaceAll(
       /\s+/gu,
       " ",
     );
-    assertStringIncludes(visible, "Choose from semantic groups [active]");
+    assertStringIncludes(
+      visible,
+      INTERACTIVE_TTY_REQUEST_LABELS["grouped-select"][0],
+    );
     assertStringIncludes(visible, "deliberately long label");
     assertStringIncludes(visible, "complete after resize");
   },
