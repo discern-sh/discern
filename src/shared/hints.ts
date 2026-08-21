@@ -422,6 +422,13 @@ function restartSessionHint(leadIn: string): string {
   return `${leadIn} ${RESTART_SESSION_CORE}`;
 }
 
+/** Render exact TOML root-section names for config recovery prose. */
+function rootSectionList(sections: readonly string[]): string {
+  return sections.map((section) => markdownCodeSpan(`[${section}]`)).join(
+    ", ",
+  );
+}
+
 /** The check-stage remedy: prepare re-runs the fixers and checks in seconds. */
 const GATE_PREPARE_REMEDY_CORE =
   "Fix the problems in the diagnostics; each carries its reproduce command. " +
@@ -3673,6 +3680,53 @@ export const HINTS = {
       restartSessionHint(
         "For every open agent session, restart it so its discern MCP server reloads this build, or reload its MCP servers directly, before continuing. A server process started before the upgrade still runs the old build.",
       ),
+  }),
+
+  /** Strict root rejection can mean a typo or a newer config than this process. */
+  "config-unknown-root-sections": defineHint<{
+    sections: readonly string[];
+  }>({
+    id: "config-unknown-root-sections",
+    category: "next-step",
+    audience: "all",
+    when: "Strict config loading encounters one or more unknown root sections.",
+    family: "restart-session",
+    example: { sections: ["checkpoints", "reviews"] },
+    template: ({ sections }): string => {
+      const noun = sections.length === 1 ? "root section" : "root sections";
+      const lifecycle = restartSessionHint(
+        `The running discern process does not recognize the ${noun} ${
+          rootSectionList(sections)
+        }. If discern.toml or discern changed after this process started, the running process is stale. Otherwise, update the discern binary to the build the project expects or correct a likely section typo.`,
+      );
+      return `${lifecycle} Check ${
+        discernCommand(
+          "docs",
+          positional("target", "config-reference"),
+        )
+      } and run ${
+        discernCommand("doctor")
+      } to verify the config and installation before retrying.`;
+    },
+  }),
+
+  /** Non-root validation failures recover through their named issue paths. */
+  "config-correct-validation": defineHint({
+    id: "config-correct-validation",
+    category: "next-step",
+    audience: "all",
+    when: "Config validation fails without an unknown root section.",
+    family: "config-recovery",
+    example: undefined,
+    template: (): string =>
+      `Correct each path named in the config issues. Check ${
+        discernCommand(
+          "docs",
+          positional("target", "config-reference"),
+        )
+      }, then run ${
+        discernCommand("doctor")
+      } to verify the config before retrying.`,
   }),
 
   /** An empty known-job command records a deliberate deferred gate slot. */

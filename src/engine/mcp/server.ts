@@ -129,15 +129,16 @@ import {
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
 import {
-  appendHintTexts,
   fire,
   type FiredHint,
   firedHintsFromTexts,
   HINTS,
   hintTexts,
+  mergeHintTexts,
   resolveResultHintsForSurface,
   withFailureRecoveryHint,
 } from "../../shared/hints.ts";
+import { configFailureResult } from "../../shared/config_failure.ts";
 import { renderCommandRefsMcp } from "../../shared/command_reference.ts";
 import {
   createInstalledVersionResolver,
@@ -1343,10 +1344,12 @@ function renderResult(result: DiscernResult): ToolResult {
   };
 }
 
-/** Append one hint to a result without clobbering the verb's own — it adds the
- * stale-server restart hint on top of whatever the verb already returned. */
-function appendHint(result: DiscernResult, hint: FiredHint): DiscernResult {
-  return { ...result, hints: appendHintTexts(result.hints, [hint]) };
+/** Lead with one delivery-level hint without clobbering the verb's own hints. */
+function prependHint(result: DiscernResult, hint: FiredHint): DiscernResult {
+  return {
+    ...result,
+    hints: mergeHintTexts(hintTexts([hint]), result.hints ?? []),
+  };
 }
 
 /**
@@ -1486,16 +1489,17 @@ interface PendingToolCall extends VerbRun {
 }
 
 /**
- * Run one verb in `root` and normalize an unexpected throw to an `internal_error`
- * result — so a single tool blowing up can never take the whole stdio server down.
+ * Run one verb in `root`. Config parse and validation failures are expected
+ * project-input refusals and keep their structured config result. Any other throw
+ * becomes an `internal_error`, so one tool cannot take down the stdio server.
  * This is the single place tool handlers are invoked (normal and root-independent
- * paths alike). A throw is a crash — a bug in discern (ADR 0248) — so it also
- * tries to save a crash report beside the logbook (the envelope's message
- * names the file when written) and returns the logbook-safe signature beside
- * that call's result.
+ * paths alike). An unexpected throw is a crash — a bug in discern (ADR 0248) —
+ * so it also tries to save a crash report beside the logbook (the envelope's
+ * message names the file when written) and returns the logbook-safe signature
+ * beside that call's result.
  * {@link completeToolCall} records the same request-owned signature. Observation and recording
  * deliberately happen later, at {@link completeToolCall}, because dispatch
- * refusals never enter a handler and delivery can still append a stale-server
+ * refusals never enter a handler and delivery can still prepend a stale-server
  * hint after the handler returns.
  */
 async function runVerb(
@@ -1516,6 +1520,10 @@ async function runVerb(
       ),
     };
   } catch (e) {
+    const configFailure = configFailureResult(verbOf(tool.name), e);
+    if (configFailure !== undefined) {
+      return { result: configFailure };
+    }
     const report = captureCrashReport(verbOf(tool.name), e);
     const artifact = await writeCrashArtifact(root, report);
     return {
@@ -1538,7 +1546,7 @@ async function completeToolCall(
   const prepared = withFailureRecoveryHint(pending.result);
   const withStale = stale === undefined
     ? prepared
-    : appendHint(prepared, stale);
+    : prependHint(prepared, stale);
   // Surface-faithful hints: re-render each hint's command references for the
   // MCP surface (tool spellings, owner commands CLI-spelled, shell-only verbs
   // marked) BEFORE the envelope is observed, recorded, and rendered — one

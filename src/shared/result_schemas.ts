@@ -60,6 +60,7 @@ import {
   CONTINUATION_HANDLE_LENGTH,
   CONTINUATION_HANDLE_PATTERN,
 } from "./continuation_handle.ts";
+import { CONFIG_ISSUE_KINDS } from "./config_issues.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -186,6 +187,7 @@ export const EnvelopeSchema = z.strictObject({
 export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
 
 export const ConfigIssueSchema = z.strictObject({
+  kind: z.enum(CONFIG_ISSUE_KINDS).optional(),
   path: z.string(),
   message: z.string(),
 });

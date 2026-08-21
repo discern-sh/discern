@@ -218,6 +218,7 @@ export type DiscernDiscernResult = {
   verb: "discern";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -364,6 +365,7 @@ export type DiscernSetupResult = {
     changes?: Array<string>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -483,6 +485,7 @@ export type DiscernSetupVerifyResult = {
     instructions?: string;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -586,6 +589,7 @@ export type DiscernSetupStepResult = {
     instructions: string;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -717,6 +721,7 @@ export type DiscernSetupDoneResult = {
     instructions: string;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -814,6 +819,7 @@ export type DiscernSetupAcceptResult = {
     branch_deleted: boolean;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -936,6 +942,7 @@ export type DiscernUpgradeResult = {
     }>;
     changes?: Array<string>;
     issues?: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -971,6 +978,7 @@ export type DiscernUpgradeResult = {
     instructions_errors?: Array<string>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -1070,6 +1078,7 @@ export type DiscernUninstallResult = {
     resources?: Array<string>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -1208,6 +1217,7 @@ export type DiscernDoctorResult = {
     }>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -1314,6 +1324,7 @@ export type DiscernLicensesResult = {
     }>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -1408,6 +1419,7 @@ export type DiscernTriangleResult = {
     art: string;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -1511,6 +1523,7 @@ export type DiscernPresetResult = {
     written?: Array<string>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -1664,6 +1677,7 @@ export type DiscernMapResult = {
     truncated?: boolean;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -1817,6 +1831,7 @@ export type DiscernDocsResult = {
     truncated?: boolean;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -1927,6 +1942,7 @@ export type DiscernConfigResult = {
     present: boolean;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -2214,6 +2230,7 @@ export type DiscernDoneResult = {
     };
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -2305,6 +2322,7 @@ export type DiscernPrepareResult = {
   verb: "prepare";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -2396,6 +2414,7 @@ export type DiscernTestResult = {
   verb: "test";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -2595,6 +2614,7 @@ export type DiscernImprovementResult = {
     };
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -2845,6 +2865,7 @@ export type DiscernCheckpointsResult = {
     advisories?: Array<string>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -2956,6 +2977,7 @@ export type DiscernStandardsResult = {
     }>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -3061,6 +3083,7 @@ export type DiscernRefreshResult = {
     errors: Array<string>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -3152,6 +3175,7 @@ export type DiscernTidyResult = {
   verb: "tidy";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -3249,6 +3273,7 @@ export type DiscernImpactResult = {
     };
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -3366,6 +3391,7 @@ export type DiscernCouplingResult = {
     }>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -3500,6 +3526,7 @@ export type DiscernAwaitResult = {
       | "experimental-cap";
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -3899,6 +3926,7 @@ export type DiscernPatternsResult = {
     };
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -4007,6 +4035,7 @@ export type DiscernPatternsResetResult = {
     recovery_path?: string;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -4114,6 +4143,7 @@ export type DiscernPatternsArchiveResult = {
     recovery_path?: string;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -4215,6 +4245,7 @@ export type DiscernPatternsArchivesResult = {
     }>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -4306,6 +4337,7 @@ export type DiscernDeskResult = {
   verb: "desk";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -4670,6 +4702,7 @@ export type DiscernStatusResult = {
     };
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -4782,6 +4815,7 @@ export type DiscernStartResult = {
     };
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5032,6 +5066,7 @@ export type DiscernAcceptResult = {
     };
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5151,6 +5186,7 @@ export type DiscernUpdateResult = {
     };
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5255,6 +5291,7 @@ export type DiscernIdentityResult = {
     };
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5352,6 +5389,7 @@ export type DiscernScriptsResult = {
     directory: string;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5443,6 +5481,7 @@ export type DiscernWorktreeResult = {
   verb: "worktree";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5534,6 +5573,7 @@ export type DiscernWorktreeSetupResult = {
   verb: "worktree setup";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5625,6 +5665,7 @@ export type DiscernWorktreeTeardownResult = {
   verb: "worktree teardown";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5716,6 +5757,7 @@ export type DiscernWorktreeDropResult = {
   verb: "worktree drop";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5807,6 +5849,7 @@ export type DiscernWorktreePruneResult = {
   verb: "worktree prune";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5898,6 +5941,7 @@ export type DiscernSkillsResult = {
   verb: "skills";
   data?: {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -5997,6 +6041,7 @@ export type DiscernSkillsListResult = {
     }>;
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;
@@ -6099,6 +6144,7 @@ export type DiscernSkillsEjectResult = {
     };
   } | {
     issues: Array<{
+      kind?: "unknown_root_section";
       path: string;
       message: string;
     }>;

@@ -287,6 +287,17 @@ Rendered example:
 
 > A declared-unmet conclusion stands on: api-review. Landing requires the owner to authorize each variance in the current conversation — recorded standing and effort grants never cover one. Relay each question and rationale above to the owner; the decision is served at `discern accept`.
 
+## `config-correct-validation`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `config-recovery`
+- Emitting context: Config validation fails without an unknown root section.
+
+Rendered example:
+
+> Correct each path named in the config issues. Check `discern docs config-reference`, then run `discern doctor` to verify the config before retrying.
+
 ## `config-job-deferred`
 
 - Category: `next-step`
@@ -297,6 +308,17 @@ Rendered example:
 Rendered example:
 
 > Add an inline # comment explaining why "integration" is deferred, or set a real command to enforce it. An empty command is present but a no-op, so the gate skips it.
+
+## `config-unknown-root-sections`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `restart-session`
+- Emitting context: Strict config loading encounters one or more unknown root sections.
+
+Rendered example:
+
+> The running discern process does not recognize the root sections `[checkpoints]`, `[reviews]`. If discern.toml or discern changed after this process started, the running process is stale. Otherwise, update the discern binary to the build the project expects or correct a likely section typo. An open agent session does not discover a newly registered or upgraded discern MCP server automatically. Restarting the session or reloading its MCP servers loads the current server, engine, and templates. Check `discern docs config-reference` and run `discern doctor` to verify the config and installation before retrying.
 
 ## `coupling-diff-header`
 

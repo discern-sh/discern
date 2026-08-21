@@ -50,6 +50,15 @@ function dataOf(
   return object(result.data) ?? {};
 }
 
+/** Shared config-issue payload carried by any verb whose config load refused. */
+function configIssuesOf(
+  result: Readonly<Record<string, unknown>>,
+): Record<string, unknown>[] {
+  return result.error === "invalid_config"
+    ? records(dataOf(result).issues)
+    : [];
+}
+
 /** Read and trim a non-empty string. */
 function text(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() !== ""
@@ -353,6 +362,20 @@ function envelopeEvidence(
     facts.push(`Waited ${duration(waitedMs)} for an execution slot.`);
   }
 
+  const configIssues = configIssuesOf(result);
+  if (configIssues.length > 0) {
+    facts.push(withDetails(
+      `Config issues: ${plural(configIssues.length, "issue")}.`,
+      configIssues.slice(0, MAX_LIST_ITEMS).map((issue) => {
+        const path = text(issue.path) ?? "discern.toml";
+        const message = text(issue.message) ?? "No issue message was recorded.";
+        return `${code(path)}: ${message}`;
+      }),
+      configIssues.length - MAX_LIST_ITEMS,
+      "config issue",
+    ));
+  }
+
   const diagnostics = records(result.diagnostics);
   for (const diagnostic of diagnostics.slice(0, MAX_DIAGNOSTICS)) {
     const tool = text(diagnostic.tool) ?? "diagnostic";
@@ -534,7 +557,12 @@ export function renderResultMarkdown(
   result: Readonly<Record<string, unknown>>,
   presenter: ResultMarkdownPresenter,
 ): string {
-  const presented = presenter(result);
+  // A config-load refusal occurs before the selected verb can produce its own
+  // data. Use the universal envelope state instead of asking (for example) the
+  // status presenter to interpret config issues as status facts.
+  const presented = configIssuesOf(result).length > 0
+    ? presentEnvelope(result)
+    : presenter(result);
   const envelope = envelopeEvidence(result);
   const hints = hintSections(result);
   const evidence = unique([
