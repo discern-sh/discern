@@ -11,6 +11,7 @@ import { format as formatBytes } from "@std/fmt/bytes";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { markdownCodeSpan } from "./markdown_code.ts";
 import { checkpointDropMarkdown } from "./checkpoint_drops.ts";
+import { productSentence } from "./product_sentence.ts";
 
 export interface ResultMarkdownPresentation {
   /** One authored statement of the current result state. */
@@ -952,9 +953,9 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
       ...suggestions.slice(0, MAX_LIST_ITEMS).map((entry) => {
         const target = text(entry.target) ?? text(entry.path) ?? "unknown";
         const suggestionTitle = text(entry.title);
-        return `${code(target)}${
-          suggestionTitle === undefined ? "" : `: ${suggestionTitle}`
-        }.`;
+        return suggestionTitle === undefined
+          ? `${code(target)}.`
+          : productSentence(`${code(target)}: ${suggestionTitle}`);
       }),
       suggestions.length > MAX_LIST_ITEMS
         ? omitted(suggestions.length - MAX_LIST_ITEMS, "suggestion")
@@ -963,9 +964,8 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
         const target = text(entry.target) ?? "unknown";
         const resultTitle = text(entry.title) ?? target;
         const snippet = text(entry.snippet);
-        return `${code(target)}: ${resultTitle}${
-          snippet === undefined ? "" : `. ${snippet}`
-        }`;
+        const heading = productSentence(`${code(target)}: ${resultTitle}`);
+        return `${heading}${snippet === undefined ? "" : ` ${snippet}`}`;
       }),
     ]),
     supportingMarkdown: content === undefined
@@ -1633,9 +1633,9 @@ const presentScripts: ResultMarkdownPresenter = (result) => {
       ...scripts.slice(0, MAX_LIST_ITEMS).map((script) => {
         const name = text(script.name) ?? "unknown";
         const description = text(script.description);
-        return `${code(name)}${
-          description === undefined ? "" : `: ${description}`
-        }.`;
+        return description === undefined
+          ? `${code(name)}.`
+          : productSentence(`${code(name)}: ${description}`);
       }),
     ]),
   };
