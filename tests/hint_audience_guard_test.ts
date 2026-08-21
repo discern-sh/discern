@@ -89,6 +89,7 @@ const ALLOWED_AGENT_VOCABULARY: Record<string, readonly string[]> = {
   "setup-reactivate-tools": ["MCP"],
   "refresh-mcp-first-install": ["agent session", "MCP"],
   "upgrade-restart-session": ["agent session", "MCP"],
+  "config-unknown-root-sections": ["agent session", "MCP"],
   "mcp-version-mismatch": ["agent session", "MCP"],
 };
 

@@ -18,7 +18,7 @@ import {
   parseConfig,
 } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   gitInit,
   runAgent,
@@ -80,6 +80,12 @@ Deno.test("unknown root section keeps strict CLI failure and recovery on human, 
     const json = await runAgent(dir, ["status", "--json"]);
     assertEquals(json.code, 1, json.output);
     const envelope = JSON.parse(json.stdout) as Record<string, unknown>;
+    assertEquals(json.stderr, "", "machine recovery emits no human narration");
+    assertEquals(
+      json.stdout.trim(),
+      JSON.stringify(envelope),
+      "machine recovery remains one compact result envelope",
+    );
     assertEquals(envelope.error, "invalid_config");
     assertEquals(configIssues(envelope), [{
       kind: "unknown_root_section",
@@ -105,9 +111,9 @@ Deno.test("unknown root section keeps strict CLI failure and recovery on human, 
 
     const markdown = await runAgent(dir, ["status", "--markdown"]);
     assertEquals(markdown.code, 1, markdown.output);
-    assertStringIncludes(markdown.stdout, "# `discern status`");
-    assertStringIncludes(markdown.stdout, "## Current state");
-    assertStringIncludes(markdown.stdout, "Config issue");
+    assertTerminalTextIncludes(markdown.stdout, "# `discern status`");
+    assertTerminalTextIncludes(markdown.stdout, "## Current state");
+    assertTerminalTextIncludes(markdown.stdout, "Config issue");
     assertStringIncludes(markdown.stdout, expectedRecovery);
     assertUnknownRootRecovery(markdown.stdout);
 
@@ -115,7 +121,7 @@ Deno.test("unknown root section keeps strict CLI failure and recovery on human, 
     // refusal remains authored Markdown and never falls back to JSON.
     const updateMarkdown = await runAgent(dir, ["update", "--markdown"]);
     assertEquals(updateMarkdown.code, 1, updateMarkdown.output);
-    assertStringIncludes(updateMarkdown.stdout, "# `discern update`");
+    assertTerminalTextIncludes(updateMarkdown.stdout, "# `discern update`");
     assert(!updateMarkdown.stdout.trimStart().startsWith("{"));
     assertUnknownRootRecovery(updateMarkdown.stdout);
 
