@@ -91,7 +91,7 @@ Deno.test("when: receives one versioned structured input and always removes it",
     const pathRecord = join(dir, "input-path.txt");
     const modeRecord = join(dir, "input-mode.txt");
     const command =
-      `cp "$DISCERN_CHECKPOINT_INPUT" "${captured}"; printf %s "$DISCERN_CHECKPOINT_INPUT" > "${pathRecord}"; (stat -f %Lp "$DISCERN_CHECKPOINT_INPUT" 2>/dev/null || stat -c %a "$DISCERN_CHECKPOINT_INPUT") > "${modeRecord}"; exit 0`;
+      `cp "$DISCERN_CHECKPOINT_INPUT" "${captured}"; printf %s "$DISCERN_CHECKPOINT_INPUT" > "${pathRecord}"; (stat -c %a "$DISCERN_CHECKPOINT_INPUT" 2>/dev/null || stat -f %Lp "$DISCERN_CHECKPOINT_INPUT") > "${modeRecord}"; exit 0`;
     assertEquals(
       await runWhenCommand(dir, "probe", command, { input: INPUT }),
       {
