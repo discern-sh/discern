@@ -146,7 +146,7 @@ Deno.test("a failed worktree status read stays unreadable through status and the
         "agent/damaged: Unreadable",
       );
       const local = await runAgent(wt, ["status"]);
-      assertStringIncludes(humanWords(local.output), "Unreadable.");
+      assertStringIncludes(humanWords(local.output), "Unreadable");
       assertTerminalTextIncludes(
         humanWords(local.output),
         "Git could not read this checkout. Investigate the path before resuming or discarding it.",

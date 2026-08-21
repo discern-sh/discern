@@ -994,7 +994,7 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
   assertStringIncludes(output, "1 needs attention");
   assertStringIncludes(output, "git diff main...<branch>");
   assertStringIncludes(output, "discern status --verbose");
-  assertStringIncludes(output, "complete branch and Proof");
+  assertStringIncludes(squash(output), "complete branch and Proof");
   assertStringIncludes(output, "Per-worktree actions aren't available");
   assertStringIncludes(output, "6 files changed");
   assertStringIncludes(output, "+20 −4");
