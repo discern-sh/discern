@@ -1,3 +1,3 @@
 {{#if has_checkpoints}}## Checkpoints
 
-Configured checkpoints serve a question which requires your judgment when a matching change completes. `discern_status` and `discern_prepare` name detected checkpoints early. Use `met` only when the served question is satisfied; otherwise use `unmet` with a short, owner-relevant, secret-free tradeoff. A variance follows only the owner's explicit acceptance for the exact declared-unmet set; grants never cover one.{{/if}}
+Configured checkpoints serve a question which requires your judgment when a matching change completes. Use `met` only when the served question is satisfied; otherwise use `unmet` with a short, owner-relevant, secret-free tradeoff. A variance follows only the owner's explicit acceptance for the exact declared-unmet set; grants never cover one.{{/if}}
