@@ -28,13 +28,14 @@ A checkpoint earns the middle rung when three things hold:
 
 ## 2. Choose the trigger
 
-Triggers are deterministic and closed. A small menu, no expression language:
+Triggers are deterministic and closed, with no expression language. The common choices below guide placement; for the complete ordered field model and copyable recipes, run `discern docs map/20-quality-gate/checkpoints.md --raw`. The generated config reference remains the field authority.
 
 - `scope = "<name>"` or `paths = [globs]` — one selector chooses the matched set. Prefer a configured scope, or a live path reference such as `${map.dir}`, over repeating globs the config already knows.
+- `exclude_paths = [globs]` removes noise; `include_generated = true` makes the deliberate exception to authored-only matching.
+- `kinds`, content matching, `new_directory`, `binary`, and name similarity narrow the evidence to the change shape that introduces the question.
 - `unless_changed = [globs or scope]` — hold fire when the counterpart moved too ("flag a code change unless the docs moved with it").
-- `min_changed_files = N` — fire only at real breadth, so a one-line touch stays quiet.
+- File, line, and commit thresholds reserve the question for substantial changes.
 - `deletion_dominant = true` — removals clearly outweigh additions.
-- `similar_new_file = true` — a new file whose name closely resembles a sibling, the signature of a parallel implementation.
 
 Narrow beats broad: a trigger that fires on most changes turns its question into wallpaper. When the menu cannot express the condition, use the escape hatch in step 6.
 

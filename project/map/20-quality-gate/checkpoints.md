@@ -64,19 +64,44 @@ The policy for an effort is the `[checkpoints]` configuration at its merge-base 
 
 A project checkpoint sets `question` or `question_file`; a built-in may inherit or override either. `.md` has no magic meaning in `question`. `reference` is a displayed, unloaded pointer.
 
-`question_file` resolves from the governing merge-base Git tree ([ADR 0309](../_adr/0309-repository-question-files-are-governed-content.md)). It names a portable project-relative path outside `.git`: a regular blob, valid UTF-8, at most 65,536 bytes, with line endings retained. The reader ignores the candidate worktree and rejects symlinks, environment variables, URLs, submodules, external paths, vaults, encryption, and remote transports. Resolved text becomes the ordinary question. Its path and content define the identity: candidate edits have no effect; a governing path or content update reopens it.
+`question_file` resolves from the governing merge-base Git tree ([ADR 0309](../_adr/0309-repository-question-files-are-governed-content.md)). It names a portable project-relative path outside `.git`: a regular blob, valid UTF-8, at most 65,536 bytes (64 KiB), with line endings retained. The repository is the boundary. The reader ignores the candidate worktree and rejects symlinks, environment variables, URLs, submodules, external paths, vaults, encryption, and remote transports. Resolved text becomes the ordinary question. Its path and content define the identity: candidate edits have no effect; a governing path or content update reopens it.
 
 Live loading rejects bad sources. Historical failures drop only that checkpoint and record its id, mode, policy commit, and reason. Every review surface serves the resolved question and any source or reference.
 
 Repository privacy is the only privacy: questions and references can appear in terminal, MCP, CI logs, Proof, and landing review. Never put secrets in either.
 
-## The `when` escape hatch
+## Trigger composition
 
-Structured triggers are conjunctive and ordered. The governing generated-file policy establishes the authored universe, `scope` or `paths` selects it, and `exclude_paths` removes local noise. The narrowing sequence is `kinds`, `adds_matching`, `removes_matching`, `new_directory`, `binary`, then `similar_new_file`. The surviving evidence then faces `unless_changed`, `min_changed_files`, `min_changed_lines`, `deletion_dominant`, and `min_commits`; `when` has the final word. Thresholds measure the narrowed changed evidence. Related unchanged evidence, such as a similar existing sibling, never enters changed-file or changed-line totals ([ADR 0308](../_adr/0308-checkpoint-triggers-use-bounded-facts-and-versioned-input.md)).
+Trigger fields form one fixed conjunction. Values within `kinds`, `adds_matching`, `removes_matching`, and path lists use any-match semantics; every configured field must still hold. There is no Boolean expression language. Omit both selectors to watch the complete authored diff.
 
-`adds_matching` and `removes_matching` use case-sensitive literal UTF-8 byte substrings on individual lines. Each field accepts up to 16 distinct patterns of 1–128 UTF-8 bytes. Content collection admits lines up to 8 KiB, 65,536 changed-line facts, files up to 256 KiB, and 2 MiB of attempted bytes across admitted paths. Comparison work charges each line's payload plus one separator unit per pattern and stops above 64 MiB. If a needed fact is unreadable, inconsistent, or over a bound, that checkpoint fails open with a durable drop; no partial match is used and no raw line reaches Proof.
+| Group                   | Field               | Effect                                                                                                                                         |
+| ----------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Selector and filter     | `scope`             | Select the paths of one configured `[scopes.<name>]`; use either `scope` or `paths`.                                                           |
+| Selector and filter     | `paths`             | Select changed paths with scope-dialect globs; use either `paths` or `scope`.                                                                  |
+| Selector and filter     | `include_generated` | Include paths owned by the governing `[generated]` model; generated paths are excluded by default.                                             |
+| Selector and filter     | `exclude_paths`     | Remove checkpoint-specific path noise before every later predicate, subject, evidence record, and command input.                               |
+| Narrowing predicate     | `kinds`             | Keep `added`, `modified`, or `deleted` changes.                                                                                                |
+| Narrowing predicate     | `adds_matching`     | Keep text files with an added line containing any configured case-sensitive literal UTF-8 substring.                                           |
+| Narrowing predicate     | `removes_matching`  | Keep text files with a removed line containing any configured case-sensitive literal UTF-8 substring.                                          |
+| Narrowing predicate     | `new_directory`     | Keep added files whose parent directory contained no admitted file at the merge-base.                                                          |
+| Narrowing predicate     | `binary`            | Keep binary changes when `true`, or text changes when `false`.                                                                                 |
+| Narrowing predicate     | `similar_new_file`  | Keep an added file whose name resembles an existing sibling; the sibling is related evidence.                                                  |
+| Condition or threshold  | `unless_changed`    | Veto when any filtered changed path matches a listed glob or configured scope, including a counterpart outside the selector.                   |
+| Condition or threshold  | `min_changed_files` | Require a minimum number of narrowed changed files.                                                                                            |
+| Condition or threshold  | `min_changed_lines` | Require a minimum total of added and removed text lines across narrowed evidence; binary files contribute 0.                                   |
+| Condition or threshold  | `deletion_dominant` | Require removals to clear the built-in floor and clearly outweigh additions.                                                                   |
+| Condition or threshold  | `min_commits`       | Require the merge-base-to-`HEAD` history to contain a minimum number of commits, including merges; uncommitted work contributes 0.             |
+| Executable escape hatch | `when`              | Run a final repository command when structured fields cannot express the condition; exit 0 fires, exit 1 passes, and other outcomes fail open. |
 
-`when = "<command>"` delegates a firing condition the structured trigger fields cannot express. The command runs pre-flight under a 10-second budget: exit 0 fires, exit 1 passes, and any other exit or a timeout fails open with a classified drop. It receives the final narrowed facts through [`DISCERN_CHECKPOINT_INPUT`](../70-reference/checkpoint-when-protocol.md) and may print `DISCERN_MATCH <path>` lines to narrow the subject to structurally admitted paths. The merge-base governs the command text, while the command runs in the candidate worktree, so its scripts, interpreters, dependencies, and configuration resolve from that worktree. The policy identity proves where the command text came from; it does not prove an executable dependency closure. Read surfaces run no `when` command and create no input file; `discern checkpoints` reports such a trigger as "may fire at done".
+Evaluation follows that table's pipeline ([ADR 0308](../_adr/0308-checkpoint-triggers-use-bounded-facts-and-versioned-input.md)). The governing generated-path classification establishes the default authored universe. The selector runs next, followed by `exclude_paths`. Narrowing runs in this order: `kinds`, `adds_matching`, `removes_matching`, `new_directory`, `binary`, and `similar_new_file`. Conditions then run in this order: `unless_changed`, `min_changed_files`, `min_changed_lines`, `deletion_dominant`, and `min_commits`. `when` runs last. Thresholds count narrowed changed evidence; a similar unchanged sibling never enters file or line totals.
+
+`adds_matching` and `removes_matching` use case-sensitive literal UTF-8 byte substrings on individual lines. Each field accepts up to 16 distinct patterns of 1–128 UTF-8 bytes. Content collection admits lines up to 8 KiB, 65,536 changed-line facts, files up to 256 KiB, and 2 MiB of attempted bytes across admitted paths. Comparison work stops above 64 MiB. If a needed fact is unreadable, inconsistent, or over a bound, that checkpoint fails open with a durable drop. Partial matches and raw source lines never reach Proof.
+
+### Executable condition protocol
+
+`when = "<command>"` delegates the final firing decision to a repository command under a 10-second budget. An actual strict or CI run creates a mode-`0600` UTF-8 JSON file and exposes its absolute path through [`DISCERN_CHECKPOINT_INPUT`](../70-reference/checkpoint-when-protocol.md). Version 1 carries the checkpoint id and mode, governing policy commit, and the final path-sorted `changed_files` facts: `path`, `kind`, `insertions`, `deletions`, and `binary`. Optional `history` carries the commit count and ordered-history fingerprint. The input contains no raw source, question, rationale, environment dump, or secret.
+
+The command may print `DISCERN_MATCH <path>` lines to narrow the subject to paths already present in `changed_files`; it cannot admit another path. With no valid declared match, the structural matched set remains. Exit 0 fires, exit 1 passes, and another exit, timeout, or execution failure fails open with a classified drop. The merge-base governs the command text, while its scripts, interpreters, dependencies, and configuration resolve from the candidate worktree. Read surfaces and dry runs create no input file and run no command, so they report the condition as undecided.
 
 ## Fail-open evidence
 
@@ -97,6 +122,116 @@ A fresh install's config activates 10 built-ins. Four `stop` members guard knowl
 Six `advise` members read change facts without interlocking code changes: `deletion-heavy-change`, `parallel-implementation`, `new-binary-asset`, `effort-sprawl`, `docs-drift` (a substantial change moved nothing in the map), and `commit-story`. `new-binary-asset` considers added binary files and asks about provenance, permission, need, size, and the review and update route. `commit-story` keeps matched-file breadth as its trigger because a change that wide carries a history worth preserving.
 
 Referencing a built-in id enables it, any field set on the entry overrides the seed, and deleting the entry disables it. Setting `question` or `question_file` replaces the shipped judgment with authored prose. Stack-aware examples (`new-dependency`, `shrinking-tests`, `sensitive-paths`) ship commented out for the owner to point at real paths. `discern checkpoints` prints the governing table with each resolved question, source path and reference when present, trigger, and mode.
+
+## Recipe gallery
+
+These entries use the fields in [Trigger composition](#trigger-composition). Copy one into `discern.toml`, replace the generic paths and literal patterns with the project's authorities, and let it govern new efforts after landing. Use `stop` when every match deserves a recorded answer before the Gate. Use `advise` when the selector is a useful heuristic or an omission can be legitimate without owner ceremony. The [config reference](../70-reference/config-reference.md#checkpointsname) is the field authority.
+
+### Source change without tests
+
+```toml
+# Stop when every source-only change must account for regression coverage.
+# Change to advise if the source/test path split is only a heuristic.
+[checkpoints.source-without-tests]
+paths = ["src/**"]
+unless_changed = ["tests/**"]
+mode = "stop"
+question = "Does this source change have equivalent regression coverage, or a concrete reason tests do not apply?"
+```
+
+### Substantial change without a release note
+
+```toml
+# Advise because a large internal change may need no public release note.
+[checkpoints.release-note]
+paths = ["src/**"]
+unless_changed = ["CHANGELOG.md", "docs/releases/**"]
+min_changed_lines = 200
+mode = "advise"
+question = "Does this substantial change alter behavior that belongs in the changelog or a release note?"
+```
+
+### CI workflow change
+
+```toml
+# Stop when every pipeline change must explain its trust and failure behavior.
+[checkpoints.ci-workflow]
+paths = ["ci/**"]
+mode = "stop"
+question = "Does this workflow preserve required checks, least privilege, pinned inputs, useful failure output, and a practical local verification route?"
+```
+
+### Newly added ADR
+
+```toml
+# Advise on the decision moment without interrupting later editorial fixes.
+[checkpoints.new-adr]
+paths = ["docs/decisions/**"]
+kinds = ["added"]
+mode = "advise"
+question = "Does this new decision record state the decision, real alternatives, consequences, and enduring reason?"
+```
+
+### Newly created directory or subsystem
+
+```toml
+# Advise because a new parent directory is a useful subsystem heuristic.
+[checkpoints.new-subsystem]
+paths = ["src/**"]
+kinds = ["added"]
+new_directory = true
+mode = "advise"
+question = "Does this new directory establish one clear responsibility, an owner or entry point, and boundaries that prevent a parallel implementation?"
+```
+
+### Public API surface
+
+```toml
+# Stop when every public contract change needs compatibility judgment.
+[checkpoints.public-api]
+paths = ["src/public/**"]
+mode = "stop"
+question = "Is this public contract compatible under the project's policy, with failure behavior, migration, and documentation addressed?"
+```
+
+### Added or removed user-facing error copy
+
+```toml
+# Advise on either direction. Replace "error" with the project's stable marker.
+[checkpoints.error-copy-added]
+paths = ["src/messages/**"]
+adds_matching = ["error"]
+mode = "advise"
+question = "Is this user-facing error specific, actionable, consistent with product terms, and free of sensitive detail?"
+
+[checkpoints.error-copy-removed]
+paths = ["src/messages/**"]
+removes_matching = ["error"]
+mode = "advise"
+question = "Does removing this user-facing error preserve a clear failure explanation and next valid action?"
+```
+
+### Dependency declaration change
+
+```toml
+# Advise because manifest edits can add, remove, pin, or update dependencies.
+[checkpoints.dependencies]
+paths = ["dependencies/**"]
+mode = "advise"
+question = "Is each dependency change needed, permission-compatible, maintained, pinned under project policy, and reflected in reproducible installation data?"
+```
+
+### Security-sensitive paths
+
+```toml
+# Stop when every change in owner-designated sensitive regions needs a review record.
+[checkpoints.security-sensitive]
+paths = ["src/security/**", "config/access/**"]
+mode = "stop"
+question = "What trust boundary changes here, what could expose data or authority if it is wrong, and which test or review evidence addresses that risk?"
+```
+
+A plausible declared-unmet outcome is that `public-api` fires while the compatibility note depends on an owner choice between deprecation and immediate removal. Record that dependency in the short `--why` rationale. The owner then decides whether to authorize the named variance.
 
 ## Scarcity and graduation
 
