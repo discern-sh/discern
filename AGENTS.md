@@ -47,7 +47,7 @@ When your change _improves_ a measure, the result hints you to offer to lock in 
 
 ## Checkpoints
 
-Configured checkpoints serve a **question** — a judgment — when a matching change completes; `discern_prepare` and `discern_status` name coming declarations early. A fired `stop` checkpoint refuses **`discern_done`**, serving the question and its matched evidence: judge the current subject, and fix what the question catches when the fix belongs to this effort. Then declare truthfully: pass `met` only for a question your change satisfies; else `unmet` with a short `why` naming the owner-relevant tradeoff — durable Proof evidence, no secrets. The gate still runs; a declared-unmet conclusion lands only when the owner authorizes a variance at `discern_accept`. Relay the Proof and rationale, then stop: grants never cover a variance, and `variance` follows only the owner's explicit acceptance in this conversation.
+Use `met` only when the served question is satisfied; otherwise use `unmet` with a short, owner-relevant, secret-free tradeoff. A variance follows only the owner's explicit acceptance for the exact declared-unmet set; grants never cover one.
 
 ## Skills
 
