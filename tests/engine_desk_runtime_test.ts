@@ -87,6 +87,7 @@ function transcript(
       ok: (message) => stdout.push(`ok:${message}`),
       warn: (message) => stderr.push(`warn:${message}`),
       error: (message) => stderr.push(`error:${message}`),
+      errorBlock: (message) => stderr.push(`error:${message}`),
       heading: (message) => stdout.push(`heading:${message}`),
       group: () => stdout.push(""),
       raw: (message) => stdout.push(message),
