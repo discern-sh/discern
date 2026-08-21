@@ -136,6 +136,37 @@ Deno.test("when: a pre-aborted external signal fails open as cancelled", async (
   });
 });
 
+Deno.test("when: an unpreparable input fails open as its own typed drop and runs nothing", async () => {
+  // Poisoning the temp home makes the registered input file uncreatable, so
+  // the input phase itself fails: the command must not run, and the outcome
+  // is the input-failure reason, not a spawn or exit account.
+  await withTempDir(async (dir) => {
+    const marker = join(dir, "when-ran.log");
+    const previous = Deno.env.get("TMPDIR");
+    Deno.env.set("TMPDIR", join(dir, "absent-temp-home"));
+    let out: Awaited<ReturnType<typeof runWhenCommand>>;
+    try {
+      out = await runWhenCommand(
+        dir,
+        "probe",
+        `sh -c 'echo ran >> ${marker}; exit 0'`,
+        { input: INPUT },
+      );
+    } finally {
+      if (previous === undefined) Deno.env.delete("TMPDIR");
+      else Deno.env.set("TMPDIR", previous);
+    }
+    assert(out.kind === "error");
+    assertEquals(out.reason, "when_input_failed");
+    assertStringIncludes(out.advisory, "fails open");
+    assertEquals(
+      await Deno.readTextFile(marker).catch(() => ""),
+      "",
+      "an unpreparable input must never run the command",
+    );
+  });
+});
+
 Deno.test("when: spawn failure after input creation leaves no temporary input", async () => {
   await withTempDir(async (dir) => {
     const before = await checkpointInputArtifacts();
