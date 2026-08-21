@@ -1524,3 +1524,47 @@ Deno.test("done: the declaration refusal escapes matched paths on the markdown s
     assertStringIncludes(md.stdout, "`api/surface.txt`");
   });
 });
+
+const CONFIG_SEPARATOR_QUESTION = `
+[project]
+slug = "engine-test"
+
+[repository]
+trunk = "main"
+
+[jobs]
+lint = "sh check.sh"
+
+[checkpoints.api-review]
+paths = ["api/**"]
+question = "Does the \u2028 changed surface preserve \u2029 its contract?"
+teach = "State the failure modes; note what callers must revisit."
+`;
+
+Deno.test("done: the human refusal keeps authored paragraphs and inert hostile separators", async () => {
+  // The refusal is a multi-paragraph product message: its own newlines are
+  // deliberate structure, while separators inside governed dynamic text stay
+  // visible, inert notation. Rendering it through a single-line sink turns
+  // the paragraphs into visible newline symbols — the defect this guards.
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_SEPARATOR_QUESTION);
+    const human = await runAgent(wt, ["done"], {
+      env: { COLUMNS: "200", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 1, human.output);
+    assert(
+      !human.output.includes("␊"),
+      `authored refusal newlines leaked as visible symbols:\n${human.output}`,
+    );
+    assert(
+      /\n\s*Question: /.test(human.output),
+      `the question must open its own line:\n${human.output}`,
+    );
+    assertTerminalTextIncludes(human.output, "<U+2028>");
+    assertTerminalTextIncludes(human.output, "<U+2029>");
+    assert(
+      !human.output.includes("\u2028") && !human.output.includes("\u2029"),
+      "a raw line or paragraph separator reached the terminal",
+    );
+  });
+});

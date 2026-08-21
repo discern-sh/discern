@@ -273,3 +273,35 @@ Deno.test("long-lived MCP maps an unknown root to config recovery and leads with
     }
   });
 });
+
+Deno.test("invalid config renders each issue on its own human line", async () => {
+  // The failure message lists one issue per line; a single-line sink would
+  // collapse the list into visible newline symbols instead of line structure.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    await gitInit(dir);
+    const configPath = join(dir, "discern.toml");
+    const known = await Deno.readTextFile(configPath);
+    await Deno.writeTextFile(
+      configPath,
+      `${known}\n[checkpoints.first]\npaths = ["src/**"]\n\n[checkpoints.second]\npaths = ["docs/**"]\n`,
+    );
+
+    const human = await runAgent(dir, ["status"], {
+      env: { COLUMNS: "200", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 1, human.output);
+    assert(
+      !human.output.includes("␊"),
+      `issue-list newlines leaked as visible symbols:\n${human.output}`,
+    );
+    assert(
+      /\n\s*- checkpoints\.first/.test(human.output),
+      `each config issue must open its own line:\n${human.output}`,
+    );
+    assert(
+      /\n\s*- checkpoints\.second/.test(human.output),
+      `each config issue must open its own line:\n${human.output}`,
+    );
+  });
+});

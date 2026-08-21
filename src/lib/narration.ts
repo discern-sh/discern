@@ -20,6 +20,7 @@ import {
   terminalLine,
   type TerminalMultiline,
 } from "./terminal.ts";
+import { wrapText } from "./text.ts";
 
 /** A physical process stream the sink can write to. */
 export type OutputStream = "stdout" | "stderr";
@@ -162,6 +163,18 @@ export interface Narration {
   humanLine(text: string): void;
   /** Emit branded terminal-safe multiline text as one semantic error block. */
   terminalSafeMultilineError(message: TerminalMultiline): void;
+  /**
+   * One product-composed failure whose message carries authored line
+   * structure. Each authored line is made inert individually — a separator
+   * inside a line renders as visible notation, never as structure — then
+   * wrapped to the terminal width with its leading indentation preserved,
+   * and the block leads with the semantic failure glyph. A single-line
+   * message reads identically to `error`. The caller vouches that the
+   * message's newlines are the product's own composition; captured foreign
+   * text (subprocess output, file content) stays on `error`, where every
+   * separator is visible.
+   */
+  errorBlock(message: string): void;
 }
 
 /** Build the one narration implementation over a sink and stream policy. */
@@ -222,6 +235,32 @@ export function makeNarration(
       const failure = terminal.presenter.failure(first);
       sink.line([failure, ...continuation].join("\n"), streams.alerts);
     },
+    errorBlock: (message: string): void => {
+      if (!message.includes("\n")) {
+        sink.line(
+          terminal.presenter.failure(terminalLine(message)),
+          streams.alerts,
+        );
+        return;
+      }
+      // The glyph column is two cells wide; every wrapped line hangs under it.
+      const width = Math.max(20, terminal.size.columns) - 2;
+      const lines = message.split("\n").flatMap((raw) => {
+        if (raw.trim() === "") return [""];
+        const leading = raw.match(/^\s*/u)?.[0] ?? "";
+        const content = terminalLine(raw.slice(leading.length));
+        return wrapText(content, width - leading.length, `${leading}  `)
+          .map((line, index) => (index === 0 ? `${leading}${line}` : line));
+      });
+      const [first = "", ...continuation] = lines;
+      sink.line(
+        [
+          terminal.presenter.failure(first),
+          ...continuation.map((line) => (line === "" ? "" : `  ${line}`)),
+        ].join("\n"),
+        streams.alerts,
+      );
+    },
   };
 }
 
@@ -232,11 +271,11 @@ export function makeNarration(
  * a command to run, a canonical suggestion — gets the recovery group.
  */
 export function reportFailure(
-  narration: Pick<Narration, "error" | "group" | "humanLine">,
+  narration: Pick<Narration, "errorBlock" | "group" | "humanLine">,
   condition: string,
   recovery: readonly string[] = [],
 ): void {
-  narration.error(condition);
+  narration.errorBlock(condition);
   if (recovery.length === 0) return;
   narration.group("failure-recovery");
   for (const step of recovery) {

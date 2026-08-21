@@ -576,3 +576,30 @@ Deno.test("accept: the variance refusal escapes the rationale and paths on the m
     assertStringIncludes(md.stdout, "`api/*wild*.txt`");
   });
 });
+
+Deno.test("accept: the human variance refusal keeps authored paragraphs on real lines", async () => {
+  // The owner review moment is a multi-paragraph product message; its authored
+  // newlines must reach the terminal as line structure, never as visible
+  // newline symbols from a single-line sink.
+  await withTempDir(async (dir) => {
+    const wt = await checkpointedWorktree(dir);
+    await greenWithUnmet(wt);
+    const human = await runAgent(wt, ["accept"], {
+      env: { COLUMNS: "200", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 1, human.output);
+    assert(
+      !human.output.includes("␊"),
+      `authored refusal newlines leaked as visible symbols:\n${human.output}`,
+    );
+    assert(
+      /\n\s*Question: /.test(human.output),
+      `the question must open its own line:\n${human.output}`,
+    );
+    assert(
+      /\n\s*Rationale: /.test(human.output),
+      `the rationale must open its own line:\n${human.output}`,
+    );
+    assertTerminalTextIncludes(human.output, RATIONALE);
+  });
+});

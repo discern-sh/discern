@@ -188,7 +188,10 @@ function handleWorktreeError(
   lc: Pick<LifecycleModule, "WorktreeGitError" | "IdentityError">,
 ): number {
   if (e instanceof lc.WorktreeGitError || e instanceof lc.IdentityError) {
-    log.error(e.message);
+    // Worktree failures are product-composed accounts (a refusal's batched
+    // questions, a post-landing step list); their newlines are deliberate
+    // structure on the terminal.
+    log.errorBlock(e.message);
     return 1;
   }
   throw e;

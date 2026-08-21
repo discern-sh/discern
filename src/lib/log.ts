@@ -109,6 +109,11 @@ export class Logger {
     this.#narration.error(message);
   }
 
+  /** A product-composed failure whose authored newlines are real structure. */
+  errorBlock(message: string): void {
+    this.#narration.errorBlock(message);
+  }
+
   /** Emit the shared terminal failure form: condition, then recovery actions. */
   failure(message: string, recovery: readonly string[] = []): void {
     reportFailure(this.#narration, message, recovery);

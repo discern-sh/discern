@@ -2158,7 +2158,10 @@ export async function runFinish(
       return 1;
     }
     const out = makeOut(colorEnabled());
-    out.error(refusal.message ?? "The gate refused to run.");
+    // Refusal messages are product-composed and may carry deliberate
+    // paragraphs (the batched checkpoint serving); their newlines are real
+    // structure on the terminal, never visible symbols.
+    out.errorBlock(refusal.message ?? "The gate refused to run.");
     const hints = interactiveHintTexts(refusal.hints);
     if (hints.length > 0) out.group("next");
     for (const hint of hints) {

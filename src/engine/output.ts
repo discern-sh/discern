@@ -73,6 +73,8 @@ export interface Out {
   warn(m: string): void;
   /** Failure line (red ✗) to stderr, without exiting. */
   error(m: string): void;
+  /** A product-composed failure whose authored newlines are real structure. */
+  errorBlock(m: string): void;
   heading(m: string): void;
   /** Start a semantic group and optionally give it a visible ruled label. */
   group(id: string, label?: string): void;
@@ -122,6 +124,7 @@ export function makeOut(
     ok: narration.ok,
     warn: narration.warn,
     error: narration.error,
+    errorBlock: narration.errorBlock,
     heading: narration.heading,
     group: narration.group,
     raw: (s: string): void => sink.write(s, "stdout"),
