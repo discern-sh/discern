@@ -17,26 +17,26 @@ Run it when a session starts or the next move is unclear. Terminal, JSON, Markdo
 
 ## Human dashboard
 
-Worktrees default to a local view. From the main checkout, the default is a decision brief: the fleet summary, one row per worktree, the main checkout state, and the valid next actions. It does not repeat an attention card and a Proof card for every row. `--verbose` expands the same facts into fleet attention, per-worktree evidence, configured checks, local environment, landing history, and complete stored Proof pages.
+Worktrees default to a local view. From the main checkout, the default is a decision brief: the main checkout state, fleet summary, one row per worktree, owner decisions, landing risks, and ordinary next actions. It does not repeat an attention card and a Proof card for every row. `--verbose` expands the same facts into complete per-worktree evidence, configured checks, local environment, landing history, shared paths, and stored Proof pages.
 
 `--all` explicitly adds the fleet to a worktree's detailed local view; `--local` suppresses it. The flags conflict.
 
-`statusResult` owns status observation. One invocation clock feeds collection, hints, and rendering; one terminal snapshot builds the terminal presentation. The pure dashboard receives only facts, time, width, and verbosity. Fleet and Components own layout.
+`statusResult` owns status observation. One invocation clock feeds collection, hints, and rendering; one terminal snapshot builds the terminal presentation. The pure dashboard receives only facts, time, width, and verbosity. Every visible terminal block passes through its matching design-system CLI Component: Heading, Paragraph, Section, List, Empty state, Result summary, Diagnostic, Receipt, Diffstat, or Raw output. discern joins completed blocks but owns no competing frame.
 
-Fleet's lossless mode caps at 104 columns, stacking at 39 or when its table cannot fit. It never truncates or hashes branch and worktree text. Current and detached markers plus secondary facts stay labelled.
+The report caps at 104 columns. Its task list reuses the Desk's task-label authority, hides generated worktree and branch identities by default, and shows the six-character tail only when two visible tasks share a name. Current and detached state stays explicit. `--verbose` shows the complete worktree and branch identities inside the package Receipt; those values may wrap at narrow measures but no characters disappear.
 
-Each row derives one status: broken, unreadable, failed, blocked, collision, behind, running, ready, stale, in progress, proof unreadable, proof unavailable, proof stale, needs gate, then idle. New running work supersedes an older failure. A completed `status` contributes activity time and no health evidence. Collision takes precedence without hiding Proof readiness or authority.
+Each row derives one status: broken, unreadable, failed, blocked, running, stale, in progress, behind, ready, proof unreadable, proof unavailable, proof stale, needs gate, then idle. Live, stale, or uncommitted work therefore keeps its more useful lifecycle state while **DRIFT** still exposes branch lag. A completed `status` contributes activity time and no health evidence. Shared-file and ADR-number collisions are pairwise landing risks; they never replace either worktree's own state, Proof readiness, or authority.
 
 The other fields explain that status:
 
-- **Git** says `clean` or `6 files changed`; divergence is `↑8`, `↓3`, or both, with zero dimensions omitted.
+- **Git** says `clean` or `6 files changed`; **DRIFT** stays `↑8`, `↓3`, or both, with zero dimensions omitted. The complete arrow-and-count text remains present in every color mode; design-system Tokens render ahead in accent and behind in warning color.
 - **Proof** is honored, report-only, missing, stale, dirty worktree, unavailable, or unreadable. Report-only means the commit is current but CI reported checkpoint review without enforcing it; ordinary `discern done` is still required before landing. A clean branch with an honored strict Proof can be ready.
-- **Activity** combines the winning clock and completed action. In `running done 2m · usually 4m`, `usually 4m` is the historical median.
+- **Activity** combines the winning clock and completed action. A live Gate reads `Gate running · 2m`, with `Activity: just now · usually 4m`; `usually 4m` is the historical median.
 - **Landing** is granted, needs approval, or scope-limited on ready rows; detail wraps below it.
 
 Text and glyphs classify every state; color does not. Exhaustive adapters preserve status and Proof precedence through every terminal mode. `--no-color` changes no facts.
 
-The supervisor brief reports main once and classifies failures, stale or behind work, collisions, unreadable state, ready Proofs, and removed worktree paths that exist again in its summary and row states. `--verbose` shows the corresponding attention cards and collision paths. A verbose reappeared-path card shows when discern removed its worktree, a bounded content sample, and any reason prune must keep it.
+The supervisor brief reports the main checkout once, then classifies failed, unreadable, stale, behind, running, ready, dirty, and idle tasks. **Owner attention** contains lifecycle or landing decisions. **Landing risks** contains shared-file, incoming-trunk, and ADR-number relationships without promoting them to blocked worktree states. **Next action** contains ordinary executable continuation. `--verbose` adds the corresponding diagnostics and complete shared paths. A verbose reappeared-path card shows when discern removed its worktree, a bounded content sample, and any reason prune must keep it.
 
 In the expanded view, **Checks** shows configured changed scopes, planned Gate jobs, and a Standards count. Derived `code` and `previewable` markers stay machine-only. Port and resources sit under **Local environment**. **Landing** shows pass, branch, files changed, diff size, commit, and age. **Proofs** contains stored Proof Markdown.
 

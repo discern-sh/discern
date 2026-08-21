@@ -14,8 +14,8 @@
  *
  * The view is LOCATION-AWARE (ADR 0033): from a linked worktree the default is the
  * local view (this worktree's own state); from the main checkout — with worktrees
- * enabled and at least one live worktree — it leads with the fleet survey (a row per
- * worktree, the main checkout included). `--all` adds the fleet from a worktree;
+ * enabled and at least one live worktree — it leads with main state and follows with
+ * one task-labelled row per active worktree. `--all` adds the fleet from a worktree;
  * `--local` suppresses it from the main checkout.
  */
 

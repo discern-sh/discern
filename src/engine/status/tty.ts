@@ -9,16 +9,24 @@
 
 import { basename } from "@std/path";
 import {
-  type FleetCliProps,
   renderDiagnosticCli,
   renderDiffstatCli,
   renderEmptyStateCli,
-  renderFleetCli,
+  renderHeadingCli,
+  renderListCli,
+  renderParagraphCli,
   renderRawOutputCli,
   renderReceiptCli,
   renderResultSummaryCli,
+  renderSectionCli,
 } from "discern-design-system/cli";
-import { interactiveHintTexts } from "../../shared/hints.ts";
+import {
+  firedHintsFromTexts,
+  type HintCategory,
+  HINTS,
+  interactiveHints,
+  interactiveHintTexts,
+} from "../../shared/hints.ts";
 import type {
   GateProofCheckData,
   GateProofCheckStatus,
@@ -26,7 +34,6 @@ import type {
   StatusFleetCollision,
   StatusFleetEntry,
 } from "../../shared/result_schemas.ts";
-import { wrapText } from "../../lib/text.ts";
 import {
   type TerminalContext,
   terminalLine,
@@ -34,16 +41,11 @@ import {
 } from "../../lib/terminal.ts";
 import { compactDuration } from "../output.ts";
 import { isScopeMarker } from "../scopes/scopes.ts";
+import { taskLabel } from "../worktree/task_label.ts";
 import { isReadyToLand } from "../worktree/readiness.ts";
-
-type AgentStatus = NonNullable<FleetCliProps["rows"][number]["status"]>;
 
 /** Very wide terminals still get a report whose related fields stay together. */
 export const STATUS_REPORT_MAX_WIDTH = 104;
-
-/** Package rules own section geometry; content retains one stable gutter. */
-const SECTION_CONTENT_COLUMN = 2;
-const SECTION_CONTENT_INDENT = " ".repeat(SECTION_CONTENT_COLUMN);
 
 /** Fleet activity older than this is stale when unlanded work remains. */
 export const STALE_WORKTREE_DAYS = 7;
@@ -55,7 +57,6 @@ export const FLEET_ROW_STATUS_KINDS = [
   "unreadable",
   "failed",
   "blocked",
-  "collision",
   "behind",
   "ready",
   "running",
@@ -78,75 +79,46 @@ interface StatusMeta {
   priority: number;
 }
 
-/**
- * Exhaustive adaptation from Discern's richer status vocabulary into Fleet's
- * generic agent-state vocabulary. The Discern label remains visible beside it;
- * this mapping never replaces status precedence or invents readiness.
- */
-export const FLEET_ROW_AGENT_STATUS = {
-  broken: "blocked",
-  unreadable: "blocked",
-  failed: "blocked",
-  blocked: "blocked",
-  collision: "waiting",
-  behind: "waiting",
-  ready: "done",
-  running: "working",
-  stale: "waiting",
-  "in-progress": "working",
-  "proof-unreadable": "blocked",
-  "proof-unavailable": "waiting",
-  "proof-stale": "waiting",
-  "needs-gate": "waiting",
-  idle: "idle",
-} as const satisfies Readonly<Record<FleetRowStatusKind, AgentStatus>>;
-
 const STATUS_META = {
   broken: { label: "Broken", glyph: "✗", tone: "red", priority: 0 },
   unreadable: { label: "Unreadable", glyph: "✗", tone: "red", priority: 0 },
   failed: { label: "Failed", glyph: "✗", tone: "red", priority: 0 },
   blocked: { label: "Blocked", glyph: "!", tone: "yellow", priority: 1 },
-  collision: {
-    label: "Collision",
-    glyph: "!",
-    tone: "yellow",
-    priority: 2,
-  },
-  behind: { label: "Behind", glyph: "!", tone: "yellow", priority: 3 },
-  ready: { label: "Ready", glyph: "✓", tone: "green", priority: 4 },
-  running: { label: "Running", glyph: "●", tone: "cyan", priority: 5 },
-  stale: { label: "Stale", glyph: "!", tone: "yellow", priority: 6 },
+  behind: { label: "Behind", glyph: "!", tone: "yellow", priority: 2 },
+  ready: { label: "Ready", glyph: "✓", tone: "green", priority: 3 },
+  running: { label: "Running", glyph: "●", tone: "cyan", priority: 4 },
+  stale: { label: "Stale", glyph: "!", tone: "yellow", priority: 5 },
   "in-progress": {
     label: "In progress",
     glyph: "●",
     tone: "cyan",
-    priority: 7,
+    priority: 6,
   },
   "proof-unreadable": {
     label: "Proof unreadable",
     glyph: "✗",
     tone: "red",
-    priority: 8,
+    priority: 7,
   },
   "proof-unavailable": {
     label: "Proof unavailable",
     glyph: "!",
     tone: "yellow",
-    priority: 9,
+    priority: 8,
   },
   "proof-stale": {
     label: "Proof stale",
     glyph: "!",
     tone: "yellow",
-    priority: 10,
+    priority: 9,
   },
   "needs-gate": {
     label: "Needs gate",
     glyph: "!",
     tone: "yellow",
-    priority: 11,
+    priority: 10,
   },
-  idle: { label: "Idle", glyph: "·", tone: "dim", priority: 12 },
+  idle: { label: "Idle", glyph: "·", tone: "dim", priority: 11 },
 } as const satisfies Record<FleetRowStatusKind, StatusMeta>;
 
 interface RowIdentity {
@@ -182,14 +154,12 @@ export interface FleetRowPresentation {
   glyph: string;
   tone: FleetRowTone;
   priority: number;
-  agentStatus: AgentStatus;
   identity: RowIdentity;
   git: string;
   gitTone: FleetRowTone;
   proof: ProofPresentation;
   activity: string;
-  /** Proof-backed landing readiness that remains visible when a collision
-   * takes precedence as the row's primary status. */
+  /** Proof-backed landing readiness after the row's own state is classified. */
   landingReady: boolean;
   authority?: AuthorityPresentation;
   collisions: readonly RowCollision[];
@@ -353,9 +323,7 @@ function activityPresentation(entry: StatusFleetEntry, nowMs: number): string {
     const typical = entry.running.typical_duration_ms === undefined
       ? ""
       : ` · usually ${compactDuration(entry.running.typical_duration_ms)}`;
-    return `running ${entry.running.verb} ${
-      compactDuration(entry.running.elapsed_ms)
-    }${typical}`;
+    return `just now${typical}`;
   }
   const activityAge = relativeAge(entry.last_activity, nowMs);
   if (entry.last_action === undefined) {
@@ -449,7 +417,6 @@ function authorityPresentation(
 function classifyKind(
   entry: StatusFleetEntry,
   proof: ProofPresentation,
-  collisions: readonly RowCollision[],
   ready: boolean,
   nowMs: number,
 ): FleetRowStatusKind {
@@ -463,16 +430,15 @@ function classifyKind(
   if (
     entry.running === undefined && entry.last_action?.outcome === "refused"
   ) return "blocked";
-  if (collisions.length > 0) return "collision";
-  if ((entry.behind ?? 0) > 0) return "behind";
   if (entry.running !== undefined) return "running";
-  if (ready) return "ready";
   const idleDays = idleDaysOf(entry.last_activity, nowMs);
   if (
     idleDays !== undefined && idleDays >= STALE_WORKTREE_DAYS &&
     (entry.clean === false || (entry.ahead ?? 0) > 0)
   ) return "stale";
   if (entry.clean === false) return "in-progress";
+  if ((entry.behind ?? 0) > 0) return "behind";
+  if (ready) return "ready";
   if (proof.status === "read_failed") return "proof-unreadable";
   if (proof.status === "unavailable") return "proof-unavailable";
   if (proof.status === "stale") return "proof-stale";
@@ -511,8 +477,6 @@ function attentionFor(
       return `${entry.last_action?.verb ?? "The last command"} was refused ${
         relativeAge(entry.last_action?.at, nowMs)
       }. Read its refusal and complete the named prerequisite.`;
-    case "collision":
-      return "This branch changes files another worktree also changes. Re-read the shared paths after the first branch lands.";
     case "behind": {
       const count = entry.behind ?? 0;
       return `Run \`discern update\` in this worktree. Its branch is ${count} commit${
@@ -521,7 +485,7 @@ function attentionFor(
     }
     case "ready":
       return authority?.label === "granted"
-        ? "The clean branch has a valid proof and granted landing authority."
+        ? undefined
         : authority?.label === "scope-limited"
         ? "The clean branch has a valid proof. Its recorded grant does not cover every changed path."
         : "The clean branch has a valid proof and is ready for owner review; landing needs approval.";
@@ -561,10 +525,9 @@ export function presentFleetRow(
   const proof = proofPresentation(entry);
   const collisions = rowCollisions(entry, options.collisions ?? []);
   const proofReady = isReadyToLand(entry, proof.status === "honored");
-  const kind = classifyKind(entry, proof, collisions, proofReady, nowMs);
+  const kind = classifyKind(entry, proof, proofReady, nowMs);
   const meta = STATUS_META[kind];
-  const landingReady = proofReady &&
-    (kind === "ready" || kind === "collision");
+  const landingReady = proofReady && kind === "ready";
   const authority = authorityPresentation(entry, landingReady);
   const attention = attentionFor(
     kind,
@@ -578,7 +541,6 @@ export function presentFleetRow(
     entry,
     kind,
     ...meta,
-    agentStatus: FLEET_ROW_AGENT_STATUS[kind],
     identity: rowIdentity(entry),
     git: gitPresentation(entry),
     gitTone: gitTone(entry),
@@ -631,38 +593,31 @@ function styledDiscernCommands(
   );
 }
 
-interface VerbatimSectionLine {
-  /** Stored proof Markdown bypasses dashboard indentation so it stays
-   * copyable. */
-  verbatim: string;
+type StatusComponent = string;
+
+/** Join complete package-rendered blocks. Stack cannot nest presenter output
+ * because its control-free input contract rejects semantic ANSI styling. */
+function componentStack(
+  components: readonly StatusComponent[],
+): string {
+  return components.join("\n\n");
 }
 
-type StatusSectionLine = string | VerbatimSectionLine;
-
-/** Place one typed line in the section's shared display columns. */
-function renderSectionLine(line: StatusSectionLine): string {
-  if (typeof line === "string") {
-    return line === "" ? "" : `${SECTION_CONTENT_INDENT}${line}`;
-  }
-  return line.verbatim;
-}
-
-/** Join one populated dashboard section. This is the sole owner of ordinary
- * section indentation, so every present and future child shares the heading's
- * content column. */
+/** Compose one dashboard section through the package Section authority. */
 function section(
   label: string,
-  lines: readonly StatusSectionLine[],
+  components: readonly StatusComponent[],
   terminal: TerminalContext,
   width: number,
 ): string {
-  return [
-    terminal.presenter.motifSectionRule(terminalLine(label), {
-      register: "brand",
-      width,
-    }),
-    ...lines.map(renderSectionLine),
-  ].join("\n");
+  const heading = terminal.presenter.present(renderSectionCli, {
+    title: terminalLine(label),
+    body: terminalMultiline(""),
+    treatment: "quiet-rule",
+    register: "brand",
+    width,
+  });
+  return componentStack([heading, ...components]);
 }
 
 /** Exhaustive adaptation into Result summary's outcome vocabulary. */
@@ -671,7 +626,6 @@ export const FLEET_ROW_RESULT_STATE = {
   unreadable: "failed",
   failed: "failed",
   blocked: "blocked",
-  collision: "blocked",
   behind: "blocked",
   ready: "passed",
   running: "changed",
@@ -702,42 +656,125 @@ export const STATUS_PROOF_RECEIPT_STATE = {
   Record<GateProofCheckStatus, "pass" | "fail" | "skip">
 >;
 
-/** Fleet owns identity, state, drift, and responsive layout. Discern composes
- * the product evidence Fleet cannot generically know beside each row. */
+/** State label for Fleet, including the operation and elapsed time when live. */
+function fleetStatusLabel(row: FleetRowPresentation): string {
+  const running = row.entry.running;
+  if (row.kind !== "running" || running === undefined) {
+    return `${row.label}${row.entry.is_current ? " · current" : ""}`;
+  }
+  const operation = running.verb === "done"
+    ? "Gate"
+    : `${running.verb.slice(0, 1).toUpperCase()}${running.verb.slice(1)}`;
+  return `${operation} running · ${compactDuration(running.elapsed_ms)}${
+    row.entry.is_current ? " · current" : ""
+  }`;
+}
+
+/** Render one row's nonzero divergence with the active terminal repertoire. */
+function rowDivergence(
+  row: FleetRowPresentation,
+  unicode: boolean,
+): string {
+  const values = [
+    ...((row.entry.ahead ?? 0) > 0
+      ? [`${unicode ? "↑" : "+"}${row.entry.ahead ?? 0}`]
+      : []),
+    ...((row.entry.behind ?? 0) > 0
+      ? [`${unicode ? "↓" : "-"}${row.entry.behind ?? 0}`]
+      : []),
+  ];
+  return values.length === 0 ? unicode ? "—" : "-" : values.join(" ");
+}
+
+/** Apply design-system semantic tones to divergence without changing its
+ * complete arrow-and-count text. */
+function styledDriftArrows(
+  text: string,
+  terminal: TerminalContext,
+): string {
+  return text
+    .replace(
+      /(DRIFT (?:[↑+]\d+\s+)?)([↓-]\d+)/gu,
+      (_match, prefix: string, behind: string) =>
+        `${prefix}${terminal.tone(behind, "warning")}`,
+    )
+    .replace(
+      /(DRIFT )([↑+]\d+)/gu,
+      (_match, prefix: string, ahead: string) =>
+        `${prefix}${terminal.tone(ahead, "accent")}`,
+    );
+}
+
+/** Pair every non-idle state with a repertoire-safe glyph and complete label. */
+function rowStateCue(
+  row: FleetRowPresentation,
+  unicode: boolean,
+): string {
+  const label = fleetStatusLabel(row);
+  if (row.kind === "idle") return label;
+  const asciiGlyph = row.tone === "red"
+    ? "x"
+    : row.tone === "green"
+    ? "+"
+    : row.tone === "cyan"
+    ? "*"
+    : "!";
+  return `${unicode ? row.glyph : asciiGlyph} ${label}`;
+}
+
+/** Human task names, adding minted tails only when visible names collide. */
+function displayTaskNames(
+  rows: readonly FleetRowPresentation[],
+): string[] {
+  const labels = rows.map((row) => taskLabel(row.entry));
+  const nameCounts = new Map<string, number>();
+  for (const label of labels) {
+    nameCounts.set(label.name, (nameCounts.get(label.name) ?? 0) + 1);
+  }
+  return labels.map((label) =>
+    (nameCounts.get(label.name) ?? 0) > 1 &&
+      label.disambiguator !== undefined
+      ? `${label.name} · ${label.disambiguator}`
+      : label.name
+  );
+}
+
+/** Task labels lead the human list; exact Git identities remain in expanded
+ * evidence where they are actionable. */
 function renderWorktrees(
   rows: readonly FleetRowPresentation[],
   width: number,
   terminal: TerminalContext,
   ownershipCaption: boolean,
   expanded: boolean,
-): StatusSectionLine[] {
-  const fleet = terminal.presenter.present(renderFleetCli, {
-    label: terminalLine("Active worktrees"),
-    identityMode: "lossless",
-    maxWidth: width,
-    rows: rows.map((row) => ({
-      persona: terminalLine(row.identity.worktree),
-      branch: terminalLine(row.identity.primary),
-      status: row.agentStatus,
-      statusLabel: terminalLine(
-        `${row.label}${row.entry.is_current ? " · current" : ""}`,
+): StatusComponent[] {
+  const displayNames = displayTaskNames(rows);
+  const list = terminal.presenter.present(renderListCli, {
+    kind: "unordered",
+    spacing: "tight",
+    items: rows.map((row, index) => ({
+      content: terminalLine(
+        `${displayNames[index] ?? row.identity.worktree} · ${
+          rowStateCue(row, terminal.capabilities.unicode)
+        } · DRIFT ${
+          rowDivergence(row, terminal.capabilities.unicode)
+        } · Activity: ${row.activity}`,
       ),
-      ...(row.entry.ahead === undefined ? {} : { ahead: row.entry.ahead }),
-      ...(row.entry.behind === undefined ? {} : { behind: row.entry.behind }),
-      ...(row.kind === "running" ? { beaconPhase: 0 } : {}),
     })),
+    maxWidth: width,
   });
-  const lines: StatusSectionLine[] = [{ verbatim: fleet }];
-  for (const row of expanded ? rows : []) {
+  const components: StatusComponent[] = [styledDriftArrows(list, terminal)];
+  for (const [index, row] of (expanded ? rows : []).entries()) {
+    const displayName = displayNames[index] ?? row.identity.worktree;
     const proofValue = row.proof.detail === undefined
       ? row.proof.label
       : `${row.proof.label} · ${row.proof.detail}`;
     const summary = terminal.presenter.present(renderResultSummaryCli, {
       state: FLEET_ROW_RESULT_STATE[row.kind],
       fact: terminalLine(
-        `${row.identity.primary}${
+        `${displayName}${
           row.entry.is_current ? " is the current worktree. " : ". "
-        }${row.label}.`,
+        }${fleetStatusLabel(row)}.`,
       ),
       counts: [
         { label: terminalLine("Git"), value: terminalLine(row.git) },
@@ -749,6 +786,14 @@ function renderWorktrees(
       maxWidth: width,
     });
     const meta = [
+      {
+        label: terminalLine("Worktree"),
+        value: terminalLine(row.identity.worktree),
+      },
+      {
+        label: terminalLine("Branch"),
+        value: terminalLine(row.identity.primary),
+      },
       ...(row.authority === undefined ? [] : [{
         label: terminalLine("Landing"),
         value: terminalLine(
@@ -764,14 +809,16 @@ function renderWorktrees(
         value: terminalLine(row.entry.contained_in),
       }]),
       ...row.collisions.map((collision) => ({
-        label: terminalLine("Collision"),
+        label: terminalLine("Shares files with"),
         value: terminalLine(
-          `${collision.branch} · ${fileCount(collision.total)}`,
+          `${collision.branch} · ${collision.total} shared file${
+            collision.total === 1 ? "" : "s"
+          }`,
         ),
       })),
     ];
     const receipt = terminal.presenter.present(renderReceiptCli, {
-      title: terminalLine(`${row.identity.primary} Proof`),
+      title: terminalLine(`${displayName} Proof`),
       checks: [{
         label: terminalLine("Proof"),
         state: STATUS_PROOF_RECEIPT_STATE[row.proof.status],
@@ -788,27 +835,23 @@ function renderWorktrees(
       }),
       maxWidth: width,
     });
-    lines.push(
-      "",
-      { verbatim: styledDiscernCommands(summary, terminal) },
-      { verbatim: receipt },
+    components.push(
+      styledDiscernCommands(summary, terminal),
+      receipt,
     );
   }
   if (ownershipCaption) {
-    lines.push(
-      "",
-      {
-        verbatim: terminal.presenter.present(renderResultSummaryCli, {
-          state: "unchanged",
-          fact: terminalLine(
-            "Worktrees stay with the effort that created them.",
-          ),
-          maxWidth: width,
-        }),
-      },
+    components.push(
+      terminal.presenter.present(renderResultSummaryCli, {
+        state: "unchanged",
+        fact: terminalLine(
+          "Worktrees stay with the effort that created them.",
+        ),
+        maxWidth: width,
+      }),
     );
   }
-  return lines;
+  return components;
 }
 
 /** Lead fleet views with counts that answer what needs attention. */
@@ -816,38 +859,129 @@ function renderFleetSummary(
   rows: readonly FleetRowPresentation[],
   width: number,
   c: TerminalContext,
-): StatusSectionLine[] {
+): StatusComponent {
   const ready = rows.filter((row) => row.landingReady).length;
   const active =
     rows.filter((row) => row.kind === "running" || row.kind === "in-progress")
       .length;
   const attention = rows.filter((row) => row.attention !== undefined).length;
   const summary = [
-    `${rows.length} worktree${rows.length === 1 ? "" : "s"}`,
+    `${rows.length} active worktree${rows.length === 1 ? "" : "s"}`,
     ...(attention === 0
       ? []
       : [`${attention} ${attention === 1 ? "needs" : "need"} attention`]),
     ...(ready === 0 ? [] : [`${ready} ready`]),
     ...(active === 0 ? [] : [`${active} in progress`]),
   ].join(" · ");
-  return [{
-    verbatim: c.presenter.present(renderResultSummaryCli, {
-      state: attention > 0 ? "blocked" : active > 0 ? "changed" : "unchanged",
-      fact: terminalLine(summary),
-      maxWidth: width,
-    }),
-  }];
+  return c.presenter.present(renderParagraphCli, {
+    content: terminalLine(`Fleet · ${summary}`),
+    maxWidth: width,
+  });
 }
 
-/** Render row actions and complete fleet/ADR collision evidence. */
-function renderAttention(
+/** Render prose items through the package List authority. */
+function renderTextList(
+  items: readonly string[],
+  width: number,
+  c: TerminalContext,
+): StatusComponent {
+  return styledDiscernCommands(
+    c.presenter.present(renderListCli, {
+      kind: "unordered",
+      spacing: "loose",
+      items: items.map((item) => ({ content: terminalLine(item) })),
+      maxWidth: width,
+    }),
+    c,
+  );
+}
+
+/** Pairwise conditions affect landing order; they never replace a worktree's
+ * own state in the Fleet row. Complete paths remain in the expanded view. */
+function renderLandingRiskBrief(
+  data: StatusData,
+  width: number,
+  c: TerminalContext,
+): StatusComponent[] {
+  const items = [
+    ...(data.fleet_collisions ?? []).map((collision) =>
+      `${collision.branches.join(" ↔ ")} · ${collision.total} shared file${
+        collision.total === 1 ? "" : "s"
+      }. Whoever lands second should run \`discern update\` and re-read the reported paths.`
+    ),
+    ...(data.adr_collisions ?? []).map((collision) =>
+      `ADR ${collision.number} is claimed by ${
+        collision.branches.join(" ↔ ")
+      }. Whoever lands second takes the next free record number.`
+    ),
+    ...(data.git?.incoming_overlap?.length
+      ? [
+        "The worktree and incoming trunk commits change the same paths. Re-read them after updating the branch.",
+      ]
+      : []),
+  ];
+  return items.length === 0 ? [] : [renderTextList(items, width, c)];
+}
+
+const LANDING_RISK_HINT_IDS = new Set([
+  "status-fleet-collisions",
+  "status-adr-number-collisions",
+]);
+
+const HINT_CATEGORY_BY_ID = new Map<string, HintCategory>(
+  Object.values(HINTS).map((definition) => [
+    definition.id,
+    definition.category,
+  ]),
+);
+
+interface StatusHintGroups {
+  ownerAttention: string[];
+  landingRisks: string[];
+  nextActions: string[];
+  notices: string[];
+}
+
+/** Recover typed hint intent before the terminal projection erases it. */
+function groupStatusHints(
+  texts: readonly string[] | undefined,
+): StatusHintGroups {
+  const groups: StatusHintGroups = {
+    ownerAttention: [],
+    landingRisks: [],
+    nextActions: [],
+    notices: [],
+  };
+  const fired = firedHintsFromTexts(texts);
+  const registeredTexts = new Set(fired.map((hint) => hint.text));
+  for (const hint of interactiveHints(fired)) {
+    if (LANDING_RISK_HINT_IDS.has(hint.id)) {
+      groups.landingRisks.push(hint.text);
+      continue;
+    }
+    const category = HINT_CATEGORY_BY_ID.get(hint.id);
+    if (category === "owner-attention") {
+      groups.ownerAttention.push(hint.text);
+    } else if (category === "notice") {
+      groups.notices.push(hint.text);
+    } else {
+      groups.nextActions.push(hint.text);
+    }
+  }
+  const unknown = (texts ?? []).filter((text) => !registeredTexts.has(text));
+  groups.nextActions.push(...interactiveHintTexts(unknown));
+  return groups;
+}
+
+/** Render complete worktree evidence for the expanded dashboard. */
+function renderWorktreeAttention(
   rows: readonly FleetRowPresentation[],
   data: StatusData,
   width: number,
   c: TerminalContext,
   nowMs: number,
-): StatusSectionLine[] {
-  const lines: StatusSectionLine[] = [];
+): StatusComponent[] {
+  const components: StatusComponent[] = [];
   for (const row of rows) {
     if (row.attention === undefined) continue;
     const diagnostic = c.presenter.present(renderDiagnosticCli, {
@@ -864,28 +998,7 @@ function renderAttention(
       path: terminalLine(row.entry.path),
       maxWidth: width,
     });
-    lines.push(
-      ...(lines.length === 0 ? [] : [""]),
-      {
-        verbatim: styledDiscernCommands(diagnostic, c),
-      },
-    );
-    if (
-      row.landingReady && row.kind !== "ready" &&
-      row.authority !== undefined
-    ) {
-      lines.push(
-        {
-          verbatim: c.presenter.present(renderResultSummaryCli, {
-            state: "passed",
-            fact: terminalLine(
-              `The branch is ready; landing ${row.authority.label}.`,
-            ),
-            maxWidth: width,
-          }),
-        },
-      );
-    }
+    components.push(styledDiscernCommands(diagnostic, c));
   }
   for (const path of data.reappeared_worktree_paths ?? []) {
     const contents = path.contents.length === 0
@@ -900,24 +1013,31 @@ function renderAttention(
     const correction = path.cleanup_blocked_reason === undefined
       ? "Inspect the current contents before removing the path."
       : `Kept: ${path.cleanup_blocked_reason}`;
-    lines.push(
-      ...(lines.length === 0 ? [] : [""]),
-      {
-        verbatim: c.presenter.present(renderDiagnosticCli, {
-          title: terminalLine(path.path),
-          impact: terminalLine(
-            `discern removed the worktree ${
-              relativeAge(path.removed_at, nowMs)
-            }; the path is present again. Contents: ${contents}.`,
-          ),
-          correction: terminalMultiline(correction),
-          severity: "attention",
-          path: terminalLine(path.path),
-          maxWidth: width,
-        }),
-      },
+    components.push(
+      c.presenter.present(renderDiagnosticCli, {
+        title: terminalLine(path.path),
+        impact: terminalLine(
+          `discern removed the worktree ${
+            relativeAge(path.removed_at, nowMs)
+          }; the path is present again. Contents: ${contents}.`,
+        ),
+        correction: terminalMultiline(correction),
+        severity: "attention",
+        path: terminalLine(path.path),
+        maxWidth: width,
+      }),
     );
   }
+  return components;
+}
+
+/** Render complete collision paths for the expanded dashboard. */
+function renderLandingRiskDetails(
+  data: StatusData,
+  width: number,
+  c: TerminalContext,
+): StatusComponent[] {
+  const components: StatusComponent[] = [];
   for (const collision of data.fleet_collisions ?? []) {
     const diagnostic = c.presenter.present(renderDiagnosticCli, {
       title: terminalLine("Fleet collision"),
@@ -933,52 +1053,43 @@ function renderAttention(
       severity: "attention",
       maxWidth: width,
     });
-    lines.push(
-      ...(lines.length === 0 ? [] : [""]),
-      { verbatim: styledDiscernCommands(diagnostic, c) },
-    );
+    components.push(styledDiscernCommands(diagnostic, c));
   }
   for (const collision of data.adr_collisions ?? []) {
-    lines.push(
-      ...(lines.length === 0 ? [] : [""]),
-      {
-        verbatim: c.presenter.present(renderDiagnosticCli, {
-          title: terminalLine(
-            `ADR ${collision.number} has multiple claims`,
-          ),
-          impact: terminalLine(
-            `${collision.branches.join(", ")} claim the same record number.`,
-          ),
-          evidence: terminalMultiline(collision.paths.join(", ")),
-          correction: terminalMultiline(
-            "Whoever lands second takes the next free record number.",
-          ),
-          severity: "attention",
-          maxWidth: width,
-        }),
-      },
+    components.push(
+      c.presenter.present(renderDiagnosticCli, {
+        title: terminalLine(
+          `ADR ${collision.number} has multiple claims`,
+        ),
+        impact: terminalLine(
+          `${collision.branches.join(", ")} claim the same record number.`,
+        ),
+        evidence: terminalMultiline(collision.paths.join(", ")),
+        correction: terminalMultiline(
+          "Whoever lands second takes the next free record number.",
+        ),
+        severity: "attention",
+        maxWidth: width,
+      }),
     );
   }
   if (data.git?.incoming_overlap?.length) {
-    lines.push(
-      ...(lines.length === 0 ? [] : [""]),
-      {
-        verbatim: c.presenter.present(renderDiagnosticCli, {
-          title: terminalLine("Incoming overlap"),
-          impact: terminalLine(
-            "The worktree and incoming trunk commits change the same paths.",
-          ),
-          evidence: terminalMultiline(data.git.incoming_overlap.join(", ")),
-          correction: terminalMultiline(
-            "Re-read the shared paths after updating the branch.",
-          ),
-          severity: "attention",
-          maxWidth: width,
-        }),
-      },
+    components.push(
+      c.presenter.present(renderDiagnosticCli, {
+        title: terminalLine("Incoming overlap"),
+        impact: terminalLine(
+          "The worktree and incoming trunk commits change the same paths.",
+        ),
+        evidence: terminalMultiline(data.git.incoming_overlap.join(", ")),
+        correction: terminalMultiline(
+          "Re-read the shared paths after updating the branch.",
+        ),
+        severity: "attention",
+        maxWidth: width,
+      }),
     );
   }
-  return lines;
+  return components;
 }
 
 /** Project local status facts through the same row classifier as the fleet. */
@@ -1039,7 +1150,6 @@ function mainCheckoutLine(
       maxWidth: width,
     });
   }
-  const state = git.clean ? "clean" : fileCount(git.changed_files);
   const counts = divergence(
     git.ahead_trunk === null ? undefined : git.ahead_trunk,
     git.behind_trunk === null ? undefined : git.behind_trunk,
@@ -1047,9 +1157,12 @@ function mainCheckoutLine(
   const branch = git.branch === "" ? "(detached)" : git.branch;
   return c.presenter.present(renderResultSummaryCli, {
     state: git.clean ? "unchanged" : "changed",
-    fact: terminalLine(`Main checkout ${branch} is current.`),
+    fact: terminalLine(
+      git.clean
+        ? `Main checkout ${branch} is clean and current.`
+        : `Main checkout ${branch} has ${fileCount(git.changed_files)}.`,
+    ),
     counts: [
-      { label: terminalLine("Git"), value: terminalLine(state) },
       ...(counts === ""
         ? []
         : [{ label: terminalLine("Drift"), value: terminalLine(counts) }]),
@@ -1064,7 +1177,7 @@ function surveyedMainCheckout(
   width: number,
   nowMs: number,
   c: TerminalContext,
-): StatusSectionLine[] {
+): StatusComponent[] {
   const state = entry.git_unavailable === true
     ? "unreadable"
     : entry.clean === true
@@ -1072,27 +1185,25 @@ function surveyedMainCheckout(
     : fileCount(entry.changed_files ?? 0);
   const counts = divergence(entry.ahead, entry.behind);
   const activity = relativeAge(entry.last_activity, nowMs);
-  return [{
-    verbatim: c.presenter.present(renderResultSummaryCli, {
-      state: entry.git_unavailable === true
-        ? "failed"
-        : entry.clean === true
-        ? "unchanged"
-        : "changed",
-      fact: terminalLine("The main checkout is outside the active fleet."),
-      counts: [
-        { label: terminalLine("Git"), value: terminalLine(state) },
-        ...(counts === ""
-          ? []
-          : [{ label: terminalLine("Drift"), value: terminalLine(counts) }]),
-        ...(activity === "—" ? [] : [{
-          label: terminalLine("Activity"),
-          value: terminalLine(activity),
-        }]),
-      ],
-      maxWidth: width,
-    }),
-  }];
+  return [c.presenter.present(renderResultSummaryCli, {
+    state: entry.git_unavailable === true
+      ? "failed"
+      : entry.clean === true
+      ? "unchanged"
+      : "changed",
+    fact: terminalLine("The main checkout is outside the active fleet."),
+    counts: [
+      { label: terminalLine("Git"), value: terminalLine(state) },
+      ...(counts === ""
+        ? []
+        : [{ label: terminalLine("Drift"), value: terminalLine(counts) }]),
+      ...(activity === "—" ? [] : [{
+        label: terminalLine("Activity"),
+        value: terminalLine(activity),
+      }]),
+    ],
+    maxWidth: width,
+  })];
 }
 
 /** Lower-priority configured-scope, gate, and standards facts. */
@@ -1100,7 +1211,7 @@ function renderChecks(
   data: StatusData,
   width: number,
   c: TerminalContext,
-): StatusSectionLine[] {
+): StatusComponent[] {
   const counts: Array<{ label: string; value: string }> = [];
   const changedScopes = (data.scopes ?? []).filter((scope) =>
     !isScopeMarker(scope)
@@ -1121,17 +1232,15 @@ function renderChecks(
     label: "Standards",
     value: `${data.standards.length} configured`,
   });
-  return [{
-    verbatim: c.presenter.present(renderResultSummaryCli, {
-      state: changedScopes.length > 0 ? "changed" : "unchanged",
-      fact: terminalLine("Configured checks for this status result."),
-      counts: counts.map((count) => ({
-        label: terminalLine(count.label),
-        value: terminalLine(count.value),
-      })),
-      maxWidth: width,
-    }),
-  }];
+  return [c.presenter.present(renderResultSummaryCli, {
+    state: changedScopes.length > 0 ? "changed" : "unchanged",
+    fact: terminalLine("Configured checks for this status result."),
+    counts: counts.map((count) => ({
+      label: terminalLine(count.label),
+      value: terminalLine(count.value),
+    })),
+    maxWidth: width,
+  })];
 }
 
 /** Worktree-local runtime coordinates, separate from quality checks. */
@@ -1139,30 +1248,28 @@ function renderLocalEnvironment(
   data: StatusData,
   width: number,
   c: TerminalContext,
-): StatusSectionLine[] {
+): StatusComponent[] {
   if (data.worktree !== null) {
     const resources = Object.entries(data.worktree.resources);
-    return [{
-      verbatim: c.presenter.present(renderResultSummaryCli, {
-        state: "unchanged",
-        fact: terminalLine(
-          `${data.worktree.id} has a provisioned local environment.`,
-        ),
-        counts: [
-          {
-            label: terminalLine("Port"),
-            value: terminalLine(String(data.worktree.port)),
-          },
-          ...(resources.length === 0 ? [] : [{
-            label: terminalLine("Resources"),
-            value: terminalLine(
-              resources.map(([name, value]) => `${name}=${value}`).join(", "),
-            ),
-          }]),
-        ],
-        maxWidth: width,
-      }),
-    }];
+    return [c.presenter.present(renderResultSummaryCli, {
+      state: "unchanged",
+      fact: terminalLine(
+        `${data.worktree.id} has a provisioned local environment.`,
+      ),
+      counts: [
+        {
+          label: terminalLine("Port"),
+          value: terminalLine(String(data.worktree.port)),
+        },
+        ...(resources.length === 0 ? [] : [{
+          label: terminalLine("Resources"),
+          value: terminalLine(
+            resources.map(([name, value]) => `${name}=${value}`).join(", "),
+          ),
+        }]),
+      ],
+      maxWidth: width,
+    })];
   }
   return [];
 }
@@ -1173,53 +1280,49 @@ function renderLastLanding(
   width: number,
   c: TerminalContext,
   nowMs: number,
-): StatusSectionLine[] {
+): StatusComponent[] {
   if (data.landed_proof !== undefined) {
     const proof = data.landed_proof.proof;
     const age = relativeAge(data.landed_proof.commit_at, nowMs);
-    const receipt: StatusSectionLine = {
-      verbatim: c.presenter.present(renderReceiptCli, {
-        title: terminalLine("Last landing"),
-        stamp: "pass",
-        meta: [
-          { label: terminalLine("Branch"), value: terminalLine(proof.branch) },
-          { label: terminalLine("Commit"), value: terminalLine(proof.head) },
-          ...(age === "—"
-            ? []
-            : [{ label: terminalLine("Age"), value: terminalLine(age) }]),
-        ],
-        checks: [{
-          label: terminalLine("Files"),
-          state: "pass",
-          value: terminalLine(fileCount(proof.files_total)),
-        }],
-        maxWidth: width,
-      }),
-    };
+    const receipt = c.presenter.present(renderReceiptCli, {
+      title: terminalLine("Last landing"),
+      stamp: "pass",
+      meta: [
+        { label: terminalLine("Branch"), value: terminalLine(proof.branch) },
+        { label: terminalLine("Commit"), value: terminalLine(proof.head) },
+        ...(age === "—"
+          ? []
+          : [{ label: terminalLine("Age"), value: terminalLine(age) }]),
+      ],
+      checks: [{
+        label: terminalLine("Files"),
+        state: "pass",
+        value: terminalLine(fileCount(proof.files_total)),
+      }],
+      maxWidth: width,
+    });
     const changedLines = proof.insertions + proof.deletions;
     return [
       receipt,
-      ...(changedLines === 0 ? [] : [{
-        verbatim: c.presenter.present(renderDiffstatCli, {
+      ...(changedLines === 0 ? [] : [
+        c.presenter.present(renderDiffstatCli, {
           added: proof.insertions,
           removed: proof.deletions,
           maxWidth: width,
         }),
-      }]),
+      ]),
     ];
   }
   if (data.landed_proof_unsupported !== undefined) {
-    return [{
-      verbatim: c.presenter.present(renderResultSummaryCli, {
-        state: "blocked",
-        fact: terminalLine(
-          `proof unavailable in this discern version (${data.landed_proof_unsupported.format}). Commit: ${
-            data.landed_proof_unsupported.commit.slice(0, 12)
-          }.`,
-        ),
-        maxWidth: width,
-      }),
-    }];
+    return [c.presenter.present(renderResultSummaryCli, {
+      state: "blocked",
+      fact: terminalLine(
+        `proof unavailable in this discern version (${data.landed_proof_unsupported.format}). Commit: ${
+          data.landed_proof_unsupported.commit.slice(0, 12)
+        }.`,
+      ),
+      maxWidth: width,
+    })];
   }
   return [];
 }
@@ -1229,7 +1332,7 @@ function renderSetup(
   data: StatusData,
   width: number,
   c: TerminalContext,
-): StatusSectionLine[] {
+): StatusComponent[] {
   const setup = data.setup_unfinished;
   if (setup === undefined) return [];
   const wired = setup.known_jobs.filter((job) => job.wired).map((job) =>
@@ -1246,17 +1349,15 @@ function renderSetup(
       missing.length === 0 ? "" : `; still unset: ${missing.join(", ")}`
     }.`,
   ].join(" ");
-  return [{
-    verbatim: c.presenter.present(renderDiagnosticCli, {
-      title: terminalLine("Setup is not finished"),
-      impact: terminalLine(impact),
-      correction: terminalMultiline(
-        "Complete the setup brief before starting or landing work.",
-      ),
-      severity: "attention",
-      maxWidth: width,
-    }),
-  }];
+  return [c.presenter.present(renderDiagnosticCli, {
+    title: terminalLine("Setup is not finished"),
+    impact: terminalLine(impact),
+    correction: terminalMultiline(
+      "Complete the setup brief before starting or landing work.",
+    ),
+    severity: "attention",
+    maxWidth: width,
+  })];
 }
 
 /** Copyable stored Markdown pages shown only under `--verbose`. */
@@ -1264,20 +1365,17 @@ function renderVerboseProofs(
   data: StatusData,
   rows: readonly FleetRowPresentation[],
   c: TerminalContext,
-): StatusSectionLine[] {
-  const blocks: StatusSectionLine[] = [];
+): StatusComponent[] {
+  const blocks: StatusComponent[] = [];
   const add = (label: string, page: string | undefined): void => {
     if (page === undefined) return;
     blocks.push(
-      ...(blocks.length === 0 ? [] : [""]),
-      {
-        verbatim: c.presenter.present(renderRawOutputCli, {
-          label: terminalLine(label),
-          output: terminalMultiline(page),
-          expanded: true,
-          maxWidth: STATUS_REPORT_MAX_WIDTH,
-        }),
-      },
+      c.presenter.present(renderRawOutputCli, {
+        label: terminalLine(label),
+        output: terminalMultiline(page),
+        expanded: true,
+        maxWidth: STATUS_REPORT_MAX_WIDTH,
+      }),
     );
   };
   add("Last landed proof", data.landed_proof?.proof.markdown);
@@ -1294,11 +1392,6 @@ function reportWidth(width: number): number {
   return Math.max(1, Math.min(finite, STATUS_REPORT_MAX_WIDTH));
 }
 
-/** Width available after the section-owned content indent. */
-function sectionContentWidth(width: number): number {
-  return Math.max(1, width - SECTION_CONTENT_COLUMN);
-}
-
 /** Render one complete static dashboard. Every fact comes from `data`; this
  * function performs no Git, proof, authority, collision, or logbook reads. */
 export function renderStatusDashboard(
@@ -1307,7 +1400,6 @@ export function renderStatusDashboard(
   options: StatusDashboardOptions,
 ): string {
   const width = reportWidth(options.width);
-  const contentWidth = sectionContentWidth(width);
   const nowMs = options.nowMs;
   const c = options.terminal;
   const compactFleet = data.location === "main" && data.fleet !== undefined &&
@@ -1315,19 +1407,18 @@ export function renderStatusDashboard(
   const project = terminalLine(
     data.project ?? (basename(data.root) || data.root),
   );
-  const heading = wrapText(
-    `${c.role("discern status", "strong")} ${c.role(`· ${project}`, "muted")}`,
-    width,
-    SECTION_CONTENT_INDENT,
-    { breakLongWords: true },
-  ).join("\n");
-  const blocks: string[] = [heading];
+  const heading = c.presenter.present(renderHeadingCli, {
+    text: terminalLine(`discern status · ${project}`),
+    level: 1,
+    leadingBlankLines: 0,
+  });
+  const blocks: StatusComponent[] = [heading];
 
-  const setup = renderSetup(data, contentWidth, c);
-  if (setup.length > 0) blocks.push(section("Setup", setup, c, width));
-  if (data.location === "main" && data.fleet === undefined) {
+  if (data.location === "main") {
     blocks.push(mainCheckoutLine(data, width, c));
   }
+  const setup = renderSetup(data, width, c);
+  if (setup.length > 0) blocks.push(section("Setup", setup, c, width));
 
   const trunk = trunkOf(data);
   const fleetRows = sortFleetRows(
@@ -1348,64 +1439,103 @@ export function renderStatusDashboard(
     ? []
     : [presentFleetRow(local, { trunk, nowMs })];
   const shownRows = fleetRows.length > 0 ? fleetRows : localRows;
+  const hintGroups = groupStatusHints(hints);
+  const fleetTaskNames = displayTaskNames(fleetRows);
 
   if (data.fleet !== undefined) {
+    blocks.push(renderFleetSummary(fleetRows, width, c));
     blocks.push(
-      section(
-        "Fleet",
-        renderFleetSummary(fleetRows, contentWidth, c),
-        c,
-        width,
-      ),
-    );
-  }
-  if (!compactFleet) {
-    const attention = renderAttention(shownRows, data, contentWidth, c, nowMs);
-    if (attention.length > 0) {
-      blocks.push(section("Attention", attention, c, width));
-    }
-  }
-  if (fleetRows.length > 0) {
-    blocks.push(
-      section(
-        "Worktrees",
-        renderWorktrees(
-          fleetRows,
-          contentWidth,
+      fleetRows.length > 0
+        ? section(
+          "Worktrees",
+          renderWorktrees(
+            fleetRows,
+            width,
+            c,
+            data.location === "worktree" &&
+              fleetRows.some((row) => !row.entry.is_current),
+            !compactFleet,
+          ),
           c,
-          data.location === "worktree" &&
-            fleetRows.some((row) => !row.entry.is_current),
-          !compactFleet,
-        ),
-        c,
-        width,
-      ),
-    );
-  } else if (data.fleet !== undefined) {
-    blocks.push(section(
-      "Worktrees",
-      [{
-        verbatim: c.presenter.present(renderEmptyStateCli, {
+          width,
+        )
+        : c.presenter.present(renderEmptyStateCli, {
           title: terminalLine("No active worktrees"),
-          width: contentWidth,
+          width,
         }),
-      }],
-      c,
-      width,
-    ));
+    );
   } else if (localRows.length > 0) {
     blocks.push(
       section(
         "Current worktree",
-        renderWorktrees(localRows, contentWidth, c, false, true),
+        renderWorktrees(localRows, width, c, false, true),
         c,
         width,
       ),
     );
   }
-  if (data.location === "main" && data.fleet !== undefined) {
-    blocks.push(mainCheckoutLine(data, width, c));
+
+  if (compactFleet) {
+    const laggingOwners = fleetRows.flatMap((row, index) =>
+      row.kind === "behind" && row.attention !== undefined
+        ? [
+          `${fleetTaskNames[index] ?? row.identity.worktree}: ${row.attention}`,
+        ]
+        : []
+    );
+    const ownerAttention = [
+      ...hintGroups.ownerAttention,
+      ...laggingOwners,
+    ];
+    if (ownerAttention.length > 0) {
+      blocks.push(section(
+        "Owner attention",
+        [renderTextList(ownerAttention, width, c)],
+        c,
+        width,
+      ));
+    }
+    const landingRisks = renderLandingRiskBrief(data, width, c);
+    if (landingRisks.length > 0 || hintGroups.landingRisks.length > 0) {
+      blocks.push(section(
+        "Landing risks",
+        landingRisks.length > 0
+          ? landingRisks
+          : [renderTextList(hintGroups.landingRisks, width, c)],
+        c,
+        width,
+      ));
+    }
+  } else {
+    const attention = [
+      ...renderWorktreeAttention(
+        shownRows,
+        data,
+        width,
+        c,
+        nowMs,
+      ),
+      ...(hintGroups.ownerAttention.length === 0
+        ? []
+        : [renderTextList(hintGroups.ownerAttention, width, c)]),
+    ];
+    if (attention.length > 0) {
+      blocks.push(section("Owner attention", attention, c, width));
+    }
+    const landingRisks = [
+      ...renderLandingRiskDetails(data, width, c),
+      ...((data.fleet_collisions?.length ?? 0) === 0 &&
+          (data.adr_collisions?.length ?? 0) === 0 &&
+          (data.git?.incoming_overlap?.length ?? 0) === 0 &&
+          hintGroups.landingRisks.length > 0
+        ? [renderTextList(hintGroups.landingRisks, width, c)]
+        : []),
+    ];
+    if (landingRisks.length > 0) {
+      blocks.push(section("Landing risks", landingRisks, c, width));
+    }
   }
+
   const surveyedMain = data.location === "worktree"
     ? data.fleet?.find((entry) => entry.is_main)
     : undefined;
@@ -1413,33 +1543,38 @@ export function renderStatusDashboard(
     blocks.push(
       section(
         "Main checkout",
-        surveyedMainCheckout(surveyedMain, contentWidth, nowMs, c),
+        surveyedMainCheckout(surveyedMain, width, nowMs, c),
         c,
         width,
       ),
     );
   }
 
-  const next = interactiveHintTexts(hints).flatMap((hint) => {
-    const result = c.presenter.present(renderResultSummaryCli, {
-      state: "blocked",
-      fact: terminalLine("Status recommends an action."),
-      nextAction: terminalMultiline(hint),
-      maxWidth: contentWidth,
-    });
-    return [{ verbatim: styledDiscernCommands(result, c) }, ""];
-  });
-  if (next.at(-1) === "") next.pop();
-  if (next.length > 0) blocks.push(section("Next steps", next, c, width));
+  if (hintGroups.nextActions.length > 0) {
+    blocks.push(section(
+      hintGroups.nextActions.length === 1 ? "Next action" : "Next actions",
+      [renderTextList(hintGroups.nextActions, width, c)],
+      c,
+      width,
+    ));
+  }
+  if (hintGroups.notices.length > 0) {
+    blocks.push(section(
+      "Notes",
+      [renderTextList(hintGroups.notices, width, c)],
+      c,
+      width,
+    ));
+  }
 
   if (!compactFleet) {
-    const checks = renderChecks(data, contentWidth, c);
+    const checks = renderChecks(data, width, c);
     if (checks.length > 0) blocks.push(section("Checks", checks, c, width));
-    const environment = renderLocalEnvironment(data, contentWidth, c);
+    const environment = renderLocalEnvironment(data, width, c);
     if (environment.length > 0) {
       blocks.push(section("Local environment", environment, c, width));
     }
-    const landing = renderLastLanding(data, contentWidth, c, nowMs);
+    const landing = renderLastLanding(data, width, c, nowMs);
     if (landing.length > 0) blocks.push(section("Landing", landing, c, width));
   }
 
@@ -1449,5 +1584,5 @@ export function renderStatusDashboard(
       blocks.push(section("Proofs", proofs, c, width));
     }
   }
-  return `${blocks.join("\n\n")}\n`;
+  return `${componentStack(blocks)}\n`;
 }

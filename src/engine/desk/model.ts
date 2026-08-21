@@ -14,7 +14,6 @@ import {
   type DiscernConfig,
   resolveConfiguredAgents,
 } from "../../shared/config_schema.ts";
-import { basename } from "@std/path";
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
 import type { DetectedAgentBinary } from "../../lib/detect_agents.ts";
 import type { AgentName } from "../../lib/config.ts";
@@ -26,6 +25,9 @@ import {
   STALE_WORKTREE_DAYS,
 } from "../status/status.ts";
 import { isReadyToLand } from "../worktree/readiness.ts";
+import { taskLabel, type WorktreeTaskLabel } from "../worktree/task_label.ts";
+
+export { taskLabel } from "../worktree/task_label.ts";
 
 /** The decision-order buckets, most actionable first. */
 export const DESK_BUCKETS = ["ready", "in_flight", "attention"] as const;
@@ -60,10 +62,7 @@ export interface DeskAgentLaunch {
 /** The human task name shown by the desk, plus the minted id's short tail when
  * two visible tasks need disambiguating. Git identity remains available on the
  * action screen instead of leading every fleet row. */
-export interface DeskTaskLabel {
-  readonly name: string;
-  readonly disambiguator?: string;
-}
+export type DeskTaskLabel = WorktreeTaskLabel;
 
 /** One selectable effort on the desk: a non-main fleet entry, classified. */
 export interface DeskRow {
@@ -82,20 +81,6 @@ export interface DeskRow {
   readonly actions: readonly DeskAction[];
   /** The plain-text state summary shown beside the branch name. */
   readonly summary: string;
-}
-
-/** Turn a discern worktree id (`<name>-<hex>`) back into the task name a person
- * supplied. The uniqueness tail is retained separately for duplicate names. */
-export function taskLabel(entry: StatusFleetEntry): DeskTaskLabel {
-  const id = entry.id?.trim() || basename(entry.path);
-  const match = /^(.*)-([0-9a-f]{6})$/i.exec(id);
-  const stem = match?.[1] ?? id;
-  const words = stem.replaceAll("-", " ").trim();
-  const name = words === ""
-    ? "Unnamed task"
-    : `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
-  const disambiguator = match?.[2];
-  return disambiguator === undefined ? { name } : { name, disambiguator };
 }
 
 /** The bucket headings as the desk renders them. */

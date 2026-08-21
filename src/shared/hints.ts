@@ -1050,9 +1050,8 @@ export const HINTS = {
       `Review ${total} worktree${total === 1 ? "" : "s"} with committed work ` +
       `ready for owner review: ${
         boundedNameSummary(total, names)
-      }. Inspect a ` +
-      `branch with \`git diff ${trunk}...<branch>\`. The dashboard shows the ` +
-      `complete branch beside each worktree.`,
+      }. ${OWNER_STATUS_VERBOSE} shows the complete branch and Proof for each. ` +
+      `Inspect a branch with \`git diff ${trunk}...<branch>\`.`,
   }),
 
   /** Ready fleet rows whose recorded authority has already been verified. */

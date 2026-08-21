@@ -168,6 +168,7 @@ function assertLinesFit(
     const line = plain(styled).trimStart();
     const identity = overflowIdentities.some((value) =>
       line === value || line === `Persona: ${value}` ||
+      line === `Worktree: ${value}` ||
       line === `Branch: ${value}`
     );
     assert(
@@ -203,14 +204,6 @@ const STATUS_CASES: Record<FleetRowStatusKind, StatusCase> = {
         at: "2026-08-03T11:50:00.000Z",
       },
     },
-  },
-  collision: {
-    patch: {},
-    collisions: [{
-      branches: ["agent/alpha-abc123", "agent/beta-def456"],
-      overlap: ["src/shared.ts"],
-      total: 1,
-    }],
   },
   behind: { patch: { behind: 3 } },
   ready: {
@@ -291,16 +284,13 @@ Deno.test("status dashboard: verbose 39, 80, 104, and capped layouts keep equal 
     assertEquals(plain(color), noColor, `color changed words at ${width}`);
     assertLinesFit(noColor, width);
     assertLinesFit(color, width);
-    assertStringIncludes(noColor, "FLEET");
-    assertStringIncludes(noColor, "WORKTREES");
-    assertStringIncludes(noColor, "Active worktrees");
+    assertStringIncludes(noColor, "Fleet · 2 active worktrees");
+    assertStringIncludes(noColor, "Worktrees");
     assertStringIncludes(squash(noColor), "Configured checks for this status");
-    if (width === 39) {
-      assertStringIncludes(noColor, "Branch: agent/alpha-abc123");
-    } else {
-      assertStringIncludes(noColor, "AGENT");
-      assertStringIncludes(noColor, "BRANCH");
-    }
+    assertStringIncludes(noColor, "DRIFT");
+    assertStringIncludes(noColor, "Worktree: alpha-abc123");
+    assertStringIncludes(noColor, "Branch: agent/alpha-abc123");
+    assert(!noColor.includes("AGENT"), noColor);
   }
   assertEquals(
     render(fixture, 400, false, undefined, true),
@@ -345,6 +335,7 @@ Deno.test("status dashboard: truecolour, 256, 16, no-colour, and ASCII modes ret
     terminal: terminalMode(80, "no-color"),
     width: 80,
     nowMs: NOW,
+    verbose: true,
   });
   for (const mode of modes) {
     const context = terminalMode(80, mode);
@@ -353,6 +344,7 @@ Deno.test("status dashboard: truecolour, 256, 16, no-colour, and ASCII modes ret
       terminal: context,
       width: 80,
       nowMs: NOW,
+      verbose: true,
     });
     const words = plain(output);
     assertStringIncludes(words, safeBranch);
@@ -427,16 +419,24 @@ Deno.test("status dashboard: every long or differing identity survives every lay
     }),
   ]);
   for (const width of [39, 80, 104, 400]) {
-    const output = render(fixture, width, true);
-    assertStringIncludes(plain(output), branch);
-    assertStringIncludes(plain(output), id);
+    const brief = render(fixture, width, true);
+    assert(!plain(brief).includes(branch), brief);
+    assert(!plain(brief).includes("abc123"), brief);
+    assert(!plain(brief).includes("def456"), brief);
+    assertStringIncludes(plain(brief), "Alternate identity");
+    assertLinesFit(brief, width);
+
+    const output = render(fixture, width, true, undefined, true);
+    const compactOutput = plain(output).replaceAll(/[\s│]/gu, "");
+    assertStringIncludes(compactOutput, branch);
+    assertStringIncludes(compactOutput, id);
     assertStringIncludes(plain(output), "(detached)");
     assertStringIncludes(plain(output), "current");
-    assertLinesFit(output, width, [branch, id]);
+    assertLinesFit(output, width);
   }
   assertEquals(
-    plain(render(fixture, 104, true)),
-    render(fixture, 104),
+    plain(render(fixture, 104, true, undefined, true)),
+    render(fixture, 104, false, undefined, true),
     "styling must not alter either operational identity",
   );
   assertEquals(
@@ -447,6 +447,28 @@ Deno.test("status dashboard: every long or differing identity survives every lay
     undefined,
     "an equal unprefixed branch and worktree id must not render twice",
   );
+});
+
+Deno.test("status dashboard: task labels hide minted identity until duplicate names need it", () => {
+  const unique = render(data([mainEntry(), entry()]), 72);
+  assertStringIncludes(unique, "Alpha");
+  assert(!unique.includes("alpha-abc123"), unique);
+  assert(!unique.includes("agent/alpha-abc123"), unique);
+
+  const duplicate = render(
+    data([
+      mainEntry(),
+      entry(),
+      entry({
+        path: "/repo.worktrees/alpha-def456",
+        branch: "agent/alpha-def456",
+        id: "alpha-def456",
+      }),
+    ]),
+    72,
+  );
+  assertStringIncludes(duplicate, "Alpha · abc123");
+  assertStringIncludes(duplicate, "Alpha · def456");
 });
 
 Deno.test("status dashboard: every typed row status is classified and rendered", () => {
@@ -473,7 +495,10 @@ Deno.test("status dashboard: every typed row status is classified and rendered",
       undefined,
       true,
     );
-    assertStringIncludes(output, model.label);
+    assertStringIncludes(
+      output,
+      kind === "running" ? "Gate running · 2m" : model.label,
+    );
     assertLinesFit(output, 72);
   }
 });
@@ -605,16 +630,21 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
   );
   const words = plain(output);
   assertStringIncludes(words, "last action done failed at test");
-  assertStringIncludes(words, "running done 2m · usually 2m");
+  assertStringIncludes(words, "Gate running · 2m");
+  assertStringIncludes(words, "Activity: just now · usually 2m");
   assertStringIncludes(words, "Git: 2 files changed · ↑8 ↓3");
-  assertStringIncludes(words, "Changed: agent/observed-333ccc. In progress");
+  assertStringIncludes(words, "Changed: Observed. In progress");
   assertStringIncludes(words, "Git: 3 files changed");
   assertStringIncludes(words, "last action status ok");
   assertStringIncludes(words, "Landing: granted · standing grant for map");
   assertStringIncludes(words, "Landing: needs approval");
   assertStringIncludes(words, "Landing: scope-limited");
   assert(!words.includes("2m of ~2m"));
+  assert(!words.includes("↓0"));
+  assert(!words.includes("▴────"));
   assert(!words.includes("0 ahead"));
+  assertStringIncludes(output, terminal(72, true).tone("↑1", "accent"));
+  assertStringIncludes(output, terminal(72, true).tone("↓3", "warning"));
   assertEquals(
     words,
     render(
@@ -629,7 +659,33 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
   assertLinesFit(output, 72);
 });
 
-Deno.test("status dashboard: the fleet brief defers collision paths to verbose evidence", () => {
+Deno.test("status dashboard: activity and staleness outrank branch lag", () => {
+  const dirty = presentFleetRow(
+    entry({
+      clean: false,
+      changed_files: 2,
+      behind: 5,
+      gate_proof: { status: "dirty" },
+    }),
+    { trunk: "main", nowMs: NOW },
+  );
+  assertEquals(dirty.kind, "in-progress");
+
+  const stale = presentFleetRow(
+    entry({
+      clean: false,
+      changed_files: 2,
+      ahead: 1,
+      behind: 5,
+      last_activity: "2026-07-20T12:00:00.000Z",
+      gate_proof: { status: "dirty" },
+    }),
+    { trunk: "main", nowMs: NOW },
+  );
+  assertEquals(stale.kind, "stale");
+});
+
+Deno.test("status dashboard: the fleet brief separates landing risks from worktree state", () => {
   const alpha = entry();
   const beta = entry({
     path: "/repo.worktrees/beta-def456",
@@ -653,7 +709,10 @@ Deno.test("status dashboard: the fleet brief defers collision paths to verbose e
     }],
   });
   const brief = render(fixture, 60);
-  assertStringIncludes(brief, "Collision");
+  assertStringIncludes(brief, "Landing risks");
+  assertStringIncludes(brief, "2 shared files");
+  assertStringIncludes(brief, "ADR 0253");
+  assert(!brief.includes("Collision"), brief);
   assert(!brief.includes("ATTENTION"), brief);
   assert(!brief.includes("src/shared/result.ts"), brief);
 
@@ -753,7 +812,7 @@ Deno.test("status dashboard: actionable package commands are accented while stor
   assertLinesFit(color, 104);
 });
 
-Deno.test("status dashboard: collision precedence retains proof readiness and landing authority", () => {
+Deno.test("status dashboard: landing risks do not replace proof readiness and landing authority", () => {
   const ready = entry({
     ahead: 2,
     gate_proof: { status: "honored" },
@@ -775,7 +834,7 @@ Deno.test("status dashboard: collision precedence retains proof readiness and la
     nowMs: NOW,
     collisions: [collision],
   });
-  assertEquals(model.kind, "collision");
+  assertEquals(model.kind, "ready");
   assertEquals(model.landingReady, true);
   assertEquals(model.authority?.label, "granted");
 
@@ -787,7 +846,7 @@ Deno.test("status dashboard: collision precedence retains proof readiness and la
     true,
   );
   assertStringIncludes(output, "1 ready");
-  assertStringIncludes(output, "The branch is ready; landing granted.");
+  assertStringIncludes(output, "Landing risks");
   assertStringIncludes(output, "Landing: granted · standing grant for map");
   assertLinesFit(output, 72);
 });
@@ -797,15 +856,15 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
   const main = data([mainEntry(), current]);
   const mainOutput = render(main, 72);
   assertEquals(mainOutput.match(/Main checkout/gu)?.length, 1);
-  assert(mainOutput.indexOf("FLEET") < mainOutput.indexOf("Main checkout"));
+  assert(mainOutput.indexOf("Main checkout") < mainOutput.indexOf("Fleet ·"));
   assertStringIncludes(mainOutput, "voyager");
-  assertStringIncludes(mainOutput, "Main checkout main is current.");
+  assertStringIncludes(mainOutput, "Main checkout main is clean and current.");
   assert(!mainOutput.includes("Tasks"));
   assert(!mainOutput.includes("plain_reading_grade"));
-  assert(!mainOutput.includes("CHECKS"), mainOutput);
+  assert(!mainOutput.includes("Checks"), mainOutput);
   assert(!mainOutput.includes("Standards: 2 configured"), mainOutput);
   const mainVerbose = render(main, 72, false, undefined, true);
-  assertStringIncludes(mainVerbose, "CHECKS");
+  assertStringIncludes(mainVerbose, "Checks");
   assertStringIncludes(mainVerbose, "Standards: 2 configured");
 
   const worktree = data([mainEntry({ is_current: false }), current], {
@@ -831,14 +890,14 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
     },
   });
   const worktreeOutput = render(worktree, 72);
-  assertEquals(worktreeOutput.match(/ MAIN CHECKOUT /gu)?.length, 1);
+  assertEquals(worktreeOutput.match(/Main checkout/gu)?.length, 1);
   assertStringIncludes(worktreeOutput, "agent/alpha-abc123");
   assertStringIncludes(worktreeOutput, "current");
   assertStringIncludes(worktreeOutput, "Changed scopes: web");
   assert(!worktreeOutput.includes("Change: code"));
   assert(!worktreeOutput.includes("previewable"));
-  const checksAt = worktreeOutput.indexOf("CHECKS");
-  const environmentAt = worktreeOutput.indexOf("LOCAL ENVIRONMENT");
+  const checksAt = worktreeOutput.indexOf("Checks");
+  const environmentAt = worktreeOutput.indexOf("Local environment");
   assert(checksAt >= 0 && environmentAt > checksAt);
   assert(!worktreeOutput.slice(checksAt, environmentAt).includes("Port:"));
   assertStringIncludes(worktreeOutput.slice(environmentAt), "Port: 17123");
@@ -846,6 +905,50 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
     worktreeOutput.slice(environmentAt),
     "Resources: cache=voyager-alpha-cache",
   );
+});
+
+Deno.test("status dashboard: the main brief separates owner attention, landing risks, and next actions", () => {
+  const stale = entry({
+    path: "/repo.worktrees/stale-def456",
+    branch: "agent/stale-def456",
+    id: "stale-def456",
+    clean: false,
+    changed_files: 2,
+    ahead: 4,
+    last_activity: "2026-07-20T12:00:00.000Z",
+    gate_proof: { status: "dirty" },
+  });
+  const collision: StatusFleetCollision = {
+    branches: ["agent/alpha-abc123", "agent/stale-def456"],
+    overlap: ["src/shared.ts"],
+    total: 1,
+  };
+  const hints = hintTexts([
+    fire(HINTS["status-fleet-member-stale"], {
+      total: 1,
+      names: ["stale-def456"],
+    }),
+    fire(HINTS["status-fleet-collisions"], {
+      total: 1,
+      pairs: ["alpha-abc123 ↔ stale-def456"],
+    }),
+  ]);
+  const output = render(
+    data([mainEntry(), entry(), stale], { fleet_collisions: [collision] }),
+    80,
+    false,
+    hints,
+  );
+
+  assertStringIncludes(output, "Owner attention");
+  assertStringIncludes(output, "Landing risks");
+  assertStringIncludes(output, "Activity: 2w ago");
+  assert(!output.includes("Next steps"), output);
+  assert(!output.includes("Blocked: Status recommends an action."), output);
+  assert(
+    output.indexOf("Owner attention") < output.indexOf("Landing risks"),
+  );
+  assertLinesFit(output, 80);
 });
 
 Deno.test("status dashboard: human hint projection and landing evidence stay concrete", () => {
@@ -890,7 +993,8 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
   );
   assertStringIncludes(output, "1 needs attention");
   assertStringIncludes(output, "git diff main...<branch>");
-  assertStringIncludes(output, "complete branch beside each worktree");
+  assertStringIncludes(output, "discern status --verbose");
+  assertStringIncludes(output, "complete branch and Proof");
   assertStringIncludes(output, "Per-worktree actions aren't available");
   assertStringIncludes(output, "6 files changed");
   assertStringIncludes(output, "+20 −4");

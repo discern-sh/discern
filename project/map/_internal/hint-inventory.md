@@ -1767,7 +1767,7 @@ Rendered example:
 
 Interactive example:
 
-> Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). Inspect a branch with `git diff main...<branch>`. The dashboard shows the complete branch beside each worktree.
+> Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). `discern status --verbose` shows the complete branch and Proof for each. Inspect a branch with `git diff main...<branch>`.
 
 ## `status-fleet-member-stale`
 

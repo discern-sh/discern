@@ -1,5 +1,7 @@
 # ADR 0281: Main fleet status is a decision brief
 
+> **Presentation amendment (2026-08-21):** The brief now leads with main checkout state, displays human task labels instead of generated branch and worktree identities, and separates **Owner attention**, **Landing risks**, and **Next action**. Collision remains pairwise landing evidence and never replaces a task's state. Live, stale, and uncommitted lifecycle states precede branch lag. Published CLI Components render every visible block. **DRIFT** retains complete ahead/behind arrows and counts, with semantic color as reinforcement. These rules supersede the numbered order and collision-as-row-state wording below; `--verbose` retains complete Git identities and paths.
+
 **Status**: accepted. Refines the human projection in [ADR 0255](0255-status-is-a-measured-responsive-dashboard.md).
 
 ## Context
