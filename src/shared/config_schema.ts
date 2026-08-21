@@ -1127,7 +1127,7 @@ function acceptanceGrantIssues(parsed: unknown): ConfigIssue[] {
 
 /** Validate an already-parsed TOML value through the complete live contract.
  * Governing-policy recovery uses this after removing only checkpoint entries
- * whose historical question source cannot be represented by today's schema. */
+ * whose governing question source cannot be represented by the current schema. */
 export function validateConfigValue(
   parsed: unknown,
 ): { config: DiscernConfig | undefined; issues: ConfigIssue[] } {

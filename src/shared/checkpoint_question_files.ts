@@ -1,7 +1,7 @@
 /**
  * Repository-backed checkpoint questions.
  *
- * The historical reader consumes a regular blob from one named Git tree. It
+ * The commit-tree reader consumes a regular blob from one named Git tree. It
  * never resolves a filesystem path, so a candidate checkout cannot replace a
  * governing question through an edit or a symbolic link. The live reader is
  * the strict authoring boundary: it requires the configured path to be a

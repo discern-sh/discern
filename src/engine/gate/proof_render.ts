@@ -54,7 +54,7 @@ function cell(s: string): string {
 
 /** A markdown code span that survives content containing backticks. */
 function code(s: string): string {
-  return markdownCodeSpan(s);
+  return markdownCodeSpan(s.includes("`") ? ` ${s} ` : s);
 }
 
 /** A page duration from whole-second job timing: a run that rounds to zero says

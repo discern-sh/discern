@@ -12,7 +12,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -301,16 +301,16 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
     );
     const markdown = await runAgent(wt, ["checkpoints", "--markdown"]);
     assertEquals(markdown.code, 0, markdown.output);
-    assertStringIncludes(markdown.stdout, "## Governing review");
-    assertStringIncludes(
+    assertTerminalTextIncludes(markdown.stdout, "## Governing review");
+    assertTerminalTextIncludes(
       markdown.stdout,
       "Does the changed API keep its documented contract?",
     );
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       markdown.stdout,
       `Question source: ${markdownCodeSpan(FILE_QUESTION_PATH)}`,
     );
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       markdown.stdout,
       `Reference: ${markdownCodeSpan(FILE_QUESTION_REFERENCE)}`,
     );
@@ -349,11 +349,11 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
     assertStringIncludes(reportProof, FILE_QUESTION_REFERENCE);
     assertStringIncludes(
       reportProof,
-      `Question source: ${markdownCodeSpan(FILE_QUESTION_PATH)}`,
+      `Question source: ${markdownCodeSpan(` ${FILE_QUESTION_PATH} `)}`,
     );
     assertStringIncludes(
       reportProof,
-      `Reference: ${markdownCodeSpan(FILE_QUESTION_REFERENCE)}`,
+      `Reference: ${markdownCodeSpan(` ${FILE_QUESTION_REFERENCE} `)}`,
     );
 
     const met = await runAgent(wt, [
@@ -377,11 +377,11 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
     assertStringIncludes(strictProof, FILE_QUESTION_REFERENCE);
     assertStringIncludes(
       strictProof,
-      `Question source: ${markdownCodeSpan(FILE_QUESTION_PATH)}`,
+      `Question source: ${markdownCodeSpan(` ${FILE_QUESTION_PATH} `)}`,
     );
     assertStringIncludes(
       strictProof,
-      `Reference: ${markdownCodeSpan(FILE_QUESTION_REFERENCE)}`,
+      `Reference: ${markdownCodeSpan(` ${FILE_QUESTION_REFERENCE} `)}`,
     );
 
     const unmet = await runAgent(wt, [

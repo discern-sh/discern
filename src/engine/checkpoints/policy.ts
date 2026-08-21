@@ -132,8 +132,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Resolve the mode needed by entry-scoped drop evidence even when today's
- * schema cannot type the historical entry. */
+/** Resolve the mode for entry-scoped drop evidence even when the current
+ * schema cannot type the governing entry. */
 function historicalCheckpointMode(
   id: string,
   entry: Readonly<Record<string, unknown>>,
@@ -145,7 +145,7 @@ function historicalCheckpointMode(
 }
 
 /** Classify only question-source defects recoverable by dropping one
- * historical checkpoint. Every other config problem retains the policy-level
+ * governing checkpoint. Every other config problem retains the policy-level
  * invalid-config account. */
 function historicalQuestionSourceDrop(
   id: string,

@@ -527,18 +527,23 @@
   #              short rationale. "advise": delivered as an advisory instead;
   #              never blocks.
   #   question  the judgment prose the agent evaluates against the matched
-  #              change. Required for your own checkpoints; a table whose <name>
-  #              is a shipped built-in id inherits its question.
+  #              change. Your own checkpoint sets this or question_file; a
+  #              shipped built-in inherits unless one source overrides it.
+  #   question_file
+  #              repository-relative Markdown question resolved from the
+  #              governing merge-base Git tree; mutually exclusive with
+  #              question, limited to a regular UTF-8 blob of at most 64 KiB
   #   teach      optional lesson prose carried into renderings: why the
   #              question matters and what good looks like.
+  #   reference  optional displayed pointer; discern does not load its content
   # ─────────────────────────────────────────────────────────────────────────────
 
   # Shipped built-ins: referencing an id enables it — the trigger, mode, and
   # question come from the built-in, and any field set here overrides its
   # default (retune with min_changed_files, retarget with paths/scope, soften
   # with mode = "advise"). Delete or comment out an entry to disable it.
-  # Overriding `question` replaces the shipped judgment with your own authored
-  # prose.
+  # Overriding `question` or `question_file` replaces the shipped judgment with
+  # your own authored prose.
   #
   # Four stop checkpoints guard the knowledge surfaces — the ones that steer
   # every future agent session. `discern done` pauses before the gate until the
