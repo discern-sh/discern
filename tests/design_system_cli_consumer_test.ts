@@ -41,7 +41,7 @@ import {
 import { projectTerminalHtml } from "discern-design-system/cli/projection";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SELECTED_VERSION = "0.21.0";
+const SELECTED_VERSION = "0.22.0";
 const SELECTED_SPECIFIER = `jsr:@discern-sh/design-system@${SELECTED_VERSION}`;
 const PACKAGE_VERSION_PATTERN =
   /@discern-sh\/design-system\/(\d+\.\d+\.\d+)\//u;
@@ -466,16 +466,16 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
     }, capabilities);
   assertEquals(
     confirm(false),
-    "Proceed [active]\n" +
+    "Proceed\n" +
       "┌──────────────────────────────────────┐\n" +
-      "│› Keep waiting × ●──○   Deploy now    │\n" +
+      "│ › Keep waiting × ●──○   Deploy now   │\n" +
       "└──────────────────────────────────────┘\n",
   );
   assertEquals(
     confirm(true),
-    "Proceed [active]\n" +
+    "Proceed\n" +
       "┌──────────────────────────────────────┐\n" +
-      "│› Keep waiting   ○──● ✓ Deploy now    │\n" +
+      "│ › Keep waiting   ○──● ✓ Deploy now   │\n" +
       "└──────────────────────────────────────┘\n",
   );
   for (const value of [false, true]) {
@@ -497,10 +497,10 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
       selectedId: "two",
       width: 40,
     }, capabilities),
-    "Pick [active]\n" +
+    "Pick\n" +
       "┌──────────────────────────────────────┐\n" +
-      "│› ○ One                               │\n" +
-      "│  ◉ Two                               │\n" +
+      "│ › ○ One                              │\n" +
+      "│   ◉ Two                              │\n" +
       "└──────────────────────────────────────┘\n",
   );
 

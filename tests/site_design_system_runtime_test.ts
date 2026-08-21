@@ -27,7 +27,7 @@ import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
-const DESIGN_SYSTEM_VERSION = "0.21.0";
+const DESIGN_SYSTEM_VERSION = "0.22.0";
 const DESIGN_SYSTEM_SPECIFIER =
   `jsr:@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}`;
 
