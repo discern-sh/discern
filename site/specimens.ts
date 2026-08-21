@@ -6,9 +6,12 @@
  */
 
 import {
+  planSitePreviewStart,
+  replaceManagedSitePreview,
+  reportSiteDevStartupError,
   resolveSiteDevPort,
-  SITE_DEV_BIND_HOST,
-  SITE_DEV_BROWSER_HOST,
+  siteDevPortInUseError,
+  startManagedSiteServer,
 } from "./dev.ts";
 import {
   BROWSER_ART_FOUNDATION_STYLESHEET,
@@ -144,21 +147,31 @@ export async function specimenHandler(request: Request): Promise<Response> {
 
 /** Build and serve the specimens on the current worktree's loopback port. */
 export async function runSpecimenPreview(): Promise<void> {
-  await buildSpecimenPreview();
   const port = await resolveSiteDevPort(Deno.env.get("PORT"));
-  const server = Deno.serve(
-    {
-      hostname: SITE_DEV_BIND_HOST,
-      port,
-      onListen: () => {
-        console.log(
-          `Development reviews listening on http://${SITE_DEV_BROWSER_HOST}:${port}/ and http://${SITE_DEV_BROWSER_HOST}:${port}${ART_GALLERY_PATH}`,
-        );
-      },
-    },
+  const plan = await planSitePreviewStart(port, "specimens");
+  if (plan.action === "reuse") throw siteDevPortInUseError(port);
+  await buildSpecimenPreview();
+  if (plan.action === "replace") await replaceManagedSitePreview(plan);
+  const server = startManagedSiteServer(
+    port,
+    "specimens",
     specimenHandler,
+    (url) => {
+      console.log(
+        `Development reviews listening on ${url} and ${url}${
+          ART_GALLERY_PATH.slice(1)
+        }`,
+      );
+    },
   );
   await server.finished;
 }
 
-if (import.meta.main) await runSpecimenPreview();
+if (import.meta.main) {
+  try {
+    await runSpecimenPreview();
+  } catch (error) {
+    if (reportSiteDevStartupError(error)) Deno.exit(1);
+    throw error;
+  }
+}
