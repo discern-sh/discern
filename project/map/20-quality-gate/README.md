@@ -34,7 +34,6 @@ CI, pipes, `--plain`, and terminals without cursor control remain static: `strea
 | [When the gate fails](when-the-gate-fails.md)               | Read a red result and take the shortest route to the fix.                        |
 | [Standards](standards.md)                                   | Hold a metric floor or ceiling and respond when it fires.                        |
 | [Checkpoints](checkpoints.md)                               | Serve a judgment when a change makes it relevant, and record the conclusion.     |
-| [Checkpoint recipes](checkpoint-recipes.md)                 | Adapt nine copyable triggers for common review moments.                          |
 | [The Proof](the-proof.md)                                   | Read the review evidence a clean green run records for one commit.               |
 | [Proof notes](proof-notes.md)                               | Carry a landed Proof with its trunk commit and opt into fetch transport.         |
 | [Strand detection](strand-detection.md)                     | Fix tracked files a gate stage changed after the final commit.                   |
@@ -48,3 +47,4 @@ CI, pipes, `--plain`, and terminals without cursor control remain static: `strea
 | [Validation findings](validation-findings.md)               | Compare per-job verdicts within and across recorded execution conditions.        |
 | [Patterns decision evidence](patterns-decision-evidence.md) | Read the evidence required before Patterns recommends a Gate or Standard change. |
 | [Pattern investigations](pattern-investigations.md)         | Trace related findings into bounded diagnostic paths.                            |
+| [Checkpoint recipes](checkpoint-recipes.md)                 | Adapt nine copyable triggers for common review moments.                          |

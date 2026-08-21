@@ -123,7 +123,7 @@ Six `advise` members read change facts without interlocking code changes: `delet
 
 Referencing a built-in id enables it, any field set on the entry overrides the seed, and deleting the entry disables it. Setting `question` or `question_file` replaces the shipped judgment with authored prose. Stack-aware examples (`new-dependency`, `shrinking-tests`, `sensitive-paths`) ship commented out for the owner to point at real paths. `discern checkpoints` prints the governing table with each resolved question, source path and reference when present, trigger, and mode.
 
-Copyable combinations live in [checkpoint recipes](checkpoint-recipes.md): nine common review moments with `stop`/`advise` guidance and a realistic declared-unmet outcome.
+Copyable combinations live in [checkpoint recipes](checkpoint-recipes.md): nine common review moments with advice on `stop` versus `advise` and a realistic declared-unmet outcome.
 
 ## Scarcity and graduation
 

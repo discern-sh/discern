@@ -1,7 +1,7 @@
 ---
 title: Checkpoint recipes
-description: Copyable checkpoint triggers for common review moments, with stop and advise guidance.
-order: 35
+description: Copyable checkpoint triggers for common review moments, with advice on stop and advise modes.
+order: 170
 aliases:
   - checkpoint recipe gallery
   - checkpoint examples
