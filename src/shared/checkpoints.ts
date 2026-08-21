@@ -327,6 +327,12 @@ export const BUILT_IN_CHECKPOINTS: Readonly<
     mode: "advise",
     similar_new_file: true,
   },
+  "new-binary-asset": {
+    question: "change.binary-asset",
+    mode: "advise",
+    kinds: ["added"],
+    binary: true,
+  },
   "effort-sprawl": {
     question: "change.effort-scope",
     mode: "advise",

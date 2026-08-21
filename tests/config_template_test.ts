@@ -141,6 +141,7 @@ Deno.test("lists only active template section headers, in file order", async () 
     "checkpoints.gotchas-playbook",
     "checkpoints.deletion-heavy-change",
     "checkpoints.parallel-implementation",
+    "checkpoints.new-binary-asset",
     "checkpoints.effort-sprawl",
     "checkpoints.docs-drift",
     "checkpoints.commit-story",

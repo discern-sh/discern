@@ -554,10 +554,11 @@
   [checkpoints.gotchas-playbook]    # failure memory stays symptom → cause → recovery
   # (quiet until [project].gotchas_doc names a doc)
 
-  # Five advisory checkpoints read the shape of the change — never blocking,
+  # Six advisory checkpoints read the shape of the change — never blocking,
   # delivered with the gate's advisories when their pattern appears:
   [checkpoints.deletion-heavy-change]   # a substantial cut: proven dead, recoverable?
   [checkpoints.parallel-implementation] # a name-similar sibling file appeared
+  [checkpoints.new-binary-asset]         # a newly added binary needs reviewable provenance
   [checkpoints.effort-sprawl]           # one effort, or several riding along?
   [checkpoints.docs-drift]              # code moved and the map did not
   [checkpoints.commit-story]            # a large change: do the messages tell the why?

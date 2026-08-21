@@ -980,7 +980,7 @@
     mode = "advise"
     question = "Is the changed public contract compatible under its declared policy, with any migration or versioning explicit and user documentation and generated artifacts following it?"
 
-  # Five advisory checkpoints read the shape of the change — never blocking,
+  # Six advisory checkpoints read the shape of the change — never blocking,
   # delivered with the gate's advisories when their pattern appears. The two
   # breadth thresholds are tuned above the shipped defaults for this repo:
   # registry codegen fans one edit into many committed artifacts, and a
@@ -992,6 +992,7 @@
   # accumulates.
   [checkpoints.deletion-heavy-change] # a substantial cut: proven dead, recoverable?
   [checkpoints.parallel-implementation] # a name-similar sibling file appeared
+  [checkpoints.new-binary-asset] # a newly added binary needs reviewable provenance
 
   [checkpoints.effort-sprawl] # one effort, or several riding along?
     min_changed_files = 40

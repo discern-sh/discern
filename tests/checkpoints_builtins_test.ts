@@ -90,7 +90,7 @@ function resolved(id: string): ResolvedCheckpoint {
 
 // ── composition: the shipped contract, pinned ───────────────────────────────
 
-Deno.test("the shipped set is four stop members on the knowledge surfaces and five advise members on the change", () => {
+Deno.test("the shipped set is four stop members on the knowledge surfaces and six advise members on the change", () => {
   const stop = RESOLUTION.checkpoints.filter((c) => c.mode === "stop")
     .map((c) => c.id).sort();
   const advise = RESOLUTION.checkpoints.filter((c) => c.mode === "advise")
@@ -106,6 +106,7 @@ Deno.test("the shipped set is four stop members on the knowledge surfaces and fi
     "deletion-heavy-change",
     "docs-drift",
     "effort-sprawl",
+    "new-binary-asset",
     "parallel-implementation",
   ]);
 });
@@ -118,6 +119,20 @@ Deno.test("every built-in resolves by bare reference and serves its canonical qu
     assert(canonical !== undefined, id);
     assertEquals(def.question, canonical.question, id);
     assertEquals(def.teach, canonical.teach, id);
+  }
+});
+
+Deno.test("the public guide inventory follows the built-in registry", async () => {
+  const guide = await Deno.readTextFile(
+    new URL("../project/map/20-quality-gate/checkpoints.md", import.meta.url),
+  );
+  const count = /activates (\d+) built-ins/.exec(guide)?.[1];
+  assertEquals(Number(count), Object.keys(BUILT_IN_CHECKPOINTS).length);
+  for (const id of Object.keys(BUILT_IN_CHECKPOINTS)) {
+    assert(
+      guide.includes(`\`${id}\``),
+      `the public guide must inventory built-in '${id}'`,
+    );
   }
 });
 
@@ -308,6 +323,32 @@ Deno.test("parallel-implementation fires when a decorated sibling grows beside a
   ]);
 });
 
+// ── new-binary-asset ────────────────────────────────────────────────────────
+
+Deno.test("new-binary-asset advises only on newly added binary files", () => {
+  const definition = resolved("new-binary-asset");
+  const added = evaluateStructuralTrigger(
+    definition,
+    diff([{ ...file("assets/reference.bin", "added"), binary: true }]),
+  );
+  assert(added.holds);
+  assertEquals(added.matched, ["assets/reference.bin"]);
+  assertEquals(
+    evaluateStructuralTrigger(
+      definition,
+      diff([{ ...file("assets/reference.bin"), binary: true }]),
+    ),
+    { holds: false, vetoedBy: "kinds" },
+  );
+  assertEquals(
+    evaluateStructuralTrigger(
+      definition,
+      diff([file("assets/reference.txt", "added")]),
+    ),
+    { holds: false, vetoedBy: "binary" },
+  );
+});
+
 Deno.test("a moved file is not a parallel implementation: a different directory is no sibling", () => {
   const outcome = evaluateStructuralTrigger(
     resolved("parallel-implementation"),
@@ -434,6 +475,13 @@ const TRIGGER_FIXTURES: Readonly<
       ["src/service.ext"],
     ),
     quiet: diff([file("src/service.ext")], ["src/service.ext"]),
+  },
+  "new-binary-asset": {
+    firing: diff([{
+      ...file("assets/reference.bin", "added"),
+      binary: true,
+    }]),
+    quiet: diff([{ ...file("assets/reference.bin"), binary: true }]),
   },
   "effort-sprawl": {
     firing: diff(sourceFiles(25)),

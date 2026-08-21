@@ -316,6 +316,20 @@ export const QUESTIONS: readonly Question[] = [
       "conditions explicit, and end with observable proof that the task succeeded.",
   },
   {
+    id: "change.binary-asset",
+    violations: "diff-introduced",
+    question:
+      "This change adds a binary file. Are its provenance and license or " +
+      "permission clear, is the file needed, is its size and optimization " +
+      "appropriate, and can a reviewer inspect it and a future maintainer " +
+      "update or regenerate it?",
+    teach:
+      "Binary files hide changes from ordinary text review. Record the source " +
+      "and rights, keep only the needed optimized bytes, and provide a " +
+      "reproducible generator, editable source, or documented inspection and " +
+      "update path.",
+  },
+  {
     id: "change.deletion-safety",
     violations: "diff-introduced",
     question:
