@@ -982,14 +982,15 @@
 
   # Six advisory checkpoints read the shape of the change — never blocking,
   # delivered with the gate's advisories when their pattern appears. The two
-  # breadth thresholds are tuned above the shipped defaults for this repo:
-  # registry codegen fans one edit into many committed artifacts, and a
-  # replay of the last 40 landed efforts (proof-note landing boundaries on
-  # the fast-forward trunk) put the shipped 15/25 on 82%/60% of them —
-  # advisory wallpaper. At 25/40 they fire on 60%/47% of that launch-phase
-  # window, whose programme-scale waves overstate steady state. Re-review
-  # against `discern patterns` economics once post-launch history
-  # accumulates.
+  # breadth thresholds stay tuned above the shipped defaults for this repo.
+  # A replay of the last 60 landed efforts (proof-note landing boundaries on
+  # the fast-forward trunk), classified with each landing's governing
+  # [generated] model, put the shipped 15/25 on 78%/57% of AUTHORED breadth —
+  # advisory wallpaper — while generated fan-out flipped only 2 of 60
+  # landings at any tuned threshold: the breadth is authored launch-phase
+  # programme waves, not codegen. At 25/40 the advisories fire on 57%/47% of
+  # that window, whose scale overstates steady state. Re-review against
+  # `discern patterns` economics once post-launch history accumulates.
   [checkpoints.deletion-heavy-change] # a substantial cut: proven dead, recoverable?
   [checkpoints.parallel-implementation] # a name-similar sibling file appeared
   [checkpoints.new-binary-asset] # a newly added binary needs reviewable provenance
