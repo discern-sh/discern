@@ -875,6 +875,12 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "Acceptance writes the durable note automatically and `status` surfaces the landed evidence; no separate Desk action exists to teach.",
   "feature:unchanged-tree-rerun":
     "The Proof tip covers the review result; reuse remains an internal optimization.",
+  "feature:checkpoint-ci-report":
+    "The checkpoint reference documents this report-only continuous-integration mode; it adds no Desk action.",
+  "feature:checkpoint-drops":
+    "This internal evidence record preserves an unenforced judgment rule; the Proof and status surfaces provide the human account.",
+  "feature:checkpoint-question-files":
+    "The checkpoint Skill and reference teach this advanced project-authoring choice; it adds no Desk action.",
   "feature:standards-metric-protocol":
     "The standard-setting Skill teaches this advanced metric-authoring path.",
   "feature:standards-rates":
@@ -946,6 +952,10 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "The Model Context Protocol (MCP) is an agent integration surface; the Desk owns human actions.",
   "feature:published-contracts":
     "The reference documents published schemas for integrations.",
+  "feature:authored-markdown-results":
+    "This result projection serves coding-agent and command-line consumers; the Desk renders its own human-facing dashboard.",
+  "feature:failure-recovery-contract":
+    "Each failure supplies its truthful recovery when it occurs; the contract itself adds no separate Desk action.",
   "feature:forgiving-cli":
     "This command-line parser behavior normalizes input; each command tip teaches the resulting action.",
   "feature:output-discipline":
@@ -968,6 +978,12 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "Running discern on itself supplies product evidence; user actions appear with their concrete features.",
   "feature:interruption-safety":
     "The Engine applies this cleanup guarantee when a command stops and reports any recovery action.",
+  "feature:bounded-status-projection":
+    "The status tip teaches the human current-state action; bounding is a structured-consumer context guarantee.",
+  "feature:owner-attention":
+    "Status and the Desk present owner attention when it exists, so it needs no separate rotating lesson.",
+  "feature:patterns-investigations":
+    "The patterns tip teaches the human action; investigation synthesis is part of that result rather than a separate Desk control.",
   "verb:help":
     "Each command displays its own help, making a rotating lesson redundant.",
   "verb:licenses": "The legal reference and command help own license output.",

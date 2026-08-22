@@ -1,7 +1,7 @@
 /**
  * discern's project-authored checkpoint policy.
  *
- * This guard keeps the six judgment boundaries narrow after config parsing and
+ * This guard keeps the seven judgment boundaries narrow after config parsing and
  * reference expansion. It also exercises the generated-artifact default and
  * the exact v1 facts handed to the public-document matcher.
  */
@@ -24,6 +24,7 @@ const PROJECT_CHECKPOINT_IDS = [
   "shipped-instruction-rent",
   "authority-boundary",
   "adr-quality",
+  "feature-benefit-currency",
   "public-contract",
 ] as const;
 
@@ -73,7 +74,7 @@ function checkpoint(id: string): ResolvedCheckpoint {
   return found;
 }
 
-Deno.test("discern resolves exactly six project boundary checkpoints", () => {
+Deno.test("discern resolves exactly seven project boundary checkpoints", () => {
   assertEquals(RESOLUTION.drops, []);
   const authored = Object.keys(CONFIG.checkpoints).filter((id) =>
     !Object.hasOwn(BUILT_IN_CHECKPOINTS, id)
@@ -127,6 +128,23 @@ Deno.test("discern resolves exactly six project boundary checkpoints", () => {
   );
   assertFalse(
     checkpoint("public-contract").selector?.globs.includes("src/**") ?? false,
+  );
+
+  assertEquals(checkpoint("feature-benefit-currency").mode, "advise");
+  assertEquals(
+    checkpoint("feature-benefit-currency").selector?.globs,
+    [
+      "src/main.ts",
+      "src/engine/**",
+      "src/shared/hints.ts",
+      "src/shared/result*.ts",
+      "templates/**",
+      "scripts/brand/claims.ts",
+    ],
+  );
+  assertEquals(
+    checkpoint("feature-benefit-currency").unlessChanged,
+    ["scripts/feature_registry.ts"],
   );
 
   const mapFocus = checkpoint("map-focus");

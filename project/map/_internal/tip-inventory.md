@@ -548,8 +548,13 @@ The enrollment guard derives every feature node and top-level verb from its live
 | `feature:agent-autodetect`                | Setup selects the provider automatically and reports the choice; routine Desk use requires no action.                                |
 | `feature:agent-is-user`                   | This design principle governs coding-agent interfaces; the agent reference documents it.                                             |
 | `feature:all-subsystems-core`             | This product-shape decision defines the shipped subsystem set; concrete actions appear with each subsystem.                          |
+| `feature:authored-markdown-results`       | This result projection serves coding-agent and command-line consumers; the Desk renders its own human-facing dashboard.              |
+| `feature:bounded-status-projection`       | The status tip teaches the human current-state action; bounding is a structured-consumer context guarantee.                          |
 | `feature:canonical-sets`                  | The contributor reference documents this maintainer infrastructure for closed sets.                                                  |
 | `feature:capture-environment`             | This internal diagnostic record preserves failure context; diagnostics provide the human action.                                     |
+| `feature:checkpoint-ci-report`            | The checkpoint reference documents this report-only continuous-integration mode; it adds no Desk action.                             |
+| `feature:checkpoint-drops`                | This internal evidence record preserves an unenforced judgment rule; the Proof and status surfaces provide the human account.        |
+| `feature:checkpoint-question-files`       | The checkpoint Skill and reference teach this advanced project-authoring choice; it adds no Desk action.                             |
 | `feature:cli-help`                        | Each command displays its own built-in help, making a rotating lesson redundant.                                                     |
 | `feature:context-budget`                  | This design principle governs coding-agent context; the agent reference documents it.                                                |
 | `feature:crash-safe-provisioning`         | Provisioning failures carry the recovery action for this Worktree safety mechanism.                                                  |
@@ -559,6 +564,7 @@ The enrollment guard derives every feature node and top-level verb from its live
 | `feature:env-inheritance`                 | Setup configures private-setting inheritance; routine Desk use requires no separate action.                                          |
 | `feature:fail-fast`                       | Gate failures explain this execution rule at the point it matters.                                                                   |
 | `feature:fail-open-classification`        | This internal rule treats unmatched paths as real changes; the Gate guide documents scope configuration.                             |
+| `feature:failure-recovery-contract`       | Each failure supplies its truthful recovery when it occurs; the contract itself adds no separate Desk action.                        |
 | `feature:forcing-functions`               | Guards enforce this engineering principle; their diagnostics provide the action.                                                     |
 | `feature:forgiving-cli`                   | This command-line parser behavior normalizes input; each command tip teaches the resulting action.                                   |
 | `feature:foundations`                     | Product principles explain discern's design; concrete actions appear with their features.                                            |
@@ -586,7 +592,9 @@ The enrollment guard derives every feature node and top-level verb from its live
 | `feature:map-freshness`                   | The Gate enforces this maintainer rule and names stale Map pages.                                                                    |
 | `feature:mcp-surface`                     | The Model Context Protocol (MCP) is an agent integration surface; the Desk owns human actions.                                       |
 | `feature:output-discipline`               | This Engine contract governs result rendering; individual tips teach human actions.                                                  |
+| `feature:owner-attention`                 | Status and the Desk present owner attention when it exists, so it needs no separate rotating lesson.                                 |
 | `feature:ownership-buckets`               | Upgrade explains ownership buckets when a migration needs them.                                                                      |
+| `feature:patterns-investigations`         | The patterns tip teaches the human action; investigation synthesis is part of that result rather than a separate Desk control.       |
 | `feature:placement-consent`               | Initial setup asks for script-placement consent when the choice is required.                                                         |
 | `feature:proof-notes`                     | Acceptance writes the durable note automatically and `status` surfaces the landed evidence; no separate Desk action exists to teach. |
 | `feature:provider-claude-code`            | The agent-integration reference documents this provider; its integration adds no Desk action.                                        |
