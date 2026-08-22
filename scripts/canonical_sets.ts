@@ -2219,6 +2219,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/engine_adr_index_test.ts",
       "tests/adr_citation_form_test.ts",
       "tests/adr_citations_test.ts",
+      "tests/adr_supersession_guard_test.ts",
       "tests/improve_count_adrs_test.ts",
     ],
     // The maintained ADR index (project/map/_adr/README.md) is not a codegen

@@ -51,8 +51,12 @@ const RETIRED_ADR_POINTER =
   /\b(?:discern|agent)[\s_](?:finish|graduate|integrate|scopes|improve|ratchets)\b|\[(?:ratchets|docs)(?:\.|\])|\$\{docs\.|\bsetup\s+land\b|discern-gate-pass|(?<!DISCERN_)\bMAIN_BRANCH\b|# --- \/?discern harness ---|\b[Qq]uality\s+[Rr]atchet\b|\b[Rr]atchet\s+feature\b|\b[Tt]he\s+harness\b|\b[Hh]arness's\b/g;
 const RETIRED_ACTIVE_ADR_PATH =
   /(?:-ratchets?|-graduate|-integrate|-improve-|docs-browser|setup-land|doctree)/i;
+/** Both banner generations count: the legacy per-note spelling ("Vocabulary
+ * amendment ([ADR 0120](…))") and the consolidated Amendments-block entry
+ * ("Vocabulary ([ADR 0120](…), …)"), where ADR 0120 leads the citation list
+ * as the lowest-numbered vocabulary decision. */
 const ADR_0120_AMENDMENT =
-  "Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md))";
+  /Vocabulary(?: amendment)? \(\[ADR 0120\]\(0120-launch-verb-canon\.md\)/;
 const ADR_0137_AMENDMENT =
   "[ADR 0137](0137-project-scripts-live-under-the-script-command.md)";
 
@@ -137,7 +141,7 @@ Deno.test("active ADRs either speak the canon or carry an ADR 0120 amendment", a
     ) continue;
     const contents = await Deno.readTextFile(entry.path);
     const retired = contents.match(RETIRED_ADR_POINTER) ?? [];
-    if (retired.length > 0 && !contents.includes(ADR_0120_AMENDMENT)) {
+    if (retired.length > 0 && !ADR_0120_AMENDMENT.test(contents)) {
       offenders.push(
         `${rel} retains ${
           JSON.stringify(retired[0])
