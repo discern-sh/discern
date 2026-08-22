@@ -1,0 +1,166 @@
+/**
+ * Supersession hygiene across the decision archive (ADR 0310). Agents read the
+ * archive as instruction material, so its structure must keep the current/
+ * retired boundary honest without anyone remembering to: a record whose own
+ * status declares it superseded belongs under `_superseded/`, every record
+ * carries the one `**Status**:` form a scan can find, a current record that
+ * claims to supersede a sibling names one that answers back (the target either
+ * moved to `_superseded/` or references the claimer), and every archived
+ * record opens with the banner that explains its retirement. Each rule failed
+ * somewhere in the corpus before this guard existed — a status flipped to
+ * "superseded" on a record that never moved, a `**Status:**` misspelling that
+ * hid from pattern scans, and supersessions recorded on only one of their two
+ * records.
+ */
+
+import { join, relative } from "@std/path";
+import { assertEquals } from "@std/assert";
+import { ADR_SUBDIR, adrNumberOf } from "../src/lib/adr_numbers.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+
+const ADR_DIR = join(REPO_AUTHORED_PATHS.map, ADR_SUBDIR);
+const SUPERSEDED_DIR = join(ADR_DIR, "_superseded");
+
+/** The copy-paste template's number — its placeholder status line legitimately
+ * contains "superseded by ADR-NNNN", so every rule skips it. */
+const TEMPLATE_NUMBER = "0000";
+
+/** One record file: its number, repo-relative path, and full text. */
+interface AdrRecord {
+  number: string;
+  path: string;
+  text: string;
+}
+
+/** Numbered records directly inside a directory (no recursion), template excluded. */
+async function recordsIn(dir: string): Promise<AdrRecord[]> {
+  const records: AdrRecord[] = [];
+  for await (const entry of Deno.readDir(dir)) {
+    if (!entry.isFile) {
+      continue;
+    }
+    const number = adrNumberOf(entry.name);
+    if (number === undefined || number === TEMPLATE_NUMBER) {
+      continue;
+    }
+    const path = join(dir, entry.name);
+    records.push({
+      number,
+      path: relative(REPO_ROOT, path),
+      text: await Deno.readTextFile(path),
+    });
+  }
+  return records.sort((a, b) => a.number.localeCompare(b.number));
+}
+
+/** The value after `**Status**: `, or undefined when the line is absent. */
+function statusValue(text: string): string | undefined {
+  for (const line of text.split("\n")) {
+    if (line.startsWith("**Status**: ")) {
+      return line.slice("**Status**: ".length);
+    }
+  }
+  return undefined;
+}
+
+/** Sentences of the text, with Markdown link targets masked first so the dots
+ * inside `(...)` paths cannot split a sentence mid-link. Semicolons split too:
+ * status lines chain relationship clauses with them ("supersedes X; builds on
+ * Y"), and each clause claims only its own targets. */
+function sentences(text: string): string[] {
+  const masked = text.replace(/\]\([^)]*\)/g, "]()");
+  return masked.split(/(?<=[.!?;])\s+/);
+}
+
+/** ADR numbers a sentence cites, linked (`[ADR 0212](…)`) or bare (`ADR 0212`).
+ * The hyphenated `ADR-NNNN` placeholder form is not a citation. */
+function citedNumbers(sentence: string): string[] {
+  return [...sentence.matchAll(/\bADR (\d{4})\b/g)].map((m) => m[1] ?? "");
+}
+
+Deno.test("every record carries the one findable status form", async () => {
+  const failures: string[] = [];
+  const records = [
+    ...(await recordsIn(ADR_DIR)),
+    ...(await recordsIn(SUPERSEDED_DIR)),
+  ];
+  for (const record of records) {
+    if (statusValue(record.text) === undefined) {
+      failures.push(`${record.path}: no \`**Status**: \` line`);
+    }
+    if (record.text.includes("**Status:**")) {
+      failures.push(
+        `${record.path}: malformed \`**Status:**\` — the colon sits outside the bold (\`**Status**: \`), where pattern scans can find it`,
+      );
+    }
+  }
+  assertEquals(failures, []);
+});
+
+Deno.test("a record whose status declares it superseded lives under _superseded/", async () => {
+  const failures: string[] = [];
+  for (const record of await recordsIn(ADR_DIR)) {
+    const status = statusValue(record.text);
+    if (status !== undefined && /^superseded by/i.test(status)) {
+      failures.push(
+        `${record.path}: status declares "superseded by" — move the record to ${SUPERSEDED_DIR}/ with a banner naming its successor (\`discern refresh\` rebuilds the index)`,
+      );
+    }
+  }
+  assertEquals(failures, []);
+});
+
+Deno.test("a status-line supersession claim is recorded on both records", async () => {
+  const failures: string[] = [];
+  const current = await recordsIn(ADR_DIR);
+  const archivedNumbers = new Set(
+    (await recordsIn(SUPERSEDED_DIR)).map((r) => r.number),
+  );
+  const byNumber = new Map(current.map((r) => [r.number, r]));
+  for (const record of current) {
+    // Only the status line, and only the active voice: there a record speaks
+    // as the superseder ("Supersedes [ADR NNNN]'s …"). Amendment banners carry
+    // the mirror image — "ADR NNNN supersedes this record's …" — which is the
+    // healthy self-annotation this rule exists to demand, not a claim.
+    const status = statusValue(record.text);
+    if (status === undefined) {
+      continue;
+    }
+    for (const sentence of sentences(status)) {
+      if (!/\bsupersedes\b/i.test(sentence)) {
+        continue;
+      }
+      for (const target of citedNumbers(sentence)) {
+        if (target === record.number || archivedNumbers.has(target)) {
+          continue;
+        }
+        const targetRecord = byNumber.get(target);
+        if (targetRecord === undefined) {
+          failures.push(
+            `${record.path}: a supersession sentence cites ADR ${target}, which is neither a current nor an archived record`,
+          );
+          continue;
+        }
+        if (!targetRecord.text.includes(`ADR ${record.number}`)) {
+          failures.push(
+            `${record.path}: claims a supersession against ADR ${target}, but ${targetRecord.path} never references ADR ${record.number} — record the amendment there in the same change (see the README's contributor rules)`,
+          );
+        }
+      }
+    }
+  }
+  assertEquals(failures, []);
+});
+
+Deno.test("every archived record opens with its retirement banner", async () => {
+  const failures: string[] = [];
+  for (const record of await recordsIn(SUPERSEDED_DIR)) {
+    const beforeFirstHeading = record.text.split("\n## ")[0] ?? "";
+    if (!/^> \*\*/m.test(beforeFirstHeading)) {
+      failures.push(
+        `${record.path}: no leading \`> **…**\` banner — an archived record opens by naming its successor, or stating that it retired without one`,
+      );
+    }
+  }
+  assertEquals(failures, []);
+});
