@@ -958,6 +958,21 @@
     mode = "advise"
     question = "Does this new ADR state the decision, real alternatives, consequences, and enduring reason, rather than narrating implementation?"
 
+  # A product behavior, result boundary, or agent hint can change without
+  # touching the registries that explain what it buys each audience.
+  [checkpoints.feature-benefit-currency]
+    paths = [
+      "src/main.ts",
+      "src/engine/**",
+      "src/shared/hints.ts",
+      "src/shared/result*.ts",
+      "templates/**",
+      "scripts/brand/claims.ts",
+    ]
+    unless_changed = ["scripts/feature_registry.ts"]
+    mode = "advise"
+    question = "Does this change add or alter a user-visible capability, result, boundary, or agent-facing hint, and if so do the Feature, Human Benefit, and Agent Benefit Canons account for it?"
+
   # These are the narrow source authorities for published config/result,
   # CLI/MCP, Proof-note, and Logbook contracts. Generated projections remain
   # mechanical guards; the checkpoint asks the residual compatibility judgment.
