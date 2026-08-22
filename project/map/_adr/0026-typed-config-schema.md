@@ -1,6 +1,8 @@
 # ADR 0026: One typed (Zod) config schema as the single source of truth
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script for the former project Recipe surface; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0137](0137-project-scripts-live-under-the-script-command.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `standards` (formerly `ratchets`), `map` where `docs` names the command, config, or tree, Project Script for the former project Recipe surface, and `[jobs]` / `[jobs.<name>]`, known/custom `job` (formerly `[capabilities]` / `[checks.<name>]`, gate `capability` / custom `check`); the decisions below are unchanged.
 
 **Status**: accepted
 

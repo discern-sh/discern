@@ -1,5 +1,9 @@
 # ADR 0209: Fresh seed grants cover pure documentation
 
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0222](0222-frozen-contracts-complete-the-canon.md)):** the scope spelling is `[scopes.map]` (formerly `[scopes.docs]`); the split-seed policy below stands.
+
 **Status**: accepted; extends [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md) and [ADR 0195](0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)
 
 ## Context

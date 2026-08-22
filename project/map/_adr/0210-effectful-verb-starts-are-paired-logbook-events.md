@@ -1,5 +1,9 @@
 # ADR 0210: Effectful verb starts are paired logbook events
 
+> **Amendments.**
+>
+> - **[ADR 0272](0272-logbook-lifecycle-actions-require-terminal-confirmation.md) — lifecycle exception:** the paired-start rule is amended for the two lifecycle commands that replace the Logbook they would otherwise record into — they write neither a `begin` nor a completion event, and confirm at the terminal instead.
+
 **Status**: accepted; amends the completion-only recording sentence in [ADR 0160](0160-local-logbook-advisory-readers.md)
 
 ## Context

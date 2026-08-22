@@ -1,10 +1,10 @@
 # ADR 0120: The launch verb canon — questions are nouns, actions are imperatives
 
-> **Receipt-naming amendment ([ADR 0245](0245-receipt-renamed-to-proof.md)):** the July 10, 2026 receipt naming no longer stands — the gate's record is renamed **the proof**, and the scope-and-sequencing line below that kept it is superseded on that point.
+> **Amendments.**
 >
-> **Manual-command amendment ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** `docs` now names discern's bundled manual, while `help` names CLI reference. `map` remains the project-maintained tree, and the single-spelling policy stands.
->
-> **Placement amendment ([ADR 0195](0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)):** Fresh projects now place the map at `discern/map/`. The `map` vocabulary decision stands. This repository continues to resolve its map to `project/map/`, exercising the existing path override.
+> - **[ADR 0195](0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md) — placement:** fresh projects now place the map at `discern/map/`; the `map` vocabulary decision stands, and this repository continues to resolve its map to `project/map/`, exercising the existing path override.
+> - **[ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md) — manual command:** `docs` now names discern's bundled manual, while `help` names CLI reference; `map` remains the project-maintained tree, and the single-spelling policy stands.
+> - **[ADR 0245](0245-receipt-renamed-to-proof.md) — receipt naming:** the July 10, 2026 receipt naming no longer stands — the gate's record is renamed **the proof**, and the scope-and-sequencing line below that kept it is superseded on that point.
 
 **Status**: accepted
 

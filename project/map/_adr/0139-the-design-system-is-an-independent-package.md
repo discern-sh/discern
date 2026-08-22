@@ -1,16 +1,8 @@
 # ADR 0139: The design system is an independently versioned package
 
-> **Dependency-pin amendment (2026-08-21):** Discern now pins `jsr:@discern-sh/design-system@0.22.0`. The release balances terminal frame padding, quiets routine lifecycle labels, adds Masonry and quiet section rules, and makes `FeatureBento` layouts strict rectangular matrices while preserving the exact immutable package boundary. Discern does not render `FeatureBento`.
-
-> **Dependency-pin amendment (2026-08-18):** Discern now pins `jsr:@discern-sh/design-system@0.21.0`. The release separates plain interface triangles from the opt-in brand register, derives character repertoire from locale rather than attachment, and makes terminal Switch labels opt-in while preserving the exact immutable package boundary.
-
-> **Reader-contract amendment (2026-08-17):** Discern now pins `jsr:@discern-sh/design-system@0.20.0`. The release adds secondary choice descriptions, browsing and completion policies, compact continuation, and the public adaptive Markdown-browser contract while preserving the exact immutable package boundary.
-
-> **Dependency-pin amendment (2026-08-16):** Discern now pins `jsr:@discern-sh/design-system@0.19.0` in `deno.json` and `deno.lock`. The release adds the first-class Markdown Component, and Discern delegates its terminal Map and manual documents through that public `./cli` authority ([ADR 0287](0287-terminal-markdown-delegates-to-the-design-system.md)).
-
-> **Dependency-pin amendment (2026-08-16):** Discern now pins `jsr:@discern-sh/design-system@0.18.1` in `deno.json` and `deno.lock`. This release replaces geometry-specific triangle rendering contracts with configurable semantic terminal motifs while retaining the discern preset as this product's explicit selection.
-
-> **Dependency-pin amendment (2026-08-15):** Discern now pins `jsr:@discern-sh/design-system@0.17.0` in `deno.json` and `deno.lock`. The `0.1.1` line below records the initial external cut-over. Exact immutable consumption and external package ownership remain the current decisions.
+> **Amendments.**
+>
+> - **Dependency pin:** the package is consumed as an exact immutable pin; `deno.json` and `deno.lock` hold the live version, and release-borne contract changes are recorded in their own ADRs ([ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md), [ADR 0287](0287-terminal-markdown-delegates-to-the-design-system.md), [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)).
 
 **Status**: accepted
 

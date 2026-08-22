@@ -1,6 +1,9 @@
 # ADR 0148: Strand detection covers every gate stage
 
-> **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> - **[ADR 0262](0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint.md) — earlier stop:** receipt-eligible runs now stop at the pre-group strand checkpoint, moving this check earlier for that class.
 
 **Status**: accepted; extends [ADR 0047](0047-fix-stage-strand-detection.md), works with [ADR 0094](0094-final-lifecycle-checks-require-clean-trees.md) and [ADR 0116](0116-receipts-vouch-only-for-the-pinned-tree.md)
 

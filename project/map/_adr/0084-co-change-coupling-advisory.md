@@ -1,6 +1,10 @@
 # ADR 0084: Co-change coupling detection is a non-blocking advisory, recomputed on demand
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`; the decision and reasoning are unchanged. **Default amendment ([ADR 0196](0196-coupling-advice-runs-with-the-gate-by-default.md)):** The cross-repository calibration is complete, so `[coupling].in_gate` now defaults to `true`. The advisory remains non-blocking and the explicit preference remains. **Generated-ownership amendment ([ADR 0247](0247-generated-artifacts-regenerate-never-merge.md)):** Coupling filters declared outputs alongside neutral paths before every basket statistic. Explicit queries name the owning generated group.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** the current spelling is `done` (formerly `finish`); the decision and reasoning are unchanged.
+> - **[ADR 0196](0196-coupling-advice-runs-with-the-gate-by-default.md) — in-gate default:** the cross-repository calibration is complete, so `[coupling].in_gate` now defaults to `true`; the advisory remains non-blocking and the explicit preference remains.
+> - **[ADR 0247](0247-generated-artifacts-regenerate-never-merge.md) — generated ownership:** coupling filters declared outputs alongside neutral paths before every basket statistic, and explicit queries name the owning generated group.
 
 **Status**: accepted
 

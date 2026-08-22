@@ -1,6 +1,9 @@
 # ADR 0075: `discern setup` is a staged, consent-driven handshake
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `map` where it names the command, config, or tree (formerly `docs`), and known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
+> - **[ADR 0131](0131-setup-never-adopts-existing-docs.md) — no adoption:** `verify`'s existing-docs adoption question retired — setup reassures that existing docs stay untouched and never offers adoption.
 
 **Status**: accepted; revises [ADR 0036](0036-unify-setup.md) (unify init + bootstrap into one `discern setup`), [ADR 0037](0037-setup-incompleteness-observable.md) (incompleteness is observable), [ADR 0044](0044-setup-involve-not-gate.md) (involve, don't gate), and [ADR 0065](0065-setup-keeps-its-promises.md) (setup keeps its promises). Builds on [ADR 0069](0069-agent-auto-detect-at-setup.md) (agent auto-detect), [ADR 0052](0052-worktree-sibling-placement.md) (worktree sibling placement), and the provider registry of [ADR 0031](0031-typed-provider-integration.md)/[ADR 0043](0043-registry-derived-agent-parity.md).
 

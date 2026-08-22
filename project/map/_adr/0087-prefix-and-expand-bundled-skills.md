@@ -1,6 +1,9 @@
 # ADR 0087: Prefix the bundled skills with `discern-` and expand the set to nine
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `graduate` → `accept`; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script for the former project Recipe surface; the decision and reasoning are unchanged. **Set amendment ([ADR 0173](0173-trim-the-bundled-skills-to-seven.md)):** the bundled set is now seven — three skills merged into two survivors, three retired to hint- and engine-delivery, with `standard-a-metric` renamed `set-the-standard` and `prune-the-overgrowth` renamed `clear-the-decks`. The `discern-` prefix and the naming convention decided here stand.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** current spellings are `standards` (formerly `ratchets`), `accept` (formerly `graduate`), and Project Script (formerly project Recipe); the decision and reasoning are unchanged.
+> - **[ADR 0173](0173-trim-the-bundled-skills-to-seven.md) — the bundled set:** ADR 0173 later trimmed the bundled set — its merges, retirements, and renames are recorded there — and later records grew it again through the ceiling it set; `templates/skills/` and the skills-count standard hold the live set. The `discern-` prefix and the naming convention decided here stand.
 
 **Status**: accepted
 

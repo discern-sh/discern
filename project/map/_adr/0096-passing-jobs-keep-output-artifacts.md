@@ -1,6 +1,9 @@
 # ADR 0096: Passing jobs keep output artifacts
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** the retired product-category wording now reads `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> - **[ADR 0117](0117-temp-output-artifacts-are-reaped-by-age.md) — artifact retention:** the kept output artifacts are now age-reaped from one temp-artifact registry; retention bounds their lifetime, not their existence.
 
 **Status**: accepted; refines [ADR 0028](0028-result-envelope-and-diagnostics.md) and [ADR 0083](0083-normalize-and-offload-diagnostic-output.md)
 

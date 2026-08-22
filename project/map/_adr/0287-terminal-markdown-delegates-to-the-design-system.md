@@ -1,10 +1,8 @@
 # ADR 0287: Terminal Markdown delegates to the design system
 
-> **Dependency amendment (2026-08-21):** Discern now consumes the immutable 0.22.0 package. Its Markdown model, renderer, and browser contracts are unchanged; the release's terminal frame polish flows through the same bound presenter and interaction runtime.
-
-> **Dependency amendment (2026-08-18):** Discern now consumes the immutable 0.21.0 package. Its Markdown and reader contracts are unchanged by this upgrade; the newer release's locale and motif-register policies flow through the same bound presenter.
-
-> **Reader-contract amendment (2026-08-17; [ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)):** Discern consumes the immutable 0.20.0 Markdown browser as well as its static renderer. Discern supplies admitted, terminal-policy-adjusted source and a closed product link resolver; the package reuses its Markdown model for document layout, heading targets, links, pane scrolling, and mouse hit regions.
+> **Amendments.**
+>
+> - **Dependency releases:** Discern now consumes later immutable design-system packages; `deno.json` holds the live pin. The reader-contract delta ([ADR 0290](0290-discern-owns-the-default-interactive-markdown-reading-loop.md)) stands: Discern consumes the package's Markdown browser as well as its static renderer, supplying admitted, terminal-policy-adjusted source and a closed product link resolver, while the package reuses its Markdown model for document layout, heading targets, links, pane scrolling, and mouse hit regions. The Markdown model, renderer, and browser contracts are otherwise unchanged by the newer releases, whose locale and motif-register policies and terminal frame polish flow through the same bound presenter and interaction runtime.
 
 **Status**: accepted; supersedes [ADR 0015](./_superseded/0015-map-browser.md)
 

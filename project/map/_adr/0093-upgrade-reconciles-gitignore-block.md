@@ -1,6 +1,8 @@
 # ADR 0093: `upgrade` reconciles the discern `.gitignore` block
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the retired product-category wording → `discern`, the gate, or the bar, the managed gitignore markers → `discern`; the decision and reasoning are unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Compiled agent file` → `Agent file`, `Co-managed seed` / co-managed file → `Shared file`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0169](0169-the-launch-glossary-canon.md)):** current spellings are Agent file (formerly `Compiled agent file`) and Shared file (formerly `Co-managed seed` / co-managed file); the retired product-category wording reads `discern`, the gate, or the bar, and the managed gitignore markers read `discern`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 

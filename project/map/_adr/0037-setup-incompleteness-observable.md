@@ -1,10 +1,15 @@
 # ADR 0037: Setup-incompleteness is an observable state, not a prose handoff
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `map` where `docs` names the command, config, or tree, and known/custom `job` (formerly gate `capability` / custom `check`); the decision and reasoning are unchanged.
+> - **[ADR 0044](0044-setup-involve-not-gate.md) — interaction model:** later revises the same brief's interaction model (propose-and-confirm → involve-narrate-commit-revert) while preserving the incompleteness signaling hardened here.
+> - **[ADR 0075](0075-setup-staged-handshake.md) — staged pages:** the incompleteness signals now surface through the staged handshake's stateless pages.
+> - **[ADR 0078](0078-setup-pages-and-per-step-proof.md) — per-step proof:** the per-step proof this record deferred shipped.
 
 **Status**: accepted
 
-Hardens the handoff introduced by [ADR 0036](0036-unify-setup.md) (unify init + setup under `discern setup`), applying the "gate-detectable, not a plea" pattern of [ADR 0034](0034-agents-md-untracked-currency-check.md) and leaning on `status` as the reflexive orientation verb ([ADR 0033](0033-status-verb-and-location-aware-scope.md)). [ADR 0044](0044-setup-involve-not-gate.md) later revises the same brief's interaction model (propose-and-confirm → involve-narrate-commit-revert) while preserving the incompleteness signaling hardened here.
+Hardens the handoff introduced by [ADR 0036](0036-unify-setup.md) (unify init + setup under `discern setup`), applying the "gate-detectable, not a plea" pattern of [ADR 0034](0034-agents-md-untracked-currency-check.md) and leaning on `status` as the reflexive orientation verb ([ADR 0033](0033-status-verb-and-location-aware-scope.md)).
 
 ## Context
 

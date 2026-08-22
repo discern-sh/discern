@@ -1,6 +1,8 @@
 # ADR 0050: Run the merge check first, as a fail-fast precondition
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `done` (formerly `finish`), `accept` (formerly `graduate`), `update` (formerly `integrate`), `discern`, the gate, or the bar for the retired product-category wording, and known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
 
 **Status**: accepted. [ADR 0056](_superseded/0056-currency-checks-fail-fast.md) extends this pattern to the generated-artifact currency checks.
 

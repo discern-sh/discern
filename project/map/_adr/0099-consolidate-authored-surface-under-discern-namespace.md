@@ -1,6 +1,11 @@
 # ADR 0099: Consolidate the authored surface under a visible `discern/` namespace
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** ADR 0120 supersedes this record's map vocabulary: live config uses `[map]`. **Placement amendment ([ADR 0195](0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)):** The fresh map now defaults to `discern/map/`, restoring this record's namespace rule while keeping the map noun. **Project Script amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The row originally named `[recipes].dir` is now `[scripts].dir`; its default moved from `discern/recipes` to `discern/scripts`. The placement rule stands. **Self-hosting amendment (2026-07-13):** This repository now points every ongoing configurable authored source beneath `project/` — guidance, map, authored skills, project scripts, and ledger — to exercise every independent path override coherently. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Compiled agent file` → `Agent file`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0169](0169-the-launch-glossary-canon.md)):** ADR 0120 supersedes this record's map vocabulary — live config uses `[map]` — and the current spelling is Agent file (formerly `Compiled agent file`); the decision and reasoning are unchanged.
+> - **[ADR 0137](0137-project-scripts-live-under-the-script-command.md) — Project Scripts:** the row originally named `[recipes].dir` is now `[scripts].dir`; its default moved from `discern/recipes` to `discern/scripts`. The placement rule stands.
+> - **[ADR 0195](0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md) — placement:** the fresh map now defaults to `discern/map/`, restoring this record's namespace rule while keeping the map noun.
+> - **Self-hosting (2026-07-13):** this repository now points every ongoing configurable authored source beneath `project/` — guidance, map, authored skills, project scripts, and ledger — to exercise every independent path override coherently.
 
 **Status**: accepted; amends [ADR 0020](0020-dissolve-discern-dir.md) (its config-pointing and ownership rules stand; its root-scatter defaults are revised) and [ADR 0080](0080-configured-agent-map-root.md) (the docs default moves inside the namespace)
 

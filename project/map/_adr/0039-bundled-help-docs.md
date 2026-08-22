@@ -1,10 +1,10 @@
 # ADR 0039: discern ships its own docs to every install via `discern help`
 
-> **Command-name amendment ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** The bundled manual now lives at `discern docs`, `discern_docs`, and `discern://docs`. `help` now gives CLI reference. The one bundled tree and shared browser decision stand.
+> **Amendments.**
 >
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** At that point, pointers used `ratchets` → `standards` and `docs` → `map` where they named the command, config, or tree. The decision and reasoning still apply.
->
-> **Decision-record amendment ([ADR 0142](0142-customer-binaries-carry-only-public-docs.md)):** Customer binaries carry the public manual without `_adr/`. Source checkouts retain a local `--adr` mode. Installed binaries point readers to the public decisions archive and repository.
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** at that point, pointers used `standards` (formerly `ratchets`) and `map` where `docs` named the command, config, or tree; the decision and reasoning still apply.
+> - **[ADR 0142](0142-customer-binaries-carry-only-public-docs.md) — public-only binaries:** customer binaries carry the public manual without `_adr/`; source checkouts retain a local `--adr` mode, and installed binaries point readers to the public decisions archive and repository.
+> - **[ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md) — command names:** the bundled manual now lives at `discern docs`, `discern_docs`, and `discern://docs`, while `help` gives CLI reference; the one bundled tree and shared browser decision stand.
 
 **Status**: accepted
 

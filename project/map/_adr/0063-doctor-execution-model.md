@@ -1,6 +1,8 @@
 # ADR 0063: `discern doctor` prints the execution model — facts, not judgments
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), and known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
 
 **Status**: accepted; **amended** — see the _Update_ sections below. Adds an `execution_model` section to `doctor` (human + the `--json` `data.execution_model`), derived from the same plan builders the gate runs ([ADR 0027](0027-plan-apply-engine-execution.md)) and the engine's `STEP_KINDS` vocabulary ([ADR 0028](0028-result-envelope-and-diagnostics.md)), pinned by forcing functions in the spirit of [ADR 0051](0051-canonical-set-parity.md).
 

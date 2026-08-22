@@ -1,6 +1,9 @@
 # ADR 0083: Captured diagnostic output is normalized and offloaded when truncated
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** the retired product-category wording now reads `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> - **[ADR 0117](0117-temp-output-artifacts-are-reaped-by-age.md) — artifact retention:** temp output artifacts are now reaped by age from one registry — the presumption below that the operating system's temp cleanup bounds their lifetime is superseded.
 
 **Status**: accepted; refines [ADR 0028](0028-result-envelope-and-diagnostics.md)
 

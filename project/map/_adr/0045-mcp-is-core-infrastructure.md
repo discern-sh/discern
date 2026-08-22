@@ -1,8 +1,9 @@
 # ADR 0045: The MCP server is core infrastructure, not a feature toggle
 
-> **Feature-model amendment (2026-07-28; [ADR 0101](0101-retire-the-features-toggles.md)):** `[features]` has since been removed in full. Every subsystem and MCP tool now registers unconditionally, so the feature-gated map/worktree tools and feature-aware instructions described below are historical. Setup-state refusals still apply, and provider MCP wiring remains unconditional. This record's core-infrastructure decision stands.
-
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Compiled agent file` → `Agent file`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0169](0169-the-launch-glossary-canon.md)):** current spellings are `done` (formerly `finish`), `map` where it names the command, config, or tree (formerly `docs`), and `Agent file` (formerly `Compiled agent file`); the decisions below are unchanged.
+> - **[ADR 0101](0101-retire-the-features-toggles.md) — features retired:** `[features]` has since been removed in full: every subsystem and MCP tool registers unconditionally, so the feature-gated map/worktree tools and feature-aware instructions described below are historical. Setup-state refusals still apply, and provider MCP wiring remains unconditional. This record's core-infrastructure decision stands.
 
 **Status**: accepted; revises the feature set from [ADR 0020](0020-dissolve-discern-dir.md) (which introduced `[features]`, `mcp` among them) and builds on [ADR 0041](0041-self-describing-mcp-surface.md) and [ADR 0031](0031-typed-provider-integration.md)
 

@@ -1,6 +1,9 @@
 # ADR 0081: `discern setup accept`, a main-checkout landing command for the finished setup
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `graduate` → `accept`, the retired product-category wording → `discern`, the gate, or the bar, the shared-branch label → the trunk, `MAIN_BRANCH` → `DISCERN_MAIN_BRANCH`; the decision and reasoning are unchanged. **Configuration amendment ([ADR 0153](0153-repository-owns-shared-checkout-convergence.md)):** The configured trunk now lives at `[repository].trunk`; `DISCERN_MAIN_BRANCH` remains the per-invocation override.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** current spellings are `accept` (formerly `graduate`), `discern`, the gate, or the bar for the retired product-category wording, and the trunk for the shared-branch label; the decision and reasoning are unchanged.
+> - **[ADR 0153](0153-repository-owns-shared-checkout-convergence.md) — trunk configuration:** the configured trunk now lives at `[repository].trunk`, and the per-invocation environment override (`DISCERN_MAIN_BRANCH` below, originally `MAIN_BRANCH`) is now `DISCERN_TRUNK` — `src/shared/environment_variables.ts` is the live authority.
 
 **Status**: accepted
 

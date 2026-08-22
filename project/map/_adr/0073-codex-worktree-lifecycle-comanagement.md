@@ -1,6 +1,8 @@
 # ADR 0073: discern co-manages Codex's auto-generated environment.toml, and reuses the cwd-based teardown verb for its cleanup
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Co-managed seed` / co-managed file → `Shared file`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0169](0169-the-launch-glossary-canon.md)):** current spellings are `discern`, the gate, or the bar for the retired product-category wording, and `Shared file` (formerly `Co-managed seed` / co-managed file); the decisions below are unchanged.
 
 **Status**: accepted; extends [ADR 0031](0031-typed-provider-integration.md) (one typed provider registry) with an optional worktree-app seam, and builds on [ADR 0040](0040-worktree-hooks-in-the-binary.md) (the worktree verbs parse their own input) and [ADR 0045](0045-mcp-is-core-infrastructure.md) (integration artifacts are re-established on every refresh, not seeded once)
 

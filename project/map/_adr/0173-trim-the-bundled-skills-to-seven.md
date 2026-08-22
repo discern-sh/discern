@@ -1,5 +1,10 @@
 # ADR 0173: Trim the bundled skills to seven, and split delivery between skills and hints
 
+> **Amendments.**
+>
+> - **Growth ([ADR 0191](0191-an-eighth-bundled-skill-write-it-once.md), [ADR 0263](0263-a-ninth-bundled-skill-await-the-fleet.md), [ADR 0304](0304-a-tenth-bundled-skill-places-the-checkpoint.md)):** the set has since grown through the raise-then-pin ceiling this record established; the skills-count standard holds the live size.
+> - **Outcome:** the deferred document-subsystem retirement did not proceed; the skill remains bundled.
+
 **Status**: accepted
 
 ## Context

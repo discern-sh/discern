@@ -1,6 +1,9 @@
 # ADR 0152: Slow workflows prove predictable write authority before project work
 
-> **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged. **Registry amendment ([ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md)):** The former `ADMIN_STATE_FILES` registry is now represented by the validation-marked subset of the complete `GIT_ADMIN_STATE` registry. The branded authority and auto-enrolment rule are unchanged; the nested namespace is created before its write probe.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> - **[ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md) — registry:** the former `ADMIN_STATE_FILES` registry is now represented by the validation-marked subset of the complete `GIT_ADMIN_STATE` registry. The branded authority and auto-enrolment rule are unchanged; the nested namespace is created before its write probe.
 
 **Status**: accepted. Refines the gate receipt's best-effort write policy ([ADR 0067](0067-accept-validates-the-landed-tree.md)), extends the measurement-receipt flow ([ADR 0112](0112-standard-measurement-receipt.md)), and preserves `smoke` as the project's fast readiness job ([ADR 0090](0090-setup-proves-worktree-viability.md)).
 

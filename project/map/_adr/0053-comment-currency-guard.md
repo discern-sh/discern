@@ -1,6 +1,8 @@
 # ADR 0053: A gate guard keeps comments in the present tense, not narrating the codebase's past
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `done` (formerly `finish`), `map` where it names the command, config, or tree (formerly `docs`), and known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
 
 **Status**: accepted; applies the [ADR 0049](0049-bug-class-discipline-built-in.md) fix-the-class discipline to a prose convention, and is the comment-side analogue of the retired-token guard in `tests/dev_vocab_guard_test.ts`. Reconciled with — and bounded by — [ADR 0051](0051-canonical-set-parity.md)'s "no denylist" stance (see _Reconciling_ below).
 

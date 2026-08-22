@@ -1,6 +1,9 @@
 # ADR 0079: `improvement` is a coach, not an audit
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `improve` → `improvement`; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers reflect the suggestable-command surface that replaced the old Recipe name satellite; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** current spellings are `standards` (formerly `ratchets`) and `improvement` (formerly `improve`); current pointers reflect the suggestable-command surface that replaced the old Recipe name satellite; the decisions below are unchanged.
+> - **[ADR 0301](0301-the-coach-closes-the-checkpoint-loop.md) — lead priority:** the lead-priority clause below narrowed — with the objective baseline clear, the first evidence-backed recommendation now leads `next_action` as the `decide` kind.
 
 **Status**: accepted. Extends [ADR 0029](0029-best-practices-audit.md): its deterministic-rule and qualitative-review split remains; this decision changes the product frame and adds a priority above the report.
 

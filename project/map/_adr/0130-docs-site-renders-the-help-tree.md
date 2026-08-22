@@ -1,6 +1,9 @@
 # ADR 0130: The docs site renders the help tree through the shared discovery module
 
-> **Command-name amendment ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** The shared manual tree now renders through `discern docs`; the `/docs` route and one-document-model decision stand.
+> **Amendments.**
+>
+> - **[ADR 0143](0143-decisions-on-the-web.md) — ADRs on site:** the ADRs-stay-off-site deferral is lifted — decision records render on the site as project history outside product guidance.
+> - **[ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md) — command name:** the shared manual tree now renders through `discern docs`; the `/docs` route and one-document-model decision stand.
 
 **Status**: accepted
 

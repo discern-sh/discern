@@ -1,6 +1,10 @@
 # ADR 0040: The worktree hooks parse their payload in the binary (no jq)
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `graduate` → `accept`; the decision and reasoning are unchanged. **Update ([ADR 0052](0052-worktree-sibling-placement.md)):** the `<cwd>/.claude/worktrees/<name>` placement this ADR encodes was later replaced by a configurable sibling default (`[worktree].root`). The layering split below — adapter in the feature layer, engine location-agnostic — is exactly what kept that change contained to one resolver. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `standards` (formerly `ratchets`), `accept` (formerly `graduate`), and known/custom `job` (formerly gate `capability` / custom `check`); the decision and reasoning are unchanged.
+> - **[ADR 0052](0052-worktree-sibling-placement.md) — placement:** the `<cwd>/.claude/worktrees/<name>` placement this record encodes was later replaced by a configurable sibling default (`[worktree].root`); the layering split below — adapter in the feature layer, engine location-agnostic — is exactly what kept that change contained to one resolver.
+> - **Hook naming:** the verbs ship as `discern worktree hook create` / `discern worktree hook remove` — the shipped settings template is the live authority; the parse-in-binary decision stands.
 
 **Status**: accepted
 

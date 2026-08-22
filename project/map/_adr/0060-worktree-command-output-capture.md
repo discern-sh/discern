@@ -1,6 +1,8 @@
 # ADR 0060: Worktree shell commands adopt the gate's capture-on-failure output convention
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `integrate` → `update`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `update` (formerly `integrate`), `discern`, the gate, or the bar for the retired product-category wording, `[jobs]` / `[jobs.<name>]` (formerly `[capabilities]` / `[checks.<name>]`), and known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
 
 **Status**: accepted. Resolves a leak surfaced by [ADR 0059](0059-worktree-setup-ensure.md), and aligns the worktree shell runner with the gate's job convention (`engine/jobs/command.ts`).
 

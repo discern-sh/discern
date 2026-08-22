@@ -1,8 +1,9 @@
 # ADR 0138: All ruled config banners are managed regions
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** `[ratchets]` and `[docs]` below name historical schema inputs; current config uses `[standards]` and `[map]`. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** `[recipes]` below names the historical schema input; current config uses `[scripts]`. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Co-managed seed` / co-managed file → `Shared file`; the decision and reasoning are unchanged.
-
-> **Formatter amendment ([ADR 0178](0178-discern-tidy-is-the-embedded-convention-for-discern-owned-surfaces.md)):** The ownership boundary below stands, but every engine mutation of `discern.toml` now passes the complete result through a comment-preserving canonical formatter. Upgrade still preserves values and project comments; it no longer promises to preserve their surrounding whitespace byte-for-byte.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0137](0137-project-scripts-live-under-the-script-command.md), [ADR 0169](0169-the-launch-glossary-canon.md)):** `[ratchets]`, `[docs]`, and `[recipes]` below name historical schema inputs — current config uses `[standards]`, `[map]`, and `[scripts]` — and current pointers use `Co-managed seed` / co-managed file → `Shared file`; the decisions below are unchanged.
+> - **[ADR 0178](0178-discern-tidy-is-the-embedded-convention-for-discern-owned-surfaces.md) — formatter:** the ownership boundary below stands, but every engine mutation of `discern.toml` now passes the complete result through a comment-preserving canonical formatter. Upgrade still preserves values and project comments; it no longer promises to preserve their surrounding whitespace byte-for-byte.
 
 **Status**: accepted
 

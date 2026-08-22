@@ -1,6 +1,6 @@
 # ADR 0258: Every `DISCERN_*` environment contract has one membership authority
 
-**Status:** Accepted
+**Status**: accepted
 
 ## Context
 

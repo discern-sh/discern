@@ -1,6 +1,10 @@
 # ADR 0043: The provider registry is the enforced single source for every agent surface
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`; the decision and reasoning are unchanged. **Identity extension ([ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md)):** a broader identity catalogue now derives `AGENT_NAMES` and owns advisory logbook markers. `PROVIDERS` remains the enforced single source for every native integration surface, and this decision's parity guarantees are unchanged. **Consolidates [ADR 0042](_superseded/0042-per-agent-skills-materialization.md)** (per-agent skills materialization): a `Provider.skillsDir` field directs the effective skill set into every configured agent's directory — `claude_code → .claude/skills`, and `codex`/`gemini →` the shared `.agents/skills` (deduped onto one target), gated on `features.skills`. That decision is folded in here; this ADR makes the provider registry the enforced single source for it, guarded by the parity test below.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** current pointers use `done` (formerly `finish`); the decision and reasoning are unchanged.
+> - **[ADR 0042](_superseded/0042-per-agent-skills-materialization.md) — consolidated here:** per-agent skills materialization folds into this record — a `Provider.skillsDir` field directs the effective skill set into every configured agent's directory (`claude_code → .claude/skills`, and `codex`/`gemini →` the shared `.agents/skills`, deduped onto one target), gated on `features.skills` — and this record makes the provider registry the enforced single source for it, guarded by the parity test below.
+> - **[ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md) — identity extension:** a broader identity catalogue now derives `AGENT_NAMES` and owns advisory logbook markers; `PROVIDERS` remains the enforced single source for every native integration surface, and this decision's parity guarantees are unchanged.
 
 **Status**: accepted; completes [ADR 0031](0031-typed-provider-integration.md), extends the currency check of [ADR 0034](0034-agents-md-untracked-currency-check.md) to skills, and **builds on and consolidates** [ADR 0042](_superseded/0042-per-agent-skills-materialization.md).
 

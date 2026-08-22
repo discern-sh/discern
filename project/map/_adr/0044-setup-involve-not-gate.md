@@ -1,10 +1,14 @@
 # ADR 0044: Setup involves the user and proceeds — it does not gate every step
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** the retired product-category wording reads as `discern`, the gate, or the bar, and current pointers use known/custom `job` (formerly gate `capability` / custom `check`); the decision and reasoning are unchanged.
+> - **[ADR 0077](0077-setup-agent-is-the-configuration-engine.md) — emphasis revised:** the setup agent is the configuration engine — transparency over interrogation — revised after cold runs showed "don't gate" degrading into "don't involve"; the involve-don't-gate headline stands.
+> - **[ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md) — interaction surface:** the interaction model gained served relay messages and the fresh-scaffold `--confirmed` attestation.
 
 **Status**: accepted
 
-Revises the setup-brief interaction model established by [ADR 0036](0036-unify-setup.md) (unify setup under `discern setup`) and preserves the incompleteness signaling hardened by [ADR 0037](0037-setup-incompleteness-observable.md). Where 0036's brief told the agent to _propose and wait for confirmation_, this shifts to _recommend, narrate, proceed on reversible changes, and commit atomically_ — pausing only for genuine decisions. [ADR 0077](0077-setup-agent-is-the-configuration-engine.md) later revises the _emphasis_ of this stance — the agent is the configuration engine; transparency over interrogation — after cold runs showed "don't gate" degrading into "don't involve."
+Revises the setup-brief interaction model established by [ADR 0036](0036-unify-setup.md) (unify setup under `discern setup`) and preserves the incompleteness signaling hardened by [ADR 0037](0037-setup-incompleteness-observable.md). Where 0036's brief told the agent to _propose and wait for confirmation_, this shifts to _recommend, narrate, proceed on reversible changes, and commit atomically_ — pausing only for genuine decisions.
 
 ## Context
 

@@ -1,6 +1,9 @@
 # ADR 0009: 1.0 — drop backward compatibility, with a one-shot `upgrade`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`; the decision and reasoning are unchanged. **Update ([ADR 0014](0014-versioned-migration-system.md)).** This one-shot, content-sniffing `upgrade` was retired in favour of a versioned migration chain anchored on a `schema_version`. `upgrade` now runs pending migrations automatically (no nudge), and `upgrade` became a read-only status command. The 0.x→1.0 rules below were not ported: the current shape is declared schema 1 and the chain starts clean. The rest of this ADR (the 1.0 shape itself) stands.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** current pointers use `standards` (formerly `ratchets`) and `done` (formerly `finish`); the decision and reasoning are unchanged.
+> - **[ADR 0014](0014-versioned-migration-system.md) — migration chain:** this record's one-shot, content-sniffing migrator was retired in favour of a versioned migration chain anchored on a `schema_version`; `upgrade` now runs pending migrations automatically (no nudge), and the separate migrator verb became a read-only status surface before being removed outright — its read-only successors are `upgrade --check` and `upgrade --dry-run` ([ADR 0095](0095-prelaunch-cli-vocabulary.md)). The 0.x→1.0 rules below were not ported: the current shape is declared schema 1 and the chain starts clean. The rest of this record (the 1.0 shape itself) stands.
 
 **Status**: accepted
 

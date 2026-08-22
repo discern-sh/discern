@@ -1,5 +1,9 @@
 # ADR 0156: The permanent landing page and the /install endpoint
 
+> **Amendments.**
+>
+> - **[ADR 0237](0237-ship-under-the-functional-source-license.md) — licence:** the shipped licence changed after this record; the root `LICENSE` file is the live authority the landing page's licence line matches.
+
 **Status**: accepted; extends [ADR 0129](0129-site-lives-in-repo-behind-one-fetch-handler.md) and [ADR 0144](0144-canonical-site-urls-and-one-hop-redirects.md)
 
 ## Context

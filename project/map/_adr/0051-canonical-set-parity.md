@@ -1,6 +1,8 @@
 # ADR 0051: Every internal canonical set is tied to its satellites by a forcing function
 
-> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers reflect the closed root vocabulary and explicit Project Script namespace; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`, `KNOWN_CAPABILITIES` → `KNOWN_JOBS`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0137](0137-project-scripts-live-under-the-script-command.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers reflect the closed root vocabulary and the explicit Project Script namespace, and use known/custom `job` (formerly gate `capability` / custom `check`) and `KNOWN_JOBS` (formerly `KNOWN_CAPABILITIES`); the decisions below are unchanged.
 
 **Status**: accepted; grounds design principle [§2 "One source of truth"](../00-orientation/design-principles.md), generalizes [ADR 0043](0043-registry-derived-agent-parity.md) (the agent registry) from one set to all, and applies the discipline of [ADR 0049](0049-bug-class-discipline-built-in.md).
 

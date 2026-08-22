@@ -1,6 +1,8 @@
 # ADR 0095: Standardize the prelaunch CLI vocabulary
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** The current read-only question is `impact`; the intermediate `scopes` spelling was retired. The remaining decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **[ADR 0120](0120-launch-verb-canon.md) — narrowed:** the current read-only question is `impact` (the intermediate `scopes` spelling was retired), and the retired-vocabulary guard — not wholesale history rewriting — is what keeps retired names out of shipped surfaces; the remaining decision and reasoning are unchanged.
 
 **Status**: accepted
 

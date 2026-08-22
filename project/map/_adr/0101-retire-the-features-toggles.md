@@ -1,6 +1,8 @@
 # ADR 0101: Retire the `[features]` toggles
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `standards` (formerly `ratchets`), `[jobs]` / `[jobs.<name>]` (formerly `[capabilities]` / `[checks.<name>]`), and known/custom `job` (formerly gate `capability` / custom `check`); the decision and reasoning are unchanged.
 
 **Status**: accepted; amends [ADR 0020](0020-dissolve-discern-dir.md) (which introduced the `[features]` set) and completes the trajectory of [ADR 0045](0045-mcp-is-core-infrastructure.md) (which removed `mcp` from it)
 

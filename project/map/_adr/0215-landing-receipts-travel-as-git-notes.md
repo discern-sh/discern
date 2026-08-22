@@ -1,10 +1,10 @@
 # ADR 0215: Landing receipts travel as bot-authored Git notes with fetch-only opt-in transport
 
-> **Proof-naming amendment ([ADR 0245](0245-receipt-renamed-to-proof.md)):** ADR 0245 renames this decision's receipt-family terms to **proof** and leaves its reasoning intact.
-
-> **Identity amendment (2026-07-30; [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md)):** The notes author identity is now `discern <done@discern.sh>`. Transport, fail-open, and `DISCERN_NO_ATTRIBUTION` semantics are unchanged.
-
-> **Format amendment (2026-07-31; [ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md)):** The note body is no longer the bare canonical JSON of `data.receipt`. It uses the DSSE field and payload boundary, whose typed Base64 payload carries the full-object-id subject and receipt. discern's unsigned extension carries an empty signature array; bare 8-field notes remain readable as unsigned legacy. Transport, fail-open, authorship, and merge semantics are unchanged.
+> **Amendments.**
+>
+> - **Proof naming ([ADR 0245](0245-receipt-renamed-to-proof.md)):** this decision's receipt-family terms are renamed to **proof**, and the fetch-opt-in config key ships as `proof_notes` (formerly `receipt_notes`); transport, fail-open, and merge semantics — and the reasoning below — are unchanged.
+> - **[ADR 0203](0203-discern-co-authors-only-commits-it-composes.md) — notes identity:** the notes author identity is now `discern <done@discern.sh>`. Transport, fail-open, and `DISCERN_NO_ATTRIBUTION` semantics are unchanged.
+> - **[ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md) — DSSE format:** the note body is no longer the bare canonical JSON of `data.receipt`. It uses the DSSE field and payload boundary, whose typed Base64 payload carries the full-object-id subject and receipt. discern's unsigned extension carries an empty signature array; bare 8-field notes remain readable as unsigned legacy. Transport, fail-open, authorship, and merge semantics are unchanged.
 
 **Status**: accepted
 

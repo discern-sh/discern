@@ -1,8 +1,8 @@
 # ADR 0116: Receipts vouch only for the pinned tree, and accept lands the validated sha
 
-> **Proof-naming amendment ([ADR 0245](0245-receipt-renamed-to-proof.md)):** ADR 0245 renames this decision's receipt-family terms to **proof** and leaves its reasoning intact.
-
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, the gate-pass artifact → the receipt; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0245](0245-receipt-renamed-to-proof.md)):** current spellings are `standards` (formerly `ratchets`), `done` (formerly `finish`), and `accept` (formerly `graduate`); the gate-pass artifact became the receipt, and ADR 0245 renames the receipt-family terms to **proof**; the decision and reasoning are unchanged.
 
 **Status**: accepted; hardens [ADR 0067](0067-accept-validates-the-landed-tree.md) and [ADR 0112](0112-standard-measurement-receipt.md)
 

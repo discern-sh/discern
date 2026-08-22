@@ -1,6 +1,10 @@
 # ADR 0006: Opt-in streamed output and fail-fast cancellation for the parallel runner
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, the retired product-category wording → `discern`, the gate, or the bar. **Current-state note.** The `[gate].stream` and `fail_fast` config flags defined here still ship (`fail_fast` defaults on since 1.0). `stream` still defaults off, but now chooses transcript timing only on static terminal surfaces; a live-capable terminal always uses the bounded activity frame described below. The POSIX-shell runner and its `set -f`/signal machinery were replaced by the TypeScript job runner ([ADR 0019](0019-single-binary-ts-engine.md)), and the slot/phase framing first by capabilities/checks ([ADR 0017](0017-capabilities-model.md)) and now by jobs ([ADR 0168](0168-the-gate-declares-jobs.md)). **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0017](0017-capabilities-model.md), [ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `done` (formerly `finish`), and the slot/phase framing below was replaced first by capabilities/checks and now by known/custom `job` under `[jobs]`; the retired product-category wording reads as `discern`, the gate, or the bar.
+> - **[ADR 0019](0019-single-binary-ts-engine.md) — runner replaced:** the POSIX-shell runner and its `set -f`/signal machinery were replaced by the TypeScript job runner.
+> - **Config flags:** the `[gate].stream` and `fail_fast` config flags defined here still ship (`fail_fast` defaults on since 1.0); `stream` still defaults off, but now chooses transcript timing only on static terminal surfaces — a live-capable terminal always uses the bounded activity frame described below.
 
 **Status**: accepted; **amended by the 1.0 redesign and the live activity frame** — see the updates below.
 

@@ -1,8 +1,10 @@
 # ADR 0041: A self-describing MCP surface built on typed result schemas
 
-> **MCP lifecycle amendment (2026-07-28; [ADR 0062](0062-mcp-server-working-root.md), [ADR 0101](0101-retire-the-features-toggles.md)):** The lifecycle exclusion and feature-aware exposure described below are historical. `discern_start`, `discern_update`, and `discern_accept` now register unconditionally; start and accept re-aim the server's working root. The low-level `discern worktree …` administration group remains CLI-only. Setup readiness is still checked when a setup-gated tool or resource is used. The typed schema and tool/resource pairing decisions stand.
-
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, `scopes` → `impact` where it names the verb, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** current pointers use `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), `impact` where `scopes` names the verb, and `map` where `docs` names the command, config, or tree; the decision and reasoning are unchanged.
+> - **MCP lifecycle ([ADR 0062](0062-mcp-server-working-root.md), [ADR 0101](0101-retire-the-features-toggles.md)):** the lifecycle exclusion and feature-aware exposure described below are historical — `discern_start`, `discern_update`, and `discern_accept` register unconditionally, and start and accept re-aim the server's working root. The low-level `discern worktree …` administration group remains CLI-only, and setup readiness is still checked when a setup-gated tool or resource is used. The typed schema and tool/resource pairing decisions stand.
+> - **[ADR 0079](0079-improvement-is-a-coach-not-an-audit.md):** the audit tool ships as `discern_improvement`.
 
 **Status**: accepted; extends [ADR 0038](0038-official-mcp-sdk.md) and [ADR 0028](0028-result-envelope-and-diagnostics.md)
 

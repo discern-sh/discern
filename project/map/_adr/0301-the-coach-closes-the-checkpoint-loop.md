@@ -1,5 +1,9 @@
 # ADR 0301: The improvement coach closes the checkpoint loop
 
+> **Amendments.**
+>
+> - **[ADR 0303](0303-the-shipped-checkpoint-set.md) — graduation route:** the empty-graduation-registry consequence below is superseded — the shipped checkpoint set carries a graduation route.
+
 **Status**: accepted; builds on the shared question vocabulary in [ADR 0295](0295-one-question-vocabulary-serves-two-memberships.md), the observation charter in [ADR 0300](0300-checkpoint-observation-is-drained-metadata-never-a-verdict.md), the advisory boundary in [ADR 0160](0160-local-logbook-advisory-readers.md), and the recommendation evidence bar in [ADR 0276](0276-patterns-recommendations-require-project-local-decision-evidence.md).
 
 ## Context

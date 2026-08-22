@@ -1,8 +1,10 @@
 # ADR 0234: Tips are the desk's human advisory channel
 
-**Status**: accepted. Builds on [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) (the desk), [ADR 0172](0172-hints-compile-from-a-registry.md) (the hint registry), and [ADR 0207](0207-hint-follow-through-is-declared-and-episode-based.md) (episode-based follow-through). Amends the plain register's rendering of _hint_ ([ADR 0228](0228-the-feature-canon-carries-a-plain-language-register.md)).
+> **Amendments.**
+>
+> - **Placement (2026-08-04):** the tip now follows the root status line in the same header group, with a yellow `Tip` label. Unlanded and reclaimed-branch facts follow in separate groups. Selection, wrapping, and session stability are unchanged.
 
-> **Placement amendment (2026-08-04):** The tip now follows the root status line in the same header group, with a yellow `Tip` label. Unlanded and reclaimed-branch facts follow in separate groups. Selection, wrapping, and session stability are unchanged.
+**Status**: accepted. Builds on [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) (the desk), [ADR 0172](0172-hints-compile-from-a-registry.md) (the hint registry), and [ADR 0207](0207-hint-follow-through-is-declared-and-episode-based.md) (episode-based follow-through). Amends the plain register's rendering of _hint_ ([ADR 0228](0228-the-feature-canon-carries-a-plain-language-register.md)).
 
 ## Context
 

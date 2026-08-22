@@ -1,5 +1,9 @@
 # ADR 0174: Agent document discovery is regions, search, then canonical targets
 
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** the manual tool ships as `discern_docs` (formerly `discern_help`); the decision below is unchanged.
+
 **Status**: accepted; extends the shared document model ([ADR 0130](0130-docs-site-renders-the-help-tree.md)), self-describing MCP surface ([ADR 0041](0041-self-describing-mcp-surface.md)), and tracked compiled guidance ([ADR 0128](0128-enumerated-ownership-tracked-guidance.md)); agent ranking refined by [ADR 0183](0183-agent-task-search-uses-an-audience-specific-ranker.md).
 
 ## Context

@@ -1,6 +1,8 @@
 # ADR 0025: Generalize the worktree db/dev-server adapters into per-worktree resources with orphan GC
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `graduate` → `accept`; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `accept` (formerly `graduate`) and `[jobs]` / `[jobs.<name>]` (formerly `[capabilities]` / `[checks.<name>]`); the decisions below are unchanged.
 
 **Status**: accepted
 

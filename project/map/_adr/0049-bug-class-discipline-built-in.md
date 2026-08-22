@@ -1,6 +1,9 @@
 # ADR 0049: Ship the fix-the-class discipline as built-in guidance and a bundled skill
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Renamed** — the `fix-a-bug-class` skill this ADR introduces ships as `discern-cure-a-bug` since [ADR 0087](0087-prefix-and-expand-bundled-skills.md), which prefixed and expanded the bundled skill set. The discipline is unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Compiled agent file` → `Agent file`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0169](0169-the-launch-glossary-canon.md)):** current spellings are `standards` (formerly `ratchets`), `done` (formerly `finish`), `map` where it names the command, config, or tree (formerly `docs`), `discern`, the gate, or the bar for the retired product-category wording, and `Agent file` (formerly `Compiled agent file`); the decisions below are unchanged.
+> - **[ADR 0087](0087-prefix-and-expand-bundled-skills.md) — skill renamed:** the `fix-a-bug-class` skill this ADR introduces ships as `discern-cure-a-bug` since ADR 0087 prefixed and expanded the bundled skill set; the discipline is unchanged.
 
 **Status**: accepted
 

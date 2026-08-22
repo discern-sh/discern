@@ -1,10 +1,15 @@
 # ADR 0036: Unify setup under one zero-config `discern setup`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Compiled agent file` → `Agent file`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md), [ADR 0169](0169-the-launch-glossary-canon.md)):** current pointers use `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), known/custom `job` (formerly gate `capability` / custom `check`), and `Agent file` (formerly `Compiled agent file`); the retired product-category wording reads as `discern`, the gate, or the bar; the decisions below are unchanged.
+> - **[ADR 0037](0037-setup-incompleteness-observable.md) — hardened:** the unfinished-setup state became observable, so the handoff can't be mistaken for completion.
+> - **[ADR 0044](0044-setup-involve-not-gate.md) — interaction model:** the propose-and-confirm setup-brief interaction model established here was later revised to _involve, don't gate_.
+> - **[ADR 0075](0075-setup-staged-handshake.md) — staged handshake:** the single-shot flow was staged into the consent-driven handshake; the unified zero-config verb and the `setup done` bar stand.
 
 **Status**: accepted
 
-Amends and **consolidates** [ADR 0024](_superseded/0024-setup-command-not-skill.md) (which moved setup out of a materialized skill — a decision that lives on here: `discern setup` is a command that prints instructions, recorded by the `[meta].bootstrapped` marker) and builds on [ADR 0016](_superseded/0016-consolidate-install-surface.md). Hardened by [ADR 0037](0037-setup-incompleteness-observable.md), which makes the unfinished-setup state observable so the handoff can't be mistaken for completion. The setup-brief interaction model it established — propose-and-confirm — is later revised to _involve, don't gate_ by [ADR 0044](0044-setup-involve-not-gate.md).
+Amends and **consolidates** [ADR 0024](_superseded/0024-setup-command-not-skill.md) (which moved setup out of a materialized skill — a decision that lives on here: `discern setup` is a command that prints instructions, recorded by the `[meta].bootstrapped` marker) and builds on [ADR 0016](_superseded/0016-consolidate-install-surface.md).
 
 ## Context
 

@@ -1,6 +1,12 @@
 # ADR 0011: Adopt the isolated-worktree workflow for discern's own development
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Current-state note.** The worktree workflow is still how discern develops itself, but the mechanics moved on: the hooks parse their payload inside the binary rather than shelling out to `bin/agent worktree lifecycle helpers` ([ADR 0040](0040-worktree-hooks-in-the-binary.md)), the `db`/`dev_server` seams became per-worktree resources ([ADR 0025](0025-worktree-resources.md)), placement is the configurable sibling default ([ADR 0052](0052-worktree-sibling-placement.md)), and `.discern/` is dissolved ([ADR 0020](0020-dissolve-discern-dir.md)). **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The older Recipe reference below describes the then-current command implementation; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** the retired product-category wording reads as `discern`, the gate, or the bar, and the older Recipe reference below describes the then-current command implementation (a Project Script surface today); the decision below — the worktree workflow as the way discern develops itself — is unchanged, though its mechanics have since moved on.
+> - **[ADR 0020](0020-dissolve-discern-dir.md):** `.discern/` is dissolved.
+> - **[ADR 0025](0025-worktree-resources.md):** the `db`/`dev_server` seams became per-worktree resources.
+> - **[ADR 0040](0040-worktree-hooks-in-the-binary.md):** the hooks parse their payload inside the binary rather than shelling out to `bin/agent worktree lifecycle helpers`.
+> - **[ADR 0052](0052-worktree-sibling-placement.md):** placement is the configurable sibling default.
 
 **Status**: accepted
 

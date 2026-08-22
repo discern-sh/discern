@@ -1,6 +1,10 @@
 # ADR 0005: Declarative config — a comment-preserving editor, `discern config`, and `setup --config`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged. **Current-state note.** `setup --config` is retired — `setup` redirects to `discern setup` ([ADR 0036](0036-unify-setup.md)). The comment-preserving `TomlEditor`, the `discern config` surface, and the published JSON Schema all still ship; the schema is now generated from one Zod definition ([ADR 0026](0026-typed-config-schema.md)), and the `set-slot`/`set-side-gate` verbs first became `set-capability`/`set-check`/`set-scope` ([ADR 0017](0017-capabilities-model.md)); [ADR 0168](0168-the-gate-declares-jobs.md) later unified `set-capability`/`set-check` as `set-job`, while `set-scope` remains. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `config set-capability` / `config set-check` → `config set-job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0017](0017-capabilities-model.md), [ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `standards` (formerly `ratchets`), and the config verbs are `config set-job` / `config set-scope` — the original `set-slot`/`set-side-gate` first became `set-capability`/`set-check`/`set-scope`, and `set-capability`/`set-check` were later unified as `set-job` while `set-scope` remains; the decisions below are unchanged.
+> - **[ADR 0026](0026-typed-config-schema.md) — schema generation:** the published JSON Schema is now generated from one Zod definition.
+> - **[ADR 0036](0036-unify-setup.md) — setup path:** the predecessor verb's declarative config path folded into `discern setup --config`; the comment-preserving `TomlEditor`, the `discern config` surface, and the published JSON Schema all still ship.
 
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_ below.
 

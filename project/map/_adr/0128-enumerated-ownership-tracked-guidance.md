@@ -1,6 +1,9 @@
 # ADR 0128: The ignore block enumerates ownership; compiled guidance is tracked
 
-> **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Compiled agent file` → `Agent file`, `Co-managed seed` / co-managed file → `Shared file`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0169](0169-the-launch-glossary-canon.md)):** current pointers use `Compiled agent file` → `Agent file`, `Co-managed seed` / co-managed file → `Shared file`; the decision and reasoning are unchanged.
+> - **[ADR 0177](0177-compiled-agent-file-opens-as-the-projects-own.md) — preamble framing:** clause 5's framing is recast — the compiled agent file now opens as the project's own document, its H1 naming the project.
 
 **Status**: accepted; supersedes the _tracking default_ and the _ignore-block shape_ of [ADR 0034](0034-agents-md-untracked-currency-check.md) (whose currency check and tracked-artifacts guard survive unchanged, re-scoped here); builds on the deterministic compile from [ADR 0035](0035-guidance-templating-engine.md) and the gitignore convergence from [ADR 0093](0093-upgrade-reconciles-gitignore-block.md).
 

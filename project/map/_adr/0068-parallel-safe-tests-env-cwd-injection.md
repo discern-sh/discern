@@ -1,6 +1,8 @@
 # ADR 0068: Tests inject env/cwd seams so the suite can run `--parallel`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** The current test pointer uses `standards` (formerly `ratchets`); the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** the current test pointer uses `standards` (formerly `ratchets`), and current pointers use known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
 
 **Status**: accepted. The test suite runs under `deno test --parallel`. To make that safe, every function that consults ambient process state — an env override or the working directory — takes an injectable seam (an `EnvReader` defaulting to `Deno.env`, or an explicit `cwd`/`env` argument), so a unit test supplies the value directly instead of mutating the process. A forcing-function guard (in the lineage of [ADR 0051](0051-canonical-set-parity.md)) fails the gate if any test reintroduces a process-global mutation.
 

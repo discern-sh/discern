@@ -1,5 +1,9 @@
 # ADR 0154: Launch standards recalibrate to the public corpus at programme end
 
+> **Amendments.**
+>
+> - **[ADR 0161](0161-growth-proof-standards-and-breach-escalation.md) — settlement revisited:** growth-proof margins replaced part of the programme-end settlement — a raised ceiling dropped and the density floor was re-set; `discern.toml` holds the live limits.
+
 **Status**: accepted; extends [ADR 0133](0133-standards-join-the-gate.md) and [ADR 0140](0140-validated-frontmatter-and-the-publish-predicate.md)
 
 ## Context

@@ -1,6 +1,9 @@
 # ADR 0065: `discern setup` keeps its promises
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, `integrate` → `update`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), `update` (formerly `integrate`), `map` where it names the command, config, or tree (formerly `docs`), and known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
+> - **[ADR 0128](0128-enumerated-ownership-tracked-guidance.md) — tracked agent files:** §7's uniformly-gitignored posture is reversed — the canonical agent file and its pointer mirrors are tracked by default; the promise-keeping headline of this record stands.
 
 **Status**: accepted
 

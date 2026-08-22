@@ -1,10 +1,9 @@
 # ADR 0208: Public contracts version by schema major
 
-> **Durable-channel application (2026-07-31; [ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md)):** The landing receipt note carries a schema-fragment URI in-band as its DSSE `payloadType`. A Git note has no schema-selection channel, so the authenticated payload type names its compatibility major and published definition. The no-payload-version rule for negotiated result and configuration channels is unchanged.
-
-> **First breaking-major application ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** Renaming the manual result from `help` to `docs` starts result schema v2 while retaining the frozen v1 publication. Configuration remains at schema v1. The compatibility domains version independently.
-
-> **Pre-tag reset amendment (2026-07-29; recorded in [ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** The note above records a superseded pre-release state. Before the first release tag, the result publication was squashed back to one live v1 and the retired v2 path was deleted. The enforcement below now arms at the first release tag: until a tag exists, publications may be corrected in place, because no released consumer has pinned them; from the first tag onward, every enrolled path and identity is append-only against the configured trunk, exactly as the enforcement update describes.
+> **Amendments.**
+>
+> - **First breaking major and pre-tag reset ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md), [ADR 0219](0219-public-install-schema-starts-at-one.md)):** Renaming the manual result from `help` to `docs` first applied this record's breaking-major rule, starting result schema v2 beside the frozen v1 publication while configuration stayed at schema v1 — the compatibility domains version independently. Before the first release tag, that publication was squashed back to one live v1 and the retired v2 path was deleted, applying ADR 0219's pre-tag reasoning: until a tag exists, publications may be corrected in place, because no released consumer has pinned them. The enforcement below therefore arms at the first release tag; from the first tag onward, every enrolled path and identity is append-only against the configured trunk, exactly as the enforcement update describes.
+> - **[ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md) — durable channel:** The landing receipt note carries a schema-fragment URI in-band as its DSSE `payloadType`. A Git note has no schema-selection channel, so the authenticated payload type names its compatibility major and published definition. The no-payload-version rule for negotiated result and configuration channels is unchanged.
 
 **Status**: accepted; extends [ADR 0028](0028-result-envelope-and-diagnostics.md) and [ADR 0097](0097-publish-json-result-contracts.md), and applies the closed-set discipline of [ADR 0176](0176-the-closed-sets-are-a-closed-set.md)
 

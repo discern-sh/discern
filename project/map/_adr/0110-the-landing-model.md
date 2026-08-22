@@ -1,10 +1,12 @@
 # ADR 0110: The landing model — pull from any ref, land only on the trunk
 
-> **Landing-authority amendment (2026-07-28; [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md)):** The stop-after-green consequence below is now conditional. Without current-conversation consent or a machine-verified standing or effort grant, the agent relays the receipt and waits. A verified recorded grant may route the finished branch directly to `accept`. The trunk-only topology and validated-tree rules stand.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** current spellings are `accept` (formerly `graduate`) and `update` (formerly `integrate`); the retired product-category wording reads `discern`, the gate, or the bar, and the shared-branch label reads the trunk; the decision and reasoning are unchanged.
+> - **[ADR 0153](0153-repository-owns-shared-checkout-convergence.md) — configuration:** the single landing target now lives at `[repository].trunk`; references below to `[project].main_branch` preserve the original schema spelling.
+> - **[ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md) — landing authority:** the stop-after-green consequence below is now conditional: without current-conversation consent or a machine-verified standing or effort grant, the agent relays the receipt and waits, while a verified recorded grant may route the finished branch directly to `accept`. The trunk-only topology and validated-tree rules stand.
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `graduate` → `accept`, `integrate` → `update`, the retired product-category wording → `discern`, the gate, or the bar, the shared-branch label → the trunk; the decision and reasoning are unchanged. **Configuration amendment ([ADR 0153](0153-repository-owns-shared-checkout-convergence.md)):** The single landing target now lives at `[repository].trunk`; references below to `[project].main_branch` preserve the original schema spelling.
-
-**Status**: accepted — supersedes the configurable-destination decision of [ADR 0046](_superseded/0046-graduate-destination-and-skill-removal.md) (its removal of the handoff-worktree skill stands), and extends the update verb of [ADR 0055](0055-update-verb.md) / [ADR 0064](0064-update-change-summary.md).
+**Status**: accepted — supersedes the configurable-destination decision of [ADR 0046](_superseded/0046-graduate-destination-and-skill-removal.md) (its removal of the handoff-worktree skill stands); extends the update verb of [ADR 0055](0055-update-verb.md) / [ADR 0064](0064-update-change-summary.md).
 
 ## Context
 

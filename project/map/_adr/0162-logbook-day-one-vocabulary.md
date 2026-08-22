@@ -1,12 +1,12 @@
 # ADR 0162: The logbook records its full vocabulary from day one, as evidence rather than inference
 
+> **Amendments.**
+>
+> - **[ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md) — identity:** the driver vocabulary now accretes source-labelled coding-agent hints and bounded MCP client metadata. It still stores no agent verdict, confidence, or behavioural branch. The rest of this decision is unchanged.
+> - **[ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md) — consent vocabulary:** verb events now carry optional `consent` evidence lifted from successful acceptance results. Its source comes from the canonical `conversation`, `standing-grant`, and `effort-grant` vocabulary; standing-grant evidence may also carry the covering scope names. The recorder still stores evidence rather than inference.
+> - **Partial effect (2026-07-28):** verb outcomes now distinguish `partial` from `failed` and `refused`. A partial acceptance carries the four booleans from `data.landing` so the event records which recovery, trunk, worktree-removal, and branch-deletion effects happened. Rotation digests preserve a separate partial count; red-rate history treats partial effects as red work.
+
 **Status**: accepted
-
-> **Partial-effect amendment (2026-07-28):** Verb outcomes now distinguish `partial` from `failed` and `refused`. A partial acceptance carries the four booleans from `data.landing` so the event records which recovery, trunk, worktree-removal, and branch-deletion effects happened. Rotation digests preserve a separate partial count; red-rate history treats partial effects as red work.
-
-> **Consent-vocabulary amendment (2026-07-28; [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md)):** Verb events now carry optional `consent` evidence lifted from successful acceptance results. Its source comes from the canonical `conversation`, `standing-grant`, and `effort-grant` vocabulary; standing-grant evidence may also carry the covering scope names. The recorder still stores evidence rather than inference.
-
-> **Identity amendment ([ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md)):** the driver vocabulary now accretes source-labelled coding-agent hints and bounded MCP client metadata. It still stores no agent verdict, confidence, or behavioural branch. The rest of this decision is unchanged.
 
 ## Context
 

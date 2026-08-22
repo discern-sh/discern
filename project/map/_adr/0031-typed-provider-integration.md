@@ -1,5 +1,9 @@
 # ADR 0031: One typed provider registry for every agent-specific integration
 
+> **Amendments.**
+>
+> - **[ADR 0034](0034-agents-md-untracked-currency-check.md):** the `guidanceFile.tracked` flag became `canonical`, decoupling the canonical pointer target from git tracking.
+
 **Status**: accepted; relates to [ADR 0030](_superseded/0030-quiet-json-output.md) (which adds the MCP-server steering this wires up)
 
 ## Context

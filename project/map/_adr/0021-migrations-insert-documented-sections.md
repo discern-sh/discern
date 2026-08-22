@@ -1,6 +1,8 @@
 # ADR 0021: Migrations insert a new section's documented block at its canonical position
 
-> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The `[recipes]` references below record the historical migration. Live config now uses `[scripts]`; the documented-block decision is unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0137](0137-project-scripts-live-under-the-script-command.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** the `[recipes]` references below record the historical migration — live config uses `[scripts]` — and current pointers use `[jobs]` / `[jobs.<name>]`, known/custom `job` (formerly `[capabilities]` / `[checks.<name>]`, gate `capability` / custom `check`); the documented-block decision is unchanged.
 
 **Status**: accepted
 

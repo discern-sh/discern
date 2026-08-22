@@ -1,5 +1,9 @@
 # ADR 0142: Customer binaries carry only the public documentation projection
 
+> **Amendments.**
+>
+> - **[ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md) — command naming:** `docs` now names the bundled manual and `help` the CLI reference; this record's `discern help`, `help --adr`, and `helpResult` spellings read accordingly.
+
 **Status**: accepted
 
 ## Context

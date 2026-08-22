@@ -1,6 +1,9 @@
 # ADR 0092: `upgrade` reconciles the fixed `discern.toml` scaffold
 
-> **Banner ownership amendment ([ADR 0138](0138-all-ruled-config-banners-are-managed.md)):** ruled fixed-section banners now refresh wholesale; comments attached to keys and comments outside those regions remain project-owned. **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The fixed config section is now `[scripts]`; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Co-managed seed` / co-managed file → `Shared file`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0137](0137-project-scripts-live-under-the-script-command.md), [ADR 0168](0168-the-gate-declares-jobs.md), [ADR 0169](0169-the-launch-glossary-canon.md)):** current spellings are `standards` (formerly `ratchets`), `[scripts]` for the fixed config section (formerly the Recipe section), `[jobs]` / `[jobs.<name>]` and known/custom `job` (formerly `[capabilities]` / `[checks.<name>]`, gate `capability` / custom `check`), and Shared file (formerly `Co-managed seed` / co-managed file); the retired product-category wording reads `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> - **[ADR 0138](0138-all-ruled-config-banners-are-managed.md) — banner ownership:** ruled fixed-section banners now refresh wholesale; comments attached to keys and comments outside those regions remain project-owned.
 
 **Status**: accepted
 

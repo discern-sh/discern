@@ -1,6 +1,9 @@
 # ADR 0029: A best-practices audit that splits deterministic from subjective rules
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** current pointers use `standards` (formerly `ratchets`) and `map` where `docs` names the command, config, or tree; the retired product-category wording reads as `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> - **[ADR 0079](0079-improvement-is-a-coach-not-an-audit.md) — ships as `improvement`:** the audit ships as `improvement`, reframed as a coach; the deterministic-rule / qualitative-review split decided here remains, and the `discern audit` spellings below are the record's own history.
 
 **Status**: accepted; renders off [ADR 0028](0028-result-envelope-and-diagnostics.md)
 

@@ -1,6 +1,9 @@
 # ADR 0047: `done` blocks a fix stage that strands uncommitted changes
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** current spellings are `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), and `discern`, the gate, or the bar for the retired product-category wording; the decision and reasoning are unchanged.
+> - **[ADR 0148](0148-strand-detection-covers-every-gate-stage.md) — widened coverage:** the strand check widened from the fix stage to every gate stage, and the failed-stage signal is renamed `fix_drift` → `tree_drift`; everything else about this record stands.
 
 **Status**: accepted. Mirrors, for the working tree, the generated-artifact currency check from [ADR 0034](0034-agents-md-untracked-currency-check.md); relies on the post-fix timing of the plan/apply seam ([ADR 0027](0027-plan-apply-engine-execution.md)) and rides in the result envelope from [ADR 0028](0028-result-envelope-and-diagnostics.md).
 

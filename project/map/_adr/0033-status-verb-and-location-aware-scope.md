@@ -1,6 +1,11 @@
 # ADR 0033: `status` — a read-only orientation verb with a location-aware default
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, `scopes` → `impact` where it names the verb, the shared-branch label → the trunk; the decision and reasoning are unchanged. **Current-state note.** The `discern start` follow-up referenced here as a TODO has shipped ([ADR 0058](0058-start-verb-spawn-worktree-from-trunk.md)). The location-based tool _visibility_ mentioned here was later retired ([ADR 0062](0062-mcp-server-working-root.md)), though the defensive refusals remain. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), `impact` where `scopes` names the verb, the trunk (formerly the shared-branch label), and known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
+> - **[ADR 0058](0058-start-verb-spawn-worktree-from-trunk.md) — `start` shipped:** the `discern start` follow-up referenced here as a TODO has shipped.
+> - **[ADR 0062](0062-mcp-server-working-root.md) — tool visibility:** the location-based tool _visibility_ mentioned here was later retired, though the defensive refusals remain.
+> - **[ADR 0079](0079-improvement-is-a-coach-not-an-audit.md) — `improvement`:** the audit verb ships as `improvement`; the partition described below reads accordingly.
 
 **Status**: accepted; builds on [ADR 0028](0028-result-envelope-and-diagnostics.md) (the result envelope) and [ADR 0030](_superseded/0030-quiet-json-output.md) (quiet `--json`); relates to [ADR 0029](0029-best-practices-audit.md) (the audit) and [ADR 0025](0025-worktree-resources.md) (per-worktree resources)
 

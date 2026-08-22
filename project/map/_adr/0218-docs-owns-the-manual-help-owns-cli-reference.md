@@ -1,8 +1,9 @@
 # ADR 0218: `docs` owns the manual; `help` owns CLI reference
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** The retired `[docs]` configuration spelling preserves its migration to `[map]`. `docs` is canonical again only as the bundled-manual command.
-
-> **Pre-tag reset amendment (2026-07-29; applies [ADR 0219](0219-public-install-schema-starts-at-one.md)):** Before the first release tag, an owner decision extended ADR 0219's reasoning to the public schemas: no released consumer holds the version-1 `help` publication, so freezing it would publish prerelease history as a permanent contract. The result contract is squashed to a single schema v1 carrying the live `docs` shapes at `schema/discern-results.schema.json`; the frozen pre-rename artifact and the `schema/v2/` path are deleted. This overrides the last alternative below for the pre-tag window: the append-only baseline of [ADR 0208](0208-public-contracts-version-by-schema-major.md) now arms at the first release tag. The same reset makes `discern-config.schema.json` validate a real `discern.toml` — the live schema the engine enforces — and moves the `setup --config`/preset document to its own identity, `discern-setup-config.schema.json`.
+> **Amendments.**
+>
+> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** the retired `[docs]` configuration spelling preserves its migration to `[map]`; `docs` is canonical again only as the bundled-manual command.
+> - **Pre-tag reset (2026-07-29; applies [ADR 0219](0219-public-install-schema-starts-at-one.md)):** before the first release tag, an owner decision extended ADR 0219's reasoning to the public schemas: no released consumer holds the version-1 `help` publication, so freezing it would publish prerelease history as a permanent contract. The result contract is squashed to a single schema v1 carrying the live `docs` shapes at `schema/discern-results.schema.json`; the frozen pre-rename artifact and the `schema/v2/` path are deleted. This overrides the last alternative below for the pre-tag window: the append-only baseline of [ADR 0208](0208-public-contracts-version-by-schema-major.md) now arms at the first release tag. The same reset makes `discern-config.schema.json` validate a real `discern.toml` — the live schema the engine enforces — and moves the `setup --config`/preset document to its own identity, `discern-setup-config.schema.json`.
 
 **Status**: accepted
 
