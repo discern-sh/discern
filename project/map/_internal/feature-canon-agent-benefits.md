@@ -15,7 +15,7 @@ _discern's canonical account of what the product gives the coding agent operatin
 
 ## At a glance
 
-- **Know the state and next move** — A coding agent can orient from one bounded result and continue from evidence-backed guidance instead of reconstructing workflow state.
+- **Know the state and next move** — A coding agent can orient from one bounded result and continue from an evidence-backed next action instead of reconstructing workflow state.
 - **Keep one effort mine** — A coding agent can keep one durable, isolated effort across sessions and compose with other work without taking ownership of it.
 - **Spend context on the change** — A coding agent can spend its attention on the changed behavior while discern schedules, bounds, and explains the routine validation work.
 - **Know what finished means** — A coding agent can distinguish iteration from completion and return proof, judgment evidence, and retained quality limits for the exact tree it finished.
@@ -27,7 +27,7 @@ _discern's canonical account of what the product gives the coding agent operatin
 
 ## Know the state and next move
 
-A coding agent can orient from one bounded result and continue from evidence-backed guidance instead of reconstructing workflow state.
+A coding agent can orient from one bounded result and continue from an evidence-backed next action instead of reconstructing workflow state.
 
 ### Orient from one bounded result
 
@@ -256,7 +256,7 @@ Every feature node has one global role: direct, supporting, or recorded absent. 
 ### Recorded feature absences
 
 - `desk` — The Desk is the person's interactive fleet surface; agents receive the same observable state through status and structured tools without its human action controls.
-- `tips` — Tips teach the person using the Desk; agent guidance is owned by registered hints, generated instructions, and authored skills instead.
+- `tips` — Tips teach the person using the Desk; agent instructions are owned by registered hints, generated instructions, and authored skills instead.
 
 ### Supporting-only feature roles
 

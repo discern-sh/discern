@@ -566,15 +566,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "checkpoint-question-files",
             title: "Repository-authored checkpoint questions",
             what:
-              "A project checkpoint may set one inline `question` or one project-relative `question_file`. Question files are bounded, UTF-8 Git blobs read from the governing policy tree, so substantial review criteria can be authored once without letting branch-local edits change their own obligation.",
+              "A project checkpoint may set one inline `question` or one project-relative `question_file`. Question files are bounded, UTF-8 Git blobs read from the governing policy tree, so substantial review questions can be authored once without letting branch-local edits change their own obligation.",
             why:
-              "A detailed judgment criterion can live as reviewable project prose while retaining the same governing-policy and subject-fingerprint contract as an inline question.",
+              "A detailed judgment question can live as reviewable project prose while retaining the same governing-policy and subject-fingerprint contract as an inline question.",
             plain: {
               title: "Detailed judgment questions can live in project files",
               what:
                 "A project judgment rule may contain one short question in the settings or point to one tracked project file. discern reads that bounded text from the shared version governing the task, so a task cannot rewrite its own question before answering it.",
               why:
-                "A detailed review criterion can be written once as ordinary project prose while remaining tied to the shared rule that governs the task.",
+                "A detailed review question can be written once as ordinary project prose while remaining tied to the shared rule that governs the task.",
             },
           },
         ],
@@ -3570,7 +3570,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
     id: "know-the-state-and-next-move",
     title: "Know the state and next move",
     promise:
-      "A coding agent can orient from one bounded result and continue from evidence-backed guidance instead of reconstructing workflow state.",
+      "A coding agent can orient from one bounded result and continue from an evidence-backed next action instead of reconstructing workflow state.",
     benefits: [
       {
         id: "orient-from-one-bounded-result",
@@ -4085,7 +4085,7 @@ export const AGENT_BENEFIT_COVERAGE_ABSENCES: Readonly<Record<string, string>> =
     desk:
       "The Desk is the person's interactive fleet surface; agents receive the same observable state through status and structured tools without its human action controls.",
     tips:
-      "Tips teach the person using the Desk; agent guidance is owned by registered hints, generated instructions, and authored skills instead.",
+      "Tips teach the person using the Desk; agent instructions are owned by registered hints, generated instructions, and authored skills instead.",
   };
 
 /** Agent-only hints deliberately outside the Agent Benefit Canon, with reasons. */
