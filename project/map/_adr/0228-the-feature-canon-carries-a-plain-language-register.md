@@ -4,6 +4,7 @@
 >
 > - **Vocabulary ([ADR 0234](0234-tips-are-the-desks-human-advisory-channel.md)):** the plain register now renders a hint as "an advice note" — "tip" names the desk's human advisory channel. The decision and reasoning are otherwise unchanged.
 > - **[ADR 0235](0235-plain-renderings-live-on-the-glossary-entry.md) — lexicon home:** the plain lexicon now lives as a required `plain` field on each glossary entry, and the key-set bijection guard became a compile-time requirement. The register itself — the accounts, the guards, the reading-grade ceiling — is unchanged.
+> - **[ADR 0311](0311-agent-benefits-compile-as-their-own-transposition.md) — agent-benefit authority:** the plain feature account remains total, while the former `plain.agent` twin moves with the technical agent axis into the dedicated agent transposition.
 
 **Status**: accepted. Extends the feature registry ([ADR 0175](0175-the-feature-canon-compiles-from-a-feature-registry.md)) and the agent-experience axis ([ADR 0179](0179-the-feature-canon-carries-an-agent-experience-axis.md)).
 

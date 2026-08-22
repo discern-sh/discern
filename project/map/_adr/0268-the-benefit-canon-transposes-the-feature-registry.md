@@ -1,5 +1,9 @@
 # ADR 0268: The benefit canon transposes the feature registry
 
+> **Amendments.**
+>
+> - **[ADR 0311](0311-agent-benefits-compile-as-their-own-transposition.md) — audience scope:** this commercial transposition is now named the Human Benefit Canon. Coding-agent outcomes compile from their own exhaustive transposition over the same feature identities.
+
 **Status**: accepted; **amended by [ADR 0270](0270-the-benefit-canon-separates-value-from-claim-qualification.md)**, which replaces inline benefit caveats with a separate commercial-value and causal-support register.
 
 ## Context

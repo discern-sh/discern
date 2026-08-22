@@ -1,5 +1,9 @@
 # ADR 0179: The feature canon carries an agent-experience axis
 
+> **Amendments.**
+>
+> - **[ADR 0311](0311-agent-benefits-compile-as-their-own-transposition.md) — agent-benefit authority:** the optional inline `agent` and `hints` fields move into an exhaustive outcome-first agent transposition. The feature tree remains the shared identity and mechanism authority.
+
 **Status**: accepted; extends the feature registry ([ADR 0175](0175-the-feature-canon-compiles-from-a-feature-registry.md)) and reads the hint registry's audience contract ([ADR 0172](0172-hints-compile-from-a-registry.md)).
 
 ## Context
