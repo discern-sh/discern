@@ -37,6 +37,8 @@ import { HINTS } from "../src/shared/hints.ts";
 import { CLAIMS, type ClaimSlug } from "./brand/claims.ts";
 import { annotateProse } from "./canon_editor/annotation.ts";
 
+// discern-canon-section: feature
+
 /**
  * The plain-language reading of one node — the same feature retold for a
  * non-technical owner, in the register the plain canon page renders (ADR
@@ -2630,6 +2632,7 @@ export function renderFeatureCanonPlainDoc(): string {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// discern-canon-section: human-benefit
 // The human benefit canon — the commercially ordered, outcome-first
 // transposition of the feature canon (ADRs 0268 and 0270). Commercial value and the reason it
 // follows are separate fields, so the canon can brief persuasive work without
@@ -3518,6 +3521,7 @@ export function renderFeatureCanonHumanBenefitsDoc(): string {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// discern-canon-section: agent-benefit
 // The agent benefit canon — the outcome-first transposition of the feature
 // canon for the coding agent operating discern. It owns the answer to “what
 // does this buy the agent?”, while FEATURE_CANON owns product identity and the

@@ -14,21 +14,10 @@
  */
 
 import { isAbsolute } from "@std/path";
-import {
-  CHECKPOINT_CHANGE_KINDS,
-  CHECKPOINT_MODES,
-  CHECKPOINT_WHEN_INPUT_VERSION,
-  type CheckpointChangeKind,
-  type CheckpointMode,
-  type CheckpointWhenInput,
-} from "../../src/shared/checkpoints.ts";
+import type { CheckpointWhenInput } from "../../src/shared/checkpoints.ts";
 import { parseConfig } from "../../src/shared/config_schema.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../../src/shared/environment_variables.ts";
 import { normalizeMapDir } from "../../src/shared/map_path.ts";
-import {
-  projectRelativePathIssue,
-  resolveContainedProjectReadPath,
-} from "../../src/shared/project_path.ts";
+import { resolveContainedProjectReadPath } from "../../src/shared/project_path.ts";
 import { type GitResult, runGit } from "../../src/shared/subprocess.ts";
 import { parseFrontmatter } from "../../src/lib/frontmatter.ts";
 import { type DocEntry, isPublicDoc } from "../../src/lib/docs.ts";
@@ -37,6 +26,10 @@ import {
   MANUAL_SECTION_REGISTRY,
   type ManualSectionRegistration,
 } from "../../src/lib/paths.ts";
+import {
+  checkpointWhenInputFromEnvironment,
+  parseCheckpointWhenInput,
+} from "./checkpoint_when_input.ts";
 
 /** The one checkpoint this command is safe to serve. */
 export const PUBLIC_DOC_CHECKPOINT_ID = "public-doc-audience";
@@ -54,7 +47,6 @@ export const PUBLIC_DOC_CHECKPOINT_MAX_PAGE_BYTES = 1024 * 1024;
 export const PUBLIC_DOC_CHECKPOINT_MAX_TOTAL_PAGE_BYTES = 4 * 1024 * 1024;
 
 const POLICY_CONFIG_MAX_BYTES = 1024 * 1024;
-const MAX_PATH_BYTES = 4_096;
 const GIT_TIMEOUT_MS = 2_000;
 const UTF8_ENCODER = new TextEncoder();
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
@@ -81,181 +73,16 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
-/** Require a decoded JSON object. */
-function record(value: unknown, label: string): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return fail(`${label} must be a JSON object`);
-  }
-  return value as Record<string, unknown>;
-}
-
-/** Require an object's exact versioned field set. */
-function exactKeys(
-  value: Readonly<Record<string, unknown>>,
-  required: readonly string[],
-  optional: readonly string[],
-  label: string,
-): void {
-  const admitted = new Set([...required, ...optional]);
-  const missing = required.filter((key) => !(key in value));
-  const extra = Object.keys(value).filter((key) => !admitted.has(key));
-  if (missing.length > 0 || extra.length > 0) {
-    const facts = [
-      ...(missing.length > 0 ? [`missing ${missing.join(", ")}`] : []),
-      ...(extra.length > 0 ? [`unknown ${extra.join(", ")}`] : []),
-    ];
-    fail(`${label} has the wrong fields (${facts.join("; ")})`);
-  }
-}
-
-/** Require one JSON string field. */
-function stringValue(value: unknown, label: string): string {
-  if (typeof value !== "string") return fail(`${label} must be a string`);
-  return value;
-}
-
-/** Require one non-negative safe integer field. */
-function nonNegativeInteger(value: unknown, label: string): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 0) {
-    return fail(`${label} must be a non-negative safe integer`);
-  }
-  return value as number;
-}
-
-/** Decode one checkpoint mode against the shared registry. */
-function checkpointMode(value: unknown): CheckpointMode {
-  for (const mode of CHECKPOINT_MODES) {
-    if (value === mode) return mode;
-  }
-  return fail("checkpoint.mode is not a supported checkpoint mode");
-}
-
-/** Decode one change kind against the shared registry. */
-function changeKind(value: unknown, label: string): CheckpointChangeKind {
-  for (const kind of CHECKPOINT_CHANGE_KINDS) {
-    if (value === kind) return kind;
-  }
-  return fail(`${label} is not a supported change kind`);
-}
-
-/** Decode one bounded changed-file fact. */
-function changedFile(
-  value: unknown,
-  index: number,
-): CheckpointWhenInput["changed_files"][number] {
-  const label = `changed_files[${index}]`;
-  const item = record(value, label);
-  exactKeys(
-    item,
-    ["path", "kind", "insertions", "deletions", "binary"],
-    [],
-    label,
-  );
-  const path = stringValue(item.path, `${label}.path`);
-  if (
-    UTF8_ENCODER.encode(path).byteLength > MAX_PATH_BYTES ||
-    projectRelativePathIssue(path) !== undefined
-  ) {
-    fail(`${label}.path must be a bounded portable project-relative path`);
-  }
-  if (typeof item.binary !== "boolean") {
-    fail(`${label}.binary must be a Boolean`);
-  }
-  return {
-    path,
-    kind: changeKind(item.kind, `${label}.kind`),
-    insertions: nonNegativeInteger(item.insertions, `${label}.insertions`),
-    deletions: nonNegativeInteger(item.deletions, `${label}.deletions`),
-    binary: item.binary,
-  };
-}
-
-/** Decode optional checkpoint replay history. */
-function historyValue(
-  value: unknown,
-): NonNullable<CheckpointWhenInput["history"]> {
-  const history = record(value, "history");
-  exactKeys(history, ["count", "fingerprint"], [], "history");
-  const fingerprint = stringValue(
-    history.fingerprint,
-    "history.fingerprint",
-  );
-  if (!/^[0-9a-f]{64}$/.test(fingerprint)) {
-    fail("history.fingerprint must be a lowercase SHA-256 digest");
-  }
-  return {
-    count: nonNegativeInteger(history.count, "history.count"),
-    fingerprint,
-  };
-}
-
 /** Parse and strictly validate one version-1 checkpoint input document. */
 export function parsePublicDocCheckpointInput(
   text: string,
 ): CheckpointWhenInput {
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(text);
-  } catch {
-    return fail("checkpoint input is not valid JSON");
-  }
-  const input = record(decoded, "checkpoint input");
-  exactKeys(
-    input,
-    ["version", "checkpoint", "policy_commit", "changed_files"],
-    ["history"],
-    "checkpoint input",
-  );
-  if (input.version !== CHECKPOINT_WHEN_INPUT_VERSION) {
-    fail(
-      `checkpoint input version must be ${CHECKPOINT_WHEN_INPUT_VERSION}`,
-    );
-  }
-
-  const checkpoint = record(input.checkpoint, "checkpoint");
-  exactKeys(checkpoint, ["id", "mode"], [], "checkpoint");
-  const id = stringValue(checkpoint.id, "checkpoint.id");
-  if (id !== PUBLIC_DOC_CHECKPOINT_ID) {
-    fail(`checkpoint.id must be ${PUBLIC_DOC_CHECKPOINT_ID}`);
-  }
-  const mode = checkpointMode(checkpoint.mode);
-  if (mode !== "stop") {
-    fail(`${PUBLIC_DOC_CHECKPOINT_ID} must run in stop mode`);
-  }
-
-  const policyCommit = stringValue(input.policy_commit, "policy_commit");
-  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(policyCommit)) {
-    fail("policy_commit must be a lowercase Git object id");
-  }
-  if (!Array.isArray(input.changed_files)) {
-    fail("changed_files must be an array");
-  }
-  if (input.changed_files.length > PUBLIC_DOC_CHECKPOINT_MAX_CHANGED_FILES) {
-    fail(
-      `changed_files exceeds the ${PUBLIC_DOC_CHECKPOINT_MAX_CHANGED_FILES}-file limit`,
-    );
-  }
-  const changedFiles = input.changed_files.map(changedFile);
-  for (let index = 1; index < changedFiles.length; index += 1) {
-    const previous = changedFiles[index - 1]?.path;
-    const current = changedFiles[index]?.path;
-    if (
-      previous === undefined || current === undefined || previous >= current
-    ) {
-      fail("changed_files paths must be unique and sorted");
-    }
-  }
-
-  const history = input.history === undefined
-    ? undefined
-    : historyValue(input.history);
-  return {
-    version: CHECKPOINT_WHEN_INPUT_VERSION,
-    checkpoint: { id, mode },
-    policy_commit: policyCommit,
-    changed_files: changedFiles,
-    ...(history === undefined ? {} : { history }),
-  };
+  return parseCheckpointWhenInput(text, {
+    id: PUBLIC_DOC_CHECKPOINT_ID,
+    mode: "stop",
+    maxInputBytes: PUBLIC_DOC_CHECKPOINT_INPUT_MAX_BYTES,
+    maxChangedFiles: PUBLIC_DOC_CHECKPOINT_MAX_CHANGED_FILES,
+  });
 }
 
 /** Decode bytes as strict UTF-8. */
@@ -461,37 +288,14 @@ export async function matchingPublicDocChanges(
   return matches;
 }
 
-/** Read and validate the engine-authored input artifact. */
-async function checkpointInputFromFile(
-  path: string,
-): Promise<CheckpointWhenInput> {
-  if (!isAbsolute(path)) {
-    return fail("DISCERN_CHECKPOINT_INPUT must be an absolute path");
-  }
-  const info = await Deno.lstat(path).catch(() => undefined);
-  if (info === undefined || !info.isFile || info.isSymlink) {
-    return fail("DISCERN_CHECKPOINT_INPUT must name a regular file");
-  }
-  if (info.size > PUBLIC_DOC_CHECKPOINT_INPUT_MAX_BYTES) {
-    return fail("DISCERN_CHECKPOINT_INPUT exceeds the input-size limit");
-  }
-  const bytes = await Deno.readFile(path);
-  if (bytes.byteLength > PUBLIC_DOC_CHECKPOINT_INPUT_MAX_BYTES) {
-    return fail("DISCERN_CHECKPOINT_INPUT grew beyond the input-size limit");
-  }
-  return parsePublicDocCheckpointInput(
-    exactUtf8(bytes, "DISCERN_CHECKPOINT_INPUT"),
-  );
-}
-
 /** Run the read-only checkpoint command. */
 async function main(): Promise<number> {
-  const variable = DISCERN_ENVIRONMENT_VARIABLES.checkpointInput;
-  const inputPath = Deno.env.get(variable);
-  if (inputPath === undefined || inputPath === "") {
-    return fail(`${variable} is not set`);
-  }
-  const input = await checkpointInputFromFile(inputPath);
+  const input = await checkpointWhenInputFromEnvironment({
+    id: PUBLIC_DOC_CHECKPOINT_ID,
+    mode: "stop",
+    maxInputBytes: PUBLIC_DOC_CHECKPOINT_INPUT_MAX_BYTES,
+    maxChangedFiles: PUBLIC_DOC_CHECKPOINT_MAX_CHANGED_FILES,
+  });
   const matches = await matchingPublicDocChanges(Deno.cwd(), input);
   for (const path of matches) console.log(`DISCERN_MATCH ${path}`);
   return matches.length > 0 ? 0 : 1;

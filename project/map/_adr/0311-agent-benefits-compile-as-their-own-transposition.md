@@ -24,6 +24,10 @@ The existing commercial transposition becomes the **Human Benefit Canon** in its
 
 Canon Editor treats the agent transposition as a prose registry and generated editing surface. Agent value stays separate from operating instructions: `value` states the outcome without command or config syntax, `whyItFollows` names the mechanisms, and `boundary` states the limit. The live instruction and result contracts remain the authorities for what an agent should do next.
 
+The Practice Canon binds its obligations to these outcomes by individual entry id. Every tenet declares at least one `agentYields` outcome; properties may declare outcomes that follow from their nature rather than an obligation. Reverse enrolment derives from `allAgentBenefitEntries()`: each outcome must have a tenet or property carrier, or a reasoned absence, and a fresh outcome fails the guard without changing that guard. The generated Practice Canon renders both the forward claims and an outcome-to-practice index; Canon Editor projects the same relationship in both directions.
+
+discern's own `feature-benefit-currency` checkpoint compares the Feature, Human Benefit, and Agent Benefit regions of their shared source independently between the governing commit and the candidate. A product change remains advisory while any region is unchanged; only changes in all three regions suppress it. The matcher decides whether review is still needed, not whether an unchanged region is wrong. Stable source markers define the regions, a bounded read-only command performs the comparison, and malformed input or source fails open as an ordinary dropped `when` command.
+
 ## Consequences
 
 - A feature change now has explicit agent-value enrollment. Omission has a recorded meaning instead of an ambiguous absent field.
@@ -31,6 +35,8 @@ Canon Editor treats the agent transposition as a prose registry and generated ed
 - Technical, plain, human-value, and agent-value projections share one feature identity while keeping their registers and readers separate.
 - The registry and generated map grow. The agent page is exhaustive in its appendices and bounded in its opening summary.
 - Agent benefit prose becomes another canonical set maintained by codegen, Canon Editor, and Gate guards. Adding a benefit requires value, mechanism, boundary, and traceability decisions.
+- Adding an agent outcome also forces an explicit Practice Canon decision, so "why should an agent follow this practice?" remains mechanically answerable as either a tenet/property claim or a reasoned absence.
+- Touching one portion of the shared feature registry no longer hides untouched canon accounts from the dogfood currency advisory.
 - Existing inline agent sentences move rather than survive as a second authority. Historical wording remains available in Git history and the earlier decision record.
 
 ## Alternatives considered
@@ -39,3 +45,4 @@ Canon Editor treats the agent transposition as a prose registry and generated ed
 - **Add coding agents to every Human Benefit Canon cluster.** Rejected because human commercial value and coding-agent operating value use different ordering, language, and boundaries.
 - **Generate an agent page from the existing optional fields.** Rejected because a filtered incomplete set preserves the ambiguity and yields no coverage contract.
 - **Keep hint references soft.** Rejected for agent-audience hints because those instructions implement central agent outcomes. Hints for all audiences remain outside this enrollment requirement.
+- **Split the three registries into separate modules for checkpoint precision.** Rejected because the transpositions intentionally share feature identities, types, and render helpers, while `unless_changed` is a path-wide veto: touching any listed module would still suppress one combined checkpoint. Independent source-region comparison provides the missing precision without manufacturing module boundaries or three duplicate questions.

@@ -144,7 +144,18 @@ Deno.test("discern resolves exactly seven project boundary checkpoints", () => {
   );
   assertEquals(
     checkpoint("feature-benefit-currency").unlessChanged,
-    ["scripts/feature_registry.ts"],
+    [],
+  );
+  assertEquals(
+    checkpoint("feature-benefit-currency").when,
+    "deno run --quiet --no-prompt --allow-read " +
+      "--allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git " +
+      "project/scripts/feature_benefit_currency_checkpoint.ts",
+  );
+  assertEquals(
+    checkpoint("feature-benefit-currency").teach,
+    "The matcher compares all three canon regions independently; " +
+      "an unchanged region may be correct, but it still needs review.",
   );
 
   const mapFocus = checkpoint("map-focus");
