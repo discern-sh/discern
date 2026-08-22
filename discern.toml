@@ -261,6 +261,18 @@
     ]
     neutral = true
 
+  # The Little Picture: everything discern does, and everything it doesn't, nothing
+  # more and nothing less. Used by the maintainer with `discern map --export`.
+  [scopes.little-picture]
+    paths = [
+      "${map.dir}00-orientation/concepts.md",
+      "${map.dir}_internal/brand/boundary-canon.md",
+      "${map.dir}_internal/feature-canon.md",
+      "${map.dir}_internal/feature-canon-human-benefits.md",
+      "${map.dir}_internal/feature-canon-agent-benefits.md",
+    ]
+    neutral = true
+
   # The Commercial Picture: a compact, strategy-first reading list for an
   # external reader who needs the audience, demand, value, evidence, boundaries,
   # and brand expression without the full product-reference inventories.
@@ -274,6 +286,7 @@
       "${map.dir}_internal/practice-canon.md",
       "${map.dir}00-orientation/trust-and-data.md",
       "${map.dir}_internal/feature-canon.md",
+      "${map.dir}_internal/feature-canon-agent-benefits.md",
       "${map.dir}_internal/brand/boundary-canon.md",
       "${map.dir}_internal/brand/claims-and-evidence.md",
       "${map.dir}_internal/brand/register-bridge.md",
