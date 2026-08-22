@@ -52,6 +52,7 @@ export const EVIDENCE_CLASSES: Readonly<
 /** The twenty public claims, slugs as keys, in ledger order. */
 export const CLAIMS = {
   "installs-a-practice": {
+    audience: "shared",
     title: "discern installs an engineering practice into a project",
     evidence: ["structural", "demonstrated"],
     strongestPublicForm:
@@ -65,6 +66,7 @@ export const CLAIMS = {
     primarySource: "setup brief; feature registry/canon.",
   },
   "no-manual-configuration": {
+    audience: "human",
     title: "the human does not manually configure discern",
     evidence: ["structural", "demonstrated"],
     strongestPublicForm:
@@ -78,6 +80,7 @@ export const CLAIMS = {
     primarySource: "`discern setup begin` brief.",
   },
   "one-instruction-source": {
+    audience: "shared",
     title: "every configured provider receives the same project instructions",
     evidence: ["structural"],
     strongestPublicForm:
@@ -91,6 +94,7 @@ export const CLAIMS = {
     primarySource: "feature registry/canon; config schema; glossary.",
   },
   "switch-without-reteaching": {
+    audience: "shared",
     title: "switching providers does not require re-teaching the project",
     evidence: ["structural", "demonstrated"],
     strongestPublicForm:
@@ -106,6 +110,7 @@ export const CLAIMS = {
       "provider instructions registry; setup and refresh behavior.",
   },
   "shaped-delegation": {
+    audience: "shared",
     title:
       "substantial delegated work can be shaped into parallel or staged programs",
     evidence: ["structural", "demonstrated"],
@@ -120,6 +125,7 @@ export const CLAIMS = {
     primarySource: "`discern-delegate-work` Skill.",
   },
   "reduced-review-burden": {
+    audience: "human",
     title: "discern supports reduced human line-by-line review",
     evidence: ["demonstrated", "observational"],
     strongestPublicForm:
@@ -136,6 +142,7 @@ export const CLAIMS = {
       "founder account; Gate instructions; Delegate Work Skill; current practice evidence.",
   },
   "isolated-worktrees": {
+    audience: "shared",
     title: "each task receives an isolated worktree and declared resources",
     evidence: ["structural"],
     strongestPublicForm:
@@ -148,6 +155,7 @@ export const CLAIMS = {
     primarySource: "feature registry/canon; worktree config and glossary.",
   },
   "no-checkout-collisions": {
+    audience: "shared",
     title: "parallel efforts cannot overwrite the same checkout",
     evidence: ["structural"],
     strongestPublicForm:
@@ -159,6 +167,7 @@ export const CLAIMS = {
     primarySource: "worktree lifecycle and fleet collision behavior.",
   },
   "standards-cannot-loosen": {
+    audience: "shared",
     title: "a Standard cannot be loosened on a branch",
     evidence: ["structural"],
     strongestPublicForm:
@@ -171,6 +180,7 @@ export const CLAIMS = {
     primarySource: "Standards registry, config schema, feature canon.",
   },
   "pin-measured-gains": {
+    audience: "shared",
     title: "measured gains can be captured",
     evidence: ["structural"],
     strongestPublicForm:
@@ -183,6 +193,7 @@ export const CLAIMS = {
     primarySource: "Standards documentation and command behavior.",
   },
   "proof-exact-tree": {
+    audience: "shared",
     title: "Proof covers the exact committed tree that passed",
     evidence: ["structural"],
     strongestPublicForm:
@@ -197,6 +208,7 @@ export const CLAIMS = {
       "Proof implementation, glossary, Gate behavior, and DSSE-compatible note boundary.",
   },
   "gate-grants-no-authority": {
+    audience: "shared",
     title: "a passing Gate does not grant authority to land",
     evidence: ["structural"],
     strongestPublicForm:
@@ -210,6 +222,7 @@ export const CLAIMS = {
     primarySource: "landing authority, acceptance config, Delegate Work Skill.",
   },
   "no-model-inside": {
+    audience: "shared",
     title: "discern contains no AI model and needs no API key",
     evidence: ["structural"],
     strongestPublicForm:
@@ -223,6 +236,7 @@ export const CLAIMS = {
     primarySource: "Foundations; CLI tips; product architecture.",
   },
   "local-logbook": {
+    audience: "shared",
     title: "evidence and the Logbook stay local",
     evidence: ["structural"],
     strongestPublicForm:
@@ -236,6 +250,7 @@ export const CLAIMS = {
     primarySource: "Logbook glossary and feature canon.",
   },
   "patterns-compare-cohorts": {
+    audience: "human",
     title: "Patterns can compare cohorts and configurations",
     evidence: ["structural", "demonstrated"],
     strongestPublicForm:
@@ -251,6 +266,7 @@ export const CLAIMS = {
       "current `discern patterns --json` output and Patterns implementation.",
   },
   "one-config-file": {
+    audience: "shared",
     title: "one configuration file governs the installation",
     evidence: ["structural"],
     strongestPublicForm:
@@ -262,6 +278,7 @@ export const CLAIMS = {
     primarySource: "config reference; one-file-settings tip.",
   },
   "setup-proves-worktree": {
+    audience: "shared",
     title: "setup proves the project runs in a worktree",
     evidence: ["structural", "demonstrated"],
     strongestPublicForm:
@@ -274,6 +291,7 @@ export const CLAIMS = {
     primarySource: "setup brief.",
   },
   "map-mechanically-checked": {
+    audience: "shared",
     title: "the Map is mechanically checked",
     evidence: ["structural"],
     strongestPublicForm:
@@ -285,6 +303,7 @@ export const CLAIMS = {
     primarySource: "Map integrity behavior and feature canon.",
   },
   "agent-as-operator": {
+    audience: "coding-agent",
     title: "discern is designed around the coding agent as operator",
     evidence: ["structural"],
     strongestPublicForm:
@@ -296,6 +315,7 @@ export const CLAIMS = {
     primarySource: "Foundations; interfaces; hint audience registry.",
   },
   "runs-on-itself": {
+    audience: "shared",
     title: "discern runs on itself",
     evidence: ["demonstrated", "observational"],
     strongestPublicForm:
@@ -351,6 +371,7 @@ function renderClaim(slug: string, claim: Claim): string {
   const lines = [
     `### ${claimHeading(slug, claimProse(slug, "title", claim.title))}`,
     "",
+    `- **Audience:** ${claim.audience}`,
     `- **Evidence:** ${claim.evidence.join(" / ")}`,
     `- **Strongest supported public form:** “${
       claimProse(slug, "strongestPublicForm", claim.strongestPublicForm)

@@ -62,10 +62,18 @@ export const PROSE_REGISTRIES: readonly RegistrySpec[] = [
   {
     name: "benefit",
     file: "scripts/feature_registry.ts",
-    exportName: "BENEFIT_CANON",
+    exportName: "HUMAN_BENEFIT_CANON",
     keyField: "id",
     childField: "benefits",
     kinds: ["cluster", "benefit"],
+  },
+  {
+    name: "agent-benefit",
+    file: "scripts/feature_registry.ts",
+    exportName: "AGENT_BENEFIT_CANON",
+    keyField: "id",
+    childField: "benefits",
+    kinds: ["cluster", "agent benefit"],
   },
   {
     name: "demand",

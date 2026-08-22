@@ -69,8 +69,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 38      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 50      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 130     | —                | —                           |
-| [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 45      | —                | —                           |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 138     | —                | —                           |
+| [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                    | `scripts/feature_registry.ts#HUMAN_BENEFIT_CANON`                                 | 45      | —                | —                           |
+| [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                    | `scripts/feature_registry.ts#AGENT_BENEFIT_CANON`                                 | 24      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 45      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
@@ -83,7 +84,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 300     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 301     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -96,9 +97,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 85      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 86      | —                | node `canonical-sets`       |
 
-85 sets · 134 guard tests · 57 committed artifacts.
+86 sets · 135 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -136,7 +137,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/browser_art_rule_test.ts`                   | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/browser_art_seal_test.ts`                   | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/built_in_step_labels_test.ts`               | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `tests/canon_editor_parity_test.ts`                | [`brand-claims`](#brand-claims--brand-claims-ledger), [`demand-canon`](#demand-canon--demand-canon), [`glossary-terms`](#glossary-terms--glossary-terms), [`feature-canon`](#feature-canon--feature-canon), [`benefit-canon`](#benefit-canon--benefit-canon), [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                   |
+| `tests/canon_editor_parity_test.ts`                | [`brand-claims`](#brand-claims--brand-claims-ledger), [`demand-canon`](#demand-canon--demand-canon), [`glossary-terms`](#glossary-terms--glossary-terms), [`feature-canon`](#feature-canon--feature-canon), [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon), [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon), [`practice-tenets`](#practice-tenets--practice-canon)                                                                             |
 | `tests/canonical_sets_enrolment_test.ts`           | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/checkpoints_policy_test.ts`                 | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/checkpoints_subject_test.ts`                | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -183,9 +184,10 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/environment_variables_enrolment_test.ts`    | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/execution_model_test.ts`                    | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/experimental_environment_enrolment_test.ts` | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                       |
-| `tests/feature_canon_benefit_test.ts`              | [`benefit-canon`](#benefit-canon--benefit-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `tests/feature_canon_codegen_test.ts`              | [`feature-canon`](#feature-canon--feature-canon), [`benefit-canon`](#benefit-canon--benefit-canon)                                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/feature_canon_agent_benefit_test.ts`        | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/feature_canon_codegen_test.ts`              | [`feature-canon`](#feature-canon--feature-canon), [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon), [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                                                                                                                                                                                                                                                              |
 | `tests/feature_canon_enrolment_test.ts`            | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`config-tables`](#config-tables--config-tables), [`bundled-skills`](#bundled-skills--bundled-skills), [`agent-providers`](#agent-providers--agent-providers), [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                          |
+| `tests/feature_canon_human_benefit_test.ts`        | [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/feature_canon_plain_register_test.ts`       | [`glossary-terms`](#glossary-terms--glossary-terms), [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/first_party_licenses_test.ts`               | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/gate_diagnostics_test.ts`                   | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -280,7 +282,8 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `project/map/_internal/brand/register-bridge.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
 | `project/map/_internal/brand/visual-identity.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
 | `project/map/_internal/cross-agent-behaviour-reference.md` | generated file   | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                              |
-| `project/map/_internal/feature-canon-benefits.md`          | generated file   | [`benefit-canon`](#benefit-canon--benefit-canon)                                                                  |
+| `project/map/_internal/feature-canon-agent-benefits.md`    | generated file   | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                |
+| `project/map/_internal/feature-canon-human-benefits.md`    | generated file   | [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                |
 | `project/map/_internal/feature-canon-plain.md`             | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                                  |
 | `project/map/_internal/feature-canon.md`                   | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                                  |
 | `project/map/_internal/hint-inventory.md`                  | generated file   | [`hints`](#hints--hints)                                                                                          |
@@ -1151,7 +1154,7 @@ The shared strategic-document sequence that the brand voice Skill and the homepa
 
 ## `demand-canon` — Demand canon
 
-The market-side counterpart of the benefit canon: evidence-tagged struggling moments with their current alternatives and forces, held to two-way coverage against the benefits and rendered into the demand page the brand-documents set owns.
+The market-side counterpart of the Human Benefit Canon: evidence-tagged struggling moments with their current alternatives and forces, held to two-way coverage against the benefits and rendered into the demand page the brand-documents set owns.
 
 - Source: `scripts/brand/demand.ts` — `DEMAND_CANON`
 - Members: 46
@@ -1919,7 +1922,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 130
+- Members: 138
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -1948,6 +1951,9 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `proof-notes`
   - `unchanged-tree-rerun`
   - `checkpoints`
+  - `checkpoint-ci-report`
+  - `checkpoint-drops`
+  - `checkpoint-question-files`
   - `standards`
   - `standards-direction`
   - `standards-metric-protocol`
@@ -2009,11 +2015,14 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `glossary-canon`
   - `insight`
   - `status`
+  - `bounded-status-projection`
+  - `owner-attention`
   - `impact`
   - `coupling`
   - `improvement`
   - `logbook`
   - `patterns`
+  - `patterns-investigations`
   - `hints`
   - `install`
   - `setup`
@@ -2030,6 +2039,8 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `licenses`
   - `interfaces`
   - `result-envelope`
+  - `authored-markdown-results`
+  - `failure-recovery-contract`
   - `plan-apply`
   - `idempotent-verbs`
   - `mcp-surface`
@@ -2055,11 +2066,11 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
 - Glossary: not enrolled — this maintainer registry supplies the Feature canon's data
 - Feature canon: not enrolled — this is the enrolling registry; its nodes describe the product capabilities
 
-## `benefit-canon` — Benefit canon
+## `human-benefit-canon` — Human Benefit Canon
 
-The commercially ordered transposition of the feature registry: human value and the reason it follows, with explicit feature and public-claim traceability.
+The commercially ordered human transposition of the feature registry: human value and the reason it follows, with explicit feature and public-claim traceability.
 
-- Source: `scripts/feature_registry.ts` — `BENEFIT_CANON`
+- Source: `scripts/feature_registry.ts` — `HUMAN_BENEFIT_CANON`
 - Members: 45
   - `shape-substantial-work`
   - `parallel-work-on-one-machine`
@@ -2106,14 +2117,49 @@ The commercially ordered transposition of the feature registry: human value and 
   - `retain-work-after-uninstall`
   - `local-without-another-model`
   - `explicit-write-authority`
-- Guards: `tests/feature_canon_benefit_test.ts`, `tests/feature_canon_codegen_test.ts`, `tests/canon_editor_parity_test.ts`
-- Artifacts: `project/map/_internal/feature-canon-benefits.md`
-- Glossary: not enrolled — this maintainer registry supplies the benefit canon's data
-- Feature canon: not enrolled — the benefit canon is the feature canon's own transposition; its entries cite feature nodes rather than claim surfaces
+- Guards: `tests/feature_canon_human_benefit_test.ts`, `tests/feature_canon_codegen_test.ts`, `tests/canon_editor_parity_test.ts`
+- Artifacts: `project/map/_internal/feature-canon-human-benefits.md`
+- Glossary: not enrolled — this maintainer registry supplies the Human Benefit Canon's data
+- Feature canon: not enrolled — the Human Benefit Canon is the feature canon's human-value transposition; its entries cite feature nodes rather than claim surfaces
+
+## `agent-benefit-canon` — Agent Benefit Canon
+
+The exhaustive coding-agent transposition of the feature registry: agent value, mechanism, boundary, direct and supporting feature roles, agent hints, and agent or shared public claims.
+
+- Source: `scripts/feature_registry.ts` — `AGENT_BENEFIT_CANON`
+- Members: 24
+  - `orient-from-one-bounded-result`
+  - `recover-from-a-truthful-refusal`
+  - `see-the-change-discern-sees`
+  - `own-one-isolated-effort`
+  - `compose-without-adopting-sibling-work`
+  - `resume-after-interruption`
+  - `run-the-relevant-gate-efficiently`
+  - `use-a-fast-inner-loop`
+  - `load-only-the-context-needed`
+  - `prove-the-exact-tree`
+  - `carry-judgment-as-judgment`
+  - `retain-earned-quality`
+  - `preview-and-retry-effects-safely`
+  - `land-only-with-release-authority`
+  - `manage-the-installation-lifecycle`
+  - `inherit-current-agent-instructions`
+  - `recover-the-project-mental-model`
+  - `invoke-curated-project-procedures`
+  - `let-new-members-enrol-themselves`
+  - `diagnose-workflow-friction-locally`
+  - `operate-without-a-hidden-model`
+  - `operate-as-the-primary-user`
+  - `switch-supported-agent-hosts`
+  - `apply-one-practice-to-any-stack`
+- Guards: `tests/feature_canon_agent_benefit_test.ts`, `tests/feature_canon_codegen_test.ts`, `tests/canon_editor_parity_test.ts`
+- Artifacts: `project/map/_internal/feature-canon-agent-benefits.md`
+- Glossary: not enrolled — this maintainer registry supplies the Agent Benefit Canon's data
+- Feature canon: not enrolled — the Agent Benefit Canon is the Feature canon's coding-agent transposition; its entries cite feature nodes instead of claiming product surfaces
 
 ## `practice-tenets` — Practice canon
 
-The practice registry behind the practice canon: the obligations upheld by enforcement, automation, and teaching, each tenet citing its feature-canon mechanisms, its benefit-canon yields, and the project-inventory items it maintains.
+The practice registry behind the practice canon: the obligations upheld by enforcement, automation, and teaching, each tenet citing its feature-canon mechanisms, its Human Benefit Canon yields, and the project-inventory items it maintains.
 
 - Source: `scripts/practice_registry.ts` — `PRACTICE_CANON`
 - Members: 12
@@ -2401,7 +2447,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 300
+- Members: 301
   - `0003`
   - `0005`
   - `0006`
@@ -2681,6 +2727,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0308`
   - `0309`
   - `0310`
+  - `0311`
   - `0001`
   - `0002`
   - `0004`
@@ -2980,7 +3027,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Instruct
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 85
+- Members: 86
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -3039,7 +3086,8 @@ This meta-registry: the closed set of closed sets.
   - `improve-categories`
   - `glossary-terms`
   - `feature-canon`
-  - `benefit-canon`
+  - `human-benefit-canon`
+  - `agent-benefit-canon`
   - `practice-tenets`
   - `result-contracts`
   - `result-contract-reference-fields`

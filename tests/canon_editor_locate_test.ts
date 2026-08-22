@@ -99,8 +99,11 @@ Deno.test("field paths resolve and classify the literals the editor handles", ()
   const proof = only("proof");
   assertEquals(fieldTarget(proof, "what")?.kind, "string");
   assertEquals(fieldTarget(proof, "plain.what")?.kind, "string");
-  assertEquals(fieldTarget(proof, "hints")?.kind, "string-array");
   assertEquals(fieldTarget(proof, "missing")?.kind, undefined);
+
+  const agentBenefit = only("own-one-isolated-effort");
+  assertEquals(agentBenefit.registry, "agent-benefit");
+  assertEquals(fieldTarget(agentBenefit, "hints")?.kind, "string-array");
 
   const interpolated = only("jobs-table");
   assertEquals(fieldTarget(interpolated, "what")?.kind, "template");

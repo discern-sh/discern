@@ -32,6 +32,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `installs-a-practice` — discern installs an engineering practice into a project
 
+- **Audience:** shared
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “discern installs an engineering practice into an agent-built project.”
 - **Mechanism:** setup studies the repository, learns human intent, wires project jobs, authors instructions and project knowledge, establishes worktree viability, and refuses completion until refresh, doctor, the full Gate, and a throwaway worktree probe pass. Ongoing instructions, Skills, worktrees, Standards, evidence, acceptance, and Patterns sustain the practice.
@@ -41,6 +42,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `no-manual-configuration` — the human does not manually configure discern
 
+- **Audience:** human
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “Tell your coding agent to set up discern; the agent configures the project and asks for the decisions only you can make.”
 - **Mechanism:** the setup brief explicitly makes the agent the configuration engine and uses staged verification and consent.
@@ -50,6 +52,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `one-instruction-source` — every configured provider receives the same project instructions
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “Write the project instructions once; discern compiles them for every configured coding-agent provider.”
 - **Mechanism:** one instruction source plus built-in instructions generates the provider instruction files; drift fails the Gate.
@@ -59,6 +62,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `switch-without-reteaching` — switching providers does not require re-teaching the project
 
+- **Audience:** shared
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “Change coding agents without starting the project explanation over.”
 - **Mechanism:** project instructions, Skills, Map, Gate, Standards, and worktree practice remain project-owned.
@@ -69,6 +73,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `shaped-delegation` — substantial delegated work can be shaped into parallel or staged programs
 
+- **Audience:** shared
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “discern can turn discussed work into complete handoffs, parallel streams, or staged dependencies for fresh coding agents.”
 - **Mechanism:** the bundled Delegate Work Skill defines the shapes, briefs, workstream keys, dependencies, authority, definitions of done, and adversarial review.
@@ -78,6 +83,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `reduced-review-burden` — discern supports reduced human line-by-line review
 
+- **Audience:** human
 - **Evidence:** demonstrated / observational
 - **Strongest supported public form:** “discern is designed to reduce the amount of implementation a person must inspect line by line, allowing attention to move toward outcomes, exceptions, and the decision to ship.”
 - **Mechanism:** project instructions, independent agent review, deterministic checks, exact-tree evidence, Standards, and authority boundaries.
@@ -88,6 +94,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `isolated-worktrees` — each task receives an isolated worktree and declared resources
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “Every discern task gets its own Git worktree, branch, identity, environment values, and any resources the project declares.”
 - **Mechanism:** worktree lifecycle, identity, environment inheritance, resources, crash-safe provisioning, and teardown.
@@ -97,6 +104,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `no-checkout-collisions` — parallel efforts cannot overwrite the same checkout
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “Parallel agents work in separate checkouts and cannot overwrite one another's working tree.”
 - **Conditions:** two efforts may still change the same source files independently; status surfaces the overlap and the later landing must update and re-read shared paths.
@@ -105,6 +113,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `standards-cannot-loosen` — a Standard cannot be loosened on a branch
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “A discern Standard may tighten, but a branch cannot weaken its limit.”
 - **Mechanism:** limits are compared with the trunk on every Gate run; floors and ceilings move only in the improving direction.
@@ -114,6 +123,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `pin-measured-gains` — measured gains can be captured
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “When a configured measure improves, discern can pin the gain as the new limit.”
 - **Mechanism:** `discern standards --pin` tightens limits from measured evidence and records the change separately.
@@ -123,6 +133,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `proof-exact-tree` — Proof covers the exact committed tree that passed
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “A discern Proof identifies the exact clean committed change that passed the project's declared Gate and held Standards, and separately carries current checkpoint declarations.”
 - **Mechanism:** the tree is pinned before evaluation and rechecked at stamping; the Proof also binds a declaration-evidence identity, so a later commit or changed declaration invalidates it.
@@ -132,6 +143,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `gate-grants-no-authority` — a passing Gate does not grant authority to land
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “Passing makes a change eligible for a decision; it does not decide what ships.”
 - **Mechanism:** acceptance requires fresh conversational confirmation, a standing scope grant, or a per-worktree grant checked at the landing boundary; each declared-unmet checkpoint additionally requires owner authorization for the current variance, recorded from the conversation.
@@ -141,6 +153,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `no-model-inside` — discern contains no AI model and needs no API key
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “discern contains no AI model and needs no API key; it derives machine results from deterministic checks and the project's commands, while the coding agent supplies any checkpoint judgment.”
 - **Mechanism:** one local binary; deterministic engine; checkpoint declarations are external agent evidence rather than model calls made by discern.
@@ -150,6 +163,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `local-logbook` — evidence and the Logbook stay local
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “discern's Logbook and advisory analysis stay on the machine. They contain metadata and exclude code, command output, and checkpoint rationales.”
 - **Mechanism:** local `.git` storage; no network path in the Logbook implementation; checkpoint observations omit rationale fields; opt-out available.
@@ -159,6 +173,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `patterns-compare-cohorts` — Patterns can compare cohorts and configurations
 
+- **Audience:** human
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “Patterns can segment and compare working evidence across agent cohorts and configuration epochs, while reporting denominators and avoiding agent rankings.”
 - **Mechanism:** named detectors and stats over local Logbook evidence.
@@ -169,6 +184,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `one-config-file` — one configuration file governs the installation
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “All project-specific discern settings live in one root `discern.toml` file.”
 - **Mechanism:** config schema; other surfaces are bundled, pointed to, authored, shared, or generated.
@@ -177,6 +193,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `setup-proves-worktree` — setup proves the project runs in a worktree
 
+- **Audience:** shared
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “`discern setup done` runs the configured Gate in a throwaway worktree and refuses to record setup as complete when that probe fails.”
 - **Mechanism:** setup worktree probe and `setup done` stop conditions.
@@ -186,6 +203,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `map-mechanically-checked` — the Map is mechanically checked
 
+- **Audience:** shared
 - **Evidence:** structural
 - **Strongest supported public form:** “discern checks the Map's links, anchors, live command examples, audience boundaries, metadata, and Skill references as part of the Gate.”
 - **Conditions:** file-linked freshness supplies evidence; the current checks do not judge subjective prose freshness.
@@ -194,6 +212,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `agent-as-operator` — discern is designed around the coding agent as operator
 
+- **Audience:** coding-agent
 - **Evidence:** structural
 - **Strongest supported public form:** “discern's interaction design treats the coding agent as its principal day-to-day operator.”
 - **Mechanism:** typed MCP tools, one result envelope, context bounds, relevant hints, self-checking verbs, explicit next actions, provider instructions, and relay-safe prose.
@@ -202,6 +221,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 ### `runs-on-itself` — discern runs on itself
 
+- **Audience:** shared
 - **Evidence:** demonstrated / observational
 - **Strongest supported public form:** “discern is developed under its own Gate, worktrees, Standards, Map, and Logbook.”
 - **Conditions:** dogfooding provides product evidence from internal use. Independent external validation remains separate.

@@ -143,14 +143,34 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
     assert(proof.claimsCarried.includes("proof-exact-tree"));
     const what = proof.fields.find((field) => field.path === "what");
     assertEquals(what?.editable, true);
-    const hints = proof.fields.find((field) => field.path === "hints");
+
+    const agentBenefit = await (
+      await request(
+        editor,
+        "/api/entry/agent-benefit/own-one-isolated-effort",
+      )
+    ).json() as {
+      file: string;
+      fields: {
+        path: string;
+        kind: string;
+        editable: boolean;
+        editor: string | null;
+        picker: {
+          source: string;
+          options: { value: string }[];
+        } | null;
+      }[];
+    };
+    assertEquals(agentBenefit.file, "scripts/feature_registry.ts");
+    const hints = agentBenefit.fields.find((field) => field.path === "hints");
     assertEquals(hints?.kind, "string-array");
     assertEquals(hints?.editable, true);
     assertEquals(hints?.editor, "list");
     assertEquals(hints?.picker?.source, "hint");
     assert(
       hints?.picker?.options.some((option) =>
-        option.value === "gate-relay-proof"
+        option.value === "start-mcp-re-root"
       ),
       "the field carries live hint choices",
     );
@@ -303,10 +323,10 @@ Deno.test("a stale browser save receives a conflict without touching disk", asyn
 Deno.test("a list save refuses values outside its live picker", async () => {
   await withCanonEditor(async (editor) => {
     const response = await trustedPost(editor, "/api/save", {
-      registry: "feature",
-      slug: "proof",
+      registry: "agent-benefit",
+      slug: "own-one-isolated-effort",
       field: "hints",
-      expected: ["gate-prove-it-works", "gate-relay-proof"],
+      expected: ["silent-worktree-divergence", "start-mcp-re-root"],
       value: ["not-a-registered-hint"],
     });
     assertEquals(response.status, 200);
@@ -346,7 +366,7 @@ Deno.test("state and page routes answer sanely", async () => {
       pages: { id: string }[];
       standards: { name: string }[];
     };
-    assertEquals(state.pages.length, 9);
+    assertEquals(state.pages.length, 10);
     const shell = await (await request(editor, "/page/feature-canon")).text();
     for (const page of state.pages) {
       assert(

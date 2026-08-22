@@ -101,7 +101,8 @@ async function openInIde(ref) {
 function citeLink(target) {
   const pageByRegistry = {
     feature: "feature-canon",
-    benefit: "feature-canon-benefits",
+    benefit: "feature-canon-human-benefits",
+    "agent-benefit": "feature-canon-agent-benefits",
     demand: "demand-canon",
     practice: "practice-canon",
     glossary: "glossary",

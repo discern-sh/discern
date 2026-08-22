@@ -1,16 +1,17 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
-  agentExperienceNodes,
   allFeatureNodes,
   allSurfaceClaims,
   FEATURE_CANON,
-  FEATURE_CANON_BENEFITS_PAGE_REL,
+  FEATURE_CANON_AGENT_BENEFITS_PAGE_REL,
+  FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL,
   FEATURE_CANON_PAGE_REL,
   FEATURE_CANON_PLAIN_PAGE_REL,
   parseSurfaceKey,
-  renderFeatureCanonBenefitsDoc,
+  renderFeatureCanonAgentBenefitsDoc,
   renderFeatureCanonDoc,
+  renderFeatureCanonHumanBenefitsDoc,
   renderFeatureCanonPlainDoc,
 } from "../scripts/feature_registry.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
@@ -46,14 +47,38 @@ Deno.test("the configured map's plain-language canon matches the generator (run 
   );
 });
 
-Deno.test("the configured map's benefit canon matches the generator (run `deno task codegen`)", async () => {
-  const path = join(REPO_AUTHORED_PATHS.map, FEATURE_CANON_BENEFITS_PAGE_REL);
+Deno.test("the configured map's Human Benefit Canon matches the generator (run `deno task codegen`)", async () => {
+  const path = join(
+    REPO_AUTHORED_PATHS.map,
+    FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL,
+  );
   const committed = await Deno.readTextFile(path);
   assertEquals(
     committed,
-    await canonicalGeneratedMarkdown(path, renderFeatureCanonBenefitsDoc()),
+    await canonicalGeneratedMarkdown(
+      path,
+      renderFeatureCanonHumanBenefitsDoc(),
+    ),
     `${
-      join(REPO_AUTHORED_PATHS.mapRel, FEATURE_CANON_BENEFITS_PAGE_REL)
+      join(REPO_AUTHORED_PATHS.mapRel, FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL)
+    } is stale — run \`deno task codegen\``,
+  );
+});
+
+Deno.test("the configured map's Agent Benefit Canon matches the generator (run `deno task codegen`)", async () => {
+  const path = join(
+    REPO_AUTHORED_PATHS.map,
+    FEATURE_CANON_AGENT_BENEFITS_PAGE_REL,
+  );
+  const committed = await Deno.readTextFile(path);
+  assertEquals(
+    committed,
+    await canonicalGeneratedMarkdown(
+      path,
+      renderFeatureCanonAgentBenefitsDoc(),
+    ),
+    `${
+      join(REPO_AUTHORED_PATHS.mapRel, FEATURE_CANON_AGENT_BENEFITS_PAGE_REL)
     } is stale — run \`deno task codegen\``,
   );
 });
@@ -82,19 +107,6 @@ Deno.test("every id is unique and kebab-case, and every node states a complete s
         `"why" is not a complete sentence for: ${node.id}`,
       );
     }
-    if (node.agent !== undefined) {
-      assert(
-        /[.!?]$/u.test(node.agent.trim()),
-        `"agent" is not a complete sentence for: ${node.id}`,
-      );
-    }
-    if (node.hints !== undefined) {
-      assert(
-        node.agent !== undefined,
-        `hint citations ride an agent-experience account, but ${node.id} has none`,
-      );
-      assert(node.hints.length > 0, `empty hints list on: ${node.id}`);
-    }
   }
 });
 
@@ -117,21 +129,10 @@ Deno.test("every plain account is complete and in parity with its technical twin
       node.why !== undefined,
       `plain "why" must exist exactly when the technical "why" does: ${node.id}`,
     );
-    assertEquals(
-      node.plain.agent !== undefined,
-      node.agent !== undefined,
-      `plain "agent" must exist exactly when the technical "agent" does: ${node.id}`,
-    );
     if (node.plain.why !== undefined) {
       assert(
         /[.!?]$/u.test(node.plain.why.trim()),
         `plain "why" is not a complete sentence for: ${node.id}`,
-      );
-    }
-    if (node.plain.agent !== undefined) {
-      assert(
-        /[.!?]$/u.test(node.plain.agent.trim()),
-        `plain "agent" is not a complete sentence for: ${node.id}`,
       );
     }
   }
@@ -184,62 +185,6 @@ Deno.test("benefit nodes are marked in the rendered tree", () => {
   }
 });
 
-Deno.test("agent-experience accounts render marked, indexed, and counted", () => {
-  const doc = renderFeatureCanonDoc();
-  const carriers = agentExperienceNodes();
-  if (carriers.length === 0) return;
-  assertStringIncludes(doc, "## The agent's-eye view");
-  assertStringIncludes(doc, ` · ${carriers.length} agent-experience accounts`);
-  for (const { node } of carriers) {
-    assertStringIncludes(
-      doc,
-      `**Agent:** *${node.agent}*`,
-      `agent account renders unmarked: ${node.id}`,
-    );
-  }
-});
-
-const INSTRUCTION_SENTENCE =
-  /^(?:Always|Ask|Await|Call|Check|Choose|Continue|Do|Follow|Invoke|Keep|Let|Never|Pass|Repeat|Report|Respond|Resume|Run|Start|Stop|Use|Wait|Watch)\b/;
-
-/** Select imperative-looking sentences that do not belong in agent-experience benefit copy. */
-function instructionSentences(text: string): string[] {
-  return text.split(/(?<=[.!?])\s+/).filter((sentence) =>
-    INSTRUCTION_SENTENCE.test(sentence)
-  );
-}
-
-Deno.test("agent-experience accounts describe benefits instead of issuing instructions", () => {
-  const failures: string[] = [];
-  for (const { node } of agentExperienceNodes()) {
-    for (
-      const [register, account] of [
-        ["technical", node.agent],
-        ["plain", node.plain.agent],
-      ] as const
-    ) {
-      if (account === undefined) continue;
-      for (const sentence of instructionSentences(account)) {
-        failures.push(`${node.id} ${register}: ${sentence}`);
-      }
-    }
-  }
-  assertEquals(
-    failures,
-    [],
-    "agent-experience accounts state what the feature buys the agent; operating instructions belong in instructions",
-  );
-});
-
-Deno.test("control: agent-benefit detector rejects instructions under an unrelated feature id", () => {
-  assertEquals(
-    instructionSentences(
-      "Run future_wait with its longest timeout. The dependency eventually becomes ready.",
-    ),
-    ["Run future_wait with its longest timeout."],
-  );
-});
-
 // Every `discern <verb>` mention in canon prose must name a live verb — the
 // same command-reference discipline the hint corpus and the map's fenced
 // examples are held to, so a rename fails the canon mechanically.
@@ -256,11 +201,9 @@ Deno.test("every discern command mentioned in canon prose is a live verb", () =>
     const texts = [
       node.what,
       node.why ?? "",
-      node.agent ?? "",
       node.plain.title,
       node.plain.what,
       node.plain.why ?? "",
-      node.plain.agent ?? "",
     ];
     for (const text of texts) {
       for (const verb of mentionedVerbs(text)) {
@@ -293,26 +236,8 @@ Deno.test("the rendered plain page carries the banner, every node, and the cover
   }
 });
 
-Deno.test("plain agent accounts render marked as Coding agent, benefits marked, advice notes cited", () => {
+Deno.test("plain benefit nodes render marked", () => {
   const doc = renderFeatureCanonPlainDoc();
-  const carriers = agentExperienceNodes();
-  if (carriers.length > 0) {
-    assertStringIncludes(doc, "## What the coding agent sees");
-    assertStringIncludes(
-      doc,
-      ` · ${carriers.length} accounts of what the coding agent experiences`,
-    );
-    for (const { node } of carriers) {
-      assertStringIncludes(
-        doc,
-        `**Coding agent:** _${node.plain.agent}_`,
-        `plain agent account renders unmarked: ${node.id}`,
-      );
-    }
-    // Hints render in the plain register as advice notes, singular and plural.
-    assertStringIncludes(doc, "(advice note: `");
-    assertStringIncludes(doc, "(advice notes: `");
-  }
   for (
     const { node } of allFeatureNodes().filter(({ node }) =>
       node.kind === "benefit"

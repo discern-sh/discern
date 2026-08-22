@@ -61,13 +61,12 @@ export function countProse(text: string): ProseCounts {
   };
 }
 
-/** The plain-register prose corpus: every node's plain what/why/agent. */
+/** The plain-register prose corpus: every node's plain what and why. */
 export function plainRegisterCorpus(): string[] {
   const passages: string[] = [];
   for (const { node } of allFeatureNodes()) {
     passages.push(node.plain.what);
     if (node.plain.why !== undefined) passages.push(node.plain.why);
-    if (node.plain.agent !== undefined) passages.push(node.plain.agent);
   }
   return passages;
 }

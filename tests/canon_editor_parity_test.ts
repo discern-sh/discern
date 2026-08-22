@@ -39,11 +39,14 @@ import {
 } from "../scripts/canon_editor/pickers.ts";
 import { REPO_ROOT } from "../scripts/canon_editor/root.ts";
 import {
-  allBenefitEntries,
+  AGENT_BENEFIT_CANON,
+  allAgentBenefitEntries,
   allFeatureNodes,
-  BENEFIT_CANON,
-  renderFeatureCanonBenefitsDoc,
+  allHumanBenefitEntries,
+  HUMAN_BENEFIT_CANON,
+  renderFeatureCanonAgentBenefitsDoc,
   renderFeatureCanonDoc,
+  renderFeatureCanonHumanBenefitsDoc,
   renderFeatureCanonPlainDoc,
   SURFACE_SETS,
 } from "../scripts/feature_registry.ts";
@@ -79,9 +82,14 @@ const PAGES: readonly CanonPage[] = [
     render: renderFeatureCanonPlainDoc,
   },
   {
-    id: "feature-canon-benefits",
-    rel: "project/map/_internal/feature-canon-benefits.md",
-    render: renderFeatureCanonBenefitsDoc,
+    id: "feature-canon-human-benefits",
+    rel: "project/map/_internal/feature-canon-human-benefits.md",
+    render: renderFeatureCanonHumanBenefitsDoc,
+  },
+  {
+    id: "feature-canon-agent-benefits",
+    rel: "project/map/_internal/feature-canon-agent-benefits.md",
+    render: renderFeatureCanonAgentBenefitsDoc,
   },
   {
     id: "demand-canon",
@@ -252,7 +260,7 @@ Deno.test("picker write-back and option handlers stay in two-way parity", async 
   );
   assertEquals(
     values("benefit-entry"),
-    allBenefitEntries().map(({ entry }) => entry.id),
+    allHumanBenefitEntries().map(({ entry }) => entry.id),
   );
   assertEquals(values("claim"), Object.keys(CLAIMS));
   assertEquals(values("hint"), Object.keys(HINTS));
@@ -293,8 +301,15 @@ Deno.test("the syntax enumeration and the evaluated registries agree on ids", ()
   assertEquals(
     byRegistry.get("benefit")?.toSorted(),
     [
-      ...BENEFIT_CANON.map((cluster) => cluster.id),
-      ...allBenefitEntries().map(({ entry }) => entry.id),
+      ...HUMAN_BENEFIT_CANON.map((cluster) => cluster.id),
+      ...allHumanBenefitEntries().map(({ entry }) => entry.id),
+    ].toSorted(),
+  );
+  assertEquals(
+    byRegistry.get("agent-benefit")?.toSorted(),
+    [
+      ...AGENT_BENEFIT_CANON.map((cluster) => cluster.id),
+      ...allAgentBenefitEntries().map(({ entry }) => entry.id),
     ].toSorted(),
   );
   assertEquals(

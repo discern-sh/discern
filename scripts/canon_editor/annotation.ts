@@ -17,6 +17,7 @@
 export const PROSE_REGISTRY_NAMES = [
   "feature",
   "benefit",
+  "agent-benefit",
   "demand",
   "practice",
   "glossary",
@@ -66,7 +67,7 @@ export const MARK_CLOSE = String.fromCharCode(0xE002);
 /**
  * Serialize a ref into the colon-joined token carried inside markers. Colons,
  * unlike pipes, are inert in every Markdown context a span can land in — a
- * pipe here would split the benefit canon's at-a-glance table cells.
+ * pipe here would split the Human Benefit Canon's at-a-glance table cells.
  */
 export function refToken(ref: ProseRef): string {
   return `${ref.registry}:${ref.entry}:${ref.field}`;

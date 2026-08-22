@@ -33,11 +33,13 @@ import {
 } from "./environment_variable_reference.ts";
 import { renderGlossaryDoc } from "./glossary_registry.ts";
 import {
-  FEATURE_CANON_BENEFITS_PAGE_REL,
+  FEATURE_CANON_AGENT_BENEFITS_PAGE_REL,
+  FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL,
   FEATURE_CANON_PAGE_REL,
   FEATURE_CANON_PLAIN_PAGE_REL,
-  renderFeatureCanonBenefitsDoc,
+  renderFeatureCanonAgentBenefitsDoc,
   renderFeatureCanonDoc,
+  renderFeatureCanonHumanBenefitsDoc,
   renderFeatureCanonPlainDoc,
 } from "./feature_registry.ts";
 import {
@@ -141,9 +143,13 @@ const featureCanonPlain = relative(
   repoRoot,
   join(mapDir, FEATURE_CANON_PLAIN_PAGE_REL),
 );
-const featureCanonBenefits = relative(
+const featureCanonHumanBenefits = relative(
   repoRoot,
-  join(mapDir, FEATURE_CANON_BENEFITS_PAGE_REL),
+  join(mapDir, FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL),
+);
+const featureCanonAgentBenefits = relative(
+  repoRoot,
+  join(mapDir, FEATURE_CANON_AGENT_BENEFITS_PAGE_REL),
 );
 const practiceCanon = relative(
   repoRoot,
@@ -273,7 +279,14 @@ console.log(
 );
 await write(featureCanon, renderFeatureCanonDoc());
 await write(featureCanonPlain, renderFeatureCanonPlainDoc());
-await write(featureCanonBenefits, renderFeatureCanonBenefitsDoc());
+await write(
+  featureCanonHumanBenefits,
+  renderFeatureCanonHumanBenefitsDoc(),
+);
+await write(
+  featureCanonAgentBenefits,
+  renderFeatureCanonAgentBenefitsDoc(),
+);
 console.log(
   "Regenerating the practice canon from scripts/practice_registry.ts:",
 );

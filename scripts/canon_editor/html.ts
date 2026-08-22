@@ -24,7 +24,8 @@ export type SpanStates = (token: string) => SpanState;
 const PAGE_ROUTES: Readonly<Record<string, string>> = {
   "feature-canon.md": "feature-canon",
   "feature-canon-plain.md": "feature-canon-plain",
-  "feature-canon-benefits.md": "feature-canon-benefits",
+  "feature-canon-human-benefits.md": "feature-canon-human-benefits",
+  "feature-canon-agent-benefits.md": "feature-canon-agent-benefits",
   "demand-canon.md": "demand-canon",
   "brand/demand-canon.md": "demand-canon",
   "practice-canon.md": "practice-canon",
@@ -163,9 +164,14 @@ export function renderShell(options: {
       count: counts.get("feature"),
     },
     {
-      id: "feature-canon-benefits",
-      title: "Benefit canon",
+      id: "feature-canon-human-benefits",
+      title: "Human benefits",
       count: counts.get("benefit"),
+    },
+    {
+      id: "feature-canon-agent-benefits",
+      title: "Agent benefits",
+      count: counts.get("agent-benefit"),
     },
     {
       id: "demand-canon",

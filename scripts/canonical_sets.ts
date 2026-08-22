@@ -1116,7 +1116,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "demand-canon",
     title: "Demand canon",
     what:
-      "The market-side counterpart of the benefit canon: evidence-tagged struggling moments with their current alternatives and forces, held to two-way coverage against the benefits and rendered into the demand page the brand-documents set owns.",
+      "The market-side counterpart of the Human Benefit Canon: evidence-tagged struggling moments with their current alternatives and forces, held to two-way coverage against the benefits and rendered into the demand page the brand-documents set owns.",
     source: {
       kind: "module",
       module: "scripts/brand/demand.ts",
@@ -1799,38 +1799,76 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
-    id: "benefit-canon",
-    title: "Benefit canon",
+    id: "human-benefit-canon",
+    title: "Human Benefit Canon",
     what:
-      "The commercially ordered transposition of the feature registry: human value and the reason it follows, with explicit feature and public-claim traceability.",
+      "The commercially ordered human transposition of the feature registry: human value and the reason it follows, with explicit feature and public-claim traceability.",
     source: {
       kind: "module",
       module: "scripts/feature_registry.ts",
-      exportName: "BENEFIT_CANON",
+      exportName: "HUMAN_BENEFIT_CANON",
     },
     guards: [
-      "tests/feature_canon_benefit_test.ts",
+      "tests/feature_canon_human_benefit_test.ts",
       "tests/feature_canon_codegen_test.ts",
       "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
       {
-        path: "project/map/_internal/feature-canon-benefits.md",
+        path: "project/map/_internal/feature-canon-human-benefits.md",
         kind: "generated-file",
         banner: true,
       },
     ],
     enrolledIn: {
       glossary: {
-        absent: "this maintainer registry supplies the benefit canon's data",
+        absent:
+          "this maintainer registry supplies the Human Benefit Canon's data",
       },
       featureCanon: {
         absent:
-          "the benefit canon is the feature canon's own transposition; its entries cite feature nodes rather than claim surfaces",
+          "the Human Benefit Canon is the feature canon's human-value transposition; its entries cite feature nodes rather than claim surfaces",
       },
     },
     members: async () =>
-      (await import("./feature_registry.ts")).allBenefitEntries().map(
+      (await import("./feature_registry.ts")).allHumanBenefitEntries().map(
+        (flat) => flat.entry.id,
+      ),
+  },
+  {
+    id: "agent-benefit-canon",
+    title: "Agent Benefit Canon",
+    what:
+      "The exhaustive coding-agent transposition of the feature registry: agent value, mechanism, boundary, direct and supporting feature roles, agent hints, and agent or shared public claims.",
+    source: {
+      kind: "module",
+      module: "scripts/feature_registry.ts",
+      exportName: "AGENT_BENEFIT_CANON",
+    },
+    guards: [
+      "tests/feature_canon_agent_benefit_test.ts",
+      "tests/feature_canon_codegen_test.ts",
+      "tests/canon_editor_parity_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "project/map/_internal/feature-canon-agent-benefits.md",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "this maintainer registry supplies the Agent Benefit Canon's data",
+      },
+      featureCanon: {
+        absent:
+          "the Agent Benefit Canon is the Feature canon's coding-agent transposition; its entries cite feature nodes instead of claiming product surfaces",
+      },
+    },
+    members: async () =>
+      (await import("./feature_registry.ts")).allAgentBenefitEntries().map(
         (flat) => flat.entry.id,
       ),
   },
@@ -1838,7 +1876,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "practice-tenets",
     title: "Practice canon",
     what:
-      "The practice registry behind the practice canon: the obligations upheld by enforcement, automation, and teaching, each tenet citing its feature-canon mechanisms, its benefit-canon yields, and the project-inventory items it maintains.",
+      "The practice registry behind the practice canon: the obligations upheld by enforcement, automation, and teaching, each tenet citing its feature-canon mechanisms, its Human Benefit Canon yields, and the project-inventory items it maintains.",
     source: {
       kind: "module",
       module: "scripts/practice_registry.ts",

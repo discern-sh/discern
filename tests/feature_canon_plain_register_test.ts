@@ -120,7 +120,6 @@ function scanNode(node: FeatureNode): string[] {
     ["plain.title", node.plain.title],
     ["plain.what", node.plain.what],
     ["plain.why", node.plain.why],
-    ["plain.agent", node.plain.agent],
   ];
   for (const { name, matcher, plain } of plainPolicedTerms()) {
     for (const [field, text] of fields) {

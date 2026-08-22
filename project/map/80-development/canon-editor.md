@@ -10,7 +10,7 @@ aliases:
 
 _Edit the canon through its generated pages. Every prose span knows which registry field it renders, typed list fields open from the inspector rail, and the canons' guards prove a save before the tree keeps it._
 
-The prose registries are read as generated pages but authored as TypeScript data under `scripts/`: the feature canon, the benefit canon, the demand canon, the practice canon, the glossary, and the claims ledger. Canon Editor closes that gap for editorial passes. The registry stays the store, the page supplies the editing surface, and `discern done` remains the authority on whether the work is done. Canon Editor moves the same checks earlier.
+The prose registries are read as generated pages but authored as TypeScript data under `scripts/`: the feature canon, the Human and Agent Benefit Canons, the demand canon, the practice canon, the glossary, and the claims ledger. Canon Editor closes that gap for editorial passes. The registry stays the store, the page supplies the editing surface, and `discern done` remains the authority on whether the work is done. Canon Editor moves the same checks earlier.
 
 ## Launching
 
@@ -27,7 +27,7 @@ A fresh subprocess evaluates the registries and renders the canon pages through 
 
 That syntax view uses ts-morph's official JSR distribution. Canon Editor remains a source-only development surface: the production compiler embeds npm packages from the product graph rather than the workspace dependency directory, so dependencies used only by Canon Editor, tests, or the site do not enter discern's binary ([ADR 0289](../_adr/0289-production-binaries-embed-only-product-reachable-npm-packages.md)).
 
-The inspector rail shows the selected entry's source position, field inventory, citation web in both directions (which benefits draw on a node, which demand entries a benefit answers, which tenets cite it, which public claims ride on it through citing benefits), and its registry's guard roster with an on-demand runner. `drawsOn`, `claims`, `surfaces`, `hints`, and Demand Canon `answer.benefits` arrays open searchable checkbox pickers there. Choices come from the live feature, benefit, claim, surface, and hint registries; existing order survives edits, and a newly selected value appends. Editing a registry or picker authority in the IDE refreshes Canon Editor automatically.
+The inspector rail shows the selected entry's source position, field inventory, citation web in both directions (which human or agent benefits draw on a node, which demand entries a human benefit answers, which tenets cite it, which public claims ride on it through citing benefits), and its registry's guard roster with an on-demand runner. Human-benefit `drawsOn` and `claims`; agent-benefit `drawsOn`, `supportedBy`, `hints`, and `claims`; feature `surfaces`; and Demand Canon `answer.benefits` arrays open searchable checkbox pickers there. Choices come from the live feature, human-benefit, claim, surface, and hint registries; existing order survives edits, and a newly selected value appends. Editing a registry or picker authority in the IDE refreshes Canon Editor automatically.
 
 On the Demand Canon page, territory titles and tensions and each entry's title, situation, current alternative, cost, and recorded gap edit as brand-register prose. Benefit answers use the live benefit picker. Territory counterparts, forces, segments, free-form Heard as lists, and shared evidence constants remain source edits; their rendered fields still select the right entry and offer an IDE jump. The demand-center constants and supply-push records also remain source edits, outside the entry inspector.
 
@@ -48,5 +48,5 @@ The guard net Canon Editor serves also holds the editor itself. `PROSE_REGISTRY_
 ## Limits
 
 - Derived spans — prose interpolated from sets like the known job names — stay IDE jumps by design.
-- Computed lists stay IDE jumps. Picker write-back covers existing literal `drawsOn`, `claims`, `surfaces`, `hints`, and Demand Canon `answer.benefits` arrays; other classified list fields remain read-only.
+- Computed lists stay IDE jumps. Picker write-back covers existing literal `drawsOn`, `supportedBy`, `claims`, `surfaces`, `hints`, and Demand Canon `answer.benefits` arrays; other classified list fields remain read-only.
 - Structural work — adding, retiring, or reordering entries or fields, and batch campaigns — remains agent work, briefed the ordinary way.

@@ -12,9 +12,11 @@
  */
 
 import type {
-  BenefitCluster,
-  BenefitEntry,
+  AgentBenefitCluster,
+  AgentBenefitEntry,
   FeatureNode,
+  HumanBenefitCluster,
+  HumanBenefitEntry,
   PlainAccount,
 } from "../feature_registry.ts";
 import type { PracticeTenet, TenetUpheld } from "../practice_registry.ts";
@@ -80,8 +82,6 @@ export const FEATURE_NODE_FIELDS = {
   kind: { edit: "locked", reason: "a structural marker, not prose" },
   what: { edit: "prose", register: "technical" },
   why: { edit: "prose", register: "technical" },
-  agent: { edit: "prose", register: "technical" },
-  hints: { edit: "list", picker: "hint", write: "picker" },
   plain: { edit: "nested" },
   surfaces: { edit: "list", picker: "surface", write: "picker" },
   children: { edit: "structural" },
@@ -92,11 +92,10 @@ export const PLAIN_ACCOUNT_FIELDS = {
   title: { edit: "prose", register: "plain" },
   what: { edit: "prose", register: "plain" },
   why: { edit: "prose", register: "plain" },
-  agent: { edit: "prose", register: "plain" },
 } as const satisfies Record<keyof PlainAccount, FieldSpec>;
 
-/** A benefit cluster's fields. */
-export const BENEFIT_CLUSTER_FIELDS = {
+/** A human-benefit cluster's fields. */
+export const HUMAN_BENEFIT_CLUSTER_FIELDS = {
   id: IDENTITY_LOCK,
   title: { edit: "prose", register: "technical" },
   role: { edit: "locked", reason: "the commercial vocabulary is a closed set" },
@@ -104,17 +103,38 @@ export const BENEFIT_CLUSTER_FIELDS = {
   promise: { edit: "prose", register: "technical" },
   commercialValue: { edit: "prose", register: "technical" },
   benefits: { edit: "structural" },
-} as const satisfies Record<keyof BenefitCluster, FieldSpec>;
+} as const satisfies Record<keyof HumanBenefitCluster, FieldSpec>;
 
-/** A benefit entry's fields. */
-export const BENEFIT_ENTRY_FIELDS = {
+/** A human-benefit entry's fields. */
+export const HUMAN_BENEFIT_ENTRY_FIELDS = {
   id: IDENTITY_LOCK,
   title: { edit: "prose", register: "technical" },
   value: { edit: "prose", register: "technical" },
   whyItFollows: { edit: "prose", register: "technical" },
   drawsOn: { edit: "list", picker: "feature-node", write: "picker" },
   claims: { edit: "list", picker: "claim", write: "picker" },
-} as const satisfies Record<keyof BenefitEntry, FieldSpec>;
+} as const satisfies Record<keyof HumanBenefitEntry, FieldSpec>;
+
+/** A coding-agent benefit cluster's fields. */
+export const AGENT_BENEFIT_CLUSTER_FIELDS = {
+  id: IDENTITY_LOCK,
+  title: { edit: "prose", register: "technical" },
+  promise: { edit: "prose", register: "technical" },
+  benefits: { edit: "structural" },
+} as const satisfies Record<keyof AgentBenefitCluster, FieldSpec>;
+
+/** A coding-agent benefit entry's fields. */
+export const AGENT_BENEFIT_ENTRY_FIELDS = {
+  id: IDENTITY_LOCK,
+  title: { edit: "prose", register: "technical" },
+  value: { edit: "prose", register: "technical" },
+  whyItFollows: { edit: "prose", register: "technical" },
+  boundary: { edit: "prose", register: "technical" },
+  drawsOn: { edit: "list", picker: "feature-node", write: "picker" },
+  supportedBy: { edit: "list", picker: "feature-node", write: "picker" },
+  hints: { edit: "list", picker: "hint", write: "picker" },
+  claims: { edit: "list", picker: "claim", write: "picker" },
+} as const satisfies Record<keyof AgentBenefitEntry, FieldSpec>;
 
 /** A demand territory's fields. */
 export const DEMAND_TERRITORY_FIELDS = {
@@ -223,6 +243,10 @@ export const RETIRED_EXCEPTION_FIELDS = {
 /** A public claim's fields. */
 export const CLAIM_FIELDS = {
   title: { edit: "prose", register: "brand" },
+  audience: {
+    edit: "locked",
+    reason: "the claim-audience vocabulary is a closed semantic set",
+  },
   evidence: { edit: "list", picker: "evidence-class" },
   strongestPublicForm: { edit: "prose", register: "brand" },
   mechanism: { edit: "prose", register: "brand" },
@@ -239,7 +263,6 @@ export const PLAIN_TWIN: Readonly<Record<string, string>> = {
   title: "plain.title",
   what: "plain.what",
   why: "plain.why",
-  agent: "plain.agent",
 };
 
 type FieldMap = Readonly<Record<string, FieldSpec>>;
@@ -271,7 +294,14 @@ function nestedMap(
 function topMap(registry: RegistryName, kind: string): FieldMap | undefined {
   if (registry === "feature") return FEATURE_NODE_FIELDS;
   if (registry === "benefit") {
-    return kind === "cluster" ? BENEFIT_CLUSTER_FIELDS : BENEFIT_ENTRY_FIELDS;
+    return kind === "cluster"
+      ? HUMAN_BENEFIT_CLUSTER_FIELDS
+      : HUMAN_BENEFIT_ENTRY_FIELDS;
+  }
+  if (registry === "agent-benefit") {
+    return kind === "cluster"
+      ? AGENT_BENEFIT_CLUSTER_FIELDS
+      : AGENT_BENEFIT_ENTRY_FIELDS;
   }
   if (registry === "demand") {
     return kind === "territory" ? DEMAND_TERRITORY_FIELDS : DEMAND_ENTRY_FIELDS;

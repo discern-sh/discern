@@ -43,7 +43,10 @@ import {
   renderPracticePublicDoc,
   upheldEntries,
 } from "../scripts/practice_registry.ts";
-import { allFeatureNodes, BENEFIT_CANON } from "../scripts/feature_registry.ts";
+import {
+  allFeatureNodes,
+  HUMAN_BENEFIT_CANON,
+} from "../scripts/feature_registry.ts";
 import { CONCEPTS } from "../scripts/brand/bridge.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
@@ -164,7 +167,7 @@ Deno.test("every bundled skill is claimed by a tenet or recorded absent — exac
 
 Deno.test("every mechanism cites a live feature node and every yield a live benefit cluster", () => {
   const nodeIds = new Set(allFeatureNodes().map(({ node }) => node.id));
-  const clusterIds = new Set(BENEFIT_CANON.map((cluster) => cluster.id));
+  const clusterIds = new Set(HUMAN_BENEFIT_CANON.map((cluster) => cluster.id));
   const citing = [
     ...PRACTICE_CANON.map((tenet) => ({
       id: tenet.id,
@@ -251,7 +254,7 @@ Deno.test("every benefit cluster is yielded or recorded absent — exactly one, 
     ...PRACTICE_CANON.flatMap((tenet) => [...tenet.yields]),
     ...PRACTICE_PROPERTIES.flatMap((property) => [...(property.yields ?? [])]),
   ]);
-  const clusters = BENEFIT_CANON.map((cluster) => cluster.id);
+  const clusters = HUMAN_BENEFIT_CANON.map((cluster) => cluster.id);
   for (const cluster of clusters) {
     const absent = cluster in PRACTICE_CLUSTER_ABSENCES;
     assert(

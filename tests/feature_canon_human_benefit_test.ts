@@ -1,7 +1,7 @@
 /**
- * Coverage guards for the benefit canon (ADR 0268) — the enrolment discipline
+ * Coverage guards for the Human Benefit Canon (ADR 0268) — the enrolment discipline
  * pointed at value. Every feature node must be cited by a benefit entry's
- * `drawsOn` or recorded in `BENEFIT_COVERAGE_ABSENCES` with the reason,
+ * `drawsOn` or recorded in `HUMAN_BENEFIT_COVERAGE_ABSENCES` with the reason,
  * exactly one of the two, so a new capability cannot land without someone
  * stating what it buys a person. Every public claim in the brand ledger must
  * be carried by at least one benefit, so public wording always has a
@@ -12,28 +12,31 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
-  allBenefitEntries,
   allFeatureNodes,
-  BENEFIT_CANON,
-  BENEFIT_CANON_CATEGORY,
-  BENEFIT_CANON_COMMERCIAL_VALUE,
-  BENEFIT_CANON_PROMISE,
-  BENEFIT_COVERAGE_ABSENCES,
-  renderFeatureCanonBenefitsDoc,
+  allHumanBenefitEntries,
+  HUMAN_BENEFIT_CANON,
+  HUMAN_BENEFIT_CANON_CATEGORY,
+  HUMAN_BENEFIT_CANON_COMMERCIAL_VALUE,
+  HUMAN_BENEFIT_CANON_PROMISE,
+  HUMAN_BENEFIT_COVERAGE_ABSENCES,
+  renderFeatureCanonHumanBenefitsDoc,
 } from "../scripts/feature_registry.ts";
 import { CLAIMS, type ClaimSlug } from "../scripts/brand/claims.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-Deno.test("benefit ids are unique across the benefit canon and the feature tree, and every statement is complete", () => {
+Deno.test("human-benefit ids are unique across the Human Benefit Canon and the feature tree, and every statement is complete", () => {
   const featureIds = new Set(allFeatureNodes().map(({ node }) => node.id));
   const seen = new Set<string>();
   for (
     const [id, sentence] of [
-      ["benefit-canon-category", BENEFIT_CANON_CATEGORY],
-      ["benefit-canon-promise", BENEFIT_CANON_PROMISE],
-      ["benefit-canon-commercial-value", BENEFIT_CANON_COMMERCIAL_VALUE],
+      ["human-benefit-canon-category", HUMAN_BENEFIT_CANON_CATEGORY],
+      ["human-benefit-canon-promise", HUMAN_BENEFIT_CANON_PROMISE],
+      [
+        "human-benefit-canon-commercial-value",
+        HUMAN_BENEFIT_CANON_COMMERCIAL_VALUE,
+      ],
     ] as const
   ) {
     assert(
@@ -43,15 +46,15 @@ Deno.test("benefit ids are unique across the benefit canon and the feature tree,
     assert(!sentence.includes("`"), `${id} contains product-code markup`);
   }
   const claim = (id: string): void => {
-    assert(!seen.has(id), `duplicate benefit-canon id: ${id}`);
+    assert(!seen.has(id), `duplicate human-benefit-canon id: ${id}`);
     assert(
       !featureIds.has(id),
-      `benefit-canon id collides with a feature node: ${id}`,
+      `human-benefit-canon id collides with a feature node: ${id}`,
     );
-    assert(KEBAB.test(id), `benefit-canon id is not kebab-case: ${id}`);
+    assert(KEBAB.test(id), `human-benefit-canon id is not kebab-case: ${id}`);
     seen.add(id);
   };
-  for (const cluster of BENEFIT_CANON) {
+  for (const cluster of HUMAN_BENEFIT_CANON) {
     claim(cluster.id);
     assert(cluster.title.trim().length > 0, `empty title for: ${cluster.id}`);
     assert(
@@ -85,7 +88,7 @@ Deno.test("benefit ids are unique across the benefit canon and the feature tree,
       `cluster ${cluster.id} has no benefits — a cluster is a grouping, not a leaf`,
     );
   }
-  for (const { entry } of allBenefitEntries()) {
+  for (const { entry } of allHumanBenefitEntries()) {
     claim(entry.id);
     assert(entry.title.trim().length > 0, `empty title for: ${entry.id}`);
     assert(
@@ -115,7 +118,7 @@ Deno.test("benefit ids are unique across the benefit canon and the feature tree,
 
 Deno.test("every drawsOn citation names a live feature node", () => {
   const featureIds = new Set(allFeatureNodes().map(({ node }) => node.id));
-  for (const { entry } of allBenefitEntries()) {
+  for (const { entry } of allHumanBenefitEntries()) {
     for (const id of entry.drawsOn) {
       assert(
         featureIds.has(id),
@@ -127,27 +130,31 @@ Deno.test("every drawsOn citation names a live feature node", () => {
 
 Deno.test("every feature node is cited by a benefit or recorded absent — exactly one of the two", () => {
   const cited = new Set(
-    allBenefitEntries().flatMap(({ entry }) => [...entry.drawsOn]),
+    allHumanBenefitEntries().flatMap(({ entry }) => [...entry.drawsOn]),
   );
   const featureIds = new Set(allFeatureNodes().map(({ node }) => node.id));
   const uncovered: string[] = [];
   const stale: string[] = [];
   for (const id of featureIds) {
-    const absent = id in BENEFIT_COVERAGE_ABSENCES;
+    const absent = id in HUMAN_BENEFIT_COVERAGE_ABSENCES;
     if (!cited.has(id) && !absent) uncovered.push(id);
     if (cited.has(id) && absent) stale.push(id);
   }
   assertEquals(
     uncovered,
     [],
-    "state what each buys a person in a benefit's drawsOn, or record the absence with its reason in BENEFIT_COVERAGE_ABSENCES",
+    "state what each buys a person in a benefit's drawsOn, or record the absence with its reason in HUMAN_BENEFIT_COVERAGE_ABSENCES",
   );
   assertEquals(
     stale,
     [],
     "these features are cited by a benefit — remove their stale absence records",
   );
-  for (const [id, reason] of Object.entries(BENEFIT_COVERAGE_ABSENCES)) {
+  for (
+    const [id, reason] of Object.entries(
+      HUMAN_BENEFIT_COVERAGE_ABSENCES,
+    )
+  ) {
     assert(
       featureIds.has(id),
       `absence record names an unknown feature node: ${id}`,
@@ -161,7 +168,7 @@ Deno.test("every feature node is cited by a benefit or recorded absent — exact
 
 Deno.test("every public claim in the ledger is carried by at least one benefit", () => {
   const carried = new Set(
-    allBenefitEntries().flatMap(({ entry }) => [...(entry.claims ?? [])]),
+    allHumanBenefitEntries().flatMap(({ entry }) => [...(entry.claims ?? [])]),
   );
   const uncarried = (Object.keys(CLAIMS) as ClaimSlug[]).filter((slug) =>
     !carried.has(slug)
@@ -175,18 +182,18 @@ Deno.test("every public claim in the ledger is carried by at least one benefit",
 
 const COMMAND_MENTION = /`discern ([a-z][a-z-]*)/g;
 
-/** Extract backticked discern command names from benefit-canon prose. */
+/** Extract backticked discern command names from Human Benefit Canon prose. */
 function mentionedVerbs(text: string): string[] {
   return [...text.matchAll(COMMAND_MENTION)].map((m) => m[1] ?? "");
 }
 
 Deno.test("every discern command mentioned in benefit prose is a live verb", () => {
   const texts: Array<[string, string]> = [];
-  for (const cluster of BENEFIT_CANON) {
+  for (const cluster of HUMAN_BENEFIT_CANON) {
     texts.push([cluster.id, cluster.promise]);
     texts.push([cluster.id, cluster.commercialValue]);
   }
-  for (const { entry } of allBenefitEntries()) {
+  for (const { entry } of allHumanBenefitEntries()) {
     texts.push([entry.id, entry.value]);
     texts.push([entry.id, entry.whyItFollows]);
   }
@@ -207,17 +214,17 @@ Deno.test("control: command-mention extraction discriminates", () => {
 });
 
 Deno.test("the rendered page carries the banner, every cluster, every benefit, and the coverage appendix", () => {
-  const doc = renderFeatureCanonBenefitsDoc();
+  const doc = renderFeatureCanonHumanBenefitsDoc();
   assertStringIncludes(doc, "<!-- GENERATED by `deno task codegen`");
-  assertStringIncludes(doc, "# Benefit canon");
-  for (const cluster of BENEFIT_CANON) {
+  assertStringIncludes(doc, "# Human Benefit Canon");
+  for (const cluster of HUMAN_BENEFIT_CANON) {
     assertStringIncludes(
       doc,
       `## ${cluster.title}`,
       `no rendering for cluster: ${cluster.id}`,
     );
   }
-  for (const { entry } of allBenefitEntries()) {
+  for (const { entry } of allHumanBenefitEntries()) {
     assertStringIncludes(
       doc,
       `### ${entry.title}`,
@@ -236,13 +243,17 @@ Deno.test("the rendered page carries the banner, every cluster, every benefit, a
 });
 
 Deno.test("the rendered commercial account uses the short scan labels", () => {
-  const doc = renderFeatureCanonBenefitsDoc();
+  const doc = renderFeatureCanonHumanBenefitsDoc();
   const count = (label: string): number =>
     doc.match(new RegExp(`^\\* \\*\\*${label}:\\*\\*`, "gm"))?.length ?? 0;
   for (const label of ["Role", "Promise", "Commercial value", "Audience"]) {
-    assertEquals(count(label), BENEFIT_CANON.length, `${label} cluster labels`);
+    assertEquals(
+      count(label),
+      HUMAN_BENEFIT_CANON.length,
+      `${label} cluster labels`,
+    );
   }
-  const benefitCount = allBenefitEntries().length;
+  const benefitCount = allHumanBenefitEntries().length;
   for (const label of ["Value", "Mechanism", "Product basis"]) {
     assertEquals(count(label), benefitCount, `${label} benefit labels`);
   }
@@ -254,7 +265,7 @@ Deno.test("the rendered commercial account uses the short scan labels", () => {
 });
 
 Deno.test("the commercial account is not interrupted by claim-review qualifications", () => {
-  const doc = renderFeatureCanonBenefitsDoc();
+  const doc = renderFeatureCanonHumanBenefitsDoc();
   const [commercialBody = doc] = doc.split(
     "## Coverage and claim traceability",
   );

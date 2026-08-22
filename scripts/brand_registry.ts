@@ -78,7 +78,7 @@ export const BRAND_DOCUMENTS = [
     file: "demand-canon.md",
     status: "Canonical",
     job:
-      "States the struggling moments the benefits answer — evidence-tagged, with current alternatives and forces — and holds two-way coverage against the benefit canon.",
+      "States the struggling moments the benefits answer — evidence-tagged, with current alternatives and forces — and holds two-way coverage against the Human Benefit Canon.",
     mode: { kind: "generated", render: renderDemandCanonDoc },
   },
   {

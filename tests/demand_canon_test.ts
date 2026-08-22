@@ -12,9 +12,9 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
-  allBenefitEntries,
   allFeatureNodes,
-  BENEFIT_CANON,
+  allHumanBenefitEntries,
+  HUMAN_BENEFIT_CANON,
 } from "../scripts/feature_registry.ts";
 import {
   allDemandEntries,
@@ -48,8 +48,8 @@ Deno.test("DemandAnswer excludes a simultaneous benefit answer and gap", () => {
 Deno.test("demand ids are unique and do not collide with the benefit canon or the feature tree", () => {
   const taken = new Set<string>([
     ...allFeatureNodes().map(({ node }) => node.id),
-    ...BENEFIT_CANON.map((cluster) => cluster.id),
-    ...allBenefitEntries().map(({ entry }) => entry.id),
+    ...HUMAN_BENEFIT_CANON.map((cluster) => cluster.id),
+    ...allHumanBenefitEntries().map(({ entry }) => entry.id),
   ]);
   const seen = new Set<string>();
   const claim = (id: string): void => {
@@ -175,7 +175,7 @@ Deno.test("demand evidence is dated, sourced, and confined to the ledger's marke
 });
 
 Deno.test("every territory counters a live benefit cluster, and every cluster is countered", () => {
-  const clusterIds = new Set(BENEFIT_CANON.map((cluster) => cluster.id));
+  const clusterIds = new Set(HUMAN_BENEFIT_CANON.map((cluster) => cluster.id));
   const countered = new Set<string>();
   for (const territory of DEMAND_CANON) {
     assert(
@@ -193,7 +193,9 @@ Deno.test("every territory counters a live benefit cluster, and every cluster is
 });
 
 Deno.test("every answering citation names a live benefit, exactly once per entry", () => {
-  const benefitIds = new Set(allBenefitEntries().map(({ entry }) => entry.id));
+  const benefitIds = new Set(
+    allHumanBenefitEntries().map(({ entry }) => entry.id),
+  );
   for (const { entry } of allDemandEntries()) {
     if (entry.answer.benefits === undefined) continue;
     assertEquals(
@@ -216,7 +218,9 @@ Deno.test("every benefit is answered by an entry or recorded supply-push — exa
       entry.answer.benefits !== undefined ? [...entry.answer.benefits] : []
     ),
   );
-  const benefitIds = new Set(allBenefitEntries().map(({ entry }) => entry.id));
+  const benefitIds = new Set(
+    allHumanBenefitEntries().map(({ entry }) => entry.id),
+  );
   const uncovered: string[] = [];
   const stale: string[] = [];
   for (const id of benefitIds) {

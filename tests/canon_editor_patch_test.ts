@@ -156,15 +156,15 @@ Deno.test("typed list values admit each live option once", async () => {
 
 Deno.test("the patcher refuses everything but editable prose literals", () => {
   const cases: readonly {
-    registry: "feature" | "glossary";
+    registry: "feature" | "agent-benefit" | "glossary";
     slug: string;
     field: string;
     expect: RegExp;
   }[] = [
     { registry: "feature", slug: "proof", field: "id", expect: /locked/ },
     {
-      registry: "feature",
-      slug: "proof",
+      registry: "agent-benefit",
+      slug: "own-one-isolated-effort",
       field: "hints",
       expect: /list, not in-place prose/,
     },
@@ -248,16 +248,22 @@ Deno.test("a patch replaces exactly one literal and nothing else", async () => {
 Deno.test("a typed list patch replaces one ordered string array", async () => {
   const original = await Deno.readTextFile(FEATURE_FILE);
   const pickers = await buildPickerCatalog();
-  const expected = ["gate-prove-it-works", "gate-relay-proof"];
-  const value = ["gate-relay-proof"];
+  const expected = ["silent-worktree-divergence", "start-mcp-re-root"];
+  const value = ["start-mcp-re-root"];
   const outcome = patchRegistrySource(
     REPO_ROOT,
-    listRequest("feature", "proof", "hints", expected, value),
+    listRequest(
+      "agent-benefit",
+      "own-one-isolated-effort",
+      "hints",
+      expected,
+      value,
+    ),
     { pickers },
   );
   assert(outcome.ok, "the list patch should land in memory");
   assert(
-    outcome.text.includes('hints: ["gate-relay-proof"]'),
+    outcome.text.includes('hints: ["start-mcp-re-root"]'),
     "the requested ordered list is in the source",
   );
   assertEquals(
@@ -329,11 +335,11 @@ Deno.test("a typed list patch refuses stale and unknown values", async () => {
   const stale = patchRegistrySource(
     REPO_ROOT,
     listRequest(
-      "feature",
-      "proof",
+      "agent-benefit",
+      "own-one-isolated-effort",
       "hints",
-      ["gate-prove-it-works"],
-      ["gate-relay-proof"],
+      ["silent-worktree-divergence"],
+      ["start-mcp-re-root"],
     ),
     { pickers },
   );
@@ -342,10 +348,10 @@ Deno.test("a typed list patch refuses stale and unknown values", async () => {
   const unknown = patchRegistrySource(
     REPO_ROOT,
     listRequest(
-      "feature",
-      "proof",
+      "agent-benefit",
+      "own-one-isolated-effort",
       "hints",
-      ["gate-prove-it-works", "gate-relay-proof"],
+      ["silent-worktree-divergence", "start-mcp-re-root"],
       ["not-a-registered-hint"],
     ),
     { pickers },
@@ -410,11 +416,11 @@ Deno.test("a typed list save runs the same format and guard boundary", async () 
     const pickers = await buildPickerCatalog();
     const report = await saveField(
       listRequest(
-        "feature",
-        "proof",
+        "agent-benefit",
+        "own-one-isolated-effort",
         "hints",
-        ["gate-prove-it-works", "gate-relay-proof"],
-        ["gate-relay-proof"],
+        ["silent-worktree-divergence", "start-mcp-re-root"],
+        ["start-mcp-re-root"],
       ),
       {
         root,
@@ -428,7 +434,7 @@ Deno.test("a typed list save runs the same format and guard boundary", async () 
     assertEquals(report.twin, undefined, "list edits queue no prose twin");
     assert(
       (await Deno.readTextFile(featureFile)).includes(
-        'hints: ["gate-relay-proof"]',
+        'hints: ["start-mcp-re-root"]',
       ),
       "the formatted typed list survives the proven save",
     );

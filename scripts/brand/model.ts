@@ -27,6 +27,11 @@ export const EVIDENCE_CLASS_NAMES = [
 
 export type EvidenceClass = (typeof EVIDENCE_CLASS_NAMES)[number];
 
+/** Whose outcome a public claim primarily describes. */
+export const CLAIM_AUDIENCES = ["human", "coding-agent", "shared"] as const;
+
+export type ClaimAudience = (typeof CLAIM_AUDIENCES)[number];
+
 /** What one evidence class means and how it may be used publicly. */
 export interface EvidenceClassDefinition {
   readonly meaning: string;
@@ -42,6 +47,8 @@ export interface EvidenceClassDefinition {
 export interface Claim {
   /** The claim statement, rendered beside the slug in the ledger heading. */
   readonly title: string;
+  /** The audience whose benefit account must carry this claim. */
+  readonly audience: ClaimAudience;
   readonly evidence: readonly EvidenceClass[];
   /** The strongest supported public wording (rendered inside “” quotes). */
   readonly strongestPublicForm: string;

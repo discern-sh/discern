@@ -2,9 +2,9 @@
 
 # Practice canon
 
-_The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the value they yield. The [feature canon](feature-canon.md) owns the mechanism account and the [benefit canon](feature-canon-benefits.md) owns the human value; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._
+_The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the value they yield. The [feature canon](feature-canon.md) owns the mechanism account and the [Human Benefit Canon](feature-canon-human-benefits.md) owns the human value; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._
 
-12 tenets · 10 bundled skills claimed · 72 feature nodes cited · 7 of 8 benefit clusters yielded · 6 properties.
+12 tenets · 10 bundled skills claimed · 72 feature nodes cited · 7 of 8 human-benefit clusters yielded · 6 properties.
 
 ## The frame
 

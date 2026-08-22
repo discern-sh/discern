@@ -2,19 +2,19 @@
 
 # Demand canon
 
-_discern's internal account of the demand its benefits answer. It is the market-side counterpart of the [benefit canon](../feature-canon-benefits.md): where a benefit reasons forward from product facts to human value, a demand entry reasons backward from a struggling moment somebody is hypothesized to be in. Demand claims are empirical, so every entry carries dated evidence in the market classes of the [`claims-and-evidence.md`](claims-and-evidence.md) ledger, and nothing here is stronger than its class. The [`audiences.md`](../../_private/brand/audiences.md) document holds the by-person account of the same ground._
+_discern's internal account of the demand its benefits answer. It is the market-side counterpart of the [Human Benefit Canon](../feature-canon-human-benefits.md): where a benefit reasons forward from product facts to human value, a demand entry reasons backward from a struggling moment somebody is hypothesized to be in. Demand claims are empirical, so every entry carries dated evidence in the market classes of the [`claims-and-evidence.md`](claims-and-evidence.md) ledger, and nothing here is stronger than its class. The [`audiences.md`](../../_private/brand/audiences.md) document holds the by-person account of the same ground._
 
 8 territories · 38 entries · 43 of 45 benefits answered · 2 supply-push records · 1 recorded gap · evidence: hypothesis 38.
 
 ## How to use this canon
 
-- Read a territory's tension first; its entries are the specific, recurring forms of it. An entry names the benefits that answer the struggle — the mechanism account stays in the benefit canon.
+- Read a territory's tension first; its entries are the specific, recurring forms of it. An entry names the benefits that answer the struggle — the mechanism account stays in the Human Benefit Canon.
 - Trust an entry no further than its evidence class. Demand evidence uses the claims ledger's market classes only — observational, anecdotal, hypothesis; structural and demonstrated describe the product and can never describe the market. An entry is promoted by attaching stronger evidence; rewording changes nothing.
 - Forces name what the moment does to the person: push drives them to seek help, pull attracts them to a new practice, anxiety makes them hesitate over it, and habit holds them to the current way. Anxiety and habit entries are the objections public copy must answer.
 - A benefit no entry answers is recorded as a supply-push bet, neither deleted nor assumed wanted. An entry no benefit answers is a recorded gap, kept visible as roadmap signal and left out of public copy.
 - Dates mark the moment the evidence was recorded. Treat an old hypothesis as expired until it is re-confirmed or promoted.
 - The Heard as lines collect pre-contact market language: what the struggle sounds like before the person knows any product vocabulary. Public copy should meet people in these words; the lines are themselves hypotheses until observed in real queries.
-- Write public copy from the benefit canon and the claims ledger; use this canon to choose which benefits to lead with and which objections to answer.
+- Write public copy from the Human Benefit Canon and the claims ledger; use this canon to choose which benefits to lead with and which objections to answer.
 
 ## Demand center
 
@@ -467,7 +467,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 
 ## Coverage and traceability
 
-Every benefit in the benefit canon is answered by at least one entry or recorded as a supply-push bet below, and every entry names the benefits that answer it or records a gap. The guard (`tests/demand_canon_test.ts`) holds both directions. Demand evidence stays within the claims ledger's market classes, so a struggling moment can never borrow the certainty of a product fact.
+Every benefit in the Human Benefit Canon is answered by at least one entry or recorded as a supply-push bet below, and every entry names the benefits that answer it or records a gap. The guard (`tests/demand_canon_test.ts`) holds both directions. Demand evidence stays within the claims ledger's market classes, so a struggling moment can never borrow the certainty of a product fact.
 
 ### Supply-push records
 

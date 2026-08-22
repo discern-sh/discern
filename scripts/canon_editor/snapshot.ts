@@ -15,19 +15,25 @@ import { join } from "@std/path";
 import { markerAnnotator, setProseAnnotator, slugify } from "./annotation.ts";
 import { REPO_ROOT } from "./root.ts";
 import {
-  allBenefitEntries,
+  AGENT_BENEFIT_CANON,
+  type AgentBenefitCluster,
+  type AgentBenefitEntry,
+  allAgentBenefitEntries,
   allFeatureNodes,
-  BENEFIT_CANON,
-  type BenefitCluster,
-  type BenefitEntry,
-  FEATURE_CANON_BENEFITS_PAGE_REL,
+  allHumanBenefitEntries,
+  FEATURE_CANON_AGENT_BENEFITS_PAGE_REL,
+  FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL,
   FEATURE_CANON_PAGE_REL,
   FEATURE_CANON_PLAIN_PAGE_REL,
   type FeatureNode,
+  HUMAN_BENEFIT_CANON,
+  type HumanBenefitCluster,
+  type HumanBenefitEntry,
   PLAIN_GENERAL_JARGON,
   plainPolicedTerms,
-  renderFeatureCanonBenefitsDoc,
+  renderFeatureCanonAgentBenefitsDoc,
   renderFeatureCanonDoc,
+  renderFeatureCanonHumanBenefitsDoc,
   renderFeatureCanonPlainDoc,
 } from "../feature_registry.ts";
 import {
@@ -153,7 +159,8 @@ export interface Snapshot {
 /** The set ids the prose registries carry in the meta-registry. */
 const REGISTRY_SET_IDS: Readonly<Record<ProseRegistry, string>> = {
   feature: "feature-canon",
-  benefit: "benefit-canon",
+  benefit: "human-benefit-canon",
+  "agent-benefit": "agent-benefit-canon",
   demand: "demand-canon",
   practice: "practice-tenets",
   glossary: "glossary-terms",
@@ -179,10 +186,10 @@ function featureTitles(): Map<string, string> {
 function buildEntries(): SnapshotEntry[] {
   const titles = featureTitles();
   const clusterTitles = new Map(
-    BENEFIT_CANON.map((cluster) => [cluster.id, cluster.title]),
+    HUMAN_BENEFIT_CANON.map((cluster) => [cluster.id, cluster.title]),
   );
   const benefitTitles = new Map(
-    allBenefitEntries().map(({ entry }) => [entry.id, entry.title]),
+    allHumanBenefitEntries().map(({ entry }) => [entry.id, entry.title]),
   );
   const inward = new Map<string, InwardCitation[]>();
   const carried = new Map<string, Set<string>>();
@@ -197,10 +204,34 @@ function buildEntries(): SnapshotEntry[] {
     list.push({ ...from, via });
     inward.set(key, list);
   };
-  for (const { cluster, entry } of allBenefitEntries()) {
+  for (const { cluster, entry } of allHumanBenefitEntries()) {
     const from = { registry: "benefit", slug: entry.id, label: entry.title };
     for (const id of entry.drawsOn) {
       cite("feature", id, from, "drawsOn");
+      for (const claim of entry.claims ?? []) {
+        const set = carried.get(id) ?? new Set<string>();
+        set.add(claim);
+        carried.set(id, set);
+      }
+    }
+    for (const claim of entry.claims ?? []) {
+      cite("claims", claim, from, "claims");
+    }
+    void cluster;
+  }
+  for (const { cluster, entry } of allAgentBenefitEntries()) {
+    const from = {
+      registry: "agent-benefit",
+      slug: entry.id,
+      label: entry.title,
+    };
+    for (const id of [...entry.drawsOn, ...(entry.supportedBy ?? [])]) {
+      cite(
+        "feature",
+        id,
+        from,
+        entry.drawsOn.includes(id) ? "drawsOn" : "supportedBy",
+      );
       for (const claim of entry.claims ?? []) {
         const set = carried.get(id) ?? new Set<string>();
         set.add(claim);
@@ -260,7 +291,6 @@ function buildEntries(): SnapshotEntry[] {
         field: "surfaces",
         refs: (node.surfaces ?? []).map((label) => ({ label })),
       },
-      { field: "hints", refs: (node.hints ?? []).map((label) => ({ label })) },
     ].filter((citation) => citation.refs.length > 0),
     inward: inwardOf("feature", node.id),
     claimsCarried: [...(carried.get(node.id) ?? [])].toSorted(),
@@ -269,7 +299,7 @@ function buildEntries(): SnapshotEntry[] {
     push(featureEntry(node, depth === 0 ? "pillar" : "node", parent));
   }
 
-  const clusterEntry = (cluster: BenefitCluster): SnapshotEntry => ({
+  const clusterEntry = (cluster: HumanBenefitCluster): SnapshotEntry => ({
     registry: "benefit",
     id: cluster.id,
     slug: cluster.id,
@@ -280,8 +310,8 @@ function buildEntries(): SnapshotEntry[] {
     inward: inwardOf("benefit", cluster.id),
   });
   const benefitEntry = (
-    cluster: BenefitCluster,
-    entry: BenefitEntry,
+    cluster: HumanBenefitCluster,
+    entry: HumanBenefitEntry,
   ): SnapshotEntry => ({
     registry: "benefit",
     id: entry.id,
@@ -310,9 +340,71 @@ function buildEntries(): SnapshotEntry[] {
     ].filter((citation) => citation.refs.length > 0),
     inward: inwardOf("benefit", entry.id),
   });
-  for (const cluster of BENEFIT_CANON) {
+  for (const cluster of HUMAN_BENEFIT_CANON) {
     push(clusterEntry(cluster));
     for (const entry of cluster.benefits) push(benefitEntry(cluster, entry));
+  }
+
+  const agentClusterEntry = (
+    cluster: AgentBenefitCluster,
+  ): SnapshotEntry => ({
+    registry: "agent-benefit",
+    id: cluster.id,
+    slug: cluster.id,
+    title: cluster.title,
+    kind: "cluster",
+    data: prune(cluster as unknown as Record<string, unknown>, "benefits"),
+    outward: [],
+    inward: inwardOf("agent-benefit", cluster.id),
+  });
+  const agentBenefitEntry = (
+    cluster: AgentBenefitCluster,
+    entry: AgentBenefitEntry,
+  ): SnapshotEntry => ({
+    registry: "agent-benefit",
+    id: entry.id,
+    slug: entry.id,
+    title: entry.title,
+    kind: "agent benefit",
+    parent: cluster.id,
+    data: entry as unknown as Record<string, unknown>,
+    outward: [
+      {
+        field: "drawsOn",
+        refs: entry.drawsOn.map((id) => ({
+          registry: "feature",
+          slug: id,
+          label: titles.get(id) ?? id,
+        })),
+      },
+      {
+        field: "supportedBy",
+        refs: (entry.supportedBy ?? []).map((id) => ({
+          registry: "feature",
+          slug: id,
+          label: titles.get(id) ?? id,
+        })),
+      },
+      {
+        field: "hints",
+        refs: (entry.hints ?? []).map((label) => ({ label })),
+      },
+      {
+        field: "claims",
+        refs: (entry.claims ?? []).map((slug) => ({
+          registry: "claims",
+          slug,
+          label: slug,
+        })),
+      },
+    ].filter((citation) => citation.refs.length > 0),
+    inward: inwardOf("agent-benefit", entry.id),
+  });
+  for (const cluster of AGENT_BENEFIT_CANON) {
+    push(agentClusterEntry(cluster));
+    for (const entry of cluster.benefits) {
+      push(agentBenefitEntry(cluster, entry));
+    }
   }
 
   const territoryEntry = (territory: DemandTerritory): SnapshotEntry => ({
@@ -442,9 +534,15 @@ async function buildPages(): Promise<SnapshotPage[]> {
         true,
       ],
       [
-        "feature-canon-benefits",
-        FEATURE_CANON_BENEFITS_PAGE_REL,
-        renderFeatureCanonBenefitsDoc(),
+        "feature-canon-human-benefits",
+        FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL,
+        renderFeatureCanonHumanBenefitsDoc(),
+        true,
+      ],
+      [
+        "feature-canon-agent-benefits",
+        FEATURE_CANON_AGENT_BENEFITS_PAGE_REL,
+        renderFeatureCanonAgentBenefitsDoc(),
         true,
       ],
       [
@@ -485,7 +583,8 @@ async function buildPages(): Promise<SnapshotPage[]> {
   const titles: Readonly<Record<string, string>> = {
     "feature-canon": "Feature canon",
     "feature-canon-plain": "The complete feature guide",
-    "feature-canon-benefits": "Benefit canon",
+    "feature-canon-human-benefits": "Human Benefit Canon",
+    "feature-canon-agent-benefits": "Agent Benefit Canon",
     "demand-canon": "Demand canon",
     "practice-canon": "Practice canon",
     "the-practice": "The practice",

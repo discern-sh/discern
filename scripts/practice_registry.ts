@@ -5,8 +5,8 @@
  * (the discipline of `feature_registry.ts` and `glossary_registry.ts`).
  *
  * The practice canon is the middle layer of the canon triptych: the feature
- * canon owns the MECHANISM account (what exists), the benefit canon owns the
- * VALUE account (what it is worth), and this registry owns the OBLIGATIONS
+ * canon owns the MECHANISM account (what exists), the Human Benefit Canon owns
+ * the VALUE account (what it is worth to people), and this registry owns the OBLIGATIONS
  * between them — what the practice requires, whichever features implement it
  * and whatever value follows. A tenet is statable without naming a single
  * feature; its `mechanisms` then cite today's implementation and its
@@ -36,7 +36,7 @@
 import { join } from "@std/path";
 import {
   allFeatureNodes,
-  BENEFIT_CANON,
+  HUMAN_BENEFIT_CANON,
   parseSurfaceKey,
 } from "./feature_registry.ts";
 import { annotateProse } from "./canon_editor/annotation.ts";
@@ -612,7 +612,7 @@ function citedFeatureTitle(titles: Map<string, string>, id: string): string {
 
 /** Resolve one cited benefit-cluster id to its title, or throw. */
 function citedClusterTitle(id: string): string {
-  const cluster = BENEFIT_CANON.find((entry) => entry.id === id);
+  const cluster = HUMAN_BENEFIT_CANON.find((entry) => entry.id === id);
   if (cluster === undefined) {
     throw new Error(`practice canon cites unknown benefit cluster: ${id}`);
   }
@@ -682,9 +682,9 @@ export function renderPracticeCanonDoc(): string {
     "",
     "# Practice canon",
     "",
-    "_The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the value they yield. The [feature canon](feature-canon.md) owns the mechanism account and the [benefit canon](feature-canon-benefits.md) owns the human value; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._",
+    "_The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the value they yield. The [feature canon](feature-canon.md) owns the mechanism account and the [Human Benefit Canon](feature-canon-human-benefits.md) owns the human value; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._",
     "",
-    `${PRACTICE_CANON.length} tenets · ${claimedSkills.size} bundled skills claimed · ${citedNodes.size} feature nodes cited · ${yieldedClusters.size} of ${BENEFIT_CANON.length} benefit clusters yielded · ${PRACTICE_PROPERTIES.length} properties.`,
+    `${PRACTICE_CANON.length} tenets · ${claimedSkills.size} bundled skills claimed · ${citedNodes.size} feature nodes cited · ${yieldedClusters.size} of ${HUMAN_BENEFIT_CANON.length} human-benefit clusters yielded · ${PRACTICE_PROPERTIES.length} properties.`,
     "",
     "## The frame",
     "",

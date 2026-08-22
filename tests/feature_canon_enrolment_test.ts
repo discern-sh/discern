@@ -23,7 +23,6 @@
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import {
-  allHintCitations,
   allSurfaceClaims,
   FEATURE_CANON,
   type FeatureNode,
@@ -32,7 +31,6 @@ import {
   type SurfaceSet,
 } from "../scripts/feature_registry.ts";
 import { liveFeatureSurfaceMembers } from "../scripts/feature_surface_catalog.ts";
-import { HINTS } from "../src/shared/hints.ts";
 import {
   AGENT_NAMES,
   agentLabelForNative,
@@ -69,11 +67,9 @@ function providerDetailLeaks(
       node.title,
       node.what,
       node.why,
-      node.agent,
       node.plain.title,
       node.plain.what,
       node.plain.why,
-      node.plain.agent,
     ].filter((value): value is string => value !== undefined).join("\n");
     for (const provider of labels) {
       if (prose.includes(provider.label) && !allowed.has(provider.member)) {
@@ -188,51 +184,6 @@ Deno.test("every deliberate-absence record points at a live closed-set member, w
       `${key}: a deliberate absence carries its reason`,
     );
   }
-});
-
-// Hint citations are SOFT references into the hint registry: a citation must
-// name a live registered hint, but no hint demands a citation — enrolling the
-// full hint corpus would drown the canon in claims for marginal truth.
-
-Deno.test("every hint citation names a live registered hint", () => {
-  const live = new Set(Object.keys(HINTS));
-  const offenders = allHintCitations()
-    .filter(({ id }) => !live.has(id))
-    .map(({ id, citedBy }) =>
-      `${citedBy} cites hint '${id}', which the hint registry does not carry`
-    );
-  assertEquals(
-    offenders,
-    [],
-    `stale hint citations in the feature canon:\n  ${offenders.join("\n  ")}`,
-  );
-});
-
-Deno.test("hint-citation extraction reads the whole tree (positive control)", () => {
-  const fixture: FeatureNode[] = [
-    {
-      id: "root",
-      title: "Root",
-      what: "A fixture.",
-      agent: "A fixture.",
-      hints: ["gate-prove-it-works"],
-      plain: { title: "Fixture", what: "A fixture." },
-      children: [
-        {
-          id: "leaf",
-          title: "Leaf",
-          what: "A fixture.",
-          agent: "A fixture.",
-          hints: ["status-start-on-trunk"],
-          plain: { title: "Fixture", what: "A fixture." },
-        },
-      ],
-    },
-  ];
-  assertEquals(allHintCitations(fixture), [
-    { id: "gate-prove-it-works", citedBy: "root" },
-    { id: "status-start-on-trunk", citedBy: "leaf" },
-  ]);
 });
 
 // Positive controls: prove the claim machinery discriminates, so the guard

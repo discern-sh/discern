@@ -1,5 +1,5 @@
 /**
- * The demand canon — the market-side counterpart of the benefit canon
+ * The demand canon — the market-side counterpart of the Human Benefit Canon
  * (ADR 0292). Where a benefit reasons forward from product facts to human
  * value, a demand entry reasons backward from a struggling moment somebody
  * is hypothesized to be in: the trigger situation, what they do about it
@@ -10,7 +10,7 @@
  * Its language addresses the person and describes the state of the work or
  * workflow; it never casts the person as the agents' minder (ADR 0244).
  *
- * Coverage runs in both directions, mirroring the benefit canon's guard:
+ * Coverage runs in both directions, mirroring the Human Benefit Canon's guard:
  * every benefit is answered by at least one entry or recorded as a
  * supply-push bet in `SUPPLY_PUSH_RECORDS`, and every entry names the
  * benefits that answer it or records a gap. `tests/demand_canon_test.ts`
@@ -19,9 +19,9 @@
  */
 
 import {
-  allBenefitEntries,
-  BENEFIT_CANON,
-  type BenefitAudience,
+  allHumanBenefitEntries,
+  HUMAN_BENEFIT_CANON,
+  type HumanBenefitAudience,
 } from "../feature_registry.ts";
 import { annotateProse } from "../canon_editor/annotation.ts";
 import type { EvidenceClass } from "./model.ts";
@@ -50,7 +50,7 @@ export type DemandForce = "push" | "pull" | "anxiety" | "habit";
 
 /** A human segment demand can be attributed to. Agents mediate adoption but
  * do not struggle, so the coding-agent audience carries no demand entries. */
-export type DemandSegment = Exclude<BenefitAudience, "coding agents">;
+export type DemandSegment = HumanBenefitAudience;
 
 /** One dated piece of evidence behind a demand entry. */
 export interface DemandEvidence {
@@ -63,7 +63,7 @@ export interface DemandEvidence {
 
 /**
  * What answers the entry: the benefit ids that address the struggle
- * (checked against the benefit canon by the guard), or a recorded gap — a
+ * (checked against the Human Benefit Canon by the guard), or a recorded gap — a
  * demand with no benefit home, kept as roadmap signal rather than deleted.
  */
 export type DemandAnswer =
@@ -141,7 +141,7 @@ const FROM_DISCOURSE: DemandEvidence = {
 };
 
 /**
- * The demand canon. Territory order mirrors the benefit canon's commercial
+ * The demand canon. Territory order mirrors the Human Benefit Canon's commercial
  * order, so the two accounts read side by side.
  */
 export const DEMAND_CANON: readonly DemandTerritory[] = [
@@ -849,7 +849,7 @@ export function allDemandEntries(
 /** The benefit titles by id, for resolving `answer` citations loudly. */
 function benefitTitlesById(): Map<string, string> {
   return new Map(
-    allBenefitEntries().map(({ entry }) => [entry.id, entry.title]),
+    allHumanBenefitEntries().map(({ entry }) => [entry.id, entry.title]),
   );
 }
 
@@ -865,7 +865,7 @@ function answeringTitle(titles: Map<string, string>, id: string): string {
 
 /** The benefit-cluster titles and roles by id, for the counterpart labels. */
 function clusterById(id: string): { title: string; role: string } {
-  const cluster = BENEFIT_CANON.find((candidate) => candidate.id === id);
+  const cluster = HUMAN_BENEFIT_CANON.find((candidate) => candidate.id === id);
   if (cluster === undefined) {
     throw new Error(`demand territory counters unknown cluster: ${id}`);
   }
@@ -902,7 +902,7 @@ export function renderDemandCanonDoc(): string {
     ),
   );
   const gaps = flattened.filter(({ entry }) => entry.answer.gap !== undefined);
-  const benefitCount = allBenefitEntries().length;
+  const benefitCount = allHumanBenefitEntries().length;
   const classCounts = new Map<DemandEvidenceClass, number>();
   for (const { entry } of flattened) {
     for (const row of entry.evidence) {
@@ -919,7 +919,7 @@ export function renderDemandCanonDoc(): string {
   const lines: string[] = [
     "# Demand canon",
     "",
-    "_discern's internal account of the demand its benefits answer. It is the market-side counterpart of the [benefit canon](../feature-canon-benefits.md): where a benefit reasons forward from product facts to human value, a demand entry reasons backward from a struggling moment somebody is hypothesized to be in. Demand claims are empirical, so every entry carries dated evidence in the market classes of the {{doc:claims-and-evidence}} ledger, and nothing here is stronger than its class. The {{doc:audiences}} document holds the by-person account of the same ground._",
+    "_discern's internal account of the demand its benefits answer. It is the market-side counterpart of the [Human Benefit Canon](../feature-canon-human-benefits.md): where a benefit reasons forward from product facts to human value, a demand entry reasons backward from a struggling moment somebody is hypothesized to be in. Demand claims are empirical, so every entry carries dated evidence in the market classes of the {{doc:claims-and-evidence}} ledger, and nothing here is stronger than its class. The {{doc:audiences}} document holds the by-person account of the same ground._",
     "",
     `${DEMAND_CANON.length} territories · ${flattened.length} entries · ${answered.size} of ${benefitCount} benefits answered · ${
       counted(Object.keys(SUPPLY_PUSH_RECORDS).length, "supply-push record")
@@ -927,13 +927,13 @@ export function renderDemandCanonDoc(): string {
     "",
     "## How to use this canon",
     "",
-    "- Read a territory's tension first; its entries are the specific, recurring forms of it. An entry names the benefits that answer the struggle — the mechanism account stays in the benefit canon.",
+    "- Read a territory's tension first; its entries are the specific, recurring forms of it. An entry names the benefits that answer the struggle — the mechanism account stays in the Human Benefit Canon.",
     "- Trust an entry no further than its evidence class. Demand evidence uses the claims ledger's market classes only — observational, anecdotal, hypothesis; structural and demonstrated describe the product and can never describe the market. An entry is promoted by attaching stronger evidence; rewording changes nothing.",
     "- Forces name what the moment does to the person: push drives them to seek help, pull attracts them to a new practice, anxiety makes them hesitate over it, and habit holds them to the current way. Anxiety and habit entries are the objections public copy must answer.",
     "- A benefit no entry answers is recorded as a supply-push bet, neither deleted nor assumed wanted. An entry no benefit answers is a recorded gap, kept visible as roadmap signal and left out of public copy.",
     "- Dates mark the moment the evidence was recorded. Treat an old hypothesis as expired until it is re-confirmed or promoted.",
     "- The Heard as lines collect pre-contact market language: what the struggle sounds like before the person knows any product vocabulary. Public copy should meet people in these words; the lines are themselves hypotheses until observed in real queries.",
-    "- Write public copy from the benefit canon and the claims ledger; use this canon to choose which benefits to lead with and which objections to answer.",
+    "- Write public copy from the Human Benefit Canon and the claims ledger; use this canon to choose which benefits to lead with and which objections to answer.",
     "",
     "## Demand center",
     "",
@@ -1019,7 +1019,7 @@ export function renderDemandCanonDoc(): string {
   lines.push(
     "## Coverage and traceability",
     "",
-    "Every benefit in the benefit canon is answered by at least one entry or recorded as a supply-push bet below, and every entry names the benefits that answer it or records a gap. The guard (`tests/demand_canon_test.ts`) holds both directions. Demand evidence stays within the claims ledger's market classes, so a struggling moment can never borrow the certainty of a product fact.",
+    "Every benefit in the Human Benefit Canon is answered by at least one entry or recorded as a supply-push bet below, and every entry names the benefits that answer it or records a gap. The guard (`tests/demand_canon_test.ts`) holds both directions. Demand evidence stays within the claims ledger's market classes, so a struggling moment can never borrow the certainty of a product fact.",
     "",
     "### Supply-push records",
     "",
