@@ -219,7 +219,6 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0224 — Trend comparability is setup equality, and analysis skips setup-era events](0224-trend-comparability-is-setup-equality.md)
 - [0225 — Contained-worktree reclaim is offer-only and keeps the branch ref](0225-contained-worktree-reclaim-is-offer-only.md)
 - [0226 — Setup separates installation evidence from terminal launchers](0226-setup-separates-installation-evidence-from-terminal-launchers.md)
-- [0227 — `await` bounds follow repository evidence](0227-await-bounds-follow-repository-evidence.md)
 - [0228 — The feature canon carries a plain-language register](0228-the-feature-canon-carries-a-plain-language-register.md)
 - [0229 — Practice stats are counted, local, and never comparative](0229-practice-stats-are-counted-local-and-never-comparative.md)
 - [0231 — Prose density shares one versioned corpus](0231-prose-density-shares-one-versioned-corpus.md)
@@ -327,6 +326,7 @@ These records remain under [`_superseded/`](_superseded/) because the path to th
 - [0061 — Graduate enforces the fix stage's fixed point before landing](_superseded/0061-graduate-fix-stage-fixed-point.md)
 - [0091 — Rescue generated content before overwrite](_superseded/0091-rescue-generated-content-before-overwrite.md)
 - [0107 — `upgrade` reconciles the record-table doc banners](_superseded/0107-config-banners-are-managed-regions.md)
+- [0227 — `await` bounds follow repository evidence](_superseded/0227-await-bounds-follow-repository-evidence.md)
 
 <!-- END GENERATED: superseded ADR records -->
 

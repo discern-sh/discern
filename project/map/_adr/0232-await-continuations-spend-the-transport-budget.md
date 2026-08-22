@@ -1,6 +1,6 @@
 # ADR 0232: `await` continuations spend the transport budget
 
-**Status**: accepted for transport timing, retry continuity, branch arming, and follow-up policy. Its self-contained token representation and inherited no-Git-admin-state rule are superseded by [ADR 0243](0243-await-continuations-use-short-repository-local-handles.md). Supersedes [ADR 0227](0227-await-bounds-follow-repository-evidence.md)'s evidence-priced timeout policy and the vendor timing claims in [ADR 0213](0213-await-blocks-on-authoritative-fleet-conditions.md). Uses the landed receipt notes from [ADR 0188](0188-the-receipt-relays-as-one-line.md) as durable acceptance evidence.
+**Status**: accepted for transport timing, retry continuity, branch arming, and follow-up policy. Its self-contained token representation and inherited no-Git-admin-state rule are superseded by [ADR 0243](0243-await-continuations-use-short-repository-local-handles.md). Supersedes [ADR 0227](_superseded/0227-await-bounds-follow-repository-evidence.md)'s evidence-priced timeout policy and the vendor timing claims in [ADR 0213](0213-await-blocks-on-authoritative-fleet-conditions.md). Uses the landed receipt notes from [ADR 0188](0188-the-receipt-relays-as-one-line.md) as durable acceptance evidence.
 
 ## Context
 

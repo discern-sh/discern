@@ -1,6 +1,8 @@
 # ADR 0227: `await` bounds follow repository evidence
 
-**Status**: superseded by [ADR 0232](0232-await-continuations-spend-the-transport-budget.md). This was the intermediate replacement for the timeout and retry policy in [ADR 0213](0213-await-blocks-on-authoritative-fleet-conditions.md).
+> **Superseded by [ADR 0232](../0232-await-continuations-spend-the-transport-budget.md).** An omitted `await` timeout now spends the configured transport's declared budget rather than repository duration evidence — the evidence-priced bound, its fallbacks, and the priced retry advice are gone. One decision made here survives: the logbook projection preserves every fresh unmatched begin per branch, oldest first, while the compact `running` field stays the newest action.
+
+**Status**: superseded by [ADR 0232](../0232-await-continuations-spend-the-transport-budget.md). This was the intermediate replacement for the timeout and retry policy in [ADR 0213](../0213-await-blocks-on-authoritative-fleet-conditions.md).
 
 ## Context
 
