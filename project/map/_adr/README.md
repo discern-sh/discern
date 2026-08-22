@@ -296,6 +296,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0307 — CI reports checkpoint review and Proof retains drops](0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)
 - [0308 — Checkpoint triggers use bounded facts and a versioned command input](0308-checkpoint-triggers-use-bounded-facts-and-versioned-input.md)
 - [0309 — Repository question files are governed content](0309-repository-question-files-are-governed-content.md)
+- [0310 — Amendment notes consolidate into one timeless block, and supersession hygiene is gate-enforced](0310-amendment-notes-consolidate-and-read-timelessly.md)
 
 <!-- END GENERATED: current ADR records -->
 
@@ -335,3 +336,5 @@ These records remain under [`_superseded/`](_superseded/) because the path to th
 discern ships the ADR discipline through the bundled `discern-write-adr` skill, which creates `map/_adr/` from [`templates/skills/discern-write-adr/skeleton/docs/_adr/`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/). The [canonical format](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/README.md) and [copyable template](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md) are the authoring contract.
 
 Number records continuously as `NNNN-slug.md`. The first real record is `0001`. State the decision in the title, and write a record only for a choice that is hard to reverse, surprising without context, and a real trade-off. Move a reversed or fully absorbed record into `_superseded/` and add a banner naming its successor. Never reuse a number.
+
+Amendments follow [ADR 0310](0310-amendment-notes-consolidate-and-read-timelessly.md): a record keeps **one** leading amendment block — a single blockquote with one entry per amending decision — never a stack of banners. Write each entry to stay true as the system moves: state the direction of the change and name the live authority (config, registry, lockfile) for any current value; a note that restates a count or a version goes false with the next change. Record a supersession on **both** records in the same change — the gate checks the mechanical half.
