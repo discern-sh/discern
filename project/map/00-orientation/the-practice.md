@@ -42,7 +42,7 @@ The delegate-work skill turns discussed work into self-contained briefs (a purpo
 
 > The project's declared checks decide when work is done; an agent's confidence stays advisory.
 
-The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. Every verdict is recomputed, and a failure carries the command that produced it, so the fix starts at the cause.
+The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. Agent conclusions remain separate from verified results. Every verdict is recomputed, and a failure carries the command that produced it, so the fix starts at the cause.
 
 ### 5. Only better
 

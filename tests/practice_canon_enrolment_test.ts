@@ -29,6 +29,7 @@ import {
   allUpheldKeys,
   inventoryPhrase,
   parseCarrier,
+  PRACTICE_AGENT_BENEFIT_ABSENCES,
   PRACTICE_CANON,
   PRACTICE_CANON_PAGE_REL,
   PRACTICE_CLUSTER_ABSENCES,
@@ -44,6 +45,7 @@ import {
   upheldEntries,
 } from "../scripts/practice_registry.ts";
 import {
+  allAgentBenefitEntries,
   allFeatureNodes,
   HUMAN_BENEFIT_CANON,
 } from "../scripts/feature_registry.ts";
@@ -165,22 +167,27 @@ Deno.test("every bundled skill is claimed by a tenet or recorded absent — exac
   }
 });
 
-Deno.test("every mechanism cites a live feature node and every yield a live benefit cluster", () => {
+Deno.test("every mechanism and human or agent yield cites a live member", () => {
   const nodeIds = new Set(allFeatureNodes().map(({ node }) => node.id));
   const clusterIds = new Set(HUMAN_BENEFIT_CANON.map((cluster) => cluster.id));
+  const agentBenefitIds = new Set(
+    allAgentBenefitEntries().map(({ entry }) => entry.id),
+  );
   const citing = [
     ...PRACTICE_CANON.map((tenet) => ({
       id: tenet.id,
       mechanisms: tenet.mechanisms,
       yields: tenet.yields,
+      agentYields: tenet.agentYields,
     })),
     ...PRACTICE_PROPERTIES.map((property) => ({
       id: property.id,
       mechanisms: property.mechanisms,
       yields: property.yields ?? [],
+      agentYields: property.agentYields ?? [],
     })),
   ];
-  for (const { id, mechanisms, yields } of citing) {
+  for (const { id, mechanisms, yields, agentYields } of citing) {
     assert(mechanisms.length > 0, `no mechanisms cited by: ${id}`);
     for (const mechanism of mechanisms) {
       assert(
@@ -194,10 +201,100 @@ Deno.test("every mechanism cites a live feature node and every yield a live bene
         `${id} yields unknown benefit cluster: ${cluster}`,
       );
     }
+    for (const outcome of agentYields) {
+      assert(
+        agentBenefitIds.has(outcome),
+        `${id} enables unknown agent benefit: ${outcome}`,
+      );
+    }
   }
   for (const tenet of PRACTICE_CANON) {
     assert(tenet.yields.length > 0, `tenet yields nothing: ${tenet.id}`);
+    assert(
+      tenet.agentYields.length > 0,
+      `tenet enables no coding-agent outcome: ${tenet.id}`,
+    );
   }
+});
+
+interface AgentOutcomeCoverageFixture {
+  readonly outcomeIds: readonly string[];
+  readonly tenets: readonly { id: string; agentYields: readonly string[] }[];
+  readonly properties: readonly {
+    id: string;
+    agentYields?: readonly string[];
+  }[];
+  readonly absences: Readonly<Record<string, string>>;
+}
+
+/** Report every unclaimed outcome, stale absence, and stranded absence record. */
+function agentOutcomeCoverageOffenders(
+  fixture: AgentOutcomeCoverageFixture,
+): string[] {
+  const live = new Set(fixture.outcomeIds);
+  const claimed = new Set([
+    ...fixture.tenets.flatMap((tenet) => [...tenet.agentYields]),
+    ...fixture.properties.flatMap((property) => [
+      ...(property.agentYields ?? []),
+    ]),
+  ]);
+  const offenders: string[] = [];
+  for (const outcome of fixture.outcomeIds) {
+    const absent = Object.hasOwn(fixture.absences, outcome);
+    if (!claimed.has(outcome) && !absent) {
+      offenders.push(`${outcome}: no practice carrier or recorded absence`);
+    }
+    if (claimed.has(outcome) && absent) {
+      offenders.push(`${outcome}: claimed with a stale absence`);
+    }
+  }
+  for (const [outcome, reason] of Object.entries(fixture.absences)) {
+    if (!live.has(outcome)) {
+      offenders.push(`${outcome}: absence names no live agent benefit`);
+    }
+    if (reason.trim() === "") {
+      offenders.push(`${outcome}: absence has no reason`);
+    }
+  }
+  return offenders;
+}
+
+/** Bind agent-outcome coverage to both canon authorities and the absence ledger. */
+function liveAgentOutcomeCoverage(): AgentOutcomeCoverageFixture {
+  return {
+    outcomeIds: allAgentBenefitEntries().map(({ entry }) => entry.id),
+    tenets: PRACTICE_CANON,
+    properties: PRACTICE_PROPERTIES,
+    absences: PRACTICE_AGENT_BENEFIT_ABSENCES,
+  };
+}
+
+Deno.test("every coding-agent outcome is enabled by the practice or recorded absent", () => {
+  assertEquals(
+    agentOutcomeCoverageOffenders(liveAgentOutcomeCoverage()),
+    [],
+  );
+});
+
+Deno.test("a future coding-agent outcome enrolls in practice coverage", () => {
+  assertEquals(
+    agentOutcomeCoverageOffenders({
+      outcomeIds: ["current-outcome", "freshly-named-outcome"],
+      tenets: [{ id: "practice", agentYields: ["current-outcome"] }],
+      properties: [],
+      absences: {},
+    }),
+    ["freshly-named-outcome: no practice carrier or recorded absence"],
+  );
+  assertEquals(
+    agentOutcomeCoverageOffenders({
+      outcomeIds: ["current-outcome"],
+      tenets: [{ id: "practice", agentYields: ["current-outcome"] }],
+      properties: [],
+      absences: { "current-outcome": "A former exception." },
+    }),
+    ["current-outcome: claimed with a stale absence"],
+  );
 });
 
 Deno.test("every feature pillar is claimed at some resolution or recorded absent — exactly one, with a reason", () => {

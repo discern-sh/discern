@@ -151,6 +151,7 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
       )
     ).json() as {
       file: string;
+      inward: { registry: string; slug: string; via: string }[];
       fields: {
         path: string;
         kind: string;
@@ -174,7 +175,39 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
       ),
       "the field carries live hint choices",
     );
+    assert(
+      agentBenefit.inward.some((citation) =>
+        citation.registry === "practice" &&
+        citation.slug === "one-task-one-place" &&
+        citation.via === "agentYields"
+      ),
+      "agent outcomes point back to the practice tenets that enable them",
+    );
     assert(proof.inward.some((citation) => citation.registry === "benefit"));
+
+    const practice = await (
+      await request(editor, "/api/entry/practice/one-task-one-place")
+    ).json() as {
+      outward: {
+        field: string;
+        refs: { registry?: string; slug?: string }[];
+      }[];
+      fields: { path: string; kind: string }[];
+    };
+    assert(
+      practice.outward.some((citation) =>
+        citation.field === "agentYields" &&
+        citation.refs.some((ref) =>
+          ref.registry === "agent-benefit" &&
+          ref.slug === "own-one-isolated-effort"
+        )
+      ),
+      "practice entries expose their coding-agent outcomes",
+    );
+    assertEquals(
+      practice.fields.find((field) => field.path === "agentYields")?.kind,
+      "string-array",
+    );
 
     const demand = await (
       await request(editor, "/api/entry/demand/checkout-collisions")

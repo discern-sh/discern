@@ -39,6 +39,7 @@ export type PickerSource =
   | "feature-node"
   | "benefit-entry"
   | "benefit-cluster"
+  | "agent-benefit-entry"
   | "claim"
   | "hint"
   | "surface"
@@ -181,6 +182,7 @@ export const PRACTICE_TENET_FIELDS = {
   upheld: { edit: "nested" },
   mechanisms: { edit: "list", picker: "feature-node" },
   yields: { edit: "list", picker: "benefit-cluster" },
+  agentYields: { edit: "list", picker: "agent-benefit-entry" },
   holds: { edit: "list", picker: "inventory" },
 } as const satisfies Record<keyof PracticeTenet, FieldSpec>;
 

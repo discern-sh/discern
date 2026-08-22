@@ -191,6 +191,9 @@ function buildEntries(): SnapshotEntry[] {
   const benefitTitles = new Map(
     allHumanBenefitEntries().map(({ entry }) => [entry.id, entry.title]),
   );
+  const agentBenefitTitles = new Map(
+    allAgentBenefitEntries().map(({ entry }) => [entry.id, entry.title]),
+  );
   const inward = new Map<string, InwardCitation[]>();
   const carried = new Map<string, Set<string>>();
   const cite = (
@@ -247,6 +250,9 @@ function buildEntries(): SnapshotEntry[] {
     const from = { registry: "practice", slug: tenet.id, label: tenet.title };
     for (const id of tenet.mechanisms) cite("feature", id, from, "mechanisms");
     for (const id of tenet.yields) cite("benefit", id, from, "yields");
+    for (const id of tenet.agentYields) {
+      cite("agent-benefit", id, from, "agentYields");
+    }
   }
   for (const territory of DEMAND_CANON) {
     cite(
@@ -473,6 +479,14 @@ function buildEntries(): SnapshotEntry[] {
           registry: "benefit",
           slug: id,
           label: clusterTitles.get(id) ?? id,
+        })),
+      },
+      {
+        field: "agentYields",
+        refs: tenet.agentYields.map((id) => ({
+          registry: "agent-benefit",
+          slug: id,
+          label: agentBenefitTitles.get(id) ?? id,
         })),
       },
       {

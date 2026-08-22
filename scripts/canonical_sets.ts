@@ -1848,6 +1848,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/feature_canon_agent_benefit_test.ts",
       "tests/feature_canon_codegen_test.ts",
+      "tests/practice_canon_enrolment_test.ts",
       "tests/canon_editor_parity_test.ts",
     ],
     artifacts: [
@@ -1876,7 +1877,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "practice-tenets",
     title: "Practice canon",
     what:
-      "The practice registry behind the practice canon: the obligations upheld by enforcement, automation, and teaching, each tenet citing its feature-canon mechanisms, its Human Benefit Canon yields, and the project-inventory items it maintains.",
+      "The practice registry behind the practice canon: the obligations upheld by enforcement, automation, and teaching, each tenet citing its feature-canon mechanisms, its Human Benefit Canon value, its Agent Benefit Canon outcomes, and the project-inventory items it maintains.",
     source: {
       kind: "module",
       module: "scripts/practice_registry.ts",

@@ -2,9 +2,9 @@
 
 # Practice canon
 
-_The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the value they yield. The [feature canon](feature-canon.md) owns the mechanism account and the [Human Benefit Canon](feature-canon-human-benefits.md) owns the human value; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._
+_The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the outcomes they produce. The [feature canon](feature-canon.md) owns the mechanism account, the [Human Benefit Canon](feature-canon-human-benefits.md) owns the human value, and the [Agent Benefit Canon](feature-canon-agent-benefits.md) owns coding-agent outcomes; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._
 
-12 tenets · 10 bundled skills claimed · 72 feature nodes cited · 7 of 8 human-benefit clusters yielded · 6 properties.
+12 tenets · 10 bundled skills claimed · 74 feature nodes cited · 7 of 8 human-benefit clusters yielded · 24 of 24 coding-agent outcomes enabled · 6 properties.
 
 ## The frame
 
@@ -27,7 +27,8 @@ One authored instruction body compiles into every configured agent's instruction
 - **Arc:** loop
 - **Upheld:** automated via `refresh`, `[instructions]`
 - **Mechanisms:** Agent instructions · Author once, compile everywhere · The map · The discovery funnel · Skills · Status.
-- **Yields:** Keep project knowledge available.
+- **Human value:** Keep project knowledge available.
+- **Agent outcomes:** Orient from one bounded result · Inherit current agent instructions · Recover the project mental model · Invoke curated project procedures.
 - **Maintains:** its instructions.
 
 ### 2. One task, one place
@@ -39,7 +40,8 @@ Each effort forks from the trunk into a linked worktree with its own branch, por
 - **Arc:** loop
 - **Upheld:** automated via `start`, `worktree`, `[worktree]`
 - **Mechanisms:** Isolated worktrees · Start · Deterministic identity · Per-worktree resources · The fleet view.
-- **Yields:** Build further.
+- **Human value:** Build further.
+- **Agent outcomes:** Own one isolated effort.
 - **Maintains:** its working conditions.
 
 ### 3. Hand over whole pieces
@@ -51,19 +53,21 @@ The delegate-work skill turns discussed work into self-contained briefs (a purpo
 - **Arc:** loop
 - **Upheld:** automated via `await` · taught by `discern-delegate-work`, `discern-await-the-fleet`
 - **Mechanisms:** Delegate work · Awaiting a fleet condition · Await the fleet · Composing unlanded work.
-- **Yields:** Build further.
+- **Human value:** Build further.
+- **Agent outcomes:** Compose without adopting sibling work.
 - **Maintains:** its working conditions.
 
 ### 4. Done is deterministic
 
 > The project's declared checks decide when work is done; an agent's confidence stays advisory.
 
-The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. Every verdict is recomputed, and a failure carries the command that produced it, so the fix starts at the cause.
+The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. Agent conclusions remain separate from verified results. Every verdict is recomputed, and a failure carries the command that produced it, so the fix starts at the cause.
 
 - **Arc:** loop
 - **Upheld:** enforced via `done`, `[jobs]`, `[gate]` · automated via `prepare`
-- **Mechanisms:** The quality gate · Declared jobs · The staged pipeline · Normalized diagnostics · The fast inner loop.
-- **Yields:** Know what is ready.
+- **Mechanisms:** The quality gate · Declared jobs · The staged pipeline · Scopes · Checkpoints · Normalized diagnostics · The fast inner loop.
+- **Human value:** Know what is ready.
+- **Agent outcomes:** See the change discern sees · Run the relevant Gate efficiently · Use a fast inner loop · Carry judgment as judgment.
 - **Maintains:** its checks.
 
 ### 5. Only better
@@ -75,7 +79,8 @@ Standards hold each measured number at a limit compared against the trunk: a flo
 - **Arc:** loop
 - **Upheld:** enforced via `[standards]` · automated via `standards` · taught by `discern-set-the-standard`, `discern-clear-the-decks`
 - **Mechanisms:** Standards · Floors and ceilings · Capturing a gain · The logbook · Patterns · Improvement · Set the standard · Clear the decks.
-- **Yields:** Keep the gains the project earns.
+- **Human value:** Keep the gains the project earns.
+- **Agent outcomes:** Retain earned quality · Diagnose workflow friction locally.
 - **Maintains:** its checks, its evidence.
 
 ### 6. Proof binds to the change
@@ -87,7 +92,8 @@ A green gate over a clean, committed tree mints proof: the pinned commit, the ch
 - **Arc:** loop
 - **Upheld:** enforced via `done` · automated via `[repository]`
 - **Mechanisms:** Proof · Durable proof notes · A rerun on an unchanged tree is attested.
-- **Yields:** Know what is ready.
+- **Human value:** Know what is ready.
+- **Agent outcomes:** Prove the exact tree.
 - **Maintains:** its evidence.
 
 ### 7. You decide what lands
@@ -99,7 +105,8 @@ Acceptance resolves its authority per invocation (a conversation attestation, a 
 - **Arc:** loop
 - **Upheld:** enforced via `accept`, `[acceptance]`
 - **Mechanisms:** Accept · Landing authority is proved per invocation.
-- **Yields:** Know what is ready · Keep control of the project.
+- **Human value:** Know what is ready · Keep control of the project.
+- **Agent outcomes:** Land only with release authority.
 - **Maintains:** its decisions.
 
 ### 8. The project remembers
@@ -111,7 +118,8 @@ A correction becomes instructions, a decision becomes a record with its reasons,
 - **Arc:** loop
 - **Upheld:** enforced via `[map]` · taught by `discern-teach-the-project`, `discern-write-adr`, `discern-document-subsystem`, `discern-place-a-checkpoint`
 - **Mechanisms:** The map · Decision records · The docs integrity preflight · File-linked freshness · The vocabulary canon · Teach the project · Write an ADR · Document a subsystem · Place a checkpoint.
-- **Yields:** Keep project knowledge available.
+- **Human value:** Keep project knowledge available.
+- **Agent outcomes:** Recover the project mental model · Invoke curated project procedures.
 - **Maintains:** its instructions, its decisions.
 
 ### 9. Cure the class
@@ -123,7 +131,8 @@ The cure-a-bug skill requires the cause proven, the fix applied to every member 
 - **Arc:** craft
 - **Upheld:** taught by `discern-cure-a-bug`
 - **Mechanisms:** Cure a bug · Forcing-function parity.
-- **Yields:** Keep the gains the project earns.
+- **Human value:** Keep the gains the project earns.
+- **Agent outcomes:** Invoke curated project procedures · Let new members enrol themselves.
 - **Maintains:** its checks.
 
 ### 10. Write it once
@@ -135,7 +144,8 @@ The write-it-once skill carries the discipline discern builds itself with: one a
 - **Arc:** craft
 - **Upheld:** enforced via `[generated]` · taught by `discern-write-it-once`
 - **Mechanisms:** Write it once · Generated artifact declarations · The closed set of closed sets.
-- **Yields:** Keep project knowledge available.
+- **Human value:** Keep project knowledge available.
+- **Agent outcomes:** Let new members enrol themselves.
 - **Maintains:** its checks.
 
 ### 11. No dead ends
@@ -147,7 +157,8 @@ Every verb returns one structured result: the state, the diagnostics with the co
 - **Arc:** conduct
 - **Upheld:** automated via `mcp`
 - **Mechanisms:** Interfaces and contracts · One result envelope · Idempotent by contract · A forgiving command line · Normalized diagnostics · Registered hints · The gotchas pointer · Ready-to-relay messages · The agent is the user · Context is a budget · The Model Context Protocol (MCP) server.
-- **Yields:** Spend more time on the product.
+- **Human value:** Spend more time on the product.
+- **Agent outcomes:** Orient from one bounded result · Recover from a truthful refusal · Load only the context needed · Operate as the primary user.
 
 ### 12. Plan, then apply
 
@@ -158,18 +169,56 @@ Every effectful verb computes a plan a thin executor applies, so a dry run is a 
 - **Arc:** conduct
 - **Upheld:** enforced via `done` · automated via `worktree`
 - **Mechanisms:** Plan and apply · Placement is consent · Write authority proven first · Strand detection · Crash-safe provisioning · Bounded drop recovery · Orphan reclamation · Clean under interruption · Ignored-file drift.
-- **Yields:** Keep control of the project.
+- **Human value:** Keep control of the project.
+- **Agent outcomes:** Resume after interruption · Preview and retry effects safely.
 
 ## Properties
 
 What kind of thing the practice is — its nature rather than its obligations. None is a tenet, because none obliges a change to anything.
 
-- **Local** — The practice runs on the machine: verdicts come from the project's own commands, and the working record never leaves it. (Evidence stays local · The logbook.)
-- **No model inside** — discern contains no model and needs no API key; the agent supplies the intelligence, and the practice supplies the conditions. (No model inside.)
-- **Ordinary files, yours** — The practice is files in the repository — one root configuration plus the instructions, methods, and decisions it records — all readable and all project-owned. (A one-file footprint · File ownership.)
-- **Stack-neutral** — The practice ships none of the project's stack: the gate, scopes, standards, and resources run whatever commands the project declares. (Stack-neutral.)
-- **Provider-neutral** — Every supported agent works through the same project-owned practice, so changing providers never means starting the project over. (Agent providers · Author once, compile everywhere.)
-- **Reversible** — Leaving costs one command and loses no authored work: the wiring goes, and the practice's files stay. (Uninstall.)
+### Local
+
+The practice runs on the machine: verdicts come from the project's own commands, and the working record never leaves it.
+
+- **Mechanisms:** Evidence stays local · The logbook.
+- **Agent outcomes:** Diagnose workflow friction locally.
+
+### No model inside
+
+discern contains no model and needs no API key; the agent supplies the intelligence, and the practice supplies the conditions.
+
+- **Mechanisms:** No model inside.
+- **Agent outcomes:** Operate without a hidden model.
+
+### Ordinary files, yours
+
+The practice lives in repository files: one root configuration plus the instructions, methods, and decisions it records, all readable and all project-owned.
+
+- **Mechanisms:** A one-file footprint · File ownership.
+- **Agent outcomes:** Recover the project mental model.
+
+### Stack-neutral
+
+The practice ships none of the project's stack: the gate, scopes, standards, and resources run whatever commands the project declares.
+
+- **Mechanisms:** Stack-neutral.
+- **Human value:** Change tools without starting over.
+- **Agent outcomes:** Apply one practice to any stack.
+
+### Provider-neutral
+
+Every supported agent works through the same project-owned practice, so changing providers never means starting the project over.
+
+- **Mechanisms:** Agent providers · Author once, compile everywhere.
+- **Human value:** Change tools without starting over.
+- **Agent outcomes:** Switch supported agent hosts.
+
+### Reversible
+
+Leaving costs one command and loses no authored work: the wiring goes, and the practice's files stay.
+
+- **Mechanisms:** Uninstall.
+- **Agent outcomes:** Manage the installation lifecycle.
 
 ## The inventory
 
@@ -181,15 +230,45 @@ The project holds its instructions, its working conditions, its checks, its evid
 - **its evidence** — 5. Only better · 6. Proof binds to the change
 - **its decisions** — 7. You decide what lands · 8. The project remembers
 
+## Coding-agent outcome index
+
+Each Agent Benefit Canon outcome points back to the tenets or properties that produce it. A new outcome enters this index from the Agent Benefit Canon and fails the enrolment guard until the practice claims it or records why it does not follow from the practice.
+
+- **Orient from one bounded result** — 1. Arrive knowing · 11. No dead ends
+- **Recover from a truthful refusal** — 11. No dead ends
+- **See the change discern sees** — 4. Done is deterministic
+- **Own one isolated effort** — 2. One task, one place
+- **Compose without adopting sibling work** — 3. Hand over whole pieces
+- **Resume after interruption** — 12. Plan, then apply
+- **Run the relevant Gate efficiently** — 4. Done is deterministic
+- **Use a fast inner loop** — 4. Done is deterministic
+- **Load only the context needed** — 11. No dead ends
+- **Prove the exact tree** — 6. Proof binds to the change
+- **Carry judgment as judgment** — 4. Done is deterministic
+- **Retain earned quality** — 5. Only better
+- **Preview and retry effects safely** — 12. Plan, then apply
+- **Land only with release authority** — 7. You decide what lands
+- **Manage the installation lifecycle** — Property: Reversible
+- **Inherit current agent instructions** — 1. Arrive knowing
+- **Recover the project mental model** — 1. Arrive knowing · 8. The project remembers · Property: Ordinary files, yours
+- **Invoke curated project procedures** — 1. Arrive knowing · 8. The project remembers · 9. Cure the class
+- **Let new members enrol themselves** — 9. Cure the class · 10. Write it once
+- **Diagnose workflow friction locally** — 5. Only better · Property: Local
+- **Operate without a hidden model** — Property: No model inside
+- **Operate as the primary user** — 11. No dead ends
+- **Switch supported agent hosts** — Property: Provider-neutral
+- **Apply one practice to any stack** — Property: Stack-neutral
+
 ## Coverage
 
-Every bundled skill is claimed by a tenet or recorded absent; every carrier, mechanism, and yield names a live member; every feature pillar and benefit cluster is claimed or recorded absent; every inventory item has a maintainer; and each deferred consumer is pinned by fingerprint. The guard (`tests/practice_canon_enrolment_test.ts`) holds all of it, and the loop closes structurally: what tenet 8 deposits, tenet 1 hands to the next session.
+Every bundled skill is claimed by a tenet or recorded absent; every carrier, mechanism, and yield names a live member; every tenet enables a coding-agent outcome; every feature pillar, human-benefit cluster, and agent-benefit outcome is claimed or recorded absent; every inventory item has a maintainer; and each deferred consumer is pinned by fingerprint. The guard (`tests/practice_canon_enrolment_test.ts`) holds all of it, and the loop closes structurally: what tenet 8 deposits, tenet 1 hands to the next session.
 
 ### Recorded absences
 
 - **Bundled skills** — none: every bundled skill is claimed by at least one tenet.
 - **Feature pillars** — none: every pillar is cited by a tenet or property, at some resolution.
-- **Benefit clusters** — `put-practice-in-place`: the commissioning corollary: the setup conversation is the loop applied to its own installation, so this value follows from the practice existing rather than from a separate obligation.
+- **Human-benefit clusters** — `put-practice-in-place`: the commissioning corollary: the setup conversation is the loop applied to its own installation, so this value follows from the practice existing rather than from a separate obligation.
+- **Agent-benefit outcomes** — none: every outcome is enabled by a tenet or property.
 
 ### Deferred consumers
 

@@ -6,11 +6,11 @@
  *
  * The practice canon is the middle layer of the canon triptych: the feature
  * canon owns the MECHANISM account (what exists), the Human Benefit Canon owns
- * the VALUE account (what it is worth to people), and this registry owns the OBLIGATIONS
- * between them — what the practice requires, whichever features implement it
- * and whatever value follows. A tenet is statable without naming a single
- * feature; its `mechanisms` then cite today's implementation and its
- * `yields` the value it produces. Each tenet records how it is UPHELD:
+ * the VALUE account (what it is worth to people), the Agent Benefit Canon owns
+ * coding-agent OUTCOMES, and this registry owns the OBLIGATIONS between them.
+ * A tenet is statable without naming a single feature; its `mechanisms` cite
+ * today's implementation, `yields` cite human value, and `agentYields` cite
+ * the coding-agent outcomes it enables. Each tenet records how it is UPHELD:
  * enforced (a boundary refuses the violation), automated (the machinery
  * performs it unasked), or taught (a bundled skill carries it) — explicit
  * per tenet, never derived from a carrier's kind, because one verb enforces
@@ -23,9 +23,9 @@
  *    hold the committed pages equal to the generator output.
  *  - the enrolment guard (`tests/practice_canon_enrolment_test.ts`) holds
  *    every bundled skill to a tenet claim, every citation to a live member,
- *    every feature pillar and benefit cluster to a claim or a recorded
- *    absence, the project inventory to full coverage, and each deferred
- *    consumer to its recorded fingerprint.
+ *    every feature pillar, human-benefit cluster, and coding-agent outcome to
+ *    a claim or a recorded absence, the project inventory to full coverage,
+ *    and each deferred consumer to its recorded fingerprint.
  *  - creative, technical, and marketing work reads {@link PRACTICE_CANON}
  *    (or the generated pages) instead of re-deriving the practice by hand.
  *
@@ -35,6 +35,7 @@
 
 import { join } from "@std/path";
 import {
+  allAgentBenefitEntries,
   allFeatureNodes,
   HUMAN_BENEFIT_CANON,
   parseSurfaceKey,
@@ -149,8 +150,10 @@ export interface PracticeTenet {
   upheld: TenetUpheld;
   /** Feature-node ids implementing the tenet today — explicit citations. */
   mechanisms: readonly string[];
-  /** Benefit-cluster ids naming the value the tenet yields. */
+  /** Human Benefit Canon cluster ids naming the value the tenet yields for people. */
   yields: readonly string[];
+  /** Agent Benefit Canon entry ids naming the outcomes the tenet enables. */
+  agentYields: readonly string[];
   /** The project-inventory items this tenet maintains; conduct tenets may maintain none. */
   holds: readonly ProjectInventoryItem[];
 }
@@ -182,6 +185,12 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "status",
     ],
     yields: ["keep-project-knowledge-working"],
+    agentYields: [
+      "orient-from-one-bounded-result",
+      "inherit-current-agent-instructions",
+      "recover-the-project-mental-model",
+      "invoke-curated-project-procedures",
+    ],
     holds: ["instructions"],
   },
   {
@@ -203,6 +212,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "fleet",
     ],
     yields: ["build-further"],
+    agentYields: ["own-one-isolated-effort"],
     holds: ["working conditions"],
   },
   {
@@ -224,6 +234,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "compose-below-trunk",
     ],
     yields: ["build-further"],
+    agentYields: ["compose-without-adopting-sibling-work"],
     holds: ["working conditions"],
   },
   {
@@ -232,7 +243,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     obligation:
       "The project's declared checks decide when work is done; an agent's confidence stays advisory.",
     body:
-      "The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. Every verdict is recomputed, and a failure carries the command that produced it, so the fix starts at the cause.",
+      "The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. Agent conclusions remain separate from verified results. Every verdict is recomputed, and a failure carries the command that produced it, so the fix starts at the cause.",
     arc: "loop",
     upheld: {
       enforced: ["verb:done", "config:jobs", "config:gate"],
@@ -242,10 +253,18 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "gate",
       "jobs-table",
       "staged-pipeline",
+      "scope-gates",
+      "checkpoints",
       "diagnostics",
       "prepare",
     ],
     yields: ["know-what-is-ready"],
+    agentYields: [
+      "see-the-change-discern-sees",
+      "run-the-relevant-gate-efficiently",
+      "use-a-fast-inner-loop",
+      "carry-judgment-as-judgment",
+    ],
     holds: ["checks"],
   },
   {
@@ -275,6 +294,10 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "skill-clear-the-decks",
     ],
     yields: ["make-improvement-accumulate"],
+    agentYields: [
+      "retain-earned-quality",
+      "diagnose-workflow-friction-locally",
+    ],
     holds: ["checks", "evidence"],
   },
   {
@@ -291,6 +314,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     },
     mechanisms: ["proof", "proof-notes", "unchanged-tree-rerun"],
     yields: ["know-what-is-ready"],
+    agentYields: ["prove-the-exact-tree"],
     holds: ["evidence"],
   },
   {
@@ -306,6 +330,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     },
     mechanisms: ["accept", "consent-attestations"],
     yields: ["know-what-is-ready", "keep-control"],
+    agentYields: ["land-only-with-release-authority"],
     holds: ["decisions"],
   },
   {
@@ -337,6 +362,10 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "skill-place-a-checkpoint",
     ],
     yields: ["keep-project-knowledge-working"],
+    agentYields: [
+      "recover-the-project-mental-model",
+      "invoke-curated-project-procedures",
+    ],
     holds: ["instructions", "decisions"],
   },
   {
@@ -352,6 +381,10 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
     },
     mechanisms: ["skill-cure-a-bug", "forcing-functions"],
     yields: ["make-improvement-accumulate"],
+    agentYields: [
+      "invoke-curated-project-procedures",
+      "let-new-members-enrol-themselves",
+    ],
     holds: ["checks"],
   },
   {
@@ -372,6 +405,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "canonical-sets",
     ],
     yields: ["keep-project-knowledge-working"],
+    agentYields: ["let-new-members-enrol-themselves"],
     holds: ["checks"],
   },
   {
@@ -399,6 +433,12 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "mcp-surface",
     ],
     yields: ["return-human-attention"],
+    agentYields: [
+      "orient-from-one-bounded-result",
+      "recover-from-a-truthful-refusal",
+      "load-only-the-context-needed",
+      "operate-as-the-primary-user",
+    ],
     holds: [],
   },
   {
@@ -425,6 +465,10 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
       "ignored-drift",
     ],
     yields: ["keep-control"],
+    agentYields: [
+      "resume-after-interruption",
+      "preview-and-retry-effects-safely",
+    ],
     holds: [],
   },
 ];
@@ -453,6 +497,14 @@ export const PRACTICE_CLUSTER_ABSENCES: Readonly<Record<string, string>> = {
     "the commissioning corollary: the setup conversation is the loop applied to its own installation, so this value follows from the practice existing rather than from a separate obligation",
 };
 
+/**
+ * Agent-benefit outcomes no tenet or property enables, each with the reason.
+ * The enrolment guard holds every outcome to a yield or a recorded absence.
+ */
+export const PRACTICE_AGENT_BENEFIT_ABSENCES: Readonly<
+  Record<string, string>
+> = {};
+
 /** One property: what kind of thing the practice is, distinct from what it obliges. */
 export interface PracticeProperty {
   /** Stable kebab-case id, unique across the canon. */
@@ -462,8 +514,10 @@ export interface PracticeProperty {
   line: string;
   /** Feature-node ids grounding the property. */
   mechanisms: readonly string[];
-  /** Benefit-cluster ids the property produces, where the value is the nature itself. */
+  /** Human-benefit cluster ids the property produces, where the value is the nature itself. */
   yields?: readonly string[];
+  /** Agent-benefit outcome ids the property produces through its nature. */
+  agentYields?: readonly string[];
 }
 
 /**
@@ -478,6 +532,7 @@ export const PRACTICE_PROPERTIES: readonly PracticeProperty[] = [
     line:
       "The practice runs on the machine: verdicts come from the project's own commands, and the working record never leaves it.",
     mechanisms: ["local-evidence", "logbook"],
+    agentYields: ["diagnose-workflow-friction-locally"],
   },
   {
     id: "no-model-inside",
@@ -485,13 +540,15 @@ export const PRACTICE_PROPERTIES: readonly PracticeProperty[] = [
     line:
       "discern contains no model and needs no API key; the agent supplies the intelligence, and the practice supplies the conditions.",
     mechanisms: ["no-model-inside"],
+    agentYields: ["operate-without-a-hidden-model"],
   },
   {
     id: "ordinary-files",
     title: "Ordinary files, yours",
     line:
-      "The practice is files in the repository — one root configuration plus the instructions, methods, and decisions it records — all readable and all project-owned.",
+      "The practice lives in repository files: one root configuration plus the instructions, methods, and decisions it records, all readable and all project-owned.",
     mechanisms: ["one-file-footprint", "ownership-buckets"],
+    agentYields: ["recover-the-project-mental-model"],
   },
   {
     id: "stack-neutral",
@@ -500,6 +557,7 @@ export const PRACTICE_PROPERTIES: readonly PracticeProperty[] = [
       "The practice ships none of the project's stack: the gate, scopes, standards, and resources run whatever commands the project declares.",
     mechanisms: ["stack-neutral"],
     yields: ["change-tools-without-starting-over"],
+    agentYields: ["apply-one-practice-to-any-stack"],
   },
   {
     id: "provider-neutral",
@@ -508,6 +566,7 @@ export const PRACTICE_PROPERTIES: readonly PracticeProperty[] = [
       "Every supported agent works through the same project-owned practice, so changing providers never means starting the project over.",
     mechanisms: ["providers", "instructions-compile"],
     yields: ["change-tools-without-starting-over"],
+    agentYields: ["switch-supported-agent-hosts"],
   },
   {
     id: "reversible",
@@ -515,6 +574,7 @@ export const PRACTICE_PROPERTIES: readonly PracticeProperty[] = [
     line:
       "Leaving costs one command and loses no authored work: the wiring goes, and the practice's files stay.",
     mechanisms: ["uninstall"],
+    agentYields: ["manage-the-installation-lifecycle"],
   },
 ];
 
@@ -619,6 +679,25 @@ function citedClusterTitle(id: string): string {
   return cluster.title;
 }
 
+/** The coding-agent outcome titles by id, for resolving practice yields loudly. */
+function agentBenefitTitlesById(): Map<string, string> {
+  return new Map(
+    allAgentBenefitEntries().map(({ entry }) => [entry.id, entry.title]),
+  );
+}
+
+/** Resolve one cited coding-agent outcome id to its title, or throw. */
+function citedAgentBenefitTitle(
+  titles: Map<string, string>,
+  id: string,
+): string {
+  const title = titles.get(id);
+  if (title === undefined) {
+    throw new Error(`practice canon cites unknown agent benefit: ${id}`);
+  }
+  return title;
+}
+
 /** A key rendered as a code span: `done`, `[standards]`, `discern-cure-a-bug`. */
 function carrierSpan(key: string): string {
   const { set, member } = parseCarrier(key);
@@ -661,6 +740,8 @@ function tenetNumber(id: string): number {
  */
 export function renderPracticeCanonDoc(): string {
   const titles = featureTitlesById();
+  const agentBenefitEntries = allAgentBenefitEntries();
+  const agentBenefitTitles = agentBenefitTitlesById();
   const citedNodes = new Set(
     PRACTICE_CANON.flatMap((tenet) => [...tenet.mechanisms]).concat(
       PRACTICE_PROPERTIES.flatMap((property) => [...property.mechanisms]),
@@ -669,6 +750,13 @@ export function renderPracticeCanonDoc(): string {
   const yieldedClusters = new Set(
     PRACTICE_CANON.flatMap((tenet) => [...tenet.yields]).concat(
       PRACTICE_PROPERTIES.flatMap((property) => [...(property.yields ?? [])]),
+    ),
+  );
+  const yieldedAgentBenefits = new Set(
+    PRACTICE_CANON.flatMap((tenet) => [...tenet.agentYields]).concat(
+      PRACTICE_PROPERTIES.flatMap((property) => [
+        ...(property.agentYields ?? []),
+      ]),
     ),
   );
   const claimedSkills = new Set(
@@ -682,9 +770,9 @@ export function renderPracticeCanonDoc(): string {
     "",
     "# Practice canon",
     "",
-    "_The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the value they yield. The [feature canon](feature-canon.md) owns the mechanism account and the [Human Benefit Canon](feature-canon-human-benefits.md) owns the human value; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._",
+    "_The practice, enumerated: the obligations discern holds for every change and for its own conduct, stated without naming a feature, then tied to the features that implement them and the outcomes they produce. The [feature canon](feature-canon.md) owns the mechanism account, the [Human Benefit Canon](feature-canon-human-benefits.md) owns the human value, and the [Agent Benefit Canon](feature-canon-agent-benefits.md) owns coding-agent outcomes; this canon owns the obligations between them. Surfaces that explain the practice (site pages, the machine edition, orientation prose) render or cite these tenets instead of re-deriving the practice._",
     "",
-    `${PRACTICE_CANON.length} tenets · ${claimedSkills.size} bundled skills claimed · ${citedNodes.size} feature nodes cited · ${yieldedClusters.size} of ${HUMAN_BENEFIT_CANON.length} human-benefit clusters yielded · ${PRACTICE_PROPERTIES.length} properties.`,
+    `${PRACTICE_CANON.length} tenets · ${claimedSkills.size} bundled skills claimed · ${citedNodes.size} feature nodes cited · ${yieldedClusters.size} of ${HUMAN_BENEFIT_CANON.length} human-benefit clusters yielded · ${yieldedAgentBenefits.size} of ${agentBenefitEntries.length} coding-agent outcomes enabled · ${PRACTICE_PROPERTIES.length} properties.`,
     "",
     "## The frame",
     "",
@@ -706,6 +794,9 @@ export function renderPracticeCanonDoc(): string {
       .map((id) => citedFeatureTitle(titles, id))
       .join(" · ");
     const yields = tenet.yields.map(citedClusterTitle).join(" · ");
+    const agentYields = tenet.agentYields
+      .map((id) => citedAgentBenefitTitle(agentBenefitTitles, id))
+      .join(" · ");
     lines.push(
       `### ${index + 1}. ${tenetProse(tenet, "title", tenet.title)}`,
       "",
@@ -716,7 +807,8 @@ export function renderPracticeCanonDoc(): string {
       `- **Arc:** ${tenet.arc}`,
       `- **Upheld:** ${upheldLine(tenet)}`,
       `- **Mechanisms:** ${mechanisms}.`,
-      `- **Yields:** ${yields}.`,
+      `- **Human value:** ${yields}.`,
+      `- **Agent outcomes:** ${agentYields}.`,
     );
     if (tenet.holds.length > 0) {
       lines.push(
@@ -737,7 +829,24 @@ export function renderPracticeCanonDoc(): string {
     const mechanisms = property.mechanisms
       .map((id) => citedFeatureTitle(titles, id))
       .join(" · ");
-    lines.push(`- **${property.title}** — ${property.line} (${mechanisms}.)`);
+    const humanYields = (property.yields ?? []).map(citedClusterTitle);
+    const agentYields = (property.agentYields ?? []).map((id) =>
+      citedAgentBenefitTitle(agentBenefitTitles, id)
+    );
+    lines.push(
+      `### ${property.title}`,
+      "",
+      property.line,
+      "",
+      `- **Mechanisms:** ${mechanisms}.`,
+    );
+    if (humanYields.length > 0) {
+      lines.push(`- **Human value:** ${humanYields.join(" · ")}.`);
+    }
+    if (agentYields.length > 0) {
+      lines.push(`- **Agent outcomes:** ${agentYields.join(" · ")}.`);
+    }
+    lines.push("");
   }
   lines.push(
     "",
@@ -756,9 +865,39 @@ export function renderPracticeCanonDoc(): string {
   }
   lines.push(
     "",
+    "## Coding-agent outcome index",
+    "",
+    "Each Agent Benefit Canon outcome points back to the tenets or properties that produce it. A new outcome enters this index from the Agent Benefit Canon and fails the enrolment guard until the practice claims it or records why it does not follow from the practice.",
+    "",
+  );
+  for (const { entry } of agentBenefitEntries) {
+    const carriers = [
+      ...PRACTICE_CANON.map((tenet, index) => ({ tenet, index }))
+        .filter(({ tenet }) => tenet.agentYields.includes(entry.id))
+        .map(({ tenet, index }) => `${index + 1}. ${tenet.title}`),
+      ...PRACTICE_PROPERTIES
+        .filter((property) => property.agentYields?.includes(entry.id) ?? false)
+        .map((property) => `Property: ${property.title}`),
+    ];
+    const absent = PRACTICE_AGENT_BENEFIT_ABSENCES[entry.id];
+    if (carriers.length === 0 && absent === undefined) {
+      throw new Error(
+        `practice canon has no carrier or absence for agent benefit: ${entry.id}`,
+      );
+    }
+    lines.push(
+      `- **${entry.title}** — ${
+        carriers.length > 0
+          ? carriers.join(" · ")
+          : `recorded absent: ${absent ?? ""}`
+      }`,
+    );
+  }
+  lines.push(
+    "",
     "## Coverage",
     "",
-    `Every bundled skill is claimed by a tenet or recorded absent; every carrier, mechanism, and yield names a live member; every feature pillar and benefit cluster is claimed or recorded absent; every inventory item has a maintainer; and each deferred consumer is pinned by fingerprint. The guard (\`tests/practice_canon_enrolment_test.ts\`) holds all of it, and the loop closes structurally: what tenet ${
+    `Every bundled skill is claimed by a tenet or recorded absent; every carrier, mechanism, and yield names a live member; every tenet enables a coding-agent outcome; every feature pillar, human-benefit cluster, and agent-benefit outcome is claimed or recorded absent; every inventory item has a maintainer; and each deferred consumer is pinned by fingerprint. The guard (\`tests/practice_canon_enrolment_test.ts\`) holds all of it, and the loop closes structurally: what tenet ${
       tenetNumber("the-project-remembers")
     } deposits, tenet ${
       tenetNumber("arrive-knowing")
@@ -783,9 +922,14 @@ export function renderPracticeCanonDoc(): string {
       none: "every pillar is cited by a tenet or property, at some resolution",
     },
     {
-      label: "Benefit clusters",
+      label: "Human-benefit clusters",
       record: PRACTICE_CLUSTER_ABSENCES,
       none: "every cluster is yielded by a tenet or property",
+    },
+    {
+      label: "Agent-benefit outcomes",
+      record: PRACTICE_AGENT_BENEFIT_ABSENCES,
+      none: "every outcome is enabled by a tenet or property",
     },
   ];
   for (const group of absenceGroups) {
