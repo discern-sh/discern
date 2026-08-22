@@ -83,7 +83,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 299     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 300     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -2400,7 +2400,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 299
+- Members: 300
   - `0003`
   - `0005`
   - `0006`
@@ -2449,7 +2449,6 @@ The numbered decision records in the Map, including records later superseded.
   - `0063`
   - `0064`
   - `0065`
-  - `0066`
   - `0067`
   - `0068`
   - `0069`
@@ -2602,7 +2601,6 @@ The numbered decision records in the Map, including records later superseded.
   - `0224`
   - `0225`
   - `0226`
-  - `0227`
   - `0228`
   - `0229`
   - `0231`
@@ -2681,6 +2679,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0307`
   - `0308`
   - `0309`
+  - `0310`
   - `0001`
   - `0002`
   - `0004`
@@ -2698,8 +2697,10 @@ The numbered decision records in the Map, including records later superseded.
   - `0048`
   - `0056`
   - `0061`
+  - `0066`
   - `0091`
   - `0107`
+  - `0227`
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision-record page explains this project practice
 - Feature canon: described by the `adr-discipline` node

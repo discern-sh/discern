@@ -39,6 +39,8 @@ Record a status near the top of each ADR. The usual lifecycle:
 
 A decision that is revisited does not get its ADR edited into a new shape — write a new ADR that supersedes the old one, so the history of the decision is legible.
 
+When a later ADR amends or partially supersedes an earlier one, record that on the earlier record too, in the same change — as a short note in **one** leading amendment block (a single blockquote with one entry per amending decision), not a growing stack of banners. Write each note to stay true as the system moves: state the direction of the change, and point at the live authority (config, a registry, the lockfile) for any current value rather than restating it — a note that quotes a count or a version goes false with the next change.
+
 ---
 
 ## The sections
