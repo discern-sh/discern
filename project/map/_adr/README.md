@@ -302,6 +302,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0313 — Setup completion and acceptance bind one final Proof](0313-setup-completion-and-acceptance-bind-one-final-proof.md)
 - [0314 — The public manual and project Map are separate corpora on one document engine](0314-separate-public-manual-and-project-map.md)
 - [0315 — Automatic worktree cleanup requires recorded ownership and verified absence](0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence.md)
+- [0316 — Instruction compilation preserves location and prepare converges refresh](0316-instruction-compilation-preserves-location-and-prepare-converges.md)
 
 <!-- END GENERATED: current ADR records -->
 
