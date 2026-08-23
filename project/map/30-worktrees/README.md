@@ -15,7 +15,7 @@ _Each discern task uses an isolated workspace (a Git worktree) with its own chec
 
 Each worktree gets a stable identity, development port, and declared resources. Setup prepares the checkout and converges it after the trunk changes.
 
-The lifecycle starts from the main checkout. Commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` moves the validated commit to the trunk and tears down the worktree. `--confirmed` attests only to consent in the current conversation.
+The lifecycle starts from the main checkout. Commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` moves the validated commit to the trunk and tears down the worktree. `--confirmed` attests only to consent in the current conversation. Automatic cleanup requires recorded fleet ownership; merge status alone never authorizes deletion.
 
 Treat every worktree as occupied, even when Git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the human view over work in progress (the Desk) to inspect, update, land, or drop tasks across the fleet.
 
