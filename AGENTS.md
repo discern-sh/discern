@@ -161,8 +161,8 @@ Every result command supports discern's own **`--markdown`** and **`--json`** fl
 ## Adding or changing a verb
 
 - **Plan/apply.** Every effectful verb computes a pure, read-only plan, then a thin executor applies it (ADR 0027) — that split is what gives `--dry-run` (render the plan, change nothing) and agent result projections for free.
-- **One result envelope.** A verb returns a single `DiscernResult` ([`src/shared/result.ts`](../src/shared/result.ts)); compact JSON, authored Markdown, MCP, and human output project from it (ADR 0028). Don't `console.log` ad-hoc output from a verb.
-- **MCP is a first-class surface.** Each tool in [`src/engine/mcp/server.ts`](../src/engine/mcp/server.ts) is backed by a `*Result(root, …)` core the CLI shares; the verb-parity guard (`tests/engine_verb_parity_test.ts`) ties the `TOOLS` table back to the CLI verb list. Exposing a read/run verb means extracting that core first (ADR 0045/0041).
+- **One result envelope.** A verb returns a single `DiscernResult` ([`src/shared/result.ts`](src/shared/result.ts)); compact JSON, authored Markdown, MCP, and human output project from it (ADR 0028). Don't `console.log` ad-hoc output from a verb.
+- **MCP is a first-class surface.** Each tool in [`src/engine/mcp/server.ts`](src/engine/mcp/server.ts) is backed by a `*Result(root, …)` core the CLI shares; the verb-parity guard (`tests/engine_verb_parity_test.ts`) ties the `TOOLS` table back to the CLI verb list. Exposing a read/run verb means extracting that core first (ADR 0045/0041).
 
 ## Fix the class, not the instance
 
@@ -171,4 +171,3 @@ A bug is rarely alone. Before fixing one, name the _class_ of defect as a checka
 ## Decisions
 
 Architecture decisions live in `project/map/_adr/` (0001+, several dozen and counting) — browse them with `discern docs --adr --json`. Add one for any notable or hard-to-reverse change. ADRs move fast, so skim the most recent few before a significant change — a current ADR usually explains why something is the way it is.
-
