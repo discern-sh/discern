@@ -125,7 +125,7 @@ Usage: `discern status [options]`
 
 ### `discern prepare`
 
-Fast inner loop: the fixers, the [generated] regenerations, then the read-only checks (no build jobs, no tests).
+Fast inner loop: fixers, [generated] regenerations, complete refresh, then read-only checks (no other build jobs, no tests).
 
 Usage: `discern prepare [options]`
 
