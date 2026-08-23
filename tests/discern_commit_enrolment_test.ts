@@ -138,6 +138,47 @@ Deno.test("the staged-index commit source consumes staged proof bytes, not later
   });
 });
 
+Deno.test({
+  name: "the attributed commit boundary quiesces backgrounded hook descendants",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      const path = "composed.txt";
+      await Deno.writeTextFile(join(dir, path), "base\n");
+      await gitInit(dir);
+      await Deno.writeTextFile(join(dir, path), "committed\n");
+      const hook = join(dir, ".git", "hooks", "post-commit");
+      await Deno.writeTextFile(
+        hook,
+        [
+          "#!/bin/sh",
+          '(sleep 0.15; mkdir -p "$PWD/hook-late") >/dev/null 2>&1 &',
+          "",
+        ].join("\n"),
+      );
+      await Deno.chmod(hook, 0o755);
+
+      const commit = await commitDiscernChanges({
+        site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
+        cwd: dir,
+        subject: "Record composed bytes",
+        pathspecs: [path],
+      });
+      assertEquals(commit.success, true, commit.stderr);
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
+      const late = await Deno.lstat(join(dir, "hook-late")).catch((error) => {
+        if (error instanceof Deno.errors.NotFound) return undefined;
+        throw error;
+      });
+      assertEquals(
+        late,
+        undefined,
+        "the commit returned while its hook group could still write",
+      );
+    });
+  },
+});
+
 Deno.test("the staged-index commit source rolls back a hook-expanded tree without losing the hook's staged bytes", async () => {
   await withTempDir(async (dir) => {
     const proofPath = "proof.txt";

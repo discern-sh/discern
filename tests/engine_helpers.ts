@@ -400,6 +400,52 @@ async function markBootstrapped(configPath: string): Promise<void> {
 }
 
 /**
+ * Prepare a real `discern-setup` branch for acceptance tests whose subject is a
+ * different contract (consent, plan parity, handoff, or branch detection).
+ * Setup-completion tests own the structural probe itself; these fixtures commit
+ * the completion state, converge generated artifacts, and run the ordinary Gate
+ * so acceptance still consumes canonical current Proof rather than a hand-written
+ * marker file.
+ */
+export async function convergeSetupBranchForAcceptance(
+  dir: string,
+): Promise<void> {
+  await neutralizeSeededCheckpoints(join(dir, "discern.toml"));
+  const tidied = await runAgent(dir, ["tidy", "--json"]);
+  if (tidied.code !== 0) {
+    throw new Error(`setup fixture tidy failed:\n${tidied.output}`);
+  }
+  const refreshed = await runAgent(dir, ["refresh", "--json"]);
+  if (refreshed.code !== 0) {
+    throw new Error(`setup fixture refresh failed:\n${refreshed.output}`);
+  }
+  await git(dir, "add", "-A");
+  if ((await gitOut(dir, "status", "--porcelain")) !== "") {
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "converge setup fixture",
+      "--no-gpg-sign",
+    );
+  }
+}
+
+/** Commit setup completion and obtain canonical current Proof for acceptance. */
+export async function proveSetupBranchForAcceptance(
+  dir: string,
+): Promise<RunResult> {
+  await markBootstrapped(join(dir, "discern.toml"));
+  await convergeSetupBranchForAcceptance(dir);
+  const done = await runAgent(dir, ["done", "--json"]);
+  if (done.code !== 0) {
+    throw new Error(`setup fixture Gate failed:\n${done.output}`);
+  }
+  return done;
+}
+
+/**
  * Run `agent <args>` inside `dir`. Colour is forced off so assertions match
  * plain text, and git is isolated so project scripts that shell out to git are hermetic.
  * `opts.cwd` runs from a subdirectory (to exercise root-finding); `opts.env`

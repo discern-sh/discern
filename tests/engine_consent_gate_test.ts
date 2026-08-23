@@ -23,6 +23,7 @@ import {
   git,
   gitInit,
   gitOut,
+  proveSetupBranchForAcceptance,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -357,6 +358,7 @@ Deno.test("setup accept lands the setup branch with no consent flag — the hand
       (await runAgent(dir, ["setup", "begin", "--confirmed"])).code,
       0,
     );
+    await proveSetupBranchForAcceptance(dir);
 
     // …so the setup-flow landing needs no second attestation: `setup accept` —
     // a separate main-checkout path, never the worktree accept core — lands clean

@@ -5,6 +5,7 @@
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `accept` (formerly `graduate`), `update` (formerly `integrate`), and known/custom `job` (formerly gate `capability` / custom `check`); the decision and reasoning are unchanged.
 > - **[ADR 0110](0110-the-landing-model.md) — landing modes:** the `--to branch` / `--to trunk` modes referenced below were removed — `accept` always lands on the trunk now. The decision itself stands: acceptance still refreshes the trunk checkout it leaves behind.
 > - **[ADR 0153](0153-repository-owns-shared-checkout-convergence.md) — convergence extension:** refresh is now the first post-landing checkout-convergence step; acceptance then runs `[repository].ensure`, the configured smoke job, and a tracked-drift check before completing worktree cleanup.
+> - **[ADR 0313](0313-setup-completion-and-acceptance-bind-one-final-proof.md) — setup checkout convergence:** setup acceptance applies the same receiving-checkout guarantee to the main checkout that survives its branch switch. It requires an empty tracked-refresh plan and materializes checkout-local agent artifacts before the exact trunk transition, so its first status has no setup-caused repair action.
 
 **Status**: accepted
 

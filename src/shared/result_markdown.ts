@@ -786,6 +786,7 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
       `Worktree proven: ${
         boolean(data.worktree_proven) === true ? "yes" : "no"
       }.`,
+      gateProofFact(data.proof),
       listFact("Leftover setup markers", strings(data.leftover)),
       ...unmet.slice(0, MAX_LIST_ITEMS).map((check) => {
         const step = number(check.step);
@@ -823,6 +824,16 @@ const presentSetupAccept: ResultMarkdownPresenter = (result) => {
         ? undefined
         : `Target: ${code(data.target)}.`,
       `Fast-forward: ${boolean(data.fast_forward) === true ? "yes" : "no"}.`,
+      gateProofFact(data.proof),
+      text(data.validated_commit) === undefined
+        ? undefined
+        : `Validated commit: ${code(data.validated_commit)}.`,
+      `Merge validated: ${
+        boolean(data.merge_validated) === true ? "yes" : "no"
+      }.`,
+      `Local agent artifacts converged: ${
+        boolean(data.local_artifacts_converged) === true ? "yes" : "no"
+      }.`,
       landed === true
         ? `Branch deleted: ${
           boolean(data.branch_deleted) === true ? "yes" : "no"

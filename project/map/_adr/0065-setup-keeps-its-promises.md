@@ -4,6 +4,7 @@
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), `update` (formerly `integrate`), `map` where it names the command, config, or tree (formerly `docs`), and known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
 > - **[ADR 0128](0128-enumerated-ownership-tracked-guidance.md) — tracked agent files:** §7's uniformly-gitignored posture is reversed — the canonical agent file and its pointer mirrors are tracked by default; the promise-keeping headline of this record stands.
+> - **[ADR 0313](0313-setup-completion-and-acceptance-bind-one-final-proof.md) — final-tree transaction:** the order in §1 is replaced. Non-forced completion commits the marker before its final checks, runs the Gate last, and returns canonical Proof for that clean commit; any failure restores setup to incomplete. The forced path remains explicit and carries no Proof.
 
 **Status**: accepted
 

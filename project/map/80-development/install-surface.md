@@ -131,7 +131,7 @@ The worktree workflow has no feature toggle or attached configuration ([ADR 0101
 | `discern accept`               | Requires tracked refresh convergence, lands the branch, materializes only checkout-local artifacts, and tears the worktree down. |
 | `discern worktree hook remove` | Tries to tear a worktree down from the `WorktreeRemove` hook's JSON payload on standard input.                                   |
 | `discern worktree teardown`    | Destroys a worktree's resources, as `discern worktree hook remove` does.                                                         |
-| `discern worktree prune`       | Sweeps stale worktrees, fully merged branches, orphan directories, and orphan resources.                                         |
+| `discern worktree prune`       | Reclaims positively owned merged worktrees, stale state, reappeared paths, and orphan resources.                                 |
 | `discern identity`             | Resolves a worktree's stable identity, including its ID, site, branch, port, database, and resources.                            |
 
 The lifecycle logic lives in [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts); the stable worktree identity (POSIX-`cksum`-faithful) in [`src/engine/worktree/identity.ts`](../../../src/engine/worktree/identity.ts). Run `discern --help` for the full verb list.

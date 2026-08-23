@@ -4,17 +4,18 @@
  * A fresh `discern setup` isolates its several commits on a dedicated `discern-setup`
  * branch (ADR 0065), so after `setup done` discern exists on that branch but NOT
  * on `main`. A novice who restarts and switches to `main` can appear to "lose" discern
- * entirely. This command closes that gap deterministically: it fast-forwards (or
- * merges) the `discern-setup` branch onto the integration branch and deletes the
- * merged branch, leaving the user on `main` with discern in place. It lands
+ * entirely. This command closes that gap deterministically: it fast-forwards the
+ * integration branch to the proved setup commit, or proves a setup-side merge first
+ * when the integration branch moved. It then deletes the contained setup branch,
+ * leaving the user on `main` with discern in place. It lands
  * ONLY that dedicated branch: run from any other branch it refuses, because the
  * merge takes whatever the current branch contains and an ordinary branch's own
  * commits would be swept onto the trunk with no review.
  *
  * It is the main-checkout counterpart to `discern accept` (which lands a linked
- * WORKTREE's branch): same land-onto-trunk shape — clean-tree precondition, fast-
- * forward when the trunk is an ancestor, a real merge otherwise, refuse on conflict —
- * minus the worktree teardown, since setup runs on the main checkout, not a worktree.
+ * WORKTREE's branch): same Proof validation, tracked-refresh boundary, exact commit
+ * transition, durable Proof note, and checkout convergence, without resource or
+ * worktree teardown.
  * Choosing instead to leave the branch for review, or to discard it, is simply not
  * running this command; `setup done` spells out all three options.
  */
@@ -30,8 +31,29 @@ import { Logger } from "../lib/log.ts";
 import { discernMergeArgs, runGit } from "../shared/subprocess.ts";
 import { SETUP_BRANCH } from "../shared/setup_state.ts";
 import { type ErrorSlug, renderHumanOutputGroups } from "../shared/result.ts";
-import { worktreeState } from "../lib/git.ts";
-import { integrationBranch } from "../engine/worktree/git.ts";
+import {
+  fastForwardCheckedOutBranch,
+  integrationBranch,
+} from "../engine/worktree/git.ts";
+import { deleteAutomaticallyOwnedBranch } from "../engine/worktree/ownership.ts";
+import { finishResult } from "../engine/gate/finish.ts";
+import { clearGateProof, inspectGateProof } from "../engine/gate/proof.ts";
+import {
+  proofNotesFetchSucceeded,
+  reconcileProofNotesFetch,
+  writeProofNote,
+} from "../engine/gate/proof_notes.ts";
+import {
+  instructionRefreshErrors,
+  materializeLocalRefreshArtifacts,
+} from "../engine/instructions.ts";
+import { planTrackedRefresh } from "../engine/tracked_refresh.ts";
+import { plainModeEnabled } from "../lib/terminal_interaction.ts";
+import type {
+  GateProofCheckData,
+  Proof,
+  SetupAcceptData,
+} from "../shared/result_schemas.ts";
 
 /** Options for `discern setup accept` (global flags + preview). */
 export interface SetupAcceptOptions {
@@ -102,13 +124,55 @@ export async function landingSummary(
   };
 }
 
-/** What the executed (or previewed) landing did/would do, for the `--json` envelope. */
-interface AcceptData {
-  landed: boolean;
-  branch: string;
-  target: string;
-  fast_forward: boolean;
-  branch_deleted: boolean;
+/** The complete current Proof setup acceptance may land. */
+interface CurrentSetupProof {
+  inspection: GateProofCheckData;
+  head: string;
+  data: Proof;
+  line: string;
+}
+
+/** The one recovery served for every incomplete or non-current setup Proof. */
+const PROOF_RECOVERY =
+  "Return to the setup branch, make it clean, run `discern setup done`, then retry `discern setup accept`.";
+
+/** Narrow a canonical inspection to the complete Proof setup acceptance needs. */
+function currentSetupProof(
+  inspection: GateProofCheckData,
+): CurrentSetupProof | undefined {
+  if (
+    inspection.status !== "honored" || inspection.head === undefined ||
+    inspection.proof_data === undefined || inspection.proof_line === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    inspection,
+    head: inspection.head,
+    data: inspection.proof_data,
+    line: inspection.proof_line,
+  };
+}
+
+/** The common payload fields for preview, refusal, and apply. */
+function setupAcceptData(
+  branch: string,
+  target: string,
+  fastForward: boolean,
+  proof: GateProofCheckData,
+  fields: Partial<SetupAcceptData> = {},
+): SetupAcceptData {
+  return {
+    landed: false,
+    branch,
+    target,
+    fast_forward: fastForward,
+    branch_deleted: false,
+    proof,
+    merge_validated: false,
+    local_artifacts_converged: false,
+    ...fields,
+  };
 }
 
 /** Emit a landing refusal/no-op (human + `--json`) and return its exit code. */
@@ -120,6 +184,7 @@ function emitAccept(
     error?: ErrorSlug;
     message: string;
     detail?: string[];
+    data?: SetupAcceptData;
     code: number;
   },
 ): number {
@@ -129,6 +194,7 @@ function emitAccept(
       verb: "setup accept",
       ...(result.error !== undefined ? { error: result.error } : {}),
       message: result.message,
+      ...(result.data === undefined ? {} : { data: result.data }),
     });
   } else {
     if (result.ok) {
@@ -143,12 +209,45 @@ function emitAccept(
   return result.code;
 }
 
+/** Refuse a missing, stale, dirty, unreadable, or incomplete setup Proof. */
+function emitProofRefusal(
+  opts: SetupAcceptOptions,
+  log: Logger,
+  config: DiscernConfig,
+  branch: string,
+  target: string,
+  fastForward: boolean,
+  proof: GateProofCheckData,
+): number {
+  const markerReason = config.meta.bootstrapped
+    ? undefined
+    : "the setup branch does not record [meta].bootstrapped = true";
+  const proofReason = proof.status === "honored"
+    ? "the current Gate Proof does not contain its structured Proof and relay line"
+    : proof.reason === undefined
+    ? `the current Gate Proof is ${proof.status}`
+    : `the current Gate Proof is ${proof.status}: ${proof.reason}`;
+  const reason = markerReason ?? proofReason;
+  return emitAccept(opts, log, {
+    ok: false,
+    error: proof.status === "dirty" ? "dirty_worktree" : "precondition_failed",
+    message: `Setup acceptance refused because ${reason}. ${PROOF_RECOVERY}`,
+    detail: [
+      `Proof status: ${proof.status}`,
+      ...(proof.recorded === undefined
+        ? []
+        : [`Recorded commit: ${proof.recorded}`]),
+      ...(proof.head === undefined ? [] : [`Current commit: ${proof.head}`]),
+    ],
+    data: setupAcceptData(branch, target, fastForward, proof),
+    code: 1,
+  });
+}
+
 /**
- * `discern setup accept` — fast-forward (or merge) the `discern-setup` branch onto the
- * integration branch, then delete the merged branch. Refuses on a dirty tree, a
- * merge conflict (the branch keeps all its commits), or any current branch that is
- * not the setup branch; a no-op when already on the integration branch or outside a
- * git repo. `--dry-run` previews and touches nothing.
+ * Validate and land the dedicated setup branch. The plan is computed from current
+ * refs and canonical Gate Proof before any effect. A moved target is merged into the
+ * setup branch and the resulting commit earns a new Proof before the target moves.
  */
 export async function runSetupAccept(
   opts: SetupAcceptOptions,
@@ -167,13 +266,12 @@ export async function runSetupAccept(
   const target = integrationBranch(config.repository.trunk);
   const run = (args: string[]) => runGit(args, { cwd: root });
 
-  // Outside a git repo there is no branch to land — setup is already in place as-is.
-  const state = await worktreeState(root);
-  if (state.kind === "not-a-repo") {
+  // Outside a Git repository there is no branch to land.
+  if (!(await run(["rev-parse", "--is-inside-work-tree"])).success) {
     return emitAccept(opts, log, {
       ok: true,
       message:
-        "no git repository here, so there is nothing to land — your setup is already in place.",
+        "No Git repository is present, so there is no setup branch to land.",
       code: 0,
     });
   }
@@ -184,7 +282,7 @@ export async function runSetupAccept(
       ok: false,
       error: "detached_head",
       message:
-        `not on a branch (detached HEAD), so there is nothing to land onto ${target}. Check out your setup branch first.`,
+        `The checkout has a detached HEAD. Check out ${SETUP_BRANCH}, then retry ${ACCEPT_COMMAND}.`,
       code: 1,
     });
   }
@@ -192,7 +290,7 @@ export async function runSetupAccept(
     return emitAccept(opts, log, {
       ok: true,
       message:
-        `already on ${target} — your setup work is landed; nothing to do.`,
+        `The checkout is already on ${target}; there is no setup branch to land.`,
       code: 0,
     });
   }
@@ -204,8 +302,8 @@ export async function runSetupAccept(
       ok: false,
       error: "not_setup_branch",
       message:
-        `you are on \`${branch}\`, not the \`${SETUP_BRANCH}\` branch this command lands — ` +
-        `landing here would sweep \`${branch}\`'s own commits onto \`${target}\`. ` +
+        `You are on \`${branch}\`, not the \`${SETUP_BRANCH}\` branch this command lands. ` +
+        `Landing here would sweep \`${branch}\`'s own commits onto \`${target}\`. ` +
         `If your finished setup lives on \`${SETUP_BRANCH}\`, check it out and re-run \`${ACCEPT_COMMAND}\`. ` +
         `If you set up on \`${branch}\` deliberately (--allow-dirty), merge it your usual way ` +
         `(\`git checkout ${target} && git merge ${branch}\`) when you're ready.`,
@@ -221,7 +319,7 @@ export async function runSetupAccept(
       ok: false,
       error: "no_target",
       message:
-        `the trunk branch \`${target}\` doesn't exist in this repository yet — in a ` +
+        `The trunk branch \`${target}\` does not exist in this repository. In a ` +
         `brand-new repository the first commits are born on \`${branch}\`, so there is no ` +
         `\`${target}\` to land onto. Create it at your setup's tip, then land: ` +
         `\`git branch ${target} && ${ACCEPT_COMMAND}\`. ` +
@@ -230,54 +328,76 @@ export async function runSetupAccept(
     });
   }
 
-  // Refuse to land a tree with uncommitted TRACKED changes — never sweep unrelated
-  // work into the merge. Untracked scratch files are harmless and ignored (the same
-  // notion of "dirty" `discern setup` uses to gate its own branch creation).
-  if (state.kind === "dirty") {
+  const targetTipRun = await run([
+    "rev-parse",
+    "--verify",
+    `refs/heads/${target}^{commit}`,
+  ]);
+  const branchTipRun = await run([
+    "rev-parse",
+    "--verify",
+    `refs/heads/${branch}^{commit}`,
+  ]);
+  const targetTip = targetTipRun.stdout.trim();
+  const branchTip = branchTipRun.stdout.trim();
+  if (
+    !targetTipRun.success || !branchTipRun.success || targetTip === "" ||
+    branchTip === ""
+  ) {
     return emitAccept(opts, log, {
       ok: false,
-      error: "dirty_worktree",
+      error: "precondition_failed",
       message:
-        `your working tree has uncommitted changes. Commit or stash them, then re-run \`${ACCEPT_COMMAND}\`.`,
-      detail: state.changes.slice(0, 10),
+        `Git could not resolve the setup and target commits. Nothing changed. Retry ${ACCEPT_COMMAND}.`,
       code: 1,
     });
   }
 
-  // Fast-forward is possible exactly when the integration branch is already an
-  // ancestor of the setup branch (the common case — setup branched off it and only
-  // added commits). Otherwise the integration branch has moved on and we merge.
+  // This plan fact is read before Proof validation and every mutation.
   const fastForward =
-    (await run(["merge-base", "--is-ancestor", target, branch])).success;
+    (await run(["merge-base", "--is-ancestor", targetTip, branchTip])).success;
+  const inspected = await inspectGateProof(root);
+  let validated = currentSetupProof(inspected);
+  if (!config.meta.bootstrapped || validated === undefined) {
+    return emitProofRefusal(
+      opts,
+      log,
+      config,
+      branch,
+      target,
+      fastForward,
+      inspected,
+    );
+  }
 
-  // Dry-run: report the plan, touch nothing.
+  // Preview carries the same Proof inspection the apply path will require.
   if (opts.dryRun) {
+    const data = setupAcceptData(branch, target, fastForward, inspected, {
+      proof_line: validated.line,
+      ...(fastForward ? { validated_commit: validated.head } : {}),
+    });
     if (opts.json) {
       emitResult({
         ok: true,
         verb: "setup accept",
         dry_run: true,
-        data: {
-          landed: false,
-          branch,
-          target,
-          fast_forward: fastForward,
-          branch_deleted: false,
-        },
+        data,
       });
     } else {
       log.line(renderHumanOutputGroups([
         {
           id: "accept-plan",
           items: [
-            `Dry run — \`${ACCEPT_COMMAND}\` would:`,
+            `Dry run: \`${ACCEPT_COMMAND}\` would:`,
             fastForward
-              ? `  • fast-forward ${target} to ${branch}`
-              : `  • merge ${branch} into ${target}`,
-            `  • check out ${target}`,
+              ? `  • fast-forward ${target} to the proved setup commit`
+              : `  • merge ${target} into ${branch} and prove the merge commit`,
+            `  • record the landed Proof note`,
+            `  • materialize checkout-local agent artifacts`,
             `  • delete the merged ${branch}`,
           ],
         },
+        { id: "proof", items: [validated.line] },
         {
           id: "dry-run-verdict",
           items: ["No changes were made (--dry-run)."],
@@ -287,48 +407,274 @@ export async function runSetupAccept(
     return 0;
   }
 
-  // Check out the integration branch, then land the setup branch onto it.
+  let mergeValidated = false;
+  if (!fastForward) {
+    // Build the merge on the setup branch, keeping the target untouched. Merge the
+    // target commit sampled by the plan, then require a fresh canonical Proof for
+    // the merge result. The original setup Proof is not reused for a changed tree.
+    const merge = await run(discernMergeArgs(branch, targetTip));
+    if (!merge.success) {
+      await run(["merge", "--abort"]);
+      return emitAccept(opts, log, {
+        ok: false,
+        error: "conflict",
+        message:
+          `Merging ${target} into ${branch} did not complete. The target branch is unchanged. ` +
+          `Resolve the integration on ${branch}, run \`discern setup done\`, then retry \`${ACCEPT_COMMAND}\`.`,
+        detail: [merge.stderr.trim()].filter((detail) => detail !== ""),
+        data: setupAcceptData(branch, target, false, inspected, {
+          proof_line: validated.line,
+        }),
+        code: 1,
+      });
+    }
+
+    const gate = await finishResult(root, {
+      surface: opts.json
+        ? { kind: "quiet" }
+        : { kind: "human", plain: plainModeEnabled() },
+    });
+    if (!gate.ok) {
+      const failedProof = await inspectGateProof(root);
+      return emitAccept(opts, log, {
+        ok: false,
+        error: "gate_failed",
+        message:
+          `The merged setup commit did not pass the Gate. ${target} is unchanged. ${PROOF_RECOVERY}`,
+        data: setupAcceptData(branch, target, false, failedProof),
+        code: 1,
+      });
+    }
+    const mergedInspection = await inspectGateProof(root);
+    const mergedProof = currentSetupProof(mergedInspection);
+    if (mergedProof === undefined) {
+      return emitProofRefusal(
+        opts,
+        log,
+        config,
+        branch,
+        target,
+        false,
+        mergedInspection,
+      );
+    }
+    validated = mergedProof;
+    mergeValidated = true;
+  }
+
+  // A Proof records the Gate implementation that wrote it. Re-plan the current
+  // tracked refresh authority at the landing boundary so an older Proof cannot
+  // bypass a newer convergence requirement.
+  const landingConfig = await loadConfig(root);
+  if (!landingConfig.meta.bootstrapped) {
+    return emitProofRefusal(
+      opts,
+      log,
+      landingConfig,
+      branch,
+      target,
+      fastForward,
+      validated.inspection,
+    );
+  }
+  const trackedRefresh = await planTrackedRefresh(root, landingConfig);
+  if (
+    trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0
+  ) {
+    const pending = trackedRefresh.changes.map((change) => change.path);
+    return emitAccept(opts, log, {
+      ok: false,
+      error: "precondition_failed",
+      message:
+        `Tracked refresh work remains on the proved setup tree. ${target} is unchanged. Run \`discern refresh\`, commit the result, run \`discern setup done\`, then retry \`${ACCEPT_COMMAND}\`.`,
+      detail: [...pending, ...trackedRefresh.errors],
+      data: setupAcceptData(
+        branch,
+        target,
+        fastForward,
+        validated.inspection,
+        {
+          proof_line: validated.line,
+          validated_commit: validated.head,
+          merge_validated: mergeValidated,
+          tracked_refresh_pending: pending,
+          tracked_refresh_errors: [...trackedRefresh.errors],
+        },
+      ),
+      code: 1,
+    });
+  }
+
+  // Converge ignored checkout-local artifacts before the target moves. The final
+  // tracked tree already passed the Gate; this writer cannot change tracked files.
+  const localRefresh = await materializeLocalRefreshArtifacts(root, log);
+  const localErrors = instructionRefreshErrors(localRefresh);
+  if (localErrors.length > 0) {
+    return emitAccept(opts, log, {
+      ok: false,
+      error: "partial_materialization",
+      message:
+        `Checkout-local agent artifacts could not be materialized. ${target} is unchanged. Fix the reported errors, then retry \`${ACCEPT_COMMAND}\`.`,
+      detail: localErrors,
+      data: setupAcceptData(
+        branch,
+        target,
+        fastForward,
+        validated.inspection,
+        {
+          proof_line: validated.line,
+          validated_commit: validated.head,
+          merge_validated: mergeValidated,
+          local_artifact_errors: localErrors,
+        },
+      ),
+      code: 1,
+    });
+  }
+
+  // Close the validation-to-landing window while the setup branch is still checked
+  // out. Ref movement cannot substitute a different commit for the proved one.
+  const setupNow = await run([
+    "rev-parse",
+    "--verify",
+    `refs/heads/${branch}^{commit}`,
+  ]);
+  const targetNow = await run([
+    "rev-parse",
+    "--verify",
+    `refs/heads/${target}^{commit}`,
+  ]);
+  if (
+    setupNow.stdout.trim() !== validated.head ||
+    targetNow.stdout.trim() !== targetTip
+  ) {
+    return emitAccept(opts, log, {
+      ok: false,
+      error: "precondition_failed",
+      message:
+        `The setup or target branch moved after validation. Nothing was landed. ${PROOF_RECOVERY}`,
+      data: setupAcceptData(
+        branch,
+        target,
+        fastForward,
+        validated.inspection,
+        {
+          proof_line: validated.line,
+          validated_commit: validated.head,
+          merge_validated: mergeValidated,
+          local_artifacts_converged: true,
+        },
+      ),
+      code: 1,
+    });
+  }
+
   const checkout = await run(["checkout", "--quiet", target]);
   if (!checkout.success) {
     return emitAccept(opts, log, {
       ok: false,
       error: "checkout_failed",
       message:
-        `could not check out ${target}. Your work is safe on ${branch}. Git said:`,
+        `Git could not check out ${target}. Your proved work remains on ${branch}.`,
       detail: [checkout.stderr.trim()],
+      data: setupAcceptData(
+        branch,
+        target,
+        fastForward,
+        validated.inspection,
+        {
+          proof_line: validated.line,
+          validated_commit: validated.head,
+          merge_validated: mergeValidated,
+          local_artifacts_converged: true,
+        },
+      ),
       code: 1,
     });
   }
-  const merge = await run(discernMergeArgs(target, branch, {
-    ffOnly: fastForward,
-    quiet: fastForward,
-  }));
-  if (!merge.success) {
-    // Step the conflict aside so the tree is left clean, then refuse.
-    await run(["merge", "--abort"]);
-    await run(["checkout", "--quiet", branch]);
+
+  const transition = await fastForwardCheckedOutBranch(
+    root,
+    target,
+    targetTip,
+    validated.head,
+  );
+  if (transition.kind !== "updated") {
+    const partiallyLanded = transition.kind === "checkout-failed" &&
+      !transition.rolledBack;
+    if (!partiallyLanded) {
+      await run(["checkout", "--quiet", branch]);
+    }
     return emitAccept(opts, log, {
       ok: false,
-      error: "conflict",
-      message:
-        `landing ${branch} onto ${target} hit a conflict. Resolve it by merging manually ` +
-        `(\`git checkout ${target} && git merge ${branch}\`), or leave ${branch} for review. ` +
-        `Your work is safe on ${branch}.`,
-      detail: [merge.stderr.trim()].filter((d) => d !== ""),
+      error: partiallyLanded ? "partial_acceptance" : "apply_failed",
+      message: partiallyLanded
+        ? `${target} advanced to the proved commit, but its checked-out files could not be converged or rolled back. Stop and inspect the checkout before continuing.`
+        : `The exact-commit landing was refused because the checkout or ${target} moved. Nothing was landed. ${PROOF_RECOVERY}`,
+      detail: [transition.detail],
+      data: setupAcceptData(
+        branch,
+        target,
+        fastForward,
+        validated.inspection,
+        {
+          landed: partiallyLanded,
+          proof_line: validated.line,
+          validated_commit: validated.head,
+          merge_validated: mergeValidated,
+          local_artifacts_converged: true,
+        },
+      ),
       code: 1,
     });
   }
 
-  // The setup branch is now fully contained in the integration branch — delete it.
-  const del = await run(["branch", "-d", branch]);
-  const branchDeleted = del.success;
+  // The target now names the validated commit. Durable Proof recording follows the
+  // normal acceptance rule and is fail-open after this boundary.
+  const proofFetch = await reconcileProofNotesFetch(
+    root,
+    landingConfig.repository.proof_notes,
+  );
+  const proofWrite = await writeProofNote(
+    root,
+    validated.head,
+    validated.data,
+  );
+  const proofNote = { fetch: proofFetch, write: proofWrite };
 
-  const data: AcceptData = {
+  // This checkout survives setup acceptance, unlike an ordinary accepted
+  // worktree. Retire its worktree-local cache after the durable note is written.
+  const cleared = await clearGateProof(root);
+  const proofCleared = cleared.status === "cleared";
+
+  // The setup branch is fully contained in the target branch. Retire only the
+  // exact dedicated ref at the commit the accepted Proof identified; a moved
+  // or unexpectedly checked-out branch remains visible instead.
+  const branchDeletion = await deleteAutomaticallyOwnedBranch({
+    repoRoot: root,
+    branch,
+    expectedCommit: validated.head,
+    ownership: { kind: "setup", branch },
+    mergedInto: target,
+  });
+  const branchDeleted = branchDeletion.kind !== "refused";
+
+  const data: SetupAcceptData = {
     landed: true,
     branch,
     target,
     fast_forward: fastForward,
     branch_deleted: branchDeleted,
+    proof: validated.inspection,
+    proof_line: validated.line,
+    validated_commit: validated.head,
+    merge_validated: mergeValidated,
+    proof_note: proofNote,
+    local_artifacts_converged: true,
+    proof_cleared: proofCleared,
+    ...(proofCleared || cleared.reason === undefined
+      ? {}
+      : { proof_clear_error: cleared.reason }),
   };
   if (opts.json) {
     emitResult({
@@ -341,15 +687,44 @@ export async function runSetupAccept(
   }
   log.ok(
     fastForward
-      ? `Setup landed — fast-forwarded ${target} to ${branch}.`
-      : `Setup landed — merged ${branch} into ${target}.`,
+      ? `Setup landed. ${target} now names the proved setup commit.`
+      : `Setup landed. ${target} now names the separately proved merge commit.`,
   );
+  log.line(validated.line);
   log.info(`You are now on ${target} with discern set up.`);
   if (branchDeleted) {
     log.info(`Deleted the merged ${branch} branch.`);
   } else {
+    const reason = branchDeletion.kind === "refused"
+      ? `: ${branchDeletion.reason}`
+      : "";
     log.info(
-      `Left the ${branch} branch in place (it is fully merged; delete it with \`git branch -d ${branch}\` when ready).`,
+      `Left the ${branch} branch in place${reason}. It is fully merged; ` +
+        `delete it with \`git branch -d ${branch}\` when ready.`,
+    );
+  }
+  if (!proofNotesFetchSucceeded(proofFetch)) {
+    log.warn(
+      `Proof-note fetch configuration did not converge: ${
+        proofFetch.errors.join("; ")
+      }`,
+    );
+  }
+  if (
+    proofWrite.status !== "recorded" &&
+    proofWrite.status !== "already_present"
+  ) {
+    log.warn(
+      `The landing Proof note was not recorded: ${
+        proofWrite.reason ?? proofWrite.status
+      }`,
+    );
+  }
+  if (!proofCleared) {
+    log.warn(
+      `The setup checkout's Gate Proof cache could not be cleared: ${
+        cleared.reason ?? cleared.status
+      }`,
     );
   }
   return 0;

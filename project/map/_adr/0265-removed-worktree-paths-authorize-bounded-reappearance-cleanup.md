@@ -1,5 +1,7 @@
 # ADR 0265: Removed worktree paths authorize bounded reappearance cleanup
 
+> **Teardown-boundary amendment ([ADR 0315](0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence.md)):** command-owned descendants now quiesce before removal, and successful removal is decided only after retirement evidence is written and a final strict filesystem and Git-registry observation proves absence. Later external writes still use the bounded reappearance recovery defined here.
+
 **Status**: accepted. Extends the common-state registry in [ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md), the plan/apply boundary in [ADR 0027](0027-plan-apply-engine-execution.md), and status observation in [ADR 0033](0033-status-verb-and-location-aware-scope.md). Records a bounded exception to placement consent in [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md).
 
 ## Context

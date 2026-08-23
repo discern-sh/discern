@@ -579,6 +579,51 @@ Deno.test("Markdown preserves whitespace-significant supporting payloads", () =>
   assertEquals(failures, []);
 });
 
+Deno.test("setup Markdown relays the canonical Proof used by structured results", () => {
+  const inspection = {
+    status: "honored",
+    recorded: "abc123def4567890abc123def4567890abc123de",
+    head: "abc123def4567890abc123def4567890abc123de",
+    proof: FULL_PROOF.markdown,
+    proof_line: FULL_PROOF.line,
+    proof_data: FULL_PROOF,
+  };
+  const cases = [
+    {
+      verb: "setup done",
+      data: {
+        gate_proven: true,
+        worktree_proven: true,
+        proof: inspection,
+        leftover: [],
+      },
+    },
+    {
+      verb: "setup accept",
+      data: {
+        landed: true,
+        branch: "discern-setup",
+        target: "main",
+        fast_forward: true,
+        branch_deleted: true,
+        proof: inspection,
+        validated_commit: inspection.head,
+        merge_validated: false,
+        local_artifacts_converged: true,
+      },
+    },
+  ] as const;
+
+  for (const result of cases) {
+    const rendered = renderResultMarkdown(
+      { ok: true, ...result },
+      resultPresenterForVerb(result.verb),
+    );
+    assertStringIncludes(rendered, FULL_PROOF.line);
+    assertEquals(rendered.split(FULL_PROOF.line).length - 1, 1);
+  }
+});
+
 Deno.test("setup consent keeps the consent exchange ahead of its confirmed command", () => {
   const instructions = "Ask the owner which checks must block completion.";
   const command = confirmedBeginCommand();

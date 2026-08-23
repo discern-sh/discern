@@ -15,7 +15,7 @@ _Each discern task uses an isolated workspace (a Git worktree) with its own chec
 
 Each worktree gets a stable identity, development port, and declared resources. Setup prepares the checkout and converges it after the trunk changes.
 
-The lifecycle starts from the main checkout. Commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` moves the validated commit to the trunk and tears down the worktree. `--confirmed` attests only to consent in the current conversation.
+The lifecycle starts from the main checkout. Commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` moves the validated commit to the trunk and tears down the worktree. `--confirmed` attests only to consent in the current conversation. Automatic cleanup requires recorded fleet ownership; merge status alone never authorizes deletion.
 
 Treat every worktree as occupied, even when Git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the human view over work in progress (the Desk) to inspect, update, land, or drop tasks across the fleet.
 
@@ -36,5 +36,6 @@ Treat every worktree as occupied, even when Git reports it clean. [`discern stat
 |   130 | [Interrupted landing recovery](acceptance-recovery.md)              | Reconcile a journal without replaying authority or overwriting local data.      |
 |   140 | [Hand work back](hand-work-back.md)                                 | Finish, report the Proof, wait for review, and accept after approval.           |
 |   150 | [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) | Reclaim spent train stages on explicit confirmation; branch refs always stay.   |
-|   160 | [Reappeared worktree paths](reappeared-worktree-paths.md)           | Review files written after removal and reclaim only evidence-backed paths.      |
-|   170 | [Recover a dropped branch](drop-recovery.md)                        | Restore committed work from discern's bounded local recovery refs.              |
+|   160 | [Cleanup ownership and teardown](cleanup-ownership.md)              | Prove cleanup authority and verify checkout absence before reporting success.   |
+|   170 | [Reappeared worktree paths](reappeared-worktree-paths.md)           | Review files written after removal and reclaim only evidence-backed paths.      |
+|   180 | [Recover a dropped branch](drop-recovery.md)                        | Restore committed work from discern's bounded local recovery refs.              |

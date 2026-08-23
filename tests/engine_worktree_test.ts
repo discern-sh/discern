@@ -30,7 +30,10 @@ import {
   type DiscernConfig,
 } from "../src/shared/config_schema.ts";
 import { submoduleCommandWired } from "../src/engine/worktree/lifecycle.ts";
-import type { assertOpSide } from "../src/engine/worktree/git.ts";
+import {
+  type assertOpSide,
+  readySentinelPath,
+} from "../src/engine/worktree/git.ts";
 import {
   cliRefusalCases,
   SIDE_RESTRICTED_OPS,
@@ -57,6 +60,16 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
   await scaffoldEngine(dir);
   await gitInit(dir);
   return await addWorktree(dir, name);
+}
+
+/** A raw Git fixture carrying discern's positive fleet-ownership marker. */
+async function ownedWorktree(dir: string, name: string): Promise<string> {
+  const worktree = await mainWithWorktree(dir, name);
+  const marker = await readySentinelPath(worktree);
+  assert(marker !== undefined, "fixture worktree must have Git-admin state");
+  await Deno.mkdir(dirname(marker), { recursive: true });
+  await Deno.writeTextFile(marker, "");
+  return worktree;
 }
 
 /** Plant both modified tracked data and an untracked file to exercise safe removal refusal. */
@@ -1195,7 +1208,7 @@ Deno.test("worktree teardown runs the (no-op) adapter seams cleanly", async () =
 
 Deno.test("worktree prune --yes reclaims a fully-merged worktree", async () => {
   await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "zeta");
+    const wt = await ownedWorktree(dir, "zeta");
     await Deno.writeTextFile(join(wt, "z.txt"), "z\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "z", "--no-gpg-sign");
@@ -1214,7 +1227,7 @@ Deno.test("worktree prune --yes reclaims a fully-merged worktree", async () => {
 
 Deno.test("worktree prune keeps a sibling worktree that still has unmerged work", async () => {
   await withTempDir(async (dir) => {
-    const live = await mainWithWorktree(dir, "live");
+    const live = await ownedWorktree(dir, "live");
     // The sibling carries an unmerged commit — pruning must preserve it and
     // never clobber live work in a child worktree.
     await Deno.writeTextFile(join(live, "wip.txt"), "wip\n");
@@ -1233,7 +1246,7 @@ Deno.test("worktree prune keeps a sibling worktree that still has unmerged work"
 
 Deno.test("status and worktree prune keep a fully-merged worktree with uncommitted changes", async () => {
   await withTempDir(async (dir) => {
-    const dirty = await mainWithWorktree(dir, "dirty-merged");
+    const dirty = await ownedWorktree(dir, "dirty-merged");
     await Deno.writeTextFile(join(dirty, "tracked.txt"), "merged\n");
     await git(dirty, "add", "-A");
     await git(dirty, "commit", "-q", "-m", "merged work", "--no-gpg-sign");
@@ -1291,7 +1304,7 @@ Deno.test("status and worktree prune keep a fully-merged worktree with uncommitt
 
 Deno.test("worktree prune --yes keeps a clean detached worktree whose HEAD is not merged", async () => {
   await withTempDir(async (dir) => {
-    const detached = await mainWithWorktree(dir, "detached-unmerged");
+    const detached = await ownedWorktree(dir, "detached-unmerged");
     await git(detached, "checkout", "--detach");
     await Deno.writeTextFile(join(detached, "detached.txt"), "detached work\n");
     await git(detached, "add", "-A");

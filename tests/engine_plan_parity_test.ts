@@ -49,6 +49,7 @@ import {
   git,
   gitInit,
   mapPool,
+  proveSetupBranchForAcceptance,
   runAgent,
   scaffoldEngine,
   worktreePath,
@@ -422,10 +423,16 @@ const PROBES: Record<string, DryRunProbe> = {
     arrange: async (dir) => {
       // A live, clean, fully-merged worktree → a real removal candidate.
       const wt = await mainWithWorktree(dir, "parityvictim");
+      const setup = await runAgent(wt, ["worktree", "setup", "--json"]);
+      assertEquals(setup.code, 0, setup.output);
       await Deno.writeTextFile(join(wt, "m.txt"), "m\n");
       await git(wt, "add", "-A");
       await git(wt, "commit", "-q", "-m", "m", "--no-gpg-sign");
       await git(dir, "merge", "--no-ff", "-m", "merge", "agent/parityvictim");
+      // Settle the branch-scoped logbook epoch on the main checkout before the
+      // dry-run snapshot; the ownership setup above runs from the linked branch.
+      const status = await runAgent(dir, ["status", "--json"]);
+      assertEquals(status.code, 0, status.output);
       return {
         cwd: dir,
         dry: ["worktree", "prune", "--dry-run", "--json"],
@@ -478,6 +485,7 @@ const PROBES: Record<string, DryRunProbe> = {
       await freshRepo(dir);
       const begin = await runAgent(dir, ["setup", "begin", "--confirmed"]);
       assertEquals(begin.code, 0, begin.output);
+      await proveSetupBranchForAcceptance(dir);
       return { cwd: dir, dry: ["setup", "accept", "--dry-run", "--json"] };
     },
   },

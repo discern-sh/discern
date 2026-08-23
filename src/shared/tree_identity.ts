@@ -23,6 +23,16 @@ import { parsePorcelainZ } from "./git_paths.ts";
 /** The tracked-diff fingerprint of an otherwise dirty untracked-only tree. */
 export const EMPTY_TREE_DIFF_FINGERPRINT = cksumString("").toString(16);
 
+/** Whether an abbreviated hexadecimal object id identifies a full commit id. */
+export function abbreviatedObjectIdMatches(
+  abbreviated: string,
+  commit: string,
+): boolean {
+  return /^[0-9a-f]{7,64}$/u.test(abbreviated) &&
+    /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(commit) &&
+    commit.startsWith(abbreviated);
+}
+
 /** Fingerprint the uncommitted diff at `root`, `undefined` when git cannot
  * answer. Hex form of the checksum; empty diff fingerprints too (a staged-only
  * or untracked-only tree still gets a stable value). */

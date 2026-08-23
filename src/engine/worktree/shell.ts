@@ -27,7 +27,10 @@ import type { Logger } from "../../lib/log.ts";
 import { selfShimPath } from "../../shared/self_shim.ts";
 import { SPAWN_FAILED } from "../../shared/subprocess.ts";
 import { superviseSpawn } from "../owned_child.ts";
-import { KILLED_PIPE_GRACE_MS } from "../process_signals.ts";
+import {
+  KILLED_PIPE_GRACE_MS,
+  quiesceProcessGroup,
+} from "../process_signals.ts";
 
 const ENCODER = new TextEncoder();
 const NEWLINE = 0x0a;
@@ -48,9 +51,9 @@ function concat(chunks: Uint8Array[]): Uint8Array {
 }
 
 /**
- * Capture both child streams to completion (draining concurrently so a full
- * pipe never blocks), then report the exit code, surfacing the captured output
- * to STDERR when the command failed. Reads go through explicit readers so an
+ * Capture both child streams concurrently so a full pipe never blocks, reap
+ * the direct child, quiesce its ordinary background descendants, then finish
+ * the drains and report the exit code. Reads go through explicit readers so an
  * interrupt can bound the wait for EOF: once the child's group is killed, only
  * a descendant that escaped into its own session (a self-daemonizing tool) can
  * still hold the pipe write ends open, and after {@link KILLED_PIPE_GRACE_MS}
@@ -93,13 +96,21 @@ async function settleCaptured(
   } else {
     interrupted.addEventListener("abort", boundDrains, { once: true });
   }
+  const drained = Promise.all([drain(child.stdout), drain(child.stderr)]);
+  const status = await child.status;
+  if (!interrupted.aborted) {
+    // A shell leader can exit 0 while an ordinary background child still owns
+    // both the worktree and these pipes. Stop that detached group before
+    // waiting for EOF, so success cannot outrun a command-owned writer.
+    await quiesceProcessGroup(child.pid);
+  }
   try {
-    await Promise.all([drain(child.stdout), drain(child.stderr)]);
+    await drained;
   } finally {
     if (pipeGraceTimer !== undefined) clearTimeout(pipeGraceTimer);
     interrupted.removeEventListener("abort", boundDrains);
   }
-  const code = (await child.status).code;
+  const code = status.code;
   if (code !== 0 && !interrupted.aborted) {
     // Loud on failure: the captured output → STDERR, never the parent's stdout. A
     // trailing newline is added when the command omitted one, so the caller's next

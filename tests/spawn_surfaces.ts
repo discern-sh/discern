@@ -45,8 +45,9 @@ export const SPAWN_HOMES = [
     may: ["git", "sh"],
     interrupt: {
       exempt:
-        "runGit runs engine-authored, self-terminating git subcommands and " +
-        "commandExists a `command -v` probe — both bounded, neither carries " +
+        "runGit runs engine-authored Git subcommands; lifecycle callers opt " +
+        "into its detached-group quiescence for hook descendants, while " +
+        "commandExists is a `command -v` probe — both bounded, neither carries " +
         "operator-supplied lifecycle work. runShell is buffered and has no " +
         "engine caller today; route it through the owned-child supervision " +
         "boundary and declare an interrupt surface here before pointing an " +
@@ -59,8 +60,8 @@ export const SPAWN_HOMES = [
     may: ["git"],
     interrupt: {
       exempt:
-        "the attributed, pathspec-limited commit of a discern-composed diff — " +
-        "a bounded git write that exits on its own.",
+        "the attributed, pathspec-limited commit of a discern-composed diff; " +
+        "its detached Git group is quiesced after the commit leader settles.",
     },
   },
   {

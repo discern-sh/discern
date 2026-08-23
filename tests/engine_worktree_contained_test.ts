@@ -23,7 +23,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { basename, join } from "@std/path";
+import { basename, dirname, join } from "@std/path";
 import { exists } from "@std/fs";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -46,6 +46,7 @@ import {
   WorktreeGitError,
   worktreeReclaimContained,
 } from "../src/engine/worktree/lifecycle.ts";
+import { readySentinelPath } from "../src/engine/worktree/git.ts";
 import { awaitResult } from "../src/engine/await/await.ts";
 import { LOGBOOK_SCHEMA_VERSION } from "../src/engine/logbook/schema.ts";
 import { Logger } from "../src/lib/log.ts";
@@ -74,6 +75,14 @@ async function addWorktreeFrom(
   return path;
 }
 
+/** Mark a raw train fixture as a worktree discern successfully readied. */
+async function markDiscernOwned(worktree: string): Promise<void> {
+  const marker = await readySentinelPath(worktree);
+  assert(marker !== undefined, "fixture worktree must have Git-admin state");
+  await Deno.mkdir(dirname(marker), { recursive: true });
+  await Deno.writeTextFile(marker, "");
+}
+
 /**
  * The `--from` train fixture: a scaffolded main repo and three staged
  * worktrees, `agent/a` forked from the trunk, `agent/b` from `agent/a`,
@@ -86,10 +95,13 @@ async function chainFixture(
   await scaffoldEngine(dir);
   await gitInit(dir);
   const a = await addWorktree(dir, "a");
+  await markDiscernOwned(a);
   await commitFile(a, "a.txt", "a\n", "stage a");
   const b = await addWorktreeFrom(dir, "b", "agent/a");
+  await markDiscernOwned(b);
   await commitFile(b, "b.txt", "b\n", "stage b");
   const c = await addWorktreeFrom(dir, "c", "agent/b");
+  await markDiscernOwned(c);
   await commitFile(c, "c.txt", "c\n", "stage c");
   return { a, b, c };
 }
@@ -612,8 +624,10 @@ Deno.test("a candidate that gains work during an earlier teardown is skipped, ne
     await git(a, "add", "-A");
     await git(a, "commit", "-q", "-m", "materialized files", "--no-gpg-sign");
     const b = await addWorktreeFrom(dir, "b", "agent/a");
+    await markDiscernOwned(b);
     await commitFile(b, "b.txt", "b\n", "stage b");
     const c = await addWorktreeFrom(dir, "c", "agent/b");
+    await markDiscernOwned(c);
     await commitFile(c, "c.txt", "c\n", "stage c");
 
     const r = await runAgent(dir, [

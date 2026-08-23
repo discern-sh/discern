@@ -54,7 +54,10 @@ import {
 } from "../../shared/git_admin_state.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { workingStateFingerprint } from "../../shared/tree_identity.ts";
+import {
+  abbreviatedObjectIdMatches,
+  workingStateFingerprint,
+} from "../../shared/tree_identity.ts";
 import {
   type PlannedWriteTarget,
   preflightPlannedWrites,
@@ -676,6 +679,40 @@ export async function inspectGateProof(
   if (!(await isWorktreeFullyClean(cwd))) {
     return { status: "dirty", path, recorded, head };
   }
+  if (
+    proofData !== undefined &&
+    !abbreviatedObjectIdMatches(proofData.head, recorded)
+  ) {
+    return {
+      status: "read_failed",
+      path,
+      recorded,
+      head,
+      reason:
+        `the structured Proof names ${proofData.head}, which does not identify its recorded commit ${recorded}`,
+    };
+  }
+  if (proofData !== undefined && line !== "" && proofData.line !== line) {
+    return {
+      status: "read_failed",
+      path,
+      recorded,
+      head,
+      reason: "the structured Proof and stored Proof line disagree",
+    };
+  }
+  if (
+    proofData !== undefined && markdown !== "" &&
+    proofData.markdown.trim() !== markdown
+  ) {
+    return {
+      status: "read_failed",
+      path,
+      recorded,
+      head,
+      reason: "the structured Proof and stored Proof page disagree",
+    };
+  }
   if (recordedMode === "report" || proofData?.mode === "report") {
     return {
       status: "report_only",
@@ -751,6 +788,29 @@ export async function inspectGateProof(
  */
 export async function gateProofHonored(cwd: string): Promise<boolean> {
   return (await inspectGateProof(cwd)).status === "honored";
+}
+
+/**
+ * Clear this worktree's Gate Proof through the same write preflight and writer
+ * used by the Gate. Lifecycle callers use this when a new transaction must make
+ * any earlier validation unavailable before it begins.
+ */
+export async function clearGateProof(
+  cwd: string,
+): Promise<NonNullable<GateData["gate_proof"]>> {
+  const preflight = await preflightAdminStateWrites(cwd);
+  if (!preflight.ok) {
+    return proofRecord("unavailable", {
+      path: preflight.path,
+      reason: `${preflight.description}: ${preflight.reason}`,
+    });
+  }
+  return await recordGateOutcome(
+    cwd,
+    preflight.authority,
+    false,
+    await pinValidatedTree(cwd),
+  );
 }
 
 /**

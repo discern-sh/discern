@@ -5,8 +5,8 @@
  * `engine_worktree_test.ts` drives the happy-path lifecycle (setup → exit →
  * prune). This file pins down the surfaces it leaves uncovered: the safety
  * boundary of `remove-worktree-safely` (refuse the main checkout / a non-worktree
- * path), the BRANCH-pruning behaviour of `worktree prune` (a merged branch with
- * no worktree is deleted; an unmerged one is kept), teardown destroying a
+ * path), the positive-ownership boundary of `worktree prune` (an identified,
+ * merged fleet worktree is reclaimed; merged foreign refs are kept), teardown destroying a
  * worktree's declared resources (not just the no-op path),
  * `inherit-main-env-vars` copying a whitelisted secret into a worktree's `.env`,
  * and `with-gotchas` printing its failure pointer while propagating the exit code.
@@ -17,7 +17,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { dirname, join } from "@std/path";
+import { dirname, join, resolve } from "@std/path";
 import { exists } from "@std/fs";
 import { parse as parseToml } from "@std/toml";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
@@ -35,6 +35,7 @@ import {
   type GitWorktreePruneScan,
   type OrphanWorktreeSweepScan,
   pruneGitWorktrees,
+  readySentinelPath,
   sweepOrphanWorktrees,
 } from "../src/engine/worktree/git.ts";
 import { Logger } from "../src/lib/log.ts";
@@ -50,6 +51,21 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
   await scaffoldEngine(dir);
   await gitInit(dir);
   return await addWorktree(dir, name);
+}
+
+/** Mark a raw Git fixture as a worktree discern successfully readied. */
+async function markDiscernOwned(worktree: string): Promise<void> {
+  const marker = await readySentinelPath(worktree);
+  assert(marker !== undefined, "fixture worktree must have Git-admin state");
+  await Deno.mkdir(dirname(marker), { recursive: true });
+  await Deno.writeTextFile(marker, "");
+}
+
+/** Create the positively-owned fleet shape automatic prune requires. */
+async function ownedWorktree(dir: string, name: string): Promise<string> {
+  const worktree = await mainWithWorktree(dir, name);
+  await markDiscernOwned(worktree);
+  return worktree;
 }
 
 /**
@@ -72,6 +88,17 @@ function baseConfig(extra = ""): string {
     extra,
     "",
   ].join("\n");
+}
+
+/** Only a strict `lstat` NotFound result proves a retired path is absent. */
+async function assertLstatAbsent(path: string): Promise<void> {
+  try {
+    await Deno.lstat(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return;
+    throw error;
+  }
+  throw new Error(`expected retired path to be absent: ${path}`);
 }
 
 // ── remove-worktree-safely: the rm -rf safety boundary ──────────────────────
@@ -117,23 +144,34 @@ Deno.test("remove-worktree-safely refuses a path that is not a worktree of this 
   });
 });
 
+Deno.test("remove-worktree-safely refuses a target inside the repository's Git metadata", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "metadata-overlap");
+    const adminDir = await gitOut(wt, "rev-parse", "--absolute-git-dir");
+
+    const result = await runAgent(dir, [
+      "remove-worktree-safely",
+      adminDir,
+    ]);
+
+    assertEquals(result.code, 1, result.output);
+    assertTerminalTextIncludes(result.output, "overlaps");
+    assertTerminalTextIncludes(result.output, "Git metadata");
+    assert(await exists(adminDir), "the Git-admin entry must remain");
+    assert(await exists(wt), "the linked checkout must remain");
+  });
+});
+
 Deno.test("remove-worktree-safely removes a real linked worktree and reconciles git", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "removable");
 
     const r = await runAgent(dir, ["remove-worktree-safely", wt]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(
-      await exists(wt),
-      false,
-      `the worktree directory should be gone\n${r.output}`,
-    );
-    // git should no longer list it as a registered worktree.
-    const list = await runAgent(dir, ["identity", "--id"], { cwd: dir });
-    assertEquals(
-      list.output.includes("removable"),
-      false,
-      `git metadata should be reconciled (worktree deregistered)\n${list.output}`,
+    await assertLstatAbsent(wt);
+    assert(
+      !(await gitOut(dir, "worktree", "list", "--porcelain")).includes(wt),
+      `git metadata should be reconciled (worktree deregistered)\n${r.output}`,
     );
   });
 });
@@ -147,6 +185,222 @@ Deno.test("remove-worktree-safely is idempotent on an already-removed path", asy
     // Re-running against the now-absent path must be a clean success no-op.
     const second = await runAgent(dir, ["remove-worktree-safely", wt]);
     assertEquals(second.code, 0, second.output);
+  });
+});
+
+Deno.test("remove-worktree-safely detects a path recreated while retirement evidence is written", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "late-writer");
+    const commonRaw = await gitOut(dir, "rev-parse", "--git-common-dir");
+    const common = commonRaw.startsWith("/")
+      ? commonRaw
+      : resolve(dir, commonRaw);
+    const evidenceDir = join(
+      common,
+      "discern",
+      "retired-worktree-paths",
+    );
+    await Deno.mkdir(evidenceDir, { recursive: true });
+    const evidenceLock = await Deno.open(join(evidenceDir, ".lock"), {
+      create: true,
+      read: true,
+      write: true,
+    });
+    await evidenceLock.lock(true);
+    const removal = runAgent(dir, ["remove-worktree-safely", wt]);
+    try {
+      let absent = false;
+      for (let attempt = 0; attempt < 200; attempt++) {
+        try {
+          await Deno.lstat(wt);
+        } catch (error) {
+          if (error instanceof Deno.errors.NotFound) {
+            absent = true;
+            break;
+          }
+          throw error;
+        }
+        await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+      }
+      assert(absent, "the removal did not reach its evidence-write boundary");
+      await Deno.mkdir(join(wt, "observer-state", "nested"), {
+        recursive: true,
+      });
+    } finally {
+      evidenceLock.close();
+    }
+
+    const result = await removal;
+    assertEquals(result.code, 1, result.output);
+    assertTerminalTextIncludes(result.output, "retired path exists again");
+    assert(
+      await exists(join(wt, "observer-state", "nested")),
+      `a replacement path must be preserved for inspection\n${result.output}`,
+    );
+  });
+});
+
+Deno.test("remove-worktree-safely refuses a symlink substituted for the registered path", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "symlink-target");
+    const parked = `${wt}.parked`;
+    const bystander = join(dir, "bystander-target");
+    await Deno.mkdir(bystander);
+    await Deno.writeTextFile(join(bystander, "keep.txt"), "keep\n");
+    await Deno.rename(wt, parked);
+    await Deno.symlink(bystander, wt);
+    try {
+      const result = await runAgent(dir, ["remove-worktree-safely", wt]);
+      assertEquals(result.code, 1, result.output);
+      assertTerminalTextIncludes(result.output, "symlink");
+      assertEquals(
+        await Deno.readTextFile(join(bystander, "keep.txt")),
+        "keep\n",
+      );
+      assertStringIncludes(
+        await gitOut(dir, "worktree", "list", "--porcelain"),
+        wt,
+      );
+    } finally {
+      await Deno.remove(wt);
+      await Deno.rename(parked, wt);
+      const cleanup = await runAgent(dir, ["remove-worktree-safely", wt]);
+      assertEquals(cleanup.code, 0, cleanup.output);
+    }
+  });
+});
+
+Deno.test("remove-worktree-safely detects a symlink swap at the final absence boundary", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "symlink-swap");
+    const bystander = join(dir, "symlink-swap-bystander");
+    await Deno.mkdir(bystander);
+    await Deno.writeTextFile(join(bystander, "keep.txt"), "keep\n");
+    const commonRaw = await gitOut(dir, "rev-parse", "--git-common-dir");
+    const common = commonRaw.startsWith("/")
+      ? commonRaw
+      : resolve(dir, commonRaw);
+    const evidenceDir = join(common, "discern", "retired-worktree-paths");
+    await Deno.mkdir(evidenceDir, { recursive: true });
+    const evidenceLock = await Deno.open(join(evidenceDir, ".lock"), {
+      create: true,
+      read: true,
+      write: true,
+    });
+    await evidenceLock.lock(true);
+    const removal = runAgent(dir, ["remove-worktree-safely", wt]);
+    try {
+      let absent = false;
+      for (let attempt = 0; attempt < 200; attempt++) {
+        try {
+          await Deno.lstat(wt);
+        } catch (error) {
+          if (error instanceof Deno.errors.NotFound) {
+            absent = true;
+            break;
+          }
+          throw error;
+        }
+        await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+      }
+      assert(absent, "the removal did not reach its final evidence boundary");
+      await Deno.symlink(bystander, wt);
+    } finally {
+      evidenceLock.close();
+    }
+
+    const result = await removal;
+    assertEquals(result.code, 1, result.output);
+    assertTerminalTextIncludes(result.output, "retired path exists again");
+    assert((await Deno.lstat(wt)).isSymlink, "the replacement link is kept");
+    assertEquals(
+      await Deno.readTextFile(join(bystander, "keep.txt")),
+      "keep\n",
+    );
+    assert(
+      !(await gitOut(dir, "worktree", "list", "--porcelain")).includes(wt),
+      "the failed result reports the exact retained Git state",
+    );
+    await Deno.remove(wt);
+  });
+});
+
+Deno.test({
+  name:
+    "remove-worktree-safely reports an unreadable target as unknown, not absent",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      const wt = await mainWithWorktree(dir, "unreadable-target");
+      const root = dirname(wt);
+      await Deno.chmod(root, 0o600);
+      try {
+        const result = await runAgent(dir, ["remove-worktree-safely", wt]);
+        assertEquals(result.code, 1, result.output);
+        assertTerminalTextIncludes(result.output, "could not inspect");
+        assertStringIncludes(
+          await gitOut(dir, "worktree", "list", "--porcelain"),
+          wt,
+        );
+      } finally {
+        await Deno.chmod(root, 0o700);
+        const cleanup = await runAgent(dir, ["remove-worktree-safely", wt]);
+        assertEquals(cleanup.code, 0, cleanup.output);
+      }
+    });
+  },
+});
+
+Deno.test("remove-worktree-safely cannot report success while Git still registers the retired path", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "registry-stays");
+    const canonicalWt = await Deno.realPath(wt);
+    const gitShim = join(dir, "git-success-without-removal.sh");
+    await Deno.writeTextFile(
+      gitShim,
+      [
+        "#!/bin/sh",
+        'case " $* " in',
+        '  *" worktree remove "*|*" worktree prune "*) exit 0 ;;',
+        "esac",
+        'exec git "$@"',
+        "",
+      ].join("\n"),
+      { mode: 0o700 },
+    );
+
+    const removed = await runAgent(
+      dir,
+      ["remove-worktree-safely", canonicalWt],
+      { env: { GIT_BIN: gitShim } },
+    );
+    assertEquals(removed.code, 1, removed.output);
+    assertTerminalTextIncludes(removed.output, "still registered");
+
+    const registry = await gitOut(dir, "worktree", "list", "--porcelain");
+    assertStringIncludes(
+      registry,
+      canonicalWt,
+      "the injected Git refusal keeps the exact registration for a safe rerun",
+    );
+    assertStringIncludes(
+      await gitOut(dir, "branch", "--list", "agent/registry-stays"),
+      "agent/registry-stays",
+      "a teardown failure must retain the branch",
+    );
+
+    const retried = await runAgent(dir, [
+      "remove-worktree-safely",
+      canonicalWt,
+    ]);
+    assertEquals(retried.code, 0, retried.output);
+    assertEquals(await exists(canonicalWt), false, retried.output);
+    assert(
+      !(await gitOut(dir, "worktree", "list", "--porcelain")).includes(
+        canonicalWt,
+      ),
+      "the named recovery rerun must converge registration and path",
+    );
   });
 });
 
@@ -337,48 +591,133 @@ Deno.test("worktree prune keeps a removed path repurposed as a Git checkout", as
 // ── worktree prune — branch sweeping (the merged/unmerged distinction) ───────
 //
 // The existing suite asserts a merged worktree DIRECTORY is reclaimed and a live
-// one is kept. This pins the parallel BRANCH behaviour: a fully-merged branch
-// whose worktree is already gone is deleted, while an unmerged dangling branch is
-// preserved (its commits are still worth reviewing).
+// one is kept. This pins the branch boundary: only the exact branch carried by
+// a registered fleet identity is deleted; merged foreign and unproven refs are
+// context only, while unmerged work remains protected independently.
 
-Deno.test("worktree prune deletes a dangling fully-merged branch but keeps an unmerged one", async () => {
+Deno.test("worktree prune offers only positively identified discern work, never foreign merged refs", async () => {
   await withTempDir(async (dir) => {
-    // Two extra worktrees so we can produce two branches, then remove the
-    // worktrees to leave the branches dangling (no checkout) for the branch
-    // sweep to consider.
-    const mergedWt = await mainWithWorktree(dir, "merged");
+    const mergedWt = await ownedWorktree(dir, "owned-merged");
     const keepWt = await addWorktree(dir, "kept");
+    const unmarkedWt = await addWorktree(dir, "manual-exact");
 
-    // agent/merged: a commit that we merge into main → fully merged.
+    // The ready marker plus exact agent/<git-admin-id> branch carries positive
+    // fleet identity. Once merged, it is a routine prune candidate.
     await Deno.writeTextFile(join(mergedWt, "m.txt"), "m\n");
     await git(mergedWt, "add", "-A");
     await git(mergedWt, "commit", "-q", "-m", "m", "--no-gpg-sign");
-    await git(dir, "merge", "--no-ff", "-m", "merge merged", "agent/merged");
+    await git(
+      dir,
+      "merge",
+      "--no-ff",
+      "-m",
+      "merge owned",
+      "agent/owned-merged",
+    );
 
     // agent/kept: a commit that is NEVER merged → unmerged work to preserve.
     await Deno.writeTextFile(join(keepWt, "k.txt"), "k\n");
     await git(keepWt, "add", "-A");
     await git(keepWt, "commit", "-q", "-m", "k", "--no-gpg-sign");
 
-    // Remove both worktrees (but keep their branches) so the branch sweep — not
-    // the worktree sweep — is what decides each branch's fate.
-    await git(dir, "worktree", "remove", "--force", mergedWt);
+    // Fully merged names are not ownership evidence. Cover an ordinary foreign
+    // backup, a partial-prefix look-alike, an exact-prefix branch with no fleet
+    // identity, and the dedicated setup branch (owned by setup's lifecycle only).
+    for (
+      const branch of [
+        "main-pre-discern",
+        "agentish/partial-prefix",
+        "agent/manual-prefix-only",
+        "discern-setup",
+      ]
+    ) {
+      await git(dir, "branch", branch);
+    }
+    const foreignWt = join(`${dir}.worktrees`, "foreign-live");
+    await git(
+      dir,
+      "worktree",
+      "add",
+      foreignWt,
+      "agent/manual-prefix-only",
+    );
+    await Deno.writeTextFile(
+      join(foreignWt, ".env.local"),
+      "DISCERN_WORKTREE_ID=manual-prefix-only\n",
+    );
+
+    // Leave the unmerged branch dangling to prove its existing safety rule.
     await git(dir, "worktree", "remove", "--force", keepWt);
+
+    const dry = await runAgent(dir, [
+      "worktree",
+      "prune",
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(dry.code, 0, dry.output);
+    const dryPlan = JSON.parse(dry.stdout) as {
+      plan: { steps: Array<{ label: string; note?: string }> };
+    };
+    const destructiveText = dryPlan.plan.steps
+      .map((step) => `${step.label} ${step.note ?? ""}`)
+      .join("\n");
+    assertStringIncludes(destructiveText, mergedWt);
+    for (
+      const foreign of [
+        "main-pre-discern",
+        "agentish/partial-prefix",
+        "agent/manual-prefix-only",
+        "agent/manual-exact",
+        "discern-setup",
+      ]
+    ) {
+      assert(
+        !destructiveText.includes(foreign),
+        `${foreign} has no positive prune ownership and must stay outside the destructive plan\n${dry.output}`,
+      );
+    }
 
     const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
 
-    // Inspect the surviving local branches directly via git.
+    assertEquals(
+      await exists(mergedWt),
+      false,
+      `the positively identified merged worktree should be removed\n${r.output}`,
+    );
     const after = await branchList(dir);
     assertEquals(
-      after.includes("agent/merged"),
+      after.includes("agent/owned-merged"),
       false,
-      `a dangling fully-merged branch should be deleted\n${r.output}\n${after}`,
+      `the removed owned worktree's merged branch should be deleted\n${r.output}\n${after}`,
+    );
+    assert(
+      await exists(foreignWt),
+      `a self-asserted id cannot turn mismatched Git metadata into ownership\n${r.output}`,
+    );
+    assert(
+      await exists(unmarkedWt),
+      `an exact branch/admin-name match without discern's ready marker must stay\n${r.output}`,
     );
     assert(
       after.includes("agent/kept"),
       `an unmerged branch must be preserved\n${r.output}\n${after}`,
     );
+    for (
+      const foreign of [
+        "main-pre-discern",
+        "agentish/partial-prefix",
+        "agent/manual-prefix-only",
+        "agent/manual-exact",
+        "discern-setup",
+      ]
+    ) {
+      assert(
+        after.includes(foreign),
+        `${foreign} must remain untouched\n${r.output}\n${after}`,
+      );
+    }
     // main is always protected.
     assert(after.includes("main"), `main must survive\n${after}`);
   });
@@ -396,7 +735,7 @@ Deno.test("worktree prune deletes a dangling fully-merged branch but keeps an un
 Deno.test("worktree prune --dry-run lists what the real run removes, and acts on nothing", async () => {
   await withTempDir(async (dir) => {
     // A live, clean, fully-merged worktree — a genuine removal candidate.
-    const mergedWt = await mainWithWorktree(dir, "victim");
+    const mergedWt = await ownedWorktree(dir, "victim");
     await Deno.writeTextFile(join(mergedWt, "m.txt"), "m\n");
     await git(mergedWt, "add", "-A");
     await git(mergedWt, "commit", "-q", "-m", "m", "--no-gpg-sign");
@@ -448,7 +787,7 @@ Deno.test("worktree prune --dry-run lists what the real run removes, and acts on
 
 Deno.test("worktree prune --dry-run reports stale metadata and apply prunes that entry", async () => {
   await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "stale-meta");
+    const wt = await ownedWorktree(dir, "stale-meta");
     const canonicalWt = await Deno.realPath(wt);
 
     // Simulate an out-of-band deletion that leaves git's worktree admin metadata
@@ -499,7 +838,7 @@ Deno.test("worktree prune --dry-run reports stale metadata and apply prunes that
 
 Deno.test("worktree prune refuses off-TTY without --yes and shows the candidates", async () => {
   await withTempDir(async (dir) => {
-    const mergedWt = await mainWithWorktree(dir, "confirm");
+    const mergedWt = await ownedWorktree(dir, "confirm");
     await Deno.writeTextFile(join(mergedWt, "m.txt"), "m\n");
     await git(mergedWt, "add", "-A");
     await git(mergedWt, "commit", "-q", "-m", "m", "--no-gpg-sign");
@@ -530,7 +869,7 @@ Deno.test("worktree prune refuses off-TTY without --yes and shows the candidates
 
 Deno.test("worktree prune keeps a dirty orphaned dir at the configured worktree root", async () => {
   await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "orphan"); // <dir>.worktrees/orphan
+    const wt = await ownedWorktree(dir, "orphan"); // <dir>.worktrees/orphan
     const root = dirname(wt); // the sibling worktree root
     const orphan = join(root, "orphan-moved");
     await Deno.writeTextFile(join(wt, "uncommitted.txt"), "save me\n");
@@ -560,7 +899,7 @@ Deno.test("worktree prune keeps a dirty orphaned dir at the configured worktree 
 
 Deno.test("worktree prune reclaims a clean fully-orphaned dir at the configured worktree root", async () => {
   await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "clean-orphan");
+    const wt = await ownedWorktree(dir, "clean-orphan");
     const root = dirname(wt);
     const orphan = join(root, "clean-orphan-moved");
     await Deno.writeTextFile(join(wt, "merged.txt"), "merged\n");
@@ -582,6 +921,49 @@ Deno.test("worktree prune reclaims a clean fully-orphaned dir at the configured 
       await exists(orphan),
       false,
       `a clean orphaned dir at the worktree root should be reclaimed\n${r.output}`,
+    );
+  });
+});
+
+Deno.test("worktree prune does not let an orphan env file assert destructive ownership", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "foreign-key");
+    const orphan = join(dirname(wt), "foreign-key-moved");
+    await git(wt, "checkout", "-q", "-b", "agent/claimed-id");
+    await Deno.writeTextFile(
+      join(wt, ".env.local"),
+      "DISCERN_WORKTREE_ID=claimed-id\n",
+    );
+    await Deno.writeTextFile(join(wt, "merged.txt"), "merged\n");
+    await git(wt, "add", "-f", ".env.local", "merged.txt");
+    await git(wt, "commit", "-q", "-m", "foreign orphan", "--no-gpg-sign");
+    await git(
+      dir,
+      "merge",
+      "--no-ff",
+      "-m",
+      "merge foreign orphan",
+      "agent/claimed-id",
+    );
+    await Deno.rename(wt, orphan);
+
+    const dry = await runAgent(dir, [
+      "worktree",
+      "prune",
+      "--dry-run",
+    ]);
+    assertEquals(dry.code, 0, dry.output);
+    assertTerminalTextIncludes(dry.stdout, "outside discern ownership");
+
+    const applied = await runAgent(dir, ["worktree", "prune", "--yes"]);
+    assertEquals(applied.code, 0, applied.output);
+    assert(
+      await exists(orphan),
+      `checkout-local identity must not authorize orphan removal\n${applied.output}`,
+    );
+    assert(
+      (await branchList(dir)).includes("agent/claimed-id"),
+      `the foreign branch must remain\n${applied.output}`,
     );
   });
 });
@@ -627,7 +1009,7 @@ async function staleRemovalScan(
   dir: string,
   name: string,
 ): Promise<{ wt: string; scan: GitWorktreePruneScan }> {
-  const wt = await mainWithWorktree(dir, name);
+  const wt = await ownedWorktree(dir, name);
   await Deno.writeTextFile(join(wt, "m.txt"), "m\n");
   await git(wt, "add", "-A");
   await git(wt, "commit", "-q", "-m", "m", "--no-gpg-sign");
@@ -643,7 +1025,16 @@ async function staleRemovalScan(
     scan: {
       repoRoot: await gitOut(dir, "rev-parse", "--show-toplevel"),
       mainBranch: "main",
-      worktreesToRemove: [{ path: listed, branch: `agent/${name}` }],
+      identitySettings: {
+        slug: "engine-test",
+        branchPrefix: "agent/",
+      },
+      worktreesToRemove: [{
+        path: listed,
+        branch: `agent/${name}`,
+        id: name,
+        head: await gitOut(wt, "rev-parse", "HEAD"),
+      }],
       branchesToDelete: [],
       staleMetadata: [],
       worktreeLines: [],
@@ -674,6 +1065,13 @@ const PRUNE_APPLY_RACES: Record<
   },
   "a branch switched after the scan keeps the worktree": async (wt) => {
     await git(wt, "checkout", "-q", "-b", "agent/elsewhere");
+  },
+  "ownership evidence removed after the scan keeps the worktree": async (
+    wt,
+  ) => {
+    const marker = await readySentinelPath(wt);
+    assert(marker !== undefined, "fixture marker must resolve");
+    await Deno.remove(marker);
   },
 };
 
@@ -720,7 +1118,7 @@ Deno.test("orphan sweep apply keeps a dir that gained work after the scan", asyn
   await withTempDir(async (dir) => {
     // A clean, fully-merged worktree severed from git's registry by moving it —
     // the orphan shape the sweep scan classifies as removable.
-    const wt = await mainWithWorktree(dir, "sweepraced");
+    const wt = await ownedWorktree(dir, "sweepraced");
     await Deno.writeTextFile(join(wt, "m.txt"), "m\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "m", "--no-gpg-sign");
@@ -731,6 +1129,10 @@ Deno.test("orphan sweep apply keeps a dir that gained work after the scan", asyn
     const scan: OrphanWorktreeSweepScan = {
       mainRepo: await Deno.realPath(dir),
       mainBranch: "main",
+      identitySettings: {
+        slug: "engine-test",
+        branchPrefix: "agent/",
+      },
       removable: [{
         path: orphan,
         reason: "clean branch agent/sweepraced, fully merged",

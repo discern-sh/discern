@@ -1,5 +1,12 @@
 /** Shared process-signal primitives for every owned subprocess boundary. */
 
+import { signalProcessGroup } from "../shared/process_group.ts";
+export {
+  OWNED_DESCENDANT_GRACE_MS,
+  quiesceProcessGroup,
+  signalProcessGroup,
+} from "../shared/process_group.ts";
+
 /** Catchable shutdown signals. Windows exposes only SIGINT through Deno. */
 export const INTERRUPT_SIGNALS: readonly Deno.Signal[] =
   Deno.build.os === "windows" ? ["SIGINT"] : ["SIGINT", "SIGTERM", "SIGHUP"];
@@ -26,19 +33,6 @@ export const KILL_GRACE_MS = 2_000;
  * block for the daemon's whole lifetime.
  */
 export const KILLED_PIPE_GRACE_MS = 2_500;
-
-/** Signal only the process group led by `pid`; return false when it is gone. */
-export function signalProcessGroup(
-  pid: number,
-  signal: Deno.Signal,
-): boolean {
-  try {
-    Deno.kill(-pid, signal);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /** Signal a process group, falling back to its direct child. */
 export function killProcessTree(pid: number, signal: Deno.Signal): void {

@@ -1,4 +1,4 @@
-# ADR 0313: Instruction compilation preserves location and prepare converges refresh
+# ADR 0316: Instruction compilation preserves location and prepare converges refresh
 
 **Status**: accepted; extends [ADR 0034](0034-agents-md-untracked-currency-check.md), [ADR 0261](0261-prepare-runs-the-generated-regenerations.md), and [ADR 0264](0264-tracked-refresh-convergence-precedes-landing.md)
 

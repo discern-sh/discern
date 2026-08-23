@@ -846,16 +846,17 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       },
       {
         id: "worktree-prune",
-        title: "Orphan reclamation",
+        title: "Owned worktree reclamation",
         what:
-          "`discern worktree prune` finds resources whose worktree vanished without a clean teardown and runs their `destroy` commands — the GC safety net behind the lifecycle verbs (`setup`, `ensure`, `teardown`, `drop`).",
-        why: "A crashed session can't leak databases forever.",
+          "`discern worktree prune` reclaims merged worktrees, stale state, reappeared paths, and resources only when recorded identity proves discern ownership. Merge status alone grants nothing, and teardown succeeds only after both Git registration and the filesystem path are absent.",
+        why:
+          "A crashed session can be cleaned up without treating unrelated branches or neighboring directories as disposable.",
         plain: {
-          title: "Cleaning up leftovers",
+          title: "Cleaning up only discern's leftovers",
           what:
-            "`discern worktree prune` finds supporting services whose working copy vanished without an orderly cleanup and runs their saved removal instructions — the safety net behind the routine `setup`, `ensure`, `teardown`, and `drop` steps.",
+            "`discern worktree prune` removes working copies whose saved changes have joined the shared work, leftover records, returned paths, and supporting services only when discern's saved identity proves they belong to it. A safe-to-remove saved-change name is not enough, and cleanup succeeds only when both the copy and its registration are gone.",
           why:
-            "A crashed session cannot leave forgotten information stores running forever.",
+            "An interrupted session can be cleaned up without treating unrelated saved work or nearby directories as disposable.",
         },
         surfaces: ["verb:worktree"],
       },
@@ -3244,9 +3245,9 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         id: "clean-abandoned-environments",
         title: "Clean up abandoned tasks without a cliff edge",
         value:
-          "Recent committed work from a mistaken task removal still has a direct route back, while resources from a vanished worktree can be reclaimed without treating untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.",
+          "Recent committed work from a mistaken task removal still has a direct route back, while positively identified worktrees and resources can be reclaimed without treating unrelated refs or untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.",
         whyItFollows:
-          "Before drop removes a branch, discern keeps its committed tip in a bounded local recovery list. `discern worktree prune` finds worktrees that disappeared without teardown, plans their resource cleanup, and reports ignored-file drift before removal can proceed.",
+          "Before drop removes an owned branch, discern keeps its committed tip in a bounded local recovery list. `discern worktree prune` requires recorded ownership, verifies path and Git-registration absence, plans orphan resource cleanup, and reports ignored-file drift before removal can proceed.",
         drawsOn: ["drop-recovery", "worktree-prune", "ignored-drift"],
       },
     ],
@@ -3697,7 +3698,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can continue a durable effort after a process, session, or provisioning interruption without inventing a new workspace or losing partial state without an account.",
         whyItFollows:
-          "Provisioning records recoverable state, drop repairs interrupted lifecycle operations, prune reconciles abandoned worktrees through an explicit action, and effectful workflows are designed for interruption safety.",
+          "Provisioning records recoverable state, drop repairs interrupted lifecycle operations, prune reconciles positively identified abandoned worktrees through an explicit action, and effectful workflows are designed for interruption safety.",
         boundary:
           "Recovery preserves and explains known lifecycle state; it cannot reconstruct external resources whose provider destroyed them outside discern's recorded contract.",
         drawsOn: [

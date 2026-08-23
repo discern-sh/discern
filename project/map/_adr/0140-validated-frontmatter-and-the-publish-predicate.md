@@ -1,5 +1,9 @@
 # ADR 0140: Frontmatter is a gate-validated schema and `publish: false` is the sole page-level withhold
 
+> **Amendments.**
+>
+> - **[ADR 0314](0314-separate-public-manual-and-project-map.md) — manual purpose and promotion:** the dedicated manual adds a required `kind` for tutorial, guide, explanation, reference, or troubleshooting. `publish` remains the sole page-level eligibility decision; a separate central front-door set controls prominence without creating another publication flag.
+
 **Status**: accepted
 
 ## Context

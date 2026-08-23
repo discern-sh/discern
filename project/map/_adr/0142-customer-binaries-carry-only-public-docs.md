@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **[ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md) — command naming:** `docs` now names the bundled manual and `help` the CLI reference; this record's `discern help`, `help --adr`, and `helpResult` spellings read accordingly.
+> - **[ADR 0314](0314-separate-public-manual-and-project-map.md) — staging source:** customer binaries continue to carry only the published manual projection, but that projection comes from the dedicated manual corpus rather than public tiers of discern's project Map.
 
 **Status**: accepted
 

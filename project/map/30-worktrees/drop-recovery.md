@@ -1,7 +1,7 @@
 ---
 title: Recover a dropped branch
 description: Restore committed work after discern removes a worktree branch.
-order: 170
+order: 180
 aliases:
   - dropped worktree
   - recover dropped branch

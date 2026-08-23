@@ -10,11 +10,11 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
 import {
-  deleteDropBranchAtCommit,
   DROP_RECOVERY_REF_LIMIT,
   DROP_RECOVERY_REF_PREFIX,
   preserveDropRecoveryRef,
 } from "../src/engine/worktree/recovery_refs.ts";
+import { deleteAutomaticallyOwnedBranch } from "../src/engine/worktree/ownership.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -78,6 +78,41 @@ Deno.test("worktree drop <id>: removes a clean, merged worktree and deletes its 
     assertStringIncludes(refs[0]?.ref ?? "", "abandoned");
     assertStringIncludes(r.output, refs[0]?.ref ?? "missing recovery ref");
     assertStringIncludes(r.output, "dropped");
+  });
+});
+
+Deno.test("worktree drop removes an explicitly selected foreign checkout but retains its branch", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = join(`${dir}.worktrees`, "foreign");
+    await git(
+      dir,
+      "worktree",
+      "add",
+      wt,
+      "-b",
+      "main-pre-discern",
+    );
+
+    const dry = await runAgent(dir, [
+      "worktree",
+      "drop",
+      "foreign",
+      "--dry-run",
+    ]);
+    assertEquals(dry.code, 0, dry.output);
+    assertTerminalTextIncludes(dry.output, "outside discern ownership");
+    assert(await exists(wt), "dry-run must keep the selected checkout");
+    assert(await branchExists(dir, "main-pre-discern"));
+
+    const applied = await runAgent(dir, ["worktree", "drop", "foreign"]);
+    assertEquals(applied.code, 0, applied.output);
+    assertEquals(await exists(wt), false, applied.output);
+    assert(
+      await branchExists(dir, "main-pre-discern"),
+      `explicit checkout removal is not ownership proof for its ref\n${applied.output}`,
+    );
   });
 });
 
@@ -355,12 +390,19 @@ Deno.test("drop recovery branch deletion keeps a branch that moved after preserv
     const movedTip = await gitOut(dir, "rev-parse", "agent/recovery-race");
     await git(dir, "switch", "main");
 
-    const deletion = await deleteDropBranchAtCommit(
-      dir,
-      "agent/recovery-race",
-      preserved.commit,
-    );
-    assertEquals(deletion.deleted, false);
+    const deletion = await deleteAutomaticallyOwnedBranch({
+      repoRoot: dir,
+      branch: "agent/recovery-race",
+      expectedCommit: preserved.commit,
+      ownership: {
+        kind: "worktree",
+        branch: "agent/recovery-race",
+        id: "recovery-race",
+        settings: { slug: "engine-test", branchPrefix: "agent/" },
+        source: "registered",
+      },
+    });
+    assertEquals(deletion.kind, "refused");
     assertEquals(
       await gitOut(dir, "rev-parse", "agent/recovery-race"),
       movedTip,
