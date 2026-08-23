@@ -127,6 +127,44 @@ Deno.test("setup accept refuses a tree with uncommitted tracked changes", async 
   });
 });
 
+Deno.test("setup accept refuses every tracked mutation made after Proof", async () => {
+  await withTempDir(async (dir) => {
+    await setupBranchRepo(dir);
+    const proved = await runAgent(dir, ["done", "--json"]);
+    assertEquals(proved.code, 0, proved.output);
+    const provedHead = await gitOut(dir, "rev-parse", "HEAD");
+    assertEquals(JSON.parse(proved.stdout).data.proof.head, provedHead.slice(0, 12));
+
+    // An unrelated future sibling of the observed marker mutation: the
+    // acceptance invariant is about every post-Proof tree change, regardless
+    // of the file or feature that produced it.
+    await Deno.writeTextFile(join(dir, "unrelated-after-proof.txt"), "later\n");
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "mutate after proof",
+      "--no-gpg-sign",
+    );
+    const mainBefore = await gitOut(dir, "rev-parse", "main");
+
+    const accepted = await runAgent(dir, ["setup", "accept", "--json"]);
+    assertEquals(accepted.code, 1, accepted.output);
+    assertStringIncludes(
+      JSON.parse(accepted.stdout).message,
+      "run `discern setup done`, then retry",
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), mainBefore);
+    assertEquals(
+      await gitOut(dir, "branch", "--show-current"),
+      "discern-setup",
+    );
+    assert(!(await branchGone(dir, "discern-setup")));
+  });
+});
+
 Deno.test("setup accept ignores untracked scratch files (lands anyway)", async () => {
   await withTempDir(async (dir) => {
     await setupBranchRepo(dir);

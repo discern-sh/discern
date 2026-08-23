@@ -91,6 +91,56 @@ Deno.test("setup done runs the gate and records bootstrapped only when green (AD
   });
 });
 
+Deno.test("successful setup done binds Proof and the worktree probe to the marker-bearing HEAD", async () => {
+  await withTempDir(async (dir) => {
+    const observedHeads = join(dirname(dir), `${crypto.randomUUID()}-setup-heads`);
+    await readyForDone(
+      dir,
+      `git rev-parse HEAD >> ${JSON.stringify(observedHeads)}`,
+    );
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    const authoredHead = await gitOut(dir, "rev-parse", "HEAD");
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const result = JSON.parse(done.stdout);
+    const completedHead = await gitOut(dir, "rev-parse", "HEAD");
+
+    assert(
+      completedHead !== authoredHead,
+      "setup done must commit the completion marker before recording Proof",
+    );
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "bootstrapped = true",
+    );
+    assertEquals(result.data.marker_committed, true);
+    assertEquals(result.data.proof.status, "honored");
+    assertEquals(result.data.proof.head, completedHead);
+    assertEquals(result.data.proof.proof_data.head, completedHead.slice(0, 12));
+    assertEquals(result.data.proof_line, result.data.proof.proof_line);
+
+    const heads = (await Deno.readTextFile(observedHeads)).trim().split("\n");
+    assert(
+      heads.length >= 2,
+      `the configured Gate must run in the probe and final checkout: ${heads}`,
+    );
+    for (const head of heads) {
+      assertEquals(
+        head,
+        completedHead,
+        "every completion check must read the marker-bearing commit",
+      );
+    }
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain"),
+      "",
+      "successful completion must return a clean final tree",
+    );
+  });
+});
+
 Deno.test("setup done TTY uses the live activity frame for both composite gates", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "sleep 1");
