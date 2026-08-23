@@ -34,7 +34,10 @@ import {
 import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
-import { CLI_RESULT_FORMATS } from "../src/shared/result_formats.ts";
+import {
+  CLI_RESULT_FORMATS,
+  CLI_RESULT_RENDER,
+} from "../src/shared/result_formats.ts";
 
 /** Every global flag token, straight from the Cliffy registration. */
 const GLOBAL_FLAGS: readonly string[] = [
@@ -62,6 +65,7 @@ Deno.test("the global-flag registration includes both explicit result formats", 
   assert(GLOBAL_FLAGS.length > 0, "no global flags derived from the root");
   assert(GLOBAL_FLAGS.includes("--json"), GLOBAL_FLAGS.join(", "));
   assert(GLOBAL_FLAGS.includes("--markdown"), GLOBAL_FLAGS.join(", "));
+  assert(GLOBAL_FLAGS.includes("--render"), GLOBAL_FLAGS.join(", "));
   assert(!GLOBAL_FLAGS.includes("--md"), GLOBAL_FLAGS.join(", "));
   assertEquals([...ROOT_GLOBAL_FLAG_TOKENS].sort(), GLOBAL_FLAGS);
   assertEquals(
@@ -86,6 +90,16 @@ Deno.test("result-format help names representations without assigning audiences"
       `${format.flag} assigns its format to an audience: ${option.description}`,
     );
   }
+});
+
+Deno.test("render is a secondary terminal convenience, outside the result-format set", () => {
+  assertEquals(Object.keys(CLI_RESULT_FORMATS), ["json", "markdown"]);
+  const options = (buildCli(false) as unknown as Command).getOptions(true);
+  const option = options.find((candidate) =>
+    candidate.flags.includes(CLI_RESULT_RENDER.flag)
+  );
+  assert(option !== undefined, `missing ${CLI_RESULT_RENDER.flag}`);
+  assertEquals(option.description, CLI_RESULT_RENDER.description);
 });
 
 Deno.test("raw child boundaries exclude every global-looking child flag", () => {
@@ -179,7 +193,8 @@ Deno.test("pre-setup: the redirect fires for every global flag before every gate
       for (const verb of SETUP_GATED_VERBS) {
         const args = [...form.tokens, verb];
         const markdown = args.includes("--markdown");
-        if (!args.includes("--json") && !markdown) {
+        const render = args.includes("--render");
+        if (!args.includes("--json") && !markdown && !render) {
           args.push("--json");
         }
         const r = await runAgent(dir, args);
@@ -189,6 +204,13 @@ Deno.test("pre-setup: the redirect fires for every global flag before every gate
           assertTerminalTextIncludes(r.stdout, `# \`discern ${verb}\``);
           assertTerminalTextIncludes(r.stdout, "## Current state");
           assertTerminalTextIncludes(r.stdout, "isn't set up");
+          continue;
+        }
+        if (render) {
+          assertTerminalTextIncludes(r.stdout, `discern ${verb}`);
+          assertTerminalTextIncludes(r.stdout, "Current state");
+          assertTerminalTextIncludes(r.stdout, "isn't set up");
+          assert(!r.stdout.trimStart().startsWith("{"), r.stdout);
           continue;
         }
         const res = JSON.parse(r.stdout);
@@ -227,14 +249,38 @@ Deno.test("pre-setup: a flags-only Markdown invocation returns the same root ref
   });
 });
 
-Deno.test("JSON and Markdown result formats are mutually exclusive", async () => {
+Deno.test("pre-setup: a flags-only render invocation returns a terminal refusal", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    const r = await runAgent(dir, ["--render"]);
+    assertEquals(r.code, 1, r.output);
+    assertTerminalTextIncludes(r.stdout, "discern");
+    assertTerminalTextIncludes(r.stdout, "discern --render needs a command");
+    assertTerminalTextIncludes(r.stdout, "Next action");
+    assert(!r.stdout.trimStart().startsWith("{"), r.stdout);
+  });
+});
+
+Deno.test("result output modes are mutually exclusive", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    const r = await runAgent(dir, ["status", "--json", "--markdown"]);
-    assertEquals(r.code, 1, r.output);
-    const result = JSON.parse(r.stdout);
-    assertEquals(result.error, "invalid_arguments");
-    assertStringIncludes(result.message, "cannot be combined");
+    for (
+      const flags of [
+        ["--json", "--markdown"],
+        ["--json", "--render"],
+        ["--markdown", "--render"],
+      ]
+    ) {
+      const r = await runAgent(dir, ["status", ...flags]);
+      assertEquals(r.code, 1, `${flags.join(" ")}: ${r.output}`);
+      if (flags.includes("--json")) {
+        const result = JSON.parse(r.stdout);
+        assertEquals(result.error, "invalid_arguments");
+        assertStringIncludes(result.message, "cannot be combined");
+      } else {
+        assertTerminalTextIncludes(r.stdout, "cannot be combined");
+      }
+    }
   });
 });
 
@@ -279,6 +325,7 @@ Deno.test("background sensing is limited to auto-themed human terminal modes", (
     const argv of [
       ["status"],
       ["status", "--plain"],
+      ["status", "--render"],
       ["--theme", "auto", "status"],
       ["status", "--theme=auto"],
     ]
@@ -341,6 +388,17 @@ Deno.test("flag-first --markdown selects the authored result projection", async 
   });
 });
 
+Deno.test("flag-first --render selects the terminal-rendered Markdown result", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const r = await runAgent(dir, ["--render", "status"]);
+    assertEquals(r.code, 0, r.output);
+    assertTerminalTextIncludes(r.stdout, "discern status");
+    assertTerminalTextIncludes(r.stdout, "Current state");
+    assert(!r.stdout.trimStart().startsWith("{"), r.stdout);
+  });
+});
+
 Deno.test("a project script dispatches with a global flag placed first", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -354,15 +412,17 @@ Deno.test("a project script dispatches with a global flag placed first", async (
   });
 });
 
-Deno.test("a Project Script owns a child --markdown flag", async () => {
+Deno.test("a Project Script owns child result-looking flags", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
       join(dir, "discern/scripts/relay"),
       "#!/usr/bin/env sh\nprintf '%s\\n' \"$1\"\n",
     );
-    const r = await runAgent(dir, ["scripts", "relay", "--markdown"]);
-    assertEquals(r.code, 0, r.output);
-    assertEquals(r.stdout, "--markdown\n");
+    for (const flag of ["--markdown", "--render"]) {
+      const r = await runAgent(dir, ["scripts", "relay", flag]);
+      assertEquals(r.code, 0, r.output);
+      assertEquals(r.stdout, `${flag}\n`);
+    }
   });
 });

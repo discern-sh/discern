@@ -1,7 +1,7 @@
 ---
 title: Reclaiming contained worktrees
 description: Prune and the Desk offer to reclaim spent train stages whose commits travel inside a live branch while keeping their branch refs.
-order: 140
+order: 150
 aliases:
   - contained worktree
   - worktree prune --contained

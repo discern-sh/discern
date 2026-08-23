@@ -1,7 +1,7 @@
 ---
 title: Interrupted landing recovery
 description: How discern reconciles an interrupted acceptance without replaying authority or overwriting changed checkout data.
-order: 120
+order: 130
 aliases:
   - acceptance recovery
   - interrupted acceptance

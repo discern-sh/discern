@@ -4,7 +4,7 @@
 
 _discern's internal commercial account of what the product gives people. It is designed to brief strategy, marketing, sales, and copywriting work. Each benefit states the human value first and then explains why that value follows from product facts. It is source material rather than finished public copy. The [feature canon](feature-canon.md) owns the mechanism account; the [Agent Benefit Canon](feature-canon-agent-benefits.md) owns the corresponding coding-agent outcomes; the [claims ledger](brand/claims-and-evidence.md) owns the boundaries of exact public claims._
 
-8 clusters · 45 benefits · 138 of 138 feature nodes cited · 20 of 20 public claims carried.
+8 clusters · 45 benefits · 139 of 139 feature nodes cited · 20 of 20 public claims carried.
 
 ## How to use this canon
 
@@ -51,8 +51,8 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Keep several tasks moving at the same time
 
 - **Value:** Agents can work concurrently without overwriting the same checkout or competing for the same declared port, site, database, or resource. Parallel work becomes practical on one machine instead of creating a workspace administration job.
-- **Mechanism:** Each worktree receives a separate checkout and deterministic identity, inherits declared environment values, provisions its own declared resources, and appears in a fleet view that reports overlapping source files before integration.
-- **Product basis:** Deterministic identity · Per-worktree resources · Env inheritance · The fleet view.
+- **Mechanism:** Each worktree receives a separate checkout and deterministic identity, inherits declared environment values, provisions its own declared resources, and appears in a fleet view that reports overlapping source files before integration. The worktree shell picker moves between those checkouts at the same project-relative directory.
+- **Product basis:** Deterministic identity · Per-worktree resources · Env inheritance · The fleet view · Cwd-equivalent worktree shells.
 
 ### Stop playing messenger between your agents
 

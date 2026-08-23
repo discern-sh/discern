@@ -17,3 +17,13 @@ export const CLI_RESULT_FORMATS = {
 
 /** One explicit CLI result-format id. */
 export type ResultOutputFormat = keyof typeof CLI_RESULT_FORMATS;
+
+/**
+ * Secondary terminal convenience for reading the authored Markdown result.
+ * This stays outside {@link CLI_RESULT_FORMATS}: JSON and Markdown remain the
+ * explicit result representations and public integration contracts.
+ */
+export const CLI_RESULT_RENDER = {
+  flag: "--render",
+  description: "Render the Markdown result as terminal output.",
+} as const;

@@ -26,6 +26,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "patterns",
   "status",
   "desk",
+  "worktrees",
   "accept",
   "update",
   "start",

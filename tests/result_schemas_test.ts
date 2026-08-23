@@ -551,6 +551,7 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "config",
   "coupling",
   "desk",
+  "worktrees",
   "discern",
   "map",
   "checkpoints",
@@ -660,6 +661,7 @@ Deno.test("root, utility, read, and command-group CLI results are faithful", asy
       { id: "triangle", args: ["triangle", "--json"] },
       { id: "scripts", args: ["scripts", "--json"] },
       { id: "desk", args: ["desk", "--json"] },
+      { id: "worktrees", args: ["worktrees", "--json"] },
       { id: "worktree", args: ["worktree", "--json"] },
       { id: "skills", args: ["skills", "--json"] },
       {

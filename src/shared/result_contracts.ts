@@ -58,6 +58,7 @@ import {
   WorktreeOutputSchema,
   WorktreePruneOutputSchema,
   WorktreeSetupOutputSchema,
+  WorktreesOutputSchema,
   WorktreeTeardownOutputSchema,
 } from "./result_schemas.ts";
 
@@ -378,6 +379,13 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["desk"],
     verb: "desk",
     schema: DeskOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
+  },
+  {
+    id: "worktrees",
+    commands: ["worktrees"],
+    verb: "worktrees",
+    schema: WorktreesOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {

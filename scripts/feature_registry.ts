@@ -901,6 +901,22 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         },
       },
       {
+        id: "worktree-shell-picker",
+        title: "Cwd-equivalent worktree shells",
+        what:
+          "In an interactive terminal, `discern worktrees` shows the fleet's branches and Git state, then opens `$SHELL` in a selected checkout at the invoking directory's project-relative equivalent. If that directory is absent, it reports and opens the nearest existing ancestor.",
+        why:
+          "The maintainer moves between parallel tasks without finding the checkout path or retracing the project directory tree.",
+        plain: {
+          title: "Open another working copy in the same place",
+          what:
+            "In an interactive terminal, `discern worktrees` shows each separate working copy's task and file state, then opens the chosen copy at the matching place in the project. If that place does not exist there, discern says so and opens the nearest folder that does.",
+          why:
+            "The person in charge moves between simultaneous tasks without finding the copy's location or retracing folders through the project.",
+        },
+        surfaces: ["verb:worktrees"],
+      },
+      {
         id: "await",
         title: "Awaiting a fleet condition",
         what:
@@ -2733,12 +2749,13 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "Agents can work concurrently without overwriting the same checkout or competing for the same declared port, site, database, or resource. Parallel work becomes practical on one machine instead of creating a workspace administration job.",
         whyItFollows:
-          "Each worktree receives a separate checkout and deterministic identity, inherits declared environment values, provisions its own declared resources, and appears in a fleet view that reports overlapping source files before integration.",
+          "Each worktree receives a separate checkout and deterministic identity, inherits declared environment values, provisions its own declared resources, and appears in a fleet view that reports overlapping source files before integration. The worktree shell picker moves between those checkouts at the same project-relative directory.",
         drawsOn: [
           "worktree-identity",
           "worktree-resources",
           "env-inheritance",
           "fleet",
+          "worktree-shell-picker",
         ],
         claims: ["no-checkout-collisions"],
       },
@@ -4090,6 +4107,8 @@ export const AGENT_BENEFIT_COVERAGE_ABSENCES: Readonly<Record<string, string>> =
       "The Desk is the person's interactive fleet surface; agents receive the same observable state through status and structured tools without its human action controls.",
     tips:
       "Tips teach the person using the Desk; agent instructions are owned by registered hints, generated instructions, and authored skills instead.",
+    "worktree-shell-picker":
+      "The worktree shell picker is a person's interactive terminal route; agents keep one effort and inspect the fleet through status and structured tools.",
   };
 
 /** Agent-only hints deliberately outside the Agent Benefit Canon, with reasons. */

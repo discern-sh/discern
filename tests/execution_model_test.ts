@@ -104,6 +104,8 @@ const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
   config: "a direct config editor, not a configurable workflow sequence",
   coupling: READ_ONLY_ABSENCE,
   desk: READ_ONLY_ABSENCE,
+  worktrees:
+    "an interactive child-shell picker whose destination is runtime input, not a configurable workflow sequence",
   doctor: "the host of the execution model, not a workflow it describes",
   docs: READ_ONLY_ABSENCE,
   help: READ_ONLY_ABSENCE,

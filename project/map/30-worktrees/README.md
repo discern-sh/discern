@@ -30,10 +30,11 @@ Treat every worktree as occupied, even when Git reports it clean. [`discern stat
 |    70 | [Multi-repo workspaces](multi-repo-workspaces.md)                   | One install per repository: trunk links, registries, umbrellas, and submodules. |
 |    80 | [Status and session hints](status.md)                               | Read current worktree or fleet state and the next actions it implies.           |
 |    90 | [The desk](the-desk.md)                                             | Start tasks, open agents, and supervise every active worktree.                  |
-|    95 | [Desk tips](desk-tips.md)                                           | One deterministic teaching line per session and where its record lands.         |
-|   100 | [Landing authority](landing-authority.md)                           | See how conversation consent and recorded grants control landing.               |
-|   110 | [Interrupted landing recovery](acceptance-recovery.md)              | Reconcile a journal without replaying authority or overwriting local data.      |
-|   120 | [Hand work back](hand-work-back.md)                                 | Finish, report the Proof, wait for review, and accept after approval.           |
-|   130 | [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) | Reclaim spent train stages on explicit confirmation; branch refs always stay.   |
-|   140 | [Reappeared worktree paths](reappeared-worktree-paths.md)           | Review files written after removal and reclaim only evidence-backed paths.      |
-|   160 | [Recover a dropped branch](drop-recovery.md)                        | Restore committed work from discern's bounded local recovery refs.              |
+|   100 | [Open another worktree](opening-worktrees.md)                       | Move sideways into another checkout while preserving your relative directory.   |
+|   110 | [Desk tips](desk-tips.md)                                           | One deterministic teaching line per session and where its record lands.         |
+|   120 | [Landing authority](landing-authority.md)                           | See how conversation consent and recorded grants control landing.               |
+|   130 | [Interrupted landing recovery](acceptance-recovery.md)              | Reconcile a journal without replaying authority or overwriting local data.      |
+|   140 | [Hand work back](hand-work-back.md)                                 | Finish, report the Proof, wait for review, and accept after approval.           |
+|   150 | [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) | Reclaim spent train stages on explicit confirmation; branch refs always stay.   |
+|   160 | [Reappeared worktree paths](reappeared-worktree-paths.md)           | Review files written after removal and reclaim only evidence-backed paths.      |
+|   170 | [Recover a dropped branch](drop-recovery.md)                        | Restore committed work from discern's bounded local recovery refs.              |

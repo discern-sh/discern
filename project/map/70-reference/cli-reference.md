@@ -50,6 +50,7 @@ aliases:
   - discern patterns archive
   - discern status
   - discern desk
+  - discern worktrees
   - discern start
   - discern accept
   - discern update
@@ -76,13 +77,14 @@ These options are inherited unless a command's entry says otherwise. Tokens beyo
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--json`          | Emit one JSON result on stdout.                                                                                                                                                  |
 | `--markdown`      | Emit one Markdown result on stdout.                                                                                                                                              |
+| `--render`        | Render the Markdown result as terminal output.                                                                                                                                   |
 | `--no-color`      | Disable colour (also honours NO_COLOR and non-TTY output).                                                                                                                       |
 | `--plain`         | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.                                                                          |
 | `--theme <theme>` | Set the terminal theme. `auto` senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing. `light` and `dark` still force that variant. Default: `auto`. |
 
 ## Your desk
 
-The human entry point; bare `discern` opens it.
+Interactive task supervision and worktree entry.
 
 ### `discern desk`
 
@@ -93,6 +95,16 @@ Usage: `discern desk [options]`
 | Option   | Description                                                                                      |
 | -------- | ------------------------------------------------------------------------------------------------ |
 | `--json` | The desk is interactive only; use `status --markdown` or `status --json` to list every worktree. |
+
+### `discern worktrees`
+
+Choose a worktree and open a child shell at the matching project-relative directory.
+
+Usage: `discern worktrees [options]`
+
+| Option   | Description                                                                       |
+| -------- | --------------------------------------------------------------------------------- |
+| `--json` | This command is interactive only; use `status --all --json` to inspect the fleet. |
 
 ## Agentic loop
 
@@ -149,7 +161,7 @@ Usage: `discern test [options]`
 
 ### `discern queue`
 
-Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead. This command has no `--json` or `--markdown` mode; tokens after `--` belong to the child.
+Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead. This command has no `--json`, `--markdown`, or `--render` mode; tokens after `--` belong to the child.
 
 Usage: `discern queue -- <command> [args...]`
 

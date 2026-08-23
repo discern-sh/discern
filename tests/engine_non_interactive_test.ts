@@ -53,6 +53,12 @@ const INTERACTIVE_CASES: readonly {
   },
   { name: "named desk", args: ["desk"], code: 1, output: "status" },
   {
+    name: "worktree shell picker",
+    args: ["worktrees"],
+    code: 1,
+    output: "status --all",
+  },
+  {
     name: "preset confirmation",
     args: ["preset", "example"],
     code: 1,

@@ -46,6 +46,18 @@ Rendered line:
 
 > `discern start --name "<task>"` gives one task an isolated workspace (a Git worktree) and branch, separate from other tasks and the main copy.
 
+## `worktrees-preserves-place`
+
+- Relevance: At least one task is in flight.
+- Predicate: `fleet-min-size`
+- Since: —
+- Teaches: `worktree-shell-picker`
+- Follow-through: `verb-run-after-tip` (`worktrees`)
+
+Rendered line:
+
+> `discern worktrees` opens another working copy at the same project-relative folder in a child shell. Exit it to return.
+
 ## `prepare-fast-feedback`
 
 - Relevance: Evergreen — the daily loop opener.

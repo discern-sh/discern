@@ -126,6 +126,7 @@ export const SUGGESTABLE_ENGINE_COMMANDS: readonly string[] = [
   "coupling",
   "patterns",
   "status",
+  "worktrees",
   "accept",
   "update",
   "start",
@@ -403,7 +404,7 @@ export function attachEngineCommands(
     .description(
       "Run a command while holding one configured concurrent test-run slot. " +
         "Use `discern await` to watch a fleet condition instead. " +
-        "This command has no `--json` or `--markdown` mode; tokens after `--` belong to the child.",
+        "This command has no `--json`, `--markdown`, or `--render` mode; tokens after `--` belong to the child.",
     );
 
   root
@@ -832,6 +833,22 @@ export function attachEngineCommands(
       recordedExit("desk", async (o) => {
         const { runDesk } = await import("./desk/desk.ts");
         return await runDesk({ json: o.json ?? false });
+      }),
+    );
+
+  root
+    .command("worktrees")
+    .description(
+      "Choose a worktree and open a child shell at the matching project-relative directory.",
+    )
+    .option(
+      "--json",
+      "This command is interactive only; use `status --all --json` to inspect the fleet.",
+    )
+    .action(
+      recordedExit("worktrees", async (o) => {
+        const { runWorktrees } = await import("./worktree/shell_picker.ts");
+        return await runWorktrees({ json: o.json ?? false });
       }),
     );
 

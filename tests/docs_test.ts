@@ -900,6 +900,18 @@ Deno.test("pager refuses every static and machine projection with recovery", asy
     );
     assertEquals(markdown.stderr, "");
 
+    const rendered = await runCli(
+      ["docs", "README", "--pager", "--render"],
+      dir,
+      env,
+    );
+    assertEquals(rendered.code, 1);
+    assertTerminalTextIncludes(
+      rendered.stdout,
+      "--pager cannot be combined with --render",
+    );
+    assertEquals(rendered.stderr, "");
+
     for (
       const args of [
         ["docs", "README", "--pager"],
