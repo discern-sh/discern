@@ -430,18 +430,18 @@ Usage: `discern config <subcommand>`
 
 #### `discern config set-job`
 
-Set a declared Gate job. Known names (format, build, lint, typecheck, test, smoke) take a positional scalar or repeatable --run entries and derive their stage. Custom names take --stage and one or more --run entries. Known jobs can also be marked --not-applicable or --applicable for setup assurance.
+Set a Gate job. Known names (format, build, lint, typecheck, test, smoke) derive their stage and accept a positional scalar or repeatable ordered --run. Custom names require --stage and --run. Known-job applicability uses --not-applicable or --applicable.
 
 Usage: `discern config set-job <name> [command] [options]`
 
-| Option               | Description                                                          |
-| -------------------- | -------------------------------------------------------------------- |
-| `--stage <stage>`    | Custom jobs only: when it runs (fix\|build\|check\|test).            |
-| `--run <command>`    | A literal command to run (repeatable; order is preserved).           |
-| `--provides <label>` | Custom jobs only: free-text label.                                   |
-| `--not-applicable`   | Known jobs only: exclude this absent lifecycle from setup assurance. |
-| `--applicable`       | Known jobs only: restore this lifecycle to setup assurance.          |
-| `--dry-run`          | Print the edit and write nothing.                                    |
+| Option               | Description                                                   |
+| -------------------- | ------------------------------------------------------------- |
+| `--stage <stage>`    | Custom jobs only: when it runs (fix\|build\|check\|test).     |
+| `--run <command>`    | Literal command; repeat to preserve order.                    |
+| `--provides <label>` | Custom jobs only: free-text label.                            |
+| `--not-applicable`   | Known jobs: exclude an absent lifecycle from setup assurance. |
+| `--applicable`       | Known jobs: restore lifecycle applicability.                  |
+| `--dry-run`          | Print the edit and write nothing.                             |
 
 #### `discern config set-scope`
 

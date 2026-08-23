@@ -402,7 +402,7 @@ Deno.test("config set-job removes known-job-only options without changing the re
         dir,
       );
       assertEquals(result.code, 1);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         JSON.parse(result.stdout).message,
         "discern config set-job build --not-applicable",
       );
@@ -415,9 +415,9 @@ Deno.test("config set-job help teaches ordered commands and applicability from t
   await withTempDir(async (dir) => {
     const help = await runCli(["config", "set-job", "--help"], dir);
     assertEquals(help.code, 0, help.stderr);
-    assertStringIncludes(help.stdout, "repeatable --run entries");
+    assertTerminalTextIncludes(help.stdout, "repeatable ordered --run");
     assertTerminalTextIncludes(help.stdout, "--run <command>");
-    assertStringIncludes(help.stdout, "order is preserved");
+    assertTerminalTextIncludes(help.stdout, "repeat to preserve order");
     assertStringIncludes(help.stdout, "--not-applicable");
     assertStringIncludes(help.stdout, "--applicable");
   });
@@ -522,7 +522,7 @@ Deno.test("config set-job refuses applicability contradictions and auto-unmarks 
       dir,
     );
     assertEquals(custom.code, 1);
-    assertStringIncludes(JSON.parse(custom.stdout).message, "known job");
+    assertTerminalTextIncludes(JSON.parse(custom.stdout).message, "known job");
     assertEquals(await readToml(dir), beforeConfiguredMark);
   });
 });

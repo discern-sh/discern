@@ -46,8 +46,8 @@ discern config set-job format \
   --run "discern tidy"
 ```
 
-Each `--run` value remains one literal command, in invocation order. This order lets the project tool own its files. `discern tidy` then formats discern-owned surfaces, and `discern prepare` and `discern done` run both commands as one serial fix stage ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
+The commands remain literal and run in that order as one serial fix stage ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
 
 Seeded alone, the format job provides housekeeping. `setup done` and `discern doctor` report `minimal` assurance until a project check joins it ([ADR 0220](../_adr/0220-self-supplied-commands-count-for-nothing-in-assurance.md)). During setup, doctor fails when every form of `discern tidy` leaves the format job; afterward it is an informational opt-out.
 
-An existing installation opts in with the command above. Every config writer (`discern upgrade`, `discern config`, setup, presets, skill ejection, `standards --pin`) emits the canonical form.
+`discern config set-job format` is the existing-installation path. Every config writer (`discern upgrade`, `discern config`, setup, presets, skill ejection, `standards --pin`) emits the canonical form.

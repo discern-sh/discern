@@ -40,11 +40,9 @@ The `discern/` namespace contains authored material only. Generated copies do no
 
 `discern.toml` is the root configuration file. You own its values and ordinary comments. `discern upgrade` may restore missing fixed sections or keys and refresh discern-owned ruled banners from the current template; it does not replace values you set.
 
-Fresh setup leaves `discern tidy` in the format job. It canonically formats the Map, instruction sources, deferred-work ledger, and root config. If the project has its own formatter, that command runs first. Remove the tidy entry to opt out. See [Format discern-owned surfaces](../20-quality-gate/tidy.md) for the exact boundary.
+`discern config set-job format --run "<project formatter>" --run "discern tidy"` keeps `discern tidy` last; repeat `--run` to preserve order. See [Format discern-owned surfaces](../20-quality-gate/tidy.md).
 
-Use `discern config set-job <name> "<command>"` for one known-job command. For an ordered list, repeat the option in one call: `discern config set-job format --run "<project formatter>" --run "discern tidy"`. A positional value that looks like a serialized array is refused because it would otherwise be one literal shell command.
-
-Known jobs are applicable by default. When a lifecycle does not exist in this project, record that separate setup fact with `discern config set-job <name> --not-applicable`; restore it with `--applicable`. A configured job cannot be marked not applicable, and setting a command restores applicability automatically. The declaration changes setup assurance only: it does not remove or skip Gate work. Completion reports enforced protections against the applicable denominator while retaining absent, deferred, and housekeeping rows ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
+`--not-applicable` marks a missing known lifecycle; `--applicable` restores it. It changes assurance only, and configuring the job restores applicability ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
 
 The `.gitignore` file gains one marked `# --- discern ---` block. Keep your rules outside that block. discern rebuilds the block from the artifact registry so it ignores materialized skills and machine-local settings without sweeping up unrelated files.
 

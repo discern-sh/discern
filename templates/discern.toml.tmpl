@@ -153,7 +153,7 @@
 # replaces the global [gate].timeout for that job only, 0 disables its bound:
 #   test = { run = "npm test", timeout = 1200 }
 # OMIT an individual known job while its command is not wired. When that job does
-# not exist in the project's lifecycle, record it under [assurance] below. A
+# not exist in the project's lifecycle, record it under [assurance] below.
 # If applicable known jobs exist but none are wired, the config is only in a
 # bootstrap state: the gate can pass without project protections, so `discern
 # doctor` reports it as a warning. `discern setup` has your coding agent fill
@@ -184,30 +184,30 @@
   # Add the project's own formatter before it when one exists, for example:
   # format    = ["prettier --write .", "discern tidy"]
   format = "discern tidy"
-  # build     = "npm run build"        # or "cargo build"
-  # lint      = "eslint ."             # or "ruff check ." or "golangci-lint run"
-  # typecheck = "tsc --noEmit"         # or "mypy ."
-  # test      = "npm test"             # or "pytest" or "go test ./..."
-  # smoke     = "your-app --version"   # fast boot/readiness — a CLI --version,
-  #                                    # framework about, or real-config load-and-exit
+# build     = "npm run build"        # or "cargo build"
+# lint      = "eslint ."             # or "ruff check ." or "golangci-lint run"
+# typecheck = "tsc --noEmit"         # or "mypy ."
+# test      = "npm test"             # or "pytest" or "go test ./..."
+# smoke     = "your-app --version"   # fast boot/readiness — a CLI --version,
+#                                    # framework about, or real-config load-and-exit
 
 
-  # [jobs.licenses]
-  # stage    = "check"
-  # run      = "./scripts/check-licenses.sh"
-  # provides = "license-audit"
+# [jobs.licenses]
+# stage    = "check"
+# run      = "./scripts/check-licenses.sh"
+# provides = "license-audit"
 
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # [assurance] — explicit applicability for setup coverage. Every known job is
-  # applicable by default. List a job only when that lifecycle does not exist in
-  # this project. This changes setup assurance and its denominator. Gate scheduling
-  # still comes from [jobs], and a configured job cannot appear in this list.
-  # Author the declaration through:
-  #   discern config set-job build --not-applicable
-  # Restore applicability through:
-  #   discern config set-job build --applicable
-  # ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# [assurance] — explicit applicability for setup coverage. Every known job is
+# applicable by default. List a job only when that lifecycle does not exist in
+# this project. This changes setup assurance and its denominator. Gate scheduling
+# still comes from [jobs], and a configured job cannot appear in this list.
+# Author the declaration through:
+#   discern config set-job build --not-applicable
+# Restore applicability through:
+#   discern config set-job build --applicable
+# ─────────────────────────────────────────────────────────────────────────────
 
 [assurance]
   not_applicable = []

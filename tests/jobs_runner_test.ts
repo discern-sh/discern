@@ -64,31 +64,36 @@ Deno.test("runParallel: observer sees starts up front and settlements in real co
     const result = await runParallel([
       {
         label: "slow",
-        command: "while [ ! -f release ]; do sleep 0.01; done; sleep 0.1",
+        command: "while [ ! -f fast-settled ]; do sleep 0.01; done",
       },
-      { label: "fast", command: ": > release" },
+      { label: "fast", command: ":" },
     ], {
       cwd: dir,
       stream: false,
       failFast: true,
       color: false,
       quiet: true,
+      timeoutS: 5,
       observer: {
         started: (job): void => {
           events.push(`started:${job.label}`);
         },
         settled: (job): void => {
           events.push(`settled:${job.label}`);
+          if (job.label === "fast") {
+            Deno.writeTextFileSync(join(dir, "fast-settled"), "");
+          }
         },
       },
     });
 
     assertEquals(result.ok, true);
-    assertEquals(events.slice(0, 2), ["started:slow", "started:fast"]);
-    assert(
-      events.indexOf("settled:fast") < events.indexOf("settled:slow"),
-      events.join(", "),
-    );
+    assertEquals(events, [
+      "started:slow",
+      "started:fast",
+      "settled:fast",
+      "settled:slow",
+    ]);
   } finally {
     await Deno.remove(dir, { recursive: true });
   }

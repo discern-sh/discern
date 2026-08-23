@@ -609,7 +609,7 @@ const jobsObject = z.intersection(
 );
 
 const jobsSection = jobsObject.prefault({}).describe(
-  "The Gate's declared jobs in one namespace. Known names (format, build, lint, typecheck, test, smoke) take a command, a command list, or { run, timeout }; their stage is derived from the name. Every custom [jobs.<name>] requires a table with `stage` (fix|build|check|test) and `run`, plus optional `provides` and `timeout`. A known name must not declare `stage`. Omission means no command is configured; declare a lifecycle that does not apply under [assurance].not_applicable.",
+  "The Gate's jobs. Known names (format, build, lint, typecheck, test, smoke) accept a command, list, or { run, timeout } and derive their stage. Custom [jobs.<name>] tables require `stage` (fix|build|check|test) and `run`; `provides` and `timeout` are optional. Known names omit `stage`. Omission leaves a job unwired; [assurance] records a lifecycle that does not apply.",
 );
 
 /** The known-job enum as schema data, derived from {@link KNOWN_JOBS}. The cast
@@ -627,10 +627,10 @@ const assuranceSection = z.strictObject({
     (names) => new Set(names).size === names.length,
     { message: "each known job may be listed only once." },
   ).meta({ uniqueItems: true }).default([]).describe(
-    "Known jobs that do not exist in this project's lifecycle. This declaration changes setup assurance only; it never skips a configured Gate job. A listed job must be absent from [jobs].",
+    "Known jobs excluded from setup assurance; cannot also be configured.",
   ),
 }).prefault({}).describe(
-  "Setup assurance applicability. Every known job is applicable unless it is listed here explicitly.",
+  "Known-job applicability for setup assurance.",
 );
 
 const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(

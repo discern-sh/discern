@@ -854,7 +854,7 @@ export function buildCli(
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
   const setJob = new Command()
     .description(
-      `Set a declared Gate job. Known names (${knownJobList()}) take a positional scalar or repeatable --run entries and derive their stage. Custom names take --stage and one or more --run entries. Known jobs can also be marked --not-applicable or --applicable for setup assurance.`,
+      `Set a Gate job. Known names (${knownJobList()}) derive their stage and accept a positional scalar or repeatable ordered --run. Custom names require --stage and --run. Known-job applicability uses --not-applicable or --applicable.`,
     )
     .arguments("<name:string> [command:string]")
     .option(
@@ -863,17 +863,17 @@ export function buildCli(
     )
     .option(
       "--run <command:string>",
-      "A literal command to run (repeatable; order is preserved).",
+      "Literal command; repeat to preserve order.",
       { collect: true },
     )
     .option("--provides <label:string>", "Custom jobs only: free-text label.")
     .option(
       "--not-applicable",
-      "Known jobs only: exclude this absent lifecycle from setup assurance.",
+      "Known jobs: exclude an absent lifecycle from setup assurance.",
     )
     .option(
       "--applicable",
-      "Known jobs only: restore this lifecycle to setup assurance.",
+      "Known jobs: restore lifecycle applicability.",
     )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(

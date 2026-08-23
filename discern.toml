@@ -195,12 +195,12 @@
     run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose_check.ts --sarif --custom-zero \"${map.dir}\""
     provides = "docs prose lint (Vale; errors and discern voice alerts block across the non-private Map)"
 
-  # Setup assurance counts every known job as applicable unless its lifecycle is
-  # explicitly absent here. This declaration never changes Gate scheduling.
-  # Author changes with `discern config set-job <known-name> --not-applicable`
-  # or `--applicable`; a configured known job cannot also appear in this list.
-  [assurance]
-    not_applicable = []
+# Setup assurance counts every known job as applicable unless its lifecycle is
+# explicitly absent here. This declaration never changes Gate scheduling.
+# Author changes with `discern config set-job <known-name> --not-applicable`
+# or `--applicable`; a configured known job cannot also appear in this list.
+[assurance]
+  not_applicable = []
 
   # ─────────────────────────────────────────────────────────────────────────────
   # [scopes.<name>] — named regions of the repo. `paths` globs define a scope; the
