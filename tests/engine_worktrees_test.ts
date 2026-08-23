@@ -201,12 +201,13 @@ Deno.test("worktree picker rows derive branch, Git, Proof, and activity facts fr
     ],
     current,
     NOW,
+    { trunk: "main" },
   );
   assertEquals(rows[0]?.current, true);
   assertEquals(rows[1]?.name, "Main checkout");
   assertStringIncludes(rows[2]?.description ?? "", "agent/review");
-  assertStringIncludes(rows[2]?.description ?? "", "2 files changed");
-  assertStringIncludes(rows[2]?.description ?? "", "3 ahead");
+  assertStringIncludes(rows[2]?.description ?? "", "2 uncommitted files");
+  assertStringIncludes(rows[2]?.description ?? "", "3 commits ahead of main");
 });
 
 Deno.test("worktrees surveys from main, shows every state, and launches at the equivalent cwd", async () => {
@@ -248,7 +249,7 @@ Deno.test("worktrees surveys from main, shows every state, and launches at the e
       "Reclaimed stage branches",
       "agent/orphaned",
       "agent/stage-a",
-      "2 files changed",
+      "2 uncommitted files",
     ]
   ) {
     assertStringIncludes(options, expected);

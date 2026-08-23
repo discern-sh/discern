@@ -360,9 +360,9 @@ Deno.test("desk session renders task-first fleet rows from the survey's own proo
   );
   for (
     const section of [
-      '"kind":"group-heading","id":"tasks-ready","name":"Ready to land · 1"',
-      '"kind":"group-heading","id":"tasks-in_flight","name":"In flight · 1"',
-      '"kind":"group-heading","id":"tasks-attention","name":"Needs attention · 2"',
+      '"kind":"group-heading","id":"tasks-needs_attention","name":"Needs attention · 2"',
+      '"kind":"group-heading","id":"tasks-ready_to_review","name":"Ready to review · 1"',
+      '"kind":"group-heading","id":"tasks-paused","name":"Paused · 1"',
       '"kind":"group-heading","id":"desk-actions","name":"Desk"',
       '"kind":"group-heading","id":"session-actions","name":"Session"',
     ]
@@ -924,7 +924,6 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   }
   for (
     const label of [
-      "Accept and land",
       "Update branch",
       "Open a shell",
       "Inspect commits",
@@ -933,6 +932,10 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   ) {
     assertStringIncludes(actionMenu, label);
   }
+  assert(
+    !actionMenu.includes("Accept and land"),
+    "a branch behind main must not advertise an Accept action",
+  );
   assert(
     !actionMenu.includes("Run a Project Script"),
     "a worktree without executable scripts must not offer a Project Script action",

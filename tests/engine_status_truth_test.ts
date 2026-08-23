@@ -12,7 +12,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { HINTS } from "../src/shared/hints.ts";
 import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
-import { legalActions } from "../src/engine/desk/model.ts";
+import { buildDeskDecision } from "../src/engine/desk/model.ts";
 import { gitSnapshot } from "../src/engine/worktree/git.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
@@ -129,8 +129,14 @@ Deno.test("a failed worktree status read stays unreadable through status and the
       assert(row !== undefined, JSON.stringify(result.data.fleet));
       assertEquals(row.git_unavailable, true, JSON.stringify(row));
       assertEquals(row.clean, undefined, "unknown state must not claim clean");
+      const deskDecision = buildDeskDecision(row, {
+        trunk: "main",
+        nowMs: Date.now(),
+      });
       assertEquals(
-        legalActions(row, false, [], []),
+        deskDecision.actions.flatMap((offer) =>
+          offer.availability === "enabled" ? [offer.action] : []
+        ),
         ["drop"],
         "an unreadable ready branch must never offer accept",
       );

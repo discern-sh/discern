@@ -9,7 +9,9 @@ import { dirname, isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
 import { emitResult } from "../../shared/emit.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import type {
+  StatusAdrCollision,
   StatusData,
+  StatusFleetCollision,
   StatusFleetEntry,
 } from "../../shared/result_schemas.ts";
 import { Logger } from "../../lib/log.ts";
@@ -22,7 +24,7 @@ import {
   type SelectionRequestOptions,
 } from "../../lib/terminal_interaction.ts";
 import { terminalLine } from "../../lib/terminal.ts";
-import { rowSummary } from "../desk/model.ts";
+import { buildDeskDecision, decisionSummary } from "../desk/model.ts";
 import { runOwnedChild } from "../owned_child.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { statusResult } from "../status/status.ts";
@@ -180,6 +182,11 @@ export function buildWorktreeShellRows(
   fleet: readonly StatusFleetEntry[],
   currentRoot: string,
   nowMs: number,
+  options: {
+    readonly trunk: string;
+    readonly fleetCollisions?: readonly StatusFleetCollision[];
+    readonly adrCollisions?: readonly StatusAdrCollision[];
+  },
 ): WorktreeShellRow[] {
   const labels = fleet.map((entry) => ({ entry, task: taskLabel(entry) }));
   const counts = new Map<string, number>();
@@ -200,8 +207,18 @@ export function buildWorktreeShellRows(
       ? task.name
       : `${task.name}  ${disambiguator}`;
     const branch = entry.branch === "" ? "(detached)" : entry.branch;
+    const decision = buildDeskDecision(entry, {
+      trunk: options.trunk,
+      nowMs,
+      ...(options.fleetCollisions === undefined
+        ? {}
+        : { fleetCollisions: options.fleetCollisions }),
+      ...(options.adrCollisions === undefined
+        ? {}
+        : { adrCollisions: options.adrCollisions }),
+    });
     const description = `${branch} · ${
-      rowSummary(entry, entry.proof_honored === true, nowMs)
+      decisionSummary(decision)
     } · ${entry.path}`;
     return {
       path: entry.path,
@@ -374,6 +391,16 @@ export async function runWorktrees(
     survey.data.fleet ?? [],
     currentRoot,
     runtime.now(),
+    {
+      trunk: survey.data.fleet?.find((entry) => entry.is_main)?.branch ??
+        "main",
+      ...(survey.data.fleet_collisions === undefined
+        ? {}
+        : { fleetCollisions: survey.data.fleet_collisions }),
+      ...(survey.data.adr_collisions === undefined
+        ? {}
+        : { adrCollisions: survey.data.adr_collisions }),
+    },
   );
   const availability = await Promise.all(
     rows.map(async (row) =>

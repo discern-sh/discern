@@ -69,13 +69,15 @@ import {
   runProjectScriptAt,
 } from "../project_scripts.ts";
 import {
-  bucketTitle,
   buildAgentLaunches,
   buildDeskRows,
-  DESK_BUCKETS,
+  decisionSummary,
+  DESK_STATES,
   type DeskAction,
+  type DeskActionGroupId,
   type DeskAgentLaunch,
   type DeskRow,
+  stateTitle,
 } from "./model.ts";
 import {
   markTipShown,
@@ -371,61 +373,6 @@ async function loadWorktreeConfig(
   }
 }
 
-/** The human label for a row action in the menu. */
-function actionLabel(
-  action: DeskAction,
-  trunk: string,
-  containedIn?: string,
-): string {
-  switch (action) {
-    case "accept":
-      return `Accept and land on ${trunk}`;
-    case "grant":
-      return "Pre-authorize landing once green";
-    case "revoke_grant":
-      return "Revoke landing pre-authorization";
-    case "update":
-      return `Update branch from ${trunk}`;
-    case "reclaim":
-      return `Reclaim checkout, keep branch (work contained in ${
-        containedIn ?? "a live branch"
-      })`;
-    case "scripts":
-      return "Run a Project Script";
-    case "agent":
-      return "Open with an agent";
-    case "jump":
-      return "Open a shell";
-    case "inspect":
-      return "Inspect commits and changes";
-    case "drop":
-      return "Drop worktree and branch";
-  }
-}
-
-type DeskActionGroupId = "landing" | "work" | "review" | "worktree";
-
-/** Assign every row action to one stable visual group. The exhaustive switch
- * enrolls a future DeskAction in the hierarchy at compile time. */
-function actionGroupId(action: DeskAction): DeskActionGroupId {
-  switch (action) {
-    case "accept":
-    case "grant":
-    case "revoke_grant":
-    case "update":
-      return "landing";
-    case "scripts":
-    case "agent":
-    case "jump":
-      return "work";
-    case "inspect":
-      return "review";
-    case "reclaim":
-    case "drop":
-      return "worktree";
-  }
-}
-
 /** Menu-order labels for the row action hierarchy. */
 const DESK_ACTION_GROUPS: readonly {
   readonly id: DeskActionGroupId;
@@ -438,22 +385,17 @@ const DESK_ACTION_GROUPS: readonly {
 ];
 
 /** Build the populated action groups for one selected task. */
-function actionGroups(
-  row: DeskRow,
-  config: DiscernConfig,
-): SelectionGroup<string>[] {
+function actionGroups(row: DeskRow): SelectionGroup<string>[] {
   return DESK_ACTION_GROUPS.map((group) => ({
     id: `actions-${group.id}`,
     label: group.label,
-    items: row.actions
-      .filter((action) => actionGroupId(action) === group.id)
-      .map((action) => ({
-        name: actionLabel(
-          action,
-          config.repository.trunk,
-          row.entry.contained_in,
-        ),
-        value: action as string,
+    items: row.decision.actions
+      .filter((offer) =>
+        offer.availability === "enabled" && offer.group === group.id
+      )
+      .map((offer) => ({
+        name: offer.label,
+        value: offer.action as string,
       })),
   }));
 }
@@ -691,8 +633,10 @@ async function pickRow(
   headerRows: number,
   runtime: DeskRuntime,
 ): Promise<string> {
-  const bucketHeading = (bucket: DeskRow["bucket"], count: number): string =>
-    `${bucketTitle(bucket)} · ${count}`;
+  const stateHeading = (
+    state: DeskRow["decision"]["state"],
+    count: number,
+  ): string => `${stateTitle(state)} · ${count}`;
   const nameCounts = new Map<string, number>();
   for (const row of rows) {
     nameCounts.set(row.task.name, (nameCounts.get(row.task.name) ?? 0) + 1);
@@ -718,14 +662,14 @@ async function pickRow(
     ...[...labels.values()].map((v) => v.plain.length),
   );
   const groups: SelectionGroup<string>[] = [];
-  for (const bucket of DESK_BUCKETS) {
-    const members = rows.filter((r) => r.bucket === bucket);
+  for (const state of DESK_STATES) {
+    const members = rows.filter((row) => row.decision.state === state);
     if (members.length === 0) {
       continue;
     }
     groups.push({
-      id: `tasks-${bucket}`,
-      label: bucketHeading(bucket, members.length),
+      id: `tasks-${state}`,
+      label: stateHeading(state, members.length),
       items: members.map((r) => {
         const label = labels.get(r.entry.path) ?? {
           plain: r.task.name,
@@ -734,7 +678,7 @@ async function pickRow(
         return {
           name: `${label.rendered}${
             " ".repeat(labelWidth - label.plain.length)
-          }  ${r.summary}`,
+          }  ${decisionSummary(r.decision)}`,
           value: r.entry.path,
         };
       }),
@@ -1138,7 +1082,7 @@ async function dispatchAction(
         `Diffstat vs ${trunk}`,
         runtime,
       );
-      if (row.proofHonored) {
+      if (row.decision.proof.honored) {
         out.ok("gate proof: this clean HEAD holds a recorded pass");
       }
       return false;
@@ -1161,7 +1105,12 @@ async function actOn(
   clearBoard(out);
   out.heading(terminalLine(row.task.name));
   out.raw(
-    `  ${out.terminal.role(terminalLine(row.summary), "muted")}\n`,
+    `  ${
+      out.terminal.role(
+        terminalLine(decisionSummary(row.decision)),
+        "muted",
+      )
+    }\n`,
   );
   out.raw(
     `  ${
@@ -1173,7 +1122,7 @@ async function actOn(
   );
   while (true) {
     const options = groupedSelectionEntries<string>([
-      ...actionGroups(row, config),
+      ...actionGroups(row),
       {
         id: "task-navigation",
         label: "Task",
@@ -1350,7 +1299,16 @@ export async function runDesk(
       fleet,
       scriptsByPath,
       agentLaunchesByPath,
-      runtime.now(),
+      {
+        trunk: config.repository.trunk,
+        nowMs: runtime.now(),
+        ...(data.fleet_collisions === undefined
+          ? {}
+          : { fleetCollisions: data.fleet_collisions }),
+        ...(data.adr_collisions === undefined
+          ? {}
+          : { adrCollisions: data.adr_collisions }),
+      },
     );
     const headerRows = renderHeader(
       out,
