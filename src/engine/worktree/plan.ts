@@ -409,8 +409,11 @@ export interface DropPlan {
   branch: string;
   /** Whether the branch is deleted after removal — false when detached (no
    * branch) or when the worktree holds the TRUNK: drop discards a line of
-   * work, and the trunk is never a line of work to discard. */
+   * work, and the trunk is never a line of work to discard. A branch without
+   * exact worktree-identity ownership is also retained. */
   deleteBranch: boolean;
+  /** Why a named branch is retained when {@link deleteBranch} is false. */
+  branchKeepReason?: string | undefined;
   /** What a drop would discard — empty when the worktree is clean and merged.
    * Each entry is a human sentence ("3 uncommitted changes", …). */
   blockers: string[];
@@ -430,7 +433,7 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
       ? `retain the commit under refs/discern/recovery/ (newest ${DROP_RECOVERY_REF_LIMIT})`
       : plan.branch === ""
       ? "detached — no branch tip to preserve"
-      : `${plan.branch} is the trunk — kept`,
+      : plan.branchKeepReason ?? `${plan.branch} is kept`,
   });
   steps.push({
     kind: "resource-destroy",
@@ -454,7 +457,7 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
       ? plan.branch
       : plan.branch === ""
       ? "detached — no branch to delete"
-      : `${plan.branch} is the trunk — kept`,
+      : plan.branchKeepReason ?? `${plan.branch} is kept`,
   });
   const details = [
     `Worktree: ${plan.id}`,
@@ -470,10 +473,10 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
 // ── prune ─────────────────────────────────────────────────────────────────────
 
 /**
- * What `worktree prune` would reclaim — the carried read-only scans (stale
- * worktrees, fully-merged dangling branches, stale metadata, orphan directories)
- * plus the pure orphan-resource classification. The deliverable a dry-run renders
- * and the apply executor acts on.
+ * What `worktree prune` would reclaim — the carried read-only scans
+ * (positively-owned merged worktrees, owned stale metadata, owned orphan
+ * directories) plus reappearance and resource evidence. The deliverable a
+ * dry-run renders and the apply executor acts on.
  */
 export interface PrunePlan {
   /** Git-worktree/branch/stale-metadata scan to apply exactly. */
@@ -496,11 +499,11 @@ export interface PrunePlan {
   reclaimContained: boolean;
 }
 
-/** Combine branches released by worktree removal with independently stale branches. */
+/** Combine branches released by owned worktree removal with owned ref candidates. */
 function pruneBranchesToDelete(scan: GitWorktreePruneScan): string[] {
   return [
     ...scan.worktreesToRemove.map((w) => w.branch).filter((b) => b !== ""),
-    ...scan.branchesToDelete,
+    ...scan.branchesToDelete.map((candidate) => candidate.branch),
   ];
 }
 
@@ -512,7 +515,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       kind: "git",
       label: verbatimStepLabel(w.path),
       disposition: "run",
-      note: "remove stale worktree",
+      note: "remove owned clean merged worktree",
       group: "Worktrees",
     });
   }
@@ -521,7 +524,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       kind: "git",
       label: verbatimStepLabel(b),
       disposition: "run",
-      note: "delete fully-merged branch",
+      note: "delete merged owned branch",
       group: "Branches",
     });
   }

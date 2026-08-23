@@ -253,6 +253,8 @@ function assurance(verdict: SetupAssurance["verdict"]): SetupAssurance {
     })),
     enforced: enforcedCount,
     total: 6,
+    known_total: 6,
+    not_applicable: 0,
     verdict,
   };
 }
@@ -275,7 +277,7 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
     landing,
     reactivation: READY_REACTIVATION,
   });
-  assertStringIncludes(full, "all run on every change");
+  assertStringIncludes(full, "6 of 6 applicable protections");
   // The close restates the contained footprint the consent message promised —
   // and names `discern uninstall` as the undo, since the branch-delete story
   // retires once the setup accepts.
@@ -288,7 +290,7 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
     landing,
     reactivation: READY_REACTIVATION,
   });
-  assertStringIncludes(partial, "2 of 6 are wired");
+  assertStringIncludes(partial, "2 of 6 applicable protections");
   assertStringIncludes(
     partial,
     "Not running yet: typecheck, test, build, smoke",
@@ -396,12 +398,12 @@ Deno.test("completionMessage omits the reactivation step when nothing wired at s
   // step is the one instruction a novice cannot recover on their own.
   assert(
     withAgents.indexOf("start a fresh session") <
-      withAgents.indexOf("all run on every change"),
+      withAgents.indexOf("6 of 6 applicable protections"),
     "the reactivation step must precede the coverage bullet",
   );
   assert(
     withAgents.indexOf("Claude Code: start a new session") <
-      withAgents.indexOf("all run on every change"),
+      withAgents.indexOf("6 of 6 applicable protections"),
     "the provider-specific handoff must be relayed before the coverage bullet",
   );
 

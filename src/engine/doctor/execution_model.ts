@@ -6,7 +6,7 @@
  * The golden rule is DERIVE-FROM-SSOT, never hand-write the sequence:
  *  - the gate verbs (`done` / `prepare` / `test` / `standards`) are pure functions
  *    of config, so their step lists are built by walking the REAL plan builders
- *    ({@link buildGatePlan}, {@link preparePlanGroups}, {@link stageGroup},
+ *    ({@link buildGatePlan}, {@link buildPreparePlan}, {@link stageGroup},
  *    {@link buildStandardPlan}) — a test asserts they are byte-derived, so they can
  *    never drift from what the gate actually runs;
  *  - `update` and `accept` use representative, config-derived inputs with their REAL
@@ -40,10 +40,10 @@ import type { ExecutionStep, VerbPlan } from "../../shared/result_schemas.ts";
 import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 import {
   buildGatePlan,
+  buildPreparePlan,
   gatePlanToEngine,
   type PlannedJob,
   planStageJobs,
-  preparePlanGroups,
   stageGroup,
 } from "../gate/plan.ts";
 import { buildStandardPlan, perNote } from "../gate/standard_plan.ts";
@@ -307,14 +307,18 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
-/** `prepare` — the fast inner loop, from the real {@link preparePlanGroups} (fix,
- * then the `[generated]` regenerations, then check; no build jobs, no tests). */
+/** `prepare` — the fast inner loop, from the real {@link buildPreparePlan}. */
 function prepareVerb(cfg: DiscernConfig): VerbPlan {
-  const steps = preparePlanGroups(cfg).flatMap((g) => g.jobs.map(annotateJob));
+  const plan = buildPreparePlan(cfg);
+  const steps = [
+    ...plan.beforeRefresh.flatMap((group) => group.jobs.map(annotateJob)),
+    annotatePlanStep(plan.refresh),
+    ...plan.afterRefresh.flatMap((group) => group.jobs.map(annotateJob)),
+  ];
   return {
     verb: "prepare",
     when:
-      "The fast inner loop while you iterate (fix, regenerate, then check; no build jobs, no tests).",
+      "The fast inner loop while you iterate (fix, regenerate, refresh, then check; no other build jobs, no tests).",
     steps,
   };
 }
@@ -560,15 +564,16 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
 }
 
 /** `worktree prune` — the garbage-collection sweep (lifecycle.ts `worktreePrune`):
- * remove stale worktrees / dangling branches / orphan dirs, then reclaim the
- * resources of any worktree that vanished without a clean teardown. */
+ * remove positively-owned merged worktrees and owned stale paths, then reclaim
+ * the resources of any worktree that vanished without a clean teardown. */
 function pruneVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [
     step("git", BUILT_IN_STEP_LABELS.removeWorktree, {
-      condition: "for each stale worktree git no longer tracks",
+      condition:
+        "for each clean merged worktree with exact discern ownership evidence",
     }),
     step("git", BUILT_IN_STEP_LABELS.deleteBranch, {
-      condition: "for each fully-merged dangling branch",
+      condition: "for each exact owned branch released by that removal",
     }),
     step("git", BUILT_IN_STEP_LABELS.reclaimOrphanDir, {
       condition: "for each orphan gitlinked directory",
@@ -587,7 +592,7 @@ function pruneVerb(cfg: DiscernConfig): VerbPlan {
   return {
     verb: "worktree prune",
     when:
-      "Housekeeping — sweep stale worktrees and reclaim resources orphaned by a worktree that vanished without a clean teardown.",
+      "Housekeeping — reclaim positively-owned stale worktree state and resources orphaned by a worktree that vanished without a clean teardown.",
     steps,
   };
 }

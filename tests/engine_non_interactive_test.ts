@@ -7,8 +7,9 @@
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { fromFileUrl, join } from "@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
 import {
+  addWorktree,
   defaultMapPath,
   engineEnv,
   git,
@@ -109,54 +110,101 @@ Deno.test({
         "# Guide\n\nThe project guide.\n",
       );
       await gitInit(dir);
-      // A fully merged branch gives prune a real confirmation-bearing plan.
-      await git(dir, "branch", "agent/merged-candidate");
+      await withTempDir(async (pruneDir) => {
+        await scaffoldEngine(pruneDir);
+        await gitInit(pruneDir);
+        // Keep prune's ownership fixture in a separate repository so its live
+        // linked checkout cannot alter another verb's refusal preconditions.
+        const pruneWorktree = await addWorktree(
+          pruneDir,
+          "merged-candidate",
+        );
+        const setup = await runAgent(pruneWorktree, [
+          "worktree",
+          "setup",
+          "--json",
+        ]);
+        assertEquals(setup.code, 0, setup.output);
+        await git(pruneWorktree, "add", "-A");
+        await git(
+          pruneWorktree,
+          "commit",
+          "-q",
+          "--allow-empty",
+          "-m",
+          "ready fixture",
+          "--no-gpg-sign",
+        );
+        await git(
+          pruneDir,
+          "merge",
+          "--no-ff",
+          "-m",
+          "merge ready fixture",
+          "agent/merged-candidate",
+        );
 
-      const signals: readonly {
-        name: string;
-        run(testCase: typeof INTERACTIVE_CASES[number]): Promise<RunResult>;
-      }[] = [
-        {
-          name: "CI pseudo-TTY",
-          run: (testCase) =>
-            runAgentPty(dir, [...testCase.args], {
-              env: { ...testCase.env, CI: "1" },
-            }),
-        },
-        {
-          name: "--plain pseudo-TTY",
-          run: (testCase) =>
-            runAgentPty(dir, plainArgs(testCase.args), {
-              ...(testCase.env !== undefined ? { env: testCase.env } : {}),
-            }),
-        },
-        {
-          name: "closed stdin",
-          run: (testCase) =>
-            runAgent(dir, [...testCase.args], {
-              ...(testCase.env !== undefined ? { env: testCase.env } : {}),
-            }),
-        },
-      ];
+        const cwdFor = (testCase: typeof INTERACTIVE_CASES[number]): string =>
+          testCase.name === "worktree prune confirmation" ? pruneDir : dir;
+        const signals: readonly {
+          name: string;
+          run(testCase: typeof INTERACTIVE_CASES[number]): Promise<RunResult>;
+        }[] = [
+          {
+            name: "CI pseudo-TTY",
+            run: (testCase) =>
+              runAgentPty(cwdFor(testCase), [...testCase.args], {
+                env: { ...testCase.env, CI: "1" },
+              }),
+          },
+          {
+            name: "--plain pseudo-TTY",
+            run: (testCase) =>
+              runAgentPty(cwdFor(testCase), plainArgs(testCase.args), {
+                ...(testCase.env !== undefined ? { env: testCase.env } : {}),
+              }),
+          },
+          {
+            name: "closed stdin",
+            run: (testCase) =>
+              runAgent(cwdFor(testCase), [...testCase.args], {
+                ...(testCase.env !== undefined ? { env: testCase.env } : {}),
+              }),
+          },
+        ];
 
-      for (const signal of signals) {
-        for (const testCase of INTERACTIVE_CASES) {
-          const result = await signal.run(testCase);
-          const label = `${signal.name}: ${testCase.name}`;
-          assertEquals(
-            result.code,
-            testCase.code,
-            `${label}\n${result.output}`,
-          );
-          // This class guard checks fallback meaning across TTY and pipe
-          // renderers. Calm terminal headings own case; pipe prose does not.
-          assertStringIncludes(
-            result.output.toLocaleLowerCase(),
-            testCase.output.toLocaleLowerCase(),
-            label,
+        try {
+          for (const signal of signals) {
+            for (const testCase of INTERACTIVE_CASES) {
+              const result = await signal.run(testCase);
+              const label = `${signal.name}: ${testCase.name}`;
+              assertEquals(
+                result.code,
+                testCase.code,
+                `${label}\n${result.output}`,
+              );
+              // This class guard checks fallback meaning across TTY and pipe
+              // renderers. Calm terminal headings own case; pipe prose does not.
+              assertStringIncludes(
+                result.output.toLocaleLowerCase(),
+                testCase.output.toLocaleLowerCase(),
+                label,
+              );
+            }
+          }
+        } finally {
+          await git(
+            pruneDir,
+            "worktree",
+            "remove",
+            "--force",
+            pruneWorktree,
+          ).catch(() => undefined);
+          await Deno.remove(dirname(pruneWorktree), { recursive: true }).catch(
+            () => undefined,
           );
         }
-      }
+      });
     });
   },
 });

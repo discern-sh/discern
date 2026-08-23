@@ -23,9 +23,15 @@ discern status
 
 `refresh` combines discern's built-in instructions with `[instructions].sources`. It also reconciles Skills, agent integration artifacts, and the maintained architecture decision record (ADR) index. That index is the record list between markers in the Map's ADR README, regenerated from the record files on disk. `status` reports any generated agent files, materialized Skills, or ADR index that still differs from the current sources.
 
+For each full-body output, local Markdown destinations are rewritten to resolve to the same project target they had beside their source. The parser limits edits to destination bytes; external, root-absolute, fragment-only, and code-like text stays unchanged. Provider pointers remain registry-defined.
+
+The renderer gives every full body and pointer one final line feed; writers and currency checks consume those bytes.
+
 The ADR index is opt-in by construction: a README that carries the `BEGIN GENERATED` markers is maintained, one without them is never touched. Fresh installs receive the markers from the setup skeleton; an existing project adopts the index by adding them.
 
 The built-in Map section also derives a compact region list from the configured Map ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)). Each non-internal top-level directory contributes its region target and front-door title. Adding or renaming a region, or changing its front-door title, changes the agent files. Other changes within an existing region leave that list unchanged. Run `discern refresh` after either kind of source change; the currency check reports whether the tracked outputs changed.
+
+`discern prepare` runs the complete refresh after fix and `[generated]` jobs, before checks. Green means provider files and Skills are current; partial materialization is red with a `discern refresh` reproduction.
 
 The configured agent set decides which instruction files exist:
 
@@ -56,7 +62,7 @@ Operational procedures derive from the Skill resolver and setup templates. A rep
 - An explicit empty `[project].agents` list emits no instruction files.
 - discern generates a provider-specific pointer only when its canonical target exists. Otherwise that provider receives the full compiled body.
 - Git ignores materialized Skills and tracks agent files unless your own `.gitignore` rules say otherwise.
-- A successful `discern update` or `discern accept` refreshes its resulting checkout. An ordinary source edit still needs `discern refresh` before the Gate passes.
+- A successful `discern update` or `discern accept` refreshes its resulting checkout. After an ordinary source edit, run `discern refresh` directly or let `discern prepare` converge it before the Gate.
 
 ## Where it lives in code
 
@@ -64,10 +70,12 @@ Operational procedures derive from the Skill resolver and setup templates. A rep
 | ------------------------------- | ----------------------------------------------------------------------------------- |
 | Compilation and file writes     | [`instructions.ts`](../../../src/engine/instructions.ts)                            |
 | Canonical and pointer rendering | [`instruction_render.ts`](../../../src/engine/instruction_render.ts)                |
+| Local Markdown link relocation  | [`markdown_links.ts`](../../../src/lib/markdown_links.ts)                           |
 | Region discovery                | [`docs.ts`](../../../src/lib/docs.ts)                                               |
 | Agent file mappings             | [`providers.ts`](../../../src/lib/providers.ts)                                     |
 | Operational-copy universe       | [`agent_surface_contracts.ts`](../../../scripts/agent_surface_contracts.ts)         |
 | Operational-copy guard          | [`agent_surface_contracts_test.ts`](../../../tests/agent_surface_contracts_test.ts) |
 | Maintained ADR index            | [`adr_index.ts`](../../../src/lib/adr_index.ts)                                     |
 | Refresh behavior                | [`engine_refresh_test.ts`](../../../tests/engine_refresh_test.ts)                   |
+| Preparation convergence         | [`prepare.ts`](../../../src/engine/gate/prepare.ts)                                 |
 | ADR index behavior              | [`engine_adr_index_test.ts`](../../../tests/engine_adr_index_test.ts)               |

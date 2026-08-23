@@ -49,6 +49,7 @@ import {
   mergeDocIntoFlags,
 } from "../lib/config_doc.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
+import { rebaseMarkdownLinks } from "../lib/markdown_links.ts";
 import { stampSchemaVersion } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
@@ -932,9 +933,7 @@ async function seedInstructions(
       } catch {
         continue; // absent — nothing to preserve
       }
-      if (body.length === 0 || seen.has(body)) {
-        continue; // empty, or an identical mirror already captured
-      }
+      if (body.length === 0) continue;
       if (
         ownRenderPatterns?.some((pattern) =>
           matchesInstructionOwnership(pattern, body)
@@ -945,8 +944,14 @@ async function seedInstructions(
         skippedOwnRender.push(rel);
         continue;
       }
-      seen.add(body);
-      migrated.push({ file: rel, body });
+      // The content moves from the provider file into the configured authored
+      // source before compilation moves it back out. Rebase only real Markdown
+      // destinations at each move so adoption cannot change what a local link
+      // points at merely because the source lives in another directory.
+      const authoredBody = rebaseMarkdownLinks(body, rel, instructionRel);
+      if (seen.has(authoredBody)) continue;
+      seen.add(authoredBody);
+      migrated.push({ file: rel, body: authoredBody });
     }
   }
 
@@ -2311,33 +2316,38 @@ function doneHints(
   return hintTexts(hints);
 }
 
-/** The one-line coverage verdict (A12), distinguishing "setup complete" from "the full
- * recommended gate is active". */
+/** The one-line coverage verdict (A12), distinguishing setup completion from
+ * the applicable Gate protections that are active. */
 function verdictSentence(a: SetupAssurance): string {
   switch (a.verdict) {
     case "full":
-      return "Quality coverage: full — every known job is enforced, so `discern done` runs the complete recommended gate.";
+      return a.total === 0
+        ? "Quality coverage: full — no known protections apply to this project."
+        : `Quality coverage: full — ${a.enforced} of ${a.total} applicable protections are enforced.`;
     case "minimal":
-      return "Quality coverage: minimal — setup is complete, but no known jobs are enforced yet, so `discern done` can't catch regressions on its own. Wiring tests is the highest-leverage next step.";
+      return "Quality coverage: minimal — setup is complete, but no applicable protections are enforced yet. Wire the project's tests next.";
     case "partial":
-      return `Quality coverage: partial — ${a.enforced} of ${a.total} known jobs enforced. Setup is complete, but not every recommended protection is active yet.`;
+      return `Quality coverage: partial — ${a.enforced} of ${a.total} applicable protections are enforced.`;
   }
 }
 
-/** The aligned known-job assurance lines (A12) — each known job and its honest
- * state (enforced / housekeeping [self-supplied] / deferred [+reason] / absent). */
+/** The aligned known-job assurance lines (A12), including additive applicability. */
 function assuranceLines(a: SetupAssurance): string[] {
   const width = alignedLabelWidth(a.known_jobs.map((job) => job.name));
   return a.known_jobs.map((c) => {
     const name = padDisplayEnd(c.name, width);
-    const mark = c.state === "enforced"
+    const mark = c.not_applicable === true
+      ? "–"
+      : c.state === "enforced"
       ? "✓"
       : c.self_supplied === true
       ? "○"
       : c.state === "deferred"
       ? "•"
       : "·";
-    const label = c.state === "enforced"
+    const label = c.not_applicable === true
+      ? "does not apply — excluded from setup assurance; no Gate command is configured"
+      : c.state === "enforced"
       ? "enforced — runs on every `discern done`"
       : c.self_supplied === true
       ? "housekeeping — only discern's own upkeep runs here; add the project's own command"
@@ -2429,15 +2439,15 @@ function printDoneSuccess(view: DoneSuccessView): void {
     );
   }
 
-  // The honest coverage summary (A12) — so "gate proven" can't read as "every
-  // protection runs".
+  // The coverage summary (A12) keeps the Gate proof distinct from which generic
+  // protections apply to this project.
   const assuranceGroupLines = [
     verdictSentence(assurance),
     ...assuranceLines(assurance),
   ];
-  if (assurance.verdict !== "full") {
+  if (assurance.known_jobs.some((job) => job.state !== "enforced")) {
     assuranceGroupLines.push(
-      '  (absent = no such command wired; deferred = deliberately off; housekeeping = only discern\'s own upkeep. Wire one with `discern config set-job <name> "<command>"`.)',
+      "  (absent = applicable and unwired; does not apply = explicitly excluded from setup assurance; deferred = configured as a no-op; housekeeping = only discern's own upkeep. Configure one with `discern config set-job <name> --run '<command>'`; repeat --run for an ordered list. Mark an absent lifecycle with `discern config set-job <name> --not-applicable`.)",
     );
   }
 

@@ -27,7 +27,7 @@ After creation, the Desk opens the new row. `Refresh` runs another status survey
 
 ## Read the decision order
 
-The Desk uses the same observed Fleet facts and task status as `discern status`; it does not classify the same work again. It groups each task into one of 5 human-decision states ([ADR 0315](../_adr/0315-the-desk-adapts-status-into-one-human-decision.md)):
+The Desk uses the same observed Fleet facts and task status as `discern status`; it does not classify the same work again. It groups each task into one of 5 human-decision states ([ADR 0318](../_adr/0318-the-desk-adapts-status-into-one-human-decision.md)):
 
 | Group           | Included worktrees                                                                                                                                                                  |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -20,6 +20,7 @@ import {
   INTERRUPT_SIGNALS,
   KILL_GRACE_MS,
   killProcessTree,
+  quiesceProcessGroup,
   reraiseInterrupt,
   signalProcessGroup,
 } from "./process_signals.ts";
@@ -135,8 +136,12 @@ export async function superviseSpawn<T>(
     // A non-interactive shell can exit from SIGINT while a background child
     // remains in the group with SIGINT ignored. The leader is reaped now, so
     // no cooperative cleanup remains to wait for; remove any group survivors.
-    if (opts.isolatedGroup && interruptedBy !== null && child !== undefined) {
-      signalProcessGroup(child.pid, "SIGKILL");
+    if (opts.isolatedGroup && child !== undefined) {
+      if (interruptedBy !== null) {
+        signalProcessGroup(child.pid, "SIGKILL");
+      } else {
+        await quiesceProcessGroup(child.pid);
+      }
     }
     for (const [signal, handler] of handlers) {
       Deno.removeSignalListener(signal, handler);

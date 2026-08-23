@@ -125,7 +125,7 @@ Usage: `discern status [options]`
 
 ### `discern prepare`
 
-Fast inner loop: the fixers, the [generated] regenerations, then the read-only checks (no build jobs, no tests).
+Fast inner loop: fixers, [generated] regenerations, complete refresh, then read-only checks (no other build jobs, no tests).
 
 Usage: `discern prepare [options]`
 
@@ -281,7 +281,7 @@ Usage: `discern worktree drop <target> [options]`
 
 #### `discern worktree prune`
 
-Sweep stale worktrees, fully-merged branches, reappeared worktree paths, and orphaned resources.
+Reclaim positively-owned merged worktrees, stale state, reappeared paths, and orphaned resources.
 
 Usage: `discern worktree prune [options]`
 
@@ -430,16 +430,18 @@ Usage: `discern config <subcommand>`
 
 #### `discern config set-job`
 
-Set a declared gate job. Known names (format, build, lint, typecheck, test, smoke) take a positional command and derive their stage; custom names take --stage and --run.
+Set a Gate job. Known names (format, build, lint, typecheck, test, smoke) derive their stage and accept a positional scalar or repeatable ordered --run. Custom names require --stage and --run. Known-job applicability uses --not-applicable or --applicable.
 
 Usage: `discern config set-job <name> [command] [options]`
 
-| Option               | Description                                               |
-| -------------------- | --------------------------------------------------------- |
-| `--stage <stage>`    | Custom jobs only: when it runs (fix\|build\|check\|test). |
-| `--run <cmd>`        | Custom jobs only: the command to run.                     |
-| `--provides <label>` | Custom jobs only: free-text label.                        |
-| `--dry-run`          | Print the edit and write nothing.                         |
+| Option               | Description                                                   |
+| -------------------- | ------------------------------------------------------------- |
+| `--stage <stage>`    | Custom jobs only: when it runs (fix\|build\|check\|test).     |
+| `--run <command>`    | Literal command; repeat to preserve order.                    |
+| `--provides <label>` | Custom jobs only: free-text label.                            |
+| `--not-applicable`   | Known jobs: exclude an absent lifecycle from setup assurance. |
+| `--applicable`       | Known jobs: restore lifecycle applicability.                  |
+| `--dry-run`          | Print the edit and write nothing.                             |
 
 #### `discern config set-scope`
 

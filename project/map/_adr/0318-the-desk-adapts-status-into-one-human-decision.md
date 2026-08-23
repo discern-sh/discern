@@ -1,4 +1,4 @@
-# ADR 0315: The Desk adapts status into one complete human decision
+# ADR 0318: The Desk adapts status into one complete human decision
 
 **Status**: accepted; extends the Desk in [ADR 0119](0119-bare-discern-opens-the-operators-desk.md), consumes the Fleet row projection from [ADR 0255](0255-status-is-a-measured-responsive-dashboard.md), and preserves the landing-risk separation from [ADR 0281](0281-main-fleet-status-is-a-decision-brief.md).
 

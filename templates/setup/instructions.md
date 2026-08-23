@@ -132,7 +132,7 @@ what_not_to_do = [
   "Do not replace or remove the seeded `discern tidy` command; keep it last in the format job.",
   "Do not install a new dependency without the user's go-ahead — an install is a genuine decision (network, third-party code, lockfile), not a narrate-and-proceed.",
 ]
-completion_check = "at least one known job is wired in discern.toml."
+completion_check = "at least one applicable known job is wired in discern.toml, or every known job is declared not applicable."
 next_action = "Once the gate is green with what you wired, pull the next page: `discern setup step 3`."
 ```
 

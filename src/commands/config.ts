@@ -53,6 +53,24 @@ interface Edit {
   literal: string;
 }
 
+/** A complete config mutation decision, computed before the editor changes any
+ * bytes. Dry runs and applied runs render this same plan. */
+interface EditPlan {
+  ok: true;
+  edits: Edit[];
+  summary: string;
+  hints: FiredHint[];
+}
+
+/** A read-only planning refusal. */
+interface EditRefusal {
+  ok: false;
+  message: string;
+  error?: ErrorSlug;
+}
+
+type EditDecision = EditPlan | EditRefusal;
+
 /** TOML bare-key shape, enforced for job/scope/standard names. */
 const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
@@ -76,11 +94,9 @@ function fail(
  * (preserving comments), and write it back — or, with `--dry-run`, report what
  * would change and write nothing. `summary` is the human success line.
  */
-async function applyEdits(
-  edits: Edit[],
+async function applyEditPlan(
   opts: ConfigOptions,
-  summary: string,
-  hints: FiredHint[] = [],
+  decide: (current: string) => EditDecision,
 ): Promise<number> {
   const log = new Logger(opts);
   const root = opts.cwd ?? Deno.cwd();
@@ -100,6 +116,23 @@ async function applyEdits(
       }`;
     return fail(opts, message, isMissing ? NOT_INITIALIZED : "read_error");
   }
+
+  let decision: EditDecision;
+  try {
+    decision = decide(text);
+  } catch (error) {
+    return fail(
+      opts,
+      `could not plan the config edit: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      "edit_error",
+    );
+  }
+  if (!decision.ok) {
+    return fail(opts, decision.message, decision.error);
+  }
+  const { edits, summary, hints } = decision;
 
   let result: string;
   try {
@@ -179,19 +212,172 @@ async function applyEdits(
   return 0;
 }
 
+/** Apply a state-independent edit list through the shared plan/apply boundary. */
+async function applyEdits(
+  edits: Edit[],
+  opts: ConfigOptions,
+  summary: string,
+  hints: FiredHint[] = [],
+): Promise<number> {
+  return await applyEditPlan(opts, () => ({
+    ok: true,
+    edits,
+    summary,
+    hints,
+  }));
+}
+
+/** Quote one literal argv item for a copyable POSIX-shell correction. */
+function shellQuoteArgument(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+/** The supported ordered-list invocation for one known job. */
+function orderedJobCommand(name: string, commands: readonly string[]): string {
+  const entries = commands.length === 0 ? ["<command>"] : commands;
+  return `discern config set-job ${name} ${
+    entries.map((command) => `--run ${shellQuoteArgument(command)}`).join(" ")
+  }`;
+}
+
+/** Normalize Cliffy's collected option value across zero, one, and many uses. */
+function collectedRuns(value: string | string[] | undefined): string[] {
+  if (value === undefined) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+/** Parse a plausible TOML/JSON string-list literal from the positional command.
+ * A normal shell test such as `[ -f file ]` does not parse as TOML and remains a
+ * legal scalar command. */
+function serializedCommandList(command: string): string[] | undefined {
+  try {
+    const parsed = parseToml(`commands = ${command}`) as {
+      commands?: unknown;
+    };
+    return Array.isArray(parsed.commands) &&
+        parsed.commands.every((item) => typeof item === "string")
+      ? parsed.commands
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The current facts `set-job` needs to plan applicability without requiring the
+ * rest of an incrementally-authored config to be complete. */
+function knownJobEditState(
+  current: string,
+  name: string,
+): { configured: boolean; notApplicable: string[] } | EditRefusal {
+  const parsed = parseToml(current) as Record<string, unknown>;
+  const jobs = typeof parsed.jobs === "object" && parsed.jobs !== null &&
+      !Array.isArray(parsed.jobs)
+    ? parsed.jobs as Record<string, unknown>
+    : {};
+  const assurance = typeof parsed.assurance === "object" &&
+      parsed.assurance !== null && !Array.isArray(parsed.assurance)
+    ? parsed.assurance as Record<string, unknown>
+    : {};
+  const raw = assurance.not_applicable ?? [];
+  if (!Array.isArray(raw) || !raw.every((item) => typeof item === "string")) {
+    return {
+      ok: false,
+      message:
+        "assurance.not_applicable is not a string list. Run `discern doctor`, fix that config diagnostic, then retry this command.",
+      error: "invalid_value",
+    };
+  }
+  return {
+    configured: Object.hasOwn(jobs, name),
+    notApplicable: raw,
+  };
+}
+
+/** Plan one known-job command value and remove a prior not-applicable declaration
+ * in the same atomic config edit. */
+function knownJobCommandPlan(
+  current: string,
+  name: string,
+  literal: string,
+  hints: FiredHint[],
+): EditDecision {
+  const state = knownJobEditState(current, name);
+  if ("ok" in state) return state;
+  const edits: Edit[] = [{ key: `jobs.${name}`, literal }];
+  if (state.notApplicable.includes(name)) {
+    edits.push({
+      key: "assurance.not_applicable",
+      literal: tomlStringArray(
+        state.notApplicable.filter((candidate) => candidate !== name),
+      ),
+    });
+  }
+  return {
+    ok: true,
+    edits,
+    summary: `Set job "${name}".`,
+    hints,
+  };
+}
+
+/** Plan a supported mark/unmark of one known job's setup applicability. */
+function knownJobApplicabilityPlan(
+  current: string,
+  name: string,
+  applicable: boolean,
+): EditDecision {
+  const state = knownJobEditState(current, name);
+  if ("ok" in state) return state;
+  if (!applicable && state.configured) {
+    return {
+      ok: false,
+      message:
+        `known job "${name}" is configured under [jobs], so it cannot be declared not applicable. Run \`discern config set-job ${name} --applicable\` to keep that command.`,
+      error: "invalid_value",
+    };
+  }
+  const notApplicable = applicable
+    ? state.notApplicable.filter((candidate) => candidate !== name)
+    : state.notApplicable.includes(name)
+    ? state.notApplicable
+    : [...state.notApplicable, name];
+  return {
+    ok: true,
+    edits: [{
+      key: "assurance.not_applicable",
+      literal: tomlStringArray(notApplicable),
+    }],
+    summary: applicable
+      ? `Marked known job "${name}" as applicable.`
+      : `Marked known job "${name}" as not applicable.`,
+    hints: [],
+  };
+}
+
 /**
- * `config set-job <name> [command] [--stage <stage> --run <cmd>]`
+ * `config set-job <name> [command] [--run <command>...]`
  *
- * A known name takes the positional command and derives its stage. A custom
- * name takes `--stage` and `--run`, producing the required table form.
+ * A known name takes either the compatible positional scalar or repeatable
+ * `--run` entries and derives its stage. A custom name takes `--stage` and one
+ * or more `--run` entries, producing the required table form. Known names also
+ * carry the supported applicability mark/unmark path.
  */
 export async function runConfigSetJob(
   name: string,
   command: string | undefined,
   opts: ConfigOptions & {
     stage?: string | undefined;
-    run?: string | undefined;
+    run?: string | string[] | undefined;
+    /** Number of --run occurrences in argv. Cliffy normalizes an explicit empty
+     * value away, so the action carries this count to distinguish it from no
+     * option at all and reject every empty entry. */
+    runCount?: number | undefined;
+    /** True when raw argv supplied an empty value or another option where a
+     * --run command was required. */
+    runMissingValue?: boolean | undefined;
     provides?: string | undefined;
+    notApplicable?: boolean | undefined;
+    applicable?: boolean | undefined;
   },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {
@@ -200,61 +386,177 @@ export async function runConfigSetJob(
       `job name must be letters, digits, '_' or '-' (got "${name}").`,
     );
   }
+  const runs = collectedRuns(opts.run);
+  const runCount = opts.runCount ?? runs.length;
+  const nonEmptyRuns = runs.filter((run) => run.trim() !== "");
+  const applicabilitySelected = opts.notApplicable === true ||
+    opts.applicable === true;
+  if (opts.runMissingValue === true) {
+    const correction = isKnownJob(name)
+      ? orderedJobCommand(name, [])
+      : `discern config set-job ${name} --stage check --run '<command>'`;
+    return fail(
+      opts,
+      `--run needs a non-empty command. Run \`${correction}\`.`,
+    );
+  }
+  if (opts.notApplicable === true && opts.applicable === true) {
+    return fail(
+      opts,
+      `job "${name}" cannot be marked applicable and not applicable in one invocation. Run \`discern config set-job ${name} --applicable\`.`,
+    );
+  }
   if (isKnownJob(name)) {
     if (opts.stage !== undefined) {
+      const correction = opts.notApplicable === true
+        ? `discern config set-job ${name} --not-applicable`
+        : opts.applicable === true
+        ? `discern config set-job ${name} --applicable`
+        : runs.length > 0
+        ? orderedJobCommand(name, nonEmptyRuns)
+        : `discern config set-job ${name} ${
+          shellQuoteArgument(command ?? "<command>")
+        }`;
       return fail(
         opts,
         `known job "${name}" derives stage "${
           KNOWN_JOBS[name]
-        }" from its name — remove --stage.`,
+        }" from its name; remove --stage and run \`${correction}\`.`,
       );
     }
-    if (opts.run !== undefined || opts.provides !== undefined) {
+    if (opts.provides !== undefined) {
+      const correction = opts.notApplicable === true
+        ? `discern config set-job ${name} --not-applicable`
+        : opts.applicable === true
+        ? `discern config set-job ${name} --applicable`
+        : runs.length > 0
+        ? orderedJobCommand(name, nonEmptyRuns)
+        : `discern config set-job ${name} ${
+          shellQuoteArgument(command ?? "<command>")
+        }`;
       return fail(
         opts,
-        `known job "${name}" takes its command as the second argument; --run and --provides are for custom jobs.`,
+        `known job "${name}" does not take --provides. Run \`${correction}\`.`,
       );
+    }
+    if (applicabilitySelected && (command !== undefined || runs.length > 0)) {
+      const correction = command !== undefined
+        ? `discern config set-job ${name} ${shellQuoteArgument(command)}`
+        : orderedJobCommand(name, nonEmptyRuns);
+      return fail(
+        opts,
+        `an applicability declaration cannot also set commands. Run \`${correction}\` to configure the job; setting a command restores applicability.`,
+      );
+    }
+    if (command !== undefined && runs.length > 0) {
+      return fail(
+        opts,
+        `cannot combine the positional command with --run entries. Run \`${
+          orderedJobCommand(name, [command, ...nonEmptyRuns])
+        }\`.`,
+      );
+    }
+    if (runs.length !== runCount || runs.length !== nonEmptyRuns.length) {
+      return fail(
+        opts,
+        `each --run entry needs a non-empty command. Run \`${
+          orderedJobCommand(name, nonEmptyRuns)
+        }\`.`,
+      );
+    }
+    if (opts.notApplicable === true || opts.applicable === true) {
+      return await applyEditPlan(
+        opts,
+        (current) =>
+          knownJobApplicabilityPlan(
+            current,
+            name,
+            opts.applicable === true,
+          ),
+      );
+    }
+    if (command !== undefined) {
+      const serialized = serializedCommandList(command);
+      if (serialized !== undefined) {
+        return fail(
+          opts,
+          `the positional value would be stored as one literal command, not an ordered list. Run \`${
+            orderedJobCommand(name, serialized)
+          }\`.`,
+        );
+      }
     }
     // Cliffy normalizes an explicitly empty optional positional argument to
     // undefined. Preserve the established "present but deferred" write by
     // treating an omitted known-job command as the empty command.
-    const knownCommand = command ?? "";
-    const deferred = toCommandList(knownCommand).length === 0;
-    return await applyEdits(
-      [{ key: `jobs.${name}`, literal: tomlString(knownCommand) }],
+    const value = runs.length > 0 ? runs : command ?? "";
+    const deferred = toCommandList(value).length === 0;
+    const literal = Array.isArray(value)
+      ? tomlStringArray(value)
+      : tomlString(value);
+    return await applyEditPlan(
       opts,
-      `Set job "${name}".`,
-      deferred
-        ? [
-          fire(HINTS["config-job-deferred"], { name }),
-        ]
-        : [],
+      (current) =>
+        knownJobCommandPlan(
+          current,
+          name,
+          literal,
+          deferred ? [fire(HINTS["config-job-deferred"], { name })] : [],
+        ),
+    );
+  }
+  if (applicabilitySelected) {
+    return fail(
+      opts,
+      `job "${name}" is custom; applicability declarations accept known jobs only (${
+        Object.keys(KNOWN_JOBS).join(", ")
+      }). Run \`discern config set-job ${name} --stage check --run '<command>'\` to configure this custom job.`,
     );
   }
   if (command !== undefined) {
     return fail(
       opts,
-      `custom job "${name}" uses the table form — pass --stage and --run instead of a positional command.`,
+      `custom job "${name}" uses the table form. Run \`discern config set-job ${name} --stage check --run ${
+        shellQuoteArgument(command)
+      }\`.`,
     );
   }
   if (opts.stage === undefined) {
     return fail(
       opts,
-      `custom job "${name}" needs --stage (${STAGES.join(", ")}) and --run.`,
+      `custom job "${name}" needs --stage (${
+        STAGES.join(", ")
+      }) and --run. Run \`discern config set-job ${name} --stage check --run '<command>'\`.`,
     );
   }
   if (!(STAGES as readonly string[]).includes(opts.stage)) {
     return fail(
       opts,
-      `unknown stage "${opts.stage}". Use one of: ${STAGES.join(", ")}.`,
+      `unknown stage "${opts.stage}". Run \`discern config set-job ${name} --stage check --run '<command>'\`; valid stages are ${
+        STAGES.join(", ")
+      }.`,
     );
   }
-  if (opts.run === undefined) {
-    return fail(opts, `custom job "${name}" needs --run.`);
+  if (runs.length === 0) {
+    return fail(
+      opts,
+      `custom job "${name}" needs --run. Run \`discern config set-job ${name} --stage ${opts.stage} --run '<command>'\`.`,
+    );
+  }
+  if (runs.length !== runCount || runs.length !== nonEmptyRuns.length) {
+    return fail(
+      opts,
+      `each --run entry needs a non-empty command. Run \`discern config set-job ${name} --stage ${opts.stage} --run '<command>'\`.`,
+    );
   }
   const edits: Edit[] = [
     { key: `jobs.${name}.stage`, literal: tomlString(opts.stage) },
-    { key: `jobs.${name}.run`, literal: tomlString(opts.run) },
+    {
+      key: `jobs.${name}.run`,
+      literal: runs.length === 1
+        ? tomlString(runs[0] ?? "")
+        : tomlStringArray(runs),
+    },
   ];
   if (opts.provides !== undefined) {
     edits.push({

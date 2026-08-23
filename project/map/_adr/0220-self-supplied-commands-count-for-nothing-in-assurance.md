@@ -1,5 +1,9 @@
 # ADR 0220: Self-supplied commands count for nothing in setup assurance
 
+> **Amendments.**
+>
+> - **[ADR 0317](0317-gate-commands-and-setup-applicability-are-separate-facts.md) — applicability:** enforcement and housekeeping still derive from `[jobs]`; the applicable denominator also reads the explicit `[assurance].not_applicable` list. The three-state row enum remains closed, with an additive marker distinguishing an inapplicable absence.
+
 **Status**: accepted; applies the additive-output discipline of [ADR 0208](0208-public-contracts-version-by-schema-major.md)
 
 ## Context

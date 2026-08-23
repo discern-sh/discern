@@ -359,7 +359,7 @@ export function attachEngineCommands(
   root
     .command("prepare")
     .description(
-      "Fast inner loop: the fixers, the [generated] regenerations, then the read-only checks (no build jobs, no tests).",
+      "Fast inner loop: fixers, [generated] regenerations, complete refresh, then read-only checks (no other build jobs, no tests).",
     )
     .option(
       "--json",
@@ -1184,7 +1184,7 @@ export function attachEngineCommands(
       "prune",
       new Command()
         .description(
-          "Sweep stale worktrees, fully-merged branches, reappeared worktree paths, and orphaned resources.",
+          "Reclaim positively-owned merged worktrees, stale state, reappeared paths, and orphaned resources.",
         )
         .option("-y, --yes", "Non-interactive: skip confirmation.")
         .option(

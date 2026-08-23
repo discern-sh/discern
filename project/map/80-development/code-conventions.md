@@ -14,7 +14,7 @@ This page expands the **Conventions** section of the project instructions (`proj
 
 ## What the Gate enforces
 
-The jobs in [`discern.toml`](../../../discern.toml) are the mechanical rules in the project's final quality check (the Gate). `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` are known names whose stage the Engine derives; `prose` is custom and declares its stage. Run `discern prepare` for the fix and check stages. Run `discern done` for every configured Gate stage.
+The jobs in [`discern.toml`](../../../discern.toml) are the mechanical rules in the project's final quality check (the Gate). `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` are known names whose stage the Engine derives; `prose` is custom and declares its stage. Run `discern prepare` for fix, declared regeneration, refresh convergence, and check. Run `discern done` for every configured Gate stage.
 
 Every configured Gate command executes from the resolved project root. This remains true when the command-line interface (CLI) runs from a nested directory and when a long-lived Model Context Protocol (MCP) server targets a worktree outside its own process directory. Formatter, check, test, and scope selection therefore describe the same checkout.
 

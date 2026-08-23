@@ -194,6 +194,29 @@ export async function captureDiscernCommand(
   };
 }
 
+/**
+ * Build the capture compiler arguments without consulting the workspace's
+ * mutable physical npm tree. Parallel tests may ask Deno to materialize that
+ * tree, so capture compilation resolves the already-cached product graph
+ * directly, as the production compiler does.
+ */
+export function terminalCaptureCompileArguments(
+  repoRoot: string,
+  destination: string,
+): string[] {
+  return [
+    "compile",
+    "--cached-only",
+    "--config",
+    join(repoRoot, "deno.json"),
+    "--node-modules-dir=none",
+    "-A",
+    "--output",
+    destination,
+    join(repoRoot, "src", "main.ts"),
+  ];
+}
+
 /** Compile the current checkout into the binary whose product output is captured. */
 export async function compileDiscernCaptureBinary(
   repoRoot: string,
@@ -201,16 +224,7 @@ export async function compileDiscernCaptureBinary(
 ): Promise<void> {
   await ensureDir(dirname(destination));
   const result = await new Deno.Command(Deno.execPath(), {
-    args: [
-      "compile",
-      "--cached-only",
-      "--config",
-      join(repoRoot, "deno.json"),
-      "-A",
-      "--output",
-      destination,
-      join(repoRoot, "src", "main.ts"),
-    ],
+    args: terminalCaptureCompileArguments(repoRoot, destination),
     cwd: repoRoot,
     env: { DENO_NO_UPDATE_CHECK: "1" },
     stdout: "piped",

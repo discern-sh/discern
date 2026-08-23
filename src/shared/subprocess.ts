@@ -20,6 +20,7 @@
  */
 
 import { selfShimPath } from "./self_shim.ts";
+import { quiesceProcessGroup, signalProcessGroup } from "./process_group.ts";
 
 /** The configured git binary (`GIT_BIN`, default `git`) — the one resolver. */
 export function gitBin(): string {
@@ -340,6 +341,8 @@ async function boundedChildOutput(
     readonly stdin?: string | undefined;
     readonly timeoutMs?: number | undefined;
     readonly maxOutputBytes: number;
+    /** Stop descendants in the detached child group after its leader settles. */
+    readonly quiesceDescendants?: boolean | undefined;
   },
 ): Promise<{
   output: CapturedCommandOutput;
@@ -353,10 +356,14 @@ async function boundedChildOutput(
   const terminate = (): void => {
     if (terminated) return;
     terminated = true;
-    try {
-      child.kill("SIGKILL");
-    } catch {
-      // The process may have exited at the same instant as the boundary fired.
+    if (
+      !(opts.quiesceDescendants && signalProcessGroup(child.pid, "SIGKILL"))
+    ) {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        // The process may have exited at the same instant as the boundary fired.
+      }
     }
     // Closing the two capture pipes prevents an escaped descendant that
     // inherited them from turning a killed producer into an unbounded drain.
@@ -376,10 +383,25 @@ async function boundedChildOutput(
     }, Math.max(0, opts.timeoutMs));
   }
   const inputPromise = writeChildInput(child, opts.stdin);
-  const [status, stdout, stderr, inputError] = await Promise.all([
-    child.status,
-    readBoundedStream(child.stdout, budget, terminate, captureAbort.signal),
-    readBoundedStream(child.stderr, budget, terminate, captureAbort.signal),
+  const stdoutPromise = readBoundedStream(
+    child.stdout,
+    budget,
+    terminate,
+    captureAbort.signal,
+  );
+  const stderrPromise = readBoundedStream(
+    child.stderr,
+    budget,
+    terminate,
+    captureAbort.signal,
+  );
+  const status = await child.status;
+  if (opts.quiesceDescendants) {
+    await quiesceProcessGroup(child.pid);
+  }
+  const [stdout, stderr, inputError] = await Promise.all([
+    stdoutPromise,
+    stderrPromise,
     inputPromise,
   ]);
   if (timer !== undefined) clearTimeout(timer);
@@ -456,6 +478,12 @@ export async function runGit(
     timeoutMs?: number;
     /** Optional caller-owned combined stdout/stderr ceiling. */
     maxOutputBytes?: number;
+    /**
+     * Run Git in an isolated process group and stop hook/background descendants
+     * before returning. Lifecycle callers set this when later teardown relies
+     * on every command-owned writer having settled.
+     */
+    quiesceDescendants?: boolean;
   },
 ): Promise<GitResult> {
   const invocation = gitInvocation(args);
@@ -493,8 +521,23 @@ export async function runGit(
       stdin: opts.stdin === undefined ? "null" : "piped",
       stdout: "piped",
       stderr: "piped",
+      detached: (opts.quiesceDescendants ?? false) &&
+        Deno.build.os !== "windows",
     });
-    if (
+    if (opts.quiesceDescendants ?? false) {
+      const bounded = await boundedChildOutput(command.spawn(), {
+        ...(opts.stdin !== undefined ? { stdin: opts.stdin } : {}),
+        ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
+        maxOutputBytes: opts.maxOutputBytes ?? Number.MAX_SAFE_INTEGER,
+        quiesceDescendants: true,
+      });
+      output = bounded.output;
+      timedOut = bounded.timedOut;
+      outputLimitExceeded = bounded.outputLimitExceeded;
+      if (bounded.inputError !== undefined && output.success) {
+        throw bounded.inputError;
+      }
+    } else if (
       opts.stdin === undefined && opts.timeoutMs === undefined &&
       opts.maxOutputBytes === undefined
     ) {

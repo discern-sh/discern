@@ -64,66 +64,80 @@ Deno.test("runParallel: observer sees starts up front and settlements in real co
     const result = await runParallel([
       {
         label: "slow",
-        command: "while [ ! -f release ]; do sleep 0.01; done; sleep 0.1",
+        command: "while [ ! -f fast-settled ]; do sleep 0.01; done",
       },
-      { label: "fast", command: ": > release" },
+      { label: "fast", command: ":" },
     ], {
       cwd: dir,
       stream: false,
       failFast: true,
       color: false,
       quiet: true,
+      timeoutS: 5,
       observer: {
         started: (job): void => {
           events.push(`started:${job.label}`);
         },
         settled: (job): void => {
           events.push(`settled:${job.label}`);
+          if (job.label === "fast") {
+            Deno.writeTextFileSync(join(dir, "fast-settled"), "");
+          }
         },
       },
     });
 
     assertEquals(result.ok, true);
-    assertEquals(events.slice(0, 2), ["started:slow", "started:fast"]);
-    assert(
-      events.indexOf("settled:fast") < events.indexOf("settled:slow"),
-      events.join(", "),
-    );
+    assertEquals(events, [
+      "started:slow",
+      "started:fast",
+      "settled:fast",
+      "settled:slow",
+    ]);
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
 });
 
 Deno.test("buffered capture feeds complete and partial text to a separate live observer", async () => {
-  const events: string[] = [];
-  const result = await runParallel([{
-    label: "chatty",
-    command: "printf 'first\\npar'; sleep 0.05; printf 'tial\\n'; exit 1",
-  }], {
-    cwd: CWD,
-    stream: false,
-    failFast: false,
-    color: false,
-    quiet: true,
-    outputObserver: {
-      output: (event): void => {
-        events.push(`${event.kind}:${event.label}:${event.text}`);
+  const dir = await Deno.makeTempDir({ prefix: "discern-job-output-feed-" });
+  try {
+    const events: string[] = [];
+    const result = await runParallel([{
+      label: "chatty",
+      command:
+        "printf 'first\\npar'; while [ ! -f release ]; do sleep 0.01; done; printf 'tial\\n'; exit 1",
+    }], {
+      cwd: dir,
+      stream: false,
+      failFast: false,
+      color: false,
+      quiet: true,
+      outputObserver: {
+        output: (event): void => {
+          events.push(`${event.kind}:${event.label}:${event.text}`);
+          if (event.kind === "partial" && event.text === "par") {
+            Deno.writeTextFileSync(join(dir, "release"), "");
+          }
+        },
       },
-    },
-  });
+    });
 
-  assertEquals(result.ok, false);
-  assert(events.includes("line:chatty:first"), events.join("\n"));
-  assert(events.includes("partial:chatty:par"), events.join("\n"));
-  assert(events.includes("line:chatty:partial"), events.join("\n"));
-  const failure = result.results[0];
-  assertEquals(failure?.output, "first\npartial\n");
-  assertEquals(failure?.outputLines, 2);
-  assert(failure?.outputPath !== undefined);
-  assertEquals(
-    await Deno.readTextFile(failure.outputPath),
-    "first\npartial\n",
-  );
+    assertEquals(result.ok, false);
+    assert(events.includes("line:chatty:first"), events.join("\n"));
+    assert(events.includes("partial:chatty:par"), events.join("\n"));
+    assert(events.includes("line:chatty:partial"), events.join("\n"));
+    const failure = result.results[0];
+    assertEquals(failure?.output, "first\npartial\n");
+    assertEquals(failure?.outputLines, 2);
+    assert(failure?.outputPath !== undefined);
+    assertEquals(
+      await Deno.readTextFile(failure.outputPath),
+      "first\npartial\n",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
 });
 
 Deno.test("runParallel: every job executes in its required cwd", async () => {
@@ -187,6 +201,53 @@ Deno.test("spawnJob runs captured commands with the non-interactive CI env contr
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
+});
+
+Deno.test({
+  name:
+    "spawnJob quiesces background descendants before a clean result returns",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const dir = await Deno.makeTempDir({ prefix: "discern-job-quiesce-" });
+    try {
+      const late = join(dir, "late");
+      const ready = join(dir, "ready");
+      const release = join(dir, "release");
+      const result = await runParallel([
+        {
+          label: "background",
+          command:
+            '(touch "$READY_TARGET"; while [ ! -f "$RELEASE_TARGET" ]; do sleep 0.01; done; mkdir -p "$LATE_TARGET") >/dev/null 2>&1 & while [ ! -f "$READY_TARGET" ]; do sleep 0.01; done',
+        },
+      ], {
+        cwd: dir,
+        env: {
+          LATE_TARGET: late,
+          READY_TARGET: ready,
+          RELEASE_TARGET: release,
+        },
+        stream: false,
+        failFast: true,
+        color: false,
+        write: () => {},
+      });
+
+      assertEquals(result.ok, true);
+      await Deno.writeTextFile(release, "");
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
+      const lateObservation = await Deno.lstat(late).catch((error) => {
+        if (error instanceof Deno.errors.NotFound) return undefined;
+        throw error;
+      });
+      assertEquals(
+        lateObservation,
+        undefined,
+        "a clean gate result returned while its process group could still write",
+      );
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
 });
 
 Deno.test("spawnJob stamps the recording invocation into DISCERN_SPAWNED_BY", async () => {

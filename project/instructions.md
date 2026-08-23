@@ -49,7 +49,7 @@ One vocabulary **is** gated, because it's structural rather than open-ended: **i
 
 ## The gate
 
-- `discern prepare` — fast inner loop: fix + regenerate + check, no tests. Run it after your last edit, before the final commit, so `done` has nothing left to rewrite.
+- `discern prepare` — fast inner loop: fix + regenerate + refresh + check, no tests. Run it after your last edit, before the final commit, so `done` has nothing left to rewrite.
 - `discern done` — full gate (run from the repo root): `deno fmt` (fix) → `deno lint` + `deno check` (check) ∥ `deno task test` (test). This is the repo running its **own** TS engine, so a regression in the engine surfaces here.
 
 ## Running discern from source

@@ -39,8 +39,8 @@ Commands:
 <span data-discern-terminal-cell="1" style="display:inline-block;width:1ch;text-align:center;vertical-align:baseline">—</span> your coding agent runs these as it works
     <span style="color:rgb(135 215 255);font-weight:700">status     </span>  <span style="opacity:0.68">Show what&#39;s true right now and what to do next (read-only; does</span>
                  <span style="opacity:0.68">not run the gate, the project&#39;s full quality check).</span>
-    <span style="color:rgb(135 215 255);font-weight:700">prepare    </span>  <span style="opacity:0.68">Fast inner loop: the fixers, the [generated] regenerations,</span>
-                 <span style="opacity:0.68">then the read-only checks (no build jobs, no tests).</span>
+    <span style="color:rgb(135 215 255);font-weight:700">prepare    </span>  <span style="opacity:0.68">Fast inner loop: fixers, [generated] regenerations, complete</span>
+                 <span style="opacity:0.68">refresh, then read-only checks (no other build jobs, no tests).</span>
     <span style="color:rgb(135 215 255);font-weight:700">done       </span>  <span style="opacity:0.68">Run finishing steps that may change files, then verify the gate</span>
                  <span style="opacity:0.68"><span data-discern-terminal-cell="1" style="display:inline-block;width:1ch;text-align:center;vertical-align:baseline">—</span> the project&#39;s full quality check: format, lint, type-check,</span>
                  <span style="opacity:0.68">and tests.</span>

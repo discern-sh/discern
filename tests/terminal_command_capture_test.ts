@@ -7,6 +7,7 @@ import {
   serializeTerminalCapture,
   settledInteractiveTerminalFrame,
   TERMINAL_CAPTURE_GEOMETRIES,
+  terminalCaptureCompileArguments,
   type TerminalCommandCapture,
 } from "./fixtures/terminal_command_capture.ts";
 
@@ -19,6 +20,17 @@ Deno.test("terminal capture names each review geometry", () => {
     tall: { columns: 80, rows: 40 },
     short: { columns: 80, rows: 13 },
   });
+});
+
+Deno.test("terminal capture compilation bypasses the mutable npm workspace", () => {
+  const args = terminalCaptureCompileArguments(
+    "/project",
+    "/tmp/discern-capture",
+  );
+
+  assertEquals(args.includes("--node-modules-dir=none"), true);
+  assertEquals(args.includes("--cached-only"), true);
+  assertEquals(args.at(-1), "/project/src/main.ts");
 });
 
 Deno.test({

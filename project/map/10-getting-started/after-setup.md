@@ -40,7 +40,9 @@ The `discern/` namespace contains authored material only. Generated copies do no
 
 `discern.toml` is the root configuration file. You own its values and ordinary comments. `discern upgrade` may restore missing fixed sections or keys and refresh discern-owned ruled banners from the current template; it does not replace values you set.
 
-Fresh setup leaves `discern tidy` in the format job. It canonically formats the Map, instruction sources, deferred-work ledger, and root config. If the project has its own formatter, that command runs first. Remove the tidy entry to opt out. See [Format discern-owned surfaces](../20-quality-gate/tidy.md) for the exact boundary.
+`discern config set-job format --run "<project formatter>" --run "discern tidy"` keeps `discern tidy` last; repeat `--run` to preserve order. See [Format discern-owned surfaces](../20-quality-gate/tidy.md).
+
+`--not-applicable` marks a missing known lifecycle; `--applicable` restores it. It changes assurance only, and configuring the job restores applicability ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
 
 The `.gitignore` file gains one marked `# --- discern ---` block. Keep your rules outside that block. discern rebuilds the block from the artifact registry so it ignores materialized skills and machine-local settings without sweeping up unrelated files.
 

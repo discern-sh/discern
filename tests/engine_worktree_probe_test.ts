@@ -14,11 +14,13 @@
 import { assert, assertEquals } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import {
+  git,
   gitInit,
   gitOut,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { basename, join, resolve } from "@std/path";
 import { Logger } from "../src/lib/log.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import {
@@ -27,6 +29,7 @@ import {
   probeWorktreeViability,
 } from "../src/engine/worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
+import { spawnJob } from "../src/engine/jobs/command.ts";
 
 /** A quiet lifecycle context rooted at the main checkout `dir`. */
 async function ctxAt(dir: string): Promise<LifecycleContext> {
@@ -38,8 +41,23 @@ async function worktreeRootFor(dir: string): Promise<string> {
   return resolveWorktreeRoot(dir, await loadConfig(dir));
 }
 
-/** Assert every trace of the probe is gone: no linked worktree, no `agent/` branch. */
-async function assertNoProbeRemains(dir: string): Promise<void> {
+/** Assert a retired path is genuinely absent; only NotFound means absent. */
+async function assertPathAbsent(path: string): Promise<void> {
+  try {
+    await Deno.lstat(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return;
+    throw error;
+  }
+  throw new Error(`a retired probe path still exists: ${path}`);
+}
+
+/** Assert every trace of the probe is gone: path, Git record, and branch. */
+async function assertNoProbeRemains(
+  dir: string,
+  probeDir?: string,
+): Promise<void> {
+  if (probeDir !== undefined) await assertPathAbsent(probeDir);
   const worktrees = await gitOut(dir, "worktree", "list", "--porcelain");
   assert(
     !worktrees.includes(".worktrees"),
@@ -75,8 +93,184 @@ Deno.test("probeWorktreeViability: a viable worktree is probed ok and torn down"
       sawProbeDir.includes(".worktrees"),
       `the probe ran in ${sawProbeDir}, not a linked worktree`,
     );
-    await assertNoProbeRemains(dir);
+    await assertNoProbeRemains(dir, sawProbeDir);
   });
+});
+
+Deno.test({
+  name:
+    "probeWorktreeViability: a command-owned late writer cannot follow a successful teardown",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+
+      let probeDir = "";
+      const outcome = await probeWorktreeViability(
+        await ctxAt(dir),
+        await worktreeRootFor(dir),
+        async (createdDir) => {
+          probeDir = createdDir;
+          const spawned = await spawnJob(
+            {
+              label: "late-writer",
+              command:
+                '(sleep 0.15; mkdir -p "$LATE_TARGET/observer-state/nested") >/dev/null 2>&1 &',
+            },
+            {
+              cwd: createdDir,
+              env: { LATE_TARGET: createdDir },
+              stream: false,
+              write: () => {},
+            },
+          );
+          assertEquals(spawned.result.status, "ok");
+          return { ok: true };
+        },
+      );
+
+      assert(outcome.kind === "probed" && outcome.ok === true);
+      // Give the escaped writer time to run after the probe's removal. A success
+      // verdict is valid only if the command boundary first quiesced its group.
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
+      await assertNoProbeRemains(dir, probeDir);
+    });
+  },
+});
+
+Deno.test({
+  name:
+    "probeWorktreeViability: a backgrounded Git hook is quiesced before teardown",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      const hook = join(dir, ".git", "hooks", "post-checkout");
+      await Deno.writeTextFile(
+        hook,
+        [
+          "#!/bin/sh",
+          '(sleep 0.2; mkdir -p "$PWD/hook-late/nested") >/dev/null 2>&1 &',
+          "",
+        ].join("\n"),
+      );
+      await Deno.chmod(hook, 0o700);
+
+      let probeDir = "";
+      const outcome = await probeWorktreeViability(
+        await ctxAt(dir),
+        await worktreeRootFor(dir),
+        (createdDir) => {
+          probeDir = createdDir;
+          return Promise.resolve({ ok: true });
+        },
+      );
+
+      assert(outcome.kind === "probed" && outcome.ok === true);
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 400));
+      await assertNoProbeRemains(dir, probeDir);
+    });
+  },
+});
+
+Deno.test({
+  name:
+    "probeWorktreeViability: incomplete teardown is a red outcome with recoverable state",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      const commonRaw = await gitOut(dir, "rev-parse", "--git-common-dir");
+      const common = commonRaw.startsWith("/")
+        ? commonRaw
+        : resolve(dir, commonRaw);
+      const evidenceDir = join(
+        common,
+        "discern",
+        "retired-worktree-paths",
+      );
+      await Deno.mkdir(evidenceDir, { recursive: true });
+      const evidenceLock = await Deno.open(join(evidenceDir, ".lock"), {
+        create: true,
+        read: true,
+        write: true,
+      });
+      await evidenceLock.lock(true);
+
+      let probeDir = "";
+      let announceCreated: (() => void) | undefined;
+      const created = new Promise<void>((resolveCreated) => {
+        announceCreated = resolveCreated;
+      });
+      const probing = probeWorktreeViability(
+        await ctxAt(dir),
+        await worktreeRootFor(dir),
+        (createdDir) => {
+          probeDir = createdDir;
+          announceCreated?.();
+          return Promise.resolve({ ok: true });
+        },
+      );
+
+      try {
+        await created;
+        let absent = false;
+        for (let attempt = 0; attempt < 200; attempt++) {
+          try {
+            await Deno.lstat(probeDir);
+          } catch (error) {
+            if (error instanceof Deno.errors.NotFound) {
+              absent = true;
+              break;
+            }
+            throw error;
+          }
+          await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+        }
+        assert(absent, "probe teardown never reached its final verification");
+        await Deno.mkdir(join(probeDir, "replacement", "nested"), {
+          recursive: true,
+        });
+      } finally {
+        evidenceLock.close();
+      }
+
+      const outcome = await probing;
+      assertEquals(outcome.kind, "setup_failed");
+      assert(
+        outcome.kind === "setup_failed" &&
+          outcome.reason.includes("teardown did not complete"),
+        JSON.stringify(outcome),
+      );
+      assert(
+        await Deno.lstat(join(probeDir, "replacement", "nested")),
+        "the replacement must be preserved for inspection",
+      );
+      const registrations = await gitOut(
+        dir,
+        "worktree",
+        "list",
+        "--porcelain",
+      );
+      assert(
+        !registrations.includes(probeDir),
+        "Git registration should report the independently completed half",
+      );
+      const probeBranch = `agent/${basename(probeDir)}`;
+      assert(
+        (await gitOut(dir, "branch", "--list", probeBranch)).includes(
+          probeBranch,
+        ),
+        "a failed teardown must retain its branch",
+      );
+
+      await Deno.remove(probeDir, { recursive: true });
+      await git(dir, "branch", "-D", probeBranch);
+    });
+  },
 });
 
 Deno.test("probeWorktreeViability: a failing probe callback is reported, and the worktree is still torn down", async () => {

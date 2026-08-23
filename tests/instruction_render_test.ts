@@ -6,7 +6,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { fromFileUrl, join } from "@std/path";
 import { compileInstructions } from "../src/engine/instructions.ts";
 import {
   agentFileOwnershipPatterns,
@@ -59,6 +59,141 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
+});
+
+Deno.test("renderAgentFiles: authored local Markdown destinations keep their project targets for every provider", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "discern-link-base-test-" });
+  try {
+    await Deno.mkdir(join(dir, "discern"), { recursive: true });
+    await Deno.mkdir(join(dir, "policy"), { recursive: true });
+    const primary = [
+      "# Portable policy",
+      "",
+      "[inline](./contributing.md)",
+      "[parent](../README.md)",
+      '![image](./assets/diagram.png "Diagram")',
+      '[angle](<guide folder/file.md> "Angle title")',
+      '[titled](guide.md "Guide title")',
+      String.raw`[escaped](<guide\ file.md>)`,
+      "[nested](assets/(draft)/guide.md)",
+      "[query](guide.md?mode=compact#part)",
+      "[reference][guide]",
+      "",
+      '[guide]: guide.md#section "Reference title"',
+      "",
+      "[external](https://example.com/guide.md)",
+      "[mail](mailto:guide@example.com)",
+      "[root](/README.md)",
+      "[fragment](#section)",
+      "`[code](./code-lookalike.md)`",
+      "",
+      "```md",
+      "[fenced](./fenced-lookalike.md)",
+      "```",
+      "",
+    ].join("\n");
+    await Deno.writeTextFile(
+      join(dir, "discern", "instructions.md"),
+      primary,
+    );
+    await Deno.writeTextFile(
+      join(dir, "policy", "instructions.md"),
+      "[second source](./review.md)\n",
+    );
+
+    for (const name of AGENT_NAMES) {
+      await Deno.writeTextFile(
+        join(dir, "discern.toml"),
+        [
+          "[project]",
+          `agents = ["${name}"]`,
+          "[instructions]",
+          'sources = ["discern/instructions.md", "policy/instructions.md"]',
+          "",
+        ].join("\n"),
+      );
+      const files = await renderAgentFiles(dir);
+      assertEquals(
+        files.size,
+        1,
+        `${name} should emit one full-body file alone`,
+      );
+      const [entry] = [...files];
+      assert(entry !== undefined);
+      const [path, body] = entry;
+      const expected = [
+        "[inline](discern/contributing.md)",
+        "[parent](README.md)",
+        '![image](discern/assets/diagram.png "Diagram")',
+        '[angle](<discern/guide folder/file.md> "Angle title")',
+        '[titled](discern/guide.md "Guide title")',
+        String.raw`[escaped](<discern/guide\ file.md>)`,
+        "[nested](discern/assets/(draft)/guide.md)",
+        "[query](discern/guide.md?mode=compact#part)",
+        '[guide]: discern/guide.md#section "Reference title"',
+        "[second source](policy/review.md)",
+      ];
+      for (const needle of expected) {
+        assertStringIncludes(
+          body,
+          needle,
+          `${name} changed a local target while compiling ${path}`,
+        );
+      }
+      for (
+        const untouched of [
+          "[external](https://example.com/guide.md)",
+          "[mail](mailto:guide@example.com)",
+          "[root](/README.md)",
+          "[fragment](#section)",
+          "`[code](./code-lookalike.md)`",
+          "[fenced](./fenced-lookalike.md)",
+        ]
+      ) {
+        assertStringIncludes(
+          body,
+          untouched,
+          `${name} rewrote a non-local or literal destination in ${path}`,
+        );
+      }
+    }
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("renderAgentFiles: every generated provider file has one canonical final newline", async () => {
+  const dir = await scaffold(JSON.stringify(AGENT_NAMES));
+  try {
+    for (const [path, body] of await renderAgentFiles(dir)) {
+      assert(
+        body.endsWith("\n") && !body.endsWith("\n\n"),
+        `${path} must end in exactly one newline`,
+      );
+    }
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("renderAgentFiles: discern's own authored links resolve from the compiled root", async () => {
+  const root = fromFileUrl(new URL("../", import.meta.url));
+  const agents = (await renderAgentFiles(root)).get("AGENTS.md");
+  assert(agents !== undefined);
+  for (
+    const target of [
+      "src/shared/result.ts",
+      "src/engine/mcp/server.ts",
+    ]
+  ) {
+    assertStringIncludes(
+      agents,
+      `](${target})`,
+      `${target} must be relative to the compiled root file`,
+    );
+    assert(await Deno.stat(join(root, target)));
+  }
+  assertEquals(agents.includes("](../src/"), false);
 });
 
 Deno.test("renderAgentFiles: Cursor configuration does not change the generic worktree instructions", async () => {

@@ -73,6 +73,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertHasMcpHint } from "./mcp_hint_asserts.ts";
+import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 
 const ENCODER = new TextEncoder();
 
@@ -1130,6 +1131,64 @@ Deno.test("discern mcp: a malformed JSON line does not prevent the next valid ca
     assertEquals(status.result.isError, false, JSON.stringify(status.result));
     assertEquals(status.result.structuredContent.verb, "status");
 
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: status projects the same setup applicability counts and labels", async () => {
+  await withTempDir(async (dir) => {
+    const applicableNames = Object.keys(KNOWN_JOBS).filter((name) =>
+      name !== "build"
+    );
+    const applicableTotal = applicableNames.length;
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await writeConfig(
+      dir,
+      [
+        "[meta]",
+        "bootstrapped = false",
+        "",
+        "[assurance]",
+        'not_applicable = ["build"]',
+        "",
+        "[jobs]",
+        ...applicableNames.map((name) => `${name} = "${name}"`),
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    await using mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_status", arguments: {} },
+    });
+    const status = await mcp.recv();
+    const unfinished = status.result.structuredContent.data.setup_unfinished;
+    assertEquals(unfinished.assurance.enforced, applicableTotal);
+    assertEquals(unfinished.assurance.total, applicableTotal);
+    assertEquals(
+      unfinished.assurance.known_total,
+      Object.keys(KNOWN_JOBS).length,
+    );
+    assertEquals(unfinished.assurance.not_applicable, 1);
+    assertEquals(
+      unfinished.known_jobs.find((job: { name: string }) =>
+        job.name === "build"
+      )?.not_applicable,
+      true,
+    );
+    assertStringIncludes(
+      status.result.content[0].text,
+      `Applicable protections: ${applicableTotal} of ${applicableTotal} enforced; 1 does not apply; verdict \`full\`.`,
+    );
     assertEquals(await mcp.close(), 0);
   });
 });

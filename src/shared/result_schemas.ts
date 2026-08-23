@@ -1621,8 +1621,13 @@ export const StatusDataSchema = z.strictObject({
   setup_unfinished: z.strictObject({
     pending_markers: z.array(z.string()),
     known_jobs: z.array(
-      z.strictObject({ name: z.string(), wired: z.boolean() }),
+      z.strictObject({
+        name: z.string(),
+        wired: z.boolean(),
+        not_applicable: z.literal(true).optional(),
+      }),
     ),
+    assurance: z.lazy(() => SetupAssuranceSchema).optional(),
   }).optional(),
   /** Local `<branch_prefix>*` branches holding unlanded work with NO worktree —
    * otherwise-invisible abandoned work (main-checkout view only; present when
@@ -2093,6 +2098,9 @@ export type SetupVerifyData = z.infer<typeof SetupVerifyDataSchema>;
 export const KnownJobAssuranceSchema = z.strictObject({
   name: z.string(),
   state: z.enum(KNOWN_JOB_STATES),
+  /** An absent job excluded from the applicable denominator. Optional keeps
+   * result schema v1 additive for consumers pinned before this marker existed. */
+  not_applicable: z.literal(true).optional(),
   reason: z.string().optional(),
   self_supplied: z.literal(true).optional(),
 });
@@ -2103,6 +2111,10 @@ export const SetupAssuranceSchema = z.strictObject({
   known_jobs: z.array(KnownJobAssuranceSchema),
   enforced: z.number(),
   total: z.number(),
+  /** Additive counts exposing the full canonical population and its exclusions.
+   * `total` remains the verdict denominator for older consumers. */
+  known_total: z.number().optional(),
+  not_applicable: z.number().optional(),
   verdict: z.enum(ASSURANCE_VERDICTS),
 });
 
@@ -2175,8 +2187,13 @@ const setupProjectSchema = z.strictObject({
 const setupProgressSchema = z.strictObject({
   pending_markers: z.array(z.string()),
   known_jobs: z.array(
-    z.strictObject({ name: z.string(), wired: z.boolean() }),
+    z.strictObject({
+      name: z.string(),
+      wired: z.boolean(),
+      not_applicable: z.literal(true).optional(),
+    }),
   ),
+  assurance: z.lazy(() => SetupAssuranceSchema).optional(),
 });
 
 /** `setup` / `setup begin` / the fresh welcome redirect. One schema covers the

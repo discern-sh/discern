@@ -38,6 +38,7 @@ import {
   runChecks,
 } from "../src/commands/doctor.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
+import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
@@ -939,6 +940,27 @@ Deno.test("doctor: a fresh install reports its wired capabilities", async () => 
     assertEquals(caps.status, "ok");
     assertEquals(caps.ok, true);
     assertStringIncludes(caps.detail, "test");
+  });
+});
+
+Deno.test("doctor: explicitly inapplicable lifecycles do not trigger a known-job warning", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await removeTidyFormatJob(dir, true);
+    for (const name of Object.keys(KNOWN_JOBS)) {
+      const marked = await runCli(
+        ["config", "set-job", name, "--not-applicable"],
+        dir,
+      );
+      assertEquals(marked.code, 0, marked.stderr);
+    }
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
+    const jobs = check(payload, "known jobs");
+    assertEquals(jobs.status, "ok");
+    assertEquals(jobs.warn, undefined);
+    assertStringIncludes(jobs.detail, "no known jobs apply");
   });
 });
 

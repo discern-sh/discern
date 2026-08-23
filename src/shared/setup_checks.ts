@@ -76,14 +76,17 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
   {
     step: 2,
     name: "known_jobs",
-    describe: "at least one known job is wired in discern.toml.",
+    describe:
+      "at least one applicable known job is wired in discern.toml, or every known job is declared not applicable.",
     evaluate({ config }): Promise<boolean> {
       const wired = Object.keys(KNOWN_JOBS).some(
         (name) =>
           config.jobs[name as keyof typeof KNOWN_JOBS] !==
             undefined,
       );
-      return Promise.resolve(wired);
+      const allNotApplicable = config.assurance.not_applicable.length ===
+        Object.keys(KNOWN_JOBS).length;
+      return Promise.resolve(wired || allNotApplicable);
     },
   },
   {

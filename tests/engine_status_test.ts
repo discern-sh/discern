@@ -718,6 +718,56 @@ Deno.test("status: while setup is unfinished, the main-checkout worktree next-st
   });
 });
 
+Deno.test("status JSON and terminal carry setup applicability and assurance counts", async () => {
+  await withTempDir(async (dir) => {
+    const applicableNames = Object.keys(KNOWN_JOBS).filter((name) =>
+      name !== "build"
+    );
+    const applicableTotal = applicableNames.length;
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await writeConfig(
+      dir,
+      [
+        "[meta]",
+        "bootstrapped = false",
+        "",
+        "[assurance]",
+        'not_applicable = ["build"]',
+        "",
+        "[jobs]",
+        ...applicableNames.map((name) => `${name} = "${name}"`),
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    const json = parseStatus(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+    );
+    const unfinished = json.data.setup_unfinished;
+    assertEquals(unfinished.assurance.enforced, applicableTotal);
+    assertEquals(unfinished.assurance.total, applicableTotal);
+    assertEquals(
+      unfinished.assurance.known_total,
+      Object.keys(KNOWN_JOBS).length,
+    );
+    assertEquals(unfinished.assurance.not_applicable, 1);
+    assertEquals(
+      unfinished.known_jobs.find((job: { name: string }) =>
+        job.name === "build"
+      )?.not_applicable,
+      true,
+    );
+
+    const terminal = await runAgent(dir, ["status"]);
+    assertEquals(terminal.code, 0, terminal.output);
+    assertTerminalTextIncludes(
+      terminal.stdout,
+      `Applicable protections: ${applicableTotal} of ${applicableTotal} enforced; 1 does not apply`,
+    );
+    assertTerminalTextIncludes(terminal.stdout, "does not apply: build");
+  });
+});
+
 Deno.test("status fleet: ownership stays available without repeating in a routine supervisor survey", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

@@ -24,7 +24,7 @@ import { AGENT_NAMES, loadConfig } from "./shared/config_schema.ts";
 import { configFailureResult } from "./shared/config_failure.ts";
 import { interactiveHintTexts } from "./shared/hints.ts";
 import { findRoot } from "./shared/env.ts";
-import { knownJobList } from "./shared/capabilities.ts";
+import { isKnownJob, knownJobList } from "./shared/capabilities.ts";
 import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
 import {
   commandSynonymSuggestion,
@@ -214,6 +214,69 @@ function emitRootResultRefusal(argv: readonly string[]): void {
   });
 }
 
+/** Turn a Cliffy-level `config set-job` parse failure into the supported syntax.
+ * These failures occur before the command planner can serve its own correction. */
+function setJobValidationMessage(
+  argv: readonly string[],
+  message: string,
+): string {
+  const config = argv.findIndex((token, index) =>
+    token === "config" && argv[index + 1] === "set-job"
+  );
+  const candidate = config === -1 ? undefined : argv[config + 2];
+  const name = candidate !== undefined && !candidate.startsWith("-")
+    ? candidate
+    : "<name>";
+  const correction = isKnownJob(name)
+    ? `discern config set-job ${name} --run '<command>' --run '<next-command>'`
+    : `discern config set-job ${name} --stage check --run '<command>'`;
+  const condition = message.replace(/[.\s]+$/, "");
+  return `${condition}. Run \`${correction}\`.`;
+}
+
+const SET_JOB_OPTION_TOKENS = new Set([
+  "-h",
+  "--help",
+  "--json",
+  "--markdown",
+  "--render",
+  "--no-color",
+  "--plain",
+  "--theme",
+  "--stage",
+  "--run",
+  "--provides",
+  "--not-applicable",
+  "--applicable",
+  "--dry-run",
+]);
+
+/** Preserve raw repeatable-option shape that Cliffy normalizes away. In
+ * particular, `--run --json` otherwise becomes the literal command `--json`. */
+function setJobRunArgv(argv: readonly string[]): {
+  count: number;
+  missingValue: boolean;
+} {
+  let count = 0;
+  let missingValue = false;
+  for (let index = 0; index < argv.length; index++) {
+    const token = argv[index];
+    if (token === "--run") {
+      count++;
+      const value = argv[index + 1];
+      if (
+        value === undefined || value === "" || SET_JOB_OPTION_TOKENS.has(value)
+      ) {
+        missingValue = true;
+      }
+    } else if (token?.startsWith("--run=") === true) {
+      count++;
+      if (token === "--run=") missingValue = true;
+    }
+  }
+  return { count, missingValue };
+}
+
 /**
  * The type of `buildCli`'s root command. Cliffy threads the six `globalOption`
  * declarations into the command's generics, so the concrete type is impractical
@@ -295,10 +358,7 @@ export function buildCli(
       },
     )
     .error((error, command) => {
-      if (
-        !(error instanceof ValidationError) ||
-        !quietResultRequested(activeDiscernArgv)
-      ) {
+      if (!(error instanceof ValidationError)) {
         return;
       }
       const fullPath = command.getPath();
@@ -307,11 +367,21 @@ export function buildCli(
         : fullPath.replace(/^discern\s+/, "");
       const resultVerb = cliJsonResultVerb(commandPath) ??
         (commandPath === "" ? "discern" : commandPath);
+      const message = commandPath === "config set-job"
+        ? setJobValidationMessage(activeDiscernArgv, error.message)
+        : error.message;
+      if (!quietResultRequested(activeDiscernArgv)) {
+        if (commandPath === "config set-job") {
+          new Logger({ json: false, noColor: false }).error(message);
+          Deno.exit(error.exitCode);
+        }
+        return;
+      }
       emitResult({
         ok: false,
         verb: resultVerb,
         error: "invalid_arguments",
-        message: error.message,
+        message,
       });
       Deno.exit(error.exitCode);
     })
@@ -784,27 +854,46 @@ export function buildCli(
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
   const setJob = new Command()
     .description(
-      `Set a declared gate job. Known names (${knownJobList()}) take a positional command and derive their stage; custom names take --stage and --run.`,
+      `Set a Gate job. Known names (${knownJobList()}) derive their stage and accept a positional scalar or repeatable ordered --run. Custom names require --stage and --run. Known-job applicability uses --not-applicable or --applicable.`,
     )
     .arguments("<name:string> [command:string]")
     .option(
       "--stage <stage:string>",
       "Custom jobs only: when it runs (fix|build|check|test).",
     )
-    .option("--run <cmd:string>", "Custom jobs only: the command to run.")
+    .option(
+      "--run <command:string>",
+      "Literal command; repeat to preserve order.",
+      { collect: true },
+    )
     .option("--provides <label:string>", "Custom jobs only: free-text label.")
+    .option(
+      "--not-applicable",
+      "Known jobs: exclude an absent lifecycle from setup assurance.",
+    )
+    .option(
+      "--applicable",
+      "Known jobs: restore lifecycle applicability.",
+    )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(
       recordedExit(
         "config set-job",
         async (options, name: string, command?: string) => {
           const { runConfigSetJob } = await import("./commands/config.ts");
+          const flags = globalFlags(options);
+          const runArgv = setJobRunArgv(activeDiscernArgv);
           return await runConfigSetJob(name, command, {
-            ...globalFlags(options),
+            ...flags,
+            json: flags.json || quietResultRequested(activeDiscernArgv),
             dryRun: options.dryRun ?? false,
             stage: options.stage,
             run: options.run,
+            runCount: runArgv.count,
+            runMissingValue: runArgv.missingValue,
             provides: options.provides,
+            notApplicable: options.notApplicable,
+            applicable: options.applicable,
           });
         },
       ),

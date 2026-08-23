@@ -16,7 +16,14 @@
  * uses real (canonical) paths so a symlinked checkout compares correctly.
  */
 
-import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "@std/path";
 import type { Logger } from "../../lib/log.ts";
 import { padDisplayEnd } from "../../lib/text.ts";
 import { adrNumberOf } from "../../lib/adr_numbers.ts";
@@ -52,6 +59,17 @@ import {
   type WorktreeSide,
 } from "./side_restrictions.ts";
 import { recordRetiredWorktreePath } from "./retired_paths.ts";
+import {
+  type IdentitySettings,
+  worktreeIdFromGitKey,
+  worktreeIdFromGitMetadata,
+} from "./identity.ts";
+import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
+import {
+  branchWithoutOwnershipReason,
+  classifyAutomaticBranchOwnership,
+  deleteAutomaticallyOwnedBranch,
+} from "./ownership.ts";
 
 /** A fatal worktree-git condition. */
 export class WorktreeGitError extends Error {
@@ -116,7 +134,10 @@ export function missingIntegrationBranchWarning(branch: string): string {
  * fallback — lives once in {@link runGit}.
  */
 function git(args: string[], cwd?: string): Promise<GitResult> {
-  return runGit(args, { cwd: cwd ?? Deno.cwd() });
+  return runGit(args, {
+    cwd: cwd ?? Deno.cwd(),
+    quiesceDescendants: true,
+  });
 }
 
 /** Whether the configured git binary is runnable at all. */
@@ -1907,10 +1928,11 @@ export async function prefixBranches(
 /**
  * Local `<prefix>*` branches holding UNLANDED work with no worktree — commits not
  * on the trunk, and not checked out in any registered worktree. The abandoned-work
- * signal `status` surfaces from the main checkout: a landed branch is deleted,
- * a live one has its worktree, and a fully-merged dangling one is prune's food —
- * what remains is work that would otherwise be invisible. Empty when the trunk is
- * missing (nothing to compare against) or outside a repo.
+ * signal `status` surfaces from the main checkout: a live one has its worktree,
+ * while a fully-merged dangling ref is neither unlanded work nor automatic prune
+ * material without surviving ownership evidence. What remains here is work that
+ * would otherwise be invisible. Empty when the trunk is missing (nothing to
+ * compare against) or outside a repo.
  */
 export async function unlandedPrefixBranches(
   cwd: string,
@@ -2043,9 +2065,75 @@ export async function registeredWorktreeRecord(
   target: string,
   cwd?: string,
 ): Promise<WorktreeRecord | undefined> {
+  const observed = await observeWorktreeRegistration(target, cwd);
+  return observed.kind === "registered" ? observed.record : undefined;
+}
+
+/**
+ * Resolve a registered linked worktree's id from Git's exact admin entry.
+ * Unlike checkout-local identity reads, this remains available when the path
+ * is missing or its `.git` link is damaged. Undefined is uncertainty, never an
+ * invitation to infer identity from the checkout basename.
+ */
+export async function registeredWorktreeId(
+  target: string,
+  cwd: string,
+  settings: IdentitySettings,
+): Promise<string | undefined> {
+  return (await registeredWorktreeOwnershipEvidence(target, cwd, settings))?.id;
+}
+
+/** Positive Git-admin evidence available while a worktree is registered. */
+export interface RegisteredWorktreeOwnershipEvidence {
+  readonly id: string;
+  /** A plain discern worktree-ready marker exists in this exact admin entry. */
+  readonly ready: boolean;
+}
+
+/**
+ * Resolve automatic-cleanup evidence from Git's exact worktree admin entry.
+ * Runtime env identity is deliberately excluded: a checkout-local value may
+ * customize handles, but it cannot assert fleet ownership.
+ */
+export async function registeredWorktreeOwnershipEvidence(
+  target: string,
+  cwd: string,
+  settings: IdentitySettings,
+): Promise<RegisteredWorktreeOwnershipEvidence | undefined> {
+  const registration = await observeWorktreeRegistration(target, cwd);
+  if (registration.kind !== "registered") return undefined;
+  const commonGitDir = await commonGitDirFrom(cwd);
+  if (commonGitDir === undefined) return undefined;
+  try {
+    const metadata = await staleMetadataForRecord(
+      commonGitDir,
+      registration.record,
+    );
+    return {
+      id: worktreeIdFromGitKey(basename(metadata.adminDir), settings),
+      ready: await hasPlainReadyMarker(metadata.adminDir),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+type WorktreeRegistrationObservation =
+  | { readonly kind: "registered"; readonly record: WorktreeRecord }
+  | { readonly kind: "absent" }
+  | { readonly kind: "unavailable"; readonly reason: string };
+
+/** Read registration without collapsing a Git failure into "absent". */
+async function observeWorktreeRegistration(
+  target: string,
+  cwd?: string,
+): Promise<WorktreeRegistrationObservation> {
   const listRun = await git(["worktree", "list", "--porcelain"], cwd);
   if (!listRun.success) {
-    return undefined;
+    return {
+      kind: "unavailable",
+      reason: listRun.stderr.trim() || "Git could not list its worktrees",
+    };
   }
   const canonical = await canonicalizeMaybeMissing(target);
   for (const rec of parseWorktreeList(listRun.stdout)) {
@@ -2053,10 +2141,10 @@ export async function registeredWorktreeRecord(
       rec.path === canonical ||
       (await canonicalizeMaybeMissing(rec.path)) === canonical
     ) {
-      return rec;
+      return { kind: "registered", record: rec };
     }
   }
-  return undefined;
+  return { kind: "absent" };
 }
 
 /** The refusal for any attempt to remove a `git worktree lock`ed worktree — the
@@ -2071,24 +2159,172 @@ function lockedWorktreeRefusal(path: string): WorktreeGitError {
   );
 }
 
+/** A teardown result whose path and Git-registration absence are both proved. */
+export interface WorktreeRemovalResult {
+  readonly path: string;
+  readonly pathAbsent: true;
+  readonly gitRegistrationAbsent: true;
+  /** The branch Git reported before removal, or an empty string. */
+  readonly branch: string;
+  /** The worktree HEAD Git reported before removal, or an empty string. */
+  readonly head: string;
+}
+
+type PathObservation =
+  | { readonly kind: "absent" }
+  | { readonly kind: "present"; readonly stat: Deno.FileInfo }
+  | { readonly kind: "unavailable"; readonly reason: string };
+
+/** Observe a path without treating permission or I/O failures as absence. */
+async function observePath(path: string): Promise<PathObservation> {
+  try {
+    return { kind: "present", stat: await Deno.lstat(path) };
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return { kind: "absent" };
+    return {
+      kind: "unavailable",
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/** Whether one exact Git worktree admin entry carries discern's ready marker. */
+async function hasPlainReadyMarker(adminDir: string): Promise<boolean> {
+  const marker = await observePath(
+    join(adminDir, GIT_ADMIN_STATE.worktreeReady.path),
+  );
+  return marker.kind === "present" && marker.stat.isFile &&
+    !marker.stat.isSymlink;
+}
+
+/** Compare one filesystem object across the destructive boundary. */
+function sameFilesystemObject(
+  before: Deno.FileInfo,
+  now: Deno.FileInfo,
+): boolean {
+  return before.dev !== null && before.ino !== null && now.dev !== null &&
+    now.ino !== null && before.dev === now.dev && before.ino === now.ino &&
+    before.isDirectory === now.isDirectory &&
+    before.isSymlink === now.isSymlink;
+}
+
+/** Whether `container` is equal to or an ancestor of `candidate`. */
+function containsPath(container: string, candidate: string): boolean {
+  const rel = relative(container, candidate);
+  return rel === "" || (!isAbsolute(rel) && rel !== ".." &&
+    !rel.startsWith(`..${Deno.build.os === "windows" ? "\\" : "/"}`));
+}
+
+/** Refuse broad targets even when damaged Git metadata happens to name them. */
+async function assertRemovalTargetIsNarrow(
+  target: string,
+  mainRepo: string,
+  commonGitDir: string | undefined,
+): Promise<void> {
+  if (dirname(target) === target) {
+    throw new WorktreeGitError(
+      `Worktree removal refused the filesystem root '${target}'. Pass the exact ` +
+        "linked-worktree path from `git worktree list` instead.",
+    );
+  }
+  const homeRaw = Deno.env.get("HOME");
+  const home = homeRaw === undefined || homeRaw === ""
+    ? undefined
+    : await realPathOr(homeRaw);
+  if (home !== undefined && target === home) {
+    throw new WorktreeGitError(
+      `Worktree removal refused the home directory '${target}'. Pass the exact ` +
+        "linked-worktree path from `git worktree list` instead.",
+    );
+  }
+  if (containsPath(target, mainRepo)) {
+    throw new WorktreeGitError(
+      `Worktree removal refused '${target}' because it contains the main checkout ` +
+        `'${mainRepo}'. Pass a linked-worktree path instead.`,
+    );
+  }
+  if (
+    commonGitDir !== undefined &&
+    (containsPath(target, commonGitDir) || containsPath(commonGitDir, target))
+  ) {
+    throw new WorktreeGitError(
+      `Worktree removal refused '${target}' because it overlaps this repository's ` +
+        "Git metadata. Pass a linked-worktree checkout path instead.",
+    );
+  }
+}
+
+/** Remove only the exact stale admin entry that still points at `record.path`. */
+async function removeExactWorktreeRegistration(
+  commonGitDir: string | undefined,
+  record: WorktreeRecord,
+): Promise<void> {
+  if (commonGitDir === undefined) {
+    throw new WorktreeGitError(
+      `Git still registers '${record.path}', and discern could not resolve the ` +
+        "repository's shared Git directory. Run `git worktree repair`, then retry.",
+    );
+  }
+  const metadata = await staleMetadataForRecord(commonGitDir, record);
+  const worktreesDir = join(commonGitDir, "worktrees");
+  if (!containsPath(worktreesDir, metadata.adminDir)) {
+    throw new WorktreeGitError(
+      `Git's registration for '${record.path}' resolved outside its worktree ` +
+        "metadata directory, so discern left it untouched. Run `git worktree repair`, then retry.",
+    );
+  }
+  const admin = await observePath(metadata.adminDir);
+  if (
+    admin.kind !== "present" || !admin.stat.isDirectory ||
+    admin.stat.isSymlink
+  ) {
+    throw new WorktreeGitError(
+      `Git's registration for '${record.path}' is not a plain worktree metadata ` +
+        "directory, so discern left it untouched. Run `git worktree repair`, then retry.",
+    );
+  }
+  if (!(await staleMetadataStillMatches(metadata))) {
+    throw new WorktreeGitError(
+      `Git's registration for '${record.path}' changed during teardown, so discern ` +
+        "left it untouched. Review `git worktree list`, then retry.",
+    );
+  }
+  const currentAdmin = await observePath(metadata.adminDir);
+  if (
+    currentAdmin.kind !== "present" ||
+    !sameFilesystemObject(admin.stat, currentAdmin.stat)
+  ) {
+    throw new WorktreeGitError(
+      `Git's registration for '${record.path}' was replaced during teardown, ` +
+        "so discern left it untouched. Review `git worktree list`, then retry.",
+    );
+  }
+  try {
+    await Deno.remove(metadata.adminDir, { recursive: true });
+  } catch (error) {
+    throw new WorktreeGitError(
+      `Git still registers '${record.path}', and its exact metadata directory ` +
+        `'${metadata.adminDir}' could not be removed: ${
+          error instanceof Error ? error.message : String(error)
+        }. The branch was retained; fix the permissions, then retry.`,
+    );
+  }
+}
+
 /**
- * Remove a git worktree robustly, leaving no orphaned directory. Retries the
- * transient `ENOTEMPTY` race on `git worktree remove --force`, then falls back to
- * `rm -rf` + `git worktree prune` — the fallback exists for that race and for
- * gitlinked orphans/damaged checkouts git itself cannot remove, NEVER to
- * overpower a deliberate refusal: a `git worktree lock`ed worktree is refused
- * outright (checked before removing AND re-checked before the fallback, so a
- * lock can't be bulldozed into a phantom registration `git worktree prune`
- * skips forever). Refuses anything that is neither a registered worktree of
- * this repo nor a gitlinked orphan of it (and the main checkout). Mirrors
- * `remove-worktree-safely`. Idempotent: an already-gone, unregistered path is
- * a no-op.
+ * Remove one positively identified Git worktree and prove both observable
+ * postconditions before returning: its path is absent under strict `lstat`, and
+ * its Git registration is absent. Git gets a bounded chance to handle transient
+ * `ENOTEMPTY`; a fallback removes only the same filesystem object observed
+ * before teardown, and stale registration recovery touches only the exact
+ * matching admin directory. Locks, symlinks, replacement objects, unreadable
+ * state, and broad targets fail closed. Idempotent when both path and
+ * registration are already absent.
  */
 export async function removeWorktreeSafely(
   target: string,
   cwd: string = Deno.cwd(),
-  opts: { pruneMetadata?: boolean } = {},
-): Promise<void> {
+): Promise<WorktreeRemovalResult> {
   const mainFirst = await firstWorktreePath(cwd);
   if (mainFirst === undefined || mainFirst === "") {
     throw new WorktreeGitError(
@@ -2098,7 +2334,25 @@ export async function removeWorktreeSafely(
   }
   const mainRepo = await realPathOr(mainFirst);
   const commonGitDir = await commonGitDirFrom(mainRepo);
-  const canonical = await canonicalizeMaybeMissing(target);
+  const requested = isAbsolute(target) ? target : resolve(cwd, target);
+  const requestedObservation = await observePath(requested);
+  if (requestedObservation.kind === "unavailable") {
+    throw new WorktreeGitError(
+      `Discern could not inspect the worktree target '${requested}': ` +
+        `${requestedObservation.reason}. Fix its permissions, then re-run.`,
+    );
+  }
+  if (
+    requestedObservation.kind === "present" &&
+    requestedObservation.stat.isSymlink
+  ) {
+    throw new WorktreeGitError(
+      `The worktree target '${requested}' is a symlink, so discern left it ` +
+        "untouched. Pass the real linked-worktree path from `git worktree list`.",
+    );
+  }
+  const canonical = await canonicalizeMaybeMissing(requested);
+  await assertRemovalTargetIsNarrow(canonical, mainRepo, commonGitDir);
 
   if (canonical === mainRepo) {
     throw new WorktreeGitError(
@@ -2108,7 +2362,16 @@ export async function removeWorktreeSafely(
   }
 
   // Registered as a current worktree of this repo?
-  const record = await registeredWorktreeRecord(canonical, cwd);
+  const registration = await observeWorktreeRegistration(canonical, cwd);
+  if (registration.kind === "unavailable") {
+    throw new WorktreeGitError(
+      `Discern could not verify Git's worktree registration for '${canonical}': ` +
+        `${registration.reason}. Nothing was removed; fix Git, then re-run.`,
+    );
+  }
+  const record = registration.kind === "registered"
+    ? registration.record
+    : undefined;
   const registered = record !== undefined;
 
   // A locked worktree is git's deliberate refusal, not an obstacle to route
@@ -2120,9 +2383,21 @@ export async function removeWorktreeSafely(
   const gitlinked = await gitlinksInto(canonical, commonGitDir);
 
   // Already gone and not registered → nothing to do (idempotent).
-  const exists = await pathExists(canonical);
-  if (!exists && !registered) {
-    return;
+  const initialPath = await observePath(canonical);
+  if (initialPath.kind === "unavailable") {
+    throw new WorktreeGitError(
+      `Discern could not inspect '${canonical}': ${initialPath.reason}. Nothing ` +
+        "was removed; fix its permissions, then re-run.",
+    );
+  }
+  if (initialPath.kind === "absent" && !registered) {
+    return {
+      path: canonical,
+      pathAbsent: true,
+      gitRegistrationAbsent: true,
+      branch: "",
+      head: "",
+    };
   }
 
   // Safety gate: only a worktree (registered or gitlinked orphan) of this repo,
@@ -2156,51 +2431,119 @@ export async function removeWorktreeSafely(
     if ((await registeredWorktreeRecord(canonical, cwd))?.locked === true) {
       throw lockedWorktreeRefusal(canonical);
     }
-    if (await pathExists(canonical)) {
-      await Deno.remove(canonical, { recursive: true });
+    const current = await observePath(canonical);
+    if (current.kind === "unavailable") {
+      throw new WorktreeGitError(
+        `The worktree at '${canonical}' could not be inspected after Git's ` +
+          `removal failed: ${current.reason}. Git and the branch were retained; ` +
+          "fix the path permissions, then re-run.",
+      );
     }
-    if (opts.pruneMetadata ?? true) {
-      await git(["worktree", "prune"], cwd);
+    if (current.kind === "present") {
+      if (
+        initialPath.kind !== "present" ||
+        !sameFilesystemObject(initialPath.stat, current.stat)
+      ) {
+        throw new WorktreeGitError(
+          `The worktree path '${canonical}' was replaced during teardown, so ` +
+            "discern left the replacement untouched. Git and the branch were retained; " +
+            "review the path and `git worktree list`, then re-run.",
+        );
+      }
+      if (!current.stat.isDirectory || current.stat.isSymlink) {
+        throw new WorktreeGitError(
+          `The worktree path '${canonical}' is no longer the plain directory ` +
+            "discern identified, so it was left untouched. Review the path, then re-run.",
+        );
+      }
+      try {
+        await Deno.remove(canonical, { recursive: true });
+      } catch (error) {
+        throw new WorktreeGitError(
+          `The worktree at '${canonical}' could not be removed: ${
+            error instanceof Error ? error.message : String(error)
+          }. Git and the branch were retained where possible. Fix the path ` +
+            "permissions or stop its writer, then re-run.",
+        );
+      }
     }
   }
 
-  // Git can report success while another process still holds the checkout and
-  // writes into its path. Reconcile that immediate race once under the authorization
-  // established above, then prove the path is absent before recording it as
-  // retired. A later reappearance is surfaced by status and confirmed prune.
-  for (let attempt = 0; attempt < 3 && await pathExists(canonical); attempt++) {
-    try {
-      const stat = await Deno.lstat(canonical);
-      await Deno.remove(canonical, {
-        recursive: stat.isDirectory && !stat.isSymlink,
-      });
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        break;
-      }
-      const reason = error instanceof Error ? error.message : String(error);
-      if (
-        attempt < 2 &&
-        (reason.includes("Directory not empty") || reason.includes("ENOTEMPTY"))
-      ) {
-        await delay(100);
-        continue;
-      }
+  let afterGit = await observeWorktreeRegistration(canonical, cwd);
+  if (afterGit.kind === "unavailable") {
+    throw new WorktreeGitError(
+      `The worktree path '${canonical}' was processed, but discern could not ` +
+        `verify Git's registry: ${afterGit.reason}. The branch was retained. ` +
+        "Run `git worktree list`, repair Git if needed, then re-run.",
+    );
+  }
+  if (afterGit.kind === "registered") {
+    const afterPath = await observePath(canonical);
+    if (afterPath.kind !== "absent") {
       throw new WorktreeGitError(
-        `The worktree at '${canonical}' could not be removed: ${reason}. Close ` +
-          "the program writing into this path, then re-run.",
+        `The worktree at '${canonical}' is still registered by Git, so teardown ` +
+          `did not complete. The path and branch were retained where possible. ` +
+          "Review `git worktree list`, then re-run the lifecycle command.",
       );
     }
+    await removeExactWorktreeRegistration(commonGitDir, afterGit.record);
+    afterGit = await observeWorktreeRegistration(canonical, cwd);
   }
-  if (await pathExists(canonical)) {
+  if (afterGit.kind !== "absent") {
     throw new WorktreeGitError(
-      `The worktree at '${canonical}' still exists after removal. Close the ` +
-        "program writing into this path, then re-run.",
+      `The worktree at '${canonical}' is still registered by Git after bounded ` +
+        "recovery. The branch was retained. Run `git worktree repair`, then re-run.",
+    );
+  }
+
+  const afterPath = await observePath(canonical);
+  if (afterPath.kind === "unavailable") {
+    throw new WorktreeGitError(
+      `Git no longer registers '${canonical}', but discern could not verify the ` +
+        `retired path is absent: ${afterPath.reason}. The branch was retained; fix ` +
+        "the path permissions, then re-run `discern worktree prune --dry-run`.",
+    );
+  }
+  if (afterPath.kind === "present") {
+    throw new WorktreeGitError(
+      `Git no longer registers '${canonical}', but the retired path exists again. ` +
+        "Discern left the replacement untouched and retained the branch. Stop the " +
+        "program writing there, inspect the path, then re-run `discern worktree prune --dry-run`.",
     );
   }
   // Advisory evidence cannot roll a completed filesystem removal back. Store
   // failures leave cleanup successful and only lose later reappearance notice.
   await recordRetiredWorktreePath(mainRepo, canonical);
+
+  // Evidence writing is itself asynchronous and may give a late writer time to
+  // recreate the name. Success is issued only after a final strict filesystem
+  // and Git-registry observation at the actual return boundary.
+  const finalPath = await observePath(canonical);
+  const finalGit = await observeWorktreeRegistration(canonical, cwd);
+  if (finalPath.kind !== "absent" || finalGit.kind !== "absent") {
+    const pathState = finalPath.kind === "present"
+      ? "the retired path exists again"
+      : finalPath.kind === "unavailable"
+      ? `the retired path could not be inspected (${finalPath.reason})`
+      : "the retired path is absent";
+    const gitState = finalGit.kind === "registered"
+      ? "Git still registers it"
+      : finalGit.kind === "unavailable"
+      ? `Git's registry could not be read (${finalGit.reason})`
+      : "Git's registration is absent";
+    throw new WorktreeGitError(
+      `Worktree teardown did not complete for '${canonical}': ${pathState}; ` +
+        `${gitState}. The branch was retained. Stop any writer, review ` +
+        "`git worktree list`, then re-run the lifecycle command.",
+    );
+  }
+  return {
+    path: canonical,
+    pathAbsent: true,
+    gitRegistrationAbsent: true,
+    branch: record?.branch ?? "",
+    head: record?.head ?? "",
+  };
 }
 
 /** Whether a path exists (file or directory). */
@@ -2519,6 +2862,8 @@ export interface PruneScanOptions {
   includeDetached?: boolean;
   /** Integration-branch fallback when `DISCERN_TRUNK` is unset (`[repository].trunk`). */
   mainBranch?: string;
+  /** Canonical project identity settings that prove branch ownership. */
+  identitySettings: IdentitySettings;
 }
 
 /** One planned linked-worktree removal from the git-worktree scan. */
@@ -2526,6 +2871,17 @@ export interface WorktreeRemovalCandidate {
   path: string;
   /** The checked-out local branch to delete after removal, or "" for detached. */
   branch: string;
+  /** Canonical id resolved while the registered worktree evidence is live. */
+  id: string;
+  /** Exact branch tip captured by the plan and rechecked before removal. */
+  head: string;
+}
+
+/** One positively-owned dangling branch eligible for automatic retirement. */
+export interface OwnedBranchDeletionCandidate {
+  branch: string;
+  id: string;
+  expectedCommit: string;
 }
 
 /** One stale git worktree admin entry the scan found. */
@@ -2536,6 +2892,13 @@ export interface StaleWorktreeMetadata {
   adminDir: string;
   /** The `gitdir` back-pointer recorded when the scan ran. */
   gitDir: string;
+}
+
+/** Stale metadata plus the live identity captured before it becomes actionable. */
+export interface OwnedStaleWorktreeMetadata extends StaleWorktreeMetadata {
+  readonly id: string;
+  readonly branch: string;
+  readonly head: string;
 }
 
 /** One rendered line from the git-worktree prune scan. */
@@ -2549,9 +2912,10 @@ export interface PruneScanLine {
 export interface GitWorktreePruneScan {
   repoRoot: string;
   mainBranch: string;
+  identitySettings: IdentitySettings;
   worktreesToRemove: WorktreeRemovalCandidate[];
-  branchesToDelete: string[];
-  staleMetadata: StaleWorktreeMetadata[];
+  branchesToDelete: OwnedBranchDeletionCandidate[];
+  staleMetadata: OwnedStaleWorktreeMetadata[];
   worktreeLines: PruneScanLine[];
   branchLines: PruneScanLine[];
 }
@@ -2736,9 +3100,10 @@ async function staleMetadataForRecord(
 }
 
 /**
- * Scan stale git worktrees and fully-merged branches while keeping work worth
- * reviewing. Read-only: it returns the exact candidate set the apply path will
- * consume.
+ * Scan Git worktrees and refs while keeping work worth reviewing. Only an exact
+ * identity/branch match backed by discern's worktree-ready marker enters the
+ * destructive candidate set; merge status remains an independent safety fact.
+ * Read-only: this returns the exact candidate set the apply path consumes.
  */
 export async function scanGitWorktreesForPrune(
   opts: PruneScanOptions,
@@ -2780,8 +3145,8 @@ export async function scanGitWorktreesForPrune(
   }
 
   const worktreesToRemove: WorktreeRemovalCandidate[] = [];
-  const branchesToDelete: string[] = [];
-  const staleMetadata: StaleWorktreeMetadata[] = [];
+  const branchesToDelete: OwnedBranchDeletionCandidate[] = [];
+  const staleMetadata: OwnedStaleWorktreeMetadata[] = [];
   const worktreeLines: PruneScanLine[] = [];
   const branchLines: PruneScanLine[] = [];
   const scheduledBranches = new Set<string>();
@@ -2790,12 +3155,51 @@ export async function scanGitWorktreesForPrune(
     const shortBranch = shortBranchName(rec.branch);
 
     if (rec.prunable) {
-      staleMetadata.push(await staleMetadataForRecord(commonGitDir, rec));
-      worktreeLines.push({
-        action: "PRUNE",
-        label: rec.path,
-        reason: "stale metadata",
-      });
+      const metadata = await staleMetadataForRecord(commonGitDir, rec);
+      const id = (() => {
+        try {
+          return worktreeIdFromGitKey(
+            basename(metadata.adminDir),
+            opts.identitySettings,
+          );
+        } catch {
+          return undefined;
+        }
+      })();
+      const ownership = id === undefined
+        ? { owned: false as const, reason: "worktree identity is unavailable" }
+        : !(await hasPlainReadyMarker(metadata.adminDir))
+        ? {
+          owned: false as const,
+          reason: "discern worktree-ready ownership marker is unavailable",
+        }
+        : classifyAutomaticBranchOwnership({
+          kind: "worktree",
+          branch: shortBranch,
+          id,
+          settings: opts.identitySettings,
+          source: "ready-marker",
+        });
+      if (ownership.owned && id !== undefined) {
+        staleMetadata.push({
+          ...metadata,
+          id,
+          branch: shortBranch,
+          head: rec.head,
+        });
+        worktreeLines.push({
+          action: "PRUNE",
+          label: rec.path,
+          reason: "stale metadata for an owned worktree",
+        });
+      } else {
+        worktreeLines.push({
+          action: "KEEP",
+          label: rec.path,
+          reason:
+            `stale metadata without discern ownership: ${ownership.reason}`,
+        });
+      }
       continue;
     }
     if (rec.path === mainWorktreePath) {
@@ -2830,13 +3234,47 @@ export async function scanGitWorktreesForPrune(
       continue;
     }
 
-    worktreesToRemove.push({ path: rec.path, branch: shortBranch });
+    const evidence = await registeredWorktreeOwnershipEvidence(
+      rec.path,
+      repoRoot,
+      opts.identitySettings,
+    );
+    const id = evidence?.id;
+    const ownership = id === undefined
+      ? { owned: false as const, reason: "worktree identity is unavailable" }
+      : evidence?.ready !== true
+      ? {
+        owned: false as const,
+        reason: "discern worktree-ready ownership marker is unavailable",
+      }
+      : classifyAutomaticBranchOwnership({
+        kind: "worktree",
+        branch: shortBranch,
+        id,
+        settings: opts.identitySettings,
+        source: "ready-marker",
+      });
+    if (!ownership.owned || id === undefined) {
+      worktreeLines.push({
+        action: "KEEP",
+        label: rec.path,
+        reason: `outside discern ownership: ${ownership.reason}`,
+      });
+      continue;
+    }
+
+    worktreesToRemove.push({
+      path: rec.path,
+      branch: shortBranch,
+      id,
+      head: rec.head,
+    });
     if (shortBranch !== "") {
       scheduledBranches.add(shortBranch);
       worktreeLines.push({
         action: "REMOVE",
         label: rec.path,
-        reason: `clean branch ${shortBranch}, fully merged`,
+        reason: `owned, clean branch ${shortBranch}, fully merged`,
       });
     } else {
       worktreeLines.push({
@@ -2884,19 +3322,19 @@ export async function scanGitWorktreesForPrune(
     if (scheduledBranches.has(branchName)) {
       continue;
     }
-    if (await branchIsMerged(repoRoot, branchName, mainBranch)) {
-      branchesToDelete.push(branchName);
-      scheduledBranches.add(branchName);
+    if (!(await branchIsMerged(repoRoot, branchName, mainBranch))) {
       branchLines.push({
-        action: "DELETE",
+        action: "KEEP",
         label: branchName,
-        reason: `fully merged into ${mainBranch}`,
+        reason: "has unmerged commits",
       });
     } else {
       branchLines.push({
         action: "KEEP",
         label: branchName,
-        reason: "has unmerged commits",
+        reason: `${
+          branchWithoutOwnershipReason(branchName, opts.identitySettings)
+        }; fully merged into ${mainBranch}`,
       });
     }
   }
@@ -2904,6 +3342,7 @@ export async function scanGitWorktreesForPrune(
   return {
     repoRoot,
     mainBranch,
+    identitySettings: opts.identitySettings,
     worktreesToRemove,
     branchesToDelete,
     staleMetadata,
@@ -2967,6 +3406,33 @@ async function removalCandidateChanged(
       candidate.branch === "" ? "detached" : `branch ${candidate.branch}`
     }`;
   }
+  if (rec.head !== candidate.head) {
+    return "branch tip moved since the plan was built";
+  }
+  const evidence = await registeredWorktreeOwnershipEvidence(
+    rec.path,
+    scan.repoRoot,
+    scan.identitySettings,
+  );
+  const id = evidence?.id;
+  if (id !== candidate.id) {
+    return id === undefined
+      ? "worktree identity is no longer available"
+      : `worktree identity is now ${id}, planned as ${candidate.id}`;
+  }
+  if (evidence?.ready !== true) {
+    return "discern worktree-ready ownership marker is no longer available";
+  }
+  const ownership = classifyAutomaticBranchOwnership({
+    kind: "worktree",
+    branch: currentBranch,
+    id,
+    settings: scan.identitySettings,
+    source: "ready-marker",
+  });
+  if (!ownership.owned) {
+    return `branch ownership changed: ${ownership.reason}`;
+  }
   // A planned detached candidate implies the scan ran with includeDetached.
   const keep = await worktreeKeepReasons(
     scan.repoRoot,
@@ -2989,14 +3455,27 @@ export async function pruneGitWorktrees(
 ): Promise<PruneResult> {
   renderGitWorktreePruneScan(scan, log);
 
-  const deleteBranchSafe = async (branch: string): Promise<boolean> => {
-    if (!(await branchIsMerged(scan.repoRoot, branch, scan.mainBranch))) {
-      log.error(
-        `Refusing to delete ${branch}: not fully merged into ${scan.mainBranch}`,
-      );
-      return false;
-    }
-    return (await git(["branch", "-D", branch], scan.repoRoot)).success;
+  const deleteBranchSafe = async (
+    candidate: OwnedBranchDeletionCandidate,
+  ): Promise<boolean> => {
+    const deleted = await deleteAutomaticallyOwnedBranch({
+      repoRoot: scan.repoRoot,
+      branch: candidate.branch,
+      expectedCommit: candidate.expectedCommit,
+      ownership: {
+        kind: "worktree",
+        branch: candidate.branch,
+        id: candidate.id,
+        settings: scan.identitySettings,
+        source: "ready-marker",
+      },
+      mergedInto: scan.mainBranch,
+    });
+    if (deleted.kind === "deleted" || deleted.kind === "absent") return true;
+    log.error(
+      `Refusing to delete ${candidate.branch}: ${deleted.reason}. The branch was retained.`,
+    );
+    return false;
   };
 
   const removed: string[] = [];
@@ -3018,24 +3497,33 @@ export async function pruneGitWorktrees(
       }
       log.line(`Removing ${candidate.path}...`);
       try {
-        await removeWorktreeSafely(candidate.path, scan.repoRoot, {
-          pruneMetadata: false,
-        });
+        await removeWorktreeSafely(candidate.path, scan.repoRoot);
         removed.push(candidate.path);
         if (candidate.branch !== "") {
-          if (await deleteBranchSafe(candidate.branch)) {
+          if (
+            await deleteBranchSafe({
+              branch: candidate.branch,
+              id: candidate.id,
+              expectedCommit: candidate.head,
+            })
+          ) {
             branchesDeleted.push(candidate.branch);
           } else {
             failed = true;
           }
         }
-      } catch {
+      } catch (error) {
+        log.error(
+          `Removal failed for ${candidate.path}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
         failed = true;
       }
     }
-    for (const branchName of scan.branchesToDelete) {
-      if (await deleteBranchSafe(branchName)) {
-        branchesDeleted.push(branchName);
+    for (const branchCandidate of scan.branchesToDelete) {
+      if (await deleteBranchSafe(branchCandidate)) {
+        branchesDeleted.push(branchCandidate.branch);
       } else {
         failed = true;
       }
@@ -3057,8 +3545,9 @@ async function staleMetadataStillMatches(
   if (currentGitDir !== entry.gitDir) {
     return false;
   }
-  return !(await pathExists(entry.gitDir)) &&
-    !(await pathExists(checkoutPathFromGitDir(entry.gitDir)));
+  const gitlink = await observePath(entry.gitDir);
+  const checkout = await observePath(checkoutPathFromGitDir(entry.gitDir));
+  return gitlink.kind === "absent" && checkout.kind === "absent";
 }
 
 /** Prune the exact stale git worktree metadata entries from a prior scan. */
@@ -3068,21 +3557,88 @@ export async function pruneStaleWorktreeMetadata(
 ): Promise<StaleMetadataPruneResult> {
   const pruned: string[] = [];
   let failed = false;
+  const commonGitDir = await commonGitDirFrom(scan.repoRoot);
   for (const entry of scan.staleMetadata) {
-    if (!(await pathExists(entry.adminDir))) {
+    const admin = await observePath(entry.adminDir);
+    if (admin.kind === "absent") {
       continue;
     }
-    if (!(await staleMetadataStillMatches(entry))) {
+    if (
+      admin.kind === "unavailable" || !admin.stat.isDirectory ||
+      admin.stat.isSymlink
+    ) {
+      const reason = admin.kind === "unavailable"
+        ? admin.reason
+        : "the admin entry is not a plain directory";
+      log.error(
+        `Stale metadata cleanup refused ${entry.adminDir}: ${reason}. The ` +
+          "branch and metadata were retained; fix the path, then re-run `discern worktree prune`.",
+      );
+      failed = true;
+      continue;
+    }
+    const live = await observeWorktreeRegistration(entry.path, scan.repoRoot);
+    const liveRecord = live.kind === "registered" ? live.record : undefined;
+    const liveBranch = liveRecord === undefined
+      ? ""
+      : shortBranchName(liveRecord.branch);
+    const liveId = (() => {
+      try {
+        return worktreeIdFromGitKey(
+          basename(entry.adminDir),
+          scan.identitySettings,
+        );
+      } catch {
+        return undefined;
+      }
+    })();
+    const ownership = liveId === undefined
+      ? { owned: false as const, reason: "worktree identity is unavailable" }
+      : !(await hasPlainReadyMarker(entry.adminDir))
+      ? {
+        owned: false as const,
+        reason: "discern worktree-ready ownership marker is unavailable",
+      }
+      : classifyAutomaticBranchOwnership({
+        kind: "worktree",
+        branch: liveBranch,
+        id: liveId,
+        settings: scan.identitySettings,
+        source: "ready-marker",
+      });
+    if (
+      liveRecord === undefined || !liveRecord.prunable ||
+      liveBranch !== entry.branch || liveRecord.head !== entry.head ||
+      liveId !== entry.id || !ownership.owned ||
+      !(await staleMetadataStillMatches(entry))
+    ) {
       log.warn(
-        `Skipped stale worktree metadata for ${entry.path}: candidate changed since the plan was built.`,
+        `Skipped stale worktree metadata for ${entry.path}: ownership or metadata changed since the plan was built.`,
       );
       continue;
     }
     log.line(`Pruning stale metadata for ${entry.path}...`);
     try {
-      await Deno.remove(entry.adminDir, { recursive: true });
+      await removeExactWorktreeRegistration(commonGitDir, liveRecord);
+      const after = await observeWorktreeRegistration(
+        entry.path,
+        scan.repoRoot,
+      );
+      if (after.kind !== "absent") {
+        throw new WorktreeGitError(
+          after.kind === "unavailable"
+            ? `Git's registry could not be verified: ${after.reason}`
+            : "Git still reports the stale worktree registration",
+        );
+      }
       pruned.push(entry.path);
-    } catch {
+    } catch (error) {
+      log.error(
+        `Stale metadata cleanup failed for ${entry.path} at ${entry.adminDir}: ${
+          error instanceof Error ? error.message : String(error)
+        }. The branch and metadata were retained where possible; fix the ` +
+          "permissions, then re-run `discern worktree prune`.",
+      );
       failed = true;
     }
   }
@@ -3095,6 +3651,8 @@ export interface SweepScanOptions {
   extraDirs?: string[];
   /** Integration-branch fallback when `DISCERN_TRUNK` is unset (`[repository].trunk`). */
   mainBranch?: string;
+  /** Canonical project identity settings that prove path ownership. */
+  identitySettings: IdentitySettings;
 }
 
 /** One planned orphan-worktree directory removal. */
@@ -3109,6 +3667,7 @@ export interface OrphanWorktreeSweepScan {
   /** The integration branch the scan judged merged-ness against — carried so
    * the apply path can re-run the same eligibility check per candidate. */
   mainBranch: string;
+  identitySettings: IdentitySettings;
   removable: OrphanWorktreeRemoval[];
   kept: { path: string; reason: string }[];
 }
@@ -3128,6 +3687,7 @@ async function inspectOrphanWorktree(
   repoRoot: string,
   dir: string,
   mainBranch: string,
+  identitySettings: IdentitySettings,
 ): Promise<
   { remove: true; reason: string } | { remove: false; reason: string }
 > {
@@ -3137,6 +3697,29 @@ async function inspectOrphanWorktree(
     repoRoot,
   );
   const branch = branchRun.success ? branchRun.stdout.trim() : "";
+  const id = await worktreeIdFromGitMetadata(identitySettings, dir).catch(
+    () => undefined,
+  );
+  const gitDirs = await resolveGitDirs(dir);
+  const ready = gitDirs.absoluteGitDir !== undefined &&
+    await hasPlainReadyMarker(gitDirs.absoluteGitDir);
+  const ownership = id === undefined
+    ? { owned: false as const, reason: "worktree identity is unavailable" }
+    : !ready
+    ? {
+      owned: false as const,
+      reason: "discern worktree-ready ownership marker is unavailable",
+    }
+    : classifyAutomaticBranchOwnership({
+      kind: "worktree",
+      branch,
+      id,
+      settings: identitySettings,
+      source: "ready-marker",
+    });
+  if (!ownership.owned) {
+    keepReasons.push(`outside discern ownership: ${ownership.reason}`);
+  }
   if (branch !== "") {
     if (!(await branchIsMerged(repoRoot, branch, mainBranch))) {
       keepReasons.push(`branch ${branch} has unmerged commits`);
@@ -3263,14 +3846,25 @@ export async function scanOrphanWorktreesForSweep(
   const removable: OrphanWorktreeRemoval[] = [];
   const kept: { path: string; reason: string }[] = [];
   for (const dir of orphans) {
-    const decision = await inspectOrphanWorktree(mainRepo, dir, mainBranch);
+    const decision = await inspectOrphanWorktree(
+      mainRepo,
+      dir,
+      mainBranch,
+      opts.identitySettings,
+    );
     if (decision.remove) {
       removable.push({ path: dir, reason: decision.reason });
     } else {
       kept.push({ path: dir, reason: decision.reason });
     }
   }
-  return { mainRepo, mainBranch, removable, kept };
+  return {
+    mainRepo,
+    mainBranch,
+    identitySettings: opts.identitySettings,
+    removable,
+    kept,
+  };
 }
 
 /** Render the read-only orphan-worktree sweep scan without re-scanning. */
@@ -3318,6 +3912,7 @@ async function orphanCandidateChanged(
     scan.mainRepo,
     dir,
     scan.mainBranch,
+    scan.identitySettings,
   );
   return decision.remove ? undefined : decision.reason;
 }
@@ -3337,8 +3932,18 @@ export async function sweepOrphanWorktrees(
   const removed: string[] = [];
   let failed = false;
   for (const item of scan.removable) {
-    if (!(await pathExists(item.path))) {
-      continue; // already gone — nothing left to remove
+    const observed = await observePath(item.path);
+    if (observed.kind === "absent") {
+      continue;
+    }
+    if (observed.kind === "unavailable") {
+      log.error(
+        `Removal failed for orphan ${item.path}: the path could not be ` +
+          `inspected (${observed.reason}). Fix its permissions, then re-run ` +
+          "`discern worktree prune`.",
+      );
+      failed = true;
+      continue;
     }
     const changed = await orphanCandidateChanged(scan, item.path);
     if (changed !== undefined) {
@@ -3349,11 +3954,14 @@ export async function sweepOrphanWorktrees(
     }
     log.line(`Removing orphan ${item.path}...`);
     try {
-      await removeWorktreeSafely(item.path, scan.mainRepo, {
-        pruneMetadata: false,
-      });
+      await removeWorktreeSafely(item.path, scan.mainRepo);
       removed.push(item.path);
-    } catch {
+    } catch (error) {
+      log.error(
+        `Removal failed for orphan ${item.path}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
       failed = true;
     }
   }

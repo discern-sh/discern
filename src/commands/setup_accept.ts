@@ -35,6 +35,7 @@ import {
   fastForwardCheckedOutBranch,
   integrationBranch,
 } from "../engine/worktree/git.ts";
+import { deleteAutomaticallyOwnedBranch } from "../engine/worktree/ownership.ts";
 import { finishResult } from "../engine/gate/finish.ts";
 import { clearGateProof, inspectGateProof } from "../engine/gate/proof.ts";
 import {
@@ -646,9 +647,17 @@ export async function runSetupAccept(
   const cleared = await clearGateProof(root);
   const proofCleared = cleared.status === "cleared";
 
-  // The setup branch is fully contained in the target branch.
-  const del = await run(["branch", "-d", branch]);
-  const branchDeleted = del.success;
+  // The setup branch is fully contained in the target branch. Retire only the
+  // exact dedicated ref at the commit the accepted Proof identified; a moved
+  // or unexpectedly checked-out branch remains visible instead.
+  const branchDeletion = await deleteAutomaticallyOwnedBranch({
+    repoRoot: root,
+    branch,
+    expectedCommit: validated.head,
+    ownership: { kind: "setup", branch },
+    mergedInto: target,
+  });
+  const branchDeleted = branchDeletion.kind !== "refused";
 
   const data: SetupAcceptData = {
     landed: true,
@@ -686,8 +695,12 @@ export async function runSetupAccept(
   if (branchDeleted) {
     log.info(`Deleted the merged ${branch} branch.`);
   } else {
+    const reason = branchDeletion.kind === "refused"
+      ? `: ${branchDeletion.reason}`
+      : "";
     log.info(
-      `Left the ${branch} branch in place (it is fully merged; delete it with \`git branch -d ${branch}\` when ready).`,
+      `Left the ${branch} branch in place${reason}. It is fully merged; ` +
+        `delete it with \`git branch -d ${branch}\` when ready.`,
     );
   }
   if (!proofNotesFetchSucceeded(proofFetch)) {

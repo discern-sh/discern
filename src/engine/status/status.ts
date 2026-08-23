@@ -445,6 +445,7 @@ export async function statusResult(
     data.setup_unfinished = {
       pending_markers: progress.pendingMarkers,
       known_jobs: progress.knownJobs,
+      assurance: progress.assurance,
     };
   }
 

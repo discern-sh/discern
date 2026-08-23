@@ -22,6 +22,7 @@ import { agentFileContents } from "../src/engine/instruction_render.ts";
 import { ignoreCovers } from "../src/lib/agent_gitignore.ts";
 import { fromFileUrl, join } from "@std/path";
 import { CONTEXT_LOADED_ARTIFACT } from "../src/shared/file_ownership.ts";
+import { rebaseMarkdownLinks } from "../src/lib/markdown_links.ts";
 
 /** The canonical full-body file (codex → AGENTS.md). */
 const CANONICAL: InstructionFile = {
@@ -45,6 +46,14 @@ const REUSE: InstructionFile = {
   writtenArtifact: CONTEXT_LOADED_ARTIFACT,
   canonical: false,
   reuseCanonical: true,
+};
+
+/** A synthetic canonical provider whose full-body file is nested. */
+const NESTED_CANONICAL: InstructionFile = {
+  path: "config/agent/AGENTS.md",
+  ownership: { generated: true },
+  writtenArtifact: CONTEXT_LOADED_ARTIFACT,
+  canonical: true,
 };
 
 Deno.test("emitsInstructionFile: false only for a reuse-canonical entry", () => {
@@ -99,6 +108,19 @@ Deno.test("agentFileContents: reuse-canonical supplies the canonical for pointer
   assertEquals([...files.keys()], ["AGENTS.md", "CLAUDE.md"]);
   assertEquals(files.get("AGENTS.md"), body);
   assertEquals(files.get("CLAUDE.md"), "@AGENTS.md\n");
+});
+
+Deno.test("agentFileContents: a synthetic nested provider receives a body rendered for its own path", () => {
+  const source = "[guide](./guide.md)\n";
+  const files = agentFileContents(
+    [NESTED_CANONICAL],
+    (outputPath) =>
+      rebaseMarkdownLinks(source, "discern/instructions.md", outputPath),
+  );
+  assertEquals(
+    files.get(NESTED_CANONICAL.path),
+    "[guide](../../discern/guide.md)\n",
+  );
 });
 
 Deno.test("reuse-canonical: the read path is tracked — never ignored by the seed fragment", () => {

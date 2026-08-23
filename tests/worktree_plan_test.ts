@@ -25,6 +25,11 @@ import {
 } from "../src/engine/worktree/plan.ts";
 import { remapWorktreeLocalTemplatesDir } from "../src/engine/worktree/lifecycle.ts";
 
+const PRUNE_IDENTITY_SETTINGS = {
+  slug: "app",
+  branchPrefix: "agent/",
+} as const;
+
 /** A ledger entry fixture with sensible defaults, overridable per field. */
 function entry(over: Partial<ResourceEntry> = {}): ResourceEntry {
   return {
@@ -236,6 +241,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     gitScan: {
       repoRoot: "/repo",
       mainBranch: "main",
+      identitySettings: PRUNE_IDENTITY_SETTINGS,
       worktreesToRemove: [],
       branchesToDelete: [],
       staleMetadata: [],
@@ -245,6 +251,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     orphanScan: {
       mainRepo: "/repo",
       mainBranch: "main",
+      identitySettings: PRUNE_IDENTITY_SETTINGS,
       removable: [],
       kept: [],
     },
@@ -265,12 +272,25 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     gitScan: {
       repoRoot: "/repo",
       mainBranch: "main",
-      worktreesToRemove: [{ path: "/repo/.wt/stale", branch: "agent/stale" }],
-      branchesToDelete: ["agent/old"],
+      identitySettings: PRUNE_IDENTITY_SETTINGS,
+      worktreesToRemove: [{
+        path: "/repo/.wt/stale",
+        branch: "agent/stale",
+        id: "stale",
+        head: "1111111111111111111111111111111111111111",
+      }],
+      branchesToDelete: [{
+        branch: "agent/old",
+        id: "old",
+        expectedCommit: "2222222222222222222222222222222222222222",
+      }],
       staleMetadata: [{
         path: "/repo/.wt/gone",
         adminDir: "/repo/.git/worktrees/gone",
         gitDir: "/repo/.wt/gone/.git",
+        id: "gone",
+        branch: "agent/gone",
+        head: "3333333333333333333333333333333333333333",
       }],
       worktreeLines: [],
       branchLines: [],
@@ -278,6 +298,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     orphanScan: {
       mainRepo: "/repo",
       mainBranch: "main",
+      identitySettings: PRUNE_IDENTITY_SETTINGS,
       removable: [{ path: "/repo/.wt/orphan", reason: "clean" }],
       kept: [{
         path: "/repo/.wt/dirty",
@@ -342,6 +363,7 @@ Deno.test("prunePlanToEngine: the contained group is offer-only by default and r
     gitScan: {
       repoRoot: "/repo",
       mainBranch: "main",
+      identitySettings: PRUNE_IDENTITY_SETTINGS,
       worktreesToRemove: [],
       branchesToDelete: [],
       staleMetadata: [],
@@ -351,6 +373,7 @@ Deno.test("prunePlanToEngine: the contained group is offer-only by default and r
     orphanScan: {
       mainRepo: "/repo",
       mainBranch: "main",
+      identitySettings: PRUNE_IDENTITY_SETTINGS,
       removable: [],
       kept: [],
     },

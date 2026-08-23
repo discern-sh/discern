@@ -20,7 +20,16 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
-import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import {
+  parseConfig,
+  parseConfigOrThrow,
+} from "../src/shared/config_schema.ts";
+import {
+  KnownJobAssuranceSchema,
+  SetupAssuranceSchema,
+} from "../src/shared/result_schemas.ts";
+import { resultPresenterForVerb } from "../src/shared/result_contracts.ts";
+import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
 import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { KNOWN_VERBS } from "../src/shared/verbs.ts";
@@ -30,6 +39,7 @@ import {
   classifyKnownJob,
   deferralReason,
   isSelfSuppliedCommand,
+  KNOWN_JOB_STATES,
 } from "../src/shared/setup_assurance.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -154,6 +164,114 @@ Deno.test("the verdict rolls up enforced coverage: full / partial / minimal", ()
   assertEquals(assessSetupAssurance(housekeeping).verdict, "minimal");
 });
 
+Deno.test("a declared not-applicable job keeps the v1 state enum and leaves a full applicable denominator", () => {
+  const config = parseConfigOrThrow(
+    [
+      "[assurance]",
+      'not_applicable = ["build"]',
+      "",
+      "[jobs]",
+      'format = "fmt"',
+      'lint = "lint"',
+      'typecheck = "tc"',
+      'test = "test"',
+      'smoke = "smoke"',
+    ].join("\n"),
+  );
+  const assurance = assessSetupAssurance(config);
+  assertEquals(assurance.verdict, "full");
+  assertEquals(assurance.enforced, 5);
+  assertEquals(assurance.total, 5);
+  assertEquals(assurance.known_total, Object.keys(KNOWN_JOBS).length);
+  assertEquals(assurance.not_applicable, 1);
+
+  const build = assurance.known_jobs.find((job) => job.name === "build");
+  assertEquals(build, {
+    name: "build",
+    state: "absent",
+    not_applicable: true,
+  });
+  assertEquals(KnownJobAssuranceSchema.parse(build), build);
+  assertEquals(SetupAssuranceSchema.parse(assurance), assurance);
+});
+
+Deno.test("result schema v1 keeps the three-state enum and accepts both legacy and additive assurance shapes", () => {
+  assertEquals(KNOWN_JOB_STATES, ["enforced", "deferred", "absent"]);
+  const legacy = {
+    known_jobs: [{ name: "build", state: "absent" as const }],
+    enforced: 0,
+    total: 1,
+    verdict: "minimal" as const,
+  };
+  assertEquals(SetupAssuranceSchema.parse(legacy), legacy);
+  assertEquals(
+    KnownJobAssuranceSchema.parse({
+      name: "build",
+      state: "absent",
+      not_applicable: true,
+    }),
+    { name: "build", state: "absent", not_applicable: true },
+  );
+});
+
+Deno.test("every known job auto-enrols in applicability and absent applicable jobs still keep coverage incomplete", () => {
+  for (const name of Object.keys(KNOWN_JOBS)) {
+    const config = parseConfigOrThrow(
+      `[assurance]\nnot_applicable = ["${name}"]\n`,
+    );
+    const assurance = assessSetupAssurance(config);
+    const row = assurance.known_jobs.find((job) => job.name === name);
+    assertEquals(row?.state, "absent");
+    assertEquals(row?.not_applicable, true);
+    assertEquals(assurance.total, Object.keys(KNOWN_JOBS).length - 1);
+  }
+
+  const incomplete = assessSetupAssurance(parseConfigOrThrow([
+    "[assurance]",
+    'not_applicable = ["build"]',
+    "",
+    "[jobs]",
+    'test = "test"',
+  ].join("\n")));
+  assertEquals(incomplete.verdict, "partial");
+  assertEquals(incomplete.enforced, 1);
+  assertEquals(incomplete.total, Object.keys(KNOWN_JOBS).length - 1);
+  assertEquals(
+    incomplete.known_jobs.find((job) => job.name === "lint")?.state,
+    "absent",
+  );
+  assertEquals(
+    incomplete.known_jobs.find((job) => job.name === "lint")
+      ?.not_applicable,
+    undefined,
+  );
+});
+
+Deno.test("applicability rejects custom names, duplicates, and every configured-command contradiction", () => {
+  const invalid = [
+    {
+      toml: '[assurance]\nnot_applicable = ["deploy"]\n',
+      includes: "expected one of",
+    },
+    {
+      toml: '[assurance]\nnot_applicable = ["build", "build"]\n',
+      includes: "once",
+    },
+    {
+      toml: '[assurance]\nnot_applicable = ["test"]\n\n[jobs]\ntest = ":"\n',
+      includes: "configured",
+    },
+  ];
+  for (const testCase of invalid) {
+    const parsed = parseConfig(testCase.toml);
+    assertEquals(parsed.config, undefined);
+    assert(
+      parsed.issues.some((issue) => issue.message.includes(testCase.includes)),
+      JSON.stringify(parsed.issues),
+    );
+  }
+});
+
 Deno.test("the seeded template's [jobs] awards no coverage: a fresh scaffold reads minimal", async () => {
   // The false-green guard: the scaffold must never satisfy the assurance count
   // by itself. Assess the REAL template's canonical [jobs] block (the same
@@ -248,6 +366,61 @@ Deno.test("setup done --json carries the per-capability assurance block + verdic
     );
     assertEquals(cap("typecheck").state, "absent");
     assertEquals(cap("build").state, "absent");
+  });
+});
+
+Deno.test("setup done terminal, JSON, and Markdown agree on the applicable denominator", async () => {
+  const applicableNames = Object.keys(KNOWN_JOBS).filter((name) =>
+    name !== "build"
+  );
+  const applicableTotal = applicableNames.length;
+  const config = [
+    "[assurance]",
+    'not_applicable = ["build"]',
+    "",
+    "[jobs]",
+    ...applicableNames.map((name) => `${name} = "${name}"`),
+  ].join("\n");
+
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await writeConfig(dir, config);
+    const terminal = await runAgent(dir, ["setup", "done", "--force"]);
+    assertEquals(terminal.code, 0, terminal.output);
+    assertTerminalTextIncludes(
+      terminal.stdout,
+      `${applicableTotal} of ${applicableTotal} applicable protections are enforced`,
+    );
+    assertTerminalTextIncludes(terminal.stdout, "build");
+    assertTerminalTextIncludes(terminal.stdout, "does not apply");
+
+    const result = JSON.parse(
+      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+    );
+    assertEquals(result.data.assurance.enforced, applicableTotal);
+    assertEquals(result.data.assurance.total, applicableTotal);
+    assertEquals(
+      result.data.assurance.known_total,
+      Object.keys(KNOWN_JOBS).length,
+    );
+    assertEquals(result.data.assurance.not_applicable, 1);
+    assertStringIncludes(
+      result.data.instructions,
+      `${applicableTotal} of ${applicableTotal} applicable protections are wired and running`,
+    );
+    assertStringIncludes(result.data.instructions, "`build` does not apply");
+
+    const markdown = renderResultMarkdown(
+      result,
+      resultPresenterForVerb("setup done"),
+    );
+    assertStringIncludes(
+      markdown,
+      `Applicable protections: ${applicableTotal} of ${applicableTotal} enforced; 1 does not apply; verdict \`full\`.`,
+    );
+    for (const name of Object.keys(KNOWN_JOBS)) {
+      assertStringIncludes(terminal.stdout, name);
+    }
   });
 });
 

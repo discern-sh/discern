@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative and technical work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same tree appears in [plain language](feature-canon-plain.md); the [Human Benefit Canon](feature-canon-human-benefits.md) composes commercial human value, and the [Agent Benefit Canon](feature-canon-agent-benefits.md) composes coding-agent outcomes._
 
-10 pillars · 139 nodes · 11 benefit statements · 9 agent-benefit clusters · 77 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+10 pillars · 139 nodes · 11 benefit statements · 9 agent-benefit clusters · 78 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
@@ -39,7 +39,7 @@ The `discern done` command runs the project's full quality check: the declared j
 
 _The project's command result is the authority on whether work is done. An agent's confidence remains advisory._
 
-- **Declared jobs** — A project declares its commands once, under `[jobs]`. The known names `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` derive their stage; a custom `[jobs.<name>]` table declares one, with an optional `provides` label. _Every agent and every human runs the same commands, read from one file._
+- **Declared jobs** — A project declares its commands once, under `[jobs]`. The known names `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` derive their stage and accept an ordered command list; a custom `[jobs.<name>]` table declares one, with an optional `provides` label. _Every agent and every human runs the same commands, read from one file._
   - **format** — The fix-stage job: a formatter or codemod that may rewrite files. It runs first and serially, so mutations never race read-only checks.
   - **build** — Produces the artifacts later stages read — compile, bundle, codegen.
   - **lint** — Read-only static analysis at the check stage.
@@ -99,7 +99,7 @@ _Each parallel task has a separate checkout, identity, and declared resources, i
 - **Per-worktree resources** — `[worktree.resources.<name>]` declares an external thing a worktree needs in isolation — a database, an emulator, a container — as a `create` and a `destroy` command with optional `ensure`, `required`, `retries`, and `gc`. Resources are created top-to-bottom, destroyed bottom-to-top, and expanded with `@…@` identity tokens. _Isolation extends past the checkout to everything the checkout touches._
 - **Crash-safe provisioning** — The lifecycle writes its intent before acting on it: a resource's ledger entry — its destroy command already fully expanded — lands before `create` runs, a ready marker records the moment the non-repeatable phases finished, and a failure after the checkout was added discards the partial worktree rather than leaving it registered. _A crash leaves a working worktree or a reclaimable one, and a plausible-looking half-checkout is discarded at the moment of failure._
 - **Bounded drop recovery** — Before `discern worktree drop` deletes a branch, it keeps the committed tip under `refs/discern/recovery/`, prints that ref, and atomically limits the repository to the newest 32 retained tips. _A mistaken drop has a direct route back to committed work without turning destructive cleanup into an unbounded archive._
-- **Orphan reclamation** — `discern worktree prune` finds resources whose worktree vanished without a clean teardown and runs their `destroy` commands — the GC safety net behind the lifecycle verbs (`setup`, `ensure`, `teardown`, `drop`). _A crashed session can't leak databases forever._
+- **Owned worktree reclamation** — `discern worktree prune` reclaims merged worktrees, stale state, reappeared paths, and resources only when recorded identity proves discern ownership. Merge status alone grants nothing, and teardown succeeds only after both Git registration and the filesystem path are absent. _A crashed session can be cleaned up without treating unrelated branches or neighboring directories as disposable._
 - **Env inheritance** — `[worktree].inherit_env` copies named values from the main checkout's env files into a new worktree's — the secrets a fresh checkout needs that version control doesn't carry.
 - **Ignored-file drift** — The lifecycle fingerprints ignored files at setup and reports top-level ignored paths that changed before the worktree is removed. _Work hiding outside version control gets named before teardown deletes it._
 - **The fleet view** — From the main checkout, `discern status` reports a row per worktree: branch, clean state, ahead/behind, last activity, a broken flag for a checkout whose creation never completed, and cross-worktree changed-file collisions. _The human steers parallel work without visiting each checkout, and two efforts touching the same file get named before either lands._
@@ -183,7 +183,7 @@ One binary installs, verifies, upgrades, and removes the system, and a project's
 
 _A project adopts discern through one tracked root file and can remove its wiring with one command while retaining authored work._
 
-- **Agent-driven setup** — `discern setup` is a staged, consent-driven handshake the coding agent completes: it verifies write authority, detects the default branch (offering git init on a bare directory), sniffs the repo to fill `[jobs]`, proves the project runs in a worktree, and lands the finished configuration with `setup accept`. Each step serves ready-to-relay messages, a fresh scaffold requires a `--confirmed` attestation, and installing a dependency is its own consent point. _Tell your agent to run setup and answer its questions; the configuration engine is the agent, and every irreversible step asks first._
+- **Agent-driven setup** — `discern setup` is a staged, consent-driven handshake the coding agent completes: it verifies write authority, detects the default branch (offering git init on a bare directory), configures `[jobs]` and records which known lifecycles do not apply, proves the project runs in a worktree, and lands the finished configuration with `setup accept`. Completion reports enforced protections against the applicable denominator. Each step serves ready-to-relay messages, a fresh scaffold requires a `--confirmed` attestation, and installing a dependency is its own consent point. _Tell your agent to run setup and answer its questions; the configuration engine is the agent, and every irreversible step asks first._
 - **Observable incompleteness** — An unfinished setup is a machine-readable state, reported by `discern status` and the session-start hook until the handshake completes. _Status and session-start results keep unfinished setup visible until completion._
 - **Ready-to-relay messages** — At the consent and completion moments, setup serves the message to forward to the human — first-person prose, with each fact that must survive as its own list item — rather than instructions about a message. The identical text is carried in every result representation, including the structured envelope's instructions field. _Forwarding the authored message preserves every required fact and its intended tone._
 - **Landing authority is proved per invocation** — Scaffolding a fresh install requires a `--confirmed` conversation attestation. Landing accepts either that fresh attestation or a machine-checked grant recorded on the trunk or at the desk; absent both, it refuses read-only. Every successful landing records which source authorized it. _Consent comes from evidence at the landing boundary, never from an agent's memory of an earlier conversation._
@@ -292,6 +292,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 ### `config`
 
 - `acceptance` — consent-attestations
+- `assurance` — setup
 - `checkpoints` — checkpoints
 - `coupling` — insight
 - `gate` — gate

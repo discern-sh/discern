@@ -26,12 +26,6 @@ export interface DropRecoveryRef {
   readonly evicted: number;
 }
 
-/** Result of deleting the branch only while it still names the preserved tip. */
-export interface DropBranchDeletion {
-  readonly deleted: boolean;
-  readonly reason: string;
-}
-
 interface ExistingRecoveryRef {
   readonly ref: string;
   readonly commit: string;
@@ -169,36 +163,4 @@ export async function preserveDropRecoveryRef(
     }
     return { ref, commit, evicted: evicted.length };
   });
-}
-
-/**
- * Delete a dropped branch only if it still points at the commit preserved above.
- *
- * The worktree is already gone when the lifecycle calls this. A concurrent ref
- * move therefore keeps the branch and its newer commit instead of letting a
- * later unconditional `branch -D` outrun the recovery snapshot.
- */
-export async function deleteDropBranchAtCommit(
-  root: string,
-  branch: string,
-  expectedCommit: string,
-): Promise<DropBranchDeletion> {
-  if (!OBJECT_ID.test(expectedCommit)) {
-    return { deleted: false, reason: "the preserved commit id is invalid" };
-  }
-  const deleted = await runGit([
-    "update-ref",
-    "-d",
-    `refs/heads/${branch}`,
-    expectedCommit,
-  ], { cwd: root });
-  if (!deleted.success) {
-    return { deleted: false, reason: gitReason(deleted) };
-  }
-  // Match `git branch -D`'s cleanup of branch-local configuration. The ref is
-  // already safely deleted, so an absent section or config refusal is advisory.
-  await runGit(["config", "--remove-section", `branch.${branch}`], {
-    cwd: root,
-  });
-  return { deleted: true, reason: "" };
 }

@@ -147,7 +147,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         what:
           `A project declares its commands once, under \`[jobs]\`. The known names ${
             codeList(Object.keys(KNOWN_JOBS), "and")
-          } derive their stage; a custom \`[jobs.<name>]\` table declares one, with an optional \`provides\` label.`,
+          } derive their stage and accept an ordered command list; a custom \`[jobs.<name>]\` table declares one, with an optional \`provides\` label.`,
         why:
           "Every agent and every human runs the same commands, read from one file.",
         plain: {
@@ -155,7 +155,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           what:
             `A project lists its instructions once, in the part of its settings called \`[jobs]\`. The familiar names ${
               codeList(Object.keys(KNOWN_JOBS), "and")
-            } automatically go in the right group; any additional named item goes under \`[jobs.<name>]\`, states its own group, and may add a \`provides\` label saying what it supplies.`,
+            } automatically go in the right group and can contain an ordered list; any additional named item goes under \`[jobs.<name>]\`, states its own group, and may add a \`provides\` label saying what it supplies.`,
           why:
             "Every person and every coding agent runs the same instructions, taken from the same file.",
         },
@@ -846,16 +846,17 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       },
       {
         id: "worktree-prune",
-        title: "Orphan reclamation",
+        title: "Owned worktree reclamation",
         what:
-          "`discern worktree prune` finds resources whose worktree vanished without a clean teardown and runs their `destroy` commands — the GC safety net behind the lifecycle verbs (`setup`, `ensure`, `teardown`, `drop`).",
-        why: "A crashed session can't leak databases forever.",
+          "`discern worktree prune` reclaims merged worktrees, stale state, reappeared paths, and resources only when recorded identity proves discern ownership. Merge status alone grants nothing, and teardown succeeds only after both Git registration and the filesystem path are absent.",
+        why:
+          "A crashed session can be cleaned up without treating unrelated branches or neighboring directories as disposable.",
         plain: {
-          title: "Cleaning up leftovers",
+          title: "Cleaning up only discern's leftovers",
           what:
-            "`discern worktree prune` finds supporting services whose working copy vanished without an orderly cleanup and runs their saved removal instructions — the safety net behind the routine `setup`, `ensure`, `teardown`, and `drop` steps.",
+            "`discern worktree prune` removes working copies whose saved changes have joined the shared work, leftover records, returned paths, and supporting services only when discern's saved identity proves they belong to it. A safe-to-remove saved-change name is not enough, and cleanup succeeds only when both the copy and its registration are gone.",
           why:
-            "A crashed session cannot leave forgotten information stores running forever.",
+            "An interrupted session can be cleaned up without treating unrelated saved work or nearby directories as disposable.",
         },
         surfaces: ["verb:worktree"],
       },
@@ -1632,17 +1633,17 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "setup",
         title: "Agent-driven setup",
         what:
-          "`discern setup` is a staged, consent-driven handshake the coding agent completes: it verifies write authority, detects the default branch (offering git init on a bare directory), sniffs the repo to fill `[jobs]`, proves the project runs in a worktree, and lands the finished configuration with `setup accept`. Each step serves ready-to-relay messages, a fresh scaffold requires a `--confirmed` attestation, and installing a dependency is its own consent point.",
+          "`discern setup` is a staged, consent-driven handshake the coding agent completes: it verifies write authority, detects the default branch (offering git init on a bare directory), configures `[jobs]` and records which known lifecycles do not apply, proves the project runs in a worktree, and lands the finished configuration with `setup accept`. Completion reports enforced protections against the applicable denominator. Each step serves ready-to-relay messages, a fresh scaffold requires a `--confirmed` attestation, and installing a dependency is its own consent point.",
         why:
           "Tell your agent to run setup and answer its questions; the configuration engine is the agent, and every irreversible step asks first.",
         plain: {
           title: "Setup led by the coding agent",
           what:
-            "`discern setup` is a staged, permission-first conversation the coding agent completes: it proves it may make changes, finds the project's main shared line of work (offering to begin version history in a bare folder), examines the project to fill in `[jobs]`, proves the project runs in a separate working copy, and completes the settings with `setup accept`. Every step serves a message ready to pass to the person in charge, starting from nothing requires `--confirmed`, and installing any extra software is its own permission moment.",
+            "`discern setup` is a staged, permission-first conversation the coding agent completes: it proves it may make changes, finds the project's main shared line of work (offering to begin version history in a bare folder), records the project's checks and which familiar steps do not apply, proves the project runs in a separate working copy, and completes the settings with `setup accept`. Completion counts only the familiar protections that apply. Every step serves a message ready to pass to the person in charge, starting from nothing requires `--confirmed`, and installing any extra software is its own permission moment.",
           why:
             "Tell your coding assistant to run setup and answer its questions; the assistant supplies the judgment, and every hard-to-undo step asks first.",
         },
-        surfaces: ["verb:setup"],
+        surfaces: ["verb:setup", "config:assurance"],
       },
       {
         id: "setup-observability",
@@ -3244,9 +3245,9 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         id: "clean-abandoned-environments",
         title: "Clean up abandoned tasks without a cliff edge",
         value:
-          "Recent committed work from a mistaken task removal still has a direct route back, while resources from a vanished worktree can be reclaimed without treating untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.",
+          "Recent committed work from a mistaken task removal still has a direct route back, while positively identified worktrees and resources can be reclaimed without treating unrelated refs or untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.",
         whyItFollows:
-          "Before drop removes a branch, discern keeps its committed tip in a bounded local recovery list. `discern worktree prune` finds worktrees that disappeared without teardown, plans their resource cleanup, and reports ignored-file drift before removal can proceed.",
+          "Before drop removes an owned branch, discern keeps its committed tip in a bounded local recovery list. `discern worktree prune` requires recorded ownership, verifies path and Git-registration absence, plans orphan resource cleanup, and reports ignored-file drift before removal can proceed.",
         drawsOn: ["drop-recovery", "worktree-prune", "ignored-drift"],
       },
     ],
@@ -3697,7 +3698,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can continue a durable effort after a process, session, or provisioning interruption without inventing a new workspace or losing partial state without an account.",
         whyItFollows:
-          "Provisioning records recoverable state, drop repairs interrupted lifecycle operations, prune reconciles abandoned worktrees through an explicit action, and effectful workflows are designed for interruption safety.",
+          "Provisioning records recoverable state, drop repairs interrupted lifecycle operations, prune reconciles positively identified abandoned worktrees through an explicit action, and effectful workflows are designed for interruption safety.",
         boundary:
           "Recovery preserves and explains known lifecycle state; it cannot reconstruct external resources whose provider destroyed them outside discern's recorded contract.",
         drawsOn: [

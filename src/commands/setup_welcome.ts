@@ -45,6 +45,7 @@ import {
   type SetupProgress,
   setupProgress,
 } from "../shared/setup_state.ts";
+import { notApplicableCountLabel } from "../shared/setup_assurance.ts";
 
 /** Options for the read-only welcome (just the global flags — it takes no input). */
 export interface WelcomeOptions {
@@ -197,6 +198,7 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
             progress: {
               pending_markers: progress.pendingMarkers,
               known_jobs: progress.knownJobs,
+              assurance: progress.assurance,
             },
           }
           : {}),
@@ -526,9 +528,8 @@ function inProgressWelcomeGroups(
 
 /**
  * Render derived setup progress as human lines — what doc/instructions authoring is left
- * (files still carrying a marker) and which known jobs are wired. Shared shape with
- * `status`, which reads the same {@link SetupProgress}. Exported so `status` renders
- * it identically.
+ * (files still carrying a marker) and which known jobs are wired or do not apply.
+ * Shared shape with `status`, which reads the same {@link SetupProgress}.
  */
 export function renderProgressLines(progress: SetupProgress): string[] {
   const lines: string[] = ["Progress so far:"];
@@ -547,12 +548,25 @@ export function renderProgressLines(progress: SetupProgress): string[] {
   const wired = progress.knownJobs.filter((job) => job.wired).map((job) =>
     job.name
   );
-  const unset = progress.knownJobs.filter((job) => !job.wired).map((job) =>
-    job.name
-  );
+  const notApplicable = progress.knownJobs.filter((job) =>
+    job.not_applicable === true
+  ).map((job) => job.name);
+  const unset = progress.knownJobs.filter((job) =>
+    !job.wired && job.not_applicable !== true
+  ).map((job) => job.name);
   const wiredPart = wired.length > 0 ? wired.join(", ") : "none yet";
+  const notApplicablePart = notApplicable.length > 0
+    ? ` · does not apply: ${notApplicable.join(", ")}`
+    : "";
   const unsetPart = unset.length > 0 ? ` · unset: ${unset.join(", ")}` : "";
-  lines.push(`  • known jobs wired: ${wiredPart}${unsetPart}`);
+  lines.push(
+    `  • known jobs wired: ${wiredPart}${notApplicablePart}${unsetPart}`,
+  );
+  lines.push(
+    `  • applicable protections: ${progress.assurance.enforced} of ${progress.assurance.total} enforced · ${
+      notApplicableCountLabel(progress.assurance.not_applicable)
+    }`,
+  );
 
   return lines;
 }

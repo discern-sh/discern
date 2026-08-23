@@ -1,19 +1,19 @@
 /**
- * Setup **quality-coverage assurance** — the honest, per-known-job account
+ * Setup **quality-coverage assurance** — the per-known-job account
  * `discern setup done` reports at completion (A12).
  *
  * A setup can pass green with only some of the recommended gate active: a project
  * might wire format/lint/typecheck but legitimately have no test suite wired yet, or
  * no build step at all. That is correct — but "the gate is proven" must not read to a
  * novice as "every protection is running." So at `done` we classify each known
- * job into one of three honest states and roll them into an overall verdict,
+ * job into one of three states and roll them into an overall verdict,
  * which terminal, JSON, and Markdown presentations all render. This keeps
  * "setup is complete" cleanly distinct from "the full recommended gate is active."
  *
- * The classification is DERIVED from the known names under `[jobs]` — unfakeable
- * and free of any self-report — and iterates {@link KNOWN_JOBS} (the SSOT), so a
- * new known job auto-enrolls here the moment it joins that set. Commands that
- * invoke discern's own built-in vocabulary count for nothing (see
+ * Command enforcement is derived from `[jobs]`; lifecycle applicability is the
+ * explicit `[assurance].not_applicable` fact. Both iterate {@link KNOWN_JOBS}
+ * (the SSOT), so a new known job auto-enrolls as applicable and absent. Commands
+ * that invoke discern's own built-in vocabulary count for nothing (see
  * {@link isSelfSuppliedCommand}): the scaffold seeds `format = "discern tidy"`
  * into every install, so counting it would start every project at one enforced
  * job and make the floor verdict unreachable — an unearned green (ADR 0220).
@@ -45,6 +45,10 @@ export type KnownJobState = typeof KNOWN_JOB_STATES[number];
 export interface KnownJobAssurance {
   name: string;
   state: KnownJobState;
+  /** Present only when the absent job is explicitly excluded from setup
+   * assurance through `[assurance].not_applicable`. The v1 state remains
+   * `absent`; this additive marker carries the applicability distinction. */
+  not_applicable?: true;
   /** The deferral reason (an inline `#` comment), present only for a `deferred`
    * job that carries one. */
   reason?: string;
@@ -55,14 +59,19 @@ export interface KnownJobAssurance {
 }
 
 /**
- * The overall coverage verdict, over the {@link KNOWN_JOBS} set:
- *  - `full` — every known job is enforced (the full recommended gate is active);
- *  - `partial` — at least one is enforced, but not all;
- *  - `minimal` — none is enforced (setup is complete, but the gate guards nothing
- *    of the project's own yet — even when discern's housekeeping still runs).
+ * The overall coverage verdict, over applicable members of {@link KNOWN_JOBS}:
+ *  - `full` — every applicable known job is enforced;
+ *  - `partial` — at least one applicable job is enforced, but not all;
+ *  - `minimal` — no applicable job is enforced (setup is complete, but the Gate
+ *    guards nothing of the project's own yet, even when housekeeping still runs).
  */
 export const ASSURANCE_VERDICTS = ["full", "partial", "minimal"] as const;
 export type AssuranceVerdict = typeof ASSURANCE_VERDICTS[number];
+
+/** One shared count label for terminal, Markdown, and MCP presentations. */
+export function notApplicableCountLabel(count: number): string {
+  return `${count} ${count === 1 ? "does" : "do"} not apply`;
+}
 
 /** The complete assurance summary `setup done` reports. */
 export interface SetupAssurance {
@@ -70,8 +79,13 @@ export interface SetupAssurance {
   known_jobs: KnownJobAssurance[];
   /** How many known jobs are `enforced`. */
   enforced: number;
-  /** The total number of known jobs considered. */
+  /** The applicable-job denominator used by `verdict`. Retains the existing v1
+   * summary invariant: `full` means `enforced === total`. */
   total: number;
+  /** Every member of {@link KNOWN_JOBS}, including jobs that do not apply. */
+  known_total: number;
+  /** How many rows carry `not_applicable: true`. */
+  not_applicable: number;
   /** The rolled-up {@link AssuranceVerdict}. */
   verdict: AssuranceVerdict;
 }
@@ -175,8 +189,10 @@ export function assessSetupAssurance(
   rawToml?: string,
 ): SetupAssurance {
   const names = Object.keys(KNOWN_JOBS) as Array<keyof typeof KNOWN_JOBS>;
+  const notApplicableNames = new Set(config.assurance.not_applicable);
   const known_jobs: KnownJobAssurance[] = names.map((name) => {
     const state = classifyKnownJob(config, name);
+    const notApplicable = notApplicableNames.has(name);
     const selfSupplied = state === "deferred" &&
       isSelfSuppliedOnly(config, name);
     const reason = state === "deferred" && !selfSupplied &&
@@ -186,16 +202,27 @@ export function assessSetupAssurance(
     return {
       name,
       state,
+      ...(notApplicable ? { not_applicable: true as const } : {}),
       ...(reason !== undefined ? { reason } : {}),
       ...(selfSupplied ? { self_supplied: true as const } : {}),
     };
   });
   const enforced = known_jobs.filter((job) => job.state === "enforced").length;
-  const total = known_jobs.length;
+  const known_total = known_jobs.length;
+  const not_applicable =
+    known_jobs.filter((job) => job.not_applicable === true).length;
+  const total = known_total - not_applicable;
   const verdict: AssuranceVerdict = enforced === total
     ? "full"
     : enforced === 0
     ? "minimal"
     : "partial";
-  return { known_jobs, enforced, total, verdict };
+  return {
+    known_jobs,
+    enforced,
+    total,
+    known_total,
+    not_applicable,
+    verdict,
+  };
 }

@@ -30,7 +30,7 @@ The agent attests that consent happened when it begins. A fresh interactive setu
 
 ## Setup builds on its own branch
 
-`discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent first wires the project's real format, lint, build, typecheck, test, and smoke commands into `discern.toml`. It then fills the project instructions and initial map pages while those checks are live, including the seeded record of the adoption decision.
+`discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent records the project's real format, lint, build, typecheck, test, and smoke commands and any known lifecycle that does not apply in `discern.toml`. It then fills the project instructions and initial map pages while those checks are live, including the seeded record of the adoption decision.
 
 discern commits its scaffolded wiring before the handoff. Final completion commits the marker before producing [Gate Proof](../20-quality-gate/the-proof.md). Those commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. Agent-authored commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
 
@@ -42,7 +42,7 @@ When the authored files are committed, the agent runs `discern setup done`. A pr
 
 If any final check fails, setup restores `[meta].bootstrapped` to the incomplete state. A successful non-forced result includes the structured Proof inspection and a one-line Proof you can relay. `--force` is visibly unproved and cannot be accepted through the proved setup landing path.
 
-A failure result includes the failed command and output. A pass records setup as complete and gives you the next actions:
+A failure result includes the failed command and output. A pass records completion, reports applicable protection coverage, and gives the next actions ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)):
 
 1. Review and land the `discern-setup` branch.
 2. Start a fresh coding-agent session.

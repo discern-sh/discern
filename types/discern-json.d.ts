@@ -475,7 +475,22 @@ export type DiscernSetupResult = {
       known_jobs: Array<{
         name: string;
         wired: boolean;
+        not_applicable?: true;
       }>;
+      assurance?: {
+        known_jobs: Array<{
+          name: string;
+          state: "enforced" | "deferred" | "absent";
+          not_applicable?: true;
+          reason?: string;
+          self_supplied?: true;
+        }>;
+        enforced: number;
+        total: number;
+        known_total?: number;
+        not_applicable?: number;
+        verdict: "full" | "partial" | "minimal";
+      };
     };
     already_set_up?: boolean;
     message?: string;
@@ -911,11 +926,14 @@ export type DiscernSetupDoneResult = {
       known_jobs: Array<{
         name: string;
         state: "enforced" | "deferred" | "absent";
+        not_applicable?: true;
         reason?: string;
         self_supplied?: true;
       }>;
       enforced: number;
       total: number;
+      known_total?: number;
+      not_applicable?: number;
       verdict: "full" | "partial" | "minimal";
     };
     landing: {
@@ -4878,7 +4896,22 @@ export type DiscernStatusResult = {
       known_jobs: Array<{
         name: string;
         wired: boolean;
+        not_applicable?: true;
       }>;
+      assurance?: {
+        known_jobs: Array<{
+          name: string;
+          state: "enforced" | "deferred" | "absent";
+          not_applicable?: true;
+          reason?: string;
+          self_supplied?: true;
+        }>;
+        enforced: number;
+        total: number;
+        known_total?: number;
+        not_applicable?: number;
+        verdict: "full" | "partial" | "minimal";
+      };
     };
     unlanded_branches?: Array<string>;
     contained_refs?: Array<{
