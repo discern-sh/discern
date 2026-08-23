@@ -1,7 +1,7 @@
 ---
 title: Cleanup ownership and teardown
 description: How automatic cleanup proves a worktree belongs to discern and verifies that its checkout is gone.
-order: 155
+order: 160
 aliases:
   - worktree cleanup ownership
   - verified teardown
@@ -35,4 +35,4 @@ discern records retirement evidence and repeats both checks at the return bounda
 
 The failure names the exact path, retained Git or branch state, and the safe next action. Stop the named writer or repair that one Git worktree entry, then repeat the same lifecycle command. The retry checks the current identity and filesystem object again and converges from partial state. Do not replace it with a parent-directory deletion or repository-wide prune.
 
-A separate program can still write to a retired location after the lifecycle returns. [Reappeared worktree paths](reappeared-worktree-paths.md) explains how removal evidence makes that later state visible and reclaimable. [ADR 0315](../_adr/0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence.md) records the ownership and absence decision.
+A separate program can still write to a retired location after the lifecycle returns. [Reappeared worktree paths](reappeared-worktree-paths.md) explains how removal evidence makes that later state visible and reclaimable. The ownership and absence decision is recorded separately ([ADR 0315](../_adr/0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence.md)).

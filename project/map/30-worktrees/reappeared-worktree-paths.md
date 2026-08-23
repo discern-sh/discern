@@ -1,7 +1,7 @@
 ---
 title: Reappeared worktree paths
 description: How discern reports and safely cleans files an external program writes into a worktree path after removal.
-order: 160
+order: 170
 aliases:
   - reappeared worktree path
   - stale worktree files
