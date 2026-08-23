@@ -40,7 +40,7 @@ The Static Analysis Results Interchange Format (SARIF) is a machine-readable fin
 
 ## 3. Verify setup in an isolated checkout
 
-When the scaffold is ready, the agent runs `discern setup done`. discern commits the completion marker, refreshes and diagnoses that commit, proves it in a temporary worktree, then runs the final Gate and returns its one-line Proof. Setup cannot complete when the committed project fails in either checkout; a failed final check restores setup to incomplete ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
+`discern setup done` commits the completion marker, refreshes and diagnoses that commit, proves it in a temporary worktree, then runs the final Gate and returns its [one-line Proof](../20-quality-gate/the-proof.md). A failure in either checkout restores setup to incomplete ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
 
 Then it's your turn:
 

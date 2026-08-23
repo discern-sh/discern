@@ -49,6 +49,7 @@ import {
   git,
   gitInit,
   mapPool,
+  proveSetupBranchForAcceptance,
   runAgent,
   scaffoldEngine,
   worktreePath,
@@ -478,6 +479,7 @@ const PROBES: Record<string, DryRunProbe> = {
       await freshRepo(dir);
       const begin = await runAgent(dir, ["setup", "begin", "--confirmed"]);
       assertEquals(begin.code, 0, begin.output);
+      await proveSetupBranchForAcceptance(dir);
       return { cwd: dir, dry: ["setup", "accept", "--dry-run", "--json"] };
     },
   },

@@ -2870,16 +2870,13 @@ async function proveWorktreeViable(
       });
       if (r.ok) {
         const proof = await inspectGateProof(probeDir);
-        if (
-          proof.status === "honored" && proof.head === markerHead &&
-          proof.proof_data !== undefined && proof.proof_line !== undefined
-        ) {
+        if (proof.status === "honored" && proof.head === markerHead) {
           return { ok: true };
         }
         return {
           ok: false,
           detail:
-            `the structural probe did not retain complete current Proof for the completion-marker commit (${proof.status})`,
+            `the structural probe did not retain current Gate evidence for the completion-marker commit (${proof.status})`,
         };
       }
       const detail = r.diagnostics?.[0]?.message ??

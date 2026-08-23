@@ -26,7 +26,7 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 /** Scaffold a bootstrapped project, commit setup work, and record current Proof. */
@@ -223,7 +223,7 @@ Deno.test("setup accept refuses every tracked mutation made after Proof", async 
 
     const accepted = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(accepted.code, 1, accepted.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       JSON.parse(accepted.stdout).message,
       "run `discern setup done`, then retry",
     );

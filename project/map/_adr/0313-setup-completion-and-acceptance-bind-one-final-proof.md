@@ -47,7 +47,7 @@ Before the ref transition, setup acceptance requires an empty current tracked-re
 ## Consequences
 
 - The completion Proof line names the commit that contains the completion marker and the commit setup acceptance is permitted to land.
-- A final check failure adds an auditable compensation commit when Git permits it. A compensation-hook failure leaves setup visibly incomplete instead of claiming success.
+- A final check failure adds a traceable compensation commit when Git permits it. A compensation-hook failure leaves setup visibly incomplete instead of claiming success.
 - A moved trunk costs another Gate run because the merge commit is a new tree. The earlier setup Proof cannot be laundered onto it.
 - Setup acceptance no longer accepts untracked scratch, a forced marker, or a legacy marker without complete structured Proof. The user can ignore machine-local paths deliberately, but a status-reported path prevents a clean Proof.
 - The first status after a successful setup landing sees current tracked and checkout-local artifacts and the landed Proof note.

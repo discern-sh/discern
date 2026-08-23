@@ -15,7 +15,7 @@ _Setup works on a `discern-setup` branch. This guide tells you what each part of
 
 Review the branch before landing it. The paths depend on the coding agents you selected and any locations you configured, but each written file belongs to one of the groups below. For the exhaustive inventory and uninstall behavior, use [Files & ownership](../70-reference/artifact-ownership.md).
 
-Successful non-forced `discern setup done` commits the completion marker and returns Gate Proof for that clean branch tip. `discern setup accept` validates the same Proof before landing, records it as a durable note on trunk, and leaves generated and checkout-local agent artifacts current. A forced completion carries no Proof and remains outside this landing path.
+Successful `discern setup done` commits setup's completion state in `discern.toml`, then returns [Gate Proof](../20-quality-gate/the-proof.md) for that clean branch tip. `discern setup accept` validates that Proof, records it on the landed trunk commit as a Git note, and leaves local agent artifacts current. `--force` returns no Proof and cannot use this landing path.
 
 ## Files you edit
 

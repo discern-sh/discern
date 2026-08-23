@@ -84,7 +84,7 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 | -------------------------- | ----------------------------------------------------------- |
 | Note, merge, and transport | [`proof_notes.ts`](../../../src/engine/gate/proof_notes.ts) |
 | Acceptance boundary        | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts) |
-| Setup acceptance boundary  | [`setup_accept.ts`](../../../src/commands/setup_accept.ts) |
+| Setup acceptance boundary  | [`setup_accept.ts`](../../../src/commands/setup_accept.ts)  |
 
 ## Current state and gotchas
 

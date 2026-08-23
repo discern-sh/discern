@@ -18,11 +18,13 @@ import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
+  convergeSetupBranchForAcceptance,
   git,
   gitInit,
   gitOut,
   mapPool,
   parsedCommitTrailers,
+  proveSetupBranchForAcceptance,
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
@@ -69,6 +71,7 @@ Deno.test("begin on a master repo stamps [repository].trunk = master and land wo
     assertStringIncludes(toml, 'trunk = "master"');
 
     // Landing works end to end: setup lives on discern-setup, lands onto master.
+    await proveSetupBranchForAcceptance(dir);
     const land = await runAgent(dir, ["setup", "accept"]);
     assertEquals(land.code, 0, land.output);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "master");
@@ -145,8 +148,12 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
       "git branch main && discern setup accept",
     );
 
+    // Converge the fixture policy before creating the trunk baseline. The marker
+    // commit made by the Proof helper then remains ahead of that baseline.
+    await convergeSetupBranchForAcceptance(dir);
     // Following the served step lands the setup and arms the merge check.
     await git(dir, "branch", "main");
+    await proveSetupBranchForAcceptance(dir);
     const land = await runAgent(dir, ["setup", "accept"]);
     assertEquals(land.code, 0, land.output);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
@@ -1214,6 +1221,7 @@ Deno.test("re-entry (B47): a retry that STARTS on discern-setup stamps the real 
 
     // End to end: land works onto the recovered branch (it would dead-end on a wrong
     // `main` stamp that does not exist locally).
+    await proveSetupBranchForAcceptance(dir);
     const land = await runAgent(dir, ["setup", "accept"]);
     assertEquals(land.code, 0, land.output);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "master");
