@@ -16,6 +16,7 @@ import { exists, walk } from "@std/fs";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   defaultMapPath,
+  git,
   gitInit,
   runAgent,
   scaffoldEngine,
@@ -505,6 +506,8 @@ Deno.test("setup done --force is refused by the config-parse floor it cannot ove
 Deno.test("the setup redirect and the command retire once setup is recorded", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
+    await git(dir, "checkout", "-b", "discern-setup");
 
     // Before: a still-gated work verb (`docs`) hard-redirects (exit≠0, on stderr),
     // and setup shows in help. (`done` is no longer gated — ADR 0065.)
@@ -524,6 +527,19 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
     );
     // ADR 0078: `done` also requires ≥1 wired capability (a derived per-step check).
     await runAgent(dir, ["config", "set-job", "test", "true"]);
+    const tidied = await runAgent(dir, ["tidy", "--json"]);
+    assertEquals(tidied.code, 0, tidied.output);
+    const refreshed = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "author setup",
+      "--no-gpg-sign",
+    );
     const done = await runAgent(dir, ["setup", "done"]);
     assertEquals(done.code, 0, done.output);
 

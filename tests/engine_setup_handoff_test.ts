@@ -27,6 +27,7 @@ import {
 import {
   addWorktree,
   gitInit,
+  proveSetupBranchForAcceptance,
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
@@ -157,6 +158,7 @@ async function begunSetup(dir: string): Promise<void> {
     "claude_code",
   ]);
   assertEquals(r.code, 0, r.output);
+  await proveSetupBranchForAcceptance(dir);
 }
 
 const OFF_RAMP_DRIVERS: Record<string, OffRampDriver> = {

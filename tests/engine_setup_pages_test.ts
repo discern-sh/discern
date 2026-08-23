@@ -225,6 +225,7 @@ async function layMarkerFreeProject(
 ): Promise<void> {
   await scaffoldEngine(dir, { bootstrapped: false });
   await gitInit(dir);
+  await git(dir, "checkout", "-b", "discern-setup");
   await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
     recursive: true,
   });
@@ -291,6 +292,19 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
     // Committed, so the clean-tree precondition passes too.
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    const tidied = await runAgent(dir, ["tidy", "--json"]);
+    assertEquals(tidied.code, 0, tidied.output);
+    const refreshed = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "refresh setup artifacts",
+      "--no-gpg-sign",
+    );
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);

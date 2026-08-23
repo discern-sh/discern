@@ -4,6 +4,7 @@
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** current spellings are `accept` (formerly `graduate`), `discern`, the gate, or the bar for the retired product-category wording, and the trunk for the shared-branch label; the decision and reasoning are unchanged.
 > - **[ADR 0153](0153-repository-owns-shared-checkout-convergence.md) — trunk configuration:** the configured trunk now lives at `[repository].trunk`, and the per-invocation environment override (`DISCERN_MAIN_BRANCH` below, originally `MAIN_BRANCH`) is now `DISCERN_TRUNK` — `src/shared/environment_variables.ts` is the live authority.
+> - **[ADR 0313](0313-setup-completion-and-acceptance-bind-one-final-proof.md) — evidence and merge rule:** setup acceptance requires complete current Gate Proof and full worktree cleanliness. A moved trunk is merged into the setup branch and the merge commit is proved before an exact trunk transition; successful landing records the standard Proof note and converges local agent artifacts.
 
 **Status**: accepted
 

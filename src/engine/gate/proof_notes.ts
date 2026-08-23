@@ -27,6 +27,7 @@ import {
 } from "../../shared/result_schemas.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
+import { abbreviatedObjectIdMatches } from "../../shared/tree_identity.ts";
 
 export const PROOF_NOTES_REF = "refs/notes/discern";
 export const PROOF_NOTES_SHORT_REF = "discern";
@@ -703,7 +704,7 @@ export async function writeProofNote(
   }
   // The write-side half of the subject cross-check: never publish a durable
   // record whose display commit contradicts the commit it is attached to.
-  if (!proofHeadMatchesCommit(proof.head, commit)) {
+  if (!abbreviatedObjectIdMatches(proof.head, commit)) {
     return {
       status: "record_failed",
       ref: PROOF_NOTES_REF,
@@ -894,11 +895,6 @@ async function notePathsFromRef(
   return paths;
 }
 
-/** Whether an abbreviated proof head identifies the full commit. */
-function proofHeadMatchesCommit(head: string, commit: string): boolean {
-  return /^[0-9a-f]{7,64}$/u.test(head) && commit.startsWith(head);
-}
-
 /** Whether a parsed note is bound to the commit that carries it. The current
  * format's authority is the full-oid subject, with the display head kept
  * coherent; a legacy note's strongest binding is its abbreviated head. */
@@ -908,9 +904,9 @@ function boundToCommit(
 ): boolean {
   if (parsed.subject !== undefined) {
     return parsed.subject === commit &&
-      proofHeadMatchesCommit(parsed.proof.head, commit);
+      abbreviatedObjectIdMatches(parsed.proof.head, commit);
   }
-  return proofHeadMatchesCommit(parsed.proof.head, commit);
+  return abbreviatedObjectIdMatches(parsed.proof.head, commit);
 }
 
 /**
