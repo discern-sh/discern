@@ -15,6 +15,7 @@
   <span style="color:rgb(135 215 255);font-weight:700">-V, --version         </span>  <span style="opacity:0.68">- Show the version number for this program.</span>
   <span style="color:rgb(135 215 255);font-weight:700">--json                </span>  <span style="opacity:0.68">- Emit one JSON result on stdout.</span>
   <span style="color:rgb(135 215 255);font-weight:700">--markdown            </span>  <span style="opacity:0.68">- Emit one Markdown result on stdout.</span>
+  <span style="color:rgb(135 215 255);font-weight:700">--render              </span>  <span style="opacity:0.68">- Render the Markdown result as terminal output.</span>
   <span style="color:rgb(135 215 255);font-weight:700">--no-color            </span>  <span style="opacity:0.68">- Disable colour (also honours NO_COLOR and non-TTY</span>
                           <span style="opacity:0.68">output).</span>
   <span style="color:rgb(135 215 255);font-weight:700">--plain               </span>  <span style="opacity:0.68">- Disable interactive input and paging; use static</span>
@@ -45,8 +46,8 @@ Commands:
                  <span style="opacity:0.68">full gate.</span>
     <span style="color:rgb(135 215 255);font-weight:700">queue      </span>  <span style="opacity:0.68">Run a command while holding one configured concurrent test-run</span>
                  <span style="opacity:0.68">slot. Use `discern await` to watch a fleet condition instead.</span>
-                 <span style="opacity:0.68">This command has no `--json` or `--markdown` mode; tokens after</span>
-                 <span style="opacity:0.68">`--` belong to the child.</span>
+                 <span style="opacity:0.68">This command has no `--json`, `--markdown`, or `--render` mode;</span>
+                 <span style="opacity:0.68">tokens after `--` belong to the child.</span>
     <span style="color:rgb(135 215 255);font-weight:700">tidy       </span>  <span style="opacity:0.68">Canonically format discern&#39;s configured Markdown sources and</span>
                  <span style="opacity:0.68">root discern.toml, and check that fenced box-drawing diagrams</span>
                  <span style="opacity:0.68">stay aligned. Select `md` or `toml`; omit the type to run both.</span>

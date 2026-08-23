@@ -15,6 +15,7 @@ import { Logger } from "./lib/log.ts";
 import {
   emitResult,
   setResultMarkdownPresenterResolver,
+  setResultMarkdownTerminalRenderer,
   setResultOutputFormat,
 } from "./shared/emit.ts";
 import { resultPresenterForVerb } from "./shared/result_contracts.ts";
@@ -65,7 +66,12 @@ import {
   type TerminalContext,
   type TerminalThemeMode,
 } from "./lib/terminal.ts";
-import { CLI_RESULT_FORMATS } from "./shared/result_formats.ts";
+import { renderMarkdown } from "./lib/markdown.ts";
+import {
+  CLI_RESULT_FORMATS,
+  CLI_RESULT_RENDER,
+  type ResultOutputFormat,
+} from "./shared/result_formats.ts";
 
 // The full built-in verb vocabulary (installer + engine) is defined once in the
 // dispatcher and re-exported here as the CLI's
@@ -115,7 +121,7 @@ function applyHelpColorOption(root: Command, color: boolean): void {
 }
 
 /**
- * Extract the global result-format and `--no-color` flags. They reach every command at
+ * Extract the global result-output and `--no-color` flags. They reach every command at
  * runtime via root's `globalOption`, but a standalone subcommand instance (the
  * `config` group) doesn't carry them in its inferred option type, so we read them
  * through a narrow cast.
@@ -124,10 +130,11 @@ function globalFlags(options: unknown): { json: boolean; noColor: boolean } {
   const o = options as {
     json?: boolean;
     markdown?: boolean;
+    render?: boolean;
     color?: boolean;
   };
   return {
-    json: (o.json ?? false) || (o.markdown ?? false),
+    json: (o.json ?? false) || (o.markdown ?? false) || (o.render ?? false),
     noColor: noColorFrom(o.color),
   };
 }
@@ -143,6 +150,7 @@ function terminalThemeValue(value: string): TerminalThemeMode {
 export const ROOT_GLOBAL_FLAGS = {
   json: CLI_RESULT_FORMATS.json.flag,
   markdown: CLI_RESULT_FORMATS.markdown.flag,
+  render: CLI_RESULT_RENDER.flag,
   noColor: "--no-color",
   plain: "--plain",
   theme: "--theme",
@@ -166,14 +174,29 @@ export const CLI_CHILD_BOUNDARIES = {
 
 let activeDiscernArgv: readonly string[] = Deno.args;
 
-/** Whether one discern-owned argv asks for either quiet result projection. */
+/** Result-output flags selected from one discern-owned argv. */
+function requestedResultFlags(argv: readonly string[]): string[] {
+  return [
+    ROOT_GLOBAL_FLAGS.json,
+    ROOT_GLOBAL_FLAGS.markdown,
+    ROOT_GLOBAL_FLAGS.render,
+  ].filter((flag) => argv.includes(flag));
+}
+
+/** Whether one discern-owned argv asks for a quiet result projection. */
 function quietResultRequested(argv: readonly string[]): boolean {
+  return requestedResultFlags(argv).length > 0;
+}
+
+/** Whether raw JSON or Markdown makes terminal theme sensing unnecessary. */
+function serializedResultRequested(argv: readonly string[]): boolean {
   return argv.includes(ROOT_GLOBAL_FLAGS.json) ||
     argv.includes(ROOT_GLOBAL_FLAGS.markdown);
 }
 
-/** Preserve which quiet projection was requested before `--markdown` is routed. */
-function requestedResultFormat(): "json" | "markdown" | undefined {
+/** Preserve which quiet projection was requested before CLI normalization. */
+function requestedResultFormat(): ResultOutputFormat | "render" | undefined {
+  if (activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.render)) return "render";
   if (activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.markdown)) return "markdown";
   if (activeDiscernArgv.includes(ROOT_GLOBAL_FLAGS.json)) return "json";
   return undefined;
@@ -181,9 +204,7 @@ function requestedResultFormat(): "json" | "markdown" | undefined {
 
 /** Emit the selected-format refusal for a bare root invocation. */
 function emitRootResultRefusal(argv: readonly string[]): void {
-  const flag = argv.includes(ROOT_GLOBAL_FLAGS.markdown)
-    ? ROOT_GLOBAL_FLAGS.markdown
-    : ROOT_GLOBAL_FLAGS.json;
+  const flag = requestedResultFlags(argv)[0] ?? ROOT_GLOBAL_FLAGS.json;
   emitResult({
     ok: false,
     verb: "discern",
@@ -194,7 +215,7 @@ function emitRootResultRefusal(argv: readonly string[]): void {
 }
 
 /**
- * The type of `buildCli`'s root command. Cliffy threads the five `globalOption`
+ * The type of `buildCli`'s root command. Cliffy threads the six `globalOption`
  * declarations into the command's generics, so the concrete type is impractical
  * to write by hand. We name it from a type-only `declare` (no runtime value is
  * emitted) whose chain mirrors the real root built in `buildCli`.
@@ -204,7 +225,9 @@ declare function rootShape(): ReturnType<
     ReturnType<
       ReturnType<
         ReturnType<
-          Command<void, void, void, []>["globalOption"]
+          ReturnType<
+            Command<void, void, void, []>["globalOption"]
+          >["globalOption"]
         >["globalOption"]
       >["globalOption"]
     >["globalOption"]
@@ -250,6 +273,10 @@ export function buildCli(
     .globalOption(
       ROOT_GLOBAL_FLAGS.markdown,
       CLI_RESULT_FORMATS.markdown.description,
+    )
+    .globalOption(
+      ROOT_GLOBAL_FLAGS.render,
+      CLI_RESULT_RENDER.description,
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.noColor,
@@ -1186,7 +1213,7 @@ export function resolveInvocation(
 export function backgroundSensingRequested(
   argv: readonly string[],
 ): boolean {
-  if (quietResultRequested(argv)) return false;
+  if (serializedResultRequested(argv)) return false;
   if (argv.includes(ROOT_GLOBAL_FLAGS.noColor)) return false;
   const invocation = resolveInvocation(
     argv,
@@ -1270,18 +1297,23 @@ export async function main(args: string[]): Promise<void> {
   activeDiscernArgv = discernArgv;
   const jsonRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.json);
   const markdownRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.markdown);
-  const quietResult = jsonRequested || markdownRequested;
+  const renderRequested = discernArgv.includes(ROOT_GLOBAL_FLAGS.render);
+  const resultFlags = requestedResultFlags(discernArgv);
+  const quietResult = resultFlags.length > 0;
   const rawTheme = globalOptionValue(discernArgv, ROOT_GLOBAL_FLAGS.theme);
   const theme = isTerminalThemeMode(rawTheme)
     ? rawTheme
     : DEFAULT_TERMINAL_THEME_MODE;
-  if (markdownRequested) {
+  if (markdownRequested || renderRequested) {
     // Every command already treats its `json` option as the quiet result-path
     // switch. Normalize only discern-owned tokens to that internal switch;
-    // `emitResult` still selects Markdown, and child arguments after queue's
-    // delimiter or a Project Script name remain byte-for-byte unchanged.
+    // `emitResult` still selects the authored Markdown path, and child arguments
+    // after queue's delimiter or a Project Script name remain byte-for-byte
+    // unchanged.
     argv = argv.map((token, index) =>
-      index < discernArgv.length && token === ROOT_GLOBAL_FLAGS.markdown
+      index < discernArgv.length &&
+        (token === ROOT_GLOBAL_FLAGS.markdown ||
+          token === ROOT_GLOBAL_FLAGS.render)
         ? ROOT_GLOBAL_FLAGS.json
         : token
     );
@@ -1295,21 +1327,13 @@ export async function main(args: string[]): Promise<void> {
     // is set before helper/command dispatch so flag-first forms behave identically.
     setPlainMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.plain));
     setResultMarkdownPresenterResolver(resultPresenterForVerb);
+    setResultMarkdownTerminalRenderer(undefined);
     setResultOutputFormat(
-      markdownRequested && !jsonRequested ? "markdown" : "json",
+      (markdownRequested || renderRequested) && !jsonRequested
+        ? "markdown"
+        : "json",
     );
     setJsonMode(quietResult);
-    if (jsonRequested && markdownRequested) {
-      emitResult({
-        ok: false,
-        verb: "discern",
-        error: "invalid_arguments",
-        message:
-          "`--json` and `--markdown` cannot be combined. Choose one result format.",
-      });
-      Deno.exit(1);
-      return;
-    }
     // Resolve the ONE colour decision up front (flag + NO_COLOR + isatty) and
     // thread it to every colour-emitting surface, so `--no-color` is honoured
     // uniformly — engine verbs, the installer Loggers, and the root help alike —
@@ -1323,6 +1347,26 @@ export async function main(args: string[]): Promise<void> {
     });
     const color = terminal.color;
     applyColorMode(terminal);
+    if (renderRequested && resultFlags.length === 1) {
+      setResultMarkdownTerminalRenderer((markdown) =>
+        renderMarkdown(markdown, {
+          width: terminal.size.columns,
+          color: terminal.color,
+          terminal,
+        })
+      );
+    }
+    if (resultFlags.length > 1) {
+      emitResult({
+        ok: false,
+        verb: "discern",
+        error: "invalid_arguments",
+        message:
+          "`--json`, `--markdown`, and `--render` cannot be combined. Choose one output mode.",
+      });
+      Deno.exit(1);
+      return;
+    }
 
     // Internal helper verbs (remove-worktree-safely, with-gotchas, …): handled
     // before Cliffy so a wrapped command's flags pass through raw. Keyed on the

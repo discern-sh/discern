@@ -815,7 +815,7 @@ Deno.test("queue usage errors require the delimiter and a non-empty command", as
       );
     }
 
-    for (const flag of ["--json", "--markdown"]) {
+    for (const flag of ["--json", "--markdown", "--render"]) {
       const marker = join(dir, `must-not-run-${flag.slice(2)}`);
       const result = await runAgent(dir, [
         flag,
@@ -828,7 +828,7 @@ Deno.test("queue usage errors require the delimiter and a non-empty command", as
       assertEquals(result.code, 2, result.output);
       assertTerminalTextIncludes(
         result.stderr,
-        "queue has no `--json` or `--markdown` mode",
+        "queue has no `--json`, `--markdown`, or `--render` mode",
       );
       assertEquals(await pathExists(marker), false);
     }
@@ -838,7 +838,7 @@ Deno.test("queue usage errors require the delimiter and a non-empty command", as
 Deno.test("queue child flags cannot select discern global modes", async () => {
   await withTempDir(async (dir) => {
     await writeConfig(dir, "[project\n");
-    for (const flag of ["--json", "--markdown"]) {
+    for (const flag of ["--json", "--markdown", "--render"]) {
       const result = await runAgent(dir, [
         "queue",
         "--",

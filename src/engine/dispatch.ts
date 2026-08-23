@@ -403,7 +403,7 @@ export function attachEngineCommands(
     .description(
       "Run a command while holding one configured concurrent test-run slot. " +
         "Use `discern await` to watch a fleet condition instead. " +
-        "This command has no `--json` or `--markdown` mode; tokens after `--` belong to the child.",
+        "This command has no `--json`, `--markdown`, or `--render` mode; tokens after `--` belong to the child.",
     );
 
   root

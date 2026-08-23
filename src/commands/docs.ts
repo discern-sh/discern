@@ -589,7 +589,7 @@ function terminalBody(
 export interface DocsOptions {
   json: boolean;
   /** Exact quiet projection requested at the root, when one is active. */
-  resultFormat?: "json" | "markdown" | undefined;
+  resultFormat?: "json" | "markdown" | "render" | undefined;
   noColor: boolean;
   /** Print a doc's pristine Markdown source instead of rendering it. */
   raw: boolean;
@@ -611,6 +611,13 @@ export interface DocsOptions {
   export?: string | undefined;
   /** Write an export to this path instead of stdout. */
   output?: string | undefined;
+}
+
+/** Name the selected quiet output option for combination diagnostics. */
+function resultFormatFlag(options: DocsOptions): string | undefined {
+  return options.resultFormat === undefined
+    ? options.json ? "--json" : undefined
+    : `--${options.resultFormat}`;
 }
 
 /** Agent-facing search results stay compact even when the corpus is large. */
@@ -2035,11 +2042,7 @@ function validatePagerRequest(
     ? "--export"
     : options.output !== undefined
     ? "--output"
-    : options.resultFormat === "markdown"
-    ? "--markdown"
-    : options.resultFormat === "json" || options.json
-    ? "--json"
-    : undefined;
+    : resultFormatFlag(options);
   if (conflict !== undefined) {
     return invalidOptions(log, desc.verb, pagerConflictMessage(conflict));
   }
@@ -2081,7 +2084,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     const conflicts = [
       options.target !== undefined ? "a target" : undefined,
       options.search !== undefined ? "--search" : undefined,
-      options.json ? "--json" : undefined,
+      resultFormatFlag(options),
       options.raw ? "--raw" : undefined,
       options.list ? "--list" : undefined,
       options.adr ? "--adr" : undefined,
