@@ -31,21 +31,21 @@ After creation, the desk opens the new row's action menu immediately; its shell 
 
 ## Read the decision order
 
-The Desk builds each row from the same Fleet presentation as `discern status`; it does not run another status classifier. The status kind maps exhaustively into one of 5 human-decision states ([ADR 0315](../_adr/0315-the-desk-adapts-status-into-one-human-decision.md)):
+The Desk uses the same observed Fleet facts and task status as `discern status`; it does not classify the same work again. It groups each task into one of 5 human-decision states ([ADR 0315](../_adr/0315-the-desk-adapts-status-into-one-human-decision.md)):
 
-| Group           | Included worktrees                                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Needs attention | Broken or unreadable setup, a failed, partial, or refused action, stale work, unreadable or unavailable Proof, or a collision. |
-| Ready to review | A clean commit ahead of the trunk with honored Proof and no branch lag.                                                        |
-| Working         | A fresh running discern operation, including its verb, elapsed time, and typical duration when known.                          |
-| Paused          | Uncommitted or committed work without live activity; the row names the next unmet condition, such as Update or final checks.   |
-| Empty           | A healthy worktree with no uncommitted files or commits ahead of the trunk.                                                    |
+| Group           | Included worktrees                                                                                                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Needs attention | Broken or unreadable setup, a failed, partial, or refused action, stale work, unreadable or unavailable [Proof](../00-orientation/glossary.md#proof), or overlap with another task. |
+| Ready to review | A clean commit ahead of the trunk with honored Proof and no branch lag.                                                                                                             |
+| Working         | A fresh running discern operation, including its verb, elapsed time, and typical duration when known.                                                                               |
+| Paused          | Uncommitted or committed work without live activity; the row names the next unmet condition, such as Update or final checks.                                                        |
+| Empty           | A healthy worktree with no uncommitted files or commits ahead of the trunk.                                                                                                         |
 
 Every task group, including the first, has a ruled label; **Desk** and **Session** have their own. Within groups, recent worktrees appear first.
 
 The root heading is `◮ discern | <project>`. The main status and tip sit directly below it. The `Tip` label is yellow; its text stays secondary and wraps at the terminal width. Unlanded branches, reclaimed stages, and removed worktree paths that exist again follow as separate groups when present. The reappearance notice points to `discern worktree prune --dry-run`; cleanup stays in the confirmed prune flow. [Desk tips](desk-tips.md) covers selection, seen-state, and the Logbook record.
 
-Each row starts with the task name supplied to `discern start`. One complete decision supplies its short headline and ordered facts: activity, Git counts with units and the trunk name, Proof, landing authority, containment, changed-file and ADR collisions, and the next unmet condition. The decision retains the underlying status kind when collision evidence moves the row into **Needs attention**. It also records whether owner judgment is still needed; a ready task with a recorded landing grant differs from one that still needs approval. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
+Each row starts with the task name supplied to `discern start`. One complete decision supplies its short headline and ordered facts: activity, Git counts with units and the trunk name, Proof, landing authority, containment, changed-file overlaps, duplicate ADR numbers, and the next unmet condition. Overlap can move a row into **Needs attention** without hiding what that task is doing. The decision also records whether owner judgment is still needed; a ready task with a recorded landing grant differs from one that still needs approval. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
 
 ## Choose an action
 
