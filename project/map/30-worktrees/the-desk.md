@@ -21,13 +21,9 @@ For direct movement between checkouts, [`discern worktrees`](opening-worktrees.m
 
 The root menu groups project actions under **Desk** and refresh or quit under **Session**. It always includes `Start a task`, adds `Run a Project Script` when configured, and opens [discern.sh/docs](https://discern.sh/docs) from `Read discern's docs`.
 
-Menus pass each header or preamble reservation and live-height choice ceiling to the package, whose fitter measures the remaining frame.
-
 `Start a task` passes an optional name to `discern start`: a value becomes the worktree id and branch; blank draws a random codename. The Desk continues after setup.
 
-After creation, the desk opens the new row's action menu immediately; its shell and configured coding agents are one selection away.
-
-`Refresh` runs a new status survey, `git worktree list` included; a worktree created outside the Desk appears on the next root menu.
+After creation, the Desk opens the new row. `Refresh` runs another status survey, so a worktree created elsewhere appears in the root menu.
 
 ## Read the decision order
 
@@ -41,11 +37,9 @@ The Desk uses the same observed Fleet facts and task status as `discern status`;
 | Paused          | Uncommitted or committed work without live activity; the row names the next unmet condition, such as Update or final checks.                                                        |
 | Empty           | A healthy worktree with no uncommitted files or commits ahead of the trunk.                                                                                                         |
 
-Every task group, including the first, has a ruled label; **Desk** and **Session** have their own. Within groups, recent worktrees appear first.
+Within groups, recent worktrees appear first. The header shows main-checkout state and a [Desk tip](desk-tips.md); unlanded branches, reclaimed stages, and removed worktree paths that exist again remain separate facts.
 
-The root heading is `◮ discern | <project>`. The main status and tip sit directly below it. The `Tip` label is yellow; its text stays secondary and wraps at the terminal width. Unlanded branches, reclaimed stages, and removed worktree paths that exist again follow as separate groups when present. The reappearance notice points to `discern worktree prune --dry-run`; cleanup stays in the confirmed prune flow. [Desk tips](desk-tips.md) covers selection, seen-state, and the Logbook record.
-
-Each row starts with the task name supplied to `discern start`. One complete decision supplies its short headline and ordered facts: activity, Git counts with units and the trunk name, Proof, landing authority, containment, changed-file overlaps, duplicate ADR numbers, and the next unmet condition. Overlap can move a row into **Needs attention** without hiding what that task is doing. The decision also records whether owner judgment is still needed; a ready task with a recorded landing grant differs from one that still needs approval. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
+Each row starts with the task name supplied to `discern start`, followed by its headline, activity, Git counts, Proof, landing authority, containment, collisions, and next unmet condition. A collision can move a row into **Needs attention** without hiding what the task is doing. A ready task with a landing grant does not claim to need the same owner decision as one that still needs approval.
 
 ## Choose an action
 
@@ -64,13 +58,9 @@ The decision represents each canonical action once. An action is enabled or disa
 | Inspect                          | Shows commits, uncommitted changes, and a diffstat relative to the trunk.     |
 | Drop                             | Runs the guarded abandoned-work removal path.                                 |
 
-The confirmation Switches use compact action pairs because the question above them already names the selected branch or checkout and the consequence. Accept uses **Keep / Land**; pre-authorization uses **Keep / Allow**; revoke uses **Keep / Revoke**; update uses **Keep / Merge**; reclaim uses **Keep / Reclaim**; and drop uses **Keep / Drop**.
+Every enabled action echoes its CLI equivalent and calls the same core as the command. An effort grant belongs only to the selected task; acceptance consumes it, and removal clears it. Dropping work requires confirmation, with the branch name typed back when work would be discarded.
 
-The action menu separates **Landing**, **Work in this task**, **Review**, and **Worktree**. Navigation has its own **Task** group. The agent picker adds one group per configured provider, so fresh and continued sessions remain together.
-
-Every action echoes its CLI equivalent and calls the same core as the command. A landing pre-authorization belongs only to the selected effort: `accept` consumes it; revoke, drop, prune, and orphan cleanup remove it. Drop receives the selected row's absolute path. Dropping uncommitted or unlanded work requires the branch name typed back before the desk applies force.
-
-Accept requires a known clean worktree with commits ahead of the trunk and no known branch lag. A branch behind the trunk disables Accept, enables Update, and recommends Update. The lifecycle core still checks the branch again at execution time; recommendation never replaces that authority. Disabled reasons, recommendation, Proof, authority, and collision facts remain in the decision even where the current menu does not render them.
+Accept requires a clean worktree with commits ahead of the trunk and no known branch lag. A branch behind the trunk disables Accept and recommends Update. The lifecycle core checks again before acting. The model retains disabled reasons, recommendations, Proof, authority, and collision facts even though the current menu hides disabled offers.
 
 Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row: a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation names what survives (the branch ref) and what the reclaim destroys (the checkout and its per-worktree state, Gate Proof included). The core re-validates the predicate before acting.
 
