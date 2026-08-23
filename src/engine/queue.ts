@@ -66,13 +66,13 @@ export function parseQueueInvocation(
     return { kind: "help" };
   }
   const resultFlag = wrapperFlags.find((flag) =>
-    flag === "--json" || flag === "--markdown"
+    flag === "--json" || flag === "--markdown" || flag === "--render"
   );
   if (resultFlag !== undefined) {
     return {
       kind: "error",
       message:
-        "queue has no `--json` or `--markdown` mode because the wrapped command owns stdout and stderr.",
+        "queue has no `--json`, `--markdown`, or `--render` mode because the wrapped command owns stdout and stderr.",
     };
   }
   if (args[0] !== "--") {

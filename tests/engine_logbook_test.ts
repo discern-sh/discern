@@ -193,6 +193,22 @@ Deno.test("logbook: Markdown is a first-class agent output signal", async () => 
   });
 });
 
+Deno.test("logbook: render remains a convenience flag outside the result-format signals", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const result = await runAgent(dir, ["status", "--local", "--render"]);
+    assertEquals(result.code, 0, result.output);
+
+    const [event] = verbEvents(await readEvents(dir));
+    assert(event !== undefined);
+    assertEquals(event.driver?.json, false);
+    assertEquals(event.driver?.markdown, false);
+    assertEquals(event.flags, ["local", "render"]);
+  });
+});
+
 Deno.test("logbook: an effectful verb pairs begin and completion by invocation id", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

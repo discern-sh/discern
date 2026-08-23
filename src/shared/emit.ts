@@ -35,6 +35,13 @@ let resultMarkdownPresenterResolver:
   | ResultMarkdownPresenterResolver
   | undefined;
 
+/** Terminal-only final rendering supplied by the CLI process boundary. */
+export type ResultMarkdownTerminalRenderer = (markdown: string) => string;
+
+let resultMarkdownTerminalRenderer:
+  | ResultMarkdownTerminalRenderer
+  | undefined;
+
 /** Select the projection the next quiet CLI result emits. */
 export function setResultOutputFormat(format: ResultOutputFormat): void {
   activeResultOutputFormat = format;
@@ -45,6 +52,17 @@ export function setResultMarkdownPresenterResolver(
   resolver: ResultMarkdownPresenterResolver,
 ): void {
   resultMarkdownPresenterResolver = resolver;
+}
+
+/**
+ * Select an optional terminal rendering for the authored Markdown result.
+ * Passing undefined restores the stable source projection used by
+ * `--markdown` and MCP.
+ */
+export function setResultMarkdownTerminalRenderer(
+  renderer: ResultMarkdownTerminalRenderer | undefined,
+): void {
+  resultMarkdownTerminalRenderer = renderer;
 }
 
 /** Write a verb's selected quiet result to stdout. Also feeds the
@@ -62,8 +80,11 @@ export function emitResult(result: DiscernResult): void {
       "internal result invariant: Markdown presenter resolver is not installed",
     );
   }
-  const output = presenter === undefined
-    ? JSON.stringify(serialized)
+  const markdown = presenter === undefined
+    ? undefined
     : renderResultMarkdown(serialized, presenter).trimEnd();
+  const output = markdown === undefined
+    ? JSON.stringify(serialized)
+    : (resultMarkdownTerminalRenderer?.(markdown) ?? markdown).trimEnd();
   console.log(output);
 }

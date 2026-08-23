@@ -1212,6 +1212,17 @@ Deno.test("map export validates scope and incompatible flags", async () => {
     assertEquals(json.code, 1);
     assertEquals(JSON.parse(json.stdout).error, "invalid_arguments");
     assertEquals(json.stderr, "");
+
+    const rendered = await runCli(
+      ["map", "--export", "public", "--render"],
+      dir,
+    );
+    assertEquals(rendered.code, 1);
+    assertTerminalTextIncludes(
+      rendered.stdout,
+      "--export cannot be combined with --render",
+    );
+    assertEquals(rendered.stderr, "");
   });
 });
 
