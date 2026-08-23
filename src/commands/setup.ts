@@ -49,6 +49,7 @@ import {
   mergeDocIntoFlags,
 } from "../lib/config_doc.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
+import { rebaseMarkdownLinks } from "../lib/markdown_links.ts";
 import { stampSchemaVersion } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
@@ -924,9 +925,7 @@ async function seedInstructions(
       } catch {
         continue; // absent — nothing to preserve
       }
-      if (body.length === 0 || seen.has(body)) {
-        continue; // empty, or an identical mirror already captured
-      }
+      if (body.length === 0) continue;
       if (
         ownRenderPatterns?.some((pattern) =>
           matchesInstructionOwnership(pattern, body)
@@ -937,8 +936,14 @@ async function seedInstructions(
         skippedOwnRender.push(rel);
         continue;
       }
-      seen.add(body);
-      migrated.push({ file: rel, body });
+      // The content moves from the provider file into the configured authored
+      // source before compilation moves it back out. Rebase only real Markdown
+      // destinations at each move so adoption cannot change what a local link
+      // points at merely because the source lives in another directory.
+      const authoredBody = rebaseMarkdownLinks(body, rel, instructionRel);
+      if (seen.has(authoredBody)) continue;
+      seen.add(authoredBody);
+      migrated.push({ file: rel, body: authoredBody });
     }
   }
 

@@ -614,6 +614,78 @@ Deno.test("discern setup migrates EVERY provider's pre-existing instruction file
   });
 });
 
+Deno.test("instruction adoption reports the conflict, preserves policy links, and emits exact pointers", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    const paths = allInstructionFilePaths();
+    for (const rel of paths) {
+      const guide = `${rel.toLowerCase().replaceAll(".", "-")}-guide.md`;
+      await Deno.writeTextFile(
+        join(dir, rel),
+        `# Existing ${rel}\n\nPOLICY FROM ${rel}: keep it.\n\n[Local guide](./${guide})\n`,
+      );
+    }
+
+    const verify = await runAgent(dir, ["setup", "verify", "--json"]);
+    assertEquals(verify.code, 0, verify.output);
+    const verification = JSON.parse(verify.stdout) as {
+      readonly data: {
+        readonly conflicts: readonly { readonly kind: string }[];
+        readonly findings: {
+          readonly existing_instructions: readonly string[];
+        };
+      };
+    };
+    assertEquals(
+      verification.data.conflicts.some((conflict) =>
+        conflict.kind === "existing_instructions"
+      ),
+      true,
+      verify.stdout,
+    );
+    assertEquals(
+      [...verification.data.findings.existing_instructions].sort(),
+      [...paths].sort(),
+    );
+
+    const begin = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--agents",
+      AGENT_NAMES.join(","),
+    ]);
+    assertEquals(begin.code, 0, begin.output);
+    const instructions = await Deno.readTextFile(
+      join(dir, SOURCE_PATHS.instructions.defaultPath),
+    );
+    const compiled = await Deno.readTextFile(join(dir, "AGENTS.md"));
+    for (const rel of paths) {
+      const guide = `${rel.toLowerCase().replaceAll(".", "-")}-guide.md`;
+      assertStringIncludes(instructions, `POLICY FROM ${rel}: keep it.`);
+      assertStringIncludes(
+        instructions,
+        `[Local guide](../${guide})`,
+        `moving ${rel} into the authored source must preserve its root-relative target`,
+      );
+      assertStringIncludes(compiled, `POLICY FROM ${rel}: keep it.`);
+      assertStringIncludes(
+        compiled,
+        `[Local guide](${guide})`,
+        `compiling the adopted ${rel} policy must restore its original target`,
+      );
+    }
+    for (const rel of paths.filter((path) => path !== "AGENTS.md")) {
+      assertEquals(
+        await Deno.readTextFile(join(dir, rel)),
+        "@AGENTS.md\n",
+        `${rel} must retain the provider pointer contract after adoption`,
+      );
+    }
+  });
+});
+
 /**
  * Plant a fake executable named `name` in a fresh temp "bin" dir and return a PATH
  * with that dir prepended to the real one. The executable may be a terminal-agent

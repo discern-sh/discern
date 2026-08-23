@@ -11,7 +11,9 @@
  * keep in sync.
  *
  * The compiled body is, in order: discern's built-in instruction sections, then the
- * user's `[instructions].sources`. Each
+ * user's `[instructions].sources`. Local Markdown destinations in each authored
+ * source are rebased for the full-body output path without reserializing the
+ * surrounding Markdown. Each
  * provider file is either that full body or — for a provider that declares a
  * `pointer` and is not itself canonical — a pointer importing the canonical file.
  *
@@ -20,7 +22,7 @@
  * without pulling those in.
  */
 
-import { join } from "@std/path";
+import { join, relative } from "@std/path";
 import {
   type DiscernConfig,
   loadConfig,
@@ -44,6 +46,7 @@ import {
 } from "./instruction_template.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { discoverDocs, docRegions } from "../lib/docs.ts";
+import { rebaseMarkdownLinks } from "../lib/markdown_links.ts";
 
 /** Opaque insertion point owned by the map instruction renderer, not the template
  * language. Keeping it outside `{{...}}` preserves the shared config-only
@@ -177,7 +180,8 @@ export function instructionContext(config: DiscernConfig): InstructionContext {
  * {@link BUILTIN_SECTIONS} order. Each section is rendered
  * against {@link instructionContext} so generic prose can name the project's real
  * branch prefix / integration branch and drop config-gated content. ONLY built-in
- * sections are templated — the user's `[instructions].sources` are appended verbatim by
+ * sections are templated — the user's `[instructions].sources` remain authored
+ * Markdown and only their local destination tokens are rebased by
  * {@link composeInstructionBody}. A missing section file is skipped defensively (the
  * distribution ships them, but a custom templates tree might not).
  */
@@ -227,39 +231,86 @@ async function builtinInstructions(
   return out;
 }
 
+interface AuthoredInstructionSource {
+  /** Project-relative source path: the original base for local Markdown links. */
+  readonly path: string;
+  readonly body: string;
+}
+
+interface InstructionComposition {
+  readonly builtIn: string;
+  readonly sources: readonly AuthoredInstructionSource[];
+}
+
+/** One canonical byte ending shared by full bodies and provider pointers. */
+function canonicalAgentFileEnding(body: string): string {
+  return `${body.trimEnd()}\n`;
+}
+
+/** Load the source-bearing parts once before rendering output-specific bodies. */
+async function instructionCompositionWithMapRegions(
+  root: string,
+  config: DiscernConfig,
+  mapRegions: string,
+): Promise<InstructionComposition> {
+  const sources: AuthoredInstructionSource[] = [];
+  for (const source of await resolveInstructionSources(root, config)) {
+    sources.push({
+      path: relative(root, source).replaceAll("\\", "/"),
+      body: await Deno.readTextFile(source),
+    });
+  }
+  return {
+    builtIn: await builtinInstructions(config, mapRegions),
+    sources,
+  };
+}
+
+/** Render one full body for the project-relative path that will carry it. */
+function instructionBodyForOutput(
+  composition: InstructionComposition,
+  outputPath: string,
+): string {
+  let body = composition.builtIn.trimEnd();
+  if (composition.sources.length > 0 && body !== "") {
+    body += "\n\n---\n\n";
+  }
+  body += composition.sources.map((source) =>
+    rebaseMarkdownLinks(source.body, source.path, outputPath).trimEnd()
+  ).join("\n\n");
+  return canonicalAgentFileEnding(body);
+}
+
 /**
- * The full compiled instruction body: the built-in sections followed by
- * the user's `[instructions].sources`. A single Markdown horizontal rule separates
- * shipped instructions from user-authored instructions, so the ownership boundary is
- * visible without changing either side's prose.
+ * The full compiled instruction body for one output path: the built-in sections
+ * followed by the user's `[instructions].sources`. A single Markdown horizontal
+ * rule separates shipped instructions from user-authored instructions. Local
+ * destinations preserve their source-relative project targets at the output base.
  */
 async function composeInstructionBodyWithMapRegions(
   root: string,
   config: DiscernConfig,
   mapRegions: string,
+  outputPath: string,
 ): Promise<string> {
-  let body = await builtinInstructions(config, mapRegions);
-  const sources = await resolveInstructionSources(root, config);
-  if (sources.length > 0) {
-    const builtIn = body.trimEnd();
-    body = builtIn === "" ? "" : `${builtIn}\n\n---\n\n`;
-  }
-  for (const src of sources) {
-    body += await Deno.readTextFile(src);
-    body += "\n";
-  }
-  return body;
+  return instructionBodyForOutput(
+    await instructionCompositionWithMapRegions(root, config, mapRegions),
+    outputPath,
+  );
 }
 
 /** Combine built-in policy and authored project instructions for provider rendering. */
 export async function composeInstructionBody(
   root: string,
   config: DiscernConfig,
+  outputPath?: string,
 ): Promise<string> {
+  const files = instructionFilesFor(instructionAgents(config));
   return await composeInstructionBodyWithMapRegions(
     root,
     config,
     await renderMapRegions(root),
+    outputPath ?? fullBodyOutputPath(files),
   );
 }
 
@@ -272,9 +323,17 @@ function instructionFilesFor(agents: readonly string[]): InstructionFile[] {
     .filter((g): g is InstructionFile => g !== undefined);
 }
 
+/** The path that carries the body when a caller requests one composed document. */
+function fullBodyOutputPath(files: readonly InstructionFile[]): string {
+  return files.find((file) => file.canonical)?.path ??
+    files.find((file) => file.reuseCanonical === true)?.path ??
+    files[0]?.path ?? "AGENTS.md";
+}
+
 /**
- * The agent-file content map for the given instructions entries and composed body —
- * PURE, keyed by project-relative path. Each entry gets the full body, or — when it
+ * The agent-file content map for the given instructions entries and composed body
+ * renderer — PURE, keyed by project-relative path. Each entry gets the full body
+ * rendered for its own location, or — when it
  * declares a `pointer` and a DIFFERENT canonical file is also emitted — that
  * pointer. A reuse-canonical entry adds no vendor-specific file; when no canonical
  * provider is configured in this set, it causes its canonical read path to carry
@@ -284,8 +343,9 @@ function instructionFilesFor(agents: readonly string[]): InstructionFile[] {
  */
 export function agentFileContents(
   files: readonly InstructionFile[],
-  body: string,
+  body: string | ((outputPath: string) => string),
 ): Map<string, string> {
+  const bodyFor = typeof body === "string" ? (): string => body : body;
   // The canonical agent file the pointer mirrors import (codex → AGENTS.md). When a
   // configured set has only reuse-canonical providers, their read path becomes the
   // canonical file for that set.
@@ -296,18 +356,18 @@ export function agentFileContents(
   for (const gf of files) {
     if (!emitsInstructionFile(gf)) {
       if (configuredCanonical === undefined && gf.path === canonicalRel) {
-        out.set(gf.path, body);
+        out.set(gf.path, canonicalAgentFileEnding(bodyFor(gf.path)));
       }
       continue; // reuse-canonical: no vendor-specific file.
     }
-    let fileBody = body;
+    let fileBody = bodyFor(gf.path);
     if (
       gf.pointer !== undefined && canonicalRel !== undefined &&
       canonicalRel !== gf.path
     ) {
       fileBody = gf.pointer(canonicalRel);
     }
-    out.set(gf.path, fileBody);
+    out.set(gf.path, canonicalAgentFileEnding(fileBody));
   }
   return out;
 }
@@ -322,12 +382,17 @@ export async function agentFileOwnershipPatterns(
   config: DiscernConfig,
   files: readonly InstructionFile[],
 ): Promise<InstructionOwnershipPattern[]> {
-  const body = await composeInstructionBodyWithMapRegions(
+  const composition = await instructionCompositionWithMapRegions(
     root,
     config,
     MAP_REGIONS_WILDCARD,
   );
-  return [...agentFileContents(files, body).values()].map(
+  return [
+    ...agentFileContents(
+      files,
+      (outputPath) => instructionBodyForOutput(composition, outputPath),
+    ).values(),
+  ].map(
     instructionOwnershipPattern,
   );
 }
@@ -346,8 +411,16 @@ export async function renderAgentFiles(
   config?: DiscernConfig,
 ): Promise<Map<string, string>> {
   const cfg = config ?? await loadConfig(root);
-  const body = await composeInstructionBody(root, cfg);
-  return agentFileContents(instructionFilesFor(instructionAgents(cfg)), body);
+  const files = instructionFilesFor(instructionAgents(cfg));
+  const composition = await instructionCompositionWithMapRegions(
+    root,
+    cfg,
+    await renderMapRegions(root),
+  );
+  return agentFileContents(
+    files,
+    (outputPath) => instructionBodyForOutput(composition, outputPath),
+  );
 }
 
 /** Every compiled Agent-file path the current provider selection can emit. */

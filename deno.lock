@@ -1400,6 +1400,9 @@
       "npm:ajv@^8.20.0",
       "npm:axe-core@4.10.3",
       "npm:jsdom@26.1.0",
+      "npm:mdast-util-from-markdown@2.0.3",
+      "npm:mdast-util-gfm@3.1.0",
+      "npm:micromark-extension-gfm@3.0.0",
       "npm:react-dom@18.3.1",
       "npm:react@18.3.1"
     ]
