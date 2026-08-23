@@ -36,5 +36,6 @@ Treat every worktree as occupied, even when Git reports it clean. [`discern stat
 |   130 | [Interrupted landing recovery](acceptance-recovery.md)              | Reconcile a journal without replaying authority or overwriting local data.      |
 |   140 | [Hand work back](hand-work-back.md)                                 | Finish, report the Proof, wait for review, and accept after approval.           |
 |   150 | [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) | Reclaim spent train stages on explicit confirmation; branch refs always stay.   |
+|   155 | [Cleanup ownership and teardown](cleanup-ownership.md)              | Prove cleanup authority and verify checkout absence before reporting success.   |
 |   160 | [Reappeared worktree paths](reappeared-worktree-paths.md)           | Review files written after removal and reclaim only evidence-backed paths.      |
 |   170 | [Recover a dropped branch](drop-recovery.md)                        | Restore committed work from discern's bounded local recovery refs.              |

@@ -301,9 +301,9 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ### Clean up abandoned tasks without a cliff edge
 
-- **Value:** Recent committed work from a mistaken task removal still has a direct route back, while resources from a vanished worktree can be reclaimed without treating untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.
-- **Mechanism:** Before drop removes a branch, discern keeps its committed tip in a bounded local recovery list. `discern worktree prune` finds worktrees that disappeared without teardown, plans their resource cleanup, and reports ignored-file drift before removal can proceed.
-- **Product basis:** Bounded drop recovery · Orphan reclamation · Ignored-file drift.
+- **Value:** Recent committed work from a mistaken task removal still has a direct route back, while positively identified worktrees and resources can be reclaimed without treating unrelated refs or untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.
+- **Mechanism:** Before drop removes an owned branch, discern keeps its committed tip in a bounded local recovery list. `discern worktree prune` requires recorded ownership, verifies path and Git-registration absence, plans orphan resource cleanup, and reports ignored-file drift before removal can proceed.
+- **Product basis:** Bounded drop recovery · Owned worktree reclamation · Ignored-file drift.
 
 ## Change tools without starting over
 
