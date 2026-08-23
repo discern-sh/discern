@@ -401,7 +401,8 @@ export const TOOLS: McpTool[] = orderTools([
       "cleanliness and trunk divergence; data.gate lists checks that would run; " +
       "data.gate_proof reports existing Proof state; data.worktree carries identity; " +
       "and main checkout results sample data.fleet. Treat every other fleet row as a " +
-      "separate effort. incoming_overlap, reappeared_worktree_paths, setup_unfinished, " +
+      "separate effort. setup_unfinished carries pending markers, known-job applicability, " +
+      "and assurance counts. incoming_overlap, reappeared_worktree_paths, setup_unfinished, " +
       "stale_generated, stale_materialized, stale_integrations, and stale_adr_index " +
       "preserve exceptions repaired by discern_refresh. Owner decisions appear under Owner attention. " +
       "Next action belongs to the reading agent. Set all=true to include the fleet from a worktree, " +

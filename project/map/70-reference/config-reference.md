@@ -43,6 +43,8 @@ aliases:
   - jobs.<name>.run
   - jobs.<name>.provides
   - jobs.<name>.timeout
+  - assurance
+  - assurance.not_applicable
   - scopes
   - scopes.<name>
   - scopes.<name>.paths
@@ -195,7 +197,7 @@ The project documentation tree discern scaffolds, validates, and browses.
 
 ## `[jobs]`
 
-The gate's declared jobs in one namespace. Known names (format, build, lint, typecheck, test, smoke) take a command, a command list, or { run, timeout }; their stage is derived from the name. Every custom [jobs.<name>] requires a table with `stage` (fix|build|check|test) and `run`, plus optional `provides` and `timeout`. A known name must not declare `stage`. Omit a known job the project does not have.
+The Gate's declared jobs in one namespace. Known names (format, build, lint, typecheck, test, smoke) take a command, a command list, or { run, timeout }; their stage is derived from the name. Every custom [jobs.<name>] requires a table with `stage` (fix|build|check|test) and `run`, plus optional `provides` and `timeout`. A known name must not declare `stage`. Omission means no command is configured; declare a lifecycle that does not apply under [assurance].not_applicable.
 
 | Key         | Type                         | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ----------- | ---------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -216,6 +218,14 @@ A custom job. Its name is open, but its stage and command are explicit.
 | `run`      | string \| string[]                    | —       | The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched. |
 | `provides` | string                                | —       | Optional free-text label, for humans / audit.                                                                                                                                                                                           |
 | `timeout`  | number                                | —       | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.                                                                                 |
+
+## `[assurance]`
+
+Setup assurance applicability. Every known job is applicable unless it is listed here explicitly.
+
+| Key              | Type                                                                  | Default | Description                                                                                                                                                                             |
+| ---------------- | --------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `not_applicable` | (`format` \| `build` \| `lint` \| `typecheck` \| `test` \| `smoke`)[] | `[]`    | Known jobs that do not exist in this project's lifecycle. This declaration changes setup assurance only; it never skips a configured Gate job. A listed job must be absent from [jobs]. |
 
 ## `[scopes.<name>]`
 

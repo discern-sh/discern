@@ -28,7 +28,12 @@ import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
-import { isKnownJob, KNOWN_JOBS, STAGES } from "./capabilities.ts";
+import {
+  isKnownJob,
+  KNOWN_JOBS,
+  type KnownJob,
+  STAGES,
+} from "./capabilities.ts";
 import { logbookPoweredPhraseList } from "./logbook_powered.ts";
 import {
   GLOB_METACHARACTER_RE,
@@ -604,7 +609,28 @@ const jobsObject = z.intersection(
 );
 
 const jobsSection = jobsObject.prefault({}).describe(
-  "The gate's declared jobs in one namespace. Known names (format, build, lint, typecheck, test, smoke) take a command, a command list, or { run, timeout }; their stage is derived from the name. Every custom [jobs.<name>] requires a table with `stage` (fix|build|check|test) and `run`, plus optional `provides` and `timeout`. A known name must not declare `stage`. Omit a known job the project does not have.",
+  "The Gate's declared jobs in one namespace. Known names (format, build, lint, typecheck, test, smoke) take a command, a command list, or { run, timeout }; their stage is derived from the name. Every custom [jobs.<name>] requires a table with `stage` (fix|build|check|test) and `run`, plus optional `provides` and `timeout`. A known name must not declare `stage`. Omission means no command is configured; declare a lifecycle that does not apply under [assurance].not_applicable.",
+);
+
+/** The known-job enum as schema data, derived from {@link KNOWN_JOBS}. The cast
+ * records the authority's non-empty invariant so Zod can publish an enum rather
+ * than a string refinement; a new known job then joins config validation and the
+ * generated JSON Schema in the same edit. */
+const knownJobNameSchema = z.enum(
+  Object.keys(KNOWN_JOBS) as [KnownJob, ...KnownJob[]],
+);
+
+/** Setup coverage policy. Applicability is separate from `[jobs]`: it changes
+ * the setup assurance denominator and never changes what the Gate schedules. */
+const assuranceSection = z.strictObject({
+  not_applicable: z.array(knownJobNameSchema).refine(
+    (names) => new Set(names).size === names.length,
+    { message: "each known job may be listed only once." },
+  ).meta({ uniqueItems: true }).default([]).describe(
+    "Known jobs that do not exist in this project's lifecycle. This declaration changes setup assurance only; it never skips a configured Gate job. A listed job must be absent from [jobs].",
+  ),
+}).prefault({}).describe(
+  "Setup assurance applicability. Every known job is applicable unless it is listed here explicitly.",
 );
 
 const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(
@@ -755,6 +781,7 @@ export const configSchema = z.strictObject({
   skills: skillsSection,
   map: mapSection,
   jobs: jobsSection,
+  assurance: assuranceSection,
   scopes: scopesSection,
   generated: generatedSection,
   acceptance: acceptanceSection,
@@ -1027,6 +1054,33 @@ function jobFormIssues(parsed: unknown): ConfigIssue[] {
   return issues;
 }
 
+/** Cross-section applicability rules. A declaration cannot mask any configured
+ * value, including a no-op or discern-only housekeeping command: applicability
+ * changes assurance accounting and never suppresses Gate configuration. */
+function jobApplicabilityIssues(parsed: unknown): ConfigIssue[] {
+  if (
+    !isRecord(parsed) || !isRecord(parsed.jobs) ||
+    !isRecord(parsed.assurance) ||
+    !Array.isArray(parsed.assurance.not_applicable)
+  ) {
+    return [];
+  }
+  const jobs = parsed.jobs;
+  const notApplicable = parsed.assurance.not_applicable;
+  return notApplicable.flatMap((name, index) => {
+    if (
+      typeof name !== "string" || !Object.hasOwn(jobs, name)
+    ) {
+      return [];
+    }
+    return [{
+      path: `assurance.not_applicable.${index}`,
+      message:
+        `known job "${name}" is configured under [jobs] and cannot be declared not applicable. Run \`discern config set-job ${name} --applicable\` to keep the configured command.`,
+    }];
+  });
+}
+
 /**
  * Cross-section `[checkpoints]` REFERENCE rules that JSON Schema cannot express
  * alone — shapes that are wrong however complete the entry becomes, so they
@@ -1153,6 +1207,7 @@ export function validateConfigValue(
   const jobIssues = jobFormIssues(parsed);
   const formIssues = [
     ...jobIssues,
+    ...jobApplicabilityIssues(parsed),
     ...acceptanceGrantIssues(parsed),
     ...checkpointReferenceIssues(parsed),
     ...checkpointQuestionSourceIssues(parsed),
@@ -1476,6 +1531,7 @@ export function configWriteIssues(text: string): ConfigIssue[] {
   }
   const semanticIssues = [
     ...jobFormIssues(parsed),
+    ...jobApplicabilityIssues(parsed),
     ...acceptanceGrantIssues(parsed),
     ...checkpointReferenceIssues(parsed),
     ...checkpointQuestionSourceIssues(parsed),

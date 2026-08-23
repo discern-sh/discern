@@ -597,6 +597,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/config_codegen_test.ts",
+      "tests/config_command_test.ts",
+      "tests/engine_setup_assurance_test.ts",
       "tests/glossary_enrolment_test.ts",
       "tests/feature_canon_enrolment_test.ts",
     ],

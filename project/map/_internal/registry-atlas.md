@@ -35,7 +35,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
 | [`step-kinds`](#step-kinds--step-kinds)                                                                               | `src/shared/result.ts#STEP_KINDS`                                                 | 19      | —                | node `doctor`               |
 | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 33      | —                | node `plan-apply`           |
-| [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 16      | —                | surface `config`            |
+| [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 17      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 10      | "Skill"          | surface `skill`             |
 | [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 14      | —                | —                           |
@@ -84,7 +84,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 306     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 307     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -99,7 +99,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 86      | —                | node `canonical-sets`       |
 
-86 sets · 135 guard tests · 58 committed artifacts.
+86 sets · 137 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -145,6 +145,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/cli_reference_codegen_test.ts`              | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/config_banner_parity_test.ts`               | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/config_codegen_test.ts`                     | [`jobs`](#jobs--gate-jobs), [`config-tables`](#config-tables--config-tables), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                 |
+| `tests/config_command_test.ts`                     | [`jobs`](#jobs--gate-jobs)                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/config_schema_test.ts`                      | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/config_set_schema_guard_test.ts`            | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/contributor_governance_test.ts`             | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)                                                                                                                                                                                                                                                                                                                                                                     |
@@ -175,6 +176,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/engine_patterns_test.ts`                    | [`git-admin-state`](#git-admin-state--git-admin-state), [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                        |
 | `tests/engine_plan_parity_test.ts`                 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/engine_proof_render_test.ts`                | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tests/engine_setup_assurance_test.ts`             | [`jobs`](#jobs--gate-jobs)                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/engine_setup_pages_test.ts`                 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/engine_setup_phase_parity_test.ts`          | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/engine_subprocess_ssot_test.ts`             | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -718,7 +720,7 @@ The known Gate jobs: the command table's fixed vocabulary.
   - `typecheck`
   - `test`
   - `smoke`
-- Guards: `tests/config_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/feature_canon_enrolment_test.ts`
+- Guards: `tests/config_codegen_test.ts`, `tests/config_command_test.ts`, `tests/engine_setup_assurance_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Glossary: the "Gate job" entry carries the concept
 - Feature canon: claimed as the `job` surface set
 
@@ -825,7 +827,7 @@ The stable kebab-case operation labels discern authors in plans and applied resu
 Every top-level table in the config schema.
 
 - Source: `src/shared/config_schema.ts` — `configSchema`
-- Members: 16
+- Members: 17
   - `meta`
   - `project`
   - `repository`
@@ -833,6 +835,7 @@ Every top-level table in the config schema.
   - `skills`
   - `map`
   - `jobs`
+  - `assurance`
   - `scopes`
   - `generated`
   - `acceptance`
@@ -2451,7 +2454,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 306
+- Members: 307
   - `0003`
   - `0005`
   - `0006`
@@ -2737,6 +2740,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0314`
   - `0315`
   - `0316`
+  - `0317`
   - `0001`
   - `0002`
   - `0004`

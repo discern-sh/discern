@@ -33,6 +33,7 @@ import {
 } from "./engine_helpers.ts";
 import { parseSetupBrief } from "../src/shared/setup_pages.ts";
 import { SETUP_COMPLETION_CHECKS } from "../src/shared/setup_checks.ts";
+import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { SetupStepOutputSchema } from "../src/shared/result_schemas.ts";
 import {
   configSchema,
@@ -475,4 +476,15 @@ Deno.test("every completion check's evaluate() fails when its step's work is ski
       );
     });
   }
+});
+
+Deno.test("the known-jobs completion check accepts an explicitly all-inapplicable lifecycle", async () => {
+  const check = SETUP_COMPLETION_CHECKS.find((candidate) =>
+    candidate.name === "known_jobs"
+  );
+  assert(check !== undefined);
+  const config = baseConfig({
+    assurance: { not_applicable: Object.keys(KNOWN_JOBS) },
+  });
+  assertEquals(await check.evaluate({ root: Deno.cwd(), config }), true);
 });

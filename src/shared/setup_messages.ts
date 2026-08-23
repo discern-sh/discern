@@ -272,22 +272,34 @@ export interface CompletionContext {
   reactivation: CompletionReactivation;
 }
 
-/** Plain-word, honest coverage line for the completion message — what is actually
- * running now, calibrated for a novice rather than the agent-facing verdict sentence. */
+/** Plain-word coverage line for the completion message: what runs and which
+ * declared lifecycles do not apply. */
 function coverageLine(a: SetupAssurance): string {
+  const notApplicable = a.known_jobs.filter((job) =>
+    job.not_applicable === true
+  ).map((job) => `\`${job.name}\``);
+  const applicability = notApplicable.length === 0
+    ? ""
+    : notApplicable.length === 1
+    ? ` ${notApplicable[0]} does not apply.`
+    : ` ${notApplicable.slice(0, -1).join(", ")}, and ${
+      notApplicable.at(-1)
+    } do not apply.`;
   switch (a.verdict) {
     case "full":
-      return "Quality checks — your formatter, linter, and tests — all run on every change now.";
+      return a.total === 0
+        ? `No known quality protections apply to this project.${applicability}`
+        : `Quality checks: ${a.enforced} of ${a.total} applicable protections are wired and running.${applicability}`;
     case "minimal":
-      return "No quality checks are wired yet, so nothing is caught automatically. Wiring your tests is the highest-value thing to add next.";
+      return `No quality checks are wired yet, so nothing is caught automatically. Wiring your tests is the highest-value thing to add next.${applicability}`;
     case "partial": {
       const notRunning = a.known_jobs
-        .filter((c) => c.state !== "enforced")
+        .filter((c) => c.state !== "enforced" && c.not_applicable !== true)
         .map((c) => c.name);
       const tail = notRunning.length > 0
         ? ` Not running yet: ${notRunning.join(", ")}.`
         : "";
-      return `Quality checks: ${a.enforced} of ${a.total} are wired and running.${tail}`;
+      return `Quality checks: ${a.enforced} of ${a.total} applicable protections are wired and running.${tail}${applicability}`;
     }
   }
 }

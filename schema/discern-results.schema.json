@@ -561,6 +561,10 @@
                           },
                           "wired": {
                             "type": "boolean"
+                          },
+                          "not_applicable": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -568,6 +572,71 @@
                           "wired"
                         ]
                       }
+                    },
+                    "assurance": {
+                      "type": "object",
+                      "properties": {
+                        "known_jobs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "enforced",
+                                  "deferred",
+                                  "absent"
+                                ]
+                              },
+                              "not_applicable": {
+                                "type": "boolean",
+                                "const": true
+                              },
+                              "reason": {
+                                "type": "string"
+                              },
+                              "self_supplied": {
+                                "type": "boolean",
+                                "const": true
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "state"
+                            ]
+                          }
+                        },
+                        "enforced": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        },
+                        "known_total": {
+                          "type": "number"
+                        },
+                        "not_applicable": {
+                          "type": "number"
+                        },
+                        "verdict": {
+                          "type": "string",
+                          "enum": [
+                            "full",
+                            "partial",
+                            "minimal"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "known_jobs",
+                        "enforced",
+                        "total",
+                        "verdict"
+                      ]
                     }
                   },
                   "required": [
@@ -1990,6 +2059,10 @@
                               "absent"
                             ]
                           },
+                          "not_applicable": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "reason": {
                             "type": "string"
                           },
@@ -2008,6 +2081,12 @@
                       "type": "number"
                     },
                     "total": {
+                      "type": "number"
+                    },
+                    "known_total": {
+                      "type": "number"
+                    },
+                    "not_applicable": {
                       "type": "number"
                     },
                     "verdict": {
@@ -15766,6 +15845,10 @@
                           },
                           "wired": {
                             "type": "boolean"
+                          },
+                          "not_applicable": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -15773,6 +15856,71 @@
                           "wired"
                         ]
                       }
+                    },
+                    "assurance": {
+                      "type": "object",
+                      "properties": {
+                        "known_jobs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "enforced",
+                                  "deferred",
+                                  "absent"
+                                ]
+                              },
+                              "not_applicable": {
+                                "type": "boolean",
+                                "const": true
+                              },
+                              "reason": {
+                                "type": "string"
+                              },
+                              "self_supplied": {
+                                "type": "boolean",
+                                "const": true
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "state"
+                            ]
+                          }
+                        },
+                        "enforced": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        },
+                        "known_total": {
+                          "type": "number"
+                        },
+                        "not_applicable": {
+                          "type": "number"
+                        },
+                        "verdict": {
+                          "type": "string",
+                          "enum": [
+                            "full",
+                            "partial",
+                            "minimal"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "known_jobs",
+                        "enforced",
+                        "total",
+                        "verdict"
+                      ]
                     }
                   },
                   "required": [

@@ -227,6 +227,17 @@ Deno.test("the generated jobs object exposes known names and the custom table ar
   );
 });
 
+Deno.test("the generated applicability list enrolls exactly the canonical known jobs", () => {
+  const live = JSON.parse(renderConfigSchemaJson()) as Record<string, unknown>;
+  const notApplicable = schemaNodeAt(live, "assurance.not_applicable");
+  assertEquals(notApplicable.uniqueItems, true);
+  assert(isJsonObject(notApplicable.items));
+  assertEquals(
+    [...(notApplicable.items.enum as string[])].sort(),
+    Object.keys(KNOWN_JOBS).sort(),
+  );
+});
+
 // ── docs config-reference ────────────────────────────────────────────────────
 
 Deno.test("the configured map's config reference matches the generator (run `deno task codegen`)", async () => {

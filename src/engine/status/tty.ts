@@ -43,6 +43,7 @@ import { compactDuration } from "../output.ts";
 import { isScopeMarker } from "../scopes/scopes.ts";
 import { taskLabel } from "../worktree/task_label.ts";
 import { isReadyToLand } from "../worktree/readiness.ts";
+import { notApplicableCountLabel } from "../../shared/setup_assurance.ts";
 
 /** Very wide terminals still get a report whose related fields stay together. */
 export const STATUS_REPORT_MAX_WIDTH = 104;
@@ -1338,15 +1339,25 @@ function renderSetup(
   const wired = setup.known_jobs.filter((job) => job.wired).map((job) =>
     job.name
   );
-  const missing = setup.known_jobs.filter((job) => !job.wired).map((job) =>
-    job.name
-  );
+  const notApplicable = setup.known_jobs.filter((job) =>
+    job.not_applicable === true
+  ).map((job) => job.name);
+  const missing = setup.known_jobs.filter((job) =>
+    !job.wired && job.not_applicable !== true
+  ).map((job) => job.name);
   const impact = [
     ...(setup.pending_markers.length === 0
       ? []
       : [`Skeleton markers: ${setup.pending_markers.join(", ")}.`]),
     `Gate jobs: ${wired.length === 0 ? "none configured" : wired.join(", ")}${
-      missing.length === 0 ? "" : `; still unset: ${missing.join(", ")}`
+      notApplicable.length === 0
+        ? ""
+        : `; does not apply: ${notApplicable.join(", ")}`
+    }${missing.length === 0 ? "" : `; still unset: ${missing.join(", ")}`}.`,
+    `Applicable protections: ${setup.assurance?.enforced ?? 0} of ${
+      setup.assurance?.total ?? 0
+    } enforced; ${
+      notApplicableCountLabel(setup.assurance?.not_applicable ?? 0)
     }.`,
   ].join(" ");
   return [c.presenter.present(renderDiagnosticCli, {

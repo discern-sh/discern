@@ -12,6 +12,7 @@ import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { markdownCodeSpan } from "./markdown_code.ts";
 import { checkpointDropMarkdown } from "./checkpoint_drops.ts";
 import { productSentence } from "./product_sentence.ts";
+import { notApplicableCountLabel } from "./setup_assurance.ts";
 
 export interface ResultMarkdownPresentation {
   /** One authored statement of the current result state. */
@@ -779,9 +780,11 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
     evidence: unique([
       assurance === undefined
         ? undefined
-        : `Known jobs: ${number(assurance.enforced) ?? 0} of ${
+        : `Applicable protections: ${number(assurance.enforced) ?? 0} of ${
           number(assurance.total) ?? 0
-        } enforced; verdict ${code(assurance.verdict)}.`,
+        } enforced; ${
+          notApplicableCountLabel(number(assurance.not_applicable) ?? 0)
+        }; verdict ${code(assurance.verdict)}.`,
       `Gate proven: ${boolean(data.gate_proven) === true ? "yes" : "no"}.`,
       `Worktree proven: ${
         boolean(data.worktree_proven) === true ? "yes" : "no"
@@ -1471,6 +1474,8 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
   const worktree = object(data.worktree);
   const fleet = records(data.fleet).filter((entry) => entry.is_main !== true);
   const projection = object(data.projection);
+  const setupUnfinished = object(data.setup_unfinished);
+  const setupAssurance = object(setupUnfinished?.assurance);
   const projectionCounts = object(projection?.omitted);
   const fleetTotal = number(data.fleet_total) ?? fleet.length;
   const fleetCollisionTotal = records(data.fleet_collisions).length +
@@ -1526,6 +1531,13 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
         : `Changed files: ${number(git.changed_files) ?? 0}.`,
       listFact("Incoming overlap", strings(git?.incoming_overlap)),
       listFact("Changed scopes", strings(data.scopes)),
+      setupAssurance === undefined
+        ? undefined
+        : `Applicable protections: ${number(setupAssurance.enforced) ?? 0} of ${
+          number(setupAssurance.total) ?? 0
+        } enforced; ${
+          notApplicableCountLabel(number(setupAssurance.not_applicable) ?? 0)
+        }; verdict ${code(setupAssurance.verdict)}.`,
       gateProofFact(data.gate_proof),
       fleetTotal === 0
         ? undefined

@@ -147,7 +147,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         what:
           `A project declares its commands once, under \`[jobs]\`. The known names ${
             codeList(Object.keys(KNOWN_JOBS), "and")
-          } derive their stage; a custom \`[jobs.<name>]\` table declares one, with an optional \`provides\` label.`,
+          } derive their stage and accept an ordered command list; a custom \`[jobs.<name>]\` table declares one, with an optional \`provides\` label.`,
         why:
           "Every agent and every human runs the same commands, read from one file.",
         plain: {
@@ -155,7 +155,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           what:
             `A project lists its instructions once, in the part of its settings called \`[jobs]\`. The familiar names ${
               codeList(Object.keys(KNOWN_JOBS), "and")
-            } automatically go in the right group; any additional named item goes under \`[jobs.<name>]\`, states its own group, and may add a \`provides\` label saying what it supplies.`,
+            } automatically go in the right group and can contain an ordered list; any additional named item goes under \`[jobs.<name>]\`, states its own group, and may add a \`provides\` label saying what it supplies.`,
           why:
             "Every person and every coding agent runs the same instructions, taken from the same file.",
         },
@@ -1633,17 +1633,17 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "setup",
         title: "Agent-driven setup",
         what:
-          "`discern setup` is a staged, consent-driven handshake the coding agent completes: it verifies write authority, detects the default branch (offering git init on a bare directory), sniffs the repo to fill `[jobs]`, proves the project runs in a worktree, and lands the finished configuration with `setup accept`. Each step serves ready-to-relay messages, a fresh scaffold requires a `--confirmed` attestation, and installing a dependency is its own consent point.",
+          "`discern setup` is a staged, consent-driven handshake the coding agent completes: it verifies write authority, detects the default branch (offering git init on a bare directory), configures `[jobs]` and records which known lifecycles do not apply, proves the project runs in a worktree, and lands the finished configuration with `setup accept`. Completion reports enforced protections against the applicable denominator. Each step serves ready-to-relay messages, a fresh scaffold requires a `--confirmed` attestation, and installing a dependency is its own consent point.",
         why:
           "Tell your agent to run setup and answer its questions; the configuration engine is the agent, and every irreversible step asks first.",
         plain: {
           title: "Setup led by the coding agent",
           what:
-            "`discern setup` is a staged, permission-first conversation the coding agent completes: it proves it may make changes, finds the project's main shared line of work (offering to begin version history in a bare folder), examines the project to fill in `[jobs]`, proves the project runs in a separate working copy, and completes the settings with `setup accept`. Every step serves a message ready to pass to the person in charge, starting from nothing requires `--confirmed`, and installing any extra software is its own permission moment.",
+            "`discern setup` is a staged, permission-first conversation the coding agent completes: it proves it may make changes, finds the project's main shared line of work (offering to begin version history in a bare folder), records the project's checks and which familiar steps do not apply, proves the project runs in a separate working copy, and completes the settings with `setup accept`. Completion counts only the familiar protections that apply. Every step serves a message ready to pass to the person in charge, starting from nothing requires `--confirmed`, and installing any extra software is its own permission moment.",
           why:
             "Tell your coding assistant to run setup and answer its questions; the assistant supplies the judgment, and every hard-to-undo step asks first.",
         },
-        surfaces: ["verb:setup"],
+        surfaces: ["verb:setup", "config:assurance"],
       },
       {
         id: "setup-observability",

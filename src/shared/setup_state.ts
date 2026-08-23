@@ -17,6 +17,10 @@ import { type DiscernConfig, loadConfig } from "./config_schema.ts";
 import { fire, type FiredHint, HINTS } from "./hints.ts";
 import { normalizeMapDir } from "./map_path.ts";
 import { instructionSeedRel, SOURCE_PATHS } from "./paths_registry.ts";
+import {
+  assessSetupAssurance,
+  type SetupAssurance,
+} from "./setup_assurance.ts";
 import { runGit } from "./subprocess.ts";
 
 /** The branch a fresh `discern setup` isolates its work on, so its several
@@ -234,10 +238,12 @@ export async function findSkeletonMarkers(
   return leftover;
 }
 
-/** One known job and whether a command is wired for it in `discern.toml`. */
+/** One known job and its command/applicability facts from `discern.toml`. */
 export interface KnownJobProgress {
   name: string;
   wired: boolean;
+  /** Present only when the absent lifecycle is excluded from setup assurance. */
+  not_applicable?: true;
 }
 
 /**
@@ -251,8 +257,10 @@ export interface KnownJobProgress {
 export interface SetupProgress {
   /** Scaffolded files still carrying a `<!-- setup fills this -->` / EXAMPLE marker. */
   pendingMarkers: string[];
-  /** Each known job, in {@link KNOWN_JOBS} order, and whether it is wired. */
+  /** Each known job, in {@link KNOWN_JOBS} order, with wiring/applicability. */
   knownJobs: KnownJobProgress[];
+  /** Coverage over the same known-job facts, including the applicable denominator. */
+  assurance: SetupAssurance;
   /** True once every skeleton marker is cleared (the authoring is structurally done). */
   markersCleared: boolean;
   /** True once `[meta].bootstrapped` is recorded (`setup done` passed). */
@@ -262,8 +270,9 @@ export interface SetupProgress {
 /**
  * Compute {@link SetupProgress} for `root`. Takes the already-loaded `config` (the
  * caller has it) so this stays a pure derivation — markers from the filesystem,
- * known-job wiring from the config, both read-only. The `wired` predicate mirrors
- * `doctor`'s (`value !== undefined`), so the two surfaces agree on what "wired" means.
+ * known-job wiring and applicability from the config, both read-only. The
+ * `wired` predicate mirrors `doctor`'s (`value !== undefined`), so the two
+ * surfaces agree on what "wired" means.
  */
 export async function setupProgress(
   root: string,
@@ -276,11 +285,17 @@ export async function setupProgress(
         name,
         wired: config.jobs[name as keyof typeof KNOWN_JOBS] !==
           undefined,
+        ...(config.assurance.not_applicable.includes(
+            name as keyof typeof KNOWN_JOBS,
+          )
+          ? { not_applicable: true as const }
+          : {}),
       }),
     );
   return {
     pendingMarkers,
     knownJobs,
+    assurance: assessSetupAssurance(config),
     markersCleared: pendingMarkers.length === 0,
     bootstrapped: config.meta.bootstrapped,
   };

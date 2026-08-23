@@ -430,16 +430,18 @@ Usage: `discern config <subcommand>`
 
 #### `discern config set-job`
 
-Set a declared gate job. Known names (format, build, lint, typecheck, test, smoke) take a positional command and derive their stage; custom names take --stage and --run.
+Set a declared Gate job. Known names (format, build, lint, typecheck, test, smoke) take a positional scalar or repeatable --run entries and derive their stage. Custom names take --stage and one or more --run entries. Known jobs can also be marked --not-applicable or --applicable for setup assurance.
 
 Usage: `discern config set-job <name> [command] [options]`
 
-| Option               | Description                                               |
-| -------------------- | --------------------------------------------------------- |
-| `--stage <stage>`    | Custom jobs only: when it runs (fix\|build\|check\|test). |
-| `--run <cmd>`        | Custom jobs only: the command to run.                     |
-| `--provides <label>` | Custom jobs only: free-text label.                        |
-| `--dry-run`          | Print the edit and write nothing.                         |
+| Option               | Description                                                          |
+| -------------------- | -------------------------------------------------------------------- |
+| `--stage <stage>`    | Custom jobs only: when it runs (fix\|build\|check\|test).            |
+| `--run <command>`    | A literal command to run (repeatable; order is preserved).           |
+| `--provides <label>` | Custom jobs only: free-text label.                                   |
+| `--not-applicable`   | Known jobs only: exclude this absent lifecycle from setup assurance. |
+| `--applicable`       | Known jobs only: restore this lifecycle to setup assurance.          |
+| `--dry-run`          | Print the edit and write nothing.                                    |
 
 #### `discern config set-scope`
 

@@ -303,6 +303,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0314 — The public manual and project Map are separate corpora on one document engine](0314-separate-public-manual-and-project-map.md)
 - [0315 — Automatic worktree cleanup requires recorded ownership and verified absence](0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence.md)
 - [0316 — Instruction compilation preserves location and prepare converges refresh](0316-instruction-compilation-preserves-location-and-prepare-converges.md)
+- [0317 — Gate commands and setup applicability are separate facts](0317-gate-commands-and-setup-applicability-are-separate-facts.md)
 
 <!-- END GENERATED: current ADR records -->
 

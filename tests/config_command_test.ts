@@ -8,6 +8,8 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { recordConfigPaths } from "../src/shared/config_codegen.ts";
+import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
@@ -15,6 +17,7 @@ import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
+import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 
 /** Scaffold a fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
@@ -135,6 +138,392 @@ Deno.test("config set-job round-trips the smoke known job (ADR 0090)", async () 
     // The install still loads cleanly with smoke wired.
     const doctor = await runCli(["doctor", "--json"], dir);
     assertEquals(JSON.parse(doctor.stdout).ok, true);
+  });
+});
+
+Deno.test("every known job accepts an ordered --run list from the canonical set", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    for (
+      const name of Object.keys(KNOWN_JOBS) as Array<keyof typeof KNOWN_JOBS>
+    ) {
+      const first = `${name} first  --literal='* ? [ ]'`;
+      const second = `  ${name} second && printf '%s' "$VALUE"  `;
+      const result = await runCli(
+        [
+          "config",
+          "set-job",
+          name,
+          "--run",
+          first,
+          "--run",
+          second,
+          "--json",
+        ],
+        dir,
+      );
+      assertEquals(
+        result.code,
+        0,
+        `${name}: ${result.stdout}${result.stderr}`,
+      );
+      const config = parseConfigOrThrow(await readToml(dir));
+      assertEquals(
+        config.jobs[name],
+        [first, second],
+        `${name} did not preserve command order and literal bytes`,
+      );
+    }
+  });
+});
+
+Deno.test("config set-job replaces scalar and list forms without stale values and is idempotent", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+
+    const scalar = await runCli(
+      ["config", "set-job", "lint", "deno lint"],
+      dir,
+    );
+    assertEquals(scalar.code, 0, scalar.stderr);
+    assertEquals(
+      parseConfigOrThrow(await readToml(dir)).jobs.lint,
+      "deno lint",
+    );
+
+    const listArgs = [
+      "config",
+      "set-job",
+      "lint",
+      "--run",
+      "deno lint",
+      "--run",
+      "deno fmt --check",
+    ];
+    const list = await runCli(listArgs, dir);
+    assertEquals(list.code, 0, list.stderr);
+    const once = await readToml(dir);
+    assertEquals(parseConfigOrThrow(once).jobs.lint, [
+      "deno lint",
+      "deno fmt --check",
+    ]);
+
+    const repeated = await runCli(listArgs, dir);
+    assertEquals(repeated.code, 0, repeated.stderr);
+    assertEquals(await readToml(dir), once);
+
+    const back = await runCli(
+      ["config", "set-job", "lint", "deno lint --compact"],
+      dir,
+    );
+    assertEquals(back.code, 0, back.stderr);
+    assertEquals(
+      parseConfigOrThrow(await readToml(dir)).jobs.lint,
+      "deno lint --compact",
+    );
+  });
+});
+
+Deno.test("config set-job ordered dry-run reports one array edit and writes nothing", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const before = await readToml(dir);
+    const result = await runCli(
+      [
+        "config",
+        "set-job",
+        "format",
+        "--run",
+        "prettier --write .",
+        "--run",
+        "discern tidy",
+        "--dry-run",
+        "--json",
+      ],
+      dir,
+    );
+    assertEquals(result.code, 0, result.stderr);
+    const envelope = JSON.parse(result.stdout);
+    assertEquals(envelope.dry_run, true);
+    assertEquals(envelope.data.edits, [{
+      key: "jobs.format",
+      literal: '["prettier --write .", "discern tidy"]',
+    }]);
+    assertEquals(await readToml(dir), before);
+  });
+});
+
+Deno.test("config set-job writes two formatter commands that the Gate executes in order", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const marker = await Deno.makeTempFile({
+      prefix: "discern-ordered-format-",
+    });
+    const quotedMarker = `'${marker.replaceAll("'", "'\\''")}'`;
+    try {
+      const configured = await runCli(
+        [
+          "config",
+          "set-job",
+          "format",
+          "--run",
+          `printf 'first\\n' >> ${quotedMarker}`,
+          "--run",
+          `printf 'second\\n' >> ${quotedMarker}`,
+        ],
+        dir,
+      );
+      assertEquals(configured.code, 0, configured.stderr);
+
+      const prepared = await runAgent(dir, ["prepare", "--json"]);
+      assertEquals(prepared.code, 0, prepared.output);
+      assertEquals(await Deno.readTextFile(marker), "first\nsecond\n");
+    } finally {
+      await Deno.remove(marker).catch(() => undefined);
+    }
+  });
+});
+
+Deno.test("config set-job refuses ambiguous, empty, and serialized-list forms without writing", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const cases: Array<{ args: string[]; includes: string }> = [
+      {
+        args: [
+          "config",
+          "set-job",
+          "format",
+          "prettier --write .",
+          "--run",
+          "discern tidy",
+        ],
+        includes: "cannot combine",
+      },
+      {
+        args: ["config", "set-job", "format", "--run", ""],
+        includes: "non-empty command",
+      },
+      {
+        args: [
+          "config",
+          "set-job",
+          "format",
+          "--run",
+          "prettier --write .",
+          "--run",
+          "   ",
+        ],
+        includes: "non-empty command",
+      },
+      {
+        args: [
+          "config",
+          "set-job",
+          "format",
+          '["prettier --write .", "discern tidy"]',
+        ],
+        includes: "one literal command",
+      },
+      {
+        args: [
+          "config",
+          "set-job",
+          "format",
+          "--stage",
+          "fix",
+          "--run",
+          "prettier --write .",
+        ],
+        includes: "remove --stage",
+      },
+    ];
+
+    for (const testCase of cases) {
+      const before = await readToml(dir);
+      const result = await runCli([...testCase.args, "--json"], dir);
+      assertEquals(
+        result.code,
+        1,
+        `${testCase.args.join(" ")}: ${result.stdout}${result.stderr}`,
+      );
+      const envelope = JSON.parse(result.stdout);
+      assertStringIncludes(envelope.message, testCase.includes);
+      assertStringIncludes(envelope.message, "discern config set-job");
+      assertStringIncludes(envelope.message, "--run");
+      assertEquals(await readToml(dir), before);
+    }
+  });
+});
+
+Deno.test("config set-job parser refusals preserve the file and serve the ordered syntax", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const cases = [
+      {
+        args: ["config", "set-job", "format", "--run", "--json"],
+        correction: "discern config set-job format --run '<command>'",
+      },
+      {
+        args: ["config", "set-job", "format", "first", "second", "--json"],
+        correction:
+          "discern config set-job format --run '<command>' --run '<next-command>'",
+      },
+    ];
+    for (const { args, correction } of cases) {
+      const before = await readToml(dir);
+      const result = await runCli(args, dir);
+      assert(result.code !== 0, `${args.join(" ")} unexpectedly succeeded`);
+      const envelope = JSON.parse(result.stdout);
+      assertEquals(envelope.error, "invalid_arguments");
+      assertStringIncludes(
+        envelope.message,
+        correction,
+      );
+      assertEquals(await readToml(dir), before);
+    }
+  });
+});
+
+Deno.test("config set-job removes known-job-only options without changing the requested applicability action", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    for (const option of ["--stage", "--provides"] as const) {
+      const before = await readToml(dir);
+      const result = await runCli(
+        [
+          "config",
+          "set-job",
+          "build",
+          option,
+          option === "--stage" ? "build" : "artifact",
+          "--not-applicable",
+          "--json",
+        ],
+        dir,
+      );
+      assertEquals(result.code, 1);
+      assertStringIncludes(
+        JSON.parse(result.stdout).message,
+        "discern config set-job build --not-applicable",
+      );
+      assertEquals(await readToml(dir), before);
+    }
+  });
+});
+
+Deno.test("config set-job help teaches ordered commands and applicability from the live registry", async () => {
+  await withTempDir(async (dir) => {
+    const help = await runCli(["config", "set-job", "--help"], dir);
+    assertEquals(help.code, 0, help.stderr);
+    assertStringIncludes(help.stdout, "repeatable --run entries");
+    assertTerminalTextIncludes(help.stdout, "--run <command>");
+    assertStringIncludes(help.stdout, "order is preserved");
+    assertStringIncludes(help.stdout, "--not-applicable");
+    assertStringIncludes(help.stdout, "--applicable");
+  });
+});
+
+Deno.test("config set-job marks and unmarks known-job applicability through the canonical set", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const configPath = join(dir, "discern.toml");
+    await Deno.writeTextFile(
+      configPath,
+      (await Deno.readTextFile(configPath)).replace(
+        /^\s*format\s*=.*\n/m,
+        "",
+      ),
+    );
+
+    for (
+      const name of Object.keys(KNOWN_JOBS) as Array<keyof typeof KNOWN_JOBS>
+    ) {
+      const marked = await runCli(
+        ["config", "set-job", name, "--not-applicable", "--json"],
+        dir,
+      );
+      assertEquals(marked.code, 0, `${name}: ${marked.stdout}${marked.stderr}`);
+      assert(
+        parseConfigOrThrow(await readToml(dir)).assurance.not_applicable
+          .includes(name),
+        `${name} was not recorded as not applicable`,
+      );
+
+      const beforeRepeat = await readToml(dir);
+      const repeated = await runCli(
+        ["config", "set-job", name, "--not-applicable"],
+        dir,
+      );
+      assertEquals(repeated.code, 0, repeated.stderr);
+      assertEquals(await readToml(dir), beforeRepeat);
+
+      const unmarked = await runCli(
+        ["config", "set-job", name, "--applicable"],
+        dir,
+      );
+      assertEquals(unmarked.code, 0, unmarked.stderr);
+      assert(
+        !parseConfigOrThrow(await readToml(dir)).assurance.not_applicable
+          .includes(name),
+        `${name} remained not applicable`,
+      );
+    }
+  });
+});
+
+Deno.test("config set-job refuses applicability contradictions and auto-unmarks when a command is set", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    await runCli(["config", "set-job", "build", "--not-applicable"], dir);
+
+    const beforeDryRun = await readToml(dir);
+    const preview = await runCli(
+      [
+        "config",
+        "set-job",
+        "build",
+        "--run",
+        "deno task build",
+        "--dry-run",
+        "--json",
+      ],
+      dir,
+    );
+    assertEquals(preview.code, 0, preview.stderr);
+    assertEquals(JSON.parse(preview.stdout).data.edits, [
+      { key: "jobs.build", literal: '["deno task build"]' },
+      { key: "assurance.not_applicable", literal: "[]" },
+    ]);
+    assertEquals(await readToml(dir), beforeDryRun);
+
+    const set = await runCli(
+      ["config", "set-job", "build", "--run", "deno task build"],
+      dir,
+    );
+    assertEquals(set.code, 0, set.stderr);
+    const configured = parseConfigOrThrow(await readToml(dir));
+    assertEquals(configured.jobs.build, ["deno task build"]);
+    assert(!configured.assurance.not_applicable.includes("build"));
+
+    const beforeConfiguredMark = await readToml(dir);
+    const contradiction = await runCli(
+      ["config", "set-job", "build", "--not-applicable", "--json"],
+      dir,
+    );
+    assertEquals(contradiction.code, 1);
+    assertStringIncludes(
+      JSON.parse(contradiction.stdout).message,
+      "configured",
+    );
+    assertEquals(await readToml(dir), beforeConfiguredMark);
+
+    const custom = await runCli(
+      ["config", "set-job", "deploy", "--not-applicable", "--json"],
+      dir,
+    );
+    assertEquals(custom.code, 1);
+    assertStringIncludes(JSON.parse(custom.stdout).message, "known job");
+    assertEquals(await readToml(dir), beforeConfiguredMark);
   });
 });
 

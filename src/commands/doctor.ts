@@ -57,7 +57,10 @@ import {
   providersWithHooks,
 } from "../lib/providers.ts";
 import { isKnownJob, KNOWN_JOBS } from "../shared/capabilities.ts";
-import { classifyKnownJob } from "../shared/setup_assurance.ts";
+import {
+  assessSetupAssurance,
+  classifyKnownJob,
+} from "../shared/setup_assurance.ts";
 import {
   commandExists,
   leadingCommandWord,
@@ -494,21 +497,33 @@ export async function runChecks(
   const customDetail = wiredCustomJobs.length === 0
     ? "no custom jobs"
     : `custom jobs: ${wiredCustomJobs.join(", ")}`;
+  const assurance = assessSetupAssurance(config);
+  const notApplicableJobs = assurance.known_jobs.filter((job) =>
+    job.not_applicable === true
+  ).map((job) => job.name);
+  const applicabilityDetail = notApplicableJobs.length === 0
+    ? "all known jobs apply"
+    : `does not apply: ${notApplicableJobs.join(", ")}`;
+  const noApplicableJobs = assurance.total === 0;
   checks.push({
     name: "known jobs",
-    ok: wiredKnownJobs.length > 0,
-    detail: wiredKnownJobs.length === 0
-      ? `none wired yet (gate may pass without the built-in protections); ${customDetail}`
+    ok: noApplicableJobs || wiredKnownJobs.length > 0,
+    detail: noApplicableJobs
+      ? `no known jobs apply; ${customDetail}`
+      : wiredKnownJobs.length === 0
+      ? `none wired yet (Gate may pass without the applicable built-in protections); ${applicabilityDetail}; ${customDetail}`
       : enforcedKnownJobs.length === 0
       ? `only discern's own upkeep is wired (${
         wiredKnownJobs.join(", ")
-      }) — no check of the project's own yet; ${customDetail}`
-      : `wired: ${wiredKnownJobs.join(", ")}; ${customDetail}`,
-    ...(enforcedKnownJobs.length === 0
+      }) — no check of the project's own yet; ${applicabilityDetail}; ${customDetail}`
+      : `wired: ${
+        wiredKnownJobs.join(", ")
+      }; ${applicabilityDetail}; ${customDetail}`,
+    ...(!noApplicableJobs && enforcedKnownJobs.length === 0
       ? {
         status: "warn" as const,
         fix:
-          "wire at least one known name under [jobs] (format, build, lint, typecheck, test, or smoke)",
+          "run `discern config set-job <known-name> --run '<command>'`; repeat --run for an ordered command list",
       }
       : {}),
   });

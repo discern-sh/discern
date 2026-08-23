@@ -42,6 +42,10 @@ The `discern/` namespace contains authored material only. Generated copies do no
 
 Fresh setup leaves `discern tidy` in the format job. It canonically formats the Map, instruction sources, deferred-work ledger, and root config. If the project has its own formatter, that command runs first. Remove the tidy entry to opt out. See [Format discern-owned surfaces](../20-quality-gate/tidy.md) for the exact boundary.
 
+Use `discern config set-job <name> "<command>"` for one known-job command. For an ordered list, repeat the option in one call: `discern config set-job format --run "<project formatter>" --run "discern tidy"`. A positional value that looks like a serialized array is refused because it would otherwise be one literal shell command.
+
+Known jobs are applicable by default. When a lifecycle does not exist in this project, record that separate setup fact with `discern config set-job <name> --not-applicable`; restore it with `--applicable`. A configured job cannot be marked not applicable, and setting a command restores applicability automatically. The declaration changes setup assurance only: it does not remove or skip Gate work. Completion reports enforced protections against the applicable denominator while retaining absent, deferred, and housekeeping rows ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
+
 The `.gitignore` file gains one marked `# --- discern ---` block. Keep your rules outside that block. discern rebuilds the block from the artifact registry so it ignores materialized skills and machine-local settings without sweeping up unrelated files.
 
 Each selected coding agent also has integration files. discern adds its own Model Context Protocol (MCP) server, hooks, and permission defaults to the provider's existing configuration. It leaves unrelated entries in place. The [agent integration guides](../60-agent-integrations/) list the exact paths for each provider.
