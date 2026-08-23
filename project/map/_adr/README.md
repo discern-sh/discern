@@ -299,6 +299,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0310 — Amendment notes consolidate into one timeless block, and supersession hygiene is gate-enforced](0310-amendment-notes-consolidate-and-read-timelessly.md)
 - [0311 — Agent benefits compile as their own transposition](0311-agent-benefits-compile-as-their-own-transposition.md)
 - [0312 — `worktrees` opens a cwd-equivalent child shell](0312-worktrees-opens-a-cwd-equivalent-child-shell.md)
+- [0314 — The public manual and project Map are separate corpora on one document engine](0314-separate-public-manual-and-project-map.md)
 
 <!-- END GENERATED: current ADR records -->
 

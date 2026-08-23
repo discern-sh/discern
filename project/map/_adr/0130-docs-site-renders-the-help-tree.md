@@ -4,6 +4,7 @@
 >
 > - **[ADR 0143](0143-decisions-on-the-web.md) — ADRs on site:** the ADRs-stay-off-site deferral is lifted — decision records render on the site as project history outside product guidance.
 > - **[ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md) — command name:** the shared manual tree now renders through `discern docs`; the `/docs` route and one-document-model decision stand.
+> - **[ADR 0314](0314-separate-public-manual-and-project-map.md) — corpus boundary:** `/docs` and the installed manual move from a filtered Map projection to a dedicated manual source. The shared discovery and rendering engine remains; the safely admitted Map publishes separately as a trust exhibit.
 
 **Status**: accepted
 
