@@ -31,23 +31,25 @@ After creation, the desk opens the new row's action menu immediately; its shell 
 
 ## Read the decision order
 
-The Desk builds its rows from `discern status` and the recorded Gate Proofs. It groups active work by the decision it needs:
+The Desk builds each row from the same Fleet presentation as `discern status`; it does not run another status classifier. The status kind maps exhaustively into one of 5 human-decision states ([ADR 0315](../_adr/0315-the-desk-adapts-status-into-one-human-decision.md)):
 
-| Group           | Included worktrees                                            |
-| --------------- | ------------------------------------------------------------- |
-| Ready to land   | Clean, ahead, current with trunk, valid Proof.                |
-| In flight       | Readable, active, behind trunk, or awaiting Gate.             |
-| Needs attention | Broken, unreadable, or stale worktrees that still carry work. |
+| Group           | Included worktrees                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Needs attention | Broken or unreadable setup, a failed, partial, or refused action, stale work, unreadable or unavailable Proof, or a collision. |
+| Ready to review | A clean commit ahead of the trunk with honored Proof and no branch lag.                                                        |
+| Working         | A fresh running discern operation, including its verb, elapsed time, and typical duration when known.                          |
+| Paused          | Uncommitted or committed work without live activity; the row names the next unmet condition, such as Update or final checks.   |
+| Empty           | A healthy worktree with no uncommitted files or commits ahead of the trunk.                                                    |
 
 Every task group, including the first, has a ruled label; **Desk** and **Session** have their own. Within groups, recent worktrees appear first.
 
 The root heading is `◮ discern | <project>`. The main status and tip sit directly below it. The `Tip` label is yellow; its text stays secondary and wraps at the terminal width. Unlanded branches, reclaimed stages, and removed worktree paths that exist again follow as separate groups when present. The reappearance notice points to `discern worktree prune --dry-run`; cleanup stays in the confirmed prune flow. [Desk tips](desk-tips.md) covers selection, seen-state, and the Logbook record.
 
-Each row starts with the task name supplied to `discern start`. The state puts the next action or problem first, followed by the relevant Git counts and last activity. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
+Each row starts with the task name supplied to `discern start`. One complete decision supplies its short headline and ordered facts: activity, Git counts with units and the trunk name, Proof, landing authority, containment, changed-file and ADR collisions, and the next unmet condition. The decision retains the underlying status kind when collision evidence moves the row into **Needs attention**. It also records whether owner judgment is still needed; a ready task with a recorded landing grant differs from one that still needs approval. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
 
 ## Choose an action
 
-The selected row offers only actions that fit its observed state:
+The decision represents each canonical action once. An action is enabled or disabled with one observed reason, and at most one enabled action is recommended. The current menu shows the enabled offers only:
 
 | Action                           | What it runs                                                                  |
 | -------------------------------- | ----------------------------------------------------------------------------- |
@@ -68,6 +70,8 @@ The action menu separates **Landing**, **Work in this task**, **Review**, and **
 
 Every action echoes its CLI equivalent and calls the same core as the command. A landing pre-authorization belongs only to the selected effort: `accept` consumes it; revoke, drop, prune, and orphan cleanup remove it. Drop receives the selected row's absolute path. Dropping uncommitted or unlanded work requires the branch name typed back before the desk applies force.
 
+Accept requires a known clean worktree with commits ahead of the trunk and no known branch lag. A branch behind the trunk disables Accept, enables Update, and recommends Update. The lifecycle core still checks the branch again at execution time; recommendation never replaces that authority. Disabled reasons, recommendation, Proof, authority, and collision facts remain in the decision even where the current menu does not render them.
+
 Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row: a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation names what survives (the branch ref) and what the reclaim destroys (the checkout and its per-worktree state, Gate Proof included). The core re-validates the predicate before acting.
 
 Project Scripts use one picker and process contract. The root action runs from the main checkout with `DISCERN_ROOT` set there; the selected-task action runs from that worktree. Both inherit the terminal and return to a fresh survey. Ctrl-C, SIGTERM, or SIGHUP stops the owned process group first ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)). Background jobs remain caller-owned.
@@ -85,7 +89,7 @@ Before setup completes, bare `discern` keeps showing the setup welcome. From ins
 | Responsibility                      | Source                                                                                  |
 | ----------------------------------- | --------------------------------------------------------------------------------------- |
 | Interactive loop and dispatch       | [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts)                           |
-| Buckets and launch availability     | [`src/engine/desk/model.ts`](../../../src/engine/desk/model.ts)                         |
+| Decision and action-offer model     | [`src/engine/desk/model.ts`](../../../src/engine/desk/model.ts)                         |
 | Provider-owned CLI actions          | [`src/lib/providers.ts`](../../../src/lib/providers.ts)                                 |
 | System-browser handoff              | [`src/lib/open_browser.ts`](../../../src/lib/open_browser.ts)                           |
 | Model decision table tests          | [`tests/engine_desk_model_test.ts`](../../../tests/engine_desk_model_test.ts)           |

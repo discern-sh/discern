@@ -301,6 +301,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0312 — `worktrees` opens a cwd-equivalent child shell](0312-worktrees-opens-a-cwd-equivalent-child-shell.md)
 - [0313 — Setup completion and acceptance bind one final Proof](0313-setup-completion-and-acceptance-bind-one-final-proof.md)
 - [0314 — The public manual and project Map are separate corpora on one document engine](0314-separate-public-manual-and-project-map.md)
+- [0315 — The Desk adapts status into one complete human decision](0315-the-desk-adapts-status-into-one-human-decision.md)
 
 <!-- END GENERATED: current ADR records -->
 
