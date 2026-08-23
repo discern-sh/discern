@@ -8,7 +8,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { gitInit } from "./engine_helpers.ts";
+import { gitInit, gitOut } from "./engine_helpers.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   inspectGateProof,
@@ -188,6 +188,7 @@ Deno.test("proof marker: corrupt and unreadable stores remain honored with durab
   await withTempDir(async (dir) => {
     await declaredRepo(dir);
     const policyCommit = "a".repeat(40);
+    const head = await gitOut(dir, "rev-parse", "--short=12", "HEAD");
     const preflight = await preflightAdminStateWrites(dir);
     assert(preflight.ok);
     const recorded = await recordGateOutcome(
@@ -198,7 +199,7 @@ Deno.test("proof marker: corrupt and unreadable stores remain honored with durab
       ProofSchema.parse({
         branch: "agent/probe",
         trunk: "main",
-        head: "123456789abc",
+        head,
         files_total: 1,
         insertions: 1,
         deletions: 0,

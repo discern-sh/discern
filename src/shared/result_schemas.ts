@@ -2144,13 +2144,18 @@ export const SetupDoneDataSchema = z.strictObject({
   bootstrapped: z.literal(true),
   forced: z.boolean(),
   gate_proven: z.boolean(),
-  /** Whether the worktree-viability probe (ADR 0090) actually ran green — false when it
-   * was skipped (worktrees off, an uncreatable probe, or `--force`). */
+  /** Whether the required worktree-viability probe ran green. False only on
+   * explicitly forced completion. */
   worktree_proven: z.boolean(),
   marker_committed: z.boolean(),
   /** The git stderr line explaining a FAILED completion-marker auto-commit
    * (absent when committed, skipped deliberately, or outside git). */
   marker_commit_error: z.string().optional(),
+  /** Canonical inspection of the current Gate Proof. Present only after a
+   * non-forced completion proves the committed marker-bearing HEAD. */
+  proof: GateProofCheckSchema.optional(),
+  /** The ready-to-relay one-line rendering from that honored Proof. */
+  proof_line: z.string().optional(),
   leftover: z.array(z.string()),
   assurance: SetupAssuranceSchema,
   landing: SetupDoneLandingSchema,
@@ -2220,13 +2225,35 @@ export const SetupDataSchema = z.strictObject({
 });
 export type SetupData = z.infer<typeof SetupDataSchema>;
 
-/** `setup accept` — setup branch landing preview/result. Refusals carry no data. */
+/** `setup accept` landing preview/result. Proof refusals carry the same payload
+ * with `landed: false`, so every surface can report the failed evidence state. */
 export const SetupAcceptDataSchema = z.strictObject({
   landed: z.boolean(),
   branch: z.string(),
   target: z.string(),
   fast_forward: z.boolean(),
   branch_deleted: z.boolean(),
+  /** Canonical inspection used at the setup landing boundary. */
+  proof: GateProofCheckSchema,
+  /** Ready-to-relay line from the Proof that names the landed commit. */
+  proof_line: z.string().optional(),
+  /** Full commit object id pinned by Proof and used by the target transition. */
+  validated_commit: z.string().optional(),
+  /** True when a moved target was merged into setup and the merge commit earned
+   * its own canonical Proof before landing. */
+  merge_validated: z.boolean(),
+  /** Durable landed-Proof record, present after the target transition. */
+  proof_note: AcceptProofNoteSchema.optional(),
+  /** Whether ignored checkout-local agent artifacts were materialized before
+   * the target moved. */
+  local_artifacts_converged: z.boolean(),
+  local_artifact_errors: z.array(z.string()).optional(),
+  tracked_refresh_pending: z.array(z.string()).optional(),
+  tracked_refresh_errors: z.array(z.string()).optional(),
+  /** Whether the surviving checkout's worktree-local Gate Proof cache was
+   * retired after its durable Proof note was written. */
+  proof_cleared: z.boolean().optional(),
+  proof_clear_error: z.string().optional(),
 });
 export type SetupAcceptData = z.infer<typeof SetupAcceptDataSchema>;
 

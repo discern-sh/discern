@@ -13,6 +13,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { HINTS } from "../src/shared/hints.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import {
+  reconcileOpenQuestion,
+  recordDeclaration,
+} from "../src/engine/checkpoints/open_questions.ts";
 import {
   git,
   gitInit,
@@ -24,15 +29,24 @@ import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
-/** Scaffold a bootstrapped project in a hermetic git repo, then branch to
- * `discern-setup` with one commit — the post-`setup done` shape `land` acts on. */
-async function setupBranchRepo(dir: string): Promise<void> {
+/** Scaffold a bootstrapped project, commit setup work, and record current Proof. */
+async function setupBranchRepo(
+  dir: string,
+): Promise<{ head: string; proofLine: string }> {
   await scaffoldEngine(dir); // bootstrapped by default
   await gitInit(dir); // commits the scaffold on `main`
   await git(dir, "checkout", "-b", "discern-setup");
   await Deno.writeTextFile(join(dir, "setup-work.txt"), "harness\n");
+  const refreshed = await runAgent(dir, ["refresh"]);
+  assertEquals(refreshed.code, 0, refreshed.output);
   await git(dir, "add", "-A");
   await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
+  const done = await runAgent(dir, ["done", "--json"]);
+  assertEquals(done.code, 0, done.output);
+  const result = JSON.parse(done.stdout);
+  const head = await gitOut(dir, "rev-parse", "HEAD");
+  assertEquals(result.data.proof.head, head.slice(0, 12));
+  return { head, proofLine: result.data.proof.line };
 }
 
 /** True when `branch` no longer exists in the repo. */
@@ -42,9 +56,43 @@ async function branchGone(dir: string, branch: string): Promise<boolean> {
   return !branches.includes(branch);
 }
 
+/** Run setup acceptance and prove a refusal changed no branch or ref. */
+async function readOnlySetupRefusal(
+  dir: string,
+): Promise<Record<string, unknown>> {
+  const mainBefore = await gitOut(dir, "rev-parse", "main");
+  const setupBefore = await gitOut(dir, "rev-parse", "discern-setup");
+  const accepted = await runAgent(dir, ["setup", "accept", "--json"]);
+  assertEquals(accepted.code, 1, accepted.output);
+  assertEquals(await gitOut(dir, "rev-parse", "main"), mainBefore);
+  assertEquals(await gitOut(dir, "rev-parse", "discern-setup"), setupBefore);
+  assertEquals(
+    await gitOut(dir, "branch", "--show-current"),
+    "discern-setup",
+  );
+  const result: unknown = JSON.parse(accepted.stdout);
+  assert(
+    result !== null && typeof result === "object" && !Array.isArray(result),
+  );
+  const envelope = result as Record<string, unknown>;
+  assert(typeof envelope.message === "string");
+  assertStringIncludes(
+    envelope.message,
+    "make it clean, run `discern setup done`, then retry",
+  );
+  return envelope;
+}
+
+/** Resolve the current worktree's canonical Gate Proof path. */
+async function proofPath(dir: string): Promise<string> {
+  const path = await gitAdminStatePath(dir, "gateProof");
+  assert(path !== undefined);
+  return path;
+}
+
 Deno.test("setup accept fast-forwards the setup branch onto main and deletes it", async () => {
   await withTempDir(async (dir) => {
-    await setupBranchRepo(dir);
+    const proved = await setupBranchRepo(dir);
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 0, res.output);
@@ -56,6 +104,13 @@ Deno.test("setup accept fast-forwards the setup branch onto main and deletes it"
     assertEquals(data.branch, "discern-setup");
     assertEquals(data.target, "main");
     assertEquals(data.branch_deleted, true);
+    assertEquals(data.proof_line, proved.proofLine);
+    assertEquals(data.validated_commit, proved.head);
+    assertEquals(data.proof_note.write.commit, proved.head);
+    assert(
+      ["recorded", "already_present"].includes(data.proof_note.write.status),
+    );
+    assertEquals(data.local_artifacts_converged, true);
 
     // Now on main, the merged branch is gone, and the setup work landed.
     assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
@@ -64,12 +119,23 @@ Deno.test("setup accept fast-forwards the setup branch onto main and deletes it"
       await Deno.readTextFile(join(dir, "setup-work.txt")),
       "harness\n",
     );
+
+    const status = await runAgent(dir, ["status", "--verbose", "--json"]);
+    assertEquals(status.code, 0, status.output);
+    const statusData = JSON.parse(status.stdout).data;
+    assertEquals(statusData.stale_generated, undefined);
+    assertEquals(statusData.stale_materialized, undefined);
+    assertEquals(statusData.stale_integrations, undefined);
+    assertEquals(statusData.pending_tracked_refresh, undefined);
+    assert(statusData.landed_proof !== undefined, status.output);
+    assertEquals(statusData.landed_proof.commit, proved.head);
+    assertEquals(statusData.landed_proof.proof.line, proved.proofLine);
   });
 });
 
 Deno.test("setup accept merges when the integration branch has advanced", async () => {
   await withTempDir(async (dir) => {
-    await setupBranchRepo(dir);
+    const proved = await setupBranchRepo(dir);
     // main moves on after the branch point → no fast-forward is possible.
     await git(dir, "checkout", "main");
     await Deno.writeTextFile(join(dir, "main-work.txt"), "trunk\n");
@@ -85,6 +151,13 @@ Deno.test("setup accept merges when the integration branch has advanced", async 
     assertEquals(data.landed, true);
     assertEquals(data.fast_forward, false);
     assertEquals(data.branch_deleted, true);
+    assertEquals(data.merge_validated, true);
+    assert(data.validated_commit !== proved.head);
+    assertEquals(
+      await gitOut(dir, "rev-parse", "main"),
+      data.validated_commit,
+    );
+    assertEquals(data.proof_note.write.commit, data.validated_commit);
 
     // Both lines of work are on main now.
     assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
@@ -100,7 +173,7 @@ Deno.test("setup accept --dry-run previews the fast-forward and changes nothing"
 
     const res = await runAgent(dir, ["setup", "accept", "--dry-run"]);
     assertEquals(res.code, 0, res.output);
-    assert(res.stdout.includes("fast-forward main to discern-setup"));
+    assert(res.stdout.includes("fast-forward main to the proved setup commit"));
     // Still on the setup branch; nothing landed, nothing deleted.
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
@@ -129,11 +202,9 @@ Deno.test("setup accept refuses a tree with uncommitted tracked changes", async 
 
 Deno.test("setup accept refuses every tracked mutation made after Proof", async () => {
   await withTempDir(async (dir) => {
-    await setupBranchRepo(dir);
-    const proved = await runAgent(dir, ["done", "--json"]);
-    assertEquals(proved.code, 0, proved.output);
+    const proved = await setupBranchRepo(dir);
     const provedHead = await gitOut(dir, "rev-parse", "HEAD");
-    assertEquals(JSON.parse(proved.stdout).data.proof.head, provedHead.slice(0, 12));
+    assertEquals(proved.head, provedHead);
 
     // An unrelated future sibling of the observed marker mutation: the
     // acceptance invariant is about every post-Proof tree change, regardless
@@ -165,15 +236,134 @@ Deno.test("setup accept refuses every tracked mutation made after Proof", async 
   });
 });
 
-Deno.test("setup accept ignores untracked scratch files (lands anyway)", async () => {
+Deno.test("setup accept refuses missing, unreadable, mismatched, and declaration-stale Proof read-only", async () => {
+  // Missing marker file.
+  await withTempDir(async (dir) => {
+    await setupBranchRepo(dir);
+    await Deno.remove(await proofPath(dir));
+    const result = await readOnlySetupRefusal(dir);
+    assertEquals(result.error, "precondition_failed");
+  });
+
+  // An unreadable marker target. A directory at the file path makes the
+  // canonical reader return read_failed without relying on process privileges.
+  await withTempDir(async (dir) => {
+    await setupBranchRepo(dir);
+    const path = await proofPath(dir);
+    await Deno.remove(path);
+    await Deno.mkdir(path);
+    const result = await readOnlySetupRefusal(dir);
+    assertEquals(result.error, "precondition_failed");
+  });
+
+  // The structured Proof contradicts the commit recorded by the marker. This
+  // exercises the shared Proof reader, not a setup-local comparison.
+  await withTempDir(async (dir) => {
+    await setupBranchRepo(dir);
+    const path = await proofPath(dir);
+    const lines = (await Deno.readTextFile(path)).split("\n");
+    const mainHead = await gitOut(dir, "rev-parse", "main");
+    const rewritten = lines.map((line) => {
+      if (!line.startsWith("data: ")) {
+        return line;
+      }
+      const parsed: unknown = JSON.parse(line.slice("data: ".length));
+      assert(
+        parsed !== null && typeof parsed === "object" &&
+          !Array.isArray(parsed),
+      );
+      return `data: ${
+        JSON.stringify({
+          ...(parsed as Record<string, unknown>),
+          head: mainHead.slice(0, 12),
+        })
+      }`;
+    });
+    await Deno.writeTextFile(path, rewritten.join("\n"));
+    const result = await readOnlySetupRefusal(dir);
+    assertEquals(result.error, "precondition_failed");
+    assertStringIncludes(String(result.message), "does not identify");
+  });
+
+  // Declaration evidence changes without moving HEAD or dirtying the tree.
+  await withTempDir(async (dir) => {
+    await setupBranchRepo(dir);
+    const opened = await reconcileOpenQuestion(dir, {
+      checkpoint: "setup-proof",
+      definitionHash: "definition-v1",
+      subject: "setup-subject",
+      matchedPaths: ["setup-work.txt"],
+      relatedPaths: [],
+    }, "2026-08-23T00:00:00.000Z");
+    assert(opened.ok);
+    const declared = await recordDeclaration(
+      dir,
+      {
+        conclusion: "met",
+        definitionHash: "definition-v1",
+        subject: "setup-subject",
+      },
+      "setup-proof",
+      "2026-08-23T00:00:00.000Z",
+    );
+    assert(declared.ok);
+    const result = await readOnlySetupRefusal(dir);
+    assertEquals(result.error, "precondition_failed");
+    assertStringIncludes(String(result.message), "declarations changed");
+  });
+});
+
+Deno.test("setup accept refuses an unproved forced completion and a proved branch without the completion marker", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
+    await git(dir, "checkout", "-b", "discern-setup");
+    const forced = await runAgent(dir, [
+      "setup",
+      "done",
+      "--force",
+      "--json",
+    ]);
+    assertEquals(forced.code, 0, forced.output);
+    const forcedResult = JSON.parse(forced.stdout);
+    assertEquals(forcedResult.data.gate_proven, false);
+    assertEquals(forcedResult.data.proof, undefined);
+    assertEquals(forcedResult.data.proof_line, undefined);
+    const refused = await readOnlySetupRefusal(dir);
+    assertEquals(refused.error, "precondition_failed");
+  });
+
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
+    await git(dir, "checkout", "-b", "discern-setup");
+    await Deno.writeTextFile(join(dir, "setup-work.txt"), "harness\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
+    const done = await runAgent(dir, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    assertEquals(JSON.parse(done.stdout).data.gate_proof.status, "recorded");
+    const refused = await readOnlySetupRefusal(dir);
+    assertEquals(refused.error, "precondition_failed");
+    assertStringIncludes(
+      String(refused.message),
+      "does not record [meta].bootstrapped = true",
+    );
+  });
+});
+
+Deno.test("setup accept refuses untracked scratch because current Proof requires a fully clean tree", async () => {
   await withTempDir(async (dir) => {
     await setupBranchRepo(dir);
     await Deno.writeTextFile(join(dir, "scratch.tmp"), "noise\n"); // untracked
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
-    assertEquals(res.code, 0, res.output);
-    assertEquals(JSON.parse(res.stdout).data.landed, true);
-    assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
+    assertEquals(res.code, 1, res.output);
+    assertEquals(JSON.parse(res.stdout).error, "dirty_worktree");
+    assertEquals(
+      await gitOut(dir, "branch", "--show-current"),
+      "discern-setup",
+    );
   });
 });
 
@@ -311,6 +501,8 @@ Deno.test("setup accept conflicting changes are refused and stepped aside, leavi
       "setup edits contested",
       "--no-gpg-sign",
     );
+    const proved = await runAgent(dir, ["done", "--json"]);
+    assertEquals(proved.code, 0, proved.output);
     await git(dir, "checkout", "main");
     await Deno.writeTextFile(join(dir, "contested.txt"), "from main\n");
     await git(dir, "add", "-A");
