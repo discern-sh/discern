@@ -32,13 +32,15 @@ The agent attests that consent happened when it begins. A fresh interactive setu
 
 `discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent first wires the project's real format, lint, build, typecheck, test, and smoke commands into `discern.toml`. It then fills the project instructions and initial map pages while those checks are live, including the seeded record of the adoption decision.
 
-discern commits the wiring it scaffolds before the handoff and the completion marker after setup passes. Those machine-composed commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. The agent's authoring commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
+discern commits the wiring it scaffolds before the handoff. During final completion it commits the completion marker before the checks that produce Proof. Those machine-composed commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. The agent's authoring commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
 
 Watch the branch rather than the main checkout. The agent makes small authoring commits as it completes the staged setup brief. [What setup added](after-setup.md) explains each group in the diff.
 
 ## Setup verifies the checkout can reproduce
 
-When the authored files are committed, the agent runs `discern setup done`. That command refreshes generated instructions and Skills, runs `discern doctor`, runs the full Gate, and repeats the Gate in a temporary worktree created from the same committed setup branch ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)).
+When the authored files are committed, the agent runs `discern setup done`. A preparatory refresh stops if tracked generated artifacts still need a review commit. The final transaction then commits `[meta].bootstrapped = true`, refreshes and diagnoses that marker-bearing commit, and creates a temporary worktree from it. The temporary checkout must retain Gate Proof for the same commit. The main-checkout Gate runs last and records the canonical Proof that completion returns ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
+
+If any final check fails, setup restores `[meta].bootstrapped` to the incomplete state. A successful non-forced result includes the structured Proof inspection and a one-line Proof you can relay. `--force` is visibly unproved and cannot be accepted through the proved setup landing path.
 
 A failure result includes the failed command and output. A pass records setup as complete and gives you the next actions:
 
@@ -46,6 +48,8 @@ A failure result includes the failed command and output. A pass records setup as
 2. Start a fresh coding-agent session.
 
 The restart matters because Model Context Protocol (MCP) servers, hooks, and project instructions load when a session starts. The session that created them cannot gain those integrations retroactively.
+
+`discern setup accept --dry-run` first validates that Proof without changing a branch or ref. Apply lands the full commit named by Proof and records the standard durable Proof note. If trunk moved after completion, setup acceptance merges trunk into `discern-setup`, runs the Gate on the merge commit, and lands only the new Proof. Missing, stale, dirty, unreadable, mismatched, forced, or declaration-stale evidence returns to `discern setup done` with trunk untouched.
 
 ## The first change uses the daily loop
 

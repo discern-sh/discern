@@ -15,7 +15,7 @@ aliases:
 
 _A green landing keeps its structured Proof beside the immutable trunk commit._
 
-After the trunk fast-forward, `discern accept` writes the durable Proof record under `refs/notes/discern` ([ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md), [ADR 0242](../_adr/0242-durable-receipts-use-a-versioned-dsse-envelope.md)). It adds no trunk commit.
+After the trunk fast-forward, `discern accept` and `discern setup accept` write the durable Proof record under `refs/notes/discern` ([ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md), [ADR 0242](../_adr/0242-durable-receipts-use-a-versioned-dsse-envelope.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)). It adds no trunk commit.
 
 Read the current history with:
 
@@ -84,6 +84,7 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 | -------------------------- | ----------------------------------------------------------- |
 | Note, merge, and transport | [`proof_notes.ts`](../../../src/engine/gate/proof_notes.ts) |
 | Acceptance boundary        | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts) |
+| Setup acceptance boundary  | [`setup_accept.ts`](../../../src/commands/setup_accept.ts) |
 
 ## Current state and gotchas
 
