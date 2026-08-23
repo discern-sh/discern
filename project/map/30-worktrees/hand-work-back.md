@@ -1,7 +1,7 @@
 ---
 title: Hand work back
 description: Finish a branch, report its Proof for review, wait for approval, and accept the same validated commit.
-order: 130
+order: 140
 aliases:
   - handoff
   - hand work back

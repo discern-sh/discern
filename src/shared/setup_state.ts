@@ -70,6 +70,7 @@ export const SETUP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
   // The desk supervises the worktree fleet, which doesn't exist until setup
   // completes; pre-setup, bare `discern` shows the welcome instead (ADR 0119).
   "desk",
+  "worktrees",
 ]);
 
 /** True when `verb` refuses until the project is set up (see {@link SETUP_GATED_VERBS}). */

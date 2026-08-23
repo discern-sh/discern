@@ -102,6 +102,12 @@ const SPEC: Record<string, OutsideSpec> = {
   // them here keeps the exceptions honest: if one ever degrades to bare stderr
   // (or starts needing a project), this test catches the drift.
   desk: { run: ["desk"], verb: "desk", expect: "envelope", ok: false },
+  worktrees: {
+    run: ["worktrees"],
+    verb: "worktrees",
+    expect: "envelope",
+    ok: false,
+  },
   map: { run: ["map"], verb: "map", expect: "envelope", ok: false },
   doctor: { run: ["doctor"], verb: "doctor", expect: "envelope", ok: false },
   docs: { run: ["docs", "--list"], verb: "docs", expect: "envelope", ok: true },

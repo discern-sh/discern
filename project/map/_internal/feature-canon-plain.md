@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md); the outcome-first accounts are the [Human Benefit Canon](feature-canon-human-benefits.md) and [Agent Benefit Canon](feature-canon-agent-benefits.md)._
 
-10 main areas · 138 detailed entries · 11 statements of benefit · 76 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 139 detailed entries · 11 statements of benefit · 77 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -89,6 +89,7 @@ _Each simultaneous task has its own project copy, identity, network number, priv
 - **Passing private values into a new copy** — `[worktree].inherit_env` copies named values from the main copy's private settings files into a new working copy's — the secrets a fresh copy needs that stay out of the version history.
 - **Noticing changes outside the saved history** — At setup, discern fingerprints the files the version history ignores, and before removing the working copy it reports the top-level ignored places that changed. _Work hiding outside the version history gets named before cleanup deletes it._
 - **The overview of all work in progress** — From the main project copy, `discern status` shows one row for every separate working copy: its task, whether its files are clean, whether it is ahead of or behind the main shared version, its latest activity, a broken mark for a copy whose creation never finished, and any files two tasks have both changed. _The person in charge steers several pieces of work without opening each copy, and two tasks touching the same file are named before either becomes shared._
+- **Open another working copy in the same place** — In an interactive terminal, `discern worktrees` shows each separate working copy's task and file state, then opens the chosen copy at the matching place in the project. If that place does not exist there, discern says so and opens the nearest folder that does. _The person in charge moves between simultaneous tasks without finding the copy's location or retracing folders through the project._
 - **Waiting for a condition across the tasks** — `discern await` waits until a chosen thing becomes true: a sibling task has passed the final check, a task's work has joined the main shared version, or the main shared version has moved. It uses the longest reliable request the connected tool supports. If that request must return first, a continuation keeps the original question intact so a change between requests is not missed. _A coding agent that depends on another task makes one bounded request instead of guessing how often to check or asking a person._
 - **The desk** — Running `discern` on its own opens the desk for the person in charge: one interactive view over all the work in progress. It starts tasks, runs the project's own tools from the main or a separate working copy, opens the online manual, opens any of the recognized coding-agent programs found in the computer's standard installed-program list (called `PATH`), records permission in advance for one task to join the main shared version once it passes, and offers each working copy its valid next actions — staying responsible for the sessions it starts. _The person in charge can inspect and act on every task from one interactive view._
   - **Desk tips** — The desk puts one short tip below the project status for each session. The choice follows fixed rules, the line wraps to fit the window, and the tip's name goes into the activity record. _The person in charge learns one ability at a time without reading a manual, and the record can later show whether the teaching was used._
@@ -256,6 +257,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `update` — update
 - `upgrade` — upgrade
 - `worktree` — drop-recovery, worktree-prune
+- `worktrees` — worktree-shell-picker
 
 ### Named kind of project work (`job`)
 

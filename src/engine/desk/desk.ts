@@ -95,6 +95,7 @@ import {
   type EffortGrantWrite,
   grantEffort,
 } from "../worktree/effort_grant_writer.ts";
+import { userShell } from "../user_shell.ts";
 
 /** Sentinel Select values that are not fleet rows (NUL-prefixed: never a path). */
 const REFRESH = "\x00refresh";
@@ -1095,7 +1096,7 @@ async function dispatchAction(
       return true;
     }
     case "jump": {
-      const shell = Deno.env.get("SHELL") ?? "/bin/sh";
+      const shell = userShell();
       echoCommand(out, `${shell}  (cwd: ${row.entry.path})`);
       out.info("Exit the shell to return to the desk.");
       const code = await runtime.interactive(

@@ -2674,6 +2674,9 @@ export const IdentityOutputSchema = resultOutputSchema(
 /** `desk --json` is a controlled refusal and carries no data. */
 export const DeskOutputSchema = datalessResultOutputSchema("desk");
 
+/** `worktrees --json` is a controlled refusal and carries no data. */
+export const WorktreesOutputSchema = datalessResultOutputSchema("worktrees");
+
 /** Bare `discern --json` is a controlled command-required refusal. */
 export const DiscernOutputSchema = datalessResultOutputSchema("discern");
 

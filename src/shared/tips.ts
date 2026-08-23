@@ -34,6 +34,7 @@ import {
 const CMD = {
   status: discernCommand("status"),
   startNamed: discernCommand("start", flag("name", '"<task>"')),
+  worktrees: discernCommand("worktrees"),
   prepare: discernCommand("prepare"),
   test: discernCommand("test"),
   tidy: discernCommand("tidy"),
@@ -241,6 +242,22 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.startNamed} gives one task an isolated workspace (a Git ` +
       "worktree) and branch, separate from other tasks and the main copy.",
+  }),
+
+  defineTip({
+    id: "worktrees-preserves-place",
+    when: "At least one task is in flight.",
+    predicate: { kind: "fleet-min-size", min: 1 },
+    features: ["worktree-shell-picker"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["worktrees"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.worktrees} opens another working copy at the same ` +
+      "project-relative folder in a child shell. Exit it to return.",
   }),
 
   // ── Daily loop: get fast feedback before the final Proof. ───────────────

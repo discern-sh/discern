@@ -195,6 +195,11 @@ const PROJECT_CASES: readonly PurityCase[] = [
     args: ["patterns", "archives"],
   },
   { commandPath: "desk", envelopeVerb: "desk", args: ["desk"] },
+  {
+    commandPath: "worktrees",
+    envelopeVerb: "worktrees",
+    args: ["worktrees"],
+  },
   { commandPath: "doctor", envelopeVerb: "doctor", args: ["doctor"] },
   { commandPath: "setup", envelopeVerb: "setup", args: ["setup"] },
   {

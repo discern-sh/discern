@@ -72,8 +72,8 @@ export interface CommandGroup {
 export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
     name: "Your desk",
-    note: "the human entry point; bare `discern` opens it",
-    commands: ["desk"],
+    note: "interactive task supervision and worktree entry",
+    commands: ["desk", "worktrees"],
   },
   {
     name: "Agentic loop",

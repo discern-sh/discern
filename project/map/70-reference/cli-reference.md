@@ -50,6 +50,7 @@ aliases:
   - discern patterns archive
   - discern status
   - discern desk
+  - discern worktrees
   - discern start
   - discern accept
   - discern update
@@ -82,7 +83,7 @@ These options are inherited unless a command's entry says otherwise. Tokens beyo
 
 ## Your desk
 
-The human entry point; bare `discern` opens it.
+Interactive task supervision and worktree entry.
 
 ### `discern desk`
 
@@ -93,6 +94,16 @@ Usage: `discern desk [options]`
 | Option   | Description                                                                                      |
 | -------- | ------------------------------------------------------------------------------------------------ |
 | `--json` | The desk is interactive only; use `status --markdown` or `status --json` to list every worktree. |
+
+### `discern worktrees`
+
+Choose a worktree and open a child shell at the matching project-relative directory.
+
+Usage: `discern worktrees [options]`
+
+| Option   | Description                                                                       |
+| -------- | --------------------------------------------------------------------------------- |
+| `--json` | This command is interactive only; use `status --all --json` to inspect the fleet. |
 
 ## Agentic loop
 

@@ -1157,6 +1157,10 @@ export const MCP_SHELL_ONLY_VERBS: ReadonlyMap<string, string> = new Map([
     "desk",
     "the interactive human surface; it wields supervisory actions over other efforts",
   ],
+  [
+    "worktrees",
+    "an interactive child-shell handoff across the worktree fleet",
+  ],
   // Installer verbs (doctor/map/docs are the tool-backed exceptions).
   ["setup", "the one-time interactive setup flow, driven at a terminal"],
   ["upgrade", "operates on the discern install itself, not a project state"],

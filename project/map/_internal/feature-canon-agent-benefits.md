@@ -257,6 +257,7 @@ Every feature node has one global role: direct, supporting, or recorded absent. 
 
 - `desk` — The Desk is the person's interactive fleet surface; agents receive the same observable state through status and structured tools without its human action controls.
 - `tips` — Tips teach the person using the Desk; agent instructions are owned by registered hints, generated instructions, and authored skills instead.
+- `worktree-shell-picker` — The worktree shell picker is a person's interactive terminal route; agents keep one effort and inspect the fleet through status and structured tools.
 
 ### Supporting-only feature roles
 
