@@ -11,7 +11,7 @@ aliases:
 
 _Agent instructions are shared project instructions, written once and supplied to every configured coding agent._
 
-discern combines its built-in operating instructions with the instruction sources your project owns. `discern refresh` compiles that text into the instruction files for each configured agent, including `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`. Local Markdown links keep the project target they had beside their source even when the compiled file lives elsewhere. Several agent integrations can then share one body of project rules.
+discern combines its built-in operating instructions with the instruction sources your project owns. `discern refresh` compiles that text into the instruction files for each configured agent, including `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`. Compiled local Markdown links retain their source-relative targets. Several agent integrations can then share one body of project rules.
 
 Start with [Write project instructions](write-project-instructions.md). It covers `[instructions].sources`, the default `discern/instructions.md`, source globs, and what belongs in instructions that every agent reads. Keep those sources provider-neutral: name the project's commands, paths, and invariants rather than one agent's interface.
 

@@ -23,15 +23,15 @@ discern status
 
 `refresh` combines discern's built-in instructions with `[instructions].sources`. It also reconciles Skills, agent integration artifacts, and the maintained architecture decision record (ADR) index. That index is the record list between markers in the Map's ADR README, regenerated from the record files on disk. `status` reports any generated agent files, materialized Skills, or ADR index that still differs from the current sources.
 
-Each authored source keeps its own Markdown link base. A local destination is resolved beside that source and rewritten to the equivalent destination beside whichever full-body provider file receives it. The renderer changes only parser-recognized destination bytes: labels, titles, references, images, escapes, spacing, and code stay authored. Web addresses, other schemes, root-absolute destinations, and fragment-only links stay unchanged. Provider pointers retain their registry-defined body.
+For each full-body output, local Markdown destinations are rewritten to resolve to the same project target they had beside their source. The parser limits edits to destination bytes; external, root-absolute, fragment-only, and code-like text stays unchanged. Provider pointers remain registry-defined.
 
-Every generated provider file has one canonical byte ending: one final line feed. The pure renderer owns that ending for full bodies and pointers; the writer and currency checker consume the same bytes.
+The renderer gives every full body and pointer one final line feed; writers and currency checks consume those bytes.
 
 The ADR index is opt-in by construction: a README that carries the `BEGIN GENERATED` markers is maintained, one without them is never touched. Fresh installs receive the markers from the setup skeleton; an existing project adopts the index by adding them.
 
 The built-in Map section also derives a compact region list from the configured Map ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)). Each non-internal top-level directory contributes its region target and front-door title. Adding or renaming a region, or changing its front-door title, changes the agent files. Other changes within an existing region leave that list unchanged. Run `discern refresh` after either kind of source change; the currency check reports whether the tracked outputs changed.
 
-`discern prepare` places the same complete refresh after its fix-stage jobs and every `[generated]` regeneration, then runs the read-only check-stage jobs. A green result therefore leaves the agent files and materialized Skills current for the final tree. The refresh appears as a structured step and names changed tracked paths. Any incomplete provider or Skill materialization makes the result red and names `discern refresh` as the focused reproduction command.
+`discern prepare` runs the complete refresh after fix and `[generated]` jobs, before checks. Green means provider files and Skills are current; partial materialization is red with a `discern refresh` reproduction.
 
 The configured agent set decides which instruction files exist:
 
