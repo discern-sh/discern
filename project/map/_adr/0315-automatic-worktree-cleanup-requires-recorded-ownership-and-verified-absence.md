@@ -1,4 +1,4 @@
-# ADR 0314: Automatic worktree cleanup requires recorded ownership and verified absence
+# ADR 0315: Automatic worktree cleanup requires recorded ownership and verified absence
 
 **Status**: accepted. Strengthens fleet identity in [ADR 0052](0052-worktree-sibling-placement.md), setup worktree proof in [ADR 0090](0090-setup-proves-worktree-viability.md), contained-reclaim ownership in [ADR 0225](0225-contained-worktree-reclaim-is-offer-only.md), and the retired-path boundary in [ADR 0265](0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup.md).
 
@@ -38,7 +38,7 @@ Removal records retirement evidence, then performs a final strict `lstat` and Gi
 - A foreign merged branch such as `main-pre-discern` remains untouched. A matching prefix without a ready Git-admin identity also remains untouched.
 - Older, manually created, or incompletely readied worktrees can remain outside automatic prune even when they are clean and merged. A person can inspect them, run setup to enroll them, accept them through their explicit lifecycle, or select them with `worktree drop`.
 - The ready marker is positive evidence, not a completeness assumption. Its best-effort absence loses automatic-cleanup eligibility rather than widening deletion.
-- A successful setup probe or ordinary removal has one testable postcondition: no filesystem entry and no Git worktree registration remain. A late writer turns the result red instead of becoming a warning after restart.
+- A successful setup probe or ordinary removal has one testable success condition: no filesystem entry and no Git worktree registration remain. A late writer turns the result red instead of becoming a warning after restart.
 - Ordinary background children and Git-hook descendants cannot outlive the command that spawned them. Projects that need persistent local services use declared resources with explicit create, ensure, and destroy commands.
 - Exact stale-admin recovery and repeated lifecycle runs converge without exposing unrelated registrations or neighboring directories to broad deletion.
 - Automatic scans pay for one narrow marker observation per candidate and repeat ownership at apply time. That cost buys dry-run/apply parity and closes the confirmation-window race.
@@ -50,5 +50,5 @@ Removal records retirement evidence, then performs a final strict `lstat` and Gi
 - **Use checkout-local identity overrides as proof.** Rejected because content inside the candidate could authorize its own deletion.
 - **Require only the branch/admin-id naming relationship.** Rejected because raw Git can construct the same shape without discern ever readying the checkout.
 - **Run broad `git worktree prune` after removal.** Rejected because it can retire unrelated stale registrations outside the exact lifecycle target.
-- **Retry filesystem removal indefinitely or sleep after teardown.** Rejected because timing is not a postcondition and an active writer can make the wait unbounded. Command-owned writers are quiesced; bounded recovery then verifies absence.
+- **Retry filesystem removal indefinitely or sleep after teardown.** Rejected because elapsed time cannot prove absence and an active writer can make the wait unbounded. Command-owned writers are quiesced; bounded recovery then verifies absence.
 - **Keep optimistic success and rely on later reappearance status.** Rejected because retired-path evidence is recovery for later external writes, not permission to report a false success at the lifecycle boundary.

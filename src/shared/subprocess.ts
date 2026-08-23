@@ -20,10 +20,7 @@
  */
 
 import { selfShimPath } from "./self_shim.ts";
-import {
-  quiesceProcessGroup,
-  signalProcessGroup,
-} from "./process_group.ts";
+import { quiesceProcessGroup, signalProcessGroup } from "./process_group.ts";
 
 /** The configured git binary (`GIT_BIN`, default `git`) — the one resolver. */
 export function gitBin(): string {
@@ -359,7 +356,9 @@ async function boundedChildOutput(
   const terminate = (): void => {
     if (terminated) return;
     terminated = true;
-    if (!(opts.quiesceDescendants && signalProcessGroup(child.pid, "SIGKILL"))) {
+    if (
+      !(opts.quiesceDescendants && signalProcessGroup(child.pid, "SIGKILL"))
+    ) {
       try {
         child.kill("SIGKILL");
       } catch {

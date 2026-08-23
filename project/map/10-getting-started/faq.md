@@ -71,9 +71,9 @@ The scoped command runs when a matching path changes.
 
 ## Worktrees are using too much disk
 
-Land finished work with `discern accept`. It removes the accepted worktree. Then review `discern worktree prune --dry-run` and confirm it to reclaim clean merged worktrees and stale state that carry discern's positive Git-admin ownership evidence. Foreign merged refs and prefix-shaped branches without that evidence stay untouched. Change `[worktree].root` if the default sibling directory is unsuitable.
+Land finished work with `discern accept`. It removes the accepted worktree. Then review `discern worktree prune --dry-run` and confirm it to reclaim clean merged worktrees and stale state that carry discern's positive ownership record in Git metadata. Foreign merged refs and prefix-shaped branches without that evidence stay untouched. Change `[worktree].root` if the default sibling directory is unsuitable.
 
-If removal reports that the retired path or Git registration remains, stop the named writer or repair the exact Git worktree entry, then repeat the same lifecycle command. Do not replace it with a broad recursive delete: the retry revalidates containment, ownership, and the observed filesystem object before continuing.
+If removal reports that the retired path or Git registration remains, stop the named writer or repair the exact Git worktree entry, then repeat the same lifecycle command. Do not replace it with a broad recursive delete: the retry checks containment, ownership, and the observed filesystem object again before continuing.
 
 ## A worktree or branch was dropped by mistake
 

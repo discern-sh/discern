@@ -2,6 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { Logger } from "../src/lib/log.ts";
 import { runShellRouted } from "../src/engine/worktree/shell.ts";
+import { pinnedTerminal } from "./helpers.ts";
 
 const DRIVER = fromFileUrl(
   new URL("fixtures/owned_child_driver.ts", import.meta.url),
@@ -71,15 +72,26 @@ Deno.test({
     const dir = await Deno.makeTempDir({ prefix: "discern-shell-quiesce-" });
     try {
       const late = join(dir, "late");
+      const ready = join(dir, "ready");
+      const release = join(dir, "release");
       const code = await runShellRouted(
-        '(sleep 0.15; mkdir -p "$LATE_TARGET") >/dev/null 2>&1 &',
+        '(touch "$READY_TARGET"; while [ ! -f "$RELEASE_TARGET" ]; do sleep 0.01; done; mkdir -p "$LATE_TARGET") >/dev/null 2>&1 & while [ ! -f "$READY_TARGET" ]; do sleep 0.01; done',
         {
           cwd: dir,
-          env: { LATE_TARGET: late },
-          log: new Logger({ json: false, noColor: true }),
+          env: {
+            LATE_TARGET: late,
+            READY_TARGET: ready,
+            RELEASE_TARGET: release,
+          },
+          log: new Logger({
+            json: false,
+            noColor: true,
+            terminal: pinnedTerminal(),
+          }),
         },
       );
       assertEquals(code, 0);
+      await Deno.writeTextFile(release, "");
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
       const observed = await Deno.lstat(late).catch((error) => {
         if (error instanceof Deno.errors.NotFound) return undefined;

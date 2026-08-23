@@ -30,7 +30,7 @@ Run `discern identity` inside a linked worktree and select the value you need:
 | `--resource <name>` | `<project-slug>-<id>-<name>` for one declared resource.                       |
 | `--resources`       | Every declared resource as `name=handle`.                                     |
 
-The id resolves from `DISCERN_WORKTREE_ID` in the current process, then from the configured environment files, then from Git's linked-worktree metadata. An explicit override accepts letters, numbers, dots, dashes, and underscores. Record one when a manually named integration worktree needs a different derived identity. This runtime precedence never grants destructive ownership: automatic cleanup derives its id from the exact Git-admin entry and requires discern's plain worktree-ready marker as separate evidence.
+The id resolves from `DISCERN_WORKTREE_ID` in the current process, then from the configured environment files, then from Git's linked-worktree metadata. An explicit override accepts letters, numbers, dots, dashes, and underscores. Record one when a manually named integration worktree needs a different derived identity. This runtime precedence never grants destructive ownership: automatic cleanup derives its id from the exact worktree entry in Git's administrative metadata and requires discern's plain worktree-ready marker as separate evidence.
 
 `discern start` checks the port for collisions with live siblings and mints another id when needed. Port selection remains best-effort: a crowded band does not block creation, and simultaneous start processes have no cross-process lock. Record a different `DISCERN_WORKTREE_ID` if 2 live worktrees ever receive the same port.
 
@@ -57,7 +57,7 @@ Resource and setup commands receive `@worktree@`, `@db@`, `@site@`, `@port@`, `@
 | Responsibility                        | Source                                                                                                  |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Identity derivation and id resolution | [`src/engine/worktree/identity.ts`](../../../src/engine/worktree/identity.ts)                           |
-| Destructive ownership predicate       | [`src/engine/worktree/ownership.ts`](../../../src/engine/worktree/ownership.ts)                        |
+| Destructive ownership predicate       | [`src/engine/worktree/ownership.ts`](../../../src/engine/worktree/ownership.ts)                         |
 | Env-file precedence and writes        | [`src/engine/worktree/env_file.ts`](../../../src/engine/worktree/env_file.ts)                           |
 | Contained read and write paths        | [`src/shared/project_path.ts`](../../../src/shared/project_path.ts)                                     |
 | Runtime tokens                        | [`src/engine/worktree/tokens.ts`](../../../src/engine/worktree/tokens.ts)                               |

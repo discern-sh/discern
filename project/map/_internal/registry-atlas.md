@@ -2735,7 +2735,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0312`
   - `0313`
   - `0314`
-  - `0314`
+  - `0315`
   - `0001`
   - `0002`
   - `0004`

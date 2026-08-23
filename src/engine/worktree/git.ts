@@ -2159,16 +2159,7 @@ function lockedWorktreeRefusal(path: string): WorktreeGitError {
   );
 }
 
-/**
- * Remove one positively identified Git worktree and prove both observable
- * postconditions before returning: its path is absent under strict `lstat`, and
- * Git no longer registers it. Git gets a bounded chance to handle transient
- * `ENOTEMPTY`; a fallback removes only the same filesystem object originally
- * identified, and stale registration recovery touches only the exact matching
- * admin directory. Locks, symlinks, replacement objects, unreadable state, and
- * broad targets fail closed. Idempotent when both path and registration are
- * already absent.
- */
+/** A teardown result whose path and Git-registration absence are both proved. */
 export interface WorktreeRemovalResult {
   readonly path: string;
   readonly pathAbsent: true;
@@ -2320,6 +2311,16 @@ async function removeExactWorktreeRegistration(
   }
 }
 
+/**
+ * Remove one positively identified Git worktree and prove both observable
+ * postconditions before returning: its path is absent under strict `lstat`, and
+ * its Git registration is absent. Git gets a bounded chance to handle transient
+ * `ENOTEMPTY`; a fallback removes only the same filesystem object observed
+ * before teardown, and stale registration recovery touches only the exact
+ * matching admin directory. Locks, symlinks, replacement objects, unreadable
+ * state, and broad targets fail closed. Idempotent when both path and
+ * registration are already absent.
+ */
 export async function removeWorktreeSafely(
   target: string,
   cwd: string = Deno.cwd(),
@@ -2861,7 +2862,7 @@ export interface PruneScanOptions {
   includeDetached?: boolean;
   /** Integration-branch fallback when `DISCERN_TRUNK` is unset (`[repository].trunk`). */
   mainBranch?: string;
-  /** Canonical project identity settings used to prove branch ownership. */
+  /** Canonical project identity settings that prove branch ownership. */
   identitySettings: IdentitySettings;
 }
 
@@ -3650,7 +3651,7 @@ export interface SweepScanOptions {
   extraDirs?: string[];
   /** Integration-branch fallback when `DISCERN_TRUNK` is unset (`[repository].trunk`). */
   mainBranch?: string;
-  /** Canonical project identity settings used to prove path ownership. */
+  /** Canonical project identity settings that prove path ownership. */
   identitySettings: IdentitySettings;
 }
 
