@@ -15,7 +15,7 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.23.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.25.0"
 ```
 
 Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
@@ -46,11 +46,15 @@ discern scripts site-design-system -- --build-only /absolute/path/to/design-syst
 
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts).
 
-Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.23.0/` origin; an external npm root must be declared by that published package and resolve to an exact node in `deno.lock`. A local path, workspace override, source import, mixed version, unlocked parser, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.25.0/` origin; an external npm root must be declared by that published package and resolve to an exact node in `deno.lock`. A local path, workspace override, source import, mixed version, unlocked parser, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
 
 ## Release 0.23.0 declaration contract
 
 Release 0.23.0 adds the neutral Result-summary state `declared`. Its terminal label is `Declared`, with `·` as the Unicode marker and `.` as the ASCII marker. Checkpoint conclusions use this state to name agent evidence without presenting the declaration as machine success, failure, or change currency; an unmet conclusion carries owner attention and variance as separate product facts.
+
+## Releases 0.24.0 and 0.25.0 catalogue contracts
+
+Release 0.24.0 adds reading-first Marketing Components and a Catalogue builder. Release 0.25.0 renames the browser Artwork `Ground` vocabulary to `Backdrop` and adds Tiling, Compression, and Harmonic Backdrops. The site selects package Groups and receives the revised browser catalogue through the existing runtime emitter. The CLI graphs, terminal process boundary, and interaction choke point retain their contracts.
 
 ## Release 0.22.0 presentation contracts
 
