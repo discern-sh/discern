@@ -159,7 +159,8 @@
 # known names and custom jobs are wired.
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage jobs, regenerates
-# every `[generated]` group, then runs the check-stage jobs — never build jobs or tests.
+# every `[generated]` group, completes refresh convergence, then runs the check-stage
+# jobs — never other build jobs or tests.
 #
 # `smoke` is the project's fast readiness check — real config and essential shared
 # runtime dependencies that Discern cannot infer. Keep it much faster than `test`:

@@ -1,7 +1,8 @@
 /**
  * `prepare` — the fast inner loop behind `discern prepare`: the fix-stage fixers
- * (serial; order matters), then the `[generated]` regenerations, then the
- * read-only check-stage jobs (no build jobs, no tests). It runs through the
+ * (serial; order matters), then the `[generated]` regenerations, the built-in
+ * complete refresh, then the read-only check-stage jobs (no other build jobs,
+ * no tests). Declared jobs run through the
  * gate's job runner, so a failure is captured into the SAME `steps[]` +
  * structured `diagnostics[]` `done` returns — the act→read→fix loop, not a bare
  * `ok:false` (ADR 0028).
@@ -24,14 +25,15 @@ import {
   gateFailureRemedy,
   hintTexts,
   interactiveHintTexts,
+  mergeHintTexts,
 } from "../../shared/hints.ts";
 import {
   checkpointInspectionHints,
   inspectCheckpointObligations,
 } from "../checkpoints/inspection.ts";
 import {
+  buildPreparePlan,
   GENERATED_GROUP_DISPLAY,
-  preparePlanGroups,
   serializeJobSteps,
 } from "./plan.ts";
 import {
@@ -49,7 +51,13 @@ import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
-import type { DiscernResult, FailedStage } from "../../shared/result.ts";
+import type {
+  Diagnostic,
+  DiscernResult,
+  FailedStage,
+  PlanStep,
+  StepResult,
+} from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 import { terminalContext } from "../../lib/terminal.ts";
 import {
@@ -57,6 +65,91 @@ import {
   renderGateTtyStatus,
   renderGateTtyTable,
 } from "./gate_tty.ts";
+import {
+  compileInstructions,
+  instructionRefreshErrors,
+} from "../instructions.ts";
+import { checkInstructionCurrent } from "../instruction_render.ts";
+import { checkSkillsCurrent } from "../../lib/skills.ts";
+import { Logger } from "../../lib/log.ts";
+
+interface PrepareRefreshRun {
+  readonly ok: boolean;
+  readonly step: StepResult;
+  readonly diagnostics: readonly Diagnostic[];
+  readonly hints: readonly string[];
+  readonly changed: readonly string[];
+}
+
+/** One skipped refresh result when an earlier mutating group failed. */
+function skippedRefresh(step: PlanStep): PrepareRefreshRun {
+  return {
+    ok: false,
+    step: { step, outcome: "skipped" },
+    diagnostics: [],
+    hints: [],
+    changed: [],
+  };
+}
+
+/**
+ * Apply the shared refresh authority, then prove its instruction and skills
+ * currency checks are already a fixpoint before read-only project checks run.
+ */
+async function runPrepareRefresh(
+  root: string,
+  cfg: DiscernConfig,
+  planned: PlanStep,
+): Promise<PrepareRefreshRun> {
+  const errors = new Set<string>();
+  let hints: readonly string[] = [];
+  let changed: readonly string[] = [];
+  try {
+    const refreshed = await compileInstructions(
+      root,
+      new Logger({ json: true, noColor: true }),
+    );
+    for (const error of instructionRefreshErrors(refreshed)) errors.add(error);
+    hints = refreshed.hints;
+    changed = refreshed.trackedArtifactsChanged;
+
+    for (const drift of await checkInstructionCurrent(root, cfg)) {
+      errors.add(
+        `${drift.path} remained ${drift.reason} after refresh; fix the authored instruction source or the reported output path`,
+      );
+    }
+    for (
+      const drift of (await checkSkillsCurrent(root, cfg)).filter((entry) =>
+        entry.reason !== "foreign"
+      )
+    ) {
+      errors.add(`${drift.dir}: ${drift.detail}`);
+    }
+  } catch (error) {
+    errors.add(error instanceof Error ? error.message : String(error));
+  }
+
+  const failures = [...errors];
+  const note = changed.length === 0
+    ? `${planned.note ?? "run refresh"}; already current`
+    : `${planned.note ?? "run refresh"}; changed ${changed.join(", ")}`;
+  return {
+    ok: failures.length === 0,
+    step: {
+      step: { ...planned, note },
+      outcome: failures.length === 0 ? "ok" : "failed",
+    },
+    diagnostics: failures.map((message) => ({
+      tool: "refresh",
+      severity: "error",
+      message:
+        `Refresh did not fully materialize the generated Agent surface: ${message}. Fix the named source or output, then run discern refresh again.`,
+      reproduce_cmd: "discern refresh",
+    })),
+    hints,
+    changed,
+  };
+}
 
 /**
  * Run the prepare gate once: build the groups, run them through the shared job
@@ -78,11 +171,13 @@ async function runPrepareGate(
     gotchasTail: GotchasFailureTail | undefined;
     outputWithheld: boolean;
     presentationWritable: boolean;
+    refreshChanged: readonly string[];
   }
 > {
   const cfg = await loadConfig(root);
   const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
-  const groups = preparePlanGroups(cfg);
+  const plan = buildPreparePlan(cfg);
+  const groups = [...plan.beforeRefresh, ...plan.afterRefresh];
   const { runOpts, out, runOut, flushDeferredOutput, slots } = gateRunContext(
     root,
     cfg,
@@ -108,16 +203,51 @@ async function runPrepareGate(
   // The fleet test-run cap can never bite here — prepare's groups are fix and
   // check, and only a test-stage or standard-measurement group draws a slot —
   // but the context threads through the one seam like every other gate verb.
-  const { results, failedStage } = await runJobGroups(
-    groups,
+  const before = await runJobGroups(
+    [...plan.beforeRefresh],
     runOpts,
     runOut,
     slots,
   );
-  const { steps, diagnostics, hints: jobOutputHints } = await serializeJobSteps(
-    groups,
+  const results = before.results;
+  let failedStage = before.failedStage;
+  let refresh = skippedRefresh(plan.refresh);
+  if (failedStage === null) {
+    refresh = await runPrepareRefresh(root, cfg, plan.refresh);
+    if (!refresh.ok) failedStage = "refresh_drift";
+  }
+  if (failedStage === null) {
+    const after = await runJobGroups(
+      [...plan.afterRefresh],
+      runOpts,
+      runOut,
+      slots,
+    );
+    for (const [label, result] of after.results) results.set(label, result);
+    failedStage = after.failedStage;
+  }
+  const beforeSerialized = await serializeJobSteps(
+    [...plan.beforeRefresh],
     results,
   );
+  const afterSerialized = await serializeJobSteps(
+    [...plan.afterRefresh],
+    results,
+  );
+  const steps = [
+    ...beforeSerialized.steps,
+    refresh.step,
+    ...afterSerialized.steps,
+  ];
+  const diagnostics = [
+    ...beforeSerialized.diagnostics,
+    ...refresh.diagnostics,
+    ...afterSerialized.diagnostics,
+  ];
+  const jobOutputHints = [
+    ...beforeSerialized.hints,
+    ...afterSerialized.hints,
+  ];
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   // The coupling (ADR 0084) rides the fast inner loop too, behind the SAME
   // [coupling].in_gate preference, so the nudge meets the change while it is hot — not
@@ -141,7 +271,7 @@ async function runPrepareGate(
       failedStage,
       diagnostics,
     });
-  const hints = [
+  const firedHints = [
     // Pre-setup, this output is indicative — prepare is un-gated during setup (ADR 0065).
     ...(inProgress !== undefined ? [inProgress] : []),
     ...jobOutputHints,
@@ -157,7 +287,10 @@ async function runPrepareGate(
     verb: "prepare",
     steps,
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
-    ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
+    ...(() => {
+      const hints = mergeHintTexts(refresh.hints, hintTexts(firedHints));
+      return hints.length > 0 ? { hints } : {};
+    })(),
   };
   await progress?.complete(result.steps ?? []);
   const liveWriteFailed = progress?.writeFailed() ?? false;
@@ -173,6 +306,7 @@ async function runPrepareGate(
     // diagnostic excerpt and full-artifact route below the restored frame.
     outputWithheld: gateOutputIsLive(policy),
     presentationWritable: !liveWriteFailed && deferredOutputFlushed,
+    refreshChanged: refresh.changed,
   };
 }
 
@@ -210,6 +344,7 @@ export async function runPrepare(
     gotchasTail,
     outputWithheld,
     presentationWritable,
+    refreshChanged,
   } = await runPrepareGate(
     root,
     { kind: "human", plain: opts.plain ?? false, terminal },
@@ -238,6 +373,8 @@ export async function runPrepare(
         ? "A fixer failed."
         : failedStage === "build"
         ? "A regeneration failed."
+        : failedStage === "refresh_drift"
+        ? "Artifact refresh failed."
         : "A check failed.",
       diagnostics: result.diagnostics ?? [],
       failedStage,
@@ -248,7 +385,7 @@ export async function runPrepare(
     return 1;
   }
   const steps = result.steps ?? [];
-  const noJobs = steps.length === 0;
+  const noJobs = steps.every((step) => step.step.kind !== "job");
   const regenerated = steps.some((s) =>
     s.step.group === GENERATED_GROUP_DISPLAY
   );
@@ -269,6 +406,9 @@ export async function runPrepare(
     );
   } else {
     out.ok(success);
+  }
+  if (refreshChanged.length > 0) {
+    out.info(`Refresh updated tracked artifacts: ${refreshChanged.join(", ")}`);
   }
   // The advisory tail (the co-change nudge / the setup-in-progress note) — same as finish.
   const hints = interactiveHintTexts(result.hints);

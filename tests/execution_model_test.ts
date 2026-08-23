@@ -27,8 +27,8 @@ import {
 } from "../src/engine/doctor/execution_model.ts";
 import {
   buildGatePlan,
+  buildPreparePlan,
   gatePlanToEngine,
-  preparePlanGroups,
   stageGroup,
 } from "../src/engine/gate/plan.ts";
 import {
@@ -261,10 +261,19 @@ Deno.test("execution model: gate verbs are byte-derived from the real plan build
       ),
     ).steps.map((s) => s.label),
   );
-  // prepare: the fix + check job labels, from preparePlanGroups.
+  // prepare: the job groups around the built-in refresh boundary.
+  const prepare = buildPreparePlan(cfg);
   assertEquals(
     labels("prepare"),
-    preparePlanGroups(cfg).flatMap((g) => g.jobs.map((j) => j.label)),
+    [
+      ...prepare.beforeRefresh.flatMap((group) =>
+        group.jobs.map((job) => job.label)
+      ),
+      prepare.refresh.label,
+      ...prepare.afterRefresh.flatMap((group) =>
+        group.jobs.map((job) => job.label)
+      ),
+    ],
   );
   // test: the test-stage job labels.
   assertEquals(

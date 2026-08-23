@@ -42,6 +42,7 @@ import {
   BUILT_IN_STEP_LABELS,
   verbatimStepLabel,
 } from "../../shared/result.ts";
+import { FULL_REFRESH_STEP_NOTE } from "../worktree/plan.ts";
 
 const LOUD_SUCCESS_ERROR_LIKE_LINES = 10;
 
@@ -185,7 +186,8 @@ const STAGE_GROUP_META: Record<
 
 /**
  * A single stage's job group, or undefined when the stage has no real job. The unit
- * `prepare` (fix, generated, check) and `discern test` (test) compose directly;
+ * `prepare` places these groups around its built-in refresh boundary and
+ * `discern test` (test) composes directly;
  * `done` uses it for fix and build, and runs check∥test as one combined group.
  */
 export function stageGroup(
@@ -334,6 +336,16 @@ export function gateLiveAdmissionGroups(
  * exported so prepare's summary can recognize it without matching a literal. */
 export const GENERATED_GROUP_DISPLAY = "Generated";
 
+/** The prepare sequence around its built-in convergence boundary. */
+export interface PreparePlan {
+  /** Tree-mutating declared jobs whose outputs the refresh consumes. */
+  readonly beforeRefresh: readonly JobGroup[];
+  /** The shared effectful compiler/materializer, represented in every result. */
+  readonly refresh: PlanStep;
+  /** Read-only project checks over the fully converged tree. */
+  readonly afterRefresh: readonly JobGroup[];
+}
+
 /**
  * The `[generated]` regeneration jobs as their own group — the mutating subset of
  * the build stage. Declared deterministic and fast, they belong in the inner loop:
@@ -359,27 +371,39 @@ export function generatedGroup(cfg: DiscernConfig): JobGroup | undefined {
 }
 
 /**
- * The prepare job groups — the fast inner loop: the fix stage (serial), then the
- * `[generated]` regenerations ({@link generatedGroup}), then the check stage. No
- * build jobs, no tests (those belong to the full `discern done`). Pure: derived
- * from the typed config alone, so `discern prepare` and `discern doctor`'s
- * execution model both read this ONE composition rather than re-listing it.
+ * The complete prepare sequence: fix → generated → complete refresh → check.
+ * The refresh boundary is built-in rather than a project job, but remains in
+ * the pure plan so execution, structured results, and doctor share one order.
+ */
+export function buildPreparePlan(cfg: DiscernConfig): PreparePlan {
+  const beforeRefresh: JobGroup[] = [];
+  const fix = stageGroup(cfg, "fix");
+  if (fix !== undefined) beforeRefresh.push(fix);
+  const generated = generatedGroup(cfg);
+  if (generated !== undefined) beforeRefresh.push(generated);
+  const check = stageGroup(cfg, "check");
+  return {
+    beforeRefresh,
+    refresh: {
+      kind: "refresh",
+      label: BUILT_IN_STEP_LABELS.completeRefresh,
+      disposition: "run",
+      note: FULL_REFRESH_STEP_NOTE,
+      group: "Refresh",
+    },
+    afterRefresh: check === undefined ? [] : [check],
+  };
+}
+
+/**
+ * The project-job projection of {@link buildPreparePlan}: fix and generated
+ * groups before its built-in refresh boundary, then check. Consumers that need
+ * the complete ordered plan use `buildPreparePlan`; job-only schedulers use this
+ * projection.
  */
 export function preparePlanGroups(cfg: DiscernConfig): JobGroup[] {
-  const groups: JobGroup[] = [];
-  const fix = stageGroup(cfg, "fix");
-  if (fix !== undefined) {
-    groups.push(fix);
-  }
-  const generated = generatedGroup(cfg);
-  if (generated !== undefined) {
-    groups.push(generated);
-  }
-  const check = stageGroup(cfg, "check");
-  if (check !== undefined) {
-    groups.push(check);
-  }
-  return groups;
+  const plan = buildPreparePlan(cfg);
+  return [...plan.beforeRefresh, ...plan.afterRefresh];
 }
 
 /**
