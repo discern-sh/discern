@@ -222,6 +222,44 @@ export function deriveIdentity(
 }
 
 /**
+ * Normalize Git's linked-worktree admin key into the identity id discern derives
+ * from it. This is the one pure mapping for both a live checkout and stale
+ * admin metadata; callers must not approximate it from a path basename.
+ */
+export function worktreeIdFromGitKey(
+  rawKey: string,
+  settings: IdentitySettings,
+): string {
+  const id = sanitizeSlug(rawKey);
+  if (id === "") {
+    throw new IdentityError(
+      `Git's worktree id '${rawKey}' contains no safe characters. Set a safe ` +
+        `${DISCERN_ENVIRONMENT_VARIABLES.worktreeId}, then re-run ` +
+        "`discern identity`.",
+    );
+  }
+  return id === settings.slug ||
+      new RegExp(`^${escapeRe(settings.slug)}[0-9]+$`).test(id)
+    ? `wt-${id}`
+    : id;
+}
+
+/**
+ * Resolve only the identity encoded by a checkout's Git-admin link.
+ *
+ * Automatic cleanup uses this narrower source instead of the ordinary runtime
+ * precedence: a checkout-local env value can customize runtime handles, but it
+ * cannot assert destructive ownership of a branch or path.
+ */
+export async function worktreeIdFromGitMetadata(
+  settings: IdentitySettings,
+  target: string,
+): Promise<string> {
+  const canonical = await canonicalizeTarget(target);
+  return worktreeIdFromGitKey(await metadataIdFromGit(canonical), settings);
+}
+
+/**
  * Word lists for a freshly-minted worktree id (`<adjective>-<noun>-<hex>`). Kept
  * deliberately generic — discern is stack- and domain-neutral, so these stand-ins
  * must read correctly for a project in any field. The pair is for legibility; the
@@ -629,25 +667,7 @@ export async function resolveWorktreeId(
     return validateOverrideId(dotenvId);
   }
 
-  const rawId = await metadataIdFromGit(canonical);
-  const id = sanitizeSlug(rawId);
-  if (id === "") {
-    throw new IdentityError(
-      `Git's worktree id '${rawId}' contains no safe characters. Set a safe ` +
-        `${DISCERN_ENVIRONMENT_VARIABLES.worktreeId}, then re-run ` +
-        "`discern identity`.",
-    );
-  }
-
-  // If the metadata id collides with the project slug (e.g. the admin dir was
-  // named after the project), prefix it so the identity stays distinct.
-  if (
-    id === settings.slug ||
-    new RegExp(`^${escapeRe(settings.slug)}[0-9]+$`).test(id)
-  ) {
-    return `wt-${id}`;
-  }
-  return id;
+  return worktreeIdFromGitKey(await metadataIdFromGit(canonical), settings);
 }
 
 /** Escape a string for safe embedding into a RegExp (the slug, which is `[a-z0-9-]`). */

@@ -166,7 +166,15 @@ export async function worktreeCreateHook(): Promise<number> {
     }
     // The shared create-then-setup core (also used by `discern start`); WHERE the
     // worktree lands is decided above by `resolveWorktreeRoot`, not in the engine.
-    await createAndSetupWorktree(cwd, dir, branch, log, startPoint);
+    const ownershipSettings = settings ?? await loadIdentitySettings(cwd);
+    await createAndSetupWorktree(
+      cwd,
+      dir,
+      branch,
+      log,
+      { id: name, settings: ownershipSettings },
+      startPoint,
+    );
     if (usedPorts !== undefined && settings !== undefined) {
       try {
         const id = await resolveWorktreeId(settings, dir);

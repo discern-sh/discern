@@ -189,6 +189,44 @@ Deno.test("spawnJob runs captured commands with the non-interactive CI env contr
   }
 });
 
+Deno.test({
+  name: "spawnJob quiesces background descendants before a clean result returns",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const dir = await Deno.makeTempDir({ prefix: "discern-job-quiesce-" });
+    try {
+      const result = await runParallel([
+        {
+          label: "background",
+          command:
+            '(sleep 0.15; mkdir -p "$LATE_TARGET") >/dev/null 2>&1 &',
+        },
+      ], {
+        cwd: dir,
+        env: { LATE_TARGET: join(dir, "late") },
+        stream: false,
+        failFast: true,
+        color: false,
+        write: () => {},
+      });
+
+      assertEquals(result.ok, true);
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
+      const late = await Deno.lstat(join(dir, "late")).catch((error) => {
+        if (error instanceof Deno.errors.NotFound) return undefined;
+        throw error;
+      });
+      assertEquals(
+        late,
+        undefined,
+        "a clean gate result returned while its process group could still write",
+      );
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
 Deno.test("spawnJob stamps the recording invocation into DISCERN_SPAWNED_BY", async () => {
   // A `discern` invoked by a job is a self-invocation: the runner passes the
   // recording invocation's id so the Logbook can attribute the child to the

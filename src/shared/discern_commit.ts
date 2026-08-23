@@ -19,6 +19,7 @@ import {
   runGit,
   SPAWN_FAILED,
 } from "./subprocess.ts";
+import { quiesceProcessGroup } from "./process_group.ts";
 
 export interface DiscernAuthoredCommitSiteDefinition {
   readonly id: string;
@@ -559,13 +560,23 @@ export async function commitDiscernChanges(
   const bin = gitBin();
   let output: Deno.CommandOutput;
   try {
-    output = await new Deno.Command(bin, {
+    const child = new Deno.Command(bin, {
       args,
       cwd: options.cwd,
       env: { GIT_REFLOG_ACTION: reflogAction },
       stdout: "piped",
       stderr: "piped",
-    }).output();
+      detached: Deno.build.os !== "windows",
+    }).spawn();
+    const stdout = new Response(child.stdout).arrayBuffer();
+    const stderr = new Response(child.stderr).arrayBuffer();
+    const status = await child.status;
+    await quiesceProcessGroup(child.pid);
+    output = {
+      ...status,
+      stdout: new Uint8Array(await stdout),
+      stderr: new Uint8Array(await stderr),
+    };
   } catch (error) {
     return {
       success: false,

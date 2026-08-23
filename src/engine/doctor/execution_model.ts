@@ -560,15 +560,16 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
 }
 
 /** `worktree prune` — the garbage-collection sweep (lifecycle.ts `worktreePrune`):
- * remove stale worktrees / dangling branches / orphan dirs, then reclaim the
- * resources of any worktree that vanished without a clean teardown. */
+ * remove positively-owned merged worktrees and owned stale paths, then reclaim
+ * the resources of any worktree that vanished without a clean teardown. */
 function pruneVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [
     step("git", BUILT_IN_STEP_LABELS.removeWorktree, {
-      condition: "for each stale worktree git no longer tracks",
+      condition:
+        "for each clean merged worktree with exact discern ownership evidence",
     }),
     step("git", BUILT_IN_STEP_LABELS.deleteBranch, {
-      condition: "for each fully-merged dangling branch",
+      condition: "for each exact owned branch released by that removal",
     }),
     step("git", BUILT_IN_STEP_LABELS.reclaimOrphanDir, {
       condition: "for each orphan gitlinked directory",
@@ -587,7 +588,7 @@ function pruneVerb(cfg: DiscernConfig): VerbPlan {
   return {
     verb: "worktree prune",
     when:
-      "Housekeeping — sweep stale worktrees and reclaim resources orphaned by a worktree that vanished without a clean teardown.",
+      "Housekeeping — reclaim positively-owned stale worktree state and resources orphaned by a worktree that vanished without a clean teardown.",
     steps,
   };
 }

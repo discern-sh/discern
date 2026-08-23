@@ -1184,7 +1184,7 @@ export function attachEngineCommands(
       "prune",
       new Command()
         .description(
-          "Sweep stale worktrees, fully-merged branches, reappeared worktree paths, and orphaned resources.",
+          "Reclaim positively-owned merged worktrees, stale state, reappeared paths, and orphaned resources.",
         )
         .option("-y, --yes", "Non-interactive: skip confirmation.")
         .option(

@@ -21,6 +21,7 @@ import {
   KILL_GRACE_MS,
   KILLED_PIPE_GRACE_MS,
   killProcessTree,
+  quiesceProcessGroup,
 } from "../process_signals.ts";
 
 /** Options for spawning a single job. */
@@ -387,8 +388,15 @@ export async function spawnJob(
       outputFeed.finish();
     }
   };
-  await Promise.all([drain(child.stdout), drain(child.stderr)]);
+  const drained = Promise.all([drain(child.stdout), drain(child.stderr)]);
   const status = await child.status;
+  // `sh -c '... &'` can report 0 while its background descendant keeps this
+  // detached group alive. Cancel that command-owned writer before a successful
+  // job result lets a worktree lifecycle begin teardown. Quiescing before the
+  // pipe await also closes descriptors inherited by an ordinary background
+  // child, so the drains cannot wait for its unrelated lifetime.
+  await quiesceProcessGroup(pid);
+  await drained;
 
   // Stop the watchdog the moment the job has settled (pipes drained AND the
   // process reaped), before any further awaits, so a job that finished within

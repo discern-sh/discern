@@ -191,6 +191,8 @@ import {
   pruneStaleWorktreeMetadata,
   readySentinelPath,
   refMergedState,
+  registeredWorktreeId,
+  registeredWorktreeOwnershipEvidence,
   registeredWorktreeRecord,
   removeWorktreeSafely,
   repoToplevel,
@@ -219,10 +221,11 @@ import {
   type ReappearedWorktreePathPruneResult,
   scanReappearedWorktreePaths,
 } from "./retired_paths.ts";
+import { preserveDropRecoveryRef } from "./recovery_refs.ts";
 import {
-  deleteDropBranchAtCommit,
-  preserveDropRecoveryRef,
-} from "./recovery_refs.ts";
+  classifyAutomaticBranchOwnership,
+  deleteAutomaticallyOwnedBranch,
+} from "./ownership.ts";
 
 // worktree setup recompiles the agent instructions as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
@@ -1095,6 +1098,7 @@ export async function createAndSetupWorktree(
   dir: string,
   branch: string,
   log: Logger,
+  ownership: { id: string; settings: IdentitySettings },
   startPoint?: string,
 ): Promise<void> {
   if (!(await hasAnyCommit(mainRepo))) {
@@ -1147,41 +1151,98 @@ export async function createAndSetupWorktree(
       // Delete the branch only when the add above created it: a failed add
       // (e.g. a branch-name collision racing past the pre-check) means the
       // branch — possibly holding unlanded commits — was never ours to remove.
-      await discardWorktreeBestEffort(mainRepo, dir, branch, log, {
-        deleteBranch: createdWorktree,
-      });
+      try {
+        await discardCreatedWorktree(
+          mainRepo,
+          dir,
+          branch,
+          log,
+          ownership,
+          { deleteBranch: createdWorktree },
+        );
+      } catch (cleanupError) {
+        const original = e instanceof Error ? e.message : String(e);
+        const cleanup = cleanupError instanceof Error
+          ? cleanupError.message
+          : String(cleanupError);
+        throw new WorktreeGitError(
+          `${original}\nThe failed worktree's teardown also did not complete: ` +
+            `${cleanup}`,
+        );
+      }
     }
     throw e;
   }
 }
 
 /**
- * Discard a worktree unconditionally and best-effort: destroy its resources (from
- * inside it, so `@dir@` destroys resolve), remove the worktree directory and its
- * git registration, then delete its branch — but ONLY under `deleteBranch: true`,
- * the caller's explicit claim that this very flow created the branch; cleanup
- * must never destroy a branch (and its commits) that predates it. Every step
- * swallows its own failure. This cleans up a failed `start`/create (no debris
- * left for `status` to list) and retires the viability probe's throwaway
- * worktree; `worktree prune` is the backstop for anything it misses.
+ * Retire a worktree this lifecycle just created: quiesced resource teardown,
+ * verified path + Git-registration removal, then an exact-commit branch CAS
+ * through the canonical ownership predicate. Failures stay visible; a caller
+ * may report the original setup failure too, but must never claim this cleanup
+ * succeeded while a path, registration, or owned branch remains.
  */
-async function discardWorktreeBestEffort(
+async function discardCreatedWorktree(
   mainRepo: string,
   dir: string,
   branch: string,
   log: Logger,
+  ownership: { id: string; settings: IdentitySettings },
   opts: { deleteBranch: boolean },
 ): Promise<void> {
+  const failures: string[] = [];
   try {
-    await teardownResources(await lifecycleContext(dir, log, dir));
-  } catch { /* best-effort */ }
-  try {
-    await removeWorktreeSafely(dir, mainRepo);
-  } catch { /* best-effort */ }
+    const resources = await teardownResources(
+      await lifecycleContext(dir, log, dir),
+    );
+    if (resources.failed.length > 0) {
+      failures.push(
+        `resources kept for recovery: ${resources.failed.join(", ")}`,
+      );
+    }
+  } catch (error) {
+    failures.push(
+      `resource teardown could not run: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  const tip = opts.deleteBranch
+    ? await runGit(
+      ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`],
+      { cwd: mainRepo, quiesceDescendants: true },
+    )
+    : undefined;
+  const removal = await removeWorktreeSafely(dir, mainRepo);
   if (opts.deleteBranch) {
-    try {
-      await runGit(["branch", "-D", branch], { cwd: mainRepo });
-    } catch { /* best-effort */ }
+    const deleted = await deleteAutomaticallyOwnedBranch({
+      repoRoot: mainRepo,
+      branch,
+      expectedCommit: tip?.success ? tip.stdout.trim() : removal.head,
+      ownership: {
+        kind: "worktree",
+        branch,
+        id: ownership.id,
+        settings: ownership.settings,
+        source: "created",
+      },
+    });
+    if (deleted.kind === "refused") {
+      throw new WorktreeGitError(
+        `The worktree path and Git registration are absent, but discern retained ` +
+          `branch '${branch}': ${deleted.reason}. Review the branch, then delete it ` +
+          "manually only if it is still the throwaway branch.",
+      );
+    }
+  }
+  if (failures.length > 0) {
+    throw new WorktreeGitError(
+      `The worktree path, Git registration, and owned branch were retired, but ` +
+        `${
+          failures.join("; ")
+        }. Re-run \`discern worktree prune\` after fixing ` +
+        "the resource teardown.",
+    );
   }
 }
 
@@ -1420,15 +1481,36 @@ async function buildDropPlan(
     ? await entriesForWorktree(commonGitDir, gitKey)
     : [];
 
+  const resolvedId = settings === undefined
+    ? undefined
+    : await registeredWorktreeId(match.path, ctx.root, settings);
+  const branchOwnership = settings === undefined || resolvedId === undefined
+    ? { owned: false as const, reason: "worktree identity is unavailable" }
+    : classifyAutomaticBranchOwnership({
+      kind: "worktree",
+      branch: match.branch,
+      id: resolvedId,
+      settings,
+      source: "registered",
+    });
+  const deletableLineOfWork = match.branch !== "" && match.branch !== trunk;
+
   return {
     targetPath: match.path,
-    id: basename(match.path),
+    id: resolvedId ?? basename(match.path),
     branch: match.branch,
     // Drop discards a LINE OF WORK; the trunk is never one. A worktree holding
     // the trunk (the legacy accept-to-branch layouts leave these behind) has
     // its checkout removed and its branch kept — deleting the trunk would leave
     // the repository with no landing target at all.
-    deleteBranch: match.branch !== "" && match.branch !== trunk,
+    deleteBranch: deletableLineOfWork && branchOwnership.owned,
+    ...(match.branch !== "" && !(deletableLineOfWork && branchOwnership.owned)
+      ? {
+        branchKeepReason: match.branch === trunk
+          ? "the trunk is never deleted"
+          : `${match.branch} is outside discern ownership (${branchOwnership.reason}) — kept`,
+      }
+      : {}),
     blockers,
     entries,
   };
@@ -1576,18 +1658,29 @@ export async function worktreeDrop(
     outcome: "ok",
   });
 
-  // 3. Delete its branch (force — the --force gate above is the consent for an
-  // unmerged branch; a merged one deletes the same way). Never the trunk: a
-  // worktree holding it loses only its checkout (`plan.deleteBranch`).
+  // 3. Delete its positively-owned branch (force — the --force gate above is
+  // the consent for an unmerged branch; a merged one deletes the same way).
+  // The trunk and a branch without exact identity ownership are retained.
   if (plan.deleteBranch) {
+    const settings = await loadIdentitySettings(ctx.root);
     const del = preservedCommit === undefined
-      ? { deleted: false, reason: "the preserved commit id is unavailable" }
-      : await deleteDropBranchAtCommit(
-        ctx.root,
-        plan.branch,
-        preservedCommit,
-      );
-    if (!del.deleted) {
+      ? {
+        kind: "refused" as const,
+        reason: "the preserved commit id is unavailable",
+      }
+      : await deleteAutomaticallyOwnedBranch({
+        repoRoot: ctx.root,
+        branch: plan.branch,
+        expectedCommit: preservedCommit,
+        ownership: {
+          kind: "worktree",
+          branch: plan.branch,
+          id: plan.id,
+          settings,
+          source: "registered",
+        },
+      });
+    if (del.kind === "refused") {
       throw new WorktreeGitError(
         `The worktree was removed, but Git could not delete its branch ` +
           `'${plan.branch}' at the preserved commit. The branch is still present; ` +
@@ -1606,13 +1699,14 @@ export async function worktreeDrop(
       outcome: "ok",
     });
   } else if (plan.branch !== "") {
-    ctx.log.ok(`Kept branch ${plan.branch} — the trunk is never deleted.`);
+    const keepReason = plan.branchKeepReason ?? `${plan.branch} is kept`;
+    ctx.log.ok(`Kept branch ${plan.branch} — ${keepReason}.`);
     steps.push({
       step: {
         kind: "git",
         label: BUILT_IN_STEP_LABELS.deleteBranch,
         disposition: "skip",
-        note: `${plan.branch} is the trunk — kept`,
+        note: keepReason,
       },
       outcome: "skipped",
     });
@@ -1631,7 +1725,8 @@ type GitRunner = (args: string[], cwd?: string) => Promise<GitResult>;
 
 /** The git runner acceptance uses — the shared runner bound to the worktree cwd. */
 function makeGitRunner(ctx: LifecycleContext): GitRunner {
-  return (args: string[], cwd: string = ctx.cwd) => runGit(args, { cwd });
+  return (args: string[], cwd: string = ctx.cwd) =>
+    runGit(args, { cwd, quiesceDescendants: true });
 }
 
 /**
@@ -2369,6 +2464,20 @@ async function executeAcceptPlan(
         `\`discern accept\`.`,
     );
   }
+  const branchOwnership = classifyAutomaticBranchOwnership({
+    kind: "worktree",
+    branch: worktreeBranch,
+    id,
+    settings,
+    source: "registered",
+  });
+  if (!branchOwnership.owned) {
+    throw new WorktreeGitError(
+      `Discern can land branch '${worktreeBranch}', but it cannot automatically ` +
+        `delete it because ${branchOwnership.reason}. Rename it to ` +
+        `'${identity.branch}' or land it outside discern; nothing was changed.`,
+    );
+  }
   const { worktreePath, mainRepo, trunk } = plan;
 
   // Validation gate (ADR 0067) — the exact tree we are about to land must pass the WHOLE
@@ -2999,11 +3108,13 @@ async function executeAcceptPlan(
   ctx.log.info(`Removing worktree: ${worktreePath}`);
   try {
     await removeWorktreeSafely(worktreePath, mainRepo);
-  } catch {
+  } catch (error) {
     throw new WorktreeGitError(
       `The branch landed, but removing the worktree at ${worktreePath} failed. ` +
-        `Your commits remain on ${worktreeBranch}. Run \`git worktree list\` to ` +
-        `inspect its state, then run \`discern worktree prune\` from the main checkout.`,
+        `Your commits remain on ${worktreeBranch}. Removal reported: ${
+          error instanceof Error ? error.message : String(error)
+        } Run \`git worktree list\` to inspect its state, fix the named cause, ` +
+        `then run \`discern worktree prune\` from the main checkout.`,
     );
   }
   ctx.log.ok("Worktree directory removed.");
@@ -3011,12 +3122,24 @@ async function executeAcceptPlan(
   progress.landing.worktree_removed = true;
 
   // Delete the now-merged branch.
-  const del = await run(["branch", "-d", worktreeBranch], mainRepo);
-  if (!del.success) {
+  const branchDeletion = await deleteAutomaticallyOwnedBranch({
+    repoRoot: mainRepo,
+    branch: worktreeBranch,
+    expectedCommit: validatedSha,
+    ownership: {
+      kind: "worktree",
+      branch: worktreeBranch,
+      id,
+      settings,
+      source: "registered",
+    },
+    mergedInto: trunk,
+  });
+  if (branchDeletion.kind === "refused") {
     throw new WorktreeGitError(
       `The branch landed on the trunk (${trunk}), but Git could not delete the merged ` +
-        `branch ${worktreeBranch}. Review the error below, then delete it with ` +
-        `\`git branch -d ${worktreeBranch}\`.\nGit said: ${del.stderr.trim()}`,
+        `owned branch ${worktreeBranch}: ${branchDeletion.reason}. Review the ref, ` +
+        `then delete it manually only if it still names ${validatedSha}.`,
     );
   }
   ctx.log.ok(`Deleted merged branch ${worktreeBranch}.`);
@@ -4704,7 +4827,14 @@ export async function startResult(
   }
 
   ctx.log.heading(`Starting a new worktree (${id})…`);
-  await createAndSetupWorktree(ctx.root, dir, branch, ctx.log, startPoint);
+  await createAndSetupWorktree(
+    ctx.root,
+    dir,
+    branch,
+    ctx.log,
+    { id, settings },
+    startPoint,
+  );
   ctx.log.ok(`Worktree '${id}' is ready at ${dir} (from ${startPoint}).`);
 
   // `git worktree add` checks out `.gitmodules` but leaves every submodule
@@ -4891,10 +5021,12 @@ export async function probeWorktreeViability(
   }
 
   const settings = await loadIdentitySettings(ctx.root);
+  let id: string;
   let branch: string;
   let dir: string;
   try {
     const minted = await mintFreeWorktree(ctx, settings, worktreeRoot);
+    id = minted.id;
     branch = minted.branch;
     dir = minted.dir;
     // `git worktree add` from HEAD — fails on an unborn branch (no commit yet), which
@@ -4904,28 +5036,50 @@ export async function probeWorktreeViability(
     return { kind: "uncreatable", reason: asMsg(e) };
   }
 
+  let outcome: WorktreeProbeOutcome = {
+    kind: "setup_failed",
+    reason: "The structural probe did not produce a verdict.",
+  };
   try {
     // Ready the worktree exactly as a real one: resources, env inheritance, one-shot
     // `steps`, fresh-creation `ensure`, agent-file refresh, sentinel. A throw here is
     // the app failing to set itself up in a copy — the core failure the probe catches.
+    let setupReady = false;
     try {
       await worktreeSetup(await lifecycleContext(dir, ctx.log, dir));
+      setupReady = true;
     } catch (e) {
-      return { kind: "setup_failed", reason: asMsg(e) };
+      outcome = { kind: "setup_failed", reason: asMsg(e) };
     }
-    const verdict = await probe(dir);
-    return verdict.detail !== undefined
-      ? { kind: "probed", ok: verdict.ok, detail: verdict.detail }
-      : { kind: "probed", ok: verdict.ok };
-  } finally {
-    // A probe teardown must never fail the caller (`setup done`) — the discard is
-    // best-effort throughout and `worktree prune` is the backstop. The branch is
-    // the probe's own freshly-minted throwaway (mintFreeWorktree guarantees it
-    // was free), so deleting it discards nothing that predates the probe.
-    await discardWorktreeBestEffort(ctx.root, dir, branch, ctx.log, {
-      deleteBranch: true,
-    });
+    if (setupReady) {
+      const verdict = await probe(dir);
+      outcome = verdict.detail !== undefined
+        ? { kind: "probed", ok: verdict.ok, detail: verdict.detail }
+        : { kind: "probed", ok: verdict.ok };
+    }
+  } catch (error) {
+    outcome = { kind: "setup_failed", reason: asMsg(error) };
   }
+  try {
+    await discardCreatedWorktree(
+      ctx.root,
+      dir,
+      branch,
+      ctx.log,
+      { id, settings },
+      {
+        deleteBranch: true,
+      },
+    );
+  } catch (error) {
+    return {
+      kind: "setup_failed",
+      reason: `The structural probe ran, but its teardown did not complete: ${
+        asMsg(error)
+      }`,
+    };
+  }
+  return outcome;
 }
 
 /**
@@ -5016,9 +5170,11 @@ async function buildPrunePlan(
   const gitScan = await scanGitWorktreesForPrune({
     includeDetached: true,
     mainBranch: ctx.config.repository.trunk,
+    identitySettings: await loadIdentitySettings(ctx.root),
   });
   const orphanScan = await scanOrphanWorktreesForSweep({
     mainBranch: ctx.config.repository.trunk,
+    identitySettings: await loadIdentitySettings(ctx.root),
     ...(extraScanDirs !== undefined ? { extraDirs: extraScanDirs } : {}),
   });
   const reappearedPathScan = await scanReappearedWorktreePaths(ctx.root);
@@ -5029,7 +5185,7 @@ async function buildPrunePlan(
     reappearedPathScan,
     resourceReclaims: resources.reclaimable,
     resourceReclaimsKept: resources.kept,
-    contained: await pruneContainedScan(ctx),
+    contained: await pruneContainedScan(ctx, reclaimContained),
     reclaimContained,
   };
 }
@@ -5042,6 +5198,7 @@ async function buildPrunePlan(
  */
 async function pruneContainedScan(
   ctx: LifecycleContext,
+  requireAutomaticOwnership = false,
 ): Promise<ContainedWorktree[]> {
   const nowMs = Date.now();
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
@@ -5053,11 +5210,34 @@ async function pruneContainedScan(
     )
     : undefined;
   const currentPath = await Deno.realPath(ctx.root).catch(() => ctx.root);
-  return await scanContainedWorktrees(ctx.root, {
+  const scanned = await scanContainedWorktrees(ctx.root, {
     mainBranch: ctx.config.repository.trunk,
     currentPath,
     idle: containmentIdleCheck(activity, nowMs),
   });
+  if (!requireAutomaticOwnership) {
+    return scanned;
+  }
+  const settings = await loadIdentitySettings(ctx.root);
+  const owned: ContainedWorktree[] = [];
+  for (const fact of scanned) {
+    const evidence = await registeredWorktreeOwnershipEvidence(
+      fact.path,
+      ctx.root,
+      settings,
+    );
+    if (evidence === undefined || !evidence.ready) continue;
+    const id = evidence.id;
+    const ownership = classifyAutomaticBranchOwnership({
+      kind: "worktree",
+      branch: fact.branch,
+      id,
+      settings,
+      source: "ready-marker",
+    });
+    if (ownership.owned) owned.push(fact);
+  }
+  return owned;
 }
 
 /**
@@ -5086,12 +5266,12 @@ async function planResourceReclaims(
 }
 
 /**
- * Housekeeping for the worktree pool — the `worktree prune` command. Removes stale
- * worktrees and fully-merged branches, reclaims gitlinked orphan directories, then
- * reclaims orphaned per-worktree RESOURCES (the GC safety net: a resource whose
- * worktree vanished without a clean teardown). Refuses to run from inside a linked
- * worktree (pool housekeeping belongs to the main checkout). `--dry-run` renders
- * the prune plan and touches nothing. Throws on a setup or removal failure.
+ * Housekeeping for the worktree pool — the `worktree prune` command. Removes
+ * positively-owned clean merged worktrees and owned stale state, then reclaims
+ * evidence-backed paths and resources. Merge, naming, or placement alone never
+ * creates a destructive candidate. Refuses to run from inside a linked worktree
+ * (pool housekeeping belongs to the main checkout). `--dry-run` renders the
+ * exact apply plan and touches nothing. Throws on a setup or removal failure.
  */
 export async function worktreePrune(
   ctx: LifecycleContext,
@@ -5167,7 +5347,7 @@ export async function worktreePrune(
   }
 
   // Apply: run the real removals, narrating exactly as before.
-  ctx.log.heading("Pruning worktrees and fully-merged branches…");
+  ctx.log.heading("Pruning owned merged worktrees and branches…");
   let prune = await pruneGitWorktrees(plan.gitScan, ctx.log);
 
   ctx.log.heading("Reclaiming orphaned worktree directories…");
@@ -5195,7 +5375,7 @@ export async function worktreePrune(
   };
   if (plan.reclaimContained && plan.contained.length > 0) {
     ctx.log.heading("Reclaiming contained worktrees (branch refs kept)…");
-    reclaim = await reclaimContainedWorktrees(ctx, plan.contained);
+    reclaim = await reclaimContainedWorktrees(ctx, plan.contained, true);
   } else if (plan.contained.length > 0) {
     ctx.log.heading("Contained worktrees (kept)…");
     for (const c of plan.contained) {
@@ -5278,6 +5458,7 @@ interface ContainedReclaimResult {
 async function reclaimContainedWorktrees(
   ctx: LifecycleContext,
   planned: ContainedWorktree[],
+  requireAutomaticOwnership = false,
 ): Promise<ContainedReclaimResult> {
   const result: ContainedReclaimResult = {
     reclaimed: [],
@@ -5289,9 +5470,10 @@ async function reclaimContainedWorktrees(
   }
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
   for (const fact of planned) {
-    const live = (await pruneContainedScan(ctx)).find(
-      (f) => f.path === fact.path,
-    );
+    const live = (await pruneContainedScan(ctx, requireAutomaticOwnership))
+      .find(
+        (f) => f.path === fact.path,
+      );
     const reason = live === undefined
       ? "it stopped qualifying as contained, clean, and idle"
       : live.branch !== fact.branch
@@ -5353,6 +5535,20 @@ async function reclaimContainedWorktrees(
           });
           continue;
         }
+      }
+      const stillEligible = (
+        await pruneContainedScan(ctx, requireAutomaticOwnership)
+      ).some((current) =>
+        current.path === fact.path && current.branch === fact.branch &&
+        current.tip === fact.tip
+      );
+      if (!stillEligible) {
+        const ownershipReason = requireAutomaticOwnership
+          ? "ownership or containment changed during resource teardown"
+          : "containment changed during resource teardown";
+        ctx.log.warn(`Skipped ${fact.path}: ${ownershipReason}.`);
+        result.skipped.push({ fact, reason: ownershipReason });
+        continue;
       }
       await removeWorktreeSafely(fact.path, ctx.root);
       result.reclaimed.push(fact);
@@ -5480,10 +5676,10 @@ function pruneResults(
     }));
   return [
     ...prune.removed.map((w) =>
-      step("git", w, "removed stale worktree", "Worktrees")
+      step("git", w, "removed owned clean merged worktree", "Worktrees")
     ),
     ...prune.branchesDeleted.map((b) =>
-      step("git", b, "deleted fully-merged branch", "Branches")
+      step("git", b, "deleted merged owned branch", "Branches")
     ),
     ...sweep.removed.map((d) =>
       step("git", d, "reclaimed orphan directory", "Orphan directories")
