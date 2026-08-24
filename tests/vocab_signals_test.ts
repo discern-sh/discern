@@ -15,6 +15,7 @@ import {
   redefinitionPattern,
   referencePattern,
 } from "../scripts/vocab_signals_lib.ts";
+import { withTempDir } from "./helpers.ts";
 
 const FIXTURE: GlossaryEntry[] = [
   { term: "Gate", definition: "The full check.", plain: { keep: "fixture" } },
@@ -35,50 +36,49 @@ const FIXTURE: GlossaryEntry[] = [
   },
 ];
 
-/** Materialize an isolated documentation corpus and return its temporary map root. */
-async function fixtureMap(files: Record<string, string>): Promise<string> {
-  const dir = await Deno.makeTempDir({ prefix: "vocab_signals_" });
+/** Materialize an isolated documentation corpus in one owned map root. */
+async function fixtureMap(
+  dir: string,
+  files: Record<string, string>,
+): Promise<void> {
   for (const [rel, text] of Object.entries(files)) {
     const path = join(dir, rel);
     await Deno.mkdir(dirname(path), { recursive: true });
     await Deno.writeTextFile(path, text);
   }
-  return dir;
 }
 
 Deno.test("vocab signals: dead terms, link-only references, plurals, and redefinitions", async () => {
-  const dir = await fixtureMap({
-    // The definition site: excluded, so defining a term never counts as using it.
-    [GLOSSARY_PAGE_REL]:
-      "# Glossary\n\n### Gate\n\n### Trunk\n\n### Gate job\n\n### Widget\n",
-    "10-topic/page.md": [
-      "---",
-      "title: Page",
-      "---",
-      "",
-      "# Page",
-      "",
-      "The gate runs the declared gate jobs.",
-      "",
-      "Land on the [shared branch](../00-orientation/glossary.md#trunk).",
-      "",
-      "**Gate** — the project's full quality check.",
-      "",
-      "**[Gate](../00-orientation/glossary.md#gate)** — linked emphasis is sanctioned.",
-    ].join("\n"),
-    // `_`-trees are dated or private records: a use there keeps nothing alive.
-    "_private/notes.md": "Widget widgets everywhere.",
-  });
-  try {
+  await withTempDir(async (dir) => {
+    await fixtureMap(dir, {
+      // The definition site: excluded, so defining a term never counts as using it.
+      [GLOSSARY_PAGE_REL]:
+        "# Glossary\n\n### Gate\n\n### Trunk\n\n### Gate job\n\n### Widget\n",
+      "10-topic/page.md": [
+        "---",
+        "title: Page",
+        "---",
+        "",
+        "# Page",
+        "",
+        "The gate runs the declared gate jobs.",
+        "",
+        "Land on the [shared branch](../00-orientation/glossary.md#trunk).",
+        "",
+        "**Gate** — the project's full quality check.",
+        "",
+        "**[Gate](../00-orientation/glossary.md#gate)** — linked emphasis is sanctioned.",
+      ].join("\n"),
+      // `_`-trees are dated or private records: a use there keeps nothing alive.
+      "_private/notes.md": "Widget widgets everywhere.",
+    });
     const signals = await measureVocabSignals(dir, FIXTURE);
     assertEquals(signals.deadTerms, ["Widget"]);
     assertEquals(signals.redefinitions, [
       { file: "10-topic/page.md", line: 11, term: "Gate" },
     ]);
     assertEquals(signals.debt, 2);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "vocab_signals_" });
 });
 
 Deno.test("vocab signals: reference matching drops a leading The, splits slashed terms, and wraps lines", () => {
@@ -118,24 +118,22 @@ Deno.test("vocab signals ignore hover matching controls", async () => {
       plain: { keep: "fixture" },
     },
   ];
-  const dir = await fixtureMap({
-    [GLOSSARY_PAGE_REL]: "# Glossary\n\n### Update\n\n### Accept\n",
-    "10-topic/page.md": [
-      "Update the docs.",
-      "",
-      "Land with [the command](../00-orientation/glossary.md#accept).",
-      "",
-      "**Update** — a second definition.",
-    ].join("\n"),
-  });
-  try {
+  await withTempDir(async (dir) => {
+    await fixtureMap(dir, {
+      [GLOSSARY_PAGE_REL]: "# Glossary\n\n### Update\n\n### Accept\n",
+      "10-topic/page.md": [
+        "Update the docs.",
+        "",
+        "Land with [the command](../00-orientation/glossary.md#accept).",
+        "",
+        "**Update** — a second definition.",
+      ].join("\n"),
+    });
     const signals = await measureVocabSignals(dir, glossary);
     assertEquals(signals.deadTerms, []);
     assertEquals(signals.redefinitions, [
       { file: "10-topic/page.md", line: 5, term: "Update" },
     ]);
     assertEquals(signals.debt, 1);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "vocab_signals_" });
 });

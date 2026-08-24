@@ -27,6 +27,7 @@ import {
   type CanonEditorHandle,
   startCanonEditor,
 } from "../scripts/canon_editor/server.ts";
+import { withTempDir } from "./helpers.ts";
 
 const TEST_REQUEST_TOKEN = "canon-editor-test-token";
 
@@ -370,8 +371,7 @@ Deno.test("a list save refuses values outside its live picker", async () => {
 });
 
 Deno.test("the editor serves worktrees only", async () => {
-  const dir = await Deno.makeTempDir();
-  try {
+  await withTempDir(async (dir) => {
     assert(
       await mainCheckoutIssue(dir) !== undefined,
       "no .git at all refuses",
@@ -388,9 +388,7 @@ Deno.test("the editor serves worktrees only", async () => {
       undefined,
       "a gitlink file is a linked worktree and serves",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  });
 });
 
 Deno.test("state and page routes answer sanely", async () => {
