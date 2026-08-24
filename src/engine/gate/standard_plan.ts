@@ -41,6 +41,10 @@ export type PerSpec =
  */
 export interface PlannedStandard {
   name: string;
+  /** The schema-normalized source table. Tier 1 applies the total field policy
+   * to this shape before any measurement runs; execution uses the resolved
+   * projections below. */
+  spec: StandardConfig;
   /** The metric token the run emits (spec.metric ?? name). */
   metric: string;
   direction: "up" | "down";
@@ -58,7 +62,7 @@ export interface PlannedStandard {
   margin: number;
   /** Whether the gate measures this standard (`measure = "gate"`, the default);
    * false defers the measurement to the standalone `standards` verb. The
-   * never-loosen limit check is NOT governed by this — it runs regardless. */
+   * definition-and-limit check is NOT governed by this — it runs regardless. */
   gateMeasure: boolean;
   /** The paths the metric reads (scope-paths globs, with live source-path
    * references expanded) —
@@ -127,6 +131,7 @@ export function buildStandardPlan(cfg: DiscernConfig): StandardPlan {
       );
       return {
         name,
+        spec,
         metric: spec.metric ?? name,
         direction: spec.direction,
         limit: spec.limit,
@@ -145,22 +150,29 @@ export function buildStandardPlan(cfg: DiscernConfig): StandardPlan {
 }
 
 /**
- * The never-loosen comparison, pure: the branch's `limit` against the trunk's
- * recorded value, in the branch's `direction`. Returns the failure reason —
- * the words every surface narrates — or undefined when the limit is not
- * loosened (tightened, unchanged, or new on the branch: `mainValue`
- * undefined). The ONE comparison behind the shared Tier-1 verification both
- * gate and standalone execution consume, so the surfaces cannot disagree on
- * what "loosened" means.
+ * The monotonic-bound comparison, pure: the branch's `limit` against the
+ * trunk's recorded value after both sides' directions agree. Returns the
+ * failure reason — the words every surface narrates — or undefined when the
+ * limit is not comparable or not loosened (tightened, unchanged, or new on the
+ * branch: `mainValue` undefined). The ONE numeric comparison behind the shared
+ * Tier-1 verification both gate and standalone execution consume.
  */
 export function loosenedLimitReason(
   name: string,
   direction: "up" | "down",
   limit: number,
+  mainDirection: "up" | "down",
   mainValue: number | undefined,
   mainBranch: string,
 ): string | undefined {
   if (mainValue === undefined) {
+    return undefined;
+  }
+  // A bound has an ordering only after both sides agree on what ordering it is.
+  // Tier 1 reports a direction mismatch as a definition change; it must never
+  // reinterpret the trunk's floor as a ceiling (or vice versa) through the
+  // branch's direction.
+  if (direction !== mainDirection) {
     return undefined;
   }
   if (direction === "up" && limit < mainValue) {
