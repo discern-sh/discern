@@ -129,6 +129,8 @@ discern does not set Cursor sandbox options, static command permission lists, mo
 
 Cursor workspace trust gates committed `.cursor/` config. The MCP server can also require per-tool approval on first use. For headless runs, `--approve-mcps` bypasses the MCP approval prompt, but it does not replace workspace trust.
 
+After setup and workspace trust, reload the Cursor window, start a new agent conversation in this workspace, and call `discern_status`; only that result confirms that the project MCP server loaded. If the call is unavailable, repeat that local recovery once and then use `discern status --json` as the CLI fallback. Generated `.cursor/` files alone are not activation evidence.
+
 Skill-loading behavior varies across Cursor CLI versions. When diagnosing a missing Skill in the CLI, verify the installed `cursor-agent` version before treating the materialized directory as stale.
 
 ## See also

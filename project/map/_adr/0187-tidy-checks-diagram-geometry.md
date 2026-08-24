@@ -1,5 +1,9 @@
 # ADR 0187: tidy checks diagram geometry in the Markdown it formats
 
+> **Amendments.**
+>
+> - **[ADR 0321](0321-diagram-geometry-follows-markdown-code-block-semantics.md) — block semantics:** the shared scanner now enrolls box-drawing content in fenced and indented code blocks. The `freeform` opt-out remains an explicit fenced info-string tag.
+
 **Status**: accepted
 
 ## Context

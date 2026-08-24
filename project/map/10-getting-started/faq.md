@@ -23,6 +23,8 @@ discern doctor
 
 It checks that `discern.toml` parses, the schema matches the installed binary, configured commands resolve on `PATH`, and each selected coding agent has its expected integration. In a Git repository it also checks recovery retention, author and committer identity, required signing programs, hidden index flags and sparse checkout, worktree-local config placement, and repository ownership. It reads every registered worktree because one checkout can carry a narrower Git override than its siblings.
 
+Doctor also distinguishes an enabled but empty Logbook from recording disabled, invalid storage, an environment-denied write, and an expected event that the recorder did not observe. Empty is healthy on a new install. An environment or sandbox denial is a warning that disables advisory recording for this process; it does not make setup fail or authorize broader Git access.
+
 Recovery advice warns without making doctor fail. An unusable commit identity or required signer, hidden tracked paths outside an intentional sparse checkout, unsafe worktree-config placement, or Git's dubious-ownership refusal fails and names the next command. For a bug report, capture the structured result:
 
 ```sh
@@ -35,15 +37,15 @@ Open a new shell, then run `which discern`. If it prints nothing, add the instal
 
 ## The Model Context Protocol tools are unreachable
 
-Restart the coding-agent session first. Model Context Protocol (MCP) servers and hooks load when a session starts, so the session that ran setup cannot see newly written integration files.
+Restart the coding-agent session first. Model Context Protocol (MCP) servers and hooks load when a session starts, so the session that ran setup cannot see newly written integration files. Then run the exact post-restart check that `setup done` served for that provider. For MCP-enabled integrations the check is the local `discern_status` call; otherwise it is the registry's canonical CLI check.
 
-If the tools remain unavailable, run `discern doctor`. Codex, Gemini, Cursor, and GitHub Copilot may keep committed integration settings inactive until you trust the folder. The diagnostic names the provider-specific action.
+If that check is unavailable, follow the one provider-specific local recovery step in the setup result, then try it once more. Use `discern status --json` as the CLI fallback and run `discern doctor` for the integration diagnosis. Codex, Gemini, Cursor, and GitHub Copilot may keep committed integration settings inactive until you trust the folder. Generated files alone do not prove activation, and discern cannot grant or persist the provider's trust or sandbox authority.
 
 Use `--markdown` for concise, prioritized prose or `--json` for exact structured fields. People, coding agents, and scripts can choose either representation to fit the task. Every discern MCP tool has a CLI verb behind it. See [Result formats and delivery](../70-reference/result-surfaces.md).
 
 ## The session has left the workflow
 
-Run `discern status` to recover the current state and next valid action. If the same command loop recurs, run `discern patterns`. It reports a recorded loop only after the evidence reaches that detector's threshold, and each finding recommends an investigation.
+Run `discern status` to recover the current state and next valid action. During setup, bare `discern setup` reports the recorded phase and dedicated branch so the agent can continue with a bounded setup command instead of replaying raw Git operations. If the same command loop recurs, run `discern patterns`. It reports a recorded loop only after the evidence reaches that detector's threshold, and each finding recommends an investigation.
 
 ## `discern done` returned a failed Gate
 

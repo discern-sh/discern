@@ -325,7 +325,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "tidy",
         title: "Canonical formatting for discern surfaces",
         what:
-          "`discern tidy [md|toml]` canonically formats the configured map, TODO and instruction sources, plus the root `discern.toml`, using formatters embedded in the offline binary. Bare `discern tidy` runs both types; a parse failure leaves every file unchanged. Fenced box-drawing diagrams in those Markdown targets must stay column-aligned; a fence tagged `freeform` is exempt.",
+          "`discern tidy [md|toml]` canonically formats the configured map, TODO and instruction sources, plus the root `discern.toml`, using formatters embedded in the offline binary. Bare `discern tidy` runs both types; a parse failure leaves every file unchanged. Box-drawing diagrams in fenced or indented code blocks must stay column-aligned; a fenced block tagged `freeform` is exempt.",
         why:
           "Agent-maintained prose and frequently edited config stop accumulating formatting churn, even when the project's stack has no formatter of its own.",
         plain: {
@@ -505,17 +505,17 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       },
       {
         id: "unchanged-tree-rerun",
-        title: "A rerun on an unchanged tree is attested",
+        title: "Current green Proof composes; red reruns stay explicit",
         what:
-          "Each completed `discern done` records the exact tree it judged — `HEAD` plus a fingerprint of everything uncommitted — and the verdict, in the worktree's Git admin area. Asked to run again on that identical tree, `done` refuses read-only before the fix stage can touch a file; `discern done --confirmed` re-runs it as an attested, recorded probe. Any change to the tree runs as normal, and so does `--dry-run`.",
+          "Each completed `discern done` records the exact tree it judged — `HEAD` plus a fingerprint of everything uncommitted — and the verdict, in the worktree's Git admin area. On that identical tree, an ordinary `done` returns a valid current green Proof with `gate_ran: false` and runs no Gate step. An unchanged red verdict, or a green marker without valid current Proof, still refuses read-only; `discern done --rerun` deliberately measures again and records that probe. `--confirmed` remains a compatibility alias for existing Gate scripts. A changed tree runs normally, while `--dry-run` only previews and never reuses evidence.",
         why:
-          "An unchanged tree expects an unchanged verdict. A green rerun pays full gate time for Proof that `discern status` already shows; retrying an unchanged red tree would make the recorded verdict look negotiable.",
+          "A wrapper can compose with an answer the Gate has already proved without paying for it twice, while a failed tree cannot become green by repetition.",
         plain: {
-          title: "A repeat check on unchanged work is a recorded choice",
+          title: "Reuse a current pass; make a repeated failure explicit",
           what:
-            "Each completed `discern done` records what it judged — the saved point plus a fingerprint of every unsaved edit — and the verdict, in the version history's housekeeping area. Asked to run again on identical work, `done` refuses without touching anything; `discern done --confirmed` runs it anyway as a recorded probe. Any change to the files runs as normal, and so does `--dry-run`.",
+            "Each completed `discern done` records what it judged — the saved point plus a fingerprint of every unsaved edit — and the verdict, in the version history's housekeeping area. On identical work, an ordinary repeat returns the same still-valid passing evidence without running any check again. A recorded failure, or passing history whose evidence is missing or no longer exact, still refuses without touching anything; `discern done --rerun` deliberately runs it again and records that choice. The older `--confirmed` spelling remains available for existing scripts. Changed work runs normally, while `--dry-run` only previews.",
           why:
-            "Unchanged work should expect an unchanged verdict. Repeating a pass spends the full running time on an answer `discern status` already shows, and retrying a failure until it passes teaches that a failure is negotiable.",
+            "Another instruction can reuse an answer already proved without paying twice, while repeated failures never turn into passes by themselves.",
         },
       },
       {
@@ -1633,13 +1633,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "setup",
         title: "Agent-driven setup",
         what:
-          "`discern setup` is a staged, consent-driven handshake the coding agent completes: it verifies write authority, detects the default branch (offering git init on a bare directory), configures `[jobs]` and records which known lifecycles do not apply, proves the project runs in a worktree, and lands the finished configuration with `setup accept`. Completion reports enforced protections against the applicable denominator. Each step serves ready-to-relay messages, a fresh scaffold requires a `--confirmed` attestation, and installing a dependency is its own consent point.",
+          "`discern setup` is a staged, consent-driven handshake the coding agent completes: it verifies the project read-only, detects the default branch (offering git init on a bare directory), configures `[jobs]` and records which known lifecycles do not apply, proves the project runs in a worktree, and lands the finished configuration with `setup accept`. Before each effectful setup command mutates anything or runs slow project work, its effect plan exercises every predictable required filesystem and Git-admin write in that invocation; a denial names the exact path and retry command without changing setup state. Completion reports enforced protections against the applicable denominator. Each step serves ready-to-relay messages, a fresh scaffold requires a `--confirmed` consent attestation, and installing a dependency is its own consent point.",
         why:
           "Tell your agent to run setup and answer its questions; the configuration engine is the agent, and every irreversible step asks first.",
         plain: {
           title: "Setup led by the coding agent",
           what:
-            "`discern setup` is a staged, permission-first conversation the coding agent completes: it proves it may make changes, finds the project's main shared line of work (offering to begin version history in a bare folder), records the project's checks and which familiar steps do not apply, proves the project runs in a separate working copy, and completes the settings with `setup accept`. Completion counts only the familiar protections that apply. Every step serves a message ready to pass to the person in charge, starting from nothing requires `--confirmed`, and installing any extra software is its own permission moment.",
+            "`discern setup` is a staged, permission-first conversation the coding agent completes: it previews the plan without writing, finds the project's main shared line of work (offering to begin version history in a bare folder), records the project's checks and which familiar steps do not apply, proves the project runs in a separate working copy, and completes the settings with `setup accept`. Before each instruction that will make changes, discern briefly exercises the exact ordinary-file and version-history areas its plan needs; a denied area is named before anything changes. Completion counts only the familiar protections that apply. Every step serves a message ready to pass to the person in charge, starting from nothing requires `--confirmed`, and installing any extra software is its own permission moment.",
           why:
             "Tell your coding assistant to run setup and answer its questions; the assistant supplies the judgment, and every hard-to-undo step asks first.",
         },
@@ -1658,6 +1658,21 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             "An unfinished setup is a state tools can read, reported by `discern status` and by the automatic session-start action until the conversation completes.",
           why:
             "Current-state and session-start results keep unfinished setup visible until completion.",
+        },
+      },
+      {
+        id: "setup-activation",
+        title: "Provider-aware activation recovery",
+        what:
+          "Setup phase state is resumable through `discern setup` and `discern status`. At completion, the provider registry serves one exact post-restart activation check for each configured agent, one local recovery step when that check fails, and `discern status --json` as the CLI fallback. Generated files alone never count as proof that a fresh session loaded the integration.",
+        why:
+          "An interrupted setup or a provider restart boundary has one bounded continuation instead of a sequence of improvised low-level mutations.",
+        plain: {
+          title: "One restart check and one way to continue",
+          what:
+            "Setup can continue from the point it recorded through `discern setup` or `discern status`. When setup finishes, each configured coding assistant receives one exact check for a new session, one local recovery step if that check fails, and the same command-line fallback. Seeing a file made automatically from a source the project owns does not by itself prove that the new session loaded it.",
+          why:
+            "An interrupted setup or a restart has one limited continuation instead of a string of improvised low-level changes.",
         },
       },
       {
@@ -1695,13 +1710,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "doctor",
         title: "Doctor",
         what:
-          "`discern doctor` verifies the installation without changing it: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, instructions, skills, automation, and resource commands. It also prints each verb's execution model: which steps are the project's and which are discern's.",
+          "`discern doctor` verifies the installation without changing project state: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, instructions, skills, automation, resource commands, and Logbook configuration. An enabled but empty Logbook is healthy on a new install; disabled, invalid, unwritable, and unexpectedly non-recording states remain distinct. An environment-denied advisory recording write is a warning that disables recording for this process, never a setup blocker. Doctor also prints each verb's execution model: which steps are the project's and which are discern's.",
         why:
           "Facts before judgments, and a misconfigured install names its own fix.",
         plain: {
           title: "Health check",
           what:
-            "`discern doctor` verifies the installation without changing it: that the settings make sense and match the expected format version; that declared instructions exist in the computer's standard installed-program list (called `PATH`); that recovery history, saved-change identity, signing tools, hidden-file state, separate-copy settings, and project ownership are safe; and that instruction text, how-to guides, working-copy automation, and supporting-service instructions are connected. It also explains, for every instruction, which steps are the project's and which are discern's.",
+            "`discern doctor` verifies the installation without changing project state: that the settings make sense and match the expected format version; that declared instructions exist in the computer's standard installed-program list (called `PATH`); that recovery history, saved-change identity, signing tools, hidden-file state, separate-copy settings, and project ownership are safe; and that instruction text, how-to guides, working-copy automation, supporting-service instructions, and the local activity record are connected. A new empty activity record is healthy. If the environment refuses that optional record, doctor warns and disables recording for this process without blocking setup. It also explains, for every instruction, which steps are the project's and which are discern's.",
           why:
             "Facts before judgments, and a misconfigured installation names its own fix.",
         },
@@ -2789,6 +2804,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
           "status",
           "session-hooks",
           "setup-observability",
+          "setup-activation",
           "idempotent-verbs",
         ],
       },
@@ -2849,7 +2865,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "When work is not ready, the agent receives a focused failure, the relevant output, and a reproducing command as early as the pipeline can provide them. Shorter feedback loops mean less time waiting on doomed runs and less context lost to diagnosis.",
         whyItFollows:
-          "`discern prepare` supplies the fast fix-and-check loop; staging, cancellation, time budgets, strand detection, write preflight, captured diagnostics, live output, focused tests, and attested reruns stop or explain failed work at the earliest reliable point.",
+          "`discern prepare` supplies the fast fix-and-check loop; staging, cancellation, time budgets, strand detection, write preflight, captured diagnostics, live output, focused tests, and explicit reruns stop or explain failed work at the earliest reliable point.",
         drawsOn: [
           "prepare",
           "test-verb",
@@ -3788,7 +3804,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can return one durable Proof bound to the precise committed and uncommitted tree the Gate judged, so completion cannot drift away from its evidence.",
         whyItFollows:
-          "Done records the tree identity and verdict, Proof carries compact claims and notes, and an unchanged-tree rerun requires an explicit attestation before it repeats the Gate.",
+          "Done records the tree identity and verdict, Proof carries compact claims and notes, a current green Proof is reusable without work, and an unchanged red tree requires an explicit rerun before the Gate repeats.",
         boundary:
           "Proof establishes the configured machine checks and recorded declarations for one tree; it is not release authority and says nothing about later edits.",
         drawsOn: ["proof", "proof-notes", "unchanged-tree-rerun"],
@@ -3889,6 +3905,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "install",
           "setup",
           "setup-observability",
+          "setup-activation",
           "doctor",
           "upgrade",
           "uninstall",

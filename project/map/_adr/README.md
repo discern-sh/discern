@@ -177,7 +177,6 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0182 — Operator commands resolve `discern` to the running engine](0182-operator-commands-resolve-discern-to-the-running-engine.md)
 - [0183 — Agent task search uses an audience-specific ranker](0183-agent-task-search-uses-an-audience-specific-ranker.md)
 - [0184 — Markdown writers preserve or refuse frontmatter, never restructure it](0184-markdown-writers-preserve-or-refuse-frontmatter.md)
-- [0185 — done refuses an unchanged-tree rerun without --confirmed](0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)
 - [0186 — ADR number uniqueness is gate-enforced, with an in-flight collision scan](0186-adr-number-uniqueness-is-gate-enforced.md)
 - [0187 — tidy checks diagram geometry in the Markdown it formats](0187-tidy-checks-diagram-geometry.md)
 - [0188 — The receipt relays as one line; the page is pulled](0188-the-receipt-relays-as-one-line.md)
@@ -305,6 +304,9 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0316 — Instruction compilation preserves location and prepare converges refresh](0316-instruction-compilation-preserves-location-and-prepare-converges.md)
 - [0317 — Gate commands and setup applicability are separate facts](0317-gate-commands-and-setup-applicability-are-separate-facts.md)
 - [0318 — The Desk adapts status into one complete human decision](0318-the-desk-adapts-status-into-one-human-decision.md)
+- [0319 — Current green Proof composes and red reruns stay explicit](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md)
+- [0320 — Setup plans own write authority and activation recovery](0320-setup-plans-own-write-authority-and-activation-recovery.md)
+- [0321 — Diagram geometry follows Markdown code-block semantics](0321-diagram-geometry-follows-markdown-code-block-semantics.md)
 
 <!-- END GENERATED: current ADR records -->
 
@@ -335,6 +337,7 @@ These records remain under [`_superseded/`](_superseded/) because the path to th
 - [0066 — `discern --help` groups commands by post-processing Cliffy's help](_superseded/0066-grouped-cli-help.md)
 - [0091 — Rescue generated content before overwrite](_superseded/0091-rescue-generated-content-before-overwrite.md)
 - [0107 — `upgrade` reconciles the record-table doc banners](_superseded/0107-config-banners-are-managed-regions.md)
+- [0185 — done refuses an unchanged-tree rerun without --confirmed](_superseded/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)
 - [0227 — `await` bounds follow repository evidence](_superseded/0227-await-bounds-follow-repository-evidence.md)
 
 <!-- END GENERATED: superseded ADR records -->

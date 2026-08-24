@@ -28,6 +28,8 @@ Reply in plain language, for example:
 
 The agent attests that consent happened when it begins. A fresh interactive setup cannot write without that attestation ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
+That attestation answers “did the owner consent?”, not “can this process write?”. `verify` performs no write probe. In the later effectful invocation, setup derives the required targets from its command plan and exercises them after consent and other cheap read-only checks but before its first effect. A denial returns `write_access` with the exact path and a complete retry command, leaving the setup phase unchanged. The probe observes point-in-time authority; it cannot persist or bypass the host's sandbox policy.
+
 ## Setup builds on its own branch
 
 `discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent records the project's real format, lint, build, typecheck, test, and smoke commands and any known lifecycle that does not apply in `discern.toml`. It then fills the project instructions and initial map pages while those checks are live, including the seeded record of the adoption decision.
@@ -35,6 +37,8 @@ The agent attests that consent happened when it begins. A fresh interactive setu
 discern commits its scaffolded wiring before the handoff. Final completion commits the marker before producing [Gate Proof](../20-quality-gate/the-proof.md). Those commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. Agent-authored commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
 
 Watch the branch rather than the main checkout. The agent makes small authoring commits as it completes the staged setup brief. [What setup added](after-setup.md) explains each group in the diff.
+
+If the process is interrupted or the provider requires a restart, do not reconstruct the sequence with raw Git. Run `discern setup` or `discern status`; the recorded phase reports the dedicated branch and the exact bounded setup command that continues. Repeating that phase does not replay already completed setup writes.
 
 ## Setup verifies the checkout can reproduce
 
@@ -47,7 +51,7 @@ A failure result includes the failed command and output. A pass records completi
 1. Review and land the `discern-setup` branch.
 2. Start a fresh coding-agent session.
 
-The restart matters because Model Context Protocol (MCP) servers, hooks, and project instructions load when a session starts. The session that created them cannot gain those integrations retroactively.
+The restart matters because Model Context Protocol (MCP) servers, hooks, and project instructions load when a session starts. The session that created them cannot gain those integrations retroactively. Completion derives one exact check for each configured coding agent from the provider registry. In the fresh session, run that check. If it is unavailable, follow the provider's one local recovery step and use `discern status --json` as the CLI fallback. Do not infer activation merely because the generated files exist ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
 
 `discern setup accept --dry-run` first validates that Proof without changing a branch or ref. Apply lands the full commit named by Proof and records the standard durable Proof note. If trunk moved after completion, setup acceptance merges trunk into `discern-setup`, runs the Gate on the merge commit, and lands only the new Proof. Missing, stale, dirty, unreadable, mismatched, forced, or declaration-stale evidence returns to `discern setup done` with trunk untouched.
 

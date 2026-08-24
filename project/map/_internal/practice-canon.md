@@ -91,7 +91,7 @@ A green gate over a clean, committed tree mints proof: the pinned commit, the ch
 
 - **Arc:** loop
 - **Upheld:** enforced via `done` · automated via `[repository]`
-- **Mechanisms:** Proof · Durable proof notes · A rerun on an unchanged tree is attested.
+- **Mechanisms:** Proof · Durable proof notes · Current green Proof composes; red reruns stay explicit.
 - **Human value:** Know what is ready.
 - **Agent outcomes:** Prove the exact tree.
 - **Maintains:** its evidence.

@@ -51,6 +51,8 @@ discern status --verbose --json
 discern status --no-color
 ```
 
+During an unfinished setup, the same read-only result reports the recorded setup phase, dedicated `discern-setup` branch, and exact bounded setup continuation. Use it after interruption or restart; do not replay completed branch, scaffold, completion, or landing writes with raw Git. Status performs no write probe and cannot cache provider authority for the later effectful command. That command derives and exercises its own required targets in its invocation ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
+
 ## Structured result
 
 `discern status --json`, MCP `structuredContent`, and the status resource default to the bounded orientation projection. `data.projection.mode` is `orientation`; `data.projection.omitted` gives the true overflow for each capped collection. Repeated collections retain at most six members. Fleet uses a distinct bounded shape: the main row plus six non-main samples, while `data.fleet_total` records the complete non-main count. Landing history stays out of the orientation payload.

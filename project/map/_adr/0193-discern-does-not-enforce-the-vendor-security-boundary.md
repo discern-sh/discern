@@ -1,5 +1,9 @@
 # ADR 0193: discern does not enforce at the vendor security boundary
 
+> **Amendments.**
+>
+> - **[ADR 0320](0320-setup-plans-own-write-authority-and-activation-recovery.md) — point-in-time authority:** setup may exercise representative required writes and ask the host to authorize the retry, but success grants nothing, persists nothing, and does not prove that a fresh provider session loaded its integration.
+
 **Status**: accepted — grounds the vendor-facing half of design principle 7 (sovereign inside, deferential outside). Builds on [ADR 0082](0082-codex-project-config-writable-root.md) (the Codex writable-root and narrow Git rules) and [ADR 0072](0072-typed-mcp-status-forcing-function.md)/[ADR 0074](0074-co-owned-mcp-json.md) (provider MCP wiring). [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md) leans on this record for one of its explicit *no*s.
 
 ## Context

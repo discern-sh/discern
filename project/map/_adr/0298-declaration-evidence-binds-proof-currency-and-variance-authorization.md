@@ -1,6 +1,6 @@
 # ADR 0298: Declaration evidence binds Proof currency and variance authorization
 
-**Status**: accepted; completes the interlock contract of [ADR 0293](0293-checkpoint-declarations-interlock-the-gate.md) at the gate markers of [ADR 0067](0067-accept-validates-the-landed-tree.md)/[ADR 0185](0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md), the recorded landing authority of [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), and the durable proof envelope of [ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md)
+**Status**: accepted; completes the interlock contract of [ADR 0293](0293-checkpoint-declarations-interlock-the-gate.md) at the gate markers of [ADR 0067](0067-accept-validates-the-landed-tree.md)/[ADR 0319](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md), the recorded landing authority of [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), and the durable proof envelope of [ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md)
 
 ## Context
 

@@ -76,6 +76,8 @@ discern does not set Gemini sandbox options, model settings, custom commands, `.
 
 Project `.gemini/settings.json` is ignored in Gemini's safe mode until Gemini trusts the folder. That trust grant is outside the repository. Gemini still reads `GEMINI.md` as instructions before trust, but the committed MCP server and hooks do not load until the folder is trusted or the user chooses a bypass such as `--skip-trust` or `GEMINI_CLI_TRUST_WORKSPACE=true`.
 
+After setup and workspace trust, start a new Gemini CLI session in this project and call `discern_status`; only that result confirms that the project MCP server loaded. If the call is unavailable, start a new session after completing the trust step and check again, then use `discern status --json` as the local CLI fallback. Generated `.gemini/settings.json` alone is not activation evidence.
+
 Gemini has no mid-session project-root move. `/directory add` can widen the workspace, and the native `--worktree` flag is a launch-time choice, but a running session cannot move its root into a discern worktree. Use `discern start` / `discern_start` to create the worktree, then launch a Gemini session there when commands must run from that root.
 
 The wired hook is a `SessionStart` setup hook only. Gemini does not expose Claude Code's `WorktreeCreate` or `WorktreeRemove` contract, and its `SessionEnd` hook is advisory. discern therefore runs worktree creation and teardown through its CLI and MCP verbs. It does not use `SessionEnd` as teardown authority.
