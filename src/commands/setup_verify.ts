@@ -109,10 +109,10 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   if (await setupBranchExists(destDir)) {
     const message =
       `Setup has already begun on the \`${SETUP_BRANCH}\` branch, and you are not on it. ` +
-      `Check it out (\`git checkout ${SETUP_BRANCH}\`) and continue from there — don't start setup again from this branch.`;
+      "Resume through `discern setup begin --confirmed`; discern checks out the dedicated branch and reprints the current brief without replaying completed scaffold writes.";
     const redirect: SetupVerifyData = {
       phase: "in_progress",
-      next_action: `git checkout ${SETUP_BRANCH}`,
+      next_action: "discern setup begin --confirmed",
     };
     if (opts.json) {
       log.result({ ok: true, verb: "setup verify", data: redirect });

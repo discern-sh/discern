@@ -17,6 +17,10 @@ import { assert, assertEquals } from "@std/assert";
 import type { Command } from "@cliffy/command";
 import { buildCli } from "../src/main.ts";
 import { SETUP_SUBVERBS } from "../src/shared/setup_state.ts";
+import {
+  SETUP_EFFECT_COMMANDS,
+  SETUP_REQUIRED_EFFECT_KINDS,
+} from "../src/shared/setup_effects.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -33,4 +37,28 @@ Deno.test("the setup sub-verbs registered cover EXACTLY SETUP_SUBVERBS", () => {
     "the setup sub-verb registrations have drifted from SETUP_SUBVERBS — add or remove " +
       "a `.command()` under `setup` in buildCli, or update the SSOT",
   );
+});
+
+Deno.test("every setup effect command owns at least one registry effect and every effect names its command", () => {
+  const commandsFromEffects = new Set(
+    SETUP_REQUIRED_EFFECT_KINDS.map((kind) => kind.split("-")[0] ?? ""),
+  );
+  assertEquals(
+    sorted(commandsFromEffects),
+    sorted(SETUP_EFFECT_COMMANDS),
+    "setup's required-effect registry and effectful-command boundary drifted",
+  );
+  for (const command of SETUP_EFFECT_COMMANDS) {
+    assert(
+      SETUP_SUBVERBS.includes(command),
+      `${command} carries effects but is absent from SETUP_SUBVERBS`,
+    );
+  }
+  const effectful = new Set<string>(SETUP_EFFECT_COMMANDS);
+  for (const readOnly of ["verify", "step"] as const) {
+    assert(
+      !effectful.has(readOnly),
+      `${readOnly} must remain outside setup's write-probe boundary`,
+    );
+  }
 });

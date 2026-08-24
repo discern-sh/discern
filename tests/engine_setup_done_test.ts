@@ -112,6 +112,39 @@ Deno.test("setup done runs the gate and records bootstrapped only when green (AD
   });
 });
 
+Deno.test("setup done refuses denied planned writes before refresh, commit, worktree probe, or Gate", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "touch ../done-gate-ran");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    const configPath = join(dir, "discern.toml");
+    const configBefore = await Deno.readTextFile(configPath);
+    const headBefore = await gitOut(dir, "rev-parse", "HEAD");
+    const gitDir = join(dir, ".git");
+    const originalMode = (await Deno.stat(gitDir)).mode;
+    assert(originalMode !== null);
+    await Deno.chmod(gitDir, 0o555);
+    try {
+      const denied = await runAgent(dir, ["setup", "done", "--json"]);
+      assertEquals(denied.code, 1, denied.output);
+      const envelope = JSON.parse(denied.stdout);
+      assertEquals(envelope.error, "write_access");
+      assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
+      assertEquals(
+        envelope.diagnostics?.[0]?.reproduce_cmd,
+        "discern setup done",
+      );
+      assertStringIncludes(envelope.message, gitDir);
+      assertEquals(await Deno.readTextFile(configPath), configBefore);
+      assertEquals(await gitOut(dir, "rev-parse", "HEAD"), headBefore);
+      assertEquals(await exists(join(dir, "..", "done-gate-ran")), false);
+      assertEquals((await inspectGateProof(dir)).status, "missing");
+    } finally {
+      await Deno.chmod(gitDir, originalMode & 0o777);
+    }
+  });
+});
+
 Deno.test("successful setup done binds Proof and the worktree probe to the marker-bearing HEAD", async () => {
   await withTempDir(async (dir) => {
     const observedHeads = join(
@@ -1442,6 +1475,50 @@ Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty
       "main",
     );
     assert(await exists(join(dir, "discern.toml")));
+  });
+});
+
+Deno.test("setup begin refuses denied Git branch authority before checkout or scaffold and never degrades in place", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "app.ts"), "export const v = 1;\n");
+    await gitInit(dir);
+    const headBefore = await gitOut(dir, "rev-parse", "HEAD");
+    const statusBefore = await gitOut(dir, "status", "--porcelain=v1");
+    const gitDir = join(dir, ".git");
+    const originalMode = (await Deno.stat(gitDir)).mode;
+    assert(originalMode !== null);
+    await Deno.chmod(gitDir, 0o555);
+    try {
+      const denied = await runAgent(dir, [
+        "setup",
+        "begin",
+        "--confirmed",
+        "--json",
+      ]);
+      assertEquals(denied.code, 1, denied.output);
+      const envelope = JSON.parse(denied.stdout);
+      assertEquals(envelope.error, "write_access");
+      assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
+      assertEquals(
+        envelope.diagnostics?.[0]?.reproduce_cmd,
+        "discern setup begin --confirmed",
+      );
+      assertEquals(
+        await gitOut(dir, "branch", "--show-current"),
+        "main",
+      );
+      assertEquals(await gitOut(dir, "rev-parse", "HEAD"), headBefore);
+      assertEquals(await gitOut(dir, "status", "--porcelain=v1"), statusBefore);
+      assertEquals(await exists(join(dir, "discern.toml")), false);
+      assertEquals(
+        (await gitOut(dir, "branch", "--format=%(refname:short)"))
+          .split("\n").includes(SETUP_BRANCH),
+        false,
+        "branch denial must never fall back to in-place scaffolding",
+      );
+    } finally {
+      await Deno.chmod(gitDir, originalMode & 0o777);
+    }
   });
 });
 

@@ -26,6 +26,7 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
+import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
@@ -180,6 +181,42 @@ Deno.test("setup accept --dry-run previews the fast-forward and changes nothing"
       "discern-setup",
     );
     assert(!(await branchGone(dir, "discern-setup")));
+  });
+});
+
+Deno.test("setup accept refuses denied planned writes before checkout, ref advance, or branch deletion", async () => {
+  await withTempDir(async (dir) => {
+    await setupBranchRepo(dir);
+    const mainBefore = await gitOut(dir, "rev-parse", "main");
+    const setupBefore = await gitOut(dir, "rev-parse", SETUP_BRANCH);
+    const gitDir = join(dir, ".git");
+    const originalMode = (await Deno.stat(gitDir)).mode;
+    assert(originalMode !== null);
+    await Deno.chmod(gitDir, 0o555);
+    try {
+      const denied = await runAgent(dir, ["setup", "accept", "--json"]);
+      assertEquals(denied.code, 1, denied.output);
+      const envelope = JSON.parse(denied.stdout);
+      assertEquals(envelope.error, "write_access");
+      assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
+      assertEquals(
+        envelope.diagnostics?.[0]?.reproduce_cmd,
+        "discern setup accept",
+      );
+      assertStringIncludes(envelope.message, gitDir);
+      assertEquals(await gitOut(dir, "rev-parse", "main"), mainBefore);
+      assertEquals(
+        await gitOut(dir, "rev-parse", SETUP_BRANCH),
+        setupBefore,
+      );
+      assertEquals(
+        await gitOut(dir, "branch", "--show-current"),
+        SETUP_BRANCH,
+      );
+      assertEquals(await branchGone(dir, SETUP_BRANCH), false);
+    } finally {
+      await Deno.chmod(gitDir, originalMode & 0o777);
+    }
   });
 });
 

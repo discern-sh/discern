@@ -89,9 +89,11 @@ import {
   allInstructionFilePaths,
   allInstructionFiles,
   reactivationHandoff,
+  writtenProviderArtifactPathsForAgents,
 } from "../lib/providers.ts";
 import { consentAgentSet, resolveDefaultAgents } from "../lib/detect_agents.ts";
 import {
+  AGENT_NAMES,
   type DiscernConfig,
   loadConfig,
   parseConfigOrThrow,
@@ -130,7 +132,7 @@ import {
   evaluateSetupCompletion,
   type SetupCheckResult,
 } from "../shared/setup_checks.ts";
-import { worktreeState } from "../lib/git.ts";
+import { type WorktreeState, worktreeState } from "../lib/git.ts";
 import { runGit } from "../shared/subprocess.ts";
 import {
   commitDiscernChanges,
@@ -171,6 +173,20 @@ import {
   type SetupMachineryCommitEvidence,
   setupMachineryCommitEvidenceMatches,
 } from "../shared/setup_machinery_evidence.ts";
+import {
+  plannedFilesystemWrites,
+  plannedGitMutationWrites,
+  preflightSetupEffects,
+  setupEffectPlan,
+  type SetupRequiredEffect,
+  setupRequiredEffect,
+  type SetupRequiredEffectKind,
+} from "../shared/setup_effects.ts";
+import {
+  writePreflightDiagnostic,
+  type WritePreflightFailure,
+  writePreflightFailureMessage,
+} from "../shared/write_preflight.ts";
 
 /**
  * The AUDIENCE of each setup command path's terminal presentation: agent-addressed
@@ -1131,6 +1147,198 @@ export async function resolveSetupRoot(start: string): Promise<string> {
   return (await findRoot(start)) ?? (await gitTopLevel(start)) ?? start;
 }
 
+/** Shell-quote one retry argument without allowing expansion. */
+function retryArg(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+/** Reconstruct the setup selection that reached this invocation. */
+function setupBeginRetryCommand(opts: SetupOptions): string {
+  const parts = ["discern", "setup", "begin"];
+  const valueFlags: readonly [string, string | undefined][] = [
+    ["--name", opts.name],
+    ["--slug", opts.slug],
+    ["--branch-prefix", opts.branchPrefix],
+    ["--source-globs", opts.sourceGlobs],
+    ["--agents", opts.agents],
+    ["--map", opts.map],
+    ["--config", opts.config],
+    ["--model", opts.model],
+  ];
+  for (const [flag, value] of valueFlags) {
+    if (value !== undefined) parts.push(flag, retryArg(value));
+  }
+  if (opts.yes === true) parts.push("--yes");
+  if (opts.force) parts.push("--force");
+  if (opts.allowDirty) parts.push("--allow-dirty");
+  if (opts.confirmed) parts.push("--confirmed");
+  return parts.join(" ");
+}
+
+/** Turn a dynamic target array into one non-empty required setup effect. */
+function requiredEffect(
+  kind: SetupRequiredEffectKind,
+  writes: Awaited<ReturnType<typeof plannedGitMutationWrites>>,
+): SetupRequiredEffect | undefined {
+  const [first, ...rest] = writes;
+  return first === undefined
+    ? undefined
+    : setupRequiredEffect(kind, first, ...rest);
+}
+
+/**
+ * Compute `setup begin`'s discern-owned effects before its first mutation. The
+ * provider artifact population comes from the provider registry; Git targets
+ * come from Git's own path resolver. Selected-agent uncertainty in a declarative
+ * answers file conservatively enrolls the registry's complete provider set.
+ */
+async function beginRequiredEffects(
+  destDir: string,
+  opts: SetupOptions,
+  freshInstall: boolean,
+): Promise<SetupRequiredEffect[]> {
+  let agents: readonly string[];
+  if (opts.agents !== undefined) {
+    agents = opts.agents.split(",").map((agent) => agent.trim()).filter(
+      (agent) => agent !== "",
+    );
+  } else if (!freshInstall) {
+    agents = await loadConfig(destDir).then(resolveConfiguredAgents).catch(
+      () => [...AGENT_NAMES],
+    );
+  } else if (opts.config !== undefined) {
+    agents = [...AGENT_NAMES];
+  } else {
+    agents = await resolveDefaultAgents();
+  }
+
+  const scaffoldPaths = new Set<string>([
+    destDir,
+    join(destDir, CONFIG_REL),
+    join(destDir, ".gitignore"),
+    join(destDir, ".gitattributes"),
+    join(destDir, opts.map ?? SOURCE_PATHS.map.defaultPath),
+    join(destDir, SOURCE_PATHS.todo.defaultPath),
+    join(destDir, SOURCE_PATHS.instructions.defaultPath),
+    ...writtenProviderArtifactPathsForAgents(agents).map((path) =>
+      join(destDir, path)
+    ),
+  ]);
+  const scaffoldWrites = (await Promise.all(
+    [...scaffoldPaths].map((path) =>
+      plannedFilesystemWrites(path, "setup scaffold output")
+    ),
+  )).flat();
+  const effects: SetupRequiredEffect[] = [
+    setupRequiredEffect(
+      "begin-scaffold",
+      scaffoldWrites[0] ?? {
+        kind: "directory-entry",
+        path: destDir,
+        description: "setup scaffold output",
+      },
+      ...scaffoldWrites.slice(1),
+    ),
+  ];
+
+  if (!opts.allowDirty) {
+    const gitWrites = await plannedGitMutationWrites(
+      destDir,
+      "setup branch and commit",
+    );
+    if (freshInstall) {
+      const branchEffect = requiredEffect("begin-branch", gitWrites);
+      if (branchEffect !== undefined) effects.push(branchEffect);
+    }
+    const commitEffect = requiredEffect("begin-commit", gitWrites);
+    if (commitEffect !== undefined) effects.push(commitEffect);
+  }
+  return effects;
+}
+
+/** Compute completion effects from the loaded config before Proof clearing. */
+async function doneRequiredEffects(
+  root: string,
+  config: DiscernConfig,
+  force: boolean,
+): Promise<SetupRequiredEffect[]> {
+  const configPath = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
+  const configWrites = await plannedFilesystemWrites(
+    configPath,
+    "setup completion config rewrite",
+  );
+  const gitWrites = await plannedGitMutationWrites(
+    root,
+    "setup completion commit and evidence",
+  );
+  const effects: SetupRequiredEffect[] = [
+    setupRequiredEffect(
+      "done-completion-config",
+      configWrites[0],
+      ...configWrites.slice(1),
+    ),
+  ];
+  const commitEffect = requiredEffect("done-commit", gitWrites);
+  if (commitEffect !== undefined) effects.push(commitEffect);
+
+  if (!force) {
+    const refreshPaths = [
+      root,
+      ...writtenProviderArtifactPathsForAgents(
+        resolveConfiguredAgents(config),
+      ).map((path) => join(root, path)),
+    ];
+    const refreshWrites = (await Promise.all(refreshPaths.map((path) =>
+      plannedFilesystemWrites(path, "setup completion refresh output")
+    ))).flat();
+    effects.push(setupRequiredEffect(
+      "done-refresh",
+      refreshWrites[0] ?? {
+        kind: "directory-entry",
+        path: root,
+        description: "setup completion refresh output",
+      },
+      ...refreshWrites.slice(1),
+    ));
+    const worktreeRoot = resolveWorktreeRoot(root, config);
+    effects.push(setupRequiredEffect(
+      "done-worktree-probe",
+      {
+        kind: "directory-tree",
+        path: worktreeRoot,
+        description: "setup throwaway-worktree root",
+      },
+      ...gitWrites,
+    ));
+  }
+  return effects;
+}
+
+/** Emit the shared structured write-access refusal on every setup surface. */
+function emitSetupWriteAccessRefusal(
+  log: Logger,
+  json: boolean,
+  verb: "setup" | "setup done",
+  failure: WritePreflightFailure,
+  reproduceCmd: string,
+): number {
+  const result: DiscernResult = {
+    ok: false,
+    verb,
+    error: "write_access",
+    message: writePreflightFailureMessage(failure),
+    diagnostics: [writePreflightDiagnostic(failure, reproduceCmd)],
+  };
+  observeResult(result);
+  if (json) {
+    emitResult(result);
+  } else {
+    log.error(result.message ?? "Setup write authority was refused.");
+    log.detail(`Retry: ${reproduceCmd}`);
+  }
+  return 1;
+}
+
 /**
  * `discern setup begin` — the first mutating phase of the staged handshake (ADR 0075):
  * scaffold (when fresh, or `--force`), lay the doc skeletons, record setup provenance,
@@ -1214,6 +1422,40 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     ? await detectIntegrationBranch(destDir)
     : undefined;
 
+  // Branch cleanliness and ancestry are read-only preconditions, so resolve
+  // them before asking the host for write authority. The returned plan is then
+  // applied after the complete effect plan passes its point-in-time probes.
+  let setupBranchPlan: SetupBranchPlan | undefined;
+  if (freshInstall && !opts.dryRun && !opts.allowDirty) {
+    const planned = await planSetupBranch(
+      destDir,
+      opts,
+      log,
+      detectedMainBranch,
+    );
+    if (planned.stop !== undefined) return planned.stop;
+    setupBranchPlan = planned.plan;
+  }
+
+  // The plan is the authority for setup's required writes. Probe it after
+  // consent and cheap read-only discovery, before checkout or any scaffold
+  // effect. Dry runs render only and never ask for write authority.
+  if (!opts.dryRun) {
+    const effects = await beginRequiredEffects(destDir, opts, freshInstall);
+    const authority = await preflightSetupEffects(
+      setupEffectPlan("begin", effects),
+    );
+    if (!authority.ok) {
+      return emitSetupWriteAccessRefusal(
+        log,
+        opts.json,
+        "setup",
+        authority,
+        setupBeginRetryCommand(opts),
+      );
+    }
+  }
+
   // --- Pre-scaffold: isolate a fresh install on its own branch (ADR 0065) ---
   // A fresh setup makes several commits; keep them off the user's current branch and
   // trivially revertible. Require a clean tree (fail if dirty), then create + check
@@ -1221,11 +1463,16 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // user manages git), a re-run/--force, or outside a git repo.
   let setupBranch: string | undefined;
   if (freshInstall && !opts.dryRun && !opts.allowDirty) {
+    if (setupBranchPlan === undefined) {
+      throw new Error(
+        "setup branch plan missing after successful preconditions",
+      );
+    }
     const { branch, stop } = await ensureSetupBranch(
       destDir,
       opts,
       log,
-      detectedMainBranch,
+      setupBranchPlan,
     );
     if (stop !== undefined) {
       return stop; // dirty tree — error already emitted, nothing written
@@ -1554,48 +1801,59 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
  * resume of an existing `discern-setup` branch are unaffected. `--allow-dirty`
  * skips this whole function — the declared "I manage git myself" path.
  */
-async function ensureSetupBranch(
+type SetupBranchPlan =
+  | { kind: "not-a-repo" }
+  | { kind: "git"; current: string; exists: boolean };
+
+/** Emit the existing clean-tree refusal from the read-only planning phase. */
+function emitDirtySetupRefusal(
+  opts: SetupOptions,
+  log: Logger,
+  state: Extract<WorktreeState, { kind: "dirty" }>,
+): number {
+  const message =
+    "your working tree has uncommitted changes, and `discern setup` makes several " +
+    "commits. Commit or stash your work first. (Advanced: --allow-dirty sets up on " +
+    "the current branch as-is, skipping the isolated discern-setup branch — for CI " +
+    "or automated setups.)";
+  if (opts.json) {
+    log.result({
+      ok: false,
+      verb: "setup",
+      error: "dirty_worktree",
+      message,
+      data: { changes: state.changes },
+    });
+  } else {
+    log.error(message);
+    for (const change of state.changes.slice(0, 10)) log.detail(change);
+    if (state.changes.length > 10) {
+      log.detail(`… and ${state.changes.length - 10} more`);
+    }
+  }
+  return 1;
+}
+
+/**
+ * Compute the isolated-branch effect without changing the checkout. Dirty-tree
+ * and wrong-base refusals happen here, before write probes or mutations.
+ */
+async function planSetupBranch(
   destDir: string,
   opts: SetupOptions,
   log: Logger,
   integrationBranchName: string | undefined,
-): Promise<{ branch?: string; stop?: number }> {
+): Promise<{ plan?: SetupBranchPlan; stop?: number }> {
   const state = await worktreeState(destDir);
   if (state.kind === "not-a-repo") {
-    return {}; // no git here → nothing to isolate; setup proceeds in place
+    return { plan: { kind: "not-a-repo" } };
   }
   if (state.kind === "dirty") {
-    const message =
-      "your working tree has uncommitted changes, and `discern setup` makes several " +
-      "commits. Commit or stash your work first. (Advanced: --allow-dirty sets up on " +
-      "the current branch as-is, skipping the isolated discern-setup branch — for CI " +
-      "or automated setups.)";
-    if (opts.json) {
-      log.result({
-        ok: false,
-        verb: "setup",
-        error: "dirty_worktree",
-        message,
-        data: { changes: state.changes },
-      });
-    } else {
-      log.error(message);
-      for (const c of state.changes.slice(0, 10)) {
-        log.detail(c);
-      }
-      if (state.changes.length > 10) {
-        log.detail(`… and ${state.changes.length - 10} more`);
-      }
-    }
-    return { stop: 1 };
+    return { stop: emitDirtySetupRefusal(opts, log, state) };
   }
-  // Clean tree: create or check out the dedicated setup branch.
   const current =
     (await runGit(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: destDir }))
       .stdout.trim();
-  if (current === SETUP_BRANCH) {
-    return { branch: SETUP_BRANCH }; // already on it (a resume that stayed here)
-  }
   const exists =
     (await runGit(["rev-parse", "--verify", "--quiet", SETUP_BRANCH], {
       cwd: destDir,
@@ -1634,15 +1892,45 @@ async function ensureSetupBranch(
       return { stop: 1 };
     }
   }
-  const checkout = exists
+  return { plan: { kind: "git", current, exists } };
+}
+
+/** Apply a previously checked isolated-branch plan. */
+async function ensureSetupBranch(
+  destDir: string,
+  opts: SetupOptions,
+  log: Logger,
+  plan: SetupBranchPlan,
+): Promise<{ branch?: string; stop?: number }> {
+  if (plan.kind === "not-a-repo") return {};
+  if (plan.current === SETUP_BRANCH) {
+    return { branch: SETUP_BRANCH };
+  }
+  const checkout = plan.exists
     ? await runGit(["checkout", SETUP_BRANCH], { cwd: destDir })
     : await runGit(["checkout", "-b", SETUP_BRANCH], { cwd: destDir });
   if (!checkout.success) {
-    // Non-fatal: if branching fails, don't block setup — proceed in place.
-    log.warn(
-      `could not create the \`${SETUP_BRANCH}\` branch; setting up on the current branch.`,
-    );
-    return {};
+    const message =
+      `Git could not create or check out the isolated \`${SETUP_BRANCH}\` branch. ` +
+      "Nothing was scaffolded; fix Git's refusal and retry. Use --allow-dirty only when you deliberately choose in-place setup and will manage its branch and commits yourself.";
+    if (opts.json) {
+      emitResult({
+        ok: false,
+        verb: "setup",
+        error: "checkout_failed",
+        message,
+        diagnostics: checkout.stderr.trim() === "" ? undefined : [{
+          tool: "git",
+          severity: "error",
+          message: checkout.stderr.trim(),
+          reproduce_cmd: setupBeginRetryCommand(opts),
+        }],
+      });
+    } else {
+      log.error(message);
+      if (checkout.stderr.trim() !== "") log.detail(checkout.stderr.trim());
+    }
+    return { stop: 1 };
   }
   return { branch: SETUP_BRANCH };
 }
@@ -2535,6 +2823,21 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   } catch (error) {
     emitDoneUnreadableConfig(opts.json, errMsg(error));
     return 1;
+  }
+  const writeAuthority = await preflightSetupEffects(
+    setupEffectPlan(
+      "done",
+      await doneRequiredEffects(root, doneCfg, opts.force),
+    ),
+  );
+  if (!writeAuthority.ok) {
+    return emitSetupWriteAccessRefusal(
+      new Logger({ json: opts.json, noColor: false }),
+      opts.json,
+      "setup done",
+      writeAuthority,
+      `discern setup done${opts.force ? " --force" : ""}`,
+    );
   }
   const proofClearFailure = await clearSetupCompletionProof(root);
   if (!opts.force && proofClearFailure !== undefined) {

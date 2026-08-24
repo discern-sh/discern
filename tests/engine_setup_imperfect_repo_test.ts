@@ -445,11 +445,11 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
     const w = JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout)
       .data;
     assertEquals(w.phase, "in_progress");
-    assertStringIncludes(w.next_action, "git checkout discern-setup");
-    assertStringIncludes(w.agent_instructions, "do NOT start setup again");
+    assertStringIncludes(w.next_action, "discern setup begin --confirmed");
+    assertStringIncludes(w.agent_instructions, "without replaying completed");
     const human = (await runAgent(dir, ["setup"])).stdout;
     assertStringIncludes(human, "IN PROGRESS");
-    assertStringIncludes(human, "git checkout discern-setup");
+    assertStringIncludes(human, "discern setup begin --confirmed");
     assert(
       !human.includes("This project isn't set up yet"),
       `the fresh welcome must not show over an abandoned setup:\n${human}`,
@@ -460,7 +460,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     ).data;
     assertEquals(v.phase, "in_progress");
-    assertStringIncludes(v.next_action, "git checkout discern-setup");
+    assertStringIncludes(v.next_action, "discern setup begin --confirmed");
 
     // A re-begin from main RESUMES: the existing branch is checked out, the
     // materialized install is recognized (nothing re-scaffolded), and nothing of

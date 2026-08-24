@@ -529,8 +529,13 @@ Deno.test("setup done emits the provider-aware reactivation handoff", async () =
     ).data;
     assert(typeof d.reactivation.summary === "string");
     assert(
-      d.reactivation.per_agent.some((a: { agent: string }) =>
-        a.agent === "claude_code"
+      d.reactivation.per_agent.some((a: {
+        agent: string;
+        check: string;
+        cli_fallback: string;
+      }) =>
+        a.agent === "claude_code" && a.check === "discern_status" &&
+        a.cli_fallback === "discern status --json"
       ),
       `expected claude_code in the handoff: ${JSON.stringify(d.reactivation)}`,
     );

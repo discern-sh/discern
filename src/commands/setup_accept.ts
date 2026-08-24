@@ -20,7 +20,12 @@
  * running this command; `setup done` spells out all three options.
  */
 
-import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
+import { join } from "@std/path";
+import {
+  type DiscernConfig,
+  loadConfig,
+  resolveConfiguredAgents,
+} from "../shared/config_schema.ts";
 import {
   type CommandRef,
   discernCommand,
@@ -30,7 +35,11 @@ import { emitResult } from "../shared/emit.ts";
 import { Logger } from "../lib/log.ts";
 import { discernMergeArgs, runGit } from "../shared/subprocess.ts";
 import { SETUP_BRANCH } from "../shared/setup_state.ts";
-import { type ErrorSlug, renderHumanOutputGroups } from "../shared/result.ts";
+import {
+  type Diagnostic,
+  type ErrorSlug,
+  renderHumanOutputGroups,
+} from "../shared/result.ts";
 import {
   fastForwardCheckedOutBranch,
   integrationBranch,
@@ -54,6 +63,19 @@ import type {
   Proof,
   SetupAcceptData,
 } from "../shared/result_schemas.ts";
+import {
+  plannedFilesystemWrites,
+  plannedGitMutationWrites,
+  preflightSetupEffects,
+  setupEffectPlan,
+  type SetupRequiredEffect,
+  setupRequiredEffect,
+} from "../shared/setup_effects.ts";
+import {
+  writePreflightDiagnostic,
+  writePreflightFailureMessage,
+} from "../shared/write_preflight.ts";
+import { writtenProviderArtifactPathsForAgents } from "../lib/providers.ts";
 
 /** Options for `discern setup accept` (global flags + preview). */
 export interface SetupAcceptOptions {
@@ -184,6 +206,7 @@ function emitAccept(
     error?: ErrorSlug;
     message: string;
     detail?: string[];
+    diagnostics?: Diagnostic[];
     data?: SetupAcceptData;
     code: number;
   },
@@ -194,6 +217,9 @@ function emitAccept(
       verb: "setup accept",
       ...(result.error !== undefined ? { error: result.error } : {}),
       message: result.message,
+      ...(result.diagnostics === undefined
+        ? {}
+        : { diagnostics: result.diagnostics }),
       ...(result.data === undefined ? {} : { data: result.data }),
     });
   } else {
@@ -204,6 +230,10 @@ function emitAccept(
     }
     for (const d of result.detail ?? []) {
       log.detail(d);
+    }
+    for (const diagnostic of result.diagnostics ?? []) {
+      log.detail(diagnostic.message);
+      log.detail(`Retry: ${diagnostic.reproduce_cmd}`);
     }
   }
   return result.code;
@@ -405,6 +435,81 @@ export async function runSetupAccept(
       ]));
     }
     return 0;
+  }
+
+  // All required landing writes derive from the effect plan and are proved in
+  // this invocation before merge, materialization, checkout, or ref movement.
+  const gitWrites = await plannedGitMutationWrites(
+    root,
+    "setup acceptance",
+  );
+  const checkoutWrites = await plannedFilesystemWrites(
+    root,
+    "setup acceptance checkout",
+  );
+  const materializeWrites = (await Promise.all([
+    root,
+    ...writtenProviderArtifactPathsForAgents(
+      resolveConfiguredAgents(config),
+    ).map((path) => join(root, path)),
+  ].map((path) =>
+    plannedFilesystemWrites(path, "setup acceptance local artifact")
+  ))).flat();
+  const gitEffect = (
+    kind:
+      | "accept-merge"
+      | "accept-ref-advance"
+      | "accept-proof-note"
+      | "accept-branch-delete",
+  ): SetupRequiredEffect | undefined => {
+    const [first, ...rest] = gitWrites;
+    return first === undefined
+      ? undefined
+      : setupRequiredEffect(kind, first, ...rest);
+  };
+  const effects: SetupRequiredEffect[] = [
+    setupRequiredEffect(
+      "accept-materialize",
+      materializeWrites[0] ?? checkoutWrites[0],
+      ...materializeWrites.slice(1),
+    ),
+    setupRequiredEffect(
+      "accept-checkout",
+      checkoutWrites[0],
+      ...checkoutWrites.slice(1),
+      ...gitWrites,
+    ),
+  ];
+  if (!fastForward) {
+    const mergeEffect = gitEffect("accept-merge");
+    if (mergeEffect !== undefined) effects.push(mergeEffect);
+  }
+  for (
+    const kind of [
+      "accept-ref-advance",
+      "accept-proof-note",
+      "accept-branch-delete",
+    ] as const
+  ) {
+    const effect = gitEffect(kind);
+    if (effect !== undefined) effects.push(effect);
+  }
+  const writeAuthority = await preflightSetupEffects(
+    setupEffectPlan("accept", effects),
+  );
+  if (!writeAuthority.ok) {
+    return emitAccept(opts, log, {
+      ok: false,
+      error: "write_access",
+      message: writePreflightFailureMessage(writeAuthority),
+      diagnostics: [
+        writePreflightDiagnostic(writeAuthority, ACCEPT_COMMAND),
+      ],
+      data: setupAcceptData(branch, target, fastForward, inspected, {
+        proof_line: validated.line,
+      }),
+      code: 1,
+    });
   }
 
   let mergeValidated = false;

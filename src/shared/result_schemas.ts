@@ -2132,6 +2132,10 @@ export const ReactivationSchema = z.strictObject({
       agent: z.string(),
       label: z.string(),
       step: z.string(),
+      check_kind: z.enum(["mcp", "cli"]),
+      check: z.string(),
+      recovery: z.string(),
+      cli_fallback: z.string(),
     }),
   ),
 });
