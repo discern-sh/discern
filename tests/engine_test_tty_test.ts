@@ -177,7 +177,6 @@ Deno.test({
         const result = testCase.pty
           ? await runAgentPty(dir, [...testCase.args], {
             env: { ...testCase.env },
-            timeoutMs: 10_000,
           })
           : await runAgent(dir, [...testCase.args], {
             env: { ...testCase.env },

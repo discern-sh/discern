@@ -11,7 +11,7 @@ import { runPtyProcess } from "./fixtures/pty_process.ts";
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
 const SLOW_RAW_CHILD = `
-await new Promise((resolve) => setTimeout(resolve, 600));
+await new Promise((resolve) => setTimeout(resolve, 2_500));
 Deno.stdin.setRaw(true);
 try {
   console.log("fresh sibling ready");

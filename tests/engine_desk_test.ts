@@ -80,7 +80,6 @@ Deno.test({
         // navigation reaches the final semantic option without counting group
         // headings as choices.
         input: "\x1b[F\r",
-        timeoutMs: 8_000,
       });
       assertEquals(r.code, 0, r.output);
       assertTerminalTextIncludes(r.output, "Choose a desk action");

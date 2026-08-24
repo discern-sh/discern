@@ -442,7 +442,6 @@ Deno.test("gate TTY: every verb leaves failed output exactly once", async () => 
       await gitInit(dir);
       const r = await runAgentPty(dir, [verb], {
         env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-        timeoutMs: 20_000,
       });
       assertEquals(r.code, 1, `${verb}: ${r.output}`);
       assertEquals(

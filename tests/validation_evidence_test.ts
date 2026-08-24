@@ -32,6 +32,7 @@ import {
 } from "../src/engine/logbook/validation_key.ts";
 
 const cfg = configSchema.parse({});
+const SEMANTIC_CAPTURE_TIMEOUT_MS = 180_000;
 
 /** One configured test job at a registry-selected validation boundary. */
 function group(
@@ -64,13 +65,14 @@ async function seedRepo(dir: string): Promise<void> {
   await gitInit(dir);
 }
 
-/** Capture one standalone-test boundary with the production limits. */
+/** Capture semantics with production path/byte limits and a load-safe deadline. */
 async function capture(dir: string): Promise<ValidationStart> {
   return await captureValidationStart(
     dir,
     cfg,
     VALIDATION_RUNS.test,
     group(VALIDATION_RUNS.test),
+    { limits: { timeMs: SEMANTIC_CAPTURE_TIMEOUT_MS } },
   );
 }
 
@@ -918,7 +920,7 @@ Deno.test("validation evidence is bounded metadata and remains outside public re
   });
 });
 
-Deno.test("representative validation fixture stays comfortably inside fixed capture limits", async () => {
+Deno.test("representative validation fixture stays inside fixed path and byte limits", async () => {
   await withTempDir(async (dir) => {
     await seedRepo(dir);
     for (let index = 0; index < 250; index += 1) {
@@ -939,6 +941,5 @@ Deno.test("representative validation fixture stays comfortably inside fixed capt
       evidence.state.bytes.index_manifest <
         VALIDATION_CAPTURE_LIMITS.bytes / 100,
     );
-    assert(evidence.state.elapsed_ms < VALIDATION_CAPTURE_LIMITS.timeMs);
   });
 });

@@ -8,6 +8,7 @@
 
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
+import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
 import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
 interface PendingAwait {
@@ -31,6 +32,59 @@ interface AwaitCall {
   readonly startLine: number;
   text: string;
   depth: number;
+}
+
+interface RunParallelTimerViolation {
+  readonly callLine: number;
+  readonly timerLine: number;
+}
+
+/** The nearest function owns a timer and the behavior whose runtime it judges. */
+function enclosingFunction(node: Node): Node | undefined {
+  return node.getFirstAncestor((ancestor) =>
+    Node.isArrowFunction(ancestor) ||
+    Node.isFunctionDeclaration(ancestor) ||
+    Node.isFunctionExpression(ancestor) ||
+    Node.isMethodDeclaration(ancestor)
+  );
+}
+
+/** Find job-runner clocks whose origin precedes the asynchronous run itself. */
+function preReadinessRunParallelTimers(
+  sourceFile: SourceFile,
+): RunParallelTimerViolation[] {
+  const violations: RunParallelTimerViolation[] = [];
+  for (
+    const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)
+  ) {
+    if (call.getExpression().getText() !== "runParallel") continue;
+    const scope = enclosingFunction(call);
+    if (scope === undefined) continue;
+    for (
+      const declaration of scope.getDescendantsOfKind(
+        SyntaxKind.VariableDeclaration,
+      )
+    ) {
+      if (
+        declaration.getStart() >= call.getStart() ||
+        enclosingFunction(declaration) !== scope
+      ) {
+        continue;
+      }
+      const initializer = declaration.getInitializer()?.getText();
+      if (
+        initializer !== "performance.now()" && initializer !== "Date.now()"
+      ) {
+        continue;
+      }
+      violations.push({
+        callLine: sourceFile.getLineAndColumnAtPos(call.getStart()).line,
+        timerLine:
+          sourceFile.getLineAndColumnAtPos(declaration.getStart()).line,
+      });
+    }
+  }
+  return violations;
 }
 
 const PENDING_CORE =
@@ -187,5 +241,55 @@ Deno.test("await harness: elapsed time cannot stand in for readiness", async () 
     offenders,
     [],
     "await tests must synchronize on an observable readiness boundary",
+  );
+});
+
+Deno.test("job-runner behavior clocks start after observable readiness", async () => {
+  const project = new Project({ useInMemoryFileSystem: true });
+  const early = project.createSourceFile(
+    "early.ts",
+    [
+      "async function probe() {",
+      "  const started = performance.now();",
+      "  const pending = runParallel([]);",
+      "  return { result: await pending, elapsed: performance.now() - started };",
+      "}",
+    ].join("\n"),
+  );
+  const ready = project.createSourceFile(
+    "ready.ts",
+    [
+      "async function probe() {",
+      "  const pending = runParallel([]);",
+      "  await waitForMarker();",
+      "  const started = performance.now();",
+      "  return { result: await pending, elapsed: performance.now() - started };",
+      "}",
+    ].join("\n"),
+  );
+  assertEquals(preReadinessRunParallelTimers(early), [{
+    callLine: 3,
+    timerLine: 2,
+  }]);
+  assertEquals(preReadinessRunParallelTimers(ready), []);
+
+  const offenders: string[] = [];
+  for (
+    const rel of AUTHORED_TS_FILES.filter((path) => path.startsWith("tests/"))
+  ) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    const sourceFile = project.createSourceFile(rel, source, {
+      overwrite: true,
+    });
+    for (const violation of preReadinessRunParallelTimers(sourceFile)) {
+      offenders.push(
+        `${rel}:${violation.callLine} starts after a clock at line ${violation.timerLine}`,
+      );
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    "a correctness test may bound cancellation after a marker or observer transition, but must not count scheduler-delayed process startup",
   );
 });

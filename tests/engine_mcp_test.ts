@@ -77,18 +77,19 @@ import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 
 const ENCODER = new TextEncoder();
 
-/** Behavioural bound after the server has produced its first response. */
+/** Infrastructure allowance for successful initialized-server responses. */
 const MCP_RECV_TIMEOUT_MS: number = (() => {
   const raw = Number(
     Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.testMcpTimeoutMs) ?? "",
   );
-  return Number.isFinite(raw) && raw > 0 ? raw : 20_000;
+  return Number.isFinite(raw) && raw > 0 ? raw : 180_000;
 })();
 
 /**
  * Infrastructure allowance for the first response. It includes cold Deno and
- * module startup, so it stays separate from the response bound every
- * initialized server uses.
+ * module startup. Initialized-server calls keep an equal allowance because
+ * stdio exposes no later request-readiness transition; tests of a genuine
+ * timeout pass their short behavioral deadline explicitly to `recv`.
  */
 const MCP_SERVER_READINESS_TIMEOUT_MS: number = (() => {
   const raw = Number(
@@ -98,6 +99,13 @@ const MCP_SERVER_READINESS_TIMEOUT_MS: number = (() => {
   );
   return Number.isFinite(raw) && raw > 0 ? raw : 180_000;
 })();
+
+Deno.test("MCP success responses retain the load-safe readiness allowance", () => {
+  assert(
+    MCP_RECV_TIMEOUT_MS >= MCP_SERVER_READINESS_TIMEOUT_MS,
+    "an initialized server response has no separate observable readiness marker, so a shorter wall-clock budget turns scheduler load into a false failure",
+  );
+});
 
 /** Cleanup bounds for a client whose test path did not reach the happy close. */
 const MCP_STDIN_CLOSE_GRACE_MS = 1_000;

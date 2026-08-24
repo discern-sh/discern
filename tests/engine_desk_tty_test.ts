@@ -277,7 +277,9 @@ async function thresholdFrame(taskCount: number): Promise<DeskVisibleFrame> {
         geometry: { columns: 100, rows: 50 },
         colorMode: "no-color-env",
         input: [{
-          waitFor: "Choose a task or action",
+          waitFor: taskCount > 8
+            ? ["Choose a task or action", "Type to filter"]
+            : "Choose a task or action",
           captureAs: `${taskCount}-tasks`,
           chunks: [{
             ...(taskCount > 8 ? { input: "Quit" } : { keys: ["end"] }),

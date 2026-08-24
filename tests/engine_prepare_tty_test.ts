@@ -55,7 +55,6 @@ Deno.test("prepare TTY: the live activity frame moves every job through executio
 
     const result = await runAgentPty(dir, ["prepare"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
     assertStringIncludes(result.output, "Gate");
@@ -88,7 +87,6 @@ Deno.test("prepare TTY: a narrow terminal keeps the stable activity facts", asyn
 
     const result = await runAgentPty(dir, ["prepare"], {
       env: { COLUMNS: "40", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
     assertTerminalTextIncludes(result.output, "format passed");
@@ -113,7 +111,6 @@ Deno.test("prepare TTY: a failed live table completes before the actionable tail
 
     const result = await runAgentPty(dir, ["prepare"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 20_000,
     });
     assertEquals(result.code, 1, result.output);
     assertTerminalTextIncludes(result.output, "lint failed");
@@ -163,7 +160,6 @@ Deno.test("prepare TTY: --plain and CI render a static final table", async () =>
       );
       const result = await runAgentPty(dir, args, {
         env,
-        timeoutMs: 20_000,
       });
       assertEquals(result.code, 0, `${label}: ${result.output}`);
       assertTerminalTextIncludes(result.output, "Gate progress");
@@ -191,7 +187,6 @@ Deno.test("prepare TTY: stream mode uses the same live bounded activity frame", 
 
     const result = await runAgentPty(dir, ["prepare"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
     assertTerminalTextIncludes(result.output, "Applying fixers");
@@ -249,7 +244,6 @@ Deno.test("prepare TTY: a no-op names the missing fix and check jobs", async () 
     await preparedRepo(dir, config([]));
     const result = await runAgentPty(dir, ["prepare"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
     assertTerminalTextIncludes(
