@@ -13,7 +13,7 @@
 
 import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
-import { isHostMetadataPath } from "../scripts/host_metadata.ts";
+import { isHostMetadataPath } from "../src/shared/host_metadata.ts";
 import {
   resolveInstructionSources,
   resolveMapDir,
